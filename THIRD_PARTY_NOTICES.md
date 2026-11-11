@@ -1,6 +1,10 @@
 # 226os Third-Party Notices
 
-**Status:** DRAFT inventory policy; dependency inventory is not yet complete
+**Status:** Policy in force (ADR-0001, 2026-11-11); the dependency inventory is not yet generated
+
+## Licence of original code
+
+Original 226os code is licensed under Apache-2.0 (`LICENSE`, `NOTICE`). Third-party components keep their own licences, listed below once the inventory exists.
 
 ## Policy
 
@@ -17,4 +21,4 @@ The final inventory must include notices, source/license links, modification sta
 
 ## Current status
 
-No implementation dependency set, lockfile, SPDX report, or transitive notice bundle exists yet. Release compliance is `BLOCKED` until the inventory is generated from the actual pinned dependency graph and reviewed by a human.
+No implementation dependency set, lockfile, SPDX report, or transitive notice bundle exists yet. Release compliance is `BLOCKED` until the inventory is generated from the actual pinned dependency graph and reviewed (G4/G7 evidence).

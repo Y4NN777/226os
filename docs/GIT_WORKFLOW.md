@@ -1,6 +1,6 @@
 # 226os Git Workflow
 
-**Status:** Approved workflow proposal; repository administration and deployment secrets still require human configuration
+**Status:** Accepted workflow (ADR-0001, ADR-0002); repository administration and deployment secrets still require human configuration
 
 ## Branches and environments
 
@@ -10,7 +10,7 @@
 | `develop` | Shared integration and staging branch | Staging/Preview | PR from work branches only |
 | Work branch | One bounded change | Local/CI checks | Created from the current target branch |
 
-`develop` and `main` are long-lived protected branches. Direct pushes are disabled. Every promotion happens through a pull request with required checks. `develop` is the shared staging/preview environment; `main` is production. Human approval is required for production, security, migration, and other irreversible gates; it is optional for routine low-risk integration into `develop` when the authenticated project owner is the only maintainer.
+`develop` and `main` are long-lived protected branches. Direct pushes are disabled. Every promotion happens through a pull request with required checks. `develop` is the shared staging/preview environment (profile `staging-test`); `main` is production (profile `production-live`). Human approval is required for production, security, migration, and other irreversible gates; it is optional for routine low-risk integration into `develop` when the authenticated project owner is the only maintainer.
 
 ## Work branch naming
 
@@ -59,7 +59,7 @@ graph LR
 
 A critical production fix uses `hotfix/<domain>/<short-name>` from `main`. It must be reviewed as a PR into `main`, pass the applicable security and regression checks, and receive production approval. After release, back-merge it into `develop`. A hotfix never bypasses evidence or approval; it may reduce scope only when the incident record documents the reason and compensating checks.
 
--## Commit and PR rules
+## Commit and PR rules
 
 - Each human contributor uses their own reviewed project identity. The repository owner identity is `Y4NN77 <axel.studiesmail@gmail.com>`; other identities require project review.
 - Before a contributor's first commit, record their GitHub username, approved Git `user.name`, and approved Git `user.email` with the maintainer. The identity must be attributable to that human contributor and must not be shared.
@@ -76,7 +76,7 @@ A critical production fix uses `hotfix/<domain>/<short-name>` from `main`. It mu
 Configure these settings in the repository administration UI; this file does not create them automatically:
 
 - Protect `develop` and `main`.
-- Require pull requests on both branches. Require zero approvals on `develop` for routine integration and at least one distinct human approval on `main`.
+- Require pull requests on both branches. Require zero approvals on `develop` for routine integration and at least one distinct human approval on `main`; during the interim single-maintainer period, owner approval satisfies this rule ([ADR-0002](decisions/0002-interim-single-maintainer-ownership.md)), and the production PR states that the approver is also the author.
 - Require the workflow checks defined under `.github/workflows/`.
 - Dismiss stale approvals after new commits and require conversation resolution.
 - Restrict who can push and prevent force-push/delete on protected branches.

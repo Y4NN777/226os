@@ -9,7 +9,7 @@
 | DOM-SOLVE | Solve | Q&A, snippets, tags, votes, accepted answer, search, relations | US-SOLVE-001 | TASK-API-001, TASK-WEB-001 | G0-G5 |
 | DOM-DISCOVER | Discover | catalogue, country/category filters, sourced resource detail, relations | US-DISCOVER-001 | TASK-DATA-001, TASK-API-001, TASK-WEB-001 | G0-G6 |
 | DOM-BUILD | Build | public GitHub URL, project, contribution need, unique application, private applications | US-BUILD-001 | TASK-DATA-001, TASK-API-001, TASK-WEB-001 | G0-G5 |
-| DOM-LEARN | Learn (PRD 5.9, amendement 3.1; priorities APPROVED by the owner on 2026-11-11) | read/publish articles and tutorials (Markdown, code, tags, level, language), relations, public free training series | US-LEARN-001 | TASK-DATA-001, TASK-API-001, TASK-WEB-001 | G0-G5 |
+| DOM-LEARN | Learn (PRD 5.9, amendment 3.1; priorities approved by the owner on 2026-11-11) | read/publish articles and tutorials (Markdown, code, tags, level, language), relations, public free training series | US-LEARN-001 | TASK-DATA-001, TASK-API-001, TASK-WEB-001 | G0-G5 |
 | DOM-IDENTITY | Identity & Community | account, session, minimum profile, shared identity | US-IDENTITY-001 | TASK-SEC-001, TASK-API-001, TASK-WEB-001 | G0-G5 |
 | DOM-CONNECT | Connect | roadmap contract; no false CADEV promise | PRD 5.5, 8 | TASK-SPEC-001 | G0 |
 | DOM-LANGUAGE | Language | FR/EN UI, original content preserved; translation/search later | US-IDENTITY-001; PRD 5.6 | TASK-WEB-001, TASK-SPEC-001 | G0, G5 |
@@ -41,4 +41,4 @@ LEARN P1/P2 (structured series with progress, author highlights, richer formats;
 
 ## Traceability rule
 
-No implementation task is eligible for `GREEN` until it points to a stable scope ID, an acceptance example, an API/data/UI contract, a test-first plan, and a gate evidence path. Missing normative contracts remain `OPEN` and block parallel implementation.
+No implementation task is eligible for `GREEN` until it points to a stable scope ID, an acceptance example, an API/data/UI contract, a test-first plan, and a gate evidence path. The normative contracts are accepted (ADR-0003 to ADR-0007); a task missing any of them is not eligible.

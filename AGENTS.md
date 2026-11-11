@@ -103,7 +103,7 @@ status: PLANNED # PLANNED | RED | GREEN | REVIEW | BLOCKED | DONE
 
 | Profile | Allowed tools | Commands | Writes |
 |---|---|---|---|
-| Documentation review (COP-ASS) | `read`, `search`, `web`, `edit`, `agent`, `todo` | **Forbidden** | In-scope Markdown/spec artifacts only |
+| Documentation review (`lead`) | `Read`, `Grep`, `Glob`, `Edit`, `Write`, `WebFetch`, `WebSearch`, `Agent`, `TodoWrite`, `Skill` | **Forbidden** | In-scope Markdown/spec artifacts only |
 | Research/explorer subagent | `read`, `search`, optionally `web` | **Forbidden** | **Forbidden** |
 | Planning/spec reviewer | `read`, `search`, optionally `web` | **Forbidden** | Only with an explicit document-edit assignment |
 | Implementation builder (after human GO) | `read`, `search`, `edit`, approved validation execution | Minimal, bounded | Assigned code and tests only |
@@ -129,6 +129,6 @@ The documentation-only scope prohibits application implementation, dependency in
 
 Human approval is mandatory for scope/architecture changes, accepted ADR status, new risky dependencies, authentication/security exceptions, destructive migrations, service purchases, remote mutations, release, and deployment. In every handoff, report `Commands executed: none` or list the exact approved commands and evidence. Include the required gates with `PASS / FAIL / NOT RUN / BLOCKED` status and a concrete source for each claim.
 
-### 5. COP-ASS-specific orchestration
+### 5. `lead` agent orchestration
 
-The workspace agent `.github/agents/COP-ASS.agent.md` is the documentation-review coordinator. It retains the **Principal Software Engineer / Architect / Product Specification Reviewer / Agent Orchestrator** mandate. It may coordinate parallel specialist reviews, consolidate their findings, edit approved documentation and prepare the Spec Kit and Claude handoff. **It must not execute commands or start application implementation**, and it must stop for human review.
+The Claude Code agent `.claude/agents/lead.md` (formerly the Copilot agent COP-ASS) is the documentation-review coordinator. It retains the **Principal Software Engineer / Architect / Product Specification Reviewer / Agent Orchestrator** mandate. It may coordinate parallel specialist reviews, consolidate their findings, edit approved documentation . **It must not execute commands or start application implementation**, and it must stop for human review.

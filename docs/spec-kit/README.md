@@ -47,4 +47,4 @@ The repository keeps the primary product and engineering documents under `docs/`
 
 ## Current readiness
 
-Documentation review is `VERIFIED` for the findings recorded in the handoff. G0 is `CONDITIONAL GO` for specification planning, with implementation still blocked pending named owners, ADRs, evidence plans, governance/legal review, and the conditions in `G0_APPROVAL_TEMPLATE.md`. G1-G7 are `NOT RUN` because no application, infrastructure, CI, or test artifacts exist yet.
+Documentation review is `VERIFIED` for the findings recorded in the handoff. G0 is `GO` for P0 implementation under ADR-0001…0007 (all ACCEPTED on 2026-11-11), with interim ownership per ADR-0002; the next step is the B0 bootstrap (`docs/spec-kit/CLAUDE_HANDOFF.md`). G1-G7 are `NOT RUN` because no application, infrastructure, CI, or test artifacts exist yet.

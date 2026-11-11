@@ -1,18 +1,16 @@
 # 226os Astryx Verification Protocol
 
-**Status:** PROPOSED verification plan; no package installation or CLI execution performed
+**Status:** ACCEPTED (ADR-0007, 2026-11-11). The verification below is run at bootstrap (B0/TASK-WEB-001); no package installation or CLI execution has been performed yet.
 
 ## Approved decision preserved
 
-Meta Astryx is the approved primary component foundation under `DESIGN.md` and the existing architecture baseline. This document does not reopen that decision. It defines what must be verified before implementation relies on a particular release or API.
+Meta Astryx is the approved primary component foundation under `DESIGN.md` and the existing architecture baseline. This document does not reopen that decision. It defines what is verified before implementation relies on a particular release or API.
 
-## Proposed default
+## Decision
 
-Pin the first release that satisfies React 19 compatibility, documented CSS distribution, theme support, keyboard/focus behavior, and required components for the three representative flows: Solve question detail, Discover API detail, and Build contribution request. Do not use a floating version range. Record package manager, exact versions, lockfile hash, license metadata, and known beta limitations.
+Pin the exact `@astryxdesign/core` version installed at bootstrap, verify the installed API via its CLI/docs before use, and record capability gaps before any custom component. The pinned release must be the first release that satisfies React 19 compatibility, documented CSS distribution, theme support, keyboard/focus behavior, and required components for the three representative flows: Solve question detail, Discover API detail, and Build contribution request. Do not use a floating version range. Record package manager (pnpm, ADR-0006), exact versions, lockfile hash, license metadata, and known beta limitations in the bootstrap PR. No version number is asserted before installation.
 
-This is a proposal, not a version approval.
-
-## Verification sequence after human G0 authorization
+## Verification sequence at bootstrap
 
 1. Inspect the package release metadata and license from the official Astryx source; record exact version and integrity in the dependency inventory.
 2. Install only within the approved `apps/web` workspace using the approved package manager and lockfile policy.
@@ -38,10 +36,10 @@ This is a proposal, not a version approval.
 
 ## Alternatives
 
-- **Latest floating Astryx range:** faster updates but reproducibility and CSS/API drift risk; not proposed.
-- **shadcn/ui:** composable alternative but conflicts with the approved Astryx decision; requires a human ADR to replace it.
+- **Latest floating Astryx range:** faster updates but reproducibility and CSS/API drift risk; rejected.
+- **shadcn/ui:** composable alternative but conflicts with the approved Astryx decision; requires a new ADR to replace it.
 - **Custom primitives:** maximum control but highest accessibility, maintenance, and provenance risk; allowed only for evidenced gaps.
 
-## G0 blocker
+## Status of the G0 decision
 
-The exact Astryx version, package manager, lockfile policy, verified component/API set, and beta mitigation owner remain `OPEN`. No agent may claim Astryx integration is verified before this protocol produces evidence.
+The pin-and-verify decision, the package manager (pnpm) and the lockfile policy are decided. The beta-mitigation owner is `Y4NN77` (ADR-0002). The exact version and the verified component/API set are bootstrap evidence; no agent may claim Astryx integration is verified before this protocol produces evidence.
