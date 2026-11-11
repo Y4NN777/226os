@@ -1,8 +1,8 @@
 # 226OS Claude Code Handoff
 
 **Prepared:** 2026-11-11
-**Mode:** COP-ASS documentation review complete; stop before implementation
-**Recommendation:** CONDITIONAL GO for specification planning; implementation remains blocked until the conditions below are closed
+**Mode:** COP-ASS documentation review and Claude harness contract documented; stop before application implementation
+**Recommendation:** CONDITIONAL GO for implementation planning under [ADR-0001](../decisions/0001-g0-conditional-baseline.md); application implementation and release remain blocked by explicit conditions and missing evidence
 
 ## Verified repository state
 
@@ -13,6 +13,8 @@ Observed in the repository:
 - The repository contains no application, API, database migration, Makefile, Compose, Traefik, workflow, OpenAPI, test, or release evidence artifacts.
 - `docs/spec-kit/`, `docs/quality/`, and `docs/decisions/` were created by this documentation review; they are plans and registries, not execution evidence.
 - `CONTRIBUTING.md`, `AI_USAGE.md`, and `THIRD_PARTY_NOTICES.md` now exist as drafts; they require human/CADEV review and project-specific completion before release/compliance review.
+- `CLAUDE.md` and `HARNESS_PLAN.md` document the Claude operating contract and bounded delegation model. No `.claude/` runtime configuration is present yet, so model routing and skills are not claimed as installed or tested.
+- `docs/decisions/0001-g0-conditional-baseline.md` records the repository-owner's conditional G0 baseline approval: implementation planning may proceed, while deferred infrastructure/licensing decisions and all execution gates remain open.
 
 No shell commands, builds, tests, package installs, deployments, remote mutations, or application implementation were executed. All execution-dependent gates are `NOT RUN`.
 
@@ -38,12 +40,12 @@ Accepted baseline:
 - The Spec Kit now maps PRD -> SPEC -> API/data/UI -> BDD -> tasks -> gates.
 - All six PRD journeys are listed with required nominal and negative evidence. Existing SPEC scenarios remain the current source; missing cases are planned work, not claimed coverage.
 - The missing coverage scope and ADR registry now have canonical locations.
-- G0 blockers now have explicit proposal artifacts for authentication/authorization, REST/errors, PostgreSQL schema/migrations, Astryx verification, and governance drafts. They remain unapproved.
+- G0 blockers now have explicit proposal artifacts for authentication/authorization, REST/errors, PostgreSQL schema/migrations, Astryx verification, and governance drafts. Their planning defaults are accepted with conditions under ADR-0001; Datacloud/release readiness and licensing remain deferred.
 - Application, CI, deployment, and executable license evidence remain absent. Governance policy drafts now exist, while the actual dependency inventory, license report, and AI provenance records remain open.
 
 ## Initial implementation batch
 
-Do not start this batch until G0 is approved:
+Start this batch only within the conditional G0 boundaries and after the applicable owner/contract condition is closed:
 
 1. `TASK-SPEC-001`: assign owners and close product/route/locale scope.
 2. `TASK-G0-001`: human review and approval of the explicit G0 proposals and governance drafts.
@@ -74,8 +76,8 @@ graph TD
 
 1. Read `AGENTS.md`, then `docs/spec-kit/README.md`, `TRACEABILITY.md`, `CONTRACTS.md`, and `TASKS.md`.
 2. Read `G0_DECISIONS.md`, `AUTHORIZATION_MATRIX.md`, `API_CONTRACT.md`, `DATABASE_DESIGN.md`, `ASTRYX_VERIFICATION.md`, and `G0_APPROVAL_TEMPLATE.md`.
-3. Do not execute implementation commands or create application files until a human approves G0 and assigns owners/reviewers.
-4. Resolve pending ADRs in `docs/decisions/README.md`; record each accepted decision as a numbered ADR before changing the stack or contracts.
+3. Do not create application files until the applicable story, owner, reviewer, contract, and condition from ADR-0001 are recorded.
+4. Resolve conditional and deferred ADRs in `docs/decisions/README.md`; record each accepted decision as a numbered ADR before changing the stack or contracts.
 5. Produce `api/openapi.yaml`, reviewed DTO/error schemas, database migrations/queries/seeds, and route/locale decisions before parallel frontend/backend work.
 6. Write RED tests for the selected vertical slice before GREEN code. Keep authorization negative cases and evidence provenance in scope.
 7. Use only the allowed paths in the task contract. Never add a hidden dependency, fake seed activity, unverified provider claim, or undocumented endpoint.
@@ -87,7 +89,7 @@ graph TD
 The human owner must decide or assign:
 
 - P0 owners and distinct reviewers.
-- Approval or rejection of every proposal in `G0_DECISIONS.md`.
+- Approval, conditional acceptance, or deferral of every proposal in `G0_DECISIONS.md`, as recorded by ADR-0001 and subsequent numbered ADRs.
 - Canonical documentation layout: retain root documents or perform an approved move to `docs/`.
 - Exact Astryx release/package manager, installed API verification, and beta mitigation owner.
 - Authentication/session/recovery/CSRF/rate-limit policy and authorization matrix.
@@ -101,7 +103,7 @@ The human owner must decide or assign:
 
 | Gate | Status | Reason |
 |---|---|---|
-| G0 | CONDITIONAL GO | proposed defaults accepted in principle; named owners, ADRs, evidence plans, and governance/legal review remain open |
+| G0 | CONDITIONAL GO | ADR-0001 records conditional defaults; named owners, detailed contracts, evidence plans, and governance/legal review remain open |
 | G1 | NOT RUN | no implementation or CI |
 | G2 | NOT RUN | no tests or coverage reports |
 | G3 | NOT RUN | no OpenAPI, migrations, or real PostgreSQL evidence |
@@ -110,4 +112,4 @@ The human owner must decide or assign:
 | G6 | NOT RUN | no performance baseline |
 | G7 | NOT RUN | no deployment, backup/restore, rollback, or production approval |
 
-**Decision:** `CONDITIONAL GO` for specification planning only. Implementation start remains blocked until the approval conditions and contracts explicitly marked `OPEN` are closed; release remains blocked until G1-G7 produce evidence on the target SHA.
+**Decision:** `CONDITIONAL GO` for bounded implementation planning. Application implementation may begin only per the task-specific conditions and contracts; release remains blocked until G1-G7 produce evidence on the target SHA.

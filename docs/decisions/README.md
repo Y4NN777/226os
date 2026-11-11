@@ -1,8 +1,16 @@
 # 226OS Architecture Decision Registry
 
-**Status:** documentation registry created; human approval still required for pending decisions
+**Status:** G0 planning baseline conditionally approved; detailed implementation and release decisions remain gated
 
 The detailed proposal register is [G0_DECISIONS.md](../spec-kit/G0_DECISIONS.md). Entries there are not accepted decisions.
+
+The recorded conditional approval is [ADR-0001](0001-g0-conditional-baseline.md). It authorizes implementation planning only; it does not close execution, security, legal, infrastructure, or release gates.
+
+## Conditionally accepted G0 baseline
+
+The proposed defaults for authentication, authorization, API shape, PostgreSQL, Astryx usage, documentation layout, governance artifacts, and the PostgreSQL-only P0 service baseline are `ACCEPTED WITH CONDITIONS` under ADR-0001. Each implementation slice must still produce its detailed contract and evidence.
+
+`G0-OPS-002` (Datacloud and release readiness) and `G0-COMP-001` (original-code license and CADEV policy) are explicitly `DEFERRED` until their external and legal evidence exists.
 
 ## Accepted baseline
 
