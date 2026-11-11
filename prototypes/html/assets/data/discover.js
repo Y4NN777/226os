@@ -15,7 +15,7 @@ window.MOCK = window.MOCK || {};
     { id: 'logistics', fr: 'Logistique', en: 'Logistics' },
     { id: 'fintech', fr: 'Fintech', en: 'Fintech' }
   ];
-  D.types = [{ id: 'api', fr: 'API', en: 'API' }, { id: 'sdk', fr: 'SDK', en: 'SDK' }, { id: 'tool', fr: 'Outil', en: 'Tool' }];
+  D.types = [{ id: 'api', fr: 'API', en: 'API' }, { id: 'sdk', fr: 'SDK', en: 'SDK' }, { id: 'tool', fr: 'Outil', en: 'Tool' }, { id: 'project', fr: 'Projet open source', en: 'Open-source project' }];
   D.kinds = { official: { fr: 'Documentation officielle', en: 'Official documentation', cls: 'badge-verified', icon: 'book' },
     changelog: { fr: 'Journal des changements', en: 'Changelog', cls: 'badge-verified', icon: 'git-branch' },
     community: { fr: 'Confirmation communautaire', en: 'Community confirmation', cls: 'badge-accepted', icon: 'users' },
@@ -121,6 +121,71 @@ window.MOCK = window.MOCK || {};
   D.status = function (r) {
     if (!r.hasOfficial) return 'unverified';
     var days = (new Date(D.today) - new Date(r.verifiedAt)) / 864e5; return days > D.staleDays ? 'stale' : 'verified';
+  };
+
+  /* Community reviews (FICTIONAL sample, PRD 5.2 community feedback pulled forward from P1). Reviewers come from MOCK.people.
+     Text is USER CONTENT in its original language. Aggregates are computed from this sample only. */
+  var RV = {
+    'r-kalimba': [
+      ['p-aminata', 5, '2026-10-30', 'fr', 'Intégration en une demi-journée. La signature HMAC des webhooks est bien documentée et le bac à sable se comporte comme la production.', 1, 9],
+      ['p-kofi', 4, '2026-10-12', 'en', 'Solid API and the Go SDK is clean. Wish idempotency keys were documented on the refund endpoint, I found out by trial and error.', 1, 6],
+      ['p-salif', 2, '2026-09-21', 'fr', 'Le SDK PHP est en retard sur l’API : deux champs de la v2.3 manquent. Le support a répondu en deux jours, mais j’ai dû écrire mes propres appels.', 0, 11],
+      ['p-fatou', 4, '2026-09-02', 'fr', 'Très bonne couverture au Sénégal et en Côte d’Ivoire. Les limites de débit sont strictes en bac à sable, prévoyez de la mise en file.', 0, 3],
+      ['p-chinedu', 3, '2026-08-14', 'en', 'Works well, but the dashboard logs expire after 7 days, which made debugging a late webhook harder than it should be.', 0, 2]],
+    'r-sahel-sms': [
+      ['p-fatou', 5, '2026-10-18', 'fr', 'Livraison fiable vers les opérateurs locaux, et le statut de livraison arrive bien par webhook. Parfait pour nos codes de confirmation.', 1, 7],
+      ['p-yves', 3, '2026-10-02', 'fr', 'Bon service, mais les délais augmentent le soir aux heures de pointe. Prévoyez un second canal pour les messages urgents.', 0, 5],
+      ['p-wanjiru', 4, '2026-09-10', 'en', 'Simple REST interface and honest documentation about sender-ID rules per country. Pricing page is hard to find though.', 0, 2]],
+    'r-baobab-kyc': [
+      ['p-chinedu', 4, '2026-10-25', 'en', 'Document checks are accurate for Nigerian and Ghanaian IDs. Selfie matching occasionally fails in low light, so keep a manual review path.', 1, 8],
+      ['p-aminata', 2, '2026-10-01', 'fr', 'Les réponses d’erreur sont peu explicites : un « rejet » sans motif exploitable. Difficile d’expliquer à l’utilisateur ce qu’il doit corriger.', 1, 10],
+      ['p-imane', 4, '2026-08-29', 'fr', 'Conformité claire et hébergement documenté. Bon compromis pour une équipe sans juriste dédié.', 0, 4]],
+    'r-harmattan': [
+      ['p-yves', 5, '2026-10-20', 'fr', 'Le suivi de colis par point de repère fonctionne vraiment à Douala, là où les adresses n’ont pas de numéro de rue.', 1, 6],
+      ['p-kofi', 3, '2026-09-15', 'en', 'Tracking events are useful, but the webhook retries stop after two attempts. We lost a delivery update during an outage on our side.', 0, 4],
+      ['p-salif', 4, '2026-08-05', 'fr', 'API propre et exemples utiles. Il manque une collection Postman officielle.', 0, 1]],
+    'r-savane-ledger': [
+      ['p-wanjiru', 5, '2026-10-27', 'en', 'Great test suite and readable code. We use it as the reference for double-entry examples in our workshops.', 1, 7],
+      ['p-aminata', 4, '2026-09-30', 'fr', 'SDK Go très propre, une vraie référence. La documentation des migrations pourrait être plus détaillée.', 1, 5],
+      ['p-imane', 3, '2026-09-04', 'en', 'Does what it says, but no official support channel: issues sometimes wait weeks for a reply.', 0, 3]],
+    'r-acacia-otp': [
+      ['p-fatou', 4, '2026-10-22', 'fr', 'Envoi de codes par SMS et USSD stable. L’expiration configurable est un vrai plus pour les réseaux lents.', 1, 5],
+      ['p-chinedu', 2, '2026-10-05', 'en', 'Rate limiting is aggressive and the error does not tell you how long to wait. Users got locked out during our launch.', 0, 9],
+      ['p-yves', 4, '2026-08-19', 'fr', 'Intégration simple, bon rapport qualité prix pour un MVP.', 0, 2]],
+    'r-nile-maps': [
+      ['p-yves', 4, '2026-10-16', 'fr', 'Tuiles rapides et détaillées sur Douala et Lagos. Le style sombre manque encore de contraste pour les petites routes.', 1, 6],
+      ['p-wanjiru', 5, '2026-09-18', 'en', 'Vector tiles with proper attribution rules, and the Rust tile client worked on the first try.', 0, 4]],
+    'r-sahel-opendata': [
+      ['p-aminata', 3, '2026-10-08', 'fr', 'Données utiles mais jeux de données parfois non mis à jour depuis des mois. Vérifiez la date de chaque fichier.', 0, 8],
+      ['p-imane', 4, '2026-09-12', 'en', 'Good CSV and JSON exports with clear licences. Some columns change names between releases.', 0, 3]],
+    'r-griot-ussd': [
+      ['p-fatou', 5, '2026-10-29', 'fr', 'Le moteur d’états gère bien les coupures de session des opérateurs. Nous l’utilisons en production pour un service de paiement.', 1, 12],
+      ['p-salif', 4, '2026-09-25', 'fr', 'Backend PHP encore jeune mais utilisable. À relire avant la mise en production.', 0, 3],
+      ['p-kofi', 2, '2026-09-01', 'en', 'Docs are thin outside the quick start. I needed to read the source to understand session storage.', 0, 5]],
+    'r-geojson-cli': [
+      ['p-yves', 4, '2026-10-10', 'fr', 'Petit outil pratique pour valider des fichiers GeoJSON avant import. Les messages d’erreur indiquent la ligne exacte.', 0, 2]]
+  };
+  D.reviews = {};
+  Object.keys(RV).forEach(function (k) {
+    D.reviews[k] = RV[k].map(function (a, i) { return { id: k + '-' + (i + 1), person: M.byId(M.people, a[0]), country: (M.byId(M.people, a[0]) || {}).country, rating: a[1], date: a[2], lang: a[3], text: a[4], verified: !!a[5], helpful: a[6] }; });
+  });
+  D.stats = function (id, extra) {
+    var l = (D.reviews[id] || []).concat(extra || []); if (!l.length) return null;
+    return { avg: l.reduce(function (s, x) { return s + x.rating; }, 0) / l.length, n: l.length };
+  };
+  D.items.forEach(function (r) { var st = D.stats(r.id); r._rating = st ? st.avg : 0; r._nrev = st ? st.n : 0; });
+
+  /* Open-source projects surfaced in the catalogue for visibility. They stay canonical in Build (pages/project.html); nothing is copied:
+     these entries are derived read-only from MOCK.build (data/build.js must be loaded first) and link to the project page. */
+  var PROJ_MAP = { 'pr-webhook-kit': { category: 'payment', sdk: ['go'] }, 'pr-ussd-flow': { category: 'sms', sdk: ['php'] }, 'pr-geo-informal': { category: 'maps', sdk: ['python'] },
+    'pr-gsm7-check': { category: 'sms', sdk: ['node'] }, 'pr-ledger-lite': { category: 'fintech', sdk: ['go'] } };
+  D.projectItems = function () {
+    if (!M.build || !M.build.projects) return [];
+    return M.build.projects().filter(function (p) { return PROJ_MAP[p.id]; }).map(function (p) {
+      var o = M.byId(M.people, p.owner), m = PROJ_MAP[p.id];
+      return { id: p.id, kind: 'project', type: 'project', name: p.name, provider: o ? o.name : '', category: m.category, countries: [p.country], sdk: m.sdk, docLang: [p.lang], summary: p.summary, summaryLang: p.lang,
+        license: p.license, stage: p.stage, version: '', verifiedAt: p.updated, updated: p.updated, href: 'project.html?id=' + p.id, sources: [], _rating: 0, _nrev: 0 };
+    });
   };
   D.get = function (id) { return M.byId(D.items, id); };
   D.cat = function (id) { return M.byId(D.categories, id); };

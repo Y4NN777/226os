@@ -12,7 +12,11 @@
   var th = S.thread(q), answers = th.answers, votes = {}, newN = 0;
   var other = ['p-kofi', 'p-fatou'].filter(function (p) { return p !== q.author; })[0];
   var PERSONAS = { author: q.author, member: other, anon: null };
-  var persona = App.params.get('as'); if (!(persona in PERSONAS)) persona = 'author';
+  /* "view as" lives in the prototype panel (App.Proto); legacy ?as=author|other|visitor|anon|moderator|admin is kept as an alias for ?role= */
+  App.Proto.register({ roles: [{ id: 'author', label: { fr: 'Auteur', en: 'Author' } }, { id: 'member', label: { fr: 'Membre', en: 'Member' } }, { id: 'anonymous', label: { fr: 'Anonyme', en: 'Anonymous' } }], 'default': 'author', legend: { fr: 'Voir en tant que', en: 'View as' } });
+  var ALIAS = { author: 'author', member: 'member', other: 'member', moderator: 'member', admin: 'member', anon: 'anonymous', anonymous: 'anonymous', visitor: 'anonymous' };
+  if (!App.params.get('role') && ALIAS[App.params.get('as')]) App.Proto.setRole(ALIAS[App.params.get('as')]);
+  var persona = App.Proto.role === 'anonymous' ? 'anon' : App.Proto.role;
   function viewer() { return PERSONAS[persona] ? M.person(PERSONAS[persona]) : null; }
   function pname(pid) { var p = M.person(pid); return p ? p.name : pid; }
   function isAccepted() { return th.full ? answers.some(function (a) { return a.accepted; }) : q.accepted; }
@@ -22,7 +26,7 @@
   function cc(code, tid) { return '<span class="country" data-testid="' + tid + '"><span class="country-code" data-testid="' + tid + '-code">' + code + '</span><span class="visually-hidden" data-testid="' + tid + '-name">' + esc(M.countryName(code)) + '</span></span>'; }
   function personBox(pid, prefix) {
     var p = M.person(pid); if (!p) return '';
-    return '<span class="person"><span class="avatar avatar-sm" aria-hidden="true" data-testid="' + prefix + '-avatar">' + esc(p.initials) + '</span>' +
+    return '<span class="person">' + App.avatar(p, { size: 'sm', testid: prefix + '-avatar' }) +
       '<a href="profile.html?id=' + p.id + '" data-testid="' + prefix + '-author">' + esc(p.name) + '</a></span>' + cc(p.country, prefix + '-country');
   }
 
@@ -60,8 +64,8 @@
   function renderRelated() {
     var r = M.byId(M.resources, q.resource), p = M.byId(M.projects, q.project), rq = q.resource ? S.all().filter(function (x) { return x.id !== q.id && x.resource === q.resource; })[0] : null, items = [];
     function item(kind, icon, href, name, sub, n) {
-      return '<a class="linked-item" href="' + href + '" data-testid="related-' + kind + '"><span class="kind" data-testid="related-' + kind + '-kind"><span class="icon i-' + icon + '" aria-hidden="true" data-testid="related-' + kind + '-icon"></span>' + esc(t('solve.related.' + (kind === 'resource' ? 'api' : kind))) + '</span>' +
-        '<strong data-testid="related-' + kind + '-title"' + (kind === 'question' ? ' lang="' + rq.lang + '" data-user-content' : '') + '>' + esc(name) + '</strong><span class="text-xs text-muted" data-testid="related-' + kind + '-sub">' + esc(sub) + '</span></a>';
+      return '<a class="linked-item solve-linked" href="' + href + '" data-testid="related-' + kind + '">' + App.thumb(name, { size: 'sm', icon: icon, testid: 'related-' + kind + '-thumb' }) + '<span class="solve-linked-text"><span class="kind" data-testid="related-' + kind + '-kind"><span class="icon i-' + icon + '" aria-hidden="true" data-testid="related-' + kind + '-icon"></span>' + esc(t('solve.related.' + (kind === 'resource' ? 'api' : kind))) + '</span>' +
+        '<strong data-testid="related-' + kind + '-title"' + (kind === 'question' ? ' lang="' + rq.lang + '" data-user-content' : '') + '>' + esc(name) + '</strong><span class="text-xs text-muted" data-testid="related-' + kind + '-sub">' + esc(sub) + '</span></span></a>';
     }
     if (r) items.push(item('resource', 'compass', 'resource.html?id=' + r.id, r.name, r.provider + ' · ' + r.version));
     if (p) items.push(item('project', 'hammer', 'project.html?id=' + p.id, p.name, p.summary));
@@ -69,28 +73,22 @@
     $('#question-related').innerHTML = items.length ? '<div class="linked-items" data-testid="related-items">' + items.join('') + '</div>' : '<p class="text-muted text-sm" data-testid="related-none">' + esc(t('solve.related.none')) + '</p>';
   }
   function renderContext() {
-    var p = M.person(q.author);
     $('#question-context').innerHTML = [
-      ['author', t('solve.context.author'), p ? esc(p.name) : ''], ['env', t('solve.context.env'), '<span class="mono" data-testid="context-env-text">' + esc(q.env) + '</span>'],
-      ['country', t('solve.context.country'), cc(q.country, 'context-country-flag') + ' <span data-testid="context-country-name">' + esc(M.countryName(q.country)) + '</span>'], ['lang', t('solve.context.lang'), esc(t('solve.lang.' + q.lang))],
-      ['asked', t('solve.context.asked'), '<time datetime="' + q.date + '" data-testid="context-asked-date">' + M.fmtDate(q.date) + '</time>']
+      ['env', t('solve.context.env'), '<span class="mono" data-testid="context-env-text">' + esc(q.env) + '</span>'],
+      ['country', t('solve.context.country'), cc(q.country, 'context-country-flag') + ' <span data-testid="context-country-name">' + esc(M.countryName(q.country)) + '</span>']
     ].map(function (r) { return '<dt data-testid="context-' + r[0] + '-term">' + esc(r[1]) + '</dt><dd data-testid="context-' + r[0] + '-value">' + r[2] + '</dd>'; }).join('');
   }
 
-  /* ---------- viewer simulation ---------- */
+  /* ---------- viewer (role from the prototype panel) ---------- */
   function renderViewAs() {
-    $$('[data-persona]').forEach(function (b) { b.setAttribute('aria-pressed', b.getAttribute('data-persona') === persona); });
     var v = viewer();
     $('#viewas-desc').textContent = t('solve.viewas.desc.' + persona, { name: v ? v.name : '' });
     $('#viewas-api').hidden = persona === 'author';
     $('#answer-anon').hidden = persona !== 'anon'; $('#answer-form').hidden = persona === 'anon';
   }
-  $$('[data-persona]').forEach(function (b) {
-    b.addEventListener('click', function () {
-      persona = b.getAttribute('data-persona'); $('#viewas-result').innerHTML = '';
-      try { var u = new URL(location.href); u.searchParams.set('as', persona); history.replaceState(null, '', u); } catch (e) { /* file:// may refuse; harmless */ }
-      renderViewAs(); rerender();
-    });
+  document.addEventListener('proto:role', function (e) {
+    persona = e.detail.role === 'anonymous' ? 'anon' : e.detail.role; $('#viewas-result').innerHTML = '';
+    renderViewAs(); rerender();
   });
   $('#viewas-api-btn').addEventListener('click', function () {
     var k = persona === 'anon' ? '401' : '403';
@@ -105,26 +103,25 @@
     var n = i + 1, tid = 'answer-' + a.id, mine = persona === 'author' && th.full;
     var accept = '';
     if (persona === 'author' && th.full) {
-      accept = a.accepted ? '<button type="button" class="btn btn-sm btn-ghost" data-accept="' + a.id + '" aria-describedby="ans-h-' + n + '" data-testid="answer-unaccept-button-' + a.id + '"><span class="icon i-x" aria-hidden="true" data-testid="answer-unaccept-icon-' + a.id + '"></span>' + esc(t('solve.answer.unaccept')) + '</button>'
-        : '<button type="button" class="btn btn-sm" data-accept="' + a.id + '" aria-describedby="ans-h-' + n + '" data-testid="answer-accept-button-' + a.id + '"><span class="icon i-check" aria-hidden="true" data-testid="answer-accept-icon-' + a.id + '"></span>' + esc(t('solve.answer.accept')) + '</button>';
+      accept = '<button type="button" class="btn btn-icon btn-sm solve-accept tip-end" data-accept="' + a.id + '" aria-pressed="' + !!a.accepted + '" aria-label="' + esc(t('solve.answer.accept')) + '" data-testid="answer-accept-button-' + a.id + '"><span class="icon i-check-circle" aria-hidden="true" data-testid="answer-accept-icon-' + a.id + '"></span></button>';
     }
     var src = a.sources && a.sources.length ? '<div class="solve-sources" data-testid="' + tid + '-sources"><span class="text-sm text-muted" data-testid="' + tid + '-sources-label">' + esc(t('solve.answer.sources')) + '</span><ul class="list-reset">' +
       a.sources.map(function (s, j) { return '<li><a class="link-external text-sm" href="' + s.url + '" rel="noopener noreferrer" lang="fr" data-testid="' + tid + '-source-' + (j + 1) + '">' + esc(s.label) + '</a></li>'; }).join('') + '</ul></div>' : '';
     return '<li data-testid="' + tid + '-item"><article class="card solve-answer' + (a.accepted ? ' is-accepted' : '') + '" id="answer-' + a.id + '" tabindex="-1" aria-labelledby="ans-h-' + n + '" data-testid="' + tid + '">' +
       '<h3 class="visually-hidden" id="ans-h-' + n + '" data-testid="' + tid + '-heading">' + esc(t('solve.answer.n', { n: n })) + '</h3>' +
-      '<div class="solve-post"><div class="solve-post-vote">' + voteCtl(a.id, a.votes, tid + '-vote') + '</div><div class="solve-post-main stack">' +
+      '<div class="solve-post"><div class="solve-post-vote">' + voteCtl(a.id, a.votes, tid + '-vote') + accept + '</div><div class="solve-post-main stack">' +
       (a.accepted ? '<p><span class="badge badge-accepted" data-testid="' + tid + '-accepted"><span class="icon i-check-circle" aria-hidden="true" data-testid="' + tid + '-accepted-icon"></span>' + esc(t('solve.answer.accepted')) + '</span></p>' : '') +
       '<div class="prose" lang="' + a.lang + '" data-user-content data-testid="' + tid + '-body">' + S.renderMd(a.md, mdOpts(tid)) + '</div>' + src +
       '<div class="meta solve-post-foot">' + personBox(a.author, tid) + '<time class="meta-item" datetime="' + a.date + '" data-testid="' + tid + '-date">' + M.fmtDate(a.date) + '</time>' + langBadge(a.lang, tid + '-lang-badge') +
-      (a.mine ? '<span class="badge badge-sim" data-testid="' + tid + '-mine">' + esc(t('solve.answer.mine')) + '</span>' : '') + '</div>' +
-      (accept ? '<div class="cluster solve-answer-actions" data-testid="' + tid + '-actions">' + accept + '</div>' : '') + '</div></div></article></li>';
+      (a.mine ? '<span class="badge badge-sim" data-proto data-testid="' + tid + '-mine">' + esc(t('solve.answer.mine')) + '</span>' : '') + '</div>' +
+      '</div></div></article></li>';
   }
   var sim = App.Sim.load($('#answers-list'), {
     delay: 500, skeleton: 2, emptyKey: 'solve.answers.empty',
     load: function () { return answers.length ? sorted() : (!th.full && q.answers > 0 ? [{ missing: true }] : []); },
     render: function (items, box) {
       if (items[0] && items[0].missing) {
-        box.innerHTML = '<div class="state" data-testid="answers-fixture"><span class="icon i-inbox" aria-hidden="true" data-testid="answers-fixture-icon"></span><h3 data-testid="answers-fixture-title">' + esc(t('solve.answers.fixture.title')) + '</h3><p data-testid="answers-fixture-body">' + esc(t('solve.answers.fixture.body', { n: q.answers })) + '</p></div>'; return;
+        box.innerHTML = '<p class="text-sm text-muted" data-testid="answers-fixture"><span class="icon i-inbox" aria-hidden="true" data-testid="answers-fixture-icon"></span> <span data-testid="answers-fixture-title">' + esc(t('solve.answers.fixture.title')) + '</span> <span data-proto data-testid="answers-fixture-body">' + esc(t('solve.answers.fixture.body', { n: q.answers })) + '</span></p>'; return;
       }
       box.innerHTML = '<ol class="list-reset stack" data-testid="answers-ol">' + items.map(ansHtml).join('') + '</ol>';
     }

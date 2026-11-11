@@ -26,17 +26,24 @@
 
     <header class="page-header">
       <div class="page-header-row">
-        <h1 data-testid="page-h1"><span data-i18n="nav.connect" data-testid="page-h1-text"></span> <span class="badge badge-preview" data-i18n="connect.badge" data-testid="page-h1-badge"></span></h1>
+        <h1 data-testid="page-h1"><span data-i18n="nav.connect" data-testid="page-h1-text"></span></h1>
       </div>
       <p class="lede" data-i18n="connect.lede" data-testid="page-lede"></p>
     </header>
 
-    <div class="callout callout-warn" data-testid="connect-preview-note">
+    <div class="callout callout-warn" data-proto data-testid="connect-preview-note">
       <span class="icon i-info" aria-hidden="true" data-testid="connect-preview-icon"></span>
       <div><strong data-i18n="connect.note.title" data-testid="connect-preview-title"></strong><span data-i18n="connect.note.body" data-testid="connect-preview-body"></span></div>
     </div>
 
-    <section class="section" aria-labelledby="disc-h" data-testid="connect-discovery">
+    <div class="state connect-soon" data-testid="connect-soon">
+      <span class="icon i-network" aria-hidden="true" data-testid="connect-soon-icon"></span>
+      <h2 data-i18n="connect.soon.title" data-testid="connect-soon-title"></h2>
+      <p data-i18n="connect.soon.body" data-testid="connect-soon-body"></p>
+      <a class="btn" href="../index.html" data-testid="connect-soon-back"><span class="icon i-chevron-left" aria-hidden="true" data-testid="connect-soon-back-icon"></span><span data-i18n="connect.soon.back" data-testid="connect-soon-back-label"></span></a>
+    </div>
+
+    <section class="section" data-proto aria-labelledby="disc-h" data-testid="connect-discovery">
       <div class="section-head">
         <h2 id="disc-h" data-i18n="connect.disc.h" data-testid="connect-disc-h"></h2>
         <span class="badge badge-later" data-i18n="common.later" data-testid="connect-disc-badge"></span>
@@ -63,7 +70,7 @@
       <div id="connect-list" data-testid="connect-list-region"></div>
     </section>
 
-    <section class="section" aria-labelledby="spaces-h" data-testid="connect-spaces">
+    <section class="section" data-proto aria-labelledby="spaces-h" data-testid="connect-spaces">
       <div class="section-head">
         <h2 id="spaces-h" data-i18n="connect.spaces.h" data-testid="connect-spaces-h"></h2>
         <span class="badge badge-later" data-i18n="connect.spaces.badge" data-testid="connect-spaces-badge"></span>

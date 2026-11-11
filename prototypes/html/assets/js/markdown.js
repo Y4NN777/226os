@@ -1,5 +1,5 @@
 /* Shared tiny Markdown renderer (no deps, no network). Escapes ALL input first, then supports headings, lists, quotes, fenced code
-   (with a small highlighter + copy button), inline code/bold/italic and http(s)/relative links. Used by Solve, Resource and Project.
+   (with a small highlighter + icon-only copy button, tooltip from aria-label), inline code/bold/italic and http(s)/relative links. Used by Solve, Resource and Project.
    Markdown.render(md, {id, headStart, copyText, copyLabel(lang), codeLabel(lang)})  headStart = level of "#" (default 3; use 2 so "##" -> h3).
    Markdown.unbalancedFence(md) -> true when a ``` fence is opened but never closed. Load with <script defer> before page scripts. */
 (function () {
@@ -48,7 +48,7 @@
           while (i < lines.length && !/^(```|~~~)\s*$/.test(lines[i])) { buf.push(lines[i]); i++; }
           i++; n++; var lang = (f[2] || 'text').toLowerCase(), cid = (o.id || 'md') + '-code-' + n, name = { go: 'Go', sql: 'SQL', php: 'PHP', ts: 'TypeScript', js: 'JavaScript', python: 'Python', sh: 'Shell', bash: 'Shell' }[lang] || lang;
           html += '<div class="code-block" data-testid="' + cid + '-block"><div class="code-head"><span data-testid="' + cid + '-lang">' + esc(name) + '</span>' +
-            '<button type="button" class="btn btn-sm" data-copy="#' + cid + '" aria-label="' + esc(o.copyLabel ? o.copyLabel(name) : 'Copy') + '" data-testid="' + cid + '-copy"><span class="icon i-copy" aria-hidden="true" data-testid="' + cid + '-copy-icon"></span><span data-testid="' + cid + '-copy-label">' + esc(o.copyText || 'Copy') + '</span></button></div>' +
+            '<button type="button" class="btn btn-icon btn-sm" data-copy="#' + cid + '" aria-label="' + esc(o.copyLabel ? o.copyLabel(name) : 'Copy') + '" data-testid="' + cid + '-copy"><span class="icon i-copy icon-main" aria-hidden="true" data-testid="' + cid + '-copy-icon"></span><span class="icon i-check icon-alt" aria-hidden="true" data-testid="' + cid + '-copy-done"></span><span class="visually-hidden" data-testid="' + cid + '-copy-label">' + esc(o.copyText || 'Copy') + '</span></button></div>' +
             '<pre tabindex="0" aria-label="' + esc(o.codeLabel ? o.codeLabel(name) : name) + '" data-testid="' + cid + '-pre"><code id="' + cid + '" data-testid="' + cid + '-code">' + Markdown.hl(buf.join('\n'), lang, function (k) { return cid + '-' + k + '-' + (cnt[cid] = (cnt[cid] || 0) + 1); }) + '</code></pre></div>';
           continue;
         }

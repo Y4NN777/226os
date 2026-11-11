@@ -40,20 +40,21 @@
           <div class="search-field search-field-lg"><span class="icon i-search" aria-hidden="true" data-testid="build-search-icon"></span>
             <input id="build-q" class="input" type="search" name="q" autocomplete="off" data-i18n-attr="placeholder:build.search.placeholder" data-testid="build-q-input"></div>
         </div>
-        <div class="filter-bar filter-bar-grid" data-testid="build-filter-bar">
+        <div class="filter-group">
+          <span class="label visually-hidden" id="build-skills-label" data-i18n="build.filter.skills" data-testid="build-skills-label"></span>
+          <div class="filter-chips" id="build-skill-chips" role="group" aria-labelledby="build-skills-label" data-testid="build-skills-filter"></div>
+        </div>
+        <div class="build-bar">
+          <label class="build-sort" data-testid="build-sort-field"><span class="visually-hidden" data-i18n="common.sort" data-testid="build-sort-label"></span><select id="build-sort" class="select" data-testid="build-sort-select"></select></label>
+          <button type="button" class="btn btn-icon" id="build-more-toggle" aria-expanded="false" aria-controls="build-more" data-i18n-attr="aria-label:common.filter" data-testid="build-more-toggle"><span class="icon i-filter" aria-hidden="true" data-testid="build-more-toggle-icon"></span></button>
+          <button type="button" class="btn btn-icon" id="build-reset" data-i18n-attr="aria-label:build.filter.reset" data-testid="build-reset-button"><span class="icon i-refresh" aria-hidden="true" data-testid="build-reset-button-icon"></span></button>
+        </div>
+        <div class="filter-bar filter-bar-grid" id="build-more" hidden data-testid="build-filter-bar">
           <div class="filter-group"><label class="label" for="build-country" data-i18n="build.filter.country" data-testid="build-country-label"></label><select id="build-country" class="select" data-testid="build-country-filter"></select></div>
           <div class="filter-group"><label class="label" for="build-stage" data-i18n="build.filter.stage" data-testid="build-stage-label"></label><select id="build-stage" class="select" data-testid="build-stage-filter"></select></div>
           <div class="filter-group"><label class="label" for="build-lang" data-i18n="build.filter.lang" data-testid="build-lang-label"></label><select id="build-lang" class="select" data-testid="build-lang-filter"></select></div>
           <div class="filter-group"><label class="label" for="build-license" data-i18n="build.filter.license" data-testid="build-license-label"></label><select id="build-license" class="select" data-testid="build-license-filter"></select></div>
-          <div class="filter-group"><label class="label" for="build-sort" data-i18n="common.sort" data-testid="build-sort-label"></label><select id="build-sort" class="select" data-testid="build-sort-select"></select></div>
-        </div>
-        <div class="filter-group">
-          <span class="label" id="build-skills-label" data-i18n="build.filter.skills" data-testid="build-skills-label"></span>
-          <div class="filter-chips" id="build-skill-chips" role="group" aria-labelledby="build-skills-label" data-testid="build-skills-filter"></div>
-        </div>
-        <div class="cluster">
           <label class="choice" data-testid="build-open-only-choice"><input type="checkbox" id="build-open-only" data-testid="build-open-only-input"><span data-i18n="build.filter.openOnly" data-testid="build-open-only-label"></span></label>
-          <button type="button" class="btn btn-ghost btn-sm" id="build-reset" data-testid="build-reset-button"><span class="icon i-refresh" aria-hidden="true" data-testid="build-reset-button-icon"></span><span data-i18n="build.filter.reset" data-testid="build-reset-button-label"></span></button>
         </div>
       </form>
     </section>
@@ -70,8 +71,8 @@
       <form id="propose-form" novalidate data-testid="propose-form">
         <div class="dialog-head">
           <div><h2 id="propose-title" data-i18n="build.propose.title" data-testid="propose-title"></h2>
-            <p class="hint"><span class="badge badge-sim" data-i18n="sim.badge" data-testid="propose-sim-badge"></span> <span data-i18n="build.propose.sim" data-testid="propose-sim-note"></span></p></div>
-          <button type="button" class="btn btn-ghost btn-icon" data-dialog-close data-i18n-attr="aria-label:common.close" data-testid="propose-close"><span class="icon i-x" aria-hidden="true" data-testid="propose-close-icon"></span></button>
+            <p class="hint" data-proto data-testid="propose-sim-hint"><span class="badge badge-sim" data-i18n="sim.badge" data-testid="propose-sim-badge"></span> <span data-i18n="build.propose.sim" data-testid="propose-sim-note"></span></p></div>
+          <button type="button" class="btn btn-icon" data-dialog-close data-i18n-attr="aria-label:common.close" data-testid="propose-close"><span class="icon i-x" aria-hidden="true" data-testid="propose-close-icon"></span></button>
         </div>
         <div class="dialog-body" id="propose-body">
           <div id="propose-summary" class="form-summary" role="alert" tabindex="-1" hidden data-testid="propose-error-summary"><h2 data-i18n="build.form.summary" data-testid="propose-summary-title"></h2><ul class="list-reset" id="propose-summary-list" data-testid="propose-summary-list"></ul></div>
@@ -91,10 +92,6 @@
             <p class="hint" id="propose-summary-hint" data-i18n="build.propose.summary.hint" data-testid="propose-summary-hint"></p>
             <textarea id="propose-summary-input" class="textarea" maxlength="280" required aria-describedby="propose-summary-hint propose-summary-error" data-testid="propose-summary-input"></textarea>
             <p class="error-msg" id="propose-summary-error" hidden data-testid="propose-summary-error"></p>
-          </div>
-          <div class="build-two">
-            <div class="field"><label class="label" for="propose-stage" data-i18n="build.filter.stage" data-testid="propose-stage-label"></label><select id="propose-stage" class="select" data-testid="propose-stage-input"></select></div>
-            <div class="field"><label class="label" for="propose-license" data-i18n="build.filter.license" data-testid="propose-license-label"></label><select id="propose-license" class="select" data-testid="propose-license-input"></select></div>
           </div>
         </div>
         <div class="dialog-body" id="propose-success" hidden>

@@ -27,27 +27,27 @@
 
     <header class="page-header" id="project-header">
       <div class="page-header-row">
-        <h1 id="project-h1" class="mono" data-testid="project-h1"></h1>
+        <div class="profile-id">
+          <span id="project-thumb" data-testid="project-thumb"></span>
+          <div class="profile-id-text">
+            <h1 id="project-h1" data-testid="project-h1"></h1>
+            <div class="meta" id="project-badges" data-testid="project-badges"></div>
+          </div>
+        </div>
         <a class="btn btn-primary" id="project-jump" href="#needs" data-testid="project-needs-link"><span class="icon i-users" aria-hidden="true" data-testid="project-needs-link-icon"></span><span data-i18n="project.jump" data-testid="project-needs-link-label"></span></a>
       </div>
-      <div class="cluster" id="project-badges" data-testid="project-badges"></div>
       <p class="lede" id="project-summary" data-testid="project-summary"></p>
     </header>
 
-    <section class="card project-demo" aria-labelledby="project-demo-h" data-testid="project-demo">
-      <div class="cluster cluster-between">
-        <h2 id="project-demo-h" data-i18n="project.demo.title" data-testid="project-demo-title"></h2>
-        <span class="badge badge-sim" data-i18n="sim.badge" data-testid="project-demo-badge"></span>
-      </div>
-      <p class="hint" data-i18n="project.demo.note" data-testid="project-demo-note"></p>
-      <fieldset class="project-roles" data-testid="project-role-fieldset">
-        <legend class="label" data-i18n="project.demo.viewas" data-testid="project-role-legend"></legend>
-        <div class="cluster" id="project-roles"></div>
-      </fieldset>
-      <p class="text-sm" id="project-role-desc" aria-live="polite" data-testid="project-role-desc"></p>
-      <div class="cluster">
-        <button type="button" class="btn btn-sm" id="project-dup-btn" data-testid="project-dup-button"><span class="icon i-refresh" aria-hidden="true" data-testid="project-dup-button-icon"></span><span data-i18n="project.demo.dup" data-testid="project-dup-button-label"></span></button>
-        <span class="hint" id="project-dup-hint" data-testid="project-dup-hint"></span>
+    <section class="callout project-demo" data-proto aria-labelledby="project-demo-h" data-testid="project-demo">
+      <div>
+        <h2 id="project-demo-h" class="h4" data-i18n="project.demo.title" data-testid="project-demo-title"></h2>
+        <p class="text-sm" data-i18n="project.demo.note" data-testid="project-demo-note"></p>
+        <p class="text-sm" id="project-role-desc" aria-live="polite" data-testid="project-role-desc"></p>
+        <div class="cluster">
+          <button type="button" class="btn btn-sm" id="project-dup-btn" data-testid="project-dup-button"><span class="icon i-refresh" aria-hidden="true" data-testid="project-dup-button-icon"></span><span data-i18n="project.demo.dup" data-testid="project-dup-button-label"></span></button>
+          <span class="hint" id="project-dup-hint" data-testid="project-dup-hint"></span>
+        </div>
       </div>
     </section>
 
@@ -58,16 +58,15 @@
         <div class="dialog-head">
           <div><h2 id="apply-title" data-i18n="project.apply.title" data-testid="apply-title"></h2>
             <p class="text-sm"><span class="text-muted" data-i18n="project.apply.need" data-testid="apply-need-label"></span> <strong id="apply-need" data-user-content data-testid="apply-need-title"></strong></p>
-            <p class="hint"><span class="badge badge-sim" data-i18n="sim.badge" data-testid="apply-sim-badge"></span> <span data-i18n="project.apply.sim" data-testid="apply-sim-note"></span></p></div>
-          <button type="button" class="btn btn-ghost btn-icon" data-dialog-close data-i18n-attr="aria-label:common.close" data-testid="apply-close"><span class="icon i-x" aria-hidden="true" data-testid="apply-close-icon"></span></button>
+            <p class="hint" data-proto data-testid="apply-sim-hint"><span class="badge badge-sim" data-i18n="sim.badge" data-testid="apply-sim-badge"></span> <span data-i18n="project.apply.sim" data-testid="apply-sim-note"></span></p></div>
+          <button type="button" class="btn btn-icon" data-dialog-close data-i18n-attr="aria-label:common.close" data-testid="apply-close"><span class="icon i-x" aria-hidden="true" data-testid="apply-close-icon"></span></button>
         </div>
         <div class="dialog-body" id="apply-body">
           <div class="callout callout-danger" id="apply-dup" role="alert" tabindex="-1" hidden data-testid="apply-duplicate-error"><span class="icon icon-lead i-alert-circle" aria-hidden="true" data-testid="apply-duplicate-error-icon"></span><div><strong data-i18n="project.apply.dup.title" data-testid="apply-duplicate-title"></strong><span data-i18n="project.apply.dup.body" data-testid="apply-duplicate-body"></span></div></div>
           <div id="apply-summary" class="form-summary" role="alert" tabindex="-1" hidden data-testid="apply-error-summary"><h2 data-i18n="project.form.summary" data-testid="apply-summary-title"></h2><ul class="list-reset" id="apply-summary-list" data-testid="apply-summary-list"></ul></div>
           <div class="field" data-field="motivation">
             <label class="label" for="apply-motivation" data-testid="apply-motivation-field-label"><span data-i18n="project.apply.motivation" data-testid="apply-motivation-label"></span><span class="req" aria-hidden="true" data-testid="apply-motivation-required">*</span></label>
-            <p class="hint" id="apply-motivation-hint" data-i18n="project.apply.motivation.hint" data-testid="apply-motivation-hint"></p>
-            <textarea id="apply-motivation" class="textarea" maxlength="600" required aria-describedby="apply-motivation-hint apply-motivation-error" data-testid="apply-motivation-input"></textarea>
+            <textarea id="apply-motivation" class="textarea" maxlength="600" required aria-describedby="apply-motivation-error" data-testid="apply-motivation-input"></textarea>
             <p class="error-msg" id="apply-motivation-error" hidden data-testid="apply-motivation-error"></p>
           </div>
           <div class="field" data-field="skills">
@@ -77,8 +76,8 @@
             <p class="error-msg" id="apply-skills-error" hidden data-testid="apply-skills-error"></p>
           </div>
           <div class="field" data-field="avail">
-            <label class="label" for="apply-avail" data-testid="apply-avail-field-label"><span data-i18n="project.apply.avail" data-testid="apply-avail-label"></span><span class="req" aria-hidden="true" data-testid="apply-avail-required">*</span></label>
-            <select id="apply-avail" class="select" required aria-describedby="apply-avail-error" data-testid="apply-avail-input"></select>
+            <label class="label" for="apply-avail" data-testid="apply-avail-field-label"><span data-i18n="project.apply.avail" data-testid="apply-avail-label"></span></label>
+            <select id="apply-avail" class="select" aria-describedby="apply-avail-error" data-testid="apply-avail-input"></select>
             <p class="error-msg" id="apply-avail-error" hidden data-testid="apply-avail-error"></p>
           </div>
         </div>
@@ -96,8 +95,8 @@
       <form id="need-form" novalidate data-testid="need-form">
         <div class="dialog-head">
           <div><h2 id="need-dlg-title" data-i18n="project.pub.title" data-testid="need-title-heading"></h2>
-            <p class="hint"><span class="badge badge-sim" data-i18n="sim.badge" data-testid="need-sim-badge"></span> <span data-i18n="project.pub.sim" data-testid="need-sim-note"></span></p></div>
-          <button type="button" class="btn btn-ghost btn-icon" data-dialog-close data-i18n-attr="aria-label:common.close" data-testid="need-close"><span class="icon i-x" aria-hidden="true" data-testid="need-close-icon"></span></button>
+            <p class="hint" data-proto data-testid="need-sim-hint"><span class="badge badge-sim" data-i18n="sim.badge" data-testid="need-sim-badge"></span> <span data-i18n="project.pub.sim" data-testid="need-sim-note"></span></p></div>
+          <button type="button" class="btn btn-icon" data-dialog-close data-i18n-attr="aria-label:common.close" data-testid="need-close"><span class="icon i-x" aria-hidden="true" data-testid="need-close-icon"></span></button>
         </div>
         <div class="dialog-body">
           <div id="need-summary" class="form-summary" role="alert" tabindex="-1" hidden data-testid="need-error-summary"><h2 data-i18n="project.pub.summary" data-testid="need-summary-title"></h2><ul class="list-reset" id="need-summary-list" data-testid="need-summary-list"></ul></div>

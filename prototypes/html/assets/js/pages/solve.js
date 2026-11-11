@@ -2,7 +2,7 @@
    Dictionary: assets/i18n/solve.js. Data: MOCK.questions + MOCK.solve.extraQuestions. Nothing is persisted. */
 (function () {
   'use strict';
-  var M = window.MOCK, S = M.solve, esc = App.esc, $ = App.$, t = function (k, p) { return I18N.t(k, p); };
+  var M = window.MOCK, S = M.solve, esc = App.esc, $ = App.$, $$ = App.$$, t = function (k, p) { return I18N.t(k, p); };
   var PER = 6, all = S.all();
   function pl(base, n) { return t(base + (n === 1 ? '.one' : '.other'), { n: n }); }
   function langName(l) { return t('solve.lang.' + l); }
@@ -44,12 +44,12 @@
     st.q = form.elements.q.value;
     st.status = (form.querySelector('input[name="status"]:checked') || {}).value || '';
     st.tags = [].slice.call(form.querySelectorAll('input[name="tag"]:checked')).map(function (i) { return i.value; });
-    st.country = form.elements.country.value; st.lang = form.elements.lang.value; st.sort = form.elements.sort.value;
+    st.country = form.elements.country.value; st.lang = form.elements.lang.value;
   }
   function activeCount() { return (st.status ? 1 : 0) + st.tags.length + (st.country ? 1 : 0) + (st.lang ? 1 : 0); }
   function syncChrome() {
     var n = activeCount(), b = $('#solve-filter-count');
-    b.hidden = !n; b.textContent = n;
+    b.hidden = !n; b.textContent = '';
     $('#solve-reset').disabled = !(n || st.q);
   }
 
@@ -76,13 +76,11 @@
       '<ul class="tag-list list-reset" data-testid="solve-tags-' + n + '">' + q.tags.map(function (x) { return '<li><span class="tag" data-testid="solve-tag-' + n + '-' + x + '">' + esc(x) + '</span></li>'; }).join('') + '</ul>' +
       '<div class="meta">' +
       '<span class="meta-item solve-inline-stats" data-testid="solve-inline-stats-' + n + '">' + stats(q, n, 'inline') + '</span>' +
-      '<span class="meta-item" data-testid="solve-by-' + n + '"><span class="text-muted" data-testid="solve-by-label-' + n + '">' + esc(t('solve.row.by')) + '</span> <a class="row-above" href="profile.html?id=' + q.author + '" data-testid="solve-author-' + n + '">' + esc(p.name) + '</a></span>' +
+      '<span class="meta-item" data-testid="solve-by-' + n + '"><span class="person">' + App.avatar(p, { size: 'sm', testid: 'solve-avatar-' + n }) + '<a class="row-above" href="profile.html?id=' + q.author + '" data-testid="solve-author-' + n + '">' + esc(p.name) + '</a></span></span>' +
       '<span class="meta-item" data-testid="solve-country-' + n + '">' + cc(q.country, n) + '</span>' +
       '<time class="meta-item" datetime="' + q.date + '" data-testid="solve-date-' + n + '">' + M.fmtDate(q.date) + '</time>' +
       '<span class="meta-item mono" data-testid="solve-env-' + n + '"><span class="visually-hidden" data-testid="solve-env-label-' + n + '">' + esc(t('solve.row.env')) + ' </span>' + esc(q.env) + '</span></div></div>' +
       '<div class="row-aside">' +
-      (q.accepted ? '<span class="badge badge-accepted" data-testid="solve-accepted-' + n + '"><span class="icon i-check-circle" aria-hidden="true" data-testid="solve-accepted-icon-' + n + '"></span>' + esc(t('solve.row.accepted')) + '</span>'
-        : q.answers === 0 ? '<span class="badge badge-warn" data-testid="solve-unanswered-' + n + '"><span class="icon i-help" aria-hidden="true" data-testid="solve-unanswered-icon-' + n + '"></span>' + esc(t('solve.row.unanswered')) + '</span>' : '') +
       '<span class="badge" data-testid="solve-lang-badge-' + n + '"><span aria-hidden="true" data-testid="solve-lang-badge-' + n + '-code">' + q.lang.toUpperCase() + '</span><span class="visually-hidden" data-testid="solve-lang-badge-' + n + '-name">' + esc(t('solve.row.lang', { l: langName(q.lang) })) + '</span></span>' +
       '</div></li>';
   }
@@ -112,8 +110,11 @@
   form.addEventListener('input', function (e) { if (e.target.id !== 'ask-form') change(); });
   form.addEventListener('change', function () { change(); });
   $('#solve-reset').addEventListener('click', function () {
-    form.reset(); form.elements.sort.value = 'recent'; change(); form.elements.q.focus();
+    form.reset(); st.sort = 'recent'; $$('[data-sort]').forEach(function (x) { x.setAttribute('aria-checked', x.getAttribute('data-sort') === 'recent'); }); change(); form.elements.q.focus();
   });
+  $$('[data-sort]').forEach(function (b) { b.addEventListener('click', function () {
+    st.sort = b.getAttribute('data-sort'); $$('[data-sort]').forEach(function (x) { x.setAttribute('aria-checked', x === b); }); change();
+  }); });
   var tog = $('#solve-filter-toggle'), panel = $('#solve-filters');
   tog.addEventListener('click', function () { var open = tog.getAttribute('aria-expanded') !== 'true'; tog.setAttribute('aria-expanded', open); panel.classList.toggle('solve-filters-collapsed', !open); });
   var initQ = App.params.get('q'); if (initQ) { form.elements.q.value = initQ; readForm(); sim.refresh(); }
@@ -152,7 +153,7 @@
     setTimeout(function () {   /* simulated network round trip */
       btn.removeAttribute('aria-busy'); btn.disabled = false;
       lastTitle = ask.elements.title.value.trim(); updateSuccess(); $('#ask-success').hidden = false;
-      App.Toast.show({ kind: 'success', title: t('solve.ask.success.title').trim(), msg: t('sim.toast') });
+      App.Toast.show({ kind: 'success', msg: t('solve.ask.toast') });
       ask.reset(); ask.elements.lang.value = I18N.lang; $('#ask-preview').innerHTML = ''; errs = {}; setErrors();
       $('#ask-success').scrollIntoView({ block: 'nearest' });
     }, 500);

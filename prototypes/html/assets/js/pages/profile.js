@@ -2,14 +2,14 @@
 I18N.register({
   fr: {
     'profile.title': 'Profil développeur — 226os', 'profile.crumb': 'Profil développeur',
-    'profile.lede': 'Profil public minimal : ce que les autres membres peuvent voir dépend des réglages de confidentialité.',
+    'profile.lede': 'Profil public minimal : ce que les autres membres peuvent voir dépend des réglages de confidentialité.',
     'profile.edit.open': 'Modifier mon profil',
     'profile.notfound.title': 'Profil introuvable', 'profile.notfound.body': 'Ce profil n’existe pas ou n’est pas visible pour vous.', 'profile.notfound.cta': 'Voir mon profil',
     'profile.viewas.label': 'Voir ce profil en tant que', 'profile.viewas.self': 'Moi (propriétaire)', 'profile.viewas.member': 'Autre membre', 'profile.viewas.anon': 'Visiteur anonyme',
-    'profile.viewas.status.self': 'Vue propriétaire : vous voyez tous vos champs et pouvez modifier le profil.',
-    'profile.viewas.status.member': 'Vue autre membre connecté : champs publics et réservés aux membres.',
-    'profile.viewas.status.anon': 'Vue visiteur anonyme : seulement les champs publics.',
-    'profile.saved.title': 'Profil mis à jour. ', 'profile.saved.body': 'Simulation : rien n’est enregistré, les modifications disparaissent au rechargement.',
+    'profile.viewas.status.self': 'Vue propriétaire : vous voyez tous vos champs et pouvez modifier le profil.',
+    'profile.viewas.status.member': 'Vue autre membre connecté : champs publics et réservés aux membres.',
+    'profile.viewas.status.anon': 'Vue visiteur anonyme : seulement les champs publics.',
+    'profile.saved.title': 'Profil mis à jour. ', 'profile.saved.body': 'Simulation : rien n’est enregistré, les modifications disparaissent au rechargement.',
     'profile.anon.title': 'Vous naviguez sans compte. ', 'profile.anon.body': 'Certains champs sont réservés aux membres connectés.', 'profile.anon.signin': 'Se connecter',
     'profile.about.h': 'À propos', 'profile.bio.h': 'Bio', 'profile.skills.h': 'Compétences', 'profile.langs.h': 'Langues parlées', 'profile.open.h': 'Ouvert à', 'profile.open.mentorat': 'Mentorat', 'profile.open.collaboration': 'Collaboration', 'profile.open.preview': 'Aperçu Connect', 'profile.open.none': 'Aucune ouverture indiquée.',
     'profile.bio.empty': 'Aucune bio renseignée.', 'profile.skills.empty': 'Aucune compétence renseignée.', 'profile.bio.lang': 'Langue originale de la bio',
@@ -18,7 +18,7 @@ I18N.register({
     'profile.d.handle': 'Identifiant', 'profile.d.country': 'Pays', 'profile.d.city': 'Ville', 'profile.d.github': 'GitHub', 'profile.d.email': 'E-mail', 'profile.d.since': 'Membre depuis', 'profile.d.name': 'Nom public',
     'profile.d.hidden': 'Non visible pour ce rôle', 'profile.github.link': 'Dépôts GitHub (exemple fictif)',
     'profile.privacy.h': 'Confidentialité', 'profile.privacy.region': 'Tableau de visibilité des champs du profil',
-    'profile.privacy.note': 'L’e-mail n’est jamais public. L’autorisation réelle est vérifiée côté serveur ; ici c’est une démonstration.',
+    'profile.privacy.note': 'L’e-mail n’est jamais public. L’autorisation réelle est vérifiée côté serveur ; ici c’est une démonstration.',
     'profile.privacy.col.field': 'Champ', 'profile.privacy.col.who': 'Visible par', 'profile.privacy.col.now': 'Pour vous',
     'profile.vis.public': 'Tout le monde', 'profile.vis.members': 'Membres connectés', 'profile.vis.self': 'Vous uniquement',
     'profile.now.visible': 'Visible', 'profile.now.hidden': 'Masqué',
@@ -29,7 +29,7 @@ I18N.register({
     'profile.activity.c.empty.title': 'Aucune contribution', 'profile.activity.c.empty.body': 'Ce membre n’a rejoint aucun projet.',
     'profile.row.question': 'Question', 'profile.row.answered': 'Réponse donnée', 'profile.row.project': 'Projet', 'profile.row.contrib': 'Contribution',
     'profile.status.active': 'Actif', 'profile.status.idea': 'Idée', 'profile.status.seeking': 'Cherche des contributeurs',
-    'profile.reputation': 'Réputation et badges', 'profile.reputation.note': 'Prévus en P1 : aucun score n’est affiché dans ce prototype.',
+    'profile.reputation': 'Réputation et badges', 'profile.reputation.note': 'Prévus en P1 : aucun score n’est affiché dans ce prototype.',
     'profile.edit.title': 'Modifier mon profil', 'profile.edit.sim': 'Les modifications sont validées puis affichées localement, jamais enregistrées.',
     'profile.edit.summary': 'Corrigez les champs suivants',
     'profile.edit.name': 'Nom public', 'profile.edit.name.hint': '2 à 60 caractères. Visible par tout le monde.', 'profile.edit.name.err': 'Saisissez un nom public de 2 à 60 caractères.',
@@ -38,9 +38,9 @@ I18N.register({
     'profile.edit.skills': 'Compétences', 'profile.edit.skills.hint': 'Séparées par des virgules, 8 maximum (ex. go, postgresql).', 'profile.edit.skills.err': 'Maximum 8 compétences, 24 caractères chacune (lettres, chiffres, + # . -).',
     'profile.edit.bio': 'Bio', 'profile.edit.bio.hint': '280 caractères maximum. Votre texte garde sa langue d’origine.', 'profile.edit.bio.err': 'La bio dépasse 280 caractères.',
     'profile.edit.biolang': 'Langue de la bio',
-    'profile.edit.github': 'Lien GitHub', 'profile.edit.github.hint': 'Adresse https. Dans ce prototype, utilisez un exemple : https://example.org/gh/votre-id', 'profile.edit.github.err': 'Saisissez une adresse https valide ou laissez vide.',
+    'profile.edit.github': 'Lien GitHub', 'profile.edit.github.hint': 'Adresse https. Dans ce prototype, utilisez un exemple : https://example.org/gh/votre-id', 'profile.edit.github.err': 'Saisissez une adresse https valide ou laissez vide.',
     'profile.edit.citypub': 'Afficher ma ville aux visiteurs anonymes', 'profile.edit.citypub.hint': 'Par défaut, la ville n’est visible que des membres connectés.',
-    'profile.edit.save': 'Enregistrer (simulé)', 'profile.edit.saving': 'Enregistrement…', 'profile.edit.toast': 'Profil mis à jour (simulation).'
+    'profile.edit.save': 'Enregistrer', 'profile.edit.saving': 'Enregistrement…', 'profile.edit.toast': 'Profil mis à jour.'
   },
   en: {
     'profile.title': 'Developer profile — 226os', 'profile.crumb': 'Developer profile',
@@ -82,7 +82,7 @@ I18N.register({
     'profile.edit.biolang': 'Bio language',
     'profile.edit.github': 'GitHub link', 'profile.edit.github.hint': 'https address. In this prototype use an example: https://example.org/gh/your-id', 'profile.edit.github.err': 'Enter a valid https address or leave empty.',
     'profile.edit.citypub': 'Show my city to anonymous visitors', 'profile.edit.citypub.hint': 'By default the city is visible to signed-in members only.',
-    'profile.edit.save': 'Save (simulated)', 'profile.edit.saving': 'Saving…', 'profile.edit.toast': 'Profile updated (simulation).'
+    'profile.edit.save': 'Save', 'profile.edit.saving': 'Saving…', 'profile.edit.toast': 'Profile updated.'
   }
 });
 
@@ -99,7 +99,9 @@ I18N.register({
   var p = { id: id, name: base.name, handle: base.handle, country: base.country, city: base.city, langs: base.langs.slice(), skills: base.skills.slice(), open: base.open.slice(), since: base.since,
     bio: extra.bio, bioLang: extra.bioLang, github: extra.github, email: extra.email, cityPublic: false };
   var roles = isOwn ? ['self', 'member', 'anon'] : ['member', 'anon'];
-  var role = P.get('as'); if (roles.indexOf(role) < 0) role = isOwn ? 'self' : 'member';
+  App.Proto.register({ roles: roles.map(function (r) { return { id: r, labelKey: 'profile.viewas.' + r }; }), 'default': isOwn ? 'self' : 'member' });
+  if (roles.indexOf(P.get('as')) > -1) App.Proto.setRole(P.get('as'));   /* ?as= kept as an alias of ?role= */
+  var role = App.Proto.role;
 
   var initials = App.initials;   /* shared helper (app.js) */
   function canSee(field) {
@@ -113,16 +115,15 @@ I18N.register({
 
   /* ---------- overview ---------- */
   function renderOverview() {
-    $('#profile-avatar').textContent = initials(p.name);
+    $('#profile-avatar').innerHTML = App.avatar(p.name, { size: 'lg', testid: 'profile-avatar-img' });
     var nm = $('#profile-name'); nm.textContent = p.name; nm.lang = base.lang;
     $('#profile-sub').innerHTML = '<span class="meta-item mono" data-testid="profile-handle">@' + esc(p.handle) + '</span><span class="meta-item" data-testid="profile-country">' + countryHtml(p.country, 'profile-country-code') + '</span>';
     $('#profile-edit-open').hidden = role !== 'self';
     $('#profile-anon-note').hidden = role !== 'anon';
     $('#profile-viewas-status').textContent = t('profile.viewas.status.' + role);
-    App.$$('[data-as]').forEach(function (b) { var on = b.getAttribute('data-as') === role; b.setAttribute('aria-pressed', on); b.hidden = roles.indexOf(b.getAttribute('data-as')) < 0; });
 
     var openHtml = p.open.length ? '<ul class="tag-list list-reset" data-testid="profile-open-list">' + p.open.map(function (o) {
-      return '<li><a class="tag" href="connect.html" data-testid="profile-open-' + o + '">' + esc(t('profile.open.' + o)) + '</a></li>'; }).join('') + '</ul><p class="hint" data-testid="profile-open-note"><span class="badge badge-later" data-testid="profile-open-badge">' + esc(t('profile.open.preview')) + '</span></p>'
+      return '<li><a class="tag" href="connect.html" data-testid="profile-open-' + o + '">' + esc(t('profile.open.' + o)) + '</a></li>'; }).join('') + '</ul><p class="hint" data-proto data-testid="profile-open-note"><span class="badge badge-later" data-testid="profile-open-badge">' + esc(t('profile.open.preview')) + '</span></p>'
       : '<p class="text-muted" data-testid="profile-open-none">' + esc(t('profile.open.none')) + '</p>';
     $('#profile-about').innerHTML =
       '<div class="stack-sm"><h3 class="eyebrow" data-testid="profile-bio-h">' + esc(t('profile.bio.h')) + '</h3>' + (p.bio
@@ -134,10 +135,10 @@ I18N.register({
       '<div class="stack-sm"><h3 class="eyebrow" data-testid="profile-langs-h">' + esc(t('profile.langs.h')) + '</h3><ul class="tag-list list-reset" data-testid="profile-langs">' +
         p.langs.map(function (l) { return '<li><span class="tag" data-testid="profile-lang-' + l + '"><span aria-hidden="true" data-testid="profile-lang-' + l + '-code">' + l.toUpperCase() + '</span><span class="visually-hidden" data-testid="profile-lang-' + l + '-name">' + esc(t('profile.lang.' + l)) + '</span></span></li>'; }).join('') + '</ul></div>' +
       '<div class="stack-sm"><h3 class="eyebrow" data-testid="profile-open-h">' + esc(t('profile.open.h')) + '</h3>' + openHtml + '</div>' +
-      '<p class="text-sm text-muted" data-testid="profile-reputation"><span class="badge badge-later" data-testid="profile-reputation-badge">' + esc(t('common.later')) + '</span> <strong data-testid="profile-reputation-title">' + esc(t('profile.reputation')) + '</strong> — ' + esc(t('profile.reputation.note')) + '</p>';
+      '<p class="text-sm text-muted" data-proto data-testid="profile-reputation"><span class="badge badge-later" data-testid="profile-reputation-badge">' + esc(t('common.later')) + '</span> <strong data-testid="profile-reputation-title">' + esc(t('profile.reputation')) + '</strong> — ' + esc(t('profile.reputation.note')) + '</p>';
 
     var rows = [];
-    function dd(key, field, val, tid) { rows.push('<dt data-testid="profile-d-' + tid + '-label">' + esc(t('profile.d.' + key)) + '</dt><dd data-testid="profile-d-' + tid + '">' + (canSee(field) ? val : '<span class="text-muted" data-testid="profile-d-' + tid + '-hidden"><span class="icon i-lock" aria-hidden="true" data-testid="profile-d-' + tid + '-hidden-icon"></span> ' + esc(t('profile.d.hidden')) + '</span>') + '</dd>'); }
+    function dd(key, field, val, tid) { if (!canSee(field)) return; rows.push('<dt data-testid="profile-d-' + tid + '-label">' + esc(t('profile.d.' + key)) + '</dt><dd data-testid="profile-d-' + tid + '">' + val + '</dd>'); }
     dd('name', 'name', '<span lang="' + base.lang + '" data-user-content data-testid="profile-d-name-text">' + esc(p.name) + '</span>', 'name');
     dd('handle', 'handle', '<span class="mono" data-testid="profile-d-handle-text">@' + esc(p.handle) + '</span>', 'handle');
     dd('country', 'country', countryHtml(p.country, 'profile-d-country-code'), 'country');
@@ -168,7 +169,7 @@ I18N.register({
       '<div class="row-aside">' + lbadge(q.lang, 'profile-' + pre + '-lang-' + n) + (q.accepted ? '<span class="badge badge-accepted" data-testid="profile-' + pre + '-accepted-' + n + '"><span class="icon i-check" aria-hidden="true" data-testid="profile-' + pre + '-accepted-icon-' + n + '"></span>' + esc(t('common.accepted')) + '</span>' : '') + '</div></li>';
   }
   function rowP(pr, n, pre, kindKey) {
-    return '<li class="row" data-testid="profile-' + pre + '-row-' + n + '"><div class="row-lead"><span class="icon i-hammer" aria-hidden="true" data-testid="profile-' + pre + '-icon-' + n + '"></span></div>' +
+    return '<li class="row" data-testid="profile-' + pre + '-row-' + n + '"><div class="row-lead">' + App.thumb(pr.name, { icon: 'hammer', testid: 'profile-' + pre + '-thumb-' + n }) + '</div>' +
       '<div class="row-main"><h3 class="row-title"><a href="project.html?id=' + pr.id + '" data-testid="profile-' + pre + '-link-' + n + '"><span class="mono" data-testid="profile-' + pre + '-name-' + n + '">' + esc(pr.name) + '</span></a></h3>' +
       '<p class="row-excerpt" lang="' + pr.lang + '" data-user-content data-testid="profile-' + pre + '-excerpt-' + n + '">' + esc(pr.summary) + '</p>' +
       '<ul class="tag-list list-reset" data-testid="profile-' + pre + '-tags-' + n + '">' + pr.stack.map(function (g) { return '<li><span class="tag" data-testid="profile-' + pre + '-tag-' + n + '-' + slug(g) + '">' + esc(g) + '</span></li>'; }).join('') + '</ul>' +
@@ -186,7 +187,7 @@ I18N.register({
   ].forEach(function (a) { App.Sim.load($('#' + a[1]), { load: a[2], render: a[3], delay: 450, skeleton: 2, emptyKey: 'profile.activity.' + a[0] + '.empty' }); });
 
   /* ---------- view-as toggle ---------- */
-  App.$$('[data-as]').forEach(function (b) { b.addEventListener('click', function () { role = b.getAttribute('data-as'); renderOverview(); }); });
+  document.addEventListener('proto:role', function (e) { role = e.detail.role; renderOverview(); });
   document.addEventListener('i18n:change', function () { populateSelects(); renderOverview(); });
 
   /* ---------- edit dialog ---------- */
@@ -236,7 +237,7 @@ I18N.register({
     setTimeout(function () {
       p.name = v.name; p.country = v.country; p.langs = v.langs; p.skills = v.skills; p.bio = v.bio; p.bioLang = F.biolang.value; p.github = v.github; p.cityPublic = F.citypub.checked;
       btn.removeAttribute('aria-busy'); btn.disabled = false; btn.querySelector('span:last-child').textContent = t('profile.edit.save');
-      App.Dialog.close(dlg); $('#profile-saved').hidden = false; renderOverview();
+      App.Dialog.close(dlg); renderOverview();
       App.Toast.show({ kind: 'success', title: t('state.success.title'), msg: t('profile.edit.toast') });
     }, 500);
   });

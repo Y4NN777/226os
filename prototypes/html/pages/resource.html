@@ -30,17 +30,21 @@
     <div id="resource-content" data-testid="resource-content">
       <header class="page-header">
         <div class="page-header-row">
-          <div class="stack-sm">
-            <p class="eyebrow" id="resource-eyebrow" data-testid="resource-eyebrow"></p>
-            <h1 id="resource-name" data-testid="resource-title"></h1>
-            <p class="text-sm text-muted" id="resource-provider" data-testid="resource-provider"></p>
+          <div class="resource-head">
+            <span id="resource-thumb" data-testid="resource-thumb-slot"></span>
+            <div class="stack-sm">
+              <p class="eyebrow" id="resource-eyebrow" data-testid="resource-eyebrow"></p>
+              <h1 id="resource-name" data-testid="resource-title"></h1>
+              <p class="text-sm text-muted" id="resource-provider" data-testid="resource-provider"></p>
+            </div>
           </div>
-          <div class="cluster">
+          <div class="resource-actions">
             <a class="btn btn-primary link-external" id="resource-docs-link" rel="noopener noreferrer" target="_blank" data-testid="resource-docs-link"><span class="icon i-book" aria-hidden="true" data-testid="resource-docs-link-icon"></span><span data-i18n="resource.docs" data-testid="resource-docs-link-label"></span></a>
-            <button type="button" class="btn" data-dialog-open="resource-report-dialog" data-testid="resource-report-button"><span class="icon i-flag" aria-hidden="true" data-testid="resource-report-button-icon"></span><span data-i18n="resource.report.open" data-testid="resource-report-button-label"></span></button>
+            <button type="button" class="btn btn-icon tip-top" id="resource-share" data-i18n-attr="aria-label:resource.share" data-testid="resource-share-button"><span class="icon i-link icon-main" aria-hidden="true" data-testid="resource-share-icon"></span><span class="icon i-check icon-alt" aria-hidden="true" data-testid="resource-share-icon-done"></span></button>
+            <button type="button" class="btn btn-icon tip-top" data-dialog-open="resource-report-dialog" data-i18n-attr="aria-label:resource.report.open" data-testid="resource-report-button"><span class="icon i-flag" aria-hidden="true" data-testid="resource-report-button-icon"></span></button>
           </div>
         </div>
-        <div class="cluster" id="resource-badges" data-testid="resource-badges"></div>
+        <div class="resource-facts" id="resource-badges" data-testid="resource-badges"></div>
         <p class="lede" id="resource-summary" lang="fr" data-user-content data-testid="resource-summary"></p>
       </header>
 
@@ -55,6 +59,17 @@
         <div class="tabpanel" role="tabpanel" id="panel-discussions" aria-labelledby="tab-discussions" tabindex="0" hidden data-testid="resource-panel-discussions"></div>
       </div>
 
+      <section class="section" aria-labelledby="resource-projects-h" data-testid="resource-projects-section">
+        <div class="section-head"><h2 id="resource-projects-h" data-i18n="resource.disc.proj" data-testid="resource-projects-h"></h2></div>
+        <div id="resource-projects-body" data-testid="resource-projects-body"></div>
+      </section>
+
+      <section class="section" id="resource-reviews" aria-labelledby="resource-reviews-h" tabindex="-1" data-testid="resource-reviews-section">
+        <div class="section-head"><h2 id="resource-reviews-h" data-i18n="resource.rev.h" data-testid="resource-reviews-h"></h2>
+          <button type="button" class="btn" data-dialog-open="resource-review-dialog" data-testid="resource-review-open"><span class="icon i-edit" aria-hidden="true" data-testid="resource-review-open-icon"></span><span data-i18n="resource.rev.write" data-testid="resource-review-open-label"></span></button></div>
+        <div id="resource-reviews-body" data-testid="resource-reviews-body"></div>
+      </section>
+
       <section class="section" aria-labelledby="resource-linked-h" data-testid="resource-linked-section">
         <div class="section-head"><h2 id="resource-linked-h" data-i18n="resource.linked.h" data-testid="resource-linked-h"></h2></div>
         <div class="linked-items" id="resource-linked" data-testid="resource-linked"></div>
@@ -67,12 +82,12 @@
       <div class="dialog-head">
         <div class="stack-sm">
           <h2 id="resource-report-title" data-i18n="resource.report.title" data-testid="resource-report-title"></h2>
-          <span class="badge badge-sim" data-i18n="sim.badge" data-testid="resource-report-sim"></span>
+          <span class="badge badge-sim" data-proto data-i18n="sim.badge" data-testid="resource-report-sim"></span>
         </div>
         <button type="button" class="btn btn-ghost btn-icon" data-dialog-close data-i18n-attr="aria-label:common.close" data-testid="resource-report-close"><span class="icon i-x" aria-hidden="true" data-testid="resource-report-close-icon"></span></button>
       </div>
       <div class="dialog-body">
-        <p class="text-sm text-muted" data-i18n="resource.report.intro" data-testid="resource-report-intro"></p>
+        <p class="text-sm text-muted" data-proto data-i18n="resource.report.intro" data-testid="resource-report-intro"></p>
         <div class="form-summary" id="report-summary" role="alert" tabindex="-1" hidden data-testid="resource-report-summary">
           <h2 data-i18n="resource.report.summary" data-testid="resource-report-summary-title"></h2>
           <ul id="report-summary-list" data-testid="resource-report-summary-list"></ul>
@@ -108,12 +123,42 @@
     </form>
   </dialog>
 
+  <dialog class="dialog" id="resource-review-dialog" aria-labelledby="resource-review-title" data-testid="resource-review-dialog">
+    <form id="resource-review-form" novalidate data-testid="resource-review-form">
+      <div class="dialog-head">
+        <h2 id="resource-review-title" data-i18n="resource.rev.write" data-testid="resource-review-title"></h2>
+        <button type="button" class="btn btn-ghost btn-icon" data-dialog-close data-i18n-attr="aria-label:common.close" data-testid="resource-review-close"><span class="icon i-x" aria-hidden="true" data-testid="resource-review-close-icon"></span></button>
+      </div>
+      <div class="dialog-body">
+        <p class="text-sm text-muted" data-proto data-i18n="resource.rev.proto" data-testid="resource-review-proto"></p>
+        <div class="form-summary" id="review-summary" role="alert" tabindex="-1" hidden data-testid="resource-review-summary">
+          <h2 data-i18n="resource.report.summary" data-testid="resource-review-summary-title"></h2>
+          <ul id="review-summary-list" data-testid="resource-review-summary-list"></ul>
+        </div>
+        <div class="field" id="field-rating">
+          <span id="review-rating-slot" data-testid="resource-review-rating-slot"></span>
+          <p class="error-msg" id="review-rating-error" data-testid="resource-review-rating-error" hidden></p>
+        </div>
+        <div class="field" id="field-text">
+          <label class="label" for="review-text" data-i18n="resource.rev.text" data-testid="resource-review-text-label"></label>
+          <textarea id="review-text" name="text" class="textarea" rows="4" maxlength="600" required aria-describedby="review-text-error" data-i18n-attr="placeholder:resource.rev.placeholder" data-testid="resource-review-text-input"></textarea>
+          <p class="error-msg" id="review-text-error" data-testid="resource-review-text-error" hidden></p>
+        </div>
+      </div>
+      <div class="dialog-foot">
+        <button type="button" class="btn" data-dialog-close data-testid="resource-review-cancel"><span data-i18n="common.cancel" data-testid="resource-review-cancel-label"></span></button>
+        <button type="submit" class="btn btn-primary" data-testid="resource-review-submit"><span class="icon i-send" aria-hidden="true" data-testid="resource-review-submit-icon"></span><span data-i18n="resource.rev.submit" data-testid="resource-review-submit-label"></span></button>
+      </div>
+    </form>
+  </dialog>
+
   <script src="../assets/js/shell.js"></script>
   <script defer src="../assets/js/app.js"></script>
   <script defer src="../assets/js/i18n-common.js"></script>
   <script defer src="../assets/js/markdown.js"></script>
   <script defer src="../assets/data/people.js"></script>
   <script defer src="../assets/data/common.js"></script>
+  <script defer src="../assets/data/build.js"></script>
   <script defer src="../assets/data/discover.js"></script>
   <script defer src="../assets/js/pages/resource.js"></script>
 </body>

@@ -31,7 +31,7 @@ window.MOCK = window.MOCK || {};
     'pr-webhook-kit': { stage: 'active', license: 'MIT', langs: ['fr', 'en'],
       description: '## Objectif\nValider la signature des webhooks de paiement et **rejouer** les événements sans doublon.\n\n## État actuel\n- Vérification HMAC-SHA256 sur le corps brut\n- Table `webhook_events` avec clé d’idempotence\n- Exemples avec le fournisseur fictif Kalimba Pay\n\n## Comment contribuer\nLes besoins ouverts sont listés ci-dessous. Une première issue « good first issue » est réservée à chaque nouveau contributeur.',
       needs: [
-        { id: 'n-wk-1', title: 'Développeur·se Go pour le rejeu idempotent des événements', skills: ['go', 'postgres'], level: 'intermediate', status: 'open' },
+        { id: 'n-wk-1', title: 'Dev Go pour le rejeu idempotent des événements', skills: ['go', 'postgres'], level: 'intermediate', status: 'open' },
         { id: 'n-wk-2', title: 'Documentation du guide d’intégration (FR vers EN)', skills: ['docs', 'review'], level: 'beginner', status: 'open' },
         { id: 'n-wk-3', title: 'Revue de sécurité de la vérification HMAC', skills: ['go'], level: 'advanced', status: 'closed' }
       ],
@@ -45,7 +45,7 @@ window.MOCK = window.MOCK || {};
     'pr-offline-drafts': { stage: 'idea', license: 'Apache-2.0', langs: ['fr'],
       description: '## Idée\nUne **file d’attente locale** pour brouillons qui reprend automatiquement quand la connexion revient.\n\n## Questions ouvertes\n- Résolution de conflits : dernière écriture ou fusion ?\n- Taille maximale du stockage local sur mobile d’entrée de gamme.',
       needs: [
-        { id: 'n-od-1', title: 'Développeur·se React pour le prototype de file d’attente', skills: ['react', 'node'], level: 'intermediate', status: 'open' },
+        { id: 'n-od-1', title: 'Dev React pour le prototype de file d’attente', skills: ['react', 'node'], level: 'intermediate', status: 'open' },
         { id: 'n-od-2', title: 'Tests de coupure réseau (3G instable)', skills: ['testing'], level: 'beginner', status: 'open' }
       ],
       activity: [{ d: '2026-11-04', k: 'link', who: 'p-yves', ref: 'q-offline-sync' }, { d: '2026-11-04', k: 'need', who: 'p-yves', ref: 'n-od-1' }, { d: '2026-11-04', k: 'created', who: 'p-yves' }],

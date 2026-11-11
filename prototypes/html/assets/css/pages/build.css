@@ -1,15 +1,20 @@
-/* Build lane: only genuinely new patterns (filter form wrapper, dense "looking for" line, two-column dialog fields). Tokens only. */
+/* Build lane: only genuinely new patterns. Tokens only; no borders on chips/cards/panels (fill + spacing). */
 .build-filters { display: grid; gap: var(--space-3); }
-.build-looking { font-size: var(--fs-sm); }
+.build-bar { display: flex; align-items: center; justify-content: flex-end; gap: var(--space-1); }
+.build-sort .select { min-width: 0; width: auto; max-width: 100%; }
+#build-more { margin: 0; padding: var(--space-3); background: var(--surface-subtle); border-radius: var(--radius-card); }
+#build-more[hidden] { display: none; }
 .build-two { display: grid; gap: var(--space-4); grid-template-columns: 1fr; margin-top: var(--space-4); }
 .build-two .field + .field { margin-top: 0; }
 @media (min-width: 480px) { .build-two { grid-template-columns: 1fr 1fr; } }
-.build-origin .icon { vertical-align: -.15em; }
 
-/* Project detail */
-.project-demo { display: grid; gap: var(--space-3); border-style: dashed; border-color: var(--border-strong); }
-.project-roles { border: 0; padding: 0; margin: 0; min-width: 0; display: grid; gap: var(--space-1); }
-.project-roles .cluster { gap: var(--space-1) var(--space-5); }
+/* Project header: thumb + title */
+.profile-id { display: flex; align-items: center; gap: var(--space-4); min-width: 0; }
+.profile-id-text { min-width: 0; display: grid; gap: var(--space-1); }
+.profile-id-text h1 { overflow-wrap: anywhere; }
+
+/* Prototype-only role/rights note (shown with annotations) */
+.project-demo { margin-bottom: var(--space-4); }
 .project-sub { margin: var(--space-4) 0 var(--space-2); }
 .row:focus-visible { outline-offset: -2px; }
 

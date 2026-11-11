@@ -26,10 +26,10 @@
 
     <header class="page-header">
       <h1 data-i18n="auth.h1" data-testid="auth-h1"></h1>
-      <p class="lede" data-i18n="auth.lede" data-testid="auth-lede"></p>
+      <p class="lede" data-proto data-i18n="auth.lede" data-testid="auth-lede"></p>
     </header>
 
-    <div class="callout auth-sim" data-testid="auth-sim-callout">
+    <div class="callout auth-sim" data-proto data-testid="auth-sim-callout">
       <span class="icon i-info" aria-hidden="true" data-testid="auth-sim-icon"></span>
       <div>
         <span class="badge badge-sim" data-i18n="sim.badge" data-testid="auth-sim-badge"></span>
@@ -73,7 +73,7 @@
             <label class="label" for="auth-in-password" data-testid="auth-signin-password-field-label"><span data-i18n="auth.password" data-testid="auth-signin-password-label"></span><span class="req" aria-hidden="true" data-testid="auth-signin-password-req">*</span></label>
             <div class="auth-pw">
               <input class="input" id="auth-in-password" name="password" type="password" required autocomplete="current-password" maxlength="128" autocapitalize="none" spellcheck="false" aria-describedby="auth-in-password-error" data-testid="auth-signin-password-input">
-              <button type="button" class="btn auth-pw-toggle" data-pw-toggle="auth-in-password" aria-pressed="false" aria-controls="auth-in-password" data-testid="auth-signin-password-toggle"><span data-pw-label data-i18n="auth.pw.show" data-testid="auth-signin-password-toggle-label"></span></button>
+              <button type="button" class="btn btn-icon auth-pw-toggle" data-pw-toggle="#auth-in-password" aria-pressed="false" aria-controls="auth-in-password" data-i18n-attr="aria-label:common.showPassword" data-testid="auth-signin-password-toggle"><span class="icon i-eye icon-main" aria-hidden="true" data-testid="auth-signin-password-toggle-eye"></span><span class="icon i-eye-off icon-alt" aria-hidden="true" data-testid="auth-signin-password-toggle-eye-off"></span></button>
             </div>
             <p class="error-msg" id="auth-in-password-error" hidden data-testid="auth-signin-password-error"><span class="icon i-alert-circle" aria-hidden="true" data-testid="auth-signin-password-error-icon"></span><span data-testid="auth-signin-password-error-text"></span></p>
           </div>
@@ -94,8 +94,7 @@
           <form id="auth-signup-form" novalidate data-testid="auth-signup-form">
             <div class="field" id="auth-up-f-name">
               <label class="label" for="auth-up-name" data-testid="auth-signup-name-field-label"><span data-i18n="auth.name" data-testid="auth-signup-name-label"></span><span class="req" aria-hidden="true" data-testid="auth-signup-name-req">*</span></label>
-              <p class="hint" id="auth-up-name-hint" data-i18n="auth.name.hint" data-testid="auth-signup-name-hint"></p>
-              <input class="input" id="auth-up-name" name="name" type="text" required autocomplete="nickname" maxlength="80" aria-describedby="auth-up-name-hint auth-up-name-error" data-testid="auth-signup-name-input">
+              <input class="input" id="auth-up-name" name="name" type="text" required autocomplete="nickname" maxlength="80" aria-describedby="auth-up-name-error" data-testid="auth-signup-name-input">
               <p class="error-msg" id="auth-up-name-error" hidden data-testid="auth-signup-name-error"><span class="icon i-alert-circle" aria-hidden="true" data-testid="auth-signup-name-error-icon"></span><span data-testid="auth-signup-name-error-text"></span></p>
             </div>
             
@@ -110,26 +109,28 @@
             <p class="hint" id="auth-up-password-hint" data-i18n="auth.pw.hint" data-testid="auth-signup-password-hint"></p>
             <div class="auth-pw">
               <input class="input" id="auth-up-password" name="password" type="password" required autocomplete="new-password" maxlength="128" autocapitalize="none" spellcheck="false" aria-describedby="auth-up-password-hint auth-up-password-error" data-testid="auth-signup-password-input">
-              <button type="button" class="btn auth-pw-toggle" data-pw-toggle="auth-up-password" aria-pressed="false" aria-controls="auth-up-password" data-testid="auth-signup-password-toggle"><span data-pw-label data-i18n="auth.pw.show" data-testid="auth-signup-password-toggle-label"></span></button>
+              <button type="button" class="btn btn-icon auth-pw-toggle" data-pw-toggle="#auth-up-password" aria-pressed="false" aria-controls="auth-up-password" data-i18n-attr="aria-label:common.showPassword" data-testid="auth-signup-password-toggle"><span class="icon i-eye icon-main" aria-hidden="true" data-testid="auth-signup-password-toggle-eye"></span><span class="icon i-eye-off icon-alt" aria-hidden="true" data-testid="auth-signup-password-toggle-eye-off"></span></button>
             </div>
             <p class="error-msg" id="auth-up-password-error" hidden data-testid="auth-signup-password-error"><span class="icon i-alert-circle" aria-hidden="true" data-testid="auth-signup-password-error-icon"></span><span data-testid="auth-signup-password-error-text"></span></p>
           </div>
+            <details class="auth-more" data-testid="auth-signup-more">
+              <summary data-i18n="auth.more" data-testid="auth-signup-more-summary"></summary>
             <div class="field" id="auth-up-f-country">
-              <label class="label" for="auth-up-country" data-testid="auth-signup-country-field-label"><span data-i18n="auth.country" data-testid="auth-signup-country-label"></span><span class="req" aria-hidden="true" data-testid="auth-signup-country-req">*</span></label>
-              <select class="select" id="auth-up-country" name="country" required autocomplete="country" aria-describedby="auth-up-country-error" data-testid="auth-signup-country-input"></select>
+              <label class="label" for="auth-up-country" data-testid="auth-signup-country-field-label"><span data-i18n="auth.country" data-testid="auth-signup-country-label"></span></label>
+              <select class="select" id="auth-up-country" name="country" autocomplete="country" aria-describedby="auth-up-country-error" data-testid="auth-signup-country-input"></select>
               <p class="error-msg" id="auth-up-country-error" hidden data-testid="auth-signup-country-error"><span class="icon i-alert-circle" aria-hidden="true" data-testid="auth-signup-country-error-icon"></span><span data-testid="auth-signup-country-error-text"></span></p>
             </div>
             <div class="field" id="auth-up-f-langs">
-              <fieldset class="auth-fieldset" aria-describedby="auth-up-langs-hint auth-up-langs-error" data-testid="auth-signup-langs-fieldset">
-                <legend class="label"><span data-i18n="auth.langs" data-testid="auth-signup-langs-label"></span><span class="req" aria-hidden="true" data-testid="auth-signup-langs-req">*</span></legend>
-                <p class="hint" id="auth-up-langs-hint" data-i18n="auth.langs.hint" data-testid="auth-signup-langs-hint"></p>
-                <div class="cluster">
+              <fieldset class="auth-fieldset" aria-describedby="auth-up-langs-error" data-testid="auth-signup-langs-fieldset">
+                <legend class="label"><span data-i18n="auth.langs" data-testid="auth-signup-langs-label"></span></legend>
+                                <div class="cluster">
                   <label class="choice" data-testid="auth-signup-langs-fr-choice"><input type="checkbox" name="langs" value="fr" id="auth-up-langs" data-testid="auth-signup-langs-fr-input"><span data-i18n="auth.lang.fr" data-testid="auth-signup-langs-fr-label"></span></label>
                   <label class="choice" data-testid="auth-signup-langs-en-choice"><input type="checkbox" name="langs" value="en" data-testid="auth-signup-langs-en-input"><span data-i18n="auth.lang.en" data-testid="auth-signup-langs-en-label"></span></label>
                 </div>
               </fieldset>
               <p class="error-msg" id="auth-up-langs-error" hidden data-testid="auth-signup-langs-error"><span class="icon i-alert-circle" aria-hidden="true" data-testid="auth-signup-langs-error-icon"></span><span data-testid="auth-signup-langs-error-text"></span></p>
             </div>
+            </details>
             <p class="hint auth-privacy" data-i18n="auth.privacy" data-testid="auth-signup-privacy"></p>
             <div class="auth-actions">
               <button type="submit" class="btn btn-primary" id="auth-signup-submit" data-testid="auth-signup-submit"><span class="spinner" aria-hidden="true" hidden data-testid="auth-signup-spinner"></span><span id="auth-signup-submit-label" data-i18n="auth.signup.submit" data-testid="auth-signup-submit-label"></span></button>
@@ -142,9 +143,9 @@
             <span class="icon i-inbox" aria-hidden="true" data-testid="auth-verify-icon"></span>
             <h3 data-i18n="auth.verify.title" data-testid="auth-verify-title"></h3>
             <p data-i18n="auth.verify.body" data-testid="auth-verify-body"></p>
-            <p class="text-sm" data-i18n="auth.verify.sim" data-testid="auth-verify-sim"></p>
+            <p class="text-sm" data-proto data-i18n="auth.verify.sim" data-testid="auth-verify-sim"></p>
             <div class="state-actions">
-              <button type="button" class="btn btn-primary btn-sm" id="auth-verify-confirm" data-testid="auth-verify-confirm"><span class="icon i-check" aria-hidden="true" data-testid="auth-verify-confirm-icon"></span><span data-i18n="auth.verify.confirm" data-testid="auth-verify-confirm-label"></span></button>
+              <button type="button" class="btn btn-primary btn-sm" id="auth-verify-confirm" data-proto data-testid="auth-verify-confirm"><span class="icon i-check" aria-hidden="true" data-testid="auth-verify-confirm-icon"></span><span data-i18n="auth.verify.confirm" data-testid="auth-verify-confirm-label"></span></button>
               <button type="button" class="btn btn-sm" id="auth-verify-resend" data-testid="auth-verify-resend"><span class="icon i-send" aria-hidden="true" data-testid="auth-verify-resend-icon"></span><span data-i18n="auth.verify.resend" data-testid="auth-verify-resend-label"></span></button>
               <button type="button" class="btn btn-ghost btn-sm" data-auth-tab="0" data-testid="auth-verify-back"><span data-i18n="auth.verify.back" data-testid="auth-verify-back-label"></span></button>
             </div>
@@ -153,7 +154,7 @@
       </div>
     </section>
 
-    <section class="auth-security" aria-labelledby="auth-sec-h" data-testid="auth-security">
+    <section class="auth-security" data-proto aria-labelledby="auth-sec-h" data-testid="auth-security">
       <h2 id="auth-sec-h" class="h4" data-i18n="auth.sec.h" data-testid="auth-sec-h"></h2>
       <ul class="text-sm text-muted" data-testid="auth-sec-list">
         <li data-i18n="auth.sec.1" data-testid="auth-sec-1"></li>
@@ -167,10 +168,10 @@
     <form id="auth-forgot-form" novalidate data-testid="auth-forgot-form">
       <div class="dialog-head">
         <h2 id="auth-forgot-title" data-i18n="auth.forgot.title" data-testid="auth-forgot-title"></h2>
-        <button type="button" class="btn btn-ghost btn-icon" data-dialog-close data-i18n-attr="aria-label:common.close" data-testid="auth-forgot-close"><span class="icon i-x" aria-hidden="true" data-testid="auth-forgot-close-icon"></span></button>
+        <button type="button" class="btn btn-icon" data-dialog-close data-i18n-attr="aria-label:common.close" data-testid="auth-forgot-close"><span class="icon i-x" aria-hidden="true" data-testid="auth-forgot-close-icon"></span></button>
       </div>
       <div class="dialog-body">
-        <p class="callout" data-testid="auth-forgot-sim"><span class="icon i-info" aria-hidden="true" data-testid="auth-forgot-sim-icon"></span><span><span class="badge badge-sim" data-i18n="sim.badge" data-testid="auth-forgot-sim-badge"></span> <span data-i18n="auth.forgot.sim" data-testid="auth-forgot-sim-text"></span></span></p>
+        <p class="callout" data-proto data-testid="auth-forgot-sim"><span class="icon i-info" aria-hidden="true" data-testid="auth-forgot-sim-icon"></span><span><span class="badge badge-sim" data-i18n="sim.badge" data-testid="auth-forgot-sim-badge"></span> <span data-i18n="auth.forgot.sim" data-testid="auth-forgot-sim-text"></span></span></p>
         <div id="auth-forgot-fields" data-testid="auth-forgot-fields">
           <p class="hint" data-i18n="auth.forgot.body" data-testid="auth-forgot-body"></p>
           <div class="field" id="auth-fg-f-email">

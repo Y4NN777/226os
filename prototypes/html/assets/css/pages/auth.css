@@ -23,3 +23,8 @@
 .auth-security { margin-top: var(--space-6); }
 .auth-security ul { margin: var(--space-2) 0 0; padding-left: var(--space-5); display: grid; gap: var(--space-1); }
 .auth-card .state:focus-visible, .auth-card .tabpanel:focus-visible { outline-offset: 2px; }
+
+.auth-more { margin-top: var(--space-4); }
+.auth-more summary { display: list-item; list-style: disclosure-closed inside; cursor: pointer; min-height: var(--target-min); padding-block: var(--space-2); color: var(--text-muted); font-size: var(--fs-sm); }
+.auth-more[open] summary { list-style-type: disclosure-open; }
+.auth-pw .auth-pw-toggle { align-self: center; }

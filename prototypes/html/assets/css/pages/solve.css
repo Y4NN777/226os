@@ -1,43 +1,38 @@
-/* Solve lane: only genuinely new patterns (list stats, mobile filter drawer, post/answer layout, simulated-viewer bar).
-   Tokens only; mobile-first; prefix .solve-. */
+/* Solve lane: only genuinely new patterns (list stats, filter drawer, post/answer layout, compact form actions).
+   Tokens only; mobile-first; prefix .solve-. No borders on chips/cards/panels (fill + spacing, see CONVENTIONS section 11). */
 
 /* ---- search bar + filter toggle ---- */
-.solve-searchbar { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-2); margin-bottom: var(--space-4); align-items: center; }
-.solve-searchbar .search-field { grid-column: 1 / -1; }
+.solve-searchbar { display: flex; gap: var(--space-2); margin-bottom: var(--space-4); align-items: center; }
+.solve-searchbar .search-field { flex: 1 1 auto; min-width: 0; }
 .solve-searchbar .search-field .input { width: 100%; }
-.solve-searchbar > .btn { justify-content: center; }
-@media (min-width: 640px) { .solve-searchbar { grid-template-columns: minmax(0, 1fr) auto auto; } .solve-searchbar .search-field { grid-column: auto; } }
-.solve-filter-toggle .badge { margin-left: var(--space-1); }
-@media (min-width: 1024px) {
-  .solve-searchbar { grid-template-columns: minmax(0, 1fr) auto; }
-  .solve-filter-toggle { display: none; }
-}
+.solve-filter-toggle { flex: none; }
+.solve-filter-dot { position: absolute; top: 8px; right: 8px; width: 9px; height: 9px; border-radius: 50%; background: var(--accent); }
+@media (min-width: 1024px) { .solve-filter-toggle { display: none; } }
 @media (max-width: 1023px) { .solve-filters-collapsed { display: none; } }
-.solve-sort { width: auto; min-width: 11rem; }
 .solve-results { min-width: 0; display: grid; gap: var(--space-4); }
 .solve-results .results-meta { margin-bottom: 0; }
 .solve-results .callout { align-items: start; }
 
-/* ---- list row: votes / answers markers ---- */
+/* ---- list row: votes / answers markers (fill, no outline) ---- */
 .solve-stats { display: grid; gap: var(--space-1); justify-items: stretch; min-width: 4.5rem; }
-.solve-stat { display: inline-flex; align-items: baseline; justify-content: center; gap: var(--space-1); padding: 2px var(--space-2); border: var(--border-w) solid var(--border-strong); border-radius: var(--radius-sm); font-size: var(--fs-xs); color: var(--text-muted); white-space: nowrap; }
+.solve-stat { display: inline-flex; align-items: baseline; justify-content: center; gap: var(--space-1); padding: 2px var(--space-2); border-radius: var(--radius-sm); background: var(--surface-subtle); font-size: var(--fs-xs); color: var(--text-muted); white-space: nowrap; }
 .solve-stat strong { font-size: var(--fs-md); color: var(--text); font-variant-numeric: tabular-nums; }
-.solve-stat-accepted { background: var(--success-bg); border-color: var(--success); color: var(--success); }
+.solve-stat-accepted { background: var(--success-bg); color: var(--success); }
 .solve-stat-accepted strong { color: var(--success); }
 .solve-stat-accepted .icon { align-self: center; width: 1em; height: 1em; }
-.solve-stat-none { border-style: dashed; }
+.solve-stat-none { background: transparent; }
 .solve-inline-stats { display: none; gap: var(--space-2); }
 @container (max-width: 479px) { .solve-inline-stats { display: inline-flex; } }
+.solve-results .meta .person { gap: var(--space-1); }
 
-/* ---- ask form ---- */
-.solve-ask-intro { max-width: var(--prose-max); margin-bottom: var(--space-4); }
+/* ---- forms: minimal, compact language picker beside the primary action ---- */
 .solve-ask-form { display: grid; gap: var(--space-4); }
-.solve-ask-form .field + .field, .solve-ask-form .field + .solve-form-grid, .solve-ask-form .solve-form-grid .field + .field { margin-top: 0; }
-.solve-form-grid { display: grid; gap: var(--space-4); grid-template-columns: minmax(0, 1fr); }
-@media (min-width: 768px) { .solve-form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-.solve-textarea { min-height: 180px; font-family: var(--font-mono); font-size: var(--fs-sm); }
-.solve-preview { min-height: 180px; padding: var(--space-3); border: var(--border-w) dashed var(--border-strong); border-radius: var(--radius-control); background: var(--surface); }
-.solve-form-actions { margin-top: var(--space-2); }
+.solve-ask-form .field + .field { margin-top: 0; }
+.solve-textarea { min-height: 160px; font-family: var(--font-mono); font-size: var(--fs-sm); }
+.solve-preview { min-height: 160px; padding: var(--space-3); border-radius: var(--radius-control); background: var(--surface-subtle); }
+.solve-form-actions { margin-top: var(--space-1); align-items: center; }
+.solve-lang-pick { display: inline-flex; align-items: center; gap: var(--space-1); color: var(--text-muted); }
+.solve-lang-select { width: auto; min-width: 4.5rem; }
 #ask-success { margin-bottom: var(--space-4); }
 #ask { scroll-margin-top: calc(var(--header-h) + var(--space-4)); }
 .solve-callout-action { margin-top: var(--space-2); }
@@ -46,30 +41,21 @@
 .solve-post { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-3); align-items: start; }
 @media (min-width: 640px) { .solve-post { gap: var(--space-4); } }
 .solve-post-main { min-width: 0; }
-.solve-post-main > .stack-item + .stack-item { margin-top: var(--space-4); }
-.solve-post-foot { padding-top: var(--space-2); border-top: var(--border-w) solid var(--border); }
+.solve-post-vote { display: grid; justify-items: center; gap: var(--space-1); }
+.solve-post-foot { padding-top: var(--space-1); }
 .solve-post-foot .person a { color: var(--text); font-weight: var(--fw-medium); }
-.vote button[disabled] { color: var(--text-disabled); border-color: var(--border); background: var(--surface-subtle); cursor: not-allowed; }
+.vote button[disabled] { color: var(--text-disabled); cursor: not-allowed; }
 .solve-answer { padding: var(--space-4); }
-.solve-answer + .solve-answer { margin-top: 0; }
-.solve-answer.is-accepted { border-color: var(--success); border-left-width: 4px; }   /* shape (thick edge) + badge text: never colour only */
+.solve-answer.is-accepted { box-shadow: var(--shadow-card), inset 4px 0 0 var(--success); }   /* shape (thick edge) + badge: never colour only */
 .solve-answer:focus-visible { outline-offset: 2px; }
-.solve-sources { display: grid; gap: var(--space-1); padding: var(--space-2) var(--space-3); border-left: 3px solid var(--border-strong); background: var(--surface-subtle); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
+.solve-accept[aria-pressed="true"] { color: var(--success); background: var(--success-bg); }
+.solve-sources { display: grid; gap: var(--space-1); padding: var(--space-2) var(--space-3); background: var(--surface-subtle); border-radius: var(--radius-sm); }
 .solve-sources ul { display: grid; gap: 2px; }
-.solve-answer-actions { padding-top: var(--space-1); }
-.solve-related-lede { margin-bottom: var(--space-3); }
+.solve-linked { grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: var(--space-3); }
+.solve-linked-text { display: grid; gap: 2px; min-width: 0; }
+.solve-proto-demo { display: grid; gap: var(--space-2); margin-top: var(--space-3); padding: var(--space-3); background: var(--surface-subtle); border-radius: var(--radius-card); }
 .solve-detail-main { min-width: 0; }
 .solve-context { grid-template-columns: max-content minmax(0, 1fr); }
-.solve-rep-note { margin-bottom: var(--space-2); }
 .prose .code-block { max-width: 100%; }
 .prose .code-block pre { max-width: 100%; }
-
-/* ---- simulated viewer bar (authorization demo) ---- */
-.solve-viewas { display: grid; gap: var(--space-2); justify-items: start; padding: var(--space-3) var(--space-4); margin-bottom: var(--space-6); border: var(--border-w) dashed var(--border-strong); border-radius: var(--radius-card); background: var(--surface); }
-.solve-viewas-head h2 { font-size: var(--fs-sm); }
-.solve-viewas .segmented { max-width: 100%; flex-wrap: wrap; }
-.solve-viewas .segmented button { padding: 0 var(--space-3); min-height: var(--target); }
-.solve-viewas p { max-width: var(--prose-max); }
-.solve-viewas > div { max-width: 100%; }
-.solve-viewas-api[hidden] { display: none; }
 @media (min-width: 1024px) { .solve-detail { gap: var(--space-8); } }

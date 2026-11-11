@@ -1,10 +1,11 @@
 /* Connect: designed journey (PRD §8: P0 = documented scope and designed journey; the rest = planned, P1/P2). Intended discovery pattern only; actions are non-functional. Filters work client-side on fictional samples. */
 I18N.register({
   fr: {
-    'connect.title': 'Connect (parcours conçu) — 226os', 'connect.badge': 'Parcours conçu (P1/P2)',
-    'connect.lede': 'Mentorat, relecture de CV, préparation d’entretiens et groupes d’étude : le parcours conçu, présenté ici sans fonctionnement réel.',
-    'connect.note.title': 'Parcours conçu (P1/P2), non fonctionnel. ',
-    'connect.note.body': 'Selon le PRD §8, le périmètre de Connect est documenté et son parcours conçu ; la suite est prévue en P1/P2. Cette page montre ce parcours conçu, sans fonctionnement réel. Les entrées ci-dessous sont des exemples fictifs pour montrer le modèle de découverte. Aucune mise en relation n’est possible dans ce prototype.',
+    'connect.soon.title': 'Bientôt disponible', 'connect.soon.body': 'Mentorat, groupes d’étude et mise en relation entre pairs : bientôt.', 'connect.soon.back': 'Retour à l’accueil',
+    'connect.title': 'Connect — 226os', 'connect.badge': 'Bientôt',
+    'connect.lede': 'Mentorat, relecture de CV, préparation d’entretiens et groupes d’étude.',
+    'connect.note.title': 'Non fonctionnel (P1/P2). ',
+    'connect.note.body': 'Connect est prévu en P1/P2 (PRD §8). Les entrées ci-dessous sont des exemples fictifs qui montrent le modèle de découverte. Aucune mise en relation n’est possible.',
     'connect.disc.h': 'Découvrir mentors et collaborations', 'connect.disc.lede': 'Filtrez par compétence, pays et langue. Les actions de mise en relation arrivent plus tard.',
     'connect.filters.label': 'Filtrer les exemples Connect', 'connect.f.skill': 'Compétence', 'connect.f.lang': 'Langue parlée', 'connect.f.reset': 'Réinitialiser',
     'connect.f.skill.all': 'Toutes', 'connect.f.country.all': 'Tous', 'connect.f.lang.all': 'Toutes',
@@ -12,7 +13,7 @@ I18N.register({
     'connect.count': '{n} exemple(s) affiché(s)',
     'connect.kind.mentor-offer': 'Offre de mentorat', 'connect.kind.mentor-request': 'Demande de mentorat', 'connect.kind.cv-review': 'Relecture de CV / portfolio',
     'connect.kind.interview': 'Préparation d’entretien', 'connect.kind.study-group': 'Groupe d’étude', 'connect.kind.mission': 'Mission à distance',
-    'connect.row.by': 'Proposé par', 'connect.row.profile': 'Voir le profil de', 'connect.row.action': 'Prendre contact', 'connect.row.action.why': 'Bientôt : la mise en relation n’est pas disponible.',
+    'connect.row.by': 'Proposé par', 'connect.row.profile': 'Voir le profil de', 'connect.row.action': 'Prendre contact', 'connect.row.action.why': 'Bientôt : la mise en relation n’est pas disponible.',
     'connect.list.empty.title': 'Aucun exemple ne correspond', 'connect.list.empty.body': 'Retirez un filtre ou réinitialisez pour revoir tous les exemples.',
     'connect.spaces.h': 'Communautés et échanges', 'connect.spaces.badge': 'Plus tard — P2',
     'connect.spaces.lede': 'Espaces thématiques et fil d’activité sont décrits dans la feuille de route. Aucune discussion n’est affichée dans ce prototype.',
@@ -21,8 +22,9 @@ I18N.register({
     'connect.space.by-interest': 'Espaces par centre d’intérêt', 'connect.space.by-interest.d': 'Groupes thématiques, par exemple apprentissage ou open source.'
   },
   en: {
-    'connect.title': 'Connect (designed journey) — 226os', 'connect.badge': 'Designed journey (P1/P2)',
-    'connect.lede': 'Mentoring, CV reviews, interview preparation and study groups: the designed journey, shown here without working behaviour.',
+    'connect.soon.title': 'Coming soon', 'connect.soon.body': 'Finding peers, study groups and mentoring is on its way.', 'connect.soon.back': 'Back to home',
+    'connect.title': 'Connect — 226os', 'connect.badge': 'Designed journey (P1/P2)',
+    'connect.lede': 'Mentoring, CV reviews, interview preparation and study groups.',
     'connect.note.title': 'Designed journey (P1/P2), not functional. ',
     'connect.note.body': 'Per PRD §8, Connect’s scope is documented and its journey designed; the rest is planned for P1/P2. This page shows that designed journey, non-functional. The entries below are fictional examples showing the discovery pattern. No contact or matching is possible in this prototype.',
     'connect.disc.h': 'Discover mentors and collaborations', 'connect.disc.lede': 'Filter by skill, country and language. Contact actions come later.',
@@ -69,7 +71,7 @@ I18N.register({
       box.innerHTML = '<ul class="list list-reset" data-testid="connect-list">' + items.map(function (e, i) {
         var n = e.id, per = MOCK.person(e.person), why = 'cx-why-' + n;
         return '<li class="row" data-testid="connect-row-' + n + '"><div class="row-lead"><span class="icon i-' + (e.kind === 'study-group' ? 'users' : e.kind === 'mission' ? 'globe' : 'network') + '" aria-hidden="true" data-testid="connect-row-icon-' + n + '"></span></div>' +
-          '<div class="row-main"><div class="cluster"><span class="badge badge-later" data-testid="connect-kind-' + n + '">' + esc(t('connect.kind.' + e.kind)) + '</span><span class="badge badge-sim" data-testid="connect-example-' + n + '">' + esc(t('sim.badge')) + '</span></div>' +
+          '<div class="row-main"><div class="cluster"><span class="badge badge-later" data-testid="connect-kind-' + n + '">' + esc(t('connect.kind.' + e.kind)) + '</span><span class="badge badge-sim" data-proto data-testid="connect-example-' + n + '">' + esc(t('sim.badge')) + '</span></div>' +
           '<h3 class="row-title" lang="' + e.lang + '" data-user-content data-testid="connect-title-' + n + '">' + esc(e.title) + '</h3>' +
           '<ul class="tag-list list-reset" data-testid="connect-tags-' + n + '">' + e.skills.map(function (s) { return '<li><span class="tag" data-testid="connect-tag-' + n + '-' + s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '">' + esc(s) + '</span></li>'; }).join('') + '</ul>' +
           '<div class="meta"><span class="meta-item" data-testid="connect-by-' + n + '">' + esc(t('connect.row.by')) + '&nbsp;<a href="profile.html?id=' + per.id + '" lang="' + per.lang + '" data-user-content data-testid="connect-person-' + n + '">' + esc(per.name) + '</a></span>' +

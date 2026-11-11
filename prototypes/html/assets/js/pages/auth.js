@@ -8,18 +8,18 @@
     fr: {
       'auth.title': 'Connexion — 226os', 'auth.h1': 'Connexion et création de compte',
       'auth.lede': 'Un compte permet de poser des questions, de voter, de candidater à un projet et d’avoir un profil minimal. Parcourir reste possible sans compte.',
-      'auth.sim.text': 'Prototype : aucun compte n’est créé, aucun mot de passe n’est envoyé ni stocké.',
+      'auth.sim.text': 'Prototype : aucun compte n’est créé, aucun mot de passe n’est envoyé ni stocké.',
       'auth.demo.summary': 'Scénarios de démonstration',
-      'auth.demo.ok': 'Connexion : une adresse valide et un mot de passe de 12 caractères ou plus réussit et mène au profil.',
-      'auth.demo.bad': 'Connexion : un mot de passe plus court affiche l’erreur générique « e-mail ou mot de passe incorrect ».',
-      'auth.demo.limit': 'Connexion : l’adresse limit@example.org simule trop de tentatives (429).',
-      'auth.demo.exists': 'Création : la réponse est identique que l’adresse existe déjà (exists@example.org) ou non.',
-      'auth.demo.states': 'États forcés : ?state=expired, ratelimit, badcreds ou verify ; ?tab=signup ouvre la création de compte.',
+      'auth.demo.ok': 'Connexion : une adresse valide et un mot de passe de 12 caractères ou plus réussit et mène au profil.',
+      'auth.demo.bad': 'Connexion : un mot de passe plus court affiche l’erreur générique « e-mail ou mot de passe incorrect ».',
+      'auth.demo.limit': 'Connexion : l’adresse limit@example.org simule trop de tentatives (429).',
+      'auth.demo.exists': 'Création : la réponse est identique que l’adresse existe déjà (exists@example.org) ou non.',
+      'auth.demo.states': 'États forcés : ?state=expired, ratelimit, badcreds ou verify ; ?tab=signup ouvre la création de compte.',
       'auth.card.label': 'Accès au compte', 'auth.tab.signin': 'Se connecter', 'auth.tab.signup': 'Créer un compte',
       'auth.email': 'Adresse e-mail', 'auth.password': 'Mot de passe', 'auth.pw.show': 'Afficher', 'auth.pw.hide': 'Masquer',
-      'auth.pw.hint': '12 caractères minimum, 128 maximum. Une phrase de passe fonctionne bien ; espaces autorisés, pas de règle de majuscules ou de symboles imposée.',
+      'auth.pw.hint': '12 caractères minimum. Une phrase de passe convient très bien.',
       'auth.name': 'Nom affiché', 'auth.name.hint': 'Public sur votre profil. Un pseudonyme convient.',
-      'auth.country': 'Pays', 'auth.country.choose': 'Choisir un pays', 'auth.langs': 'Langues', 'auth.langs.hint': 'Au moins une. Utilisées pour votre profil, pas pour traduire vos contenus.',
+      'auth.more': 'Plus d’informations (facultatif)', 'auth.country': 'Pays', 'auth.country.choose': 'Choisir un pays', 'auth.langs': 'Langues', 'auth.langs.hint': 'Au moins une. Utilisées pour votre profil, pas pour traduire vos contenus.',
       'auth.lang.fr': 'Français', 'auth.lang.en': 'Anglais',
       'auth.privacy': 'Votre adresse e-mail reste privée et n’apparaît jamais sur votre profil public.',
       'auth.signin.submit': 'Se connecter', 'auth.signin.busy': 'Connexion…', 'auth.signup.submit': 'Créer mon compte', 'auth.signup.busy': 'Création…',
@@ -33,21 +33,21 @@
       'auth.banner.bad.title': 'Connexion impossible', 'auth.banner.bad.body': 'E-mail ou mot de passe incorrect. Vérifiez vos informations et réessayez.',
       'auth.banner.limit.title': 'Trop de tentatives (429)', 'auth.banner.limit.body': 'Pour protéger les comptes, la connexion est suspendue temporairement. Réessayez dans {n} secondes.',
       'auth.banner.limit.body0': 'Vous pouvez réessayer maintenant.',
-      'auth.banner.expired.title': 'Session expirée', 'auth.banner.expired.body': 'Pour votre sécurité, vous avez été déconnecté·e. Reconnectez-vous pour continuer ; vos saisies non envoyées ne sont pas conservées.',
+      'auth.banner.expired.title': 'Session expirée', 'auth.banner.expired.body': 'Pour votre sécurité, votre session a pris fin. Reconnectez-vous pour continuer.',
       'auth.banner.verify.title': 'Vérification de l’e-mail en attente', 'auth.banner.verify.body': 'Ouvrez le lien reçu par e-mail pour activer votre compte. Pensez à vérifier vos courriers indésirables.',
       'auth.banner.verify.resend': 'Renvoyer l’e-mail',
       'auth.signin.limited': 'Réessayer dans {n} s',
-      'auth.ok.title': 'Connexion simulée réussie', 'auth.ok.body': 'Redirection vers votre profil…', 'auth.ok.link': 'Aller au profil',
+      'auth.ok.title': 'Connexion réussie', 'auth.ok.body': 'Redirection vers votre profil…', 'auth.ok.link': 'Aller au profil',
       'auth.verify.title': 'Vérifiez votre boîte de réception', 'auth.verify.body': 'Si un compte peut être créé avec cette adresse, vous recevrez un e-mail contenant un lien de vérification. Le message est identique que l’adresse soit déjà utilisée ou non.',
       'auth.verify.sim': 'Aucun e-mail n’est réellement envoyé dans ce prototype.',
       'auth.verify.confirm': 'Simuler le clic sur le lien de vérification', 'auth.verify.resend': 'Renvoyer l’e-mail', 'auth.verify.back': 'Retour à la connexion',
-      'auth.resend.toast.title': 'Demande prise en compte', 'auth.resend.toast.msg': 'Si l’adresse est éligible, un nouveau message est envoyé (simulé).',
+      'auth.resend.toast.title': 'Demande prise en compte', 'auth.resend.toast.msg': 'Si l’adresse est éligible, un nouveau message est envoyé.',
       'auth.forgot.title': 'Réinitialiser le mot de passe', 'auth.forgot.sim': 'Aucun e-mail n’est envoyé dans ce prototype.',
       'auth.forgot.body': 'Saisissez l’adresse de votre compte. Nous répondons de la même façon qu’un compte existe ou non.', 'auth.forgot.submit': 'Envoyer le lien',
       'auth.forgot.done.title': 'Demande reçue. ', 'auth.forgot.done.body': 'Si un compte existe pour cette adresse, un lien de réinitialisation à usage unique et de courte durée vous est envoyé.',
-      'auth.sec.h': 'Protections prévues côté serveur', 'auth.sec.1': 'Mot de passe haché (Argon2id) ; session serveur opaque, cookie HttpOnly, SameSite=Lax et jeton CSRF sur chaque action.',
-      'auth.sec.2': 'Réponses génériques à la connexion, à l’inscription et à la réinitialisation : on ne peut pas deviner quelles adresses ont un compte.',
-      'auth.sec.3': 'Limites de tentatives par adresse IP et par compte ; réinitialisation et vérification par lien à usage unique (exigences G0, à valider avant la production).'
+      'auth.sec.h': 'Protections prévues côté serveur', 'auth.sec.1': 'Mot de passe haché (Argon2id) ; session serveur opaque, cookie HttpOnly, SameSite=Lax et jeton CSRF sur chaque action.',
+      'auth.sec.2': 'Réponses génériques à la connexion, à l’inscription et à la réinitialisation : on ne peut pas deviner quelles adresses ont un compte.',
+      'auth.sec.3': 'Limites de tentatives par adresse IP et par compte ; réinitialisation et vérification par lien à usage unique (exigences G0, à valider avant la production).'
     },
     en: {
       'auth.title': 'Sign in — 226os', 'auth.h1': 'Sign in and create an account',
@@ -63,7 +63,7 @@
       'auth.email': 'Email address', 'auth.password': 'Password', 'auth.pw.show': 'Show', 'auth.pw.hide': 'Hide',
       'auth.pw.hint': 'At least 12 and at most 128 characters. A passphrase works well; spaces allowed, no forced upper-case or symbol rules.',
       'auth.name': 'Display name', 'auth.name.hint': 'Public on your profile. A nickname is fine.',
-      'auth.country': 'Country', 'auth.country.choose': 'Choose a country', 'auth.langs': 'Languages', 'auth.langs.hint': 'At least one. Used for your profile, not to translate your content.',
+      'auth.more': 'More details (optional)', 'auth.country': 'Country', 'auth.country.choose': 'Choose a country', 'auth.langs': 'Languages', 'auth.langs.hint': 'At least one. Used for your profile, not to translate your content.',
       'auth.lang.fr': 'French', 'auth.lang.en': 'English',
       'auth.privacy': 'Your email address stays private and never appears on your public profile.',
       'auth.signin.submit': 'Sign in', 'auth.signin.busy': 'Signing in…', 'auth.signup.submit': 'Create my account', 'auth.signup.busy': 'Creating…',
@@ -81,11 +81,11 @@
       'auth.banner.verify.title': 'Email verification pending', 'auth.banner.verify.body': 'Open the link sent by email to activate your account. Check your spam folder too.',
       'auth.banner.verify.resend': 'Resend email',
       'auth.signin.limited': 'Try again in {n} s',
-      'auth.ok.title': 'Simulated sign-in succeeded', 'auth.ok.body': 'Redirecting to your profile…', 'auth.ok.link': 'Go to profile',
+      'auth.ok.title': 'Signed in', 'auth.ok.body': 'Redirecting to your profile…', 'auth.ok.link': 'Go to profile',
       'auth.verify.title': 'Check your inbox', 'auth.verify.body': 'If an account can be created with this address, you will receive an email with a verification link. The message is the same whether the address is already in use or not.',
       'auth.verify.sim': 'No email is actually sent in this prototype.',
       'auth.verify.confirm': 'Simulate clicking the verification link', 'auth.verify.resend': 'Resend email', 'auth.verify.back': 'Back to sign in',
-      'auth.resend.toast.title': 'Request received', 'auth.resend.toast.msg': 'If the address is eligible, a new message is sent (simulated).',
+      'auth.resend.toast.title': 'Request received', 'auth.resend.toast.msg': 'If the address is eligible, a new message is sent .',
       'auth.forgot.title': 'Reset password', 'auth.forgot.sim': 'No email is sent in this prototype.',
       'auth.forgot.body': 'Enter your account address. We answer the same way whether an account exists or not.', 'auth.forgot.submit': 'Send link',
       'auth.forgot.done.title': 'Request received. ', 'auth.forgot.done.body': 'If an account exists for this address, a single-use, short-lived reset link is sent to you.',
@@ -116,21 +116,8 @@
     sel.value = cur;
   }
   renderCountries();
-  document.addEventListener('i18n:change', function () { renderCountries(); syncPwLabels(); document.title = t('auth.title'); });
+  document.addEventListener('i18n:change', function () { renderCountries(); document.title = t('auth.title'); });
   document.title = t('auth.title');
-
-  /* ---------- show/hide password (aria-pressed toggle) ---------- */
-  function syncPwLabels() {
-    $$('[data-pw-toggle]').forEach(function (b) {
-      var on = b.getAttribute('aria-pressed') === 'true', lab = $('[data-pw-label]', b);
-      lab.setAttribute('data-i18n', on ? 'auth.pw.hide' : 'auth.pw.show'); lab.textContent = t(on ? 'auth.pw.hide' : 'auth.pw.show');
-    });
-  }
-  document.addEventListener('click', function (e) {
-    var b = e.target.closest('[data-pw-toggle]'); if (!b) return;
-    var inp = document.getElementById(b.getAttribute('data-pw-toggle')), on = b.getAttribute('aria-pressed') !== 'true';
-    b.setAttribute('aria-pressed', on); inp.type = on ? 'text' : 'password'; syncPwLabels();
-  });
 
   /* ---------- validation helpers ---------- */
   function setErr(pre, form, field, key) {
@@ -219,9 +206,7 @@
     var ok = run('auth-up', 'auth-signup', [
       { field: 'name', target: 'auth-up-name', fn: function () { return !name ? 'auth.err.name.required' : name.length < 2 ? 'auth.err.name.short' : null; } },
       { field: 'email', target: 'auth-up-email', fn: function () { return checkEmail(email); } },
-      { field: 'password', target: 'auth-up-password', fn: function () { return !pw ? 'auth.err.password.required' : pw.length < 12 ? 'auth.err.password.short' : null; } },
-      { field: 'country', target: 'auth-up-country', fn: function () { return country ? null : 'auth.err.country.required'; } },
-      { field: 'langs', target: 'auth-up-langs', fn: function () { return langs ? null : 'auth.err.langs.required'; } }
+      { field: 'password', target: 'auth-up-password', fn: function () { return !pw ? 'auth.err.password.required' : pw.length < 12 ? 'auth.err.password.short' : null; } }
     ]);
     if (!ok) return;
     var btn = $('#auth-signup-submit'), lab = $('#auth-signup-submit-label');
