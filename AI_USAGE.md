@@ -1,4 +1,4 @@
-# 226OS AI Use and Provenance Record
+# 226os AI Use and Provenance Record
 
 **Status:** DRAFT; human and CADEV compliance review required
 
@@ -50,5 +50,28 @@ tests_or_evidence:
   - "claude -p --output-format stream-json init event: agents [advisor, go-implementer, scout, skeptic, web-implementer]; skills/slash_commands [advisor, ship-check, spec-to-task, start-slice, verify-slice]"
   - "claude -p '/spec-to-task US-NOPE-999': skill invoked, stopped at step 1, no files changed"
   - "/doctor, /permissions, /agents interactive checks: NOT RUN"
-open_risks: ["provider access to each routed model not verified", "no PreToolUse/Stop hooks yet, per PROJECT_HARNESS_SPEC.md"]
+open_risks: ["provider access to each routed model not verified"]
+```
+
+## Domain skills and hooks record
+
+```yaml
+date: "2026-11-11"
+contributor: "Y4NN77"
+tool_or_model: "Claude Code 2.1.322, Claude Opus 5.5 (orchestration), general-purpose research subagents, Haiku validation probes"
+purpose: "Add ten domain skills, the postgres-expert agent, and the domain-skill hooks"
+repository_or_source_context: "AGENTS.md, DESIGN.md, docs/{DEV,TEST,RULES,SPEC,SHIP,GIT_WORKFLOW}.md, docs/spec-kit/*, docs/decisions/*, docs/quality/COVERAGE_SCOPE.md"
+files_or_sections_affected: [".claude/skills/<10 domain skills>/**", ".claude/agents/*.md", ".claude/hooks/**", ".claude/settings.json", "CLAUDE.md", "PROJECT_HARNESS_SPEC.md"]
+third_party_sources_consulted: ["Official docs cited inline in each SKILL.md (Go, Chi, pgx, sqlc, PostgreSQL, OpenAPI 3.1, RFC 9457, OWASP, React, TanStack, WCAG, Playwright, testcontainers-go, GitHub Actions, Docker, Traefik)"]
+license_review: PENDING
+human_reviewers: []
+tests_or_evidence:
+  - "python3 -m unittest discover -s .claude/hooks/tests: 26 tests OK"
+  - "claude -p probe A (first design): first Write to apps/api/ denied by the hook; no file created"
+  - "claude -p probe D: Read of apps/api/main.go received the hook context naming engineering-principles, go-backend"
+  - "claude -p probe E: spawned skeptic subagent received only go-backend (its preloads were recognised via agent_type); hook output over ~2 KB was truncated to a preview, which led to the Skill-tool design"
+  - "claude -p probe G (final design): Write to apps/api/ denied with the directive; the model loaded engineering-principles and go-backend via the Skill tool; the hook recorded both; the retry was not observed live (covered by unit tests); no file created"
+  - "claude -p probe C: all 10 domain skills listed at init; Skill tool invocations recorded by the PostToolUse hook; the subsequent Write passed the hook (probe file then removed)"
+  - "claude -p spawning postgres-expert: subagent reported exactly its 5 preloaded skill headings"
+open_risks: ["Bash-based file writes bypass the hook", "an Edit of a non-existent file is rejected by Claude Code before PreToolUse fires (harmless: no write happens)", "skills cite documents with known internal conflicts (listed in the PR description)"]
 ```

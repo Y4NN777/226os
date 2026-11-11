@@ -1,7 +1,7 @@
-# 226OS Claude Code Harness — Documented v0.1
+# 226os Claude Code Harness — Documented v0.1
 
 **Repository examined:** https://github.com/Y4NN777/226os, default branch `main`, 2026-11-11.
-**Status:** Harness contract documented for human review; runtime `.claude/` settings, five agents and five skills are installed and load-validated on Claude Code 2.1.322 (H0 record in `AI_USAGE.md`). This document does not grant application implementation or release approval.
+**Status:** Harness contract documented for human review; runtime `.claude/` settings, six agents, five workflow skills, ten domain skills and the domain-skill hooks are installed and load-validated on Claude Code 2.1.322 (H0 record in `AI_USAGE.md`). This document does not grant application implementation or release approval.
 
 ## Verified baseline
 - The remote tree contains PRD/SPEC/TEST/DEV/SHIP/RULES/ARCHITECTURE/DESIGN, AGENTS.md, spec-kit G0 proposals and Claude handoff, plus Git workflow and an existing branch-policy workflow.
@@ -13,9 +13,16 @@
 
 ## Design rationale
 - A concise CLAUDE.md is an index and operating contract, not another copy of AGENTS.md.
-- Five specialized subagents, not a swarm of autonomous editors: advisor (Opus), scout (Haiku), Go implementer (Sonnet), web implementer (Sonnet), skeptic reviewer (Sonnet).
-- Five skills: `/advisor`, `/start-slice`, `/spec-to-task`, `/verify-slice`, `/ship-check`.
-- No repo-wide production shell hooks initially, because Make targets and execution contract do not yet exist. Add tested PreToolUse/Stop hooks after bootstrap, in a separate reviewed PR.
+- Six specialized subagents, not a swarm of autonomous editors: advisor (Opus), scout (Haiku), Go implementer (Sonnet), PostgreSQL expert (Sonnet), web implementer (Sonnet), skeptic reviewer (Sonnet).
+- Five workflow skills (user-invoked): `/advisor`, `/start-slice`, `/spec-to-task`, `/verify-slice`, `/ship-check`.
+- Ten domain skills built from the project docs plus cited external expertise: `engineering-principles`, `go-backend`, `postgres-data`, `api-contract`, `web-frontend`, `security-authz`, `tdd-unit`, `bdd-acceptance`, `integration-testing`, `ci-cd-delivery`. Project docs are binding; external practice is advisory and cited.
+- Domain-skill enforcement, three layers:
+  1. Implementer and reviewer agents preload their domain skills (`skills:` frontmatter).
+  2. `.claude/hooks/domain_skills.py` maps file paths to skills via `.claude/hooks/skill-map.json`. On Read it adds a short directive (once per skill) to load the missing skills; on Edit/Write/MultiEdit/NotebookEdit it denies until every mapped skill is loaded through the Skill tool. Skill text is never inlined: Claude Code truncates long hook output to a ~2 KB preview (observed on 2.1.322), while the Skill tool loads the full skill.
+  3. A PostToolUse hook on Skill records loaded skills per session and per subagent (subagent `skills:` preloads count as loaded); a SessionStart hook clears the record on compact/clear so skills are reloaded after context loss. An unreadable skill map or a missing SKILL.md blocks writes.
+- Domain skills must not use `paths:` frontmatter: Claude Code then hides them until a matching file exists, which breaks the Skill tool and subagent preloads (observed on 2.1.322). Path routing lives only in `skill-map.json`.
+- Hook tests: `python3 -m unittest discover -s .claude/hooks/tests`. Shell writes through Bash bypass the hook; review and CI remain the backstop.
+- No Make/CI execution hooks yet, because Make targets and the execution contract do not exist. Add them after bootstrap.
 - `.claude/settings.json` only adds narrow read/edit denies for typical local env and secret paths. These rules are defense-in-depth, NOT an OS sandbox; verify via `/permissions` and `/doctor`. No blanket Bash approval, no bypass mode.
 
 ## Agent routing
@@ -24,7 +31,8 @@
 | Goal framing, architectural arbitration, synthesis | Main thread | none | Opus 5.5 / medium by default; high for hard cross-domain decisions |
 | Independent architecture opinion | `/advisor` | advisor | Opus 5.5 / high, read-only |
 | Targeted repo investigation | main | scout | Haiku 5.5 / low, read-only |
-| Approved Go + database vertical slice | main | go-implementer | Sonnet 5.5 / medium |
+| Approved Go API vertical slice | main | go-implementer | Sonnet 5.5 / medium |
+| Approved PostgreSQL schema/migration/query slice | main | postgres-expert | Sonnet 5.5 / high |
 | Approved React/TanStack/Astryx vertical slice | main | web-implementer | Sonnet 5.5 / medium |
 | Independent review on risky change | main | skeptic | Sonnet 5.5 / high, read-only |
 

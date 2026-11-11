@@ -1,4 +1,4 @@
-# 226OS — Claude Code Project Harness
+# 226os — Claude Code Project Harness
 
 > Project context, not a replacement for `AGENTS.md`, `docs/PRD.md`, or accepted ADRs.
 
@@ -15,7 +15,7 @@ React 19 + TypeScript + Vite + TanStack Router/Query/Form; Astryx primary UI and
 
 ## Orchestration contract
 - Main Opus session: task framing, ADR/escalation, design arbitration, integration and final evidence. Use `/advisor` for an independent architecture opinion.
-- Delegate bounded read-only investigation to `scout` (Haiku); delegate approved Go/frontend slices to `go-implementer` / `web-implementer` (Sonnet); use `skeptic` for independent security/quality review.
+- Delegate bounded read-only investigation to `scout` (Haiku); delegate approved Go/database/frontend slices to `go-implementer` / `postgres-expert` / `web-implementer` (Sonnet); use `skeptic` for independent security/quality review.
 - Single-agent first. Delegate only a genuinely independent task with explicit allowed paths, expected outputs, acceptance criteria, and stop condition. No parallel edits of shared files.
 - Every development task: spec -> test RED -> implement GREEN -> refactor -> deterministic gates -> review -> closeout. No fake PASS.
 - Keep summaries concise, grounded in changed paths, exact commands and target commit; no long self-narration.

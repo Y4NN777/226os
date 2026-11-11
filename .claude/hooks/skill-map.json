@@ -1,0 +1,15 @@
+{
+  "description": "Domain path globs -> project skills. Read by .claude/hooks/domain_skills.py. Globs are repo-relative; ** spans directories.",
+  "skills": [
+    {"skill": "engineering-principles", "paths": ["apps/**", "db/**", "api/**"]},
+    {"skill": "go-backend", "paths": ["apps/api/**", "**/*.go", "go.mod", "go.sum"]},
+    {"skill": "postgres-data", "paths": ["db/**", "**/*.sql", "**/sqlc.yaml", "**/sqlc.yml"]},
+    {"skill": "api-contract", "paths": ["api/**", "**/openapi.yaml", "**/openapi.yml", "**/openapi.json"]},
+    {"skill": "web-frontend", "paths": ["apps/web/**"]},
+    {"skill": "security-authz", "paths": ["**/identity/**", "**/auth/**", "**/auth*/**", "**/authz/**", "**/session*/**", "**/csrf*", "**/middleware/**", "**/handlers/**", "**/httpapi/**"]},
+    {"skill": "tdd-unit", "paths": ["**/*_test.go", "**/*.test.ts", "**/*.test.tsx", "**/*.spec.ts", "**/*.spec.tsx", "**/vitest.config.*"]},
+    {"skill": "bdd-acceptance", "paths": ["tests/e2e/**", "e2e/**", "apps/web/e2e/**", "**/*.feature", "**/playwright.config.*"]},
+    {"skill": "integration-testing", "paths": ["**/integration/**", "**/*_integration_test.go", "tests/contract/**", "**/testdata/**"]},
+    {"skill": "ci-cd-delivery", "paths": ["Makefile", "**/*.mk", ".github/workflows/**", "infra/**", "docker/**", "**/Dockerfile", "**/Dockerfile.*", "compose*.yml", "compose*.yaml", "docker-compose*.yml", "**/traefik*/**"]}
+  ]
+}
