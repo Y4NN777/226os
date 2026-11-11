@@ -11,14 +11,14 @@ Construire 226OS conformément à `docs/PRD.md`, aux contraintes de `docs/SPEC.m
 3. `docs/architecture/ARCHITECTURE.md` + ADR acceptés — frontières et choix validés.
 4. `docs/RULES.md`, `docs/TEST.md`, `docs/DEV.md`, `docs/SHIP.md` — normes et gates.
 5. `docs/research/REFERENCES.md` — références et contraintes de réutilisation.
-6. `docs/GIT_WORKFLOW.md` — branches, PRs, preview, staging et production.
+6. `docs/GIT_WORKFLOW.md` — branches, staging/preview et production.
 
 ## Git workflow for agents
 
 - Start work from `develop`, unless the task is an approved hotfix from `main`.
 - Use `feature/<domain>/<name>`, `fix/<domain>/<name>`, `hotfix/<domain>/<name>`, `refactor/<domain>/<name>`, `test/<domain>/<name>`, `docs/<domain>/<name>` or `chore/<domain>/<name>`.
-- Open a pull request from the work branch to `develop`; never push directly to `develop`, `staging` or `main` once branch protection is active. Routine low-risk Preview PRs may be merged by the agent/orchestrator after required checks pass when no second maintainer exists.
-- Treat `develop` as Preview, promote `develop` to `staging` through a release pull request with human approval, and promote `staging` to `main` through a production pull request with G7 evidence and human approval.
+- Open a pull request from the work branch to `develop`; never push directly to `develop` or `main` once branch protection is active. Routine low-risk staging/preview PRs may be merged by the agent/orchestrator after required checks pass when no second maintainer exists.
+- Treat `develop` as staging/Preview, then promote `develop` to `main` through a production pull request with G7 evidence and human approval.
 - Keep the tested commit SHA unchanged during promotion. Back-merge production fixes into `develop` through a pull request.
 - Read `docs/GIT_WORKFLOW.md` before creating, renaming, rebasing or promoting a branch. Do not force-push shared branches.
 

@@ -8,7 +8,7 @@
 - Configure the repository Git identity before committing: `git config --local user.name "Y4NN77"` and `git config --local user.email "axel.studiesmail@gmail.com"`.
 - Use the exact project identity `Y4NN77 <axel.studiesmail@gmail.com>` for authored and committed project changes. Historical aliases are normalized through `.mailmap`; do not introduce a new author alias without review.
 - Identify the stable story/task ID, scope, owner, reviewer, allowed paths, acceptance examples, threat cases, and required gates.
-- Follow the branch and promotion rules in [`docs/GIT_WORKFLOW.md`](docs/GIT_WORKFLOW.md): work branch -> PR `develop` -> PR `staging` -> PR `main`.
+- Follow the branch and promotion rules in [`docs/GIT_WORKFLOW.md`](docs/GIT_WORKFLOW.md): work branch -> PR `develop` (staging/preview) -> PR `main` (production).
 - Name branches `feature|fix|hotfix|refactor|test|docs|chore/<domain>/<short-name>`; use a real domain such as `solve`, `discover`, `build`, `identity`, `access`, `platform`, `ops`, or `docs`.
 - Do not add product behavior, dependencies, storage services, migrations, public claims, or architecture changes without updating the relevant contract and, where required, an ADR.
 
@@ -32,9 +32,8 @@ The Git delivery flow is:
 
 ```text
 feature|fix|hotfix|refactor|test|docs|chore/<domain>/<name>
-	-> PR develop (Preview)
-	-> PR staging (Staging)
+	-> PR develop (Staging/Preview)
 	-> PR main (Production)
 ```
 
-Direct pushes to `develop`, `staging`, and `main` are prohibited once GitHub branch protection is configured. The agent/orchestrator may merge a green, low-risk PR into `develop`; `staging` and `main` still require release and production approval. Deployment jobs remain `NOT IMPLEMENTED`.
+Direct pushes to `develop` and `main` are prohibited once GitHub branch protection is configured. The agent/orchestrator may merge a green, low-risk PR into `develop`; `main` still requires production approval. Deployment jobs remain `NOT IMPLEMENTED`.

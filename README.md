@@ -138,7 +138,7 @@ Ces projets sont **des références de recherche, pas des dépendances déclaré
 | [Testing](docs/TEST.md) | Stratégie de tests et quality gates |
 | [Shipping](docs/SHIP.md) | Déploiement, vérification et rollback |
 | [Rules](docs/RULES.md) | Contraintes d'ingénierie |
-| [Git workflow](docs/GIT_WORKFLOW.md) | Branches, pull requests, preview, staging et production |
+| [Git workflow](docs/GIT_WORKFLOW.md) | Branches, pull requests, staging/preview et production |
 | [Agent instructions](AGENTS.md) | Orchestration par objectifs, permissions et preuves |
 
 

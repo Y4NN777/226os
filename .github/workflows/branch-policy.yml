@@ -4,7 +4,7 @@ on:
   pull_request:
     types: [opened, synchronize, reopened]
   push:
-    branches: [develop, staging, main]
+    branches: [develop, main]
 
 permissions:
   contents: read
@@ -30,14 +30,9 @@ jobs:
                 echo "Invalid work branch: $HEAD_REF"
                 exit 1
               }
-            elif [[ "$BASE_REF" == "staging" ]]; then
-              [[ "$HEAD_REF" == "develop" || "$HEAD_REF" =~ ^hotfix/[a-z0-9-]+/[a-z0-9-]+$ ]] || {
-                echo "Only develop or a hotfix branch may target staging."
-                exit 1
-              }
             elif [[ "$BASE_REF" == "main" ]]; then
-              [[ "$HEAD_REF" == "staging" || "$HEAD_REF" =~ ^hotfix/[a-z0-9-]+/[a-z0-9-]+$ ]] || {
-                echo "Only staging or a hotfix branch may target main."
+              [[ "$HEAD_REF" == "develop" || "$HEAD_REF" =~ ^hotfix/[a-z0-9-]+/[a-z0-9-]+$ ]] || {
+                echo "Only develop or a hotfix branch may target main."
                 exit 1
               }
             else
@@ -45,7 +40,7 @@ jobs:
               exit 1
             fi
           else
-            [[ "$REF_NAME" == "develop" || "$REF_NAME" == "staging" || "$REF_NAME" == "main" ]] || {
+            [[ "$REF_NAME" == "develop" || "$REF_NAME" == "main" ]] || {
               echo "This workflow only validates protected branch pushes."
               exit 1
             }
