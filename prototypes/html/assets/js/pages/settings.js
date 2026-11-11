@@ -78,7 +78,7 @@ I18N.register({
   /* ---------- markup helpers (all test ids derive from the field name) ---------- */
   function fld(name, labelKey, ctl, o) {
     o = o || {}; var d = []; if (o.hint) d.push('set-' + name + '-hint'); d.push('set-' + name + '-error');
-    return '<div class="field" id="field-' + (o.anchor || name) + '" data-testid="set-' + name + '-field"><label class="label" for="set-' + name + '-input" data-i18n="' + labelKey + '" data-testid="set-' + name + '-label"></label>' +
+    return '<div class="field" id="' + (o.anchor || name) + '" data-testid="set-' + name + '-field"><label class="label" for="set-' + name + '-input" data-i18n="' + labelKey + '" data-testid="set-' + name + '-label"></label>' +
       (o.hint ? '<p class="hint" id="set-' + name + '-hint" data-i18n="' + labelKey + '.hint" data-testid="set-' + name + '-hint"></p>' : '') + ctl +
       '<p class="error-msg" id="set-' + name + '-error" role="alert" hidden data-testid="set-' + name + '-error"></p></div>';
   }
@@ -88,7 +88,7 @@ I18N.register({
   function status(id, key) { return '<span class="set-status" id="' + id + '" role="status" hidden data-testid="' + id + '"><span class="icon i-check-circle" aria-hidden="true" data-testid="' + id + '-icon"></span><span data-i18n="' + key + '" data-testid="' + id + '-text"></span></span>'; }
   function actions(form, labelKey) { return '<div class="set-actions"><button type="submit" class="btn btn-primary" data-testid="set-' + form + '-save"><span data-i18n="' + labelKey + '" data-testid="set-' + form + '-save-label"></span></button>' + status('set-' + form + '-status', form === 'email' ? 'set.c.email.saved' : form === 'pw' ? 'set.c.pw.saved' : 'set.saved') + '</div>'; }
   function head(k, icon) { return '<header><h2 id="set-' + k + '-h" data-i18n="set.' + k + '.h" data-testid="set-' + k + '-title"></h2><p data-i18n="set.' + k + '.lede" data-testid="set-' + k + '-lede"></p></header>'; }
-  function section(k, body) { return '<section class="set-section" id="sec-' + k + '" aria-labelledby="set-' + k + '-h" hidden data-testid="set-section-' + k + '">' + body + '</section>'; }
+  function section(k, body) { return '<section class="set-section" id="' + k + '" aria-labelledby="set-' + k + '-h" hidden data-testid="set-section-' + k + '">' + body + '</section>'; }
 
   function build() {
     var U = S.user, cs = M.countries.map(function (c) { return '<option value="' + c.code + '" data-testid="set-country-opt-' + c.code.toLowerCase() + '">' + esc(c[I18N.lang] || c.fr) + '</option>'; }).join('');
@@ -99,16 +99,16 @@ I18N.register({
       '<div class="set-grid">' + fld('name', 'set.p.name', input('name', 'type="text" autocomplete="name" maxlength="60" required'), { hint: 1 }) +
       fld('username', 'set.p.username', input('username', 'type="text" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="30" required'), { hint: 1 }) + '</div>' +
       fld('bio', 'set.p.bio', '<textarea class="textarea" id="set-bio-input" name="bio" rows="4" maxlength="280" lang="' + I18N.lang + '" data-user-content aria-describedby="set-bio-hint set-bio-error" data-testid="set-bio-input"></textarea><span class="set-counter" id="set-bio-counter" data-testid="set-bio-counter"></span>', { hint: 1, anchor: 'bio' }) +
-      '<div class="field" id="field-skills" data-testid="set-skills-field"><span class="label" id="set-skills-label" data-i18n="set.p.skills" data-testid="set-skills-label"></span><p class="hint" id="set-skills-hint" data-i18n="set.p.skills.hint" data-testid="set-skills-hint"></p>' +
+      '<div class="field" id="skills" data-testid="set-skills-field"><span class="label" id="set-skills-label" data-i18n="set.p.skills" data-testid="set-skills-label"></span><p class="hint" id="set-skills-hint" data-i18n="set.p.skills.hint" data-testid="set-skills-hint"></p>' +
       '<div class="set-skills" id="set-skills-chosen" role="group" aria-labelledby="set-skills-label" data-testid="set-skills-chosen"></div>' +
       '<div class="set-skills" id="set-skills-suggest" role="group" data-i18n-attr="aria-label:set.p.skills.suggest" data-testid="set-skills-suggest"></div>' +
       '<div class="set-skill-add"><input class="input" id="set-skills-input" type="text" autocomplete="off" spellcheck="false" maxlength="24" data-i18n-attr="aria-label:set.p.skills.add;placeholder:set.p.skills.add" aria-describedby="set-skills-hint set-skills-error" data-testid="set-skills-input"><button type="button" class="btn" id="set-skills-add" data-testid="set-skills-add"><span class="icon i-plus" aria-hidden="true" data-testid="set-skills-add-icon"></span><span data-i18n="set.p.skills.addBtn" data-testid="set-skills-add-label"></span></button></div>' +
       '<p class="error-msg" id="set-skills-error" role="alert" hidden data-testid="set-skills-error"></p></div>' +
       '<div class="set-grid">' + fld('country', 'set.p.country', '<select class="select" id="set-country-input" name="country" aria-describedby="set-country-hint set-country-error" data-testid="set-country-input"><option value="" data-i18n="set.p.country.none" data-testid="set-country-opt-none"></option>' + cs + '</select>', { hint: 1 }) +
       fld('github', 'set.p.github', input('github', 'type="text" inputmode="url" autocomplete="off" spellcheck="false" data-i18n-attr="placeholder:set.p.github.ph"'), { hint: 1 }) + '</div>' +
-      '<fieldset class="fieldset-plain field" id="field-languages" data-testid="set-languages-field"><legend class="label" data-i18n="set.p.langs" data-testid="set-languages-label"></legend><p class="hint" id="set-languages-hint" data-i18n="set.p.langs.hint" data-testid="set-languages-hint"></p><div class="set-choices">' +
+      '<fieldset class="fieldset-plain field" id="languages" data-testid="set-languages-field"><legend class="label" data-i18n="set.p.langs" data-testid="set-languages-label"></legend><p class="hint" id="set-languages-hint" data-i18n="set.p.langs.hint" data-testid="set-languages-hint"></p><div class="set-choices">' +
       ['fr', 'en'].map(function (l) { return '<label class="choice" data-testid="set-languages-choice-wrap-' + l + '"><input type="checkbox" name="languages" value="' + l + '" id="set-languages-input-' + l + '" aria-describedby="set-languages-error" data-testid="set-languages-input-' + l + '"><span lang="' + l + '" data-testid="set-languages-choice-' + l + '">' + (l === 'fr' ? 'Français' : 'English') + '</span></label>'; }).join('') + '</div><p class="error-msg" id="set-languages-error" role="alert" hidden data-testid="set-languages-error"></p></fieldset>' +
-      '<div class="field" id="field-openToCollab" data-testid="set-collab-field"><label class="choice" data-testid="set-collab-choice-wrap"><input type="checkbox" name="openToCollab" id="set-collab-input" aria-describedby="set-collab-hint" data-testid="set-collab-input"><span data-i18n="set.p.collab" data-testid="set-collab-label"></span></label><p class="hint" id="set-collab-hint" data-i18n="set.p.collab.hint" data-testid="set-collab-hint"></p></div>' +
+      '<div class="field" id="openToCollab" data-testid="set-collab-field"><label class="choice" data-testid="set-collab-choice-wrap"><input type="checkbox" name="openToCollab" id="set-collab-input" aria-describedby="set-collab-hint" data-testid="set-collab-input"><span data-i18n="set.p.collab" data-testid="set-collab-label"></span></label><p class="hint" id="set-collab-hint" data-i18n="set.p.collab.hint" data-testid="set-collab-hint"></p></div>' +
       actions('profile', 'set.save') + '</form>');
 
     var compte = section('compte', head('c') + '<form class="set-form" id="set-email-form" novalidate data-testid="set-email-form">' + fld('email', 'set.c.email', input('email', 'type="email" autocomplete="email" inputmode="email"'), { hint: 1 }) + actions('email', 'set.c.email.save') + '</form>' +
@@ -185,10 +185,10 @@ I18N.register({
   /* ---------- hash routing ---------- */
   function route(focusKeys) {
     var h = decodeURIComponent((location.hash || '').slice(1)), sec = SECTIONS.some(function (s) { return s[0] === h; }) ? h : (FIELDKEYS.indexOf(h) > -1 ? 'profil' : 'profil');
-    $$('.set-section', root).forEach(function (s) { s.hidden = s.id !== 'sec-' + sec; });
+    $$('.set-section', root).forEach(function (s) { s.hidden = s.id !== sec; });
     $$('.set-nav a', root).forEach(function (a) { if (a.getAttribute('data-sec') === sec) a.setAttribute('aria-current', 'true'); else a.removeAttribute('aria-current'); });
     if (FIELDKEYS.indexOf(h) > -1) {
-      var f = document.getElementById('field-' + h); if (f) { f.scrollIntoView({ block: 'center' }); f.classList.remove('set-field-focus'); void f.offsetWidth; f.classList.add('set-field-focus'); var c = $('input, select, textarea, button', f); if (c) c.focus({ preventScroll: true }); }
+      var f = document.getElementById(h); if (f) { f.scrollIntoView({ block: 'center' }); f.classList.remove('set-field-focus'); void f.offsetWidth; f.classList.add('set-field-focus'); var c = $('input, select, textarea, button', f); if (c) c.focus({ preventScroll: true }); }
     }
   }
 

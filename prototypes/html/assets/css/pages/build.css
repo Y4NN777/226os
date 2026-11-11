@@ -49,6 +49,8 @@
 .app-card .app-quote { margin: var(--space-1) 0 0; padding: var(--space-3); border-radius: var(--radius-control); background: var(--surface); font-size: var(--fs-sm); }
 .app-card .app-aside { display: flex; flex-direction: column; gap: var(--space-2); align-items: flex-end; }
 .app-actions { display: flex; gap: var(--space-1); }
+/* Tooltips of the right-most action buttons open leftwards so the hidden ::after never widens the page */
+.app-actions .btn-icon[aria-label]::after { left: auto; right: 0; transform: none; }
 @media (max-width: 639px) { .app-card { grid-template-columns: auto minmax(0, 1fr); } .app-card .app-aside { grid-column: 1 / -1; flex-direction: row; align-items: center; justify-content: space-between; } }
 
 /* Activity */
