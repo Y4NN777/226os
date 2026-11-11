@@ -70,6 +70,35 @@ Ces domaines définissent la **vision complète**, et non une promesse de dispon
 
 **La connaissance technique appuyée par des preuves.** Versions, étapes de reproduction, sources documentaires et confirmations communautaires doivent permettre de juger une solution autrement qu'au nombre de votes.
 
+## Aperçu du prototype
+
+Prototype HTML haute fidélité, navigable et sans dépendance : ouvrez [`prototypes/html/index.html`](prototypes/html/index.html) dans un navigateur. Les données sont fictives et les actions simulées. Détails : [`prototypes/html/README.md`](prototypes/html/README.md).
+
+<p align="center">
+  <img src="docs/screenshots/landing.jpg" alt="Page d'accueil publique : du problème technique au projet, avec un aperçu question, API et projet reliés" width="900">
+</p>
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/accueil.jpg" alt="Accueil connecté personnalisé selon les sujets de l'utilisateur"><br><sub><b>Accueil connecté</b> · questions à résoudre et projets selon vos sujets</sub></td>
+    <td width="50%"><img src="docs/screenshots/question.jpg" alt="Question technique avec réponse acceptée, code et liens associés"><br><sub><b>Résoudre</b> · question, réponse acceptée, code et liens associés</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/decouvrir.jpg" alt="Catalogue des API et outils en vue cartes, avec outils open source de la communauté"><br><sub><b>Découvrir</b> · API & outils sourcés, vue cartes</sub></td>
+    <td><img src="docs/screenshots/projet.jpg" alt="Projet open source avec besoins de contributeurs"><br><sub><b>Construire</b> · projet open source et besoins de contributeurs</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/apprendre.jpg" alt="Apprendre : formation gratuite IA appliquée pour développeurs africains, en thème sombre"><br><sub><b>Apprendre</b> · formation IA gratuite, articles et tutoriels (thème sombre)</sub></td>
+    <td><img src="docs/screenshots/profil.jpg" alt="Profil développeur avec liste de complétion"><br><sub><b>Communauté</b> · profil et liste de complétion</sub></td>
+  </tr>
+</table>
+
+<p align="center">
+  <img src="docs/screenshots/mobile-landing.jpg" alt="Accueil public sur mobile" width="240">
+  <img src="docs/screenshots/mobile-question.jpg" alt="Question sur mobile" width="240">
+  <img src="docs/screenshots/mobile-connexion.jpg" alt="Connexion sur mobile" width="240">
+</p>
+
 ## Première livraison : CADEV 2026
 
 Le premier périmètre s'organise autour de trois parcours fonctionnels (auxquels s'ajoute la lecture et la publication d'articles et de tutoriels, priorité P0 validée : voir l'amendement 3.1 du PRD), appuyés par des profils, la recherche, une interface accessible et une navigation bilingue :
