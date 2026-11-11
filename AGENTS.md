@@ -79,6 +79,9 @@ status: PLANNED # PLANNED | RED | GREEN | REVIEW | BLOCKED | DONE
 
 ## Git et permissions
 - Lecture/exploration par défaut ; écriture seulement dans la tâche assignée.
+- Toute contribution commitée utilise l'identité Git du contributeur humain responsable, configurée selon `docs/GIT_WORKFLOW.md`. Aucun agent IA, bot ou sous-agent ne doit être ajouté comme auteur ou via un trailer `Co-authored-by`.
+- Avant sa première contribution, chaque membre fournit au mainteneur son username GitHub et son `user.name` / `user.email` Git approuvés pour le projet. Un contributeur n'utilise jamais l'identité d'un autre membre.
+- L'assistance IA est tracée dans `AI_USAGE.md` lorsque pertinente ; elle ne remplace pas l'auteur humain responsable de la contribution.
 - Aucune mutation GitHub (issues/PR/actions), aucun achat Datacloud, aucun déploiement, aucune suppression ou migration destructive sans approbation humaine explicite.
 - Respecter `CONTRIBUTING.md` et `docs/RULES.md`. Pour toute décision non résolue, produire un blocage actionnable et poursuivre uniquement le travail sûr.
 
