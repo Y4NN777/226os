@@ -1,0 +1,29 @@
+# sqlc configuration at db/sqlc.yaml (ADR-0005 point 2). Paths are relative to this file.
+# Run from the repository root:  go tool sqlc generate -f db/sqlc.yaml
+# The schema is the goose migrations directory (sqlc ignores goose annotations);
+# generated code is never hand-edited.
+version: "2"
+# Lint rules for "sqlc vet" (CEL, no database needed). Add database-backed rules
+# (sqlc/db-prepare) once a managed lint database exists.
+rules:
+  - name: bounded-list-queries
+    message: "every :many query must have a LIMIT (DATABASE_DESIGN.md section 7: lists are bounded)"
+    rule: query.cmd == "many" && !query.sql.contains("LIMIT")
+  - name: no-unbounded-delete
+    message: "DELETE needs a WHERE clause"
+    rule: query.sql.contains("DELETE FROM") && !query.sql.contains("WHERE")
+sql:
+  - engine: postgresql
+    schema: migrations
+    queries: queries
+    rules:
+      - bounded-list-queries
+      - no-unbounded-delete
+    gen:
+      go:
+        package: dbgen
+        out: ../apps/api/internal/platform/dbgen
+        sql_package: pgx/v5
+        emit_interface: false          # services declare their own consumer-side ports
+        emit_exact_table_names: false
+        emit_empty_slices: true
