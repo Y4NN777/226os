@@ -22,3 +22,8 @@
 #need-skills-group { border: 0; padding: 0; margin: 0; min-width: 0; }
 .build-need-skills { display: grid; gap: 0 var(--space-4); grid-template-columns: 1fr; }
 @media (min-width: 480px) { .build-need-skills { grid-template-columns: 1fr 1fr; } }
+
+/* Compact need/origin lines in project rows */
+.row-need { margin: 0; font-size: var(--fs-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row-origin a { color: var(--link); }
+.row-need:not(.row-origin) { white-space: normal; }

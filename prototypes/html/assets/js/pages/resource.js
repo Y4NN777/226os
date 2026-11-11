@@ -5,20 +5,20 @@ I18N.register({
     'resource.tabs.label': 'Sections de la fiche', 'resource.tab.overview': 'Aperçu', 'resource.tab.integration': 'Intégration', 'resource.tab.discussions': 'Discussions',
     'resource.share': 'Copier le lien', 'resource.noReviews': 'Aucun avis',
     'resource.rev.h': 'Avis', 'resource.rev.write': 'Écrire un avis', 'resource.rev.sort': 'Trier les avis', 'resource.rev.sort.recent': 'Plus récents', 'resource.rev.sort.helpful': 'Plus utiles',
-    'resource.rev.none': 'Aucun avis pour l’instant. Soyez le premier à partager votre retour d’intégration.',
+    'resource.rev.none': 'Aucun avis pour l’instant. Partagez votre retour d’intégration.',
     'resource.rev.helpful': 'Utile ({n})', 'resource.rev.helpfulLabel': 'Marquer cet avis comme utile ({n})', 'resource.rev.you': 'Vous', 'resource.rev.youInitial': 'V',
     'resource.rev.rating': 'Votre note', 'resource.rev.text': 'Votre retour', 'resource.rev.placeholder': 'Intégration, documentation, support, limites rencontrées…', 'resource.rev.submit': 'Publier l’avis',
     'resource.rev.err.rating': 'Choisissez une note de 1 à 5.', 'resource.rev.err.text': 'Écrivez au moins 20 caractères.',
-    'resource.rev.success.title': 'Avis publié', 'resource.rev.success.msg': 'Merci pour votre retour.', 'resource.rev.proto': 'Prototype : l’avis n’est ajouté qu’à cette page, il n’est pas enregistré.',
+    'resource.rev.success.title': 'Avis publié', 'resource.rev.success.msg': 'Merci pour votre retour.', 'resource.rev.proto': 'Simulation : l’avis reste sur cette page, rien n’est enregistré.',
     'resource.fictional': 'exemple fictif', 'resource.verifiedOn': 'Vérifié le',
-    'resource.status.verified': 'Source vérifiée', 'resource.status.stale': 'Vérification ancienne', 'resource.status.unverified': 'Non vérifié (déclaré par le fournisseur)',
+    'resource.status.verified': 'Source vérifiée', 'resource.status.stale': 'À revérifier', 'resource.status.unverified': 'Non vérifié (déclaré par le fournisseur)',
     'resource.status.verified.why': 'Au moins une source officielle consultée il y a moins de 60 jours.',
-    'resource.status.stale.why': 'La dernière vérification date de plus de 60 jours : vérifiez la documentation avant de vous y fier.',
+    'resource.status.stale.why': 'Dernière vérification il y a plus de 60 jours. Relisez la documentation avant de vous y fier.',
     'resource.status.unverified.why': 'Seules des affirmations du fournisseur sont disponibles : aucune source officielle ni confirmation indépendante.',
     'resource.ov.about': 'À propos', 'resource.ov.coverage': 'Couverture', 'resource.ov.countries': 'Pays pris en charge', 'resource.ov.category': 'Catégorie', 'resource.ov.type': 'Type',
     'resource.ov.version': 'Version', 'resource.ov.doclang': 'Langue de la documentation', 'resource.ov.auth': 'Authentification', 'resource.ov.limits': 'Limites connues',
     'resource.ov.status': 'Statut de vérification', 'resource.ov.verified': 'Dernière vérification',
-    'resource.src.h': 'Sources et preuves', 'resource.src.lede': 'Chaque information provient d’une source datée. Les confirmations et la date de vérification comptent plus que les votes.',
+    'resource.src.h': 'Sources et preuves', 'resource.src.lede': 'Chaque information vient d’une source datée. La date de vérification compte plus que les votes.',
     'resource.src.caption': 'Sources de la fiche', 'resource.src.col.source': 'Source', 'resource.src.col.kind': 'Nature', 'resource.src.col.published': 'Publiée', 'resource.src.col.checked': 'Consultée',
     'resource.src.open': 'Ouvrir', 'resource.src.region': 'Tableau des sources, défilement horizontal possible',
     'resource.pit.h': 'Pièges à éviter', 'resource.pit.none': 'Aucun piège signalé.',
@@ -27,11 +27,11 @@ I18N.register({
     'resource.disc.h': 'Questions liées', 'resource.disc.none': 'Aucune question liée.', 'resource.disc.ask': 'Poser une question sur cette API',
     'resource.disc.proj': 'Projets open source liés', 'resource.disc.projNone': 'Aucun projet open source lié.',
     'resource.disc.votes': '{n} votes', 'resource.disc.answers': '{n} réponse(s)', 'resource.disc.accepted': 'Réponse acceptée',
-    'resource.disc.feedback': 'Retours d’intégration de la communauté', 'resource.disc.feedback.body': 'Avis, retours d’expérience et comparaison de fournisseurs sont prévus ensuite ; ils n’existent pas encore dans ce prototype.',
-    'resource.linked.h': 'Relié à cette fiche', 'resource.linked.question': 'Question', 'resource.linked.project': 'Projet', 'resource.linked.api': 'API / outil',
+    'resource.disc.feedback': 'Retours d’intégration de la communauté', 'resource.disc.feedback.body': 'La comparaison de fournisseurs viendra plus tard.',
+    'resource.linked.h': 'Liens de cette fiche', 'resource.linked.question': 'Question', 'resource.linked.project': 'Projet', 'resource.linked.api': 'API / outil',
     'resource.linked.none': 'Aucun lien pour l’instant.',
     'resource.report.open': 'Signaler une erreur', 'resource.report.title': 'Signaler une information obsolète ou fausse',
-    'resource.report.intro': 'Aidez à garder cette fiche à jour. Dans ce prototype, rien n’est envoyé ni enregistré.',
+    'resource.report.intro': 'Aidez à garder la fiche à jour. Simulation : rien n’est envoyé.',
     'resource.report.summary': 'Corrigez les champs suivants', 'resource.report.kind': 'Nature du problème', 'resource.report.choose': 'Choisir…',
     'resource.report.k.outdated': 'Information obsolète', 'resource.report.k.broken': 'API ou lien qui ne fonctionne plus', 'resource.report.k.coverage': 'Couverture (pays) incorrecte', 'resource.report.k.other': 'Autre',
     'resource.report.detail': 'Ce qui est incorrect', 'resource.report.detail.hint': 'Au moins 20 caractères : indiquez la section, la valeur actuelle et la valeur attendue.',
@@ -99,7 +99,7 @@ I18N.register({
 
   function lbl(o) { return o[I18N.lang]; }
   function cc(code, tid) { return '<span class="country" data-testid="' + tid + '"><span class="country-code" data-testid="' + tid + '-code">' + code + '</span><span class="visually-hidden" data-testid="' + tid + '-name">' + esc(M.countryName(code)) + '</span></span>'; }
-  function langBadge(l, tid, doc) { var n = LN[l][I18N.lang]; return '<span class="badge" lang="' + I18N.lang + '" data-testid="' + tid + '"><span aria-hidden="true" data-testid="' + tid + '-code">' + l.toUpperCase() + '</span><span class="visually-hidden" data-testid="' + tid + '-name">' + esc((doc ? t('resource.ov.doclang') : t('common.originalLang')) + ' : ' + n) + '</span></span>'; }
+  function langBadge(l, tid, doc) { var n = LN[l][I18N.lang]; return '<span class="badge" lang="' + I18N.lang + '" data-testid="' + tid + '"><span aria-hidden="true" data-testid="' + tid + '-code">' + l.toUpperCase() + '</span><span class="visually-hidden" data-testid="' + tid + '-name">' + esc((doc ? t('resource.ov.doclang') : t('common.originalLang')) + (I18N.lang === 'fr' ? '\u00a0: ' : ': ') + n) + '</span></span>'; }
   function date(iso, tid) { return '<time datetime="' + iso + '" data-testid="' + tid + '">' + M.fmtDate(iso) + '</time>'; }
   function provider(x) { return esc(x.provider.replace(/\s*\(fictif\)\s*/, '').replace(/\s*fictif\s*/, ' ').trim()) + '<span data-proto data-testid="resource-fictional-tag"> · ' + esc(t('resource.fictional')) + '</span>'; }
 

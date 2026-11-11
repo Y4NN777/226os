@@ -1,24 +1,24 @@
 /* Developer profile page: view (per role), activity tabs (simulated load), edit dialog (client validation, nothing persisted). */
 I18N.register({
   fr: {
-    'profile.title': 'Profil développeur — 226os', 'profile.crumb': 'Profil développeur',
-    'profile.lede': 'Profil public minimal : ce que les autres membres peuvent voir dépend des réglages de confidentialité.',
+    'profile.title': 'Communauté · Membres — 226os', 'profile.crumb': 'Profil développeur',
+    'profile.lede': 'Profil public. Ce que les autres voient dépend de vos réglages de confidentialité.',
     'profile.edit.open': 'Modifier mon profil',
     'profile.notfound.title': 'Profil introuvable', 'profile.notfound.body': 'Ce profil n’existe pas ou n’est pas visible pour vous.', 'profile.notfound.cta': 'Voir mon profil',
-    'profile.viewas.label': 'Voir ce profil en tant que', 'profile.viewas.self': 'Moi (propriétaire)', 'profile.viewas.member': 'Autre membre', 'profile.viewas.anon': 'Visiteur anonyme',
-    'profile.viewas.status.self': 'Vue propriétaire : vous voyez tous vos champs et pouvez modifier le profil.',
-    'profile.viewas.status.member': 'Vue autre membre connecté : champs publics et réservés aux membres.',
-    'profile.viewas.status.anon': 'Vue visiteur anonyme : seulement les champs publics.',
+    'profile.viewas.label': 'Rôle simulé', 'profile.viewas.self': 'Moi (propriétaire)', 'profile.viewas.member': 'Autre membre', 'profile.viewas.anon': 'Visiteur anonyme',
+    'profile.viewas.status.self': 'Vous voyez tous vos champs et pouvez modifier le profil.',
+    'profile.viewas.status.member': 'Membre connecté : champs publics et champs réservés aux membres.',
+    'profile.viewas.status.anon': 'Visiteur anonyme : champs publics seulement.',
     'profile.saved.title': 'Profil mis à jour. ', 'profile.saved.body': 'Simulation : rien n’est enregistré, les modifications disparaissent au rechargement.',
     'profile.anon.title': 'Vous naviguez sans compte. ', 'profile.anon.body': 'Certains champs sont réservés aux membres connectés.', 'profile.anon.signin': 'Se connecter',
-    'profile.about.h': 'À propos', 'profile.bio.h': 'Bio', 'profile.skills.h': 'Compétences', 'profile.langs.h': 'Langues parlées', 'profile.open.h': 'Ouvert à', 'profile.open.mentorat': 'Mentorat', 'profile.open.collaboration': 'Collaboration', 'profile.open.preview': 'Aperçu Connect', 'profile.open.none': 'Aucune ouverture indiquée.',
+    'profile.about.h': 'À propos', 'profile.bio.h': 'Bio', 'profile.skills.h': 'Compétences', 'profile.langs.h': 'Langues parlées', 'profile.open.h': 'Ouvert à', 'profile.open.mentorat': 'Mentorat', 'profile.open.collaboration': 'Collaboration', 'profile.open.preview': 'Aperçu du mentorat', 'profile.open.none': 'Aucune ouverture indiquée.',
     'profile.bio.empty': 'Aucune bio renseignée.', 'profile.skills.empty': 'Aucune compétence renseignée.', 'profile.bio.lang': 'Langue originale de la bio',
     'profile.lang.fr': 'Français', 'profile.lang.en': 'Anglais',
     'profile.details.h': 'Détails', 'profile.aside.label': 'Détails et confidentialité du profil',
     'profile.d.handle': 'Identifiant', 'profile.d.country': 'Pays', 'profile.d.city': 'Ville', 'profile.d.github': 'GitHub', 'profile.d.email': 'E-mail', 'profile.d.since': 'Membre depuis', 'profile.d.name': 'Nom public',
-    'profile.d.hidden': 'Non visible pour ce rôle', 'profile.github.link': 'Dépôts GitHub (exemple fictif)',
+    'profile.d.hidden': 'Masqué pour ce rôle', 'profile.github.link': 'Dépôts GitHub (exemple fictif)',
     'profile.privacy.h': 'Confidentialité', 'profile.privacy.region': 'Tableau de visibilité des champs du profil',
-    'profile.privacy.note': 'L’e-mail n’est jamais public. L’autorisation réelle est vérifiée côté serveur ; ici c’est une démonstration.',
+    'profile.privacy.note': 'L’e-mail n’est jamais public. En production, le serveur vérifie les droits ; ici, c’est une démo.',
     'profile.privacy.col.field': 'Champ', 'profile.privacy.col.who': 'Visible par', 'profile.privacy.col.now': 'Pour vous',
     'profile.vis.public': 'Tout le monde', 'profile.vis.members': 'Membres connectés', 'profile.vis.self': 'Vous uniquement',
     'profile.now.visible': 'Visible', 'profile.now.hidden': 'Masqué',
@@ -30,10 +30,10 @@ I18N.register({
     'profile.row.question': 'Question', 'profile.row.answered': 'Réponse donnée', 'profile.row.project': 'Projet', 'profile.row.contrib': 'Contribution',
     'profile.status.active': 'Actif', 'profile.status.idea': 'Idée', 'profile.status.seeking': 'Cherche des contributeurs',
     'profile.reputation': 'Réputation et badges', 'profile.reputation.note': 'Prévus en P1 : aucun score n’est affiché dans ce prototype.',
-    'profile.edit.title': 'Modifier mon profil', 'profile.edit.sim': 'Les modifications sont validées puis affichées localement, jamais enregistrées.',
+    'profile.edit.title': 'Modifier mon profil', 'profile.edit.sim': 'Les modifications restent dans cette page, rien n’est enregistré.',
     'profile.edit.summary': 'Corrigez les champs suivants',
     'profile.edit.name': 'Nom public', 'profile.edit.name.hint': '2 à 60 caractères. Visible par tout le monde.', 'profile.edit.name.err': 'Saisissez un nom public de 2 à 60 caractères.',
-    'profile.edit.country': 'Pays', 'profile.edit.country.hint': 'Utilisé pour la découverte par pays.', 'profile.edit.country.err': 'Choisissez un pays dans la liste.', 'profile.edit.country.placeholder': 'Choisir…',
+    'profile.edit.country': 'Pays', 'profile.edit.country.hint': 'Sert à filtrer par pays.', 'profile.edit.country.err': 'Choisissez un pays dans la liste.', 'profile.edit.country.placeholder': 'Choisir…',
     'profile.edit.langs': 'Langues parlées', 'profile.edit.langs.hint': 'Au moins une langue.', 'profile.edit.langs.err': 'Sélectionnez au moins une langue.',
     'profile.edit.skills': 'Compétences', 'profile.edit.skills.hint': 'Séparées par des virgules, 8 maximum (ex. go, postgresql).', 'profile.edit.skills.err': 'Maximum 8 compétences, 24 caractères chacune (lettres, chiffres, + # . -).',
     'profile.edit.bio': 'Bio', 'profile.edit.bio.hint': '280 caractères maximum. Votre texte garde sa langue d’origine.', 'profile.edit.bio.err': 'La bio dépasse 280 caractères.',
@@ -53,7 +53,7 @@ I18N.register({
     'profile.viewas.status.anon': 'Anonymous visitor view: public fields only.',
     'profile.saved.title': 'Profile updated. ', 'profile.saved.body': 'Simulation: nothing is saved, changes disappear on reload.',
     'profile.anon.title': 'You are browsing without an account. ', 'profile.anon.body': 'Some fields are reserved for signed-in members.', 'profile.anon.signin': 'Sign in',
-    'profile.about.h': 'About', 'profile.bio.h': 'Bio', 'profile.skills.h': 'Skills', 'profile.langs.h': 'Spoken languages', 'profile.open.h': 'Open to', 'profile.open.mentorat': 'Mentoring', 'profile.open.collaboration': 'Collaboration', 'profile.open.preview': 'Connect preview', 'profile.open.none': 'No openness stated.',
+    'profile.about.h': 'About', 'profile.bio.h': 'Bio', 'profile.skills.h': 'Skills', 'profile.langs.h': 'Spoken languages', 'profile.open.h': 'Open to', 'profile.open.mentorat': 'Mentoring', 'profile.open.collaboration': 'Collaboration', 'profile.open.preview': 'Mentoring preview', 'profile.open.none': 'No openness stated.',
     'profile.bio.empty': 'No bio provided.', 'profile.skills.empty': 'No skills provided.', 'profile.bio.lang': 'Original language of the bio',
     'profile.lang.fr': 'French', 'profile.lang.en': 'English',
     'profile.details.h': 'Details', 'profile.aside.label': 'Profile details and privacy',
@@ -110,7 +110,7 @@ I18N.register({
     return v === 'public' || (v === 'members' && role !== 'anon') || (v === 'self' && role === 'self');
   }
   function slug(x) { return String(x).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
-  function lbadge(lang, tid) { return '<span class="badge" data-orig-badge data-testid="' + tid + '"><span aria-hidden="true" data-testid="' + tid + '-code">' + lang.toUpperCase() + '</span><span class="visually-hidden" data-testid="' + tid + '-name">' + esc(t('common.originalLang')) + ' : ' + esc(t('profile.lang.' + lang)) + '</span></span>'; }
+  function lbadge(lang, tid) { return '<span class="badge" data-orig-badge data-testid="' + tid + '"><span aria-hidden="true" data-testid="' + tid + '-code">' + lang.toUpperCase() + '</span><span class="visually-hidden" data-testid="' + tid + '-name">' + esc(t('common.originalLang')) + (I18N.lang === 'fr' ? '\u00a0: ' : ': ') + esc(t('profile.lang.' + lang)) + '</span></span>'; }
   function countryHtml(code, tid) { return '<span class="country" data-testid="' + tid + '"><span class="country-code" aria-hidden="true" data-testid="' + tid + '-code">' + code + '</span><span class="visually-hidden" data-testid="' + tid + '-name">' + esc(MOCK.countryName(code)) + '</span></span> <span data-testid="' + tid + '-label">' + esc(MOCK.countryName(code)) + '</span>'; }
 
   /* ---------- overview ---------- */
@@ -169,7 +169,7 @@ I18N.register({
       '<div class="row-aside">' + lbadge(q.lang, 'profile-' + pre + '-lang-' + n) + (q.accepted ? '<span class="badge badge-accepted" data-testid="profile-' + pre + '-accepted-' + n + '"><span class="icon i-check" aria-hidden="true" data-testid="profile-' + pre + '-accepted-icon-' + n + '"></span>' + esc(t('common.accepted')) + '</span>' : '') + '</div></li>';
   }
   function rowP(pr, n, pre, kindKey) {
-    return '<li class="row" data-testid="profile-' + pre + '-row-' + n + '"><div class="row-lead">' + App.thumb(pr.name, { icon: 'hammer', testid: 'profile-' + pre + '-thumb-' + n }) + '</div>' +
+    return '<li class="row" data-testid="profile-' + pre + '-row-' + n + '"><div class="row-lead">' + App.thumb(pr.name, { testid: 'profile-' + pre + '-thumb-' + n }) + '</div>' +
       '<div class="row-main"><h3 class="row-title"><a href="project.html?id=' + pr.id + '" data-testid="profile-' + pre + '-link-' + n + '"><span class="mono" data-testid="profile-' + pre + '-name-' + n + '">' + esc(pr.name) + '</span></a></h3>' +
       '<p class="row-excerpt" lang="' + pr.lang + '" data-user-content data-testid="profile-' + pre + '-excerpt-' + n + '">' + esc(pr.summary) + '</p>' +
       '<ul class="tag-list list-reset" data-testid="profile-' + pre + '-tags-' + n + '">' + pr.stack.map(function (g) { return '<li><span class="tag" data-testid="profile-' + pre + '-tag-' + n + '-' + slug(g) + '">' + esc(g) + '</span></li>'; }).join('') + '</ul>' +

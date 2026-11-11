@@ -4,7 +4,8 @@
 #discover-more-toggle { position: relative; flex: none; }
 #discover-more-toggle[aria-expanded="true"] { background: var(--selected-bg); color: var(--action); }
 .discover-dot { position: absolute; top: 8px; right: 8px; width: 8px; height: 8px; border-radius: 50%; background: var(--action); }
-.discover-filters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2) var(--space-3); }
+.discover-filters { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-2) var(--space-3); }
+@media (min-width: 480px) { .discover-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .discover-filters .select { width: 100%; }
 .discover-filters .label { font-size: var(--fs-xs); color: var(--text-muted); font-weight: var(--fw-medium); }
 .discover-filters[hidden] { display: none; }
@@ -38,11 +39,6 @@
 /* Key/value list stacks on narrow screens */
 .discover-dl { margin: 0; }
 @media (max-width: 479px) { .discover-dl { grid-template-columns: minmax(0, 1fr); } .discover-dl dd { margin-bottom: var(--space-2); } }
-/* Keep the thumbnail lead on narrow rows (components.css hides .row-lead in small containers) */
-@container (max-width: 479px) {
-  .discover-rows .row:has(> .row-lead) { grid-template-columns: auto minmax(0, 1fr); }
-  .discover-rows .row-lead { display: flex; }
-}
 /* Open-source strip + related projects */
 .discover-oss { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(12.5rem, 100%), 1fr)); gap: var(--space-3); padding: 0; margin: 0; }
 .discover-oss-card { display: flex; gap: var(--space-3); align-items: flex-start; padding: var(--space-3); color: inherit; text-decoration: none; height: 100%; }

@@ -1,26 +1,26 @@
 /* Explore / Home page logic + its UI dictionary (domain: home). Mock data from assets/data/*.js. */
 I18N.register({
   fr: {
-    'home.title': 'Explorer — 226os', 'home.h1': 'Résoudre, découvrir et construire avec des développeurs africains',
-    'home.lede': 'Questions techniques, API et outils locaux, projets open source et membres : des contenus reliés entre eux.',
+    'home.title': 'Explorer — 226os', 'home.h1': 'Résolvez, découvrez et construisez avec des développeurs africains',
+    'home.lede': 'Questions techniques, API et outils locaux, projets open source, membres. Tout est relié.',
     'home.search.label': 'Rechercher sur 226os', 'home.search.placeholder': 'Ex. webhook, USSD, PostGIS', 'home.search.submit': 'Rechercher',
     'home.kind.all': 'Tout', 'home.kind.question': 'Questions', 'home.kind.resource': 'API et outils', 'home.kind.project': 'Projets', 'home.kind.person': 'Membres', 'home.kind.label': 'Type de contenu',
     'home.try': 'Essayez :', 'home.results.title': 'Résultats pour « {q} »', 'home.results.clear': 'Effacer la recherche',
     'home.empty.title': 'Aucun résultat pour « {q} »', 'home.empty.body': 'Vérifiez l’orthographe, essayez un terme plus général ou changez de type de contenu. Vous pouvez aussi poser la question à la communauté.', 'home.empty.cta': 'Poser une question',
     'home.q.title': 'Questions récentes', 'home.q.more': 'Toutes les questions', 'home.q.votes': 'votes', 'home.q.answers': '{n} réponse(s)', 'home.q.accepted': 'Réponse acceptée',
-    'home.r.title': 'API et outils par pays', 'home.r.more': 'Parcourir le catalogue', 'home.r.filter': 'Filtrer par pays', 'home.r.verified': 'Source vérifiée', 'home.r.unverified': 'Vérification ancienne',
+    'home.r.title': 'API et outils par pays', 'home.r.more': 'Parcourir le catalogue', 'home.r.filter': 'Filtrer par pays', 'home.r.verified': 'Source vérifiée', 'home.r.unverified': 'Non vérifié',
     'home.r.countries': 'Pays pris en charge :', 'home.r.questions': '{n} question(s) liée(s)',
     'home.p.title': 'Projets qui cherchent des contributeurs', 'home.p.more': 'Tous les projets', 'home.p.needs': 'Besoins :', 'home.p.status.active': 'Actif', 'home.p.status.idea': 'Idée', 'home.p.status.seeking': 'Cherche des contributeurs',
     'home.m.title': 'Membres', 'home.m.more': 'Voir les profils', 'home.m.open.mentorat': 'Ouvert au mentorat', 'home.m.open.collaboration': 'Ouvert à la collaboration',
-    'home.link.title': 'Une question, une API, un projet : reliés', 'home.link.lede': 'Exemple fictif d’un parcours Problem-to-Project : chaque contenu mène aux autres sans chercher l’URL.',
+    'home.link.title': 'Du problème au projet', 'home.link.lede': 'Exemple fictif : une question mène à l’API utilisée, puis au projet qui en a besoin.',
     'home.link.question': 'Question', 'home.link.resource': 'API / outil', 'home.link.project': 'Projet',
-    'home.dom.title': 'Les huit domaines', 'home.dom.lede': 'Ce qui est disponible dans ce prototype (P0) et ce qui est prévu ensuite (P1/P2), d’après le PRD.',
+    'home.dom.title': 'Les huit domaines', 'home.dom.lede': 'Ce que couvre le prototype (P0) et ce qui vient ensuite (P1/P2), selon le PRD.',
     'home.dom.col.domain': 'Domaine', 'home.dom.col.now': 'Dans le prototype (P0)', 'home.dom.col.later': 'Prévu ensuite (P1/P2)',
     'home.dom.solve.now': 'Q&R, extraits de code, réponse acceptée, votes, recherche', 'home.dom.solve.later': 'Réputation, articles, discussions, revue de code',
     'home.dom.discover.now': 'Catalogue API/SDK, fiches sourcées, pays, catégories', 'home.dom.discover.later': 'Comparaison, retours, vérifications automatisées',
     'home.dom.build.now': 'Projets GitHub, besoins, candidatures, liens', 'home.dom.build.later': 'Matching, synchronisation GitHub avancée',
     'home.dom.identity.now': 'Connexion et profils minimaux', 'home.dom.identity.later': 'Réputation, fil d’activité, communautés',
-    'home.dom.connect.now': 'Parcours conçu (P1/P2)', 'home.dom.connect.later': 'Mentorat, carrière, opportunités, groupes d’étude',
+    'home.dom.connect.now': 'Maquette seule (P1/P2)', 'home.dom.connect.later': 'Mentorat, carrière, opportunités, groupes d’étude',
     'home.dom.language.now': 'Interface FR/EN', 'home.dom.language.later': 'Traduction des contenus, recherche translingue',
     'home.dom.access.now': 'Responsive, états de chargement, navigation clavier', 'home.dom.access.later': 'Mode léger, cache avancé, brouillons hors ligne',
     'home.dom.intelligence.now': 'Recherche textuelle, liens contextuels', 'home.dom.intelligence.later': 'Suggestions, recherche sémantique, assistant sourcé'
@@ -45,7 +45,7 @@ I18N.register({
     'home.dom.discover.now': 'API/SDK catalogue, sourced listings, countries, categories', 'home.dom.discover.later': 'Comparison, feedback, automated checks',
     'home.dom.build.now': 'GitHub projects, needs, applications, links', 'home.dom.build.later': 'Matching, advanced GitHub sync',
     'home.dom.identity.now': 'Sign-in and minimal profiles', 'home.dom.identity.later': 'Reputation, activity feed, communities',
-    'home.dom.connect.now': 'Designed journey (P1/P2)', 'home.dom.connect.later': 'Mentoring, careers, opportunities, study groups',
+    'home.dom.connect.now': 'Mockup only (P1/P2)', 'home.dom.connect.later': 'Mentoring, careers, opportunities, study groups',
     'home.dom.language.now': 'FR/EN interface', 'home.dom.language.later': 'Content translation, cross-language search',
     'home.dom.access.now': 'Responsive, loading states, keyboard navigation', 'home.dom.access.later': 'Light mode, advanced cache, offline drafts',
     'home.dom.intelligence.now': 'Text search, contextual links', 'home.dom.intelligence.later': 'Suggestions, semantic search, sourced assistant'
@@ -60,7 +60,7 @@ I18N.register({
   function slug(x) { return String(x).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
   /* Row ids use the stable data id (`question-row-q-webhook-sig`); rows of the search-results list get a `result-` infix so both lists can coexist. */
   function cc(code, i) { var id = 'country-' + code.toLowerCase() + '-' + i; return '<span class="country" data-testid="' + id + '"><span class="country-code" data-testid="' + id + '-code">' + code + '</span><span class="visually-hidden" data-testid="' + id + '-name">' + esc(M.countryName(code)) + '</span></span>'; }
-  function langBadge(l, id) { return '<span class="badge" lang="' + I18N.lang + '" title="' + esc(t('common.originalLang') + ' : ' + LANGNAME[l][I18N.lang]) + '" data-testid="' + id + '"><span aria-hidden="true" data-testid="' + id + '-code">' + l.toUpperCase() + '</span><span class="visually-hidden" data-testid="' + id + '-name">' + esc(t('common.originalLang') + ' : ' + LANGNAME[l][I18N.lang]) + '</span></span>'; }
+  function langBadge(l, id) { return '<span class="badge" lang="' + I18N.lang + '" title="' + esc(t('common.originalLang') + (I18N.lang === 'fr' ? '\u00a0: ' : ': ') + LANGNAME[l][I18N.lang]) + '" data-testid="' + id + '"><span aria-hidden="true" data-testid="' + id + '-code">' + l.toUpperCase() + '</span><span class="visually-hidden" data-testid="' + id + '-name">' + esc(t('common.originalLang') + (I18N.lang === 'fr' ? '\u00a0: ' : ': ') + LANGNAME[l][I18N.lang]) + '</span></span>'; }
   function tags(a, id) { return '<ul class="tag-list list-reset">' + a.map(function (x, i) { return '<li><span class="tag" data-testid="' + id + '-tag-' + slug(x) + '">' + esc(x) + '</span></li>'; }).join('') + '</ul>'; }
   function kindBadge(k, i) { var o = M.kinds[k]; return '<span class="badge" data-testid="kind-' + k + '-' + i + '"><span class="icon i-' + o.icon + '" aria-hidden="true" data-testid="kind-' + k + '-' + i + '-icon"></span>' + esc(o[I18N.lang]) + '</span>'; }
 

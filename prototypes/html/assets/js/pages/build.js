@@ -1,21 +1,21 @@
 /* Build — project discovery. Dictionary (domain: build) + filters + simulated list + "propose a project" dialog (simulated). */
 I18N.register({
   fr: {
-    'build.title': 'Build — Projets open source — 226os', 'build.h1': 'Build : projets open source',
+    'build.title': 'Construire · Projets open source — 226os', 'build.h1': 'Construire · Projets open source',
     'build.lede': 'Des projets de développeurs africains qui cherchent des contributeurs. Filtrez par compétence, pays, étape, langue ou licence.',
     'build.filters.title': 'Rechercher et filtrer les projets', 'build.search.label': 'Rechercher un projet, une technologie ou un besoin', 'build.search.placeholder': 'Ex. Go, webhook, documentation',
     'build.filter.country': 'Pays', 'build.filter.stage': 'Étape', 'build.filter.lang': 'Langue de travail', 'build.filter.license': 'Licence', 'build.filter.skills': 'Compétences recherchées',
-    'build.filter.openOnly': 'Uniquement les projets avec des besoins ouverts', 'build.filter.reset': 'Réinitialiser les filtres', 'build.filter.any': 'Tous',
+    'build.filter.openOnly': 'Avec des besoins ouverts seulement', 'build.filter.reset': 'Réinitialiser les filtres', 'build.filter.any': 'Tous',
     'build.lang.fr': 'Français', 'build.lang.en': 'English',
     'build.sort.recent': 'Plus récents', 'build.sort.name': 'Nom (A à Z)', 'build.sort.open': 'Plus de besoins ouverts',
     'build.results.title': 'Projets', 'build.results.count': '{n} projet(s)',
     'build.row.looking': 'Recherche :', 'build.row.none': 'Aucun besoin ouvert', 'build.row.open.one': '1 besoin ouvert', 'build.row.open.other': '{n} besoins ouverts',
-    'build.row.origin': 'Né de la question :', 'build.row.updated': 'Mis à jour le', 'build.row.license': 'Licence', 'build.row.stack': 'Technologies',
+    'build.row.origin': 'Question d’origine :', 'build.row.updated': 'Mis à jour le', 'build.row.license': 'Licence', 'build.row.stack': 'Technologies',
     'build.empty.title': 'Aucun projet ne correspond', 'build.empty.body': 'Retirez un filtre ou changez de mot-clé. Vous pouvez aussi proposer votre propre projet.',
-    'build.propose.open': 'Proposer un projet', 'build.propose.title': 'Proposer un projet', 'build.propose.sim': 'Rien n’est enregistré ni importé depuis GitHub dans ce prototype.',
-    'build.propose.url': 'URL du dépôt GitHub public', 'build.propose.url.hint': 'Seuls les dépôts publics sur https://github.com sont acceptés (vérifié aussi côté serveur).',
+    'build.propose.open': 'Proposer un projet', 'build.propose.title': 'Proposer un projet', 'build.propose.sim': 'Simulation : rien n’est enregistré ni importé de GitHub.',
+    'build.propose.url': 'URL du dépôt GitHub public', 'build.propose.url.hint': 'Dépôts publics https://github.com uniquement (vérifié aussi côté serveur).',
     'build.propose.name': 'Nom du projet', 'build.propose.summary': 'Description courte', 'build.propose.summary.hint': '20 à 280 caractères. Décrivez le problème résolu.',
-    'build.propose.submit': 'Proposer', 'build.propose.ok.title': 'Projet proposé', 'build.propose.ok.body': 'Vous pourrez maintenant publier un premier besoin de contribution.',
+    'build.propose.submit': 'Proposer', 'build.propose.ok.title': 'Projet proposé', 'build.propose.ok.body': 'Vous pouvez maintenant publier un premier besoin.',
     'build.form.summary': 'Corrigez les champs suivants',
     'build.err.url.required': 'Saisissez l’URL du dépôt.', 'build.err.url.invalid': 'URL invalide : utilisez https://github.com/organisation/depot.',
     'build.err.name.required': 'Saisissez le nom du projet.', 'build.err.summary.required': 'Saisissez une description.', 'build.err.summary.short': 'La description doit contenir au moins 20 caractères.'
@@ -68,9 +68,9 @@ I18N.register({
     return '<span class="country" data-testid="' + tid + '"><span class="country-code" aria-hidden="true" data-testid="' + tid + '-code">' + code + '</span><span class="visually-hidden" data-testid="' + tid + '-name">' + esc(MOCK.countryName(code)) + '</span></span>';
   }
   function row(p, i) {
-    var n = p.id, looking = p.skills.map(function (s) { return MOCK.label(B.skills[s]); }).join(', ');
+    var n = p.id, looking = p.skills.map(function (s) { return MOCK.label(B.skills[s]); }).join(', '), shown = p.skills.slice(0, 3).map(function (s) { return MOCK.label(B.skills[s]); }).join(', '), q = B.question(p.question);
     return '<li class="row" data-testid="build-row-' + n + '">' +
-      '<div class="row-lead">' + App.thumb(p.name, { size: 'lg', icon: 'hammer', testid: 'build-row-' + n + '-thumb' }) + '</div>' +
+      '<div class="row-lead">' + App.thumb(p.name, { size: 'lg', testid: 'build-row-' + n + '-thumb' }) + '</div>' +
       '<div class="row-main">' +
         '<h3 class="row-title"><a href="project.html?id=' + p.id + '" lang="' + p.lang + '" data-user-content data-testid="build-row-' + n + '-link">' + esc(p.name) + '</a></h3>' +
         '<p class="row-excerpt" lang="' + p.lang + '" data-user-content data-testid="build-row-' + n + '-summary">' + esc(p.summary) + '</p>' +
@@ -79,6 +79,8 @@ I18N.register({
           '<span class="meta-item" data-testid="build-row-' + n + '-stage">' + esc(MOCK.label(B.stages[p.stage])) + '</span>' +
           '<span class="meta-item" data-testid="build-row-' + n + '-updated"><time datetime="' + p.updated + '" data-testid="build-row-' + n + '-updated-date">' + esc(MOCK.fmtDate(p.updated)) + '</time></span>' +
         '</div>' +
+        (p.skills.length ? '<p class="row-need" data-testid="build-row-' + n + '-skills"><span class="text-muted" data-testid="build-row-' + n + '-skills-label">' + esc(t('build.row.looking')) + '</span> ' + esc(shown) + (p.skills.length > 3 ? ' <span class="text-muted" data-testid="build-row-' + n + '-skills-more">+' + (p.skills.length - 3) + '</span>' : '') + '</p>' : '') +
+        (q ? '<p class="row-need row-origin" data-testid="build-row-' + n + '-origin"><span class="text-muted" data-testid="build-row-' + n + '-origin-label">' + esc(t('build.row.origin')) + '</span> <a class="row-above" href="question.html?id=' + q.id + '" lang="' + q.lang + '" data-user-content data-testid="build-row-' + n + '-origin-link">' + esc(q.title) + '</a></p>' : '') +
       '</div>' +
       '<div class="row-aside">' + (p.openCount
         ? '<span class="badge badge-accepted" title="' + esc(t('build.row.looking') + ' ' + looking) + '" data-testid="build-row-' + n + '-open"><span class="icon i-users" aria-hidden="true" data-testid="build-row-' + n + '-open-icon"></span>' + esc(p.openCount === 1 ? t('build.row.open.one') : t('build.row.open.other', { n: p.openCount })) + '</span>'

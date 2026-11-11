@@ -6,6 +6,9 @@ High-fidelity, static prototype of the 226os UI (Graphite & Lime). It is a **des
 
 - Open `index.html` directly (`file://`), or serve it: `cd prototypes/html && python3 -m http.server 8080` then http://localhost:8080/.
 - Query parameters (all pages): `?lang=fr|en` (default fr), `?theme=light|dark` (default: OS preference), `?state=loading|empty|error|notfound` (forces the simulated async state), `?q=` on `index.html` (search).
+- QA parameters: `?lang=fr|en` (overrides the persisted choice and is not saved; headless browsers default to English, always pass it), `?role=` (simulated viewer: question `author|member|anonymous`, project `owner|applicant|member|anonymous`, profile `self|member|anonymous`; `?as=` is kept as an alias on profile), `?proto=1|0` (annotations and prototype scaffolding on or off), `?state=loading|empty|error` (auth also `expired|ratelimit|badcreds|verify`).
+- The floating **Prototype** button (bottom-left) opens the same controls (role, screen state, annotations switch) without editing the URL.
+- Navigation uses French menu labels (Explorer, Résoudre, Découvrir, Construire, Communauté, Mentorat); English keeps the PRD domain names. See `DESIGN_REVIEW.md` section 10.
 - Language and theme choices persist in `localStorage` (keys `226os.lang`, `226os.theme`); the page still works if storage is blocked.
 
 ## What is simulated

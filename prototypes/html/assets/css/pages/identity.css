@@ -11,4 +11,3 @@
 .profile-privacy-table td, .profile-privacy-table th { overflow-wrap: anywhere; }
 .profile-state { display: inline-flex; align-items: center; gap: var(--space-1); white-space: nowrap; }
 .connect-soon { margin-top: var(--space-5); }
-#profile-edit-open { margin-inline-end: var(--space-3); }

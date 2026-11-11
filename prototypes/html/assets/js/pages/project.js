@@ -2,24 +2,24 @@
 I18N.register({
   fr: {
     'project.title': 'Projet — 226os', 'project.notfound': 'Projet introuvable', 'project.jump': 'Voir les besoins', 'project.form.summary': 'Corrigez les champs suivants',
-    'project.demo.title': 'Rôles et droits d’accès', 'project.demo.note': 'Dans le produit, le rôle vient de la session et chaque règle est appliquée par le serveur (matrice d’autorisation). Ici, vous choisissez le rôle pour voir la différence.',
-    'project.demo.viewas': 'Voir la page en tant que', 'project.demo.dup': 'Simuler une seconde candidature', 'project.demo.dup.none': 'Disponible quand le rôle choisi a déjà une candidature.',
+    'project.demo.title': 'Rôles (démo)', 'project.demo.note': 'En production, le rôle vient de la session et le serveur applique chaque règle. Ici, choisissez un rôle pour comparer.',
+    'project.demo.viewas': 'Rôle simulé', 'project.demo.dup': 'Simuler une seconde candidature', 'project.demo.dup.none': 'Disponible quand le rôle choisi a déjà une candidature.',
     'project.demo.dup.ready': 'Rouvre le formulaire pour un besoin déjà postulé : le serveur doit refuser le doublon.',
-    'project.role.owner': 'Responsable du projet', 'project.role.applicant': 'Personne candidate', 'project.role.member': 'Autre membre', 'project.role.anonymous': 'Visiteur non connecté',
-    'project.role.desc.owner': 'Responsable : lit la liste des candidatures de son projet, les accepte ou les refuse. Ne peut pas candidater à son propre projet.',
+    'project.role.owner': 'Mainteneur', 'project.role.applicant': 'Candidat', 'project.role.member': 'Autre membre', 'project.role.anonymous': 'Visiteur non connecté',
+    'project.role.desc.owner': 'Mainteneur : lit les candidatures de son projet et les accepte ou les refuse. Ne peut pas postuler à son propre projet.',
     'project.role.desc.applicant': 'Membre connecté avec une candidature : voit uniquement ses propres candidatures. Une seconde candidature au même besoin est refusée.',
     'project.role.desc.member': 'Membre connecté sans candidature : peut candidater à un besoin ouvert. La liste privée des candidatures lui est refusée (403).',
     'project.role.desc.anonymous': 'Visiteur non connecté : lit la fiche publique, mais ne peut ni candidater ni lire les candidatures.',
     'project.badge.license': 'Licence {l}', 'project.badge.fake': 'Lien fictif',
-    'project.ctx.title': 'Contexte lié', 'project.ctx.lede': 'Problem-to-Project : la question d’origine et l’API concernée restent à un clic.',
-    'project.ctx.question': 'Question d’origine', 'project.ctx.resource': 'API / outil lié', 'project.ctx.maintainer': 'Responsable', 'project.ctx.none': 'Aucune question ni API n’est liée à ce projet pour l’instant.',
+    'project.ctx.title': 'Contexte lié', 'project.ctx.lede': 'La question d’origine et l’API concernée, à un clic.',
+    'project.ctx.question': 'Question d’origine', 'project.ctx.resource': 'API / outil lié', 'project.ctx.maintainer': 'Mainteneur', 'project.ctx.none': 'Aucune question ni API n’est liée à ce projet pour l’instant.',
     'project.desc.title': 'Description', 'project.needs.title': 'Besoins de contribution', 'project.needs.skills': 'Compétences requises', 'project.needs.level': 'Niveau',
     'project.need.open': 'Ouvert', 'project.need.closed': 'Fermé', 'project.need.apply': 'Postuler', 'project.need.apply.aria': 'Postuler au besoin : {need}',
     'project.need.signin': 'Se connecter pour postuler', 'project.need.mine': 'Votre projet', 'project.need.sent': 'Candidature envoyée', 'project.need.apps': '{n} candidature(s)',
     'project.apps.title.owner': 'Candidatures reçues', 'project.apps.title.other': 'Candidatures', 'project.apps.mine': 'Mes candidatures',
-    'project.apps.private': 'Liste privée : réservée au responsable du projet.',
-    'project.apps.denied.title': 'Accès refusé (403)', 'project.apps.denied.body': 'Seul le responsable du projet peut lire la liste des candidatures. Le serveur refuse la demande et ne révèle ni données ni nombre.',
-    'project.apps.anon.title': 'Connexion requise (401)', 'project.apps.anon.body': 'Connectez-vous pour candidater. La liste des candidatures reste réservée au responsable.',
+    'project.apps.private': 'Liste privée, visible par le mainteneur uniquement.',
+    'project.apps.denied.title': 'Accès refusé (403)', 'project.apps.denied.body': 'Seul le mainteneur peut lire la liste des candidatures. Le serveur refuse la demande et ne révèle ni données ni nombre.',
+    'project.apps.anon.title': 'Connexion requise (401)', 'project.apps.anon.body': 'Connectez-vous pour postuler. La liste des candidatures reste réservée au responsable.',
     'project.apps.empty.title': 'Aucune candidature pour le moment', 'project.apps.empty.body': 'Les candidatures apparaîtront ici dès qu’un membre manifestera son intérêt.',
     'project.app.for': 'Besoin :', 'project.app.skills': 'Compétences :', 'project.app.avail': 'Disponibilité :', 'project.app.accept': 'Accepter', 'project.app.decline': 'Refuser',
     'project.app.accept.aria': 'Accepter la candidature de {name}', 'project.app.decline.aria': 'Refuser la candidature de {name}', 'project.app.decided': 'Décision enregistrée.',
@@ -28,14 +28,14 @@ I18N.register({
     'project.act.title': 'Activité', 'project.act.created': '{who} a créé le projet.', 'project.act.repo': '{who} a mis à jour la fiche du dépôt.', 'project.act.need': '{who} a publié un besoin :',
     'project.act.need-closed': '{who} a fermé le besoin :', 'project.act.link': '{who} a lié la question :',
     'project.side.repo': 'Dépôt', 'project.side.repo.link': 'Ouvrir le dépôt (lien fictif)', 'project.side.license': 'Licence', 'project.side.stage': 'Étape', 'project.side.country': 'Pays', 'project.side.langs': 'Langues de travail', 'project.side.updated': 'Mis à jour',
-    'project.side.stack': 'Technologies', 'project.side.maint': 'Responsable du projet',
+    'project.side.stack': 'Technologies', 'project.side.maint': 'Mainteneur',
     'project.lang.fr': 'Français', 'project.lang.en': 'English',
-    'project.empty.title': 'Projet introuvable', 'project.empty.body': 'Cet identifiant ne correspond à aucun projet. Retournez à l’annuaire pour en choisir un.', 'project.empty.cta': 'Retour aux projets',
-    'project.apply.title': 'Postuler pour contribuer', 'project.apply.need': 'Besoin :', 'project.apply.sim': 'Aucune candidature n’est réellement envoyée ni enregistrée.',
+    'project.empty.title': 'Projet introuvable', 'project.empty.body': 'Aucun projet ne porte cet identifiant. Retournez à la liste.', 'project.empty.cta': 'Retour aux projets',
+    'project.apply.title': 'Postuler pour contribuer', 'project.apply.need': 'Besoin :', 'project.apply.sim': 'Simulation : aucune candidature n’est envoyée.',
     'project.apply.motivation': 'Motivation', 'project.apply.motivation.hint': '30 à 600 caractères. Dites pourquoi ce besoin et ce que vous apporterez en premier.',
     'project.apply.skills': 'Compétences pertinentes', 'project.apply.skills.hint': 'Séparées par des virgules, ex. Go, PostgreSQL.', 'project.apply.avail': 'Disponibilité', 'project.apply.submit': 'Envoyer la candidature',
-    'project.apply.ok.title': 'Candidature envoyée', 'project.apply.ok.body': 'Le responsable du projet pourra l’accepter ou la refuser.',
-    'project.apply.dup.title': 'Candidature déjà envoyée (409). ', 'project.apply.dup.body': 'Vous avez déjà candidaté à ce besoin : aucune nouvelle demande n’a été créée.',
+    'project.apply.ok.title': 'Candidature envoyée', 'project.apply.ok.body': 'Le mainteneur pourra l’accepter ou la refuser.',
+    'project.apply.dup.title': 'Candidature déjà envoyée (409). ', 'project.apply.dup.body': 'Vous avez déjà postulé à ce besoin : aucune nouvelle demande n’a été créée.',
     'project.apply.toast': 'Candidature envoyée.',
     'project.err.motivation.required': 'Expliquez votre motivation.', 'project.err.motivation.short': 'La motivation doit contenir au moins 30 caractères.',
     'project.err.skills.required': 'Indiquez au moins une compétence.', 'project.err.avail.required': 'Choisissez une disponibilité.',
@@ -125,7 +125,7 @@ I18N.register({
   function header() {
     if (!P) { $('#project-h1').textContent = t('project.notfound'); $('#project-h1').classList.remove('mono'); $('#project-crumb').textContent = t('project.notfound'); $('#project-jump').hidden = true; $('#project-summary').hidden = true; document.title = t('project.notfound') + ' — 226os'; return; }
     $('#project-h1').textContent = P.name; $('#project-h1').lang = P.lang; $('#project-h1').setAttribute('data-user-content', '');
-    $('#project-thumb').innerHTML = App.thumb(P.name, { size: 'lg', icon: 'hammer', testid: 'project-thumb-img' });
+    $('#project-thumb').innerHTML = App.thumb(P.name, { size: 'lg', testid: 'project-thumb-img' });
     $('#project-crumb').textContent = P.name; document.title = P.name + ' — 226os';
     $('#project-badges').innerHTML = '<span class="meta-item" data-testid="project-stage-badge">' + esc(MOCK.label(B.stages[P.stage])) + '</span>' +
       '<span class="meta-item" data-testid="project-country-item">' + countryHtml(P.country, 'project-country') + '</span>';
@@ -155,8 +155,8 @@ I18N.register({
       else act = '<button type="button" class="btn btn-primary btn-sm" data-apply="' + n.id + '" aria-label="' + esc(t('project.need.apply.aria', { need: n.title })) + '" data-testid="project-need-' + k + '-apply"><span class="icon i-send" aria-hidden="true" data-testid="project-need-' + k + '-apply-icon"></span>' + esc(t('project.need.apply')) + '</button>';
       return '<li class="row" data-testid="project-need-' + k + '"><div class="row-lead"><span class="icon i-' + (n.status === 'open' ? 'users' : 'lock') + '" aria-hidden="true" data-testid="project-need-' + k + '-icon"></span></div>' +
         '<div class="row-main"><h3 class="row-title" lang="' + P.lang + '" data-user-content data-testid="project-need-' + k + '-title">' + esc(n.title) + '</h3>' +
-        '<p class="text-sm"><span class="text-muted" data-testid="project-need-' + k + '-skills-label">' + esc(t('project.needs.skills')) + ' :</span> <strong data-testid="project-need-' + k + '-skills">' + esc(n.skills.map(function (s) { return MOCK.label(B.skills[s]); }).join(', ')) + '</strong></p>' +
-        '<div class="meta"><span class="meta-item" data-testid="project-need-' + k + '-level">' + esc(t('project.needs.level')) + ' : ' + esc(MOCK.label(B.levels[n.level])) + '</span></div></div>' +
+        '<p class="text-sm"><span class="text-muted" data-testid="project-need-' + k + '-skills-label">' + esc(t('project.needs.skills')) + (I18N.lang === 'fr' ? '\u00a0:' : ':') + '</span> <strong data-testid="project-need-' + k + '-skills">' + esc(n.skills.map(function (s) { return MOCK.label(B.skills[s]); }).join(', ')) + '</strong></p>' +
+        '<div class="meta"><span class="meta-item" data-testid="project-need-' + k + '-level">' + esc(t('project.needs.level')) + (I18N.lang === 'fr' ? '\u00a0: ' : ': ') + esc(MOCK.label(B.levels[n.level])) + '</span></div></div>' +
         '<div class="row-aside"><span class="badge ' + (n.status === 'open' ? 'badge-accepted' : 'badge-later') + '" data-testid="project-need-' + k + '-status">' + esc(t(n.status === 'open' ? 'project.need.open' : 'project.need.closed')) + '</span>' + act + '</div></li>';
     }).join('');
   }

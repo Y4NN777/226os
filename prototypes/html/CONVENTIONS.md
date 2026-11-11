@@ -114,7 +114,7 @@ Read the PNGs, fix overflow/overlap/contrast issues, and re-shoot. A virtual-tim
 **Shell (shell.js / app.js, do not duplicate).**
 - Header: search, theme icon toggle, account menu (icon, `aria-haspopup=menu`: sign in, my profile, language Français/English radios, theme Clair/Sombre/Système radios), primary "Ask" (+). No FR/EN control, no sign-in text button. Test ids: `account-menu-button`, `account-menu-panel`, `account-menu-lang-fr|en`, `account-menu-theme-light|dark|system`, `theme-toggle`, `header-create`.
 - Language: `?lang=` (QA override, not persisted) > persisted choice (`226os.lang`, set only from the menu) > `navigator.languages[0]` (`fr*` -> fr, else en). A QA browser is therefore English by default: pass `?lang=fr` in screenshot commands.
-- Nav: Explore, Solve, Discover, Build, Identité & Communauté, Connect (neutral "Bientôt" label, dot on the rail). `home-domains.js` and the domain table were removed from `index.html`.
+- Nav (keys `nav.*`, code ids unchanged): FR Explorer, Résoudre, Découvrir, Construire, Communauté, Mentorat (neutral "Bientôt" label, dot on the rail); EN Explore, Solve, Discover, Build, Community, Mentoring. FR page titles add the noun ("Résoudre · Questions techniques"). Never write the English domain names in French UI strings; testids and file names do not change. `home-domains.js` and the domain table were removed from `index.html`.
 - Footer: just "226os"; the prototype note is `[data-proto]`.
 - Floating **Prototype** button (bottom-left, `proto-toggle`) opens `proto-panel`: role switcher, screen state (Normal/Chargement/Vide/Erreur, reloads with `?state=`), annotations switch.
 
@@ -147,3 +147,10 @@ Read the PNGs, fix overflow/overlap/contrast issues, and re-shoot. A virtual-tim
 - `pages/build.html`, `project.html` (Build): thumbs for projects, `?as=owner` panel to Proto, remove sim notes, icon actions.
 - `pages/profile.html` (own: `?as=self&edit=1`), `connect.html`, `auth.html` (Identity/Connect): auth password reveal -> `data-pw-toggle`; profile view-as/edit demo panel and its `.sim-marker` (line ~79) to Proto/`data-proto`; connect "preview" explanations to `data-proto`; avatars via `App.avatar`.
 - `index.html`/`home.js`: done by this pass (domain table removed; `renderDomains` in home.js is now a no-op and its `home.dom.*` keys are dead: remove at the next integration).
+
+**Shared runtime additions (final pass).**
+- `I18N.t` applies a French typography safety net: a no-break space is inserted before `: ; ? ! »` and after `«`. Still write `\u00a0` in new FR strings.
+- Tooltips (`.btn-icon[aria-label]`, `.has-tip`, `[data-tip]`) auto-flip: `app.js` measures the `::after` box on hover/focus and adds `.tip-flip-end` / `.tip-flip-start` near the viewport edges. Do not add per-page margins to compensate.
+- `.row-lead` stays visible in narrow containers (thumbnails, avatars, icons). Only leads containing `.vote` or `.solve-stats` collapse below 480px.
+- `.filter-bar-grid` and `.discover-filters` are one column below 480px, two from 480px.
+- French copy rules are in `DESIGN_REVIEW.md` section 10.

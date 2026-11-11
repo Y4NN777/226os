@@ -134,3 +134,40 @@ DESIGN.md 2.1 defines 15 semantic roles (background, surfaces, text, border, act
 | `--shadow-raised`, `--shadow-overlay` | rgba graphite / black | elevation of raised surfaces and dialogs | n/a |
 
 Also added: spacing, radius, motion, z-index, layout and font-size scales (DESIGN.md 4 only fixes system fonts), `--target` 44px and `--target-min` 24px. Limits: ratios come from the audit comment, not rendered-pixel measurement; hover/active/disabled rendering and dark values remain a proposed baseline (DESIGN.md 2.1). To be re-validated after the Astryx token mapping.
+
+
+## 10. Final pass: naming, UX simplification, French copy
+
+### 10.1 Navigation naming (FR UI labels vs PRD domains)
+
+| PRD domain | FR menu | FR page title | EN menu |
+|---|---|---|---|
+| Explore | Explorer | Explorer | Explore |
+| Solve | Résoudre | Résoudre · Questions techniques | Solve |
+| Discover | Découvrir | Découvrir · API & outils | Discover |
+| Build | Construire | Construire · Projets open source | Build |
+| Identity & Community | Communauté | Communauté · Membres | Community |
+| Connect | Mentorat | Mentorat & collaboration | Mentoring |
+
+Menu labels are one word, page titles add the noun. English keeps the PRD names (Connect is shown as "Mentoring"). Code identifiers, file names, `data-active` values and `data-testid`s keep the PRD names, so specs and tests are unaffected. The English domain words never appear in French UI strings (nav, breadcrumbs, titles, H1, home table, toasts, aria labels).
+
+### 10.2 UX simplification decisions
+
+- **Annotations toggle.** Everything that explains the prototype (Simulé badges, notes, role explanations, P0/P1 labels) is `[data-proto]` and hidden by default; shown via the Prototype button or `?proto=1`.
+- **Icon-first.** Secondary actions (theme, filters, reset, share, report, sort, edit) are icon buttons with `aria-label` and a tooltip; primary actions keep a text label. Tooltips auto-flip near viewport edges (WCAG 1.4.13: dismissible with Esc).
+- **Borders policy.** No borders on cards, chips or panels (fill and elevation instead); borders only as list dividers, inputs and focus. Keeps the Graphite and Lime surfaces calm in both themes.
+- **Auto language and account menu.** Language follows the browser (`fr*` -> French, else English) unless chosen in the account menu; sign-in, profile, language and theme live in one icon menu, no FR/EN switch in the header.
+- **Thumbnails.** Project and catalogue rows carry a generated thumbnail (initials, deterministic colour) for scanning; kept on phones, only vote and stat columns collapse below 480px.
+- **Reviews pulled forward from P1.** Star rating and written reviews (with "utile" votes) appear on API/tool sheets in the prototype because they carry the integration feedback that Discover needs; reputation and badges stay P1.
+- **OSS projects surfaced in Discover, canonical in Build.** Discover lists open source projects as a catalogue type for visibility; each card links to the Build project page, nothing is duplicated.
+- **Build rows keep the key facts.** Compact "Recherche : Go, UX FR/EN" (3 skills max, then "+n") and a link to the originating question, which serves the contributor need and the Problem-to-Project path.
+
+### 10.3 French copy rules
+
+- Short, direct labels in natural developer French; keep real jargon (webhook, API, SDK, pull request, open source, backend, sandbox, stack).
+- No calques or stiff nominalisations ("Voir en tant que" -> "Rôle simulé", "Parcours conçu" -> "Maquette", "Droits d'accès" demo labels -> "Rôles (démo)"), no marketing filler, no exclamation marks, no stacked hedging.
+- No inclusive median dots; rephrase or use the generic masculine ("Mainteneur", "Candidat").
+- Typography: no-break space before `: ; ? !` and inside `« »`; French quotes; sentence case only; accents on capitals.
+- Always "vous". Fixed vocabulary: question, réponse acceptée, besoin, candidature (verb "postuler"), avis, mainteneur, fiche.
+- Dates in French format (`10 novembre 2026`), decimals with a comma.
+- User content (questions, bios, reviews) keeps its original language and is never rewritten by the UI.

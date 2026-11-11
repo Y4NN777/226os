@@ -56,7 +56,7 @@
       (r.country ? '<span class="country" data-testid="' + esc(tid) + '-country"><span class="country-code" data-testid="' + esc(tid) + '-country-code">' + esc(r.country) + '</span>' + (cn ? '<span class="visually-hidden" data-testid="' + esc(tid) + '-country-name">' + esc(cn) + '</span>' : '') + '</span>' : '') +
       (r.date ? '<time datetime="' + esc(r.date) + '" data-testid="' + esc(tid) + '-date">' + esc(date) + '</time>' : '') + '</div></div>' + rating(r.rating, { testid: tid + '-rating' }) + '</div>' +
       '<p class="review-text" lang="' + esc(r.lang || I18N.lang) + '" data-user-content data-testid="' + esc(tid) + '-text">' + esc(r.text) + '</p>' +
-      '<div class="review-foot" data-testid="' + esc(tid) + '-foot"><span class="badge" lang="' + I18N.lang + '" title="' + esc(I18N.t('common.originalLang') + ' : ' + ln) + '" data-testid="' + esc(tid) + '-lang"><span aria-hidden="true" data-testid="' + esc(tid) + '-lang-code">' + esc(String(r.lang || '').toUpperCase()) + '</span><span class="visually-hidden" data-testid="' + esc(tid) + '-lang-name">' + esc(I18N.t('common.originalLang') + ' : ' + ln) + '</span></span>' +
+      '<div class="review-foot" data-testid="' + esc(tid) + '-foot"><span class="badge" lang="' + I18N.lang + '" title="' + esc(I18N.t('common.originalLang') + (I18N.lang === 'fr' ? '\u00a0: ' : ': ') + ln) + '" data-testid="' + esc(tid) + '-lang"><span aria-hidden="true" data-testid="' + esc(tid) + '-lang-code">' + esc(String(r.lang || '').toUpperCase()) + '</span><span class="visually-hidden" data-testid="' + esc(tid) + '-lang-name">' + esc(I18N.t('common.originalLang') + (I18N.lang === 'fr' ? '\u00a0: ' : ': ') + ln) + '</span></span>' +
       (r.verified ? '<span class="badge badge-verified" data-testid="' + esc(tid) + '-verified"><span class="icon i-shield-check" aria-hidden="true" data-testid="' + esc(tid) + '-verified-icon"></span>' + esc(I18N.t('common.integrationVerified')) + '</span>' : '') + '</div></article>';
   }
 
@@ -68,12 +68,14 @@
   if (lang !== 'fr' && lang !== 'en') lang = detectLang();
   root.lang = lang;
   var warned = {};
+  var FRP = /[ ]([:;?!»])/;
   var I18N = {
     get lang() { return lang; },
     register: function (dict) { Object.keys(dict).forEach(function (l) { dicts[l] = Object.assign(dicts[l] || {}, dict[l]); }); },
     t: function (k, p) {
       var s = dicts[lang][k]; if (s == null) s = dicts.fr[k];
       if (s == null) { if (!warned[k]) { warned[k] = 1; console.warn('[i18n] missing key', k); } return k; }
+      if (lang === 'fr' && FRP.test(s)) s = s.replace(/ ([:;?!»])/g, '\u00a0$1').replace(/«\s/g, '«\u00a0'); /* French typography safety net: no-break space before : ; ? ! » and after « */
       return p ? s.replace(/\{(\w+)\}/g, function (m, n) { return p[n] != null ? p[n] : m; }) : s;
     },
     apply: function (r) {
@@ -394,6 +396,21 @@
       (navigator.clipboard ? navigator.clipboard.writeText(txt) : Promise.reject()).then(function () { a.classList.add('is-done'); setTimeout(function () { a.classList.remove('is-done'); }, 1600); Toast.show({ kind: 'success', msg: I18N.t('common.copied') }); }, function () { Toast.show({ kind: 'error', msg: I18N.t('common.copyFailed') }); });
     } else if (a.hasAttribute('data-sim')) { e.preventDefault(); Toast.show({ kind: 'info', title: I18N.t('sim.badge'), msg: I18N.t('sim.toast') }); }
   });
+  /* Tooltip auto-flip: keep the CSS tooltip inside the viewport. Measures the ::after box (position:absolute, laid out even while hidden) and adds .tip-flip-end / .tip-flip-start. */
+  function tipFit(e) {
+    var el = e.target && e.target.closest ? e.target.closest('.btn-icon[aria-label], .has-tip[aria-label], [data-tip]') : null; if (el) tipOne(el);
+  }
+  function tipOne(el) {
+    el.classList.remove('tip-flip-end', 'tip-flip-start');
+    var w = parseFloat(getComputedStyle(el, '::after').width); if (!w) return;
+    var r = el.getBoundingClientRect(), vw = d.documentElement.clientWidth, pad = 8, l, rt;
+    if (el.classList.contains('tip-end')) { rt = r.right; l = rt - w; } else if (el.classList.contains('tip-start')) { l = r.left; rt = l + w; } else { l = r.left + r.width / 2 - w / 2; rt = l + w; }
+    if (rt > vw - pad) el.classList.add('tip-flip-end'); else if (l < pad) el.classList.add('tip-flip-start');
+  }
+  d.addEventListener('mouseover', tipFit); d.addEventListener('focusin', tipFit);
+  /* Hidden tooltips still count as scrollable overflow, so also fit them all once layout is stable. */
+  function tipAll() { $$('.btn-icon[aria-label], .has-tip[aria-label], [data-tip]').forEach(tipOne); }
+  window.addEventListener('load', function () { setTimeout(tipAll, 50); }); window.addEventListener('resize', tipAll); d.addEventListener('i18n:change', function () { setTimeout(tipAll, 0); });
   d.addEventListener('keydown', function (e) {
     if (e.key !== 'Escape') return;
     if (d.body.classList.contains('nav-open')) navOpen(false);

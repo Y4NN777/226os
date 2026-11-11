@@ -13,7 +13,7 @@ window.MOCK = window.MOCK || {};
   };
   B.stages = { idea: { fr: 'Idée', en: 'Idea' }, prototype: { fr: 'Prototype', en: 'Prototype' }, active: { fr: 'Actif', en: 'Active' }, maintained: { fr: 'Maintenance', en: 'Maintenance' } };
   B.licenses = ['MIT', 'Apache-2.0', 'AGPL-3.0', 'CC-BY-4.0'];
-  B.levels = { beginner: { fr: 'Débutant accepté', en: 'Beginner friendly' }, intermediate: { fr: 'Intermédiaire', en: 'Intermediate' }, advanced: { fr: 'Avancé', en: 'Advanced' } };
+  B.levels = { beginner: { fr: 'Débutants bienvenus', en: 'Beginner friendly' }, intermediate: { fr: 'Intermédiaire', en: 'Intermediate' }, advanced: { fr: 'Avancé', en: 'Advanced' } };
   B.availability = ['lt2', '2to5', '5to10', 'gt10'];
 
   /* Projects not present in shared MOCK.projects (same shape). Linked question/resource ids exist in shared data. */

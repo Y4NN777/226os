@@ -19,7 +19,7 @@ window.MOCK = window.MOCK || {};
   D.kinds = { official: { fr: 'Documentation officielle', en: 'Official documentation', cls: 'badge-verified', icon: 'book' },
     changelog: { fr: 'Journal des changements', en: 'Changelog', cls: 'badge-verified', icon: 'git-branch' },
     community: { fr: 'Confirmation communautaire', en: 'Community confirmation', cls: 'badge-accepted', icon: 'users' },
-    claim: { fr: 'Affirmation du fournisseur, non vérifiée', en: 'Provider claim, not verified', cls: 'badge-warn', icon: 'alert' } };
+    claim: { fr: 'Déclaré par le fournisseur, non vérifié', en: 'Provider claim, not verified', cls: 'badge-warn', icon: 'alert' } };
 
   function base(id) { return M.byId(M.resources, id); }
   function mk(id, o) { var b = base(id) || {}; var r = {}; Object.keys(b).forEach(function (k) { r[k] = b[k]; }); Object.keys(o).forEach(function (k) { r[k] = o[k]; }); r.summaryLang = o.summaryLang || 'fr'; return r; }

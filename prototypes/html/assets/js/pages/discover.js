@@ -1,25 +1,25 @@
 /* Discover catalogue page logic + UI dictionary (domain: discover). Data: MOCK.discover (fictional). */
 I18N.register({
   fr: {
-    'discover.title': 'Discover : API et outils — 226os', 'discover.h1': 'API, SDK et outils pour développeurs',
+    'discover.title': 'Découvrir · API & outils — 226os', 'discover.h1': 'Découvrir · API & outils',
     'discover.lede': 'API, SDK et outils utiles en Afrique, avec leurs sources datées. Filtrez par pays, catégorie ou langage.',
-    'discover.compare': 'Comparer', 'discover.fictional.title': 'Exemples fictifs. ', 'discover.fictional.body': 'Les fournisseurs, API et sources de ce prototype sont inventés : aucune entreprise ni intégration réelle n’est suggérée.',
+    'discover.compare': 'Comparer', 'discover.fictional.title': 'Exemples fictifs. ', 'discover.fictional.body': 'Fournisseurs, API et sources sont inventés. Aucune entreprise réelle n’est visée.',
     'discover.filters.h': 'Recherche et filtres', 'discover.results.h': 'Résultats du catalogue',
     'discover.search.label': 'Rechercher une API, un SDK ou un outil', 'discover.search.placeholder': 'Ex. webhook, USSD, géocodage',
     'discover.f.country': 'Pays pris en charge', 'discover.f.category': 'Catégorie', 'discover.f.type': 'Type', 'discover.f.doclang': 'Langue de la documentation', 'discover.f.sdk': 'SDK / langage', 'discover.f.provider': 'Fournisseur',
     'discover.all.country': 'Tous les pays', 'discover.all.category': 'Toutes les catégories', 'discover.all.type': 'Tous les types', 'discover.all.doclang': 'Toutes les langues', 'discover.all.sdk': 'Tous les langages', 'discover.all.provider': 'Tous les fournisseurs',
-    'discover.sort.verified': 'Vérification la plus récente', 'discover.sort.name': 'Nom (A–Z)', 'discover.sort.countries': 'Couverture (pays)',
+    'discover.sort.verified': 'Vérifiées récemment', 'discover.sort.name': 'Nom (A–Z)', 'discover.sort.countries': 'Plus de pays',
     'discover.reset': 'Réinitialiser', 'discover.count': '{n} fiche(s)', 'discover.count.filtered': '{n} fiche(s) avec ces filtres',
     'discover.docs': 'Doc.', 'discover.docs.label': 'Langue de la documentation :', 'discover.countries.label': 'Pays :',
     'discover.verifiedOn': 'Vérifié le', 'discover.sources': '{n} source(s)', 'discover.questions': '{n} question(s) liée(s)',
-    'discover.status.verified': 'Source vérifiée', 'discover.status.stale': 'Vérification ancienne', 'discover.status.unverified': 'Non vérifié',
+    'discover.status.verified': 'Source vérifiée', 'discover.status.stale': 'À revérifier', 'discover.status.unverified': 'Non vérifié',
     'discover.fictional': 'exemple fictif', 'discover.type.project': 'Projet open source', 'discover.type.api': 'API', 'discover.type.sdk': 'SDK', 'discover.type.tool': 'Outil',
     'discover.empty.title': 'Aucune fiche ne correspond', 'discover.empty.body': 'Retirez un filtre ou changez de pays ou de catégorie. Vous pouvez aussi poser la question à la communauté.',
-    'discover.error.title': 'Impossible de charger le catalogue', 'discover.error.body': 'La connexion a échoué. Vos filtres sont conservés, réessayez.',
+    'discover.error.title': 'Impossible de charger le catalogue', 'discover.error.body': 'Connexion perdue. Vos filtres sont conservés, réessayez.',
     'discover.empty.ask': 'Poser une question',
     'discover.note.langs': 'Résumé en {l}',
     'discover.filters.more': 'Plus de filtres', 'discover.clear': 'Tout effacer', 'discover.chip.remove': 'Retirer le filtre : {l}', 'discover.sort.rating': 'Mieux notées',
-    'discover.oss.h': 'Outils open source de la communauté', 'discover.oss.all': 'Voir tous les projets', 'discover.updatedShort': 'Mis à jour le {d}', 'discover.stage.active': 'Actif', 'discover.stage.maintained': 'Maintenu', 'discover.stage.prototype': 'Prototype', 'discover.stage.idea': 'Idée', 'discover.verifiedShort': 'Vérifié le {d}', 'discover.staleShort': 'Vérifié le {d}', 'discover.unverifiedShort': 'Non vérifié', 'discover.chip.q': 'Recherche : {l}'
+    'discover.oss.h': 'Outils open source de la communauté', 'discover.oss.all': 'Tous les projets', 'discover.updatedShort': 'Mis à jour le {d}', 'discover.stage.active': 'Actif', 'discover.stage.maintained': 'Maintenu', 'discover.stage.prototype': 'Prototype', 'discover.stage.idea': 'Idée', 'discover.verifiedShort': 'Vérifié le {d}', 'discover.staleShort': 'Vérifié le {d}', 'discover.unverifiedShort': 'Non vérifié', 'discover.chip.q': 'Recherche : {l}'
   },
   en: {
     'discover.title': 'Discover: APIs and tools — 226os', 'discover.h1': 'APIs, SDKs and developer tools',
@@ -65,7 +65,7 @@ I18N.register({
 
   function lbl(o) { return o[I18N.lang]; }
   function cc(code, id) { return '<span class="country" data-testid="' + id + '"><span class="country-code" data-testid="' + id + '-code">' + code + '</span><span class="visually-hidden" data-testid="' + id + '-name">' + esc(M.countryName(code)) + '</span></span>'; }
-  function langBadge(l, id, extra) { var n = LN[l][I18N.lang]; return '<span class="badge" lang="' + I18N.lang + '" data-testid="' + id + '"><span aria-hidden="true" data-testid="' + id + '-code">' + (extra || '') + l.toUpperCase() + '</span><span class="visually-hidden" data-testid="' + id + '-name">' + esc((extra ? t('discover.docs.label') + ' ' : t('common.originalLang') + ' : ') + n) + '</span></span>'; }
+  function langBadge(l, id, extra) { var n = LN[l][I18N.lang]; return '<span class="badge" lang="' + I18N.lang + '" data-testid="' + id + '"><span aria-hidden="true" data-testid="' + id + '-code">' + (extra || '') + l.toUpperCase() + '</span><span class="visually-hidden" data-testid="' + id + '-name">' + esc((extra ? t('discover.docs.label') + ' ' : t('common.originalLang') + (I18N.lang === 'fr' ? '\u00a0: ' : ': ')) + n) + '</span></span>'; }
   function providerName(r, p) { return esc(r._prov) + '<span data-proto data-testid="' + p + '-fictional"> · ' + esc(t('discover.fictional')) + '</span>'; }
   function statusBadge(r, id) { var s = D.status(r), o = STATUS[s]; return '<span class="badge ' + o.cls + '" data-testid="' + id + '"><span class="icon i-' + o.icon + '" aria-hidden="true" data-testid="' + id + '-icon"></span>' + esc(t('discover.status.' + s)) + '</span>'; }
 
@@ -93,6 +93,8 @@ I18N.register({
     var v = vals(), sortMap = { rating: { key: '_rating', dir: 'desc' }, verified: { key: 'verifiedAt', dir: 'desc' }, name: { key: 'name', dir: 'asc' }, countries: { key: '_n', dir: 'desc' } };
     chips(v); strip();
     var res = F.run(CAT, { q: v.q, fields: ['_hay'], where: { countries: v.country, category: v.category, type: v.type, docLang: v.doclang, sdk: v.sdk, _pslug: v.provider }, sort: sortMap[v.sort] });
+    /* With no filter the strip already shows the newest projects: don't list them twice. */
+    if (!active(v)) { var shown = {}; stripItems().forEach(function (r) { shown[r.id] = 1; }); res = res.filter(function (r) { return !shown[r.id]; }); }
     $('#discover-count').textContent = t(active(v) ? 'discover.count.filtered' : 'discover.count', { n: res.length });
     return res;
   }
@@ -127,8 +129,9 @@ I18N.register({
     box.innerHTML = '<ul class="list list-reset discover-rows" data-testid="discover-results">' + items.map(row).join('') + '</ul>';
   }
 
+  function stripItems() { return D.projectItems().sort(function (a, b) { return a.updated < b.updated ? 1 : -1; }).slice(0, 4); }
   function strip() {
-    var items = D.projectItems().sort(function (a, b) { return a.updated < b.updated ? 1 : -1; }).slice(0, 4), box = $('#discover-oss-list');
+    var items = stripItems(), box = $('#discover-oss-list');
     box.innerHTML = items.map(function (r) { var p = 'discover-oss-' + r.id;
       return '<li data-testid="' + p + '-item"><a class="card discover-oss-card" href="' + r.href + '" data-testid="' + p + '">' + A.thumb(r.name, { size: 'md', testid: p + '-thumb' }) +
         '<span class="discover-oss-body"><strong data-testid="' + p + '-name">' + esc(r.name) + '</strong><span class="text-sm text-muted discover-oss-sum" lang="' + r.summaryLang + '" data-user-content data-testid="' + p + '-summary">' + esc(r.summary) + '</span>' +
