@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title data-i18n="project.title">Projet — 226os</title>
+  <meta name="color-scheme" content="light dark">
+  <script src="../assets/js/theme-init.js"></script>
+  <link rel="stylesheet" href="../assets/css/tokens.css">
+  <link rel="stylesheet" href="../assets/css/base.css">
+  <link rel="stylesheet" href="../assets/css/layout.css">
+  <link rel="stylesheet" href="../assets/css/icons.css">
+  <link rel="stylesheet" href="../assets/css/components.css">
+  <link rel="stylesheet" href="../assets/css/pages/build.css">
+</head>
+<body class="app" data-active="build" data-root="../">
+  <a class="skip-link" href="#main" data-i18n="skip" data-testid="skip-link">Aller au contenu principal</a>
+
+  <main id="main" tabindex="-1">
+    <nav class="breadcrumbs" data-i18n-attr="aria-label:common.breadcrumb" data-testid="breadcrumbs">
+      <ol>
+        <li><a href="../index.html" data-i18n="nav.explore" data-testid="breadcrumb-home"></a></li>
+        <li><a href="build.html" data-i18n="nav.build" data-testid="breadcrumb-build"></a></li>
+        <li><span aria-current="page" id="project-crumb" data-testid="breadcrumb-current"></span></li>
+      </ol>
+    </nav>
+
+    <header class="page-header" id="project-header">
+      <div class="page-header-row">
+        <h1 id="project-h1" class="mono" data-testid="project-h1"></h1>
+        <a class="btn btn-primary" id="project-jump" href="#needs" data-testid="project-needs-link"><span class="icon i-users" aria-hidden="true"></span><span data-i18n="project.jump"></span></a>
+      </div>
+      <div class="cluster" id="project-badges" data-testid="project-badges"></div>
+      <p class="lede" id="project-summary" data-testid="project-summary"></p>
+    </header>
+
+    <section class="card project-demo" aria-labelledby="project-demo-h" data-testid="project-demo">
+      <div class="cluster cluster-between">
+        <h2 id="project-demo-h" data-i18n="project.demo.title" data-testid="project-demo-title"></h2>
+        <span class="badge badge-sim" data-i18n="sim.badge" data-testid="project-demo-badge"></span>
+      </div>
+      <p class="hint" data-i18n="project.demo.note" data-testid="project-demo-note"></p>
+      <fieldset class="project-roles" data-testid="project-role-fieldset">
+        <legend class="label" data-i18n="project.demo.viewas" data-testid="project-role-legend"></legend>
+        <div class="cluster" id="project-roles"></div>
+      </fieldset>
+      <p class="text-sm" id="project-role-desc" aria-live="polite" data-testid="project-role-desc"></p>
+      <div class="cluster">
+        <button type="button" class="btn btn-sm" id="project-dup-btn" data-testid="project-dup-button"><span class="icon i-refresh" aria-hidden="true"></span><span data-i18n="project.demo.dup"></span></button>
+        <span class="hint" id="project-dup-hint" data-testid="project-dup-hint"></span>
+      </div>
+    </section>
+
+    <div class="section" id="project-view-wrap"><div id="project-view"></div></div>
+
+    <dialog class="dialog" id="apply-dialog" aria-labelledby="apply-title" data-testid="apply-dialog">
+      <form id="apply-form" novalidate data-testid="apply-form">
+        <div class="dialog-head">
+          <div><h2 id="apply-title" data-i18n="project.apply.title" data-testid="apply-title"></h2>
+            <p class="text-sm"><span class="text-muted" data-i18n="project.apply.need" data-testid="apply-need-label"></span> <strong id="apply-need" data-user-content data-testid="apply-need-title"></strong></p>
+            <p class="hint"><span class="badge badge-sim" data-i18n="sim.badge" data-testid="apply-sim-badge"></span> <span data-i18n="project.apply.sim" data-testid="apply-sim-note"></span></p></div>
+          <button type="button" class="btn btn-ghost btn-icon" data-dialog-close data-i18n-attr="aria-label:common.close" data-testid="apply-close"><span class="icon i-x" aria-hidden="true"></span></button>
+        </div>
+        <div class="dialog-body" id="apply-body">
+          <div class="callout callout-danger" id="apply-dup" role="alert" tabindex="-1" hidden data-testid="apply-duplicate-error"><span class="icon icon-lead i-alert-circle" aria-hidden="true"></span><div><strong data-i18n="project.apply.dup.title" data-testid="apply-duplicate-title"></strong><span data-i18n="project.apply.dup.body" data-testid="apply-duplicate-body"></span></div></div>
+          <div id="apply-summary" class="form-summary" role="alert" tabindex="-1" hidden data-testid="apply-error-summary"><h2 data-i18n="project.form.summary" data-testid="apply-summary-title"></h2><ul class="list-reset" id="apply-summary-list" data-testid="apply-summary-list"></ul></div>
+          <div class="field" data-field="motivation">
+            <label class="label" for="apply-motivation"><span data-i18n="project.apply.motivation" data-testid="apply-motivation-label"></span><span class="req" aria-hidden="true">*</span></label>
+            <p class="hint" id="apply-motivation-hint" data-i18n="project.apply.motivation.hint" data-testid="apply-motivation-hint"></p>
+            <textarea id="apply-motivation" class="textarea" maxlength="600" required aria-describedby="apply-motivation-hint apply-motivation-error" data-testid="apply-motivation-input"></textarea>
+            <p class="error-msg" id="apply-motivation-error" hidden data-testid="apply-motivation-error"></p>
+          </div>
+          <div class="field" data-field="skills">
+            <label class="label" for="apply-skills"><span data-i18n="project.apply.skills" data-testid="apply-skills-label"></span><span class="req" aria-hidden="true">*</span></label>
+            <p class="hint" id="apply-skills-hint" data-i18n="project.apply.skills.hint" data-testid="apply-skills-hint"></p>
+            <input id="apply-skills" class="input" type="text" maxlength="120" required aria-describedby="apply-skills-hint apply-skills-error" data-testid="apply-skills-input">
+            <p class="error-msg" id="apply-skills-error" hidden data-testid="apply-skills-error"></p>
+          </div>
+          <div class="field" data-field="avail">
+            <label class="label" for="apply-avail"><span data-i18n="project.apply.avail" data-testid="apply-avail-label"></span><span class="req" aria-hidden="true">*</span></label>
+            <select id="apply-avail" class="select" required aria-describedby="apply-avail-error" data-testid="apply-avail-input"></select>
+            <p class="error-msg" id="apply-avail-error" hidden data-testid="apply-avail-error"></p>
+          </div>
+        </div>
+        <div class="dialog-body" id="apply-success" hidden>
+          <div class="state state-success" role="status" data-testid="apply-success"><span class="icon i-check-circle" aria-hidden="true"></span><h3 data-i18n="project.apply.ok.title" data-testid="apply-success-title"></h3><p data-i18n="project.apply.ok.body" data-testid="apply-success-body"></p></div>
+        </div>
+        <div class="dialog-foot">
+          <button type="button" class="btn" id="apply-cancel" data-dialog-close data-i18n="common.cancel" data-testid="apply-cancel"></button>
+          <button type="submit" class="btn btn-primary" id="apply-submit" data-testid="apply-submit"><span data-i18n="project.apply.submit"></span></button>
+        </div>
+      </form>
+    </dialog>
+  </main>
+
+  <script src="../assets/js/shell.js"></script>
+  <script defer src="../assets/js/app.js"></script>
+  <script defer src="../assets/js/i18n-common.js"></script>
+  <script defer src="../assets/data/people.js"></script>
+  <script defer src="../assets/data/common.js"></script>
+  <script defer src="../assets/data/build.js"></script>
+  <script defer src="../assets/js/pages/project.js"></script>
+</body>
+</html>

@@ -1,0 +1,305 @@
+/* Project detail + application flow (simulated). Dictionary domain: project. Roles demo: owner / applicant / other member / anonymous. */
+I18N.register({
+  fr: {
+    'project.title': 'Projet — 226os', 'project.notfound': 'Projet introuvable', 'project.jump': 'Voir les besoins', 'project.form.summary': 'Corrigez les champs suivants',
+    'project.demo.title': 'Démo des droits d’accès', 'project.demo.note': 'Dans le produit, le rôle vient de la session et chaque règle est appliquée par le serveur (matrice d’autorisation). Ici, vous choisissez le rôle pour voir la différence.',
+    'project.demo.viewas': 'Voir la page en tant que', 'project.demo.dup': 'Simuler une seconde soumission', 'project.demo.dup.none': 'Disponible quand le rôle choisi a déjà une candidature.',
+    'project.demo.dup.ready': 'Rouvre le formulaire pour un besoin déjà candidaté : le serveur doit refuser le doublon.',
+    'project.role.owner': 'Responsable du projet', 'project.role.applicant': 'Candidat·e ({name})', 'project.role.member': 'Autre membre ({name})', 'project.role.anonymous': 'Visiteur anonyme',
+    'project.role.desc.owner': 'Responsable : lit la liste des candidatures de son projet, les accepte ou les refuse. Ne peut pas candidater à son propre projet.',
+    'project.role.desc.applicant': 'Membre connecté avec une candidature : voit uniquement ses propres candidatures. Une seconde candidature au même besoin est refusée.',
+    'project.role.desc.member': 'Membre connecté sans candidature : peut candidater à un besoin ouvert. La liste privée des candidatures lui est refusée (403).',
+    'project.role.desc.anonymous': 'Visiteur non connecté : lit la fiche publique, mais ne peut ni candidater ni lire les candidatures.',
+    'project.badge.license': 'Licence {l}', 'project.badge.fake': 'Lien fictif',
+    'project.ctx.title': 'Contexte lié', 'project.ctx.lede': 'Problem-to-Project : la question d’origine et l’API concernée restent à un clic.',
+    'project.ctx.question': 'Question d’origine', 'project.ctx.resource': 'API / outil lié', 'project.ctx.maintainer': 'Responsable', 'project.ctx.none': 'Aucune question ni API n’est liée à ce projet pour l’instant.',
+    'project.desc.title': 'Description', 'project.needs.title': 'Besoins de contribution', 'project.needs.skills': 'Compétences requises', 'project.needs.level': 'Niveau',
+    'project.need.open': 'Ouvert', 'project.need.closed': 'Fermé', 'project.need.apply': 'Postuler', 'project.need.apply.aria': 'Postuler au besoin : {need}',
+    'project.need.signin': 'Se connecter pour postuler', 'project.need.mine': 'Votre projet', 'project.need.sent': 'Candidature envoyée', 'project.need.apps': '{n} candidature(s)',
+    'project.apps.title.owner': 'Candidatures reçues', 'project.apps.title.other': 'Candidatures', 'project.apps.mine': 'Mes candidatures',
+    'project.apps.private': 'Liste privée : réservée au responsable du projet.',
+    'project.apps.denied.title': 'Accès refusé (403)', 'project.apps.denied.body': 'Seul le responsable du projet peut lire la liste des candidatures. Le serveur refuse la demande et ne révèle ni données ni nombre.',
+    'project.apps.anon.title': 'Connexion requise (401)', 'project.apps.anon.body': 'Connectez-vous pour candidater. La liste des candidatures reste réservée au responsable.',
+    'project.apps.empty.title': 'Aucune candidature pour le moment', 'project.apps.empty.body': 'Les candidatures apparaîtront ici dès qu’un membre manifestera son intérêt.',
+    'project.app.for': 'Besoin :', 'project.app.skills': 'Compétences :', 'project.app.avail': 'Disponibilité :', 'project.app.accept': 'Accepter', 'project.app.decline': 'Refuser',
+    'project.app.accept.aria': 'Accepter la candidature de {name}', 'project.app.decline.aria': 'Refuser la candidature de {name}', 'project.app.decided': 'Décision enregistrée (simulée).',
+    'project.status.pending': 'En attente', 'project.status.accepted': 'Acceptée', 'project.status.declined': 'Refusée', 'project.apps.toast.accepted': 'Candidature acceptée (simulation).', 'project.apps.toast.declined': 'Candidature refusée (simulation).',
+    'project.avail.lt2': 'Moins de 2 h par semaine', 'project.avail.2to5': '2 à 5 h par semaine', 'project.avail.5to10': '5 à 10 h par semaine', 'project.avail.gt10': 'Plus de 10 h par semaine', 'project.avail.choose': 'Choisir…',
+    'project.act.title': 'Activité', 'project.act.created': '{who} a créé le projet.', 'project.act.repo': '{who} a mis à jour la fiche du dépôt.', 'project.act.need': '{who} a publié un besoin :',
+    'project.act.need-closed': '{who} a fermé le besoin :', 'project.act.link': '{who} a lié la question :',
+    'project.side.repo': 'Dépôt', 'project.side.repo.link': 'Ouvrir le dépôt (lien fictif)', 'project.side.license': 'Licence', 'project.side.stage': 'Étape', 'project.side.country': 'Pays', 'project.side.langs': 'Langues de travail', 'project.side.updated': 'Mis à jour',
+    'project.side.stack': 'Technologies', 'project.side.maint': 'Responsable du projet',
+    'project.lang.fr': 'Français', 'project.lang.en': 'English',
+    'project.empty.title': 'Projet introuvable', 'project.empty.body': 'Cet identifiant ne correspond à aucun projet. Retournez à l’annuaire pour en choisir un.', 'project.empty.cta': 'Retour aux projets',
+    'project.apply.title': 'Postuler pour contribuer', 'project.apply.need': 'Besoin :', 'project.apply.sim': 'Aucune candidature n’est réellement envoyée ni enregistrée.',
+    'project.apply.motivation': 'Motivation', 'project.apply.motivation.hint': '30 à 600 caractères. Dites pourquoi ce besoin et ce que vous apporterez en premier.',
+    'project.apply.skills': 'Compétences pertinentes', 'project.apply.skills.hint': 'Séparées par des virgules, ex. Go, PostgreSQL.', 'project.apply.avail': 'Disponibilité', 'project.apply.submit': 'Envoyer la candidature',
+    'project.apply.ok.title': 'Candidature envoyée (simulation)', 'project.apply.ok.body': 'Le responsable du projet pourra la lire et l’accepter ou la refuser. Une seconde soumission au même besoin serait refusée.',
+    'project.apply.dup.title': 'Candidature déjà envoyée (409). ', 'project.apply.dup.body': 'Vous avez déjà candidaté à ce besoin : aucune nouvelle demande n’a été créée.',
+    'project.apply.toast': 'Candidature envoyée (simulation).',
+    'project.err.motivation.required': 'Expliquez votre motivation.', 'project.err.motivation.short': 'La motivation doit contenir au moins 30 caractères.',
+    'project.err.skills.required': 'Indiquez au moins une compétence.', 'project.err.avail.required': 'Choisissez une disponibilité.',
+    'project.demo.sample.motivation': 'Je souhaite contribuer à ce besoin et peux commencer par une petite tâche.', 'project.demo.sample.skills': 'Go, PostgreSQL'
+  },
+  en: {
+    'project.title': 'Project — 226os', 'project.notfound': 'Project not found', 'project.jump': 'See needs', 'project.form.summary': 'Please fix the following fields',
+    'project.demo.title': 'Access rights demo', 'project.demo.note': 'In the product the role comes from the session and the server enforces every rule (authorization matrix). Here you pick the role to see the difference.',
+    'project.demo.viewas': 'View the page as', 'project.demo.dup': 'Simulate a second submission', 'project.demo.dup.none': 'Available when the selected role already has an application.',
+    'project.demo.dup.ready': 'Reopens the form for a need already applied to: the server must refuse the duplicate.',
+    'project.role.owner': 'Project owner', 'project.role.applicant': 'Applicant ({name})', 'project.role.member': 'Other member ({name})', 'project.role.anonymous': 'Anonymous visitor',
+    'project.role.desc.owner': 'Owner: reads the applications of their project and accepts or declines them. Cannot apply to their own project.',
+    'project.role.desc.applicant': 'Signed-in member with an application: sees only their own applications. A second application to the same need is refused.',
+    'project.role.desc.member': 'Signed-in member without an application: can apply to an open need. The private applications list is refused (403).',
+    'project.role.desc.anonymous': 'Signed-out visitor: reads the public page but cannot apply or read applications.',
+    'project.badge.license': 'Licence {l}', 'project.badge.fake': 'Fictional link',
+    'project.ctx.title': 'Linked context', 'project.ctx.lede': 'Problem-to-Project: the originating question and the API involved stay one click away.',
+    'project.ctx.question': 'Originating question', 'project.ctx.resource': 'Linked API / tool', 'project.ctx.maintainer': 'Maintainer', 'project.ctx.none': 'No question or API is linked to this project yet.',
+    'project.desc.title': 'Description', 'project.needs.title': 'Contribution needs', 'project.needs.skills': 'Required skills', 'project.needs.level': 'Level',
+    'project.need.open': 'Open', 'project.need.closed': 'Closed', 'project.need.apply': 'Apply', 'project.need.apply.aria': 'Apply to the need: {need}',
+    'project.need.signin': 'Sign in to apply', 'project.need.mine': 'Your project', 'project.need.sent': 'Application sent', 'project.need.apps': '{n} application(s)',
+    'project.apps.title.owner': 'Applications received', 'project.apps.title.other': 'Applications', 'project.apps.mine': 'My applications',
+    'project.apps.private': 'Private list: reserved to the project owner.',
+    'project.apps.denied.title': 'Access denied (403)', 'project.apps.denied.body': 'Only the project owner can read the applications list. The server refuses the request and reveals no data or count.',
+    'project.apps.anon.title': 'Sign-in required (401)', 'project.apps.anon.body': 'Sign in to apply. The applications list stays reserved to the owner.',
+    'project.apps.empty.title': 'No applications yet', 'project.apps.empty.body': 'Applications will appear here as soon as a member shows interest.',
+    'project.app.for': 'Need:', 'project.app.skills': 'Skills:', 'project.app.avail': 'Availability:', 'project.app.accept': 'Accept', 'project.app.decline': 'Decline',
+    'project.app.accept.aria': 'Accept the application from {name}', 'project.app.decline.aria': 'Decline the application from {name}', 'project.app.decided': 'Decision recorded (simulated).',
+    'project.status.pending': 'Pending', 'project.status.accepted': 'Accepted', 'project.status.declined': 'Declined', 'project.apps.toast.accepted': 'Application accepted (simulation).', 'project.apps.toast.declined': 'Application declined (simulation).',
+    'project.avail.lt2': 'Under 2 h per week', 'project.avail.2to5': '2 to 5 h per week', 'project.avail.5to10': '5 to 10 h per week', 'project.avail.gt10': 'Over 10 h per week', 'project.avail.choose': 'Choose…',
+    'project.act.title': 'Activity', 'project.act.created': '{who} created the project.', 'project.act.repo': '{who} updated the repository details.', 'project.act.need': '{who} published a need:',
+    'project.act.need-closed': '{who} closed the need:', 'project.act.link': '{who} linked the question:',
+    'project.side.repo': 'Repository', 'project.side.repo.link': 'Open the repository (fictional link)', 'project.side.license': 'Licence', 'project.side.stage': 'Stage', 'project.side.country': 'Country', 'project.side.langs': 'Working languages', 'project.side.updated': 'Updated',
+    'project.side.stack': 'Stack', 'project.side.maint': 'Project owner',
+    'project.lang.fr': 'Français', 'project.lang.en': 'English',
+    'project.empty.title': 'Project not found', 'project.empty.body': 'This identifier matches no project. Go back to the directory to pick one.', 'project.empty.cta': 'Back to projects',
+    'project.apply.title': 'Apply to contribute', 'project.apply.need': 'Need:', 'project.apply.sim': 'No application is actually sent or saved.',
+    'project.apply.motivation': 'Motivation', 'project.apply.motivation.hint': '30 to 600 characters. Say why this need and what you would do first.',
+    'project.apply.skills': 'Relevant skills', 'project.apply.skills.hint': 'Comma-separated, e.g. Go, PostgreSQL.', 'project.apply.avail': 'Availability', 'project.apply.submit': 'Send application',
+    'project.apply.ok.title': 'Application sent (simulation)', 'project.apply.ok.body': 'The project owner will be able to read it and accept or decline it. A second submission for the same need would be refused.',
+    'project.apply.dup.title': 'Application already sent (409). ', 'project.apply.dup.body': 'You have already applied to this need: no new request was created.',
+    'project.apply.toast': 'Application sent (simulation).',
+    'project.err.motivation.required': 'Explain your motivation.', 'project.err.motivation.short': 'The motivation must be at least 30 characters.',
+    'project.err.skills.required': 'Enter at least one skill.', 'project.err.avail.required': 'Choose an availability.',
+    'project.demo.sample.motivation': 'I would like to contribute to this need and can start with a small task.', 'project.demo.sample.skills': 'Go, PostgreSQL'
+  }
+});
+
+(function () {
+  'use strict';
+  var B = MOCK.build, $ = App.$, esc = App.esc, t = function (k, p) { return I18N.t(k, p); };
+  var id = App.params.get('id') || 'pr-webhook-kit', P = B.byId(id);
+  var VIEWERS = { owner: P && P.owner, applicant: 'p-kofi', member: 'p-imane', anonymous: null };
+  var ROLES = ['owner', 'applicant', 'member', 'anonymous'];
+  var role = ROLES.indexOf(App.params.get('as')) > -1 ? App.params.get('as') : 'member';
+  var apps = P ? P.applications.map(function (a) { return Object.assign({}, a); }) : [];
+  var applyNeed = null, busy = false, errs = {}, dup = false;
+
+  function name(pid) { var p = MOCK.person(pid); return p ? p.name : pid; }
+  function viewer() { return VIEWERS[role]; }
+  function mineOn(needId) { return apps.filter(function (a) { return a.person === viewer() && a.need === needId; })[0]; }
+  function needOf(nid) { return P.needs.filter(function (n) { return n.id === nid; })[0]; }
+  function badgeLang(l, tid) { return '<span class="badge" title="' + esc(t('common.originalLang')) + '" data-testid="' + tid + '"><span class="visually-hidden">' + esc(t('common.originalLang')) + ' </span>' + l.toUpperCase() + '</span>'; }
+  function personHtml(pid, tid, withLink) {
+    var p = MOCK.person(pid); if (!p) return '';
+    var nm = withLink ? '<a href="profile.html?id=' + p.id + '" data-testid="' + tid + '-link">' + esc(p.name) + '</a>' : '<span>' + esc(p.name) + '</span>';
+    return '<span class="person" data-testid="' + tid + '"><span class="avatar avatar-sm" aria-hidden="true" data-testid="' + tid + '-avatar">' + esc(p.initials) + '</span>' + nm + '</span>';
+  }
+  function countryHtml(code, tid) { return '<span class="country" data-testid="' + tid + '"><span class="country-code" aria-hidden="true">' + code + '</span><span>' + esc(MOCK.countryName(code)) + '</span></span>'; }
+
+  /* ---- minimal Markdown (fixed fictional text): ## headings -> h3, lists, paragraphs, **bold**, `code`. Escapes first. ---- */
+  function md(src) {
+    function inl(s) { return esc(s).replace(/`([^`]+)`/g, '<code>$1</code>').replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>'); }
+    var out = [], list = false;
+    src.split('\n').forEach(function (l) {
+      if (/^- /.test(l)) { if (!list) { out.push('<ul>'); list = true; } out.push('<li>' + inl(l.slice(2)) + '</li>'); return; }
+      if (list) { out.push('</ul>'); list = false; }
+      if (/^## /.test(l)) out.push('<h3>' + inl(l.slice(3)) + '</h3>'); else if (l.trim()) out.push('<p>' + inl(l) + '</p>');
+    });
+    if (list) out.push('</ul>'); return out.join('');
+  }
+
+  /* ---- header / role toolbar (outside the simulated area) ---- */
+  function header() {
+    if (!P) { $('#project-h1').textContent = t('project.notfound'); $('#project-h1').classList.remove('mono'); $('#project-crumb').textContent = t('project.notfound'); $('#project-jump').hidden = true; $('#project-summary').hidden = true; document.title = t('project.notfound') + ' — 226os'; return; }
+    $('#project-h1').textContent = P.name; $('#project-h1').lang = P.lang; $('#project-h1').setAttribute('data-user-content', '');
+    $('#project-crumb').textContent = P.name; document.title = P.name + ' — 226os';
+    $('#project-badges').innerHTML = '<span class="badge badge-accepted" data-testid="project-stage-badge">' + esc(MOCK.label(B.stages[P.stage])) + '</span>' +
+      '<span class="badge" data-testid="project-license-badge"><span class="icon i-shield-check" aria-hidden="true"></span>' + esc(t('project.badge.license', { l: P.license })) + '</span>' +
+      countryHtml(P.country, 'project-country') + badgeLang(P.lang, 'project-lang-badge');
+    $('#project-summary').innerHTML = '<span lang="' + P.lang + '" data-user-content data-testid="project-summary-text">' + esc(P.summary) + '</span>';
+    $('#project-jump').hidden = false; $('#project-summary').hidden = false;
+  }
+  function toolbar() {
+    $('[data-testid=project-demo]').hidden = !P; if (!P) return;
+    $('#project-roles').innerHTML = ROLES.map(function (r) {
+      var nm = r === 'applicant' ? name('p-kofi') : r === 'member' ? name('p-imane') : '';
+      return '<label class="choice"><input type="radio" name="project-role" value="' + r + '"' + (r === role ? ' checked' : '') + ' data-testid="project-role-' + r + '-input"><span data-testid="project-role-' + r + '-label">' + esc(t('project.role.' + r, { name: nm })) + '</span></label>';
+    }).join('');
+    $('#project-role-desc').textContent = t('project.role.desc.' + role);
+    var can = P && !!dupTarget(); $('#project-dup-btn').disabled = !can;
+    $('#project-dup-hint').textContent = can ? t('project.demo.dup.ready') : t('project.demo.dup.none');
+  }
+  function dupTarget() { var v = viewer(); if (!v || role === 'owner') return null; return apps.filter(function (a) { return a.person === v; })[0] || null; }
+  $('#project-roles').addEventListener('change', function (e) {
+    if (e.target.name !== 'project-role') return; role = e.target.value; toolbar(); sim && sim.refresh();
+    try { var u = new URL(location.href); u.searchParams.set('as', role); history.replaceState(null, '', u); } catch (x) { /* file:// may refuse */ }
+  });
+
+  /* ---- main view ---- */
+  function needsHtml() {
+    return P.needs.map(function (n, i) {
+      var k = i + 1, mine = mineOn(n.id), count = apps.filter(function (a) { return a.need === n.id; }).length, act;
+      if (n.status === 'closed') act = '';
+      else if (role === 'owner') act = '<span class="text-sm text-muted" data-testid="project-need-' + k + '-owner">' + esc(t('project.need.mine')) + ' · ' + esc(t('project.need.apps', { n: count })) + '</span>';
+      else if (role === 'anonymous') act = '<button type="button" class="btn btn-sm" data-sim data-testid="project-need-' + k + '-signin"><span class="icon i-lock" aria-hidden="true"></span>' + esc(t('project.need.signin')) + '</button>';
+      else if (mine) act = '<span class="badge badge-verified" data-testid="project-need-' + k + '-sent"><span class="icon i-check" aria-hidden="true"></span>' + esc(t('project.need.sent')) + '</span>';
+      else act = '<button type="button" class="btn btn-primary btn-sm" data-apply="' + n.id + '" aria-label="' + esc(t('project.need.apply.aria', { need: n.title })) + '" data-testid="project-need-' + k + '-apply"><span class="icon i-send" aria-hidden="true"></span>' + esc(t('project.need.apply')) + '</button>';
+      return '<li class="row" data-testid="project-need-' + k + '"><div class="row-lead"><span class="icon i-' + (n.status === 'open' ? 'users' : 'lock') + '" aria-hidden="true" data-testid="project-need-' + k + '-icon"></span></div>' +
+        '<div class="row-main"><h3 class="row-title" lang="' + P.lang + '" data-user-content data-testid="project-need-' + k + '-title">' + esc(n.title) + '</h3>' +
+        '<p class="text-sm"><span class="text-muted" data-testid="project-need-' + k + '-skills-label">' + esc(t('project.needs.skills')) + ' :</span> <strong data-testid="project-need-' + k + '-skills">' + esc(n.skills.map(function (s) { return MOCK.label(B.skills[s]); }).join(', ')) + '</strong></p>' +
+        '<div class="meta"><span class="meta-item" data-testid="project-need-' + k + '-level">' + esc(t('project.needs.level')) + ' : ' + esc(MOCK.label(B.levels[n.level])) + '</span></div></div>' +
+        '<div class="row-aside"><span class="badge ' + (n.status === 'open' ? 'badge-accepted' : 'badge-later') + '" data-testid="project-need-' + k + '-status">' + esc(t(n.status === 'open' ? 'project.need.open' : 'project.need.closed')) + '</span>' + act + '</div></li>';
+    }).join('');
+  }
+  function statusBadge(s, tid) { var c = { pending: 'badge-warn', accepted: 'badge-accepted', declined: 'badge-danger' }[s], ic = { pending: 'clock', accepted: 'check', declined: 'x' }[s];
+    return '<span class="badge ' + c + '" data-testid="' + tid + '"><span class="icon i-' + ic + '" aria-hidden="true"></span>' + esc(t('project.status.' + s)) + '</span>'; }
+  function appRow(a, i, owner, pre) {
+    var k = i + 1, tid = pre + '-' + k, nd = needOf(a.need);
+    return '<li class="row" tabindex="-1" data-app="' + a.id + '" data-testid="' + tid + '"><div class="row-lead"><span class="avatar" aria-hidden="true" data-testid="' + tid + '-avatar">' + esc((MOCK.person(a.person) || {}).initials || '?') + '</span></div>' +
+      '<div class="row-main"><h' + (owner ? 3 : 4) + ' class="row-title">' + (owner ? '<a class="row-above" href="profile.html?id=' + a.person + '" data-testid="' + tid + '-person">' + esc(name(a.person)) + '</a>' : '<span data-testid="' + tid + '-person">' + esc(name(a.person)) + '</span>') + '</h' + (owner ? 3 : 4) + '>' +
+      '<p class="text-sm"><span class="text-muted">' + esc(t('project.app.for')) + '</span> <span lang="' + P.lang + '" data-user-content data-testid="' + tid + '-need">' + esc(nd.title) + '</span></p>' +
+      '<p lang="' + a.lang + '" data-user-content data-testid="' + tid + '-motivation">' + esc(a.motivation) + '</p>' +
+      '<div class="meta"><span class="meta-item" data-testid="' + tid + '-skills">' + esc(t('project.app.skills')) + ' ' + esc(a.skills) + '</span><span class="meta-item" data-testid="' + tid + '-avail">' + esc(t('project.app.avail')) + ' ' + esc(t('project.avail.' + a.avail)) + '</span>' +
+      '<time datetime="' + a.date + '" data-testid="' + tid + '-date">' + esc(MOCK.fmtDate(a.date)) + '</time>' + badgeLang(a.lang, tid + '-lang') + '</div></div>' +
+      '<div class="row-aside">' + statusBadge(a.status, tid + '-status') +
+      (owner ? (a.status === 'pending'
+        ? '<div class="cluster row-above"><button type="button" class="btn btn-primary btn-sm" data-decide="accepted" data-app-id="' + a.id + '" aria-label="' + esc(t('project.app.accept.aria', { name: name(a.person) })) + '" data-testid="' + tid + '-accept"><span class="icon i-check" aria-hidden="true"></span>' + esc(t('project.app.accept')) + '</button>' +
+          '<button type="button" class="btn btn-danger btn-sm" data-decide="declined" data-app-id="' + a.id + '" aria-label="' + esc(t('project.app.decline.aria', { name: name(a.person) })) + '" data-testid="' + tid + '-decline"><span class="icon i-x" aria-hidden="true"></span>' + esc(t('project.app.decline')) + '</button></div>'
+        : '<span class="text-sm" data-testid="' + tid + '-decided">' + esc(t('project.app.decided')) + '</span>') : '') + '</div></li>';
+  }
+  function appsHtml() {
+    var h = '<h2 id="project-apps-h" data-testid="project-apps-title">' + esc(t(role === 'owner' ? 'project.apps.title.owner' : 'project.apps.title.other')) + '</h2>';
+    if (role === 'owner') {
+      h += '<p class="hint" data-testid="project-apps-private"><span class="icon i-lock" aria-hidden="true"></span> ' + esc(t('project.apps.private')) + '</p>';
+      h += apps.length ? '<ul class="list list-reset" data-testid="project-apps-list">' + apps.map(function (a, i) { return appRow(a, i, true, 'project-app'); }).join('') + '</ul>'
+        : '<div class="state" data-testid="project-apps-empty"><span class="icon i-inbox" aria-hidden="true"></span><h3>' + esc(t('project.apps.empty.title')) + '</h3><p>' + esc(t('project.apps.empty.body')) + '</p></div>';
+      return h;
+    }
+    var anon = role === 'anonymous';
+    h += '<div class="state state-error" role="status" data-testid="project-apps-denied"><span class="icon i-' + (anon ? 'lock' : 'shield-check') + '" aria-hidden="true"></span><h3>' + esc(t(anon ? 'project.apps.anon.title' : 'project.apps.denied.title')) + '</h3><p>' + esc(t(anon ? 'project.apps.anon.body' : 'project.apps.denied.body')) + '</p></div>';
+    var mine = anon ? [] : apps.filter(function (a) { return a.person === viewer(); });
+    if (mine.length) h += '<h3 class="project-sub" data-testid="project-mine-title">' + esc(t('project.apps.mine')) + '</h3><ul class="list list-reset" data-testid="project-mine-list">' + mine.map(function (a, i) { return appRow(a, i, false, 'project-mine'); }).join('') + '</ul>';
+    return h;
+  }
+  function actHtml() {
+    return P.activity.map(function (e, i) {
+      var k = i + 1, tail = '';
+      if (e.k === 'need' || e.k === 'need-closed') tail = ' <span lang="' + P.lang + '" data-user-content data-testid="project-activity-' + k + '-ref">« ' + esc(needOf(e.ref).title) + ' »</span>';
+      if (e.k === 'link') { var q = B.question(e.ref); tail = ' <a href="question.html?id=' + q.id + '" lang="' + q.lang + '" data-user-content data-testid="project-activity-' + k + '-ref">' + esc(q.title) + '</a>'; }
+      return '<li class="row" data-testid="project-activity-' + k + '"><div class="row-lead"><span class="icon i-' + { created: 'plus', repo: 'git-branch', need: 'users', 'need-closed': 'lock', link: 'link' }[e.k] + '" aria-hidden="true" data-testid="project-activity-' + k + '-icon"></span></div>' +
+        '<div class="row-main"><p class="text-sm" data-testid="project-activity-' + k + '-text">' + esc(t('project.act.' + e.k, { who: name(e.who) })) + tail + '</p></div><div class="row-aside"><time datetime="' + e.d + '" data-testid="project-activity-' + k + '-date">' + esc(MOCK.fmtDate(e.d)) + '</time></div></li>';
+    }).join('');
+  }
+  function ctxHtml() {
+    var q = B.question(P.question), r = B.resource(P.resource), items = '';
+    if (q) items += '<a class="linked-item" href="question.html?id=' + q.id + '" data-testid="project-link-question"><span class="kind"><span class="icon i-help" aria-hidden="true"></span>' + esc(t('project.ctx.question')) + '</span><strong lang="' + q.lang + '" data-user-content>' + esc(q.title) + '</strong></a>';
+    if (r) items += '<a class="linked-item" href="resource.html?id=' + r.id + '" data-testid="project-link-resource"><span class="kind"><span class="icon i-compass" aria-hidden="true"></span>' + esc(t('project.ctx.resource')) + '</span><strong lang="fr" data-user-content>' + esc(r.name) + '</strong></a>';
+    items += '<a class="linked-item" href="profile.html?id=' + P.owner + '" data-testid="project-link-owner"><span class="kind"><span class="icon i-user" aria-hidden="true"></span>' + esc(t('project.ctx.maintainer')) + '</span><strong>' + esc(name(P.owner)) + '</strong></a>';
+    return '<h2 data-testid="project-ctx-title">' + esc(t('project.ctx.title')) + '</h2><p class="hint" data-testid="project-ctx-lede">' + esc(t('project.ctx.lede')) + '</p><div class="linked-items" data-testid="project-linked-items">' + items + '</div>' +
+      (q || r ? '' : '<p class="text-muted text-sm" data-testid="project-ctx-none">' + esc(t('project.ctx.none')) + '</p>');
+  }
+  function asideHtml() {
+    return '<aside class="stack" data-testid="project-aside"><section class="card" aria-labelledby="project-repo-h" data-testid="project-repo-card"><h2 id="project-repo-h" data-testid="project-repo-title">' + esc(t('project.side.repo')) + '</h2>' +
+      '<p class="stack-sm"><a class="link-external" rel="noopener noreferrer" target="_blank" href="' + B.repoUrl(P) + '" data-testid="project-repo-link">' + esc(B.repoLabel(P)) + '</a> <span class="badge badge-sim" data-testid="project-repo-fake">' + esc(t('project.badge.fake')) + '</span></p>' +
+      '<dl class="dl-meta" data-testid="project-meta">' +
+        '<dt data-testid="project-meta-license-label">' + esc(t('project.side.license')) + '</dt><dd data-testid="project-meta-license">' + esc(P.license) + '</dd>' +
+        '<dt data-testid="project-meta-stage-label">' + esc(t('project.side.stage')) + '</dt><dd data-testid="project-meta-stage">' + esc(MOCK.label(B.stages[P.stage])) + '</dd>' +
+        '<dt data-testid="project-meta-country-label">' + esc(t('project.side.country')) + '</dt><dd data-testid="project-meta-country">' + esc(MOCK.countryName(P.country)) + ' (' + P.country + ')</dd>' +
+        '<dt data-testid="project-meta-langs-label">' + esc(t('project.side.langs')) + '</dt><dd data-testid="project-meta-langs">' + esc(P.langs.map(function (l) { return t('project.lang.' + l); }).join(', ')) + '</dd>' +
+        '<dt data-testid="project-meta-updated-label">' + esc(t('project.side.updated')) + '</dt><dd data-testid="project-meta-updated"><time datetime="' + P.updated + '">' + esc(MOCK.fmtDate(P.updated)) + '</time></dd></dl></section>' +
+      '<section class="card" aria-labelledby="project-stack-h" data-testid="project-stack-card"><h2 id="project-stack-h" data-testid="project-stack-title">' + esc(t('project.side.stack')) + '</h2><ul class="tag-list list-reset" data-testid="project-stack">' +
+        P.stack.map(function (s, i) { return '<li><span class="tag" data-testid="project-stack-tag-' + (i + 1) + '">' + esc(s) + '</span></li>'; }).join('') + '</ul></section>' +
+      '<section class="card" aria-labelledby="project-maint-h" data-testid="project-maint-card"><h2 id="project-maint-h" data-testid="project-maint-title">' + esc(t('project.side.maint')) + '</h2>' + personHtml(P.owner, 'project-maint-1', true) +
+        '<p class="text-sm text-muted" data-testid="project-maint-headline" lang="' + (MOCK.person(P.owner).lang) + '" data-user-content>' + esc(MOCK.person(P.owner).headline) + '</p></section></aside>';
+  }
+  function view() {
+    return '<div class="with-aside"><div class="stack-lg">' +
+      '<section aria-labelledby="project-ctx-h" data-testid="project-ctx">' + ctxHtml().replace('<h2 ', '<h2 id="project-ctx-h" ') + '</section>' +
+      '<section aria-labelledby="project-desc-h" data-testid="project-desc"><div class="cluster"><h2 id="project-desc-h" data-testid="project-desc-title">' + esc(t('project.desc.title')) + '</h2>' + badgeLang(P.lang, 'project-desc-lang') + '</div>' +
+        '<div class="prose" lang="' + P.lang + '" data-user-content data-testid="project-desc-body">' + md(P.description) + '</div></section>' +
+      '<section id="needs" aria-labelledby="project-needs-h" data-testid="project-needs"><h2 id="project-needs-h" data-testid="project-needs-title">' + esc(t('project.needs.title')) + '</h2><ul class="list list-reset project-list" data-testid="project-needs-list">' + needsHtml() + '</ul></section>' +
+      '<section aria-labelledby="project-apps-h" data-testid="project-apps">' + appsHtml() + '</section>' +
+      '<section aria-labelledby="project-act-h" data-testid="project-act"><h2 id="project-act-h" data-testid="project-act-title">' + esc(t('project.act.title')) + '</h2><ol class="list list-reset project-list" data-testid="project-activity-list">' + actHtml() + '</ol></section>' +
+      '</div>' + asideHtml() + '</div>';
+  }
+
+  var sim = App.Sim.load($('#project-view'), {
+    load: function () { return P ? [P] : []; }, skeleton: 4, emptyKey: 'project.empty',
+    render: function (items, box) { box.innerHTML = view(); }
+  });
+  /* Empty (not found) state gets a way back */
+  document.addEventListener('i18n:change', function () { header(); toolbar(); fillAvail(); showErrors(false); });
+  header(); toolbar();
+
+  /* ---- owner decisions + apply buttons (delegated; survive re-render) ---- */
+  $('#project-view').addEventListener('click', function (e) {
+    var d = e.target.closest('[data-decide]'), a = e.target.closest('[data-apply]');
+    if (d) {
+      var rec = apps.filter(function (x) { return x.id === d.getAttribute('data-app-id'); })[0];
+      if (!rec || rec.status !== 'pending' || role !== 'owner') return;   /* invalid transition / non-owner: refused */
+      rec.status = d.getAttribute('data-decide'); sim.refresh(); toolbar();
+      var li = $('[data-app="' + rec.id + '"]'); if (li) li.focus();
+      App.Toast.show({ kind: 'success', title: t('sim.badge'), msg: t('project.apps.toast.' + rec.status) });
+    } else if (a) openApply(a.getAttribute('data-apply'), a);
+  });
+
+  /* ---- apply dialog (static markup; never rebuilt on language change) ---- */
+  var form = $('#apply-form'), dlg = $('#apply-dialog');
+  var FIELDS = { motivation: '#apply-motivation', skills: '#apply-skills', avail: '#apply-avail' };
+  function fillAvail() {
+    var sel = $('#apply-avail'), v = sel.value;
+    sel.innerHTML = '<option value="" data-testid="apply-avail-option-none">' + esc(t('project.avail.choose')) + '</option>' + B.availability.map(function (k) { return '<option value="' + k + '"' + (k === v ? ' selected' : '') + ' data-testid="apply-avail-option-' + k + '">' + esc(t('project.avail.' + k)) + '</option>'; }).join('');
+  }
+  fillAvail();
+  function openApply(needId, from, prefill) {
+    applyNeed = needId; var n = needOf(needId); $('#apply-need').textContent = n.title; $('#apply-need').lang = P.lang;
+    if (prefill) { $('#apply-motivation').value = t('project.demo.sample.motivation'); $('#apply-skills').value = t('project.demo.sample.skills'); $('#apply-avail').value = '2to5'; }
+    App.Dialog.open('apply-dialog', from);
+  }
+  $('#project-dup-btn').addEventListener('click', function (e) { var a = dupTarget(); if (a) openApply(a.need, e.currentTarget, true); });
+  function validate() {
+    errs = {}; var m = $('#apply-motivation').value.trim(), s = $('#apply-skills').value.trim(), v = $('#apply-avail').value;
+    if (!m) errs.motivation = 'project.err.motivation.required'; else if (m.length < 30) errs.motivation = 'project.err.motivation.short';
+    if (!s) errs.skills = 'project.err.skills.required'; if (!v) errs.avail = 'project.err.avail.required';
+    return !Object.keys(errs).length;
+  }
+  function showErrors(focus) {
+    var keys = Object.keys(errs), sum = $('#apply-summary');
+    Object.keys(FIELDS).forEach(function (f) {
+      var inp = $(FIELDS[f]), msg = $('#apply-' + f + '-error'), has = !!errs[f];
+      inp.closest('.field').classList.toggle('has-error', has); if (has) inp.setAttribute('aria-invalid', 'true'); else inp.removeAttribute('aria-invalid');
+      msg.hidden = !has; msg.innerHTML = has ? '<span class="icon i-alert-circle" aria-hidden="true"></span><span>' + esc(t(errs[f])) + '</span>' : '';
+    });
+    sum.hidden = !keys.length;
+    $('#apply-summary-list').innerHTML = keys.map(function (f, i) { return '<li><a href="' + FIELDS[f] + '" data-testid="apply-summary-link-' + (i + 1) + '">' + esc(t(errs[f])) + '</a></li>'; }).join('');
+    if (focus && keys.length) sum.focus();
+  }
+  $('#apply-summary-list').addEventListener('click', function (e) { var a = e.target.closest('a'); if (a) { e.preventDefault(); $(a.getAttribute('href')).focus(); } });
+  form.addEventListener('submit', function (e) {
+    e.preventDefault(); if (busy) return;                                   /* a double click never creates two requests */
+    $('#apply-dup').hidden = true;
+    if (!validate()) { showErrors(true); return; }
+    showErrors(false); busy = true; var b = $('#apply-submit'); b.setAttribute('aria-busy', 'true'); b.disabled = true;
+    setTimeout(function () {
+      busy = false; b.removeAttribute('aria-busy'); b.disabled = false;
+      if (mineOn(applyNeed)) { var box = $('#apply-dup'); box.hidden = false; box.focus(); return; }   /* unique (user, need): 409 */
+      apps.push({ id: 'a-new-' + apps.length, need: applyNeed, person: viewer(), status: 'pending', date: '2026-11-11', avail: $('#apply-avail').value, skills: $('#apply-skills').value.trim(), lang: I18N.lang, motivation: $('#apply-motivation').value.trim() });
+      b.hidden = true; $('#apply-body').hidden = true; $('#apply-success').hidden = false; $('#apply-cancel').setAttribute('data-i18n', 'common.close'); $('#apply-cancel').textContent = t('common.close'); $('#apply-cancel').focus();
+      sim.refresh(); toolbar(); App.Toast.show({ kind: 'success', title: t('sim.badge'), msg: t('project.apply.toast') });
+    }, 700);
+  });
+  dlg.addEventListener('close', function () {
+    form.reset(); errs = {}; showErrors(false); $('#apply-dup').hidden = true; $('#apply-body').hidden = false; $('#apply-success').hidden = true; $('#apply-submit').hidden = false;
+    $('#apply-cancel').setAttribute('data-i18n', 'common.cancel'); $('#apply-cancel').textContent = t('common.cancel');
+  });
+})();

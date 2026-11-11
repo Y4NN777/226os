@@ -1,0 +1,18 @@
+/* Build lane: only genuinely new patterns (filter form wrapper, dense "looking for" line, two-column dialog fields). Tokens only. */
+.build-filters { display: grid; gap: var(--space-3); }
+.build-filters .filter-bar { align-items: end; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (min-width: 640px) { .build-filters .filter-bar { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (min-width: 1024px) { .build-filters .filter-bar { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+.build-looking { font-size: var(--fs-sm); }
+.build-two { display: grid; gap: var(--space-4); grid-template-columns: 1fr; margin-top: var(--space-4); }
+.build-two .field + .field { margin-top: 0; }
+@media (min-width: 480px) { .build-two { grid-template-columns: 1fr 1fr; } }
+.build-origin .icon { vertical-align: -.15em; }
+
+/* Project detail */
+.project-demo { display: grid; gap: var(--space-3); border-style: dashed; border-color: var(--border-strong); }
+.project-roles { border: 0; padding: 0; margin: 0; min-width: 0; display: grid; gap: var(--space-1); }
+.project-roles .cluster { gap: var(--space-1) var(--space-5); }
+.project-sub { margin: var(--space-4) 0 var(--space-2); }
+.row:focus-visible { outline-offset: -2px; }
+.dialog-body > .form-summary, .dialog-body > .callout { margin-bottom: var(--space-4); }

@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title data-i18n="connect.title">Connect (aperçu P1) — 226os</title>
+  <meta name="color-scheme" content="light dark">
+  <script src="../assets/js/theme-init.js"></script>
+  <link rel="stylesheet" href="../assets/css/tokens.css">
+  <link rel="stylesheet" href="../assets/css/base.css">
+  <link rel="stylesheet" href="../assets/css/layout.css">
+  <link rel="stylesheet" href="../assets/css/icons.css">
+  <link rel="stylesheet" href="../assets/css/components.css">
+  <link rel="stylesheet" href="../assets/css/pages/identity.css">
+</head>
+<body class="app" data-active="connect" data-root="../">
+  <a class="skip-link" href="#main" data-i18n="skip" data-testid="skip-link">Aller au contenu principal</a>
+
+  <main id="main" tabindex="-1">
+    <nav class="breadcrumbs" data-i18n-attr="aria-label:common.breadcrumb" data-testid="breadcrumbs">
+      <ol>
+        <li><a href="../index.html" data-i18n="nav.explore" data-testid="breadcrumb-home"></a></li>
+        <li><span aria-current="page" data-i18n="nav.connect" data-testid="breadcrumb-current"></span></li>
+      </ol>
+    </nav>
+
+    <header class="page-header">
+      <div class="page-header-row">
+        <h1 data-testid="page-h1"><span data-i18n="nav.connect" data-testid="page-h1-text"></span> <span class="badge badge-preview" data-i18n="connect.badge" data-testid="page-h1-badge"></span></h1>
+      </div>
+      <p class="lede" data-i18n="connect.lede" data-testid="page-lede"></p>
+    </header>
+
+    <div class="callout callout-warn" data-testid="connect-preview-note">
+      <span class="icon i-info" aria-hidden="true" data-testid="connect-preview-icon"></span>
+      <div><strong data-i18n="connect.note.title" data-testid="connect-preview-title"></strong><span data-i18n="connect.note.body" data-testid="connect-preview-body"></span></div>
+    </div>
+
+    <section class="section" aria-labelledby="disc-h" data-testid="connect-discovery">
+      <div class="section-head">
+        <h2 id="disc-h" data-i18n="connect.disc.h" data-testid="connect-disc-h"></h2>
+        <span class="badge badge-later" data-i18n="common.later" data-testid="connect-disc-badge"></span>
+      </div>
+      <p class="text-muted" data-i18n="connect.disc.lede" data-testid="connect-disc-lede"></p>
+
+      <form class="filter-bar" id="connect-filters" role="search" data-i18n-attr="aria-label:connect.filters.label" novalidate data-testid="connect-filters">
+        <div class="filter-group">
+          <label class="label" for="cf-skill" data-i18n="connect.f.skill" data-testid="connect-skill-filter-label"></label>
+          <select class="select" id="cf-skill" name="skill" data-testid="connect-skill-filter"></select>
+        </div>
+        <div class="filter-group">
+          <label class="label" for="cf-country" data-i18n="common.country" data-testid="connect-country-filter-label"></label>
+          <select class="select" id="cf-country" name="country" data-testid="connect-country-filter"></select>
+        </div>
+        <div class="filter-group">
+          <label class="label" for="cf-lang" data-i18n="connect.f.lang" data-testid="connect-lang-filter-label"></label>
+          <select class="select" id="cf-lang" name="lang" data-testid="connect-lang-filter"></select>
+        </div>
+        <button type="reset" class="btn btn-ghost" id="cf-reset" data-testid="connect-filters-reset"><span class="icon i-refresh" aria-hidden="true"></span><span data-i18n="connect.f.reset" data-testid="connect-filters-reset-label"></span></button>
+      </form>
+
+      <p class="results-meta" role="status" id="cf-count" data-testid="connect-count"></p>
+      <div id="connect-list" data-testid="connect-list-region"></div>
+    </section>
+
+    <section class="section" aria-labelledby="spaces-h" data-testid="connect-spaces">
+      <div class="section-head">
+        <h2 id="spaces-h" data-i18n="connect.spaces.h" data-testid="connect-spaces-h"></h2>
+        <span class="badge badge-later" data-i18n="connect.spaces.badge" data-testid="connect-spaces-badge"></span>
+      </div>
+      <p class="text-muted" data-i18n="connect.spaces.lede" data-testid="connect-spaces-lede"></p>
+      <ul class="list list-reset" id="connect-spaces-list" data-testid="connect-spaces-list"></ul>
+    </section>
+  </main>
+
+  <script src="../assets/js/shell.js"></script>
+  <script defer src="../assets/js/app.js"></script>
+  <script defer src="../assets/js/i18n-common.js"></script>
+  <script defer src="../assets/data/people.js"></script>
+  <script defer src="../assets/data/common.js"></script>
+  <script defer src="../assets/data/connect.js"></script>
+  <script defer src="../assets/js/pages/connect.js"></script>
+</body>
+</html>

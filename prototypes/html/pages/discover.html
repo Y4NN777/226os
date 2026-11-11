@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title data-i18n="discover.title">Discover : API et outils — 226os</title>
+  <meta name="color-scheme" content="light dark">
+  <script src="../assets/js/theme-init.js"></script>
+  <link rel="stylesheet" href="../assets/css/tokens.css">
+  <link rel="stylesheet" href="../assets/css/base.css">
+  <link rel="stylesheet" href="../assets/css/layout.css">
+  <link rel="stylesheet" href="../assets/css/icons.css">
+  <link rel="stylesheet" href="../assets/css/components.css">
+  <link rel="stylesheet" href="../assets/css/pages/discover.css">
+</head>
+<body class="app" data-active="discover" data-root="../">
+  <a class="skip-link" href="#main" data-i18n="skip" data-testid="skip-link">Aller au contenu principal</a>
+
+  <main id="main" tabindex="-1">
+    <nav class="breadcrumbs" data-i18n-attr="aria-label:common.breadcrumb" data-testid="breadcrumbs">
+      <ol>
+        <li><a href="../index.html" data-i18n="nav.explore" data-testid="breadcrumb-home"></a></li>
+        <li><span aria-current="page" data-i18n="nav.discover" data-testid="breadcrumb-current"></span></li>
+      </ol>
+    </nav>
+
+    <header class="page-header">
+      <div class="page-header-row">
+        <h1 data-i18n="discover.h1" data-testid="page-h1"></h1>
+        <span class="cluster">
+          <button type="button" class="btn" disabled aria-describedby="discover-compare-why" data-testid="discover-compare-button"><span class="icon i-network" aria-hidden="true"></span><span data-i18n="discover.compare"></span></button>
+          <span class="badge badge-later" id="discover-compare-why" data-i18n="nav.later" data-testid="discover-compare-badge"></span>
+        </span>
+      </div>
+      <p class="lede" data-i18n="discover.lede" data-testid="page-lede"></p>
+    </header>
+
+    <div class="callout" data-testid="discover-fictional-callout">
+      <span class="icon icon-lead i-info" aria-hidden="true" data-testid="discover-fictional-icon"></span>
+      <div><strong data-i18n="discover.fictional.title" data-testid="discover-fictional-title"></strong><span data-i18n="discover.fictional.body" data-testid="discover-fictional-body"></span></div>
+    </div>
+
+    <section class="section" aria-labelledby="discover-filters-h" data-testid="discover-filters-section">
+      <h2 id="discover-filters-h" class="visually-hidden" data-i18n="discover.filters.h" data-testid="discover-filters-h"></h2>
+      <form role="search" id="discover-form" class="stack-sm" novalidate data-testid="discover-form">
+        <div class="field">
+          <label class="label" for="discover-q" data-i18n="discover.search.label" data-testid="discover-q-label"></label>
+          <div class="search-field search-field-lg"><span class="icon i-search" aria-hidden="true"></span>
+            <input id="discover-q" name="q" class="input" type="search" autocomplete="off" data-i18n-attr="placeholder:discover.search.placeholder" data-testid="discover-q-input"></div>
+        </div>
+        <div class="filter-bar discover-filter-bar" data-testid="discover-filter-bar">
+          <div class="filter-group"><label class="label" for="discover-country" data-i18n="discover.f.country" data-testid="discover-country-label"></label>
+            <select id="discover-country" name="country" class="select" data-testid="discover-country-filter"></select></div>
+          <div class="filter-group"><label class="label" for="discover-type" data-i18n="discover.f.type" data-testid="discover-type-label"></label>
+            <select id="discover-type" name="type" class="select" data-testid="discover-type-filter"></select></div>
+          <div class="filter-group"><label class="label" for="discover-category" data-i18n="discover.f.category" data-testid="discover-category-label"></label>
+            <select id="discover-category" name="category" class="select" data-testid="discover-category-filter"></select></div>
+          <div class="filter-group"><label class="label" for="discover-doclang" data-i18n="discover.f.doclang" data-testid="discover-doclang-label"></label>
+            <select id="discover-doclang" name="doclang" class="select" data-testid="discover-doclang-filter"></select></div>
+          <div class="filter-group"><label class="label" for="discover-sort" data-i18n="common.sort" data-testid="discover-sort-label"></label>
+            <select id="discover-sort" name="sort" class="select" data-testid="discover-sort-select"></select></div>
+          <button type="reset" class="btn btn-ghost" id="discover-reset" data-testid="discover-reset-button"><span class="icon i-refresh" aria-hidden="true"></span><span data-i18n="discover.reset"></span></button>
+        </div>
+      </form>
+    </section>
+
+    <section class="section" aria-labelledby="discover-results-h" data-testid="discover-results-section">
+      <h2 id="discover-results-h" class="visually-hidden" data-i18n="discover.results.h" data-testid="discover-results-h"></h2>
+      <div id="discover-list" data-testid="discover-list"></div>
+    </section>
+  </main>
+
+  <script src="../assets/js/shell.js"></script>
+  <script defer src="../assets/js/app.js"></script>
+  <script defer src="../assets/js/i18n-common.js"></script>
+  <script defer src="../assets/data/people.js"></script>
+  <script defer src="../assets/data/common.js"></script>
+  <script defer src="../assets/data/discover.js"></script>
+  <script defer src="../assets/js/pages/discover.js"></script>
+</body>
+</html>
