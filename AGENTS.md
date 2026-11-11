@@ -13,6 +13,15 @@ Construire 226OS conformément à `docs/PRD.md`, aux contraintes de `docs/SPEC.m
 5. `docs/research/REFERENCES.md` — références et contraintes de réutilisation.
 6. `docs/GIT_WORKFLOW.md` — branches, PRs, preview, staging et production.
 
+## Git workflow for agents
+
+- Start work from `develop`, unless the task is an approved hotfix from `main`.
+- Use `feature/<domain>/<name>`, `fix/<domain>/<name>`, `hotfix/<domain>/<name>`, `refactor/<domain>/<name>`, `test/<domain>/<name>`, `docs/<domain>/<name>` or `chore/<domain>/<name>`.
+- Open a pull request from the work branch to `develop`; never push directly to `develop`, `staging` or `main` once branch protection is active. Routine low-risk Preview PRs may be merged by the agent/orchestrator after required checks pass when no second maintainer exists.
+- Treat `develop` as Preview, promote `develop` to `staging` through a release pull request with human approval, and promote `staging` to `main` through a production pull request with G7 evidence and human approval.
+- Keep the tested commit SHA unchanged during promotion. Back-merge production fixes into `develop` through a pull request.
+- Read `docs/GIT_WORKFLOW.md` before creating, renaming, rebasing or promoting a branch. Do not force-push shared branches.
+
 ## Modèle d'orchestration : Goal -> Plan -> Delegation -> Evidence -> Gates -> Decision
 1. **Goal framing (orchestrator):** reformuler objectif, user story, AC, non-objectifs, risques, dépendances, autorisations et gates requis. Signaler les informations inconnues ; ne jamais les combler par fiction.
 2. **Plan déterministe :** étapes ordonnées, fichiers attendus, tests à écrire avant le code, commandes de validation, critères de succès. La planification peut être assistée par IA ; l'approbation des décisions irréversibles reste humaine.
