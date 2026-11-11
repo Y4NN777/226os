@@ -116,8 +116,8 @@ Use the following prompt to start Claude Code as the 226OS lead orchestrator:
 	<rule>Use the existing workflow: work branch -&gt; PR develop -&gt; PR main.</rule>
 	<rule>develop is staging/preview; main is production.</rule>
 	<rule>Preserve the tested commit SHA through promotion.</rule>
-	<identity>Use git config --local user.name "Y4NN77".</identity>
-	<identity>Use git config --local user.email "axel.studiesmail@gmail.com".</identity>
+	<identity>Use the human contributor's reviewed project identity configured according to docs/GIT_WORKFLOW.md.</identity>
+	<identity>Do not copy another contributor's name or email; configure the local identity for the responsible contributor.</identity>
 	<identity>Do not add Co-authored-by trailers for Claude, scout, advisor, or any AI agent.</identity>
 	<identity>Keep the responsible human contributor as the sole commit author; record AI assistance in AI_USAGE.md.</identity>
 	<identity>Use imperative, focused commit subjects and do not rewrite shared branch history.</identity>

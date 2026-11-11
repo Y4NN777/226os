@@ -61,8 +61,8 @@ A critical production fix uses `hotfix/<domain>/<short-name>` from `main`. It mu
 
 ## Commit and PR rules
 
-- Use the repository identity `Y4NN77 <axel.studiesmail@gmail.com>`.
-- Configure commits with `git config --local user.name "Y4NN77"` and `git config --local user.email "axel.studiesmail@gmail.com"`.
+- Each human contributor uses their own reviewed project identity. The repository owner identity is `Y4NN77 <axel.studiesmail@gmail.com>`; other identities require project review.
+- Configure the repository owner's commits with `git config --local user.name "Y4NN77"` and `git config --local user.email "axel.studiesmail@gmail.com"`; contributors must configure their own approved name and email.
 - Do not add `Co-authored-by` trailers for AI systems or agents; the responsible human contributor remains the sole commit author. Record AI assistance in `AI_USAGE.md` instead.
 - Keep commits focused and use imperative subjects such as `docs: clarify branch promotion`.
 - Do not force-push shared branches. Force-pushes to work branches are discouraged and must never rewrite `develop` or `main`.
