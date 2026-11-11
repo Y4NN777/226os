@@ -1,4 +1,4 @@
-# 226OS Astryx Verification Protocol
+# 226os Astryx Verification Protocol
 
 **Status:** PROPOSED verification plan; no package installation or CLI execution performed
 

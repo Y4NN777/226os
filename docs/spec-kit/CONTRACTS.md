@@ -1,4 +1,4 @@
-# 226OS Implementation Contracts
+# 226os Implementation Contracts
 
 **Status:** PROPOSED / OPEN; human approval required before parallel implementation
 

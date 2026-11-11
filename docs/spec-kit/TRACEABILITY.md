@@ -1,4 +1,4 @@
-# 226OS Requirements Traceability
+# 226os Requirements Traceability
 
 **Status:** SPECIFIED; execution evidence NOT RUN
 

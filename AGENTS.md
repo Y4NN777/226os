@@ -1,9 +1,9 @@
-# 226OS — Agent Orchestration Contract
+# 226os — Agent Orchestration Contract
 
 **Audience :** Claude Code, Codex et autres agents de développement. **Owner humain :** équipe 7's.
 
 ## Mission
-Construire 226OS conformément à `docs/PRD.md`, aux contraintes de `docs/SPEC.md`, aux pratiques de `docs/DEV.md` et `docs/TEST.md`, sans dérive architecturale, avec qualité, sécurité et performance vérifiables. La vision complète comporte huit piliers ; livrer P0 d'abord sans effacer P1/P2.
+Construire 226os conformément à `docs/PRD.md`, aux contraintes de `docs/SPEC.md`, aux pratiques de `docs/DEV.md` et `docs/TEST.md`, sans dérive architecturale, avec qualité, sécurité et performance vérifiables. La vision complète comporte huit piliers ; livrer P0 d'abord sans effacer P1/P2.
 
 ## Lecture obligatoire, dans cet ordre
 1. `docs/PRD.md` — pourquoi/quoi, huit piliers, parcours, priorité.

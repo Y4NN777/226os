@@ -1,4 +1,4 @@
-# 226OS P0 REST and Error Contract
+# 226os P0 REST and Error Contract
 
 **Status:** PROPOSED contract; it becomes normative only after human approval and creation of `api/openapi.yaml`
 
