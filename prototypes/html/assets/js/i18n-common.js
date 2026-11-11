@@ -1,0 +1,50 @@
+/* Shared UI strings (shell, states, common controls). Lanes register their own dictionaries; do not edit others' keys.
+   Key naming: <domain>.<area>.<key>  (shell/common domains: nav, header, footer, common, state, sim, home). */
+I18N.register({
+  fr: {
+    'skip': 'Aller au contenu principal',
+    'nav.label': 'Navigation principale', 'nav.bottom': 'Navigation rapide', 'nav.menu': 'Menu', 'nav.more': 'Plus', 'nav.group': 'Domaines',
+    'nav.explore': 'Explorer', 'nav.solve': 'Solve', 'nav.discover': 'Discover', 'nav.build': 'Build', 'nav.identity': 'Identité & Communauté',
+    'nav.connect': 'Connect', 'nav.language': 'Langue', 'nav.access': 'Accès', 'nav.intelligence': 'Intelligence',
+    'nav.later': 'Bientôt', 'nav.preview': 'Aperçu',
+    'nav.language.why': 'Interface FR/EN disponible ; traduction des contenus prévue en P1.',
+    'nav.access.why': 'Responsive et optimisations réseau disponibles ; mode léger explicite prévu en P1.',
+    'nav.intelligence.why': 'Recherche textuelle et liens contextuels disponibles ; suggestions prévues en P1.',
+    'header.search.label': 'Rechercher sur 226os', 'header.search.placeholder': 'Rechercher sur 226os', 'header.lang': 'Langue de l’interface',
+    'header.theme': 'Thème sombre', 'header.create': 'Poser une question',
+    'footer.note': 'Prototype HTML — données fictives, comportements simulés. Aucun contenu réel.',
+    'common.close': 'Fermer', 'common.copy': 'Copier', 'common.copied': 'Copié dans le presse-papiers.', 'common.copyFailed': 'Copie impossible.',
+    'common.back': 'Retour', 'common.cancel': 'Annuler', 'common.confirm': 'Confirmer', 'common.required': 'obligatoire', 'common.originalLang': 'Langue originale',
+    'common.verifiedOn': 'Vérifié le', 'common.country': 'Pays', 'common.all': 'Tous', 'common.results': '{n} résultat(s)', 'common.sort': 'Trier',
+    'common.next': 'Suivant', 'common.prev': 'Précédent', 'common.page': 'Page', 'common.pagination': 'Pagination', 'common.breadcrumb': 'Fil d’Ariane',
+    'common.accepted': 'Acceptée', 'common.verified': 'Sourcé', 'common.later': 'Plus tard',
+    'state.loading': 'Chargement…',
+    'state.empty.title': 'Aucun résultat', 'state.empty.body': 'Essayez d’autres mots-clés ou retirez un filtre.',
+    'state.error.title': 'Impossible de charger le contenu', 'state.error.body': 'La connexion a échoué. Vos saisies sont conservées ; réessayez.',
+    'state.retry': 'Réessayer', 'state.success.title': 'Enregistré', 'state.success.body': 'L’action a été prise en compte.',
+    'sim.badge': 'Simulé', 'sim.note': 'Données fictives, chargement simulé.', 'sim.toast': 'Action simulée : rien n’est enregistré dans ce prototype.'
+  },
+  en: {
+    'skip': 'Skip to main content',
+    'nav.label': 'Primary navigation', 'nav.bottom': 'Quick navigation', 'nav.menu': 'Menu', 'nav.more': 'More', 'nav.group': 'Domains',
+    'nav.explore': 'Explore', 'nav.solve': 'Solve', 'nav.discover': 'Discover', 'nav.build': 'Build', 'nav.identity': 'Identity & Community',
+    'nav.connect': 'Connect', 'nav.language': 'Language', 'nav.access': 'Access', 'nav.intelligence': 'Intelligence',
+    'nav.later': 'Soon', 'nav.preview': 'Preview',
+    'nav.language.why': 'FR/EN interface available; content translation planned for P1.',
+    'nav.access.why': 'Responsive layout and network optimisations available; explicit light mode planned for P1.',
+    'nav.intelligence.why': 'Text search and contextual links available; suggestions planned for P1.',
+    'header.search.label': 'Search 226os', 'header.search.placeholder': 'Search 226os', 'header.lang': 'Interface language',
+    'header.theme': 'Dark theme', 'header.create': 'Ask a question',
+    'footer.note': 'HTML prototype — fictional data, simulated behaviour. No real content.',
+    'common.close': 'Close', 'common.copy': 'Copy', 'common.copied': 'Copied to clipboard.', 'common.copyFailed': 'Copy failed.',
+    'common.back': 'Back', 'common.cancel': 'Cancel', 'common.confirm': 'Confirm', 'common.required': 'required', 'common.originalLang': 'Original language',
+    'common.verifiedOn': 'Verified on', 'common.country': 'Country', 'common.all': 'All', 'common.results': '{n} result(s)', 'common.sort': 'Sort',
+    'common.next': 'Next', 'common.prev': 'Previous', 'common.page': 'Page', 'common.pagination': 'Pagination', 'common.breadcrumb': 'Breadcrumb',
+    'common.accepted': 'Accepted', 'common.verified': 'Sourced', 'common.later': 'Later',
+    'state.loading': 'Loading…',
+    'state.empty.title': 'No results', 'state.empty.body': 'Try other keywords or remove a filter.',
+    'state.error.title': 'Could not load content', 'state.error.body': 'The connection failed. Your input is kept; please retry.',
+    'state.retry': 'Retry', 'state.success.title': 'Saved', 'state.success.body': 'Your action was recorded.',
+    'sim.badge': 'Simulated', 'sim.note': 'Fictional data, simulated loading.', 'sim.toast': 'Simulated action: nothing is saved in this prototype.'
+  }
+});

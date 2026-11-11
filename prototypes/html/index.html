@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title data-i18n="home.title">Explorer — 226os</title>
+  <meta name="description" content="226os prototype: Explore / Home.">
+  <meta name="color-scheme" content="light dark">
+  <script src="assets/js/theme-init.js"></script>
+  <link rel="stylesheet" href="assets/css/tokens.css">
+  <link rel="stylesheet" href="assets/css/base.css">
+  <link rel="stylesheet" href="assets/css/layout.css">
+  <link rel="stylesheet" href="assets/css/icons.css">
+  <link rel="stylesheet" href="assets/css/components.css">
+</head>
+<body class="app" data-active="explore" data-root="">
+  <a class="skip-link" href="#main" data-i18n="skip" data-testid="skip-link">Aller au contenu principal</a>
+
+  <main id="main" tabindex="-1">
+    <section class="hero" aria-labelledby="home-h1" data-testid="home-hero">
+      <p class="eyebrow" data-testid="home-eyebrow">226os · Explorer</p>
+      <h1 id="home-h1" data-i18n="home.h1" data-testid="home-h1"></h1>
+      <p data-i18n="home.lede" data-testid="home-lede"></p>
+      <form id="home-search" role="search" action="index.html" class="stack-sm" data-testid="home-search-form">
+        <label for="home-q" class="visually-hidden" data-i18n="home.search.label"></label>
+        <div class="cluster" style="flex-wrap: nowrap">
+          <div class="search-field search-field-lg" style="flex: 1 1 auto; min-width: 0">
+            <span class="icon i-search" aria-hidden="true"></span>
+            <input id="home-q" class="input" type="search" name="q" autocomplete="off" data-i18n-attr="placeholder:home.search.placeholder" data-testid="home-search-input">
+          </div>
+          <button type="submit" class="btn btn-accent" style="min-height: 52px" data-testid="home-search-submit"><span class="visually-hidden" data-i18n="home.search.submit"></span><span class="icon i-arrow-right" aria-hidden="true"></span></button>
+        </div>
+        <div class="cluster">
+          <span class="text-sm" data-i18n="home.try" data-testid="home-try-label"></span>
+          <ul id="try-list" class="cluster list-reset" data-testid="home-try-list"></ul>
+        </div>
+      </form>
+    </section>
+
+    <div class="section" style="margin-top: var(--space-4)">
+      <div id="kind-chips" class="filter-chips" role="group" data-i18n-attr="aria-label:home.kind.label" data-testid="kind-chips"></div>
+    </div>
+
+    <section id="results" class="section" aria-labelledby="results-h" hidden data-testid="home-results"></section>
+
+    <div id="discover" data-testid="home-discover">
+      <section class="section" aria-labelledby="linked-h" data-testid="home-linked">
+        <div class="section-head"><h2 id="linked-h" data-i18n="home.link.title" data-testid="linked-title"></h2></div>
+        <p class="text-muted text-sm" style="margin-bottom: var(--space-3)" data-i18n="home.link.lede" data-testid="linked-lede"></p>
+        <div id="linked" class="linked-items" data-testid="linked-items"></div>
+      </section>
+
+      <section class="section" aria-labelledby="q-h" data-testid="home-questions">
+        <div class="section-head"><h2 id="q-h" data-i18n="home.q.title" data-testid="questions-title"></h2><a href="pages/solve.html" data-i18n="home.q.more" data-testid="questions-more"></a></div>
+        <div id="sec-questions"></div>
+      </section>
+
+      <div class="grid-2-lg section">
+        <section aria-labelledby="r-h" data-testid="home-resources">
+          <div class="section-head"><h2 id="r-h" data-i18n="home.r.title" data-testid="resources-title"></h2><a href="pages/discover.html" data-i18n="home.r.more" data-testid="resources-more"></a></div>
+          <div class="stack-sm">
+            <div id="country-chips" class="filter-chips" role="group" data-i18n-attr="aria-label:home.r.filter" data-testid="country-chips"></div>
+            <div id="sec-resources"></div>
+          </div>
+        </section>
+        <section aria-labelledby="p-h" data-testid="home-projects">
+          <div class="section-head"><h2 id="p-h" data-i18n="home.p.title" data-testid="projects-title"></h2><a href="pages/build.html" data-i18n="home.p.more" data-testid="projects-more"></a></div>
+          <div id="sec-projects"></div>
+        </section>
+      </div>
+
+      <section class="section" aria-labelledby="m-h" data-testid="home-people">
+        <div class="section-head"><h2 id="m-h" data-i18n="home.m.title" data-testid="people-title"></h2><a href="pages/profile.html" data-i18n="home.m.more" data-testid="people-more"></a></div>
+        <div id="sec-people"></div>
+      </section>
+    </div>
+
+    <section class="section" aria-labelledby="d-h" data-testid="home-domains">
+      <div class="section-head"><h2 id="d-h" data-i18n="home.dom.title" data-testid="domains-title"></h2></div>
+      <p class="text-muted text-sm" style="margin-bottom: var(--space-3)" data-i18n="home.dom.lede" data-testid="domains-lede"></p>
+      <div class="table-wrap" tabindex="0" role="region" aria-labelledby="d-h" data-testid="domains-table-wrap">
+        <table class="table" data-testid="domains-table">
+          <thead><tr><th scope="col" data-i18n="home.dom.col.domain" data-testid="domains-col-domain"></th><th scope="col" data-i18n="home.dom.col.now" data-testid="domains-col-now"></th><th scope="col" data-i18n="home.dom.col.later" data-testid="domains-col-later"></th></tr></thead>
+          <tbody id="domains-body"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script src="assets/js/shell.js"></script>
+  <script defer src="assets/js/app.js"></script>
+  <script defer src="assets/js/i18n-common.js"></script>
+  <script defer src="assets/data/people.js"></script>
+  <script defer src="assets/data/common.js"></script>
+  <script defer src="assets/js/pages/home.js"></script>
+</body>
+</html>

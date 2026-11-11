@@ -1,0 +1,183 @@
+/* ==========================================================================
+   226os prototype — design tokens (Graphite & Lime)
+   Source of truth: /DESIGN.md sections 2, 2.1, 4. Semantic tokens are the API:
+   components and pages MUST use semantic tokens, never raw hex.
+   Themes: light (default), dark via [data-theme="dark"], and OS preference when
+   no explicit data-theme="light" is set. The dark block is therefore written twice
+   (explicit + prefers-color-scheme); keep both identical.
+
+   CONTRAST AUDIT (WCAG 2.2 AA; ratios computed with the WCAG relative-luminance
+   formula; text >= 4.5, non-text UI >= 3.0). All listed pairs PASS.
+   LIGHT
+     text        #1D2420 on bg #F6F7F4 14.73 | surface #FFFFFF 15.84 | subtle #EDF2E7 13.92
+     text-muted  #576454 on bg 5.82 | surface 6.26 | subtle 5.50
+     action/link #4D721D on surface 5.61 | bg 5.22 | subtle 4.93 | hover-bg #F0F4EA 5.04
+     on-action   #FFFFFF on action #4D721D 5.61 | on hover #3F5F16 7.34 | active #34500F 9.13
+     on-accent   #1D2420 on accent #C67C35 4.78   (white on orange is 3.31: NEVER)
+     success     #28683F on surface 6.68 | on #E3F1E7 5.73
+     warning     #8A540D on surface 6.26 | on #FBEFD9 5.50 | on subtle 5.50
+     danger      #B42318 on surface 6.57 | on #FCE8E5 5.58
+     info        #1F4FA8 on surface 7.66 | on #E4ECFA 6.45
+     focus       #275DCA on surface 5.99 | bg 5.57  (non-text, >= 3)
+     border-strong #6F7C6B (input borders) on surface 4.40 | bg 4.09 | subtle 3.87  (non-text, >= 3)
+   DARK
+     text        #F4F7EF on bg #111710 16.81 | surface #1B241A 14.76 | raised #243021 12.76 | subtle #2C3926 11.28
+     text-muted  #C1CCB9 on bg 10.92 | surface 9.59 | raised 8.29 | subtle 7.33
+     action/link #BDE874 on surface 11.39 | bg 12.96 | subtle 8.70
+     on-action   #16220E on action #BDE874 11.79 | hover #D0F08E 13.03 | active #A8D45E 9.65
+     on-accent   #1D2420 on accent #E6AA66 7.78
+     success     #8CDEA0 on surface 9.95 | on #1B3324 8.46
+     warning     #F3C46F on surface 9.85 | on #3A2D12 8.27
+     danger      #FFB0A8 on surface 9.15 | on #3E1F1C 8.48
+     info        #9CC4FF on surface 8.95 | on #1D2F4D 7.51
+     focus       #9CC4FF on surface 8.95 | bg 10.19
+     border-strong #7E8E75 on surface 4.58 | bg 5.21 | subtle 3.50
+   BOTH THEMES
+     code text #E8EEE0 on #1D2420 13.38 (light) / #0C110B 16.12 (dark); syntax kw #BDE874 11.29/13.59,
+     string #E6AA66 7.78/9.36, fn #9CC4FF 8.87/10.68, comment #A3B09B 6.97/8.40
+     hero: lime #BDE874 on forest #2B440E 7.73 | white on forest 10.85 | graphite on lime 11.29
+   Focus ring: 2px solid --focus with 2px offset (sits on the surface, so it is visible
+   even around green buttons; focus blue on green itself would be only 1.07).
+   ========================================================================== */
+
+:root {
+  color-scheme: light;
+
+  /* ---- Primitives (DESIGN.md section 2). Do not use in components. ---- */
+  --brand-graphite: #1D2420;
+  --brand-forest: #2B440E;   /* DESIGN.md: "Deep green". NOTE: brief called #4D721D "Forest"; DESIGN.md names it Primary green. */
+  --brand-primary: #4D721D;
+  --brand-lime: #BDE874;
+  --brand-orange: #C67C35;
+  --brand-canvas: #F6F7F4;   /* a.k.a. off-white */
+  --brand-white: #FFFFFF;
+
+  /* ---- Semantic: light ---- */
+  --bg: #F6F7F4;
+  --surface: #FFFFFF;
+  --surface-raised: #FFFFFF;
+  --surface-subtle: #EDF2E7;
+  --surface-hover: #F0F4EA;
+  --text: #1D2420;
+  --text-muted: #576454;
+  --text-disabled: #7B8A74;     /* disabled controls are exempt from AA */
+  --border: #DCE3D6;
+  --border-strong: #6F7C6B;
+  --action: #4D721D;
+  --action-hover: #3F5F16;
+  --action-active: #34500F;
+  --on-action: #FFFFFF;
+  --link: #4D721D;
+  --link-hover: #3F5F16;
+  --accent: #C67C35;            /* secondary accent; sparing; never for warning/error */
+  --on-accent: #1D2420;
+  --focus: #275DCA;
+  --success: #28683F;  --success-bg: #E3F1E7;
+  --warning: #8A540D;  --warning-bg: #FBEFD9;
+  --danger:  #B42318;  --danger-bg:  #FCE8E5;
+  --info:    #1F4FA8;  --info-bg:    #E4ECFA;
+  --overlay: rgba(29, 36, 32, .55);
+  --hero-bg: #2B440E;  --hero-text: #FFFFFF;  --hero-accent: #BDE874;
+  --skeleton: #E3EADC;
+  --code-bg: #1D2420;  --code-text: #E8EEE0;  --code-border: #1D2420;
+  --code-kw: #BDE874;  --code-str: #E6AA66;  --code-fn: #9CC4FF;  --code-com: #A3B09B;
+  --inline-code-bg: #EDF2E7;
+  --shadow-raised: 0 1px 2px rgba(29, 36, 32, .08);
+  --shadow-overlay: 0 12px 32px rgba(29, 36, 32, .22), 0 2px 6px rgba(29, 36, 32, .12);
+
+  /* ---- Typography (DESIGN.md section 4: system fonts only, no downloads) ---- */
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
+  --fs-xs: .75rem;    /* 12 ancillary captions only */
+  --fs-sm: .875rem;   /* 14 secondary UI */
+  --fs-md: 1rem;      /* 16 body */
+  --fs-lg: 1.25rem;   /* 20 */
+  --fs-xl: 1.5rem;    /* 24 */
+  --fs-2xl: 2rem;     /* 32 */
+  --fs-3xl: 2.5rem;   /* 40 */
+  --lh-tight: 1.2;  --lh-snug: 1.35;  --lh-body: 1.55;
+  --fw-regular: 400;  --fw-medium: 500;  --fw-bold: 700;
+  --tracking-tight: -.015em;
+
+  /* ---- Spacing (4px grid) ---- */
+  --space-1: .25rem;  --space-2: .5rem;  --space-3: .75rem;  --space-4: 1rem;
+  --space-5: 1.25rem; --space-6: 1.5rem; --space-8: 2rem;    --space-10: 2.5rem;
+  --space-12: 3rem;   --space-16: 4rem;
+
+  /* ---- Shape ---- */
+  --radius-sm: 6px;  --radius-control: 8px;  --radius-card: 12px;  --radius-pill: 999px;
+  --border-w: 1px;
+  --target: 44px;               /* touch target aim */
+  --target-min: 24px;           /* WCAG 2.2 SC 2.5.8 floor */
+
+  /* ---- Layout ---- */
+  --header-h: 56px;  --sidebar-w: 232px;  --rail-w: 92px;  --bottom-nav-h: 60px;
+  --content-max: 1200px;  --prose-max: 74ch;  --gutter: var(--space-4);
+
+  /* ---- Motion ---- */
+  --dur-fast: 120ms;  --dur-base: 200ms;  --dur-slow: 320ms;
+  --ease-out: cubic-bezier(.16, 1, .3, 1);
+  --ease-in: cubic-bezier(.55, 0, 1, .45);
+  --ease-in-out: cubic-bezier(.65, 0, .35, 1);
+
+  /* ---- Layering: shell < sticky nav < menus < dialogs < toasts ---- */
+  --z-sticky: 20;  --z-menu: 30;  --z-dialog: 40;  --z-toast: 50;
+}
+
+@media (min-width: 768px)  { :root { --gutter: var(--space-6); } }
+@media (min-width: 1024px) { :root { --gutter: var(--space-8); } }
+
+/* ---- Dark (DESIGN.md 2.1 dark column = proposed baseline) ---- */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #111710;  --surface: #1B241A;  --surface-raised: #243021;  --surface-subtle: #2C3926;
+  --surface-hover: #243021;
+  --text: #F4F7EF;  --text-muted: #C1CCB9;  --text-disabled: #7B8A74;
+  --border: #43503C;  --border-strong: #7E8E75;
+  --action: #BDE874;  --action-hover: #D0F08E;  --action-active: #A8D45E;  --on-action: #16220E;
+  --link: #BDE874;  --link-hover: #D0F08E;
+  --accent: #E6AA66;  --on-accent: #1D2420;
+  --focus: #9CC4FF;
+  --success: #8CDEA0;  --success-bg: #1B3324;
+  --warning: #F3C46F;  --warning-bg: #3A2D12;
+  --danger:  #FFB0A8;  --danger-bg:  #3E1F1C;
+  --info:    #9CC4FF;  --info-bg:    #1D2F4D;
+  --overlay: rgba(0, 0, 0, .65);
+  --hero-bg: #1B241A;  --hero-text: #F4F7EF;  --hero-accent: #BDE874;
+  --skeleton: #2C3926;
+  --code-bg: #0C110B;  --code-border: #43503C;  --inline-code-bg: #2C3926;
+  --shadow-raised: 0 1px 2px rgba(0, 0, 0, .4);
+  --shadow-overlay: 0 12px 32px rgba(0, 0, 0, .55), 0 2px 6px rgba(0, 0, 0, .4);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #111710;  --surface: #1B241A;  --surface-raised: #243021;  --surface-subtle: #2C3926;
+    --surface-hover: #243021;
+    --text: #F4F7EF;  --text-muted: #C1CCB9;  --text-disabled: #7B8A74;
+    --border: #43503C;  --border-strong: #7E8E75;
+    --action: #BDE874;  --action-hover: #D0F08E;  --action-active: #A8D45E;  --on-action: #16220E;
+    --link: #BDE874;  --link-hover: #D0F08E;
+    --accent: #E6AA66;  --on-accent: #1D2420;
+    --focus: #9CC4FF;
+    --success: #8CDEA0;  --success-bg: #1B3324;
+    --warning: #F3C46F;  --warning-bg: #3A2D12;
+    --danger:  #FFB0A8;  --danger-bg:  #3E1F1C;
+    --info:    #9CC4FF;  --info-bg:    #1D2F4D;
+    --overlay: rgba(0, 0, 0, .65);
+    --hero-bg: #1B241A;  --hero-text: #F4F7EF;  --hero-accent: #BDE874;
+    --skeleton: #2C3926;
+    --code-bg: #0C110B;  --code-border: #43503C;  --inline-code-bg: #2C3926;
+    --shadow-raised: 0 1px 2px rgba(0, 0, 0, .4);
+    --shadow-overlay: 0 12px 32px rgba(0, 0, 0, .55), 0 2px 6px rgba(0, 0, 0, .4);
+  }
+}
+
+/* ---- Reduced motion: tokens collapse so every transition/animation obeys ---- */
+@media (prefers-reduced-motion: reduce) {
+  :root { --dur-fast: 0ms; --dur-base: 0ms; --dur-slow: 0ms; }
+}
+/* ---- Increased contrast: strengthen hairlines ---- */
+@media (prefers-contrast: more) {
+  :root { --border: var(--border-strong); }
+}
