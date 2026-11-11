@@ -419,11 +419,112 @@
     d.addEventListener('mousemove', on); d.addEventListener('focusin', on);
   });
 
+
+  /* ---------- State pill (Direction v2): App.statePill('accepted|verified|stale|unverified|open|closed|draft', {testid, label, labelKey}) ----------
+     Icon + word on a neutral fill (.state-pill). Default labels come from the pill.* keys; pass label/labelKey for a gender-specific word. */
+  var PILL = { accepted: 'check-circle', verified: 'shield-check', stale: 'clock', unverified: 'help', open: 'circle-dot', closed: 'lock', draft: 'edit' };
+  function statePill(kind, o) {
+    o = o || {}; var tid = o.testid || 'state-pill-' + kind, key = o.labelKey || 'pill.' + kind;
+    return '<span class="state-pill state-pill-' + kind + '" data-testid="' + esc(tid) + '"><span class="icon i-' + PILL[kind] + '" aria-hidden="true" data-testid="' + esc(tid) + '-icon"></span><span' + (o.label ? '' : ' data-i18n="' + key + '"') + ' data-testid="' + esc(tid) + '-label">' + esc(o.label || I18N.t(key)) + '</span></span>';
+  }
+
+  /* ---------- Profile field editors, shared by the just-in-time prompts and the setup checklist ----------
+     fieldEditor(key, {idp, onSaved}) -> <form class="jit-editor"> for country | github | bio | openToCollab | languages. Saving updates App.Session (and confirms languages / openToCollab). */
+  var Session = window.App.Session;
+  var PICON = { skills: 'tag', country: 'map-pin', github: 'git-branch', bio: 'file-text', openToCollab: 'users', languages: 'languages' };
+  var GH = /^(?:https?:\/\/)?(?:www\.)?(?:github\.com\/)?@?([A-Za-z0-9](?:[A-Za-z0-9-]{0,38}))\/?$/;
+  function fieldEditor(key, o) {
+    o = o || {}; var idp = o.idp || ('jit-' + key), u = Session.user || {}, f = el('form', 'jit-editor'), M = window.MOCK || {}, lab = '<label class="label" for="' + idp + '-input" data-i18n="checklist.' + key + '.label" data-testid="' + idp + '-label"></label>', ctl = '';
+    f.noValidate = true; f.setAttribute('data-testid', idp + '-form');
+    if (key === 'country') ctl = '<select class="select" id="' + idp + '-input" data-testid="' + idp + '-input"><option value="" data-i18n="checklist.country.choose"></option>' + (M.countries || []).map(function (c) { return '<option value="' + c.code + '"' + (u.country === c.code ? ' selected' : '') + '>' + esc(c[I18N.lang] || c.fr) + '</option>'; }).join('') + '</select>';
+    else if (key === 'github') ctl = '<input class="input" id="' + idp + '-input" type="text" inputmode="url" autocomplete="off" spellcheck="false" value="' + esc(u.github || '') + '" aria-describedby="' + idp + '-error" data-i18n-attr="placeholder:checklist.github.placeholder" data-testid="' + idp + '-input"><p class="error-msg" id="' + idp + '-error" role="alert" hidden data-i18n="checklist.github.error" data-testid="' + idp + '-error"></p>';
+    else if (key === 'bio') ctl = '<textarea class="textarea" id="' + idp + '-input" rows="3" maxlength="280" lang="' + I18N.lang + '" data-user-content data-testid="' + idp + '-input">' + esc(u.bio || '') + '</textarea>';
+    else if (key === 'openToCollab') { lab = ''; ctl = '<label class="choice"><input type="checkbox" id="' + idp + '-input"' + (u.openToCollab ? ' checked' : '') + ' data-testid="' + idp + '-input"><span data-i18n="checklist.openToCollab.choice" data-testid="' + idp + '-choice"></span></label>'; }
+    else if (key === 'languages') { lab = ''; ctl = ['fr', 'en'].map(function (l) { return '<label class="choice"><input type="checkbox" value="' + l + '" id="' + idp + '-input-' + l + '"' + ((u.languages || [I18N.lang]).indexOf(l) > -1 ? ' checked' : '') + ' data-testid="' + idp + '-input-' + l + '"><span lang="' + l + '" data-testid="' + idp + '-choice-' + l + '">' + (l === 'fr' ? 'Français' : 'English') + '</span></label>'; }).join(''); }
+    f.innerHTML = '<div class="field">' + lab + ctl + '</div><button type="submit" class="btn btn-primary btn-sm" data-testid="' + idp + '-save"><span data-i18n="common.save" data-testid="' + idp + '-save-label"></span></button>';
+    f.addEventListener('submit', function (e) {
+      e.preventDefault(); var inp = $('#' + idp + '-input', f), err = $('#' + idp + '-error', f);
+      if (key === 'country') { if (!inp.value) { inp.focus(); return; } Session.update({ country: inp.value }); }
+      else if (key === 'github') { var m = GH.exec(inp.value.trim()); if (!m) { inp.setAttribute('aria-invalid', 'true'); if (err) err.hidden = false; inp.focus(); return; } Session.update({ github: m[1] }); }
+      else if (key === 'bio') { if (!inp.value.trim()) { inp.focus(); return; } Session.update({ bio: inp.value.trim() }); }
+      else if (key === 'openToCollab') { Session.update({ openToCollab: inp.checked }); Session.confirm('openToCollab'); }
+      else if (key === 'languages') { var ls = $$('input:checked', f).map(function (c) { return c.value; }); if (!ls.length) return; Session.update({ languages: ls }); Session.confirm('languages'); }
+      if (o.onSaved) o.onSaved(key);
+    });
+    I18N.apply(f); return f;
+  }
+
+  /* ---------- Just-in-time prompt: App.Session.prompt(key, {container, textKey, actionKey, icon, href, onAction, testid}) ----------
+     Returns the .jit-prompt element (appended to `container` when given) or null when signed out, already dismissed, or the item is done.
+     Without href/onAction the action opens the matching inline editor (country, github, bio, openToCollab, languages) which ticks the same checklist item. Dismissal is remembered per key. */
+  Session.prompt = function (key, o) {
+    o = o || {}; if (!Session.signedIn || Session.promptDismissed(key)) return null;
+    var it = Session.checklist().filter(function (i) { return i.key === key; })[0]; if (it && it.done) return null;
+    var tid = o.testid || 'jit-' + key, box = el('div', 'jit-prompt'), tk = o.textKey || 'jit.' + key + '.text', ak = o.actionKey || 'jit.' + key + '.action';
+    box.setAttribute('role', 'group'); box.setAttribute('aria-labelledby', tid + '-text'); box.setAttribute('data-testid', tid); box.setAttribute('data-jit', key);
+    var act = o.href ? '<a class="btn btn-sm" href="' + esc(o.href) + '" data-testid="' + tid + '-action"><span data-i18n="' + ak + '" data-testid="' + tid + '-action-label"></span></a>' : '<button type="button" class="btn btn-sm" data-jit-action aria-expanded="false" data-testid="' + tid + '-action"><span data-i18n="' + ak + '" data-testid="' + tid + '-action-label"></span></button>';
+    box.innerHTML = '<span class="icon i-' + (o.icon || PICON[key] || 'info') + '" aria-hidden="true" data-testid="' + tid + '-icon"></span><div class="jit-prompt-body" data-testid="' + tid + '-body"><p class="jit-prompt-text" id="' + tid + '-text" data-i18n="' + tk + '" data-testid="' + tid + '-text"></p>' + act + '</div>' +
+      '<button type="button" class="btn btn-icon btn-sm" data-jit-dismiss data-i18n-attr="aria-label:common.dismiss" data-testid="' + tid + '-dismiss"><span class="icon i-x" aria-hidden="true" data-testid="' + tid + '-dismiss-icon"></span></button>';
+    var gone = function () { d.removeEventListener('session:change', onChange); box.remove(); };
+    var onChange = function () { var c = Session.checklist().filter(function (i) { return i.key === key; })[0]; if (!Session.signedIn || (c && c.done)) gone(); };
+    d.addEventListener('session:change', onChange);
+    box.querySelector('[data-jit-dismiss]').addEventListener('click', function () { Session.dismissPrompt(key); gone(); });
+    var ab = box.querySelector('[data-jit-action]');
+    if (ab) ab.addEventListener('click', function () {
+      if (o.onAction) { o.onAction(box, key); return; }
+      var body = $('.jit-prompt-body', box); ab.hidden = true; ab.setAttribute('aria-expanded', 'true');
+      var f = fieldEditor(key, { idp: tid, onSaved: function () { if (o.onSaved) o.onSaved(key); } }); body.appendChild(f); var c = $('input, select, textarea', f); if (c) c.focus();
+    });
+    if (o.container) (typeof o.container === 'string' ? $(o.container) : o.container).appendChild(box);
+    I18N.apply(box); return box;
+  };
+
+  /* ---------- Setup checklist: App.setupChecklist(container, {testid}) ----------
+     ONLY for the user's own profile (self view), never the home page. Renders the .setup-checklist card (meter + rows + inline editors) from App.Session.checklist().
+     Pending items open an editor in place; saving ticks the row. At 100% a short "Profil complet" confirmation shows, then the card is dismissed for good (onboarding.checklistDismissed). Collapsible (onboarding.checklistCollapsed). */
+  function setupChecklist(box, o) {
+    o = o || {}; box = typeof box === 'string' ? $(box) : box; if (!box) return null;
+    var tid = o.testid || 'setup', openKey = null, prevDone = null, timer = null;
+    function render(focusKey) {
+      var s = Session.state, cl = Session.checklist(); clearTimeout(timer);
+      if (!s.signedIn || s.onboarding.checklistDismissed) { box.innerHTML = ''; return; }
+      var col = !!s.onboarding.checklistCollapsed, complete = cl.pct === 100, now = {}; cl.forEach(function (i) { now[i.key] = i.done; });
+      var rows = cl.map(function (i) {
+        var just = prevDone && !prevDone[i.key] && i.done, p = tid + '-item-' + i.key, op = openKey === i.key && !i.done;
+        var action = i.done ? '' : (i.editor === 'dialog' ? '<a class="btn btn-sm" href="' + esc(i.href) + '" data-testid="' + p + '-action"><span data-i18n="checklist.' + i.key + '.action" data-testid="' + p + '-action-label"></span></a>' :
+          '<button type="button" class="btn btn-sm" data-setup-open="' + i.key + '" aria-expanded="' + op + '" aria-controls="' + p + '-editor" data-testid="' + p + '-action"><span data-i18n="checklist.' + i.key + '.action" data-testid="' + p + '-action-label"></span></button>');
+        return '<li class="setup-item' + (i.done ? ' is-done' : '') + (just ? ' just-done' : '') + '" data-testid="' + p + '"><div class="setup-row"><span class="icon icon-state i-' + (i.done ? 'check-circle' : 'circle') + '" aria-hidden="true" data-testid="' + p + '-icon"></span>' +
+          '<div><p class="setup-label" data-i18n="' + i.labelKey + '" data-testid="' + p + '-label"></p>' + (i.done ? '<span class="visually-hidden" data-i18n="checklist.done" data-testid="' + p + '-done"></span>' : '<p class="setup-value" data-i18n="' + i.valueKey + '" data-testid="' + p + '-value"></p>') + '</div>' + action + '</div>' +
+          '<div class="setup-editor" id="' + p + '-editor" data-editor="' + i.key + '"' + (op ? '' : ' hidden') + ' data-testid="' + p + '-editor"></div></li>';
+      }).join('');
+      box.innerHTML = '<section class="setup-checklist card" aria-labelledby="' + tid + '-title" data-testid="' + tid + '"><div class="setup-head"><h2 id="' + tid + '-title" data-i18n="checklist.title" data-testid="' + tid + '-title"></h2>' +
+        '<div class="setup-meter" data-testid="' + tid + '-meter"><progress max="100" value="' + cl.pct + '" data-i18n-attr="aria-label:checklist.title" data-testid="' + tid + '-progress"></progress><span aria-hidden="true" data-testid="' + tid + '-count">' + cl.done + '/' + cl.total + '</span><span class="visually-hidden" data-testid="' + tid + '-pct">' + cl.pct + ' %</span></div>' +
+        '<button type="button" class="btn btn-icon btn-sm setup-collapse" data-setup-collapse aria-expanded="' + !col + '" aria-controls="' + tid + '-list" data-i18n-attr="aria-label:checklist.toggle" data-testid="' + tid + '-collapse"><span class="icon i-chevron-down" aria-hidden="true" data-testid="' + tid + '-collapse-icon"></span></button></div>' +
+        '<div id="' + tid + '-list"' + (col ? ' hidden' : '') + ' data-testid="' + tid + '-body">' + (complete ? '<p class="setup-done" role="status" data-testid="' + tid + '-complete"><span class="icon i-check-circle" aria-hidden="true" data-testid="' + tid + '-complete-icon"></span><span data-i18n="checklist.complete" data-testid="' + tid + '-complete-label"></span></p>' : '') +
+        '<ul class="setup-list list-reset" data-testid="' + tid + '-list">' + rows + '</ul></div></section>';
+      if (openKey && !now[openKey]) { var ed = $('[data-editor="' + openKey + '"]', box); if (ed) ed.appendChild(fieldEditor(openKey, { idp: tid + '-edit-' + openKey })); }
+      I18N.apply(box); prevDone = now;
+      if (focusKey) { var f = $('[data-editor="' + focusKey + '"] input, [data-editor="' + focusKey + '"] select, [data-editor="' + focusKey + '"] textarea', box); if (f) f.focus(); }
+      if (complete) timer = setTimeout(function () { Session.setOnboarding({ checklistDismissed: true }); }, 3500);
+    }
+    if (!box._setupWired) {
+      box._setupWired = true;
+      box.addEventListener('click', function (e) {
+        var op = e.target.closest('[data-setup-open]'), co = e.target.closest('[data-setup-collapse]');
+        if (op) { var k = op.getAttribute('data-setup-open'); openKey = openKey === k ? null : k; render(openKey); }
+        else if (co) { Session.setOnboarding({ checklistCollapsed: !Session.state.onboarding.checklistCollapsed }); }
+      });
+      box.addEventListener('keydown', function (e) { if (e.key === 'Escape' && openKey) { var k = openKey; openKey = null; render(); var b = $('[data-setup-open="' + k + '"]', box); if (b) b.focus(); } });
+      d.addEventListener('session:change', function () { if (openKey && Session.checklist().filter(function (i) { return i.key === openKey; })[0].done) openKey = null; render(); });
+    }
+    render(); return { render: render };
+  }
+
   function init() {
     I18N.apply(); syncTheme(); syncNav(); Tabs.init(d); Menu.init(d); Proto.mount();
     $$('.js-only').forEach(function (n) { n.hidden = false; });
     if (P.get('autotestid') === '1') TestIds.auto();   /* debug only: positional fallback ids; real ids are hand-written */
   }
   if (d.readyState === 'complete') init(); else d.addEventListener('DOMContentLoaded', init);   /* deferred scripts (dictionaries, pages) run before this */
-  window.App = { initials: initials, avatar: avatar, thumb: thumb, rating: rating, ratingInput: ratingInput, review: review, Menu: Menu, Proto: Proto, store: store, $: $, $$: $$, el: el, esc: esc, Filter: Filter, Sim: Sim, Tabs: Tabs, TestIds: TestIds, Toast: Toast, Dialog: Dialog, Theme: Theme, params: P };
+  window.App = Object.assign(window.App || {}, { initials: initials, statePill: statePill, fieldEditor: fieldEditor, setupChecklist: setupChecklist, avatar: avatar, thumb: thumb, rating: rating, ratingInput: ratingInput, review: review, Menu: Menu, Proto: Proto, store: store, $: $, $$: $$, el: el, esc: esc, Filter: Filter, Sim: Sim, Tabs: Tabs, TestIds: TestIds, Toast: Toast, Dialog: Dialog, Theme: Theme, params: P });
 })();

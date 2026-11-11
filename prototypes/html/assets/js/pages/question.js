@@ -110,7 +110,7 @@
     return '<li data-testid="' + tid + '-item"><article class="card solve-answer' + (a.accepted ? ' is-accepted' : '') + '" id="answer-' + a.id + '" tabindex="-1" aria-labelledby="ans-h-' + n + '" data-testid="' + tid + '">' +
       '<h3 class="visually-hidden" id="ans-h-' + n + '" data-testid="' + tid + '-heading">' + esc(t('solve.answer.n', { n: n })) + '</h3>' +
       '<div class="solve-post"><div class="solve-post-vote">' + voteCtl(a.id, a.votes, tid + '-vote') + accept + '</div><div class="solve-post-main stack">' +
-      (a.accepted ? '<p><span class="badge badge-accepted" data-testid="' + tid + '-accepted"><span class="icon i-check-circle" aria-hidden="true" data-testid="' + tid + '-accepted-icon"></span>' + esc(t('solve.answer.accepted')) + '</span></p>' : '') +
+      (a.accepted ? '<p class="solve-answer-head"><span class="state-pill state-pill-accepted" data-testid="' + tid + '-accepted"><span class="icon i-check-circle" aria-hidden="true" data-testid="' + tid + '-accepted-icon"></span>' + esc(t('solve.answer.accepted')) + '</span></p>' : '') +
       '<div class="prose" lang="' + a.lang + '" data-user-content data-testid="' + tid + '-body">' + S.renderMd(a.md, mdOpts(tid)) + '</div>' + src +
       '<div class="meta solve-post-foot">' + personBox(a.author, tid) + '<time class="meta-item" datetime="' + a.date + '" data-testid="' + tid + '-date">' + M.fmtDate(a.date) + '</time>' + langBadge(a.lang, tid + '-lang-badge') +
       (a.mine ? '<span class="badge badge-sim" data-proto data-testid="' + tid + '-mine">' + esc(t('solve.answer.mine')) + '</span>' : '') + '</div>' +

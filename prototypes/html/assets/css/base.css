@@ -8,14 +8,18 @@ body {
   overflow-wrap: break-word; -webkit-font-smoothing: antialiased;
 }
 img, svg, video { max-width: 100%; display: block; }
-h1, h2, h3, h4 { margin: 0; line-height: var(--lh-tight); letter-spacing: var(--tracking-tight); font-weight: var(--fw-bold); text-wrap: balance; }
+h1, h2, h3, h4 { margin: 0; line-height: var(--lh-tight); letter-spacing: var(--tracking-h3); font-weight: var(--fw-heading); text-wrap: balance; }
+h1, h2 { letter-spacing: var(--tracking-h1); }
 h1 { font-size: clamp(1.625rem, 1.2rem + 1.6vw, var(--fs-2xl)); }
 h2 { font-size: var(--fs-lg); }
 h3 { font-size: var(--fs-md); }
 h4 { font-size: var(--fs-sm); }
 /* Heading-style utilities: keep the h-level semantic, borrow the visual size */
 .h1 { font-size: clamp(1.625rem, 1.2rem + 1.6vw, var(--fs-2xl)); } .h2 { font-size: var(--fs-lg); } .h3 { font-size: var(--fs-md); } .h4 { font-size: var(--fs-sm); }
-.h1, .h2, .h3, .h4 { line-height: var(--lh-tight); letter-spacing: var(--tracking-tight); font-weight: var(--fw-bold); }
+.h1, .h2, .h3, .h4 { line-height: var(--lh-tight); letter-spacing: var(--tracking-h3); font-weight: var(--fw-heading); }
+.h1, .h2 { letter-spacing: var(--tracking-h1); }
+/* Numbers that line up: counts, votes, dates. Already applied inside shared components (.meta, .row-aside, time, .vote-count...) */
+.tabular-nums, time, .meta, .row-aside, .results-meta, .chip-count, .vote-count { font-variant-numeric: tabular-nums; }
 p, ul, ol, dl, figure, blockquote, pre { margin: 0; }
 ul[role="list"], ol[role="list"], .list-reset { list-style: none; padding: 0; margin: 0; }
 a { color: var(--link); text-underline-offset: .18em; text-decoration-thickness: 1px; }

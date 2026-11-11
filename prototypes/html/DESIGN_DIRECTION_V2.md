@@ -37,14 +37,22 @@ Landing (/) ─┬─> Browse questions ─> Question ─> [Answer / Vote] ─> 
 ### Gentle onboarding — P0 for the minimal profile
 **Rule:** no profile field on the account forms. Sign-up asks only for name, email and password. The profile is built gradually.
 
-1. **Required, a single screen after verifying the email:** a public username (pre-filled from the name) and **1 to 3 skills** chosen from tags. That's the minimum needed for a useful profile and for the "Pour vous" view (PRD 5.4).
-2. **Profile checklist** (the premium-platform pattern):
-   - A "Complétez votre profil" card on the logged-in home, with a progress bar (e.g. 2/6).
-   - Items, each completable in one click from the card: avatar (generated monogram by default), country, working languages, GitHub link, short bio, availability (open to collaboration or mentoring).
-   - Each item explains its benefit in one line, e.g. "Le pays aide à trouver des API qui couvrent votre marché".
-   - The card can be dismissed. It disappears at 100% with a discreet confirmation.
-   - No blocking and no guilt: nothing is required beyond step 1.
-3. **"Par où commencer ?"** on the first home visit: three choices (ask a question, explore the catalogue, find a project). It can be dismissed.
+**Owner principle (revision 2026-11-11): every profile item is tied to a value in the product and is asked for when that value becomes concrete. Never ask for something blindly.**
+
+1. **Onboarding = one screen after verifying the email:** "Qu'est-ce qui vous amène ?" with four choices: ask a question, help others, integrate an API, contribute to a project. Then "Sur quoi pouvez-vous aider ?" with 1–3 skills. The effect is shown immediately ("12 questions attendent quelqu'un qui connaît Go"). The username is generated from the name and can be changed in settings.
+2. **Just-in-time requests** (dismissible inline prompt that states the value, remembered once dismissed):
+   - **Country:** in Découvrir, "Voir les API disponibles au Burkina ? Mémoriser ce pays".
+   - **GitHub:** in the application dialog, "Les mainteneurs regardent votre GitHub en premier".
+   - **Ouvert aux collaborations, plus bio:** after a first accepted answer, or when the user wants to be found by maintainers.
+   - **Languages:** never asked. Inferred from the interface; offered once when content in another language is read.
+   - **Avatar:** never asked. The generated monogram is the default; changeable in settings.
+3. **Completion checklist on your own profile** (the LinkedIn "Profile strength", Upwork, Stripe and Vercel setup-checklist pattern). Visible **only to the profile owner**, on their profile page. Never on the home page.
+   - A progress meter (percentage and "x/6").
+   - Items: skills (done at onboarding), country, GitHub, bio, open to collaboration, languages (confirm). Each has **one line on why it matters in 226os** ("Le pays affiche d'abord les API qui couvrent votre marché").
+   - Each item is filled in **in place** (inline editor or a small panel) and ticks with a subtle animation.
+   - At 100%, a short "Profil complet" confirmation, then the card disappears for good. It can be collapsed before that.
+   - In-context prompts (country in Découvrir, GitHub when applying, and so on) tick the same items.
+4. The first home is chosen by the answer to "Qu'est-ce qui vous amène ?". No separate "Par où commencer ?" chooser.
 
 ### Profile and settings space — P0
 - `profil.html`: the public view of the profile.

@@ -47,6 +47,16 @@
      code text #E8EEE0 on #1D2420 13.38 (light) / #0C110B 16.12 (dark); syntax kw #BDE874 11.29/13.59,
      string #E6AA66 7.78/9.36, fn #9CC4FF 8.87/10.68, comment #A3B09B 6.97/8.40
      hero: lime #BDE874 on forest #2B440E 7.73 | white on forest 10.85 | graphite on lime 11.29
+   DIRECTION V2 (surface layers, state pills, nav, jit prompt). New or re-used pairs, all PASS
+     Layers  LIGHT bg #F6F7F4 < panel --surface #FFFFFF = --surface-raised #FFFFFF = --surface-overlay #FFFFFF (+ shadow on overlays only)
+             DARK  bg #111710 < panel #1B241A < raised #243021 < overlay #2C3926 (elevation = lighter surface, no shadow on panels)
+     Overlay surface (menus, dialogs, toasts, tooltips-free): LIGHT text 15.84, muted 6.26, action 5.61 | DARK #2C3926: text 11.28, muted 7.33, action #BDE874 8.70, hover fill #34452E text 9.52 muted 6.19
+     State pill (neutral --surface-subtle row, label in --text, icon tinted; icon needs >= 3, all far above):
+             LIGHT on #EDF2E7: text 13.92, success 5.87, info 6.73, warning 5.50, danger 5.78, muted 5.50
+             DARK  on #2C3926: text 11.28, success 7.60, info 6.83, warning 7.52, danger 6.99, muted 7.33
+     Nav active: --surface-subtle fill + --text label/icon: LIGHT on #EDF2E7 13.92 (sidebar sits on bg #F6F7F4: fill/bg 1.13) | DARK #2C3926 11.28
+     Just-in-time prompt (.jit-prompt): --surface-subtle fill, --text copy 13.92 / 11.28, icon --action 4.93 / 8.70 (non-text >= 3), link/primary as .btn
+     Blockquote (.prose): --surface-subtle fill + --text-muted copy 5.50 / 7.33
    Focus ring: 2px solid --focus with 2px offset (sits on the surface, so it is visible
    even around green buttons; focus blue on green itself would be only 1.07).
    ========================================================================== */
@@ -67,6 +77,7 @@
   --bg: #F6F7F4;
   --surface: #FFFFFF;
   --surface-raised: #FFFFFF;
+  --surface-overlay: #FFFFFF;   /* menus, dialogs, toasts: the only layer that carries a shadow */
   --surface-subtle: #EDF2E7;
   --surface-hover: #F0F4EA;
   --text: #1D2420;
@@ -100,8 +111,8 @@
   --tone-2-bg: #D9F0A8;  --tone-2-fg: #2B440E;   /* lime tint */
   --tone-3-bg: #F3DCC2;  --tone-3-fg: #5C3508;   /* copper tint */
   --tone-4-bg: #DDE3D9;  --tone-4-fg: #1D2420;   /* graphite tint */
-  --shadow-card: 0 1px 2px rgba(29, 36, 32, .06), 0 2px 8px rgba(29, 36, 32, .06);
-  --shadow-raised: 0 1px 2px rgba(29, 36, 32, .08);
+  --shadow-card: none;     /* v2: no shadow on cards, lists, header (layers, not shadows); name kept for compatibility */
+  --shadow-raised: none;
   --shadow-overlay: 0 12px 32px rgba(29, 36, 32, .22), 0 2px 6px rgba(29, 36, 32, .12);
 
   /* ---- Typography (DESIGN.md section 4: system fonts only, no downloads) ---- */
@@ -115,8 +126,8 @@
   --fs-2xl: 2rem;     /* 32 */
   --fs-3xl: 2.5rem;   /* 40 */
   --lh-tight: 1.2;  --lh-snug: 1.35;  --lh-body: 1.55;
-  --fw-regular: 400;  --fw-medium: 500;  --fw-bold: 700;
-  --tracking-tight: -.015em;
+  --fw-regular: 400;  --fw-medium: 500;  --fw-bold: 700;  --fw-heading: 650;
+  --tracking-tight: -.015em;  --tracking-h1: -.02em;  --tracking-h3: -.01em;
 
   /* ---- Spacing (4px grid) ---- */
   --space-1: .25rem;  --space-2: .5rem;  --space-3: .75rem;  --space-4: 1rem;
@@ -131,11 +142,12 @@
 
   /* ---- Layout ---- */
   --header-h: 56px;  --sidebar-w: 232px;  --rail-w: 92px;  --bottom-nav-h: 60px;
-  --content-max: 1200px;  --prose-max: 74ch;  --gutter: var(--space-4);
+  --content-max: 1200px;  --prose-max: 68ch;  --gutter: var(--space-4);
 
   /* ---- Motion ---- */
-  --dur-fast: 120ms;  --dur-base: 200ms;  --dur-slow: 320ms;
-  --ease-out: cubic-bezier(.16, 1, .3, 1);
+  --dur-fast: 120ms;  --dur-tip: 125ms;  --dur-base: 200ms;  --dur-slow: 200ms;   /* nothing above 200ms */
+  --press-scale: .97;  --enter-scale: .96;    /* :active scale; entries start at scale >= .96 + opacity 0 */
+  --ease-out: cubic-bezier(.2, .8, .2, 1);
   --ease-in: cubic-bezier(.55, 0, 1, .45);
   --ease-in-out: cubic-bezier(.65, 0, .35, 1);
 
@@ -150,6 +162,7 @@
 :root[data-theme="dark"] {
   color-scheme: dark;
   --bg: #111710;  --surface: #1B241A;  --surface-raised: #243021;  --surface-subtle: #2C3926;
+  --surface-overlay: #2C3926;
   --surface-hover: #243021;
   --text: #F4F7EF;  --text-muted: #C1CCB9;  --text-disabled: #7B8A74;
   --border: #43503C;  --border-strong: #7E8E75;
@@ -169,14 +182,15 @@
   --tone-0-bg: #2B440E;  --tone-0-fg: #BDE874;  --tone-1-bg: #3B5A1B;  --tone-1-fg: #F4F7EF;
   --tone-2-bg: #34451F;  --tone-2-fg: #D0F08E;  --tone-3-bg: #4A3319;  --tone-3-fg: #F2C28F;
   --tone-4-bg: #2C3926;  --tone-4-fg: #F4F7EF;
-  --shadow-card: 0 1px 2px rgba(0, 0, 0, .35);
-  --shadow-raised: 0 1px 2px rgba(0, 0, 0, .4);
+  --shadow-card: none;
+  --shadow-raised: none;
   --shadow-overlay: 0 12px 32px rgba(0, 0, 0, .55), 0 2px 6px rgba(0, 0, 0, .4);
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
     --bg: #111710;  --surface: #1B241A;  --surface-raised: #243021;  --surface-subtle: #2C3926;
+    --surface-overlay: #2C3926;
     --surface-hover: #243021;
     --text: #F4F7EF;  --text-muted: #C1CCB9;  --text-disabled: #7B8A74;
     --border: #43503C;  --border-strong: #7E8E75;
@@ -196,15 +210,15 @@
     --tone-0-bg: #2B440E;  --tone-0-fg: #BDE874;  --tone-1-bg: #3B5A1B;  --tone-1-fg: #F4F7EF;
     --tone-2-bg: #34451F;  --tone-2-fg: #D0F08E;  --tone-3-bg: #4A3319;  --tone-3-fg: #F2C28F;
     --tone-4-bg: #2C3926;  --tone-4-fg: #F4F7EF;
-    --shadow-card: 0 1px 2px rgba(0, 0, 0, .35);
-    --shadow-raised: 0 1px 2px rgba(0, 0, 0, .4);
+    --shadow-card: none;
+    --shadow-raised: none;
     --shadow-overlay: 0 12px 32px rgba(0, 0, 0, .55), 0 2px 6px rgba(0, 0, 0, .4);
   }
 }
 
 /* ---- Reduced motion: tokens collapse so every transition/animation obeys ---- */
 @media (prefers-reduced-motion: reduce) {
-  :root { --dur-fast: 0ms; --dur-base: 0ms; --dur-slow: 0ms; }
+  :root { --dur-fast: 0ms; --dur-tip: 0ms; --dur-base: 0ms; --dur-slow: 0ms; --press-scale: 1; --enter-scale: 1; }
 }
 /* ---- Increased contrast: strengthen hairlines ---- */
 @media (prefers-contrast: more) {

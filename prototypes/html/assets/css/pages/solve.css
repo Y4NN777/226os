@@ -46,7 +46,8 @@
 .solve-post-foot .person a { color: var(--text); font-weight: var(--fw-medium); }
 .vote button[disabled] { color: var(--text-disabled); cursor: not-allowed; }
 .solve-answer { padding: var(--space-4); }
-.solve-answer.is-accepted { box-shadow: var(--shadow-card), inset 4px 0 0 var(--success); }   /* shape (thick edge) + badge: never colour only */
+.solve-answer.is-accepted { background: var(--surface); }   /* v2: no edge bar; the accepted state is the "Réponse acceptée" pill header (.state-pill-accepted) */
+.solve-answer-head { margin: 0; }
 .solve-answer:focus-visible { outline-offset: 2px; }
 .solve-accept[aria-pressed="true"] { color: var(--success); background: var(--success-bg); }
 .solve-sources { display: grid; gap: var(--space-1); padding: var(--space-2) var(--space-3); background: var(--surface-subtle); border-radius: var(--radius-sm); }
