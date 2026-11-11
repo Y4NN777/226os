@@ -23,6 +23,25 @@ status: PLANNED
 
 Dependencies: human checkpoint.
 
+## TASK-G0-001 — Approve security, API, data, UI, and governance defaults
+
+```yaml
+goal: "Review and accept or reject the explicit G0 proposals without silently converting them into implementation facts."
+story_id: "PRD-TRACEABILITY / G0"
+priority: "P0"
+owner: "OPEN"
+reviewer: "OPEN"
+allowed_paths: ["docs/spec-kit/**", "docs/decisions/**", "CONTRIBUTING.md", "AI_USAGE.md", "THIRD_PARTY_NOTICES.md"]
+acceptance_criteria: ["G0_APPROVAL_TEMPLATE.md is completed by a human", "Every accepted proposal has an ADR or explicit source decision", "Rejected/deferred proposals have owners and conditions", "No implementation task starts with unresolved contract ambiguity"]
+threats_and_risks: ["auth bypass", "contract drift", "unsafe migration", "dependency/API drift", "license/provenance gap"]
+planned_tests: ["independent documentation review", "authorization matrix review", "OpenAPI/schema review", "migration threat review", "Astryx capability review plan"]
+required_gates: [G0]
+evidence_paths: ["docs/spec-kit/G0_APPROVAL_TEMPLATE.md", "docs/spec-kit/G0_DECISIONS.md", "docs/decisions/**"]
+status: PLANNED
+```
+
+Dependencies: human product, architecture, security, and release approvers.
+
 ## TASK-DATA-001 — PostgreSQL schema, migrations, seeds, and search
 
 ```yaml
@@ -40,7 +59,7 @@ evidence_paths: ["db/migrations/**", "docs/evidence/TASK-DATA-001/**"]
 status: PLANNED
 ```
 
-Dependencies: TASK-SPEC-001 and approved data/search contract.
+Dependencies: TASK-SPEC-001, TASK-G0-001, and approved data/search contract.
 
 ## TASK-SEC-001 — Sessions, authentication, and authorization
 
@@ -59,7 +78,7 @@ evidence_paths: ["docs/evidence/TASK-SEC-001/**"]
 status: PLANNED
 ```
 
-Dependencies: TASK-SPEC-001 and approved auth decisions.
+Dependencies: TASK-SPEC-001, TASK-G0-001, and approved auth decisions.
 
 ## TASK-API-001 — OpenAPI, Go modules, and P0 HTTP vertical slices
 
@@ -78,7 +97,7 @@ evidence_paths: ["api/openapi.yaml", "docs/evidence/TASK-API-001/**"]
 status: PLANNED
 ```
 
-Dependencies: TASK-DATA-001, TASK-SEC-001, and approved API contract.
+Dependencies: TASK-DATA-001, TASK-SEC-001, TASK-G0-001, and approved API contract.
 
 ## TASK-WEB-001 — Astryx shell and P0 frontend flows
 
@@ -97,7 +116,7 @@ evidence_paths: ["docs/evidence/TASK-WEB-001/**"]
 status: PLANNED
 ```
 
-Dependencies: TASK-API-001, TASK-SEC-001, approved Astryx release and route/locale decisions.
+Dependencies: TASK-API-001, TASK-SEC-001, TASK-G0-001, approved Astryx release, and route/locale decisions.
 
 ## TASK-OPS-001 — Make, CI, Compose, Traefik, and release evidence
 

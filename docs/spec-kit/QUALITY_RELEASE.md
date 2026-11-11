@@ -6,7 +6,7 @@
 
 | Gate | Required evidence | Current status | Blocking condition |
 |---|---|---|---|
-| G0 | approved stories, AC, threats, owners, plan, open decisions | BLOCKED | human approval and task ownership |
+| G0 | approved stories, AC, threats, owners, plan, explicit decision register, and governance review | BLOCKED | human approval and task ownership; see `G0_APPROVAL_TEMPLATE.md` |
 | G1 | format/lint/typecheck/generation logs from target SHA | NOT RUN | no implementation or CI |
 | G2 | Go first-party statements 100.00%; frontend statements/branches/functions/lines strictly >70%; unit evidence | NOT RUN | no code/tests/scope file |
 | G3 | real PostgreSQL integration, OpenAPI validation/generation diff, permission/invariant tests | NOT RUN | contracts and database absent |

@@ -2,6 +2,8 @@
 
 **Status:** documentation registry created; human approval still required for pending decisions
 
+The detailed proposal register is [G0_DECISIONS.md](../spec-kit/G0_DECISIONS.md). Entries there are not accepted decisions.
+
 ## Accepted baseline
 
 | ID | Decision | Source | Status |
@@ -19,9 +21,10 @@
 |---|---|---|---|
 | ADR-OPEN-001 | Exact Astryx release, CLI verification, package manager, and lockfile policy | TASK-WEB-001 | OPEN |
 | ADR-OPEN-002 | Canonical documentation move from root to `docs/`, or retain current root layout | broad implementation and link normalization | OPEN |
-| ADR-OPEN-003 | P0 authentication provider, recovery, verification, session lifecycle, and rate limits | TASK-SEC-001 | OPEN |
-| ADR-OPEN-004 | OpenAPI verbs/schemas/errors/idempotency and DTO generation | TASK-API-001 | OPEN |
-| ADR-OPEN-005 | PostgreSQL migration/FTS strategy and bilingual relevance policy | TASK-DATA-001 | OPEN |
+| ADR-OPEN-003 | P0 authentication provider, recovery, verification, session lifecycle, CSRF, and rate limits | TASK-SEC-001 | OPEN |
+| ADR-OPEN-004 | OpenAPI verbs/schemas/errors/idempotency, pagination, and DTO generation | TASK-API-001 | OPEN |
+| ADR-OPEN-005 | PostgreSQL schema, migration/restore, deletion, FTS strategy, and bilingual relevance policy | TASK-DATA-001 | OPEN |
+| ADR-OPEN-010 | Governance document approval, AI provenance, and third-party notice ownership | G4/G7 | OPEN |
 | ADR-OPEN-006 | Whether Valkey or S3-compatible storage is needed for P0 | TASK-OPS-001 | OPEN |
 | ADR-OPEN-007 | Datacloud product, DNS, budget, registry, and release approver | TASK-OPS-001 / G7 | OPEN |
 | ADR-OPEN-008 | Original-code license and CADEV dependency/license policy interpretation | G4/G7 | OPEN |

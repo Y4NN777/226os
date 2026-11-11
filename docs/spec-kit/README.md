@@ -34,6 +34,12 @@ The repository currently keeps the primary documents at the repository root. Lin
 
 - [Traceability](TRACEABILITY.md): PRD, SPEC, UI/API/data, BDD, tasks, and gates.
 - [Contracts](CONTRACTS.md): API, data, search, frontend, security, and operational contracts to approve before parallel implementation.
+- [G0 decisions](G0_DECISIONS.md): proposed defaults and concise human decision register.
+- [Authentication and authorization](AUTHORIZATION_MATRIX.md): proposed session policy and endpoint permission matrix.
+- [API contract](API_CONTRACT.md): proposed REST, error, pagination, and idempotency contract.
+- [Database design](DATABASE_DESIGN.md): proposed schema, migration, seed, and search design.
+- [Astryx verification](ASTRYX_VERIFICATION.md): release/API verification protocol; no package is installed by this task.
+- [G0 approval template](G0_APPROVAL_TEMPLATE.md): human sign-off record and checklist.
 - [Tasks](TASKS.md): bounded implementation work items with owners, allowed paths, tests, evidence, and dependencies.
 - [Quality and release](QUALITY_RELEASE.md): deterministic gates, evidence records, and release prerequisites.
 - [Decisions](../decisions/README.md): accepted baseline and pending human decisions.
@@ -41,4 +47,4 @@ The repository currently keeps the primary documents at the repository root. Lin
 
 ## Current readiness
 
-Documentation review is `VERIFIED` for the findings recorded in the handoff. G0 is `BLOCKED` pending human approval of owners, contracts, and open decisions. G1-G7 are `NOT RUN` because no application, infrastructure, CI, or test artifacts exist yet.
+Documentation review is `VERIFIED` for the findings recorded in the handoff. G0 is `BLOCKED` pending human approval of the proposed defaults, owners, contracts, governance drafts, and open decisions in `G0_APPROVAL_TEMPLATE.md`. G1-G7 are `NOT RUN` because no application, infrastructure, CI, or test artifacts exist yet.

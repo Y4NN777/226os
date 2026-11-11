@@ -1,6 +1,8 @@
 # 226OS Implementation Contracts
 
-**Status:** SPECIFIED / OPEN; human approval required before parallel implementation
+**Status:** PROPOSED / OPEN; human approval required before parallel implementation
+
+Detailed G0 proposals are split into `AUTHORIZATION_MATRIX.md`, `API_CONTRACT.md`, and `DATABASE_DESIGN.md`. This summary does not approve their defaults.
 
 ## API contract
 
@@ -8,11 +10,11 @@
 - Errors use `application/problem+json` (RFC 9457) with stable type, title, status, detail policy, and correlation identifier where appropriate.
 - Cursor pagination has a documented maximum; filters are validated; ordering is deterministic.
 - Initial resources: sessions, `users/me`, profiles, questions, answers, votes, resources, projects, contribution needs, applications, and search.
-- Session cookies are secure, HttpOnly, SameSite-appropriate, rotated/revoked according to the approved auth design; mutations require CSRF protection.
+- Session cookies are secure, HttpOnly, SameSite-appropriate, rotated/revoked according to the proposed auth design; mutations require CSRF protection.
 - Server-side authorization is required for ownership, collaborator, and private application access.
-- `api/openapi.yaml`, DTOs, error catalogue, and generated-client checks are required before TASK-API-001 can enter implementation.
+- `api/openapi.yaml`, DTOs, error catalogue, and generated-client checks are required before TASK-API-001 can enter implementation; see `API_CONTRACT.md`.
 
-**OPEN:** exact verbs, schemas, status codes, auth lifecycle, rate limits, idempotency keys, and correlation logging policy.
+**OPEN:** exact verbs, schemas, status codes, auth lifecycle, rate limits, idempotency keys, and correlation logging policy. Proposed defaults are in `G0_DECISIONS.md`.
 
 ## Data and migration contract
 
@@ -22,7 +24,7 @@
 - `pgx` and `sqlc` are used; SQL is parameterized; multi-table mutations are transactional.
 - Seed data must be deterministic, clearly synthetic, and never presented as real activity, endorsement, or provider verification.
 
-**OPEN:** migration tool, generated-column versus trigger FTS strategy, search dictionaries for French/English, seed ownership, and compatibility policy.
+**OPEN:** migration tool, generated-column versus trigger FTS strategy, search dictionaries for French/English, seed ownership, deletion/archive policy, and compatibility policy. Proposed design is in `DATABASE_DESIGN.md`.
 
 ## Search contract
 
@@ -47,7 +49,7 @@ Threat cases include auth/session abuse, CSRF, IDOR, Markdown/XSS, SQL injection
 
 Required evidence includes negative authorization tests, input validation tests, CSRF/session tests, XSS/SSRF tests, rate-limit behavior, SAST, SCA, secret scan, and license scan. No code execution from snippets or user Markdown.
 
-**OPEN:** authentication provider/recovery/email verification, data classification and retention, moderation ownership, incident response owner, and exact rate-limit policy.
+**OPEN:** authentication provider/recovery/email verification, data classification and retention, moderation ownership, incident response owner, and exact rate-limit policy. Proposed matrix is in `AUTHORIZATION_MATRIX.md`.
 
 ## Operational contract
 

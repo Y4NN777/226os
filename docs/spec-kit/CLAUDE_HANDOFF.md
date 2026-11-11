@@ -12,7 +12,7 @@ Observed in the repository:
 - `docs/architecture/ARCHITECTURE.md` and `docs/research/REFERENCES.md` exist.
 - The repository contains no application, API, database migration, Makefile, Compose, Traefik, workflow, OpenAPI, test, or release evidence artifacts.
 - `docs/spec-kit/`, `docs/quality/`, and `docs/decisions/` were created by this documentation review; they are plans and registries, not execution evidence.
-- `CONTRIBUTING.md`, `AI_USAGE.md`, and `THIRD_PARTY_NOTICES.md` remain missing and must be created before release/compliance review.
+- `CONTRIBUTING.md`, `AI_USAGE.md`, and `THIRD_PARTY_NOTICES.md` now exist as drafts; they require human/CADEV review and project-specific completion before release/compliance review.
 
 No shell commands, builds, tests, package installs, deployments, remote mutations, or application implementation were executed. All execution-dependent gates are `NOT RUN`.
 
@@ -38,27 +38,31 @@ Accepted baseline:
 - The Spec Kit now maps PRD -> SPEC -> API/data/UI -> BDD -> tasks -> gates.
 - All six PRD journeys are listed with required nominal and negative evidence. Existing SPEC scenarios remain the current source; missing cases are planned work, not claimed coverage.
 - The missing coverage scope and ADR registry now have canonical locations.
-- All missing application, CI, deployment, license, and AI provenance artifacts remain explicitly planned or open.
+- G0 blockers now have explicit proposal artifacts for authentication/authorization, REST/errors, PostgreSQL schema/migrations, Astryx verification, and governance drafts. They remain unapproved.
+- Application, CI, deployment, and executable license evidence remain absent. Governance policy drafts now exist, while the actual dependency inventory, license report, and AI provenance records remain open.
 
 ## Initial implementation batch
 
 Do not start this batch until G0 is approved:
 
-1. `TASK-SPEC-001`: assign owners, approve P0 scope, route/locale boundaries, API/data decisions, and threat ownership.
-2. `TASK-DATA-001`: implement reviewed PostgreSQL schema, migrations, seeds, invariants, and bounded search.
-3. `TASK-SEC-001`: implement session/authentication and server authorization tests.
-4. `TASK-API-001`: approve OpenAPI and implement the first Go vertical slices.
-5. `TASK-WEB-001`: install and pin Astryx, then implement the P0 frontend shell and flows.
-6. `TASK-OPS-001`: add Make/CI/Compose/Traefik and collect real gate evidence.
+1. `TASK-SPEC-001`: assign owners and close product/route/locale scope.
+2. `TASK-G0-001`: human review and approval of the explicit G0 proposals and governance drafts.
+3. `TASK-DATA-001`: implement reviewed PostgreSQL schema, migrations, seeds, invariants, and bounded search.
+4. `TASK-SEC-001`: implement session/authentication and server authorization tests.
+5. `TASK-API-001`: approve OpenAPI and implement the first Go vertical slices.
+6. `TASK-WEB-001`: install and pin Astryx, then implement the P0 frontend shell and flows.
+7. `TASK-OPS-001`: add Make/CI/Compose/Traefik and collect real gate evidence.
 
 Dependency graph:
 
 ```mermaid
 graph TD
-  S[TASK-SPEC-001] --> D[TASK-DATA-001]
-  S --> A[TASK-SEC-001]
+  S[TASK-SPEC-001] --> G[TASK-G0-001]
+  G --> D[TASK-DATA-001]
+  G --> A[TASK-SEC-001]
   D --> H[TASK-API-001]
   A --> H
+  G --> H
   H --> W[TASK-WEB-001]
   D --> W
   A --> W
@@ -69,24 +73,26 @@ graph TD
 ## First-session instructions
 
 1. Read `AGENTS.md`, then `docs/spec-kit/README.md`, `TRACEABILITY.md`, `CONTRACTS.md`, and `TASKS.md`.
-2. Do not execute implementation commands or create application files until a human approves G0 and assigns owners/reviewers.
-3. Resolve pending ADRs in `docs/decisions/README.md`; record each accepted decision as a numbered ADR before changing the stack or contracts.
-4. Produce `api/openapi.yaml`, reviewed DTO/error schemas, database migrations/queries/seeds, and route/locale decisions before parallel frontend/backend work.
-5. Write RED tests for the selected vertical slice before GREEN code. Keep authorization negative cases and evidence provenance in scope.
-6. Use only the allowed paths in the task contract. Never add a hidden dependency, fake seed activity, unverified provider claim, or undocumented endpoint.
-7. Run only documented repository-approved targets after implementation artifacts exist. Record exact commands, exit status, target SHA, environment, and reports. `NOT RUN` is not `PASS`.
-8. Stop and request human approval for architecture, auth/security exceptions, migrations, new dependencies, storage services, secrets, costs, remote access, deployment, or release.
+2. Read `G0_DECISIONS.md`, `AUTHORIZATION_MATRIX.md`, `API_CONTRACT.md`, `DATABASE_DESIGN.md`, `ASTRYX_VERIFICATION.md`, and `G0_APPROVAL_TEMPLATE.md`.
+3. Do not execute implementation commands or create application files until a human approves G0 and assigns owners/reviewers.
+4. Resolve pending ADRs in `docs/decisions/README.md`; record each accepted decision as a numbered ADR before changing the stack or contracts.
+5. Produce `api/openapi.yaml`, reviewed DTO/error schemas, database migrations/queries/seeds, and route/locale decisions before parallel frontend/backend work.
+6. Write RED tests for the selected vertical slice before GREEN code. Keep authorization negative cases and evidence provenance in scope.
+7. Use only the allowed paths in the task contract. Never add a hidden dependency, fake seed activity, unverified provider claim, or undocumented endpoint.
+8. Run only documented repository-approved targets after implementation artifacts exist. Record exact commands, exit status, target SHA, environment, and reports. `NOT RUN` is not `PASS`.
+9. Stop and request human approval for architecture, auth/security exceptions, migrations, new dependencies, storage services, secrets, costs, remote access, deployment, or release.
 
 ## Human checkpoint blockers
 
 The human owner must decide or assign:
 
 - P0 owners and distinct reviewers.
+- Approval or rejection of every proposal in `G0_DECISIONS.md`.
 - Canonical documentation layout: retain root documents or perform an approved move to `docs/`.
-- Exact Astryx release/package manager and verification policy.
-- Authentication/session/recovery/rate-limit policy.
-- OpenAPI schemas, error catalogue, idempotency, and generation policy.
-- PostgreSQL migration and bilingual search strategy.
+- Exact Astryx release/package manager, installed API verification, and beta mitigation owner.
+- Authentication/session/recovery/CSRF/rate-limit policy and authorization matrix.
+- OpenAPI schemas, error catalogue, pagination, idempotency, and generation policy.
+- PostgreSQL schema, migration/restore, deletion, FTS strategy, seed policy, and bilingual search strategy.
 - Whether Valkey or object storage is necessary for P0.
 - Original-code license, CADEV license interpretation, and AI/third-party provenance owners.
 - Datacloud product/account, DNS, budget, registry, and production approver.
