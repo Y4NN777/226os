@@ -9,6 +9,7 @@
 - Use the exact project identity `Y4NN77 <axel.studiesmail@gmail.com>` for authored and committed project changes. Historical aliases are normalized through `.mailmap`; do not introduce a new author alias without review.
 - Identify the stable story/task ID, scope, owner, reviewer, allowed paths, acceptance examples, threat cases, and required gates.
 - Follow the branch and promotion rules in [`docs/GIT_WORKFLOW.md`](docs/GIT_WORKFLOW.md): work branch -> PR `develop` -> PR `staging` -> PR `main`.
+- Name branches `feature|fix|hotfix|refactor|test|docs|chore/<domain>/<short-name>`; use a real domain such as `solve`, `discover`, `build`, `identity`, `access`, `platform`, `ops`, or `docs`.
 - Do not add product behavior, dependencies, storage services, migrations, public claims, or architecture changes without updating the relevant contract and, where required, an ADR.
 
 ## Change discipline

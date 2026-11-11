@@ -33,6 +33,16 @@ Approved baseline:
 
 The CADEV delivery order does not delete any long-term product scope. Architecture changes require recorded rationale and human approval.
 
+## Git workflow for agent-authored changes
+
+Follow [`docs/GIT_WORKFLOW.md`](../../docs/GIT_WORKFLOW.md) for every repository change:
+
+- Work only on `feature/<domain>/<name>`, `fix/<domain>/<name>`, `hotfix/<domain>/<name>`, `refactor/<domain>/<name>`, `test/<domain>/<name>`, `docs/<domain>/<name>`, or `chore/<domain>/<name>` branches.
+- Target `develop` by pull request for normal work. `develop` is the Preview environment.
+- Promote `develop` to `staging` by release pull request, then `staging` to `main` by production pull request after the required gates and human approval.
+- Do not push directly to `develop`, `staging`, or `main`; do not force-push shared branches; preserve the tested commit SHA through promotion.
+- Treat `.github/workflows/branch-policy.yml` as the minimum automated branch-target check. Deployment jobs remain unimplemented until the application and infrastructure are approved.
+
 ## 3. Repository inventory and document authority
 
 Read and cross-reference all extant documents, especially:
