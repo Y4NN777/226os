@@ -42,4 +42,4 @@ Evidence is retained with the target SHA. Screenshots, traces, and reports must 
 
 ## Release prerequisites
 
-The release runbook in `SHIP.md` remains authoritative. Before any human release decision, the team must verify Datacloud eligibility, DNS/TLS, secrets outside Git, protected production approval, immutable image references, database backup, restore evidence, migration plan, post-deploy smoke, and an honest P1/P2 status.
+The release runbook in `docs/SHIP.md` remains authoritative. Before any human release decision, the team must verify Datacloud eligibility, DNS/TLS, secrets outside Git, protected production approval, immutable image references, database backup, restore evidence, migration plan, post-deploy smoke, and an honest P1/P2 status.

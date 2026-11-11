@@ -8,7 +8,7 @@
 
 Observed in the repository:
 
-- Product and engineering documents exist at the repository root: `README.md`, `PRD.md`, `SPEC.md`, `DESIGN.md`, `DEV.md`, `TEST.md`, `SHIP.md`, and `RULES.md`.
+- Product and engineering documents are split between the root and `docs/`: `README.md`, `DESIGN.md`, and governance files remain at the root; `docs/PRD.md`, `docs/SPEC.md`, `docs/DEV.md`, `docs/TEST.md`, `docs/SHIP.md`, and `docs/RULES.md` are canonical.
 - `docs/architecture/ARCHITECTURE.md` and `docs/research/REFERENCES.md` exist.
 - The repository contains no application, API, database migration, Makefile, Compose, Traefik, workflow, OpenAPI, test, or release evidence artifacts.
 - `docs/spec-kit/`, `docs/quality/`, and `docs/decisions/` were created by this documentation review; they are plans and registries, not execution evidence.

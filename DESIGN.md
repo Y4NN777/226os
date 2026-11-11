@@ -4,7 +4,7 @@
 **Version:** 1.0 · 11 November 2026  
 **Owner:** 7's · 226OS  
 **Applies to:** `apps/web`, shared UI packages, documentation and agent-authored UI  
-**Related:** `PRD.md`, `SPEC.md`, `docs/architecture/ARCHITECTURE.md`, `DEV.md`, `TEST.md`, `RULES.md`, `AGENTS.md`
+**Related:** `docs/PRD.md`, `docs/SPEC.md`, `docs/architecture/ARCHITECTURE.md`, `docs/DEV.md`, `docs/TEST.md`, `docs/RULES.md`, `AGENTS.md`
 
 > **Decision record.** The team selected the **Graphite & Lime** direction shown in the 226OS dashboard exploration and chose **Meta Astryx** as the primary UI design system for **React 19 + TypeScript + Vite**. This document is the implementation contract, not a request to recreate the mockup pixel by pixel. Further visual polish must follow this system and explicit review. The illustrated dashboard, its people, numbers, imagery and events are illustrative—not shipped data or approved brand assets.
 
@@ -125,7 +125,7 @@ The tokens above illustrate how to map an approved palette; **confirm token supp
 
 Before an agent authors a UI component:
 
-1. Read this file plus the relevant requirement in `SPEC.md` and the existing UI patterns.
+1. Read this file plus the relevant requirement in `docs/SPEC.md` and the existing UI patterns.
 2. Inspect the **installed** Astryx CLI documentation: `pnpm exec astryx component --brief-all`, `pnpm exec astryx docs tokens`, `pnpm exec astryx docs theme`, and a targeted `pnpm exec astryx component <ComponentName>`.
 3. Prefer verified Astryx primitives and compositions; use typed, composable props and CSS variable overrides.
 4. Build reusable **226OS product components** out of Astryx primitives instead of patching vendor code.
@@ -240,12 +240,12 @@ A design/UX pull request is eligible for review only when:
 - [ ] French and English strings are present and layout is checked for text expansion.
 - [ ] Loading, empty, success and error states are tested as relevant.
 - [ ] Automated component/accessibility checks and a human review of representative flows are recorded.
-- [ ] Frontend coverage **exceeds 70%** under `TEST.md` (including approved metric definitions) and no critical flow is untested.
+- [ ] Frontend coverage **exceeds 70%** under `docs/TEST.md` (including approved metric definitions) and no critical flow is untested.
 - [ ] No critical or high vulnerabilities, unsafe content rendering or exposed secrets remain.
 - [ ] Measured page weight, LCP/INP/CLS and relevant API latency conform to **approved** budgets; do not fabricate measurements or silently invent thresholds.
 - [ ] Existing approved visual baselines, if available, are reviewed for regressions.
 
-Quality gates must run through the documented `make` targets and GitHub Actions as defined in `TEST.md` and `SHIP.md`. Evidence includes command, environment, exit status, coverage/a11y reports and screenshots only when needed for review. Agents may propose exceptions but cannot approve their own.
+Quality gates must run through the documented `make` targets and GitHub Actions as defined in `docs/TEST.md` and `docs/SHIP.md`. Evidence includes command, environment, exit status, coverage/a11y reports and screenshots only when needed for review. Agents may propose exceptions but cannot approve their own.
 
 ## 9. Governance and change control
 

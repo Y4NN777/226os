@@ -4,7 +4,7 @@
 
 il s'adresse aux développeurs de toute l'Afrique**, quels que soient leur pays, leur langue ou leur niveau d'expérience.
 
-> **État du projet :** cadrage et initialisation du dépôt. Les fonctionnalités présentées ci-dessous constituent la vision et le périmètre envisagés ; elles ne sont pas annoncées comme déjà livrées.
+> **État du projet :** cadrage et initialisation du dépôt. La documentation de cadrage est organisée dans `docs/`; les fonctionnalités présentées ci-dessous constituent la vision et le périmètre envisagés, et ne sont pas annoncées comme déjà livrées.
 >
 > **Domaine prévu :** [226os.tech](https://226os.tech) 
 > **Équipe :** 7's   
@@ -86,34 +86,33 @@ Meta Astryx est le système de composants principal approuvé par [DESIGN.md](DE
 
 La méthode de développement repose sur des objectifs explicites, des contrats BDD, le cycle TDD, des tests d'intégration, des vérifications de sécurité, des preuves de performance et des **gates déterministes** avant livraison. Les objectifs de couverture documentés sont **100 % des statements backend Go mesurables** et **plus de 70 % pour les métriques frontend définies** ; la couverture ne remplace ni les tests d'autorisation ni la vérification des parcours complets.
 
-### Organisation envisagée du dépôt
+### Organisation actuelle du dépôt
 
 ```text
 226os/
-├── apps/
-│   ├── web/                   # React / TanStack
-│   └── api/                   # Monolithe Go modulaire
-├── db/                        # Migrations et requêtes SQL
-├── infra/                     # Compose, Traefik, cache et stockage objet
-├── docs/
-│   ├── PRD.md
-│   ├── SPEC.md
-│   ├── DESIGN.md
-│   ├── architecture/ARCHITECTURE.md
-│   ├── DEV.md
-│   ├── TEST.md
-│   ├── SHIP.md
-│   ├── RULES.md
-│   └── research/REFERENCES.md
-├── Makefile                   # Prévu ; commandes à implémenter et vérifier
-├── .github/                   # Instructions Copilot et workflows de CI/CD
-├── AGENTS.md
-├── CONTRIBUTING.md
-├── AI_USAGE.md
-└── THIRD_PARTY_NOTICES.md
+├── .github/agents/            # Orchestration documentaire COP-ASS
+├── AGENTS.md                  # Contrat d'orchestration des agents
+├── README.md                  # Présentation et point d'entrée du dépôt
+├── DESIGN.md                  # Direction visuelle frontend
+├── CONTRIBUTING.md            # Règles de contribution, brouillon gouverné
+├── AI_USAGE.md                # Provenance IA, brouillon gouverné
+├── THIRD_PARTY_NOTICES.md     # Politique licences, brouillon gouverné
+├── .mailmap                   # Normalisation des identités Git
+└── docs/
+	├── PRD.md                 # Vision et périmètre produit
+	├── SPEC.md                # Comportements et contrats fonctionnels
+	├── DEV.md                 # Playbook de développement
+	├── TEST.md                # Tests et quality gates
+	├── SHIP.md                # Livraison et exploitation
+	├── RULES.md               # Règles d'ingénierie
+	├── architecture/          # Architecture et frontières
+	├── decisions/             # Registre ADR et décisions humaines
+	├── quality/               # Périmètre de couverture
+	├── research/              # Références externes
+	└── spec-kit/              # Handoff, contrats, tâches et G0
 ```
 
-**Il n'existe pas encore de procédure d'installation en une commande vérifiée.** Les commandes `make bootstrap`, `make up`, `make test`, `make quality` et `make down` seront documentées comme fonctionnelles seulement après implémentation et exécution réelle.
+Les répertoires d'application (`apps/`), de données (`db/`), d'infrastructure (`infra/`), le contrat `api/openapi.yaml`, le `Makefile` et les workflows CI restent à créer. **Il n'existe pas encore de procédure d'installation en une commande vérifiée.**
 
 ## Références étudiées
 
@@ -131,14 +130,14 @@ Ces projets sont **des références de recherche, pas des dépendances déclaré
 
 | Document | Rôle |
 | --- | --- |
-| [PRD](PRD.md) | Vision, utilisateurs, huit domaines, besoins et priorités |
-| [SPEC](SPEC.md) | Comportements, critères d'acceptation et contrats |
+| [PRD](docs/PRD.md) | Vision, utilisateurs, huit domaines, besoins et priorités |
+| [SPEC](docs/SPEC.md) | Comportements, critères d'acceptation et contrats |
 | [Design](DESIGN.md) | Direction visuelle, tokens, composants et validation de la palette |
 | [Architecture](docs/architecture/ARCHITECTURE.md) | Architecture approuvée et frontières techniques |
-| [Development](DEV.md) | Conventions et workflow de développement |
-| [Testing](TEST.md) | Stratégie de tests et quality gates |
-| [Shipping](SHIP.md) | Déploiement, vérification et rollback |
-| [Rules](RULES.md) | Contraintes d'ingénierie |
+| [Development](docs/DEV.md) | Conventions et workflow de développement |
+| [Testing](docs/TEST.md) | Stratégie de tests et quality gates |
+| [Shipping](docs/SHIP.md) | Déploiement, vérification et rollback |
+| [Rules](docs/RULES.md) | Contraintes d'ingénierie |
 | [Agent instructions](AGENTS.md) | Orchestration par objectifs, permissions et preuves |
 
 

@@ -12,7 +12,7 @@ story_id: "PRD-TRACEABILITY"
 priority: "P0"
 owner: "OPEN"
 reviewer: "OPEN"
-allowed_paths: ["docs/spec-kit/**", "SPEC.md", "PRD.md", "docs/decisions/**"]
+allowed_paths: ["docs/spec-kit/**", "docs/SPEC.md", "docs/PRD.md", "docs/decisions/**"]
 acceptance_criteria: ["All six PRD journeys have nominal and relevant negative cases", "All eight domains and four differentiators remain traceable", "Open decisions have an owner and due decision"]
 threats_and_risks: ["scope drift", "false readiness claim"]
 planned_tests: ["documentation traceability review", "link and orphan requirement review"]

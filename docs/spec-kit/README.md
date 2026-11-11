@@ -11,15 +11,15 @@ This directory is the canonical implementation handoff for 226OS. It does not re
 ## Document precedence
 
 1. `AGENTS.md` governs agent permissions, evidence, and human approval.
-2. `PRD.md` governs product scope and rationale, including all eight domains and four differentiators.
-3. `SPEC.md` governs observable behavior, invariants, and API boundaries.
+2. `docs/PRD.md` governs product scope and rationale, including all eight domains and four differentiators.
+3. `docs/SPEC.md` governs observable behavior, invariants, and API boundaries.
 4. `docs/architecture/ARCHITECTURE.md` governs accepted technical boundaries.
 5. `DESIGN.md` governs UI direction and Astryx usage.
-6. `RULES.md`, `TEST.md`, `DEV.md`, and `SHIP.md` govern engineering, quality, implementation, and release procedure.
+6. `docs/RULES.md`, `docs/TEST.md`, `docs/DEV.md`, and `docs/SHIP.md` govern engineering, quality, implementation, and release procedure.
 7. `docs/decisions/` records accepted or pending changes; a later accepted ADR supersedes an earlier decision only when explicitly stated.
 8. This Spec Kit binds the above documents into tasks. It cannot approve an open decision or change product scope.
 
-The repository currently keeps the primary documents at the repository root. Links and future work must use those canonical paths until a human-approved documentation move is made.
+The repository keeps the primary product and engineering documents under `docs/`; root-level `README.md`, `DESIGN.md`, and governance files remain entry points and control documents.
 
 ## Status vocabulary
 

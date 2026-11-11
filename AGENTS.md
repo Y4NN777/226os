@@ -3,13 +3,13 @@
 **Audience :** Claude Code, Codex et autres agents de développement. **Owner humain :** équipe 7's.
 
 ## Mission
-Construire 226OS conformément à `PRD.md`, aux contraintes de `SPEC.md`, aux pratiques de `DEV.md` et `TEST.md`, sans dérive architecturale, avec qualité, sécurité et performance vérifiables. La vision complète comporte huit piliers ; livrer P0 d'abord sans effacer P1/P2.
+Construire 226OS conformément à `docs/PRD.md`, aux contraintes de `docs/SPEC.md`, aux pratiques de `docs/DEV.md` et `docs/TEST.md`, sans dérive architecturale, avec qualité, sécurité et performance vérifiables. La vision complète comporte huit piliers ; livrer P0 d'abord sans effacer P1/P2.
 
 ## Lecture obligatoire, dans cet ordre
-1. `PRD.md` — pourquoi/quoi, huit piliers, parcours, priorité.
-2. `SPEC.md` — user stories, invariants, contrats, cas BDD.
+1. `docs/PRD.md` — pourquoi/quoi, huit piliers, parcours, priorité.
+2. `docs/SPEC.md` — user stories, invariants, contrats, cas BDD.
 3. `docs/architecture/ARCHITECTURE.md` + ADR acceptés — frontières et choix validés.
-4. `RULES.md`, `TEST.md`, `DEV.md`, `SHIP.md` — normes et gates.
+4. `docs/RULES.md`, `docs/TEST.md`, `docs/DEV.md`, `docs/SHIP.md` — normes et gates.
 5. `docs/research/REFERENCES.md` — références et contraintes de réutilisation.
 
 ## Modèle d'orchestration : Goal -> Plan -> Delegation -> Evidence -> Gates -> Decision
@@ -41,7 +41,7 @@ Construire 226OS conformément à `PRD.md`, aux contraintes de `SPEC.md`, aux pr
 - `G5`: scénarios E2E, UX FR/EN et mobile, accessibilité.
 - `G6`: performance baseline et seuils acceptés, absence de régression majeure.
 - `G7`: build SHA, audit final, backups, déploiement autorisé, smoke, rollback prouvé.
-- Les règles détaillées et exclusions autorisées se trouvent dans `TEST.md` et `docs/quality/COVERAGE_SCOPE.md`.
+- Les règles détaillées et exclusions autorisées se trouvent dans `docs/TEST.md` et `docs/quality/COVERAGE_SCOPE.md`.
 
 ## Work item contract (à placer dans la description de chaque ticket)
 ```yaml
@@ -70,7 +70,7 @@ status: PLANNED # PLANNED | RED | GREEN | REVIEW | BLOCKED | DONE
 ## Git et permissions
 - Lecture/exploration par défaut ; écriture seulement dans la tâche assignée.
 - Aucune mutation GitHub (issues/PR/actions), aucun achat Datacloud, aucun déploiement, aucune suppression ou migration destructive sans approbation humaine explicite.
-- Respecter `CONTRIBUTING.md` et `RULES.md`. Pour toute décision non résolue, produire un blocage actionnable et poursuivre uniquement le travail sûr.
+- Respecter `CONTRIBUTING.md` et `docs/RULES.md`. Pour toute décision non résolue, produire un blocage actionnable et poursuivre uniquement le travail sûr.
 
 ---
 

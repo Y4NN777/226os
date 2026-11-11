@@ -19,7 +19,7 @@ This is a **documentation-only assignment**: edits are authorized solely for pro
 
 ## 2. Project context and immutable approvals
 
-226OS is an Africa-first developer ecosystem connecting technical problem-solving, reliable knowledge, African API/developer tools, open-source discovery, project collaboration, mentorship, community, and opportunities. Preserve **all eight product domains** and the **four differentiating experiences** as defined in `PRD.md`. No silent additions or removals.
+226OS is an Africa-first developer ecosystem connecting technical problem-solving, reliable knowledge, African API/developer tools, open-source discovery, project collaboration, mentorship, community, and opportunities. Preserve **all eight product domains** and the **four differentiating experiences** as defined in `docs/PRD.md`. No silent additions or removals.
 
 Approved baseline:
 - React 19, TypeScript, Vite; TanStack Router, Query, and Form.
@@ -36,7 +36,7 @@ The CADEV delivery order does not delete any long-term product scope. Architectu
 ## 3. Repository inventory and document authority
 
 Read and cross-reference all extant documents, especially:
-`README.md`, `AGENTS.md`, `.github/copilot-instructions.md`, `PRD.md`, `SPEC.md`, `DESIGN.md`, `DEV.md`, `TEST.md`, `SHIP.md`, `RULES.md`, `docs/architecture/`, `docs/decisions/`, `docs/research/`, `docs/spec-kit/`, `CONTRIBUTING.md`, `AI_USAGE.md`, and `THIRD_PARTY_NOTICES.md`.
+`README.md`, `AGENTS.md`, `.github/copilot-instructions.md`, `docs/PRD.md`, `docs/SPEC.md`, `DESIGN.md`, `docs/DEV.md`, `docs/TEST.md`, `docs/SHIP.md`, `docs/RULES.md`, `docs/architecture/`, `docs/decisions/`, `docs/research/`, `docs/spec-kit/`, `CONTRIBUTING.md`, `AI_USAGE.md`, and `THIRD_PARTY_NOTICES.md`.
 
 Do not assume these paths exist. Discover actual locations, identify missing artifacts, preserve existing decisions, and use one canonical document per kind of requirement. Cite file paths and headings or line references for every consequential finding. Never fabricate file contents or upstream claims.
 
@@ -80,7 +80,7 @@ Every implementation task must specify: stable ID; goal; originating requirement
 
 ## 7. Deterministic readiness and quality
 
-Define verification gates consistent with `AGENTS.md`, `TEST.md`, and `RULES.md`: G0 scope/AC/threats; G1 static checks; G2 test/coverage; G3 integration/contract; G4 security; G5 E2E/accessibility/FR-EN; G6 performance; G7 release. Require fail-closed gates and no fake command success or hidden exclusions.
+Define verification gates consistent with `AGENTS.md`, `docs/TEST.md`, and `docs/RULES.md`: G0 scope/AC/threats; G1 static checks; G2 test/coverage; G3 integration/contract; G4 security; G5 E2E/accessibility/FR-EN; G6 performance; G7 release. Require fail-closed gates and no fake command success or hidden exclusions.
 
 Distinguish `SPECIFIED`, `VERIFIED`, `PASS`, `FAIL`, `NOT RUN`, and `BLOCKED`. During this documentation-only phase, gates requiring application execution are `NOT RUN`, not `PASS`. Inspect Markdown links and traceability through reading; describe manual limitations.
 
