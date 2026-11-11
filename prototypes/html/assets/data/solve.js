@@ -194,81 +194,12 @@ window.MOCK = window.MOCK || {};
     },
     esc: esc,
 
-    /* Fallback test-id assigner: names every text/icon/interactive element that has no explicit data-testid after
-       its nearest testid ancestor (`<ancestor>-<icon|tag>-N`). Runs at boot and on DOM changes inside <main>. */
-    tid: function (root) {
-      var skip = { SCRIPT: 1, STYLE: 1, BR: 1 }, inter = /^(A|BUTTON|INPUT|SELECT|TEXTAREA|LABEL|IMG|PRE|TIME|OPTION|P|LI|H1|H2|H3|H4|DT|DD|CODE|STRONG|EM|LEGEND)$/;
-      [].slice.call(root.querySelectorAll('*')).forEach(function (e) {
-        if (e.hasAttribute('data-testid') || skip[e.tagName]) return;
-        var own = [].some.call(e.childNodes, function (n) { return n.nodeType === 3 && n.textContent.trim(); }), icon = e.classList.contains('icon');
-        if (!(own || icon || inter.test(e.tagName))) return;
-        var anc = e.parentElement && e.parentElement.closest('[data-testid]'), a = anc ? anc.getAttribute('data-testid') : 'solve';
-        var m = icon && /\bi-([a-z-]+)/.exec(e.className), kind = icon ? 'icon-' + (m ? m[1] : 'x') : /^tok-/.test(e.className) ? 'tok' : e.tagName.toLowerCase(), n = 1;
-        while (document.querySelector('[data-testid="' + a + '-' + kind + '-' + n + '"]')) n++;
-        e.setAttribute('data-testid', a + '-' + kind + '-' + n);
-      });
-    },
-    autoTid: function () {
-      var main = document.querySelector('main'), q = false; if (!main) return;
-      var run = function () { q = false; M.solve.tid(main); };
-      new MutationObserver(function () { if (!q) { q = true; setTimeout(run, 0); } }).observe(main, { childList: true, subtree: true });
-      run();
-    },
+    /* Fallback test-id assigner now lives in app.js (App.TestIds, runs on every page); these stay as no-op aliases. */
+    tid: function (root) { window.App.TestIds.assign(root); },
+    autoTid: function () { window.App.TestIds.auto(); },
 
-    /* ---- tiny Markdown renderer (escape first; supports headings, lists, quotes, fences, inline code/bold/italic/links) ---- */
-    hl: function (code, lang) {
-      var kw = /^(func|package|import|return|if|else|for|range|var|const|let|type|struct|defer|nil|true|false|async|await|function|new|select|from|where|create|table|insert|into|values|on|conflict|do|nothing|primary|key|not|null|unique|index|using|alter|add|constraint|references)$/i;
-      var com = { go: '//', js: '//', ts: '//', php: '//', sql: '--', python: '#', sh: '#', bash: '#', yaml: '#' }[lang] || '//';
-      var re = new RegExp('(' + com.replace(/[/#-]/g, '\\$&') + '[^\\n]*)|("(?:\\\\.|[^"\\\\\\n])*"|\'(?:\\\\.|[^\'\\\\\\n])*\')|([A-Za-z_][A-Za-z0-9_]*)(\\()?', 'g');
-      var out = '', last = 0, m;
-      while ((m = re.exec(code))) {
-        out += esc(code.slice(last, m.index)); last = re.lastIndex;
-        if (m[1]) out += '<span class="tok-com">' + esc(m[1]) + '</span>';
-        else if (m[2]) out += '<span class="tok-str">' + esc(m[2]) + '</span>';
-        else if (kw.test(m[3]) && !m[4]) out += '<span class="tok-kw">' + esc(m[3]) + '</span>';
-        else if (m[4]) out += '<span class="tok-fn">' + esc(m[3]) + '</span>' + esc(m[4]);
-        else out += esc(m[3]);
-      }
-      return out + esc(code.slice(last));
-    },
-    inline: function (s) {
-      s = esc(s);
-      s = s.replace(/`([^`]+)`/g, '<code>$1</code>');
-      s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>').replace(/(^|[^*])\*([^*\s][^*]*)\*/g, '$1<em>$2</em>');
-      s = s.replace(/\[([^\]]+)\]\(((?:https?:\/\/|\/|\.\.?\/)[^)\s]+)\)/g, function (m, t, u) {
-        return /^https?:/.test(u) ? '<a class="link-external" href="' + u + '" rel="noopener noreferrer">' + t + '</a>' : '<a href="' + u + '">' + t + '</a>';
-      });
-      return s;
-    },
-    /* opts: {id: unique prefix for code ids/testids, copyLabel(lang), codeLabel(lang), headStart: first heading level} */
-    renderMd: function (md, o) {
-      o = o || {}; var lines = String(md || '').replace(/\r/g, '').split('\n'), html = '', i = 0, n = 0, para = [], list = null;
-      var inl = M.solve.inline;
-      function flushP() { if (para.length) { html += '<p>' + inl(para.join(' ')) + '</p>'; para = []; } }
-      function flushL() { if (list) { html += '<' + list.t + '>' + list.items.map(function (x) { return '<li>' + inl(x) + '</li>'; }).join('') + '</' + list.t + '>'; list = null; } }
-      while (i < lines.length) {
-        var ln = lines[i], f = ln.match(/^(```|~~~)\s*([A-Za-z0-9+#-]*)\s*$/);
-        if (f) {
-          flushP(); flushL(); var buf = []; i++;
-          while (i < lines.length && !/^(```|~~~)\s*$/.test(lines[i])) { buf.push(lines[i]); i++; }
-          i++; n++; var lang = (f[2] || 'text').toLowerCase(), cid = (o.id || 'md') + '-code-' + n, name = { go: 'Go', sql: 'SQL', php: 'PHP', ts: 'TypeScript', js: 'JavaScript', python: 'Python', sh: 'Shell', bash: 'Shell' }[lang] || lang;
-          html += '<div class="code-block" data-testid="' + cid + '-block"><div class="code-head"><span data-testid="' + cid + '-lang">' + esc(name) + '</span>' +
-            '<button type="button" class="btn btn-sm" data-copy="#' + cid + '" aria-label="' + esc(o.copyLabel ? o.copyLabel(name) : 'Copy') + '" data-testid="' + cid + '-copy"><span class="icon i-copy" aria-hidden="true"></span><span>' + esc(o.copyText || 'Copy') + '</span></button></div>' +
-            '<pre tabindex="0" aria-label="' + esc(o.codeLabel ? o.codeLabel(name) : name) + '" data-testid="' + cid + '-pre"><code id="' + cid + '">' + M.solve.hl(buf.join('\n'), lang) + '</code></pre></div>';
-          continue;
-        }
-        var h = ln.match(/^(#{1,4})\s+(.*)$/), li = ln.match(/^\s*[-*]\s+(.*)$/), ol = ln.match(/^\s*\d+[.)]\s+(.*)$/), bq = ln.match(/^>\s?(.*)$/);
-        if (!ln.trim()) { flushP(); flushL(); }
-        else if (h) { flushP(); flushL(); var lv = Math.min(4, (o.headStart || 3) + h[1].length - 1); html += '<h' + lv + '>' + inl(h[2]) + '</h' + lv + '>'; }
-        else if (li) { flushP(); if (!list || list.t !== 'ul') { flushL(); list = { t: 'ul', items: [] }; } list.items.push(li[1]); }
-        else if (ol) { flushP(); if (!list || list.t !== 'ol') { flushL(); list = { t: 'ol', items: [] }; } list.items.push(ol[1]); }
-        else if (bq) { flushP(); flushL(); html += '<blockquote><p>' + inl(bq[1]) + '</p></blockquote>'; }
-        else { flushL(); para.push(ln.trim()); }
-        i++;
-      }
-      flushP(); flushL(); return html;
-    },
-    /* true when a ``` fence is opened but never closed (client-side "snippet valide" check) */
-    unbalancedFence: function (md) { var c = (String(md).match(/^(```|~~~)/gm) || []).length; return c % 2 === 1; }
+    /* Markdown lives in assets/js/markdown.js (shared); kept as thin aliases for the Solve pages. */
+    renderMd: function (md, o) { return window.Markdown.render(md, o); },
+    unbalancedFence: function (md) { return window.Markdown.unbalancedFence(md); }
   };
 })(window.MOCK);

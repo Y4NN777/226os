@@ -101,7 +101,7 @@ I18N.register({
   var roles = isOwn ? ['self', 'member', 'anon'] : ['member', 'anon'];
   var role = P.get('as'); if (roles.indexOf(role) < 0) role = isOwn ? 'self' : 'member';
 
-  function initials(n) { return n.split(/[\s-]+/).filter(Boolean).slice(0, 2).map(function (w) { return w[0].toUpperCase(); }).join(''); }
+  var initials = App.initials;   /* shared helper (app.js) */
   function canSee(field) {
     var v = C.visibility[field];
     if (field === 'city' && p.cityPublic) v = 'public';

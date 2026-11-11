@@ -177,7 +177,7 @@
     var v = af.elements.body.value, box = $('#answer-preview'); box.setAttribute('lang', af.elements.lang.value); box.setAttribute('data-user-content', '');
     box.innerHTML = v.trim() ? S.renderMd(v, mdOpts('answer-preview')) : '<p class="text-muted">' + esc(t('solve.preview.empty')) + '</p>';
   }
-  var pt = $('#answer-tab-preview'); pt.addEventListener('click', preview); pt.addEventListener('focus', preview); af.elements.body.addEventListener('input', preview);
+  var pt = $('#answer-tab-preview'); pt.addEventListener('click', preview);   /* arrow keys also fire click (App.Tabs) */ af.elements.body.addEventListener('input', preview);
 
   /* ---------- boot ---------- */
   function all() { renderHead(); renderPost(); renderRelated(); renderContext(); renderViewAs(); renderAnswersHead(); }

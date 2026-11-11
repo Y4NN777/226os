@@ -26,8 +26,11 @@ body.app {
 .header-spacer { flex: 1 1 0; }
 .header-search { order: 5; flex: 1 1 100%; }
 .header-actions { flex: none; display: flex; align-items: center; gap: var(--space-2); }
-.app-header .header-create { display: none; }
-@media (min-width: 1024px) { .app-header .header-create { display: inline-flex; } }
+/* Create action: icon-only (label kept for assistive tech) below 1024px, full button from 1024px */
+@media (max-width: 1023px) {
+  .app-header .header-create { width: var(--target); padding: 0; }
+  .header-create-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+}
 @media (min-width: 768px) {
   .header-search { order: 0; flex: 0 1 460px; margin-inline: auto var(--space-2); }
   .header-spacer { display: none; }

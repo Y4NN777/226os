@@ -36,7 +36,7 @@
     '<div class="header-actions">' +
     '<div class="segmented" role="group" data-i18n-attr="aria-label:header.lang" data-testid="lang-toggle"><button type="button" data-action="lang-set" data-lang="fr" lang="fr" aria-pressed="true" data-testid="lang-fr" aria-label="Français">FR</button><button type="button" data-action="lang-set" data-lang="en" lang="en" aria-pressed="false" data-testid="lang-en" aria-label="English">EN</button></div>' +
     '<button type="button" class="btn btn-icon theme-toggle" data-action="theme-toggle" aria-pressed="false" data-i18n-attr="aria-label:header.theme" data-testid="theme-toggle"><span class="icon i-sun" aria-hidden="true"></span><span class="icon i-moon" aria-hidden="true"></span></button>' +
-    '<a class="btn btn-primary header-create" href="' + R + 'pages/solve.html#ask" data-testid="header-create"><span class="icon i-plus" aria-hidden="true"></span><span ' + t('header.create') + '></span></a>' +
+    '<a class="btn btn-primary header-create" href="' + R + 'pages/solve.html#ask" data-testid="header-create"><span class="icon i-plus" aria-hidden="true"></span><span class="header-create-label" ' + t('header.create') + '></span></a>' +
     '</div></header>';
   var aside =
     '<div class="nav-scrim" data-action="nav-close" data-testid="nav-scrim"></div>' +

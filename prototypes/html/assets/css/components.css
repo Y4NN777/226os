@@ -69,7 +69,7 @@
 .chip[aria-pressed="true"] { background: var(--surface-subtle); border-color: var(--action); color: var(--action); box-shadow: inset 0 0 0 1px var(--action); }
 .chip[aria-pressed="true"]::before { content: ""; width: .9em; height: .9em; background-color: currentColor; -webkit-mask: var(--i) center/contain no-repeat; mask: var(--i) center/contain no-repeat; --i: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E"); }
 .chip-count { color: var(--text-muted); font-weight: var(--fw-regular); }
-.tag-list { display: flex; flex-wrap: wrap; gap: var(--space-1); }
+.tag-list { display: flex; flex-wrap: wrap; gap: var(--space-1); list-style: none; padding: 0; margin: 0; }
 .tag { display: inline-flex; align-items: center; padding: 1px var(--space-2); border-radius: var(--radius-sm); background: var(--surface-subtle); color: var(--text); font-family: var(--font-mono); font-size: var(--fs-xs); line-height: 1.6; text-decoration: none; border: var(--border-w) solid transparent; }
 a.tag:hover { border-color: var(--action); color: var(--text); }
 .badge { display: inline-flex; align-items: center; gap: 4px; padding: 1px var(--space-2); border-radius: var(--radius-sm); font-size: var(--fs-xs); font-weight: var(--fw-medium); line-height: 1.5; white-space: nowrap; border: var(--border-w) solid currentColor; background: var(--surface); color: var(--text-muted); }
@@ -89,6 +89,11 @@ a.tag:hover { border-color: var(--action); color: var(--text); }
 
 /* ============ Filter bar ============ */
 .filter-bar { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: flex-end; padding: var(--space-3); background: var(--surface); border: var(--border-w) solid var(--border); border-radius: var(--radius-card); }
+/* Grid variant: 2 columns on phones, 3 from 640px, then as many 10rem columns as fit. Direct .btn children align to the bottom row. */
+.filter-bar-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: end; }
+@media (min-width: 640px) { .filter-bar-grid { grid-template-columns: repeat(auto-fit, minmax(min(10rem, 100%), 1fr)); } }
+.filter-bar-grid .select, .filter-bar-grid .input { width: 100%; }
+.filter-bar-grid > .btn { justify-self: start; }
 .filter-group { display: grid; gap: var(--space-1); min-width: 0; }
 .filter-group .label { font-size: var(--fs-xs); color: var(--text-muted); }
 .filter-chips { display: flex; flex-wrap: wrap; gap: var(--space-2); }
@@ -98,7 +103,17 @@ a.tag:hover { border-color: var(--action); color: var(--text); }
 .results-meta { display: flex; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap; align-items: center; color: var(--text-muted); font-size: var(--fs-sm); margin-bottom: var(--space-2); }
 
 /* ============ Tabs (ARIA tabs; behaviour in app.js [data-tabs]) ============ */
-.tablist { display: flex; gap: var(--space-1); border-bottom: var(--border-w) solid var(--border); overflow-x: auto; scrollbar-width: thin; }
+.tablist {
+  display: flex; gap: var(--space-1); border-bottom: var(--border-w) solid var(--border); overflow-x: auto; scrollbar-width: thin;
+  /* scroll affordance: an edge shadow appears only on the side that still has hidden tabs (cover/shadow gradient technique) */
+  --edge: color-mix(in srgb, var(--text) 24%, transparent);
+  background:
+    linear-gradient(to right, var(--tab-bg, var(--bg)) 30%, transparent) left center / 24px 100% no-repeat local,
+    linear-gradient(to left, var(--tab-bg, var(--bg)) 30%, transparent) right center / 24px 100% no-repeat local,
+    radial-gradient(farthest-side at 0 50%, var(--edge), transparent) left center / 10px 100% no-repeat scroll,
+    radial-gradient(farthest-side at 100% 50%, var(--edge), transparent) right center / 10px 100% no-repeat scroll;
+}
+.card .tablist, .dialog .tablist, .list .tablist { --tab-bg: var(--surface); }
 .tab { flex: none; min-height: var(--target); padding: var(--space-2) var(--space-4); background: none; border: 0; border-bottom: 3px solid transparent; margin-bottom: -1px; color: var(--text-muted); font-weight: var(--fw-medium); font-size: var(--fs-sm); display: inline-flex; align-items: center; gap: var(--space-2); }
 .tab:hover { color: var(--text); background: var(--surface-hover); border-radius: var(--radius-sm) var(--radius-sm) 0 0; }
 .tab[aria-selected="true"] { color: var(--text); border-bottom-color: var(--action); }
@@ -111,7 +126,8 @@ a.tag:hover { border-color: var(--action); color: var(--text); }
 .card > h2, .card > h3 { margin-bottom: var(--space-2); }
 .card-hover:hover { border-color: var(--border-strong); }
 .list { background: var(--surface); border: var(--border-w) solid var(--border); border-radius: var(--radius-card); overflow: hidden; }
-.row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: var(--space-3); align-items: start; padding: var(--space-3) var(--space-4); position: relative; }
+.row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-3); align-items: start; padding: var(--space-3) var(--space-4); position: relative; }
+.row:has(> .row-lead) { grid-template-columns: auto minmax(0, 1fr) auto; }
 .row + .row { border-top: var(--border-w) solid var(--border); }
 .row:hover { background: var(--surface-hover); }
 .row-lead { display: flex; align-items: flex-start; padding-top: 2px; }
@@ -125,7 +141,7 @@ a.tag:hover { border-color: var(--action); color: var(--text); }
 .row-aside { display: flex; flex-direction: column; align-items: flex-end; gap: var(--space-1); font-size: var(--fs-sm); color: var(--text-muted); }
 /* rows adapt to their own width (container query), not the viewport */
 .list { container-type: inline-size; }
-@container (max-width: 479px) { .row { grid-template-columns: minmax(0, 1fr); } .row-lead { display: none; } .row-aside { flex-direction: row; align-items: center; flex-wrap: wrap; } }
+@container (max-width: 479px) { .row, .row:has(> .row-lead) { grid-template-columns: minmax(0, 1fr); } .row-lead { display: none; } .row-aside { flex-direction: row; align-items: center; flex-wrap: wrap; } }
 .meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-3); font-size: var(--fs-sm); color: var(--text-muted); }
 .meta-item { display: inline-flex; align-items: center; gap: var(--space-1); }
 .meta-item + .meta-item:not(.no-sep)::before { content: none; }
@@ -145,6 +161,7 @@ a.tag:hover { border-color: var(--action); color: var(--text); }
 .avatar { display: inline-grid; place-items: center; flex: none; width: 36px; height: 36px; border-radius: 50%; background: var(--surface-subtle); color: var(--text); border: var(--border-w) solid var(--border-strong); font-weight: var(--fw-bold); font-size: var(--fs-sm); letter-spacing: .02em; user-select: none; }
 .avatar-sm { width: 28px; height: 28px; font-size: var(--fs-xs); }
 .avatar-lg { width: 64px; height: 64px; font-size: var(--fs-lg); }
+/* initials avatar: <span class="avatar [avatar-sm|avatar-lg]" aria-hidden="true">AO</span>; build with App.avatar(person|name, {size}) */
 .person { display: inline-flex; align-items: center; gap: var(--space-2); min-width: 0; }
 
 /* ============ Vote control (semantics: group of 2 buttons + count) ============ */
@@ -182,7 +199,8 @@ kbd { border: var(--border-w) solid var(--border-strong); border-bottom-width: 2
 .breadcrumbs li + li::before { content: "/"; margin-right: var(--space-1); color: var(--text-muted); }
 .breadcrumbs a { color: var(--text-muted); } .breadcrumbs [aria-current="page"] { color: var(--text); font-weight: var(--fw-medium); }
 .pagination { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: var(--space-1); margin-top: var(--space-6); }
-.pagination .btn { min-width: var(--target); }
+.pagination .btn { min-width: var(--target); white-space: nowrap; }
+@media (max-width: 479px) { .pagination { gap: var(--space-1); } .pagination .btn { padding-inline: var(--space-2); } }
 .pagination .btn[aria-current="page"] { background: var(--action); color: var(--on-action); border-color: var(--action); }
 
 /* ============ Dialog (native <dialog>; open via [data-dialog-open]) ============ */
@@ -192,6 +210,7 @@ kbd { border: var(--border-w) solid var(--border-strong); border-bottom-width: 2
 @keyframes pop { from { opacity: 0; transform: translateY(8px); } }
 .dialog-head { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-3); padding: var(--space-4) var(--space-4) var(--space-2); }
 .dialog-body { padding: var(--space-2) var(--space-4) var(--space-4); overflow-y: auto; }
+.dialog-body > .callout, .dialog-body > .form-summary { margin-bottom: var(--space-4); }
 .dialog-foot { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: var(--space-2); padding: var(--space-3) var(--space-4); border-top: var(--border-w) solid var(--border); }
 
 /* ============ Toast ============ */
@@ -224,7 +243,8 @@ kbd { border: var(--border-w) solid var(--border-strong); border-bottom-width: 2
 .skeleton-row .skeleton:first-child { width: 70%; height: 1.1em; } .skeleton-row .skeleton:last-child { width: 45%; height: .8em; }
 .spinner { width: 1.25em; height: 1.25em; border: 2px solid var(--border-strong); border-top-color: var(--action); border-radius: 50%; animation: spin .8s linear infinite; display: inline-block; }
 /* Simulation marker: every simulated behaviour shows this (see CONVENTIONS.md) */
-.sim-marker { display: inline-flex; align-items: center; gap: var(--space-1); }
+.sim-marker { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-2); margin: 0 0 var(--space-3); }
+.state-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-2); margin-top: var(--space-2); }
 .sim-wrap { position: relative; } .sim-wrap > .sim-marker { margin-bottom: var(--space-2); }
 
 /* ============ Table ============ */
@@ -260,5 +280,6 @@ kbd { border: var(--border-w) solid var(--border-strong); border-bottom-width: 2
 .hero .chip-count { color: inherit; opacity: .85; }
 
 /* ============ Misc ============ */
+.state-actions:empty { display: none; }
 .divider-v { width: 1px; align-self: stretch; background: var(--border); }
 .eyebrow { font-size: var(--fs-xs); font-weight: var(--fw-medium); color: var(--text-muted); letter-spacing: .02em; }

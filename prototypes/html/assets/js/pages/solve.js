@@ -167,7 +167,7 @@
     box.innerHTML = v.trim() ? S.renderMd(v, { id: 'ask-preview', copyText: t('solve.code.copyshort'), copyLabel: function (l) { return t('solve.code.copy', { l: l }); }, codeLabel: function (l) { return t('solve.code.label', { l: l }); } })
       : '<p class="text-muted">' + esc(t('solve.preview.empty')) + '</p>';
   }
-  var pt = $('#ask-tab-preview'); pt.addEventListener('click', preview); pt.addEventListener('focus', preview);
+  var pt = $('#ask-tab-preview'); pt.addEventListener('click', preview);   /* arrow keys also fire click (App.Tabs) */
   ask.elements.body.addEventListener('input', preview);
 
   /* Deep link #ask: move focus to the form heading so keyboard/screen-reader users land in the right place */

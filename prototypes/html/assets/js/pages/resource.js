@@ -88,19 +88,8 @@ I18N.register({
   function date(iso) { return '<time datetime="' + iso + '">' + M.fmtDate(iso) + '</time>'; }
   function provider(x) { return esc(x.provider.replace(/\s*\(fictif\)\s*/, '').replace(/\s*fictif\s*/, ' ').trim()) + ' · ' + esc(t('resource.fictional')); }
 
-  /* ---- minimal Markdown (headings, lists, **bold**, `code`) over escaped text ---- */
-  function inline(s) { return esc(s).replace(/`([^`]+)`/g, '<code>$1</code>').replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>'); }
-  function md(src) {
-    var out = [], list = false;
-    src.split('\n').forEach(function (ln) {
-      var h = /^##\s+(.*)/.exec(ln), li = /^-\s+(.*)/.exec(ln);
-      if (list && !li) { out.push('</ul>'); list = false; }
-      if (h) out.push('<h3>' + inline(h[1]) + '</h3>');
-      else if (li) { if (!list) { out.push('<ul>'); list = true; } out.push('<li>' + inline(li[1]) + '</li>'); }
-      else if (ln.trim()) out.push('<p>' + inline(ln) + '</p>');
-    });
-    if (list) out.push('</ul>'); return out.join('');
-  }
+  /* ---- Markdown: shared renderer (assets/js/markdown.js); "##" -> h3 ---- */
+  function md(src) { return window.Markdown.render(src, { id: 'resource-md', headStart: 2 }); }
   /* ---- tiny highlighter: comments, strings, keywords, calls ---- */
   var RE = /(\/\/.*|#.*)|("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`(?:[^`\\]|\\.)*`)|\b(func|return|const|let|var|await|async|if|else|for|import|from|def|new|true|false|nil|null|function|print)\b|\b([A-Za-z_]\w*)(?=\()/g;
   function hl(code) {
@@ -195,16 +184,16 @@ I18N.register({
     head(); $('#panel-overview').innerHTML = overview(); $('#panel-integration').innerHTML = integration(); $('#panel-discussions').innerHTML = discussions(); $('#resource-linked').innerHTML = linked();
   }
 
-  /* ---- states: not found / forced error ---- */
+  /* ---- states: forced ?state= / not found, via the shared App.Sim.show (tabs and layout are not rebuilt) ---- */
   function showState(kind) {
-    var box = $('#resource-state'), err = kind === 'error', icon = err ? 'alert-circle' : 'inbox', key = err ? 'resource.error' : 'resource.notfound';
-    $('#resource-content').hidden = true; $('#resource-crumb').textContent = t(key + '.title');
-    box.innerHTML = '<div class="state ' + (err ? 'state-error' : '') + '" data-testid="state-' + kind + '"><span class="icon i-' + icon + '" aria-hidden="true"></span><h1 class="h3">' + esc(t(key + '.title')) + '</h1><p>' + esc(t(key + '.body')) + '</p>' +
-      (err ? '<a class="btn btn-sm" href="resource.html?id=' + esc(id) + '" data-testid="state-retry"><span class="icon i-refresh" aria-hidden="true"></span>' + esc(t('state.retry')) + '</a>' : '<a class="btn btn-sm" href="discover.html" data-testid="state-back"><span class="icon i-chevron-left" aria-hidden="true"></span>' + esc(t('resource.back')) + '</a>') + '</div>' +
-      '<p class="sim-marker text-sm text-muted"><span class="badge badge-sim" data-testid="sim-marker-badge">' + esc(t('sim.badge')) + '</span> ' + esc(t('sim.note')) + '</p>';
+    var key = kind === 'error' ? 'resource.error' : 'resource.notfound';
+    $('#resource-content').hidden = true; $('#resource-crumb').textContent = kind === 'loading' ? t('state.loading') : t(key + '.title');
+    A.Sim.show($('#resource-state'), kind, { key: key, heading: 'h1', skeleton: 4,
+      action: kind === 'error' ? null : { href: 'discover.html', icon: 'chevron-left', labelKey: 'resource.back', testid: 'state-back' } });
   }
-  if (forced === 'error') { r = null; showState('error'); document.addEventListener('i18n:change', function () { showState('error'); }); }
-  else if (!r) { showState('notfound'); document.addEventListener('i18n:change', function () { showState('notfound'); }); }
+  var fs = A.Sim.forced();
+  if (fs) { r = null; showState(fs === 'empty' ? 'notfound' : fs); document.addEventListener('i18n:change', function () { if (fs !== 'loading') $('#resource-crumb').textContent = t((fs === 'error' ? 'resource.error' : 'resource.notfound') + '.title'); }); }
+  else if (!r) { showState('notfound'); document.addEventListener('i18n:change', function () { $('#resource-crumb').textContent = t('resource.notfound.title'); }); }
   else { draw(); document.addEventListener('i18n:change', draw); }
 
   /* ---- report dialog: validation + simulated success. Form is never rebuilt on language change. ---- */

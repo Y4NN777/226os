@@ -1,14 +1,7 @@
 /* Discover lane: only genuinely new patterns. Tokens only. */
 .discover-meta { gap: var(--space-2) var(--space-4); }
 .discover-meta .meta-item { display: inline-flex; align-items: center; gap: var(--space-1); flex-wrap: wrap; }
-/* Filter bar: two columns on phones so six controls do not stack into a tall column */
-.discover-filter-bar { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: end; }
-.discover-filter-bar .select { width: 100%; }
-.discover-filter-bar .btn { justify-self: start; }
-@media (min-width: 768px) { .discover-filter-bar { display: flex; flex-wrap: wrap; } .discover-filter-bar .select { width: auto; } }
 /* Aligned type badges in rows */
 .discover-rows .row-lead .badge { min-width: 4.25rem; justify-content: center; }
 /* Key/value list stacks on narrow screens */
 @media (max-width: 479px) { .discover-dl { grid-template-columns: minmax(0, 1fr); } .discover-dl dd { margin-bottom: var(--space-2); } }
-.discover-filter-bar .filter-group:nth-child(n+3) { grid-column: 1 / -1; }
-@media (min-width: 768px) { .discover-filter-bar .filter-group:nth-child(n+3) { grid-column: auto; } }

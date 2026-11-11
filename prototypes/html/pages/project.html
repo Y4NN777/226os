@@ -91,11 +91,54 @@
         </div>
       </form>
     </dialog>
+
+    <dialog class="dialog" id="need-dialog" aria-labelledby="need-dlg-title" data-testid="need-dialog">
+      <form id="need-form" novalidate data-testid="need-form">
+        <div class="dialog-head">
+          <div><h2 id="need-dlg-title" data-i18n="project.pub.title" data-testid="need-title-heading"></h2>
+            <p class="hint"><span class="badge badge-sim" data-i18n="sim.badge" data-testid="need-sim-badge"></span> <span data-i18n="project.pub.sim" data-testid="need-sim-note"></span></p></div>
+          <button type="button" class="btn btn-ghost btn-icon" data-dialog-close data-i18n-attr="aria-label:common.close" data-testid="need-close"><span class="icon i-x" aria-hidden="true"></span></button>
+        </div>
+        <div class="dialog-body">
+          <div id="need-summary" class="form-summary" role="alert" tabindex="-1" hidden data-testid="need-error-summary"><h2 data-i18n="project.pub.summary" data-testid="need-summary-title"></h2><ul class="list-reset" id="need-summary-list" data-testid="need-summary-list"></ul></div>
+          <div class="field">
+            <label class="label" for="need-title"><span data-i18n="project.pub.t" data-testid="need-t-label"></span><span class="req" aria-hidden="true">*</span></label>
+            <p class="hint" id="need-t-hint" data-i18n="project.pub.t.hint" data-testid="need-t-hint"></p>
+            <input id="need-title" class="input" type="text" maxlength="100" required aria-describedby="need-t-hint need-t-error" data-testid="need-title-input">
+            <p class="error-msg" id="need-t-error" hidden data-testid="need-t-error"></p>
+          </div>
+          <div class="field">
+            <fieldset class="fieldset-plain" id="need-skills-group" aria-describedby="need-skills-hint need-skills-error">
+              <legend class="label"><span data-i18n="project.pub.skills" data-testid="need-skills-label"></span><span class="req" aria-hidden="true">*</span></legend>
+              <p class="hint" id="need-skills-hint" data-i18n="project.pub.skills.hint" data-testid="need-skills-hint"></p>
+              <div class="build-need-skills" id="need-skills-list" data-testid="need-skills-list"></div>
+            </fieldset>
+            <p class="error-msg" id="need-skills-error" hidden data-testid="need-skills-error"></p>
+          </div>
+          <div class="field">
+            <label class="label" for="need-level"><span data-i18n="project.pub.level" data-testid="need-level-label"></span><span class="req" aria-hidden="true">*</span></label>
+            <select id="need-level" class="select" required aria-describedby="need-level-error" data-testid="need-level-input"></select>
+            <p class="error-msg" id="need-level-error" hidden data-testid="need-level-error"></p>
+          </div>
+          <div class="field">
+            <label class="label" for="need-desc"><span data-i18n="project.pub.d" data-testid="need-d-label"></span><span class="req" aria-hidden="true">*</span></label>
+            <p class="hint" id="need-d-hint" data-i18n="project.pub.d.hint" data-testid="need-d-hint"></p>
+            <textarea id="need-desc" class="textarea" maxlength="600" required aria-describedby="need-d-hint need-d-error" data-testid="need-desc-input"></textarea>
+            <p class="error-msg" id="need-d-error" hidden data-testid="need-d-error"></p>
+          </div>
+        </div>
+        <div class="dialog-foot">
+          <button type="button" class="btn" data-dialog-close data-i18n="common.cancel" data-testid="need-cancel"></button>
+          <button type="submit" class="btn btn-primary" id="need-submit" data-testid="need-submit"><span data-i18n="project.pub.submit"></span></button>
+        </div>
+      </form>
+    </dialog>
   </main>
 
   <script src="../assets/js/shell.js"></script>
   <script defer src="../assets/js/app.js"></script>
   <script defer src="../assets/js/i18n-common.js"></script>
+  <script defer src="../assets/js/markdown.js"></script>
   <script defer src="../assets/data/people.js"></script>
   <script defer src="../assets/data/common.js"></script>
   <script defer src="../assets/data/build.js"></script>

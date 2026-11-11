@@ -39,7 +39,12 @@ I18N.register({
     'project.apply.toast': 'Candidature envoyée (simulation).',
     'project.err.motivation.required': 'Expliquez votre motivation.', 'project.err.motivation.short': 'La motivation doit contenir au moins 30 caractères.',
     'project.err.skills.required': 'Indiquez au moins une compétence.', 'project.err.avail.required': 'Choisissez une disponibilité.',
-    'project.demo.sample.motivation': 'Je souhaite contribuer à ce besoin et peux commencer par une petite tâche.', 'project.demo.sample.skills': 'Go, PostgreSQL'
+    'project.demo.sample.motivation': 'Je souhaite contribuer à ce besoin et peux commencer par une petite tâche.', 'project.demo.sample.skills': 'Go, PostgreSQL',
+    'project.pub.btn': 'Publier un besoin', 'project.pub.title': 'Publier un besoin', 'project.pub.sim': 'Simulation : le besoin est ajouté à la liste, rien n’est enregistré.',
+    'project.pub.t': 'Titre du besoin', 'project.pub.t.hint': 'Une phrase précise, 8 à 100 caractères.', 'project.pub.skills': 'Compétences requises', 'project.pub.skills.hint': 'Choisissez au moins une compétence.',
+    'project.pub.level': 'Niveau attendu', 'project.pub.level.choose': 'Choisir un niveau', 'project.pub.d': 'Description', 'project.pub.d.hint': 'Ce que le contributeur fera, 30 caractères minimum.',
+    'project.pub.submit': 'Publier le besoin', 'project.pub.toast': 'Besoin publié (simulation).', 'project.pub.summary': 'Corrigez les champs suivants',
+    'project.pub.err.t': 'Saisissez un titre de 8 à 100 caractères.', 'project.pub.err.skills': 'Choisissez au moins une compétence.', 'project.pub.err.level': 'Choisissez un niveau.', 'project.pub.err.d': 'La description doit faire au moins 30 caractères.'
   },
   en: {
     'project.title': 'Project — 226os', 'project.notfound': 'Project not found', 'project.jump': 'See needs', 'project.form.summary': 'Please fix the following fields',
@@ -80,7 +85,12 @@ I18N.register({
     'project.apply.toast': 'Application sent (simulation).',
     'project.err.motivation.required': 'Explain your motivation.', 'project.err.motivation.short': 'The motivation must be at least 30 characters.',
     'project.err.skills.required': 'Enter at least one skill.', 'project.err.avail.required': 'Choose an availability.',
-    'project.demo.sample.motivation': 'I would like to contribute to this need and can start with a small task.', 'project.demo.sample.skills': 'Go, PostgreSQL'
+    'project.demo.sample.motivation': 'I would like to contribute to this need and can start with a small task.', 'project.demo.sample.skills': 'Go, PostgreSQL',
+    'project.pub.btn': 'Publish a need', 'project.pub.title': 'Publish a need', 'project.pub.sim': 'Simulation: the need is added to the list, nothing is saved.',
+    'project.pub.t': 'Need title', 'project.pub.t.hint': 'One precise sentence, 8 to 100 characters.', 'project.pub.skills': 'Required skills', 'project.pub.skills.hint': 'Pick at least one skill.',
+    'project.pub.level': 'Expected level', 'project.pub.level.choose': 'Choose a level', 'project.pub.d': 'Description', 'project.pub.d.hint': 'What the contributor will do, 30 characters minimum.',
+    'project.pub.submit': 'Publish need', 'project.pub.toast': 'Need published (simulation).', 'project.pub.summary': 'Please fix the following fields',
+    'project.pub.err.t': 'Enter a title of 8 to 100 characters.', 'project.pub.err.skills': 'Pick at least one skill.', 'project.pub.err.level': 'Choose a level.', 'project.pub.err.d': 'The description must be at least 30 characters.'
   }
 });
 
@@ -106,17 +116,8 @@ I18N.register({
   }
   function countryHtml(code, tid) { return '<span class="country" data-testid="' + tid + '"><span class="country-code" aria-hidden="true">' + code + '</span><span>' + esc(MOCK.countryName(code)) + '</span></span>'; }
 
-  /* ---- minimal Markdown (fixed fictional text): ## headings -> h3, lists, paragraphs, **bold**, `code`. Escapes first. ---- */
-  function md(src) {
-    function inl(s) { return esc(s).replace(/`([^`]+)`/g, '<code>$1</code>').replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>'); }
-    var out = [], list = false;
-    src.split('\n').forEach(function (l) {
-      if (/^- /.test(l)) { if (!list) { out.push('<ul>'); list = true; } out.push('<li>' + inl(l.slice(2)) + '</li>'); return; }
-      if (list) { out.push('</ul>'); list = false; }
-      if (/^## /.test(l)) out.push('<h3>' + inl(l.slice(3)) + '</h3>'); else if (l.trim()) out.push('<p>' + inl(l) + '</p>');
-    });
-    if (list) out.push('</ul>'); return out.join('');
-  }
+  /* ---- Markdown: shared renderer (assets/js/markdown.js); "##" -> h3 ---- */
+  function md(src) { return window.Markdown.render(src, { id: 'project-md', headStart: 2 }); }
 
   /* ---- header / role toolbar (outside the simulated area) ---- */
   function header() {
@@ -227,17 +228,17 @@ I18N.register({
       '<section aria-labelledby="project-ctx-h" data-testid="project-ctx">' + ctxHtml().replace('<h2 ', '<h2 id="project-ctx-h" ') + '</section>' +
       '<section aria-labelledby="project-desc-h" data-testid="project-desc"><div class="cluster"><h2 id="project-desc-h" data-testid="project-desc-title">' + esc(t('project.desc.title')) + '</h2>' + badgeLang(P.lang, 'project-desc-lang') + '</div>' +
         '<div class="prose" lang="' + P.lang + '" data-user-content data-testid="project-desc-body">' + md(P.description) + '</div></section>' +
-      '<section id="needs" aria-labelledby="project-needs-h" data-testid="project-needs"><h2 id="project-needs-h" data-testid="project-needs-title">' + esc(t('project.needs.title')) + '</h2><ul class="list list-reset project-list" data-testid="project-needs-list">' + needsHtml() + '</ul></section>' +
+      '<section id="needs" aria-labelledby="project-needs-h" data-testid="project-needs"><div class="section-head"><h2 id="project-needs-h" data-testid="project-needs-title">' + esc(t('project.needs.title')) + '</h2>' + (role === 'owner' ? '<button type="button" class="btn btn-sm" data-dialog-open="need-dialog" data-testid="project-publish-need"><span class="icon i-plus" aria-hidden="true"></span>' + esc(t('project.pub.btn')) + '</button>' : '') + '</div><ul class="list list-reset project-list" data-testid="project-needs-list">' + needsHtml() + '</ul></section>' +
       '<section aria-labelledby="project-apps-h" data-testid="project-apps">' + appsHtml() + '</section>' +
       '<section aria-labelledby="project-act-h" data-testid="project-act"><h2 id="project-act-h" data-testid="project-act-title">' + esc(t('project.act.title')) + '</h2><ol class="list list-reset project-list" data-testid="project-activity-list">' + actHtml() + '</ol></section>' +
       '</div>' + asideHtml() + '</div>';
   }
 
   var sim = App.Sim.load($('#project-view'), {
-    load: function () { return P ? [P] : []; }, skeleton: 4, emptyKey: 'project.empty',
+    load: function () { return P ? [P] : []; }, skeleton: 4,
+    empty: { key: 'project.empty', action: { href: 'build.html', icon: 'chevron-left', labelKey: 'project.empty.cta', testid: 'project-empty-back' } },
     render: function (items, box) { box.innerHTML = view(); }
   });
-  /* Empty (not found) state gets a way back */
   document.addEventListener('i18n:change', function () { header(); toolbar(); fillAvail(); showErrors(false); });
   header(); toolbar();
 
@@ -302,4 +303,58 @@ I18N.register({
     form.reset(); errs = {}; showErrors(false); $('#apply-dup').hidden = true; $('#apply-body').hidden = false; $('#apply-success').hidden = true; $('#apply-submit').hidden = false;
     $('#apply-cancel').setAttribute('data-i18n', 'common.cancel'); $('#apply-cancel').textContent = t('common.cancel');
   });
+
+  /* ---- owner-only "Publish a need" dialog (static markup; simulated: the need is appended in memory, nothing persisted) ---- */
+  var nform = $('#need-form'), ndlg = $('#need-dialog'), nerrs = {}, nbusy = false, nseq = 0;
+  var NF = { t: '#need-title', skills: '#need-skills-group', level: '#need-level', d: '#need-desc' };
+  function fillNeedForm() {
+    var checked = [].slice.call(nform.querySelectorAll('[name=need-skill]:checked')).map(function (x) { return x.value; }), lv = $('#need-level').value;
+    $('#need-skills-list').innerHTML = Object.keys(B.skills).map(function (k) {
+      return '<label class="choice"><input type="checkbox" name="need-skill" value="' + k + '"' + (checked.indexOf(k) > -1 ? ' checked' : '') + ' data-testid="need-skill-' + k + '"><span data-testid="need-skill-' + k + '-label">' + esc(MOCK.label(B.skills[k])) + '</span></label>';
+    }).join('');
+    $('#need-level').innerHTML = '<option value="" data-testid="need-level-option-none">' + esc(t('project.pub.level.choose')) + '</option>' + Object.keys(B.levels).map(function (k) {
+      return '<option value="' + k + '"' + (k === lv ? ' selected' : '') + ' data-testid="need-level-option-' + k + '">' + esc(MOCK.label(B.levels[k])) + '</option>';
+    }).join('');
+  }
+  function needValues() { return { t: $('#need-title').value.trim(), skills: [].slice.call(nform.querySelectorAll('[name=need-skill]:checked')).map(function (x) { return x.value; }), level: $('#need-level').value, d: $('#need-desc').value.trim() }; }
+  function needValidate() {
+    var v = needValues(); nerrs = {};
+    if (v.t.length < 8 || v.t.length > 100) nerrs.t = 'project.pub.err.t';
+    if (!v.skills.length) nerrs.skills = 'project.pub.err.skills';
+    if (!v.level) nerrs.level = 'project.pub.err.level';
+    if (v.d.length < 30) nerrs.d = 'project.pub.err.d';
+    return !Object.keys(nerrs).length;
+  }
+  function needShowErrors(focus) {
+    var keys = Object.keys(nerrs), sum = $('#need-summary');
+    Object.keys(NF).forEach(function (f) {
+      var inp = $(NF[f]), msg = $('#need-' + f + '-error'), has = !!nerrs[f];
+      inp.closest('.field').classList.toggle('has-error', has);
+      if (f !== 'skills') { if (has) inp.setAttribute('aria-invalid', 'true'); else inp.removeAttribute('aria-invalid'); }
+      msg.hidden = !has; msg.innerHTML = has ? '<span class="icon i-alert-circle" aria-hidden="true"></span><span>' + esc(t(nerrs[f])) + '</span>' : '';
+    });
+    sum.hidden = !keys.length;
+    $('#need-summary-list').innerHTML = keys.map(function (f, i) { return '<li><a href="' + NF[f] + '" data-need-field="' + f + '" data-testid="need-summary-link-' + (i + 1) + '">' + esc(t(nerrs[f])) + '</a></li>'; }).join('');
+    if (focus && keys.length) sum.focus();
+  }
+  fillNeedForm();
+  $('#need-summary-list').addEventListener('click', function (e) {
+    var a = e.target.closest('a[data-need-field]'); if (!a) return; e.preventDefault();
+    var f = a.getAttribute('data-need-field'); var tgt = f === 'skills' ? nform.querySelector('[name=need-skill]') : $(NF[f]); if (tgt) tgt.focus();
+  });
+  nform.addEventListener('submit', function (e) {
+    e.preventDefault(); if (nbusy || role !== 'owner') return;
+    if (!needValidate()) { needShowErrors(true); return; }
+    needShowErrors(false); nbusy = true; var btn = $('#need-submit'); btn.setAttribute('aria-busy', 'true'); btn.disabled = true;
+    setTimeout(function () {
+      var v = needValues(); nbusy = false; btn.removeAttribute('aria-busy'); btn.disabled = false;
+      P.needs.push({ id: 'n-new-' + (++nseq), title: v.t, skills: v.skills, level: v.level, status: 'open', description: v.d });
+      App.Dialog.close(ndlg); sim.refresh();
+      App.Toast.show({ kind: 'success', title: t('sim.badge'), msg: t('project.pub.toast') });
+      var rows = document.querySelectorAll('[data-testid="project-needs-list"] > li'), last = rows[rows.length - 1];
+      if (last) { last.tabIndex = -1; last.focus(); }
+    }, 600);
+  });
+  ndlg.addEventListener('close', function () { nform.reset(); nerrs = {}; needShowErrors(false); });
+  document.addEventListener('i18n:change', function () { fillNeedForm(); needShowErrors(false); });
 })();

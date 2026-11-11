@@ -1,6 +1,6 @@
 # Conventions — contract for lane agents
 
-Foundation files are **frozen** for lanes: `assets/css/{tokens,base,layout,icons,components}.css`, `assets/js/{app,shell,theme-init,i18n-common}.js`, `assets/data/{people,common}.js`, `index.html`, `pages/_template.html`. If you need a change, write it down in your report instead of editing (parallel edits of shared files are forbidden). Authority on conflict: `/DESIGN.md` > this file.
+Foundation files are **frozen** for lanes (integration pass done; see section 10 for the shared APIs they now expose): `assets/css/{tokens,base,layout,icons,components}.css`, `assets/js/{app,shell,theme-init,i18n-common}.js`, `assets/data/{people,common}.js`, `index.html`, `pages/_template.html`. If you need a change, write it down in your report instead of editing (parallel edits of shared files are forbidden). Authority on conflict: `/DESIGN.md` > this file.
 
 ## 1. File layout and ownership
 
@@ -95,3 +95,14 @@ done; done
 # English once; forced states:  ?lang=en   ?state=error   ?state=empty   ?state=loading
 ```
 Read the PNGs, fix overflow/overlap/contrast issues, and re-shoot. A virtual-time budget is needed so the simulated delay finishes. (Tall `--window-size` heights capture below-the-fold content.)
+
+## 10. Shared runtime APIs added at integration (use these, do not re-implement)
+
+- `App.Tabs.init(root)` wires `[data-tabs]` inside `root` (idempotent; use after rendering tabs dynamically). Arrow/Home/End move focus **and call `.click()`** on the target tab, so a `click` listener (or the bubbling `tabs:change` event, `detail: {index, tab, panel}`) is the single activation path.
+- `App.Sim.load(box, {load, render, delay, skeleton, emptyKey, empty, error})`: `empty`/`error` take `{icon, key | titleKey+bodyKey, heading, action: {labelKey|label, href|onClick, icon, primary, testid}, retry:false}`. Actions render in `.state-actions`. `?state=` accepts `loading|empty|error|notfound`.
+- Detail pages (tabs, header must not be rebuilt): `App.Sim.forced()` returns the forced state or null; `App.Sim.show(box, kind, cfg)` renders loading/empty/error/notfound into any box (language-aware, adds the Simulated marker, Retry reloads without `?state`).
+- `App.avatar(personOrName, {size:'sm|lg', testid})` and `App.initials(name)`: initials avatar (`.avatar`).
+- `window.Markdown.render(md, {id, headStart, copyText, copyLabel, codeLabel})` from `assets/js/markdown.js` (load before page scripts). `headStart: 2` maps `##` to `h3`. `Markdown.unbalancedFence(md)`.
+- `App.TestIds` (in `app.js`, auto-runs on every page): assigns `<nearest-testid-ancestor>-<icon-name|tag>-N` to any text/icon/control still lacking a `data-testid`. Explicit test ids always win; still name important elements yourself.
+- CSS: `.h1`-`.h4` heading-size utilities; `.filter-bar.filter-bar-grid` (2 cols on phones, auto-fit columns from 640px); `.tag-list` resets list styling itself; `.row` works with or without `.row-lead`; `.dialog-body > .callout|.form-summary` get bottom spacing; `.tablist` shows an edge shadow on the side with hidden tabs (set `--tab-bg` if it sits on a non-`--bg` surface; cards, dialogs and lists are handled); `.pagination .btn` never wraps its label.
+- Shell: the header create action ("Ask a question", `pages/solve.html#ask`) is now visible at every width (icon-only below 1024px, label kept for assistive tech).
