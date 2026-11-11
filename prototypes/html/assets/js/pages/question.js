@@ -5,7 +5,7 @@
   var M = window.MOCK, S = M.solve, esc = App.esc, $ = App.$, $$ = App.$$, t = function (k, p) { return I18N.t(k, p); };
   function pl(base, n) { return t(base + (n === 1 ? '.one' : '.other'), { n: n }); }
   var id = App.params.get('id') || 'q-webhook-sig', q = S.get(id);
-  if (!q) { $('#question-missing').hidden = false; S.autoTid(); document.title = t('solve.q.missing.title') + ' — 226os'; document.addEventListener('i18n:change', function () { document.title = t('solve.q.missing.title') + ' — 226os'; }); return; }
+  if (!q) { $('#question-missing').hidden = false; document.title = t('solve.q.missing.title') + ' — 226os'; document.addEventListener('i18n:change', function () { document.title = t('solve.q.missing.title') + ' — 226os'; }); return; }
   $('#question-root').hidden = false;
 
   /* ---------- state ---------- */
@@ -18,8 +18,8 @@
   function isAccepted() { return th.full ? answers.some(function (a) { return a.accepted; }) : q.accepted; }
   function answerCount() { return th.full ? answers.length : q.answers; }
   function mdOpts(prefix) { return { id: prefix, headStart: 3, copyText: t('solve.code.copyshort'), copyLabel: function (l) { return t('solve.code.copy', { l: l }); }, codeLabel: function (l) { return t('solve.code.label', { l: l }); } }; }
-  function langBadge(l, tid) { return '<span class="badge" data-testid="' + tid + '"><span aria-hidden="true">' + l.toUpperCase() + '</span><span class="visually-hidden">' + esc(t('solve.row.lang', { l: t('solve.lang.' + l) })) + '</span></span>'; }
-  function cc(code, tid) { return '<span class="country" data-testid="' + tid + '"><span class="country-code">' + code + '</span><span class="visually-hidden">' + esc(M.countryName(code)) + '</span></span>'; }
+  function langBadge(l, tid) { return '<span class="badge" data-testid="' + tid + '"><span aria-hidden="true" data-testid="' + tid + '-code">' + l.toUpperCase() + '</span><span class="visually-hidden" data-testid="' + tid + '-name">' + esc(t('solve.row.lang', { l: t('solve.lang.' + l) })) + '</span></span>'; }
+  function cc(code, tid) { return '<span class="country" data-testid="' + tid + '"><span class="country-code" data-testid="' + tid + '-code">' + code + '</span><span class="visually-hidden" data-testid="' + tid + '-name">' + esc(M.countryName(code)) + '</span></span>'; }
   function personBox(pid, prefix) {
     var p = M.person(pid); if (!p) return '';
     return '<span class="person"><span class="avatar avatar-sm" aria-hidden="true" data-testid="' + prefix + '-avatar">' + esc(p.initials) + '</span>' +
@@ -30,10 +30,10 @@
   function voteCtl(key, base, tid) {
     var mine = votes[key] || null, n = base + (mine === 'up' ? 1 : mine === 'down' ? -1 : 0), dis = persona === 'anon' ? ' disabled' : '';
     function b(dir, ic) {
-      return '<button type="button" data-vote="' + dir + '" data-key="' + key + '" aria-pressed="' + (mine === dir) + '" aria-label="' + esc(t('solve.vote.' + dir)) + '"' + dis + ' data-testid="' + tid + '-' + dir + '"><span class="icon i-' + ic + '" aria-hidden="true"></span></button>';
+      return '<button type="button" data-vote="' + dir + '" data-key="' + key + '" aria-pressed="' + (mine === dir) + '" aria-label="' + esc(t('solve.vote.' + dir)) + '"' + dis + ' data-testid="' + tid + '-' + dir + '"><span class="icon i-' + ic + '" aria-hidden="true" data-testid="' + tid + '-' + dir + '-icon"></span></button>';
     }
     return '<div class="vote" role="group" aria-label="' + esc(t('solve.vote.group')) + '" data-testid="' + tid + '">' + b('up', 'arrow-up') +
-      '<span class="vote-count" data-testid="' + tid + '-count">' + n + '</span><span class="visually-hidden">' + esc(t('solve.vote.votes')) + (dis ? '. ' + esc(t('solve.vote.signin')) : '') + '</span>' + b('down', 'arrow-down') + '</div>';
+      '<span class="vote-count" data-testid="' + tid + '-count">' + n + '</span><span class="visually-hidden" data-testid="' + tid + '-label">' + esc(t('solve.vote.votes')) + (dis ? '. ' + esc(t('solve.vote.signin')) : '') + '</span>' + b('down', 'arrow-down') + '</div>';
   }
 
   /* ---------- static-ish regions ---------- */
@@ -43,25 +43,25 @@
     document.title = q.title + ' — 226os';
     var acc = isAccepted();
     $('#question-head-meta').innerHTML =
-      (acc ? '<span class="badge badge-accepted meta-item" data-testid="question-status"><span class="icon i-check-circle" aria-hidden="true"></span>' + esc(t('solve.q.status.accepted')) + '</span>'
-           : '<span class="badge badge-warn meta-item" data-testid="question-status"><span class="icon i-help" aria-hidden="true"></span>' + esc(t('solve.q.status.open')) + '</span>') +
+      (acc ? '<span class="badge badge-accepted meta-item" data-testid="question-status"><span class="icon i-check-circle" aria-hidden="true" data-testid="question-status-icon"></span>' + esc(t('solve.q.status.accepted')) + '</span>'
+           : '<span class="badge badge-warn meta-item" data-testid="question-status"><span class="icon i-help" aria-hidden="true" data-testid="question-status-icon"></span>' + esc(t('solve.q.status.open')) + '</span>') +
       '<span class="meta-item">' + langBadge(q.lang, 'question-lang-badge') + '</span>' +
       '<span class="meta-item" data-testid="question-answer-count">' + esc(pl('solve.q.answers.n', answerCount())) + '</span>' +
-      '<span class="meta-item"><span class="text-muted">' + esc(t('solve.q.asked')) + '</span>&nbsp;<time datetime="' + q.date + '" data-testid="question-date">' + M.fmtDate(q.date) + '</time></span>';
+      '<span class="meta-item" data-testid="question-asked"><span class="text-muted" data-testid="question-asked-label">' + esc(t('solve.q.asked')) + '</span>&nbsp;<time datetime="' + q.date + '" data-testid="question-date">' + M.fmtDate(q.date) + '</time></span>';
   }
   function renderPost() {
     $('#question-post').innerHTML = '<article class="solve-post" aria-labelledby="question-h1" data-testid="question-article">' +
       '<div class="solve-post-vote">' + voteCtl('q', q.votes, 'question-vote') + '</div>' +
       '<div class="solve-post-main stack">' +
       '<div class="prose" lang="' + q.lang + '" data-user-content data-testid="question-body">' + S.renderMd(th.body, mdOpts('question')) + '</div>' +
-      '<ul class="tag-list list-reset" data-testid="question-tags">' + q.tags.map(function (x, i) { return '<li><span class="tag" data-testid="question-tag-' + (i + 1) + '">' + esc(x) + '</span></li>'; }).join('') + '</ul>' +
+      '<ul class="tag-list list-reset" data-testid="question-tags">' + q.tags.map(function (x) { return '<li><span class="tag" data-testid="question-tag-' + x + '">' + esc(x) + '</span></li>'; }).join('') + '</ul>' +
       '<div class="meta solve-post-foot">' + personBox(q.author, 'question') + '</div></div></article>';
   }
   function renderRelated() {
     var r = M.byId(M.resources, q.resource), p = M.byId(M.projects, q.project), rq = q.resource ? S.all().filter(function (x) { return x.id !== q.id && x.resource === q.resource; })[0] : null, items = [];
     function item(kind, icon, href, name, sub, n) {
-      return '<a class="linked-item" href="' + href + '" data-testid="related-' + kind + '"><span class="kind"><span class="icon i-' + icon + '" aria-hidden="true"></span>' + esc(t('solve.related.' + (kind === 'resource' ? 'api' : kind))) + '</span>' +
-        '<strong' + (kind === 'question' ? ' lang="' + rq.lang + '" data-user-content' : '') + '>' + esc(name) + '</strong><span class="text-xs text-muted">' + esc(sub) + '</span></a>';
+      return '<a class="linked-item" href="' + href + '" data-testid="related-' + kind + '"><span class="kind" data-testid="related-' + kind + '-kind"><span class="icon i-' + icon + '" aria-hidden="true" data-testid="related-' + kind + '-icon"></span>' + esc(t('solve.related.' + (kind === 'resource' ? 'api' : kind))) + '</span>' +
+        '<strong data-testid="related-' + kind + '-title"' + (kind === 'question' ? ' lang="' + rq.lang + '" data-user-content' : '') + '>' + esc(name) + '</strong><span class="text-xs text-muted" data-testid="related-' + kind + '-sub">' + esc(sub) + '</span></a>';
     }
     if (r) items.push(item('resource', 'compass', 'resource.html?id=' + r.id, r.name, r.provider + ' · ' + r.version));
     if (p) items.push(item('project', 'hammer', 'project.html?id=' + p.id, p.name, p.summary));
@@ -71,9 +71,9 @@
   function renderContext() {
     var p = M.person(q.author);
     $('#question-context').innerHTML = [
-      ['author', t('solve.context.author'), p ? esc(p.name) : ''], ['env', t('solve.context.env'), '<span class="mono">' + esc(q.env) + '</span>'],
-      ['country', t('solve.context.country'), cc(q.country, 'context-country-code') + ' ' + esc(M.countryName(q.country))], ['lang', t('solve.context.lang'), esc(t('solve.lang.' + q.lang))],
-      ['asked', t('solve.context.asked'), '<time datetime="' + q.date + '">' + M.fmtDate(q.date) + '</time>']
+      ['author', t('solve.context.author'), p ? esc(p.name) : ''], ['env', t('solve.context.env'), '<span class="mono" data-testid="context-env-text">' + esc(q.env) + '</span>'],
+      ['country', t('solve.context.country'), cc(q.country, 'context-country-flag') + ' <span data-testid="context-country-name">' + esc(M.countryName(q.country)) + '</span>'], ['lang', t('solve.context.lang'), esc(t('solve.lang.' + q.lang))],
+      ['asked', t('solve.context.asked'), '<time datetime="' + q.date + '" data-testid="context-asked-date">' + M.fmtDate(q.date) + '</time>']
     ].map(function (r) { return '<dt data-testid="context-' + r[0] + '-term">' + esc(r[1]) + '</dt><dd data-testid="context-' + r[0] + '-value">' + r[2] + '</dd>'; }).join('');
   }
 
@@ -94,7 +94,7 @@
   });
   $('#viewas-api-btn').addEventListener('click', function () {
     var k = persona === 'anon' ? '401' : '403';
-    $('#viewas-result').innerHTML = '<div class="callout callout-danger" data-testid="viewas-result-' + k + '"><span class="icon icon-lead i-' + (k === '403' ? 'lock' : 'alert-circle') + '" aria-hidden="true"></span><div><strong data-testid="viewas-result-title">' + esc(t('solve.viewas.' + k + '.title')) + '</strong><span data-testid="viewas-result-body">' + esc(t('solve.viewas.' + k + '.body')) + '</span></div></div>';
+    $('#viewas-result').innerHTML = '<div class="callout callout-danger" data-testid="viewas-result-' + k + '"><span class="icon icon-lead i-' + (k === '403' ? 'lock' : 'alert-circle') + '" aria-hidden="true" data-testid="viewas-result-icon"></span><div><strong data-testid="viewas-result-title">' + esc(t('solve.viewas.' + k + '.title')) + '</strong><span data-testid="viewas-result-body">' + esc(t('solve.viewas.' + k + '.body')) + '</span></div></div>';
   });
 
   /* ---------- answers (simulated async list so ?state=loading|empty|error works) ---------- */
@@ -102,18 +102,18 @@
     return answers.slice().sort(function (a, b) { return (b.accepted - a.accepted) || (b.votes - a.votes) || (a.date < b.date ? -1 : 1); });
   }
   function ansHtml(a, i) {
-    var n = i + 1, tid = 'answer-' + n, mine = persona === 'author' && th.full;
+    var n = i + 1, tid = 'answer-' + a.id, mine = persona === 'author' && th.full;
     var accept = '';
     if (persona === 'author' && th.full) {
-      accept = a.accepted ? '<button type="button" class="btn btn-sm btn-ghost" data-accept="' + a.id + '" aria-describedby="ans-h-' + n + '" data-testid="answer-unaccept-button-' + n + '"><span class="icon i-x" aria-hidden="true"></span>' + esc(t('solve.answer.unaccept')) + '</button>'
-        : '<button type="button" class="btn btn-sm" data-accept="' + a.id + '" aria-describedby="ans-h-' + n + '" data-testid="answer-accept-button-' + n + '"><span class="icon i-check" aria-hidden="true"></span>' + esc(t('solve.answer.accept')) + '</button>';
+      accept = a.accepted ? '<button type="button" class="btn btn-sm btn-ghost" data-accept="' + a.id + '" aria-describedby="ans-h-' + n + '" data-testid="answer-unaccept-button-' + a.id + '"><span class="icon i-x" aria-hidden="true" data-testid="answer-unaccept-icon-' + a.id + '"></span>' + esc(t('solve.answer.unaccept')) + '</button>'
+        : '<button type="button" class="btn btn-sm" data-accept="' + a.id + '" aria-describedby="ans-h-' + n + '" data-testid="answer-accept-button-' + a.id + '"><span class="icon i-check" aria-hidden="true" data-testid="answer-accept-icon-' + a.id + '"></span>' + esc(t('solve.answer.accept')) + '</button>';
     }
     var src = a.sources && a.sources.length ? '<div class="solve-sources" data-testid="' + tid + '-sources"><span class="text-sm text-muted" data-testid="' + tid + '-sources-label">' + esc(t('solve.answer.sources')) + '</span><ul class="list-reset">' +
       a.sources.map(function (s, j) { return '<li><a class="link-external text-sm" href="' + s.url + '" rel="noopener noreferrer" lang="fr" data-testid="' + tid + '-source-' + (j + 1) + '">' + esc(s.label) + '</a></li>'; }).join('') + '</ul></div>' : '';
     return '<li data-testid="' + tid + '-item"><article class="card solve-answer' + (a.accepted ? ' is-accepted' : '') + '" id="answer-' + a.id + '" tabindex="-1" aria-labelledby="ans-h-' + n + '" data-testid="' + tid + '">' +
       '<h3 class="visually-hidden" id="ans-h-' + n + '" data-testid="' + tid + '-heading">' + esc(t('solve.answer.n', { n: n })) + '</h3>' +
       '<div class="solve-post"><div class="solve-post-vote">' + voteCtl(a.id, a.votes, tid + '-vote') + '</div><div class="solve-post-main stack">' +
-      (a.accepted ? '<p><span class="badge badge-accepted" data-testid="' + tid + '-accepted"><span class="icon i-check-circle" aria-hidden="true"></span>' + esc(t('solve.answer.accepted')) + '</span></p>' : '') +
+      (a.accepted ? '<p><span class="badge badge-accepted" data-testid="' + tid + '-accepted"><span class="icon i-check-circle" aria-hidden="true" data-testid="' + tid + '-accepted-icon"></span>' + esc(t('solve.answer.accepted')) + '</span></p>' : '') +
       '<div class="prose" lang="' + a.lang + '" data-user-content data-testid="' + tid + '-body">' + S.renderMd(a.md, mdOpts(tid)) + '</div>' + src +
       '<div class="meta solve-post-foot">' + personBox(a.author, tid) + '<time class="meta-item" datetime="' + a.date + '" data-testid="' + tid + '-date">' + M.fmtDate(a.date) + '</time>' + langBadge(a.lang, tid + '-lang-badge') +
       (a.mine ? '<span class="badge badge-sim" data-testid="' + tid + '-mine">' + esc(t('solve.answer.mine')) + '</span>' : '') + '</div>' +
@@ -124,7 +124,7 @@
     load: function () { return answers.length ? sorted() : (!th.full && q.answers > 0 ? [{ missing: true }] : []); },
     render: function (items, box) {
       if (items[0] && items[0].missing) {
-        box.innerHTML = '<div class="state" data-testid="answers-fixture"><span class="icon i-inbox" aria-hidden="true"></span><h3>' + esc(t('solve.answers.fixture.title')) + '</h3><p>' + esc(t('solve.answers.fixture.body', { n: q.answers })) + '</p></div>'; return;
+        box.innerHTML = '<div class="state" data-testid="answers-fixture"><span class="icon i-inbox" aria-hidden="true" data-testid="answers-fixture-icon"></span><h3 data-testid="answers-fixture-title">' + esc(t('solve.answers.fixture.title')) + '</h3><p data-testid="answers-fixture-body">' + esc(t('solve.answers.fixture.body', { n: q.answers })) + '</p></div>'; return;
       }
       box.innerHTML = '<ol class="list-reset stack" data-testid="answers-ol">' + items.map(ansHtml).join('') + '</ol>';
     }
@@ -157,8 +157,8 @@
     var f = $('#answer-body-field'), inp = $('#answer-body'), msg = $('#answer-body-error'), sm = $('#answer-summary');
     f.classList.toggle('has-error', !!aerr); msg.hidden = !aerr; sm.hidden = !aerr;
     if (aerr) { inp.setAttribute('aria-invalid', 'true'); inp.setAttribute('aria-describedby', 'answer-body-hint answer-body-error');
-      msg.innerHTML = '<span class="icon i-alert-circle" aria-hidden="true"></span><span>' + esc(t(aerr)) + '</span>';
-      $('#answer-summary-list').innerHTML = '<li><a href="#answer-body" data-testid="answer-summary-link-1">' + esc(t(aerr)) + '</a></li>'; }
+      msg.innerHTML = '<span class="icon i-alert-circle" aria-hidden="true" data-testid="answer-body-error-icon"></span><span data-testid="answer-body-error-text">' + esc(t(aerr)) + '</span>';
+      $('#answer-summary-list').innerHTML = '<li><a href="#answer-body" data-testid="answer-summary-link-body">' + esc(t(aerr)) + '</a></li>'; }
     else { inp.removeAttribute('aria-invalid'); inp.setAttribute('aria-describedby', 'answer-body-hint'); }
   }
   $('#answer-summary').addEventListener('click', function (e) { if (e.target.closest('a')) { e.preventDefault(); $('#answer-body').focus(); } });
@@ -175,13 +175,13 @@
   });
   function preview() {
     var v = af.elements.body.value, box = $('#answer-preview'); box.setAttribute('lang', af.elements.lang.value); box.setAttribute('data-user-content', '');
-    box.innerHTML = v.trim() ? S.renderMd(v, mdOpts('answer-preview')) : '<p class="text-muted">' + esc(t('solve.preview.empty')) + '</p>';
+    box.innerHTML = v.trim() ? S.renderMd(v, mdOpts('answer-preview')) : '<p class="text-muted" data-testid="answer-preview-empty">' + esc(t('solve.preview.empty')) + '</p>';
   }
   var pt = $('#answer-tab-preview'); pt.addEventListener('click', preview);   /* arrow keys also fire click (App.Tabs) */ af.elements.body.addEventListener('input', preview);
 
   /* ---------- boot ---------- */
   function all() { renderHead(); renderPost(); renderRelated(); renderContext(); renderViewAs(); renderAnswersHead(); }
   all();
-  S.autoTid();
+ 
   document.addEventListener('i18n:change', function () { all(); setAErr(); var r = $('#viewas-result'); r.innerHTML = ''; });
 })();

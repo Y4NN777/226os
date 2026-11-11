@@ -36,8 +36,8 @@
             <p class="text-sm text-muted" id="resource-provider" data-testid="resource-provider"></p>
           </div>
           <div class="cluster">
-            <a class="btn btn-primary link-external" id="resource-docs-link" rel="noopener noreferrer" target="_blank" data-testid="resource-docs-link"><span class="icon i-book" aria-hidden="true"></span><span data-i18n="resource.docs"></span></a>
-            <button type="button" class="btn" data-dialog-open="resource-report-dialog" data-testid="resource-report-button"><span class="icon i-flag" aria-hidden="true"></span><span data-i18n="resource.report.open"></span></button>
+            <a class="btn btn-primary link-external" id="resource-docs-link" rel="noopener noreferrer" target="_blank" data-testid="resource-docs-link"><span class="icon i-book" aria-hidden="true" data-testid="resource-docs-link-icon"></span><span data-i18n="resource.docs" data-testid="resource-docs-link-label"></span></a>
+            <button type="button" class="btn" data-dialog-open="resource-report-dialog" data-testid="resource-report-button"><span class="icon i-flag" aria-hidden="true" data-testid="resource-report-button-icon"></span><span data-i18n="resource.report.open" data-testid="resource-report-button-label"></span></button>
           </div>
         </div>
         <div class="cluster" id="resource-badges" data-testid="resource-badges"></div>
@@ -46,9 +46,9 @@
 
       <div data-tabs data-testid="resource-tabs">
         <div class="tablist" role="tablist" data-i18n-attr="aria-label:resource.tabs.label" data-testid="resource-tablist">
-          <button class="tab" role="tab" id="tab-overview" aria-controls="panel-overview" aria-selected="true" data-testid="resource-tab-overview"><span class="icon i-info" aria-hidden="true"></span><span data-i18n="resource.tab.overview"></span></button>
-          <button class="tab" role="tab" id="tab-integration" aria-controls="panel-integration" aria-selected="false" tabindex="-1" data-testid="resource-tab-integration"><span class="icon i-code" aria-hidden="true"></span><span data-i18n="resource.tab.integration"></span></button>
-          <button class="tab" role="tab" id="tab-discussions" aria-controls="panel-discussions" aria-selected="false" tabindex="-1" data-testid="resource-tab-discussions"><span class="icon i-message" aria-hidden="true"></span><span data-i18n="resource.tab.discussions"></span></button>
+          <button class="tab" role="tab" id="tab-overview" aria-controls="panel-overview" aria-selected="true" data-testid="resource-tab-overview"><span class="icon i-info" aria-hidden="true" data-testid="resource-tab-overview-icon"></span><span data-i18n="resource.tab.overview" data-testid="resource-tab-overview-label"></span></button>
+          <button class="tab" role="tab" id="tab-integration" aria-controls="panel-integration" aria-selected="false" tabindex="-1" data-testid="resource-tab-integration"><span class="icon i-code" aria-hidden="true" data-testid="resource-tab-integration-icon"></span><span data-i18n="resource.tab.integration" data-testid="resource-tab-integration-label"></span></button>
+          <button class="tab" role="tab" id="tab-discussions" aria-controls="panel-discussions" aria-selected="false" tabindex="-1" data-testid="resource-tab-discussions"><span class="icon i-message" aria-hidden="true" data-testid="resource-tab-discussions-icon"></span><span data-i18n="resource.tab.discussions" data-testid="resource-tab-discussions-label"></span></button>
         </div>
         <div class="tabpanel" role="tabpanel" id="panel-overview" aria-labelledby="tab-overview" tabindex="0" data-testid="resource-panel-overview"></div>
         <div class="tabpanel" role="tabpanel" id="panel-integration" aria-labelledby="tab-integration" tabindex="0" hidden data-testid="resource-panel-integration"></div>
@@ -69,7 +69,7 @@
           <h2 id="resource-report-title" data-i18n="resource.report.title" data-testid="resource-report-title"></h2>
           <span class="badge badge-sim" data-i18n="sim.badge" data-testid="resource-report-sim"></span>
         </div>
-        <button type="button" class="btn btn-ghost btn-icon" data-dialog-close data-i18n-attr="aria-label:common.close" data-testid="resource-report-close"><span class="icon i-x" aria-hidden="true"></span></button>
+        <button type="button" class="btn btn-ghost btn-icon" data-dialog-close data-i18n-attr="aria-label:common.close" data-testid="resource-report-close"><span class="icon i-x" aria-hidden="true" data-testid="resource-report-close-icon"></span></button>
       </div>
       <div class="dialog-body">
         <p class="text-sm text-muted" data-i18n="resource.report.intro" data-testid="resource-report-intro"></p>
@@ -78,32 +78,32 @@
           <ul id="report-summary-list" data-testid="resource-report-summary-list"></ul>
         </div>
         <div class="field" id="field-kind">
-          <label class="label" for="report-kind"><span data-i18n="resource.report.kind"></span> <span class="req" aria-hidden="true">*</span></label>
+          <label class="label" for="report-kind" data-testid="resource-report-kind-label"><span data-i18n="resource.report.kind" data-testid="resource-report-kind-label-text"></span> <span class="req" aria-hidden="true" data-testid="resource-report-kind-required">*</span></label>
           <select id="report-kind" name="kind" class="select" required aria-describedby="report-kind-error" data-testid="resource-report-kind-input">
-            <option value="" data-i18n="resource.report.choose"></option>
-            <option value="outdated" data-i18n="resource.report.k.outdated"></option>
-            <option value="broken" data-i18n="resource.report.k.broken"></option>
-            <option value="coverage" data-i18n="resource.report.k.coverage"></option>
-            <option value="other" data-i18n="resource.report.k.other"></option>
+            <option value="" data-i18n="resource.report.choose" data-testid="resource-report-kind-option-none"></option>
+            <option value="outdated" data-i18n="resource.report.k.outdated" data-testid="resource-report-kind-option-outdated"></option>
+            <option value="broken" data-i18n="resource.report.k.broken" data-testid="resource-report-kind-option-broken"></option>
+            <option value="coverage" data-i18n="resource.report.k.coverage" data-testid="resource-report-kind-option-coverage"></option>
+            <option value="other" data-i18n="resource.report.k.other" data-testid="resource-report-kind-option-other"></option>
           </select>
           <p class="error-msg" id="report-kind-error" data-testid="resource-report-kind-error" hidden></p>
         </div>
         <div class="field" id="field-detail">
-          <label class="label" for="report-detail"><span data-i18n="resource.report.detail"></span> <span class="req" aria-hidden="true">*</span></label>
+          <label class="label" for="report-detail" data-testid="resource-report-detail-label"><span data-i18n="resource.report.detail" data-testid="resource-report-detail-label-text"></span> <span class="req" aria-hidden="true" data-testid="resource-report-detail-required">*</span></label>
           <p class="hint" id="report-detail-hint" data-i18n="resource.report.detail.hint" data-testid="resource-report-detail-hint"></p>
           <textarea id="report-detail" name="detail" class="textarea" rows="4" required aria-describedby="report-detail-hint report-detail-error" data-testid="resource-report-detail-input"></textarea>
           <p class="error-msg" id="report-detail-error" data-testid="resource-report-detail-error" hidden></p>
         </div>
         <div class="field" id="field-source">
-          <label class="label" for="report-source" data-i18n="resource.report.source"></label>
+          <label class="label" for="report-source" data-i18n="resource.report.source" data-testid="resource-report-source-label"></label>
           <p class="hint" id="report-source-hint" data-i18n="resource.report.source.hint" data-testid="resource-report-source-hint"></p>
           <input id="report-source" name="source" class="input" type="url" inputmode="url" autocomplete="off" placeholder="https://example.org/…" aria-describedby="report-source-hint report-source-error" data-testid="resource-report-source-input">
           <p class="error-msg" id="report-source-error" data-testid="resource-report-source-error" hidden></p>
         </div>
       </div>
       <div class="dialog-foot">
-        <button type="button" class="btn" data-dialog-close data-testid="resource-report-cancel"><span data-i18n="common.cancel"></span></button>
-        <button type="submit" class="btn btn-primary" data-testid="resource-report-submit"><span class="icon i-send" aria-hidden="true"></span><span data-i18n="resource.report.submit"></span></button>
+        <button type="button" class="btn" data-dialog-close data-testid="resource-report-cancel"><span data-i18n="common.cancel" data-testid="resource-report-cancel-label"></span></button>
+        <button type="submit" class="btn btn-primary" data-testid="resource-report-submit"><span class="icon i-send" aria-hidden="true" data-testid="resource-report-submit-icon"></span><span data-i18n="resource.report.submit" data-testid="resource-report-submit-label"></span></button>
       </div>
     </form>
   </dialog>

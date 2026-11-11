@@ -31,14 +31,14 @@
     <header class="page-header">
       <div class="page-header-row">
         <h1 data-i18n="tpl.h1" data-testid="page-h1"></h1>
-        <button type="button" class="btn btn-primary" data-sim data-testid="page-primary-action"><span class="icon i-plus" aria-hidden="true"></span><span data-i18n="tpl.action"></span></button>
+        <button type="button" class="btn btn-primary" data-sim data-testid="page-primary-action"><span class="icon i-plus" aria-hidden="true" data-testid="page-primary-action-icon"></span><span data-i18n="tpl.action" data-testid="page-primary-action-label"></span></button>
       </div>
       <p class="lede" data-i18n="tpl.lede" data-testid="page-lede"></p>
     </header>
 
     <!-- Simulated async list: Sim adds the visible "Simulé / Simulated" marker; try ?state=loading|empty|error -->
     <section aria-labelledby="tpl-list-h" data-testid="tpl-section">
-      <h2 id="tpl-list-h" class="visually-hidden" data-i18n="tpl.h1"></h2>
+      <h2 id="tpl-list-h" class="visually-hidden" data-i18n="tpl.h1" data-testid="tpl-section-h1"></h2>
       <div id="tpl-list"></div>
     </section>
   </main>

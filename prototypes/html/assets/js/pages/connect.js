@@ -1,10 +1,10 @@
-/* Connect: PREVIEW (P1). Intended discovery pattern only; actions are non-functional. Filters work client-side on fictional samples. */
+/* Connect: designed journey (PRD §8: P0 = documented scope and designed journey; the rest = planned, P1/P2). Intended discovery pattern only; actions are non-functional. Filters work client-side on fictional samples. */
 I18N.register({
   fr: {
-    'connect.title': 'Connect (aperçu P1) — 226os', 'connect.badge': 'Aperçu — P1',
-    'connect.lede': 'Mentorat, relecture de CV, préparation d’entretiens et groupes d’étude : le parcours prévu, présenté ici comme aperçu.',
-    'connect.note.title': 'Aperçu — P1, non fonctionnel. ',
-    'connect.note.body': 'Les entrées ci-dessous sont des exemples fictifs pour montrer le modèle de découverte. Aucune mise en relation n’est possible dans ce prototype.',
+    'connect.title': 'Connect (parcours conçu) — 226os', 'connect.badge': 'Parcours conçu (P1/P2)',
+    'connect.lede': 'Mentorat, relecture de CV, préparation d’entretiens et groupes d’étude : le parcours conçu, présenté ici sans fonctionnement réel.',
+    'connect.note.title': 'Parcours conçu (P1/P2), non fonctionnel. ',
+    'connect.note.body': 'Selon le PRD §8, le périmètre de Connect est documenté et son parcours conçu ; la suite est prévue en P1/P2. Cette page montre ce parcours conçu, sans fonctionnement réel. Les entrées ci-dessous sont des exemples fictifs pour montrer le modèle de découverte. Aucune mise en relation n’est possible dans ce prototype.',
     'connect.disc.h': 'Découvrir mentors et collaborations', 'connect.disc.lede': 'Filtrez par compétence, pays et langue. Les actions de mise en relation arrivent plus tard.',
     'connect.filters.label': 'Filtrer les exemples Connect', 'connect.f.skill': 'Compétence', 'connect.f.lang': 'Langue parlée', 'connect.f.reset': 'Réinitialiser',
     'connect.f.skill.all': 'Toutes', 'connect.f.country.all': 'Tous', 'connect.f.lang.all': 'Toutes',
@@ -21,10 +21,10 @@ I18N.register({
     'connect.space.by-interest': 'Espaces par centre d’intérêt', 'connect.space.by-interest.d': 'Groupes thématiques, par exemple apprentissage ou open source.'
   },
   en: {
-    'connect.title': 'Connect (P1 preview) — 226os', 'connect.badge': 'Preview — P1',
-    'connect.lede': 'Mentoring, CV reviews, interview preparation and study groups: the planned journey, shown here as a preview.',
-    'connect.note.title': 'Preview — P1, not functional. ',
-    'connect.note.body': 'The entries below are fictional examples showing the discovery pattern. No contact or matching is possible in this prototype.',
+    'connect.title': 'Connect (designed journey) — 226os', 'connect.badge': 'Designed journey (P1/P2)',
+    'connect.lede': 'Mentoring, CV reviews, interview preparation and study groups: the designed journey, shown here without working behaviour.',
+    'connect.note.title': 'Designed journey (P1/P2), not functional. ',
+    'connect.note.body': 'Per PRD §8, Connect’s scope is documented and its journey designed; the rest is planned for P1/P2. This page shows that designed journey, non-functional. The entries below are fictional examples showing the discovery pattern. No contact or matching is possible in this prototype.',
     'connect.disc.h': 'Discover mentors and collaborations', 'connect.disc.lede': 'Filter by skill, country and language. Contact actions come later.',
     'connect.filters.label': 'Filter Connect examples', 'connect.f.skill': 'Skill', 'connect.f.lang': 'Spoken language', 'connect.f.reset': 'Reset',
     'connect.f.skill.all': 'All', 'connect.f.country.all': 'All', 'connect.f.lang.all': 'All',
@@ -67,13 +67,13 @@ I18N.register({
     load: function () { var r = current(); setCount(r.length); return r; },
     render: function (items, box) {
       box.innerHTML = '<ul class="list list-reset" data-testid="connect-list">' + items.map(function (e, i) {
-        var n = i + 1, per = MOCK.person(e.person), why = 'cx-why-' + n;
+        var n = e.id, per = MOCK.person(e.person), why = 'cx-why-' + n;
         return '<li class="row" data-testid="connect-row-' + n + '"><div class="row-lead"><span class="icon i-' + (e.kind === 'study-group' ? 'users' : e.kind === 'mission' ? 'globe' : 'network') + '" aria-hidden="true" data-testid="connect-row-icon-' + n + '"></span></div>' +
           '<div class="row-main"><div class="cluster"><span class="badge badge-later" data-testid="connect-kind-' + n + '">' + esc(t('connect.kind.' + e.kind)) + '</span><span class="badge badge-sim" data-testid="connect-example-' + n + '">' + esc(t('sim.badge')) + '</span></div>' +
           '<h3 class="row-title" lang="' + e.lang + '" data-user-content data-testid="connect-title-' + n + '">' + esc(e.title) + '</h3>' +
-          '<ul class="tag-list list-reset" data-testid="connect-tags-' + n + '">' + e.skills.map(function (s, j) { return '<li><span class="tag" data-testid="connect-tag-' + n + '-' + (j + 1) + '">' + esc(s) + '</span></li>'; }).join('') + '</ul>' +
+          '<ul class="tag-list list-reset" data-testid="connect-tags-' + n + '">' + e.skills.map(function (s) { return '<li><span class="tag" data-testid="connect-tag-' + n + '-' + s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '">' + esc(s) + '</span></li>'; }).join('') + '</ul>' +
           '<div class="meta"><span class="meta-item" data-testid="connect-by-' + n + '">' + esc(t('connect.row.by')) + '&nbsp;<a href="profile.html?id=' + per.id + '" lang="' + per.lang + '" data-user-content data-testid="connect-person-' + n + '">' + esc(per.name) + '</a></span>' +
-          '<span class="meta-item" data-testid="connect-country-' + n + '"><span class="country"><span class="country-code" aria-hidden="true">' + e.country + '</span><span class="visually-hidden">' + esc(MOCK.countryName(e.country)) + '</span></span> ' + esc(MOCK.countryName(e.country)) + '</span>' +
+          '<span class="meta-item" data-testid="connect-country-' + n + '"><span class="country"><span class="country-code" aria-hidden="true" data-testid="connect-country-code-' + n + '">' + e.country + '</span><span class="visually-hidden" data-testid="connect-country-name-' + n + '">' + esc(MOCK.countryName(e.country)) + '</span></span> ' + esc(MOCK.countryName(e.country)) + '</span>' +
           '<span class="meta-item" data-testid="connect-speaks-' + n + '">' + e.speaks.map(function (l) { return esc(t('connect.lang.' + l)); }).join(', ') + '</span></div></div>' +
           '<div class="row-aside"><button type="button" class="btn btn-sm" disabled aria-describedby="' + why + '" data-testid="connect-action-' + n + '">' + esc(t('connect.row.action')) + '</button><span class="visually-hidden" id="' + why + '" data-testid="connect-action-why-' + n + '">' + esc(t('connect.row.action.why')) + '</span></div></li>';
       }).join('') + '</ul>';
@@ -86,8 +86,8 @@ I18N.register({
   document.addEventListener('i18n:change', function () { fillSelects(); setCount(shown); });
 
   function spaces() {
-    $('#connect-spaces-list').innerHTML = C.spaces.map(function (s, i) {
-      var n = i + 1;
+    $('#connect-spaces-list').innerHTML = C.spaces.map(function (s) {
+      var n = s.id;
       return '<li class="row" data-testid="connect-space-' + n + '"><div class="row-lead"><span class="icon i-' + s.icon + '" aria-hidden="true" data-testid="connect-space-icon-' + n + '"></span></div><div class="row-main"><h3 class="row-title" data-testid="connect-space-title-' + n + '">' + esc(t('connect.space.' + s.id)) + '</h3>' +
         '<p class="row-excerpt" data-testid="connect-space-desc-' + n + '">' + esc(t('connect.space.' + s.id + '.d')) + '</p></div><div class="row-aside"><span class="badge badge-later" data-testid="connect-space-badge-' + n + '">' + esc(t('common.later')) + '</span></div></li>';
     }).join('');

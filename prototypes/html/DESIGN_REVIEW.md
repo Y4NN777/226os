@@ -9,7 +9,7 @@
 | Direction | Graphite & Lime, quiet neutral canvas (#F6F7F4 / white), green primary, orange sparing, lime only on deep-green/dark surfaces | DESIGN.md 2, 2.2 |
 | Density | Technical, dense **list rows** (`.list > .row`), no stat tiles, no invented counters, cards sparingly | Developer audience, scannability on slow/mobile networks; CONVENTIONS 2 |
 | Navigation model | One shell, injected by `shell.js` (single source of truth for 9 domain entries). >=1024px full sidebar 232px; 768-1023px rail 92px; <768px bottom bar (4 domains + "More" opening the drawer) | PRD 11 (shared nav across domains); thumb reach on phones (PRD 7F) |
-| P0 / P1 / P2 representation | P0 = normal links. Connect = `badge-preview` (page exists, content simulated). Language, Access, Intelligence = non-link item with dashed `badge-later` ("Bientot/Soon") plus a visually-hidden reason. Later features never styled as working | PRD 8 "no fake UI"; TRACEABILITY "P1/P2 not represented by fake UI" |
+| P0 / P1 / P2 representation | P0 with own pages = normal links. Connect = `badge-preview` "Parcours conçu (P1/P2)" / "Designed journey (P1/P2)" (PRD 8: P0 = documented scope and designed journey, the rest planned P1/P2; page exists, non-functional, content simulated). Language, Access, Intelligence = P0 delivered across all pages: link to `index.html#domains` with `badge-builtin` "Intégré/Built in" and a visible P0/P1 note (drawer + sidebar; rail keeps it visually hidden). Later features never styled as working; `badge-later` stays for P1/P2 items inside pages |
 | FR/EN rule | French default; UI strings in dictionaries (`I18N.register`); **user content never translated**, carries `lang` + `data-user-content` and an original-language badge; switching language does not reset forms | SPEC US-IDENTITY-001, PRD 5.6/7E; `lang` visible per post |
 | Evidence / verification display | Accepted answer, verified resource, sources and verification date shown as badge **with text/icon** plus `<time>`; source links `link-external`; no claim of official endorsement; all data fictional | DIFF-01/04 in TRACEABILITY |
 | Authorization "view as" | Persona toggle (author / other member / anonymous) on question, profile, project pages to **demonstrate** server-enforced denials (403) and field visibility (profile). Clearly a prototype demonstrator | SPEC US-SOLVE-001 / US-BUILD-001 deny scenarios; PRD journeys A, C |
@@ -19,19 +19,19 @@
 
 ## 2. Coverage matrix
 
-Pages: `index.html` (Explore), `pages/{solve,question,discover,resource,build,project,profile,connect}.html`. States column: L loading, E empty, X error (all forced via `?state=`), plus form validation and simulated success where noted. "Present" means a page and markup exist, not that it was tested.
+Pages: `index.html` (Explore) plus 9 lane pages `pages/{solve,question,discover,resource,build,project,profile,connect,auth}.html` (10 screens in total; `_template.html` is a copy-source, not a screen). States column: L loading, E empty, X error (all forced via `?state=`), plus form validation and simulated success where noted. "Present" means a page and markup exist, not that it was tested.
 
 | PRD domain | CADEV scope (PRD 8) | Screens in prototype | States / notes |
 |---|---|---|---|
 | Explore | accueil, recherche unifiee | `index.html` | client-side text match over mock arrays; L/E/X via `App.Sim` |
 | Solve | Q&A, snippets, accepted answer, votes, search | `solve.html` (list, filters, `#ask` form), `question.html` (detail, answers, vote, accept, tabs, linked items, answer form + preview) | L/E/X, form-summary, vote toggle (not persisted), accepted mark, code blocks |
-| Discover | catalogue, sourced fiches, country/category | `discover.html` (filter bar, rows), `resource.html` (detail, tabs, dialog, sources, linked items) | filters; provenance links; stale/unknown honesty: shown only if mock data models it (not verified per record) |
+| Discover | catalogue, sourced fiches, country/category | `discover.html` (filter bar, rows), `resource.html` (detail, tabs, dialog, sources, linked items) | filters (country, category, type, SDK / language, provider, doc language; `?sdk=`/`?provider=`); provenance links; stale/unknown honesty: shown only if mock data models it (not verified per record) |
 | Build | projets GitHub, besoins, candidatures | `build.html` (directory, filters, publish form + dialog), `project.html` (needs, roles, application dialog, duplicate-submission simulation) | form-summary, dialog, duplicate application demo |
-| Identity & Community | profils, identite liee aux contenus | `profile.html` (tabs, view-as persona, privacy table, dialog, form) | owner / member / anonymous field visibility |
-| Connect | perimetre documente | `connect.html` (preview; rows tagged `badge-later` + `badge-sim`) | honest "coming later" |
+| Identity & Community | profils, identite liee aux contenus | `auth.html` (sign-in / create account, generic errors, 429, session-expired, verification-pending, forgot-password; all simulated), `profile.html` (tabs, view-as persona, privacy table, dialog, form) | owner / member / anonymous field visibility |
+| Connect | perimetre documente et parcours concu | `connect.html` (designed journey, non-functional; rows tagged `badge-later` + `badge-sim`) | honest "coming later" |
 | Language | interface FR/EN | shell toggle on all pages | persisted in `localStorage`, forms not reset (author statement; not re-tested after the last CSS/JS edits) |
 | Access | responsive + reseau | all pages, bottom bar, container-query rows | see sections 4-5 |
-| Intelligence | recherche PostgreSQL + liens contextuels | header search, `?q=` on Explore, `.linked-items` | AI/semantic NOT shown (nav item `later`) |
+| Intelligence | recherche PostgreSQL + liens contextuels | header search, `?q=` on Explore, `.linked-items` | AI/semantic NOT shown; nav item = "Intégré" (P0), suggestions P1 in the note |
 
 | SPEC story | Where represented | Gap |
 |---|---|---|
@@ -41,7 +41,7 @@ Pages: `index.html` (Explore), `pages/{solve,question,discover,resource,build,pr
 | US-IDENTITY-001 (linked resource/project on question; FR/EN switch keeps content) | `.linked-items` on detail pages; language toggle; `lang` + `data-user-content` | none known; not machine-tested |
 | US-ACCESS-001 (slow network, loading/empty/error, no heavy media) | `App.Sim` with skeletons; no media; byte counts below | no throttled-network test run |
 
-Not represented: Identity sign-up/sign-in and settings screens listed in PRD 11 (only profile), account/session flows, publish-resource screen, offline drafts (P2).
+Not represented: Identity settings screen listed in PRD 11 (sign-up/sign-in exist, simulated, in `auth.html`), publish-resource screen, offline drafts (P2).
 
 ## 3. Accessibility
 
@@ -83,11 +83,13 @@ Per-page load example, `question.html`: CSS 69,636 B (6 files) + JS 89,822 B (9 
 | 3 | Package manager: DESIGN.md uses `pnpm`; README uses `npm`; ASTRYX_VERIFICATION.md says package manager `OPEN` | three sources | not decided here; G0 item |
 | 4 | "No StyleX compiler required" (DESIGN.md:85) vs README install including `@stylexjs/stylex` | DESIGN.md vs README | unverified; checklist item 3 |
 | 5 | SPEC defines only **403**; the prototype shows **401** for the anonymous persona (`question.js` `persona === 'anon' ? '401' : '403'`) | SPEC.md:27 only 403 | 401 is **inferred**, not specified. Needs SPEC/OpenAPI decision (401 unauthenticated vs 403 forbidden) |
-| 6 | Nav shows Language, Access, Intelligence as "later", but PRD 8 / TRACEABILITY list P0 slices for them (FR/EN UI, responsive, PostgreSQL search + context links) | PRD 8 vs `shell.js` DOMAINS | cross-cutting P0 parts are delivered (toggle, responsive, search); the nav label means the dedicated domain screens, which could mislead. Needs wording decision |
+| 6 | RESOLVED: Language, Access, Intelligence were labelled "Bientôt/Soon" although PRD 5.6-5.8 give them a P0 delivered across all pages | PRD 5.6-5.8 vs `shell.js` | now "Intégré/Built in" + visible P0/P1 note; `index.html#domains` table has a Statut column (`home-domains.js`) |
 | 7 | Astryx catalogue size: README "150+", earlier second-hand notes ">90"/">150" | README vs ASTRYX_NOTES | official index used; no count relied on |
 | 8 | ASTRYX_NOTES.md "Not verified" list is now partly obsolete (Dialog, Tabs->TabList, Toast, Table etc. confirmed) | official index | superseded in ASTRYX_MAPPING section 1 |
 | 9 | DESIGN.md says dark token set is a *proposed* baseline; prototype ships it as if final | DESIGN.md 2.1 | labelled proposed here; re-measure after Astryx mapping |
-| 10 | PRD 11 lists Inscription/Connexion/Parametres under Identity; prototype has none | PRD 11 | coverage gap (section 2) |
+| 10 | PRD 11 lists Inscription/Connexion/Parametres under Identity; prototype has sign-up/sign-in (`auth.html`, simulated) but no settings screen | PRD 11 | partial coverage gap (section 2) |
+| 11 | Connect label: earlier "Aperçu (P1)" had no doc basis; PRD 8 says P0 = "Périmètre documenté et parcours conçu", rest "Suite prévue (P1/P2)" | PRD 8 | relabelled "Parcours conçu (P1/P2)" in nav, page, badge, domain table |
+| 12 | ASTRYX_NOTES.md was described as verified; it is second-hand | README/mapping | marked superseded; ASTRYX_MAPPING.md is the reference (names verified vs official index only) |
 
 ## 7. Gaps and trade-offs
 
@@ -103,8 +105,32 @@ Per-page load example, `question.html`: CSS 69,636 B (6 files) + JS 89,822 B (9 
 
 1. Human G0 decision on package manager, Astryx pin, DESIGN.md amendments (defineTheme/CLI) and the 401 vs 403 contract.
 2. Execute ASTRYX_MAPPING section 5 checklist (install in `apps/web`, read component pages, write gap records).
-3. Run axe + manual keyboard + one screen-reader pass on the 8 pages; fix; record NOT RUN items as run.
+3. Run axe + manual keyboard + one screen-reader pass on the 10 screens; fix; record NOT RUN items as run.
 4. Throttled-network and gzip measurement on Explore, Solve, Build (US-ACCESS-001).
-5. Decide the wording for nav items Language/Access/Intelligence (conflict 6) and add Identity auth/settings screens or mark them out of the prototype.
+5. Decide the wording for nav items Language/Access/Intelligence (conflict 6) and add the Identity settings screen (auth already exists in `auth.html`) or mark it out of the prototype.
 6. Re-measure contrast on Astryx-rendered components (hover/active/disabled/focus) in light, dark and system.
 7. Ask product/legal review before any "verified"/"accepted" labels use real data.
+
+## 9. Tokens added beyond DESIGN.md
+
+DESIGN.md 2.1 defines 15 semantic roles (background, surfaces, text, border, action, accent, focus, success, warning, error). `assets/css/tokens.css` adds the tokens below, needed for interactive states and components. Ratios are the WCAG values recorded in the `tokens.css` audit comment (recomputed for 10 of them, see section 3); "n/a" = decorative or exempt. Light / dark values given where they differ. These are additions for review; none changes an approved brand colour role.
+
+| Token | Light / dark | Purpose | Contrast (light / dark) |
+|---|---|---|---|
+| `--surface-hover` | #F0F4EA / #243021 | hover background of rows and ghost buttons | link on it 5.04 / n/a |
+| `--action-hover`, `--link-hover` | #3F5F16 / #D0F08E | hover of action and link | on-action on hover 7.34 / 13.03 |
+| `--action-active` | #34500F / #A8D45E | pressed state | 9.13 / 9.65 |
+| `--link` | = action | link colour (alias, kept separate for later divergence) | 5.61 on surface / 11.39 |
+| `--text-disabled` | #7B8A74 both | disabled controls (WCAG exempt); never used for information | exempt |
+| `--border-strong` | #6F7C6B / #7E8E75 | input and control borders (non-text 3:1) | 4.40 on surface / 4.58 |
+| `--success-bg`, `--warning-bg`, `--danger-bg` | #E3F1E7, #FBEFD9, #FCE8E5 / #1B3324, #3A2D12, #3E1F1C | status backgrounds for badges and callouts (always with icon/text) | 5.73, 5.50, 5.58 / 8.46, 8.27, 8.48 |
+| `--info`, `--info-bg` | #1F4FA8 on #E4ECFA / #9CC4FF on #1D2F4D | neutral informational callouts (no info role in DESIGN.md) | 7.66 / 6.45 / 8.95 / 7.51 |
+| `--overlay` | rgba(29,36,32,.55) / rgba(0,0,0,.65) | dialog backdrop | n/a |
+| `--hero-bg`, `--hero-text`, `--hero-accent` | #2B440E, #FFFFFF, #BDE874 / #1B241A, #F4F7EF, #BDE874 | Explore hero band (lime only on deep green/dark) | lime on forest 7.73, white 10.85 / lime on dark surface 11.39 |
+| `--skeleton` | #E3EADC / #2C3926 | loading placeholder | n/a (decorative) |
+| `--code-bg`, `--code-text`, `--code-border` | #1D2420, #E8EEE0, #1D2420 / #0C110B, #E8EEE0, #43503C | code blocks, dark in both themes | text 13.38 / 16.12 |
+| `--code-kw`, `--code-str`, `--code-fn`, `--code-com` | #BDE874, #E6AA66, #9CC4FF, #A3B09B (both) | syntax highlighting (never colour-only: structure and language label remain) | 11.29, 7.78, 8.87, 6.97 / 13.59, 9.36, 10.68, 8.40 |
+| `--inline-code-bg` | #EDF2E7 / #2C3926 | inline `<code>` | text on it 13.92 / 11.28 |
+| `--shadow-raised`, `--shadow-overlay` | rgba graphite / black | elevation of raised surfaces and dialogs | n/a |
+
+Also added: spacing, radius, motion, z-index, layout and font-size scales (DESIGN.md 4 only fixes system fonts), `--target` 44px and `--target-min` 24px. Limits: ratios come from the audit comment, not rendered-pixel measurement; hover/active/disabled rendering and dark values remain a proposed baseline (DESIGN.md 2.1). To be re-validated after the Astryx token mapping.

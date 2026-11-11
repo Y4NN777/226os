@@ -27,10 +27,10 @@
 
     <div id="question-missing" hidden data-testid="question-missing">
       <div class="state state-error" data-testid="question-missing-state">
-        <span class="icon i-alert-circle" aria-hidden="true"></span>
+        <span class="icon i-alert-circle" aria-hidden="true" data-testid="question-missing-state-icon"></span>
         <h1 data-i18n="solve.q.missing.title" data-testid="question-missing-title"></h1>
         <p data-i18n="solve.q.missing.body" data-testid="question-missing-body"></p>
-        <a class="btn btn-sm" href="solve.html" data-testid="question-missing-link"><span class="icon i-arrow-right" aria-hidden="true"></span><span data-i18n="solve.q.back"></span></a>
+        <a class="btn btn-sm" href="solve.html" data-testid="question-missing-link"><span class="icon i-arrow-right" aria-hidden="true" data-testid="question-missing-link-icon"></span><span data-i18n="solve.q.back" data-testid="question-missing-link-label"></span></a>
       </div>
     </div>
 
@@ -43,7 +43,7 @@
       <section class="solve-viewas" aria-labelledby="viewas-h" data-testid="viewas">
         <div class="cluster solve-viewas-head">
           <h2 id="viewas-h" class="text-sm" data-i18n="solve.viewas.h" data-testid="viewas-h"></h2>
-          <span class="badge badge-sim" data-testid="viewas-sim"><span class="icon i-info" aria-hidden="true"></span><span data-i18n="sim.badge"></span></span>
+          <span class="badge badge-sim" data-testid="viewas-sim"><span class="icon i-info" aria-hidden="true" data-testid="viewas-sim-icon"></span><span data-i18n="sim.badge" data-testid="viewas-sim-badge"></span></span>
         </div>
         <div class="segmented" role="group" aria-labelledby="viewas-h" data-testid="viewas-group">
           <button type="button" data-persona="author" aria-pressed="false" data-testid="viewas-author" data-i18n="solve.viewas.author"></button>
@@ -52,7 +52,7 @@
         </div>
         <p class="text-sm" id="viewas-desc" aria-live="polite" data-testid="viewas-desc"></p>
         <div id="viewas-api" class="solve-viewas-api" hidden>
-          <button type="button" class="btn btn-sm" id="viewas-api-btn" data-testid="viewas-api-accept"><span class="icon i-code" aria-hidden="true"></span><span data-i18n="solve.viewas.api"></span></button>
+          <button type="button" class="btn btn-sm" id="viewas-api-btn" data-testid="viewas-api-accept"><span class="icon i-code" aria-hidden="true" data-testid="viewas-api-accept-icon"></span><span data-i18n="solve.viewas.api" data-testid="viewas-api-accept-label"></span></button>
         </div>
         <div id="viewas-result" role="alert" data-testid="viewas-result"></div>
       </section>
@@ -78,13 +78,13 @@
           <section id="answer-form-section" aria-labelledby="answer-form-h" data-testid="answer-form-section">
             <div class="section-head">
               <h2 id="answer-form-h" data-i18n="solve.answer.h" data-testid="answer-form-h"></h2>
-              <span class="badge badge-sim" data-testid="answer-sim"><span class="icon i-info" aria-hidden="true"></span><span data-i18n="sim.badge"></span></span>
+              <span class="badge badge-sim" data-testid="answer-sim"><span class="icon i-info" aria-hidden="true" data-testid="answer-sim-icon"></span><span data-i18n="sim.badge" data-testid="answer-sim-badge"></span></span>
             </div>
 
             <div id="answer-anon" class="callout" hidden data-testid="answer-anon">
-              <span class="icon icon-lead i-lock" aria-hidden="true"></span>
+              <span class="icon icon-lead i-lock" aria-hidden="true" data-testid="answer-anon-icon"></span>
               <div><strong data-i18n="solve.answer.anon.title" data-testid="answer-anon-title"></strong><span data-i18n="solve.answer.anon.body" data-testid="answer-anon-body"></span>
-                <div class="solve-callout-action"><button type="button" class="btn btn-sm" data-sim data-testid="answer-anon-signin"><span class="icon i-user" aria-hidden="true"></span><span data-i18n="solve.answer.anon.cta"></span></button></div></div>
+                <div class="solve-callout-action"><a class="btn btn-sm" href="auth.html" data-testid="answer-anon-signin"><span class="icon i-user" aria-hidden="true" data-testid="answer-anon-signin-icon"></span><span data-i18n="solve.answer.anon.cta" data-testid="answer-anon-signin-label"></span></a></div></div>
             </div>
 
             <form id="answer-form" class="card" novalidate data-testid="answer-form">
@@ -93,12 +93,12 @@
                 <ul id="answer-summary-list" class="list-reset" data-testid="answer-summary-list"></ul>
               </div>
               <div class="field" id="answer-body-field" data-testid="answer-body-field">
-                <label class="label" for="answer-body"><span data-i18n="solve.answer.body.label" data-testid="answer-body-label"></span><span class="req" aria-hidden="true" data-testid="answer-body-req">*</span></label>
+                <label class="label" for="answer-body" data-testid="answer-body-field-label"><span data-i18n="solve.answer.body.label" data-testid="answer-body-label"></span><span class="req" aria-hidden="true" data-testid="answer-body-req">*</span></label>
                 <p class="hint" id="answer-body-hint" data-i18n="solve.answer.body.hint" data-testid="answer-body-hint"></p>
                 <div data-tabs data-testid="answer-tabs">
                   <div class="tablist" role="tablist" data-i18n-attr="aria-label:solve.tabs.label" data-testid="answer-tablist">
-                    <button type="button" class="tab" role="tab" id="answer-tab-write" aria-controls="answer-panel-write" aria-selected="true" data-testid="answer-tab-write"><span class="icon i-edit" aria-hidden="true"></span><span data-i18n="solve.tabs.write"></span></button>
-                    <button type="button" class="tab" role="tab" id="answer-tab-preview" aria-controls="answer-panel-preview" aria-selected="false" data-testid="answer-tab-preview"><span class="icon i-book" aria-hidden="true"></span><span data-i18n="solve.tabs.preview"></span></button>
+                    <button type="button" class="tab" role="tab" id="answer-tab-write" aria-controls="answer-panel-write" aria-selected="true" data-testid="answer-tab-write"><span class="icon i-edit" aria-hidden="true" data-testid="answer-tab-write-icon"></span><span data-i18n="solve.tabs.write" data-testid="answer-tab-write-label"></span></button>
+                    <button type="button" class="tab" role="tab" id="answer-tab-preview" aria-controls="answer-panel-preview" aria-selected="false" data-testid="answer-tab-preview"><span class="icon i-book" aria-hidden="true" data-testid="answer-tab-preview-icon"></span><span data-i18n="solve.tabs.preview" data-testid="answer-tab-preview-label"></span></button>
                   </div>
                   <div class="tabpanel" role="tabpanel" id="answer-panel-write" aria-labelledby="answer-tab-write" data-testid="answer-panel-write">
                     <textarea id="answer-body" class="textarea solve-textarea" name="body" required aria-describedby="answer-body-hint" data-testid="answer-body-input"></textarea>
@@ -117,7 +117,7 @@
                 </select>
               </div>
               <div class="cluster solve-form-actions">
-                <button type="submit" class="btn btn-primary" data-testid="answer-submit"><span class="icon i-send" aria-hidden="true"></span><span data-i18n="solve.answer.submit"></span></button>
+                <button type="submit" class="btn btn-primary" data-testid="answer-submit"><span class="icon i-send" aria-hidden="true" data-testid="answer-submit-icon"></span><span data-i18n="solve.answer.submit" data-testid="answer-submit-label"></span></button>
                 <span class="text-sm text-muted" data-i18n="solve.ask.simnote" data-testid="answer-simnote"></span>
               </div>
             </form>
@@ -131,7 +131,7 @@
           </section>
           <section class="card" aria-labelledby="rep-h" data-testid="reputation-card">
             <h2 id="rep-h" data-i18n="solve.rep.h" data-testid="rep-h"></h2>
-            <p class="text-sm text-muted solve-rep-note"><span class="badge badge-later" data-testid="rep-later"><span class="icon i-clock" aria-hidden="true"></span><span data-i18n="common.later"></span></span></p>
+            <p class="text-sm text-muted solve-rep-note"><span class="badge badge-later" data-testid="rep-later"><span class="icon i-clock" aria-hidden="true" data-testid="rep-later-icon"></span><span data-i18n="common.later" data-testid="rep-later-label"></span></span></p>
             <p class="text-sm" data-i18n="solve.rep.body" data-testid="rep-body"></p>
           </section>
         </aside>

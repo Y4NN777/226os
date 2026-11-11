@@ -55,9 +55,10 @@
       reg.setAttribute('aria-live', 'polite');
       var k = o.kind || 'info', ic = { success: 'check-circle', error: 'alert-circle', info: 'info' }[k];
       var t = el('div', 'toast toast-' + k); t.setAttribute('role', k === 'error' ? 'alert' : 'status');
-      t.setAttribute('data-testid', 'toast-' + k);
-      t.innerHTML = '<span class="icon icon-lead i-' + ic + '" aria-hidden="true"></span><div>' + (o.title ? '<strong>' + esc(o.title) + '</strong>' : '') + esc(o.msg || '') +
-        '</div><button class="btn btn-ghost btn-sm btn-icon" type="button" data-testid="toast-close" aria-label="' + esc(I18N.t('common.close')) + '"><span class="icon i-x" aria-hidden="true"></span></button>';
+      var tid = 'toast-' + k, nth = 1; while ($('[data-testid="' + tid + '"]')) tid = 'toast-' + k + '-' + (++nth);   /* first toast of a kind: toast-info; then toast-info-2... */
+      t.setAttribute('data-testid', tid);
+      t.innerHTML = '<span class="icon icon-lead i-' + ic + '" aria-hidden="true" data-testid="' + tid + '-icon"></span><div data-testid="' + tid + '-body">' + (o.title ? '<strong data-testid="' + tid + '-title">' + esc(o.title) + '</strong>' : '') + '<span data-testid="' + tid + '-message">' + esc(o.msg || '') + '</span>' +
+        '</div><button class="btn btn-ghost btn-sm btn-icon" type="button" data-testid="' + tid + '-close" aria-label="' + esc(I18N.t('common.close')) + '"><span class="icon i-x" aria-hidden="true" data-testid="' + tid + '-close-icon"></span></button>';
       reg.appendChild(t);
       var kill = function () { t.remove(); };
       t.querySelector('button').addEventListener('click', kill);
@@ -96,7 +97,7 @@
   }
   var Tabs = { init: function (r) { r = r || d; var boxes = $$('[data-tabs]', r); if (r.matches && r.matches('[data-tabs]')) boxes.unshift(r); boxes.forEach(initTabs); } };
 
-  /* ---------- Fallback data-testid assigner (CONVENTIONS.md section 5) ----------
+  /* ---------- DEBUG-ONLY fallback data-testid assigner (enabled with ?autotestid=1; off by default, ids are hand-written) ----------
      Names every text / icon / interactive element that still lacks a data-testid, after its nearest testid ancestor
      (`<ancestor>-<icon-name|tag>-N`, unique per page). Runs at boot and on DOM changes (debounced). Explicit data-testid always wins. */
   var TestIds = {
@@ -153,27 +154,32 @@
   var KINDS = { loading: 1, empty: 1, error: 1, notfound: 1 };
   function ensureMarker(box) {
     if ($('[data-sim-marker]') || !box.parentNode) return;
-    var m = el('p', 'sim-marker text-sm text-muted', '<span class="badge badge-sim" data-i18n="sim.badge"></span><span data-i18n="sim.note"></span>');
+    var m = el('p', 'sim-marker text-sm text-muted', '<span class="badge badge-sim" data-i18n="sim.badge" data-testid="sim-marker-badge"></span><span data-i18n="sim.note" data-testid="sim-marker-note"></span>');
     m.setAttribute('data-sim-marker', ''); m.setAttribute('data-testid', 'sim-marker'); box.parentNode.insertBefore(m, box); I18N.apply(m);
   }
-  function actionHtml(a, acts) {
+  /* State ids: `<base>-<loading|empty|error|notfound>` + `-icon|-title|-body|-actions|-action|-retry`; base is `state` unless the box carries data-state-id
+     (needed when a page has several async boxes) or the config passes stateId. */
+  function sbase(box, o) { return (o && o.stateId) || (box && box.getAttribute('data-state-id')) || 'state'; }
+  function actionHtml(a, acts, base) {
     if (!a) return '';
-    var ic = a.icon ? '<span class="icon i-' + a.icon + '" aria-hidden="true"></span>' : '', lab = esc(a.label != null ? a.label : I18N.t(a.labelKey)),
-      cls = 'btn btn-sm' + (a.primary ? ' btn-primary' : ''), tid = a.testid ? ' data-testid="' + esc(a.testid) + '"' : '';
+    var tidv = a.testid || (base + '-action'), tid = ' data-testid="' + esc(tidv) + '"';
+    var ic = a.icon ? '<span class="icon i-' + a.icon + '" aria-hidden="true" data-testid="' + esc(tidv) + '-icon"></span>' : '', lab = esc(a.label != null ? a.label : I18N.t(a.labelKey)),
+      cls = 'btn btn-sm' + (a.primary ? ' btn-primary' : '');
     if (a.href) return '<a class="' + cls + '" href="' + esc(a.href) + '"' + tid + '>' + ic + lab + '</a>';
     acts.push(a.onClick || function () {}); return '<button type="button" class="' + cls + '" data-sim-act="' + (acts.length - 1) + '"' + tid + '>' + ic + lab + '</button>';
   }
-  function stateHtml(kind, o, acts) {
-    var base = kind === 'error' ? { icon: 'alert-circle', key: 'state.error', cls: ' state-error' } : { icon: 'inbox', key: o.emptyKey || 'state.empty', cls: '' };
-    var c = Object.assign({}, base, (kind === 'error' ? o.error : o.empty) || {}), hd = c.heading || 'h3';
-    var act = c.action ? actionHtml(c.action, acts) : '', retry = '';
-    if (kind === 'error' && c.retry !== false) retry = '<button type="button" class="btn btn-sm" data-sim-retry data-testid="state-retry"><span class="icon i-refresh" aria-hidden="true"></span>' + esc(I18N.t('state.retry')) + '</button>';
-    return '<div class="state' + (c.cls || '') + '" data-testid="state-' + kind + '"><span class="icon i-' + c.icon + '" aria-hidden="true"></span><' + hd + (hd === 'h3' ? '' : ' class="h3"') + '>' + esc(I18N.t(c.titleKey || c.key + '.title')) + '</' + hd + '><p>' +
-      esc(I18N.t(c.bodyKey || c.key + '.body')) + '</p>' + (act || retry ? '<div class="state-actions">' + act + retry + '</div>' : '') + '</div>';
+  function stateHtml(kind, o, acts, base) {
+    var b = base + '-' + kind;
+    var def = kind === 'error' ? { icon: 'alert-circle', key: 'state.error', cls: ' state-error' } : { icon: 'inbox', key: o.emptyKey || 'state.empty', cls: '' };
+    var c = Object.assign({}, def, (kind === 'error' ? o.error : o.empty) || {}), hd = c.heading || 'h3';
+    var act = c.action ? actionHtml(c.action, acts, b) : '', retry = '';
+    if (kind === 'error' && c.retry !== false) retry = '<button type="button" class="btn btn-sm" data-sim-retry data-testid="' + base + '-retry"><span class="icon i-refresh" aria-hidden="true" data-testid="' + base + '-retry-icon"></span>' + esc(I18N.t('state.retry')) + '</button>';
+    return '<div class="state' + (c.cls || '') + '" data-testid="' + b + '"><span class="icon i-' + c.icon + '" aria-hidden="true" data-testid="' + b + '-icon"></span><' + hd + (hd === 'h3' ? '' : ' class="h3"') + ' data-testid="' + b + '-title">' + esc(I18N.t(c.titleKey || c.key + '.title')) + '</' + hd + '><p data-testid="' + b + '-body">' +
+      esc(I18N.t(c.bodyKey || c.key + '.body')) + '</p>' + (act || retry ? '<div class="state-actions" data-testid="' + b + '-actions">' + act + retry + '</div>' : '') + '</div>';
   }
-  function skeletonHtml(n) {
+  function skeletonHtml(n, base) {
     var h = ''; n = n || 3; while (n--) h += '<div class="skeleton-row"><span class="skeleton"></span><span class="skeleton"></span></div>';
-    return '<div class="list" data-testid="state-loading" role="status" aria-label="' + esc(I18N.t('state.loading')) + '">' + h + '</div>';
+    return '<div class="list" data-testid="' + base + '-loading" role="status" aria-label="' + esc(I18N.t('state.loading')) + '">' + h + '</div>';
   }
   function wire(box, retryFn) {
     box._simRetry = retryFn; if (box._simWired) return; box._simWired = true;
@@ -188,7 +194,7 @@
       o = o || {}; ensureMarker(box); wire(box, function () { var u = new URL(location.href); u.searchParams.delete('state'); location.href = u.href; });
       function draw() {
         var acts = []; box._simActs = acts; box.setAttribute('aria-live', 'polite'); box.setAttribute('aria-busy', kind === 'loading'); box.setAttribute('data-state', kind);
-        box.innerHTML = kind === 'loading' ? skeletonHtml(o.skeleton) : stateHtml(kind, { error: o, empty: o }, acts); I18N.apply(box);
+        box.innerHTML = kind === 'loading' ? skeletonHtml(o.skeleton, sbase(box, o)) : stateHtml(kind, { error: o, empty: o }, acts, sbase(box, o)); I18N.apply(box);
       }
       box._simDraw = draw; draw();
       if (!box._simLang) { box._simLang = 1; d.addEventListener('i18n:change', function () { box._simDraw(); }); }
@@ -198,8 +204,8 @@
       ensureMarker(box); box.setAttribute('aria-live', 'polite');
       function draw() {
         var acts = []; box._simActs = acts; box.setAttribute('aria-busy', st === 'loading'); box.setAttribute('data-state', st);
-        if (st === 'loading') box.innerHTML = skeletonHtml(o.skeleton);
-        else if (st === 'error' || st === 'empty') box.innerHTML = stateHtml(st, o, acts);
+        if (st === 'loading') box.innerHTML = skeletonHtml(o.skeleton, sbase(box, o));
+        else if (st === 'error' || st === 'empty') box.innerHTML = stateHtml(st, o, acts, sbase(box, o));
         else o.render(items, box);
         I18N.apply(box);
       }
@@ -251,7 +257,7 @@
   function init() {
     I18N.apply(); syncTheme(); syncNav(); Tabs.init(d);
     $$('.js-only').forEach(function (n) { n.hidden = false; });
-    TestIds.auto();
+    if (P.get('autotestid') === '1') TestIds.auto();   /* debug only: positional fallback ids; real ids are hand-written */
   }
   if (d.readyState === 'complete') init(); else d.addEventListener('DOMContentLoaded', init);   /* deferred scripts (dictionaries, pages) run before this */
   window.App = { initials: initials, avatar: avatar, $: $, $$: $$, el: el, esc: esc, Filter: Filter, Sim: Sim, Tabs: Tabs, TestIds: TestIds, Toast: Toast, Dialog: Dialog, Theme: Theme, params: P };

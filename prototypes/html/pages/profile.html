@@ -33,7 +33,7 @@
             <p class="meta" id="profile-sub" data-testid="profile-sub"></p>
           </div>
         </div>
-        <button type="button" class="btn btn-primary" id="profile-edit-open" data-dialog-open="profile-edit-dialog" hidden data-testid="profile-edit-open"><span class="icon i-edit" aria-hidden="true"></span><span data-i18n="profile.edit.open" data-testid="profile-edit-open-label"></span></button>
+        <button type="button" class="btn btn-primary" id="profile-edit-open" data-dialog-open="profile-edit-dialog" hidden data-testid="profile-edit-open"><span class="icon i-edit" aria-hidden="true" data-testid="profile-edit-open-icon"></span><span data-i18n="profile.edit.open" data-testid="profile-edit-open-label"></span></button>
       </div>
       <p class="lede" data-i18n="profile.lede" data-testid="profile-lede"></p>
     </header>
@@ -64,7 +64,7 @@
       <div class="callout" id="profile-anon-note" hidden data-testid="profile-anon-note">
         <span class="icon i-lock" aria-hidden="true" data-testid="profile-anon-icon"></span>
         <div><strong data-i18n="profile.anon.title" data-testid="profile-anon-title"></strong><span data-i18n="profile.anon.body" data-testid="profile-anon-body"></span>
-          <p><button type="button" class="btn btn-sm" data-sim data-testid="profile-anon-signin"><span data-i18n="profile.anon.signin" data-testid="profile-anon-signin-label"></span></button></p></div>
+          <p><a class="btn btn-sm" href="auth.html" data-testid="profile-anon-signin"><span data-i18n="profile.anon.signin" data-testid="profile-anon-signin-label"></span></a></p></div>
       </div>
 
       <div class="with-aside profile-layout">
@@ -84,10 +84,10 @@
                 <button class="tab" role="tab" id="tab-p" aria-controls="panel-p" aria-selected="false" data-i18n="profile.tab.p" data-testid="profile-tab-projects"></button>
                 <button class="tab" role="tab" id="tab-c" aria-controls="panel-c" aria-selected="false" data-i18n="profile.tab.c" data-testid="profile-tab-contributions"></button>
               </div>
-              <div class="tabpanel" role="tabpanel" id="panel-q" aria-labelledby="tab-q" tabindex="0" data-testid="profile-panel-questions"><div id="act-q"></div></div>
-              <div class="tabpanel" role="tabpanel" id="panel-a" aria-labelledby="tab-a" tabindex="0" hidden data-testid="profile-panel-answers"><div id="act-a"></div></div>
-              <div class="tabpanel" role="tabpanel" id="panel-p" aria-labelledby="tab-p" tabindex="0" hidden data-testid="profile-panel-projects"><div id="act-p"></div></div>
-              <div class="tabpanel" role="tabpanel" id="panel-c" aria-labelledby="tab-c" tabindex="0" hidden data-testid="profile-panel-contributions"><div id="act-c"></div></div>
+              <div class="tabpanel" role="tabpanel" id="panel-q" aria-labelledby="tab-q" tabindex="0" data-testid="profile-panel-questions"><div id="act-q" data-state-id="profile-questions-state"></div></div>
+              <div class="tabpanel" role="tabpanel" id="panel-a" aria-labelledby="tab-a" tabindex="0" hidden data-testid="profile-panel-answers"><div id="act-a" data-state-id="profile-answers-state"></div></div>
+              <div class="tabpanel" role="tabpanel" id="panel-p" aria-labelledby="tab-p" tabindex="0" hidden data-testid="profile-panel-projects"><div id="act-p" data-state-id="profile-projects-state"></div></div>
+              <div class="tabpanel" role="tabpanel" id="panel-c" aria-labelledby="tab-c" tabindex="0" hidden data-testid="profile-panel-contributions"><div id="act-c" data-state-id="profile-contributions-state"></div></div>
             </div>
           </section>
 
@@ -122,7 +122,7 @@
     <form id="profile-edit-form" novalidate data-testid="profile-edit-form">
       <div class="dialog-head">
         <h2 id="pe-title" data-i18n="profile.edit.title" data-testid="profile-edit-title"></h2>
-        <button type="button" class="btn btn-ghost btn-icon" data-dialog-close data-i18n-attr="aria-label:common.close" data-testid="profile-edit-close"><span class="icon i-x" aria-hidden="true"></span></button>
+        <button type="button" class="btn btn-ghost btn-icon" data-dialog-close data-i18n-attr="aria-label:common.close" data-testid="profile-edit-close"><span class="icon i-x" aria-hidden="true" data-testid="profile-edit-close-icon"></span></button>
       </div>
       <div class="dialog-body">
         <p class="callout" data-testid="profile-edit-sim"><span class="icon i-info" aria-hidden="true" data-testid="profile-edit-sim-icon"></span><span><span class="badge badge-sim" data-i18n="sim.badge" data-testid="profile-edit-sim-badge"></span> <span data-i18n="profile.edit.sim" data-testid="profile-edit-sim-text"></span></span></p>
@@ -132,14 +132,14 @@
         </div>
 
         <div class="field" id="pe-f-name">
-          <label class="label" for="pe-name"><span data-i18n="profile.edit.name" data-testid="profile-edit-name-label"></span><span class="req" aria-hidden="true">*</span></label>
+          <label class="label" for="pe-name" data-testid="profile-edit-name-field-label"><span data-i18n="profile.edit.name" data-testid="profile-edit-name-label"></span><span class="req" aria-hidden="true" data-testid="profile-edit-name-required">*</span></label>
           <p class="hint" id="pe-name-hint" data-i18n="profile.edit.name.hint" data-testid="profile-edit-name-hint"></p>
           <input class="input" id="pe-name" name="name" type="text" required autocomplete="name" maxlength="80" aria-describedby="pe-name-hint" data-testid="profile-edit-name-input">
           <p class="error-msg" id="pe-name-error" hidden data-testid="profile-edit-name-error"></p>
         </div>
 
         <div class="field" id="pe-f-country">
-          <label class="label" for="pe-country"><span data-i18n="profile.edit.country" data-testid="profile-edit-country-label"></span><span class="req" aria-hidden="true">*</span></label>
+          <label class="label" for="pe-country" data-testid="profile-edit-country-field-label"><span data-i18n="profile.edit.country" data-testid="profile-edit-country-label"></span><span class="req" aria-hidden="true" data-testid="profile-edit-country-required">*</span></label>
           <select class="select" id="pe-country" name="country" required aria-describedby="pe-country-hint" data-testid="profile-edit-country-input"></select>
           <p class="hint" id="pe-country-hint" data-i18n="profile.edit.country.hint" data-testid="profile-edit-country-hint"></p>
           <p class="error-msg" id="pe-country-error" hidden data-testid="profile-edit-country-error"></p>
@@ -147,11 +147,11 @@
 
         <div class="field" id="pe-f-langs">
           <fieldset class="fieldset-plain" aria-describedby="pe-langs-hint" data-testid="profile-edit-langs-fieldset">
-            <legend class="label"><span data-i18n="profile.edit.langs" data-testid="profile-edit-langs-label"></span><span class="req" aria-hidden="true">*</span></legend>
+            <legend class="label"><span data-i18n="profile.edit.langs" data-testid="profile-edit-langs-label"></span><span class="req" aria-hidden="true" data-testid="profile-edit-langs-required">*</span></legend>
             <p class="hint" id="pe-langs-hint" data-i18n="profile.edit.langs.hint" data-testid="profile-edit-langs-hint"></p>
             <div class="cluster">
-              <label class="choice"><input type="checkbox" name="langs" value="fr" id="pe-langs" data-testid="profile-edit-langs-fr-input"><span data-i18n="profile.lang.fr" data-testid="profile-edit-langs-fr-label"></span></label>
-              <label class="choice"><input type="checkbox" name="langs" value="en" data-testid="profile-edit-langs-en-input"><span data-i18n="profile.lang.en" data-testid="profile-edit-langs-en-label"></span></label>
+              <label class="choice" data-testid="profile-edit-langs-fr-choice"><input type="checkbox" name="langs" value="fr" id="pe-langs" data-testid="profile-edit-langs-fr-input"><span data-i18n="profile.lang.fr" data-testid="profile-edit-langs-fr-label"></span></label>
+              <label class="choice" data-testid="profile-edit-langs-en-choice"><input type="checkbox" name="langs" value="en" data-testid="profile-edit-langs-en-input"><span data-i18n="profile.lang.en" data-testid="profile-edit-langs-en-label"></span></label>
             </div>
           </fieldset>
           <p class="error-msg" id="pe-langs-error" hidden data-testid="profile-edit-langs-error"></p>
@@ -187,13 +187,13 @@
         </div>
 
         <div class="field">
-          <label class="choice"><input type="checkbox" id="pe-citypub" name="citypub" aria-describedby="pe-citypub-hint" data-testid="profile-edit-citypub-input"><span data-i18n="profile.edit.citypub" data-testid="profile-edit-citypub-label"></span></label>
+          <label class="choice" data-testid="profile-edit-citypub-choice"><input type="checkbox" id="pe-citypub" name="citypub" aria-describedby="pe-citypub-hint" data-testid="profile-edit-citypub-input"><span data-i18n="profile.edit.citypub" data-testid="profile-edit-citypub-label"></span></label>
           <p class="hint" id="pe-citypub-hint" data-i18n="profile.edit.citypub.hint" data-testid="profile-edit-citypub-hint"></p>
         </div>
       </div>
       <div class="dialog-foot">
         <button type="button" class="btn btn-ghost" data-dialog-close data-i18n="common.cancel" data-testid="profile-edit-cancel"></button>
-        <button type="submit" class="btn btn-primary" id="pe-submit" data-testid="profile-edit-submit"><span class="icon i-check" aria-hidden="true"></span><span data-i18n="profile.edit.save" data-testid="profile-edit-submit-label"></span></button>
+        <button type="submit" class="btn btn-primary" id="pe-submit" data-testid="profile-edit-submit"><span class="icon i-check" aria-hidden="true" data-testid="profile-edit-submit-icon"></span><span data-i18n="profile.edit.save" data-testid="profile-edit-submit-label"></span></button>
       </div>
     </form>
   </dialog>

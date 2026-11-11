@@ -27,7 +27,7 @@
     <header class="page-header">
       <div class="page-header-row">
         <h1 data-i18n="build.h1" data-testid="build-h1"></h1>
-        <button type="button" class="btn btn-primary" data-dialog-open="propose-dialog" data-testid="build-propose-button"><span class="icon i-plus" aria-hidden="true"></span><span data-i18n="build.propose.open"></span></button>
+        <button type="button" class="btn btn-primary" data-dialog-open="propose-dialog" data-testid="build-propose-button"><span class="icon i-plus" aria-hidden="true" data-testid="build-propose-button-icon"></span><span data-i18n="build.propose.open" data-testid="build-propose-button-label"></span></button>
       </div>
       <p class="lede" data-i18n="build.lede" data-testid="build-lede"></p>
     </header>
@@ -37,7 +37,7 @@
       <form id="build-filter-form" class="build-filters" role="search" data-i18n-attr="aria-label:build.filters.title" novalidate data-testid="build-filter-form">
         <div class="field">
           <label class="label visually-hidden" for="build-q" data-i18n="build.search.label" data-testid="build-q-label"></label>
-          <div class="search-field search-field-lg"><span class="icon i-search" aria-hidden="true"></span>
+          <div class="search-field search-field-lg"><span class="icon i-search" aria-hidden="true" data-testid="build-search-icon"></span>
             <input id="build-q" class="input" type="search" name="q" autocomplete="off" data-i18n-attr="placeholder:build.search.placeholder" data-testid="build-q-input"></div>
         </div>
         <div class="filter-bar filter-bar-grid" data-testid="build-filter-bar">
@@ -52,8 +52,8 @@
           <div class="filter-chips" id="build-skill-chips" role="group" aria-labelledby="build-skills-label" data-testid="build-skills-filter"></div>
         </div>
         <div class="cluster">
-          <label class="choice"><input type="checkbox" id="build-open-only" data-testid="build-open-only-input"><span data-i18n="build.filter.openOnly" data-testid="build-open-only-label"></span></label>
-          <button type="button" class="btn btn-ghost btn-sm" id="build-reset" data-testid="build-reset-button"><span class="icon i-refresh" aria-hidden="true"></span><span data-i18n="build.filter.reset"></span></button>
+          <label class="choice" data-testid="build-open-only-choice"><input type="checkbox" id="build-open-only" data-testid="build-open-only-input"><span data-i18n="build.filter.openOnly" data-testid="build-open-only-label"></span></label>
+          <button type="button" class="btn btn-ghost btn-sm" id="build-reset" data-testid="build-reset-button"><span class="icon i-refresh" aria-hidden="true" data-testid="build-reset-button-icon"></span><span data-i18n="build.filter.reset" data-testid="build-reset-button-label"></span></button>
         </div>
       </form>
     </section>
@@ -71,23 +71,23 @@
         <div class="dialog-head">
           <div><h2 id="propose-title" data-i18n="build.propose.title" data-testid="propose-title"></h2>
             <p class="hint"><span class="badge badge-sim" data-i18n="sim.badge" data-testid="propose-sim-badge"></span> <span data-i18n="build.propose.sim" data-testid="propose-sim-note"></span></p></div>
-          <button type="button" class="btn btn-ghost btn-icon" data-dialog-close data-i18n-attr="aria-label:common.close" data-testid="propose-close"><span class="icon i-x" aria-hidden="true"></span></button>
+          <button type="button" class="btn btn-ghost btn-icon" data-dialog-close data-i18n-attr="aria-label:common.close" data-testid="propose-close"><span class="icon i-x" aria-hidden="true" data-testid="propose-close-icon"></span></button>
         </div>
         <div class="dialog-body" id="propose-body">
           <div id="propose-summary" class="form-summary" role="alert" tabindex="-1" hidden data-testid="propose-error-summary"><h2 data-i18n="build.form.summary" data-testid="propose-summary-title"></h2><ul class="list-reset" id="propose-summary-list" data-testid="propose-summary-list"></ul></div>
           <div class="field" data-field="url">
-            <label class="label" for="propose-url"><span data-i18n="build.propose.url" data-testid="propose-url-label"></span><span class="req" aria-hidden="true">*</span></label>
+            <label class="label" for="propose-url" data-testid="propose-url-field-label"><span data-i18n="build.propose.url" data-testid="propose-url-label"></span><span class="req" aria-hidden="true" data-testid="propose-url-required">*</span></label>
             <p class="hint" id="propose-url-hint" data-i18n="build.propose.url.hint" data-testid="propose-url-hint"></p>
             <input id="propose-url" class="input" type="url" inputmode="url" autocomplete="off" required aria-describedby="propose-url-hint propose-url-error" placeholder="https://github.com/exemple-226/mon-projet" data-testid="propose-url-input">
             <p class="error-msg" id="propose-url-error" hidden data-testid="propose-url-error"></p>
           </div>
           <div class="field" data-field="name">
-            <label class="label" for="propose-name"><span data-i18n="build.propose.name" data-testid="propose-name-label"></span><span class="req" aria-hidden="true">*</span></label>
+            <label class="label" for="propose-name" data-testid="propose-name-field-label"><span data-i18n="build.propose.name" data-testid="propose-name-label"></span><span class="req" aria-hidden="true" data-testid="propose-name-required">*</span></label>
             <input id="propose-name" class="input" type="text" maxlength="60" required aria-describedby="propose-name-error" data-testid="propose-name-input">
             <p class="error-msg" id="propose-name-error" hidden data-testid="propose-name-error"></p>
           </div>
           <div class="field" data-field="summary">
-            <label class="label" for="propose-summary-input"><span data-i18n="build.propose.summary" data-testid="propose-summary-label"></span><span class="req" aria-hidden="true">*</span></label>
+            <label class="label" for="propose-summary-input" data-testid="propose-summary-field-label"><span data-i18n="build.propose.summary" data-testid="propose-summary-label"></span><span class="req" aria-hidden="true" data-testid="propose-summary-required">*</span></label>
             <p class="hint" id="propose-summary-hint" data-i18n="build.propose.summary.hint" data-testid="propose-summary-hint"></p>
             <textarea id="propose-summary-input" class="textarea" maxlength="280" required aria-describedby="propose-summary-hint propose-summary-error" data-testid="propose-summary-input"></textarea>
             <p class="error-msg" id="propose-summary-error" hidden data-testid="propose-summary-error"></p>
@@ -98,11 +98,11 @@
           </div>
         </div>
         <div class="dialog-body" id="propose-success" hidden>
-          <div class="state state-success" role="status" data-testid="propose-success"><span class="icon i-check-circle" aria-hidden="true"></span><h3 data-i18n="build.propose.ok.title" data-testid="propose-success-title"></h3><p data-i18n="build.propose.ok.body" data-testid="propose-success-body"></p></div>
+          <div class="state state-success" role="status" data-testid="propose-success"><span class="icon i-check-circle" aria-hidden="true" data-testid="propose-success-icon"></span><h3 data-i18n="build.propose.ok.title" data-testid="propose-success-title"></h3><p data-i18n="build.propose.ok.body" data-testid="propose-success-body"></p></div>
         </div>
         <div class="dialog-foot">
-          <button type="button" class="btn" data-dialog-close data-i18n="common.cancel" data-testid="propose-cancel"></button>
-          <button type="submit" class="btn btn-primary" id="propose-submit" data-testid="propose-submit"><span data-i18n="build.propose.submit"></span></button>
+          <button type="button" class="btn" id="propose-cancel" data-dialog-close data-i18n="common.cancel" data-testid="propose-cancel"></button>
+          <button type="submit" class="btn btn-primary" id="propose-submit" data-testid="propose-submit"><span data-i18n="build.propose.submit" data-testid="propose-submit-label"></span></button>
         </div>
       </form>
     </dialog>

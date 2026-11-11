@@ -108,13 +108,13 @@ I18N.register({
   function viewer() { return VIEWERS[role]; }
   function mineOn(needId) { return apps.filter(function (a) { return a.person === viewer() && a.need === needId; })[0]; }
   function needOf(nid) { return P.needs.filter(function (n) { return n.id === nid; })[0]; }
-  function badgeLang(l, tid) { return '<span class="badge" title="' + esc(t('common.originalLang')) + '" data-testid="' + tid + '"><span class="visually-hidden">' + esc(t('common.originalLang')) + ' </span>' + l.toUpperCase() + '</span>'; }
+  function badgeLang(l, tid) { return '<span class="badge" title="' + esc(t('common.originalLang')) + '" data-testid="' + tid + '"><span class="visually-hidden" data-testid="' + tid + '-label">' + esc(t('common.originalLang')) + ' </span>' + l.toUpperCase() + '</span>'; }
   function personHtml(pid, tid, withLink) {
     var p = MOCK.person(pid); if (!p) return '';
-    var nm = withLink ? '<a href="profile.html?id=' + p.id + '" data-testid="' + tid + '-link">' + esc(p.name) + '</a>' : '<span>' + esc(p.name) + '</span>';
+    var nm = withLink ? '<a href="profile.html?id=' + p.id + '" data-testid="' + tid + '-link">' + esc(p.name) + '</a>' : '<span data-testid="' + tid + '-name">' + esc(p.name) + '</span>';
     return '<span class="person" data-testid="' + tid + '"><span class="avatar avatar-sm" aria-hidden="true" data-testid="' + tid + '-avatar">' + esc(p.initials) + '</span>' + nm + '</span>';
   }
-  function countryHtml(code, tid) { return '<span class="country" data-testid="' + tid + '"><span class="country-code" aria-hidden="true">' + code + '</span><span>' + esc(MOCK.countryName(code)) + '</span></span>'; }
+  function countryHtml(code, tid) { return '<span class="country" data-testid="' + tid + '"><span class="country-code" aria-hidden="true" data-testid="' + tid + '-code">' + code + '</span><span data-testid="' + tid + '-name">' + esc(MOCK.countryName(code)) + '</span></span>'; }
 
   /* ---- Markdown: shared renderer (assets/js/markdown.js); "##" -> h3 ---- */
   function md(src) { return window.Markdown.render(src, { id: 'project-md', headStart: 2 }); }
@@ -125,7 +125,7 @@ I18N.register({
     $('#project-h1').textContent = P.name; $('#project-h1').lang = P.lang; $('#project-h1').setAttribute('data-user-content', '');
     $('#project-crumb').textContent = P.name; document.title = P.name + ' — 226os';
     $('#project-badges').innerHTML = '<span class="badge badge-accepted" data-testid="project-stage-badge">' + esc(MOCK.label(B.stages[P.stage])) + '</span>' +
-      '<span class="badge" data-testid="project-license-badge"><span class="icon i-shield-check" aria-hidden="true"></span>' + esc(t('project.badge.license', { l: P.license })) + '</span>' +
+      '<span class="badge" data-testid="project-license-badge"><span class="icon i-shield-check" aria-hidden="true" data-testid="project-license-badge-icon"></span>' + esc(t('project.badge.license', { l: P.license })) + '</span>' +
       countryHtml(P.country, 'project-country') + badgeLang(P.lang, 'project-lang-badge');
     $('#project-summary').innerHTML = '<span lang="' + P.lang + '" data-user-content data-testid="project-summary-text">' + esc(P.summary) + '</span>';
     $('#project-jump').hidden = false; $('#project-summary').hidden = false;
@@ -134,7 +134,7 @@ I18N.register({
     $('[data-testid=project-demo]').hidden = !P; if (!P) return;
     $('#project-roles').innerHTML = ROLES.map(function (r) {
       var nm = r === 'applicant' ? name('p-kofi') : r === 'member' ? name('p-imane') : '';
-      return '<label class="choice"><input type="radio" name="project-role" value="' + r + '"' + (r === role ? ' checked' : '') + ' data-testid="project-role-' + r + '-input"><span data-testid="project-role-' + r + '-label">' + esc(t('project.role.' + r, { name: nm })) + '</span></label>';
+      return '<label class="choice" data-testid="project-role-' + r + '-choice"><input type="radio" name="project-role" value="' + r + '"' + (r === role ? ' checked' : '') + ' data-testid="project-role-' + r + '-input"><span data-testid="project-role-' + r + '-label">' + esc(t('project.role.' + r, { name: nm })) + '</span></label>';
     }).join('');
     $('#project-role-desc').textContent = t('project.role.desc.' + role);
     var can = P && !!dupTarget(); $('#project-dup-btn').disabled = !can;
@@ -149,12 +149,12 @@ I18N.register({
   /* ---- main view ---- */
   function needsHtml() {
     return P.needs.map(function (n, i) {
-      var k = i + 1, mine = mineOn(n.id), count = apps.filter(function (a) { return a.need === n.id; }).length, act;
+      var k = n.id, mine = mineOn(n.id), count = apps.filter(function (a) { return a.need === n.id; }).length, act;
       if (n.status === 'closed') act = '';
       else if (role === 'owner') act = '<span class="text-sm text-muted" data-testid="project-need-' + k + '-owner">' + esc(t('project.need.mine')) + ' · ' + esc(t('project.need.apps', { n: count })) + '</span>';
-      else if (role === 'anonymous') act = '<button type="button" class="btn btn-sm" data-sim data-testid="project-need-' + k + '-signin"><span class="icon i-lock" aria-hidden="true"></span>' + esc(t('project.need.signin')) + '</button>';
-      else if (mine) act = '<span class="badge badge-verified" data-testid="project-need-' + k + '-sent"><span class="icon i-check" aria-hidden="true"></span>' + esc(t('project.need.sent')) + '</span>';
-      else act = '<button type="button" class="btn btn-primary btn-sm" data-apply="' + n.id + '" aria-label="' + esc(t('project.need.apply.aria', { need: n.title })) + '" data-testid="project-need-' + k + '-apply"><span class="icon i-send" aria-hidden="true"></span>' + esc(t('project.need.apply')) + '</button>';
+      else if (role === 'anonymous') act = '<a class="btn btn-sm" href="auth.html" data-testid="project-need-' + k + '-signin"><span class="icon i-lock" aria-hidden="true" data-testid="project-need-' + k + '-signin-icon"></span><span data-testid="project-need-' + k + '-signin-label">' + esc(t('project.need.signin')) + '</span></a>';
+      else if (mine) act = '<span class="badge badge-verified" data-testid="project-need-' + k + '-sent"><span class="icon i-check" aria-hidden="true" data-testid="project-need-' + k + '-sent-icon"></span>' + esc(t('project.need.sent')) + '</span>';
+      else act = '<button type="button" class="btn btn-primary btn-sm" data-apply="' + n.id + '" aria-label="' + esc(t('project.need.apply.aria', { need: n.title })) + '" data-testid="project-need-' + k + '-apply"><span class="icon i-send" aria-hidden="true" data-testid="project-need-' + k + '-apply-icon"></span>' + esc(t('project.need.apply')) + '</button>';
       return '<li class="row" data-testid="project-need-' + k + '"><div class="row-lead"><span class="icon i-' + (n.status === 'open' ? 'users' : 'lock') + '" aria-hidden="true" data-testid="project-need-' + k + '-icon"></span></div>' +
         '<div class="row-main"><h3 class="row-title" lang="' + P.lang + '" data-user-content data-testid="project-need-' + k + '-title">' + esc(n.title) + '</h3>' +
         '<p class="text-sm"><span class="text-muted" data-testid="project-need-' + k + '-skills-label">' + esc(t('project.needs.skills')) + ' :</span> <strong data-testid="project-need-' + k + '-skills">' + esc(n.skills.map(function (s) { return MOCK.label(B.skills[s]); }).join(', ')) + '</strong></p>' +
@@ -163,31 +163,31 @@ I18N.register({
     }).join('');
   }
   function statusBadge(s, tid) { var c = { pending: 'badge-warn', accepted: 'badge-accepted', declined: 'badge-danger' }[s], ic = { pending: 'clock', accepted: 'check', declined: 'x' }[s];
-    return '<span class="badge ' + c + '" data-testid="' + tid + '"><span class="icon i-' + ic + '" aria-hidden="true"></span>' + esc(t('project.status.' + s)) + '</span>'; }
+    return '<span class="badge ' + c + '" data-testid="' + tid + '"><span class="icon i-' + ic + '" aria-hidden="true" data-testid="' + tid + '-icon"></span>' + esc(t('project.status.' + s)) + '</span>'; }
   function appRow(a, i, owner, pre) {
-    var k = i + 1, tid = pre + '-' + k, nd = needOf(a.need);
+    var tid = pre + '-' + a.id, nd = needOf(a.need);
     return '<li class="row" tabindex="-1" data-app="' + a.id + '" data-testid="' + tid + '"><div class="row-lead"><span class="avatar" aria-hidden="true" data-testid="' + tid + '-avatar">' + esc((MOCK.person(a.person) || {}).initials || '?') + '</span></div>' +
       '<div class="row-main"><h' + (owner ? 3 : 4) + ' class="row-title">' + (owner ? '<a class="row-above" href="profile.html?id=' + a.person + '" data-testid="' + tid + '-person">' + esc(name(a.person)) + '</a>' : '<span data-testid="' + tid + '-person">' + esc(name(a.person)) + '</span>') + '</h' + (owner ? 3 : 4) + '>' +
-      '<p class="text-sm"><span class="text-muted">' + esc(t('project.app.for')) + '</span> <span lang="' + P.lang + '" data-user-content data-testid="' + tid + '-need">' + esc(nd.title) + '</span></p>' +
+      '<p class="text-sm"><span class="text-muted" data-testid="' + tid + '-need-label">' + esc(t('project.app.for')) + '</span> <span lang="' + P.lang + '" data-user-content data-testid="' + tid + '-need">' + esc(nd.title) + '</span></p>' +
       '<p lang="' + a.lang + '" data-user-content data-testid="' + tid + '-motivation">' + esc(a.motivation) + '</p>' +
       '<div class="meta"><span class="meta-item" data-testid="' + tid + '-skills">' + esc(t('project.app.skills')) + ' ' + esc(a.skills) + '</span><span class="meta-item" data-testid="' + tid + '-avail">' + esc(t('project.app.avail')) + ' ' + esc(t('project.avail.' + a.avail)) + '</span>' +
       '<time datetime="' + a.date + '" data-testid="' + tid + '-date">' + esc(MOCK.fmtDate(a.date)) + '</time>' + badgeLang(a.lang, tid + '-lang') + '</div></div>' +
       '<div class="row-aside">' + statusBadge(a.status, tid + '-status') +
       (owner ? (a.status === 'pending'
-        ? '<div class="cluster row-above"><button type="button" class="btn btn-primary btn-sm" data-decide="accepted" data-app-id="' + a.id + '" aria-label="' + esc(t('project.app.accept.aria', { name: name(a.person) })) + '" data-testid="' + tid + '-accept"><span class="icon i-check" aria-hidden="true"></span>' + esc(t('project.app.accept')) + '</button>' +
-          '<button type="button" class="btn btn-danger btn-sm" data-decide="declined" data-app-id="' + a.id + '" aria-label="' + esc(t('project.app.decline.aria', { name: name(a.person) })) + '" data-testid="' + tid + '-decline"><span class="icon i-x" aria-hidden="true"></span>' + esc(t('project.app.decline')) + '</button></div>'
+        ? '<div class="cluster row-above"><button type="button" class="btn btn-primary btn-sm" data-decide="accepted" data-app-id="' + a.id + '" aria-label="' + esc(t('project.app.accept.aria', { name: name(a.person) })) + '" data-testid="' + tid + '-accept"><span class="icon i-check" aria-hidden="true" data-testid="' + tid + '-accept-icon"></span>' + esc(t('project.app.accept')) + '</button>' +
+          '<button type="button" class="btn btn-danger btn-sm" data-decide="declined" data-app-id="' + a.id + '" aria-label="' + esc(t('project.app.decline.aria', { name: name(a.person) })) + '" data-testid="' + tid + '-decline"><span class="icon i-x" aria-hidden="true" data-testid="' + tid + '-decline-icon"></span>' + esc(t('project.app.decline')) + '</button></div>'
         : '<span class="text-sm" data-testid="' + tid + '-decided">' + esc(t('project.app.decided')) + '</span>') : '') + '</div></li>';
   }
   function appsHtml() {
     var h = '<h2 id="project-apps-h" data-testid="project-apps-title">' + esc(t(role === 'owner' ? 'project.apps.title.owner' : 'project.apps.title.other')) + '</h2>';
     if (role === 'owner') {
-      h += '<p class="hint" data-testid="project-apps-private"><span class="icon i-lock" aria-hidden="true"></span> ' + esc(t('project.apps.private')) + '</p>';
+      h += '<p class="hint" data-testid="project-apps-private"><span class="icon i-lock" aria-hidden="true" data-testid="project-apps-private-icon"></span> ' + esc(t('project.apps.private')) + '</p>';
       h += apps.length ? '<ul class="list list-reset" data-testid="project-apps-list">' + apps.map(function (a, i) { return appRow(a, i, true, 'project-app'); }).join('') + '</ul>'
-        : '<div class="state" data-testid="project-apps-empty"><span class="icon i-inbox" aria-hidden="true"></span><h3>' + esc(t('project.apps.empty.title')) + '</h3><p>' + esc(t('project.apps.empty.body')) + '</p></div>';
+        : '<div class="state" data-testid="project-apps-empty"><span class="icon i-inbox" aria-hidden="true" data-testid="project-apps-empty-icon"></span><h3 data-testid="project-apps-empty-title">' + esc(t('project.apps.empty.title')) + '</h3><p data-testid="project-apps-empty-body">' + esc(t('project.apps.empty.body')) + '</p></div>';
       return h;
     }
     var anon = role === 'anonymous';
-    h += '<div class="state state-error" role="status" data-testid="project-apps-denied"><span class="icon i-' + (anon ? 'lock' : 'shield-check') + '" aria-hidden="true"></span><h3>' + esc(t(anon ? 'project.apps.anon.title' : 'project.apps.denied.title')) + '</h3><p>' + esc(t(anon ? 'project.apps.anon.body' : 'project.apps.denied.body')) + '</p></div>';
+    h += '<div class="state state-error" role="status" data-testid="project-apps-denied"><span class="icon i-' + (anon ? 'lock' : 'shield-check') + '" aria-hidden="true" data-testid="project-apps-denied-icon"></span><h3 data-testid="project-apps-denied-title">' + esc(t(anon ? 'project.apps.anon.title' : 'project.apps.denied.title')) + '</h3><p data-testid="project-apps-denied-body">' + esc(t(anon ? 'project.apps.anon.body' : 'project.apps.denied.body')) + '</p>' + (anon ? '<div class="state-actions"><a class="btn btn-sm" href="auth.html" data-testid="project-apps-signin"><span class="icon i-user" aria-hidden="true" data-testid="project-apps-signin-icon"></span><span data-testid="project-apps-signin-label">' + esc(t('project.need.signin')) + '</span></a></div>' : '') + '</div>';
     var mine = anon ? [] : apps.filter(function (a) { return a.person === viewer(); });
     if (mine.length) h += '<h3 class="project-sub" data-testid="project-mine-title">' + esc(t('project.apps.mine')) + '</h3><ul class="list list-reset" data-testid="project-mine-list">' + mine.map(function (a, i) { return appRow(a, i, false, 'project-mine'); }).join('') + '</ul>';
     return h;
@@ -203,9 +203,9 @@ I18N.register({
   }
   function ctxHtml() {
     var q = B.question(P.question), r = B.resource(P.resource), items = '';
-    if (q) items += '<a class="linked-item" href="question.html?id=' + q.id + '" data-testid="project-link-question"><span class="kind"><span class="icon i-help" aria-hidden="true"></span>' + esc(t('project.ctx.question')) + '</span><strong lang="' + q.lang + '" data-user-content>' + esc(q.title) + '</strong></a>';
-    if (r) items += '<a class="linked-item" href="resource.html?id=' + r.id + '" data-testid="project-link-resource"><span class="kind"><span class="icon i-compass" aria-hidden="true"></span>' + esc(t('project.ctx.resource')) + '</span><strong lang="fr" data-user-content>' + esc(r.name) + '</strong></a>';
-    items += '<a class="linked-item" href="profile.html?id=' + P.owner + '" data-testid="project-link-owner"><span class="kind"><span class="icon i-user" aria-hidden="true"></span>' + esc(t('project.ctx.maintainer')) + '</span><strong>' + esc(name(P.owner)) + '</strong></a>';
+    if (q) items += '<a class="linked-item" href="question.html?id=' + q.id + '" data-testid="project-link-question"><span class="kind" data-testid="project-link-question-kind"><span class="icon i-help" aria-hidden="true" data-testid="project-link-question-icon"></span>' + esc(t('project.ctx.question')) + '</span><strong lang="' + q.lang + '" data-user-content data-testid="project-link-question-title">' + esc(q.title) + '</strong></a>';
+    if (r) items += '<a class="linked-item" href="resource.html?id=' + r.id + '" data-testid="project-link-resource"><span class="kind" data-testid="project-link-resource-kind"><span class="icon i-compass" aria-hidden="true" data-testid="project-link-resource-icon"></span>' + esc(t('project.ctx.resource')) + '</span><strong lang="fr" data-user-content data-testid="project-link-resource-title">' + esc(r.name) + '</strong></a>';
+    items += '<a class="linked-item" href="profile.html?id=' + P.owner + '" data-testid="project-link-owner"><span class="kind" data-testid="project-link-owner-kind"><span class="icon i-user" aria-hidden="true" data-testid="project-link-owner-icon"></span>' + esc(t('project.ctx.maintainer')) + '</span><strong data-testid="project-link-owner-title">' + esc(name(P.owner)) + '</strong></a>';
     return '<h2 data-testid="project-ctx-title">' + esc(t('project.ctx.title')) + '</h2><p class="hint" data-testid="project-ctx-lede">' + esc(t('project.ctx.lede')) + '</p><div class="linked-items" data-testid="project-linked-items">' + items + '</div>' +
       (q || r ? '' : '<p class="text-muted text-sm" data-testid="project-ctx-none">' + esc(t('project.ctx.none')) + '</p>');
   }
@@ -217,9 +217,9 @@ I18N.register({
         '<dt data-testid="project-meta-stage-label">' + esc(t('project.side.stage')) + '</dt><dd data-testid="project-meta-stage">' + esc(MOCK.label(B.stages[P.stage])) + '</dd>' +
         '<dt data-testid="project-meta-country-label">' + esc(t('project.side.country')) + '</dt><dd data-testid="project-meta-country">' + esc(MOCK.countryName(P.country)) + ' (' + P.country + ')</dd>' +
         '<dt data-testid="project-meta-langs-label">' + esc(t('project.side.langs')) + '</dt><dd data-testid="project-meta-langs">' + esc(P.langs.map(function (l) { return t('project.lang.' + l); }).join(', ')) + '</dd>' +
-        '<dt data-testid="project-meta-updated-label">' + esc(t('project.side.updated')) + '</dt><dd data-testid="project-meta-updated"><time datetime="' + P.updated + '">' + esc(MOCK.fmtDate(P.updated)) + '</time></dd></dl></section>' +
+        '<dt data-testid="project-meta-updated-label">' + esc(t('project.side.updated')) + '</dt><dd data-testid="project-meta-updated"><time datetime="' + P.updated + '" data-testid="project-meta-updated-date">' + esc(MOCK.fmtDate(P.updated)) + '</time></dd></dl></section>' +
       '<section class="card" aria-labelledby="project-stack-h" data-testid="project-stack-card"><h2 id="project-stack-h" data-testid="project-stack-title">' + esc(t('project.side.stack')) + '</h2><ul class="tag-list list-reset" data-testid="project-stack">' +
-        P.stack.map(function (s, i) { return '<li><span class="tag" data-testid="project-stack-tag-' + (i + 1) + '">' + esc(s) + '</span></li>'; }).join('') + '</ul></section>' +
+        P.stack.map(function (s) { return '<li><span class="tag" data-testid="project-stack-tag-' + s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '">' + esc(s) + '</span></li>'; }).join('') + '</ul></section>' +
       '<section class="card" aria-labelledby="project-maint-h" data-testid="project-maint-card"><h2 id="project-maint-h" data-testid="project-maint-title">' + esc(t('project.side.maint')) + '</h2>' + personHtml(P.owner, 'project-maint-1', true) +
         '<p class="text-sm text-muted" data-testid="project-maint-headline" lang="' + (MOCK.person(P.owner).lang) + '" data-user-content>' + esc(MOCK.person(P.owner).headline) + '</p></section></aside>';
   }
@@ -228,7 +228,7 @@ I18N.register({
       '<section aria-labelledby="project-ctx-h" data-testid="project-ctx">' + ctxHtml().replace('<h2 ', '<h2 id="project-ctx-h" ') + '</section>' +
       '<section aria-labelledby="project-desc-h" data-testid="project-desc"><div class="cluster"><h2 id="project-desc-h" data-testid="project-desc-title">' + esc(t('project.desc.title')) + '</h2>' + badgeLang(P.lang, 'project-desc-lang') + '</div>' +
         '<div class="prose" lang="' + P.lang + '" data-user-content data-testid="project-desc-body">' + md(P.description) + '</div></section>' +
-      '<section id="needs" aria-labelledby="project-needs-h" data-testid="project-needs"><div class="section-head"><h2 id="project-needs-h" data-testid="project-needs-title">' + esc(t('project.needs.title')) + '</h2>' + (role === 'owner' ? '<button type="button" class="btn btn-sm" data-dialog-open="need-dialog" data-testid="project-publish-need"><span class="icon i-plus" aria-hidden="true"></span>' + esc(t('project.pub.btn')) + '</button>' : '') + '</div><ul class="list list-reset project-list" data-testid="project-needs-list">' + needsHtml() + '</ul></section>' +
+      '<section id="needs" aria-labelledby="project-needs-h" data-testid="project-needs"><div class="section-head"><h2 id="project-needs-h" data-testid="project-needs-title">' + esc(t('project.needs.title')) + '</h2>' + (role === 'owner' ? '<button type="button" class="btn btn-sm" data-dialog-open="need-dialog" data-testid="project-publish-need"><span class="icon i-plus" aria-hidden="true" data-testid="project-publish-need-icon"></span>' + esc(t('project.pub.btn')) + '</button>' : '') + '</div><ul class="list list-reset project-list" data-testid="project-needs-list">' + needsHtml() + '</ul></section>' +
       '<section aria-labelledby="project-apps-h" data-testid="project-apps">' + appsHtml() + '</section>' +
       '<section aria-labelledby="project-act-h" data-testid="project-act"><h2 id="project-act-h" data-testid="project-act-title">' + esc(t('project.act.title')) + '</h2><ol class="list list-reset project-list" data-testid="project-activity-list">' + actHtml() + '</ol></section>' +
       '</div>' + asideHtml() + '</div>';
@@ -279,10 +279,10 @@ I18N.register({
     Object.keys(FIELDS).forEach(function (f) {
       var inp = $(FIELDS[f]), msg = $('#apply-' + f + '-error'), has = !!errs[f];
       inp.closest('.field').classList.toggle('has-error', has); if (has) inp.setAttribute('aria-invalid', 'true'); else inp.removeAttribute('aria-invalid');
-      msg.hidden = !has; msg.innerHTML = has ? '<span class="icon i-alert-circle" aria-hidden="true"></span><span>' + esc(t(errs[f])) + '</span>' : '';
+      msg.hidden = !has; msg.innerHTML = has ? '<span class="icon i-alert-circle" aria-hidden="true" data-testid="apply-' + f + '-error-icon"></span><span data-testid="apply-' + f + '-error-text">' + esc(t(errs[f])) + '</span>' : '';
     });
     sum.hidden = !keys.length;
-    $('#apply-summary-list').innerHTML = keys.map(function (f, i) { return '<li><a href="' + FIELDS[f] + '" data-testid="apply-summary-link-' + (i + 1) + '">' + esc(t(errs[f])) + '</a></li>'; }).join('');
+    $('#apply-summary-list').innerHTML = keys.map(function (f, i) { return '<li><a href="' + FIELDS[f] + '" data-testid="apply-summary-link-' + f + '">' + esc(t(errs[f])) + '</a></li>'; }).join('');
     if (focus && keys.length) sum.focus();
   }
   $('#apply-summary-list').addEventListener('click', function (e) { var a = e.target.closest('a'); if (a) { e.preventDefault(); $(a.getAttribute('href')).focus(); } });
@@ -310,7 +310,7 @@ I18N.register({
   function fillNeedForm() {
     var checked = [].slice.call(nform.querySelectorAll('[name=need-skill]:checked')).map(function (x) { return x.value; }), lv = $('#need-level').value;
     $('#need-skills-list').innerHTML = Object.keys(B.skills).map(function (k) {
-      return '<label class="choice"><input type="checkbox" name="need-skill" value="' + k + '"' + (checked.indexOf(k) > -1 ? ' checked' : '') + ' data-testid="need-skill-' + k + '"><span data-testid="need-skill-' + k + '-label">' + esc(MOCK.label(B.skills[k])) + '</span></label>';
+      return '<label class="choice" data-testid="need-skill-' + k + '-choice"><input type="checkbox" name="need-skill" value="' + k + '"' + (checked.indexOf(k) > -1 ? ' checked' : '') + ' data-testid="need-skill-' + k + '"><span data-testid="need-skill-' + k + '-label">' + esc(MOCK.label(B.skills[k])) + '</span></label>';
     }).join('');
     $('#need-level').innerHTML = '<option value="" data-testid="need-level-option-none">' + esc(t('project.pub.level.choose')) + '</option>' + Object.keys(B.levels).map(function (k) {
       return '<option value="' + k + '"' + (k === lv ? ' selected' : '') + ' data-testid="need-level-option-' + k + '">' + esc(MOCK.label(B.levels[k])) + '</option>';
@@ -331,10 +331,10 @@ I18N.register({
       var inp = $(NF[f]), msg = $('#need-' + f + '-error'), has = !!nerrs[f];
       inp.closest('.field').classList.toggle('has-error', has);
       if (f !== 'skills') { if (has) inp.setAttribute('aria-invalid', 'true'); else inp.removeAttribute('aria-invalid'); }
-      msg.hidden = !has; msg.innerHTML = has ? '<span class="icon i-alert-circle" aria-hidden="true"></span><span>' + esc(t(nerrs[f])) + '</span>' : '';
+      msg.hidden = !has; msg.innerHTML = has ? '<span class="icon i-alert-circle" aria-hidden="true" data-testid="need-' + f + '-error-icon"></span><span data-testid="need-' + f + '-error-text">' + esc(t(nerrs[f])) + '</span>' : '';
     });
     sum.hidden = !keys.length;
-    $('#need-summary-list').innerHTML = keys.map(function (f, i) { return '<li><a href="' + NF[f] + '" data-need-field="' + f + '" data-testid="need-summary-link-' + (i + 1) + '">' + esc(t(nerrs[f])) + '</a></li>'; }).join('');
+    $('#need-summary-list').innerHTML = keys.map(function (f, i) { return '<li><a href="' + NF[f] + '" data-need-field="' + f + '" data-testid="need-summary-link-' + f + '">' + esc(t(nerrs[f])) + '</a></li>'; }).join('');
     if (focus && keys.length) sum.focus();
   }
   fillNeedForm();

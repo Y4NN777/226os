@@ -27,7 +27,7 @@
     <header class="page-header">
       <div class="page-header-row">
         <h1 data-i18n="solve.h1" data-testid="page-h1"></h1>
-        <a class="btn btn-primary" href="#ask" data-testid="page-primary-action"><span class="icon i-plus" aria-hidden="true"></span><span data-i18n="solve.ask.cta"></span></a>
+        <a class="btn btn-primary" href="#ask" data-testid="page-primary-action"><span class="icon i-plus" aria-hidden="true" data-testid="page-primary-action-icon"></span><span data-i18n="solve.ask.cta" data-testid="page-primary-action-label"></span></a>
       </div>
       <p class="lede" data-i18n="solve.lede" data-testid="page-lede"></p>
     </header>
@@ -38,22 +38,22 @@
       <form id="solve-form" role="search" novalidate data-i18n-attr="aria-label:solve.form.label" data-testid="solve-form">
         <div class="solve-searchbar">
           <div class="search-field search-field-lg">
-            <span class="icon i-search" aria-hidden="true"></span>
+            <span class="icon i-search" aria-hidden="true" data-testid="solve-search-icon"></span>
             <label class="visually-hidden" for="solve-q" data-i18n="solve.search.label" data-testid="solve-search-label"></label>
             <input id="solve-q" class="input" type="search" name="q" autocomplete="off" data-i18n-attr="placeholder:solve.search.placeholder" data-testid="solve-search-input">
           </div>
-          <button type="submit" class="btn" data-testid="solve-search-submit"><span class="icon i-search" aria-hidden="true"></span><span data-i18n="solve.search.submit"></span></button>
-          <button type="button" class="btn solve-filter-toggle" id="solve-filter-toggle" aria-expanded="false" aria-controls="solve-filters" data-testid="solve-filter-toggle"><span class="icon i-filter" aria-hidden="true"></span><span data-i18n="solve.filters.title"></span><span class="badge" id="solve-filter-count" hidden data-testid="solve-filter-count"></span></button>
+          <button type="submit" class="btn" data-testid="solve-search-submit"><span class="icon i-search" aria-hidden="true" data-testid="solve-search-submit-icon"></span><span data-i18n="solve.search.submit" data-testid="solve-search-submit-label"></span></button>
+          <button type="button" class="btn solve-filter-toggle" id="solve-filter-toggle" aria-expanded="false" aria-controls="solve-filters" data-testid="solve-filter-toggle"><span class="icon i-filter" aria-hidden="true" data-testid="solve-filter-toggle-icon"></span><span data-i18n="solve.filters.title" data-testid="solve-filter-toggle-label"></span><span class="badge" id="solve-filter-count" hidden data-testid="solve-filter-count"></span></button>
         </div>
 
         <div class="with-filters solve-layout">
           <div class="filter-panel solve-filters-collapsed" id="solve-filters" data-testid="solve-filters">
             <fieldset data-testid="solve-status-fieldset">
               <legend data-i18n="solve.filter.status" data-testid="solve-status-legend"></legend>
-              <label class="choice"><input type="radio" name="status" value="" checked data-testid="solve-status-all-input"><span data-i18n="common.all" data-testid="solve-status-all"></span></label>
-              <label class="choice"><input type="radio" name="status" value="unanswered" data-testid="solve-status-unanswered-input"><span data-i18n="solve.status.unanswered" data-testid="solve-status-unanswered"></span></label>
-              <label class="choice"><input type="radio" name="status" value="answered" data-testid="solve-status-answered-input"><span data-i18n="solve.status.answered" data-testid="solve-status-answered"></span></label>
-              <label class="choice"><input type="radio" name="status" value="accepted" data-testid="solve-status-accepted-input"><span data-i18n="solve.status.accepted" data-testid="solve-status-accepted"></span></label>
+              <label class="choice" data-testid="solve-status-all-choice"><input type="radio" name="status" value="" checked data-testid="solve-status-all-input"><span data-i18n="common.all" data-testid="solve-status-all"></span></label>
+              <label class="choice" data-testid="solve-status-unanswered-choice"><input type="radio" name="status" value="unanswered" data-testid="solve-status-unanswered-input"><span data-i18n="solve.status.unanswered" data-testid="solve-status-unanswered"></span></label>
+              <label class="choice" data-testid="solve-status-answered-choice"><input type="radio" name="status" value="answered" data-testid="solve-status-answered-input"><span data-i18n="solve.status.answered" data-testid="solve-status-answered"></span></label>
+              <label class="choice" data-testid="solve-status-accepted-choice"><input type="radio" name="status" value="accepted" data-testid="solve-status-accepted-input"><span data-i18n="solve.status.accepted" data-testid="solve-status-accepted"></span></label>
             </fieldset>
             <fieldset data-testid="solve-tags-fieldset">
               <legend data-i18n="solve.filter.tags" data-testid="solve-tags-legend"></legend>
@@ -71,7 +71,7 @@
                 <option value="en" data-testid="solve-lang-en">English</option>
               </select>
             </div>
-            <button type="button" class="btn btn-ghost" id="solve-reset" disabled data-testid="solve-reset"><span class="icon i-refresh" aria-hidden="true"></span><span data-i18n="solve.filter.reset"></span></button>
+            <button type="button" class="btn btn-ghost" id="solve-reset" disabled data-testid="solve-reset"><span class="icon i-refresh" aria-hidden="true" data-testid="solve-reset-icon"></span><span data-i18n="solve.filter.reset" data-testid="solve-reset-label"></span></button>
           </div>
 
           <div class="solve-results">
@@ -87,7 +87,7 @@
               </div>
             </div>
             <div id="solve-list" data-testid="solve-list"></div>
-            <p class="callout" data-testid="solve-notfound-callout"><span class="icon icon-lead i-help" aria-hidden="true"></span><span><strong data-i18n="solve.notfound.title" data-testid="solve-notfound-title"></strong> <span data-i18n="solve.notfound.body" data-testid="solve-notfound-body"></span> <a href="#ask" data-i18n="solve.ask.cta" data-testid="solve-notfound-link"></a></span></p>
+            <p class="callout" data-testid="solve-notfound-callout"><span class="icon icon-lead i-help" aria-hidden="true" data-testid="solve-notfound-callout-icon"></span><span><strong data-i18n="solve.notfound.title" data-testid="solve-notfound-title"></strong> <span data-i18n="solve.notfound.body" data-testid="solve-notfound-body"></span> <a href="#ask" data-i18n="solve.ask.cta" data-testid="solve-notfound-link"></a></span></p>
           </div>
         </div>
       </form>
@@ -96,12 +96,12 @@
     <section id="ask" class="section solve-ask" aria-labelledby="ask-h" data-testid="ask-section">
       <div class="section-head">
         <h2 id="ask-h" tabindex="-1" data-i18n="solve.ask.h" data-testid="ask-h"></h2>
-        <span class="badge badge-sim" data-testid="ask-sim"><span class="icon i-info" aria-hidden="true"></span><span data-i18n="sim.badge"></span></span>
+        <span class="badge badge-sim" data-testid="ask-sim"><span class="icon i-info" aria-hidden="true" data-testid="ask-sim-icon"></span><span data-i18n="sim.badge" data-testid="ask-sim-badge"></span></span>
       </div>
       <p class="text-muted text-sm solve-ask-intro" data-i18n="solve.ask.intro" data-testid="ask-intro"></p>
 
       <div id="ask-success" class="callout callout-success" role="status" hidden data-testid="ask-success">
-        <span class="icon icon-lead i-check-circle" aria-hidden="true"></span>
+        <span class="icon icon-lead i-check-circle" aria-hidden="true" data-testid="ask-success-icon"></span>
         <div><strong data-i18n="solve.ask.success.title" data-testid="ask-success-title"></strong><span id="ask-success-body" data-testid="ask-success-body"></span></div>
       </div>
 
@@ -112,19 +112,19 @@
         </div>
 
         <div class="field" id="ask-title-field" data-testid="ask-title-field">
-          <label class="label" for="ask-title"><span data-i18n="solve.ask.title.label" data-testid="ask-title-label"></span><span class="req" aria-hidden="true" data-testid="ask-title-req">*</span></label>
+          <label class="label" for="ask-title" data-testid="ask-title-field-label"><span data-i18n="solve.ask.title.label" data-testid="ask-title-label"></span><span class="req" aria-hidden="true" data-testid="ask-title-req">*</span></label>
           <p class="hint" id="ask-title-hint" data-i18n="solve.ask.title.hint" data-testid="ask-title-hint"></p>
           <input id="ask-title" class="input" name="title" type="text" required maxlength="150" aria-describedby="ask-title-hint" data-testid="ask-title-input">
           <p class="error-msg" id="ask-title-error" hidden data-testid="ask-title-error"></p>
         </div>
 
         <div class="field" id="ask-body-field" data-testid="ask-body-field">
-          <label class="label" for="ask-body"><span data-i18n="solve.ask.body.label" data-testid="ask-body-label"></span><span class="req" aria-hidden="true" data-testid="ask-body-req">*</span></label>
+          <label class="label" for="ask-body" data-testid="ask-body-field-label"><span data-i18n="solve.ask.body.label" data-testid="ask-body-label"></span><span class="req" aria-hidden="true" data-testid="ask-body-req">*</span></label>
           <p class="hint" id="ask-body-hint" data-testid="ask-body-hint"><span data-i18n="solve.ask.body.hint1" data-testid="ask-body-hint-1"></span> <code data-testid="ask-body-hint-bold">**gras**</code>, <code data-testid="ask-body-hint-code">`code`</code>, <code data-testid="ask-body-hint-fence">```go</code> <span data-i18n="solve.ask.body.hint2" data-testid="ask-body-hint-2"></span></p>
           <div data-tabs data-testid="ask-tabs">
             <div class="tablist" role="tablist" data-i18n-attr="aria-label:solve.tabs.label" data-testid="ask-tablist">
-              <button type="button" class="tab" role="tab" id="ask-tab-write" aria-controls="ask-panel-write" aria-selected="true" data-testid="ask-tab-write"><span class="icon i-edit" aria-hidden="true"></span><span data-i18n="solve.tabs.write"></span></button>
-              <button type="button" class="tab" role="tab" id="ask-tab-preview" aria-controls="ask-panel-preview" aria-selected="false" data-testid="ask-tab-preview"><span class="icon i-book" aria-hidden="true"></span><span data-i18n="solve.tabs.preview"></span></button>
+              <button type="button" class="tab" role="tab" id="ask-tab-write" aria-controls="ask-panel-write" aria-selected="true" data-testid="ask-tab-write"><span class="icon i-edit" aria-hidden="true" data-testid="ask-tab-write-icon"></span><span data-i18n="solve.tabs.write" data-testid="ask-tab-write-label"></span></button>
+              <button type="button" class="tab" role="tab" id="ask-tab-preview" aria-controls="ask-panel-preview" aria-selected="false" data-testid="ask-tab-preview"><span class="icon i-book" aria-hidden="true" data-testid="ask-tab-preview-icon"></span><span data-i18n="solve.tabs.preview" data-testid="ask-tab-preview-label"></span></button>
             </div>
             <div class="tabpanel" role="tabpanel" id="ask-panel-write" aria-labelledby="ask-tab-write" data-testid="ask-panel-write">
               <textarea id="ask-body" class="textarea solve-textarea" name="body" required aria-describedby="ask-body-hint" data-testid="ask-body-input"></textarea>
@@ -137,7 +137,7 @@
         </div>
 
         <div class="field" id="ask-tags-field" data-testid="ask-tags-field">
-          <label class="label" for="ask-tags"><span data-i18n="solve.ask.tags.label" data-testid="ask-tags-label"></span><span class="req" aria-hidden="true" data-testid="ask-tags-req">*</span></label>
+          <label class="label" for="ask-tags" data-testid="ask-tags-field-label"><span data-i18n="solve.ask.tags.label" data-testid="ask-tags-label"></span><span class="req" aria-hidden="true" data-testid="ask-tags-req">*</span></label>
           <p class="hint" id="ask-tags-hint" data-i18n="solve.ask.tags.hint" data-testid="ask-tags-hint"></p>
           <input id="ask-tags" class="input" name="tags" type="text" required autocomplete="off" aria-describedby="ask-tags-hint" data-i18n-attr="placeholder:solve.ask.tags.placeholder" data-testid="ask-tags-input">
           <p class="error-msg" id="ask-tags-error" hidden data-testid="ask-tags-error"></p>
@@ -160,7 +160,7 @@
         </div>
 
         <div class="cluster solve-form-actions">
-          <button type="submit" class="btn btn-primary" id="ask-submit" data-testid="ask-submit"><span class="icon i-send" aria-hidden="true"></span><span data-i18n="solve.ask.submit"></span></button>
+          <button type="submit" class="btn btn-primary" id="ask-submit" data-testid="ask-submit"><span class="icon i-send" aria-hidden="true" data-testid="ask-submit-icon"></span><span data-i18n="solve.ask.submit" data-testid="ask-submit-label"></span></button>
           <button type="reset" class="btn btn-ghost" id="ask-reset" data-testid="ask-reset" data-i18n="solve.ask.reset"></button>
           <span class="text-sm text-muted" data-i18n="solve.ask.simnote" data-testid="ask-simnote"></span>
         </div>

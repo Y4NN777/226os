@@ -28,14 +28,14 @@
   /* ---------- filter controls ---------- */
   var tagCounts = {}; all.forEach(function (q) { q.tags.forEach(function (x) { tagCounts[x] = (tagCounts[x] || 0) + 1; }); });
   var topTags = Object.keys(tagCounts).sort(function (a, b) { return tagCounts[b] - tagCounts[a] || (a < b ? -1 : 1); }).slice(0, 10);
-  $('#solve-tag-filters').innerHTML = topTags.map(function (x, i) {
-    return '<label class="choice"><input type="checkbox" name="tag" value="' + esc(x) + '" data-testid="solve-tag-' + (i + 1) + '-input"><span class="mono" data-testid="solve-tag-' + (i + 1) + '-label">' + esc(x) + '</span></label>';
+  $('#solve-tag-filters').innerHTML = topTags.map(function (x) {
+    return '<label class="choice" data-testid="solve-tag-filter-' + x + '-choice"><input type="checkbox" name="tag" value="' + esc(x) + '" data-testid="solve-tag-filter-' + x + '-input"><span class="mono" data-testid="solve-tag-filter-' + x + '-label">' + esc(x) + '</span></label>';
   }).join('');
   function fillCountries() {
     var sel = $('#solve-country'), cur = sel.value, used = {};
     all.forEach(function (q) { used[q.country] = 1; });
     sel.innerHTML = '<option value="" data-testid="solve-country-all">' + esc(t('common.all')) + '</option>' +
-      M.countries.filter(function (c) { return used[c.code]; }).map(function (c, i) { return '<option value="' + c.code + '" data-testid="solve-country-' + (i + 1) + '">' + esc(c.code + ' — ' + M.label(c)) + '</option>'; }).join('');
+      M.countries.filter(function (c) { return used[c.code]; }).map(function (c) { return '<option value="' + c.code + '" data-testid="solve-country-' + c.code.toLowerCase() + '">' + esc(c.code + ' — ' + M.label(c)) + '</option>'; }).join('');
     sel.value = cur;
   }
   fillCountries();
@@ -59,31 +59,31 @@
     load: function () { var r = filtered(); $('#solve-count').textContent = pl('solve.count', r.length); return r; },
     render: renderList
   });
-  function cc(code, id) { return '<span class="country" data-testid="solve-country-code-' + id + '"><span class="country-code">' + code + '</span><span class="visually-hidden">' + esc(M.countryName(code)) + '</span></span>'; }
+  function cc(code, id) { return '<span class="country" data-testid="solve-country-code-' + id + '"><span class="country-code" data-testid="solve-country-code-' + id + '-code">' + code + '</span><span class="visually-hidden" data-testid="solve-country-code-' + id + '-name">' + esc(M.countryName(code)) + '</span></span>'; }
   function stats(q, n, kind) {
     var id = kind + '-' + n;
-    return '<span class="solve-stat" data-testid="solve-votes-' + id + '"><strong>' + q.votes + '</strong> <span class="solve-stat-label">' + esc(t('solve.row.votes.' + (q.votes === 1 ? 'one' : 'other'), { n: '' }).trim()) + '</span></span>' +
+    return '<span class="solve-stat" data-testid="solve-votes-' + id + '"><strong data-testid="solve-votes-' + id + '-count">' + q.votes + '</strong> <span class="solve-stat-label" data-testid="solve-votes-' + id + '-label">' + esc(t('solve.row.votes.' + (q.votes === 1 ? 'one' : 'other'), { n: '' }).trim()) + '</span></span>' +
       '<span class="solve-stat' + (q.accepted ? ' solve-stat-accepted' : q.answers === 0 ? ' solve-stat-none' : '') + '" data-testid="solve-answers-' + id + '">' +
-      (q.accepted ? '<span class="icon i-check" aria-hidden="true"></span>' : '') + '<strong>' + q.answers + '</strong> <span class="solve-stat-label">' + esc(t('solve.row.answers.' + (q.answers === 1 ? 'one' : 'other'), { n: '' }).trim()) + '</span></span>';
+      (q.accepted ? '<span class="icon i-check" aria-hidden="true" data-testid="solve-answers-' + id + '-icon"></span>' : '') + '<strong data-testid="solve-answers-' + id + '-count">' + q.answers + '</strong> <span class="solve-stat-label" data-testid="solve-answers-' + id + '-label">' + esc(t('solve.row.answers.' + (q.answers === 1 ? 'one' : 'other'), { n: '' }).trim()) + '</span></span>';
   }
   function row(q, i) {
-    var n = (st.page - 1) * PER + i + 1, p = M.person(q.author) || { name: q.author };
+    var n = q.id, p = M.person(q.author) || { name: q.author };
     return '<li class="row" data-testid="solve-row-' + n + '">' +
       '<div class="row-lead"><div class="solve-stats" data-testid="solve-stats-' + n + '">' + stats(q, n, 'lead') + '</div></div>' +
       '<div class="row-main">' +
       '<h3 class="row-title"><a href="question.html?id=' + q.id + '" lang="' + q.lang + '" data-user-content data-testid="solve-link-' + n + '">' + esc(q.title) + '</a></h3>' +
       '<p class="row-excerpt" lang="' + q.lang + '" data-user-content data-testid="solve-excerpt-' + n + '">' + esc(q.excerpt) + '</p>' +
-      '<ul class="tag-list list-reset" data-testid="solve-tags-' + n + '">' + q.tags.map(function (x, j) { return '<li><span class="tag" data-testid="solve-tag-' + n + '-' + (j + 1) + '">' + esc(x) + '</span></li>'; }).join('') + '</ul>' +
+      '<ul class="tag-list list-reset" data-testid="solve-tags-' + n + '">' + q.tags.map(function (x) { return '<li><span class="tag" data-testid="solve-tag-' + n + '-' + x + '">' + esc(x) + '</span></li>'; }).join('') + '</ul>' +
       '<div class="meta">' +
       '<span class="meta-item solve-inline-stats" data-testid="solve-inline-stats-' + n + '">' + stats(q, n, 'inline') + '</span>' +
-      '<span class="meta-item"><span class="text-muted">' + esc(t('solve.row.by')) + '</span> <a class="row-above" href="profile.html?id=' + q.author + '" data-testid="solve-author-' + n + '">' + esc(p.name) + '</a></span>' +
-      '<span class="meta-item">' + cc(q.country, n) + '</span>' +
+      '<span class="meta-item" data-testid="solve-by-' + n + '"><span class="text-muted" data-testid="solve-by-label-' + n + '">' + esc(t('solve.row.by')) + '</span> <a class="row-above" href="profile.html?id=' + q.author + '" data-testid="solve-author-' + n + '">' + esc(p.name) + '</a></span>' +
+      '<span class="meta-item" data-testid="solve-country-' + n + '">' + cc(q.country, n) + '</span>' +
       '<time class="meta-item" datetime="' + q.date + '" data-testid="solve-date-' + n + '">' + M.fmtDate(q.date) + '</time>' +
-      '<span class="meta-item mono" data-testid="solve-env-' + n + '"><span class="visually-hidden">' + esc(t('solve.row.env')) + ' </span>' + esc(q.env) + '</span></div></div>' +
+      '<span class="meta-item mono" data-testid="solve-env-' + n + '"><span class="visually-hidden" data-testid="solve-env-label-' + n + '">' + esc(t('solve.row.env')) + ' </span>' + esc(q.env) + '</span></div></div>' +
       '<div class="row-aside">' +
-      (q.accepted ? '<span class="badge badge-accepted" data-testid="solve-accepted-' + n + '"><span class="icon i-check-circle" aria-hidden="true"></span>' + esc(t('solve.row.accepted')) + '</span>'
-        : q.answers === 0 ? '<span class="badge badge-warn" data-testid="solve-unanswered-' + n + '"><span class="icon i-help" aria-hidden="true"></span>' + esc(t('solve.row.unanswered')) + '</span>' : '') +
-      '<span class="badge" data-testid="solve-lang-badge-' + n + '"><span aria-hidden="true">' + q.lang.toUpperCase() + '</span><span class="visually-hidden">' + esc(t('solve.row.lang', { l: langName(q.lang) })) + '</span></span>' +
+      (q.accepted ? '<span class="badge badge-accepted" data-testid="solve-accepted-' + n + '"><span class="icon i-check-circle" aria-hidden="true" data-testid="solve-accepted-icon-' + n + '"></span>' + esc(t('solve.row.accepted')) + '</span>'
+        : q.answers === 0 ? '<span class="badge badge-warn" data-testid="solve-unanswered-' + n + '"><span class="icon i-help" aria-hidden="true" data-testid="solve-unanswered-icon-' + n + '"></span>' + esc(t('solve.row.unanswered')) + '</span>' : '') +
+      '<span class="badge" data-testid="solve-lang-badge-' + n + '"><span aria-hidden="true" data-testid="solve-lang-badge-' + n + '-code">' + q.lang.toUpperCase() + '</span><span class="visually-hidden" data-testid="solve-lang-badge-' + n + '-name">' + esc(t('solve.row.lang', { l: langName(q.lang) })) + '</span></span>' +
       '</div></li>';
   }
   function renderList(items, box) {
@@ -93,9 +93,9 @@
     var pg = '';
     if (pages > 1) {
       pg = '<nav class="pagination" aria-label="' + esc(t('common.pagination')) + '" data-testid="solve-pagination">' +
-        '<button type="button" class="btn" data-page="' + (st.page - 1) + '"' + (st.page === 1 ? ' disabled' : '') + ' data-testid="solve-page-prev"><span class="icon i-chevron-left" aria-hidden="true"></span><span>' + esc(t('common.prev')) + '</span></button>';
+        '<button type="button" class="btn" data-page="' + (st.page - 1) + '"' + (st.page === 1 ? ' disabled' : '') + ' data-testid="solve-page-prev"><span class="icon i-chevron-left" aria-hidden="true" data-testid="solve-page-prev-icon"></span><span data-testid="solve-page-prev-label">' + esc(t('common.prev')) + '</span></button>';
       for (var i = 1; i <= pages; i++) pg += '<button type="button" class="btn" data-page="' + i + '" aria-label="' + esc(t('solve.page.label', { n: i })) + '"' + (i === st.page ? ' aria-current="page"' : '') + ' data-testid="solve-page-' + i + '">' + i + '</button>';
-      pg += '<button type="button" class="btn" data-page="' + (st.page + 1) + '"' + (st.page === pages ? ' disabled' : '') + ' data-testid="solve-page-next"><span>' + esc(t('common.next')) + '</span><span class="icon i-chevron-right" aria-hidden="true"></span></button></nav>';
+      pg += '<button type="button" class="btn" data-page="' + (st.page + 1) + '"' + (st.page === pages ? ' disabled' : '') + ' data-testid="solve-page-next"><span data-testid="solve-page-next-label">' + esc(t('common.next')) + '</span><span class="icon i-chevron-right" aria-hidden="true" data-testid="solve-page-next-icon"></span></button></nav>';
     }
     box.innerHTML = '<ul class="list list-reset" data-testid="solve-rows">' + slice.map(row).join('') + '</ul>' + pg;
   }
@@ -136,8 +136,8 @@
       var field = $('#ask-' + f + '-field'), inp = $('#ask-' + f), msg = $('#ask-' + f + '-error'), hint = $('#ask-' + f + '-hint'), key = errs[f];
       field.classList.toggle('has-error', !!key); msg.hidden = !key;
       if (key) { inp.setAttribute('aria-invalid', 'true'); inp.setAttribute('aria-describedby', hint.id + ' ' + msg.id);
-        msg.innerHTML = '<span class="icon i-alert-circle" aria-hidden="true"></span><span>' + esc(t(key)) + '</span>';
-        list.push('<li><a href="#ask-' + f + '" data-focus="ask-' + f + '" data-testid="ask-summary-link-' + (list.length + 1) + '">' + esc(t(key)) + '</a></li>'); }
+        msg.innerHTML = '<span class="icon i-alert-circle" aria-hidden="true" data-testid="ask-' + f + '-error-icon"></span><span data-testid="ask-' + f + '-error-text">' + esc(t(key)) + '</span>';
+        list.push('<li><a href="#ask-' + f + '" data-focus="ask-' + f + '" data-testid="ask-summary-link-' + f + '">' + esc(t(key)) + '</a></li>'); }
       else { inp.removeAttribute('aria-invalid'); inp.setAttribute('aria-describedby', hint.id); }
     });
     sm.hidden = !list.length; $('#ask-summary-list').innerHTML = list.join('');
@@ -165,7 +165,7 @@
     var v = ask.elements.body.value, box = $('#ask-preview');
     box.setAttribute('lang', ask.elements.lang.value); box.setAttribute('data-user-content', '');
     box.innerHTML = v.trim() ? S.renderMd(v, { id: 'ask-preview', copyText: t('solve.code.copyshort'), copyLabel: function (l) { return t('solve.code.copy', { l: l }); }, codeLabel: function (l) { return t('solve.code.label', { l: l }); } })
-      : '<p class="text-muted">' + esc(t('solve.preview.empty')) + '</p>';
+      : '<p class="text-muted" data-testid="ask-preview-empty">' + esc(t('solve.preview.empty')) + '</p>';
   }
   var pt = $('#ask-tab-preview'); pt.addEventListener('click', preview);   /* arrow keys also fire click (App.Tabs) */
   ask.elements.body.addEventListener('input', preview);
@@ -173,5 +173,5 @@
   /* Deep link #ask: move focus to the form heading so keyboard/screen-reader users land in the right place */
   function toAsk() { if (location.hash === '#ask') { var h = $('#ask-h'); setTimeout(function () { h.focus({ preventScroll: true }); h.scrollIntoView({ block: 'start' }); }, 0); } }
   window.addEventListener('hashchange', toAsk); toAsk();
-  S.autoTid();
+ 
 })();

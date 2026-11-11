@@ -1,6 +1,8 @@
 # Astryx research notes (vocabulary only)
 
-The HTML prototype does **not** run Astryx. It uses Astryx as vocabulary and reference for naming and behaviour. Only items actually seen are listed; nothing is inferred or invented. DESIGN.md and `docs/spec-kit/ASTRYX_VERIFICATION.md` remain the authority: the real component catalogue must be verified with the installed CLI after G0.
+> **Superseded by ASTRYX_MAPPING.md — second-hand notes, not verified.** Kept only as a record of what the first, partly failed research pass saw.
+
+The HTML prototype does **not** run Astryx. It uses Astryx as vocabulary and reference for naming and behaviour. Only items seen in second-hand sources are listed, with confidence marked per row; one entry (Stepper) was inferred from a type name, as flagged in its row. DESIGN.md and `docs/spec-kit/ASTRYX_VERIFICATION.md` remain the authority: the real component catalogue must be verified with the installed CLI after G0.
 
 ## Fetch status (2026-11-11)
 

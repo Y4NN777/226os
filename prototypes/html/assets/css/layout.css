@@ -28,8 +28,8 @@ body.app {
 .header-actions { flex: none; display: flex; align-items: center; gap: var(--space-2); }
 /* Create action: icon-only (label kept for assistive tech) below 1024px, full button from 1024px */
 @media (max-width: 1023px) {
-  .app-header .header-create { width: var(--target); padding: 0; }
-  .header-create-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .app-header .header-create, .app-header .header-signin { width: var(--target); padding: 0; }
+  .header-create-label, .header-signin-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 }
 @media (min-width: 768px) {
   .header-search { order: 0; flex: 0 1 460px; margin-inline: auto var(--space-2); }
@@ -65,6 +65,11 @@ body.nav-open { overflow: hidden; }
 .nav-item.is-disabled:hover { background: none; }
 .nav-item .nav-label { flex: 1 1 auto; min-width: 0; }
 .nav-item .badge { flex: none; }
+/* Built-in (cross-cutting P0) domains: link to the domain table + visible P0/P1 note under the item */
+.badge-builtin { background: var(--surface-subtle); color: var(--text); border-color: var(--border-strong); }
+.nav-note { margin: 0 var(--space-3) var(--space-2) var(--space-3); font-size: var(--fs-xs); line-height: 1.35; color: var(--text-muted); }
+.nav-note .badge { margin-right: var(--space-1); vertical-align: 1px; }
+.nav-builtin { padding-bottom: var(--space-1); }
 
 @media (min-width: 768px) {
   .side-nav { position: sticky; top: var(--header-h); height: calc(100dvh - var(--header-h)); width: auto; transform: none; box-shadow: none; padding: var(--space-3) var(--space-2); z-index: auto; }
@@ -73,6 +78,8 @@ body.nav-open { overflow: hidden; }
   /* tablet rail: icon over short label */
   .nav-item { flex-direction: column; justify-content: center; gap: 2px; padding: var(--space-2) var(--space-1); text-align: center; font-size: 11px; line-height: 1.15; }
   .nav-item .badge { display: none; }
+  .nav-note { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; margin: 0; }   /* rail: note stays available to assistive tech */
+  .nav-item.is-builtin::after { content: ""; position: absolute; top: 6px; right: 14px; width: 7px; height: 7px; border-radius: 50%; background: var(--text-muted); }
   .nav-item.is-disabled::after, .nav-item.is-preview::after { content: ""; position: absolute; top: 6px; right: 14px; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
   .nav-item[aria-current="page"]::before { left: -8px; }
   .nav-group-label { display: none; }
@@ -83,6 +90,8 @@ body.nav-open { overflow: hidden; }
   .nav-item { flex-direction: row; justify-content: flex-start; gap: var(--space-3); text-align: left; font-size: var(--fs-sm); padding: var(--space-2) var(--space-3); }
   .nav-item .nav-label { flex: 1 1 auto; }
   .nav-item .badge { display: inline-flex; }
+  .nav-note { position: static; width: auto; height: auto; overflow: visible; clip-path: none; white-space: normal; margin: 0 var(--space-3) var(--space-2) var(--space-3); }
+  .nav-item.is-builtin::after { display: none; }
   .nav-item.is-disabled::after, .nav-item.is-preview::after { display: none; }
   .nav-group-label { display: block; }
   .nav-item[aria-current="page"]::before { left: -12px; }

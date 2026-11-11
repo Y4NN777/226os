@@ -25,7 +25,7 @@ window.MOCK.connect = {
     'p-aminata': ['pr-ussd-flow'], 'p-kofi': ['pr-webhook-kit'], 'p-fatou': ['pr-docs-fr'], 'p-chinedu': [], 'p-wanjiru': ['pr-geo-informal'],
     'p-yves': ['pr-webhook-kit'], 'p-salif': [], 'p-imane': ['pr-webhook-kit', 'pr-offline-drafts']
   },
-  /* Connect preview (PRD 5.5): mentorship requests/offers, CV review, interview prep, study groups, opportunities.
+  /* Connect designed journey (PRD 5.5, §8): mentorship requests/offers, CV review, interview prep, study groups, opportunities.
      kind keys are UI strings in connect.js. Text = user content in its own language. */
   entries: [
     { id: 'c-1', kind: 'mentor-offer', person: 'p-aminata', lang: 'fr', title: 'Accompagnement sur les webhooks et la vérification de signatures', skills: ['go', 'webhook', 'docker'], country: 'BF', speaks: ['fr', 'en'] },

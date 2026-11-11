@@ -6,8 +6,8 @@ I18N.register({
 App.Sim.load(App.$('#tpl-list'), {
   load: function () { return MOCK.questions.slice(0, 3); },
   render: function (items, box) {
-    box.innerHTML = '<ul class="list list-reset" data-testid="tpl-list">' + items.map(function (q, i) {
-      var n = i + 1;
+    box.innerHTML = '<ul class="list list-reset" data-testid="tpl-list">' + items.map(function (q) {
+      var n = q.id;
       return '<li class="row" data-testid="tpl-row-' + n + '"><div class="row-lead"></div><div class="row-main"><h3 class="row-title"><a href="#" lang="' + q.lang +
         '" data-user-content data-testid="tpl-link-' + n + '">' + App.esc(q.title) + '</a></h3></div><div class="row-aside"></div></li>';
     }).join('') + '</ul>';

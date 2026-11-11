@@ -65,10 +65,10 @@ I18N.register({
   function updateCount() { $('#build-count').textContent = t('build.results.count', { n: st.n }); }
 
   function countryHtml(code, tid) {
-    return '<span class="country" data-testid="' + tid + '"><span class="country-code" aria-hidden="true">' + code + '</span><span class="visually-hidden">' + esc(MOCK.countryName(code)) + '</span></span>';
+    return '<span class="country" data-testid="' + tid + '"><span class="country-code" aria-hidden="true" data-testid="' + tid + '-code">' + code + '</span><span class="visually-hidden" data-testid="' + tid + '-name">' + esc(MOCK.countryName(code)) + '</span></span>';
   }
   function row(p, i) {
-    var n = i + 1, q = B.question(p.question), looking = p.skills.map(function (s) { return MOCK.label(B.skills[s]); }).join(', ');
+    var n = p.id, q = B.question(p.question)   /* ids use the stable project id: build-row-<project-id>-... */, looking = p.skills.map(function (s) { return MOCK.label(B.skills[s]); }).join(', ');
     return '<li class="row" data-testid="build-row-' + n + '">' +
       '<div class="row-lead"><span class="icon i-hammer" aria-hidden="true" data-testid="build-row-' + n + '-icon"></span></div>' +
       '<div class="row-main">' +
@@ -77,17 +77,17 @@ I18N.register({
         '<p class="build-looking" data-testid="build-row-' + n + '-needs">' + (p.openCount
           ? '<span class="text-muted" data-testid="build-row-' + n + '-needs-label">' + esc(t('build.row.looking')) + '</span> <strong data-testid="build-row-' + n + '-needs-list">' + esc(looking) + '</strong>'
           : '<span class="badge badge-later" data-testid="build-row-' + n + '-needs-none">' + esc(t('build.row.none')) + '</span>') + '</p>' +
-        '<ul class="tag-list list-reset" aria-label="' + esc(t('build.row.stack')) + '" data-testid="build-row-' + n + '-stack">' + p.stack.map(function (s, j) { return '<li><span class="tag" data-testid="build-row-' + n + '-tag-' + (j + 1) + '">' + esc(s) + '</span></li>'; }).join('') + '</ul>' +
-        (q ? '<p class="text-sm build-origin" data-testid="build-row-' + n + '-origin"><span class="icon i-help" aria-hidden="true"></span> <span class="text-muted">' + esc(t('build.row.origin')) + '</span> <a class="row-above" href="question.html?id=' + q.id + '" lang="' + q.lang + '" data-user-content data-testid="build-row-' + n + '-origin-link">' + esc(q.title) + '</a></p>' : '') +
+        '<ul class="tag-list list-reset" aria-label="' + esc(t('build.row.stack')) + '" data-testid="build-row-' + n + '-stack">' + p.stack.map(function (s) { return '<li><span class="tag" data-testid="build-row-' + n + '-tag-' + s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '">' + esc(s) + '</span></li>'; }).join('') + '</ul>' +
+        (q ? '<p class="text-sm build-origin" data-testid="build-row-' + n + '-origin"><span class="icon i-help" aria-hidden="true" data-testid="build-row-' + n + '-origin-icon"></span> <span class="text-muted" data-testid="build-row-' + n + '-origin-label">' + esc(t('build.row.origin')) + '</span> <a class="row-above" href="question.html?id=' + q.id + '" lang="' + q.lang + '" data-user-content data-testid="build-row-' + n + '-origin-link">' + esc(q.title) + '</a></p>' : '') +
         '<div class="meta">' +
-          '<span class="meta-item" data-testid="build-row-' + n + '-license"><span class="icon i-shield-check" aria-hidden="true"></span>' + esc(p.license) + '</span>' +
-          '<span class="meta-item" data-testid="build-row-' + n + '-updated"><span class="icon i-clock" aria-hidden="true"></span>' + esc(t('build.row.updated')) + ' <time datetime="' + p.updated + '">' + esc(MOCK.fmtDate(p.updated)) + '</time></span>' +
+          '<span class="meta-item" data-testid="build-row-' + n + '-license"><span class="icon i-shield-check" aria-hidden="true" data-testid="build-row-' + n + '-license-icon"></span>' + esc(p.license) + '</span>' +
+          '<span class="meta-item" data-testid="build-row-' + n + '-updated"><span class="icon i-clock" aria-hidden="true" data-testid="build-row-' + n + '-updated-icon"></span>' + esc(t('build.row.updated')) + ' <time datetime="' + p.updated + '" data-testid="build-row-' + n + '-updated-date">' + esc(MOCK.fmtDate(p.updated)) + '</time></span>' +
         '</div>' +
       '</div>' +
       '<div class="row-aside">' + countryHtml(p.country, 'build-row-' + n + '-country') +
         '<span class="badge" data-testid="build-row-' + n + '-stage">' + esc(MOCK.label(B.stages[p.stage])) + '</span>' +
-        '<span class="badge ' + (p.openCount ? 'badge-accepted' : 'badge-later') + '" data-testid="build-row-' + n + '-open"><span class="icon i-users" aria-hidden="true"></span>' + esc(p.openCount === 1 ? t('build.row.open.one') : t('build.row.open.other', { n: p.openCount })) + '</span>' +
-        '<span class="badge" data-testid="build-row-' + n + '-lang" title="' + esc(t('common.originalLang')) + '"><span class="visually-hidden">' + esc(t('common.originalLang')) + ' </span>' + p.lang.toUpperCase() + '</span>' +
+        '<span class="badge ' + (p.openCount ? 'badge-accepted' : 'badge-later') + '" data-testid="build-row-' + n + '-open"><span class="icon i-users" aria-hidden="true" data-testid="build-row-' + n + '-open-icon"></span>' + esc(p.openCount === 1 ? t('build.row.open.one') : t('build.row.open.other', { n: p.openCount })) + '</span>' +
+        '<span class="badge" data-testid="build-row-' + n + '-lang" title="' + esc(t('common.originalLang')) + '"><span class="visually-hidden" data-testid="build-row-' + n + '-lang-label">' + esc(t('common.originalLang')) + ' </span>' + p.lang.toUpperCase() + '</span>' +
       '</div></li>';
   }
 
@@ -155,10 +155,10 @@ I18N.register({
     Object.keys(FIELDS).forEach(function (f) {
       var inp = $(FIELDS[f]), msg = $('#propose-' + f + '-error'), box = inp.closest('.field'), has = !!errs[f];
       box.classList.toggle('has-error', has); if (has) inp.setAttribute('aria-invalid', 'true'); else inp.removeAttribute('aria-invalid');
-      msg.hidden = !has; msg.innerHTML = has ? '<span class="icon i-alert-circle" aria-hidden="true"></span><span>' + esc(t(errs[f])) + '</span>' : '';
+      msg.hidden = !has; msg.innerHTML = has ? '<span class="icon i-alert-circle" aria-hidden="true" data-testid="propose-' + f + '-error-icon"></span><span data-testid="propose-' + f + '-error-text">' + esc(t(errs[f])) + '</span>' : '';
     });
     sum.hidden = !keys.length;
-    $('#propose-summary-list').innerHTML = keys.map(function (f, i) { return '<li><a href="' + FIELDS[f] + '" data-testid="propose-summary-link-' + (i + 1) + '">' + esc(t(errs[f])) + '</a></li>'; }).join('');
+    $('#propose-summary-list').innerHTML = keys.map(function (f, i) { return '<li><a href="' + FIELDS[f] + '" data-testid="propose-summary-link-' + f + '">' + esc(t(errs[f])) + '</a></li>'; }).join('');
     if (focus && keys.length) sum.focus();
   }
   $('#propose-summary-list').addEventListener('click', function (e) { var a = e.target.closest('a'); if (a) { e.preventDefault(); $(a.getAttribute('href')).focus(); } });

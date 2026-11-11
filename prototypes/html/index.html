@@ -22,13 +22,13 @@
       <h1 id="home-h1" data-i18n="home.h1" data-testid="home-h1"></h1>
       <p data-i18n="home.lede" data-testid="home-lede"></p>
       <form id="home-search" role="search" action="index.html" class="stack-sm" data-testid="home-search-form">
-        <label for="home-q" class="visually-hidden" data-i18n="home.search.label"></label>
+        <label for="home-q" class="visually-hidden" data-i18n="home.search.label" data-testid="home-search-label"></label>
         <div class="cluster" style="flex-wrap: nowrap">
           <div class="search-field search-field-lg" style="flex: 1 1 auto; min-width: 0">
-            <span class="icon i-search" aria-hidden="true"></span>
+            <span class="icon i-search" aria-hidden="true" data-testid="home-search-icon"></span>
             <input id="home-q" class="input" type="search" name="q" autocomplete="off" data-i18n-attr="placeholder:home.search.placeholder" data-testid="home-search-input">
           </div>
-          <button type="submit" class="btn btn-accent" style="min-height: 52px" data-testid="home-search-submit"><span class="visually-hidden" data-i18n="home.search.submit"></span><span class="icon i-arrow-right" aria-hidden="true"></span></button>
+          <button type="submit" class="btn btn-accent" style="min-height: 52px" data-testid="home-search-submit"><span class="visually-hidden" data-i18n="home.search.submit" data-testid="home-search-submit-label"></span><span class="icon i-arrow-right" aria-hidden="true" data-testid="home-search-submit-icon"></span></button>
         </div>
         <div class="cluster">
           <span class="text-sm" data-i18n="home.try" data-testid="home-try-label"></span>
@@ -52,7 +52,7 @@
 
       <section class="section" aria-labelledby="q-h" data-testid="home-questions">
         <div class="section-head"><h2 id="q-h" data-i18n="home.q.title" data-testid="questions-title"></h2><a href="pages/solve.html" data-i18n="home.q.more" data-testid="questions-more"></a></div>
-        <div id="sec-questions"></div>
+        <div id="sec-questions" data-state-id="questions-state"></div>
       </section>
 
       <div class="grid-2-lg section">
@@ -60,27 +60,28 @@
           <div class="section-head"><h2 id="r-h" data-i18n="home.r.title" data-testid="resources-title"></h2><a href="pages/discover.html" data-i18n="home.r.more" data-testid="resources-more"></a></div>
           <div class="stack-sm">
             <div id="country-chips" class="filter-chips" role="group" data-i18n-attr="aria-label:home.r.filter" data-testid="country-chips"></div>
-            <div id="sec-resources"></div>
+            <div id="sec-resources" data-state-id="resources-state"></div>
           </div>
         </section>
         <section aria-labelledby="p-h" data-testid="home-projects">
           <div class="section-head"><h2 id="p-h" data-i18n="home.p.title" data-testid="projects-title"></h2><a href="pages/build.html" data-i18n="home.p.more" data-testid="projects-more"></a></div>
-          <div id="sec-projects"></div>
+          <div id="sec-projects" data-state-id="projects-state"></div>
         </section>
       </div>
 
       <section class="section" aria-labelledby="m-h" data-testid="home-people">
         <div class="section-head"><h2 id="m-h" data-i18n="home.m.title" data-testid="people-title"></h2><a href="pages/profile.html" data-i18n="home.m.more" data-testid="people-more"></a></div>
-        <div id="sec-people"></div>
+        <div id="sec-people" data-state-id="people-state"></div>
       </section>
     </div>
 
-    <section class="section" aria-labelledby="d-h" data-testid="home-domains">
+    <section class="section" id="domains" aria-labelledby="d-h" data-testid="home-domains">
       <div class="section-head"><h2 id="d-h" data-i18n="home.dom.title" data-testid="domains-title"></h2></div>
       <p class="text-muted text-sm" style="margin-bottom: var(--space-3)" data-i18n="home.dom.lede" data-testid="domains-lede"></p>
+      <p class="text-sm" style="margin-bottom: var(--space-3)" data-i18n="home.dom.legend" data-testid="domains-legend"></p>
       <div class="table-wrap" tabindex="0" role="region" aria-labelledby="d-h" data-testid="domains-table-wrap">
         <table class="table" data-testid="domains-table">
-          <thead><tr><th scope="col" data-i18n="home.dom.col.domain" data-testid="domains-col-domain"></th><th scope="col" data-i18n="home.dom.col.now" data-testid="domains-col-now"></th><th scope="col" data-i18n="home.dom.col.later" data-testid="domains-col-later"></th></tr></thead>
+          <thead><tr><th scope="col" data-i18n="home.dom.col.domain" data-testid="domains-col-domain"></th><th scope="col" data-i18n="home.dom.col.status" data-testid="domains-col-status"></th><th scope="col" data-i18n="home.dom.col.now" data-testid="domains-col-now"></th><th scope="col" data-i18n="home.dom.col.later" data-testid="domains-col-later"></th></tr></thead>
           <tbody id="domains-body"></tbody>
         </table>
       </div>
@@ -93,5 +94,6 @@
   <script defer src="assets/data/people.js"></script>
   <script defer src="assets/data/common.js"></script>
   <script defer src="assets/js/pages/home.js"></script>
+  <script defer src="assets/js/pages/home-domains.js"></script>
 </body>
 </html>

@@ -107,8 +107,9 @@ I18N.register({
     if (field === 'city' && p.cityPublic) v = 'public';
     return v === 'public' || (v === 'members' && role !== 'anon') || (v === 'self' && role === 'self');
   }
-  function lbadge(lang) { return '<span class="badge" data-orig-badge><span aria-hidden="true">' + lang.toUpperCase() + '</span><span class="visually-hidden">' + esc(t('common.originalLang')) + ' : ' + esc(t('profile.lang.' + lang)) + '</span></span>'; }
-  function countryHtml(code, tid) { return '<span class="country" data-testid="' + tid + '"><span class="country-code" aria-hidden="true">' + code + '</span><span class="visually-hidden">' + esc(MOCK.countryName(code)) + '</span></span> ' + esc(MOCK.countryName(code)); }
+  function slug(x) { return String(x).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
+  function lbadge(lang, tid) { return '<span class="badge" data-orig-badge data-testid="' + tid + '"><span aria-hidden="true" data-testid="' + tid + '-code">' + lang.toUpperCase() + '</span><span class="visually-hidden" data-testid="' + tid + '-name">' + esc(t('common.originalLang')) + ' : ' + esc(t('profile.lang.' + lang)) + '</span></span>'; }
+  function countryHtml(code, tid) { return '<span class="country" data-testid="' + tid + '"><span class="country-code" aria-hidden="true" data-testid="' + tid + '-code">' + code + '</span><span class="visually-hidden" data-testid="' + tid + '-name">' + esc(MOCK.countryName(code)) + '</span></span> <span data-testid="' + tid + '-label">' + esc(MOCK.countryName(code)) + '</span>'; }
 
   /* ---------- overview ---------- */
   function renderOverview() {
@@ -120,30 +121,30 @@ I18N.register({
     $('#profile-viewas-status').textContent = t('profile.viewas.status.' + role);
     App.$$('[data-as]').forEach(function (b) { var on = b.getAttribute('data-as') === role; b.setAttribute('aria-pressed', on); b.hidden = roles.indexOf(b.getAttribute('data-as')) < 0; });
 
-    var openHtml = p.open.length ? '<ul class="tag-list list-reset" data-testid="profile-open-list">' + p.open.map(function (o, i) {
-      return '<li><a class="tag" href="connect.html" data-testid="profile-open-' + (i + 1) + '">' + esc(t('profile.open.' + o)) + '</a></li>'; }).join('') + '</ul><p class="hint" data-testid="profile-open-note"><span class="badge badge-later" data-testid="profile-open-badge">' + esc(t('profile.open.preview')) + '</span></p>'
+    var openHtml = p.open.length ? '<ul class="tag-list list-reset" data-testid="profile-open-list">' + p.open.map(function (o) {
+      return '<li><a class="tag" href="connect.html" data-testid="profile-open-' + o + '">' + esc(t('profile.open.' + o)) + '</a></li>'; }).join('') + '</ul><p class="hint" data-testid="profile-open-note"><span class="badge badge-later" data-testid="profile-open-badge">' + esc(t('profile.open.preview')) + '</span></p>'
       : '<p class="text-muted" data-testid="profile-open-none">' + esc(t('profile.open.none')) + '</p>';
     $('#profile-about').innerHTML =
       '<div class="stack-sm"><h3 class="eyebrow" data-testid="profile-bio-h">' + esc(t('profile.bio.h')) + '</h3>' + (p.bio
-        ? '<p class="prose" lang="' + p.bioLang + '" data-user-content data-testid="profile-bio">' + esc(p.bio) + '</p><p class="text-sm text-muted" data-testid="profile-bio-lang">' + lbadge(p.bioLang) + ' ' + esc(t('profile.bio.lang')) + '</p>'
+        ? '<p class="prose" lang="' + p.bioLang + '" data-user-content data-testid="profile-bio">' + esc(p.bio) + '</p><p class="text-sm text-muted" data-testid="profile-bio-lang">' + lbadge(p.bioLang, 'profile-bio-lang-badge') + ' ' + esc(t('profile.bio.lang')) + '</p>'
         : '<p class="text-muted" data-testid="profile-bio-empty">' + esc(t('profile.bio.empty')) + '</p>') + '</div>' +
       '<div class="stack-sm"><h3 class="eyebrow" data-testid="profile-skills-h">' + esc(t('profile.skills.h')) + '</h3>' + (p.skills.length
-        ? '<ul class="tag-list list-reset" data-testid="profile-skills">' + p.skills.map(function (s, i) { return '<li><span class="tag" data-testid="profile-skill-' + (i + 1) + '">' + esc(s) + '</span></li>'; }).join('') + '</ul>'
+        ? '<ul class="tag-list list-reset" data-testid="profile-skills">' + p.skills.map(function (s) { return '<li><span class="tag" data-testid="profile-skill-' + slug(s) + '">' + esc(s) + '</span></li>'; }).join('') + '</ul>'
         : '<p class="text-muted" data-testid="profile-skills-empty">' + esc(t('profile.skills.empty')) + '</p>') + '</div>' +
       '<div class="stack-sm"><h3 class="eyebrow" data-testid="profile-langs-h">' + esc(t('profile.langs.h')) + '</h3><ul class="tag-list list-reset" data-testid="profile-langs">' +
-        p.langs.map(function (l, i) { return '<li><span class="tag" data-testid="profile-lang-' + (i + 1) + '"><span aria-hidden="true">' + l.toUpperCase() + '</span><span class="visually-hidden">' + esc(t('profile.lang.' + l)) + '</span></span></li>'; }).join('') + '</ul></div>' +
+        p.langs.map(function (l) { return '<li><span class="tag" data-testid="profile-lang-' + l + '"><span aria-hidden="true" data-testid="profile-lang-' + l + '-code">' + l.toUpperCase() + '</span><span class="visually-hidden" data-testid="profile-lang-' + l + '-name">' + esc(t('profile.lang.' + l)) + '</span></span></li>'; }).join('') + '</ul></div>' +
       '<div class="stack-sm"><h3 class="eyebrow" data-testid="profile-open-h">' + esc(t('profile.open.h')) + '</h3>' + openHtml + '</div>' +
-      '<p class="text-sm text-muted" data-testid="profile-reputation"><span class="badge badge-later" data-testid="profile-reputation-badge">' + esc(t('common.later')) + '</span> <strong>' + esc(t('profile.reputation')) + '</strong> — ' + esc(t('profile.reputation.note')) + '</p>';
+      '<p class="text-sm text-muted" data-testid="profile-reputation"><span class="badge badge-later" data-testid="profile-reputation-badge">' + esc(t('common.later')) + '</span> <strong data-testid="profile-reputation-title">' + esc(t('profile.reputation')) + '</strong> — ' + esc(t('profile.reputation.note')) + '</p>';
 
     var rows = [];
-    function dd(key, field, val, tid) { rows.push('<dt data-testid="profile-d-' + tid + '-label">' + esc(t('profile.d.' + key)) + '</dt><dd data-testid="profile-d-' + tid + '">' + (canSee(field) ? val : '<span class="text-muted"><span class="icon i-lock" aria-hidden="true"></span> ' + esc(t('profile.d.hidden')) + '</span>') + '</dd>'); }
-    dd('name', 'name', '<span lang="' + base.lang + '" data-user-content>' + esc(p.name) + '</span>', 'name');
-    dd('handle', 'handle', '<span class="mono">@' + esc(p.handle) + '</span>', 'handle');
+    function dd(key, field, val, tid) { rows.push('<dt data-testid="profile-d-' + tid + '-label">' + esc(t('profile.d.' + key)) + '</dt><dd data-testid="profile-d-' + tid + '">' + (canSee(field) ? val : '<span class="text-muted" data-testid="profile-d-' + tid + '-hidden"><span class="icon i-lock" aria-hidden="true" data-testid="profile-d-' + tid + '-hidden-icon"></span> ' + esc(t('profile.d.hidden')) + '</span>') + '</dd>'); }
+    dd('name', 'name', '<span lang="' + base.lang + '" data-user-content data-testid="profile-d-name-text">' + esc(p.name) + '</span>', 'name');
+    dd('handle', 'handle', '<span class="mono" data-testid="profile-d-handle-text">@' + esc(p.handle) + '</span>', 'handle');
     dd('country', 'country', countryHtml(p.country, 'profile-d-country-code'), 'country');
     dd('city', 'city', esc(p.city), 'city');
     dd('github', 'github', p.github ? '<a class="link-external" href="' + esc(p.github) + '" rel="noopener noreferrer" target="_blank" data-testid="profile-github-link">' + esc(t('profile.github.link')) + '</a>' : '—', 'github');
-    dd('email', 'email', '<span class="mono">' + esc(p.email) + '</span>', 'email');
-    dd('since', 'since', '<time datetime="' + p.since + '">' + esc(MOCK.fmtDate(p.since)) + '</time>', 'since');
+    dd('email', 'email', '<span class="mono" data-testid="profile-d-email-text">' + esc(p.email) + '</span>', 'email');
+    dd('since', 'since', '<time datetime="' + p.since + '" data-testid="profile-d-since-date">' + esc(MOCK.fmtDate(p.since)) + '</time>', 'since');
     $('#profile-details').innerHTML = rows.join('');
 
     var order = ['name', 'handle', 'country', 'langs', 'skills', 'bio', 'github', 'openTo', 'since', 'city', 'email'];
@@ -152,7 +153,7 @@ I18N.register({
       var ok = canSee(f), v = C.visibility[f] === 'members' && f === 'city' && p.cityPublic ? 'public' : C.visibility[f];
       return '<tr data-testid="profile-privacy-row-' + f + '"><th scope="row" data-testid="profile-privacy-field-' + f + '">' + esc(t(f === 'langs' || f === 'skills' || f === 'bio' || f === 'openTo' ? 'profile.' + lab[f] : 'profile.d.' + lab[f])) + '</th>' +
         '<td data-testid="profile-privacy-who-' + f + '">' + esc(t('profile.vis.' + v)) + '</td>' +
-        '<td data-testid="profile-privacy-now-' + f + '"><span class="profile-state"><span class="icon ' + (ok ? 'i-check-circle' : 'i-lock') + '" aria-hidden="true"></span>' + esc(t(ok ? 'profile.now.visible' : 'profile.now.hidden')) + '</span></td></tr>';
+        '<td data-testid="profile-privacy-now-' + f + '"><span class="profile-state" data-testid="profile-privacy-state-' + f + '"><span class="icon ' + (ok ? 'i-check-circle' : 'i-lock') + '" aria-hidden="true" data-testid="profile-privacy-icon-' + f + '"></span>' + esc(t(ok ? 'profile.now.visible' : 'profile.now.hidden')) + '</span></td></tr>';
     }).join('');
     document.title = p.name + ' — ' + t('profile.title');
   }
@@ -162,21 +163,21 @@ I18N.register({
     var a = MOCK.person(q.author);
     return '<li class="row" data-testid="profile-' + pre + '-row-' + n + '"><div class="row-lead"><span class="icon i-help" aria-hidden="true" data-testid="profile-' + pre + '-icon-' + n + '"></span></div>' +
       '<div class="row-main"><h3 class="row-title"><a href="question.html?id=' + q.id + '" lang="' + q.lang + '" data-user-content data-testid="profile-' + pre + '-link-' + n + '">' + esc(q.title) + '</a></h3>' +
-      '<ul class="tag-list list-reset" data-testid="profile-' + pre + '-tags-' + n + '">' + q.tags.map(function (g, j) { return '<li><span class="tag" data-testid="profile-' + pre + '-tag-' + n + '-' + (j + 1) + '">' + esc(g) + '</span></li>'; }).join('') + '</ul>' +
+      '<ul class="tag-list list-reset" data-testid="profile-' + pre + '-tags-' + n + '">' + q.tags.map(function (g) { return '<li><span class="tag" data-testid="profile-' + pre + '-tag-' + n + '-' + slug(g) + '">' + esc(g) + '</span></li>'; }).join('') + '</ul>' +
       '<div class="meta"><span class="meta-item" data-testid="profile-' + pre + '-kind-' + n + '">' + esc(t(kindKey)) + '</span><span class="meta-item" data-testid="profile-' + pre + '-country-' + n + '">' + countryHtml(q.country, 'profile-' + pre + '-cc-' + n) + '</span><time datetime="' + q.date + '" data-testid="profile-' + pre + '-date-' + n + '">' + esc(MOCK.fmtDate(q.date)) + '</time>' + (pre === 'a' && a ? '<span class="meta-item" lang="' + a.lang + '" data-user-content data-testid="profile-a-author-' + n + '">' + esc(a.name) + '</span>' : '') + '</div></div>' +
-      '<div class="row-aside">' + lbadge(q.lang) + (q.accepted ? '<span class="badge badge-accepted" data-testid="profile-' + pre + '-accepted-' + n + '"><span class="icon i-check" aria-hidden="true"></span>' + esc(t('common.accepted')) + '</span>' : '') + '</div></li>';
+      '<div class="row-aside">' + lbadge(q.lang, 'profile-' + pre + '-lang-' + n) + (q.accepted ? '<span class="badge badge-accepted" data-testid="profile-' + pre + '-accepted-' + n + '"><span class="icon i-check" aria-hidden="true" data-testid="profile-' + pre + '-accepted-icon-' + n + '"></span>' + esc(t('common.accepted')) + '</span>' : '') + '</div></li>';
   }
   function rowP(pr, n, pre, kindKey) {
     return '<li class="row" data-testid="profile-' + pre + '-row-' + n + '"><div class="row-lead"><span class="icon i-hammer" aria-hidden="true" data-testid="profile-' + pre + '-icon-' + n + '"></span></div>' +
-      '<div class="row-main"><h3 class="row-title"><a href="project.html?id=' + pr.id + '" data-testid="profile-' + pre + '-link-' + n + '"><span class="mono">' + esc(pr.name) + '</span></a></h3>' +
+      '<div class="row-main"><h3 class="row-title"><a href="project.html?id=' + pr.id + '" data-testid="profile-' + pre + '-link-' + n + '"><span class="mono" data-testid="profile-' + pre + '-name-' + n + '">' + esc(pr.name) + '</span></a></h3>' +
       '<p class="row-excerpt" lang="' + pr.lang + '" data-user-content data-testid="profile-' + pre + '-excerpt-' + n + '">' + esc(pr.summary) + '</p>' +
-      '<ul class="tag-list list-reset" data-testid="profile-' + pre + '-tags-' + n + '">' + pr.stack.map(function (g, j) { return '<li><span class="tag" data-testid="profile-' + pre + '-tag-' + n + '-' + (j + 1) + '">' + esc(g) + '</span></li>'; }).join('') + '</ul>' +
+      '<ul class="tag-list list-reset" data-testid="profile-' + pre + '-tags-' + n + '">' + pr.stack.map(function (g) { return '<li><span class="tag" data-testid="profile-' + pre + '-tag-' + n + '-' + slug(g) + '">' + esc(g) + '</span></li>'; }).join('') + '</ul>' +
       '<div class="meta"><span class="meta-item" data-testid="profile-' + pre + '-kind-' + n + '">' + esc(t(kindKey)) + '</span><span class="meta-item" data-testid="profile-' + pre + '-country-' + n + '">' + countryHtml(pr.country, 'profile-' + pre + '-cc-' + n) + '</span><time datetime="' + pr.updated + '" data-testid="profile-' + pre + '-date-' + n + '">' + esc(MOCK.fmtDate(pr.updated)) + '</time></div></div>' +
-      '<div class="row-aside">' + lbadge(pr.lang) + '<span class="badge" data-testid="profile-' + pre + '-status-' + n + '">' + esc(t('profile.status.' + pr.status)) + '</span></div></li>';
+      '<div class="row-aside">' + lbadge(pr.lang, 'profile-' + pre + '-lang-' + n) + '<span class="badge" data-testid="profile-' + pre + '-status-' + n + '">' + esc(t('profile.status.' + pr.status)) + '</span></div></li>';
   }
   function byIds(arr, ids) { return ids.map(function (i) { return MOCK.byId(arr, i); }).filter(Boolean); }
   function list(pre, builder, kindKey) {
-    return function (items, box) { box.innerHTML = '<ul class="list list-reset" data-testid="profile-' + pre + '-list">' + items.map(function (x, i) { return builder(x, i + 1, pre, kindKey); }).join('') + '</ul>'; };
+    return function (items, box) { box.innerHTML = '<ul class="list list-reset" data-testid="profile-' + pre + '-list">' + items.map(function (x) { return builder(x, x.id, pre, kindKey); }).join('') + '</ul>'; };
   }
   [['q', 'act-q', function () { return MOCK.questions.filter(function (q) { return q.author === id; }); }, list('q', rowQ, 'profile.row.question')],
    ['a', 'act-a', function () { return byIds(MOCK.questions, C.answers[id] || []); }, list('a', rowQ, 'profile.row.answered')],
@@ -225,9 +226,9 @@ I18N.register({
     if (errs.length) {
       errs.forEach(function (er, i) {
         var f = $('#pe-f-' + er[0]), msg = $('#pe-' + er[0] + '-error'); f.classList.add('has-error');
-        msg.innerHTML = '<span class="icon i-alert-circle" aria-hidden="true"></span><span>' + esc(t(er[2])) + '</span>'; msg.hidden = false;
+        msg.innerHTML = '<span class="icon i-alert-circle" aria-hidden="true" data-testid="profile-edit-' + er[0] + '-error-icon"></span><span data-testid="profile-edit-' + er[0] + '-error-text">' + esc(t(er[2])) + '</span>'; msg.hidden = false;
         var c = er[3]; c.setAttribute('aria-invalid', 'true'); c.setAttribute('aria-describedby', ((c.getAttribute('aria-describedby') || '') + ' pe-' + er[0] + '-error').trim());
-        sumList.insertAdjacentHTML('beforeend', '<li><a href="#' + er[1] + '" data-testid="profile-edit-summary-link-' + (i + 1) + '">' + esc(t(er[2])) + '</a></li>');
+        sumList.insertAdjacentHTML('beforeend', '<li><a href="#' + er[1] + '" data-testid="profile-edit-summary-link-' + er[0] + '">' + esc(t(er[2])) + '</a></li>');
       });
       sumBox.hidden = false; sumBox.focus(); return;
     }
