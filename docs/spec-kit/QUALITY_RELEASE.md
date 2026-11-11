@@ -1,4 +1,4 @@
-# 226OS Quality and Release Evidence
+# 226os Quality and Release Evidence
 
 **Status:** SPECIFIED; all executable gates are NOT RUN in this documentation phase
 

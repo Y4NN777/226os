@@ -1,6 +1,6 @@
 ---
 name: advisor
-description: Get an independent read-only architecture opinion from the Opus advisor subagent on a genuinely disputed 226OS decision.
+description: Get an independent read-only architecture opinion from the Opus advisor subagent on a genuinely disputed 226os decision.
 argument-hint: "<decision question>"
 disable-model-invocation: true
 ---

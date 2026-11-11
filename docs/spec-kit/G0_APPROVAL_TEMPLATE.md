@@ -1,4 +1,4 @@
-# 226OS G0 Approval Record
+# 226os G0 Approval Record
 
 **Status:** CONDITIONAL GO recorded from explicit repository-owner approval; formal owner assignment, detailed ADRs, and execution evidence remain required
 

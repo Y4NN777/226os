@@ -1,4 +1,4 @@
-# 226OS Third-Party Notices
+# 226os Third-Party Notices
 
 **Status:** DRAFT inventory policy; dependency inventory is not yet complete
 

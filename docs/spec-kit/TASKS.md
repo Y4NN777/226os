@@ -1,4 +1,4 @@
-# 226OS Implementation Tasks
+# 226os Implementation Tasks
 
 **Status:** PLANNED; owners and reviewers require human assignment
 

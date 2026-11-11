@@ -1,4 +1,4 @@
-# Contributing to 226OS
+# Contributing to 226os
 
 **Status:** DRAFT; human approval required before implementation
 

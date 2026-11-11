@@ -1,6 +1,6 @@
 ---
 name: verify-slice
-description: Verify a 226OS slice before declaring success. Reports PASS/FAIL/NOT RUN/BLOCKED per gate from actual command evidence on the target SHA.
+description: Verify a 226os slice before declaring success. Reports PASS/FAIL/NOT RUN/BLOCKED per gate from actual command evidence on the target SHA.
 argument-hint: "<TASK-ID>"
 disable-model-invocation: true
 ---

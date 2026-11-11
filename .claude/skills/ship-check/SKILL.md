@@ -1,6 +1,6 @@
 ---
 name: ship-check
-description: Read-only 226OS release readiness check for a develop -> main promotion. Never deploys or merges.
+description: Read-only 226os release readiness check for a develop -> main promotion. Never deploys or merges.
 argument-hint: "[SHA]"
 disable-model-invocation: true
 ---

@@ -1,4 +1,4 @@
-# 226OS P0 Authentication and Authorization Matrix
+# 226os P0 Authentication and Authorization Matrix
 
 **Status:** PROPOSED contract; human approval required
 **Subject roles:** anonymous, member, moderator, owner. `owner` always means ownership of the specific resource, not a global administrator.

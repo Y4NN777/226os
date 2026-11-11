@@ -1,21 +1,21 @@
-# 226OS — Design System & Frontend Experience Specification
+# 226os — Design System & Frontend Experience Specification
 
 **Status:** Approved direction; implementation subject to validation gates  
 **Version:** 1.0 · 11 November 2026  
-**Owner:** 7's · 226OS  
+**Owner:** 7's · 226os  
 **Applies to:** `apps/web`, shared UI packages, documentation and agent-authored UI  
 **Related:** `docs/PRD.md`, `docs/SPEC.md`, `docs/architecture/ARCHITECTURE.md`, `docs/DEV.md`, `docs/TEST.md`, `docs/RULES.md`, `AGENTS.md`
 
-> **Decision record.** The team selected the **Graphite & Lime** direction shown in the 226OS dashboard exploration and chose **Meta Astryx** as the primary UI design system for **React 19 + TypeScript + Vite**. This document is the implementation contract, not a request to recreate the mockup pixel by pixel. Further visual polish must follow this system and explicit review. The illustrated dashboard, its people, numbers, imagery and events are illustrative—not shipped data or approved brand assets.
+> **Decision record.** The team selected the **Graphite & Lime** direction shown in the 226os dashboard exploration and chose **Meta Astryx** as the primary UI design system for **React 19 + TypeScript + Vite**. This document is the implementation contract, not a request to recreate the mockup pixel by pixel. Further visual polish must follow this system and explicit review. The illustrated dashboard, its people, numbers, imagery and events are illustrative—not shipped data or approved brand assets.
 
 ## 1. Product context and design intent
 
-226OS connects African developers through technical questions, shared knowledge, African APIs and tools, open-source projects, collaboration, communities, mentorship, careers, multilingual access, and context-aware assistance. The interface must make these experiences feel like one product, not eight unrelated applications.
+226os connects African developers through technical questions, shared knowledge, African APIs and tools, open-source projects, collaboration, communities, mentorship, careers, multilingual access, and context-aware assistance. The interface must make these experiences feel like one product, not eight unrelated applications.
 
 **Design attributes:** capable, clear, welcoming, technically credible, contemporary, purposeful.  
 **Avoid:** generic admin-template aesthetics, dense decorative graphics, culture-as-decoration, neon overload, exaggerated shadows, fake activity, inaccessible brand-colored text, and layouts that collapse on mobile.
 
-The **226** acknowledges the project's Burkinabè origin, while 226OS serves developers across Africa. Design and copy must not imply that one country represents the continent. The interface is **French/English**, responsive, keyboard-usable, and mindful of low-bandwidth users from day one.
+The **226** acknowledges the project's Burkinabè origin, while 226os serves developers across Africa. Design and copy must not imply that one country represents the continent. The interface is **French/English**, responsive, keyboard-usable, and mindful of low-bandwidth users from day one.
 
 ### Experience principles
 
@@ -29,7 +29,7 @@ The **226** acknowledges the project's Burkinabè origin, while 226OS serves dev
 
 ## 2. Approved color direction — Graphite & Lime
 
-The following are **226OS brand foundation colors**. Semantic CSS tokens are the actual API for application components.
+The following are **226os brand foundation colors**. Semantic CSS tokens are the actual API for application components.
 
 | Role | Token | Hex | Use |
 | --- | --- | --- | --- |
@@ -45,7 +45,7 @@ The following are **226OS brand foundation colors**. Semantic CSS tokens are the
 
 ### 2.1 Semantic tokens — reference design values
 
-These are **226OS target values** to map onto Astryx token slots. They are not a claim that the names below are built-in Astryx variables. Do not replace Astryx internal token definitions or introduce two competing systems.
+These are **226os target values** to map onto Astryx token slots. They are not a claim that the names below are built-in Astryx variables. Do not replace Astryx internal token definitions or introduce two competing systems.
 
 | Semantic role | Light mode | Dark mode | Notes |
 | --- | --- | --- | --- |
@@ -82,7 +82,7 @@ These are **226OS target values** to map onto Astryx token slots. They are not a
 
 **Decision:** Astryx is the **primary** accessible component foundation. Do not scaffold a parallel shadcn/ui library or recreate Astryx components unless a documented capability gap is demonstrated. This supersedes the previous unresolved Astryx-vs-shadcn comparison. Keep Tailwind only for layout and site-specific styling when useful, not as a second component system.
 
-**Compatibility:** React **19+**, Vite, TypeScript. Use precompiled Astryx CSS first; **no dedicated StyleX compiler or Vite plugin is required** for this consumer path. Astryx itself is built using StyleX; that does not require 226OS to compile all its component source. Astryx is MIT-licensed; the final dependency inventory and transitive licenses must still pass the CADEV policy checks.
+**Compatibility:** React **19+**, Vite, TypeScript. Use precompiled Astryx CSS first; **no dedicated StyleX compiler or Vite plugin is required** for this consumer path. Astryx itself is built using StyleX; that does not require 226os to compile all its component source. Astryx is MIT-licensed; the final dependency inventory and transitive licenses must still pass the CADEV policy checks.
 
 ### 3.1 Installation and implementation contract
 
@@ -99,17 +99,17 @@ Use a **pinned, reviewed** release recorded in the lockfile. Verify the specific
 @import '@astryxdesign/core/reset.css';
 @import '@astryxdesign/core/astryx.css';
 @import '@astryxdesign/theme-neutral/theme.css';
-/* Then import the generated 226OS theme overrides and app styles. */
+/* Then import the generated 226os theme overrides and app styles. */
 ```
 
-For a Tailwind integration, follow **Astryx's official cascade-layer order** and use its optional `tailwind-theme.css` token bridge. Never guess the order: the upstream docs demonstrate that a wrong cascade can silently override components. The Astryx `Theme` provider should wrap the application once, using a 226OS theme created with the supported `defineTheme()` API and an explicit light/dark/system mode strategy.
+For a Tailwind integration, follow **Astryx's official cascade-layer order** and use its optional `tailwind-theme.css` token bridge. Never guess the order: the upstream docs demonstrate that a wrong cascade can silently override components. The Astryx `Theme` provider should wrap the application once, using a 226os theme created with the supported `defineTheme()` API and an explicit light/dark/system mode strategy.
 
 **Theme authoring guidance (illustrative; verify against installed release):**
 
 ```tsx
 import {defineTheme} from '@astryxdesign/core/theme';
 
-export const theme226OS = defineTheme({
+export const theme226os = defineTheme({
   name: '226os',
   tokens: {
     '--color-accent': ['#4D721D', '#BDE874'],
@@ -128,7 +128,7 @@ Before an agent authors a UI component:
 1. Read this file plus the relevant requirement in `docs/SPEC.md` and the existing UI patterns.
 2. Inspect the **installed** Astryx CLI documentation: `pnpm exec astryx component --brief-all`, `pnpm exec astryx docs tokens`, `pnpm exec astryx docs theme`, and a targeted `pnpm exec astryx component <ComponentName>`.
 3. Prefer verified Astryx primitives and compositions; use typed, composable props and CSS variable overrides.
-4. Build reusable **226OS product components** out of Astryx primitives instead of patching vendor code.
+4. Build reusable **226os product components** out of Astryx primitives instead of patching vendor code.
 5. If an Astryx component is missing or deficient, record the gap, evaluation and outcome before a custom accessible component is approved. `swizzle` is an exceptional escape hatch that brings ongoing maintenance and attribution responsibilities.
 6. Add interaction, keyboard and visual tests; do not call a component complete because it renders.
 7. Keep version-specific examples synchronized with the installed lockfile.
@@ -215,7 +215,7 @@ apps/web/src/
   routes/               # TanStack Router route definitions
   features/             # solve, discover, build, community, etc.
   components/           # cross-domain product compositions
-  design-system/        # 226OS theme, token mapping, approved wrappers
+  design-system/        # 226os theme, token mapping, approved wrappers
   styles/               # application CSS and imports
   i18n/                 # French and English message catalogs
 ```
@@ -224,7 +224,7 @@ apps/web/src/
 - Product components are domain-agnostic only when reused meaningfully; avoid abstraction solely for aesthetic consistency.
 - Use TanStack Router for navigation, TanStack Query for server state and TanStack Form for forms; do not independently invent parallel state-management layers.
 - Never bypass established API contracts for convenience.
-- No arbitrary per-component hex colors; use semantic 226OS theme mappings. Local visualization colors require deliberate exceptions.
+- No arbitrary per-component hex colors; use semantic 226os theme mappings. Local visualization colors require deliberate exceptions.
 - Avoid ad hoc `!important`, inline spacing hacks and copying identical markup across pages.
 - Build dark mode from the same semantic system, not a parallel stylesheet maintained by hand.
 
@@ -264,7 +264,7 @@ Changes to **approved** brand color roles or the primary component library requi
 ### Required validation sequence
 
 1. Review official Astryx docs and lock compatible versions.
-2. Implement 226OS theme mapping and minimal UI foundations.
+2. Implement 226os theme mapping and minimal UI foundations.
 3. Test three representative flows: **Solve question detail**, **Discover API detail**, **Build contribution request** (light and dark, desktop and mobile).
 4. Run automated accessibility/contrast and frontend test gates, plus keyboard and mobile manual checks.
 5. Record deviations, supported token mappings, measured performance and design decision evidence.
@@ -281,4 +281,4 @@ Changes to **approved** brand color roles or the primary component library requi
 - WCAG 2.2: https://www.w3.org/TR/WCAG22/
 - TanStack Router: https://tanstack.com/router/latest
 
-**Agent directive:** This file governs the 226OS UI. Read it before making frontend changes; implement the selected direction through the installed Astryx version, not by copying the mockup or inventing UI APIs. On conflict, flag the disagreement with file evidence and request a design decision rather than silently changing architecture or product scope.
+**Agent directive:** This file governs the 226os UI. Read it before making frontend changes; implement the selected direction through the installed Astryx version, not by copying the mockup or inventing UI APIs. On conflict, flag the disagreement with file evidence and request a design decision rather than silently changing architecture or product scope.

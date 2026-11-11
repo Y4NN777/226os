@@ -1,6 +1,6 @@
 ---
 name: spec-to-task
-description: Turn a 226OS SPEC user story or G0 decision into a work-item contract for docs/spec-kit/TASKS.md, without inventing requirements.
+description: Turn a 226os SPEC user story or G0 decision into a work-item contract for docs/spec-kit/TASKS.md, without inventing requirements.
 argument-hint: "<story ID or decision ID>"
 disable-model-invocation: true
 ---

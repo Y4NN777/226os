@@ -1,4 +1,4 @@
-# 226OS Claude Code Handoff
+# 226os Claude Code Handoff
 
 **Prepared:** 2026-11-11
 **Mode:** COP-ASS documentation review and Claude harness contract documented; stop before application implementation
