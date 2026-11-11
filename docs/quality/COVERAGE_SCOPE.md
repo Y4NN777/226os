@@ -1,4 +1,4 @@
-# 226OS Coverage Scope
+# 226os Coverage Scope
 
 **Status:** OPEN / awaiting implementation inventory and human review
 

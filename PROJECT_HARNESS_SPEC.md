@@ -1,7 +1,7 @@
-# 226OS Claude Code Harness — Documented v0.1
+# 226os Claude Code Harness — Documented v0.1
 
 **Repository examined:** https://github.com/Y4NN777/226os, default branch `main`, 2026-11-11.
-**Status:** Harness contract documented for human review; runtime Claude configuration is not installed yet. This document does not grant application implementation or release approval.
+**Status:** Harness contract documented for human review; runtime `.claude/` settings, six agents, five workflow skills, ten domain skills and the domain-skill hooks are installed and load-validated on Claude Code 2.1.322 (H0 record in `AI_USAGE.md`). This document does not grant application implementation or release approval.
 
 ## Verified baseline
 - The remote tree contains PRD/SPEC/TEST/DEV/SHIP/RULES/ARCHITECTURE/DESIGN, AGENTS.md, spec-kit G0 proposals and Claude handoff, plus Git workflow and an existing branch-policy workflow.
@@ -13,9 +13,16 @@
 
 ## Design rationale
 - A concise CLAUDE.md is an index and operating contract, not another copy of AGENTS.md.
-- Five specialized subagents, not a swarm of autonomous editors: advisor (Opus), scout (Haiku), Go implementer (Sonnet), web implementer (Sonnet), skeptic reviewer (Sonnet).
-- Five skills: `/advisor`, `/start-slice`, `/spec-to-task`, `/verify-slice`, `/ship-check`.
-- No repo-wide production shell hooks initially, because Make targets and execution contract do not yet exist. Add tested PreToolUse/Stop hooks after bootstrap, in a separate reviewed PR.
+- Six specialized subagents, not a swarm of autonomous editors: advisor (Opus), scout (Haiku), Go implementer (Sonnet), PostgreSQL expert (Sonnet), web implementer (Sonnet), skeptic reviewer (Sonnet).
+- Five workflow skills (user-invoked): `/advisor`, `/start-slice`, `/spec-to-task`, `/verify-slice`, `/ship-check`.
+- Ten domain skills built from the project docs plus cited external expertise: `engineering-principles`, `go-backend`, `postgres-data`, `api-contract`, `web-frontend`, `security-authz`, `tdd-unit`, `bdd-acceptance`, `integration-testing`, `ci-cd-delivery`. Project docs are binding; external practice is advisory and cited.
+- Domain-skill enforcement, three layers:
+  1. Implementer and reviewer agents preload their domain skills (`skills:` frontmatter).
+  2. `.claude/hooks/domain_skills.py` maps file paths to skills via `.claude/hooks/skill-map.json`. On Read it adds a short directive (once per skill) to load the missing skills; on Edit/Write/MultiEdit/NotebookEdit it denies until every mapped skill is loaded through the Skill tool. Skill text is never inlined: Claude Code truncates long hook output to a ~2 KB preview (observed on 2.1.322), while the Skill tool loads the full skill.
+  3. A PostToolUse hook on Skill records loaded skills per session and per subagent (subagent `skills:` preloads count as loaded); a SessionStart hook clears the record on compact/clear so skills are reloaded after context loss. An unreadable skill map or a missing SKILL.md blocks writes.
+- Domain skills must not use `paths:` frontmatter: Claude Code then hides them until a matching file exists, which breaks the Skill tool and subagent preloads (observed on 2.1.322). Path routing lives only in `skill-map.json`.
+- Hook tests: `python3 -m unittest discover -s .claude/hooks/tests`. Shell writes through Bash bypass the hook; review and CI remain the backstop.
+- No Make/CI execution hooks yet, because Make targets and the execution contract do not exist. Add them after bootstrap.
 - `.claude/settings.json` only adds narrow read/edit denies for typical local env and secret paths. These rules are defense-in-depth, NOT an OS sandbox; verify via `/permissions` and `/doctor`. No blanket Bash approval, no bypass mode.
 
 ## Agent routing
@@ -24,7 +31,8 @@
 | Goal framing, architectural arbitration, synthesis | Main thread | none | Opus 5.5 / medium by default; high for hard cross-domain decisions |
 | Independent architecture opinion | `/advisor` | advisor | Opus 5.5 / high, read-only |
 | Targeted repo investigation | main | scout | Haiku 5.5 / low, read-only |
-| Approved Go + database vertical slice | main | go-implementer | Sonnet 5.5 / medium |
+| Approved Go API vertical slice | main | go-implementer | Sonnet 5.5 / medium |
+| Approved PostgreSQL schema/migration/query slice | main | postgres-expert | Sonnet 5.5 / high |
 | Approved React/TanStack/Astryx vertical slice | main | web-implementer | Sonnet 5.5 / medium |
 | Independent review on risky change | main | skeptic | Sonnet 5.5 / high, read-only |
 
@@ -49,7 +57,7 @@ Avoid assigning both implementers overlapping contracts, root config, migration 
 - Do not turn G0 into a bureaucratic ban on creating the harness itself. Harness setup is allowed when the user explicitly approves the scope; app implementation remains blocked.
 - 100% Go statement coverage and >70% on all four frontend metrics are configured gates once code exists; they are not factual results today.
 - README public French; technical/agent files English.
-- This harness contract is not yet validated by a Claude Code runtime in this repository. Validate with the actual installed CLI version and user's provider model access before relying on model routing or skills.
+- H0 load validation covers registration, deny-rule enforcement and one skill invocation only. Re-validate after CLI upgrades, and confirm provider model access before relying on Opus/Sonnet/Haiku routing.
 
 ## Source documentation
 - https://code.claude.com/docs/en/sub-agents
@@ -60,83 +68,3 @@ Avoid assigning both implementers overlapping contracts, root config, migration 
 - https://code.claude.com/docs/en/agent-teams
 - https://code.claude.com/docs/en/model-config
 - https://blog.buildfastwithai.com/claude-opus-5-prompts-tested
-
-## H0/G0 Claude prompt (XML)
-
-Use the following prompt to start Claude Code as the 226OS lead orchestrator:
-
-```xml
-<mission>
-	<role>Act as the 226OS lead technical orchestrator.</role>
-	<primary_goal>Validate H0 harness readiness and prepare G0 readiness.</primary_goal>
-	<language>English for repository artifacts; concise reporting.</language>
-</mission>
-
-<required_inspection>
-	<file>AGENTS.md</file>
-	<file>CLAUDE.md</file>
-	<file>docs/spec-kit/CLAUDE_HANDOFF.md</file>
-	<file>docs/spec-kit/G0_DECISIONS.md</file>
-	<file>docs/spec-kit/G0_APPROVAL_TEMPLATE.md</file>
-	<file>docs/spec-kit/TASKS.md</file>
-	<file>docs/GIT_WORKFLOW.md</file>
-	<item>Current Git branch, status, remotes, and recent history</item>
-</required_inspection>
-
-<execution_order>
-	<step id="H0">Validate the Claude harness before application work.</step>
-	<step id="G0">Identify G0 decisions, approvals, owners, reviewers, and blockers.</step>
-	<step id="STOP">Stop before application implementation unless the explicit conditions below are satisfied.</step>
-</execution_order>
-
-<harness_validation>
-	<requirement>Verify that .claude/settings.json loads on the installed Claude Code version.</requirement>
-	<requirement>Verify that custom agents load and their scopes are effective.</requirement>
-	<requirement>Verify that project skills load and can be invoked.</requirement>
-	<requirement>Use the installed Claude Code validation commands or UI where available.</requirement>
-	<rule>Do not claim that a configuration works without observed validation evidence.</rule>
-	<rule>If a runtime file is absent, report it as missing; do not infer successful loading.</rule>
-</harness_validation>
-
-<delegation>
-	<scout model="Haiku" mode="read-only">Perform one bounded inventory of repository harness files, G0 artifacts, and missing configuration. Return paths, observed facts, and gaps only. Do not edit files or run remote mutations.</scout>
-	<advisor model="Opus" condition="only-if-needed">Ask for an opinion only when a genuinely disputed architecture decision is found. Do not invoke advisor for routine inventory, formatting, or already-decided policy.</advisor>
-	<rule>Do not use parallel autonomous editors or overlapping implementation agents.</rule>
-</delegation>
-
-<g0_review>
-	<identify>Open G0 decisions and their current status.</identify>
-	<identify>Missing named owners and distinct reviewers.</identify>
-	<identify>Exact next human approvals, conditions, and evidence required.</identify>
-	<identify>Decisions that are conditionally accepted versus deferred.</identify>
-</g0_review>
-
-<git_plan>
-	<rule>Use the existing workflow: work branch -&gt; PR develop -&gt; PR main.</rule>
-	<rule>develop is staging/preview; main is production.</rule>
-	<rule>Preserve the tested commit SHA through promotion.</rule>
-	<deliverable>Propose the smallest branch and commit plan for harness-only changes.</deliverable>
-</git_plan>
-
-<prohibited_scope>
-	<item>Do not create apps/.</item>
-	<item>Do not create database migrations or application database code.</item>
-	<item>Do not create infra/.</item>
-	<item>Do not install dependencies.</item>
-	<item>Do not create CI jobs.</item>
-	<item>Do not start application implementation until explicit G0 app-implementation approval is recorded.</item>
-	<item>Do not deploy, access secrets, or mutate external infrastructure.</item>
-</prohibited_scope>
-
-<report>
-	<include>Observed facts with paths and commands actually run.</include>
-	<include>Missing evidence and unresolved decisions.</include>
-	<include>Named owner/reviewer gaps.</include>
-	<include>Minimal harness branch/commit plan.</include>
-	<include>Actionable stop condition.</include>
-	<rule>Keep the report concise.</rule>
-	<rule>Use PASS, FAIL, NOT RUN, or BLOCKED only when supported by evidence.</rule>
-</report>
-
-<stop_condition>Stop after H0/G0 reporting when harness validation is incomplete, a required human approval is missing, or the task would cross into application implementation.</stop_condition>
-```

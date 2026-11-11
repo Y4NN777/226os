@@ -1,4 +1,4 @@
-# 226OS Spec Kit
+# 226os Spec Kit
 
 **Status:** implementation-ready documentation baseline, pending human approval
 **Date:** 2026-11-11
@@ -6,7 +6,7 @@
 
 ## Purpose
 
-This directory is the canonical implementation handoff for 226OS. It does not replace the product or engineering source documents; it binds them into an executable plan and records what is accepted, open, specified, verified, or not run.
+This directory is the canonical implementation handoff for 226os. It does not replace the product or engineering source documents; it binds them into an executable plan and records what is accepted, open, specified, verified, or not run.
 
 ## Document precedence
 

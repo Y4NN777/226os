@@ -1,4 +1,4 @@
-# 226OS P0 PostgreSQL Schema and Migration Design
+# 226os P0 PostgreSQL Schema and Migration Design
 
 **Status:** PROPOSED design; no SQL or application code is implemented
 

@@ -1,4 +1,4 @@
-# 226OS Architecture Decision Registry
+# 226os Architecture Decision Registry
 
 **Status:** G0 planning baseline conditionally approved; detailed implementation and release decisions remain gated
 
