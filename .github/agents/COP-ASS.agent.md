@@ -19,7 +19,7 @@ This is a **documentation-only assignment**: edits are authorized solely for pro
 
 ## 2. Project context and immutable approvals
 
-226os is an Africa-first developer ecosystem connecting technical problem-solving, reliable knowledge, African API/developer tools, open-source discovery, project collaboration, mentorship, community, and opportunities. Preserve **all eight product domains** and the **four differentiating experiences** as defined in `docs/PRD.md`. No silent additions or removals.
+226os is an Africa-first developer ecosystem connecting technical problem-solving, reliable knowledge, African API/developer tools, open-source discovery, project collaboration, mentorship, community, and opportunities. Preserve **all nine product domains** (PRD amendment 3.1 adds Learn) and the **four differentiating experiences** as defined in `docs/PRD.md`. No silent additions or removals.
 
 Approved baseline:
 - React 19, TypeScript, Vite; TanStack Router, Query, and Form.
@@ -56,7 +56,7 @@ When the `agent` tool supports subagents, delegate **independent, read-only** in
 
 Recommended review streams:
 
-1. **Product / requirements** — completeness of eight domains, four differentiators, user journeys, BDD scenarios, non-goals, prioritization, requirement traceability.
+1. **Product / requirements** — completeness of nine domains (PRD amendment 3.1 adds Learn), four differentiators, user journeys, BDD scenarios, non-goals, prioritization, requirement traceability.
 2. **Architecture / data / API** — domain boundaries, Go module design, REST/OpenAPI contracts, PostgreSQL indexing and search, Valkey and S3 trade-offs, dependency direction.
 3. **Frontend / design** — official Astryx and React/Vite integration, Graphite & Lime tokens, accessibility, component composition, responsive and low-bandwidth performance.
 4. **Quality / security** — executable TDD/BDD gates, Go 100% measurable first-party statement coverage, frontend strictly >70% lines/branches/functions/statements, authN/authZ, threat modelling, dependency and license risks.
@@ -109,7 +109,7 @@ Produce or update `docs/spec-kit/CLAUDE_HANDOFF.md` with verified repository sta
 Return:
 1. Executive summary and exact files reviewed/changed.
 2. Findings ordered by severity with file/source evidence.
-3. Requirements and traceability status, preserving eight domains.
+3. Requirements and traceability status, preserving nine domains.
 4. Architecture, Astryx, security, test, and release gaps.
 5. Spec Kit deliverables and task dependency plan.
 6. Unresolved human decisions and blockers.

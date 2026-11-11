@@ -1,0 +1,107 @@
+/* Build lane (Direction v2): layered surfaces, state pills, no vertical bars. Tokens only. */
+.build-filters { display: grid; gap: var(--space-3); }
+.build-bar { display: flex; align-items: center; justify-content: flex-end; gap: var(--space-1); }
+.build-sort .select { min-width: 0; width: auto; max-width: 100%; }
+#build-more { margin: 0; padding: var(--space-3); background: var(--surface-subtle); border-radius: var(--radius-card); }
+#build-more[hidden] { display: none; }
+
+/* Project rows */
+.build-row { padding-block: var(--space-4); }
+.build-row .row-lead { align-self: start; }
+.build-skills { margin-top: var(--space-1); }
+.build-meta { color: var(--text-muted); font-size: var(--fs-xs); gap: var(--space-1) var(--space-3); }
+.build-meta .row-origin { display: inline-flex; align-items: center; gap: var(--space-1); min-width: 0; max-width: 100%; }
+.build-meta .row-origin a { color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 36ch; }
+.build-meta .row-origin a:hover { color: var(--link); }
+.build-meta .icon { width: 14px; height: 14px; }
+@media (max-width: 639px) { .build-row .row-aside { grid-column: 2 / -1; flex-direction: row; justify-content: flex-start; } }
+
+/* Project header */
+.profile-id { display: flex; align-items: center; gap: var(--space-4); min-width: 0; }
+.profile-id-text { min-width: 0; display: grid; gap: var(--space-2); }
+.profile-id-text h1 { overflow-wrap: anywhere; line-height: 1.15; }
+.profile-id-text .meta { color: var(--text-muted); font-size: var(--fs-sm); align-items: center; }
+.project-demo { margin-bottom: var(--space-4); }
+.row:focus-visible { outline-offset: -2px; }
+.project-sub { margin: var(--space-4) 0 var(--space-2); }
+.project-panel { padding: var(--space-5); }
+.project-panel > h2, .project-panel .section-head h2 { font-size: var(--fs-md); }
+.project-panel > h2 { margin-bottom: var(--space-3); }
+
+/* Needs: clear cards */
+.need-grid { display: grid; gap: var(--space-3); grid-template-columns: minmax(0, 1fr); list-style: none; padding: 0; margin: 0; }
+@media (min-width: 720px) { .need-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.need-card { display: grid; gap: var(--space-3); align-content: start; padding: var(--space-4); border-radius: var(--radius-card); background: var(--surface-subtle); }
+.need-card.is-closed { background: transparent; box-shadow: none; opacity: .8; }
+.need-card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-3); }
+.need-card h3 { font-size: var(--fs-md); line-height: var(--lh-snug); margin: 0; }
+.need-card-meta { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-3); align-items: center; font-size: var(--fs-sm); color: var(--text-muted); }
+.need-card-meta .icon { width: 14px; height: 14px; vertical-align: -2px; margin-right: 4px; }
+.need-card .tag { background: var(--surface); }
+.need-card-foot { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); flex-wrap: wrap; min-height: 36px; }
+.need-card-foot .text-sm { color: var(--text-muted); }
+
+/* Applications (owner) */
+.app-list { display: grid; gap: var(--space-3); list-style: none; padding: 0; margin: 0; }
+.app-card { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: var(--space-3); align-items: start; padding: var(--space-4); border-radius: var(--radius-card); background: var(--surface-subtle); }
+.app-card .app-main { display: grid; gap: var(--space-1); min-width: 0; }
+.app-card .app-main h3, .app-card .app-main h4 { margin: 0; font-size: var(--fs-md); }
+.app-card .app-quote { margin: var(--space-1) 0 0; padding: var(--space-3); border-radius: var(--radius-control); background: var(--surface); font-size: var(--fs-sm); }
+.app-card .app-aside { display: flex; flex-direction: column; gap: var(--space-2); align-items: flex-end; }
+.app-actions { display: flex; gap: var(--space-1); }
+@media (max-width: 639px) { .app-card { grid-template-columns: auto minmax(0, 1fr); } .app-card .app-aside { grid-column: 1 / -1; flex-direction: row; align-items: center; justify-content: space-between; } }
+
+/* Activity */
+.act-list { display: grid; gap: var(--space-2); list-style: none; padding: 0; margin: 0; font-size: var(--fs-sm); }
+.act-list li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: var(--space-3); align-items: baseline; color: var(--text-muted); }
+.act-list li .icon { align-self: center; }
+
+/* Anonymous apply hint */
+.project-signin { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); padding: var(--space-3) var(--space-4); border-radius: var(--radius-card); background: var(--surface-subtle); font-size: var(--fs-sm); }
+.project-signin .icon { color: var(--action); flex: none; }
+
+/* Publish-a-need dialog + apply dialog */
+#need-skills-group { border: 0; padding: 0; margin: 0; min-width: 0; }
+.build-need-skills { display: grid; gap: 0 var(--space-4); grid-template-columns: 1fr; }
+@media (min-width: 480px) { .build-need-skills { grid-template-columns: 1fr 1fr; } }
+.build-jit { margin-bottom: var(--space-4); }
+.build-jit:empty { display: none; }
+
+/* Compact need/origin lines */
+.row-need { margin: 0; font-size: var(--fs-sm); }
+
+/* Propose dialog */
+.build-repo { display: flex; align-items: center; gap: var(--space-3); margin: 0 0 var(--space-3); padding: var(--space-2) var(--space-3); border-radius: var(--radius-control); background: var(--surface-subtle); font-size: var(--fs-sm); }
+.build-prefill { display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-3); }
+.build-prefill .icon { color: var(--action); flex: none; }
+.build-skillset { border: 0; padding: 0; margin: var(--space-4) 0 0; min-width: 0; }
+#propose-summary { margin: 0 var(--space-4); }
+.build-done { display: grid; justify-items: center; text-align: center; gap: var(--space-2); padding: var(--space-4) 0; }
+.build-done .icon { width: 40px; height: 40px; color: var(--success); }
+.build-done h3 { margin: 0; }
+.build-share { display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-4); }
+.build-share .icon { color: var(--text-muted); flex: none; }
+.build-share .input { flex: 1 1 auto; min-width: 0; font-size: var(--fs-sm); }
+.build-people { display: grid; gap: var(--space-1); margin-top: var(--space-2); }
+.build-person { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-2) var(--space-3); border-radius: var(--radius-control); background: var(--surface-subtle); color: var(--text); text-decoration: none; }
+.build-person:hover { background: var(--surface-subtle-hover); }
+.build-person-body { display: grid; min-width: 0; }
+.build-person-body span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Next steps after applying / publishing */
+.next-steps { display: grid; gap: var(--space-3); }
+.next-steps ol { margin: 0; padding-left: 0; list-style: none; display: grid; gap: var(--space-2); counter-reset: ns; }
+.next-steps ol > li { display: flex; gap: var(--space-3); align-items: baseline; font-size: var(--fs-sm); counter-increment: ns; }
+.next-steps ol > li::before { content: counter(ns); flex: none; width: 22px; height: 22px; border-radius: 50%; background: var(--surface-subtle); display: inline-grid; place-items: center; font-size: var(--fs-xs); font-weight: var(--fw-bold); font-variant-numeric: tabular-nums; }
+.next-sim { display: grid; gap: var(--space-1); list-style: none; padding: 0; margin: 0; }
+.next-sim a { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-2) var(--space-3); border-radius: var(--radius-control); background: var(--surface-subtle); color: var(--text); text-decoration: none; font-size: var(--fs-sm); }
+.next-sim a:hover { background: var(--surface-subtle-hover); }
+.next-sim .icon { margin-left: auto; color: var(--text-muted); flex: none; }
+
+/* View switch */
+.build-tools { display: inline-flex; align-items: center; gap: var(--space-3); }
+.list.is-grid .build-row { padding: var(--space-4); }
+.list.is-grid .build-row .row-aside { grid-column: auto; }
+.list.is-grid .build-row .thumb-lg { width: 56px; height: 56px; }
+.build-skills .tag { font-family: var(--font-sans); }
+.project-signin a { white-space: nowrap; font-weight: var(--fw-medium); }

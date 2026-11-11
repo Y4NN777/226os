@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title data-i18n="acc.signup.title">Créer un compte — 226os</title>
+  <meta name="color-scheme" content="light dark">
+  <meta name="robots" content="noindex">
+  <script src="../assets/js/theme-init.js"></script>
+  <link rel="stylesheet" href="../assets/css/tokens.css">
+  <link rel="stylesheet" href="../assets/css/base.css">
+  <link rel="stylesheet" href="../assets/css/layout.css">
+  <link rel="stylesheet" href="../assets/css/icons.css">
+  <link rel="stylesheet" href="../assets/css/components.css">
+  <link rel="stylesheet" href="../assets/css/pages/account.css">
+</head>
+<body data-layout="account" data-root="../">
+  <a class="skip-link" href="#main" data-i18n="skip" data-testid="skip-link">Aller au contenu principal</a>
+
+  <main id="main" tabindex="-1">
+    <div class="account-card" data-testid="signup-card">
+      <header class="acc-head">
+        <h1 class="h2" data-i18n="acc.signup.h1" data-testid="signup-h1"></h1>
+        <p data-i18n="acc.signup.lede" data-testid="signup-lede"></p>
+      </header>
+      <form class="acc-form" id="signup-form" novalidate data-testid="signup-form">
+        <div class="field" id="signup-f-name">
+          <label class="label" for="signup-name" data-i18n="acc.name" data-testid="signup-name-label"></label>
+          <input class="input" id="signup-name" name="name" type="text" required autocomplete="name" maxlength="60" aria-describedby="signup-name-error" data-testid="signup-name-input">
+            <p class="error-msg" id="signup-name-error" hidden data-testid="signup-name-error"><span class="icon i-alert-circle" aria-hidden="true" data-testid="signup-name-error-icon"></span><span data-testid="signup-name-error-text"></span></p>
+        </div>
+        <div class="field" id="signup-f-email">
+          <label class="label" for="signup-email" data-i18n="acc.email" data-testid="signup-email-label"></label>
+          <input class="input" id="signup-email" name="email" type="email" required autocomplete="email" inputmode="email" autocapitalize="none" spellcheck="false" aria-describedby="signup-email-error" data-testid="signup-email-input">
+            <p class="error-msg" id="signup-email-error" hidden data-testid="signup-email-error"><span class="icon i-alert-circle" aria-hidden="true" data-testid="signup-email-error-icon"></span><span data-testid="signup-email-error-text"></span></p>
+        </div>
+        <div class="field" id="signup-f-password">
+          <label class="label" for="signup-password" data-i18n="acc.password" data-testid="signup-password-label"></label>
+            <ul class="acc-rules" id="signup-rules" data-testid="signup-rules">
+              <li id="signup-rule-len" data-rule="len" data-met="false" data-testid="signup-rule-len"><span class="icon i-circle" aria-hidden="true" data-testid="signup-rule-len-icon"></span><span data-i18n="acc.rule.len" data-testid="signup-rule-len-text"></span><span class="visually-hidden" data-testid="signup-rule-len-status"></span></li>
+              <li class="acc-tip" data-testid="signup-rule-tip"><span class="icon i-sparkles" aria-hidden="true" data-testid="signup-rule-tip-icon"></span><span data-i18n="acc.rule.tip" data-testid="signup-rule-tip-text"></span></li>
+            </ul>
+            <div class="acc-pw">
+              <input class="input" id="signup-password" name="password" type="password" required autocomplete="new-password" maxlength="128" autocapitalize="none" spellcheck="false" aria-describedby="signup-rules signup-password-error" data-testid="signup-password-input">
+              <button type="button" class="btn btn-icon acc-pw-toggle" data-pw-toggle="#signup-password" aria-pressed="false" aria-controls="signup-password" data-i18n-attr="aria-label:common.showPassword" data-testid="signup-password-toggle"><span class="icon i-eye icon-main" aria-hidden="true" data-testid="signup-password-toggle-eye"></span><span class="icon i-eye-off icon-alt" aria-hidden="true" data-testid="signup-password-toggle-eye-off"></span></button>
+            </div>
+            <p class="error-msg" id="signup-password-error" hidden data-testid="signup-password-error"><span class="icon i-alert-circle" aria-hidden="true" data-testid="signup-password-error-icon"></span><span data-testid="signup-password-error-text"></span></p>
+        </div>
+        <button type="submit" class="btn btn-primary acc-submit" id="signup-submit" data-testid="signup-submit"><span class="spinner" hidden aria-hidden="true" data-testid="signup-submit-spinner"></span><span id="signup-submit-label" data-i18n="acc.signup.submit" data-testid="signup-submit-label"></span></button>
+      </form>
+      <p class="acc-legal" id="signup-legal" data-testid="signup-legal"></p>
+      <p class="acc-switch" data-testid="signup-switch"><span data-i18n="acc.signup.hasaccount" data-testid="signup-hasaccount"></span> <a href="connexion.html" id="signup-login-link" data-i18n="acc.signup.login" data-testid="signup-login-link"></a></p>
+    </div>
+  </main>
+
+  <script src="../assets/js/shell.js"></script>
+  <script defer src="../assets/js/app.js"></script>
+  <script defer src="../assets/js/i18n-common.js"></script>
+  <script defer src="../assets/js/pages/account.js"></script>
+</body>
+</html>

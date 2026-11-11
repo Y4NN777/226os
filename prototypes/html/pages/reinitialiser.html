@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title data-i18n="acc.reset.title">Nouveau mot de passe — 226os</title>
+  <meta name="color-scheme" content="light dark">
+  <meta name="robots" content="noindex">
+  <script src="../assets/js/theme-init.js"></script>
+  <link rel="stylesheet" href="../assets/css/tokens.css">
+  <link rel="stylesheet" href="../assets/css/base.css">
+  <link rel="stylesheet" href="../assets/css/layout.css">
+  <link rel="stylesheet" href="../assets/css/icons.css">
+  <link rel="stylesheet" href="../assets/css/components.css">
+  <link rel="stylesheet" href="../assets/css/pages/account.css">
+</head>
+<body data-layout="account" data-root="../">
+  <a class="skip-link" href="#main" data-i18n="skip" data-testid="skip-link">Aller au contenu principal</a>
+
+  <main id="main" tabindex="-1">
+    <div class="account-card" data-testid="reset-card">
+      <div id="reset-ask">
+        <header class="acc-head">
+          <h1 class="h2" data-i18n="acc.reset.h1" data-testid="reset-h1"></h1>
+          <p data-i18n="acc.reset.lede" data-testid="reset-lede"></p>
+        </header>
+        <form class="acc-form" id="reset-form" novalidate data-testid="reset-form">
+          <div class="field" id="reset-f-password">
+            <label class="label" for="reset-password" data-i18n="acc.reset.newpw" data-testid="reset-password-label"></label>
+            <ul class="acc-rules" id="reset-rules" data-testid="reset-rules">
+              <li id="reset-rule-len" data-rule="len" data-met="false" data-testid="reset-rule-len"><span class="icon i-circle" aria-hidden="true" data-testid="reset-rule-len-icon"></span><span data-i18n="acc.rule.len" data-testid="reset-rule-len-text"></span><span class="visually-hidden" data-testid="reset-rule-len-status"></span></li>
+              <li class="acc-tip" data-testid="reset-rule-tip"><span class="icon i-sparkles" aria-hidden="true" data-testid="reset-rule-tip-icon"></span><span data-i18n="acc.rule.tip" data-testid="reset-rule-tip-text"></span></li>
+            </ul>
+            <div class="acc-pw">
+              <input class="input" id="reset-password" name="password" type="password" required autocomplete="new-password" maxlength="128" autocapitalize="none" spellcheck="false" aria-describedby="reset-rules reset-password-error" data-testid="reset-password-input">
+              <button type="button" class="btn btn-icon acc-pw-toggle" data-pw-toggle="#reset-password" aria-pressed="false" aria-controls="reset-password" data-i18n-attr="aria-label:common.showPassword" data-testid="reset-password-toggle"><span class="icon i-eye icon-main" aria-hidden="true" data-testid="reset-password-toggle-eye"></span><span class="icon i-eye-off icon-alt" aria-hidden="true" data-testid="reset-password-toggle-eye-off"></span></button>
+            </div>
+            <p class="error-msg" id="reset-password-error" hidden data-testid="reset-password-error"><span class="icon i-alert-circle" aria-hidden="true" data-testid="reset-password-error-icon"></span><span data-testid="reset-password-error-text"></span></p>
+          </div>
+          <button type="submit" class="btn btn-primary acc-submit" id="reset-submit" data-testid="reset-submit"><span class="spinner" hidden aria-hidden="true" data-testid="reset-submit-spinner"></span><span id="reset-submit-label" data-i18n="acc.reset.submit" data-testid="reset-submit-label"></span></button>
+        </form>
+      </div>
+      <div class="acc-done" id="reset-invalid" hidden tabindex="-1" role="alert" data-testid="reset-invalid">
+        <header class="acc-head">
+          <span class="acc-badge acc-badge-warn" aria-hidden="true" data-testid="reset-invalid-badge"><span class="icon i-clock" id="reset-invalid-icon" data-testid="reset-invalid-icon"></span></span>
+          <h1 class="h2" id="reset-invalid-h1" data-testid="reset-invalid-h1"></h1>
+          <p id="reset-invalid-body" data-testid="reset-invalid-body"></p>
+        </header>
+        <a class="btn btn-primary acc-submit" href="mot-de-passe-oublie.html" data-testid="reset-invalid-retry"><span data-i18n="acc.reset.retry" data-testid="reset-invalid-retry-label"></span></a>
+      </div>
+      <div class="acc-done" id="reset-done" hidden tabindex="-1" role="status" data-testid="reset-done">
+        <header class="acc-head">
+          <span class="acc-badge" aria-hidden="true" data-testid="reset-done-badge"><span class="icon i-check-circle" data-testid="reset-done-icon"></span></span>
+          <h1 class="h2" data-i18n="acc.reset.done.h1" data-testid="reset-done-h1"></h1>
+          <p data-i18n="acc.reset.done.body" data-testid="reset-done-body"></p>
+        </header>
+        <a class="btn btn-primary acc-submit" href="connexion.html" data-testid="reset-done-login"><span data-i18n="acc.login.submit" data-testid="reset-done-login-label"></span></a>
+      </div>
+    </div>
+  </main>
+
+  <script src="../assets/js/shell.js"></script>
+  <script defer src="../assets/js/app.js"></script>
+  <script defer src="../assets/js/i18n-common.js"></script>
+  <script defer src="../assets/js/pages/account.js"></script>
+</body>
+</html>

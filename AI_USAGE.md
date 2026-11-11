@@ -75,3 +75,21 @@ tests_or_evidence:
   - "claude -p spawning postgres-expert: subagent reported exactly its 5 preloaded skill headings"
 open_risks: ["Bash-based file writes bypass the hook", "an Edit of a non-existent file is rejected by Claude Code before PreToolUse fires (harmless: no write happens)", "skills cite documents with known internal conflicts (listed in the PR description)"]
 ```
+
+## Brand assets (concept D) record
+
+```yaml
+date: "2026-11-11"
+contributor: "Y4NN77"
+tool_or_model: "Google Gemini (image generation, by the repository owner); ImageMagick resizing by Claude Code"
+purpose: "226os logo, symbol, app icons; README header and social preview; prototype header and favicons"
+repository_or_source_context: "Owner-provided ~/Downloads/226os-concept-d-assets.zip (transparent PNG extracted from an approved four-concept board); Gemini_Generated_Image_*.jpeg not used (checkerboard baked into a JPEG, no real transparency)"
+files_or_sections_affected: ["docs/brand/226os-logo.png", "docs/brand/226os-logo-white.png", "docs/brand/226os-social-preview.png", "prototypes/html/assets/brand/*", "README.md header", "prototypes/html/assets/js/shell.js brand"]
+third_party_sources_consulted: []
+license_review: PENDING
+human_reviewers: []
+tests_or_evidence: ["visual check of every exported PNG", "prototype header rendered in light and dark"]
+open_risks:
+  - "AI-generated raster, not vector: approximate edges, needs review at 16/32 px; a clean SVG redraw is recommended before release"
+  - "Copyright and trademark status of AI-generated marks must be reviewed with CADEV/legal (G0-COMP-001)"
+```
