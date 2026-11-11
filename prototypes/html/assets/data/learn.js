@@ -425,7 +425,7 @@ window.MOCK = window.MOCK || {};
       '<p class="row-excerpt"' + (course ? '' : ' lang="' + it.lang + '" data-user-content') + ' data-testid="' + n + '-summary">' + esc(sum) + '</p>' +
       '<div class="meta">' + by + '<span class="meta-item" data-testid="' + n + '-level">' + esc(lvl) + '</span>' +
       '<span class="meta-item" data-testid="' + n + '-minutes"><span class="icon i-clock" aria-hidden="true" data-testid="' + n + '-minutes-icon"></span>' + esc(L.fmtMin(mins)) + '</span>' +
-      '<span class="badge" data-testid="' + n + '-lang"><span aria-hidden="true">' + it.lang.toUpperCase() + '</span><span class="visually-hidden">' + esc(t('ln.lang.' + it.lang)) + '</span></span></div></div>' +
+      '<span class="badge" data-testid="' + n + '-lang"><span aria-hidden="true" data-testid="' + n + '-lang-code">' + it.lang.toUpperCase() + '</span><span class="visually-hidden" data-testid="' + n + '-lang-name">' + esc(t('ln.lang.' + it.lang)) + '</span></span></div></div>' +
       '<div class="row-aside">' + aside + '</div></li>';
   };
 

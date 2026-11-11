@@ -36,18 +36,20 @@ I18N.register({
   function words() { return norm(q).split(/\s+/).filter(Boolean); }
   function match(fields) { var h = norm(fields.join(' ')), w = words(); return w.every(function (x) { return h.indexOf(x) > -1; }); }
   function score(title) { var h = norm(title); return words().reduce(function (a, w) { return a + (h.indexOf(w) > -1 ? 2 : 0); }, 0); }
+  var markN = 0;
   function mark(s) {
     var out = esc(s), ws = words().filter(function (w) { return w.length > 1; }); if (!ws.length) return out;
     var n = norm(s); if (n.length !== s.length) return out;   /* only when normalisation keeps offsets */
     var spans = []; ws.forEach(function (w) { var i = n.indexOf(w); if (i > -1) spans.push([i, i + w.length]); });
     spans.sort(function (a, b) { return a[0] - b[0]; }); var res = '', last = 0;
-    spans.forEach(function (sp) { if (sp[0] >= last) { res += esc(s.slice(last, sp[0])) + '<mark class="ln-mark">' + esc(s.slice(sp[0], sp[1])) + '</mark>'; last = sp[1]; } });
+    spans.forEach(function (sp) { if (sp[0] >= last) { res += esc(s.slice(last, sp[0])) + '<mark class="ln-mark" data-testid="srch-mark-' + (++markN) + '">' + esc(s.slice(sp[0], sp[1])) + '</mark>'; last = sp[1]; } });
     return spans.length ? res + esc(s.slice(last)) : out;
   }
-  function cc(c, id) { return '<span class="country" data-testid="' + id + '"><span class="country-code" data-testid="' + id + '-code">' + c + '</span><span class="visually-hidden">' + esc(M.countryName(c)) + '</span></span>'; }
+  function cc(c, id) { return '<span class="country" data-testid="' + id + '"><span class="country-code" data-testid="' + id + '-code">' + c + '</span><span class="visually-hidden" data-testid="' + id + '-name">' + esc(M.countryName(c)) + '</span></span>'; }
   function tags(a, id) { return '<ul class="tag-list list-reset" data-testid="' + id + '">' + a.slice(0, 3).map(function (x) { return '<li><span class="tag" data-testid="' + id + '-' + norm(x).replace(/[^a-z0-9]+/g, '-') + '">' + esc(x) + '</span></li>'; }).join('') + '</ul>'; }
 
   function groups() {
+    markN = 0;
     var qs = (M.solve ? M.solve.all() : M.questions).filter(function (x) { return match([x.title, x.excerpt, x.tags.join(' ')]); }).sort(function (a, b) { return score(b.title) - score(a.title) || b.votes - a.votes; });
     var rs = M.resources.filter(function (x) { var c = M.byId(M.categories, x.category); return match([x.name, x.provider, x.summary, c ? c.fr + ' ' + c.en : '', x.sdk.join(' ')]); }).sort(function (a, b) { return score(b.name) - score(a.name); });
     var ps = (M.build && M.build.projects ? M.build.projects() : M.projects).filter(function (x) { return match([x.name, x.summary, x.stack.join(' '), (x.needs || []).map(function (n) { return n.title || n; }).join(' ')]); }).sort(function (a, b) { return score(b.name) - score(a.name); });
@@ -87,7 +89,7 @@ I18N.register({
     else body = '<nav class="ln-jump" aria-label="' + esc(t('srch.jump')) + '" data-testid="srch-jump">' + gs.map(function (g) { return '<a class="chip" href="#srch-g-' + g.k + '" data-testid="srch-jump-' + g.k + '">' + esc(t('srch.g.' + g.k)) + ' <span class="chip-count" data-testid="srch-jump-' + g.k + '-count">' + g.items.length + '</span></a>'; }).join('') + '</nav>' +
       gs.map(function (g) {
         return '<section class="ln-group" id="srch-g-' + g.k + '" aria-labelledby="srch-g-' + g.k + '-h" data-testid="srch-group-' + g.k + '"><div class="ln-group-head">' + ic(g.icon, 'srch-group-' + g.k + '-icon') + '<h2 id="srch-g-' + g.k + '-h" data-testid="srch-group-' + g.k + '-title">' + esc(t('srch.g.' + g.k)) + '</h2><span class="ln-group-count" data-testid="srch-group-' + g.k + '-count">' + g.items.length + '</span>' +
-          (g.items.length ? '<a href="' + g.href + '" data-testid="srch-group-' + g.k + '-all"><span>' + esc(t('srch.all')) + '</span>' + ic('arrow-right', 'srch-group-' + g.k + '-all-icon') + '</a>' : '') + '</div>' +
+          (g.items.length ? '<a href="' + g.href + '" data-testid="srch-group-' + g.k + '-all"><span data-testid="srch-group-' + g.k + '-all-label">' + esc(t('srch.all')) + '</span>' + ic('arrow-right', 'srch-group-' + g.k + '-all-icon') + '</a>' : '') + '</div>' +
           (g.items.length ? '<ul class="list list-reset" data-testid="srch-group-' + g.k + '-list">' + g.items.slice(0, LIM).map(g.row).join('') + '</ul>' : '<p class="hint" data-testid="srch-group-' + g.k + '-none">' + esc(t('srch.group.none')) + '</p>') + '</section>';
       }).join('');
     root.innerHTML = '<header class="page-header" data-testid="srch-header"><h1 data-testid="srch-h1">' + esc(q ? t('srch.h1.q', { q: q }) : t('srch.h1')) + '</h1>' + (q ? '<p class="results-meta" role="status" aria-live="polite" data-testid="srch-total">' + esc(t(total === 1 ? 'srch.total.one' : 'srch.total.many', { n: total })) + '</p>' : '') + '</header>' +
