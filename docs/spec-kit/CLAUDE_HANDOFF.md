@@ -2,7 +2,7 @@
 
 **Prepared:** 2026-11-11
 **Mode:** COP-ASS documentation review complete; stop before implementation
-**Recommendation:** NO-GO for implementation until the human checkpoint below is closed
+**Recommendation:** CONDITIONAL GO for specification planning; implementation remains blocked until the conditions below are closed
 
 ## Verified repository state
 
@@ -101,7 +101,7 @@ The human owner must decide or assign:
 
 | Gate | Status | Reason |
 |---|---|---|
-| G0 | BLOCKED | plan exists, but human approval/owners and open decisions are absent |
+| G0 | CONDITIONAL GO | proposed defaults accepted in principle; named owners, ADRs, evidence plans, and governance/legal review remain open |
 | G1 | NOT RUN | no implementation or CI |
 | G2 | NOT RUN | no tests or coverage reports |
 | G3 | NOT RUN | no OpenAPI, migrations, or real PostgreSQL evidence |
@@ -110,4 +110,4 @@ The human owner must decide or assign:
 | G6 | NOT RUN | no performance baseline |
 | G7 | NOT RUN | no deployment, backup/restore, rollback, or production approval |
 
-**Decision:** `NO-GO` for implementation start and release. A human may move to conditional implementation GO only after G0 approval and closure of the contracts explicitly marked `OPEN`; release remains blocked until G1-G7 produce evidence on the target SHA.
+**Decision:** `CONDITIONAL GO` for specification planning only. Implementation start remains blocked until the approval conditions and contracts explicitly marked `OPEN` are closed; release remains blocked until G1-G7 produce evidence on the target SHA.

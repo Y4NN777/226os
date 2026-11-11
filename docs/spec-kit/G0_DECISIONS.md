@@ -1,8 +1,8 @@
 # 226OS G0 Human Decision Register
 
-**Status:** PROPOSED; nothing in this register is approved
+**Status:** CONDITIONAL GO recorded; proposed defaults accepted in principle, with no final ADR approval implied
 **Purpose:** concise human checkpoint for the remaining G0 specification blockers
-**Decision rule:** a proposal becomes `ACCEPTED` only after a named human approver records decision, date, rationale, and any deviation in a numbered ADR under `docs/decisions/`.
+**Decision rule:** the user accepted the proposed defaults in principle on 2026-11-11. A proposal becomes final `ACCEPTED` only after a named human approver records decision, date, rationale, conditions, and any deviation in a numbered ADR under `docs/decisions/`.
 
 | ID | Decision requested | Proposed default | Alternatives | Security implications | Required evidence | Status / approver |
 |---|---|---|---|---|---|---|
@@ -33,4 +33,4 @@
 
 For every row above, the approver must record one choice: `ACCEPT`, `ACCEPT WITH CONDITION`, `REJECT`, or `DEFER`. `ACCEPT WITH CONDITION` must name the condition, owner, due date, and evidence required. A blank choice is not approval.
 
-Until this table is populated, G0 remains `BLOCKED`. Proposed defaults are planning inputs only and must not be presented as accepted architecture or security policy.
+The approval record in `G0_APPROVAL_TEMPLATE.md` records `CONDITIONAL GO` for the proposed defaults. G0 remains conditionally open until owners, ADRs, evidence plans, and governance/legal review are completed. No application implementation, security exception, dependency approval, migration approval, or release approval is implied.

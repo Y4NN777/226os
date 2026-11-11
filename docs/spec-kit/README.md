@@ -47,4 +47,4 @@ The repository currently keeps the primary documents at the repository root. Lin
 
 ## Current readiness
 
-Documentation review is `VERIFIED` for the findings recorded in the handoff. G0 is `BLOCKED` pending human approval of the proposed defaults, owners, contracts, governance drafts, and open decisions in `G0_APPROVAL_TEMPLATE.md`. G1-G7 are `NOT RUN` because no application, infrastructure, CI, or test artifacts exist yet.
+Documentation review is `VERIFIED` for the findings recorded in the handoff. G0 is `CONDITIONAL GO` for specification planning, with implementation still blocked pending named owners, ADRs, evidence plans, governance/legal review, and the conditions in `G0_APPROVAL_TEMPLATE.md`. G1-G7 are `NOT RUN` because no application, infrastructure, CI, or test artifacts exist yet.
