@@ -6,7 +6,7 @@
 - Toute fonctionnalité part d'une user story `US-*`, d'un scénario Given/When/Then, et d'un contrat d'API ou d'interface observables.
 - P0, P1, P2 sont des **priorités de livraison**, non des fonctions supprimées. La vision exacte reste dans le PRD.
 - La spécification est évolutive par PR et doit précéder le changement de comportement. Un agent n'invente pas de fonctionnalités.
-- Les hypothèses non validées sont marquées `OPEN` ; les contrats approuvés sont marqués `ACCEPTED`.
+- Les contrats approuvés sont marqués `ACCEPTED` (ADR-0001 à ADR-0007) ; toute nouvelle hypothèse non validée doit être signalée comme telle dans la PR qui l'introduit.
 
 ## 2. Parcours P0 et scénarios BDD
 
@@ -24,7 +24,7 @@ Feature: Entraide technique
   Scenario: Interdire une acceptation non autorisée
     Given Bob n'est pas l'autrice de la question
     When Bob tente d'accepter une réponse via l'API
-    Then le serveur refuse avec 403
+    Then le serveur refuse avec 403 (l'objet est visible pour Bob)
     And aucune réponse acceptée n'est modifiée
 ```
 
@@ -52,7 +52,7 @@ Feature: Collaboration
   Scenario: Empêcher une lecture non autorisée des candidatures
     Given Charlie n'est pas responsable du projet
     When Charlie demande la liste privée des candidatures
-    Then le serveur refuse l'accès
+    Then le serveur refuse l'accès (403 si le projet est visible pour lui, 404 s'il est privé)
 ```
 
 ### US-LEARN-001 — Apprendre et publier un article (VALIDÉ par le propriétaire le 2026-11-11, PRD amendement 3.1 ; 401 sans session confirmé)
@@ -130,27 +130,27 @@ Les modules P1/P2 ne doivent pas être artificiellement matérialisés en code v
 ## 4. Contrat REST v1 — bornes de conception
 - Préfixe `/api/v1`, JSON UTF-8 ; horodatages RFC3339 UTC ; IDs opaques UUID ; erreurs uniformes `application/problem+json` (RFC 9457).
 - Pagination par curseur stable (taille maximale documentée), limite de taille des corps, filtres validés strictement, listes ordonnées de façon déterministe.
-- Ressources initiales : `sessions`, `users/me`, `profiles`, `questions`, `answers`, `votes`, `articles` (`OPEN` : nom et schéma à fixer dans l'OpenAPI), `resources`, `projects`, `contribution-needs`, `applications`, `search`.
+- Ressources initiales (chemins de `api/openapi.yaml`) : `/auth/*`, `/me`, `/profiles/{username}`, `questions`, `answers`, `votes`, `/learn/articles` et `/learn/series`, `resources`, `projects`, `contribution-needs`, `applications`, `/moderation/*`, `/search`.
 - Les verbes HTTP et schémas sont figés dans `api/openapi.yaml` avant développement parallèle ; ce document ne prétend pas qu'ils sont déjà implémentés.
-- Auth via session cookie sécurisée, protections CSRF pour mutations, autorisation par propriétaire/role **sur serveur**.
+- Auth via session cookie sécurisée, protections CSRF pour mutations, autorisation par propriétaire/role **sur serveur**. Codes : 401 non authentifié ; 403 authentifié mais non autorisé sur un objet visible ; 404 si l'existence d'un objet privé ne doit pas fuiter (règle : 403 si l'objet est visible pour l'appelant, 404 sinon). Publier exige un email vérifié (403 `EMAIL_NOT_VERIFIED`).
 - Journaliser les tentatives d'accès interdit sans secrets ni données personnelles inutiles.
 
 ## 5. Modèle conceptuel et contraintes
 | Entité | Invariants à assurer en base |
 |---|---|
 | user/profile | identifiant unique ; email normalisé unique ; langue et pays validés |
-| question/answer | propriétaire obligatoire ; max une réponse acceptée par question ; état contrôlé |
-| vote | unique `(user_id, target_type, target_id)` ; pas de confiance dans les compteurs client |
+| question/answer | propriétaire obligatoire ; max une réponse acceptée par question ; cycle de publication published/removed ; état de résolution dérivé (open/answered/resolved) |
+| vote | unique `(user_id, target_type, target_id)` ; up/down ; auto-vote interdit (403) ; pas de confiance dans les compteurs client |
 | resource | source + URL + date de vérification si déclarée ; pays liés |
-| project | URL GitHub normalisée ; propriétaire interne ; visibilité explicite |
+| project | URL GitHub normalisée ; propriétaire interne ; visibilité public/private |
 | contribution_need | projet existant ; état borné ; compétences liées |
-| application | unique `(user_id, contribution_need_id)` ; accès restreint |
+| application | unique `(user_id, contribution_need_id)` ; accès restreint ; ré-application seulement après retrait par le candidat |
 | content_relation | types source/cible autorisés ; pas de liens pendants |
 
 ## 6. PostgreSQL et recherche
-- PostgreSQL est l'unique moteur initial ; migrations SQL up/down contrôlées ; accès `pgx` + `sqlc` ; transaction pour mutations multi-tables.
-- Full-text : `tsvector` alimenté explicitement ou via colonne générée selon vérification SQL ; index GIN ; `websearch_to_tsquery` avec dictionnaires adaptés ; `pg_trgm` pour tolérance aux fautes ; index et plans vérifiés par `EXPLAIN (ANALYZE, BUFFERS)` sur données représentatives.
-- Recherche combinée des `questions`, `resources`, `projects` via requêtes explicitement bornées ; filtres pays, tags, type et langues ; tri stable ; protection contre requêtes coûteuses.
+- PostgreSQL 18 est l'unique moteur initial ; migrations SQL goose **forward-only** (sans section Down), séquentielles, immuables après merge, avec restauration comme repli ; accès `pgx` + `sqlc` ; transaction pour mutations multi-tables.
+- Full-text : `tsvector` alimenté explicitement ou via colonne générée selon vérification SQL ; index GIN ; `websearch_to_tsquery` en configuration `simple` avec `unaccent` (fonction wrapper immuable) ; `pg_trgm` pour tolérance aux fautes ; index et plans vérifiés par `EXPLAIN (ANALYZE, BUFFERS)` sur données représentatives.
+- Recherche combinée des `questions`, `resources`, `projects` et des articles/tutoriels Learn via requêtes explicitement bornées ; filtres pays, tags, type et langues ; tri stable ; protection contre requêtes coûteuses.
 - Français et anglais : stratégies de tokenisation documentées ; aucune promesse de traduction automatique du contenu au P0.
 
 ## 7. Sécurité & performance comme critères fonctionnels
@@ -165,9 +165,9 @@ Les modules P1/P2 ne doivent pas être artificiellement matérialisés en code v
 | US-SOLVE-001 | questions/answers/votes | publication, acceptation, contrôle d'accès | test/quality/security |
 | US-DISCOVER-001 | resources/search | filtres pays, sources, recherche | test/quality |
 | US-BUILD-001 | projects/applications | candidature unique, lecture privée interdite | test/security |
-| US-LEARN-001 | articles/tutorials (`OPEN`) | lecture publique, publication authentifiée, 401 sans session, langue d'origine préservée | test/security |
+| US-LEARN-001 | learn/articles, learn/series | lecture publique, publication authentifiée, 401 sans session, langue d'origine préservée | test/security |
 | US-IDENTITY-001 | sessions/profiles/relations | connexion, langue, liens | test/security |
 | US-ACCESS-001 | frontend/infra | mobile + réseau simulé | perf/accessibility |
 
-## 9. À compléter avant développement concurrent
-La référence normative détaillée `api/openapi.yaml`, les migrations `db/migrations`, les schémas JSON/DTO, les cas d'erreur et la stratégie de seed doivent être produits sous revue. Un agent ne doit pas inventer leur statut de validation.
+## 9. Références normatives
+`api/openapi.yaml` (accepté), `docs/spec-kit/DATABASE_DESIGN.md` (modèle accepté) et les ADR 0003 à 0007 sont normatifs. Les migrations `db/migrations`, le code généré et les seeds sont à produire sous revue ; aucun statut de validation d'exécution (gates G1 à G7) n'est présumé.

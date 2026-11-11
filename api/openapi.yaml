@@ -1,0 +1,4496 @@
+# 226os P0 API contract (OpenAPI 3.1). ACCEPTED (ADR-0004, 2026-11-11). Source of truth for verbs/schemas/status codes;
+# narrative in docs/spec-kit/API_CONTRACT.md.
+openapi: 3.1.0
+info:
+  title: 226os P0 API
+  version: 1.0.0
+  summary: Contract for Solve, Discover, Build, Learn, identity and search.
+  description: |-
+    Accepted contract (ADR-0004). Source of truth for verbs, schemas and status codes; see docs/spec-kit/API_CONTRACT.md.
+
+    Conventions: base path `/api/v1`; JSON UTF-8; UUID ids; RFC 3339 UTC timestamps; cookie session + `X-CSRF-Token` on every unsafe method (no bearer tokens); errors are RFC 9457 `application/problem+json` with `type` = `urn:226os:problem:<code>`; cursor pagination (`cursor`, `limit` default 20, max 50, above 50 -> 422, envelope `{items, next_cursor}`); `Idempotency-Key` on retried creates (24 h retention); `ETag`/`If-Match` on question edits; user content carries `lang` (fr|en) and is never auto-translated. Status policy: 401 no session; 403 authenticated but not allowed on an object visible to the caller (also CSRF_FAILED, EMAIL_NOT_VERIFIED, SELF_VOTE_FORBIDDEN, REAUTH_REQUIRED); 404 absent or private object whose existence must not leak; 409 duplicate/state conflict; 412/428 precondition; 422 validation; 429 with Retry-After. Publishing needs a verified email. PATCH uses JSON Merge Patch (RFC 7396).
+
+    Extensions: `x-priority` (P0|P1), `x-spec` (US-* refs), `x-authz` (matrix mapping and 403/404 choice).
+  license:
+    name: Apache-2.0
+    identifier: Apache-2.0
+servers:
+- url: /api/v1
+  description: Same-origin API prefix
+tags:
+- name: auth
+  description: Sign-up, sign-in/out, session, email verification, password reset, CSRF token
+- name: me
+  description: Own account and profile
+- name: profiles
+  description: Public profiles
+- name: questions
+  description: 'Solve: questions'
+- name: answers
+  description: 'Solve: answers and acceptance'
+- name: votes
+  description: 'Solve: votes'
+- name: resources
+  description: 'Discover: APIs/tools catalogue, sources, reviews (P1), error reports'
+- name: projects
+  description: 'Build: projects, contribution needs, applications'
+- name: learn
+  description: 'Learn: articles, tutorials, training series'
+- name: search
+  description: Cross-domain search (questions, resources, projects, Learn)
+- name: moderation
+  description: 'Moderator scope at P0: hide/restore content and resolve error reports (audited)'
+paths:
+  /auth/csrf:
+    get:
+      operationId: getCsrfToken
+      tags:
+      - auth
+      summary: Obtain a CSRF token
+      x-priority: P0
+      x-spec:
+      - US-IDENTITY-001
+      x-authz:
+        allow: anonymous|member
+        matrix: POST /sessions row (CSRF)
+        notes: Safe GET. Token is per session (or per anonymous pre-session cookie); sent back in X-CSRF-Token on
+          every unsafe request.
+      security: []
+      responses:
+        '200':
+          description: CSRF token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CsrfToken'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /auth/sign-up:
+    post:
+      operationId: signUp
+      tags:
+      - auth
+      summary: Create an account
+      x-priority: P0
+      x-spec:
+      - US-IDENTITY-001
+      x-authz:
+        allow: anonymous
+        matrix: POST /sessions, registration, reset request
+        notes: Generic 202 whether or not the email already exists (no enumeration). Rate-limited by IP and account.
+          Verification email sent; reset/verification tokens single-use and hashed.
+      security:
+      - csrfToken: []
+      requestBody:
+        required: true
+        description: Strict JSON body; unknown fields rejected.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignUpRequest'
+      responses:
+        '202':
+          description: Accepted; a verification email is sent if the address can be used.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Accepted'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /auth/sign-in:
+    post:
+      operationId: signIn
+      tags:
+      - auth
+      summary: Sign in (rotates the session)
+      x-priority: P0
+      x-spec:
+      - US-IDENTITY-001
+      x-authz:
+        allow: anonymous
+        matrix: POST /sessions
+        notes: Generic INVALID_CREDENTIALS for unknown email or wrong password (equal timing class). Rotates session
+          id; sets HttpOnly cookie; returns a fresh CSRF token. Rate-limited, fail closed.
+      security:
+      - csrfToken: []
+      requestBody:
+        required: true
+        description: Strict JSON body; unknown fields rejected.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignInRequest'
+      responses:
+        '200':
+          description: Signed in. Sets the session cookie.
+          headers:
+            Set-Cookie:
+              description: 'Opaque session cookie: HttpOnly; Secure (deployed); SameSite=Lax; Path=/; no Domain.'
+              schema:
+                type: string
+                maxLength: 512
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionState'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /auth/sign-out:
+    post:
+      operationId: signOut
+      tags:
+      - auth
+      summary: Sign out (revokes the current session)
+      x-priority: P0
+      x-spec:
+      - US-IDENTITY-001
+      x-authz:
+        allow: member
+        matrix: DELETE /sessions/current
+        notes: Revokes only the caller's own session server-side; clears the cookie.
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      responses:
+        '204':
+          description: Signed out.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /auth/session:
+    get:
+      operationId: getSession
+      tags:
+      - auth
+      summary: Current session state
+      x-priority: P0
+      x-spec:
+      - US-IDENTITY-001
+      x-authz:
+        allow: anonymous|member
+        notes: 'Never 401: anonymous callers receive authenticated=false so the SPA can bootstrap.'
+      security:
+      - {}
+      - cookieAuth: []
+      responses:
+        '200':
+          description: Session state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionState'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /auth/verify-email:
+    post:
+      operationId: verifyEmail
+      tags:
+      - auth
+      summary: Confirm an email address
+      x-priority: P0
+      x-spec:
+      - US-IDENTITY-001
+      x-authz:
+        allow: anonymous
+        notes: Single-use token (lifetime 24h). Invalid/expired token -> 422 INVALID_TOKEN.
+      security:
+      - csrfToken: []
+      requestBody:
+        required: true
+        description: Strict JSON body; unknown fields rejected.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenRequest'
+      responses:
+        '204':
+          description: Email verified.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /auth/password-reset/request:
+    post:
+      operationId: requestPasswordReset
+      tags:
+      - auth
+      summary: Request a password reset email
+      x-priority: P0
+      x-spec:
+      - US-IDENTITY-001
+      x-authz:
+        allow: anonymous
+        matrix: POST /sessions, registration, reset request
+        notes: Always 202 (no enumeration); rate-limited per IP and account.
+      security:
+      - csrfToken: []
+      requestBody:
+        required: true
+        description: Strict JSON body; unknown fields rejected.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordResetRequest'
+      responses:
+        '202':
+          description: Accepted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Accepted'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /auth/password-reset/confirm:
+    post:
+      operationId: confirmPasswordReset
+      tags:
+      - auth
+      summary: Set a new password with a reset token
+      x-priority: P0
+      x-spec:
+      - US-IDENTITY-001
+      x-authz:
+        allow: anonymous
+        notes: Single-use token (lifetime 30 min). Revokes all existing sessions of the user.
+      security:
+      - csrfToken: []
+      requestBody:
+        required: true
+        description: Strict JSON body; unknown fields rejected.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordResetConfirm'
+      responses:
+        '204':
+          description: Password changed; all sessions revoked.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /me:
+    get:
+      operationId: getMe
+      tags:
+      - me
+      summary: Current account and own profile
+      x-priority: P0
+      x-spec:
+      - US-IDENTITY-001
+      x-authz:
+        allow: member
+        matrix: GET /users/me
+        notes: Subject from session only. Only place the account email is returned.
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: Account and profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Me'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /me/profile:
+    patch:
+      operationId: updateMyProfile
+      tags:
+      - me
+      summary: Update own profile (JSON Merge Patch)
+      description: 'Partial update with JSON Merge Patch semantics (RFC 7396): omitted fields are unchanged; `null`
+        clears a nullable field. Content type is application/json.'
+      x-priority: P0
+      x-spec:
+      - US-IDENTITY-001
+      x-authz:
+        allow: member (own profile only)
+        matrix: PATCH /profiles/me
+        notes: No user id in path or body; cross-user access impossible by construction.
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      requestBody:
+        required: true
+        description: Strict JSON body; unknown fields rejected.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProfileUpdate'
+      responses:
+        '200':
+          description: Updated profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MyProfile'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /profiles/{username}:
+    get:
+      operationId: getProfile
+      tags:
+      - profiles
+      summary: Public profile by username
+      x-priority: P0
+      x-spec:
+      - US-IDENTITY-001
+      x-authz:
+        allow: anonymous|member
+        matrix: GET /profiles/{id}
+        deny_status:
+          private_profile: 404
+        notes: Fields are filtered by the owner's field_visibility and the caller (anonymous vs member). Email is
+          never returned.
+      security:
+      - {}
+      - cookieAuth: []
+      parameters:
+      - $ref: '#/components/parameters/Username'
+      responses:
+        '200':
+          description: Visibility-filtered profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicProfile'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /questions:
+    get:
+      operationId: listQuestions
+      tags:
+      - questions
+      summary: List/search questions
+      x-priority: P0
+      x-spec:
+      - US-SOLVE-001
+      - US-IDENTITY-001
+      x-authz:
+        allow: anonymous|member
+        matrix: GET /search, public questions
+        notes: 'Only published questions. Order: newest first, UUID tie-breaker (relevance rank first when q is
+          set).'
+      security: []
+      parameters:
+      - $ref: '#/components/parameters/Cursor'
+      - $ref: '#/components/parameters/Limit'
+      - name: q
+        in: query
+        description: Full-text query (bounded length).
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 200
+      - name: tag
+        in: query
+        schema:
+          $ref: '#/components/schemas/TagSlug'
+      - name: state
+        in: query
+        description: Derived solve state.
+        schema:
+          $ref: '#/components/schemas/QuestionState'
+      - $ref: '#/components/parameters/Country'
+      - $ref: '#/components/parameters/LangFilter'
+      responses:
+        '200':
+          description: Page of questions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuestionPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      operationId: createQuestion
+      tags:
+      - questions
+      summary: Publish a question
+      x-priority: P0
+      x-spec:
+      - US-SOLVE-001
+      x-authz:
+        allow: member
+        matrix: POST /questions
+        notes: author = session subject. Snippets are stored, never executed; Markdown sanitised on output.
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        description: Strict JSON body; unknown fields rejected.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QuestionCreate'
+      responses:
+        '201':
+          description: Created
+          headers:
+            Location:
+              description: Canonical URL of the created resource.
+              schema:
+                type: string
+                format: uri-reference
+                maxLength: 512
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Question'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /questions/{questionId}:
+    get:
+      operationId: getQuestion
+      tags:
+      - questions
+      summary: Get a question with its context links
+      x-priority: P0
+      x-spec:
+      - US-SOLVE-001
+      - US-IDENTITY-001
+      x-authz:
+        allow: anonymous|member
+        notes: 404 for unknown or non-published (non-visible) questions.
+      security: []
+      parameters:
+      - $ref: '#/components/parameters/QuestionId'
+      responses:
+        '200':
+          description: Question
+          headers:
+            ETag:
+              description: Entity tag; send it back in If-Match when editing.
+              schema:
+                type: string
+                maxLength: 128
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Question'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    patch:
+      operationId: updateQuestion
+      tags:
+      - questions
+      summary: Edit own question (JSON Merge Patch)
+      x-priority: P0
+      x-spec:
+      - US-SOLVE-001
+      x-authz:
+        allow: owner
+        matrix: PATCH/DELETE /questions/{id}
+        non_owner: 403
+        notes: Visible object, not the author -> 403 (owner-confirmed). Moderator edits only via documented moderation
+          policy (not in this API yet).
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      parameters:
+      - $ref: '#/components/parameters/QuestionId'
+      - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        description: Strict JSON body; unknown fields rejected.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QuestionUpdate'
+      responses:
+        '200':
+          description: Updated
+          headers:
+            ETag:
+              description: Entity tag of the updated question.
+              schema:
+                type: string
+                maxLength: 128
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Question'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /questions/{questionId}/answers:
+    get:
+      operationId: listAnswers
+      tags:
+      - answers
+      summary: List answers of a question
+      x-priority: P0
+      x-spec:
+      - US-SOLVE-001
+      x-authz:
+        allow: anonymous|member
+        notes: 'Order: accepted first, then vote_score desc, created_at, id.'
+      security: []
+      parameters:
+      - $ref: '#/components/parameters/QuestionId'
+      - $ref: '#/components/parameters/Cursor'
+      - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Page of answers
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnswerPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      operationId: createAnswer
+      tags:
+      - answers
+      summary: Answer a question
+      x-priority: P0
+      x-spec:
+      - US-SOLVE-001
+      x-authz:
+        allow: member
+        matrix: POST /questions/{id}/answers
+        notes: Question must be visible. Requires a verified email (403 EMAIL_NOT_VERIFIED).
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      parameters:
+      - $ref: '#/components/parameters/QuestionId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        description: Strict JSON body; unknown fields rejected.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnswerCreate'
+      responses:
+        '201':
+          description: Created
+          headers:
+            Location:
+              description: Canonical URL of the created resource.
+              schema:
+                type: string
+                format: uri-reference
+                maxLength: 512
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Answer'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /votes:
+    post:
+      operationId: castVote
+      tags:
+      - votes
+      summary: Cast or change a vote (idempotent per user and target)
+      description: 409 VOTE_CONFLICT only when a concurrent conflicting write for the same (user, target) is in
+        flight; sequential repeats are idempotent 200s.
+      x-priority: P0
+      x-spec:
+      - US-SOLVE-001
+      x-authz:
+        allow: member
+        matrix: POST /votes
+        notes: 'Unique (user, target_type, target_id). Repeating the same value is a no-op returning the same state;
+          changing value updates it. Counters are server-derived. Voting on your own question or answer -> 403 SELF_VOTE_FORBIDDEN (service rule). Up (+1) and down (-1) votes are both allowed.'
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      requestBody:
+        required: true
+        description: Strict JSON body; unknown fields rejected.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VoteRequest'
+      responses:
+        '200':
+          description: Current vote state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VoteState'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      operationId: retractVote
+      tags:
+      - votes
+      summary: Retract own vote
+      x-priority: P0
+      x-spec:
+      - US-SOLVE-001
+      x-authz:
+        allow: member
+        matrix: POST /votes / DELETE /votes
+        notes: 'Idempotent: no existing vote -> 200 with value 0.'
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      parameters:
+      - name: target_type
+        in: query
+        required: true
+        schema:
+          $ref: '#/components/schemas/VoteTargetType'
+      - name: target_id
+        in: query
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+      responses:
+        '200':
+          description: Vote state after retraction
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VoteState'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /questions/{questionId}/accept:
+    post:
+      operationId: acceptAnswer
+      tags:
+      - answers
+      summary: Accept one answer (question author only)
+      x-priority: P0
+      x-spec:
+      - US-SOLVE-001
+      x-authz:
+        allow: owner (question author)
+        matrix: POST /questions/{id}/accept
+        non_owner: 403
+        notes: 'Bob (non-author) -> 403, nothing changes (SPEC BDD). At most one accepted answer: accepting another
+          atomically replaces the previous one.'
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      parameters:
+      - $ref: '#/components/parameters/QuestionId'
+      requestBody:
+        required: true
+        description: Strict JSON body; unknown fields rejected.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AcceptRequest'
+      responses:
+        '200':
+          description: Question with accepted_answer_id set
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Question'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /questions/{questionId}/unaccept:
+    post:
+      operationId: unacceptAnswer
+      tags:
+      - answers
+      summary: Clear the accepted answer (question author only)
+      x-priority: P0
+      x-spec:
+      - US-SOLVE-001
+      x-authz:
+        allow: owner (question author)
+        non_owner: 403
+        notes: 'Idempotent: nothing accepted -> 200 unchanged.'
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      parameters:
+      - $ref: '#/components/parameters/QuestionId'
+      responses:
+        '200':
+          description: Question with accepted_answer_id null
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Question'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /resources:
+    get:
+      operationId: listResources
+      tags:
+      - resources
+      summary: Browse the API and tools catalogue
+      x-priority: P0
+      x-spec:
+      - US-DISCOVER-001
+      x-authz:
+        allow: anonymous|member
+        matrix: GET /search, public resources
+        notes: Each item carries provenance (verification status, last_verified_at, source_count).
+      security: []
+      parameters:
+      - $ref: '#/components/parameters/Cursor'
+      - $ref: '#/components/parameters/Limit'
+      - name: q
+        in: query
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 200
+      - $ref: '#/components/parameters/Country'
+      - name: category
+        in: query
+        schema:
+          $ref: '#/components/schemas/Slug'
+      - name: type
+        in: query
+        schema:
+          $ref: '#/components/schemas/ResourceType'
+      - name: sdk
+        in: query
+        description: SDK language available (e.g. python, js, go).
+        schema:
+          $ref: '#/components/schemas/Slug'
+      - name: provider
+        in: query
+        description: Provider slug.
+        schema:
+          $ref: '#/components/schemas/Slug'
+      - name: doclang
+        in: query
+        description: Documentation language.
+        schema:
+          $ref: '#/components/schemas/Lang'
+      responses:
+        '200':
+          description: Page of resources
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourcePage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /resources/{resourceId}:
+    get:
+      operationId: getResource
+      tags:
+      - resources
+      summary: Get a catalogue entry
+      x-priority: P0
+      x-spec:
+      - US-DISCOVER-001
+      - US-IDENTITY-001
+      x-authz:
+        allow: anonymous|member
+        notes: Includes related questions/projects/learn links (resolved, visible only).
+      security: []
+      parameters:
+      - $ref: '#/components/parameters/ResourceId'
+      responses:
+        '200':
+          description: Resource
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /resources/{resourceId}/sources:
+    get:
+      operationId: listResourceSources
+      tags:
+      - resources
+      summary: Sources and verification status of an entry
+      x-priority: P0
+      x-spec:
+      - US-DISCOVER-001
+      x-authz:
+        allow: anonymous|member
+        notes: A stale source is never presented as verified.
+      security: []
+      parameters:
+      - $ref: '#/components/parameters/ResourceId'
+      responses:
+        '200':
+          description: Sources
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceSourceList'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /resources/{resourceId}/error-reports:
+    post:
+      operationId: createResourceErrorReport
+      tags:
+      - resources
+      summary: Report an error in an entry
+      x-priority: P0
+      x-spec:
+      - US-DISCOVER-001
+      x-authz:
+        allow: member
+        matrix: moderation/report endpoints
+        notes: Reporter identity is private (visible to the reporter and moderators only). Rate-limited.
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      parameters:
+      - $ref: '#/components/parameters/ResourceId'
+      requestBody:
+        required: true
+        description: Strict JSON body; unknown fields rejected.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorReportCreate'
+      responses:
+        '201':
+          description: Report received
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorReport'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /resources/{resourceId}/reviews:
+    get:
+      operationId: listResourceReviews
+      tags:
+      - resources
+      summary: List reviews of an entry
+      x-priority: P1
+      x-spec:
+      - US-DISCOVER-001
+      x-authz:
+        allow: anonymous|member
+        notes: 'P1 (PRD): kept minimal; not required for P0 delivery.'
+      security: []
+      parameters:
+      - $ref: '#/components/parameters/ResourceId'
+      - $ref: '#/components/parameters/Cursor'
+      - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Page of reviews
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      operationId: createResourceReview
+      tags:
+      - resources
+      summary: Review an entry
+      x-priority: P1
+      x-spec:
+      - US-DISCOVER-001
+      x-authz:
+        allow: member
+        notes: One review per (user, resource); duplicate -> 409 DUPLICATE_REVIEW. P1.
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      parameters:
+      - $ref: '#/components/parameters/ResourceId'
+      requestBody:
+        required: true
+        description: Strict JSON body; unknown fields rejected.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewCreate'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Review'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /projects:
+    get:
+      operationId: listProjects
+      tags:
+      - projects
+      summary: List projects
+      x-priority: P0
+      x-spec:
+      - US-BUILD-001
+      x-authz:
+        allow: anonymous|member
+        matrix: GET /search, public projects
+        notes: Public projects only, plus the caller's own private ones.
+      security:
+      - {}
+      - cookieAuth: []
+      parameters:
+      - $ref: '#/components/parameters/Cursor'
+      - $ref: '#/components/parameters/Limit'
+      - name: q
+        in: query
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 200
+      - name: technology
+        in: query
+        schema:
+          $ref: '#/components/schemas/Slug'
+      - name: skill
+        in: query
+        description: Skill needed by an open contribution need.
+        schema:
+          $ref: '#/components/schemas/Slug'
+      - name: open_needs
+        in: query
+        schema:
+          type: boolean
+      responses:
+        '200':
+          description: Page of projects
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      operationId: createProject
+      tags:
+      - projects
+      summary: Register a project from a GitHub URL
+      x-priority: P0
+      x-spec:
+      - US-BUILD-001
+      x-authz:
+        allow: member
+        matrix: POST /projects
+        notes: github_url is validated against a strict host/path allowlist and fetched with timeouts and anti-SSRF
+          controls; normalised URL unique. Owner = session subject.
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        description: Strict JSON body; unknown fields rejected.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectCreate'
+      responses:
+        '201':
+          description: Created
+          headers:
+            Location:
+              description: Canonical URL of the created resource.
+              schema:
+                type: string
+                format: uri-reference
+                maxLength: 512
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /projects/{projectId}:
+    get:
+      operationId: getProject
+      tags:
+      - projects
+      summary: Get a project
+      x-priority: P0
+      x-spec:
+      - US-BUILD-001
+      - US-IDENTITY-001
+      x-authz:
+        allow: anonymous|member
+        deny_status:
+          private_project_non_owner: 404
+        notes: 'Private project: 404 for everyone but the owner (existence not leaked).'
+      security:
+      - {}
+      - cookieAuth: []
+      parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      responses:
+        '200':
+          description: Project
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    patch:
+      operationId: updateProject
+      tags:
+      - projects
+      summary: Edit own project (JSON Merge Patch)
+      x-priority: P0
+      x-spec:
+      - US-BUILD-001
+      x-authz:
+        allow: owner
+        matrix: PATCH/DELETE /projects/{id}
+        non_owner: 403 if public, 404 if private
+        notes: github_url is immutable after creation.
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      requestBody:
+        required: true
+        description: Strict JSON body; unknown fields rejected.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectUpdate'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /projects/{projectId}/contribution-needs:
+    get:
+      operationId: listContributionNeeds
+      tags:
+      - projects
+      summary: List contribution needs of a project
+      x-priority: P0
+      x-spec:
+      - US-BUILD-001
+      x-authz:
+        allow: anonymous|member
+        notes: Follows project visibility (private -> 404).
+      security:
+      - {}
+      - cookieAuth: []
+      parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - $ref: '#/components/parameters/Cursor'
+      - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Page of needs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NeedPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      operationId: createContributionNeed
+      tags:
+      - projects
+      summary: Publish a contribution need
+      x-priority: P0
+      x-spec:
+      - US-BUILD-001
+      x-authz:
+        allow: owner
+        matrix: POST /projects/{id}/contribution-needs
+        non_owner: 403 if public, 404 if private
+        notes: Only the project owner (no delegation in P0).
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        description: Strict JSON body; unknown fields rejected.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NeedCreate'
+      responses:
+        '201':
+          description: Created
+          headers:
+            Location:
+              description: Canonical URL of the created resource.
+              schema:
+                type: string
+                format: uri-reference
+                maxLength: 512
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContributionNeed'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /contribution-needs/{needId}/applications:
+    post:
+      operationId: createApplication
+      tags:
+      - projects
+      summary: Apply to a contribution need
+      x-priority: P0
+      x-spec:
+      - US-BUILD-001
+      x-authz:
+        allow: member (not the project owner)
+        matrix: POST /contribution-needs/{id}/applications
+        notes: 'Unique (user, need): a second distinct request -> 409 DUPLICATE_APPLICATION; a retry with the same
+          Idempotency-Key replays the first 201. Closed need or own project -> 409 STATE_CONFLICT. Re-applying is allowed only if the applicant''s previous application was withdrawn (the row is reopened); after a decline -> 409 DUPLICATE_APPLICATION. Requires a verified email.'
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      parameters:
+      - $ref: '#/components/parameters/NeedId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        description: Strict JSON body; unknown fields rejected.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApplicationCreate'
+      responses:
+        '201':
+          description: Created
+          headers:
+            Location:
+              description: Canonical URL of the created resource.
+              schema:
+                type: string
+                format: uri-reference
+                maxLength: 512
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Application'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /projects/{projectId}/applications:
+    get:
+      operationId: listProjectApplications
+      tags:
+      - projects
+      summary: List applications received by a project
+      x-priority: P0
+      x-spec:
+      - US-BUILD-001
+      x-authz:
+        allow: owner
+        matrix: GET /projects/{id}/applications
+        non_owner: 403 if public, 404 if private
+        notes: Charlie (third party) is refused with no count or data leak.
+      security:
+      - cookieAuth: []
+      parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - $ref: '#/components/parameters/Cursor'
+      - $ref: '#/components/parameters/Limit'
+      - name: status
+        in: query
+        schema:
+          $ref: '#/components/schemas/ApplicationStatus'
+      responses:
+        '200':
+          description: Page of applications
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /applications/{applicationId}:
+    patch:
+      operationId: decideApplication
+      tags:
+      - projects
+      summary: Decide on (or withdraw) an application
+      x-priority: P0
+      x-spec:
+      - US-BUILD-001
+      x-authz:
+        allow: owner or maintainer (accepted|declined) | applicant (withdrawn)
+        matrix: PATCH /applications/{id}
+        notes: 'Invalid transition (e.g. decided -> pending) -> 409 STATE_CONFLICT. Only the applicant may withdraw; only the project owner or a maintainer may accept or decline. Cross-project IDOR: applicant/owner
+          relation checked in the same transaction; otherwise 404.'
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      parameters:
+      - $ref: '#/components/parameters/ApplicationId'
+      requestBody:
+        required: true
+        description: Strict JSON body; unknown fields rejected.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApplicationDecision'
+      responses:
+        '200':
+          description: Updated application
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Application'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /learn/articles:
+    get:
+      operationId: listLearnArticles
+      tags:
+      - learn
+      summary: List articles and tutorials
+      x-priority: P0
+      x-spec:
+      - US-LEARN-001
+      x-authz:
+        allow: anonymous|member
+        notes: Public read, no account needed (owner-confirmed).
+      security: []
+      parameters:
+      - $ref: '#/components/parameters/Cursor'
+      - $ref: '#/components/parameters/Limit'
+      - name: q
+        in: query
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 200
+      - name: type
+        in: query
+        schema:
+          $ref: '#/components/schemas/ArticleType'
+      - name: topic
+        in: query
+        description: Topic slug (matches an article tag).
+        schema:
+          $ref: '#/components/schemas/TagSlug'
+      - name: level
+        in: query
+        schema:
+          $ref: '#/components/schemas/Level'
+      - $ref: '#/components/parameters/LangFilter'
+      responses:
+        '200':
+          description: Page of article summaries
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ArticlePage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      operationId: createLearnArticle
+      tags:
+      - learn
+      summary: Publish an article or tutorial
+      x-priority: P0
+      x-spec:
+      - US-LEARN-001
+      x-authz:
+        allow: member
+        notes: No session -> 401 (owner-confirmed), nothing created. Authenticated but not allowed (e.g. unverified
+          email -> 403 EMAIL_NOT_VERIFIED). Original language preserved; no automatic translation.
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        description: Strict JSON body; unknown fields rejected.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ArticleCreate'
+      responses:
+        '201':
+          description: Created
+          headers:
+            Location:
+              description: Canonical URL of the created resource.
+              schema:
+                type: string
+                format: uri-reference
+                maxLength: 512
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Article'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /learn/articles/{articleId}:
+    get:
+      operationId: getLearnArticle
+      tags:
+      - learn
+      summary: Read an article or tutorial
+      x-priority: P0
+      x-spec:
+      - US-LEARN-001
+      - US-IDENTITY-001
+      x-authz:
+        allow: anonymous|member
+        notes: Returns original-language body plus lang; related links resolved.
+      security: []
+      parameters:
+      - $ref: '#/components/parameters/ArticleId'
+      responses:
+        '200':
+          description: Article
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Article'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /learn/series:
+    get:
+      operationId: listTrainingSeries
+      tags:
+      - learn
+      summary: List training series (free formations)
+      x-priority: P0
+      x-spec:
+      - US-LEARN-001
+      x-authz:
+        allow: anonymous|member
+      security: []
+      parameters:
+      - $ref: '#/components/parameters/Cursor'
+      - $ref: '#/components/parameters/Limit'
+      - $ref: '#/components/parameters/LangFilter'
+      - name: level
+        in: query
+        schema:
+          $ref: '#/components/schemas/Level'
+      responses:
+        '200':
+          description: Page of series
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SeriesPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /learn/series/{seriesId}:
+    get:
+      operationId: getTrainingSeries
+      tags:
+      - learn
+      summary: Read a training series with its lessons
+      x-priority: P0
+      x-spec:
+      - US-LEARN-001
+      x-authz:
+        allow: anonymous|member
+        notes: Public. When a session exists, my_progress is included per lesson.
+      security:
+      - {}
+      - cookieAuth: []
+      parameters:
+      - $ref: '#/components/parameters/SeriesId'
+      responses:
+        '200':
+          description: Series with ordered lessons
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrainingSeries'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /learn/series/{seriesId}/lessons/{lessonId}/progress:
+    get:
+      operationId: getLessonProgress
+      tags:
+      - learn
+      summary: Get own progress on a lesson
+      x-priority: P1
+      x-spec:
+      - US-LEARN-001
+      x-authz:
+        allow: member (own progress only)
+        notes: PRD 5.9 puts structured progress in P1; P0 delivers public reading only.
+      security:
+      - cookieAuth: []
+      parameters:
+      - $ref: '#/components/parameters/SeriesId'
+      - $ref: '#/components/parameters/LessonId'
+      responses:
+        '200':
+          description: Progress
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LessonProgress'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    put:
+      operationId: putLessonProgress
+      tags:
+      - learn
+      summary: Set own progress on a lesson
+      x-priority: P1
+      x-spec:
+      - US-LEARN-001
+      x-authz:
+        allow: member (own progress only)
+        notes: PUT is naturally idempotent (full replacement of the caller's progress record).
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      parameters:
+      - $ref: '#/components/parameters/SeriesId'
+      - $ref: '#/components/parameters/LessonId'
+      requestBody:
+        required: true
+        description: Strict JSON body; unknown fields rejected.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LessonProgressUpdate'
+      responses:
+        '200':
+          description: Progress
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LessonProgress'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /search:
+    get:
+      operationId: search
+      tags:
+      - search
+      summary: Search across questions, resources, projects and learn
+      x-priority: P0
+      x-spec:
+      - US-SOLVE-001
+      - US-DISCOVER-001
+      - US-LEARN-001
+      x-authz:
+        allow: anonymous|member
+        matrix: GET /search
+        notes: 'Only published/visible content; private objects never appear. Query length bounded; per-group result
+          count bounded (no cursor: use the list endpoints with q for more).'
+      security:
+      - {}
+      - cookieAuth: []
+      parameters:
+      - name: q
+        in: query
+        required: true
+        description: Query text (websearch syntax).
+        schema:
+          type: string
+          minLength: 2
+          maxLength: 200
+      - name: types
+        in: query
+        description: 'Restrict to these groups (default: all).'
+        style: form
+        explode: false
+        schema:
+          type: array
+          maxItems: 4
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/SearchGroup'
+      - name: per_group
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 20
+          default: 5
+      - $ref: '#/components/parameters/Country'
+      - $ref: '#/components/parameters/LangFilter'
+      responses:
+        '200':
+          description: Grouped hits
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchResults'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /moderation/{targetType}/{targetId}/hide:
+    post:
+      operationId: hideContent
+      tags:
+      - moderation
+      summary: Hide content (sets it to removed; audited)
+      x-priority: P0
+      x-spec:
+      - US-IDENTITY-001
+      x-authz:
+        allow: moderator
+        matrix: moderation endpoints
+        non_moderator: 403
+        notes: Moderator scope at P0 is hide/restore content and resolve error reports only. Moderators never edit content. Already hidden -> 409 STATE_CONFLICT. Writes audit_log in the same transaction.
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      parameters:
+      - name: targetType
+        in: path
+        required: true
+        description: Kind of content.
+        schema:
+          $ref: '#/components/schemas/ModerationTargetType'
+      - name: targetId
+        in: path
+        required: true
+        description: targetId (UUID).
+        schema:
+          $ref: '#/components/schemas/Uuid'
+      requestBody:
+        required: true
+        description: Strict JSON body; unknown fields rejected.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ModerationReason'
+      responses:
+        '204':
+          description: Done; an audit_log row was written in the same transaction.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /moderation/{targetType}/{targetId}/restore:
+    post:
+      operationId: restoreContent
+      tags:
+      - moderation
+      summary: Restore hidden content (back to published; audited)
+      x-priority: P0
+      x-spec:
+      - US-IDENTITY-001
+      x-authz:
+        allow: moderator
+        matrix: moderation endpoints
+        non_moderator: 403
+        notes: Same scope and audit rule as hide. Not hidden -> 409 STATE_CONFLICT.
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      parameters:
+      - name: targetType
+        in: path
+        required: true
+        description: Kind of content.
+        schema:
+          $ref: '#/components/schemas/ModerationTargetType'
+      - name: targetId
+        in: path
+        required: true
+        description: targetId (UUID).
+        schema:
+          $ref: '#/components/schemas/Uuid'
+      requestBody:
+        required: true
+        description: Strict JSON body; unknown fields rejected.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ModerationReason'
+      responses:
+        '204':
+          description: Done; an audit_log row was written in the same transaction.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /moderation/error-reports/{reportId}/resolve:
+    post:
+      operationId: resolveErrorReport
+      tags:
+      - moderation
+      summary: Resolve or reject a resource error report (audited)
+      x-priority: P0
+      x-spec:
+      - US-IDENTITY-001
+      x-authz:
+        allow: moderator
+        matrix: moderation endpoints
+        non_moderator: 403
+        notes: Moderators resolve or reject error reports; reporter identity is never returned to the reported side. Audit row in the same transaction.
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      parameters:
+      - name: reportId
+        in: path
+        required: true
+        description: reportId (UUID).
+        schema:
+          $ref: '#/components/schemas/Uuid'
+      requestBody:
+        required: true
+        description: Strict JSON body; unknown fields rejected.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorReportResolution'
+      responses:
+        '200':
+          description: Resolved; an audit_log row was written in the same transaction.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorReport'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: __Host-226os_session
+      description: Opaque server-side session (HttpOnly, SameSite=Lax, Secure in deployed envs). Cookie name is `__Host-226os_session`
+        in staging-test and production-live, `226os_session` in local-dev (ADR-0003). Idle 2 h, absolute 7 d.
+    csrfToken:
+      type: apiKey
+      in: header
+      name: X-CSRF-Token
+      description: Synchronizer CSRF token from GET /auth/csrf or SessionState (anonymous auth endpoints use the pre-session token
+        from GET /auth/csrf plus an Origin/Fetch-Metadata check). Required on every unsafe method
+        (POST/PUT/PATCH/DELETE), including JSON and anonymous ones. Missing/wrong -> 403 CSRF_FAILED. Both schemes
+        in one requirement object are ANDed.
+  headers:
+    XRequestId:
+      description: Opaque request correlation id.
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 64
+    RetryAfter:
+      description: Seconds to wait before retrying.
+      schema:
+        type: integer
+        minimum: 0
+        maximum: 86400
+  parameters:
+    QuestionId:
+      name: questionId
+      in: path
+      required: true
+      description: questionId (UUID).
+      schema:
+        $ref: '#/components/schemas/Uuid'
+    ResourceId:
+      name: resourceId
+      in: path
+      required: true
+      description: resourceId (UUID).
+      schema:
+        $ref: '#/components/schemas/Uuid'
+    ProjectId:
+      name: projectId
+      in: path
+      required: true
+      description: projectId (UUID).
+      schema:
+        $ref: '#/components/schemas/Uuid'
+    NeedId:
+      name: needId
+      in: path
+      required: true
+      description: needId (UUID).
+      schema:
+        $ref: '#/components/schemas/Uuid'
+    ApplicationId:
+      name: applicationId
+      in: path
+      required: true
+      description: applicationId (UUID).
+      schema:
+        $ref: '#/components/schemas/Uuid'
+    ArticleId:
+      name: articleId
+      in: path
+      required: true
+      description: articleId (UUID).
+      schema:
+        $ref: '#/components/schemas/Uuid'
+    SeriesId:
+      name: seriesId
+      in: path
+      required: true
+      description: seriesId (UUID).
+      schema:
+        $ref: '#/components/schemas/Uuid'
+    LessonId:
+      name: lessonId
+      in: path
+      required: true
+      description: lessonId (UUID).
+      schema:
+        $ref: '#/components/schemas/Uuid'
+    Username:
+      name: username
+      in: path
+      required: true
+      description: Public username.
+      schema:
+        $ref: '#/components/schemas/Username'
+    Cursor:
+      name: cursor
+      in: query
+      description: Opaque pagination cursor from a previous next_cursor. Tampered/expired -> 400 INVALID_CURSOR.
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 512
+        pattern: ^[A-Za-z0-9_-]+$
+    Limit:
+      name: limit
+      in: query
+      description: Page size, 1..50 (above 50 -> 422).
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 50
+        default: 20
+    Country:
+      name: country
+      in: query
+      schema:
+        $ref: '#/components/schemas/CountryCode'
+    LangFilter:
+      name: lang
+      in: query
+      description: Original language of the content.
+      schema:
+        $ref: '#/components/schemas/Lang'
+    IfMatch:
+      name: If-Match
+      in: header
+      required: true
+      description: ETag of the representation being edited (412 PRECONDITION_FAILED on mismatch, 428 PRECONDITION_REQUIRED when missing).
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 128
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      description: Client-generated unique key (our own convention, inspired by an IETF draft that is not an RFC). Bound server-side to subject
+        + route + request hash for 24 hours. Same key + same body replays the stored response;
+        same key + different body -> 422 IDEMPOTENCY_KEY_REUSED; concurrent in-flight duplicate -> 409 IDEMPOTENCY_IN_PROGRESS.
+      schema:
+        type: string
+        minLength: 16
+        maxLength: 128
+        pattern: ^[A-Za-z0-9._~-]+$
+  responses:
+    BadRequest:
+      description: Malformed request (syntax, invalid cursor)
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: urn:226os:problem:MALFORMED_REQUEST
+            title: Malformed request (syntax, invalid cursor)
+            status: 400
+            code: MALFORMED_REQUEST
+            request_id: req_01HZX0
+            instance: /api/v1/questions
+    Unauthorized:
+      description: No valid session
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: urn:226os:problem:UNAUTHENTICATED
+            title: No valid session
+            status: 401
+            code: UNAUTHENTICATED
+            request_id: req_01HZX0
+            instance: /api/v1/questions
+    Forbidden:
+      description: Authenticated but not permitted, or CSRF check failed
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: urn:226os:problem:FORBIDDEN
+            title: Authenticated but not permitted, or CSRF check failed
+            status: 403
+            code: FORBIDDEN
+            request_id: req_01HZX0
+            instance: /api/v1/questions
+    NotFound:
+      description: Absent, or private/non-visible object whose existence must not leak
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: urn:226os:problem:NOT_FOUND
+            title: Absent, or private/non-visible object whose existence must not leak
+            status: 404
+            code: NOT_FOUND
+            request_id: req_01HZX0
+            instance: /api/v1/questions
+    Conflict:
+      description: Uniqueness or state conflict, or in-flight idempotent duplicate
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: urn:226os:problem:STATE_CONFLICT
+            title: Uniqueness or state conflict, or in-flight idempotent duplicate
+            status: 409
+            code: STATE_CONFLICT
+            request_id: req_01HZX0
+            instance: /api/v1/questions
+    PreconditionFailed:
+      description: If-Match does not match the current ETag
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: urn:226os:problem:PRECONDITION_FAILED
+            title: If-Match does not match the current ETag
+            status: 412
+            code: PRECONDITION_FAILED
+            request_id: req_01HZX0
+            instance: /api/v1/questions
+    PreconditionRequired:
+      description: If-Match header is required
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: urn:226os:problem:PRECONDITION_REQUIRED
+            title: If-Match header is required
+            status: 428
+            code: PRECONDITION_REQUIRED
+            request_id: req_01HZX0
+            instance: /api/v1/questions
+    PayloadTooLarge:
+      description: Body exceeds the size limit
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: urn:226os:problem:PAYLOAD_TOO_LARGE
+            title: Body exceeds the size limit
+            status: 413
+            code: PAYLOAD_TOO_LARGE
+            request_id: req_01HZX0
+            instance: /api/v1/questions
+    Unprocessable:
+      description: Semantic validation failed (violations[] lists fields)
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: urn:226os:problem:VALIDATION_ERROR
+            title: Semantic validation failed (violations[] lists fields)
+            status: 422
+            code: VALIDATION_ERROR
+            request_id: req_01HZX0
+            instance: /api/v1/questions
+    TooManyRequests:
+      description: Rate limit exceeded
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+        Retry-After:
+          $ref: '#/components/headers/RetryAfter'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: urn:226os:problem:RATE_LIMITED
+            title: Rate limit exceeded
+            status: 429
+            code: RATE_LIMITED
+            request_id: req_01HZX0
+            instance: /api/v1/questions
+    InternalError:
+      description: Unexpected server failure (no internals disclosed)
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: urn:226os:problem:INTERNAL_ERROR
+            title: Unexpected server failure (no internals disclosed)
+            status: 500
+            code: INTERNAL_ERROR
+            request_id: req_01HZX0
+            instance: /api/v1/questions
+    ServiceUnavailable:
+      description: Dependency unavailable (e.g. GitHub import)
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+        Retry-After:
+          $ref: '#/components/headers/RetryAfter'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: urn:226os:problem:SERVICE_UNAVAILABLE
+            title: Dependency unavailable (e.g. GitHub import)
+            status: 503
+            code: SERVICE_UNAVAILABLE
+            request_id: req_01HZX0
+            instance: /api/v1/questions
+  schemas:
+    ModerationTargetType:
+      type: string
+      enum:
+      - question
+      - answer
+      - resource
+      - project
+      - article
+      - relation
+    ModerationReason:
+      type: object
+      required:
+      - reason
+      properties:
+        reason:
+          type: string
+          minLength: 3
+          maxLength: 500
+      additionalProperties: false
+    ErrorReportResolution:
+      type: object
+      required:
+      - status
+      properties:
+        status:
+          type: string
+          enum:
+          - resolved
+          - rejected
+        note:
+          type: string
+          minLength: 0
+          maxLength: 500
+      additionalProperties: false
+    Uuid:
+      type: string
+      format: uuid
+      description: Opaque identifier; never an authorization control.
+    Timestamp:
+      type: string
+      format: date-time
+      description: RFC 3339, UTC (suffix Z).
+      examples:
+      - '2026-11-11T09:30:00Z'
+    Lang:
+      type: string
+      enum:
+      - fr
+      - en
+      description: Language of user content (original language preserved, never auto-translated).
+    Slug:
+      type: string
+      minLength: 1
+      maxLength: 64
+      pattern: ^[a-z0-9][a-z0-9-]*$
+    TagSlug:
+      type: string
+      minLength: 1
+      maxLength: 32
+      pattern: ^[a-z0-9][a-z0-9.+#-]*$
+    CountryCode:
+      type: string
+      minLength: 2
+      maxLength: 2
+      pattern: ^[A-Z]{2}$
+      description: ISO 3166-1 alpha-2.
+      examples:
+      - BF
+    Username:
+      type: string
+      minLength: 3
+      maxLength: 30
+      pattern: ^[a-z0-9][a-z0-9_-]{2,29}$
+    Markdown:
+      type: string
+      minLength: 1
+      maxLength: 20000
+      description: Markdown source. Raw HTML is neutralised on output; code is never executed.
+    QuestionState:
+      type: string
+      enum:
+      - open
+      - answered
+      - resolved
+      description: Derived, never stored or client-set. open = no answers; answered = has answers, none accepted; resolved = an accepted answer is set.
+    ResourceType:
+      type: string
+      enum:
+      - api
+      - sdk
+      - tool
+      description: What the item is.
+    VerificationStatus:
+      type: string
+      enum:
+      - verified
+      - claimed
+      - unverified
+      - stale
+      - disputed
+    ApplicationStatus:
+      type: string
+      enum:
+      - pending
+      - accepted
+      - declined
+      - withdrawn
+    NeedStatus:
+      type: string
+      enum:
+      - open
+      - filled
+      - closed
+    ProjectVisibility:
+      type: string
+      enum:
+      - public
+      - private
+    ArticleType:
+      type: string
+      enum:
+      - article
+      - tutorial
+    ArticleStatus:
+      type: string
+      enum:
+      - draft
+      - published
+      - archived
+      - removed
+      description: Publication lifecycle. Only published articles are public; drafts are visible to their author.
+    Level:
+      type: string
+      enum:
+      - beginner
+      - intermediate
+      - advanced
+    VoteTargetType:
+      type: string
+      enum:
+      - question
+      - answer
+    SearchGroup:
+      type: string
+      enum:
+      - questions
+      - resources
+      - projects
+      - learn
+    FieldVisibility:
+      type: string
+      enum:
+      - public
+      - members
+      - private
+    Intent:
+      type: string
+      enum:
+      - ask
+      - help
+      - integrate
+      - contribute
+      - learn
+      description: Onboarding intent (values from the prototype welcome step plus learn).
+    ProfileField:
+      type: string
+      enum:
+      - intent
+      - skills
+      - country
+      - languages
+      - github
+      - bio
+      - open_to_collab
+    ErrorCode:
+      type: string
+      description: Stable machine code; see x-error-catalogue for the status mapping.
+      enum:
+      - MALFORMED_REQUEST
+      - INVALID_CURSOR
+      - UNAUTHENTICATED
+      - INVALID_CREDENTIALS
+      - CSRF_FAILED
+      - FORBIDDEN
+      - EMAIL_NOT_VERIFIED
+      - SELF_VOTE_FORBIDDEN
+      - REAUTH_REQUIRED
+      - NOT_FOUND
+      - DUPLICATE_APPLICATION
+      - DUPLICATE_REVIEW
+      - VOTE_CONFLICT
+      - IDEMPOTENCY_IN_PROGRESS
+      - STATE_CONFLICT
+      - PRECONDITION_FAILED
+      - PAYLOAD_TOO_LARGE
+      - VALIDATION_ERROR
+      - INVALID_TOKEN
+      - IDEMPOTENCY_KEY_REUSED
+      - INVALID_GITHUB_URL
+      - PRECONDITION_REQUIRED
+      - RATE_LIMITED
+      - INTERNAL_ERROR
+      - SERVICE_UNAVAILABLE
+      - UPSTREAM_UNAVAILABLE
+      x-error-catalogue:
+        MALFORMED_REQUEST: 400
+        INVALID_CURSOR: 400
+        UNAUTHENTICATED: 401
+        INVALID_CREDENTIALS: 401
+        CSRF_FAILED: 403
+        FORBIDDEN: 403
+        EMAIL_NOT_VERIFIED: 403
+        SELF_VOTE_FORBIDDEN: 403
+        REAUTH_REQUIRED: 403
+        NOT_FOUND: 404
+        DUPLICATE_APPLICATION: 409
+        DUPLICATE_REVIEW: 409
+        VOTE_CONFLICT: 409
+        IDEMPOTENCY_IN_PROGRESS: 409
+        STATE_CONFLICT: 409
+        PRECONDITION_FAILED: 412
+        PAYLOAD_TOO_LARGE: 413
+        VALIDATION_ERROR: 422
+        INVALID_TOKEN: 422
+        IDEMPOTENCY_KEY_REUSED: 422
+        INVALID_GITHUB_URL: 422
+        PRECONDITION_REQUIRED: 428
+        RATE_LIMITED: 429
+        INTERNAL_ERROR: 500
+        SERVICE_UNAVAILABLE: 503
+        UPSTREAM_UNAVAILABLE: 503
+    Violation:
+      type: object
+      required:
+      - field
+      - code
+      properties:
+        field:
+          type: string
+          minLength: 1
+          maxLength: 128
+          description: JSON pointer or query parameter name.
+        code:
+          type: string
+          enum:
+          - required
+          - too_short
+          - too_long
+          - invalid_format
+          - invalid_value
+          - out_of_range
+          - too_many_items
+          - duplicate
+          - unknown_field
+      additionalProperties: false
+    Problem:
+      type: object
+      description: RFC 9457 problem details (application/problem+json) plus extension members code, request_id,
+        violations. Clients ignore unknown extension members.
+      required:
+      - type
+      - title
+      - status
+      - code
+      - request_id
+      properties:
+        type:
+          type: string
+          minLength: 1
+          maxLength: 256
+          format: uri-reference
+          description: Stable identifier of the problem type, `urn:226os:problem:<code>`; an identifier only, not dereferenceable at P0.
+          examples:
+          - urn:226os:problem:VALIDATION_ERROR
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Stable per type.
+        status:
+          type: integer
+          minimum: 400
+          maximum: 599
+          description: Equals the HTTP status.
+        detail:
+          type: string
+          minLength: 0
+          maxLength: 500
+          description: Human-safe; never SQL, stack traces, tokens, hostnames, or private-object existence.
+        instance:
+          type: string
+          minLength: 0
+          maxLength: 512
+          description: Request path (no query string secrets).
+        code:
+          $ref: '#/components/schemas/ErrorCode'
+        request_id:
+          type: string
+          minLength: 1
+          maxLength: 64
+          description: Opaque correlation id, safe to show to support.
+        violations:
+          type: array
+          items:
+            $ref: '#/components/schemas/Violation'
+          maxItems: 100
+      additionalProperties: true
+    Accepted:
+      type: object
+      required:
+      - status
+      properties:
+        status:
+          type: string
+          enum:
+          - accepted
+      additionalProperties: false
+    CsrfToken:
+      type: object
+      required:
+      - csrf_token
+      properties:
+        csrf_token:
+          type: string
+          minLength: 16
+          maxLength: 256
+      additionalProperties: false
+    TokenRequest:
+      type: object
+      required:
+      - token
+      properties:
+        token:
+          type: string
+          minLength: 16
+          maxLength: 256
+      additionalProperties: false
+    SignUpRequest:
+      type: object
+      required:
+      - email
+      - password
+      - username
+      properties:
+        email:
+          type: string
+          minLength: 3
+          maxLength: 254
+          format: email
+        password:
+          type: string
+          minLength: 12
+          maxLength: 128
+          format: password
+          writeOnly: true
+        username:
+          $ref: '#/components/schemas/Username'
+        display_name:
+          type: string
+          minLength: 1
+          maxLength: 80
+        ui_lang:
+          $ref: '#/components/schemas/Lang'
+      additionalProperties: false
+    SignInRequest:
+      type: object
+      required:
+      - email
+      - password
+      properties:
+        email:
+          type: string
+          minLength: 3
+          maxLength: 254
+          format: email
+        password:
+          type: string
+          minLength: 1
+          maxLength: 128
+          format: password
+          writeOnly: true
+      additionalProperties: false
+    PasswordResetRequest:
+      type: object
+      required:
+      - email
+      properties:
+        email:
+          type: string
+          minLength: 3
+          maxLength: 254
+          format: email
+      additionalProperties: false
+    PasswordResetConfirm:
+      type: object
+      required:
+      - token
+      - new_password
+      properties:
+        token:
+          type: string
+          minLength: 16
+          maxLength: 256
+        new_password:
+          type: string
+          minLength: 12
+          maxLength: 128
+          format: password
+          writeOnly: true
+      additionalProperties: false
+    Account:
+      type: object
+      required:
+      - id
+      - email
+      - email_verified
+      - username
+      - display_name
+      - roles
+      - created_at
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        email:
+          type: string
+          minLength: 3
+          maxLength: 254
+          format: email
+        email_verified:
+          type: boolean
+        username:
+          $ref: '#/components/schemas/Username'
+        display_name:
+          type: string
+          minLength: 1
+          maxLength: 80
+        roles:
+          type: array
+          items:
+            type: string
+            enum:
+            - member
+            - moderator
+          maxItems: 2
+          uniqueItems: true
+        created_at:
+          $ref: '#/components/schemas/Timestamp'
+      additionalProperties: false
+    SessionState:
+      type: object
+      required:
+      - authenticated
+      - user
+      - csrf_token
+      properties:
+        authenticated:
+          type: boolean
+        user:
+          anyOf:
+          - $ref: '#/components/schemas/Account'
+          - type: 'null'
+        csrf_token:
+          type: string
+          minLength: 16
+          maxLength: 256
+        expires_at:
+          anyOf:
+          - $ref: '#/components/schemas/Timestamp'
+          - type: 'null'
+      additionalProperties: false
+    Me:
+      type: object
+      required:
+      - account
+      - profile
+      properties:
+        account:
+          $ref: '#/components/schemas/Account'
+        profile:
+          $ref: '#/components/schemas/MyProfile'
+      additionalProperties: false
+    MyProfile:
+      type: object
+      required:
+      - username
+      - display_name
+      - intent
+      - skills
+      - country
+      - languages
+      - github
+      - bio
+      - open_to_collab
+      - field_visibility
+      - checklist_missing
+      properties:
+        username:
+          $ref: '#/components/schemas/Username'
+        display_name:
+          type: string
+          minLength: 1
+          maxLength: 80
+        intent:
+          anyOf:
+          - $ref: '#/components/schemas/Intent'
+          - type: 'null'
+        skills:
+          type: array
+          items:
+            $ref: '#/components/schemas/TagSlug'
+          maxItems: 30
+          uniqueItems: true
+        country:
+          anyOf:
+          - $ref: '#/components/schemas/CountryCode'
+          - type: 'null'
+        languages:
+          type: array
+          items:
+            type: string
+            minLength: 2
+            maxLength: 8
+            pattern: ^[a-z]{2,3}(-[A-Za-z0-9]{2,4})?$
+            description: BCP 47 language tag of a spoken language.
+          maxItems: 10
+          uniqueItems: true
+        github:
+          anyOf:
+          - type: string
+            minLength: 1
+            maxLength: 39
+            pattern: ^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$
+            description: GitHub username.
+          - type: 'null'
+        bio:
+          type:
+          - string
+          - 'null'
+          maxLength: 500
+        open_to_collab:
+          type: boolean
+        field_visibility:
+          type: object
+          description: 'Per-field visibility chosen by the owner. Defaults: bio, skills, country, languages, github and
+            open_to_collab are public. Email is never public.'
+          properties:
+            bio:
+              $ref: '#/components/schemas/FieldVisibility'
+            country:
+              $ref: '#/components/schemas/FieldVisibility'
+            languages:
+              $ref: '#/components/schemas/FieldVisibility'
+            skills:
+              $ref: '#/components/schemas/FieldVisibility'
+            github:
+              $ref: '#/components/schemas/FieldVisibility'
+          additionalProperties: false
+        checklist_missing:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProfileField'
+          maxItems: 7
+          description: Checklist fields still unset (derived, read-only).
+          readOnly: true
+        updated_at:
+          $ref: '#/components/schemas/Timestamp'
+      additionalProperties: false
+    ProfileUpdate:
+      type: object
+      description: JSON Merge Patch body.
+      properties:
+        display_name:
+          type: string
+          minLength: 1
+          maxLength: 80
+        intent:
+          anyOf:
+          - $ref: '#/components/schemas/Intent'
+          - type: 'null'
+        skills:
+          type: array
+          items:
+            $ref: '#/components/schemas/TagSlug'
+          maxItems: 30
+          uniqueItems: true
+        country:
+          anyOf:
+          - $ref: '#/components/schemas/CountryCode'
+          - type: 'null'
+        languages:
+          type: array
+          items:
+            type: string
+            minLength: 2
+            maxLength: 8
+            pattern: ^[a-z]{2,3}(-[A-Za-z0-9]{2,4})?$
+            description: BCP 47 language tag of a spoken language.
+          maxItems: 10
+          uniqueItems: true
+        github:
+          anyOf:
+          - type: string
+            minLength: 1
+            maxLength: 39
+            pattern: ^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$
+            description: GitHub username.
+          - type: 'null'
+        bio:
+          type:
+          - string
+          - 'null'
+          maxLength: 500
+        open_to_collab:
+          type: boolean
+        field_visibility:
+          type: object
+          description: 'Per-field visibility chosen by the owner. Defaults: bio, skills, country, languages, github and
+            open_to_collab are public. Email is never public.'
+          properties:
+            bio:
+              $ref: '#/components/schemas/FieldVisibility'
+            country:
+              $ref: '#/components/schemas/FieldVisibility'
+            languages:
+              $ref: '#/components/schemas/FieldVisibility'
+            skills:
+              $ref: '#/components/schemas/FieldVisibility'
+            github:
+              $ref: '#/components/schemas/FieldVisibility'
+          additionalProperties: false
+      additionalProperties: false
+      minProperties: 1
+    PublicProfile:
+      type: object
+      description: 'Visibility-filtered: fields hidden by field_visibility for this caller are omitted. Never contains
+        email.'
+      required:
+      - username
+      - display_name
+      - joined_at
+      properties:
+        username:
+          $ref: '#/components/schemas/Username'
+        display_name:
+          type: string
+          minLength: 1
+          maxLength: 80
+        bio:
+          type:
+          - string
+          - 'null'
+          maxLength: 500
+        country:
+          anyOf:
+          - $ref: '#/components/schemas/CountryCode'
+          - type: 'null'
+        languages:
+          type: array
+          items:
+            type: string
+            minLength: 2
+            maxLength: 8
+            pattern: ^[a-z]{2,3}(-[A-Za-z0-9]{2,4})?$
+            description: BCP 47 language tag of a spoken language.
+          maxItems: 10
+        skills:
+          type: array
+          items:
+            $ref: '#/components/schemas/TagSlug'
+          maxItems: 30
+        github:
+          anyOf:
+          - type: string
+            minLength: 1
+            maxLength: 39
+            pattern: ^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$
+            description: GitHub username.
+          - type: 'null'
+        open_to_collab:
+          type: boolean
+        joined_at:
+          $ref: '#/components/schemas/Timestamp'
+      additionalProperties: false
+    AuthorRef:
+      type: object
+      required:
+      - id
+      - username
+      - display_name
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        username:
+          $ref: '#/components/schemas/Username'
+        display_name:
+          type: string
+          minLength: 1
+          maxLength: 80
+        country:
+          anyOf:
+          - $ref: '#/components/schemas/CountryCode'
+          - type: 'null'
+      additionalProperties: false
+    LinkRef:
+      type: object
+      description: Typed contextual link (write side).
+      required:
+      - type
+      - id
+      properties:
+        type:
+          type: string
+          enum:
+          - question
+          - resource
+          - project
+          - article
+          - series
+        id:
+          $ref: '#/components/schemas/Uuid'
+      additionalProperties: false
+    RelatedLink:
+      type: object
+      description: Resolved link (read side); only visible targets are returned.
+      required:
+      - type
+      - id
+      - title
+      properties:
+        type:
+          type: string
+          enum:
+          - question
+          - resource
+          - project
+          - article
+          - series
+        id:
+          $ref: '#/components/schemas/Uuid'
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        lang:
+          $ref: '#/components/schemas/Lang'
+      additionalProperties: false
+    Snippet:
+      type: object
+      required:
+      - language
+      - code
+      properties:
+        language:
+          type: string
+          minLength: 1
+          maxLength: 32
+          pattern: ^[a-z0-9+#.-]+$
+        code:
+          type: string
+          minLength: 1
+          maxLength: 10000
+      additionalProperties: false
+    Question:
+      type: object
+      required:
+      - id
+      - title
+      - body_md
+      - lang
+      - tags
+      - snippets
+      - state
+      - author
+      - answer_count
+      - vote_score
+      - accepted_answer_id
+      - related
+      - created_at
+      - updated_at
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+          readOnly: true
+        title:
+          type: string
+          minLength: 5
+          maxLength: 200
+        body_md:
+          $ref: '#/components/schemas/Markdown'
+        lang:
+          $ref: '#/components/schemas/Lang'
+        tags:
+          type: array
+          items:
+            $ref: '#/components/schemas/TagSlug'
+          maxItems: 5
+          uniqueItems: true
+        snippets:
+          type: array
+          items:
+            $ref: '#/components/schemas/Snippet'
+          maxItems: 5
+        country:
+          anyOf:
+          - $ref: '#/components/schemas/CountryCode'
+          - type: 'null'
+        state:
+          $ref: '#/components/schemas/QuestionState'
+        author:
+          $ref: '#/components/schemas/AuthorRef'
+        answer_count:
+          type: integer
+          minimum: 0
+        vote_score:
+          type: integer
+        accepted_answer_id:
+          anyOf:
+          - $ref: '#/components/schemas/Uuid'
+          - type: 'null'
+        related:
+          type: array
+          items:
+            $ref: '#/components/schemas/RelatedLink'
+          maxItems: 20
+        created_at:
+          $ref: '#/components/schemas/Timestamp'
+        updated_at:
+          $ref: '#/components/schemas/Timestamp'
+      additionalProperties: false
+    QuestionCreate:
+      type: object
+      required:
+      - title
+      - body_md
+      - lang
+      - tags
+      properties:
+        title:
+          type: string
+          minLength: 5
+          maxLength: 200
+        body_md:
+          $ref: '#/components/schemas/Markdown'
+        lang:
+          $ref: '#/components/schemas/Lang'
+        tags:
+          type: array
+          items:
+            $ref: '#/components/schemas/TagSlug'
+          maxItems: 5
+          uniqueItems: true
+          minItems: 1
+        snippets:
+          type: array
+          items:
+            $ref: '#/components/schemas/Snippet'
+          maxItems: 5
+        country:
+          $ref: '#/components/schemas/CountryCode'
+        links:
+          type: array
+          items:
+            $ref: '#/components/schemas/LinkRef'
+          maxItems: 10
+      additionalProperties: false
+    QuestionUpdate:
+      type: object
+      description: JSON Merge Patch. lang is immutable (original language preserved). The solve state is derived from
+        answers and acceptance and cannot be set. Requires If-Match (ETag of the current question).
+      properties:
+        title:
+          type: string
+          minLength: 5
+          maxLength: 200
+        body_md:
+          $ref: '#/components/schemas/Markdown'
+        tags:
+          type: array
+          items:
+            $ref: '#/components/schemas/TagSlug'
+          maxItems: 5
+          uniqueItems: true
+          minItems: 1
+        snippets:
+          type: array
+          items:
+            $ref: '#/components/schemas/Snippet'
+          maxItems: 5
+        country:
+          anyOf:
+          - $ref: '#/components/schemas/CountryCode'
+          - type: 'null'
+        links:
+          type: array
+          items:
+            $ref: '#/components/schemas/LinkRef'
+          maxItems: 10
+      additionalProperties: false
+      minProperties: 1
+    QuestionPage:
+      type: object
+      required:
+      - items
+      - next_cursor
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Question'
+          maxItems: 50
+        next_cursor:
+          type:
+          - string
+          - 'null'
+          maxLength: 512
+          description: Opaque, integrity-protected; null on the last page.
+      additionalProperties: false
+    Answer:
+      type: object
+      required:
+      - id
+      - question_id
+      - body_md
+      - lang
+      - snippets
+      - sources
+      - author
+      - vote_score
+      - is_accepted
+      - created_at
+      - updated_at
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+          readOnly: true
+        question_id:
+          $ref: '#/components/schemas/Uuid'
+        body_md:
+          $ref: '#/components/schemas/Markdown'
+        lang:
+          $ref: '#/components/schemas/Lang'
+        snippets:
+          type: array
+          items:
+            $ref: '#/components/schemas/Snippet'
+          maxItems: 5
+        sources:
+          type: array
+          items:
+            type: string
+            minLength: 1
+            maxLength: 2048
+            format: uri
+          maxItems: 5
+        author:
+          $ref: '#/components/schemas/AuthorRef'
+        vote_score:
+          type: integer
+        is_accepted:
+          type: boolean
+        created_at:
+          $ref: '#/components/schemas/Timestamp'
+        updated_at:
+          $ref: '#/components/schemas/Timestamp'
+      additionalProperties: false
+    AnswerCreate:
+      type: object
+      required:
+      - body_md
+      - lang
+      properties:
+        body_md:
+          $ref: '#/components/schemas/Markdown'
+        lang:
+          $ref: '#/components/schemas/Lang'
+        snippets:
+          type: array
+          items:
+            $ref: '#/components/schemas/Snippet'
+          maxItems: 5
+        sources:
+          type: array
+          items:
+            type: string
+            minLength: 1
+            maxLength: 2048
+            format: uri
+          maxItems: 5
+      additionalProperties: false
+    AnswerPage:
+      type: object
+      required:
+      - items
+      - next_cursor
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Answer'
+          maxItems: 50
+        next_cursor:
+          type:
+          - string
+          - 'null'
+          maxLength: 512
+          description: Opaque, integrity-protected; null on the last page.
+      additionalProperties: false
+    AcceptRequest:
+      type: object
+      required:
+      - answer_id
+      properties:
+        answer_id:
+          $ref: '#/components/schemas/Uuid'
+      additionalProperties: false
+    VoteRequest:
+      type: object
+      required:
+      - target_type
+      - target_id
+      - value
+      properties:
+        target_type:
+          $ref: '#/components/schemas/VoteTargetType'
+        target_id:
+          $ref: '#/components/schemas/Uuid'
+        value:
+          type: integer
+          enum:
+          - -1
+          - 1
+      additionalProperties: false
+    VoteState:
+      type: object
+      required:
+      - target_type
+      - target_id
+      - value
+      - score
+      properties:
+        target_type:
+          $ref: '#/components/schemas/VoteTargetType'
+        target_id:
+          $ref: '#/components/schemas/Uuid'
+        value:
+          type: integer
+          enum:
+          - -1
+          - 0
+          - 1
+          description: Caller's current vote; 0 = none.
+        score:
+          type: integer
+      additionalProperties: false
+    ResourceSource:
+      type: object
+      required:
+      - id
+      - url
+      - kind
+      - status
+      - verified_at
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        url:
+          type: string
+          minLength: 1
+          maxLength: 2048
+          format: uri
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        kind:
+          type: string
+          enum:
+          - official_docs
+          - changelog
+          - pricing
+          - community
+          - other
+          - claim
+        status:
+          $ref: '#/components/schemas/VerificationStatus'
+        verified_at:
+          anyOf:
+          - $ref: '#/components/schemas/Timestamp'
+          - type: 'null'
+      additionalProperties: false
+    ResourceSourceList:
+      type: object
+      required:
+      - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResourceSource'
+          maxItems: 50
+      additionalProperties: false
+    Resource:
+      type: object
+      required:
+      - id
+      - name
+      - slug
+      - type
+      - category
+      - provider
+      - summary
+      - countries
+      - sdk_languages
+      - doc_languages
+      - verification_status
+      - last_verified_at
+      - source_count
+      - related
+      - updated_at
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        slug:
+          $ref: '#/components/schemas/Slug'
+        type:
+          $ref: '#/components/schemas/ResourceType'
+        category:
+          $ref: '#/components/schemas/Slug'
+        provider:
+          type: object
+          required:
+          - name
+          - slug
+          properties:
+            name:
+              type: string
+              minLength: 1
+              maxLength: 120
+            slug:
+              $ref: '#/components/schemas/Slug'
+            url:
+              type: string
+              minLength: 1
+              maxLength: 2048
+              format: uri
+          additionalProperties: false
+        summary:
+          type: string
+          minLength: 1
+          maxLength: 1000
+        countries:
+          type: array
+          items:
+            $ref: '#/components/schemas/CountryCode'
+          maxItems: 60
+          uniqueItems: true
+        sdk_languages:
+          description: Languages in which the resource has an official SDK.
+          type: array
+          items:
+            type: object
+            required:
+            - language
+            - url
+            properties:
+              language:
+                $ref: '#/components/schemas/Slug'
+              name:
+                type: string
+                minLength: 1
+                maxLength: 120
+              url:
+                type: string
+                minLength: 1
+                maxLength: 2048
+                format: uri
+            additionalProperties: false
+          maxItems: 20
+        doc_languages:
+          type: array
+          items:
+            $ref: '#/components/schemas/Lang'
+          maxItems: 2
+          uniqueItems: true
+        docs_url:
+          type: string
+          minLength: 1
+          maxLength: 2048
+          format: uri
+        limitations:
+          type: array
+          items:
+            type: string
+            minLength: 1
+            maxLength: 300
+          maxItems: 20
+        verification_status:
+          $ref: '#/components/schemas/VerificationStatus'
+        last_verified_at:
+          anyOf:
+          - $ref: '#/components/schemas/Timestamp'
+          - type: 'null'
+        source_count:
+          type: integer
+          minimum: 0
+        related:
+          type: array
+          items:
+            $ref: '#/components/schemas/RelatedLink'
+          maxItems: 20
+        updated_at:
+          $ref: '#/components/schemas/Timestamp'
+      additionalProperties: false
+    ResourcePage:
+      type: object
+      required:
+      - items
+      - next_cursor
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Resource'
+          maxItems: 50
+        next_cursor:
+          type:
+          - string
+          - 'null'
+          maxLength: 512
+          description: Opaque, integrity-protected; null on the last page.
+      additionalProperties: false
+    ErrorReportCreate:
+      type: object
+      required:
+      - kind
+      - body
+      properties:
+        kind:
+          type: string
+          enum:
+          - broken_link
+          - outdated
+          - incorrect
+          - unsupported_country
+          - other
+        body:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        source_id:
+          $ref: '#/components/schemas/Uuid'
+      additionalProperties: false
+    ErrorReport:
+      type: object
+      required:
+      - id
+      - resource_id
+      - kind
+      - status
+      - created_at
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        resource_id:
+          $ref: '#/components/schemas/Uuid'
+        kind:
+          type: string
+          enum:
+          - broken_link
+          - outdated
+          - incorrect
+          - unsupported_country
+          - other
+        status:
+          type: string
+          enum:
+          - received
+          - triaged
+          - resolved
+          - rejected
+        created_at:
+          $ref: '#/components/schemas/Timestamp'
+      additionalProperties: false
+    Review:
+      type: object
+      required:
+      - id
+      - resource_id
+      - author
+      - rating
+      - body
+      - lang
+      - created_at
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        resource_id:
+          $ref: '#/components/schemas/Uuid'
+        author:
+          $ref: '#/components/schemas/AuthorRef'
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+        body:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        lang:
+          $ref: '#/components/schemas/Lang'
+        created_at:
+          $ref: '#/components/schemas/Timestamp'
+      additionalProperties: false
+      x-priority: P1
+    ReviewCreate:
+      type: object
+      required:
+      - rating
+      - body
+      - lang
+      properties:
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+        body:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        lang:
+          $ref: '#/components/schemas/Lang'
+      additionalProperties: false
+      x-priority: P1
+    ReviewPage:
+      type: object
+      required:
+      - items
+      - next_cursor
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Review'
+          maxItems: 50
+        next_cursor:
+          type:
+          - string
+          - 'null'
+          maxLength: 512
+          description: Opaque, integrity-protected; null on the last page.
+      additionalProperties: false
+    Project:
+      type: object
+      required:
+      - id
+      - name
+      - github_url
+      - description
+      - lang
+      - technologies
+      - visibility
+      - owner
+      - open_needs_count
+      - related
+      - created_at
+      - updated_at
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        github_url:
+          type: string
+          minLength: 1
+          maxLength: 200
+          format: uri
+          pattern: ^https://github\.com/[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$
+        description:
+          type: string
+          minLength: 0
+          maxLength: 1000
+        lang:
+          $ref: '#/components/schemas/Lang'
+        technologies:
+          type: array
+          items:
+            $ref: '#/components/schemas/TagSlug'
+          maxItems: 15
+        visibility:
+          $ref: '#/components/schemas/ProjectVisibility'
+        owner:
+          $ref: '#/components/schemas/AuthorRef'
+        open_needs_count:
+          type: integer
+          minimum: 0
+        related:
+          type: array
+          items:
+            $ref: '#/components/schemas/RelatedLink'
+          maxItems: 20
+        created_at:
+          $ref: '#/components/schemas/Timestamp'
+        updated_at:
+          $ref: '#/components/schemas/Timestamp'
+      additionalProperties: false
+    ProjectCreate:
+      type: object
+      required:
+      - github_url
+      - lang
+      properties:
+        github_url:
+          type: string
+          minLength: 1
+          maxLength: 200
+          format: uri
+          pattern: ^https://github\.com/[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$
+        description:
+          type: string
+          minLength: 0
+          maxLength: 1000
+        lang:
+          $ref: '#/components/schemas/Lang'
+        visibility:
+          $ref: '#/components/schemas/ProjectVisibility'
+        technologies:
+          type: array
+          items:
+            $ref: '#/components/schemas/TagSlug'
+          maxItems: 15
+        links:
+          type: array
+          items:
+            $ref: '#/components/schemas/LinkRef'
+          maxItems: 10
+      additionalProperties: false
+    ProjectUpdate:
+      type: object
+      description: JSON Merge Patch. github_url immutable.
+      properties:
+        description:
+          type: string
+          minLength: 0
+          maxLength: 1000
+        visibility:
+          $ref: '#/components/schemas/ProjectVisibility'
+        technologies:
+          type: array
+          items:
+            $ref: '#/components/schemas/TagSlug'
+          maxItems: 15
+        links:
+          type: array
+          items:
+            $ref: '#/components/schemas/LinkRef'
+          maxItems: 10
+      additionalProperties: false
+      minProperties: 1
+    ProjectPage:
+      type: object
+      required:
+      - items
+      - next_cursor
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Project'
+          maxItems: 50
+        next_cursor:
+          type:
+          - string
+          - 'null'
+          maxLength: 512
+          description: Opaque, integrity-protected; null on the last page.
+      additionalProperties: false
+    ContributionNeed:
+      type: object
+      required:
+      - id
+      - project_id
+      - title
+      - description
+      - lang
+      - skills
+      - status
+      - created_at
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        project_id:
+          $ref: '#/components/schemas/Uuid'
+        title:
+          type: string
+          minLength: 3
+          maxLength: 150
+        description:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        lang:
+          $ref: '#/components/schemas/Lang'
+        skills:
+          type: array
+          items:
+            $ref: '#/components/schemas/TagSlug'
+          maxItems: 10
+          uniqueItems: true
+        status:
+          $ref: '#/components/schemas/NeedStatus'
+        created_at:
+          $ref: '#/components/schemas/Timestamp'
+      additionalProperties: false
+    NeedCreate:
+      type: object
+      required:
+      - title
+      - description
+      - lang
+      - skills
+      properties:
+        title:
+          type: string
+          minLength: 3
+          maxLength: 150
+        description:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        lang:
+          $ref: '#/components/schemas/Lang'
+        skills:
+          type: array
+          items:
+            $ref: '#/components/schemas/TagSlug'
+          maxItems: 10
+          uniqueItems: true
+          minItems: 1
+      additionalProperties: false
+    NeedPage:
+      type: object
+      required:
+      - items
+      - next_cursor
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ContributionNeed'
+          maxItems: 50
+        next_cursor:
+          type:
+          - string
+          - 'null'
+          maxLength: 512
+          description: Opaque, integrity-protected; null on the last page.
+      additionalProperties: false
+    Application:
+      type: object
+      required:
+      - id
+      - need_id
+      - project_id
+      - applicant
+      - message
+      - status
+      - created_at
+      - decided_at
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        need_id:
+          $ref: '#/components/schemas/Uuid'
+        project_id:
+          $ref: '#/components/schemas/Uuid'
+        applicant:
+          $ref: '#/components/schemas/AuthorRef'
+        message:
+          type: string
+          minLength: 0
+          maxLength: 2000
+        status:
+          $ref: '#/components/schemas/ApplicationStatus'
+        created_at:
+          $ref: '#/components/schemas/Timestamp'
+        decided_at:
+          anyOf:
+          - $ref: '#/components/schemas/Timestamp'
+          - type: 'null'
+      additionalProperties: false
+    ApplicationCreate:
+      type: object
+      required:
+      - message
+      properties:
+        message:
+          type: string
+          minLength: 0
+          maxLength: 2000
+      additionalProperties: false
+    ApplicationDecision:
+      type: object
+      description: 'accepted/declined: project owner only; withdrawn: applicant only. Allowed from pending only.'
+      required:
+      - status
+      properties:
+        status:
+          type: string
+          enum:
+          - accepted
+          - declined
+          - withdrawn
+        note:
+          type: string
+          minLength: 0
+          maxLength: 1000
+      additionalProperties: false
+    ApplicationPage:
+      type: object
+      required:
+      - items
+      - next_cursor
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Application'
+          maxItems: 50
+        next_cursor:
+          type:
+          - string
+          - 'null'
+          maxLength: 512
+          description: Opaque, integrity-protected; null on the last page.
+      additionalProperties: false
+    ArticleSummary:
+      type: object
+      required:
+      - id
+      - type
+      - title
+      - summary
+      - lang
+      - level
+      - tags
+      - author
+      - published_at
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        type:
+          $ref: '#/components/schemas/ArticleType'
+        title:
+          type: string
+          minLength: 5
+          maxLength: 200
+        summary:
+          type: string
+          minLength: 0
+          maxLength: 500
+        lang:
+          $ref: '#/components/schemas/Lang'
+        level:
+          $ref: '#/components/schemas/Level'
+        tags:
+          type: array
+          items:
+            $ref: '#/components/schemas/TagSlug'
+          maxItems: 5
+          uniqueItems: true
+        author:
+          $ref: '#/components/schemas/AuthorRef'
+        published_at:
+          $ref: '#/components/schemas/Timestamp'
+      additionalProperties: false
+    Article:
+      type: object
+      required:
+      - id
+      - type
+      - title
+      - summary
+      - body_md
+      - lang
+      - level
+      - tags
+      - author
+      - related
+      - status
+      - published_at
+      - updated_at
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        type:
+          $ref: '#/components/schemas/ArticleType'
+        title:
+          type: string
+          minLength: 5
+          maxLength: 200
+        summary:
+          type: string
+          minLength: 0
+          maxLength: 500
+        body_md:
+          type: string
+          minLength: 1
+          maxLength: 50000
+        lang:
+          $ref: '#/components/schemas/Lang'
+        level:
+          $ref: '#/components/schemas/Level'
+        tags:
+          type: array
+          items:
+            $ref: '#/components/schemas/TagSlug'
+          maxItems: 5
+          uniqueItems: true
+        author:
+          $ref: '#/components/schemas/AuthorRef'
+        related:
+          type: array
+          items:
+            $ref: '#/components/schemas/RelatedLink'
+          maxItems: 20
+        status:
+          $ref: '#/components/schemas/ArticleStatus'
+        published_at:
+          anyOf:
+          - $ref: '#/components/schemas/Timestamp'
+          - type: 'null'
+        updated_at:
+          $ref: '#/components/schemas/Timestamp'
+      additionalProperties: false
+    ArticleCreate:
+      type: object
+      required:
+      - type
+      - title
+      - body_md
+      - lang
+      - level
+      - tags
+      properties:
+        type:
+          $ref: '#/components/schemas/ArticleType'
+        title:
+          type: string
+          minLength: 5
+          maxLength: 200
+        summary:
+          type: string
+          minLength: 0
+          maxLength: 500
+        body_md:
+          type: string
+          minLength: 1
+          maxLength: 50000
+        lang:
+          $ref: '#/components/schemas/Lang'
+        level:
+          $ref: '#/components/schemas/Level'
+        tags:
+          type: array
+          items:
+            $ref: '#/components/schemas/TagSlug'
+          maxItems: 5
+          uniqueItems: true
+          minItems: 1
+        status:
+          type: string
+          enum:
+          - draft
+          - published
+          default: published
+          description: Creating as draft needs no verified email; publishing does (403 EMAIL_NOT_VERIFIED).
+        links:
+          type: array
+          items:
+            $ref: '#/components/schemas/LinkRef'
+          maxItems: 10
+      additionalProperties: false
+    ArticlePage:
+      type: object
+      required:
+      - items
+      - next_cursor
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ArticleSummary'
+          maxItems: 50
+        next_cursor:
+          type:
+          - string
+          - 'null'
+          maxLength: 512
+          description: Opaque, integrity-protected; null on the last page.
+      additionalProperties: false
+    LessonProgressStatus:
+      type: string
+      enum:
+      - not_started
+      - in_progress
+      - completed
+    LessonProgress:
+      type: object
+      required:
+      - lesson_id
+      - status
+      - updated_at
+      properties:
+        lesson_id:
+          $ref: '#/components/schemas/Uuid'
+        status:
+          $ref: '#/components/schemas/LessonProgressStatus'
+        updated_at:
+          anyOf:
+          - $ref: '#/components/schemas/Timestamp'
+          - type: 'null'
+      additionalProperties: false
+      x-priority: P1
+    LessonProgressUpdate:
+      type: object
+      required:
+      - status
+      properties:
+        status:
+          $ref: '#/components/schemas/LessonProgressStatus'
+      additionalProperties: false
+      x-priority: P1
+    Lesson:
+      type: object
+      required:
+      - id
+      - position
+      - title
+      - article_id
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        position:
+          type: integer
+          minimum: 1
+          maximum: 200
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        article_id:
+          $ref: '#/components/schemas/Uuid'
+        duration_minutes:
+          type: integer
+          minimum: 1
+          maximum: 600
+        my_progress:
+          anyOf:
+          - $ref: '#/components/schemas/LessonProgressStatus'
+          - type: 'null'
+          description: Present only with a session (P1).
+      additionalProperties: false
+    SeriesSummary:
+      type: object
+      required:
+      - id
+      - title
+      - summary
+      - lang
+      - level
+      - tags
+      - author
+      - lesson_count
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        title:
+          type: string
+          minLength: 3
+          maxLength: 200
+        summary:
+          type: string
+          minLength: 0
+          maxLength: 500
+        lang:
+          $ref: '#/components/schemas/Lang'
+        level:
+          $ref: '#/components/schemas/Level'
+        tags:
+          type: array
+          items:
+            $ref: '#/components/schemas/TagSlug'
+          maxItems: 5
+          uniqueItems: true
+        author:
+          $ref: '#/components/schemas/AuthorRef'
+        lesson_count:
+          type: integer
+          minimum: 0
+      additionalProperties: false
+    TrainingSeries:
+      type: object
+      required:
+      - id
+      - title
+      - summary
+      - lang
+      - level
+      - tags
+      - author
+      - lessons
+      - related
+      - published_at
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        title:
+          type: string
+          minLength: 3
+          maxLength: 200
+        summary:
+          type: string
+          minLength: 0
+          maxLength: 500
+        lang:
+          $ref: '#/components/schemas/Lang'
+        level:
+          $ref: '#/components/schemas/Level'
+        tags:
+          type: array
+          items:
+            $ref: '#/components/schemas/TagSlug'
+          maxItems: 5
+          uniqueItems: true
+        author:
+          $ref: '#/components/schemas/AuthorRef'
+        lessons:
+          type: array
+          items:
+            $ref: '#/components/schemas/Lesson'
+          maxItems: 200
+        related:
+          type: array
+          items:
+            $ref: '#/components/schemas/RelatedLink'
+          maxItems: 20
+        published_at:
+          $ref: '#/components/schemas/Timestamp'
+      additionalProperties: false
+    SeriesPage:
+      type: object
+      required:
+      - items
+      - next_cursor
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/SeriesSummary'
+          maxItems: 50
+        next_cursor:
+          type:
+          - string
+          - 'null'
+          maxLength: 512
+          description: Opaque, integrity-protected; null on the last page.
+      additionalProperties: false
+    SearchHit:
+      type: object
+      required:
+      - type
+      - id
+      - title
+      - snippet
+      properties:
+        type:
+          $ref: '#/components/schemas/SearchGroup'
+        id:
+          $ref: '#/components/schemas/Uuid'
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        snippet:
+          type: string
+          minLength: 0
+          maxLength: 300
+          description: Plain-text excerpt; no HTML.
+        lang:
+          anyOf:
+          - $ref: '#/components/schemas/Lang'
+          - type: 'null'
+      additionalProperties: false
+    SearchGroupResult:
+      type: object
+      required:
+      - items
+      - has_more
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/SearchHit'
+          maxItems: 20
+        has_more:
+          type: boolean
+      additionalProperties: false
+    SearchResults:
+      type: object
+      required:
+      - query
+      - groups
+      properties:
+        query:
+          type: string
+          minLength: 0
+          maxLength: 200
+        groups:
+          type: object
+          description: Only requested groups are present.
+          properties:
+            questions:
+              $ref: '#/components/schemas/SearchGroupResult'
+            resources:
+              $ref: '#/components/schemas/SearchGroupResult'
+            projects:
+              $ref: '#/components/schemas/SearchGroupResult'
+            learn:
+              $ref: '#/components/schemas/SearchGroupResult'
+          additionalProperties: false
+      additionalProperties: false
+x-conventions:
+  unsafe_methods_require: X-CSRF-Token
+  patch_semantics: JSON Merge Patch (RFC 7396)
+  pagination:
+    max_limit: 50
+    cursor: opaque, integrity-protected

@@ -3,7 +3,7 @@
 **Cible :** Datacloud/Systalink, démonstration accessible avant 2026-11-15 17:00 GMT.
 
 ## 1. Stratégie
-- Compose local et Compose prod séparés ; un seul hôte pour MVP : Traefik en edge, conteneur web, conteneur API, PostgreSQL avec volume persistant.
+- Un seul arbre Compose à profils `local-dev` (machine locale), `staging-test` (branche `develop`) et `production-live` (branche `main`), avec fichiers d'environnement et secrets distincts par profil : cela satisfait l'intention « Compose local et prod séparés » (ADR-0006) ; Datacloud héberge `staging-test` et `production-live` ; un seul hôte pour MVP : Traefik en edge, conteneur web, conteneur API, PostgreSQL avec volume persistant.
 - Traefik gère TLS Let's Encrypt (challenge selon DNS et firewall vérifiés) et routes ; DB jamais exposée publiquement.
 - Domaines proposés : `226os.tech` pour web, `/api/v1` routé vers API ; possibilité `api.226os.tech` après confirmation DNS et CORS. Ne pas supposer DNS opérationnel.
 - Images Docker non-root si possible, multi-stage, versions et digests épinglés, healthchecks, limites ressources, logs structurés, secrets fournis via configuration sécurisée.
@@ -15,14 +15,14 @@ work branch -> PR develop -> develop staging/preview smoke
   -> deploy exact main SHA -> production smoke -> monitor -> close G7
 ```
 - Work branches follow [`docs/GIT_WORKFLOW.md`](GIT_WORKFLOW.md) and use `feature/<domain>/<name>`, `fix/<domain>/<name>`, or another approved semantic prefix.
-- `develop` is the shared staging/preview environment; `main` is production.
+- `develop` is the shared staging/preview environment (`staging-test` profile); `main` is production (`production-live` profile).
 - Every promotion is a pull request. Direct pushes and unreviewed branch promotion are prohibited after branch protection is configured.
 - The production deployment must use the exact `develop` commit SHA validated before promotion; never rebuild a different source revision during promotion.
 - GitHub Actions avec `permissions` minimales et OIDC si un fournisseur le permet ; ne jamais exposer SSH keys ou tokens aux PR de forks.
 - Conditions d'environnement `production` et approval humaine ; pas d'auto-déploiement aveugle depuis PR.
 
 ## 3. Preflight avant déploiement
-- Compte Datacloud et **produit commercial actif** confirmés (condition CADEV), budget, promo, IP, accès SSH par clé, ports 80/443, DNS, stockage.
+- Compte Datacloud et **produit commercial actif** confirmés (condition CADEV ; l'hébergement Datacloud est décidé, la preuve du compte reste à fournir), budget, promo, IP, accès SSH par clé, ports 80/443, DNS, stockage.
 - Variables d'environnement définies par `.env.example` (sans valeurs sensibles), secrets hors Git.
 - DB backup cohérent, espace disque disponible, migration dry-run sur base éphémère ; image web et API identifiées par digest.
 - Rapports quality gates sur SHA cible disponibles, migration reversible ou plan de restauration explicite.
