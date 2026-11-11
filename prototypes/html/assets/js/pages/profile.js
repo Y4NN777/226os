@@ -1,248 +1,130 @@
-/* Developer profile page: view (per role), activity tabs (simulated load), edit dialog (client validation, nothing persisted). */
+/* Profile (v2): public view of a member (?id=) and SELF view (signed in, no id or own id).
+   Self view = data from the simulated session (so Settings edits show up) + the setup checklist at the top (App.setupChecklist: only while incomplete).
+   Privacy: the e-mail is never shown; signed-out visitors do not get members-only fields (they are omitted, not locked). Namespace: profile.* */
 I18N.register({
   fr: {
-    'profile.title': 'Communauté · Membres — 226os', 'profile.crumb': 'Profil développeur',
-    'profile.lede': 'Profil public. Ce que les autres voient dépend de vos réglages de confidentialité.',
-    'profile.edit.open': 'Modifier mon profil',
-    'profile.notfound.title': 'Profil introuvable', 'profile.notfound.body': 'Ce profil n’existe pas ou n’est pas visible pour vous.', 'profile.notfound.cta': 'Voir mon profil',
-    'profile.viewas.label': 'Rôle simulé', 'profile.viewas.self': 'Moi (propriétaire)', 'profile.viewas.member': 'Autre membre', 'profile.viewas.anon': 'Visiteur anonyme',
-    'profile.viewas.status.self': 'Vous voyez tous vos champs et pouvez modifier le profil.',
-    'profile.viewas.status.member': 'Membre connecté : champs publics et champs réservés aux membres.',
-    'profile.viewas.status.anon': 'Visiteur anonyme : champs publics seulement.',
-    'profile.saved.title': 'Profil mis à jour. ', 'profile.saved.body': 'Simulation : rien n’est enregistré, les modifications disparaissent au rechargement.',
-    'profile.anon.title': 'Vous naviguez sans compte. ', 'profile.anon.body': 'Certains champs sont réservés aux membres connectés.', 'profile.anon.signin': 'Se connecter',
-    'profile.about.h': 'À propos', 'profile.bio.h': 'Bio', 'profile.skills.h': 'Compétences', 'profile.langs.h': 'Langues parlées', 'profile.open.h': 'Ouvert à', 'profile.open.mentorat': 'Mentorat', 'profile.open.collaboration': 'Collaboration', 'profile.open.preview': 'Aperçu du mentorat', 'profile.open.none': 'Aucune ouverture indiquée.',
-    'profile.bio.empty': 'Aucune bio renseignée.', 'profile.skills.empty': 'Aucune compétence renseignée.', 'profile.bio.lang': 'Langue originale de la bio',
-    'profile.lang.fr': 'Français', 'profile.lang.en': 'Anglais',
-    'profile.details.h': 'Détails', 'profile.aside.label': 'Détails et confidentialité du profil',
-    'profile.d.handle': 'Identifiant', 'profile.d.country': 'Pays', 'profile.d.city': 'Ville', 'profile.d.github': 'GitHub', 'profile.d.email': 'E-mail', 'profile.d.since': 'Membre depuis', 'profile.d.name': 'Nom public',
-    'profile.d.hidden': 'Masqué pour ce rôle', 'profile.github.link': 'Dépôts GitHub (exemple fictif)',
-    'profile.privacy.h': 'Confidentialité', 'profile.privacy.region': 'Tableau de visibilité des champs du profil',
-    'profile.privacy.note': 'L’e-mail n’est jamais public. En production, le serveur vérifie les droits ; ici, c’est une démo.',
-    'profile.privacy.col.field': 'Champ', 'profile.privacy.col.who': 'Visible par', 'profile.privacy.col.now': 'Pour vous',
-    'profile.vis.public': 'Tout le monde', 'profile.vis.members': 'Membres connectés', 'profile.vis.self': 'Vous uniquement',
-    'profile.now.visible': 'Visible', 'profile.now.hidden': 'Masqué',
-    'profile.activity.h': 'Activité', 'profile.tab.q': 'Questions', 'profile.tab.a': 'Réponses', 'profile.tab.p': 'Projets', 'profile.tab.c': 'Contributions',
-    'profile.activity.q.empty.title': 'Aucune question publiée', 'profile.activity.q.empty.body': 'Ce membre n’a pas encore posé de question.',
-    'profile.activity.a.empty.title': 'Aucune réponse publiée', 'profile.activity.a.empty.body': 'Ce membre n’a pas encore répondu à une question.',
-    'profile.activity.p.empty.title': 'Aucun projet', 'profile.activity.p.empty.body': 'Ce membre ne possède aucun projet référencé.',
-    'profile.activity.c.empty.title': 'Aucune contribution', 'profile.activity.c.empty.body': 'Ce membre n’a rejoint aucun projet.',
-    'profile.row.question': 'Question', 'profile.row.answered': 'Réponse donnée', 'profile.row.project': 'Projet', 'profile.row.contrib': 'Contribution',
-    'profile.status.active': 'Actif', 'profile.status.idea': 'Idée', 'profile.status.seeking': 'Cherche des contributeurs',
-    'profile.reputation': 'Réputation et badges', 'profile.reputation.note': 'Prévus en P1 : aucun score n’est affiché dans ce prototype.',
-    'profile.edit.title': 'Modifier mon profil', 'profile.edit.sim': 'Les modifications restent dans cette page, rien n’est enregistré.',
-    'profile.edit.summary': 'Corrigez les champs suivants',
-    'profile.edit.name': 'Nom public', 'profile.edit.name.hint': '2 à 60 caractères. Visible par tout le monde.', 'profile.edit.name.err': 'Saisissez un nom public de 2 à 60 caractères.',
-    'profile.edit.country': 'Pays', 'profile.edit.country.hint': 'Sert à filtrer par pays.', 'profile.edit.country.err': 'Choisissez un pays dans la liste.', 'profile.edit.country.placeholder': 'Choisir…',
-    'profile.edit.langs': 'Langues parlées', 'profile.edit.langs.hint': 'Au moins une langue.', 'profile.edit.langs.err': 'Sélectionnez au moins une langue.',
-    'profile.edit.skills': 'Compétences', 'profile.edit.skills.hint': 'Séparées par des virgules, 8 maximum (ex. go, postgresql).', 'profile.edit.skills.err': 'Maximum 8 compétences, 24 caractères chacune (lettres, chiffres, + # . -).',
-    'profile.edit.bio': 'Bio', 'profile.edit.bio.hint': '280 caractères maximum. Votre texte garde sa langue d’origine.', 'profile.edit.bio.err': 'La bio dépasse 280 caractères.',
-    'profile.edit.biolang': 'Langue de la bio',
-    'profile.edit.github': 'Lien GitHub', 'profile.edit.github.hint': 'Adresse https. Dans ce prototype, utilisez un exemple : https://example.org/gh/votre-id', 'profile.edit.github.err': 'Saisissez une adresse https valide ou laissez vide.',
-    'profile.edit.citypub': 'Afficher ma ville aux visiteurs anonymes', 'profile.edit.citypub.hint': 'Par défaut, la ville n’est visible que des membres connectés.',
-    'profile.edit.save': 'Enregistrer', 'profile.edit.saving': 'Enregistrement…', 'profile.edit.toast': 'Profil mis à jour.'
+    'profile.title': 'Profil — 226os', 'profile.titleOf': '{name} — profil — 226os',
+    'profile.edit': 'Modifier le profil', 'profile.since': 'Membre depuis {date}',
+    'profile.open.collab': 'Ouvert aux collaborations', 'profile.open.mentorat': 'Ouvert au mentorat',
+    'profile.github': 'GitHub', 'profile.languages': 'Langues', 'profile.skills': 'Compétences',
+    'profile.privacy': 'Votre e-mail n’est jamais public. Vous choisissez ce que les autres voient.', 'profile.privacy.link': 'Confidentialité',
+    'profile.tabs': 'Activité', 'profile.tab.questions': 'Questions', 'profile.tab.answers': 'Réponses', 'profile.tab.projects': 'Projets', 'profile.tab.contributions': 'Contributions',
+    'profile.empty.self.questions': 'Vous n’avez pas encore posé de question.', 'profile.empty.self.answers': 'Vos réponses apparaîtront ici.',
+    'profile.empty.self.projects': 'Vous n’avez pas encore publié de projet.', 'profile.empty.self.contributions': 'Vos contributions apparaîtront ici.',
+    'profile.empty.questions': 'Aucune question publiée.', 'profile.empty.answers': 'Aucune réponse pour l’instant.',
+    'profile.empty.projects': 'Aucun projet publié.', 'profile.empty.contributions': 'Aucune contribution pour l’instant.',
+    'profile.empty.self.cta.questions': 'Poser une question', 'profile.empty.self.cta.answers': 'Voir les questions', 'profile.empty.self.cta.projects': 'Voir les projets', 'profile.empty.self.cta.contributions': 'Trouver un projet',
+    'profile.answers': '{n} réponse(s)', 'profile.noanswer': 'Sans réponse', 'profile.needs': '{n} besoin(s) ouvert(s)', 'profile.noneeds': 'Aucun besoin ouvert',
+    'profile.notfound.title': 'Profil introuvable', 'profile.notfound.body': 'Ce membre n’existe pas ou a retiré son profil.'
   },
   en: {
-    'profile.title': 'Developer profile — 226os', 'profile.crumb': 'Developer profile',
-    'profile.lede': 'Minimal public profile: what other members can see depends on privacy settings.',
-    'profile.edit.open': 'Edit my profile',
-    'profile.notfound.title': 'Profile not found', 'profile.notfound.body': 'This profile does not exist or is not visible to you.', 'profile.notfound.cta': 'View my profile',
-    'profile.viewas.label': 'View this profile as', 'profile.viewas.self': 'Me (owner)', 'profile.viewas.member': 'Other member', 'profile.viewas.anon': 'Anonymous visitor',
-    'profile.viewas.status.self': 'Owner view: you see all your fields and can edit the profile.',
-    'profile.viewas.status.member': 'Other signed-in member view: public and members-only fields.',
-    'profile.viewas.status.anon': 'Anonymous visitor view: public fields only.',
-    'profile.saved.title': 'Profile updated. ', 'profile.saved.body': 'Simulation: nothing is saved, changes disappear on reload.',
-    'profile.anon.title': 'You are browsing without an account. ', 'profile.anon.body': 'Some fields are reserved for signed-in members.', 'profile.anon.signin': 'Sign in',
-    'profile.about.h': 'About', 'profile.bio.h': 'Bio', 'profile.skills.h': 'Skills', 'profile.langs.h': 'Spoken languages', 'profile.open.h': 'Open to', 'profile.open.mentorat': 'Mentoring', 'profile.open.collaboration': 'Collaboration', 'profile.open.preview': 'Mentoring preview', 'profile.open.none': 'No openness stated.',
-    'profile.bio.empty': 'No bio provided.', 'profile.skills.empty': 'No skills provided.', 'profile.bio.lang': 'Original language of the bio',
-    'profile.lang.fr': 'French', 'profile.lang.en': 'English',
-    'profile.details.h': 'Details', 'profile.aside.label': 'Profile details and privacy',
-    'profile.d.handle': 'Handle', 'profile.d.country': 'Country', 'profile.d.city': 'City', 'profile.d.github': 'GitHub', 'profile.d.email': 'Email', 'profile.d.since': 'Member since', 'profile.d.name': 'Public name',
-    'profile.d.hidden': 'Not visible for this role', 'profile.github.link': 'GitHub repositories (fictional example)',
-    'profile.privacy.h': 'Privacy', 'profile.privacy.region': 'Profile field visibility table',
-    'profile.privacy.note': 'Email is never public. Real authorization is enforced on the server; this is a demonstration.',
-    'profile.privacy.col.field': 'Field', 'profile.privacy.col.who': 'Visible to', 'profile.privacy.col.now': 'For you',
-    'profile.vis.public': 'Everyone', 'profile.vis.members': 'Signed-in members', 'profile.vis.self': 'You only',
-    'profile.now.visible': 'Visible', 'profile.now.hidden': 'Hidden',
-    'profile.activity.h': 'Activity', 'profile.tab.q': 'Questions', 'profile.tab.a': 'Answers', 'profile.tab.p': 'Projects', 'profile.tab.c': 'Contributions',
-    'profile.activity.q.empty.title': 'No questions published', 'profile.activity.q.empty.body': 'This member has not asked a question yet.',
-    'profile.activity.a.empty.title': 'No answers published', 'profile.activity.a.empty.body': 'This member has not answered a question yet.',
-    'profile.activity.p.empty.title': 'No projects', 'profile.activity.p.empty.body': 'This member owns no listed project.',
-    'profile.activity.c.empty.title': 'No contributions', 'profile.activity.c.empty.body': 'This member has not joined any project.',
-    'profile.row.question': 'Question', 'profile.row.answered': 'Answer given', 'profile.row.project': 'Project', 'profile.row.contrib': 'Contribution',
-    'profile.status.active': 'Active', 'profile.status.idea': 'Idea', 'profile.status.seeking': 'Seeking contributors',
-    'profile.reputation': 'Reputation and badges', 'profile.reputation.note': 'Planned for P1: no score is shown in this prototype.',
-    'profile.edit.title': 'Edit my profile', 'profile.edit.sim': 'Changes are validated and shown locally, never saved.',
-    'profile.edit.summary': 'Please fix the following fields',
-    'profile.edit.name': 'Public name', 'profile.edit.name.hint': '2 to 60 characters. Visible to everyone.', 'profile.edit.name.err': 'Enter a public name of 2 to 60 characters.',
-    'profile.edit.country': 'Country', 'profile.edit.country.hint': 'Used for discovery by country.', 'profile.edit.country.err': 'Choose a country from the list.', 'profile.edit.country.placeholder': 'Choose…',
-    'profile.edit.langs': 'Spoken languages', 'profile.edit.langs.hint': 'At least one language.', 'profile.edit.langs.err': 'Select at least one language.',
-    'profile.edit.skills': 'Skills', 'profile.edit.skills.hint': 'Comma-separated, 8 at most (e.g. go, postgresql).', 'profile.edit.skills.err': 'At most 8 skills, 24 characters each (letters, digits, + # . -).',
-    'profile.edit.bio': 'Bio', 'profile.edit.bio.hint': '280 characters maximum. Your text keeps its original language.', 'profile.edit.bio.err': 'The bio exceeds 280 characters.',
-    'profile.edit.biolang': 'Bio language',
-    'profile.edit.github': 'GitHub link', 'profile.edit.github.hint': 'https address. In this prototype use an example: https://example.org/gh/your-id', 'profile.edit.github.err': 'Enter a valid https address or leave empty.',
-    'profile.edit.citypub': 'Show my city to anonymous visitors', 'profile.edit.citypub.hint': 'By default the city is visible to signed-in members only.',
-    'profile.edit.save': 'Save', 'profile.edit.saving': 'Saving…', 'profile.edit.toast': 'Profile updated.'
+    'profile.title': 'Profile — 226os', 'profile.titleOf': '{name} — profile — 226os',
+    'profile.edit': 'Edit profile', 'profile.since': 'Member since {date}',
+    'profile.open.collab': 'Open to collaborate', 'profile.open.mentorat': 'Open to mentoring',
+    'profile.github': 'GitHub', 'profile.languages': 'Languages', 'profile.skills': 'Skills',
+    'profile.privacy': 'Your email is never public. You choose what others see.', 'profile.privacy.link': 'Privacy',
+    'profile.tabs': 'Activity', 'profile.tab.questions': 'Questions', 'profile.tab.answers': 'Answers', 'profile.tab.projects': 'Projects', 'profile.tab.contributions': 'Contributions',
+    'profile.empty.self.questions': 'You have not asked a question yet.', 'profile.empty.self.answers': 'Your answers will show up here.',
+    'profile.empty.self.projects': 'You have not published a project yet.', 'profile.empty.self.contributions': 'Your contributions will show up here.',
+    'profile.empty.questions': 'No question published.', 'profile.empty.answers': 'No answer yet.',
+    'profile.empty.projects': 'No project published.', 'profile.empty.contributions': 'No contribution yet.',
+    'profile.empty.self.cta.questions': 'Ask a question', 'profile.empty.self.cta.answers': 'See the questions', 'profile.empty.self.cta.projects': 'See the projects', 'profile.empty.self.cta.contributions': 'Find a project',
+    'profile.answers': '{n} answer(s)', 'profile.noanswer': 'No answer', 'profile.needs': '{n} open need(s)', 'profile.noneeds': 'No open need',
+    'profile.notfound.title': 'Profile not found', 'profile.notfound.body': 'This member does not exist or removed their profile.'
   }
 });
 
 (function () {
   'use strict';
-  var $ = App.$, esc = App.esc, t = function (k, p) { return I18N.t(k, p); };
-  var C = MOCK.connect, P = App.params;
-  var id = P.get('id') || C.selfId, base = MOCK.person(id);
-  var $content = $('#profile-content'), $nf = $('#profile-notfound');
-  if (!base) { $content.hidden = true; $nf.hidden = false; $('#profile-name').textContent = '—'; $('#profile-edit-open').hidden = true; I18N.apply(); document.title = t('profile.title'); return; }
+  var root = document.getElementById('profile-root'); if (!root) return;
+  var A = window.App, M = window.MOCK, S = A.Session, C = M.connect, B = M.build, t = function (k, p) { return I18N.t(k, p); }, esc = A.esc, CFG = A.config;
+  var id = A.params.get('id'), tab = 0, KEYS = ['questions', 'answers', 'projects', 'contributions'];
+  var allQ = function () { return M.solve ? M.solve.all() : M.questions; };
 
-  var isOwn = id === C.selfId, extra = C.profiles[id] || { bioLang: base.lang, bio: '', github: '', email: '' };
-  /* local mutable copy: edits are simulated and never persisted */
-  var p = { id: id, name: base.name, handle: base.handle, country: base.country, city: base.city, langs: base.langs.slice(), skills: base.skills.slice(), open: base.open.slice(), since: base.since,
-    bio: extra.bio, bioLang: extra.bioLang, github: extra.github, email: extra.email, cityPublic: false };
-  var roles = isOwn ? ['self', 'member', 'anon'] : ['member', 'anon'];
-  App.Proto.register({ roles: roles.map(function (r) { return { id: r, labelKey: 'profile.viewas.' + r }; }), 'default': isOwn ? 'self' : 'member' });
-  if (roles.indexOf(P.get('as')) > -1) App.Proto.setRole(P.get('as'));   /* ?as= kept as an alias of ?role= */
-  var role = App.Proto.role;
+  if (!id && !S.requireAuth()) return;
 
-  var initials = App.initials;   /* shared helper (app.js) */
-  function canSee(field) {
-    var v = C.visibility[field];
-    if (field === 'city' && p.cityPublic) v = 'public';
-    return v === 'public' || (v === 'members' && role !== 'anon') || (v === 'self' && role === 'self');
-  }
-  function slug(x) { return String(x).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
-  function lbadge(lang, tid) { return '<span class="badge" data-orig-badge data-testid="' + tid + '"><span aria-hidden="true" data-testid="' + tid + '-code">' + lang.toUpperCase() + '</span><span class="visually-hidden" data-testid="' + tid + '-name">' + esc(t('common.originalLang')) + (I18N.lang === 'fr' ? '\u00a0: ' : ': ') + esc(t('profile.lang.' + lang)) + '</span></span>'; }
-  function countryHtml(code, tid) { return '<span class="country" data-testid="' + tid + '"><span class="country-code" aria-hidden="true" data-testid="' + tid + '-code">' + code + '</span><span class="visually-hidden" data-testid="' + tid + '-name">' + esc(MOCK.countryName(code)) + '</span></span> <span data-testid="' + tid + '-label">' + esc(MOCK.countryName(code)) + '</span>'; }
-
-  /* ---------- overview ---------- */
-  function renderOverview() {
-    $('#profile-avatar').innerHTML = App.avatar(p.name, { size: 'lg', testid: 'profile-avatar-img' });
-    var nm = $('#profile-name'); nm.textContent = p.name; nm.lang = base.lang;
-    $('#profile-sub').innerHTML = '<span class="meta-item mono" data-testid="profile-handle">@' + esc(p.handle) + '</span><span class="meta-item" data-testid="profile-country">' + countryHtml(p.country, 'profile-country-code') + '</span>';
-    $('#profile-edit-open').hidden = role !== 'self';
-    $('#profile-anon-note').hidden = role !== 'anon';
-    $('#profile-viewas-status').textContent = t('profile.viewas.status.' + role);
-
-    var openHtml = p.open.length ? '<ul class="tag-list list-reset" data-testid="profile-open-list">' + p.open.map(function (o) {
-      return '<li><a class="tag" href="connect.html" data-testid="profile-open-' + o + '">' + esc(t('profile.open.' + o)) + '</a></li>'; }).join('') + '</ul><p class="hint" data-proto data-testid="profile-open-note"><span class="badge badge-later" data-testid="profile-open-badge">' + esc(t('profile.open.preview')) + '</span></p>'
-      : '<p class="text-muted" data-testid="profile-open-none">' + esc(t('profile.open.none')) + '</p>';
-    $('#profile-about').innerHTML =
-      '<div class="stack-sm"><h3 class="eyebrow" data-testid="profile-bio-h">' + esc(t('profile.bio.h')) + '</h3>' + (p.bio
-        ? '<p class="prose" lang="' + p.bioLang + '" data-user-content data-testid="profile-bio">' + esc(p.bio) + '</p><p class="text-sm text-muted" data-testid="profile-bio-lang">' + lbadge(p.bioLang, 'profile-bio-lang-badge') + ' ' + esc(t('profile.bio.lang')) + '</p>'
-        : '<p class="text-muted" data-testid="profile-bio-empty">' + esc(t('profile.bio.empty')) + '</p>') + '</div>' +
-      '<div class="stack-sm"><h3 class="eyebrow" data-testid="profile-skills-h">' + esc(t('profile.skills.h')) + '</h3>' + (p.skills.length
-        ? '<ul class="tag-list list-reset" data-testid="profile-skills">' + p.skills.map(function (s) { return '<li><span class="tag" data-testid="profile-skill-' + slug(s) + '">' + esc(s) + '</span></li>'; }).join('') + '</ul>'
-        : '<p class="text-muted" data-testid="profile-skills-empty">' + esc(t('profile.skills.empty')) + '</p>') + '</div>' +
-      '<div class="stack-sm"><h3 class="eyebrow" data-testid="profile-langs-h">' + esc(t('profile.langs.h')) + '</h3><ul class="tag-list list-reset" data-testid="profile-langs">' +
-        p.langs.map(function (l) { return '<li><span class="tag" data-testid="profile-lang-' + l + '"><span aria-hidden="true" data-testid="profile-lang-' + l + '-code">' + l.toUpperCase() + '</span><span class="visually-hidden" data-testid="profile-lang-' + l + '-name">' + esc(t('profile.lang.' + l)) + '</span></span></li>'; }).join('') + '</ul></div>' +
-      '<div class="stack-sm"><h3 class="eyebrow" data-testid="profile-open-h">' + esc(t('profile.open.h')) + '</h3>' + openHtml + '</div>' +
-      '<p class="text-sm text-muted" data-proto data-testid="profile-reputation"><span class="badge badge-later" data-testid="profile-reputation-badge">' + esc(t('common.later')) + '</span> <strong data-testid="profile-reputation-title">' + esc(t('profile.reputation')) + '</strong> — ' + esc(t('profile.reputation.note')) + '</p>';
-
-    var rows = [];
-    function dd(key, field, val, tid) { if (!canSee(field)) return; rows.push('<dt data-testid="profile-d-' + tid + '-label">' + esc(t('profile.d.' + key)) + '</dt><dd data-testid="profile-d-' + tid + '">' + val + '</dd>'); }
-    dd('name', 'name', '<span lang="' + base.lang + '" data-user-content data-testid="profile-d-name-text">' + esc(p.name) + '</span>', 'name');
-    dd('handle', 'handle', '<span class="mono" data-testid="profile-d-handle-text">@' + esc(p.handle) + '</span>', 'handle');
-    dd('country', 'country', countryHtml(p.country, 'profile-d-country-code'), 'country');
-    dd('city', 'city', esc(p.city), 'city');
-    dd('github', 'github', p.github ? '<a class="link-external" href="' + esc(p.github) + '" rel="noopener noreferrer" target="_blank" data-testid="profile-github-link">' + esc(t('profile.github.link')) + '</a>' : '—', 'github');
-    dd('email', 'email', '<span class="mono" data-testid="profile-d-email-text">' + esc(p.email) + '</span>', 'email');
-    dd('since', 'since', '<time datetime="' + p.since + '" data-testid="profile-d-since-date">' + esc(MOCK.fmtDate(p.since)) + '</time>', 'since');
-    $('#profile-details').innerHTML = rows.join('');
-
-    var order = ['name', 'handle', 'country', 'langs', 'skills', 'bio', 'github', 'openTo', 'since', 'city', 'email'];
-    var lab = { name: 'name', handle: 'handle', country: 'country', langs: 'langs.h', skills: 'skills.h', bio: 'bio.h', github: 'github', openTo: 'open.h', since: 'since', city: 'city', email: 'email' };
-    $('#profile-privacy-body').innerHTML = order.map(function (f) {
-      var ok = canSee(f), v = C.visibility[f] === 'members' && f === 'city' && p.cityPublic ? 'public' : C.visibility[f];
-      return '<tr data-testid="profile-privacy-row-' + f + '"><th scope="row" data-testid="profile-privacy-field-' + f + '">' + esc(t(f === 'langs' || f === 'skills' || f === 'bio' || f === 'openTo' ? 'profile.' + lab[f] : 'profile.d.' + lab[f])) + '</th>' +
-        '<td data-testid="profile-privacy-who-' + f + '">' + esc(t('profile.vis.' + v)) + '</td>' +
-        '<td data-testid="profile-privacy-now-' + f + '"><span class="profile-state" data-testid="profile-privacy-state-' + f + '"><span class="icon ' + (ok ? 'i-check-circle' : 'i-lock') + '" aria-hidden="true" data-testid="profile-privacy-icon-' + f + '"></span>' + esc(t(ok ? 'profile.now.visible' : 'profile.now.hidden')) + '</span></td></tr>';
-    }).join('');
-    document.title = p.name + ' — ' + t('profile.title');
-  }
-
-  /* ---------- activity (simulated async, one marker in HTML) ---------- */
-  function rowQ(q, n, pre, kindKey) {
-    var a = MOCK.person(q.author);
-    return '<li class="row" data-testid="profile-' + pre + '-row-' + n + '"><div class="row-lead"><span class="icon i-help" aria-hidden="true" data-testid="profile-' + pre + '-icon-' + n + '"></span></div>' +
-      '<div class="row-main"><h3 class="row-title"><a href="question.html?id=' + q.id + '" lang="' + q.lang + '" data-user-content data-testid="profile-' + pre + '-link-' + n + '">' + esc(q.title) + '</a></h3>' +
-      '<ul class="tag-list list-reset" data-testid="profile-' + pre + '-tags-' + n + '">' + q.tags.map(function (g) { return '<li><span class="tag" data-testid="profile-' + pre + '-tag-' + n + '-' + slug(g) + '">' + esc(g) + '</span></li>'; }).join('') + '</ul>' +
-      '<div class="meta"><span class="meta-item" data-testid="profile-' + pre + '-kind-' + n + '">' + esc(t(kindKey)) + '</span><span class="meta-item" data-testid="profile-' + pre + '-country-' + n + '">' + countryHtml(q.country, 'profile-' + pre + '-cc-' + n) + '</span><time datetime="' + q.date + '" data-testid="profile-' + pre + '-date-' + n + '">' + esc(MOCK.fmtDate(q.date)) + '</time>' + (pre === 'a' && a ? '<span class="meta-item" lang="' + a.lang + '" data-user-content data-testid="profile-a-author-' + n + '">' + esc(a.name) + '</span>' : '') + '</div></div>' +
-      '<div class="row-aside">' + lbadge(q.lang, 'profile-' + pre + '-lang-' + n) + (q.accepted ? '<span class="badge badge-accepted" data-testid="profile-' + pre + '-accepted-' + n + '"><span class="icon i-check" aria-hidden="true" data-testid="profile-' + pre + '-accepted-icon-' + n + '"></span>' + esc(t('common.accepted')) + '</span>' : '') + '</div></li>';
-  }
-  function rowP(pr, n, pre, kindKey) {
-    return '<li class="row" data-testid="profile-' + pre + '-row-' + n + '"><div class="row-lead">' + App.thumb(pr.name, { testid: 'profile-' + pre + '-thumb-' + n }) + '</div>' +
-      '<div class="row-main"><h3 class="row-title"><a href="project.html?id=' + pr.id + '" data-testid="profile-' + pre + '-link-' + n + '"><span class="mono" data-testid="profile-' + pre + '-name-' + n + '">' + esc(pr.name) + '</span></a></h3>' +
-      '<p class="row-excerpt" lang="' + pr.lang + '" data-user-content data-testid="profile-' + pre + '-excerpt-' + n + '">' + esc(pr.summary) + '</p>' +
-      '<ul class="tag-list list-reset" data-testid="profile-' + pre + '-tags-' + n + '">' + pr.stack.map(function (g) { return '<li><span class="tag" data-testid="profile-' + pre + '-tag-' + n + '-' + slug(g) + '">' + esc(g) + '</span></li>'; }).join('') + '</ul>' +
-      '<div class="meta"><span class="meta-item" data-testid="profile-' + pre + '-kind-' + n + '">' + esc(t(kindKey)) + '</span><span class="meta-item" data-testid="profile-' + pre + '-country-' + n + '">' + countryHtml(pr.country, 'profile-' + pre + '-cc-' + n) + '</span><time datetime="' + pr.updated + '" data-testid="profile-' + pre + '-date-' + n + '">' + esc(MOCK.fmtDate(pr.updated)) + '</time></div></div>' +
-      '<div class="row-aside">' + lbadge(pr.lang, 'profile-' + pre + '-lang-' + n) + '<span class="badge" data-testid="profile-' + pre + '-status-' + n + '">' + esc(t('profile.status.' + pr.status)) + '</span></div></li>';
-  }
-  function byIds(arr, ids) { return ids.map(function (i) { return MOCK.byId(arr, i); }).filter(Boolean); }
-  function list(pre, builder, kindKey) {
-    return function (items, box) { box.innerHTML = '<ul class="list list-reset" data-testid="profile-' + pre + '-list">' + items.map(function (x) { return builder(x, x.id, pre, kindKey); }).join('') + '</ul>'; };
-  }
-  [['q', 'act-q', function () { return MOCK.questions.filter(function (q) { return q.author === id; }); }, list('q', rowQ, 'profile.row.question')],
-   ['a', 'act-a', function () { return byIds(MOCK.questions, C.answers[id] || []); }, list('a', rowQ, 'profile.row.answered')],
-   ['p', 'act-p', function () { return MOCK.projects.filter(function (x) { return x.owner === id; }); }, list('p', rowP, 'profile.row.project')],
-   ['c', 'act-c', function () { return byIds(MOCK.projects, C.contributions[id] || []); }, list('c', rowP, 'profile.row.contrib')]
-  ].forEach(function (a) { App.Sim.load($('#' + a[1]), { load: a[2], render: a[3], delay: 450, skeleton: 2, emptyKey: 'profile.activity.' + a[0] + '.empty' }); });
-
-  /* ---------- view-as toggle ---------- */
-  document.addEventListener('proto:role', function (e) { role = e.detail.role; renderOverview(); });
-  document.addEventListener('i18n:change', function () { populateSelects(); renderOverview(); });
-
-  /* ---------- edit dialog ---------- */
-  var dlg = $('#profile-edit-dialog'), form = $('#profile-edit-form'), sumBox = $('#pe-summary'), sumList = $('#pe-summary-list');
-  var F = { name: $('#pe-name'), country: $('#pe-country'), skills: $('#pe-skills'), bio: $('#pe-bio'), biolang: $('#pe-biolang'), github: $('#pe-github'), citypub: $('#pe-citypub') };
-  var langBoxes = App.$$('input[name="langs"]', form);
-  function populateSelects() {
-    var cur = F.country.value || p.country, h = '<option value="" data-testid="profile-edit-country-placeholder">' + esc(t('profile.edit.country.placeholder')) + '</option>';
-    h += MOCK.countries.map(function (c) { return '<option value="' + c.code + '" data-testid="profile-edit-country-opt-' + c.code.toLowerCase() + '">' + esc(c[I18N.lang]) + '</option>'; }).join('');
-    F.country.innerHTML = h; F.country.value = cur;
-  }
-  populateSelects();
-  function fillForm() {
-    F.name.value = p.name; F.country.value = p.country; F.skills.value = p.skills.join(', '); F.bio.value = p.bio; F.biolang.value = p.bioLang; F.github.value = p.github; F.citypub.checked = p.cityPublic;
-    langBoxes.forEach(function (b) { b.checked = p.langs.indexOf(b.value) > -1; });
-    clearErrors();
-  }
-  function clearErrors() {
-    sumBox.hidden = true; sumList.innerHTML = '';
-    App.$$('.field', form).forEach(function (f) {
-      f.classList.remove('has-error'); var e = f.querySelector('.error-msg'); if (e) { e.hidden = true; e.innerHTML = ''; }
-      App.$$('input,select,textarea', f).forEach(function (c) { c.removeAttribute('aria-invalid'); var d = (c.getAttribute('aria-describedby') || '').split(' ').filter(function (x) { return x && !/-error$/.test(x); }); c.setAttribute('aria-describedby', d.join(' ')); if (!d.length) c.removeAttribute('aria-describedby'); });
-    });
-  }
-  App.$('#profile-edit-open').addEventListener('click', fillForm);
-  form.addEventListener('submit', function (e) {
-    e.preventDefault(); clearErrors();
-    var errs = [], v = {};
-    v.name = F.name.value.trim(); if (v.name.length < 2 || v.name.length > 60) errs.push(['name', 'pe-name', 'profile.edit.name.err', F.name]);
-    v.country = F.country.value; if (!MOCK.byId(MOCK.countries.map(function (c) { return { id: c.code }; }), v.country)) errs.push(['country', 'pe-country', 'profile.edit.country.err', F.country]);
-    v.langs = langBoxes.filter(function (b) { return b.checked; }).map(function (b) { return b.value; }); if (!v.langs.length) errs.push(['langs', 'pe-langs', 'profile.edit.langs.err', langBoxes[0]]);
-    v.skills = F.skills.value.split(',').map(function (s) { return s.trim().toLowerCase(); }).filter(Boolean);
-    if (v.skills.length > 8 || v.skills.some(function (s) { return !/^[a-z0-9.+#-]{1,24}$/.test(s); })) errs.push(['skills', 'pe-skills', 'profile.edit.skills.err', F.skills]);
-    v.bio = F.bio.value.trim(); if (v.bio.length > 280) errs.push(['bio', 'pe-bio', 'profile.edit.bio.err', F.bio]);
-    v.github = F.github.value.trim();
-    if (v.github) { try { var u = new URL(v.github); if (u.protocol !== 'https:') throw 0; } catch (x) { errs.push(['github', 'pe-github', 'profile.edit.github.err', F.github]); } }
-    if (errs.length) {
-      errs.forEach(function (er, i) {
-        var f = $('#pe-f-' + er[0]), msg = $('#pe-' + er[0] + '-error'); f.classList.add('has-error');
-        msg.innerHTML = '<span class="icon i-alert-circle" aria-hidden="true" data-testid="profile-edit-' + er[0] + '-error-icon"></span><span data-testid="profile-edit-' + er[0] + '-error-text">' + esc(t(er[2])) + '</span>'; msg.hidden = false;
-        var c = er[3]; c.setAttribute('aria-invalid', 'true'); c.setAttribute('aria-describedby', ((c.getAttribute('aria-describedby') || '') + ' pe-' + er[0] + '-error').trim());
-        sumList.insertAdjacentHTML('beforeend', '<li><a href="#' + er[1] + '" data-testid="profile-edit-summary-link-' + er[0] + '">' + esc(t(er[2])) + '</a></li>');
-      });
-      sumBox.hidden = false; sumBox.focus(); return;
+  function model() {
+    var u = S.user, me = u ? C.selfPerson(u) : null, isSelf = !!u && (!id || (me && me.id === id));
+    if (isSelf) {
+      var gh = u.github ? { label: 'github.com/' + u.github, href: 'https://example.org/gh/' + encodeURIComponent(u.github) } : null;
+      return { self: true, person: me, name: u.name, handle: u.username, country: u.country, city: '', since: me ? me.since : '', skills: u.skills || [], bio: u.bio || '', bioLang: I18N.lang, github: gh, collab: !!u.openToCollab, mentor: false, langs: u.languages || [], key: me ? me.id : null };
     }
-    var btn = $('#pe-submit'); btn.setAttribute('aria-busy', 'true'); btn.disabled = true; btn.querySelector('span:last-child').textContent = t('profile.edit.saving');
-    setTimeout(function () {
-      p.name = v.name; p.country = v.country; p.langs = v.langs; p.skills = v.skills; p.bio = v.bio; p.bioLang = F.biolang.value; p.github = v.github; p.cityPublic = F.citypub.checked;
-      btn.removeAttribute('aria-busy'); btn.disabled = false; btn.querySelector('span:last-child').textContent = t('profile.edit.save');
-      App.Dialog.close(dlg); renderOverview();
-      App.Toast.show({ kind: 'success', title: t('state.success.title'), msg: t('profile.edit.toast') });
-    }, 500);
-  });
-  sumList.addEventListener('click', function (e) { var a = e.target.closest('a'); if (a) { e.preventDefault(); var c = document.getElementById(a.getAttribute('href').slice(1)); if (c) c.focus(); } });
+    var p = M.person(id); if (!p) return null;
+    var pr = C.profiles[p.id] || {}, vis = C.visibility, anon = !S.signedIn, show = function (f) { return vis[f] === 'public' || (!anon && vis[f] === 'members'); };
+    return { self: false, person: p, name: p.name, handle: p.handle, country: show('country') ? p.country : '', city: show('city') ? p.city : '', since: show('since') ? p.since : '', skills: show('skills') ? p.skills : [], bio: show('bio') ? pr.bio || '' : '', bioLang: pr.bioLang || p.lang,
+      github: show('github') && pr.github ? { label: 'github.com/' + p.handle, href: pr.github } : null, collab: show('openTo') && p.open.indexOf('collaboration') > -1, mentor: show('openTo') && p.open.indexOf('mentorat') > -1, langs: show('langs') ? p.langs : [], key: p.id };
+  }
 
-  renderOverview();
-  if (P.get('edit') === '1' && role === 'self') { fillForm(); App.Dialog.open('profile-edit-dialog', $('#profile-edit-open')); if (P.get('bad') === '1') { F.name.value = ''; langBoxes.forEach(function (b) { b.checked = false; }); F.github.value = 'http://x'; form.requestSubmit(); } }
+  function cc(code, tid) { return '<span class="country" data-testid="' + tid + '"><span class="country-code" data-testid="' + tid + '-code">' + code + '</span><span class="visually-hidden" data-testid="' + tid + '-name">' + esc(M.countryName(code)) + '</span></span>'; }
+  function tagsHtml(a, tid, max) { return '<ul class="tag-list list-reset" data-testid="' + tid + '">' + a.slice(0, max || 4).map(function (x) { return '<li><span class="tag" data-testid="' + tid + '-' + String(x).replace(/[^a-z0-9]+/gi, '-').toLowerCase() + '">' + esc(x) + '</span></li>'; }).join('') + '</ul>'; }
+  function monthYear(iso) { try { return new Date(iso + 'T12:00:00').toLocaleDateString(I18N.lang === 'fr' ? 'fr-FR' : 'en-GB', { month: 'long', year: 'numeric' }); } catch (e) { return iso; } }
+  var LN = { fr: 'Français', en: 'English' };
+
+  function rowQ(q) {
+    var n = q.id, a = M.person(q.author);
+    return '<li class="row" data-testid="profile-q-row-' + n + '"><div class="row-lead">' + A.avatar(a || '?', { testid: 'profile-q-avatar-' + n }) + '</div><div class="row-main"><h3 class="row-title"><a href="question.html?id=' + n + '" lang="' + q.lang + '" data-user-content data-testid="profile-q-link-' + n + '">' + esc(q.title) + '</a></h3>' +
+      '<div class="meta">' + tagsHtml(q.tags, 'profile-q-tags-' + n, 3) + '<time class="meta-item" datetime="' + q.date + '" data-testid="profile-q-date-' + n + '">' + M.fmtDate(q.date) + '</time></div></div>' +
+      '<div class="row-aside">' + (q.accepted ? A.statePill('accepted', { testid: 'profile-q-pill-' + n }) : '<span class="id-state-text" data-testid="profile-q-answers-' + n + '"><span class="icon i-message" aria-hidden="true" data-testid="profile-q-answers-icon-' + n + '"></span>' + esc(q.answers ? t('profile.answers', { n: q.answers }) : t('profile.noanswer')) + '</span>') + '</div></li>';
+  }
+  function rowP(p) {
+    var n = p.id, open = p.openCount != null ? p.openCount : 0;
+    return '<li class="row" data-testid="profile-p-row-' + n + '"><div class="row-lead">' + A.thumb(p.name, { icon: 'hammer', testid: 'profile-p-thumb-' + n }) + '</div><div class="row-main"><h3 class="row-title"><a href="project.html?id=' + n + '" class="id-mono" data-testid="profile-p-link-' + n + '">' + esc(p.name) + '</a></h3>' +
+      '<p class="row-excerpt" lang="' + p.lang + '" data-user-content data-testid="profile-p-summary-' + n + '">' + esc(p.summary) + '</p>' + tagsHtml(p.stack, 'profile-p-tags-' + n, 3) + '</div>' +
+      '<div class="row-aside">' + (open ? A.statePill('open', { testid: 'profile-p-pill-' + n }) + '<span class="tabular-nums" data-testid="profile-p-needs-' + n + '">' + esc(t('profile.needs', { n: open })) + '</span>' : '<span class="id-state-text" data-testid="profile-p-needs-' + n + '">' + esc(t('profile.noneeds')) + '</span>') + '</div></li>';
+  }
+  function collections(m) {
+    var pid = m.key, Q = allQ(), P = B.projects();
+    return {
+      questions: pid ? Q.filter(function (q) { return q.author === pid; }) : [],
+      answers: pid ? (C.answers[pid] || []).map(function (i) { return M.byId(Q, i); }).filter(Boolean) : [],
+      projects: pid ? P.filter(function (p) { return p.owner === pid; }) : [],
+      contributions: pid ? (C.contributions[pid] || []).map(function (i) { return M.byId(P, i); }).filter(Boolean) : []
+    };
+  }
+  var ROWFN = { questions: rowQ, answers: rowQ, projects: rowP, contributions: rowP };
+  var CTA = { questions: CFG.ask, answers: CFG.questions, projects: CFG.projects, contributions: CFG.projects };
+
+  function panel(k, items, m) {
+    if (items.length) return '<ul class="list list-reset" data-testid="profile-list-' + k + '">' + items.map(ROWFN[k]).join('') + '</ul>';
+    var pre = m.self ? 'profile.empty.self.' : 'profile.empty.';
+    return '<div class="id-empty" data-testid="profile-empty-' + k + '"><span class="icon i-' + (k === 'projects' || k === 'contributions' ? 'hammer' : 'message') + '" aria-hidden="true" data-testid="profile-empty-' + k + '-icon"></span><p data-testid="profile-empty-' + k + '-text">' + esc(t(pre + k)) + '</p>' +
+      (m.self ? '<a class="btn btn-sm" href="' + CTA[k].replace(/^pages\//, '') + '" data-testid="profile-empty-' + k + '-cta">' + esc(t('profile.empty.self.cta.' + k)) + '</a>' : '') + '</div>';
+  }
+
+  function render() {
+    var m = model();
+    if (!m) { root.innerHTML = '<div id="profile-nf" data-testid="profile-notfound"></div>'; A.Sim.show(document.getElementById('profile-nf'), 'notfound', { titleKey: 'profile.notfound.title', bodyKey: 'profile.notfound.body', icon: 'user' }); document.title = t('profile.title'); return; }
+    document.title = t('profile.titleOf', { name: m.name });
+    var meta = [];
+    if (m.country) meta.push('<span class="meta-item"><span class="icon i-map-pin" aria-hidden="true" data-testid="profile-country-icon"></span>' + cc(m.country, 'profile-country') + '<span data-testid="profile-country-label">' + esc(M.countryName(m.country)) + (m.city ? ', ' + esc(m.city) : '') + '</span></span>');
+    if (m.langs.length) meta.push('<span class="meta-item"><span class="icon i-languages" aria-hidden="true" data-testid="profile-langs-icon"></span><span data-testid="profile-langs">' + m.langs.map(function (l) { return esc(LN[l] || l); }).join(', ') + '</span></span>');
+    if (m.since) meta.push('<span class="meta-item"><span class="icon i-clock" aria-hidden="true" data-testid="profile-since-icon"></span><span data-testid="profile-since">' + esc(t('profile.since', { date: monthYear(m.since) })) + '</span></span>');
+    var pills = (m.collab ? A.statePill('open', { testid: 'profile-pill-collab', labelKey: 'profile.open.collab' }) : '') + (m.mentor ? A.statePill('open', { testid: 'profile-pill-mentor', labelKey: 'profile.open.mentorat' }) : '');
+    var col = collections(m), counts = KEYS.map(function (k) { return col[k].length; });
+    var tabs = KEYS.map(function (k, i) {
+      return '<button class="tab" role="tab" id="profile-tab-' + k + '" aria-controls="profile-panel-' + k + '" aria-selected="' + (i === tab) + '" data-testid="profile-tab-' + k + '"><span data-i18n="profile.tab.' + k + '" data-testid="profile-tab-' + k + '-label"></span><span class="chip-count tabular-nums" data-testid="profile-tab-' + k + '-count">' + counts[i] + '</span></button>';
+    }).join('');
+    var panels = KEYS.map(function (k, i) { return '<div class="tabpanel" role="tabpanel" id="profile-panel-' + k + '" aria-labelledby="profile-tab-' + k + '" tabindex="0" data-testid="profile-panel-' + k + '"' + (i === tab ? '' : ' hidden') + '>' + panel(k, col[k], m) + '</div>'; }).join('');
+    root.innerHTML =
+      '<header class="id-hero" data-testid="profile-hero">' + A.avatar(m.name, { size: 'lg', testid: 'profile-avatar' }).replace('avatar-lg', 'avatar-lg id-avatar') +
+      '<div class="id-hero-main"><div class="id-hero-top"><div class="id-hero-id"><h1 lang="' + (m.person ? m.person.lang : I18N.lang) + '" data-user-content data-testid="profile-name">' + esc(m.name) + '</h1><p class="id-handle" data-testid="profile-handle">@' + esc(m.handle) + '</p></div>' +
+      (m.self ? '<a class="btn btn-icon tip-start" href="parametres.html#profil" aria-label="' + esc(t('profile.edit')) + '" data-testid="profile-edit"><span class="icon i-edit" aria-hidden="true" data-testid="profile-edit-icon"></span></a>' : '') + '</div>' +
+      (meta.length ? '<div class="id-hero-meta" data-testid="profile-meta">' + meta.join('') + '</div>' : '') +
+      (m.bio ? '<p class="id-bio" lang="' + m.bioLang + '" data-user-content data-testid="profile-bio">' + esc(m.bio) + '</p>' : '') +
+      (m.skills.length ? tagsHtml(m.skills, 'profile-skills', 12) : '') +
+      ((pills || m.github) ? '<div class="id-links" data-testid="profile-links">' + (pills ? '<div class="id-pills" data-testid="profile-pills">' + pills + '</div>' : '') +
+        (m.github ? '<a class="link-external" href="' + esc(m.github.href) + '" rel="noopener noreferrer" data-testid="profile-github"><span class="icon i-git-branch" aria-hidden="true" data-testid="profile-github-icon"></span><span data-testid="profile-github-label">' + esc(m.github.label) + '</span></a>' : '') + '</div>' : '') + '</div></header>' +
+      (m.self ? '<p class="id-privacy" data-testid="profile-privacy"><span class="icon i-lock" aria-hidden="true" data-testid="profile-privacy-icon"></span><span><span data-testid="profile-privacy-text">' + esc(t('profile.privacy')) + '</span> <a href="parametres.html#confidentialite" data-testid="profile-privacy-link">' + esc(t('profile.privacy.link')) + '</a></span></p>' : '') +
+      '<section class="id-tabs" aria-labelledby="profile-activity-h" data-testid="profile-activity"><h2 class="visually-hidden" id="profile-activity-h" data-i18n="profile.tabs" data-testid="profile-activity-title"></h2>' +
+      '<div data-tabs data-testid="profile-tabs"><div class="id-tabs-bar"><div class="tablist" role="tablist" data-i18n-attr="aria-label:profile.tabs" data-testid="profile-tablist">' + tabs + '</div><div id="profile-view" data-testid="profile-view"></div></div>' + panels + '</div></section>';
+    I18N.apply(root); A.Tabs.init(root);
+    if (A.View) A.View.init(document.getElementById('profile-view'), '#profile-root .list', 'profile');
+    root._m = m;
+  }
+
+  root.addEventListener('tabs:change', function (e) { tab = e.detail.index; });
+  if (model() && model().self) A.setupChecklist('#profile-setup', { testid: 'setup' });
+  document.addEventListener('i18n:change', render);
+  document.addEventListener('session:change', function () { if (!id || (S.user && root._m && root._m.self)) render(); });
+  render();
 })();

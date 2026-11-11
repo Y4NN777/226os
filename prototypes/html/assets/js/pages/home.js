@@ -1,173 +1,264 @@
-/* Explore / Home page logic + its UI dictionary (domain: home). Mock data from assets/data/*.js. */
+/* Accueil (signed-in home), v2. A deterministic "Pour vous" feed built from the declared skills, country and intent of the simulated session.
+   No AI, no inbox, no profile checklist here (the checklist lives on the own profile page only). Mock data only. Namespace: feed.* */
 I18N.register({
   fr: {
-    'home.title': 'Explorer — 226os', 'home.h1': 'Résolvez, découvrez et construisez avec des développeurs africains',
-    'home.lede': 'Questions techniques, API et outils locaux, projets open source, membres. Tout est relié.',
-    'home.search.label': 'Rechercher sur 226os', 'home.search.placeholder': 'Ex. webhook, USSD, PostGIS', 'home.search.submit': 'Rechercher',
-    'home.kind.all': 'Tout', 'home.kind.question': 'Questions', 'home.kind.resource': 'API et outils', 'home.kind.project': 'Projets', 'home.kind.person': 'Membres', 'home.kind.label': 'Type de contenu',
-    'home.try': 'Essayez :', 'home.results.title': 'Résultats pour « {q} »', 'home.results.clear': 'Effacer la recherche',
-    'home.empty.title': 'Aucun résultat pour « {q} »', 'home.empty.body': 'Vérifiez l’orthographe, essayez un terme plus général ou changez de type de contenu. Vous pouvez aussi poser la question à la communauté.', 'home.empty.cta': 'Poser une question',
-    'home.q.title': 'Questions récentes', 'home.q.more': 'Toutes les questions', 'home.q.votes': 'votes', 'home.q.answers': '{n} réponse(s)', 'home.q.accepted': 'Réponse acceptée',
-    'home.r.title': 'API et outils par pays', 'home.r.more': 'Parcourir le catalogue', 'home.r.filter': 'Filtrer par pays', 'home.r.verified': 'Source vérifiée', 'home.r.unverified': 'Non vérifié',
-    'home.r.countries': 'Pays pris en charge :', 'home.r.questions': '{n} question(s) liée(s)',
-    'home.p.title': 'Projets qui cherchent des contributeurs', 'home.p.more': 'Tous les projets', 'home.p.needs': 'Besoins :', 'home.p.status.active': 'Actif', 'home.p.status.idea': 'Idée', 'home.p.status.seeking': 'Cherche des contributeurs',
-    'home.m.title': 'Membres', 'home.m.more': 'Voir les profils', 'home.m.open.mentorat': 'Ouvert au mentorat', 'home.m.open.collaboration': 'Ouvert à la collaboration',
-    'home.link.title': 'Du problème au projet', 'home.link.lede': 'Exemple fictif : une question mène à l’API utilisée, puis au projet qui en a besoin.',
-    'home.link.question': 'Question', 'home.link.resource': 'API / outil', 'home.link.project': 'Projet',
-    'home.dom.title': 'Les huit domaines', 'home.dom.lede': 'Ce que couvre le prototype (P0) et ce qui vient ensuite (P1/P2), selon le PRD.',
-    'home.dom.col.domain': 'Domaine', 'home.dom.col.now': 'Dans le prototype (P0)', 'home.dom.col.later': 'Prévu ensuite (P1/P2)',
-    'home.dom.solve.now': 'Q&R, extraits de code, réponse acceptée, votes, recherche', 'home.dom.solve.later': 'Réputation, articles, discussions, revue de code',
-    'home.dom.discover.now': 'Catalogue API/SDK, fiches sourcées, pays, catégories', 'home.dom.discover.later': 'Comparaison, retours, vérifications automatisées',
-    'home.dom.build.now': 'Projets GitHub, besoins, candidatures, liens', 'home.dom.build.later': 'Matching, synchronisation GitHub avancée',
-    'home.dom.identity.now': 'Connexion et profils minimaux', 'home.dom.identity.later': 'Réputation, fil d’activité, communautés',
-    'home.dom.connect.now': 'Maquette seule (P1/P2)', 'home.dom.connect.later': 'Mentorat, carrière, opportunités, groupes d’étude',
-    'home.dom.language.now': 'Interface FR/EN', 'home.dom.language.later': 'Traduction des contenus, recherche translingue',
-    'home.dom.access.now': 'Responsive, états de chargement, navigation clavier', 'home.dom.access.later': 'Mode léger, cache avancé, brouillons hors ligne',
-    'home.dom.intelligence.now': 'Recherche textuelle, liens contextuels', 'home.dom.intelligence.later': 'Suggestions, recherche sémantique, assistant sourcé'
+    'feed.title': 'Accueil — 226os',
+    'feed.hello': 'Bonjour, {name}',
+    'feed.topics.label': 'Vos sujets', 'feed.topics.edit': 'Modifier', 'feed.topics.none': 'Aucun sujet choisi',
+    'feed.lead.ask.title': 'Posez votre question à la communauté',
+    'feed.lead.ask.body': 'Décrivez votre blocage : quelqu’un qui connaît votre stack vous répondra.',
+    'feed.lead.ask.cta': 'Poser une question',
+    'feed.lead.help.title.one': '1 question attend une réponse',
+    'feed.lead.help.title.many': '{n} questions attendent une réponse',
+    'feed.lead.help.body': 'Choisies d’après vos sujets, les moins servies d’abord.',
+    'feed.lead.help.cta': 'Voir les questions',
+    'feed.lead.integrate.title.one': '1 API vérifiée couvre votre pays',
+    'feed.lead.integrate.title.many': '{n} API vérifiées couvrent votre pays',
+    'feed.lead.integrate.title.any': 'Intégrez une API sourcée',
+    'feed.lead.integrate.body': 'Sources datées, pièges connus et exemples de code.',
+    'feed.lead.integrate.cta': 'Ouvrir le catalogue',
+    'feed.lead.contribute.title.one': '1 projet cherche vos compétences',
+    'feed.lead.contribute.title.many': '{n} projets cherchent vos compétences',
+    'feed.lead.contribute.body': 'Des besoins précis, avec le niveau attendu.',
+    'feed.lead.contribute.cta': 'Voir les projets',
+    'feed.q.title': 'Questions à résoudre',
+    'feed.q.sub': 'Dans vos sujets, sans réponse acceptée.',
+    'feed.q.fallback': 'Rien de non résolu dans vos sujets pour l’instant. Voici d’autres questions ouvertes.',
+    'feed.q.more': 'Toutes les questions',
+    'feed.q.answers': '{n} réponse(s)', 'feed.q.noanswer': 'Sans réponse',
+    'feed.q.empty.title': 'Toutes les questions ont une réponse acceptée', 'feed.q.empty.body': 'Revenez plus tard, ou posez la vôtre.', 'feed.q.empty.cta': 'Poser une question',
+    'feed.p.title': 'Projets qui ont besoin de vous',
+    'feed.p.sub': 'Besoins ouverts qui correspondent à vos compétences.',
+    'feed.p.fallback': 'Aucun besoin ne correspond exactement. Voici des projets ouverts.',
+    'feed.p.more': 'Tous les projets', 'feed.p.needs': '{n} besoin(s) ouvert(s)',
+    'feed.p.empty.title': 'Aucun projet ouvert pour le moment', 'feed.p.empty.body': 'Publiez le vôtre pour trouver des contributeurs.', 'feed.p.empty.cta': 'Publier un projet',
+    'feed.r.title': 'API récemment vérifiées',
+    'feed.r.sub': 'Qui couvrent {country}.',
+    'feed.r.subAny': 'Sources vérifiées, les plus récentes d’abord.',
+    'feed.r.more': 'Parcourir le catalogue', 'feed.r.on': 'le {date}',
+    'feed.r.empty.title': 'Aucune API vérifiée', 'feed.r.empty.body': 'Le catalogue s’enrichit au fil des sources.', 'feed.r.empty.cta': 'Parcourir le catalogue',
+    'feed.a.title': 'Votre activité',
+    'feed.a.q': 'Vos questions', 'feed.a.apps': 'Vos candidatures',
+    'feed.a.q.empty.title': 'Pas encore de question', 'feed.a.q.empty.body': 'Décrivez un blocage, la communauté vous répond.', 'feed.a.q.empty.cta': 'Poser une question',
+    'feed.a.apps.empty.title': 'Aucune candidature', 'feed.a.apps.empty.body': 'Ces projets cherchent vos compétences.', 'feed.a.apps.empty.cta': 'Trouver un projet',
+    'feed.app.pending': 'En attente', 'feed.app.accepted': 'Acceptée', 'feed.app.declined': 'Refusée',
+    'feed.first.title': 'Choisissez 3 sujets pour commencer',
+    'feed.first.body': 'Votre accueil se compose d’après vos sujets : questions à résoudre, projets et API pour vous. Vous pourrez les modifier à tout moment.',
+    'feed.first.group': 'Sujets proposés',
+    'feed.first.count': '{n}/3 choisis',
+    'feed.first.cta': 'Composer mon accueil',
+    'feed.first.hint': 'Choisissez au moins un sujet.'
   },
   en: {
-    'home.title': 'Explore — 226os', 'home.h1': 'Solve, discover and build with African developers',
-    'home.lede': 'Technical questions, local APIs and tools, open-source projects and people: content that links together.',
-    'home.search.label': 'Search 226os', 'home.search.placeholder': 'e.g. webhook, USSD, PostGIS', 'home.search.submit': 'Search',
-    'home.kind.all': 'All', 'home.kind.question': 'Questions', 'home.kind.resource': 'APIs and tools', 'home.kind.project': 'Projects', 'home.kind.person': 'People', 'home.kind.label': 'Content type',
-    'home.try': 'Try:', 'home.results.title': 'Results for “{q}”', 'home.results.clear': 'Clear search',
-    'home.empty.title': 'No results for “{q}”', 'home.empty.body': 'Check the spelling, try a more general term or change the content type. You can also ask the community.', 'home.empty.cta': 'Ask a question',
-    'home.q.title': 'Recent questions', 'home.q.more': 'All questions', 'home.q.votes': 'votes', 'home.q.answers': '{n} answer(s)', 'home.q.accepted': 'Accepted answer',
-    'home.r.title': 'APIs and tools by country', 'home.r.more': 'Browse the catalogue', 'home.r.filter': 'Filter by country', 'home.r.verified': 'Source verified', 'home.r.unverified': 'Verification is dated',
-    'home.r.countries': 'Supported countries:', 'home.r.questions': '{n} linked question(s)',
-    'home.p.title': 'Projects looking for contributors', 'home.p.more': 'All projects', 'home.p.needs': 'Needs:', 'home.p.status.active': 'Active', 'home.p.status.idea': 'Idea', 'home.p.status.seeking': 'Seeking contributors',
-    'home.m.title': 'People', 'home.m.more': 'See profiles', 'home.m.open.mentorat': 'Open to mentoring', 'home.m.open.collaboration': 'Open to collaboration',
-    'home.link.title': 'A question, an API, a project: linked', 'home.link.lede': 'Fictional Problem-to-Project example: each item leads to the others without hunting for URLs.',
-    'home.link.question': 'Question', 'home.link.resource': 'API / tool', 'home.link.project': 'Project',
-    'home.dom.title': 'The eight domains', 'home.dom.lede': 'What is available in this prototype (P0) and what comes later (P1/P2), per the PRD.',
-    'home.dom.col.domain': 'Domain', 'home.dom.col.now': 'In the prototype (P0)', 'home.dom.col.later': 'Planned later (P1/P2)',
-    'home.dom.solve.now': 'Q&A, code snippets, accepted answer, votes, search', 'home.dom.solve.later': 'Reputation, articles, discussions, code review',
-    'home.dom.discover.now': 'API/SDK catalogue, sourced listings, countries, categories', 'home.dom.discover.later': 'Comparison, feedback, automated checks',
-    'home.dom.build.now': 'GitHub projects, needs, applications, links', 'home.dom.build.later': 'Matching, advanced GitHub sync',
-    'home.dom.identity.now': 'Sign-in and minimal profiles', 'home.dom.identity.later': 'Reputation, activity feed, communities',
-    'home.dom.connect.now': 'Mockup only (P1/P2)', 'home.dom.connect.later': 'Mentoring, careers, opportunities, study groups',
-    'home.dom.language.now': 'FR/EN interface', 'home.dom.language.later': 'Content translation, cross-language search',
-    'home.dom.access.now': 'Responsive, loading states, keyboard navigation', 'home.dom.access.later': 'Light mode, advanced cache, offline drafts',
-    'home.dom.intelligence.now': 'Text search, contextual links', 'home.dom.intelligence.later': 'Suggestions, semantic search, sourced assistant'
+    'feed.title': 'Home — 226os',
+    'feed.hello': 'Hello, {name}',
+    'feed.topics.label': 'Your topics', 'feed.topics.edit': 'Edit', 'feed.topics.none': 'No topic chosen',
+    'feed.lead.ask.title': 'Ask the community',
+    'feed.lead.ask.body': 'Describe where you are stuck: someone who knows your stack will answer.',
+    'feed.lead.ask.cta': 'Ask a question',
+    'feed.lead.help.title.one': '1 question is waiting for an answer',
+    'feed.lead.help.title.many': '{n} questions are waiting for an answer',
+    'feed.lead.help.body': 'Picked from your topics, least served first.',
+    'feed.lead.help.cta': 'See the questions',
+    'feed.lead.integrate.title.one': '1 verified API covers your country',
+    'feed.lead.integrate.title.many': '{n} verified APIs cover your country',
+    'feed.lead.integrate.title.any': 'Integrate a sourced API',
+    'feed.lead.integrate.body': 'Dated sources, known pitfalls and code samples.',
+    'feed.lead.integrate.cta': 'Open the catalogue',
+    'feed.lead.contribute.title.one': '1 project is looking for your skills',
+    'feed.lead.contribute.title.many': '{n} projects are looking for your skills',
+    'feed.lead.contribute.body': 'Specific needs, with the expected level.',
+    'feed.lead.contribute.cta': 'See the projects',
+    'feed.q.title': 'Questions to solve',
+    'feed.q.sub': 'In your topics, without an accepted answer.',
+    'feed.q.fallback': 'Nothing unresolved in your topics right now. Here are other open questions.',
+    'feed.q.more': 'All questions',
+    'feed.q.answers': '{n} answer(s)', 'feed.q.noanswer': 'No answer',
+    'feed.q.empty.title': 'Every question has an accepted answer', 'feed.q.empty.body': 'Come back later, or ask your own.', 'feed.q.empty.cta': 'Ask a question',
+    'feed.p.title': 'Projects that need you',
+    'feed.p.sub': 'Open needs that match your skills.',
+    'feed.p.fallback': 'No need matches exactly. Here are open projects.',
+    'feed.p.more': 'All projects', 'feed.p.needs': '{n} open need(s)',
+    'feed.p.empty.title': 'No open project right now', 'feed.p.empty.body': 'Publish yours to find contributors.', 'feed.p.empty.cta': 'Publish a project',
+    'feed.r.title': 'Recently verified APIs',
+    'feed.r.sub': 'Covering {country}.',
+    'feed.r.subAny': 'Verified sources, most recent first.',
+    'feed.r.more': 'Browse the catalogue', 'feed.r.on': 'on {date}',
+    'feed.r.empty.title': 'No verified API', 'feed.r.empty.body': 'The catalogue grows as sources are checked.', 'feed.r.empty.cta': 'Browse the catalogue',
+    'feed.a.title': 'Your activity',
+    'feed.a.q': 'Your questions', 'feed.a.apps': 'Your applications',
+    'feed.a.q.empty.title': 'No question yet', 'feed.a.q.empty.body': 'Describe where you are stuck; the community answers.', 'feed.a.q.empty.cta': 'Ask a question',
+    'feed.a.apps.empty.title': 'No application', 'feed.a.apps.empty.body': 'These projects look for your skills.', 'feed.a.apps.empty.cta': 'Find a project',
+    'feed.app.pending': 'Pending', 'feed.app.accepted': 'Accepted', 'feed.app.declined': 'Declined',
+    'feed.first.title': 'Pick 3 topics to get started',
+    'feed.first.body': 'Your home is built from your topics: questions to solve, projects and APIs for you. You can change them at any time.',
+    'feed.first.group': 'Suggested topics',
+    'feed.first.count': '{n}/3 picked',
+    'feed.first.cta': 'Build my home',
+    'feed.first.hint': 'Pick at least one topic.'
   }
 });
 
 (function () {
-  var A = window.App, M = window.MOCK, t = I18N.t, esc = A.esc, $ = A.$, F = A.Filter;
-  var resCtl, kind = 'all', q = (A.params.get('q') || '').trim(), countries = [];
-  var LANGNAME = { fr: { fr: 'français', en: 'French' }, en: { fr: 'anglais', en: 'English' } };
+  'use strict';
+  var root = document.getElementById('home-root'); if (!root) return;      /* the old landing page also loaded this file; do nothing there */
+  var A = window.App, M = window.MOCK, S = A.Session, t = function (k, p) { return I18N.t(k, p); }, esc = A.esc, CFG = A.config;
+  if (!S.requireAuth()) return;
+  var B = M.build, SUGGEST = ['go', 'postgresql', 'javascript', 'react', 'php', 'python', 'webhook', 'mobile-money', 'ussd', 'flutter', 'docker', 'kyc'];
+  var ALIAS = { postgresql: ['postgres', 'postgis'], postgres: ['postgresql', 'postgis'], javascript: ['node', 'typescript'], typescript: ['node', 'javascript'], node: ['javascript', 'typescript'], 'mobile-money': ['payments', 'payment'], docker: ['devops'], webhook: ['webhooks'] };
+  var picked = [], mounted = false;
+  var LANGNAME = { fr: 'FR', en: 'EN' };
 
-  function slug(x) { return String(x).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
-  /* Row ids use the stable data id (`question-row-q-webhook-sig`); rows of the search-results list get a `result-` infix so both lists can coexist. */
-  function cc(code, i) { var id = 'country-' + code.toLowerCase() + '-' + i; return '<span class="country" data-testid="' + id + '"><span class="country-code" data-testid="' + id + '-code">' + code + '</span><span class="visually-hidden" data-testid="' + id + '-name">' + esc(M.countryName(code)) + '</span></span>'; }
-  function langBadge(l, id) { return '<span class="badge" lang="' + I18N.lang + '" title="' + esc(t('common.originalLang') + (I18N.lang === 'fr' ? '\u00a0: ' : ': ') + LANGNAME[l][I18N.lang]) + '" data-testid="' + id + '"><span aria-hidden="true" data-testid="' + id + '-code">' + l.toUpperCase() + '</span><span class="visually-hidden" data-testid="' + id + '-name">' + esc(t('common.originalLang') + (I18N.lang === 'fr' ? '\u00a0: ' : ': ') + LANGNAME[l][I18N.lang]) + '</span></span>'; }
-  function tags(a, id) { return '<ul class="tag-list list-reset">' + a.map(function (x, i) { return '<li><span class="tag" data-testid="' + id + '-tag-' + slug(x) + '">' + esc(x) + '</span></li>'; }).join('') + '</ul>'; }
-  function kindBadge(k, i) { var o = M.kinds[k]; return '<span class="badge" data-testid="kind-' + k + '-' + i + '"><span class="icon i-' + o.icon + '" aria-hidden="true" data-testid="kind-' + k + '-' + i + '-icon"></span>' + esc(o[I18N.lang]) + '</span>'; }
+  function topicSet(u) { var s = {}; (u.skills || []).forEach(function (k) { k = String(k).toLowerCase(); s[k] = 1; (ALIAS[k] || []).forEach(function (a) { s[a] = 1; }); }); return s; }
+  function any(arr, set) { return (arr || []).some(function (x) { return set[String(x).toLowerCase()]; }); }
+  function cc(code, id) { return '<span class="country" data-testid="' + id + '"><span class="country-code" data-testid="' + id + '-code">' + code + '</span><span class="visually-hidden" data-testid="' + id + '-name">' + esc(M.countryName(code)) + '</span></span>'; }
+  function tags(a, id, max) { return '<ul class="tag-list list-reset" data-testid="' + id + '">' + a.slice(0, max || 3).map(function (x) { return '<li><span class="tag" data-testid="' + id + '-' + String(x).replace(/[^a-z0-9]+/gi, '-').toLowerCase() + '">' + esc(x) + '</span></li>'; }).join('') + '</ul>'; }
+  function first(name) { return String(name || '').split(/\s+/)[0] || ''; }
 
-  function rowQ(x, i, withKind) {
-    var p = M.person(x.author), n = (withKind ? 'result-' : '') + x.id;
-    return '<li class="row" data-testid="question-row-' + n + '"><div class="row-lead"><div class="vote" role="img" data-testid="question-vote-' + n + '" aria-label="' + x.votes + ' ' + esc(t('home.q.votes')) + '"><span class="vote-count" data-testid="question-votes-' + n + '">' + x.votes + '</span><span class="text-xs text-muted" aria-hidden="true" data-testid="question-votes-label-' + n + '">' + esc(t('home.q.votes')) + '</span></div></div>' +
-      '<div class="row-main"><h3 class="row-title"><a href="pages/question.html?id=' + x.id + '" lang="' + x.lang + '" data-user-content data-testid="question-link-' + n + '">' + esc(x.title) + '</a></h3>' +
-      '<p class="row-excerpt" lang="' + x.lang + '" data-user-content data-testid="question-excerpt-' + n + '">' + esc(x.excerpt) + '</p>' + tags(x.tags, 'question-' + n) +
-      '<div class="meta"><span class="meta-item">' + cc(x.country, 'q' + n) + '</span><span class="meta-item" data-testid="question-author-' + n + '">' + esc(p.name) + '</span><time class="meta-item" datetime="' + x.date + '" data-testid="question-date-' + n + '">' + M.fmtDate(x.date) + '</time></div></div>' +
-      '<div class="row-aside">' + (withKind ? kindBadge('question', n) : '') + (x.accepted ? '<span class="badge badge-accepted" data-testid="question-accepted-' + n + '"><span class="icon i-check" aria-hidden="true" data-testid="question-accepted-icon-' + n + '"></span>' + esc(t('common.accepted')) + '</span>' : '') +
-      '<span data-testid="question-answers-' + n + '">' + esc(t('home.q.answers', { n: x.answers })) + '</span>' + langBadge(x.lang, 'question-lang-' + n) + '</div></li>';
+  /* ---------- data (deterministic) ---------- */
+  function questions(u, set) {
+    var all = (M.solve ? M.solve.all() : M.questions).filter(function (q) { return !q.accepted; }), self = M.connect.selfPerson(u);
+    all = all.filter(function (q) { return !self || q.author !== self.id; });
+    var mine = all.filter(function (q) { return any(q.tags, set); }), fb = false, list = mine;
+    if (!mine.length) { list = all; fb = true; }
+    list = list.slice().sort(function (a, b) { return a.answers - b.answers || (a.date < b.date ? 1 : -1); });
+    return { items: list, fallback: fb };
   }
-  function rowR(x, i, withKind) {
-    var n = (withKind ? 'result-' : '') + x.id, cat = M.byId(M.categories, x.category);
-    return '<li class="row" data-testid="resource-row-' + n + '"><div class="row-lead"><span class="icon icon-lg i-compass text-muted" aria-hidden="true" data-testid="resource-icon-' + n + '"></span></div>' +
-      '<div class="row-main"><h3 class="row-title"><a href="pages/resource.html?id=' + x.id + '" data-testid="resource-link-' + n + '">' + esc(x.name) + '</a></h3>' +
-      '<p class="row-excerpt" lang="fr" data-user-content data-testid="resource-summary-' + n + '">' + esc(x.summary) + '</p>' +
-      '<div class="meta"><span class="meta-item" data-testid="resource-provider-' + n + '">' + esc(x.provider) + '</span><span class="meta-item" data-testid="resource-category-' + n + '">' + esc(M.label(cat)) + '</span><span class="meta-item mono" data-testid="resource-version-' + n + '">' + esc(x.version) + '</span></div>' +
-      '<div class="cluster"><span class="text-sm text-muted" data-testid="resource-countries-label-' + n + '">' + esc(t('home.r.countries')) + '</span>' + x.countries.map(function (c, j) { return cc(c, 'r' + n); }).join('') + '</div></div>' +
-      '<div class="row-aside">' + (withKind ? kindBadge('resource', n) : '') + (x.verified ? '<span class="badge badge-verified" data-testid="resource-verified-' + n + '"><span class="icon i-shield-check" aria-hidden="true" data-testid="resource-verified-icon-' + n + '"></span>' + esc(t('common.verified')) + '</span>' : '<span class="badge badge-warn" data-testid="resource-unverified-' + n + '">' + esc(t('home.r.unverified')) + '</span>') +
-      '<span data-testid="resource-verified-on-' + n + '">' + esc(t('common.verifiedOn')) + ' <time datetime="' + x.verifiedAt + '" data-testid="resource-verified-date-' + n + '">' + M.fmtDate(x.verifiedAt) + '</time></span></div></li>';
+  function projects(u, set) {
+    var all = B.projects().filter(function (p) { return p.openCount > 0; }), self = M.connect.selfPerson(u);
+    all = all.filter(function (p) { return !self || p.owner !== self.id; });
+    var mine = all.filter(function (p) { return any(p.stack, set) || any(p.skills, set); }), fb = !mine.length;
+    return { items: (fb ? all : mine).slice().sort(function (a, b) { return a.updated < b.updated ? 1 : -1; }), fallback: fb };
   }
-  function rowP(x, i, withKind) {
-    var n = (withKind ? 'result-' : '') + x.id;
-    return '<li class="row" data-testid="project-row-' + n + '"><div class="row-lead"><span class="icon icon-lg i-hammer text-muted" aria-hidden="true" data-testid="project-icon-' + n + '"></span></div>' +
-      '<div class="row-main"><h3 class="row-title"><a href="pages/project.html?id=' + x.id + '" class="mono" data-testid="project-link-' + n + '">' + esc(x.name) + '</a></h3>' +
-      '<p class="row-excerpt" lang="' + x.lang + '" data-user-content data-testid="project-summary-' + n + '">' + esc(x.summary) + '</p>' + tags(x.stack, 'project-' + n) +
-      '<div class="meta"><span class="meta-item">' + cc(x.country, 'p' + n) + '</span><span class="meta-item" data-testid="project-needs-' + n + '"><span class="text-muted" data-testid="project-needs-label-' + n + '">' + esc(t('home.p.needs')) + '</span> ' + esc(x.needs.join(', ')) + '</span></div></div>' +
-      '<div class="row-aside">' + (withKind ? kindBadge('project', n) : '') + '<span class="badge ' + (x.status === 'seeking' ? 'badge-accent' : '') + '" data-testid="project-status-' + n + '">' + esc(t('home.p.status.' + x.status)) + '</span>' + langBadge(x.lang, 'project-lang-' + n) + '</div></li>';
+  function resources(u) {
+    var all = M.resources.filter(function (r) { return r.verified; }), cov = u.country ? all.filter(function (r) { return r.countries.indexOf(u.country) > -1; }) : [];
+    var list = (cov.length ? cov : all).slice().sort(function (a, b) { return a.verifiedAt < b.verifiedAt ? 1 : -1; });
+    return { items: list, covered: !!cov.length };
   }
-  function rowM(x, i, withKind) {
-    var n = (withKind ? 'result-' : '') + x.id;
-    return '<li class="row" data-testid="person-row-' + n + '"><div class="row-lead"><span class="avatar" aria-hidden="true" data-testid="person-avatar-' + n + '">' + x.initials + '</span></div>' +
-      '<div class="row-main"><h3 class="row-title"><a href="pages/profile.html?id=' + x.id + '" data-testid="person-link-' + n + '">' + esc(x.name) + '</a></h3>' +
-      '<p class="row-excerpt" lang="' + x.lang + '" data-user-content data-testid="person-headline-' + n + '">' + esc(x.headline) + '</p>' + tags(x.skills, 'person-' + n) + '</div>' +
-      '<div class="row-aside">' + (withKind ? kindBadge('person', n) : '') + '<span class="meta-item">' + cc(x.country, 'm' + n) + ' <span data-testid="person-city-' + n + '">' + esc(x.city) + '</span></span>' +
-      x.open.map(function (o, j) { return '<span class="badge" data-testid="person-open-' + n + '-' + o + '">' + esc(t('home.m.open.' + o)) + '</span>'; }).join('') + '</div></li>';
-  }
-  var ROW = { question: rowQ, resource: rowR, project: rowP, person: rowM };
-  var SRC = { question: ['questions', ['title', 'excerpt', 'tags', 'author']], resource: ['resources', ['name', 'provider', 'summary', 'countries', 'category', 'sdk']], project: ['projects', ['name', 'summary', 'stack', 'needs']], person: ['people', ['name', 'headline', 'skills', 'city']] };
-  function list(items, fn, id) { return '<ul class="list list-reset" data-testid="' + id + '">' + items.map(function (x, i) { return fn(x, i); }).join('') + '</ul>'; }
-  function searchAll(term) {
-    var out = {}; Object.keys(SRC).forEach(function (k) { var s = SRC[k]; out[k] = F.run(M[s[0]], { q: term, fields: s[1] }); }); return out;
+  function myQuestions(u) { var self = M.connect.selfPerson(u); return self ? (M.solve ? M.solve.all() : M.questions).filter(function (q) { return q.author === self.id; }).sort(function (a, b) { return a.date < b.date ? 1 : -1; }) : []; }
+  function myApps(u) {
+    var self = M.connect.selfPerson(u), out = []; if (!self) return out;
+    B.projects().forEach(function (p) { p.applications.forEach(function (a) { if (a.person === self.id) { var n = p.needs.filter(function (x) { return x.id === a.need; })[0]; out.push({ app: a, project: p, need: n }); } }); });
+    return out.sort(function (a, b) { return a.app.date < b.app.date ? 1 : -1; });
   }
 
-  /* ---------- search ---------- */
-  function renderResults() {
-    var box = $('#results'), disc = $('#discover'); if (!box) return;
-    box.hidden = !q; disc.hidden = !!q; if (!q) return;
-    var all = searchAll(q), ks = kind === 'all' ? Object.keys(SRC) : [kind], rows = [];
-    ks.forEach(function (k) { all[k].forEach(function (x) { rows.push({ k: k, x: x }); }); });
-    var head = '<div class="section-head"><h2 id="results-h" data-testid="results-title">' + esc(t('home.results.title', { q: q })) + '</h2><a href="index.html" class="btn btn-sm" data-clear-search data-testid="results-clear"><span class="icon i-x" aria-hidden="true" data-testid="results-clear-icon"></span>' + esc(t('home.results.clear')) + '</a></div>';
-    var body = rows.length ? '<p class="results-meta" role="status" data-testid="results-count">' + esc(t('common.results', { n: rows.length })) + '</p><ul class="list list-reset" data-testid="results-list">' + rows.map(function (r, i) { return ROW[r.k](r.x, i, true); }).join('') + '</ul>'
-      : '<div class="state" data-testid="results-empty" role="status"><span class="icon i-search" aria-hidden="true" data-testid="results-empty-icon"></span><h3 data-testid="results-empty-title">' + esc(t('home.empty.title', { q: q })) + '</h3><p data-testid="results-empty-body">' + esc(t('home.empty.body')) + '</p><a class="btn btn-primary btn-sm" href="pages/solve.html#ask" data-testid="results-empty-ask">' + esc(t('home.empty.cta')) + '</a></div>';
-    box.innerHTML = head + body;
-    ['question', 'resource', 'project', 'person'].forEach(function (k) { var c = $('[data-kind-count="' + k + '"]'); if (c) c.textContent = '(' + all[k].length + ')'; });
-    var ca = $('[data-kind-count="all"]'); if (ca) ca.textContent = '(' + Object.keys(all).reduce(function (s, k) { return s + all[k].length; }, 0) + ')';
+  /* ---------- rows ---------- */
+  function rowQ(q) {
+    var p = M.person(q.author), n = q.id;
+    return '<li class="row" data-testid="feed-q-row-' + n + '"><div class="row-lead">' + A.avatar(p || '?', { testid: 'feed-q-avatar-' + n }) + '</div>' +
+      '<div class="row-main"><h3 class="row-title"><a href="question.html?id=' + n + '" lang="' + q.lang + '" data-user-content data-testid="feed-q-link-' + n + '">' + esc(q.title) + '</a></h3>' +
+      '<div class="meta">' + tags(q.tags, 'feed-q-tags-' + n, 3) + '<span class="meta-item">' + cc(q.country, 'feed-q-country-' + n) + '</span><time class="meta-item" datetime="' + q.date + '" data-testid="feed-q-date-' + n + '">' + M.fmtDate(q.date) + '</time></div></div>' +
+      '<div class="row-aside"><span class="id-state-text tabular-nums" data-testid="feed-q-answers-' + n + '"><span class="icon i-message" aria-hidden="true" data-testid="feed-q-answers-icon-' + n + '"></span>' + esc(q.answers ? t('feed.q.answers', { n: q.answers }) : t('feed.q.noanswer')) + '</span></div></li>';
   }
-  function setQ(v) {
-    q = v.trim(); $('#home-q').value = q;
-    var u = new URL(location.href); if (q) u.searchParams.set('q', q); else u.searchParams.delete('q'); history.replaceState(null, '', u);
-    $$c('[data-kind-count]', function (c) { if (!q) c.textContent = ''; }); renderResults();
+  function rowP(p) {
+    var n = p.id, d = (p.needs.filter(function (x) { return x.status === 'open'; })[0] || {}).title;
+    return '<li class="row" data-testid="feed-p-row-' + n + '"><div class="row-lead">' + A.thumb(p.name, { icon: 'hammer', testid: 'feed-p-thumb-' + n }) + '</div>' +
+      '<div class="row-main"><h3 class="row-title"><a href="project.html?id=' + n + '" class="id-mono" data-testid="feed-p-link-' + n + '">' + esc(p.name) + '</a></h3>' +
+      (d ? '<p class="row-excerpt" lang="' + p.lang + '" data-user-content data-testid="feed-p-need-' + n + '">' + esc(d) + '</p>' : '') +
+      '<div class="meta">' + tags(p.stack, 'feed-p-tags-' + n, 3) + '<span class="meta-item">' + cc(p.country, 'feed-p-country-' + n) + '</span></div></div>' +
+      '<div class="row-aside">' + A.statePill('open', { testid: 'feed-p-pill-' + n }) + '<span class="tabular-nums" data-testid="feed-p-needs-' + n + '">' + esc(t('feed.p.needs', { n: p.openCount })) + '</span></div></li>';
   }
-  function $$c(s, f) { A.$$(s).forEach(f); }
-
-  /* ---------- discovery sections (simulated async) ---------- */
-  function mountSections() {
-    A.Sim.load($('#sec-questions'), { load: function () { return F.run(M.questions, { sort: { key: 'date', dir: 'desc' } }).slice(0, 5); }, render: function (it, box) { box.innerHTML = list(it, rowQ, 'questions-list'); } });
-    resCtl = A.Sim.load($('#sec-resources'), { delay: 800, skeleton: 3, load: function () { return F.run(M.resources, { where: { countries: countries }, sort: { key: 'name' } }).slice(0, 4); },
-      render: function (it, box) { box.innerHTML = list(it, rowR, 'resources-list'); } });
-    A.Sim.load($('#sec-projects'), { delay: 700, skeleton: 3, load: function () { return M.projects.filter(function (p) { return p.needs.length; }).slice(0, 3); }, render: function (it, box) { box.innerHTML = list(it, rowP, 'projects-list'); } });
-    A.Sim.load($('#sec-people'), { delay: 500, skeleton: 3, load: function () { return M.people.slice(0, 4); }, render: function (it, box) { box.innerHTML = list(it, rowM, 'people-list'); } });
+  function rowR(r) {
+    var n = r.id, cat = M.byId(M.categories, r.category), stale = false;
+    return '<li class="row" data-testid="feed-r-row-' + n + '"><div class="row-lead">' + A.thumb(r.name, { icon: 'compass', testid: 'feed-r-thumb-' + n }) + '</div>' +
+      '<div class="row-main"><h3 class="row-title"><a href="resource.html?id=' + n + '" data-testid="feed-r-link-' + n + '">' + esc(r.name) + '</a></h3>' +
+      '<div class="meta"><span class="meta-item" data-testid="feed-r-category-' + n + '">' + esc(M.label(cat)) + '</span>' + r.countries.slice(0, 4).map(function (c, i) { return '<span class="meta-item">' + cc(c, 'feed-r-country-' + n + '-' + (i + 1)) + '</span>'; }).join('') + '</div></div>' +
+      '<div class="row-aside">' + A.statePill(stale ? 'stale' : 'verified', { testid: 'feed-r-pill-' + n }) + '<time class="tabular-nums" datetime="' + r.verifiedAt + '" data-testid="feed-r-date-' + n + '">' + esc(t('feed.r.on', { date: M.fmtDate(r.verifiedAt) })) + '</time></div></li>';
   }
-  function renderLinked() {
-    var x = M.byId(M.questions, 'q-webhook-sig'), r = M.byId(M.resources, x.resource), p = M.byId(M.projects, x.project);
-    function it(k, href, ttl, id) { return '<a class="linked-item" href="' + href + '" data-testid="' + id + '"><span class="kind" data-testid="' + id + '-kind"><span class="icon icon-sm i-' + M.kinds[k].icon + '" aria-hidden="true" data-testid="' + id + '-icon"></span>' + esc(t('home.link.' + k)) + '</span><strong data-testid="' + id + '-title"' + (k === 'question' ? ' lang="' + x.lang + '" data-user-content' : '') + '>' + esc(ttl) + '</strong></a>'; }
-    $('#linked').innerHTML = it('question', 'pages/question.html?id=' + x.id, x.title, 'linked-question') + it('resource', 'pages/resource.html?id=' + r.id, r.name, 'linked-resource') + it('project', 'pages/project.html?id=' + p.id, p.name, 'linked-project');
+  function rowApp(x) {
+    var n = x.app.id, st = x.app.status;
+    return '<li class="row" data-testid="feed-app-row-' + n + '"><div class="row-lead">' + A.thumb(x.project.name, { icon: 'hammer', size: 'sm', testid: 'feed-app-thumb-' + n }) + '</div>' +
+      '<div class="row-main"><h3 class="row-title"><a href="project.html?id=' + x.project.id + '" class="id-mono" data-testid="feed-app-link-' + n + '">' + esc(x.project.name) + '</a></h3>' +
+      '<p class="row-excerpt" lang="' + x.project.lang + '" data-user-content data-testid="feed-app-need-' + n + '">' + esc(x.need ? x.need.title : '') + '</p></div>' +
+      '<div class="row-aside">' + A.statePill(st === 'accepted' ? 'accepted' : st === 'declined' ? 'closed' : 'draft', { testid: 'feed-app-pill-' + n, labelKey: 'feed.app.' + st }) + '</div></li>';
   }
-  function renderCountries() {
-    var codes = []; M.resources.forEach(function (r) { r.countries.forEach(function (c) { if (codes.indexOf(c) < 0) codes.push(c); }); }); codes.sort();
-    $('#country-chips').innerHTML = codes.map(function (c) { return '<button type="button" class="chip" aria-pressed="' + (countries.indexOf(c) > -1) + '" data-country="' + c + '" data-testid="country-chip-' + c.toLowerCase() + '"><span class="country-code" data-testid="country-chip-' + c.toLowerCase() + '-code">' + c + '</span><span class="visually-hidden" data-testid="country-chip-' + c.toLowerCase() + '-name">' + esc(M.countryName(c)) + '</span></button>'; }).join('');
+  function rowMyQ(q) {
+    var n = q.id;
+    return '<li class="row" data-testid="feed-my-row-' + n + '"><div class="row-main"><h3 class="row-title"><a href="question.html?id=' + n + '" lang="' + q.lang + '" data-user-content data-testid="feed-my-link-' + n + '">' + esc(q.title) + '</a></h3>' +
+      '<div class="meta"><time class="meta-item" datetime="' + q.date + '" data-testid="feed-my-date-' + n + '">' + M.fmtDate(q.date) + '</time><span class="meta-item" data-testid="feed-my-answers-' + n + '">' + esc(q.answers ? t('feed.q.answers', { n: q.answers }) : t('feed.q.noanswer')) + '</span></div></div>' +
+      '<div class="row-aside">' + (q.accepted ? A.statePill('accepted', { testid: 'feed-my-pill-' + n }) : '') + '</div></li>';
   }
-  function renderKinds() {
-    var ks = [['all', 'home.kind.all'], ['question', 'home.kind.question'], ['resource', 'home.kind.resource'], ['project', 'home.kind.project'], ['person', 'home.kind.person']];
-    $('#kind-chips').innerHTML = ks.map(function (k) { return '<button type="button" class="chip" aria-pressed="' + (kind === k[0]) + '" data-kind="' + k[0] + '" data-testid="kind-chip-' + k[0] + '">' + esc(t(k[1])) + ' <span class="chip-count" data-kind-count="' + k[0] + '" data-testid="kind-chip-' + k[0] + '-count"></span></button>'; }).join('');
-    if (q) renderResults();
+  function list(items, fn, id) { return '<ul class="list list-reset" data-testid="' + id + '">' + items.map(fn).join('') + '</ul>'; }
+  function emptyBox(kind, icon, id, href) {
+    return '<div class="id-empty" data-testid="' + id + '"><span class="icon i-' + icon + '" aria-hidden="true" data-testid="' + id + '-icon"></span><h3 data-i18n="feed.' + kind + '.empty.title" data-testid="' + id + '-title"></h3><p data-i18n="feed.' + kind + '.empty.body" data-testid="' + id + '-body"></p>' +
+      '<a class="btn btn-sm" href="' + href + '" data-testid="' + id + '-cta"><span data-i18n="feed.' + kind + '.empty.cta" data-testid="' + id + '-cta-label"></span></a></div>';
   }
-  function renderDomains() {
-    var ids = ['solve', 'discover', 'build', 'identity', 'connect', 'language', 'access', 'intelligence'], body = $('#domains-body'); if (!body) return;
-    body.innerHTML = ids.map(function (d) { return '<tr data-testid="domain-row-' + d + '"><th scope="row" data-testid="domain-name-' + d + '">' + esc(t('nav.' + d)) + '</th><td data-testid="domain-now-' + d + '">' + esc(t('home.dom.' + d + '.now')) + '</td><td class="text-muted" data-testid="domain-later-' + d + '">' + esc(t('home.dom.' + d + '.later')) + '</td></tr>'; }).join('');
-  }
-  function renderTry() {
-    $('#try-list').innerHTML = ['webhook', 'Mobile Money', 'USSD', 'PostGIS', 'KYC'].map(function (s, i) { return '<li><a class="chip" href="index.html?q=' + encodeURIComponent(s) + '" data-try="' + esc(s) + '" data-testid="try-' + slug(s) + '">' + esc(s) + '</a></li>'; }).join('');
+  function block(id, icon, titleKey, moreKey, moreHref, subHtml) {
+    return '<section class="id-block" aria-labelledby="feed-' + id + '-h" data-testid="feed-' + id + '"><div class="id-head"><span class="icon i-' + icon + '" aria-hidden="true" data-testid="feed-' + id + '-icon"></span><h2 id="feed-' + id + '-h" data-i18n="' + titleKey + '" data-testid="feed-' + id + '-title"></h2>' +
+      (moreKey ? '<a href="' + moreHref + '" data-i18n="' + moreKey + '" data-testid="feed-' + id + '-more"></a>' : '') + '</div>' + (subHtml ? '<p class="id-sub" id="feed-' + id + '-sub" data-testid="feed-' + id + '-sub">' + subHtml + '</p>' : '') + '<div id="feed-' + id + '-box" data-testid="feed-' + id + '-box"></div></section>';
   }
 
-  function init() {
-    document.title = t('home.title'); $('#home-q').value = q;
-    renderKinds(); renderCountries(); renderLinked(); renderDomains(); renderTry(); mountSections(); renderResults();
-    $('#home-search').addEventListener('submit', function (e) { e.preventDefault(); setQ($('#home-q').value); });
-    document.addEventListener('click', function (e) {
-      var k = e.target.closest('[data-kind]'), c = e.target.closest('[data-country]'), tr = e.target.closest('[data-try]'), cl = e.target.closest('[data-clear-search]');
-      if (k) { kind = k.getAttribute('data-kind'); renderKinds(); }
-      if (c) { var v = c.getAttribute('data-country'), i = countries.indexOf(v); i > -1 ? countries.splice(i, 1) : countries.push(v); renderCountries(); resCtl.refresh(); }
-      if (tr) { e.preventDefault(); setQ(tr.getAttribute('data-try')); }
-      if (cl) { e.preventDefault(); setQ(''); }
-    });
-    document.addEventListener('i18n:change', function () { document.title = t('home.title'); renderKinds(); renderCountries(); renderLinked(); renderDomains(); renderTry(); renderResults(); });
+  /* ---------- first-use (no skills) ---------- */
+  function renderFirst() {
+    var u = S.user;
+    root.innerHTML = '<header class="home-hero" data-testid="feed-hero"><h1 data-testid="feed-h1">' + esc(t('feed.hello', { name: first(u.name) })) + '</h1></header>' +
+      '<section class="home-first" aria-labelledby="feed-first-h" data-testid="feed-first"><div class="stack-sm"><h2 id="feed-first-h" data-i18n="feed.first.title" data-testid="feed-first-title"></h2><p data-i18n="feed.first.body" data-testid="feed-first-body"></p></div>' +
+      '<div class="home-pick" role="group" data-i18n-attr="aria-label:feed.first.group" data-testid="feed-first-topics">' + SUGGEST.map(function (s) { return '<button type="button" class="chip" aria-pressed="' + (picked.indexOf(s) > -1) + '" data-pick="' + s + '" data-testid="feed-first-chip-' + s + '">' + esc(s) + '</button>'; }).join('') + '</div>' +
+      '<div class="home-first-foot"><button type="button" class="btn btn-primary" id="feed-first-save"' + (picked.length ? '' : ' disabled') + ' data-testid="feed-first-save"><span data-i18n="feed.first.cta" data-testid="feed-first-save-label"></span><span class="icon i-arrow-right" aria-hidden="true" data-testid="feed-first-save-icon"></span></button>' +
+      '<span class="home-first-count" role="status" data-testid="feed-first-count">' + esc(picked.length ? t('feed.first.count', { n: picked.length }) : t('feed.first.hint')) + '</span></div></section>';
+    I18N.apply(root);
   }
-  init();
+
+  /* ---------- feed ---------- */
+  function lead(u, d) {
+    var it = u.intent || 'help', ic = { ask: 'help', help: 'message', integrate: 'compass', contribute: 'hammer' }[it] || 'message', cfg = { ask: [CFG.ask, 'ask'], help: [CFG.questions, 'help'], integrate: [CFG.catalogue, 'integrate'], contribute: [CFG.projects, 'contribute'] }[it] || [CFG.questions, 'help'];
+    var title, body = t('feed.lead.' + it + '.body');
+    if (it === 'help') { var n = d.q.items.length; title = t('feed.lead.help.title.' + (n === 1 ? 'one' : 'many'), { n: n }); }
+    else if (it === 'contribute') { var m = d.p.items.length; title = t('feed.lead.contribute.title.' + (m === 1 ? 'one' : 'many'), { n: m }); }
+    else if (it === 'integrate') { var k = d.r.covered ? d.r.items.length : 0; title = k ? t('feed.lead.integrate.title.' + (k === 1 ? 'one' : 'many'), { n: k }) : t('feed.lead.integrate.title.any'); }
+    else title = t('feed.lead.ask.title');
+    return '<section class="home-lead" aria-labelledby="feed-lead-h" data-testid="feed-lead"><span class="home-lead-icon" aria-hidden="true" data-testid="feed-lead-icon-wrap"><span class="icon i-' + ic + '" data-testid="feed-lead-icon"></span></span>' +
+      '<div class="home-lead-text"><strong id="feed-lead-h" class="tabular-nums" data-testid="feed-lead-title">' + esc(title) + '</strong><span data-testid="feed-lead-body">' + esc(body) + '</span></div>' +
+      '<a class="btn btn-primary" href="' + R(cfg[0]) + '" data-testid="feed-lead-cta"><span data-testid="feed-lead-cta-label">' + esc(t('feed.lead.' + cfg[1] + '.cta')) + '</span><span class="icon i-arrow-right" aria-hidden="true" data-testid="feed-lead-cta-icon"></span></a></section>';
+  }
+  function R(href) { return href.replace(/^pages\//, ''); }       /* AppConfig routes are relative to the site root; this page lives in pages/ */
+  function fill(box, spec, instant) {
+    var e = spec.empty, rd = spec.render; spec = Object.assign({}, spec, { render: function (it, b) { rd(it, b); if (A.View) A.View.apply('home'); } });   /* {kind, icon, id, href}: same guided empty state in the simulated and the instant path */
+    if (instant) { var items = spec.load(); if (items.length) spec.render(items, box); else box.innerHTML = emptyBox(e.kind, e.icon, e.id, e.href); I18N.apply(box); return; }
+    A.Sim.load(box, { delay: spec.delay, skeleton: spec.skeleton || 3, load: spec.load, render: spec.render, empty: { icon: e.icon, titleKey: 'feed.' + e.kind + '.empty.title', bodyKey: 'feed.' + e.kind + '.empty.body', action: { labelKey: 'feed.' + e.kind + '.empty.cta', href: e.href, testid: e.id + '-cta' }, retry: false } });
+  }
+
+  function renderFeed(instant) {
+    var u = S.user, set = topicSet(u), q = questions(u, set), p = projects(u, set), r = resources(u), mq = myQuestions(u), ma = myApps(u), d = { q: q, p: p, r: r };
+    var order = { ask: ['q', 'r', 'p'], help: ['q', 'p', 'r'], integrate: ['r', 'q', 'p'], contribute: ['p', 'q', 'r'] }[u.intent || 'help'] || ['q', 'p', 'r'];
+    var skillsHtml = (u.skills || []).length ? '<ul class="tag-list list-reset" data-testid="feed-topics-list">' + u.skills.map(function (s) { return '<li><span class="tag" data-testid="feed-topic-' + esc(s) + '">' + esc(s) + '</span></li>'; }).join('') + '</ul>' : '<span data-i18n="feed.topics.none" data-testid="feed-topics-none"></span>';
+    var subs = {
+      q: t(q.fallback ? 'feed.q.fallback' : 'feed.q.sub'),
+      p: t(p.fallback ? 'feed.p.fallback' : 'feed.p.sub'),
+      r: r.covered ? t('feed.r.sub', { country: M.countryName(u.country) }) : t('feed.r.subAny')
+    };
+    var specs = {
+      q: { icon: 'help', title: 'feed.q.title', more: 'feed.q.more', href: R(CFG.questions), lim: 4, spec: { delay: 350, load: function () { return q.items.slice(0, order[0] === 'q' ? 4 : 3); }, render: function (it, b) { b.innerHTML = list(it, rowQ, 'feed-q-list'); }, empty: { kind: 'q', icon: 'help', id: 'feed-q-empty', href: R(CFG.ask) } } },
+      p: { icon: 'hammer', title: 'feed.p.title', more: 'feed.p.more', href: R(CFG.projects), spec: { delay: 450, load: function () { return p.items.slice(0, order[0] === 'p' ? 4 : 3); }, render: function (it, b) { b.innerHTML = list(it, rowP, 'feed-p-list'); }, empty: { kind: 'p', icon: 'hammer', id: 'feed-p-empty', href: R(CFG.projects) } } },
+      r: { icon: 'compass', title: 'feed.r.title', more: 'feed.r.more', href: R(CFG.catalogue), spec: { delay: 550, load: function () { return r.items.slice(0, order[0] === 'r' ? 4 : 3); }, render: function (it, b) { b.innerHTML = list(it, rowR, 'feed-r-list'); }, empty: { kind: 'r', icon: 'compass', id: 'feed-r-empty', href: R(CFG.catalogue) } } }
+    };
+    var main = order.map(function (k) { var s = specs[k]; return block(k, s.icon, s.title, s.more, s.href, esc(subs[k])); }).join('');
+    var activity = '<section class="id-block" aria-labelledby="feed-a-h" data-testid="feed-a"><div class="id-head"><span class="icon i-clock" aria-hidden="true" data-testid="feed-a-icon"></span><h2 id="feed-a-h" data-i18n="feed.a.title" data-testid="feed-a-title"></h2></div>' +
+      '<h3 class="id-sub id-sub-flush" data-i18n="feed.a.q" data-testid="feed-a-q-title" ></h3><div id="feed-a-q-box" data-testid="feed-a-q-box"></div>' +
+      '<h3 class="id-sub id-sub-gap" data-i18n="feed.a.apps" data-testid="feed-a-apps-title"></h3><div id="feed-a-apps-box" data-testid="feed-a-apps-box"></div></section>';
+    root.innerHTML = '<header class="home-hero" data-testid="feed-hero"><h1 data-testid="feed-h1">' + esc(t('feed.hello', { name: first(u.name) })) + '</h1>' +
+      '<div class="home-topics" data-testid="feed-topics"><span data-i18n="feed.topics.label" data-testid="feed-topics-label"></span>' + skillsHtml + '<a href="parametres.html#skills" data-i18n="feed.topics.edit" data-testid="feed-topics-edit"></a><div class="home-view" id="feed-view" data-testid="feed-view"></div></div></header>' +
+      lead(u, d) + '<div class="home-layout" data-testid="feed-layout"><div class="home-main" data-testid="feed-main">' + main + '</div><aside class="home-aside" data-testid="feed-aside">' + activity + '</aside></div>';
+    I18N.apply(root);
+    if (A.View) A.View.init(document.getElementById('feed-view'), '.home-main .list', 'home');
+    order.forEach(function (k) { fill(document.getElementById('feed-' + k + '-box'), specs[k].spec, instant); });
+    fill(document.getElementById('feed-a-q-box'), { delay: 400, skeleton: 2, load: function () { return mq.slice(0, 3); }, render: function (it, b) { b.innerHTML = list(it, rowMyQ, 'feed-my-list'); }, empty: { kind: 'a.q', icon: 'message', id: 'feed-a-q-empty', href: R(CFG.ask) } }, instant);
+    fill(document.getElementById('feed-a-apps-box'), { delay: 500, skeleton: 2, load: function () { return ma.slice(0, 3); }, render: function (it, b) { b.innerHTML = list(it, rowApp, 'feed-app-list'); }, empty: { kind: 'a.apps', icon: 'users', id: 'feed-a-apps-empty', href: R(CFG.projects) } }, instant);
+  }
+
+  function render(instant) {
+    var u = S.user; if (!u) { S.requireAuth(); return; }
+    document.title = t('feed.title');
+    if (!(u.skills || []).length) renderFirst(); else renderFeed(instant !== false && mounted);
+    mounted = true;
+  }
+
+  root.addEventListener('click', function (e) {
+    var c = e.target.closest('[data-pick]');
+    if (c) { var s = c.getAttribute('data-pick'), i = picked.indexOf(s); if (i > -1) picked.splice(i, 1); else picked.push(s); c.setAttribute('aria-pressed', i < 0); var sv = document.getElementById('feed-first-save'); sv.disabled = !picked.length; document.querySelector('[data-testid="feed-first-count"]').textContent = picked.length ? t('feed.first.count', { n: picked.length }) : t('feed.first.hint'); return; }
+    if (e.target.closest('#feed-first-save') && picked.length) { S.update({ skills: picked.slice() }); }
+  });
+  document.addEventListener('session:change', function () { if (S.signedIn) render(true); });
+  document.addEventListener('i18n:change', function () { render(true); });
+  render(false);
 })();

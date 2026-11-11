@@ -4,7 +4,7 @@ I18N.register({
   fr: {
     'skip': 'Aller au contenu principal',
     'nav.label': 'Navigation principale', 'nav.bottom': 'Navigation rapide', 'nav.menu': 'Menu', 'nav.more': 'Plus', 'nav.group': 'Domaines',
-    'nav.explore': 'Explorer', 'nav.solve': 'Résoudre', 'nav.discover': 'Découvrir', 'nav.build': 'Construire', 'nav.identity': 'Communauté',
+    'nav.explore': 'Explorer', 'nav.solve': 'Résoudre', 'nav.discover': 'Découvrir', 'nav.build': 'Construire', 'nav.learn': 'Apprendre', 'nav.identity': 'Communauté',
     'nav.connect': 'Mentorat', 'nav.language': 'Langue', 'nav.access': 'Accès', 'nav.intelligence': 'Intelligence',
     'nav.later': 'Bientôt',
     'header.search.label': 'Rechercher sur 226os', 'header.search.placeholder': 'Rechercher sur 226os', 'header.lang': 'Langue',
@@ -101,7 +101,7 @@ I18N.register({
   en: {
     'skip': 'Skip to main content',
     'nav.label': 'Primary navigation', 'nav.bottom': 'Quick navigation', 'nav.menu': 'Menu', 'nav.more': 'More', 'nav.group': 'Domains',
-    'nav.explore': 'Explore', 'nav.solve': 'Solve', 'nav.discover': 'Discover', 'nav.build': 'Build', 'nav.identity': 'Community',
+    'nav.explore': 'Explore', 'nav.solve': 'Solve', 'nav.discover': 'Discover', 'nav.build': 'Build', 'nav.learn': 'Learn', 'nav.identity': 'Community',
     'nav.connect': 'Mentoring', 'nav.language': 'Language', 'nav.access': 'Access', 'nav.intelligence': 'Intelligence',
     'nav.later': 'Soon',
     'header.search.label': 'Search 226os', 'header.search.placeholder': 'Search 226os', 'header.lang': 'Language',

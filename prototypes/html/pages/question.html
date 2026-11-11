@@ -16,14 +16,8 @@
 <body class="app" data-active="solve" data-root="../">
   <a class="skip-link" href="#main" data-i18n="skip" data-testid="skip-link">Aller au contenu principal</a>
 
-  <main id="main" tabindex="-1">
-    <nav class="breadcrumbs" data-i18n-attr="aria-label:common.breadcrumb" data-testid="breadcrumbs">
-      <ol>
-        <li><a href="../index.html" data-i18n="nav.explore" data-testid="breadcrumb-home"></a></li>
-        <li><a href="solve.html" data-i18n="nav.solve" data-testid="breadcrumb-solve"></a></li>
-        <li><span aria-current="page" id="bc-current" data-testid="breadcrumb-current"></span></li>
-      </ol>
-    </nav>
+  <main id="main" tabindex="-1" class="solve-page" data-testid="question-main">
+    <a class="solve-back" href="solve.html" data-testid="question-back"><span class="icon i-chevron-left" aria-hidden="true" data-testid="question-back-icon"></span><span data-i18n="solve.back.list" data-testid="question-back-label"></span></a>
 
     <div id="question-missing" hidden data-testid="question-missing">
       <div class="state state-error" data-testid="question-missing-state">
@@ -35,44 +29,34 @@
     </div>
 
     <div id="question-root" hidden>
-      <header class="page-header">
+      <header class="solve-qhead" data-testid="question-head">
         <h1 id="question-h1" data-testid="question-title"></h1>
-        <div class="meta" id="question-head-meta" data-testid="question-head-meta"></div>
+        <div class="meta solve-qmeta" id="question-head-meta" data-testid="question-head-meta"></div>
       </header>
 
       <div class="with-aside solve-detail">
-        <div class="solve-detail-main stack-lg">
+        <div class="solve-detail-main">
           <div id="question-post" data-testid="question-post"></div>
 
-          <section aria-labelledby="related-h" data-testid="related-section">
-            <div class="section-head"><h2 id="related-h" data-i18n="solve.related.h" data-testid="related-h"></h2></div>
-            <div id="question-related" data-testid="question-related"></div>
-          </section>
-
-          <section aria-labelledby="answers-h" data-testid="answers-section">
-            <div class="section-head">
+          <section class="solve-answers" aria-labelledby="answers-h" data-testid="answers-section">
+            <div class="solve-section-head">
               <h2 id="answers-h" data-testid="answers-h"></h2>
             </div>
+            <div id="answers-next" data-testid="answers-next"></div>
             <div id="answers-list" data-testid="answers-list"></div>
-            <div class="solve-proto-demo" data-proto data-testid="viewas">
-              <p class="text-sm" id="viewas-desc" aria-live="polite" data-testid="viewas-desc"></p>
-              <div id="viewas-api" hidden><button type="button" class="btn btn-sm" id="viewas-api-btn" data-testid="viewas-api-accept"><span class="icon i-code" aria-hidden="true" data-testid="viewas-api-accept-icon"></span><span data-i18n="solve.viewas.api" data-testid="viewas-api-accept-label"></span></button></div>
-              <div id="viewas-result" role="alert" data-testid="viewas-result"></div>
-            </div>
+            <div id="question-prompt" data-testid="question-prompt"></div>
           </section>
 
-          <section id="answer-form-section" aria-labelledby="answer-form-h" data-testid="answer-form-section">
-            <div class="section-head">
-              <h2 id="answer-form-h" data-i18n="solve.answer.h" data-testid="answer-form-h"></h2>
+          <section id="answer" class="solve-compose" aria-labelledby="answer-form-h" data-testid="answer-form-section">
+            <h2 id="answer-form-h" class="visually-hidden" data-i18n="solve.answer.h" data-testid="answer-form-h"></h2>
+
+            <div id="answer-cta" class="solve-compose-cta" data-testid="answer-cta">
+              <span class="icon i-message" aria-hidden="true" data-testid="answer-cta-icon"></span>
+              <p class="text-sm" id="answer-cta-hint" data-testid="answer-cta-hint"></p>
+              <button type="button" class="btn btn-primary" id="answer-open" data-testid="answer-open"><span class="icon i-edit" aria-hidden="true" data-testid="answer-open-icon"></span><span data-i18n="solve.answer.cta" data-testid="answer-open-label"></span></button>
             </div>
 
-            <div id="answer-anon" class="callout" hidden data-testid="answer-anon">
-              <span class="icon icon-lead i-lock" aria-hidden="true" data-testid="answer-anon-icon"></span>
-              <div><strong data-i18n="solve.answer.anon.title" data-testid="answer-anon-title"></strong>
-                <div class="solve-callout-action"><a class="btn btn-sm" href="auth.html" data-testid="answer-anon-signin"><span class="icon i-log-in" aria-hidden="true" data-testid="answer-anon-signin-icon"></span><span data-i18n="solve.answer.anon.cta" data-testid="answer-anon-signin-label"></span></a></div></div>
-            </div>
-
-            <form id="answer-form" class="card" novalidate data-testid="answer-form">
+            <form id="answer-form" class="solve-compose-form" novalidate hidden data-testid="answer-form">
               <div id="answer-summary" class="form-summary" role="alert" tabindex="-1" hidden data-testid="answer-summary">
                 <h2 data-i18n="solve.ask.summary" data-testid="answer-summary-title"></h2>
                 <ul id="answer-summary-list" class="list-reset" data-testid="answer-summary-list"></ul>
@@ -85,17 +69,18 @@
                     <button type="button" class="tab" role="tab" id="answer-tab-preview" aria-controls="answer-panel-preview" aria-selected="false" data-testid="answer-tab-preview"><span data-i18n="solve.tabs.preview" data-testid="answer-tab-preview-label"></span></button>
                   </div>
                   <div class="tabpanel" role="tabpanel" id="answer-panel-write" aria-labelledby="answer-tab-write" data-testid="answer-panel-write">
-                    <textarea id="answer-body" class="textarea solve-textarea" name="body" required aria-describedby="answer-body-hint" data-i18n-attr="placeholder:solve.answer.body.hint" data-testid="answer-body-input"></textarea>
-                    <p class="hint visually-hidden" id="answer-body-hint" data-i18n="solve.answer.body.hint" data-testid="answer-body-hint"></p>
+                    <textarea id="answer-body" class="textarea solve-textarea" name="body" required aria-describedby="answer-body-hint" data-i18n-attr="placeholder:solve.answer.body.placeholder" data-testid="answer-body-input"></textarea>
                   </div>
                   <div class="tabpanel" role="tabpanel" id="answer-panel-preview" aria-labelledby="answer-tab-preview" hidden data-testid="answer-panel-preview">
                     <div id="answer-preview" class="prose solve-preview" data-testid="answer-preview"></div>
                   </div>
                 </div>
+                <p class="hint" id="answer-body-hint" data-i18n="solve.answer.body.hint" data-testid="answer-body-hint"></p>
                 <p class="error-msg" id="answer-body-error" hidden data-testid="answer-body-error"></p>
               </div>
               <div class="cluster solve-form-actions">
                 <button type="submit" class="btn btn-primary" data-testid="answer-submit"><span class="icon i-send" aria-hidden="true" data-testid="answer-submit-icon"></span><span data-i18n="solve.answer.submit" data-testid="answer-submit-label"></span></button>
+                <button type="button" class="btn btn-ghost" id="answer-cancel" data-testid="answer-cancel"><span data-i18n="solve.answer.cancel" data-testid="answer-cancel-label"></span></button>
                 <span class="solve-lang-pick" data-testid="answer-lang-field">
                   <span class="icon i-languages" aria-hidden="true" data-testid="answer-lang-icon"></span>
                   <select id="answer-lang" class="select select-sm solve-lang-select" name="lang" data-i18n-attr="aria-label:solve.ask.lang.label" data-testid="answer-lang-input">
@@ -107,16 +92,22 @@
               </div>
             </form>
           </section>
+
+          <div class="solve-proto-demo" data-proto data-testid="viewas">
+            <p class="text-sm" id="viewas-desc" aria-live="polite" data-testid="viewas-desc"></p>
+            <div id="viewas-api" hidden><button type="button" class="btn btn-sm" id="viewas-api-btn" data-testid="viewas-api-accept"><span class="icon i-code" aria-hidden="true" data-testid="viewas-api-accept-icon"></span><span data-i18n="solve.viewas.api" data-testid="viewas-api-accept-label"></span></button></div>
+            <div id="viewas-result" role="alert" data-testid="viewas-result"></div>
+          </div>
         </div>
 
-        <aside data-i18n-attr="aria-label:solve.aside.label" class="stack" data-testid="question-aside">
-          <section class="card" aria-labelledby="context-h" data-testid="context-card">
+        <aside data-i18n-attr="aria-label:solve.aside.label" class="solve-aside" data-testid="question-aside">
+          <section class="solve-aside-block" aria-labelledby="context-h" data-testid="context-card">
             <h2 id="context-h" data-i18n="solve.context.h" data-testid="context-h"></h2>
             <dl class="dl-meta solve-context" id="question-context" data-testid="question-context"></dl>
           </section>
-          <section class="card" aria-labelledby="rep-h" data-proto data-testid="reputation-card">
-            <h2 id="rep-h" data-i18n="solve.rep.h" data-testid="rep-h"></h2>
-            <p class="text-sm" data-i18n="solve.rep.body" data-testid="rep-body"></p>
+          <section class="solve-aside-block" aria-labelledby="related-h" data-testid="related-section">
+            <h2 id="related-h" data-i18n="solve.related.h" data-testid="related-h"></h2>
+            <div id="question-related" data-testid="question-related"></div>
           </section>
         </aside>
       </div>

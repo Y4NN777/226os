@@ -19,7 +19,7 @@ I18N.register({
     'discover.empty.ask': 'Poser une question',
     'discover.note.langs': 'Résumé en {l}',
     'discover.filters.more': 'Plus de filtres', 'discover.clear': 'Tout effacer', 'discover.chip.remove': 'Retirer le filtre : {l}', 'discover.sort.rating': 'Mieux notées',
-    'discover.oss.h': 'Outils open source de la communauté', 'discover.oss.all': 'Tous les projets', 'discover.updatedShort': 'Mis à jour le {d}', 'discover.stage.active': 'Actif', 'discover.stage.maintained': 'Maintenu', 'discover.stage.prototype': 'Prototype', 'discover.stage.idea': 'Idée', 'discover.verifiedShort': 'Vérifié le {d}', 'discover.staleShort': 'Vérifié le {d}', 'discover.unverifiedShort': 'Non vérifié', 'discover.chip.q': 'Recherche : {l}'
+    'discover.oss.h': 'Outils open source de la communauté', 'discover.oss.all': 'Tous les projets', 'discover.updatedShort': 'Mis à jour le {d}', 'discover.stage.active': 'Actif', 'discover.stage.maintained': 'Maintenu', 'discover.stage.prototype': 'Prototype', 'discover.stage.idea': 'Idée', 'discover.verifiedShort': 'Vérifié le {d}', 'discover.staleShort': 'Vérifié le {d}', 'discover.unverifiedShort': 'Non vérifié', 'discover.chip.q': 'Recherche : {l}', 'discover.jit.country': 'Voir d’abord les API qui couvrent votre marché', 'discover.empty.reset': 'Effacer les filtres'
   },
   en: {
     'discover.title': 'Discover: APIs and tools — 226os', 'discover.h1': 'APIs, SDKs and developer tools',
@@ -40,7 +40,8 @@ I18N.register({
     'discover.empty.ask': 'Ask a question',
     'discover.note.langs': 'Summary in {l}',
     'discover.filters.more': 'More filters', 'discover.clear': 'Clear all', 'discover.chip.remove': 'Remove filter: {l}', 'discover.sort.rating': 'Top rated',
-    'discover.oss.h': 'Community open-source tools', 'discover.oss.all': 'See all projects', 'discover.updatedShort': 'Updated {d}', 'discover.stage.active': 'Active', 'discover.stage.maintained': 'Maintained', 'discover.stage.prototype': 'Prototype', 'discover.stage.idea': 'Idea', 'discover.verifiedShort': 'Verified {d}', 'discover.staleShort': 'Verified {d}', 'discover.unverifiedShort': 'Not verified', 'discover.chip.q': 'Search: {l}'
+    'discover.oss.h': 'Community open-source tools', 'discover.oss.all': 'See all projects', 'discover.updatedShort': 'Updated {d}', 'discover.stage.active': 'Active', 'discover.stage.maintained': 'Maintained', 'discover.stage.prototype': 'Prototype', 'discover.stage.idea': 'Idea', 'discover.verifiedShort': 'Verified {d}', 'discover.staleShort': 'Verified {d}', 'discover.unverifiedShort': 'Not verified', 'discover.chip.q': 'Search: {l}',
+    'discover.jit.country': 'See the APIs that cover your market first', 'discover.empty.reset': 'Clear filters', 'discover.verifiedOn.short': 'on {d}'
   }
 });
 
@@ -99,34 +100,36 @@ I18N.register({
     return res;
   }
 
-  function verifiedLine(r, p) {
-    var s = D.status(r), o = STATUS[s], parts = t('discover.verifiedShort', { d: '\u0000' }).split('\u0000');
-    return '<span class="meta-item" data-testid="' + p + '-status"><span class="icon i-' + o.icon + '" aria-hidden="true" data-testid="' + p + '-status-icon"></span><span class="visually-hidden" data-testid="' + p + '-status-label">' + esc(t('discover.status.' + s)) + '. </span>' +
-      (s === 'unverified' ? '<span data-testid="' + p + '-verified">' + esc(t('discover.unverifiedShort')) + '</span>' :
-        '<span data-testid="' + p + '-verified">' + esc(parts[0]) + '<time datetime="' + r.verifiedAt + '" data-testid="' + p + '-verified-date">' + M.fmtDate(r.verifiedAt) + '</time>' + esc(parts[1] || '') + '</span>') + '</span>';
-  }
   function projectLine(r, p) {
     var parts = t('discover.updatedShort', { d: '\u0000' }).split('\u0000');
-    return '<span class="meta-item mono text-sm" data-testid="' + p + '-license">' + esc(r.license) + '</span><span class="meta-item" data-testid="' + p + '-stage">' + esc(t('discover.stage.' + r.stage)) + '</span>' +
+    return '<span class="meta-item mono text-sm" data-testid="' + p + '-license">' + esc(r.license) + '</span>' +
       '<span class="meta-item" data-testid="' + p + '-updated">' + esc(parts[0]) + '<time datetime="' + r.updated + '" data-testid="' + p + '-updated-date">' + M.fmtDate(r.updated) + '</time>' + esc(parts[1] || '') + '</span>';
+  }
+  function pill(r, p) {
+    var s = D.status(r);
+    return A.statePill(s, { testid: p + '-status', labelKey: 'pill.' + s });
   }
   function row(r, i) {
     var c = D.cat(r.category), p = 'discover-row-' + r.id, proj = r.kind === 'project';
-    return '<li class="row" data-testid="' + p + '">' +
+    var vparts = t('discover.verifiedShort', { d: '\u0000' }).split('\u0000');
+    return '<li class="row discover-row" data-testid="' + p + '">' +
       '<div class="row-lead">' + A.thumb(r.name, { size: 'md', testid: p + '-thumb' }) + '</div>' +
       '<div class="row-main"><h3 class="row-title"><a href="' + (proj ? r.href : 'resource.html?id=' + r.id) + '" data-testid="' + p + '-link">' + esc(r.name) + '</a>' + (proj ? ' <span class="badge" data-testid="' + p + '-oss"><span class="icon i-git-branch" aria-hidden="true" data-testid="' + p + '-oss-icon"></span>' + esc(t('discover.type.project')) + '</span>' : '') + '</h3>' +
-      '<p class="text-sm text-muted" data-testid="' + p + '-provider">' + (proj ? esc(r.provider) : providerName(r, p)) + ' · <span data-testid="' + p + '-category">' + esc(lbl(c)) + '</span>' + (proj ? '' : ' · <span data-testid="' + p + '-type">' + esc(t('discover.type.' + r.type)) + '</span>') + '</p>' +
+      '<p class="discover-sub" data-testid="' + p + '-provider">' + (proj ? esc(r.provider) : providerName(r, p)) + ' · <span data-testid="' + p + '-category">' + esc(lbl(c)) + '</span>' + (proj ? '' : ' · <span data-testid="' + p + '-type">' + esc(t('discover.type.' + r.type)) + '</span>') + '</p>' +
       '<p class="row-excerpt" lang="' + r.summaryLang + '" data-user-content data-testid="' + p + '-summary">' + esc(r.summary) + '</p>' +
       '<div class="meta discover-meta">' +
         (!proj && r._nrev ? '<span class="meta-item" data-testid="' + p + '-rating-item">' + A.rating(r._rating, { count: r._nrev, testid: p + '-rating' }) + '</span>' : '') +
         '<span class="meta-item" data-testid="' + p + '-countries"><span class="visually-hidden" data-testid="' + p + '-countries-label">' + esc(t('discover.countries.label')) + '</span>' + r.countries.map(function (x) { return cc(x, p + '-country-' + x.toLowerCase()); }).join(' ') + '</span>' +
-        (proj ? projectLine(r, p) : verifiedLine(r, p)) +
+        (proj ? projectLine(r, p) : '') +
         (r.summaryLang !== I18N.lang ? '<span class="meta-item">' + langBadge(r.summaryLang, p + '-summary-lang') + '</span>' : '') +
-      '</div></div></li>';
+      '</div></div>' +
+      '<div class="row-aside discover-aside">' + (proj ? A.statePill('open', { testid: p + '-status', label: t('discover.stage.' + r.stage) }) : pill(r, p) +
+        (D.status(r) === 'unverified' ? '' : '<span class="discover-when tabular-nums" data-testid="' + p + '-verified">' + esc(vparts[0]) + '<time datetime="' + r.verifiedAt + '" data-testid="' + p + '-verified-date">' + M.fmtDate(r.verifiedAt) + '</time>' + esc(vparts[1] || '') + '</span>')) + '</div></li>';
   }
 
   function render(items, box) {
     box.innerHTML = '<ul class="list list-reset discover-rows" data-testid="discover-results">' + items.map(row).join('') + '</ul>';
+    App.View.apply('discover');
   }
 
   function stripItems() { return D.projectItems().sort(function (a, b) { return a.updated < b.updated ? 1 : -1; }).slice(0, 4); }
@@ -157,9 +160,10 @@ I18N.register({
     box.hidden = !h; box.innerHTML = h;
     $('#discover-more-dot').hidden = !secActive;
   }
+  function clearAll() { ['q', 'country', 'category', 'sdk', 'type', 'provider', 'doclang'].forEach(function (k) { $('#discover-' + k).value = ''; }); ctl.refresh(); $('#discover-q').focus(); }
   $('#discover-chips').addEventListener('click', function (e) {
     var b = e.target.closest('button'); if (!b) return;
-    if (b.id === 'discover-clear') { ['q', 'country', 'category', 'sdk', 'type', 'provider', 'doclang'].forEach(function (k) { $('#discover-' + k).value = ''; }); ctl.refresh(); $('#discover-q').focus(); return; }
+    if (b.id === 'discover-clear') { clearAll(); return; }
     $('#' + b.getAttribute('data-chip')).value = ''; ctl.refresh(); $('#discover-q').focus();
   });
 
@@ -169,11 +173,14 @@ I18N.register({
   }
 
   fillSelects(); applyParams(); if (SEC.some(function (k) { return $('#discover-' + k).value; })) setMore(true);
-  strip(); ctl = A.Sim.load($('#discover-list'), { load: load, render: render, delay: 600, skeleton: 4, emptyKey: 'discover.empty' });
+  strip(); ctl = A.Sim.load($('#discover-list'), { load: load, render: render, delay: 600, skeleton: 4, empty: { icon: 'search', key: 'discover.empty', action: { labelKey: 'discover.empty.reset', icon: 'refresh', testid: 'discover-empty-reset', onClick: function () { clearAll(); } } } });
   form.addEventListener('input', function () { ctl.refresh(); });
   form.addEventListener('change', function () { ctl.refresh(); });
   $('#discover-sort').addEventListener('change', function () { ctl.refresh(); });
   form.addEventListener('submit', function (e) { e.preventDefault(); ctl.refresh(); });
+  /* just-in-time: country, only when signed in without one (returns null otherwise) */
+  App.Session.prompt('country', { container: '#discover-jit', textKey: 'discover.jit.country', testid: 'discover-jit-country',
+    onSaved: function () { var u = App.Session.user, sel = $('#discover-country'); if (u && u.country && sel.querySelector('option[value="' + u.country + '"]')) { sel.value = u.country; ctl.refresh(); } } });
   document.addEventListener('i18n:change', function () { fillSelects(); ctl.refresh(); document.title = t('discover.title'); });
   document.title = t('discover.title');
 })();

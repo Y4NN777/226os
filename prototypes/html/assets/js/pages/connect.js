@@ -46,6 +46,7 @@ I18N.register({
 
 (function () {
   'use strict';
+  if (!App.Session.signedIn) { var bk = document.getElementById('connect-back'); if (bk) bk.setAttribute('href', '../' + App.config.landing); }   /* signed out: back to the public landing */
   var $ = App.$, esc = App.esc, t = function (k, p) { return I18N.t(k, p); }, C = MOCK.connect;
   var skills = Object.keys(C.entries.reduce(function (m, e) { e.skills.forEach(function (s) { m[s] = 1; }); return m; }, {})).sort();
   var countries = Object.keys(C.entries.reduce(function (m, e) { m[e.country] = 1; return m; }, {})).sort();

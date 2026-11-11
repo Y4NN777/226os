@@ -552,7 +552,12 @@
       el.classList.add('view-toggle'); render(r, key); apply(key);
       el.addEventListener('click', function (e) { var b = e.target.closest('[data-view]'); if (b) set(key, b.getAttribute('data-view')); });
       d.addEventListener('i18n:change', function () { render(r, key); apply(key); });
-      $$(target).forEach(function (l) { new MutationObserver(function () { if (l.classList.contains('is-grid') !== (r.mode === 'grid')) apply(key); }).observe(l, { attributes: true, attributeFilter: ['class'] }); });
+      /* Pages often replace their list element on re-render: watch the document (cheap check) instead of the old node. */
+      var pending = false;
+      new MutationObserver(function () {
+        if (pending) return; pending = true;
+        requestAnimationFrame(function () { pending = false; if ($$(r.target).some(function (l) { return l.classList.contains('is-grid') !== (r.mode === 'grid'); })) apply(key); });
+      }).observe(d.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
       return r;
     }
     function auto() { $$('[data-view-toggle]').forEach(function (el) { if (!el.hasAttribute('data-view-ready')) { el.setAttribute('data-view-ready', ''); init(el, el.getAttribute('data-view-target'), el.getAttribute('data-view-toggle')); } }); }

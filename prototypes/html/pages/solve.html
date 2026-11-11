@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title data-i18n="solve.title">Résoudre · Questions techniques — 226os</title>
+  <title data-i18n="solve.title">Questions — 226os</title>
   <meta name="color-scheme" content="light dark">
   <script src="../assets/js/theme-init.js"></script>
   <link rel="stylesheet" href="../assets/css/tokens.css">
@@ -16,68 +16,43 @@
 <body class="app" data-active="solve" data-root="../">
   <a class="skip-link" href="#main" data-i18n="skip" data-testid="skip-link">Aller au contenu principal</a>
 
-  <main id="main" tabindex="-1">
-    <nav class="breadcrumbs" data-i18n-attr="aria-label:common.breadcrumb" data-testid="breadcrumbs">
-      <ol>
-        <li><a href="../index.html" data-i18n="nav.explore" data-testid="breadcrumb-home"></a></li>
-        <li><span aria-current="page" data-i18n="nav.solve" data-testid="breadcrumb-current"></span></li>
-      </ol>
-    </nav>
+  <main id="main" tabindex="-1" class="solve-page" data-testid="solve-main">
 
-    <header class="page-header">
-      <div class="page-header-row">
-        <h1 data-i18n="solve.h1" data-testid="page-h1"></h1>
-        <a class="btn btn-primary" href="#ask" data-testid="page-primary-action"><span class="icon i-plus" aria-hidden="true" data-testid="page-primary-action-icon"></span><span data-i18n="solve.ask.cta" data-testid="page-primary-action-label"></span></a>
-      </div>
-      <p class="lede" data-i18n="solve.lede" data-testid="page-lede"></p>
-    </header>
-
-    <section aria-labelledby="solve-list-h" data-testid="solve-section">
-      <h2 id="solve-list-h" class="visually-hidden" data-i18n="solve.list.h" data-testid="solve-list-h"></h2>
-
-      <form id="solve-form" role="search" novalidate data-i18n-attr="aria-label:solve.form.label" data-testid="solve-form">
-        <div class="solve-searchbar">
-          <div class="search-field search-field-lg">
-            <span class="icon i-search" aria-hidden="true" data-testid="solve-search-icon"></span>
-            <label class="visually-hidden" for="solve-q" data-i18n="solve.search.label" data-testid="solve-search-label"></label>
-            <input id="solve-q" class="input" type="search" name="q" autocomplete="off" data-i18n-attr="placeholder:solve.search.placeholder" data-testid="solve-search-input">
-          </div>
-          <button type="button" class="btn btn-icon solve-filter-toggle tip-start" id="solve-filter-toggle" aria-expanded="false" aria-controls="solve-filters" data-i18n-attr="aria-label:solve.filters.title" data-testid="solve-filter-toggle"><span class="icon i-filter" aria-hidden="true" data-testid="solve-filter-toggle-icon"></span><span class="solve-filter-dot" id="solve-filter-count" hidden data-testid="solve-filter-count"></span></button>
+    <!-- Vue 1 : liste -->
+    <div id="solve-page-list" data-testid="solve-page-list">
+      <header class="page-header solve-head" data-testid="solve-head">
+        <div class="page-header-row">
+          <h1 data-i18n="solve.h1" data-testid="page-h1"></h1>
+          <a class="btn btn-primary" id="solve-cta" href="#ask" data-testid="page-primary-action"><span class="icon i-plus" aria-hidden="true" data-testid="page-primary-action-icon"></span><span data-i18n="solve.ask.cta" data-testid="page-primary-action-label"></span></a>
         </div>
+        <p class="lede" data-i18n="solve.lede" data-testid="page-lede"></p>
+      </header>
 
-        <div class="with-filters solve-layout">
-          <div class="filter-panel solve-filters-collapsed" id="solve-filters" data-testid="solve-filters">
-            <fieldset data-testid="solve-status-fieldset">
-              <legend data-i18n="solve.filter.status" data-testid="solve-status-legend"></legend>
-              <label class="choice" data-testid="solve-status-all-choice"><input type="radio" name="status" value="" checked data-testid="solve-status-all-input"><span data-i18n="common.all" data-testid="solve-status-all"></span></label>
-              <label class="choice" data-testid="solve-status-unanswered-choice"><input type="radio" name="status" value="unanswered" data-testid="solve-status-unanswered-input"><span data-i18n="solve.status.unanswered" data-testid="solve-status-unanswered"></span></label>
-              <label class="choice" data-testid="solve-status-answered-choice"><input type="radio" name="status" value="answered" data-testid="solve-status-answered-input"><span data-i18n="solve.status.answered" data-testid="solve-status-answered"></span></label>
-              <label class="choice" data-testid="solve-status-accepted-choice"><input type="radio" name="status" value="accepted" data-testid="solve-status-accepted-input"><span data-i18n="solve.status.accepted" data-testid="solve-status-accepted"></span></label>
-            </fieldset>
-            <fieldset data-testid="solve-tags-fieldset">
-              <legend data-i18n="solve.filter.tags" data-testid="solve-tags-legend"></legend>
-              <div id="solve-tag-filters" data-testid="solve-tag-filters"></div>
-            </fieldset>
-            <div class="field">
-              <label class="label" for="solve-country" data-i18n="common.country" data-testid="solve-country-label"></label>
-              <select id="solve-country" class="select" name="country" data-testid="solve-country-input"></select>
+      <section aria-labelledby="solve-list-h" data-testid="solve-section">
+        <h2 id="solve-list-h" class="visually-hidden" data-i18n="solve.list.h" data-testid="solve-list-h"></h2>
+
+        <form id="solve-form" role="search" novalidate data-i18n-attr="aria-label:solve.form.label" data-testid="solve-form">
+          <div class="solve-searchbar">
+            <div class="search-field search-field-lg">
+              <span class="icon i-search" aria-hidden="true" data-testid="solve-search-icon"></span>
+              <label class="visually-hidden" for="solve-q" data-i18n="solve.search.label" data-testid="solve-search-label"></label>
+              <input id="solve-q" class="input" type="search" name="q" autocomplete="off" data-i18n-attr="placeholder:solve.search.placeholder" data-testid="solve-search-input">
             </div>
-            <div class="field">
-              <label class="label" for="solve-lang" data-i18n="solve.filter.lang" data-testid="solve-lang-label"></label>
-              <select id="solve-lang" class="select" name="lang" data-testid="solve-lang-input">
-                <option value="" data-i18n="common.all" data-testid="solve-lang-all"></option>
-                <option value="fr" data-testid="solve-lang-fr">Français</option>
-                <option value="en" data-testid="solve-lang-en">English</option>
-              </select>
-            </div>
-            <button type="button" class="btn btn-ghost btn-sm" id="solve-reset" disabled data-testid="solve-reset"><span class="icon i-refresh" aria-hidden="true" data-testid="solve-reset-icon"></span><span data-i18n="solve.filter.reset" data-testid="solve-reset-label"></span></button>
           </div>
 
-          <div class="solve-results">
-            <div class="results-meta">
-              <p id="solve-count" role="status" data-testid="solve-count"></p>
+          <div class="solve-toolbar" data-testid="solve-toolbar">
+            <fieldset class="solve-seg" data-testid="solve-status-fieldset">
+              <legend class="visually-hidden" data-i18n="solve.filter.status" data-testid="solve-status-legend"></legend>
+              <label class="solve-seg-item" data-testid="solve-status-all-choice"><input type="radio" name="status" value="" checked data-testid="solve-status-all-input"><span data-i18n="common.all" data-testid="solve-status-all"></span></label>
+              <label class="solve-seg-item" data-testid="solve-status-unanswered-choice"><input type="radio" name="status" value="unanswered" data-testid="solve-status-unanswered-input"><span data-i18n="solve.status.unanswered" data-testid="solve-status-unanswered"></span></label>
+              <label class="solve-seg-item" data-testid="solve-status-answered-choice"><input type="radio" name="status" value="answered" data-testid="solve-status-answered-input"><span data-i18n="solve.status.answered" data-testid="solve-status-answered"></span></label>
+              <label class="solve-seg-item" data-testid="solve-status-accepted-choice"><input type="radio" name="status" value="accepted" data-testid="solve-status-accepted-input"><span data-i18n="solve.status.accepted" data-testid="solve-status-accepted"></span></label>
+            </fieldset>
+            <div class="solve-tools">
+              <div data-view-toggle="solve" data-view-target="#solve-list .list" data-testid="solve-view"></div>
+              <button type="button" class="btn btn-icon solve-filter-toggle tip-start" id="solve-filter-toggle" aria-expanded="false" aria-controls="solve-filters" data-i18n-attr="aria-label:solve.filters.title" data-testid="solve-filter-toggle"><span class="icon i-sliders" aria-hidden="true" data-testid="solve-filter-toggle-icon"></span><span class="solve-filter-dot" id="solve-filter-count" hidden data-testid="solve-filter-count"></span></button>
               <div class="menu" data-menu>
-                <button type="button" class="btn btn-icon btn-sm tip-start" data-menu-button aria-haspopup="menu" aria-expanded="false" aria-controls="solve-sort-menu" data-i18n-attr="aria-label:common.sort" data-testid="solve-sort-button"><span class="icon i-sort" aria-hidden="true" data-testid="solve-sort-icon"></span></button>
+                <button type="button" class="btn btn-icon tip-start" data-menu-button aria-haspopup="menu" aria-expanded="false" aria-controls="solve-sort-menu" data-i18n-attr="aria-label:common.sort" data-testid="solve-sort-button"><span class="icon i-sort" aria-hidden="true" data-testid="solve-sort-icon"></span></button>
                 <div class="menu-panel" id="solve-sort-menu" role="menu" data-menu-panel hidden data-i18n-attr="aria-label:common.sort" data-testid="solve-sort-menu">
                   <button type="button" class="menu-item" role="menuitemradio" aria-checked="true" data-sort="recent" data-testid="solve-sort-recent"><span class="icon i-check menu-check" aria-hidden="true" data-testid="solve-sort-recent-check"></span><span data-i18n="solve.sort.recent" data-testid="solve-sort-recent-label"></span></button>
                   <button type="button" class="menu-item" role="menuitemradio" aria-checked="false" data-sort="votes" data-testid="solve-sort-votes"><span class="icon i-check menu-check" aria-hidden="true" data-testid="solve-sort-votes-check"></span><span data-i18n="solve.sort.votes" data-testid="solve-sort-votes-label"></span></button>
@@ -85,72 +60,145 @@
                 </div>
               </div>
             </div>
-            <div id="solve-list" data-testid="solve-list"></div>
-            <p class="callout" data-testid="solve-notfound-callout"><span class="icon icon-lead i-help" aria-hidden="true" data-testid="solve-notfound-callout-icon"></span><span><strong data-i18n="solve.notfound.title" data-testid="solve-notfound-title"></strong> <span data-i18n="solve.notfound.body" data-testid="solve-notfound-body"></span> <a href="#ask" data-i18n="solve.ask.cta" data-testid="solve-notfound-link"></a></span></p>
           </div>
-        </div>
-      </form>
-    </section>
 
-    <section id="ask" class="section solve-ask" aria-labelledby="ask-h" data-testid="ask-section">
-      <div class="section-head">
-        <h2 id="ask-h" tabindex="-1" data-i18n="solve.ask.h" data-testid="ask-h"></h2>
+          <div class="solve-filters" id="solve-filters" hidden data-testid="solve-filters">
+            <fieldset data-testid="solve-tags-fieldset">
+              <legend data-i18n="solve.filter.tags" data-testid="solve-tags-legend"></legend>
+              <div id="solve-tag-filters" class="solve-tag-filters" data-testid="solve-tag-filters"></div>
+            </fieldset>
+            <div class="solve-filter-selects">
+              <div class="field">
+                <label class="label" for="solve-country" data-i18n="common.country" data-testid="solve-country-label"></label>
+                <select id="solve-country" class="select" name="country" data-testid="solve-country-input"></select>
+              </div>
+              <div class="field">
+                <label class="label" for="solve-lang" data-i18n="solve.filter.lang" data-testid="solve-lang-label"></label>
+                <select id="solve-lang" class="select" name="lang" data-testid="solve-lang-input">
+                  <option value="" data-i18n="common.all" data-testid="solve-lang-all"></option>
+                  <option value="fr" data-testid="solve-lang-fr">Français</option>
+                  <option value="en" data-testid="solve-lang-en">English</option>
+                </select>
+              </div>
+            </div>
+            <button type="button" class="btn btn-ghost btn-sm" id="solve-reset" disabled data-testid="solve-reset"><span class="icon i-refresh" aria-hidden="true" data-testid="solve-reset-icon"></span><span data-i18n="solve.filter.reset" data-testid="solve-reset-label"></span></button>
+          </div>
+
+          <p id="solve-count" class="solve-count" role="status" data-testid="solve-count"></p>
+          <div id="solve-list" data-testid="solve-list"></div>
+
+          <p class="solve-notfound" data-testid="solve-notfound"><span class="icon i-help" aria-hidden="true" data-testid="solve-notfound-icon"></span><span><strong data-i18n="solve.notfound.title" data-testid="solve-notfound-title"></strong> <span data-i18n="solve.notfound.body" data-testid="solve-notfound-body"></span> <a href="#ask" data-i18n="solve.ask.cta" data-testid="solve-notfound-link"></a></span></p>
+        </form>
+      </section>
+    </div>
+
+    <!-- Vue 2 : poser une question (#ask) -->
+    <section id="ask" class="solve-ask" aria-labelledby="ask-h" hidden data-testid="ask-section">
+      <a class="solve-back" href="#list" id="ask-back" data-testid="ask-back"><span class="icon i-chevron-left" aria-hidden="true" data-testid="ask-back-icon"></span><span data-i18n="solve.back.list" data-testid="ask-back-label"></span></a>
+
+      <div id="ask-compose" data-testid="ask-compose">
+        <header class="solve-ask-head" data-testid="ask-head">
+          <h1 id="ask-h" tabindex="-1" data-i18n="solve.ask.h" data-testid="ask-h"></h1>
+          <p class="lede" data-i18n="solve.ask.intro" data-testid="ask-intro"></p>
+          <p class="solve-ask-signedout" id="ask-signedout-note" hidden data-testid="ask-signedout-note"><span class="icon i-lock" aria-hidden="true" data-testid="ask-signedout-note-icon"></span><span data-i18n="solve.ask.signedout" data-testid="ask-signedout-note-text"></span></p>
+        </header>
+
+        <div class="solve-ask-layout">
+          <form id="ask-form" class="solve-ask-form" novalidate data-testid="ask-form">
+            <ol class="solve-steps" aria-label="" data-i18n-attr="aria-label:solve.steps.label" data-testid="ask-steps">
+              <li id="ask-step-1" aria-current="step" data-testid="ask-step-1"><span class="solve-step-n tabular-nums" aria-hidden="true" data-testid="ask-step-1-n">1</span><span data-i18n="solve.steps.title" data-testid="ask-step-1-label"></span></li>
+              <li id="ask-step-2" data-testid="ask-step-2"><span class="solve-step-n tabular-nums" aria-hidden="true" data-testid="ask-step-2-n">2</span><span data-i18n="solve.steps.details" data-testid="ask-step-2-label"></span></li>
+            </ol>
+
+            <div id="ask-summary" class="form-summary" role="alert" tabindex="-1" hidden data-testid="ask-summary">
+              <h2 data-i18n="solve.ask.summary" data-testid="ask-summary-title"></h2>
+              <ul id="ask-summary-list" class="list-reset" data-testid="ask-summary-list"></ul>
+            </div>
+
+            <div class="field" id="ask-title-field" data-testid="ask-title-field">
+              <label class="label" for="ask-title" data-testid="ask-title-field-label"><span data-i18n="solve.ask.title.label" data-testid="ask-title-label"></span><span class="req" aria-hidden="true" data-testid="ask-title-req">*</span></label>
+              <input id="ask-title" class="input input-lg" name="title" type="text" required maxlength="150" autocomplete="off" aria-describedby="ask-title-hint" data-i18n-attr="placeholder:solve.ask.title.placeholder" data-testid="ask-title-input">
+              <p class="hint" id="ask-title-hint" data-i18n="solve.ask.title.hint" data-testid="ask-title-hint"></p>
+              <p class="error-msg" id="ask-title-error" hidden data-testid="ask-title-error"></p>
+            </div>
+
+            <div class="solve-continue" id="ask-continue-row" data-testid="ask-continue-row">
+              <button type="button" class="btn btn-primary" id="ask-continue" data-testid="ask-continue"><span data-i18n="solve.ask.continue" data-testid="ask-continue-label"></span><span class="icon i-arrow-right" aria-hidden="true" data-testid="ask-continue-icon"></span></button>
+            </div>
+
+            <div id="ask-details" class="solve-details" hidden data-testid="ask-details">
+              <div class="field" id="ask-body-field" data-testid="ask-body-field">
+                <label class="label" for="ask-body" data-testid="ask-body-field-label"><span data-i18n="solve.ask.body.label" data-testid="ask-body-label"></span><span class="req" aria-hidden="true" data-testid="ask-body-req">*</span></label>
+                <div data-tabs data-testid="ask-tabs">
+                  <div class="tablist" role="tablist" data-i18n-attr="aria-label:solve.tabs.label" data-testid="ask-tablist">
+                    <button type="button" class="tab" role="tab" id="ask-tab-write" aria-controls="ask-panel-write" aria-selected="true" data-testid="ask-tab-write"><span data-i18n="solve.tabs.write" data-testid="ask-tab-write-label"></span></button>
+                    <button type="button" class="tab" role="tab" id="ask-tab-preview" aria-controls="ask-panel-preview" aria-selected="false" data-testid="ask-tab-preview"><span data-i18n="solve.tabs.preview" data-testid="ask-tab-preview-label"></span></button>
+                  </div>
+                  <div class="tabpanel" role="tabpanel" id="ask-panel-write" aria-labelledby="ask-tab-write" data-testid="ask-panel-write">
+                    <textarea id="ask-body" class="textarea solve-textarea" name="body" required aria-describedby="ask-body-hint" data-i18n-attr="placeholder:solve.ask.body.placeholder" data-testid="ask-body-input"></textarea>
+                  </div>
+                  <div class="tabpanel" role="tabpanel" id="ask-panel-preview" aria-labelledby="ask-tab-preview" hidden data-testid="ask-panel-preview">
+                    <div id="ask-preview" class="prose solve-preview" data-testid="ask-preview"></div>
+                  </div>
+                </div>
+                <p class="hint" id="ask-body-hint" data-i18n="solve.ask.body.hint" data-testid="ask-body-hint"></p>
+                <p class="error-msg" id="ask-body-error" hidden data-testid="ask-body-error"></p>
+              </div>
+
+              <div class="field" id="ask-tags-field" data-testid="ask-tags-field">
+                <label class="label" for="ask-tags" data-testid="ask-tags-field-label"><span data-i18n="solve.ask.tags.label" data-testid="ask-tags-label"></span><span class="req" aria-hidden="true" data-testid="ask-tags-req">*</span></label>
+                <input id="ask-tags" class="input" name="tags" type="text" required autocomplete="off" aria-describedby="ask-tags-hint" data-i18n-attr="placeholder:solve.ask.tags.placeholder" data-testid="ask-tags-input">
+                <p class="hint" id="ask-tags-hint" data-i18n="solve.ask.tags.hint" data-testid="ask-tags-hint"></p>
+                <div class="solve-tag-suggest" id="ask-tag-suggest" data-testid="ask-tag-suggest"></div>
+                <p class="error-msg" id="ask-tags-error" hidden data-testid="ask-tags-error"></p>
+              </div>
+
+              <div class="cluster solve-form-actions">
+                <button type="submit" class="btn btn-primary" id="ask-submit" data-testid="ask-submit"><span class="icon i-send" aria-hidden="true" data-testid="ask-submit-icon"></span><span data-i18n="solve.ask.submit" data-testid="ask-submit-label"></span></button>
+                <span class="solve-lang-pick" data-testid="ask-lang-field">
+                  <span class="icon i-languages" aria-hidden="true" data-testid="ask-lang-icon"></span>
+                  <select id="ask-lang" class="select select-sm solve-lang-select" name="lang" data-i18n-attr="aria-label:solve.ask.lang.label" data-testid="ask-lang-input">
+                    <option value="fr" data-testid="ask-lang-fr">FR</option>
+                    <option value="en" data-testid="ask-lang-en">EN</option>
+                  </select>
+                </span>
+                <span class="text-sm text-muted" data-proto data-i18n="solve.ask.simnote" data-testid="ask-simnote"></span>
+              </div>
+            </div>
+          </form>
+
+          <aside class="solve-similar" id="ask-similar" aria-labelledby="ask-sim-h" data-testid="ask-similar">
+            <h2 id="ask-sim-h" data-testid="ask-sim-h"><span class="icon i-sparkles" aria-hidden="true" data-testid="ask-sim-h-icon"></span><span data-i18n="solve.similar.h" data-testid="ask-sim-h-label"></span></h2>
+            <div id="ask-sim-body" aria-live="polite" data-testid="ask-sim-body"></div>
+          </aside>
+        </div>
       </div>
 
-      <div id="ask-success" class="callout callout-success" role="status" hidden data-testid="ask-success">
-        <span class="icon icon-lead i-check-circle" aria-hidden="true" data-testid="ask-success-icon"></span>
-        <div><strong data-i18n="solve.ask.success.title" data-testid="ask-success-title"></strong><span id="ask-success-body" data-testid="ask-success-body"></span> <span data-proto data-i18n="solve.ask.simnote" data-testid="ask-simnote"></span></div>
-      </div>
-
-      <form id="ask-form" class="card solve-ask-form" novalidate data-testid="ask-form">
-        <div id="ask-summary" class="form-summary" role="alert" tabindex="-1" hidden data-testid="ask-summary">
-          <h2 data-i18n="solve.ask.summary" data-testid="ask-summary-title"></h2>
-          <ul id="ask-summary-list" class="list-reset" data-testid="ask-summary-list"></ul>
-        </div>
-
-        <div class="field" id="ask-title-field" data-testid="ask-title-field">
-          <label class="label" for="ask-title" data-testid="ask-title-field-label"><span data-i18n="solve.ask.title.label" data-testid="ask-title-label"></span><span class="req" aria-hidden="true" data-testid="ask-title-req">*</span></label>
-          <input id="ask-title" class="input" name="title" type="text" required maxlength="150" aria-describedby="ask-title-hint" data-i18n-attr="placeholder:solve.ask.title.hint" data-testid="ask-title-input">
-          <p class="hint visually-hidden" id="ask-title-hint" data-i18n="solve.ask.title.hint" data-testid="ask-title-hint"></p>
-          <p class="error-msg" id="ask-title-error" hidden data-testid="ask-title-error"></p>
-        </div>
-
-        <div class="field" id="ask-body-field" data-testid="ask-body-field">
-          <label class="label" for="ask-body" data-testid="ask-body-field-label"><span data-i18n="solve.ask.body.label" data-testid="ask-body-label"></span><span class="req" aria-hidden="true" data-testid="ask-body-req">*</span></label>
-          <div data-tabs data-testid="ask-tabs">
-            <div class="tablist" role="tablist" data-i18n-attr="aria-label:solve.tabs.label" data-testid="ask-tablist">
-              <button type="button" class="tab" role="tab" id="ask-tab-write" aria-controls="ask-panel-write" aria-selected="true" data-testid="ask-tab-write"><span data-i18n="solve.tabs.write" data-testid="ask-tab-write-label"></span></button>
-              <button type="button" class="tab" role="tab" id="ask-tab-preview" aria-controls="ask-panel-preview" aria-selected="false" data-testid="ask-tab-preview"><span data-i18n="solve.tabs.preview" data-testid="ask-tab-preview-label"></span></button>
-            </div>
-            <div class="tabpanel" role="tabpanel" id="ask-panel-write" aria-labelledby="ask-tab-write" data-testid="ask-panel-write">
-              <textarea id="ask-body" class="textarea solve-textarea" name="body" required aria-describedby="ask-body-hint" data-i18n-attr="placeholder:solve.ask.body.hint" data-testid="ask-body-input"></textarea>
-              <p class="hint visually-hidden" id="ask-body-hint" data-i18n="solve.ask.body.hint" data-testid="ask-body-hint"></p>
-            </div>
-            <div class="tabpanel" role="tabpanel" id="ask-panel-preview" aria-labelledby="ask-tab-preview" hidden data-testid="ask-panel-preview">
-              <div id="ask-preview" class="prose solve-preview" data-testid="ask-preview"></div>
-            </div>
+      <!-- Succès : ce qui se passe maintenant -->
+      <div id="ask-done" class="solve-done" hidden data-testid="ask-done">
+        <header class="solve-done-head" data-testid="ask-done-head">
+          <span class="solve-done-badge" data-testid="ask-done-badge"><span class="icon i-check-circle" aria-hidden="true" data-testid="ask-done-badge-icon"></span></span>
+          <h1 id="ask-done-h" tabindex="-1" data-i18n="solve.done.h" data-testid="ask-done-h"></h1>
+          <p class="solve-done-title" id="ask-done-title" lang="fr" data-user-content data-testid="ask-done-title"></p>
+          <p class="text-sm text-muted" data-proto data-i18n="solve.ask.simnote" data-testid="ask-done-simnote"></p>
+        </header>
+        <section class="solve-next-steps" aria-labelledby="ask-next-h" data-testid="ask-next-steps">
+          <h2 id="ask-next-h" data-i18n="solve.done.next.h" data-testid="ask-next-h"></h2>
+          <ol class="solve-timeline list-reset" data-testid="ask-timeline">
+            <li data-testid="ask-timeline-1"><span class="icon i-globe" aria-hidden="true" data-testid="ask-timeline-1-icon"></span><span data-i18n="solve.done.s1" data-testid="ask-timeline-1-text"></span></li>
+            <li data-testid="ask-timeline-2"><span class="icon i-users" aria-hidden="true" data-testid="ask-timeline-2-icon"></span><span id="ask-timeline-2-text" data-testid="ask-timeline-2-text"></span></li>
+            <li data-testid="ask-timeline-3"><span class="icon i-check-circle" aria-hidden="true" data-testid="ask-timeline-3-icon"></span><span data-i18n="solve.done.s3" data-testid="ask-timeline-3-text"></span></li>
+          </ol>
+        </section>
+        <section class="solve-next-actions" aria-labelledby="ask-after-h" data-testid="ask-after">
+          <h2 id="ask-after-h" data-i18n="solve.done.after.h" data-testid="ask-after-h"></h2>
+          <div id="ask-after-body" class="stack" data-testid="ask-after-body"></div>
+          <div class="cluster solve-done-actions">
+            <button type="button" class="btn btn-primary" id="ask-again" data-testid="ask-again"><span class="icon i-plus" aria-hidden="true" data-testid="ask-again-icon"></span><span data-i18n="solve.done.again" data-testid="ask-again-label"></span></button>
+            <a class="btn btn-ghost" href="#list" data-testid="ask-done-back"><span data-i18n="solve.back.list" data-testid="ask-done-back-label"></span></a>
           </div>
-          <p class="error-msg" id="ask-body-error" hidden data-testid="ask-body-error"></p>
-        </div>
-
-        <div class="field" id="ask-tags-field" data-testid="ask-tags-field">
-          <label class="label" for="ask-tags" data-testid="ask-tags-field-label"><span data-i18n="solve.ask.tags.label" data-testid="ask-tags-label"></span><span class="req" aria-hidden="true" data-testid="ask-tags-req">*</span></label>
-          <input id="ask-tags" class="input" name="tags" type="text" required autocomplete="off" aria-describedby="ask-tags-hint" data-i18n-attr="placeholder:solve.ask.tags.placeholder" data-testid="ask-tags-input">
-          <p class="hint" id="ask-tags-hint" data-i18n="solve.ask.tags.hint" data-testid="ask-tags-hint"></p>
-          <p class="error-msg" id="ask-tags-error" hidden data-testid="ask-tags-error"></p>
-        </div>
-
-        <div class="cluster solve-form-actions">
-          <button type="submit" class="btn btn-primary" id="ask-submit" data-testid="ask-submit"><span class="icon i-send" aria-hidden="true" data-testid="ask-submit-icon"></span><span data-i18n="solve.ask.submit" data-testid="ask-submit-label"></span></button>
-          <span class="solve-lang-pick" data-testid="ask-lang-field">
-            <span class="icon i-languages" aria-hidden="true" data-testid="ask-lang-icon"></span>
-            <select id="ask-lang" class="select select-sm solve-lang-select" name="lang" data-i18n-attr="aria-label:solve.ask.lang.label" data-testid="ask-lang-input">
-              <option value="fr" data-testid="ask-lang-fr">FR</option>
-              <option value="en" data-testid="ask-lang-en">EN</option>
-            </select>
-          </span>
-        </div>
-      </form>
+        </section>
+      </div>
     </section>
   </main>
 

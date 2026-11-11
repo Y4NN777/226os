@@ -62,6 +62,7 @@
           <button type="button" class="btn btn-icon" data-dialog-close data-i18n-attr="aria-label:common.close" data-testid="apply-close"><span class="icon i-x" aria-hidden="true" data-testid="apply-close-icon"></span></button>
         </div>
         <div class="dialog-body" id="apply-body">
+          <div class="build-jit" id="apply-jit" data-testid="apply-jit"></div>
           <div class="callout callout-danger" id="apply-dup" role="alert" tabindex="-1" hidden data-testid="apply-duplicate-error"><span class="icon icon-lead i-alert-circle" aria-hidden="true" data-testid="apply-duplicate-error-icon"></span><div><strong data-i18n="project.apply.dup.title" data-testid="apply-duplicate-title"></strong><span data-i18n="project.apply.dup.body" data-testid="apply-duplicate-body"></span></div></div>
           <div id="apply-summary" class="form-summary" role="alert" tabindex="-1" hidden data-testid="apply-error-summary"><h2 data-i18n="project.form.summary" data-testid="apply-summary-title"></h2><ul class="list-reset" id="apply-summary-list" data-testid="apply-summary-list"></ul></div>
           <div class="field" data-field="motivation">
@@ -82,7 +83,12 @@
           </div>
         </div>
         <div class="dialog-body" id="apply-success" hidden>
-          <div class="state state-success" role="status" data-testid="apply-success"><span class="icon i-check-circle" aria-hidden="true" data-testid="apply-success-icon"></span><h3 data-i18n="project.apply.ok.title" data-testid="apply-success-title"></h3><p data-i18n="project.apply.ok.body" data-testid="apply-success-body"></p></div>
+          <div class="build-done" role="status" data-testid="apply-success"><span class="icon i-check-circle" aria-hidden="true" data-testid="apply-success-icon"></span><h3 data-i18n="project.apply.ok.title" data-testid="apply-success-title"></h3></div>
+          <div class="next-steps" data-testid="apply-next">
+            <h3 class="h4" data-i18n="project.next.title" data-testid="apply-next-title"></h3>
+            <ol data-testid="apply-next-steps"><li data-i18n="project.next.s1" data-testid="apply-next-step-1"></li><li data-i18n="project.next.s2" data-testid="apply-next-step-2"></li><li data-i18n="project.next.s3" data-testid="apply-next-step-3"></li></ol>
+            <div id="apply-similar" data-testid="apply-similar"></div>
+          </div>
         </div>
         <div class="dialog-foot">
           <button type="button" class="btn" id="apply-cancel" data-dialog-close data-i18n="common.cancel" data-testid="apply-cancel"></button>
@@ -98,7 +104,7 @@
             <p class="hint" data-proto data-testid="need-sim-hint"><span class="badge badge-sim" data-i18n="sim.badge" data-testid="need-sim-badge"></span> <span data-i18n="project.pub.sim" data-testid="need-sim-note"></span></p></div>
           <button type="button" class="btn btn-icon" data-dialog-close data-i18n-attr="aria-label:common.close" data-testid="need-close"><span class="icon i-x" aria-hidden="true" data-testid="need-close-icon"></span></button>
         </div>
-        <div class="dialog-body">
+        <div class="dialog-body" id="need-body">
           <div id="need-summary" class="form-summary" role="alert" tabindex="-1" hidden data-testid="need-error-summary"><h2 data-i18n="project.pub.summary" data-testid="need-summary-title"></h2><ul class="list-reset" id="need-summary-list" data-testid="need-summary-list"></ul></div>
           <div class="field">
             <label class="label" for="need-title" data-testid="need-title-label"><span data-i18n="project.pub.t" data-testid="need-title-text"></span><span class="req" aria-hidden="true" data-testid="need-title-required">*</span></label>
@@ -126,8 +132,13 @@
             <p class="error-msg" id="need-d-error" hidden data-testid="need-d-error"></p>
           </div>
         </div>
+        <div class="dialog-body" id="need-success" hidden data-testid="need-success-wrap">
+          <div class="build-done" role="status" data-testid="need-success"><span class="icon i-check-circle" aria-hidden="true" data-testid="need-success-icon"></span><h3 data-i18n="project.pub.ok.title" data-testid="need-success-title"></h3><p class="text-sm text-muted" data-i18n="project.pub.ok.body" data-testid="need-success-body"></p></div>
+          <div class="build-share" data-testid="need-share"><span class="icon i-link" aria-hidden="true" data-testid="need-share-icon"></span><input class="input" id="need-share-url" type="text" readonly data-i18n-attr="aria-label:project.pub.share" data-testid="need-share-input"><button type="button" class="btn btn-sm" id="need-share-copy" data-testid="need-share-copy"><span class="icon i-copy" aria-hidden="true" data-testid="need-share-copy-icon"></span><span data-i18n="project.pub.share.copy" data-testid="need-share-copy-label"></span></button></div>
+          <div id="need-similar" data-testid="need-similar"></div>
+        </div>
         <div class="dialog-foot">
-          <button type="button" class="btn" data-dialog-close data-i18n="common.cancel" data-testid="need-cancel"></button>
+          <button type="button" class="btn" id="need-cancel" data-dialog-close data-i18n="common.cancel" data-testid="need-cancel"></button>
           <button type="submit" class="btn btn-primary" id="need-submit" data-testid="need-submit"><span data-i18n="project.pub.submit" data-testid="need-submit-label"></span></button>
         </div>
       </form>

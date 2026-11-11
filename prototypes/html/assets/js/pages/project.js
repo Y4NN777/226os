@@ -1,6 +1,13 @@
 /* Project detail + application flow (simulated). Dictionary domain: project. Roles demo: owner / applicant / other member / anonymous. */
 I18N.register({
   fr: {
+    'project.jit.github': 'Les mainteneurs regardent votre GitHub en premier', 'project.next.title': 'Ce qui se passe maintenant', 'project.next.s1': 'Le mainteneur reçoit votre candidature et votre profil.',
+    'project.next.s2': 'Il l’accepte ou la refuse, en général sous quelques jours.', 'project.next.s3': 'Si elle est acceptée, vous commencez par une petite tâche, avec son aide.', 'project.next.similar': 'Autres besoins qui vous correspondent',
+    'project.next.open': 'Voir le projet', 'project.signin.hint': 'Lecture libre. Connectez-vous pour candidater.', 'project.signin.cta': 'Se connecter',
+    'project.pub.ok.title': 'Besoin publié', 'project.pub.ok.body': 'Il apparaît dans la liste du projet. Partagez-le pour recevoir des candidatures.', 'project.pub.share': 'Lien du besoin', 'project.pub.share.copy': 'Copier', 'project.pub.copied': 'Lien copié.',
+    'project.pub.similar': 'Des profils qui pourraient aider', 'project.needs.none.title': 'Aucun besoin pour le moment', 'project.needs.none.body': 'Publiez un premier besoin précis pour recevoir des candidatures.',
+    'project.stage.label': 'Étape', 'project.openneeds': '{n} besoins ouverts', 'project.openneeds.one': '1 besoin ouvert', 'project.openneeds.none': 'Aucun besoin ouvert', 'project.apps.empty.cta': 'Partager le projet', 'project.status.pending.pill': 'En attente', 'project.status.declined.pill': 'Refusée',
+    'project.apps.skillsLabel': 'Compétences', 'project.need.apply.short': 'Candidater',
     'project.title': 'Projet — 226os', 'project.notfound': 'Projet introuvable', 'project.jump': 'Voir les besoins', 'project.form.summary': 'Corrigez les champs suivants',
     'project.demo.title': 'Rôles (démo)', 'project.demo.note': 'En production, le rôle vient de la session et le serveur applique chaque règle. Ici, choisissez un rôle pour comparer.',
     'project.demo.viewas': 'Rôle simulé', 'project.demo.dup': 'Simuler une seconde candidature', 'project.demo.dup.none': 'Disponible quand le rôle choisi a déjà une candidature.',
@@ -14,8 +21,8 @@ I18N.register({
     'project.ctx.title': 'Contexte lié', 'project.ctx.lede': 'La question d’origine et l’API concernée, à un clic.',
     'project.ctx.question': 'Question d’origine', 'project.ctx.resource': 'API / outil lié', 'project.ctx.maintainer': 'Mainteneur', 'project.ctx.none': 'Aucune question ni API n’est liée à ce projet pour l’instant.',
     'project.desc.title': 'Description', 'project.needs.title': 'Besoins de contribution', 'project.needs.skills': 'Compétences requises', 'project.needs.level': 'Niveau',
-    'project.need.open': 'Ouvert', 'project.need.closed': 'Fermé', 'project.need.apply': 'Postuler', 'project.need.apply.aria': 'Postuler au besoin : {need}',
-    'project.need.signin': 'Se connecter pour postuler', 'project.need.mine': 'Votre projet', 'project.need.sent': 'Candidature envoyée', 'project.need.apps': '{n} candidature(s)',
+    'project.need.open': 'Ouvert', 'project.need.closed': 'Fermé', 'project.need.apply': 'Candidater', 'project.need.apply.aria': 'Postuler au besoin : {need}',
+    'project.need.signin': 'Se connecter pour postuler', 'project.need.mine': 'Votre projet', 'project.need.sent': 'Candidature envoyée', 'project.need.apps': '{n} candidatures', 'project.need.apps.one': '1 candidature',
     'project.apps.title.owner': 'Candidatures reçues', 'project.apps.title.other': 'Candidatures', 'project.apps.mine': 'Mes candidatures',
     'project.apps.private': 'Liste privée, visible par le mainteneur uniquement.',
     'project.apps.denied.title': 'Accès refusé (403)', 'project.apps.denied.body': 'Seul le mainteneur peut lire la liste des candidatures. Le serveur refuse la demande et ne révèle ni données ni nombre.',
@@ -31,7 +38,7 @@ I18N.register({
     'project.side.stack': 'Technologies', 'project.side.maint': 'Mainteneur',
     'project.lang.fr': 'Français', 'project.lang.en': 'English',
     'project.empty.title': 'Projet introuvable', 'project.empty.body': 'Aucun projet ne porte cet identifiant. Retournez à la liste.', 'project.empty.cta': 'Retour aux projets',
-    'project.apply.title': 'Postuler pour contribuer', 'project.apply.need': 'Besoin :', 'project.apply.sim': 'Simulation : aucune candidature n’est envoyée.',
+    'project.apply.title': 'Candidater pour contribuer', 'project.apply.need': 'Besoin :', 'project.apply.sim': 'Simulation : aucune candidature n’est envoyée.',
     'project.apply.motivation': 'Motivation', 'project.apply.motivation.hint': '30 à 600 caractères. Dites pourquoi ce besoin et ce que vous apporterez en premier.',
     'project.apply.skills': 'Compétences pertinentes', 'project.apply.skills.hint': 'Séparées par des virgules, ex. Go, PostgreSQL.', 'project.apply.avail': 'Disponibilité', 'project.apply.submit': 'Envoyer la candidature',
     'project.apply.ok.title': 'Candidature envoyée', 'project.apply.ok.body': 'Le mainteneur pourra l’accepter ou la refuser.',
@@ -47,6 +54,13 @@ I18N.register({
     'project.pub.err.t': 'Saisissez un titre de 8 à 100 caractères.', 'project.pub.err.skills': 'Choisissez au moins une compétence.', 'project.pub.err.level': 'Choisissez un niveau.', 'project.pub.err.d': 'La description doit faire au moins 30 caractères.'
   },
   en: {
+    'project.jit.github': 'Maintainers look at your GitHub first', 'project.next.title': 'What happens now', 'project.next.s1': 'The maintainer receives your application and your profile.',
+    'project.next.s2': 'They accept or decline it, usually within a few days.', 'project.next.s3': 'If accepted, you start with a small task and their help.', 'project.next.similar': 'Other needs that match you',
+    'project.next.open': 'View the project', 'project.signin.hint': 'Reading is open. Sign in to apply.', 'project.signin.cta': 'Sign in',
+    'project.pub.ok.title': 'Need published', 'project.pub.ok.body': 'It now appears in the project list. Share it to receive applications.', 'project.pub.share': 'Need link', 'project.pub.share.copy': 'Copy', 'project.pub.copied': 'Link copied.',
+    'project.pub.similar': 'Profiles that could help', 'project.needs.none.title': 'No needs yet', 'project.needs.none.body': 'Publish a first precise need to receive applications.',
+    'project.stage.label': 'Stage', 'project.openneeds': '{n} open needs', 'project.openneeds.one': '1 open need', 'project.openneeds.none': 'No open needs', 'project.apps.empty.cta': 'Share the project', 'project.status.pending.pill': 'Pending', 'project.status.declined.pill': 'Declined',
+    'project.apps.skillsLabel': 'Skills', 'project.need.apply.short': 'Apply',
     'project.title': 'Project — 226os', 'project.notfound': 'Project not found', 'project.jump': 'See needs', 'project.form.summary': 'Please fix the following fields',
     'project.demo.title': 'Roles and access rights (prototype)', 'project.demo.note': 'In the product the role comes from the session and the server enforces every rule (authorization matrix). Here you pick the role to see the difference.',
     'project.demo.viewas': 'View the page as', 'project.demo.dup': 'Simulate a second submission', 'project.demo.dup.none': 'Available when the selected role already has an application.',
@@ -102,7 +116,11 @@ I18N.register({
   var ROLES = ['owner', 'applicant', 'member', 'anonymous'];
   App.Proto.register({ roles: ROLES.map(function (r) { return { id: r, labelKey: 'project.role.' + r }; }), 'default': 'member' });
   if (ROLES.indexOf(App.params.get('as')) > -1) App.Proto.setRole(App.params.get('as'));   /* ?as= kept as an alias of ?role= */
-  var role = App.Proto.role;
+  var protoRole = App.Proto.role, role;
+  function effRole() { return (!App.Session.signedIn || protoRole === 'anonymous') ? 'anonymous' : protoRole; }
+  role = effRole();
+  function signinHref(next) { return document.body.getAttribute('data-root') + App.config.signin + '?next=' + encodeURIComponent(next || location.href); }
+  function nextFor(k, v) { var u = new URL(location.href); u.hash = ''; u.searchParams.set(k, v); return u.href; }
   var apps = P ? P.applications.map(function (a) { return Object.assign({}, a); }) : [];
   var applyNeed = null, busy = false, errs = {}, dup = false;
 
@@ -122,13 +140,16 @@ I18N.register({
   function md(src) { return window.Markdown.render(src, { id: 'project-md', headStart: 2 }); }
 
   /* ---- header / role toolbar (outside the simulated area) ---- */
+  function A_pill() { return P.openCount ? App.statePill('open', { testid: 'project-open-pill', label: (function (c) { return c === 1 ? t('project.openneeds.one') : t('project.openneeds', { n: c }); })(P.needs.filter(function (n) { return n.status === 'open'; }).length) }) : App.statePill('closed', { testid: 'project-open-pill', label: t('project.openneeds.none') }); }
   function header() {
     if (!P) { $('#project-h1').textContent = t('project.notfound'); $('#project-h1').classList.remove('mono'); $('#project-crumb').textContent = t('project.notfound'); $('#project-jump').hidden = true; $('#project-summary').hidden = true; document.title = t('project.notfound') + ' — 226os'; return; }
     $('#project-h1').textContent = P.name; $('#project-h1').lang = P.lang; $('#project-h1').setAttribute('data-user-content', '');
     $('#project-thumb').innerHTML = App.thumb(P.name, { size: 'lg', testid: 'project-thumb-img' });
     $('#project-crumb').textContent = P.name; document.title = P.name + ' — 226os';
-    $('#project-badges').innerHTML = '<span class="meta-item" data-testid="project-stage-badge">' + esc(MOCK.label(B.stages[P.stage])) + '</span>' +
-      '<span class="meta-item" data-testid="project-country-item">' + countryHtml(P.country, 'project-country') + '</span>';
+    $('#project-badges').innerHTML = A_pill() +
+      '<span class="meta-item" data-testid="project-stage-badge">' + esc(MOCK.label(B.stages[P.stage])) + '</span>' +
+      '<span class="meta-item" data-testid="project-country-item">' + countryHtml(P.country, 'project-country') + '</span>' +
+      '<span class="meta-item mono text-xs" data-testid="project-license-badge">' + esc(P.license) + '</span>';
     $('#project-summary').innerHTML = '<span lang="' + P.lang + '" data-user-content data-testid="project-summary-text">' + esc(P.summary) + '</span>';
     $('#project-jump').hidden = false; $('#project-summary').hidden = false;
   }
@@ -140,55 +161,53 @@ I18N.register({
   }
   function dupTarget() { var v = viewer(); if (!v || role === 'owner') return null; return apps.filter(function (a) { return a.person === v; })[0] || null; }
   document.addEventListener('proto:role', function (e) {
-    role = e.detail.role; toolbar(); sim && sim.refresh();
-    try { var u = new URL(location.href); u.searchParams.set('as', role); history.replaceState(null, '', u); } catch (x) { /* file:// may refuse */ }
+    protoRole = e.detail.role; role = effRole(); toolbar(); sim && sim.refresh();
+    try { var u = new URL(location.href); u.searchParams.set('as', protoRole); history.replaceState(null, '', u); } catch (x) { /* file:// may refuse */ }
   });
 
   /* ---- main view ---- */
   function needsHtml() {
+    if (!P.needs.length) return '<li class="need-card-empty"><div class="state" data-testid="project-needs-empty"><span class="icon i-users" aria-hidden="true" data-testid="project-needs-empty-icon"></span><h3 data-testid="project-needs-empty-title">' + esc(t('project.needs.none.title')) + '</h3><p data-testid="project-needs-empty-body">' + esc(t('project.needs.none.body')) + '</p></div></li>';
     return P.needs.map(function (n, i) {
-      var k = n.id, mine = mineOn(n.id), count = apps.filter(function (a) { return a.need === n.id; }).length, act;
-      if (n.status === 'closed') act = '';
-      else if (role === 'owner') act = '<span class="text-sm text-muted" data-testid="project-need-' + k + '-owner">' + esc(t('project.need.mine')) + ' · ' + esc(t('project.need.apps', { n: count })) + '</span>';
-      else if (role === 'anonymous') act = '<a class="btn btn-sm" href="auth.html" data-testid="project-need-' + k + '-signin"><span class="icon i-lock" aria-hidden="true" data-testid="project-need-' + k + '-signin-icon"></span><span data-testid="project-need-' + k + '-signin-label">' + esc(t('project.need.signin')) + '</span></a>';
-      else if (mine) act = '<span class="badge badge-verified" data-testid="project-need-' + k + '-sent"><span class="icon i-check" aria-hidden="true" data-testid="project-need-' + k + '-sent-icon"></span>' + esc(t('project.need.sent')) + '</span>';
+      var k = n.id, mine = mineOn(n.id), count = apps.filter(function (a) { return a.need === n.id; }).length, act, open = n.status === 'open';
+      if (!open) act = '';
+      else if (role === 'owner') act = '<span class="text-sm" data-testid="project-need-' + k + '-owner">' + esc(count === 1 ? t('project.need.apps.one') : t('project.need.apps', { n: count })) + '</span>';
+      else if (mine) act = App.statePill('accepted', { testid: 'project-need-' + k + '-sent', label: t('project.need.sent') });
       else act = '<button type="button" class="btn btn-primary btn-sm" data-apply="' + n.id + '" aria-label="' + esc(t('project.need.apply.aria', { need: n.title })) + '" data-testid="project-need-' + k + '-apply"><span class="icon i-send" aria-hidden="true" data-testid="project-need-' + k + '-apply-icon"></span>' + esc(t('project.need.apply')) + '</button>';
-      return '<li class="row" data-testid="project-need-' + k + '"><div class="row-lead"><span class="icon i-' + (n.status === 'open' ? 'users' : 'lock') + '" aria-hidden="true" data-testid="project-need-' + k + '-icon"></span></div>' +
-        '<div class="row-main"><h3 class="row-title" lang="' + P.lang + '" data-user-content data-testid="project-need-' + k + '-title">' + esc(n.title) + '</h3>' +
-        '<p class="text-sm"><span class="text-muted" data-testid="project-need-' + k + '-skills-label">' + esc(t('project.needs.skills')) + (I18N.lang === 'fr' ? '\u00a0:' : ':') + '</span> <strong data-testid="project-need-' + k + '-skills">' + esc(n.skills.map(function (s) { return MOCK.label(B.skills[s]); }).join(', ')) + '</strong></p>' +
-        '<div class="meta"><span class="meta-item" data-testid="project-need-' + k + '-level">' + esc(t('project.needs.level')) + (I18N.lang === 'fr' ? '\u00a0: ' : ': ') + esc(MOCK.label(B.levels[n.level])) + '</span></div></div>' +
-        '<div class="row-aside"><span class="badge ' + (n.status === 'open' ? 'badge-accepted' : 'badge-later') + '" data-testid="project-need-' + k + '-status">' + esc(t(n.status === 'open' ? 'project.need.open' : 'project.need.closed')) + '</span>' + act + '</div></li>';
+      return '<li class="need-card' + (open ? '' : ' is-closed') + '" data-testid="project-need-' + k + '"><div class="need-card-head"><h3 lang="' + P.lang + '" data-user-content data-testid="project-need-' + k + '-title">' + esc(n.title) + '</h3>' +
+        App.statePill(open ? 'open' : 'closed', { testid: 'project-need-' + k + '-status', labelKey: open ? 'pill.open' : 'pill.closed' }) + '</div>' +
+        '<ul class="tag-list" data-testid="project-need-' + k + '-skills"><span class="visually-hidden" data-testid="project-need-' + k + '-skills-label">' + esc(t('project.needs.skills')) + '</span>' + n.skills.map(function (sk) { return '<li><span class="tag" data-testid="project-need-' + k + '-skill-' + sk + '">' + esc(MOCK.label(B.skills[sk])) + '</span></li>'; }).join('') + '</ul>' +
+        '<div class="need-card-meta"><span data-testid="project-need-' + k + '-level">' + esc(t('project.needs.level')) + (I18N.lang === 'fr' ? ' : ' : ': ') + esc(MOCK.label(B.levels[n.level])) + '</span></div>' +
+        (act ? '<div class="need-card-foot" data-testid="project-need-' + k + '-foot">' + act + '</div>' : '') + '</li>';
     }).join('');
   }
-  function statusBadge(s, tid) { var c = { pending: 'badge-warn', accepted: 'badge-accepted', declined: 'badge-danger' }[s], ic = { pending: 'clock', accepted: 'check', declined: 'x' }[s];
-    return '<span class="badge ' + c + '" data-testid="' + tid + '"><span class="icon i-' + ic + '" aria-hidden="true" data-testid="' + tid + '-icon"></span>' + esc(t('project.status.' + s)) + '</span>'; }
+  function appPill(sv, tid) { var kind = { pending: 'stale', accepted: 'accepted', declined: 'closed' }[sv], lab = sv === 'accepted' ? t('project.status.accepted') : t('project.status[sv].pill'.replace('[sv]', '.' + sv));
+    return App.statePill(kind, { testid: tid, label: t(sv === 'pending' ? 'project.status.pending.pill' : sv === 'declined' ? 'project.status.declined.pill' : 'project.status.accepted') }); }
   function appRow(a, i, owner, pre) {
-    var tid = pre + '-' + a.id, nd = needOf(a.need);
-    return '<li class="row" tabindex="-1" data-app="' + a.id + '" data-testid="' + tid + '"><div class="row-lead">' + App.avatar(MOCK.person(a.person) || name(a.person), { testid: tid + '-avatar' }) + '</div>' +
-      '<div class="row-main"><h' + (owner ? 3 : 4) + ' class="row-title">' + (owner ? '<a class="row-above" href="profile.html?id=' + a.person + '" data-testid="' + tid + '-person">' + esc(name(a.person)) + '</a>' : '<span data-testid="' + tid + '-person">' + esc(name(a.person)) + '</span>') + '</h' + (owner ? 3 : 4) + '>' +
-      '<p class="text-sm"><span class="text-muted" data-testid="' + tid + '-need-label">' + esc(t('project.app.for')) + '</span> <span lang="' + P.lang + '" data-user-content data-testid="' + tid + '-need">' + esc(nd.title) + '</span></p>' +
-      '<p lang="' + a.lang + '" data-user-content data-testid="' + tid + '-motivation">' + esc(a.motivation) + '</p>' +
-      '<div class="meta"><span class="meta-item" data-testid="' + tid + '-skills">' + esc(t('project.app.skills')) + ' ' + esc(a.skills) + '</span><span class="meta-item" data-testid="' + tid + '-avail">' + esc(t('project.app.avail')) + ' ' + esc(t('project.avail.' + a.avail)) + '</span>' +
-      '<time datetime="' + a.date + '" data-testid="' + tid + '-date">' + esc(MOCK.fmtDate(a.date)) + '</time>' + badgeLang(a.lang, tid + '-lang') + '</div></div>' +
-      '<div class="row-aside">' + statusBadge(a.status, tid + '-status') +
-      (owner ? (a.status === 'pending'
-        ? '<div class="cluster row-above"><button type="button" class="btn btn-icon btn-sm" data-decide="accepted" data-app-id="' + a.id + '" aria-label="' + esc(t('project.app.accept.aria', { name: name(a.person) })) + '" data-testid="' + tid + '-accept"><span class="icon i-check" aria-hidden="true" data-testid="' + tid + '-accept-icon"></span></button>' +
+    var tid = pre + '-' + a.id, nd = needOf(a.need), hd = owner ? 3 : 4;
+    return '<li class="app-card" tabindex="-1" data-app="' + a.id + '" data-testid="' + tid + '">' + App.avatar(MOCK.person(a.person) || name(a.person), { testid: tid + '-avatar' }) +
+      '<div class="app-main"><h' + hd + '>' + (owner ? '<a href="profile.html?id=' + a.person + '" data-testid="' + tid + '-person">' + esc(name(a.person)) + '</a>' : '<span data-testid="' + tid + '-person">' + esc(name(a.person)) + '</span>') + '</h' + hd + '>' +
+      '<p class="text-sm text-muted"><span data-testid="' + tid + '-need-label">' + esc(t('project.app.for')) + '</span> <span lang="' + P.lang + '" data-user-content data-testid="' + tid + '-need">' + esc(nd.title) + '</span></p>' +
+      '<p class="app-quote" lang="' + a.lang + '" data-user-content data-testid="' + tid + '-motivation">' + esc(a.motivation) + '</p>' +
+      '<div class="meta"><span class="meta-item" data-testid="' + tid + '-skills"><span class="visually-hidden">' + esc(t('project.app.skills')) + ' </span>' + esc(a.skills) + '</span><span class="meta-item" data-testid="' + tid + '-avail">' + esc(t('project.avail.' + (a.avail || 'choose'))) + '</span>' +
+      '<time class="tabular-nums" datetime="' + a.date + '" data-testid="' + tid + '-date">' + esc(MOCK.fmtDate(a.date)) + '</time>' + badgeLang(a.lang, tid + '-lang') + '</div></div>' +
+      '<div class="app-aside">' + appPill(a.status, tid + '-status') +
+      (owner && a.status === 'pending'
+        ? '<div class="app-actions"><button type="button" class="btn btn-icon btn-sm" data-decide="accepted" data-app-id="' + a.id + '" aria-label="' + esc(t('project.app.accept.aria', { name: name(a.person) })) + '" data-testid="' + tid + '-accept"><span class="icon i-check" aria-hidden="true" data-testid="' + tid + '-accept-icon"></span></button>' +
           '<button type="button" class="btn btn-icon btn-sm" data-decide="declined" data-app-id="' + a.id + '" aria-label="' + esc(t('project.app.decline.aria', { name: name(a.person) })) + '" data-testid="' + tid + '-decline"><span class="icon i-x" aria-hidden="true" data-testid="' + tid + '-decline-icon"></span></button></div>'
-        : '') : '') + '</div></li>';
+        : '') + '</div></li>';
   }
   function appsHtml() {
     var h = '<h2 id="project-apps-h" data-testid="project-apps-title">' + esc(t(role === 'owner' ? 'project.apps.title.owner' : 'project.apps.title.other')) + '</h2>';
     if (role === 'owner') {
-      h += apps.length ? '<ul class="list list-reset" data-testid="project-apps-list">' + apps.map(function (a, i) { return appRow(a, i, true, 'project-app'); }).join('') + '</ul>'
+      h += apps.length ? '<ul class="app-list" data-testid="project-apps-list">' + apps.map(function (a, i) { return appRow(a, i, true, 'project-app'); }).join('') + '</ul>'
         : '<div class="state" data-testid="project-apps-empty"><span class="icon i-inbox" aria-hidden="true" data-testid="project-apps-empty-icon"></span><h3 data-testid="project-apps-empty-title">' + esc(t('project.apps.empty.title')) + '</h3><p data-testid="project-apps-empty-body">' + esc(t('project.apps.empty.body')) + '</p></div>';
       return h;
     }
     var anon = role === 'anonymous', hasMine = !anon && apps.some(function (a) { return a.person === viewer(); });
-    h = hasMine ? '' : '<h2 id="project-apps-h" data-testid="project-apps-title" data-proto>' + esc(t('project.apps.title.other')) + '</h2>';
-    if (hasMine) h = '<h2 id="project-apps-h" data-testid="project-apps-title">' + esc(t('project.apps.mine')) + '</h2>';
-    h += '<div class="state state-error" data-proto role="status" data-testid="project-apps-denied"><span class="icon i-' + (anon ? 'lock' : 'shield-check') + '" aria-hidden="true" data-testid="project-apps-denied-icon"></span><h3 data-testid="project-apps-denied-title">' + esc(t(anon ? 'project.apps.anon.title' : 'project.apps.denied.title')) + '</h3><p data-testid="project-apps-denied-body">' + esc(t(anon ? 'project.apps.anon.body' : 'project.apps.denied.body')) + '</p>' + (anon ? '<div class="state-actions"><a class="btn btn-sm" href="auth.html" data-testid="project-apps-signin"><span class="icon i-user" aria-hidden="true" data-testid="project-apps-signin-icon"></span><span data-testid="project-apps-signin-label">' + esc(t('project.need.signin')) + '</span></a></div>' : '') + '</div>';
+    h = '<h2 id="project-apps-h" data-testid="project-apps-title">' + esc(t('project.apps.mine')) + '</h2>';
     var mine = anon ? [] : apps.filter(function (a) { return a.person === viewer(); });
-    if (mine.length) h += '<ul class="list list-reset" data-testid="project-mine-list">' + mine.map(function (a, i) { return appRow(a, i, false, 'project-mine'); }).join('') + '</ul>';
+    if (mine.length) h += '<ul class="app-list" data-testid="project-mine-list">' + mine.map(function (a, i) { return appRow(a, i, false, 'project-mine'); }).join('') + '</ul>';
     return h;
   }
   function actHtml() {
@@ -196,8 +215,8 @@ I18N.register({
       var k = i + 1, tail = '';
       if (e.k === 'need' || e.k === 'need-closed') tail = ' <span lang="' + P.lang + '" data-user-content data-testid="project-activity-' + k + '-ref">« ' + esc(needOf(e.ref).title) + ' »</span>';
       if (e.k === 'link') { var q = B.question(e.ref); tail = ' <a href="question.html?id=' + q.id + '" lang="' + q.lang + '" data-user-content data-testid="project-activity-' + k + '-ref">' + esc(q.title) + '</a>'; }
-      return '<li class="row" data-testid="project-activity-' + k + '"><div class="row-lead"><span class="icon i-' + { created: 'plus', repo: 'git-branch', need: 'users', 'need-closed': 'lock', link: 'link' }[e.k] + '" aria-hidden="true" data-testid="project-activity-' + k + '-icon"></span></div>' +
-        '<div class="row-main"><p class="text-sm" data-testid="project-activity-' + k + '-text">' + esc(t('project.act.' + e.k, { who: name(e.who) })) + tail + '</p></div><div class="row-aside"><time datetime="' + e.d + '" data-testid="project-activity-' + k + '-date">' + esc(MOCK.fmtDate(e.d)) + '</time></div></li>';
+      return '<li data-testid="project-activity-' + k + '"><span class="icon i-' + { created: 'plus', repo: 'git-branch', need: 'users', 'need-closed': 'lock', link: 'link' }[e.k] + '" aria-hidden="true" data-testid="project-activity-' + k + '-icon"></span>' +
+        '<span data-testid="project-activity-' + k + '-text">' + esc(t('project.act.' + e.k, { who: name(e.who) })) + tail + '</span><time class="tabular-nums" datetime="' + e.d + '" data-testid="project-activity-' + k + '-date">' + esc(MOCK.fmtDate(e.d)) + '</time></li>';
     }).join('');
   }
   function ctxHtml() {
@@ -223,13 +242,15 @@ I18N.register({
         '<p class="text-sm text-muted" data-testid="project-maint-headline" lang="' + (MOCK.person(P.owner).lang) + '" data-user-content>' + esc(MOCK.person(P.owner).headline) + '</p></section></aside>';
   }
   function view() {
+    var signin = role === 'anonymous' ? '<p class="project-signin" data-testid="project-signin-hint"><span class="icon i-lock" aria-hidden="true" data-testid="project-signin-hint-icon"></span><span data-testid="project-signin-hint-text">' + esc(t('project.signin.hint')) + '</span> <a href="' + esc(signinHref()) + '" data-testid="project-signin-hint-link">' + esc(t('project.signin.cta')) + '</a></p>' : '';
+    var showApps = role === 'owner' || apps.some(function (a) { return a.person === viewer(); });
     return '<div class="with-aside"><div class="stack-lg">' +
       '<section aria-labelledby="project-ctx-h" data-testid="project-ctx">' + ctxHtml().replace('<h2 ', '<h2 id="project-ctx-h" ') + '</section>' +
-      '<section aria-labelledby="project-desc-h" data-testid="project-desc"><div class="cluster"><h2 id="project-desc-h" data-testid="project-desc-title">' + esc(t('project.desc.title')) + '</h2>' + badgeLang(P.lang, 'project-desc-lang') + '</div>' +
+      '<section class="card project-panel" aria-labelledby="project-desc-h" data-testid="project-desc"><div class="cluster"><h2 id="project-desc-h" data-testid="project-desc-title">' + esc(t('project.desc.title')) + '</h2>' + badgeLang(P.lang, 'project-desc-lang') + '</div>' +
         '<div class="prose" lang="' + P.lang + '" data-user-content data-testid="project-desc-body">' + md(P.description) + '</div></section>' +
-      '<section id="needs" aria-labelledby="project-needs-h" data-testid="project-needs"><div class="section-head"><h2 id="project-needs-h" data-testid="project-needs-title">' + esc(t('project.needs.title')) + '</h2>' + (role === 'owner' ? '<button type="button" class="btn btn-sm" data-dialog-open="need-dialog" data-testid="project-publish-need"><span class="icon i-plus" aria-hidden="true" data-testid="project-publish-need-icon"></span>' + esc(t('project.pub.btn')) + '</button>' : '') + '</div><ul class="list list-reset project-list" data-testid="project-needs-list">' + needsHtml() + '</ul></section>' +
-      '<section aria-labelledby="project-apps-h" data-testid="project-apps"' + (role !== 'owner' && !apps.some(function (a) { return a.person === viewer(); }) ? ' data-proto' : '') + '>' + appsHtml() + '</section>' +
-      '<section aria-labelledby="project-act-h" data-testid="project-act"><h2 id="project-act-h" data-testid="project-act-title">' + esc(t('project.act.title')) + '</h2><ol class="list list-reset project-list" data-testid="project-activity-list">' + actHtml() + '</ol></section>' +
+      '<section id="needs" aria-labelledby="project-needs-h" data-testid="project-needs"><div class="section-head"><h2 id="project-needs-h" data-testid="project-needs-title">' + esc(t('project.needs.title')) + '</h2>' + (role === 'owner' ? '<button type="button" class="btn btn-sm" data-dialog-open="need-dialog" data-testid="project-publish-need"><span class="icon i-plus" aria-hidden="true" data-testid="project-publish-need-icon"></span>' + esc(t('project.pub.btn')) + '</button>' : '') + '</div>' + signin + '<ul class="need-grid" data-testid="project-needs-list">' + needsHtml() + '</ul></section>' +
+      (showApps ? '<section class="card project-panel" aria-labelledby="project-apps-h" data-testid="project-apps">' + appsHtml() + '</section>' : '') +
+      '<section class="card project-panel" aria-labelledby="project-act-h" data-testid="project-act"><h2 id="project-act-h" data-testid="project-act-title">' + esc(t('project.act.title')) + '</h2><ol class="act-list" data-testid="project-activity-list">' + actHtml() + '</ol></section>' +
       '</div>' + asideHtml() + '</div>';
   }
 
@@ -250,7 +271,7 @@ I18N.register({
       rec.status = d.getAttribute('data-decide'); sim.refresh(); toolbar();
       var li = $('[data-app="' + rec.id + '"]'); if (li) li.focus();
       App.Toast.show({ kind: 'success', msg: t('project.apps.toast.' + rec.status) });
-    } else if (a) openApply(a.getAttribute('data-apply'), a);
+    } else if (a) { var nid = a.getAttribute('data-apply'); if (App.Session.requireAuth(nextFor('apply', nid))) openApply(nid, a); }
   });
 
   /* ---- apply dialog (static markup; never rebuilt on language change) ---- */
@@ -264,9 +285,19 @@ I18N.register({
   function openApply(needId, from, prefill) {
     applyNeed = needId; var n = needOf(needId); $('#apply-need').textContent = n.title; $('#apply-need').lang = P.lang;
     if (prefill) { $('#apply-motivation').value = t('project.demo.sample.motivation'); $('#apply-skills').value = t('project.demo.sample.skills'); $('#apply-avail').value = '2to5'; }
+    $('#apply-jit').innerHTML = '';
+    App.Session.prompt('github', { container: '#apply-jit', textKey: 'project.jit.github', testid: 'apply-jit-github' });
     App.Dialog.open('apply-dialog', from);
   }
   $('#project-dup-btn').addEventListener('click', function (e) { var a = dupTarget(); if (a) openApply(a.need, e.currentTarget, true); });
+  function similarNeeds(needId) {
+    var cur = needOf(needId), out = [];
+    B.projects().forEach(function (p) { if (p.id === P.id) return; p.needs.forEach(function (n) { if (n.status === 'open' && n.skills.some(function (k) { return cur.skills.indexOf(k) > -1; })) out.push({ p: p, n: n }); }); });
+    if (!out.length) B.projects().forEach(function (p) { if (p.id !== P.id) p.needs.forEach(function (n) { if (n.status === 'open' && out.length < 3) out.push({ p: p, n: n }); }); });
+    out = out.slice(0, 3); if (!out.length) return '';
+    return '<h3 class="h4" data-testid="apply-similar-title">' + esc(t('project.next.similar')) + '</h3><ul class="next-sim" data-testid="apply-similar-list">' + out.map(function (x) { var k = x.n.id;
+      return '<li><a href="project.html?id=' + x.p.id + '#needs" data-testid="apply-similar-' + k + '"><strong data-testid="apply-similar-name-' + k + '">' + esc(x.p.name) + '</strong><span class="text-muted" lang="' + x.p.lang + '" data-user-content data-testid="apply-similar-title-' + k + '">' + esc(x.n.title) + '</span><span class="icon i-chevron-right" aria-hidden="true" data-testid="apply-similar-chev-' + k + '"></span></a></li>'; }).join('') + '</ul>';
+  }
   function validate() {
     errs = {}; var m = $('#apply-motivation').value.trim(), s = $('#apply-skills').value.trim();
     if (!m) errs.motivation = 'project.err.motivation.required'; else if (m.length < 30) errs.motivation = 'project.err.motivation.short';
@@ -295,11 +326,12 @@ I18N.register({
       if (mineOn(applyNeed)) { var box = $('#apply-dup'); box.hidden = false; box.focus(); return; }   /* unique (user, need): 409 */
       apps.push({ id: 'a-new-' + apps.length, need: applyNeed, person: viewer(), status: 'pending', date: '2026-11-11', avail: $('#apply-avail').value, skills: $('#apply-skills').value.trim(), lang: I18N.lang, motivation: $('#apply-motivation').value.trim() });
       b.hidden = true; $('#apply-body').hidden = true; $('#apply-success').hidden = false; $('#apply-cancel').setAttribute('data-i18n', 'common.close'); $('#apply-cancel').textContent = t('common.close'); $('#apply-cancel').focus();
+      $('#apply-similar').innerHTML = similarNeeds(applyNeed); $('#apply-jit').innerHTML = '';
       sim.refresh(); toolbar(); App.Toast.show({ kind: 'success', msg: t('project.apply.toast') });
     }, 700);
   });
   dlg.addEventListener('close', function () {
-    form.reset(); errs = {}; showErrors(false); $('#apply-dup').hidden = true; $('#apply-body').hidden = false; $('#apply-success').hidden = true; $('#apply-submit').hidden = false;
+    form.reset(); errs = {}; showErrors(false); $('#apply-jit').innerHTML = ''; $('#apply-dup').hidden = true; $('#apply-body').hidden = false; $('#apply-success').hidden = true; $('#apply-submit').hidden = false;
     $('#apply-cancel').setAttribute('data-i18n', 'common.cancel'); $('#apply-cancel').textContent = t('common.cancel');
   });
 
@@ -348,12 +380,27 @@ I18N.register({
     setTimeout(function () {
       var v = needValues(); nbusy = false; btn.removeAttribute('aria-busy'); btn.disabled = false;
       P.needs.push({ id: 'n-new-' + (++nseq), title: v.t, skills: v.skills, level: v.level, status: 'open', description: v.d });
-      App.Dialog.close(ndlg); sim.refresh();
+      sim.refresh(); $('#need-body').hidden = true; $('#need-success').hidden = false; $('#need-submit').hidden = true;
+      $('#need-share-url').value = 'https://226os.example.org/projets/' + P.id + '#' + P.needs[P.needs.length - 1].id;
+      $('#need-similar').innerHTML = peopleFor(v.skills);
+      var c = $('#need-cancel'); c.textContent = t('common.close'); c.removeAttribute('data-i18n'); c.focus();
       App.Toast.show({ kind: 'success', msg: t('project.pub.toast') });
-      var rows = document.querySelectorAll('[data-testid="project-needs-list"] > li'), last = rows[rows.length - 1];
-      if (last) { last.tabIndex = -1; last.focus(); }
     }, 600);
   });
-  ndlg.addEventListener('close', function () { nform.reset(); nerrs = {}; needShowErrors(false); });
+  var PS = { postgres: 'postgresql' };
+  function peopleFor(skills) {
+    var want = skills.map(function (k) { return PS[k] || k; }), ps = (MOCK.people || []).filter(function (x) { return x.id !== P.owner && x.skills.some(function (k) { return want.indexOf(k) > -1; }) && (x.open || []).indexOf('collaboration') > -1; }).slice(0, 3);
+    if (!ps.length) return '';
+    return '<h3 class="h4" data-testid="need-similar-title">' + esc(t('project.pub.similar')) + '</h3><ul class="build-people list-reset" data-testid="need-similar-list">' + ps.map(function (x) {
+      return '<li><a class="build-person" href="profile.html?id=' + x.id + '" data-testid="need-similar-' + x.id + '">' + App.avatar(x, { size: 'sm', testid: 'need-similar-avatar-' + x.id }) + '<span class="build-person-body"><strong data-testid="need-similar-name-' + x.id + '">' + esc(x.name) + '</strong><span class="text-sm text-muted" lang="' + x.lang + '" data-user-content data-testid="need-similar-headline-' + x.id + '">' + esc(x.headline) + '</span></span></a></li>'; }).join('') + '</ul>';
+  }
+  $('#need-share-copy').addEventListener('click', function () { try { navigator.clipboard.writeText($('#need-share-url').value).then(function () {}, function () {}); } catch (x) { /* ignore */ } App.Toast.show({ kind: 'success', title: t('project.pub.copied'), ttl: 2500 }); });
+  ndlg.addEventListener('close', function () { nform.reset(); nerrs = {}; needShowErrors(false); $('#need-body').hidden = false; $('#need-success').hidden = true; $('#need-submit').hidden = false; var c = $('#need-cancel'); c.setAttribute('data-i18n', 'common.cancel'); c.textContent = t('common.cancel'); });
   document.addEventListener('i18n:change', function () { fillNeedForm(); needShowErrors(false); });
+  /* resume after sign-in: ?apply=<needId> reopens the apply dialog */
+  var rn = App.params.get('apply');
+  if (rn && P && App.Session.signedIn && role !== 'owner' && needOf(rn) && needOf(rn).status === 'open') {
+    try { var ru = new URL(location.href); ru.searchParams.delete('apply'); history.replaceState(null, '', ru); } catch (x) { /* file:// */ }
+    setTimeout(function () { openApply(rn, null); }, 100);
+  }
 })();

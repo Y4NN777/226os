@@ -182,6 +182,35 @@ window.MOCK = window.MOCK || {};
     answers: []
   };
 
+  /* Seeded so the demo user (Aminata, p-aminata) owns an ACCEPTED answer: the question page then shows the "openToCollab" prompt. */
+  T['q-money-decimal'] = {
+    body: L([
+      'Le franc CFA (XOF/XAF) n’a pas de sous-unité en pratique. Je stocke aujourd’hui les montants en `NUMERIC(12,2)` et je me demande si c’est utile.', '',
+      '```sql',
+      'CREATE TABLE payments (',
+      '  id bigserial PRIMARY KEY,',
+      '  amount numeric(12,2) NOT NULL,',
+      '  currency char(3) NOT NULL',
+      ');',
+      '```', '',
+      'Un `bigint` suffit-il, ou faut-il garder `NUMERIC` pour les conversions entre devises ?'
+    ]),
+    answers: [
+      { id: 'a-md-1', author: 'p-aminata', lang: 'fr', votes: 5, date: '2026-11-02', accepted: true,
+        md: L([
+          'Stockez l’**unité mineure** dans un `bigint` et gardez la devise à côté. Pour le XOF, l’unité mineure est le franc lui-même : aucun arrondi à gérer.', '',
+          '```sql',
+          'ALTER TABLE payments',
+          '  ALTER COLUMN amount TYPE bigint USING amount::bigint,',
+          '  ADD CONSTRAINT amount_positive CHECK (amount > 0);',
+          '```', '',
+          'Gardez `NUMERIC` seulement pour les taux de change, jamais pour les montants.'
+        ]), sources: [{ label: 'PostgreSQL : types numériques (page fictive)', url: 'https://example.org/postgres/numeric-types' }] },
+      { id: 'a-md-2', author: 'p-wanjiru', lang: 'en', votes: 2, date: '2026-11-03', accepted: false,
+        md: 'Store the ISO 4217 minor-unit exponent in a currency table, so adding a currency with decimals later does not need a migration.', sources: [] }
+    ]
+  };
+
   M.solve = {
     extraQuestions: extra,
     all: function () { return M.questions.concat(extra); },
@@ -191,6 +220,44 @@ window.MOCK = window.MOCK || {};
       var t = T[q.id];
       if (t) return { body: t.body, answers: t.answers.map(function (a) { return Object.assign({}, a); }), full: true };
       return { body: q.excerpt, answers: [], full: false };
+    },
+
+    /* ---- search helpers (mock only; deterministic, no AI) ---- */
+    tokens: function (str) {
+      var STOP = 'le la les un une des du de et ou en au aux pour par sur dans avec sans est sont que qui quoi comment faut il elle ce cette ces mon ma mes ton son sa ses plus pas ne se ya the a an of to in on for with without is are how do does what when why can i we you it its my this that and or be by from as at not'.split(' ');
+      return String(str || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().split(/[^a-z0-9+#.]+/).filter(function (w) { return w.length > 2 && STOP.indexOf(w) < 0; });
+    },
+    /* similar(title, tags, excludeId, n): questions whose title/excerpt/tags overlap with the typed title. Tags weigh more. */
+    similar: function (title, tags, excludeId, n) {
+      var tk = M.solve.tokens(title), tg = (tags || []).map(function (x) { return x.toLowerCase(); });
+      if (!tk.length && !tg.length) return [];
+      return M.solve.all().filter(function (q) { return q.id !== excludeId; }).map(function (q) {
+        var tt = M.solve.tokens(q.title), ex = M.solve.tokens(q.excerpt), sc = 0;
+        tk.forEach(function (w) {
+          if (tt.some(function (x) { return x === w || (w.length > 4 && x.indexOf(w) === 0) || (x.length > 4 && w.indexOf(x) === 0); })) sc += 3;
+          else if (ex.indexOf(w) > -1) sc += 1;
+          if (q.tags.indexOf(w) > -1) sc += 3;
+        });
+        tg.forEach(function (x) { if (q.tags.indexOf(x) > -1) sc += 2; });
+        return { q: q, sc: sc };
+      }).filter(function (r) { return r.sc >= 3; }).sort(function (a, b) { return b.sc - a.sc || (a.q.date < b.q.date ? 1 : -1); }).slice(0, n || 3).map(function (r) { return r.q; });
+    },
+    /* unansweredByTag(tags, excludeId, n): unanswered questions sharing at least one tag (newest first); tagMatch = the first shared tag. */
+    unansweredByTag: function (tags, excludeId, n) {
+      tags = tags || [];
+      return M.solve.all().filter(function (q) { return q.id !== excludeId && q.answers === 0; }).map(function (q) {
+        var shared = q.tags.filter(function (x) { return tags.indexOf(x) > -1; });
+        return { q: q, shared: shared };
+      }).filter(function (r) { return r.shared.length; }).sort(function (a, b) { return b.shared.length - a.shared.length || (a.q.date < b.q.date ? 1 : -1); }).slice(0, n || 3)
+        .map(function (r) { return Object.assign({}, r.q, { tagMatch: r.shared[0] }); });
+    },
+    /* resourceFor(tags): the API/tool most linked to questions that share these tags (falls back to an SDK match). */
+    resourceFor: function (tags) {
+      var count = {}; tags = tags || [];
+      M.solve.all().forEach(function (q) { if (!q.resource) return; var k = q.tags.filter(function (x) { return tags.indexOf(x) > -1; }).length; if (k) count[q.resource] = (count[q.resource] || 0) + k; });
+      var best = Object.keys(count).sort(function (a, b) { return count[b] - count[a]; })[0];
+      if (!best) { var r = (M.resources || []).filter(function (x) { return (x.sdk || []).some(function (s) { return tags.indexOf(s) > -1; }); })[0]; return r || null; }
+      return M.byId(M.resources, best);
     },
     esc: esc,
 

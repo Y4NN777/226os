@@ -13,17 +13,10 @@
   <link rel="stylesheet" href="../assets/css/components.css">
   <link rel="stylesheet" href="../assets/css/pages/identity.css">
 </head>
-<body class="app" data-active="connect" data-root="../">
+<body data-layout="app" data-active="connect" data-root="../">
   <a class="skip-link" href="#main" data-i18n="skip" data-testid="skip-link">Aller au contenu principal</a>
 
   <main id="main" tabindex="-1">
-    <nav class="breadcrumbs" data-i18n-attr="aria-label:common.breadcrumb" data-testid="breadcrumbs">
-      <ol>
-        <li><a href="../index.html" data-i18n="nav.explore" data-testid="breadcrumb-home"></a></li>
-        <li><span aria-current="page" data-i18n="nav.connect" data-testid="breadcrumb-current"></span></li>
-      </ol>
-    </nav>
-
     <header class="page-header">
       <div class="page-header-row">
         <h1 data-testid="page-h1"><span data-i18n="nav.connect" data-testid="page-h1-text"></span></h1>
@@ -40,7 +33,7 @@
       <span class="icon i-network" aria-hidden="true" data-testid="connect-soon-icon"></span>
       <h2 data-i18n="connect.soon.title" data-testid="connect-soon-title"></h2>
       <p data-i18n="connect.soon.body" data-testid="connect-soon-body"></p>
-      <a class="btn" href="../index.html" data-testid="connect-soon-back"><span class="icon i-chevron-left" aria-hidden="true" data-testid="connect-soon-back-icon"></span><span data-i18n="connect.soon.back" data-testid="connect-soon-back-label"></span></a>
+      <a class="btn" href="accueil.html" id="connect-back" data-testid="connect-soon-back"><span class="icon i-chevron-left" aria-hidden="true" data-testid="connect-soon-back-icon"></span><span data-i18n="connect.soon.back" data-testid="connect-soon-back-label"></span></a>
     </div>
 
     <section class="section" data-proto aria-labelledby="disc-h" data-testid="connect-discovery">

@@ -63,6 +63,7 @@
         </div>
         <div class="discover-chips" id="discover-chips" hidden data-testid="discover-chips"></div>
       </form>
+      <div class="discover-jit" id="discover-jit" data-testid="discover-jit"></div>
     </section>
 
     <section class="section" id="discover-oss" aria-labelledby="discover-oss-h" data-testid="discover-oss-section">
@@ -75,9 +76,10 @@
       <h2 id="discover-results-h" class="visually-hidden" data-i18n="discover.results.h" data-testid="discover-results-h"></h2>
       <div class="results-meta discover-resultsbar">
         <span role="status" id="discover-count" data-testid="discover-count"></span>
+        <span class="discover-tools"><div data-view-toggle="discover" data-view-target="#discover-list .list" data-testid="discover-view"></div>
         <span class="discover-sort"><span class="icon i-sort" aria-hidden="true" data-testid="discover-sort-icon"></span>
           <label class="visually-hidden" for="discover-sort" data-i18n="common.sort" data-testid="discover-sort-label"></label>
-          <select id="discover-sort" name="sort" form="discover-form" class="select select-quiet" data-testid="discover-sort-select"></select></span>
+          <select id="discover-sort" name="sort" form="discover-form" class="select select-quiet" data-testid="discover-sort-select"></select></span></span>
       </div>
       <div id="discover-list" data-testid="discover-list" data-state-id="discover-state"></div>
     </section>

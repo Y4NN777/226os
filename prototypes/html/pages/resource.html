@@ -41,7 +41,7 @@
           <div class="resource-actions">
             <a class="btn btn-primary link-external" id="resource-docs-link" rel="noopener noreferrer" target="_blank" data-testid="resource-docs-link"><span class="icon i-book" aria-hidden="true" data-testid="resource-docs-link-icon"></span><span data-i18n="resource.docs" data-testid="resource-docs-link-label"></span></a>
             <button type="button" class="btn btn-icon tip-top" id="resource-share" data-i18n-attr="aria-label:resource.share" data-testid="resource-share-button"><span class="icon i-link icon-main" aria-hidden="true" data-testid="resource-share-icon"></span><span class="icon i-check icon-alt" aria-hidden="true" data-testid="resource-share-icon-done"></span></button>
-            <button type="button" class="btn btn-icon tip-top" data-dialog-open="resource-report-dialog" data-i18n-attr="aria-label:resource.report.open" data-testid="resource-report-button"><span class="icon i-flag" aria-hidden="true" data-testid="resource-report-button-icon"></span></button>
+            <button type="button" class="btn btn-icon tip-top" id="resource-report-open" data-i18n-attr="aria-label:resource.report.open" data-testid="resource-report-button"><span class="icon i-flag" aria-hidden="true" data-testid="resource-report-button-icon"></span></button>
           </div>
         </div>
         <div class="resource-facts" id="resource-badges" data-testid="resource-badges"></div>
@@ -66,7 +66,7 @@
 
       <section class="section" id="resource-reviews" aria-labelledby="resource-reviews-h" tabindex="-1" data-testid="resource-reviews-section">
         <div class="section-head"><h2 id="resource-reviews-h" data-i18n="resource.rev.h" data-testid="resource-reviews-h"></h2>
-          <button type="button" class="btn" data-dialog-open="resource-review-dialog" data-testid="resource-review-open"><span class="icon i-edit" aria-hidden="true" data-testid="resource-review-open-icon"></span><span data-i18n="resource.rev.write" data-testid="resource-review-open-label"></span></button></div>
+          <button type="button" class="btn" id="resource-review-open" data-testid="resource-review-open"><span class="icon i-edit" aria-hidden="true" data-testid="resource-review-open-icon"></span><span data-i18n="resource.rev.write" data-testid="resource-review-open-label"></span></button></div>
         <div id="resource-reviews-body" data-testid="resource-reviews-body"></div>
       </section>
 
@@ -129,7 +129,7 @@
         <h2 id="resource-review-title" data-i18n="resource.rev.write" data-testid="resource-review-title"></h2>
         <button type="button" class="btn btn-ghost btn-icon" data-dialog-close data-i18n-attr="aria-label:common.close" data-testid="resource-review-close"><span class="icon i-x" aria-hidden="true" data-testid="resource-review-close-icon"></span></button>
       </div>
-      <div class="dialog-body">
+      <div class="dialog-body" id="review-body">
         <p class="text-sm text-muted" data-proto data-i18n="resource.rev.proto" data-testid="resource-review-proto"></p>
         <div class="form-summary" id="review-summary" role="alert" tabindex="-1" hidden data-testid="resource-review-summary">
           <h2 data-i18n="resource.report.summary" data-testid="resource-review-summary-title"></h2>
@@ -145,9 +145,14 @@
           <p class="error-msg" id="review-text-error" data-testid="resource-review-text-error" hidden></p>
         </div>
       </div>
+      <div class="dialog-body res-next" id="review-success" role="status" hidden data-testid="resource-review-success">
+        <div class="res-next-head"><span class="icon i-check-circle" aria-hidden="true" data-testid="resource-review-success-icon"></span><div><h3 data-i18n="resource.rev.success.title" data-testid="resource-review-success-title"></h3><p class="text-sm text-muted" data-i18n="resource.rev.success.msg" data-testid="resource-review-success-msg"></p></div></div>
+        <h3 class="h4" data-i18n="resource.rev.next" data-testid="resource-review-next-title"></h3>
+        <div id="review-next-list" data-testid="resource-review-next-list"></div>
+      </div>
       <div class="dialog-foot">
-        <button type="button" class="btn" data-dialog-close data-testid="resource-review-cancel"><span data-i18n="common.cancel" data-testid="resource-review-cancel-label"></span></button>
-        <button type="submit" class="btn btn-primary" data-testid="resource-review-submit"><span class="icon i-send" aria-hidden="true" data-testid="resource-review-submit-icon"></span><span data-i18n="resource.rev.submit" data-testid="resource-review-submit-label"></span></button>
+        <button type="button" class="btn" id="review-cancel" data-dialog-close data-testid="resource-review-cancel"><span data-i18n="common.cancel" data-testid="resource-review-cancel-label"></span></button>
+        <button type="submit" class="btn btn-primary" id="review-submit" data-testid="resource-review-submit"><span class="icon i-send" aria-hidden="true" data-testid="resource-review-submit-icon"></span><span data-i18n="resource.rev.submit" data-testid="resource-review-submit-label"></span></button>
       </div>
     </form>
   </dialog>

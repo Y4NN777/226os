@@ -27,7 +27,7 @@
     <header class="page-header">
       <div class="page-header-row">
         <h1 data-i18n="build.h1" data-testid="build-h1"></h1>
-        <button type="button" class="btn btn-primary" data-dialog-open="propose-dialog" data-testid="build-propose-button"><span class="icon i-plus" aria-hidden="true" data-testid="build-propose-button-icon"></span><span data-i18n="build.propose.open" data-testid="build-propose-button-label"></span></button>
+        <button type="button" class="btn btn-primary" id="build-propose-button" data-testid="build-propose-button"><span class="icon i-plus" aria-hidden="true" data-testid="build-propose-button-icon"></span><span data-i18n="build.propose.open" data-testid="build-propose-button-label"></span></button>
       </div>
       <p class="lede" data-i18n="build.lede" data-testid="build-lede"></p>
     </header>
@@ -62,7 +62,7 @@
     <section class="section" aria-labelledby="build-results-h" data-testid="build-results-section">
       <div class="results-meta">
         <h2 id="build-results-h" data-i18n="build.results.title" data-testid="build-results-heading"></h2>
-        <p id="build-count" role="status" data-testid="build-results-count"></p>
+        <div class="build-tools"><p id="build-count" role="status" data-testid="build-results-count"></p><div data-view-toggle="build" data-view-target="#build-list .list" data-testid="build-view"></div></div>
       </div>
       <div id="build-list"></div>
     </section>
@@ -71,17 +71,24 @@
       <form id="propose-form" novalidate data-testid="propose-form">
         <div class="dialog-head">
           <div><h2 id="propose-title" data-i18n="build.propose.title" data-testid="propose-title"></h2>
+            <p class="hint tabular-nums" id="propose-stepper" aria-live="polite" data-testid="propose-stepper"></p>
             <p class="hint" data-proto data-testid="propose-sim-hint"><span class="badge badge-sim" data-i18n="sim.badge" data-testid="propose-sim-badge"></span> <span data-i18n="build.propose.sim" data-testid="propose-sim-note"></span></p></div>
           <button type="button" class="btn btn-icon" data-dialog-close data-i18n-attr="aria-label:common.close" data-testid="propose-close"><span class="icon i-x" aria-hidden="true" data-testid="propose-close-icon"></span></button>
         </div>
-        <div class="dialog-body" id="propose-body">
-          <div id="propose-summary" class="form-summary" role="alert" tabindex="-1" hidden data-testid="propose-error-summary"><h2 data-i18n="build.form.summary" data-testid="propose-summary-title"></h2><ul class="list-reset" id="propose-summary-list" data-testid="propose-summary-list"></ul></div>
+        <div id="propose-summary" class="form-summary" role="alert" tabindex="-1" hidden data-testid="propose-error-summary"><h2 data-i18n="build.form.summary" data-testid="propose-summary-title"></h2><ul class="list-reset" id="propose-summary-list" data-testid="propose-summary-list"></ul></div>
+
+        <div class="dialog-body" id="propose-step-1" data-step="1" data-testid="propose-step-1">
           <div class="field" data-field="url">
             <label class="label" for="propose-url" data-testid="propose-url-field-label"><span data-i18n="build.propose.url" data-testid="propose-url-label"></span><span class="req" aria-hidden="true" data-testid="propose-url-required">*</span></label>
             <p class="hint" id="propose-url-hint" data-i18n="build.propose.url.hint" data-testid="propose-url-hint"></p>
-            <input id="propose-url" class="input" type="url" inputmode="url" autocomplete="off" required aria-describedby="propose-url-hint propose-url-error" placeholder="https://github.com/exemple-226/mon-projet" data-testid="propose-url-input">
+            <input id="propose-url" class="input" type="url" inputmode="url" autocomplete="off" spellcheck="false" required aria-describedby="propose-url-hint propose-url-error" placeholder="https://github.com/exemple-226/mon-projet" data-testid="propose-url-input">
             <p class="error-msg" id="propose-url-error" hidden data-testid="propose-url-error"></p>
           </div>
+        </div>
+
+        <div class="dialog-body" id="propose-step-2" data-step="2" hidden data-testid="propose-step-2">
+          <p class="build-repo" id="propose-repo" data-testid="propose-repo"></p>
+          <p class="build-prefill hint" data-testid="propose-prefill-note"><span class="icon i-sparkles" aria-hidden="true" data-testid="propose-prefill-note-icon"></span><span data-i18n="build.propose.prefill" data-testid="propose-prefill-note-text"></span></p>
           <div class="field" data-field="name">
             <label class="label" for="propose-name" data-testid="propose-name-field-label"><span data-i18n="build.propose.name" data-testid="propose-name-label"></span><span class="req" aria-hidden="true" data-testid="propose-name-required">*</span></label>
             <input id="propose-name" class="input" type="text" maxlength="60" required aria-describedby="propose-name-error" data-testid="propose-name-input">
@@ -94,12 +101,39 @@
             <p class="error-msg" id="propose-summary-error" hidden data-testid="propose-summary-error"></p>
           </div>
         </div>
-        <div class="dialog-body" id="propose-success" hidden>
-          <div class="state state-success" role="status" data-testid="propose-success"><span class="icon i-check-circle" aria-hidden="true" data-testid="propose-success-icon"></span><h3 data-i18n="build.propose.ok.title" data-testid="propose-success-title"></h3><p data-i18n="build.propose.ok.body" data-testid="propose-success-body"></p></div>
+
+        <div class="dialog-body" id="propose-step-3" data-step="3" hidden data-testid="propose-step-3">
+          <p class="text-sm text-muted" data-i18n="build.propose.needs.lede" data-testid="propose-needs-lede"></p>
+          <div class="field" data-field="need">
+            <label class="label" for="propose-need" data-testid="propose-need-label" data-i18n="build.propose.need"></label>
+            <input id="propose-need" class="input" type="text" maxlength="100" data-i18n-attr="placeholder:build.propose.need.ph" aria-describedby="propose-need-error" data-testid="propose-need-input">
+            <p class="error-msg" id="propose-need-error" hidden data-testid="propose-need-error"></p>
+          </div>
+          <fieldset class="fieldset-plain build-skillset" aria-describedby="propose-need-skills-hint" data-testid="propose-need-skills">
+            <legend class="label" data-i18n="build.propose.need.skills" data-testid="propose-need-skills-legend"></legend>
+            <p class="hint" id="propose-need-skills-hint" data-i18n="build.propose.need.skills.hint" data-testid="propose-need-skills-hint"></p>
+            <div class="filter-chips" id="propose-need-chips" data-testid="propose-need-chips"></div>
+          </fieldset>
         </div>
+
+        <div class="dialog-body" id="propose-success" hidden data-testid="propose-success-wrap">
+          <div class="build-done" role="status" data-testid="propose-success">
+            <span class="icon i-check-circle" aria-hidden="true" data-testid="propose-success-icon"></span>
+            <h3 data-i18n="build.propose.ok.title" data-testid="propose-success-title"></h3>
+            <p class="text-sm text-muted" id="propose-success-body" data-testid="propose-success-body"></p>
+          </div>
+          <div class="build-share" data-testid="propose-share">
+            <span class="icon i-link" aria-hidden="true" data-testid="propose-share-icon"></span>
+            <input class="input" id="propose-share-url" type="text" readonly aria-label="" data-i18n-attr="aria-label:build.propose.share" data-testid="propose-share-input">
+            <button type="button" class="btn btn-sm" id="propose-share-copy" data-testid="propose-share-copy"><span class="icon i-copy" aria-hidden="true" data-testid="propose-share-copy-icon"></span><span data-i18n="build.propose.share.copy" data-testid="propose-share-copy-label"></span></button>
+          </div>
+          <div id="propose-similar" data-testid="propose-similar"></div>
+        </div>
+
         <div class="dialog-foot">
+          <button type="button" class="btn btn-ghost" id="propose-back" hidden data-testid="propose-back"><span class="icon i-chevron-left" aria-hidden="true" data-testid="propose-back-icon"></span><span data-i18n="build.propose.back" data-testid="propose-back-label"></span></button>
           <button type="button" class="btn" id="propose-cancel" data-dialog-close data-i18n="common.cancel" data-testid="propose-cancel"></button>
-          <button type="submit" class="btn btn-primary" id="propose-submit" data-testid="propose-submit"><span data-i18n="build.propose.submit" data-testid="propose-submit-label"></span></button>
+          <button type="submit" class="btn btn-primary" id="propose-submit" data-testid="propose-submit"><span data-i18n="build.propose.next" data-testid="propose-submit-label"></span></button>
         </div>
       </form>
     </dialog>

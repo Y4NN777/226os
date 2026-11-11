@@ -12,7 +12,7 @@
 
   /* ---------- Routes (relative to data-root). Integration: when the app home becomes pages/accueil.html change `home` only. ---------- */
   var CFG = window.AppConfig = {
-    landing: 'index.html', home: 'index.html',
+    landing: 'index.html', home: 'pages/accueil.html', search: 'pages/recherche.html', learn: 'pages/apprendre.html',
     signin: 'pages/connexion.html', signup: 'pages/inscription.html',
     profile: 'pages/profile.html', settings: 'pages/parametres.html', ask: 'pages/solve.html#ask',
     questions: 'pages/solve.html', catalogue: 'pages/discover.html', projects: 'pages/build.html',
@@ -82,6 +82,7 @@
     requireAuth: function (nextUrl) {
       if (Session.signedIn) return true;
       var n = safeNext(nextUrl || location.href) || location.href;
+      try { var u = new URL(n, location.href); u.searchParams.delete('session'); n = u.href; } catch (e) {}   /* never carry the QA session override back */
       location.href = R + CFG.signin + '?next=' + encodeURIComponent(n); return false;
     },
     /* returnTo(fallback): after sign-in, go back to ?next= (validated) or to fallback (default: the app home). Returns the target URL. */
@@ -108,6 +109,7 @@
     { id: 'solve', icon: 'help', href: 'pages/solve.html' },
     { id: 'discover', icon: 'compass', href: 'pages/discover.html' },
     { id: 'build', icon: 'hammer', href: 'pages/build.html' },
+    { id: 'learn', icon: 'book', href: 'pages/apprendre.html' },
     { id: 'identity', icon: 'users', href: 'pages/profile.html' },
     { id: 'connect', icon: 'network', href: 'pages/connect.html', st: 'preview' }
   ];
@@ -173,7 +175,7 @@
     var main = DOMAINS.filter(function (x) { return x.id !== 'explore'; });
     html =
       '<header class="app-header" data-testid="app-header">' + brand() + '<span class="header-spacer"></span>' +
-      '<form class="header-search" role="search" action="' + R + 'index.html" data-testid="header-search-form">' +
+      '<form class="header-search" role="search" action="' + R + CFG.search + '" data-testid="header-search-form">' +
       '<label class="visually-hidden" for="global-q" ' + t('header.search.label') + ' data-testid="header-search-label"></label>' +
       '<div class="search-field">' + icon('search', 'header-search-icon') + '<input id="global-q" class="input" type="search" name="q" autocomplete="off" data-testid="header-search-input" data-i18n-attr="placeholder:header.search.placeholder"></div></form>' +
       '<div class="header-actions">' +
@@ -213,6 +215,11 @@
   var sk = d.querySelector('.skip-link'); if (sk) b.insertBefore(sk, b.firstChild);
   b.insertAdjacentHTML('beforeend', tail);
 
+  d.addEventListener('session:change', function (e) {   /* keep header identity in sync after Settings edits */
+    var u = e.detail && e.detail.user; if (!u) return;
+    var n = d.querySelector('[data-testid="account-menu-user-name"]'), h = d.querySelector('[data-testid="account-menu-user-handle"]'), a = d.querySelector('[data-testid="account-menu-avatar"]');
+    if (n) n.textContent = u.name || ''; if (h) h.textContent = '@' + (u.username || ''); if (a) { a.textContent = ini(u.name); a.className = a.className.replace(/tone-\d/, 'tone-' + tone(u.name)); }
+  });
   d.addEventListener('click', function (e) {
     if (e.target.closest && e.target.closest('[data-action="signout"]')) { Session.signOut(); location.href = R + CFG.landing + (OV ? '?session=out' : ''); }
   });

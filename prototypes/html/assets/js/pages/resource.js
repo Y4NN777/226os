@@ -3,7 +3,7 @@ I18N.register({
   fr: {
     'resource.title': 'Fiche API — 226os', 'resource.docs': 'Documentation officielle', 'resource.docs.ext': '(nouvel onglet)',
     'resource.tabs.label': 'Sections de la fiche', 'resource.tab.overview': 'Aperçu', 'resource.tab.integration': 'Intégration', 'resource.tab.discussions': 'Discussions',
-    'resource.share': 'Copier le lien', 'resource.noReviews': 'Aucun avis',
+    'resource.share': 'Copier le lien', 'resource.rev.next': 'Et maintenant ? Des projets open source utilisent cette API', 'resource.rev.next.none': 'Posez une question sur cette API : la communauté vous répondra.', 'resource.rev.next.ask': 'Poser une question', 'resource.rev.close': 'Fermer', 'resource.disc.projNone.cta': 'Proposer un projet', 'resource.pit.why': 'À vérifier avant de coder', 'resource.next.open.one': '1 besoin ouvert', 'resource.next.open.other': '{n} besoins ouverts', 'resource.noReviews': 'Aucun avis',
     'resource.rev.h': 'Avis', 'resource.rev.write': 'Écrire un avis', 'resource.rev.sort': 'Trier les avis', 'resource.rev.sort.recent': 'Plus récents', 'resource.rev.sort.helpful': 'Plus utiles',
     'resource.rev.none': 'Aucun avis pour l’instant. Partagez votre retour d’intégration.',
     'resource.rev.helpful': 'Utile ({n})', 'resource.rev.helpfulLabel': 'Marquer cet avis comme utile ({n})', 'resource.rev.you': 'Vous', 'resource.rev.youInitial': 'V',
@@ -46,7 +46,7 @@ I18N.register({
   en: {
     'resource.title': 'API listing — 226os', 'resource.docs': 'Official documentation', 'resource.docs.ext': '(opens in a new tab)',
     'resource.tabs.label': 'Listing sections', 'resource.tab.overview': 'Overview', 'resource.tab.integration': 'Integration', 'resource.tab.discussions': 'Discussions',
-    'resource.share': 'Copy link', 'resource.noReviews': 'No reviews',
+    'resource.share': 'Copy link', 'resource.rev.next': 'What next? Open-source projects use this API', 'resource.rev.next.none': 'Ask a question about this API: the community will answer.', 'resource.rev.next.ask': 'Ask a question', 'resource.rev.close': 'Close', 'resource.disc.projNone.cta': 'Propose a project', 'resource.pit.why': 'Check before you code', 'resource.next.open.one': '1 open need', 'resource.next.open.other': '{n} open needs', 'resource.noReviews': 'No reviews',
     'resource.rev.h': 'Reviews', 'resource.rev.write': 'Write a review', 'resource.rev.sort': 'Sort reviews', 'resource.rev.sort.recent': 'Most recent', 'resource.rev.sort.helpful': 'Most helpful',
     'resource.rev.none': 'No reviews yet. Share your integration experience to help other developers.',
     'resource.rev.helpful': 'Helpful · {n}', 'resource.rev.helpfulLabel': 'Mark this review as helpful ({n})', 'resource.rev.you': 'You', 'resource.rev.youInitial': 'Y',
@@ -123,7 +123,7 @@ I18N.register({
   function overview() {
     var s = D.status(r), c = D.cat(r.category);
     var h = '<div class="stack-lg">';
-    h += '<section aria-labelledby="ov-cov-h" data-testid="resource-coverage-section"><h2 id="ov-cov-h" class="h3" data-testid="resource-coverage-h">' + esc(t('resource.ov.coverage')) + '</h2>' +
+    h += '<section class="card res-card" aria-labelledby="ov-cov-h" data-testid="resource-coverage-section"><h2 id="ov-cov-h" class="h3" data-testid="resource-coverage-h">' + esc(t('resource.ov.coverage')) + '</h2>' +
       kv([['resource-countries', t('resource.ov.countries'), '<span class="cluster">' + r.countries.map(function (x) { return cc(x, 'resource-country-' + x.toLowerCase()) + ' <span class="text-sm" data-testid="resource-country-name-' + x.toLowerCase() + '">' + esc(M.countryName(x)) + '</span>'; }).join('') + '</span>'],
         ['resource-category', t('resource.ov.category'), esc(lbl(c))],
         ['resource-type', t('resource.ov.type'), esc(t('resource.type.' + r.type))],
@@ -134,22 +134,22 @@ I18N.register({
 
     h += '<section data-proto aria-labelledby="ov-status-h" data-testid="resource-status-section"><h2 id="ov-status-h" class="visually-hidden" data-testid="resource-status-h">' + esc(t('resource.ov.status')) + '</h2>' +
       '<div class="callout' + (s === 'verified' ? ' callout-success' : ' callout-warn') + '" data-testid="resource-status-callout"><span class="icon icon-lead i-' + STATUS[s].icon + '" aria-hidden="true" data-testid="resource-status-callout-icon"></span><div><strong data-testid="resource-status-title">' + esc(t('resource.status.' + s)) + '</strong><span data-testid="resource-status-why">' + esc(t('resource.status.' + s + '.why')) + '</span></div></div></section>';
-    h += '<section aria-labelledby="ov-src-h" data-testid="resource-sources-section"><h2 id="ov-src-h" class="h3" data-testid="resource-sources-h">' + esc(t('resource.src.h')) + '</h2><p class="text-sm text-muted" data-proto data-testid="resource-sources-lede">' + esc(t('resource.src.lede')) + '</p>' +
+    h += '<section class="card res-card" aria-labelledby="ov-src-h" data-testid="resource-sources-section"><h2 id="ov-src-h" class="h3" data-testid="resource-sources-h">' + esc(t('resource.src.h')) + '</h2><p class="text-sm text-muted" data-proto data-testid="resource-sources-lede">' + esc(t('resource.src.lede')) + '</p>' +
       '<div class="table-wrap" tabindex="0" role="region" aria-label="' + esc(t('resource.src.region')) + '" data-testid="resource-sources-region"><table class="table" data-testid="resource-sources-table"><caption class="visually-hidden" data-testid="resource-sources-caption">' + esc(t('resource.src.caption')) + '</caption>' +
       '<thead><tr><th scope="col" data-testid="resource-sources-col-source">' + esc(t('resource.src.col.source')) + '</th><th scope="col" data-testid="resource-sources-col-kind">' + esc(t('resource.src.col.kind')) + '</th><th scope="col" data-testid="resource-sources-col-published">' + esc(t('resource.src.col.published')) + '</th><th scope="col" data-testid="resource-sources-col-checked">' + esc(t('resource.src.col.checked')) + '</th></tr></thead><tbody>' +
       r.sources.map(function (x, i) { var k = D.kinds[x.kind], n = x.id || (i + 1), href = x.internal ? '../' + x.url : x.url;
         return '<tr data-testid="resource-source-row-' + n + '"><th scope="row" data-testid="resource-source-cell-' + n + '"><a href="' + esc(href) + '"' + (x.internal ? '' : ' class="link-external" rel="noopener noreferrer"') + ' lang="' + x.lang + '" data-user-content data-testid="resource-source-link-' + n + '">' + esc(x.title) + '</a> ' + langBadge(x.lang, 'resource-source-lang-' + n) + '</th>' +
           '<td data-testid="resource-source-kind-cell-' + n + '"><span class="badge ' + k.cls + '" data-testid="resource-source-kind-' + n + '"><span class="icon i-' + k.icon + '" aria-hidden="true" data-testid="resource-source-kind-icon-' + n + '"></span>' + esc(lbl(k)) + '</span></td><td data-testid="resource-source-published-' + n + '">' + date(x.published, 'resource-source-published-date-' + n) + '</td><td data-testid="resource-source-checked-' + n + '">' + date(x.checked, 'resource-source-checked-date-' + n) + '</td></tr>'; }).join('') + '</tbody></table></div></section>';
-    h += '<section aria-labelledby="ov-pit-h" data-testid="resource-pitfalls-section"><h2 id="ov-pit-h" class="h3" data-testid="resource-pitfalls-h">' + esc(t('resource.pit.h')) + '</h2>' +
-      (r.pitfalls.length ? '<ul class="stack-sm list-reset" data-testid="resource-pitfalls">' + r.pitfalls.map(function (x, i) { return '<li data-testid="resource-pitfall-' + (i + 1) + '"><span class="icon i-alert" aria-hidden="true" data-testid="resource-pitfall-icon-' + (i + 1) + '"></span> <span lang="' + x.lang + '" data-user-content data-testid="resource-pitfall-text-' + (i + 1) + '">' + esc(x.text) + '</span> ' + langBadge(x.lang, 'resource-pitfall-lang-' + (i + 1)) + '</li>'; }).join('') + '</ul>' : '<p class="text-muted" data-testid="resource-pitfalls-none">' + esc(t('resource.pit.none')) + '</p>') + '</section>';
+    h += '<section class="card res-card" aria-labelledby="ov-pit-h" data-testid="resource-pitfalls-section"><h2 id="ov-pit-h" class="h3" data-testid="resource-pitfalls-h">' + esc(t('resource.pit.h')) + '</h2>' +
+      (r.pitfalls.length ? '<ul class="res-pits list-reset" data-testid="resource-pitfalls">' + r.pitfalls.map(function (x, i) { return '<li data-testid="resource-pitfall-' + (i + 1) + '"><span class="icon i-alert" aria-hidden="true" data-testid="resource-pitfall-icon-' + (i + 1) + '"></span> <span lang="' + x.lang + '" data-user-content data-testid="resource-pitfall-text-' + (i + 1) + '">' + esc(x.text) + '</span> ' + langBadge(x.lang, 'resource-pitfall-lang-' + (i + 1)) + '</li>'; }).join('') + '</ul>' : '<p class="text-muted" data-testid="resource-pitfalls-none">' + esc(t('resource.pit.none')) + '</p>') + '</section>';
     return h + '</div>';
   }
 
   function integration() {
     var code = r.snippet, h = '<div class="stack-lg">';
-    h += '<section aria-labelledby="int-notes-h" data-testid="resource-notes-section"><h2 id="int-notes-h" class="h3" data-testid="resource-notes-h">' + esc(t('resource.int.h')) + ' ' + langBadge(r.notesLang, 'resource-notes-lang') + '</h2>' +
+    h += '<section class="card res-card" aria-labelledby="int-notes-h" data-testid="resource-notes-section"><h2 id="int-notes-h" class="h3" data-testid="resource-notes-h">' + esc(t('resource.int.h')) + ' ' + langBadge(r.notesLang, 'resource-notes-lang') + '</h2>' +
       '<div class="prose" lang="' + r.notesLang + '" data-user-content data-testid="resource-notes">' + md(r.notes) + '</div></section>';
-    h += '<section aria-labelledby="int-code-h" data-testid="resource-code-section"><h2 id="int-code-h" class="h3" data-testid="resource-code-h">' + esc(t('resource.int.code')) + '</h2>' +
+    h += '<section class="card res-card" aria-labelledby="int-code-h" data-testid="resource-code-section"><h2 id="int-code-h" class="h3" data-testid="resource-code-h">' + esc(t('resource.int.code')) + '</h2>' +
       '<div class="code-block" data-testid="resource-code-block"><div class="code-head"><span data-testid="resource-code-lang">' + LANGNAME[code.lang] + '</span>' +
       '<button type="button" class="btn btn-icon btn-sm" data-copy="#resource-code" aria-label="' + esc(t('common.copy')) + '" data-testid="resource-code-copy"><span class="icon i-copy icon-main" aria-hidden="true" data-testid="resource-code-copy-icon"></span><span class="icon i-check icon-alt" aria-hidden="true" data-testid="resource-code-copy-icon-done"></span></button></div>' +
       '<pre tabindex="0" aria-label="' + esc(t('resource.int.codeLabel', { l: LANGNAME[code.lang] })) + '" data-testid="resource-code-pre"><code id="resource-code" data-testid="resource-code-text">' + hl(code.code) + '</code></pre></div>' +
@@ -159,7 +159,7 @@ I18N.register({
 
   function discussions() {
     var qs = (r.questions || []).map(function (q) { return M.byId(M.questions, q); }).filter(Boolean), ps = [];
-    var h = '<div class="stack-lg"><section aria-labelledby="disc-q-h" data-testid="resource-questions-section"><div class="section-head"><h2 id="disc-q-h" class="h3" data-testid="resource-questions-h">' + esc(t('resource.disc.h')) + '</h2>' +
+    var h = '<div class="stack-lg"><section class="card res-card" aria-labelledby="disc-q-h" data-testid="resource-questions-section"><div class="section-head"><h2 id="disc-q-h" class="h3" data-testid="resource-questions-h">' + esc(t('resource.disc.h')) + '</h2>' +
       '<a class="btn btn-sm" href="solve.html#ask" data-testid="resource-ask-link"><span class="icon i-plus" aria-hidden="true" data-testid="resource-ask-link-icon"></span><span data-testid="resource-ask-link-label">' + esc(t('resource.disc.ask')) + '</span></a></div>';
     h += qs.length ? '<ul class="list list-reset" data-testid="resource-questions">' + qs.map(function (q) { var n = q.id;
       return '<li class="row" data-testid="resource-question-row-' + n + '"><div class="row-lead"><div class="vote" role="img" data-testid="resource-question-vote-' + n + '" aria-label="' + esc(t('resource.disc.votes', { n: q.votes })) + '"><span class="vote-count" data-testid="resource-question-votes-' + n + '">' + q.votes + '</span></div></div>' +
@@ -175,13 +175,20 @@ I18N.register({
   function relatedProjects() {
     var ids = (r.projects || []).slice(); M.build.projects().forEach(function (p) { if (p.resource === r.id && ids.indexOf(p.id) < 0) ids.push(p.id); });
     var ps = ids.map(function (i) { return M.build.byId(i); }).filter(Boolean);
-    if (!ps.length) return '<p class="text-muted" data-testid="resource-projects-none">' + esc(t('resource.disc.projNone')) + '</p>';
+    if (!ps.length) return '<div class="state" data-testid="resource-projects-none"><span class="icon i-git-branch" aria-hidden="true" data-testid="resource-projects-none-icon"></span><p data-testid="resource-projects-none-text">' + esc(t('resource.disc.projNone')) + '</p><div class="state-actions"><a class="btn btn-sm" href="build.html#propose" data-testid="resource-projects-none-cta">' + esc(t('resource.disc.projNone.cta')) + '</a></div></div>';
     return '<ul class="discover-oss list-reset" data-testid="resource-projects">' + ps.map(function (p) { var n = p.id;
       return '<li data-testid="resource-project-item-' + n + '"><a class="card discover-oss-card" href="project.html?id=' + n + '" data-testid="resource-project-link-' + n + '">' + A.thumb(p.name, { size: 'md', testid: 'resource-project-thumb-' + n }) +
         '<span class="discover-oss-body"><strong data-testid="resource-project-name-' + n + '">' + esc(p.name) + '</strong><span class="text-sm text-muted discover-oss-sum" lang="' + p.lang + '" data-user-content data-testid="resource-project-summary-' + n + '">' + esc(p.summary) + '</span>' +
         '<span class="mono text-xs text-muted" data-testid="resource-project-license-' + n + '">' + esc(p.license) + '</span></span></a></li>'; }).join('') + '</ul>';
   }
 
+  function relatedIds() { var ids = (r.projects || []).slice(); M.build.projects().forEach(function (p) { if (p.resource === r.id && ids.indexOf(p.id) < 0) ids.push(p.id); }); return ids.map(function (i) { return M.build.byId(i); }).filter(Boolean); }
+  function nextList() {
+    var ps = relatedIds();
+    if (!ps.length) return '<p class="text-sm text-muted" data-testid="resource-next-none">' + esc(t('resource.rev.next.none')) + '</p><a class="btn btn-sm" href="solve.html#ask" data-testid="resource-next-ask"><span class="icon i-plus" aria-hidden="true" data-testid="resource-next-ask-icon"></span>' + esc(t('resource.rev.next.ask')) + '</a>';
+    return '<ul class="res-next-list list-reset" data-testid="resource-next-list">' + ps.map(function (p) { var n = p.id;
+      return '<li><a class="res-next-item" href="project.html?id=' + n + '" data-testid="resource-next-' + n + '">' + A.thumb(p.name, { size: 'sm', testid: 'resource-next-thumb-' + n }) + '<span class="res-next-body"><strong data-testid="resource-next-name-' + n + '">' + esc(p.name) + '</strong><span class="text-sm text-muted" data-testid="resource-next-open-' + n + '">' + esc(p.openCount === 1 ? t('resource.next.open.one') : t('resource.next.open.other', { n: p.openCount })) + '</span></span><span class="icon i-chevron-right" aria-hidden="true" data-testid="resource-next-chev-' + n + '"></span></a></li>'; }).join('') + '</ul>';
+  }
   function linked() {
     var a = [], n = 0;
     (r.questions || []).forEach(function (q) { var x = M.byId(M.questions, q); if (x) a.push('<a class="linked-item" href="question.html?id=' + x.id + '" data-testid="resource-linked-' + x.id + '"><span class="kind" data-testid="resource-linked-kind-' + x.id + '"><span class="icon i-help" aria-hidden="true" data-testid="resource-linked-icon-' + x.id + '"></span>' + esc(t('resource.linked.question')) + '</span><strong lang="' + x.lang + '" data-user-content data-testid="resource-linked-title-' + x.id + '">' + esc(x.title) + '</strong></a>'); });
@@ -197,8 +204,8 @@ I18N.register({
     $('#resource-provider').innerHTML = provider(r);
     var link = $('#resource-docs-link'); link.href = r.docs; link.setAttribute('aria-label', t('resource.docs') + ' ' + t('resource.docs.ext'));
     var st = D.stats(r.id, mine);
-    $('#resource-badges').innerHTML = '<span class="badge ' + o.cls + '" data-testid="resource-status-badge"><span class="icon i-' + o.icon + '" aria-hidden="true" data-testid="resource-status-badge-icon"></span>' + esc(t('resource.status.' + s)) + '</span>' +
-      '<span data-testid="resource-verified-date">' + esc(t('resource.verifiedOn')) + ' ' + date(r.verifiedAt, 'resource-verified-date-value') + '</span>' +
+    $('#resource-badges').innerHTML = A.statePill(s, { testid: 'resource-status-badge' }) +
+      (s === 'unverified' ? '' : '<span class="tabular-nums" data-testid="resource-verified-date">' + esc(t('resource.verifiedOn')) + ' ' + date(r.verifiedAt, 'resource-verified-date-value') + '</span>') +
       '<span class="badge badge-sim" data-proto data-testid="resource-sim-badge">' + esc(t('resource.fictional')) + '</span>' +
       (st ? '<a href="#resource-reviews" data-testid="resource-rating-link">' + A.rating(st.avg, { count: st.n, testid: 'resource-rating' }) + '</a>' : '<a href="#resource-reviews" data-testid="resource-rating-none">' + esc(t('resource.noReviews')) + '</a>');
     var sm = $('#resource-summary'); sm.textContent = r.summary; sm.lang = r.summaryLang;
@@ -274,17 +281,25 @@ I18N.register({
     if (bad.length) { $('#review-summary').focus(); return; }
     mine.push({ id: 'mine-' + (mine.length + 1), mine: true, rating: +rform.elements.rating.value, date: D.today, lang: I18N.lang, text: $('#review-text').value.trim(), helpful: 0 });
     rform.reset(); rSummary([]); Object.keys(RF).forEach(function (k) { rErr(k, false); });
-    if (rdlg.close) rdlg.close();
     sortMode = 'recent'; head(); reviews();
-    A.Toast.show({ kind: 'success', title: t('resource.rev.success.title'), msg: t('resource.rev.success.msg'), ttl: 5000 });
+    $('#review-body').hidden = true; $('#review-submit').hidden = true; $('#review-success').hidden = false; $('#review-next-list').innerHTML = nextList();
+    var cb = $('#review-cancel'); cb.textContent = t('resource.rev.close'); cb.removeAttribute('data-i18n'); cb.focus();
   });
   $('#review-summary').addEventListener('click', function (e) { var a = e.target.closest('a[data-field]'); if (a) { e.preventDefault(); RF[a.getAttribute('data-field')].focus().focus(); } });
-  rdlg.addEventListener('close', function () { rSummary([]); Object.keys(RF).forEach(function (k) { rErr(k, false); }); });
+  rdlg.addEventListener('close', function () { $('#review-body').hidden = false; $('#review-submit').hidden = false; $('#review-success').hidden = true; var cb = $('#review-cancel'); cb.innerHTML = '<span data-i18n="common.cancel" data-testid="resource-review-cancel-label"></span>'; I18N.apply(cb); rSummary([]); Object.keys(RF).forEach(function (k) { rErr(k, false); }); });
   document.addEventListener('i18n:change', function () {
     Object.keys(RF).forEach(function (k) { var m = $(RF[k].err); if (!m.hidden) m.lastElementChild.textContent = t(RF[k].key); });
     var bad = Object.keys(RF).filter(function (k) { return $(RF[k].err).hidden === false; }); if (!$('#review-summary').hidden) rSummary(bad);
   });
   if (!r) { var wb = document.querySelector('[data-testid="resource-review-open"]'); if (wb) wb.disabled = true; }
+  /* gate the action, not the page: sign in, then come back and resume (?review=1 / ?report=1) */
+  function nextFor(k) { var u = new URL(location.href); u.hash = ''; u.searchParams.set(k, '1'); return u.href; }
+  function gated(btnSel, dlgId, k) {
+    var b = $(btnSel); if (!b) return;
+    b.addEventListener('click', function () { if (A.Session.requireAuth(nextFor(k))) A.Dialog.open(dlgId, b); });
+    if (r && P.get(k) === '1' && A.Session.signedIn) { try { var u = new URL(location.href); u.searchParams.delete(k); history.replaceState(null, '', u); } catch (x) { /* file:// */ } setTimeout(function () { A.Dialog.open(dlgId, b); }, 50); }
+  }
+  gated('#resource-review-open', 'resource-review-dialog', 'review'); gated('#resource-report-open', 'resource-report-dialog', 'report');
 
   /* ---- report dialog: validation + simulated success. Form is never rebuilt on language change. ---- */
   var form = $('#resource-report-form'), dlg = $('#resource-report-dialog');

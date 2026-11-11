@@ -3,7 +3,13 @@
    Counts/metrics are deliberately absent (no reputation, no endorsements). */
 window.MOCK = window.MOCK || {};
 window.MOCK.connect = {
-  selfId: 'p-aminata',                       /* "own profile" when pages/profile.html has no ?id= */
+  selfId: 'p-aminata',                       /* demo identity behind the simulated session user */
+  /* The fictional person record that matches the signed-in session user (same name or demo-<username> handle), or null for a brand-new member. */
+  selfPerson: function (u) {
+    if (!u) return null;
+    var P = window.MOCK.people || [];
+    return P.filter(function (p) { return p.name === u.name || p.handle === 'demo-' + u.username; })[0] || null;
+  },
   /* Per-field visibility (AUTHORIZATION_MATRIX: GET /profiles/{id} = visibility-dependent; email never public). */
   visibility: { name: 'public', handle: 'public', country: 'public', langs: 'public', skills: 'public', bio: 'public', github: 'public', openTo: 'public', since: 'public', city: 'members', email: 'self' },
   profiles: {
