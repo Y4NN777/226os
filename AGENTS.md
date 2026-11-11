@@ -11,6 +11,7 @@ Construire 226OS conformément à `docs/PRD.md`, aux contraintes de `docs/SPEC.m
 3. `docs/architecture/ARCHITECTURE.md` + ADR acceptés — frontières et choix validés.
 4. `docs/RULES.md`, `docs/TEST.md`, `docs/DEV.md`, `docs/SHIP.md` — normes et gates.
 5. `docs/research/REFERENCES.md` — références et contraintes de réutilisation.
+6. `docs/GIT_WORKFLOW.md` — branches, PRs, preview, staging et production.
 
 ## Modèle d'orchestration : Goal -> Plan -> Delegation -> Evidence -> Gates -> Decision
 1. **Goal framing (orchestrator):** reformuler objectif, user story, AC, non-objectifs, risques, dépendances, autorisations et gates requis. Signaler les informations inconnues ; ne jamais les combler par fiction.

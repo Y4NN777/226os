@@ -1,0 +1,52 @@
+name: Branch policy
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  push:
+    branches: [develop, staging, main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate branch promotion
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate branch names and PR targets
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          HEAD_REF: ${{ github.head_ref }}
+          BASE_REF: ${{ github.base_ref }}
+          REF_NAME: ${{ github.ref_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "$EVENT_NAME" == "pull_request" ]]; then
+            if [[ "$BASE_REF" == "develop" ]]; then
+              [[ "$HEAD_REF" =~ ^(feature|fix|hotfix|refactor|test|docs|chore)/[a-z0-9-]+/[a-z0-9-]+$ ]] || {
+                echo "Invalid work branch: $HEAD_REF"
+                exit 1
+              }
+            elif [[ "$BASE_REF" == "staging" ]]; then
+              [[ "$HEAD_REF" == "develop" || "$HEAD_REF" =~ ^hotfix/[a-z0-9-]+/[a-z0-9-]+$ ]] || {
+                echo "Only develop or a hotfix branch may target staging."
+                exit 1
+              }
+            elif [[ "$BASE_REF" == "main" ]]; then
+              [[ "$HEAD_REF" == "staging" || "$HEAD_REF" =~ ^hotfix/[a-z0-9-]+/[a-z0-9-]+$ ]] || {
+                echo "Only staging or a hotfix branch may target main."
+                exit 1
+              }
+            else
+              echo "Unsupported PR target: $BASE_REF"
+              exit 1
+            fi
+          else
+            [[ "$REF_NAME" == "develop" || "$REF_NAME" == "staging" || "$REF_NAME" == "main" ]] || {
+              echo "This workflow only validates protected branch pushes."
+              exit 1
+            }
+          fi

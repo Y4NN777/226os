@@ -10,11 +10,15 @@
 
 ## 2. Pipeline livraison
 ```text
-PR -> G0/G1/G2/G3/G4/G5/G6 -> human review -> merge
-  -> build immutable images (commit SHA + digest) -> staging smoke
-  -> human approval production -> DB backup -> migrations
-  -> deploy digest exact -> smoke E2E -> monitor -> close G7
+work branch -> PR develop -> develop preview
+  -> release PR staging -> staging smoke
+  -> production PR main -> human approval -> DB backup -> migrations
+  -> deploy exact main SHA -> production smoke -> monitor -> close G7
 ```
+- Work branches follow [`docs/GIT_WORKFLOW.md`](GIT_WORKFLOW.md) and use `feature/<domain>/<name>`, `fix/<domain>/<name>`, or another approved semantic prefix.
+- `develop` is the shared preview environment; `staging` is the release-candidate environment; `main` is production.
+- Every promotion is a pull request. Direct pushes and unreviewed branch promotion are prohibited after branch protection is configured.
+- A staging or production deployment must use the exact commit SHA tested at that environment; never rebuild a different source revision during promotion.
 - GitHub Actions avec `permissions` minimales et OIDC si un fournisseur le permet ; ne jamais exposer SSH keys ou tokens aux PR de forks.
 - Conditions d'environnement `production` et approval humaine ; pas d'auto-déploiement aveugle depuis PR.
 
