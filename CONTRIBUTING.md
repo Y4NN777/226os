@@ -5,8 +5,17 @@
 ## Before opening a change
 
 - Read `AGENTS.md`, `docs/PRD.md`, `docs/SPEC.md`, `docs/RULES.md`, and the applicable Spec Kit artifact.
-- Configure the repository Git identity before committing: `git config --local user.name "Y4NN77"` and `git config --local user.email "axel.studiesmail@gmail.com"`.
-- Use the exact project identity `Y4NN77 <axel.studiesmail@gmail.com>` for authored and committed project changes. Historical aliases are normalized through `.mailmap`; do not introduce a new author alias without review.
+- Before the first contribution, provide the maintainer with this identity record and wait for confirmation:
+
+```yaml
+github_username: "<your GitHub username>"
+git_user_name: "<your approved commit name>"
+git_user_email: "<your approved commit email>"
+```
+
+- Do not use another contributor's identity, a shared account, or an agent identity. The maintainer may verify that the commit email is associated with the contributor's GitHub account or approved project identity.
+- Configure the repository Git identity before committing with the contributor's reviewed project identity. For the repository owner, use `git config --local user.name "Y4NN77"` and `git config --local user.email "axel.studiesmail@gmail.com"`; other contributors must use their own approved identity. Historical aliases are normalized through `.mailmap`; do not introduce a new author alias without review.
+- Each human contributor remains the author of their own commits. Contributors and agents must not add `Co-authored-by` trailers for AI systems or other agents; record AI assistance in `AI_USAGE.md` when applicable.
 - Identify the stable story/task ID, scope, owner, reviewer, allowed paths, acceptance examples, threat cases, and required gates.
 - Follow the branch and promotion rules in [`docs/GIT_WORKFLOW.md`](docs/GIT_WORKFLOW.md): work branch -> PR `develop` (staging/preview) -> PR `main` (production).
 - Name branches `feature|fix|hotfix|refactor|test|docs|chore/<domain>/<short-name>`; use a real domain such as `solve`, `discover`, `build`, `identity`, `access`, `platform`, `ops`, or `docs`.
