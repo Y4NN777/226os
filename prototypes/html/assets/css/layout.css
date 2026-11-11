@@ -176,3 +176,16 @@ body.layout-account .page { width: 100%; max-width: calc(400px + var(--gutter) *
   .app-header .header-actions .btn-icon { width: 40px; min-width: 40px; }
 }
 .pub-header .brand, .account-top .brand { min-width: 0; }
+/* Header must never push actions off-screen: the search shrinks first, then the sign-in label folds. */
+.header-search { min-width: 0; }
+.header-search input, .header-search form { min-width: 0; }
+.header-actions { flex-shrink: 0; }
+@media (min-width: 768px) and (max-width: 1099px) { .header-search { flex-basis: 260px; } }
+/* Brand logo image (light/dark variants follow the theme) */
+.brand-logo { display: block; height: 32px; width: auto; }
+.brand-logo-dark { display: none; }
+:root[data-theme="dark"] .brand-logo-light { display: none; }
+:root[data-theme="dark"] .brand-logo-dark { display: block; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .brand-logo-light { display: none; } :root:not([data-theme="light"]) .brand-logo-dark { display: block; } }
+.brand { align-items: center; }
+.pub-footer-about .brand-logo { height: 28px; }

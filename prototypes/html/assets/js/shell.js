@@ -158,7 +158,14 @@
     return '<a class="btn btn-ghost' + (sm ? ' btn-sm' : '') + '" href="' + R + CFG.signin + '" data-testid="header-signin"><span ' + t('header.signin') + ' data-testid="header-signin-label"></span></a>' +
       '<a class="btn btn-primary' + (sm ? ' btn-sm' : '') + '" href="' + R + CFG.signup + '" data-testid="header-signup"><span ' + t('header.signup') + ' data-testid="header-signup-label"></span></a>';
   }
-  function brand(id) { return '<a class="brand" href="' + R + CFG.landing + '" data-testid="' + (id || 'brand') + '" aria-label="226os"><span class="brand-mark" data-testid="' + (id || 'brand') + '-mark">226</span><span class="brand-os" data-testid="' + (id || 'brand') + '-os">os</span></a>'; }
+  /* Brand: concept D logo (raster, AI-generated, see AI_USAGE.md). Light and dark variants swap with the theme. */
+  function logo(id) { return '<img class="brand-logo brand-logo-light" src="' + R + 'assets/brand/226os-logo.png" alt="" width="132" height="48" data-testid="' + id + '-logo">' +
+      '<img class="brand-logo brand-logo-dark" src="' + R + 'assets/brand/226os-logo-white.png" alt="" width="132" height="48" data-testid="' + id + '-logo-dark">'; }
+  function brand(id) { id = id || 'brand'; return '<a class="brand" href="' + R + CFG.landing + '" data-testid="' + id + '" aria-label="226os">' + logo(id) + '</a>'; }
+  (function icons() {   /* favicons for every page, without editing each <head> */
+    [['icon', 'assets/brand/favicon-32.png', '32x32'], ['icon', 'assets/brand/icon-192.png', '192x192'], ['apple-touch-icon', 'assets/brand/icon-192.png', '192x192']].forEach(function (i) {
+      var l = document.createElement('link'); l.rel = i[0]; l.type = 'image/png'; l.sizes = i[2]; l.href = R + i[1]; document.head.appendChild(l); });
+  })();
   function createBtn() { return '<a class="btn btn-primary header-create has-tip tip-end" href="' + R + CFG.ask + '" data-i18n-attr="aria-label:header.create" data-testid="header-create">' + icon('plus', 'header-create-icon') + '<span class="header-create-label" ' + t('header.create') + ' data-testid="header-create-label"></span></a>'; }
   var sv = view(), html = '', tail = '';
 
@@ -189,7 +196,7 @@
       '<div class="pub-actions">' + (sv.signedIn ? accountMenu(sv) + createBtn() : authButtons(true)) + '</div></div></header>';   /* signed out: language lives in the footer */
     var lk = function (id, key, href) { return '<li><a href="' + href + '" rel="noopener noreferrer" ' + t(key) + ' data-testid="footer-' + id + '"></a></li>'; };
     tail = '<footer class="pub-footer" data-testid="pub-footer"><div class="pub-footer-inner">' +
-      '<div class="pub-footer-about"><span class="brand" aria-hidden="true" data-testid="footer-brand"><span class="brand-mark">226</span><span class="brand-os">os</span></span><p ' + t('footer.about') + ' data-testid="footer-about"></p></div>' +
+      '<div class="pub-footer-about"><span class="brand" aria-hidden="true" data-testid="footer-brand">' + logo('footer-brand') + '</span><p ' + t('footer.about') + ' data-testid="footer-about"></p></div>' +
       '<ul class="pub-footer-links" data-testid="footer-links">' + lk('licence', 'footer.licence', CFG.legal.licence) + lk('conduct', 'footer.conduct', CFG.legal.conduct) + lk('contribute', 'footer.contribute', CFG.legal.contribute) + lk('privacy', 'footer.privacy', CFG.legal.privacy) + '</ul>' +
       '<div class="pub-footer-lang" role="group" data-i18n-attr="aria-label:header.lang" data-testid="footer-lang"><span ' + t('footer.language') + ' data-testid="footer-lang-label"></span><div class="segmented">' +
       '<button type="button" data-action="lang-set" data-lang="fr" lang="fr" aria-pressed="false" data-testid="footer-lang-fr">FR</button><button type="button" data-action="lang-set" data-lang="en" lang="en" aria-pressed="false" data-testid="footer-lang-en">EN</button></div></div>' +

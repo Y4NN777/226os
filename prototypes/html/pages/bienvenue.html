@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title data-i18n="onb.title">Bienvenue — 226os</title>
+  <meta name="color-scheme" content="light dark">
+  <meta name="robots" content="noindex">
+  <script src="../assets/js/theme-init.js"></script>
+  <link rel="stylesheet" href="../assets/css/tokens.css">
+  <link rel="stylesheet" href="../assets/css/base.css">
+  <link rel="stylesheet" href="../assets/css/layout.css">
+  <link rel="stylesheet" href="../assets/css/icons.css">
+  <link rel="stylesheet" href="../assets/css/components.css">
+  <link rel="stylesheet" href="../assets/css/pages/account.css">
+</head>
+<body data-layout="account" class="acc-wide" data-root="../">
+  <a class="skip-link" href="#main" data-i18n="skip" data-testid="skip-link">Aller au contenu principal</a>
+
+  <main id="main" tabindex="-1">
+    <div class="account-card" data-testid="onb-card">
+      <header class="acc-head">
+        <h1 class="h2" id="onb-h1" data-i18n="onb.h1" data-testid="onb-h1"></h1>
+        <p data-i18n="onb.lede" data-testid="onb-lede"></p>
+      </header>
+
+      <form id="onb-form" novalidate data-testid="onb-form">
+        <section class="onb-step" id="onb-step-intent" aria-labelledby="onb-intent-q" data-testid="onb-step-intent">
+          <fieldset class="onb-choices" id="onb-choices" aria-labelledby="onb-intent-q" data-testid="onb-choices">
+            <legend class="onb-q" id="onb-intent-q" data-i18n="onb.q1" data-testid="onb-q1"></legend>
+            <label class="onb-choice" data-testid="onb-choice-ask">
+              <input type="radio" name="intent" value="ask" data-testid="onb-choice-ask-input">
+              <span class="onb-choice-body"><span class="icon i-message" aria-hidden="true" data-testid="onb-choice-ask-icon"></span><strong data-i18n="onb.ask" data-testid="onb-choice-ask-label"></strong><small data-i18n="onb.askBody" data-testid="onb-choice-ask-body"></small></span>
+              <span class="icon i-check-circle onb-tick" aria-hidden="true" data-testid="onb-choice-ask-tick"></span>
+            </label>
+            <label class="onb-choice" data-testid="onb-choice-help">
+              <input type="radio" name="intent" value="help" data-testid="onb-choice-help-input">
+              <span class="onb-choice-body"><span class="icon i-users" aria-hidden="true" data-testid="onb-choice-help-icon"></span><strong data-i18n="onb.help" data-testid="onb-choice-help-label"></strong><small data-i18n="onb.helpBody" data-testid="onb-choice-help-body"></small></span>
+              <span class="icon i-check-circle onb-tick" aria-hidden="true" data-testid="onb-choice-help-tick"></span>
+            </label>
+            <label class="onb-choice" data-testid="onb-choice-integrate">
+              <input type="radio" name="intent" value="integrate" data-testid="onb-choice-integrate-input">
+              <span class="onb-choice-body"><span class="icon i-code" aria-hidden="true" data-testid="onb-choice-integrate-icon"></span><strong data-i18n="onb.integrate" data-testid="onb-choice-integrate-label"></strong><small data-i18n="onb.integrateBody" data-testid="onb-choice-integrate-body"></small></span>
+              <span class="icon i-check-circle onb-tick" aria-hidden="true" data-testid="onb-choice-integrate-tick"></span>
+            </label>
+            <label class="onb-choice" data-testid="onb-choice-contribute">
+              <input type="radio" name="intent" value="contribute" data-testid="onb-choice-contribute-input">
+              <span class="onb-choice-body"><span class="icon i-git-branch" aria-hidden="true" data-testid="onb-choice-contribute-icon"></span><strong data-i18n="onb.contribute" data-testid="onb-choice-contribute-label"></strong><small data-i18n="onb.contributeBody" data-testid="onb-choice-contribute-body"></small></span>
+              <span class="icon i-check-circle onb-tick" aria-hidden="true" data-testid="onb-choice-contribute-tick"></span>
+            </label>
+          </fieldset>
+        </section>
+
+        <section class="onb-step" id="onb-step-skills" aria-labelledby="onb-skills-q" hidden data-testid="onb-step-skills">
+          <h2 class="onb-q" id="onb-skills-q" data-i18n="onb.q2" data-testid="onb-q2"></h2>
+          <p class="onb-sub" id="onb-skills-sub" data-i18n="onb.q2sub" data-testid="onb-q2-sub"></p>
+          <div class="search-field onb-search">
+            <span class="icon i-search" aria-hidden="true" data-testid="onb-search-icon"></span>
+            <input class="input" id="onb-search" type="search" autocomplete="off" spellcheck="false" aria-controls="onb-chips" data-i18n-attr="placeholder:onb.search;aria-label:onb.search" data-testid="onb-search-input">
+          </div>
+          <div class="onb-chips" id="onb-chips" role="group" aria-labelledby="onb-skills-q" data-testid="onb-chips"></div>
+          <p class="onb-count" id="onb-count" role="status" aria-live="polite" data-testid="onb-count"></p>
+          <div class="onb-effect" id="onb-effect" role="status" aria-live="polite" data-testid="onb-effect"></div>
+        </section>
+
+        <div class="onb-actions">
+          <button type="submit" class="btn btn-primary acc-submit" id="onb-submit" disabled data-testid="onb-submit"><span data-i18n="onb.submit" data-testid="onb-submit-label"></span><span class="icon i-arrow-right" aria-hidden="true" data-testid="onb-submit-icon"></span></button>
+          <button type="button" class="btn onb-skip" id="onb-skip" data-testid="onb-skip"><span data-i18n="onb.skip" data-testid="onb-skip-label"></span></button>
+        </div>
+      </form>
+    </div>
+  </main>
+
+  <script src="../assets/js/shell.js"></script>
+  <script defer src="../assets/js/app.js"></script>
+  <script defer src="../assets/js/i18n-common.js"></script>
+  <script defer src="../assets/data/people.js"></script>
+  <script defer src="../assets/data/common.js"></script>
+  <script defer src="../assets/data/solve.js"></script>
+  <script defer src="../assets/data/build.js"></script>
+  <script defer src="../assets/js/pages/onboarding.js"></script>
+</body>
+</html>

@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title data-i18n="acc.forgot.title">Mot de passe oublié — 226os</title>
+  <meta name="color-scheme" content="light dark">
+  <meta name="robots" content="noindex">
+  <script src="../assets/js/theme-init.js"></script>
+  <link rel="stylesheet" href="../assets/css/tokens.css">
+  <link rel="stylesheet" href="../assets/css/base.css">
+  <link rel="stylesheet" href="../assets/css/layout.css">
+  <link rel="stylesheet" href="../assets/css/icons.css">
+  <link rel="stylesheet" href="../assets/css/components.css">
+  <link rel="stylesheet" href="../assets/css/pages/account.css">
+</head>
+<body data-layout="account" data-root="../">
+  <a class="skip-link" href="#main" data-i18n="skip" data-testid="skip-link">Aller au contenu principal</a>
+
+  <main id="main" tabindex="-1">
+    <div class="account-card" data-testid="forgot-card">
+      <div id="forgot-ask">
+        <header class="acc-head">
+          <h1 class="h2" data-i18n="acc.forgot.h1" data-testid="forgot-h1"></h1>
+          <p data-i18n="acc.forgot.lede" data-testid="forgot-lede"></p>
+        </header>
+        <form class="acc-form" id="forgot-form" novalidate data-testid="forgot-form">
+          <div class="field" id="forgot-f-email">
+            <label class="label" for="forgot-email" data-i18n="acc.email" data-testid="forgot-email-label"></label>
+            <input class="input" id="forgot-email" name="email" type="email" required autocomplete="email" inputmode="email" autocapitalize="none" spellcheck="false" aria-describedby="forgot-email-error" data-testid="forgot-email-input">
+            <p class="error-msg" id="forgot-email-error" hidden data-testid="forgot-email-error"><span class="icon i-alert-circle" aria-hidden="true" data-testid="forgot-email-error-icon"></span><span data-testid="forgot-email-error-text"></span></p>
+          </div>
+          <button type="submit" class="btn btn-primary acc-submit" id="forgot-submit" data-testid="forgot-submit"><span class="spinner" hidden aria-hidden="true" data-testid="forgot-submit-spinner"></span><span id="forgot-submit-label" data-i18n="acc.forgot.submit" data-testid="forgot-submit-label"></span></button>
+        </form>
+        <p class="acc-switch" data-testid="forgot-switch"><a href="connexion.html" data-i18n="acc.forgot.back" data-testid="forgot-back-link"></a></p>
+      </div>
+      <div class="acc-done" id="forgot-done" hidden tabindex="-1" role="status" data-testid="forgot-done">
+        <header class="acc-head">
+          <span class="acc-badge" aria-hidden="true" data-testid="forgot-done-badge"><span class="icon i-send" data-testid="forgot-done-icon"></span></span>
+          <h1 class="h2" data-i18n="acc.forgot.done.h1" data-testid="forgot-done-h1"></h1>
+          <p data-i18n="acc.forgot.done.body" data-testid="forgot-done-body"></p>
+        </header>
+        <a class="btn acc-ghost" href="connexion.html" data-testid="forgot-done-back"><span class="icon i-chevron-left" aria-hidden="true" data-testid="forgot-done-back-icon"></span><span data-i18n="acc.forgot.back" data-testid="forgot-done-back-label"></span></a>
+      </div>
+      <div class="acc-proto callout" data-proto data-testid="forgot-proto">
+        <span class="icon i-info" aria-hidden="true" data-testid="forgot-proto-icon"></span>
+        <div><span data-i18n="acc.proto.forgot" data-testid="forgot-proto-text"></span><br>
+          <a class="btn btn-sm" href="reinitialiser.html" data-testid="forgot-proto-reset"><span class="icon i-link" aria-hidden="true" data-testid="forgot-proto-reset-icon"></span><span data-i18n="acc.forgot.simulate" data-testid="forgot-proto-reset-label"></span></a></div>
+      </div>
+    </div>
+  </main>
+
+  <script src="../assets/js/shell.js"></script>
+  <script defer src="../assets/js/app.js"></script>
+  <script defer src="../assets/js/i18n-common.js"></script>
+  <script defer src="../assets/js/pages/account.js"></script>
+</body>
+</html>

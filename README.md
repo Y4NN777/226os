@@ -1,4 +1,11 @@
-# 226os
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/brand/226os-logo-white.png">
+    <img src="docs/brand/226os-logo.png" alt="226os" height="72">
+  </picture>
+</p>
+
+<p align="center"><strong>Questions · API &amp; outils · Projets open source</strong><br>Entre développeurs africains</p>
 
 226os est une plateforme pensée pour relier l'entraide technique, les ressources utiles aux développeurs africains, les projets open source et les personnes qui les font avancer. L'objectif n'est pas de créer un forum, un annuaire d'API ou un réseau professionnel supplémentaire. C'est de rendre plus direct le passage d'un problème rencontré à une solution documentée, puis à une contribution réutilisable.
 

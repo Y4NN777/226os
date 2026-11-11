@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title data-i18n="acc.login.title">Connexion — 226os</title>
+  <meta name="color-scheme" content="light dark">
+  <meta name="robots" content="noindex">
+  <script src="../assets/js/theme-init.js"></script>
+  <link rel="stylesheet" href="../assets/css/tokens.css">
+  <link rel="stylesheet" href="../assets/css/base.css">
+  <link rel="stylesheet" href="../assets/css/layout.css">
+  <link rel="stylesheet" href="../assets/css/icons.css">
+  <link rel="stylesheet" href="../assets/css/components.css">
+  <link rel="stylesheet" href="../assets/css/pages/account.css">
+</head>
+<body data-layout="account" data-root="../">
+  <a class="skip-link" href="#main" data-i18n="skip" data-testid="skip-link">Aller au contenu principal</a>
+
+  <main id="main" tabindex="-1">
+    <div class="account-card" data-testid="login-card">
+      <header class="acc-head">
+        <h1 class="h2" data-i18n="acc.login.h1" data-testid="login-h1"></h1>
+        <p data-i18n="acc.login.lede" data-testid="login-lede"></p>
+      </header>
+      <div class="acc-banner" id="login-banner" data-testid="login-banner"></div>
+      <form class="acc-form" id="login-form" novalidate data-testid="login-form">
+        <div class="field" id="login-f-email">
+          <label class="label" for="login-email" data-i18n="acc.email" data-testid="login-email-label"></label>
+          <input class="input" id="login-email" name="email" type="email" required autocomplete="username" inputmode="email" autocapitalize="none" spellcheck="false" aria-describedby="login-email-error" data-testid="login-email-input">
+            <p class="error-msg" id="login-email-error" hidden data-testid="login-email-error"><span class="icon i-alert-circle" aria-hidden="true" data-testid="login-email-error-icon"></span><span data-testid="login-email-error-text"></span></p>
+        </div>
+        <div class="field" id="login-f-password">
+          <div class="acc-label-row">
+            <label class="label" for="login-password" data-i18n="acc.password" data-testid="login-password-label"></label>
+            <a href="mot-de-passe-oublie.html" id="login-forgot" data-i18n="acc.login.forgot" data-testid="login-forgot-link"></a>
+          </div>
+            <div class="acc-pw">
+              <input class="input" id="login-password" name="password" type="password" required autocomplete="current-password" maxlength="128" autocapitalize="none" spellcheck="false" aria-describedby="login-password-error" data-testid="login-password-input">
+              <button type="button" class="btn btn-icon acc-pw-toggle" data-pw-toggle="#login-password" aria-pressed="false" aria-controls="login-password" data-i18n-attr="aria-label:common.showPassword" data-testid="login-password-toggle"><span class="icon i-eye icon-main" aria-hidden="true" data-testid="login-password-toggle-eye"></span><span class="icon i-eye-off icon-alt" aria-hidden="true" data-testid="login-password-toggle-eye-off"></span></button>
+            </div>
+            <p class="error-msg" id="login-password-error" hidden data-testid="login-password-error"><span class="icon i-alert-circle" aria-hidden="true" data-testid="login-password-error-icon"></span><span data-testid="login-password-error-text"></span></p>
+        </div>
+        <button type="submit" class="btn btn-primary acc-submit" id="login-submit" data-testid="login-submit"><span class="spinner" hidden aria-hidden="true" data-testid="login-submit-spinner"></span><span id="login-submit-label" data-i18n="acc.login.submit" data-testid="login-submit-label"></span></button>
+      </form>
+      <p class="acc-switch" data-testid="login-switch"><span data-i18n="acc.login.noaccount" data-testid="login-noaccount"></span> <a href="inscription.html" id="login-signup-link" data-i18n="acc.login.signup" data-testid="login-signup-link"></a></p>
+      <div class="acc-proto callout" data-proto data-testid="login-proto">
+        <span class="icon i-info" aria-hidden="true" data-testid="login-proto-icon"></span>
+        <div><span data-i18n="acc.proto.login" data-testid="login-proto-text"></span></div>
+      </div>
+    </div>
+  </main>
+
+  <script src="../assets/js/shell.js"></script>
+  <script defer src="../assets/js/app.js"></script>
+  <script defer src="../assets/js/i18n-common.js"></script>
+  <script defer src="../assets/js/pages/account.js"></script>
+</body>
+</html>

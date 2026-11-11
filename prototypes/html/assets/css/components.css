@@ -490,3 +490,20 @@ html:not(.proto-annotations) [data-proto] { display: none; }
 .jit-prompt .btn:not(.btn-icon):hover { background: var(--surface-hover); }
 .jit-prompt .btn-icon:hover { background: var(--surface); }
 .jit-prompt-text { flex: 1 1 18ch; }
+
+/* ============ View mode: list / grid (App.View) ============
+   Toggle: <div class="view-toggle" data-view-toggle="<key>" data-view-target="#list-id"></div> (App.View renders the buttons).
+   Grid mode adds .is-grid on the .list: each .row becomes a card, the lead (thumb/avatar) on top, aside flows under. */
+.view-toggle { display: inline-flex; gap: 2px; padding: 2px; border-radius: var(--radius-control); background: var(--surface-subtle); }
+.view-toggle .btn-icon { width: 36px; min-width: 36px; min-height: 36px; }
+.view-toggle .btn-icon[aria-pressed="true"] { background: var(--surface); color: var(--text); box-shadow: var(--shadow-overlay); }
+.list.is-grid { background: transparent; box-shadow: none; border-radius: 0; overflow: visible; display: grid; gap: var(--space-3); grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); }
+.list.is-grid > .row { grid-template-columns: minmax(0, 1fr); align-content: start; gap: var(--space-2); padding: var(--space-4); background: var(--surface); border-radius: var(--radius-card); box-shadow: var(--shadow-card); }
+.list.is-grid > .row + .row { border-top: 0; }
+.list.is-grid > .row:hover { background: var(--surface-hover); }
+.list.is-grid > .row > .row-aside { flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: flex-start; }
+.list.is-grid > .row > .row-lead { padding-top: 0; }
+.list.is-grid > .row > .row-lead:has(.vote, .solve-stats) { display: flex; }
+.list.is-grid > .row > .row-lead .vote, .list.is-grid > .row > .row-lead .solve-stats { flex-direction: row; gap: var(--space-3); }
+.list.is-grid .row-excerpt { -webkit-line-clamp: 3; }
+@media (prefers-reduced-motion: no-preference) { .list > .row { transition: background var(--dur-fast, 120ms) var(--ease-out, ease-out); } }

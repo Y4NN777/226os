@@ -526,5 +526,39 @@
     if (P.get('autotestid') === '1') TestIds.auto();   /* debug only: positional fallback ids; real ids are hand-written */
   }
   if (d.readyState === 'complete') init(); else d.addEventListener('DOMContentLoaded', init);   /* deferred scripts (dictionaries, pages) run before this */
-  window.App = Object.assign(window.App || {}, { initials: initials, statePill: statePill, fieldEditor: fieldEditor, setupChecklist: setupChecklist, avatar: avatar, thumb: thumb, rating: rating, ratingInput: ratingInput, review: review, Menu: Menu, Proto: Proto, store: store, $: $, $$: $$, el: el, esc: esc, Filter: Filter, Sim: Sim, Tabs: Tabs, TestIds: TestIds, Toast: Toast, Dialog: Dialog, Theme: Theme, params: P });
+  /* ---------- View mode: App.View.init(toggleEl, listSelector, key) ----------
+     Renders a list/grid segmented control into toggleEl and toggles .is-grid on the target list(s).
+     Priority: ?view=list|grid (QA, not persisted) > saved choice per key > 'list'. Re-applies after re-renders
+     (call App.View.apply(key) or rely on the MutationObserver). Emits 'view:change' {key, mode} on document. */
+  var View = (function () {
+    var reg = {};
+    function mode(key) { var q = P.get('view'); if (q === 'grid' || q === 'list') return q; var s = store('view.' + key); return s === 'grid' ? 'grid' : 'list'; }
+    function apply(key) {
+      var r = reg[key]; if (!r) return; var m = r.mode;
+      $$(r.target).forEach(function (l) { l.classList.toggle('is-grid', m === 'grid'); });
+      $$('[data-view]', r.el).forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-view') === m)); });
+    }
+    function set(key, m) { var r = reg[key]; if (!r) return; r.mode = m; store('view.' + key, m); apply(key); d.dispatchEvent(new CustomEvent('view:change', { detail: { key: key, mode: m } })); }
+    function render(r, key) {
+      var t = window.I18N ? I18N.t.bind(I18N) : function (k) { return k; }, id = r.el.getAttribute('data-testid') || ('view-' + key);
+      r.el.setAttribute('role', 'group'); r.el.setAttribute('aria-label', t('common.view'));
+      r.el.innerHTML = ['list', 'grid'].map(function (m) {
+        return '<button type="button" class="btn btn-icon btn-sm has-tip" data-view="' + m + '" aria-pressed="false" aria-label="' + esc(t('common.view.' + m)) + '" data-tip="' + esc(t('common.view.' + m)) + '" data-testid="' + id + '-' + m + '"><span class="icon i-view-' + m + '" aria-hidden="true" data-testid="' + id + '-' + m + '-icon"></span></button>';
+      }).join('');
+    }
+    function init(el, target, key) {
+      if (!el) return; key = key || location.pathname.split('/').pop().replace('.html', '');
+      var r = reg[key] = { el: el, target: target, mode: mode(key) };
+      el.classList.add('view-toggle'); render(r, key); apply(key);
+      el.addEventListener('click', function (e) { var b = e.target.closest('[data-view]'); if (b) set(key, b.getAttribute('data-view')); });
+      d.addEventListener('i18n:change', function () { render(r, key); apply(key); });
+      $$(target).forEach(function (l) { new MutationObserver(function () { if (l.classList.contains('is-grid') !== (r.mode === 'grid')) apply(key); }).observe(l, { attributes: true, attributeFilter: ['class'] }); });
+      return r;
+    }
+    function auto() { $$('[data-view-toggle]').forEach(function (el) { if (!el.hasAttribute('data-view-ready')) { el.setAttribute('data-view-ready', ''); init(el, el.getAttribute('data-view-target'), el.getAttribute('data-view-toggle')); } }); }
+    if (d.readyState === 'loading') d.addEventListener('DOMContentLoaded', auto); else setTimeout(auto, 0);
+    return { init: init, set: set, apply: apply, mode: function (k) { return reg[k] ? reg[k].mode : mode(k); }, auto: auto };
+  })();
+
+  window.App = Object.assign(window.App || {}, { View: View, initials: initials, statePill: statePill, fieldEditor: fieldEditor, setupChecklist: setupChecklist, avatar: avatar, thumb: thumb, rating: rating, ratingInput: ratingInput, review: review, Menu: Menu, Proto: Proto, store: store, $: $, $$: $$, el: el, esc: esc, Filter: Filter, Sim: Sim, Tabs: Tabs, TestIds: TestIds, Toast: Toast, Dialog: Dialog, Theme: Theme, params: P });
 })();
