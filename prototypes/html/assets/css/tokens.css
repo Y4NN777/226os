@@ -32,6 +32,17 @@
      info        #9CC4FF on surface 8.95 | on #1D2F4D 7.51
      focus       #9CC4FF on surface 8.95 | bg 10.19
      border-strong #7E8E75 on surface 4.58 | bg 5.21 | subtle 3.50
+   UX PASS (borderless fills, thumbnails, rating) - all PASS
+     LIGHT chip/btn fill subtle #EDF2E7: text 13.92, text-muted 5.50, action 4.93, danger 5.78; hover fill #E3EADC: text 12.88, muted 5.09, danger 5.34
+           pressed chip/btn --selected-bg #E4EFD3: action #4D721D 4.70 | action-hover 6.15 | text 13.27
+           rating star --rating #9A5A1A (non-text >= 3) on surface 5.45 | subtle 4.79   (value is always also text)
+           thumb tones: 0 white on #2B440E 10.85 | 1 white on #4D721D 5.61 | 2 #2B440E on #D9F0A8 8.77 | 3 #5C3508 on #F3DCC2 8.04 | 4 #1D2420 on #DDE3D9 12.12
+           tooltip: bg #F6F7F4 on #1D2420 14.73
+     DARK  hover fill #34452E: text 9.52, muted 6.19, action 7.34 | --selected-bg #3A4F25: action #BDE874 6.43
+           rating #E6AA66 on surface 7.84 | subtle 5.99; danger #FFB0A8 on subtle 6.99; muted on subtle 7.33
+           thumb tones: 0 #BDE874 on #2B440E 7.73 | 1 #F4F7EF on #3B5A1B 7.28 | 2 #D0F08E on #34451F 8.20 | 3 #F2C28F on #4A3319 7.25 | 4 #F4F7EF on #2C3926 11.28
+           tooltip: bg #111710 on #F4F7EF 16.81
+     Borderless components rely on label/text for identification (text carries the contrast); inputs, tables, code blocks keep borders.
    BOTH THEMES
      code text #E8EEE0 on #1D2420 13.38 (light) / #0C110B 16.12 (dark); syntax kw #BDE874 11.29/13.59,
      string #E6AA66 7.78/9.36, fn #9CC4FF 8.87/10.68, comment #A3B09B 6.97/8.40
@@ -82,6 +93,14 @@
   --code-bg: #1D2420;  --code-text: #E8EEE0;  --code-border: #1D2420;
   --code-kw: #BDE874;  --code-str: #E6AA66;  --code-fn: #9CC4FF;  --code-com: #A3B09B;
   --inline-code-bg: #EDF2E7;
+  /* UX pass: borderless fills + elevation + thumbnail tones (all pairs audited above) */
+  --surface-subtle-hover: #E3EADC;  --selected-bg: #E4EFD3;  --rating: #9A5A1A;
+  --tone-0-bg: #2B440E;  --tone-0-fg: #FFFFFF;   /* forest */
+  --tone-1-bg: #4D721D;  --tone-1-fg: #FFFFFF;   /* primary */
+  --tone-2-bg: #D9F0A8;  --tone-2-fg: #2B440E;   /* lime tint */
+  --tone-3-bg: #F3DCC2;  --tone-3-fg: #5C3508;   /* copper tint */
+  --tone-4-bg: #DDE3D9;  --tone-4-fg: #1D2420;   /* graphite tint */
+  --shadow-card: 0 1px 2px rgba(29, 36, 32, .06), 0 2px 8px rgba(29, 36, 32, .06);
   --shadow-raised: 0 1px 2px rgba(29, 36, 32, .08);
   --shadow-overlay: 0 12px 32px rgba(29, 36, 32, .22), 0 2px 6px rgba(29, 36, 32, .12);
 
@@ -146,6 +165,11 @@
   --hero-bg: #1B241A;  --hero-text: #F4F7EF;  --hero-accent: #BDE874;
   --skeleton: #2C3926;
   --code-bg: #0C110B;  --code-border: #43503C;  --inline-code-bg: #2C3926;
+  --surface-subtle-hover: #34452E;  --selected-bg: #3A4F25;  --rating: #E6AA66;
+  --tone-0-bg: #2B440E;  --tone-0-fg: #BDE874;  --tone-1-bg: #3B5A1B;  --tone-1-fg: #F4F7EF;
+  --tone-2-bg: #34451F;  --tone-2-fg: #D0F08E;  --tone-3-bg: #4A3319;  --tone-3-fg: #F2C28F;
+  --tone-4-bg: #2C3926;  --tone-4-fg: #F4F7EF;
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, .35);
   --shadow-raised: 0 1px 2px rgba(0, 0, 0, .4);
   --shadow-overlay: 0 12px 32px rgba(0, 0, 0, .55), 0 2px 6px rgba(0, 0, 0, .4);
 }
@@ -168,6 +192,11 @@
     --hero-bg: #1B241A;  --hero-text: #F4F7EF;  --hero-accent: #BDE874;
     --skeleton: #2C3926;
     --code-bg: #0C110B;  --code-border: #43503C;  --inline-code-bg: #2C3926;
+    --surface-subtle-hover: #34452E;  --selected-bg: #3A4F25;  --rating: #E6AA66;
+    --tone-0-bg: #2B440E;  --tone-0-fg: #BDE874;  --tone-1-bg: #3B5A1B;  --tone-1-fg: #F4F7EF;
+    --tone-2-bg: #34451F;  --tone-2-fg: #D0F08E;  --tone-3-bg: #4A3319;  --tone-3-fg: #F2C28F;
+    --tone-4-bg: #2C3926;  --tone-4-fg: #F4F7EF;
+    --shadow-card: 0 1px 2px rgba(0, 0, 0, .35);
     --shadow-raised: 0 1px 2px rgba(0, 0, 0, .4);
     --shadow-overlay: 0 12px 32px rgba(0, 0, 0, .55), 0 2px 6px rgba(0, 0, 0, .4);
   }

@@ -46,7 +46,7 @@
     <div id="discover" data-testid="home-discover">
       <section class="section" aria-labelledby="linked-h" data-testid="home-linked">
         <div class="section-head"><h2 id="linked-h" data-i18n="home.link.title" data-testid="linked-title"></h2></div>
-        <p class="text-muted text-sm" style="margin-bottom: var(--space-3)" data-i18n="home.link.lede" data-testid="linked-lede"></p>
+        <p class="text-muted text-sm" style="margin-bottom: var(--space-3)" data-proto data-i18n="home.link.lede" data-testid="linked-lede"></p>
         <div id="linked" class="linked-items" data-testid="linked-items"></div>
       </section>
 
@@ -74,18 +74,6 @@
         <div id="sec-people" data-state-id="people-state"></div>
       </section>
     </div>
-
-    <section class="section" id="domains" aria-labelledby="d-h" data-testid="home-domains">
-      <div class="section-head"><h2 id="d-h" data-i18n="home.dom.title" data-testid="domains-title"></h2></div>
-      <p class="text-muted text-sm" style="margin-bottom: var(--space-3)" data-i18n="home.dom.lede" data-testid="domains-lede"></p>
-      <p class="text-sm" style="margin-bottom: var(--space-3)" data-i18n="home.dom.legend" data-testid="domains-legend"></p>
-      <div class="table-wrap" tabindex="0" role="region" aria-labelledby="d-h" data-testid="domains-table-wrap">
-        <table class="table" data-testid="domains-table">
-          <thead><tr><th scope="col" data-i18n="home.dom.col.domain" data-testid="domains-col-domain"></th><th scope="col" data-i18n="home.dom.col.status" data-testid="domains-col-status"></th><th scope="col" data-i18n="home.dom.col.now" data-testid="domains-col-now"></th><th scope="col" data-i18n="home.dom.col.later" data-testid="domains-col-later"></th></tr></thead>
-          <tbody id="domains-body"></tbody>
-        </table>
-      </div>
-    </section>
   </main>
 
   <script src="assets/js/shell.js"></script>
@@ -94,6 +82,5 @@
   <script defer src="assets/data/people.js"></script>
   <script defer src="assets/data/common.js"></script>
   <script defer src="assets/js/pages/home.js"></script>
-  <script defer src="assets/js/pages/home-domains.js"></script>
 </body>
 </html>

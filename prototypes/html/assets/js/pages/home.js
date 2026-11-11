@@ -149,8 +149,8 @@ I18N.register({
     if (q) renderResults();
   }
   function renderDomains() {
-    var ids = ['solve', 'discover', 'build', 'identity', 'connect', 'language', 'access', 'intelligence'];
-    $('#domains-body').innerHTML = ids.map(function (d) { return '<tr data-testid="domain-row-' + d + '"><th scope="row" data-testid="domain-name-' + d + '">' + esc(t('nav.' + d)) + '</th><td data-testid="domain-now-' + d + '">' + esc(t('home.dom.' + d + '.now')) + '</td><td class="text-muted" data-testid="domain-later-' + d + '">' + esc(t('home.dom.' + d + '.later')) + '</td></tr>'; }).join('');
+    var ids = ['solve', 'discover', 'build', 'identity', 'connect', 'language', 'access', 'intelligence'], body = $('#domains-body'); if (!body) return;
+    body.innerHTML = ids.map(function (d) { return '<tr data-testid="domain-row-' + d + '"><th scope="row" data-testid="domain-name-' + d + '">' + esc(t('nav.' + d)) + '</th><td data-testid="domain-now-' + d + '">' + esc(t('home.dom.' + d + '.now')) + '</td><td class="text-muted" data-testid="domain-later-' + d + '">' + esc(t('home.dom.' + d + '.later')) + '</td></tr>'; }).join('');
   }
   function renderTry() {
     $('#try-list').innerHTML = ['webhook', 'Mobile Money', 'USSD', 'PostGIS', 'KYC'].map(function (s, i) { return '<li><a class="chip" href="index.html?q=' + encodeURIComponent(s) + '" data-try="' + esc(s) + '" data-testid="try-' + slug(s) + '">' + esc(s) + '</a></li>'; }).join('');
