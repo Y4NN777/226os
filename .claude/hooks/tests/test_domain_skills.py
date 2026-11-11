@@ -234,7 +234,7 @@ class RealConfigTests(unittest.TestCase):
             self.assertEqual(set(domain_skills.skills_for(rel, REPO)), expected, rel)
 
     def test_agent_preloaded_skills_exist(self):
-        expected = {"go-implementer", "postgres-expert", "web-implementer", "skeptic"}
+        expected = {"go-implementer", "postgres-expert", "web-implementer", "skeptic", "lead"}
         seen = set()
         for agent in (REPO / ".claude" / "agents").glob("*.md"):
             lines = agent.read_text().split("---")[1].splitlines()

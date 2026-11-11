@@ -5,8 +5,8 @@
 ## 1. Architecture figée
 - **Web :** React 19 + TypeScript strict + Vite, TanStack Router / Query / Form, Meta Astryx comme système de composants principal, Tailwind uniquement en complément de mise en page.
 - **API :** Go, Chi, `pgx`, `sqlc`; monolithe modulaire, HTTP REST, contrat OpenAPI 3.1.
-- **Persistance :** PostgreSQL, `tsvector`/GIN/`pg_trgm`, migrations SQL explicites.
-- **Infra :** Docker multi-stage, Compose (dev/prod distincts), Traefik HTTPS, GitHub Actions, GHCR.
+- **Persistance :** PostgreSQL 18, `tsvector`/GIN/`pg_trgm`/`unaccent`, migrations SQL goose forward-only dans `db/` (ADR-0005).
+- **Infra :** Docker multi-stage, Compose (un arbre à profils `local-dev`, `staging-test`, `production-live`, ADR-0006), Traefik HTTPS, GitHub Actions, GHCR.
 - **Contraintes :** pas d'ORM généraliste, de moteur de recherche externe, microservices, Redis ou Kubernetes sans ADR approuvée. Le code métier ne doit pas résider dans les handlers HTTP.
 
 ## 2. Topologie cible
@@ -21,7 +21,7 @@
 ├── docs/quality/
 ├── apps/
 │   ├── web/src/{routes,features,components,lib,i18n}/
-│   └── api/{cmd,internal,db}/
+│   └── api/{cmd,internal}/
 ├── api/openapi.yaml
 ├── db/{migrations,queries,seeds}/
 ├── infra/{compose,traefik}/
@@ -55,7 +55,7 @@ Les dossiers `apps`, `api`, `db`, `infra` sont **cibles**, à créer lors de l'i
 - Tests Vitest + Testing Library ; Playwright pour parcours réels ; pas de snapshots comme unique preuve.
 
 ## 6. Collaboration à 3–5 personnes
-- 3 membres actuels ; responsabilités individuelles **non encore affectées**. Chantiers : Platform/Backend, Frontend/UX, Community/Knowledge, Open Source/Collaboration, Developer Ecosystem.
+- 3 membres actuels ; responsabilités individuelles non encore affectées : `Y4NN77` est propriétaire intérimaire de tous les rôles jusqu'à la fin de P0 (ADR-0002). Chantiers : Platform/Backend, Frontend/UX, Community/Knowledge, Open Source/Collaboration, Developer Ecosystem.
 - Tout ticket a un `owner`, un reviewer distinct si disponible, un domaine, un ID story et une preuve de vérification.
 - Branches courtes, petites PRs, merge fréquents ; feature flags ou masquage explicite des fonctions inachevées.
 - Les renforts 4–5 peuvent reprendre des chantiers sans changer l'architecture.

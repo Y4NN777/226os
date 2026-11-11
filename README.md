@@ -49,7 +49,7 @@ C'est cette boucle de contribution qui constitue le cœur de 226os.
 | **Solve — Entraide et connaissances** | Questions/réponses, snippets, solutions acceptées, votes et réputation, revue de code et discussions thématiques. |
 | **Discover — Ressources pour développeurs africains** | Catalogue d'API, SDK et outils, couverture par pays, documentation, comparaisons, exemples d'intégration et retours communautaires. |
 | **Build — Open source et collaboration** | Découverte et import de projets GitHub, publication de projets, besoins en compétences, contributeurs et cofondateurs, candidatures et reconnaissance des contributions. |
-| **Learn — Apprendre** | Articles et tutoriels (Markdown, code, tags, niveau, langue) liés aux questions, API et projets ; formations gratuites à l'IA du fondateur, lisibles publiquement ; publication ouverte à tous les membres. Séries structurées avec progression, mises en avant d'auteurs, certificats et exercices interactifs viennent ensuite (priorités à valider). |
+| **Learn — Apprendre** | Articles et tutoriels (Markdown, code, tags, niveau, langue) liés aux questions, API et projets ; formations gratuites à l'IA du fondateur, lisibles publiquement ; publication ouverte à tous les membres. Séries structurées avec progression, mises en avant d'auteurs, certificats et exercices interactifs viennent ensuite (priorités P1/P2). |
 | **Connect — Mentorat et carrière** | Mentorat, relecture de CV et de portfolios, préparation aux entretiens, groupes d'étude, stages et opportunités professionnelles. |
 | **Identity & Community** | Profils développeurs, compétences, contributions, réputation, communautés, activités et découverte de personnes ou d'équipes. |
 | **Language — Collaboration panafricaine** | Interface français/anglais, publications multilingues, recherche bilingue, traduction assistée avec préservation des textes originaux. |
@@ -133,13 +133,13 @@ La méthode de développement repose sur des objectifs explicites, des contrats 
 
 ```text
 226os/
-├── .github/agents/            # Orchestration documentaire COP-ASS
+├── .claude/                  # Harnais Claude Code : agents (dont lead), skills, hooks
 ├── AGENTS.md                  # Contrat d'orchestration des agents
 ├── README.md                  # Présentation et point d'entrée du dépôt
 ├── DESIGN.md                  # Direction visuelle frontend
 ├── CONTRIBUTING.md            # Règles de contribution, brouillon gouverné
 ├── AI_USAGE.md                # Provenance IA, brouillon gouverné
-├── THIRD_PARTY_NOTICES.md     # Politique licences, brouillon gouverné
+├── THIRD_PARTY_NOTICES.md     # Politique licences (en vigueur)
 ├── .mailmap                   # Normalisation des identités Git
 └── docs/
 	├── PRD.md                 # Vision et périmètre produit
@@ -187,7 +187,7 @@ Ces projets sont **des références de recherche, pas des dépendances déclaré
 
 ## Licence
 
-La licence du **code original de 226os** n'est pas encore définie. Aucune autorisation de réutilisation illimitée ne doit donc être présumée. Les dépendances tierces conservent leurs licences et obligations de notification.
+Le **code original de 226os** est publié sous licence [Apache 2.0](LICENSE) (voir aussi [NOTICE](NOTICE)). Les dépendances tierces conservent leurs licences et obligations de notification ([THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)).
 
 ---
 
