@@ -4,6 +4,7 @@
 
 ## Authority and scope
 - `AGENTS.md` controls task framing, permissions, evidence and gates. Do not weaken or duplicate it.
+- Git commits use `Y4NN77 <axel.studiesmail@gmail.com>`; never add `Co-authored-by` trailers for Claude or other AI agents. Record AI assistance in `AI_USAGE.md`.
 - Product: `docs/PRD.md`; behavior: `docs/SPEC.md`; architecture: `docs/architecture/ARCHITECTURE.md`; frontend: root `DESIGN.md`.
 - Implementation entrypoint: `docs/spec-kit/README.md`, `TASKS.md`, `G0_DECISIONS.md`, `G0_APPROVAL_TEMPLATE.md`, `CLAUDE_HANDOFF.md`.
 - Testing and delivery: `docs/TEST.md`, `docs/quality/COVERAGE_SCOPE.md`, `docs/SHIP.md`, `docs/GIT_WORKFLOW.md`.
