@@ -1,4 +1,4 @@
-**De la connaissance au logiciel : construire ensemble la tech africaine.**
+# 226os
 
 226os est une plateforme pensée pour relier l'entraide technique, les ressources utiles aux développeurs africains, les projets open source et les personnes qui les font avancer. L'objectif n'est pas de créer un forum, un annuaire d'API ou un réseau professionnel supplémentaire. C'est de rendre plus direct le passage d'un problème rencontré à une solution documentée, puis à une contribution réutilisable.
 
@@ -7,7 +7,7 @@ il s'adresse aux développeurs de toute l'Afrique**, quels que soient leur pays,
 > **État du projet :** cadrage et initialisation du dépôt. Les fonctionnalités présentées ci-dessous constituent la vision et le périmètre envisagés ; elles ne sont pas annoncées comme déjà livrées.
 >
 > **Domaine prévu :** [226os.tech](https://226os.tech) 
-> **Équipe :** 7's — trois membres actuellement, un ou deux renforts envisagés.  
+> **Équipe :** 7's   
 > **Premier contexte de livraison :** CADEV 2026.
 
 ## Pourquoi 226os ?
@@ -141,7 +141,6 @@ Ces projets sont **des références de recherche, pas des dépendances déclaré
 | [Rules](RULES.md) | Contraintes d'ingénierie |
 | [Agent instructions](AGENTS.md) | Orchestration par objectifs, permissions et preuves |
 
-Le projet est porté par **7's**, actuellement trois membres avec un ou deux renforts envisagés. L'affectation des responsabilités dépendra des compétences et des besoins de livraison.
 
 ## Licence
 
