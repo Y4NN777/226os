@@ -17,8 +17,8 @@ Construire 226OS conformément à `docs/PRD.md`, aux contraintes de `docs/SPEC.m
 
 - Start work from `develop`, unless the task is an approved hotfix from `main`.
 - Use `feature/<domain>/<name>`, `fix/<domain>/<name>`, `hotfix/<domain>/<name>`, `refactor/<domain>/<name>`, `test/<domain>/<name>`, `docs/<domain>/<name>` or `chore/<domain>/<name>`.
-- Open a pull request from the work branch to `develop`; never push directly to `develop`, `staging` or `main` once branch protection is active.
-- Treat `develop` as Preview, promote `develop` to `staging` through a release pull request, and promote `staging` to `main` through a production pull request with G7 approval.
+- Open a pull request from the work branch to `develop`; never push directly to `develop`, `staging` or `main` once branch protection is active. Routine low-risk Preview PRs may be merged by the agent/orchestrator after required checks pass when no second maintainer exists.
+- Treat `develop` as Preview, promote `develop` to `staging` through a release pull request with human approval, and promote `staging` to `main` through a production pull request with G7 evidence and human approval.
 - Keep the tested commit SHA unchanged during promotion. Back-merge production fixes into `develop` through a pull request.
 - Read `docs/GIT_WORKFLOW.md` before creating, renaming, rebasing or promoting a branch. Do not force-push shared branches.
 

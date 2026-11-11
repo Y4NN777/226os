@@ -18,7 +18,7 @@
 - Write or update observable BDD/acceptance tests before implementation; preserve negative authorization cases.
 - Do not commit credentials, tokens, private data, generated artifacts without a documented source, or copied third-party code.
 - Record evidence by target SHA. `NOT RUN` is not `PASS`; no agent may self-approve a gate or exception.
-- Reviewers must be distinct from the author where practical and must inspect security, license, accessibility, and performance implications relevant to the change.
+- Reviewers must be distinct from the author where practical. Human review is mandatory for security, license, accessibility, performance, migration, dependency, release, and production changes; it is optional for routine low-risk Preview integration when the project owner is the only maintainer.
 
 ## Approval boundaries
 
@@ -37,4 +37,4 @@ feature|fix|hotfix|refactor|test|docs|chore/<domain>/<name>
 	-> PR main (Production)
 ```
 
-Direct pushes to `develop`, `staging`, and `main` are prohibited once GitHub branch protection is configured. The current repository is stopped at the G0 human approval gate; deployment jobs remain `NOT IMPLEMENTED`.
+Direct pushes to `develop`, `staging`, and `main` are prohibited once GitHub branch protection is configured. The agent/orchestrator may merge a green, low-risk PR into `develop`; `staging` and `main` still require release and production approval. Deployment jobs remain `NOT IMPLEMENTED`.

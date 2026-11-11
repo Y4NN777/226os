@@ -38,9 +38,9 @@ The CADEV delivery order does not delete any long-term product scope. Architectu
 Follow [`docs/GIT_WORKFLOW.md`](../../docs/GIT_WORKFLOW.md) for every repository change:
 
 - Work only on `feature/<domain>/<name>`, `fix/<domain>/<name>`, `hotfix/<domain>/<name>`, `refactor/<domain>/<name>`, `test/<domain>/<name>`, `docs/<domain>/<name>`, or `chore/<domain>/<name>` branches.
-- Target `develop` by pull request for normal work. `develop` is the Preview environment.
+- Target `develop` by pull request for normal work. The agent/orchestrator may merge low-risk, green PRs into `develop` when no second maintainer exists; `develop` is the Preview environment.
 - Promote `develop` to `staging` by release pull request, then `staging` to `main` by production pull request after the required gates and human approval.
-- Do not push directly to `develop`, `staging`, or `main`; do not force-push shared branches; preserve the tested commit SHA through promotion.
+- Do not push directly to `develop`, `staging`, or `main`; do not force-push shared branches; preserve the tested commit SHA through promotion. A protected PR merge into `develop` is allowed after required checks; it is not a direct push.
 - Treat `.github/workflows/branch-policy.yml` as the minimum automated branch-target check. Deployment jobs remain unimplemented until the application and infrastructure are approved.
 
 ## 3. Repository inventory and document authority
