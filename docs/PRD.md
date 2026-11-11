@@ -15,7 +15,7 @@
 
 **Supersession :** la mention « articles » en P1 sous Solve (sections 5.1 et 8, version 3.0) est remplacée par cet amendement. Les « retours d'expérience » restent listés sous Solve.
 
-**Statut des priorités :** la répartition P0/P1/P2 de la section 5.9 est **PROPOSÉE — à valider** par le propriétaire et l'équipe ; elle n'est pas encore un engagement de livraison. Les quatre expériences différenciantes (section 6) sont inchangées.
+**Statut des priorités :** la répartition P0/P1/P2 de la section 5.9 est **validée par le propriétaire le 2026-11-11** : Apprendre fait partie du P0 (lecture et publication d'articles et tutoriels, formation gratuite lisible publiquement). Une publication sans session est refusée avec 401 ; un refus pour un membre authentifié non autorisé reste 403. Les quatre expériences différenciantes (section 6) sont inchangées.
 
 **Impact documentaire :** SPEC (US-LEARN-001, frontières de domaines), TRACEABILITY (DOM-LEARN), TASKS (notes de périmètre, sans nouvelle tâche), README.
 
@@ -202,7 +202,7 @@ Pilier public de même poids que Questions, API & outils et Projets open source 
 
 **Parcours minimal :** un visiteur lit un tutoriel, suit la série gratuite sur l'IA, puis ouvre la question ou le projet lié ; un membre publie son propre article.
 
-**Priorités de réalisation (PROPOSÉ — à valider) :** P0 lire et publier des articles et tutoriels (Markdown, code, tags, niveau, langue) avec liens vers questions/API/projets, et série de formations gratuites lisible publiquement ; P1 séries de formation structurées avec progression, mises en avant d'auteurs, formats plus riches ; P2 certificats, exercices interactifs. Le contenu original reste identifiable selon sa langue (FR/EN), sans traduction automatique implicite.
+**Priorités de réalisation (validées par le propriétaire le 2026-11-11) :** P0 lire et publier des articles et tutoriels (Markdown, code, tags, niveau, langue) avec liens vers questions/API/projets, et série de formations gratuites lisible publiquement ; P1 séries de formation structurées avec progression, mises en avant d'auteurs, formats plus riches ; P2 certificats, exercices interactifs. Le contenu original reste identifiable selon sa langue (FR/EN), sans traduction automatique implicite.
 
 ## 6. Quatre expériences différenciantes à démontrer ou préparer
 
@@ -235,7 +235,7 @@ Ces expériences résultent des fonctionnalités ci-dessus ; ce ne sont **pas** 
 
 **Étant donné** deux membres de pays/langues différents, **quand** ils consultent 226os, **alors** l'interface peut être affichée en FR ou EN, tandis que le contenu original reste identifiable. Les traductions automatisées ne sont pas implicitement promises pour le MVP.
 
-### G — Apprendre et publier un contenu (PROPOSÉ — à valider)
+### G — Apprendre et publier un contenu (VALIDÉ par le propriétaire le 2026-11-11)
 
 **Étant donné** un visiteur, **quand** il ouvre un article, un tutoriel ou la série de formations gratuites, **alors** il peut le lire sans compte ; **étant donné** un membre connecté, **quand** il publie un article avec titre, contenu Markdown, tags, niveau et langue, **alors** il apparaît dans Apprendre et la recherche, avec ses liens vers questions, API ou projets. Un visiteur non connecté ne peut pas publier.
 
@@ -248,7 +248,7 @@ Ces expériences résultent des fonctionnalités ci-dessus ; ce ne sont **pas** 
 | Domaine | Démonstration CADEV / P0 | Suite prévue (P1/P2) |
 |---|---|---|
 | Solve | Q&A, snippets, réponse acceptée, votes, recherche | Réputation, discussions et revue de code avancée |
-| Learn (PROPOSÉ — à valider) | Lecture et publication d'articles et tutoriels, série de formations gratuites lisible publiquement | Séries structurées avec progression, mises en avant d'auteurs, formats riches ; certificats et exercices interactifs (P2) |
+| Learn (VALIDÉ par le propriétaire le 2026-11-11) | Lecture et publication d'articles et tutoriels, série de formations gratuites lisible publiquement | Séries structurées avec progression, mises en avant d'auteurs, formats riches ; certificats et exercices interactifs (P2) |
 | Discover | Catalogue API/SDK, fiches sourcées, pays, catégories | Comparaison, feedback et vérifications |
 | Build | Projets GitHub, besoins, candidatures et liens | Matching et synchronisation avancée |
 | Identity & Community | Auth, profils et identité reliée aux contenus | Réputation, fil, communautés |
@@ -265,7 +265,7 @@ Ces expériences résultent des fonctionnalités ci-dessus ; ce ne sont **pas** 
 |---|---|
 | Explore | Accueil, recherche unifiée, contenus et projets à découvrir |
 | Solve | Questions, détail de question, poser une question, réponses |
-| Learn | Apprendre : liste d'articles/tutoriels/formations, lecture, publier un article (PROPOSÉ — à valider) |
+| Learn | Apprendre : liste d'articles/tutoriels/formations, lecture, publier un article |
 | Discover | Annuaire d'API/outils, filtres, fiche ressource, liens documentaires |
 | Build | Annuaire de projets, détail, publier, besoin de contribution, candidature |
 | Identity | Inscription, connexion, profil public, paramètres |

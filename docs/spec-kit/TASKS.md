@@ -118,7 +118,7 @@ status: PLANNED
 
 Dependencies: TASK-API-001, TASK-SEC-001, TASK-G0-001, approved Astryx release, and route/locale decisions.
 
-Scope note (PRD amendment 3.1, 2026-11-11): the Learn pillar (US-LEARN-001, priorities PROPOSED, to be validated) adds article/tutorial entities and search, API endpoints (authenticated publish, public read) and an "Apprendre"/"Learn" route to TASK-DATA-001, TASK-API-001 and TASK-WEB-001 respectively. No new task is created; the schema and OpenAPI contract remain `OPEN` until reviewed.
+Scope note (PRD amendment 3.1, 2026-11-11): the Learn pillar (US-LEARN-001, priorities approved by the owner on 2026-11-11) adds article/tutorial entities and search, API endpoints (authenticated publish, public read) and an "Apprendre"/"Learn" route to TASK-DATA-001, TASK-API-001 and TASK-WEB-001 respectively. No new task is created; the schema and OpenAPI contract remain `OPEN` until reviewed.
 
 ## TASK-OPS-001 — Make, CI, Compose, Traefik, and release evidence
 

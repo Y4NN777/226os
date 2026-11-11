@@ -72,7 +72,7 @@ Ces domaines définissent la **vision complète**, et non une promesse de dispon
 
 ## Première livraison : CADEV 2026
 
-Le premier périmètre s'organise autour de trois parcours fonctionnels (auxquels s'ajoute la lecture et la publication d'articles et de tutoriels, priorité proposée à valider : voir l'amendement 3.1 du PRD), appuyés par des profils, la recherche, une interface accessible et une navigation bilingue :
+Le premier périmètre s'organise autour de trois parcours fonctionnels (auxquels s'ajoute la lecture et la publication d'articles et de tutoriels, priorité P0 validée : voir l'amendement 3.1 du PRD), appuyés par des profils, la recherche, une interface accessible et une navigation bilingue :
 
 - **Solve :** publier une question technique avec code et contexte, répondre et identifier une résolution.
 - **Discover :** rechercher une API ou une ressource pertinente selon le pays et consulter une fiche documentée.

@@ -55,7 +55,7 @@ Feature: Collaboration
     Then le serveur refuse l'accès
 ```
 
-### US-LEARN-001 — Apprendre et publier un article (PROPOSÉ — à valider, PRD amendement 3.1)
+### US-LEARN-001 — Apprendre et publier un article (VALIDÉ par le propriétaire le 2026-11-11, PRD amendement 3.1 ; 401 sans session confirmé)
 ```gherkin
 Feature: Apprendre
   Scenario: Lire un tutoriel et suivre la formation gratuite
