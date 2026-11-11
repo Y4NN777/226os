@@ -194,7 +194,7 @@
     var pl = function (id, key, href, act) { return '<a href="' + R + href + '"' + (act === active ? ' aria-current="page"' : '') + ' ' + t(key) + ' data-testid="pub-nav-' + id + '"></a>'; };
     html =
       '<header class="pub-header" data-testid="pub-header"><div class="pub-header-inner">' + brand() +
-      '<nav class="pub-nav" data-i18n-attr="aria-label:layout.pub.nav" data-testid="pub-nav">' + pl('questions', 'nav.questions', CFG.questions, 'solve') + pl('catalogue', 'nav.catalogue', CFG.catalogue, 'discover') + pl('projects', 'nav.projects', CFG.projects, 'build') + '</nav>' +
+      '<nav class="pub-nav" data-i18n-attr="aria-label:layout.pub.nav" data-testid="pub-nav">' + pl('questions', 'nav.questions', CFG.questions, 'solve') + pl('catalogue', 'nav.catalogue', CFG.catalogue, 'discover') + pl('projects', 'nav.projects', CFG.projects, 'build') + pl('learn', 'nav.learn', CFG.learn, 'learn') + '</nav>' +
       '<div class="pub-actions">' + (sv.signedIn ? accountMenu(sv) + createBtn() : authButtons(true)) + '</div></div></header>';   /* signed out: language lives in the footer */
     var lk = function (id, key, href) { return '<li><a href="' + href + '" rel="noopener noreferrer" ' + t(key) + ' data-testid="footer-' + id + '"></a></li>'; };
     tail = '<footer class="pub-footer" data-testid="pub-footer"><div class="pub-footer-inner">' +

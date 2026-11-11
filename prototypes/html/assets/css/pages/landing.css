@@ -141,3 +141,24 @@ body.layout-public main.lp { max-width: none; padding: 0; overflow-x: clip;
 
 @media (forced-colors: active) { .lp-pc, .lp-card, .lp-step, .lp-qlist, .lp-final { border: 1px solid CanvasText; } }
 @media (prefers-reduced-motion: reduce) { .lp-pc:hover, .lp-card:hover { transform: none; } .lp-q:hover > .icon, .lp-link:hover .icon { transform: none; } }
+
+/* ---------- Four pillars + learn block ---------- */
+@media (min-width: 640px) { .lp-steps.lp-pillars { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 1024px) { .lp-steps.lp-pillars { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.lp-pillar { color: var(--text); text-decoration: none; align-content: start; padding: var(--space-6); transition: background var(--dur-fast), transform var(--dur-base) var(--ease-out); height: 100%; }
+.lp-pillar:hover { background: color-mix(in srgb, var(--action) 5%, var(--surface)); color: var(--text); text-decoration: none; }
+@media (hover: hover) { .lp-pillar:hover { transform: translateY(-2px); } }
+.lp-pillar-go { display: inline-flex; align-items: center; gap: var(--space-2); margin-top: var(--space-2); color: var(--link); font-weight: var(--fw-medium); font-size: var(--fs-sm); }
+.lp-pillar-go .icon { width: 16px; height: 16px; vertical-align: 0; transition: transform var(--dur-fast) var(--ease-out); }
+.lp-pillar:hover .lp-pillar-go .icon { transform: translateX(3px); }
+.lp-steps.lp-pillars > li { display: flex; }
+.lp-learn { display: grid; gap: var(--space-4); }
+.lp-feature { padding: var(--space-6); border-radius: 24px; }
+@media (min-width: 768px) { .lp-feature { padding: var(--space-10); } }
+.lp-learn-h { font-size: clamp(1.5rem, 1.1rem + 1.4vw, 2.125rem); }
+.lp-btn-md { min-height: 48px; padding: 0 var(--space-6); border-radius: 12px; }
+.lp-learn-cards { display: grid; gap: var(--space-4); }
+@media (min-width: 640px) { .lp-learn-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 1024px) { .lp-learn-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-5); } }
+.lp-card-share { align-content: center; justify-items: start; background: color-mix(in srgb, var(--action) 9%, var(--surface)); }
+@media (prefers-reduced-motion: reduce) { .lp-pillar:hover { transform: none; } }

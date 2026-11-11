@@ -47,7 +47,11 @@ I18N.register({
     'feed.first.group': 'Sujets proposés',
     'feed.first.count': '{n}/3 choisis',
     'feed.first.cta': 'Composer mon accueil',
-    'feed.first.hint': 'Choisissez au moins un sujet.'
+    'feed.first.hint': 'Choisissez au moins un sujet.',
+    'feed.l.title': 'Apprendre', 'feed.l.more': 'Tout apprendre',
+    'feed.l.sub.cont': 'Reprenez là où vous vous êtes arrêté.', 'feed.l.sub.rec': 'Formation gratuite et articles choisis d’après vos sujets.',
+    'feed.l.empty.title': 'Rien à lire pour l’instant', 'feed.l.empty.body': 'Les contenus arrivent. Écrivez le premier !', 'feed.l.empty.cta': 'Écrire un article',
+    'feed.l.share': 'Partagez ce que vous savez'
   },
   en: {
     'feed.title': 'Home — 226os',
@@ -95,7 +99,11 @@ I18N.register({
     'feed.first.group': 'Suggested topics',
     'feed.first.count': '{n}/3 picked',
     'feed.first.cta': 'Build my home',
-    'feed.first.hint': 'Pick at least one topic.'
+    'feed.first.hint': 'Pick at least one topic.',
+    'feed.l.title': 'Learn', 'feed.l.more': 'Everything to learn',
+    'feed.l.sub.cont': 'Pick up where you left off.', 'feed.l.sub.rec': 'A free training and articles picked from your topics.',
+    'feed.l.empty.title': 'Nothing to read yet', 'feed.l.empty.body': 'Content is on its way. Write the first piece!', 'feed.l.empty.cta': 'Write an article',
+    'feed.l.share': 'Share what you know'
   }
 });
 
@@ -178,6 +186,20 @@ I18N.register({
       '<div class="meta"><time class="meta-item" datetime="' + q.date + '" data-testid="feed-my-date-' + n + '">' + M.fmtDate(q.date) + '</time><span class="meta-item" data-testid="feed-my-answers-' + n + '">' + esc(q.answers ? t('feed.q.answers', { n: q.answers }) : t('feed.q.noanswer')) + '</span></div></div>' +
       '<div class="row-aside">' + (q.accepted ? A.statePill('accepted', { testid: 'feed-my-pill-' + n }) : '') + '</div></li>';
   }
+  function learnItems(set) {
+    var Ln = M.learn; if (!Ln) return [];
+    var arts = Ln.items().filter(function (x) { return any(x.tags, set); }), rest = Ln.items().filter(function (x) { return arts.indexOf(x) < 0; });
+    return arts.concat(rest).slice(0, 2);
+  }
+  function learnBox(b, items) {
+    var Ln = M.learn, s = Ln.seriesList[0], ls = Ln.lessons(s.id), done = Ln.doneCount(s.id), next = Ln.nextLesson(s.id), n = ls.length;
+    var cta = done && next ? t('ln.continue', { n: next.n }) : done ? t('ln.review') : t('ln.start'), go = done && next ? next : ls[0];
+    var prog = done ? '<div class="ln-progress" data-testid="feed-l-progress"><div class="ln-progress-text"><strong data-testid="feed-l-progress-text">' + esc(t('ln.progress', { done: done, total: n })) + '</strong><span class="tabular-nums" data-testid="feed-l-progress-pct">' + Math.round(100 * done / n) + '\u00a0%</span></div><div class="ln-bar" role="progressbar" aria-valuemin="0" aria-valuemax="' + n + '" aria-valuenow="' + done + '" aria-label="' + esc(t('ln.progress', { done: done, total: n })) + '" data-testid="feed-l-bar"><span style="width:' + Math.round(100 * done / n) + '%"></span></div></div>' : '';
+    var card = '<div class="ln-mini" data-testid="feed-l-course"><div class="ln-mini-top"><span class="ln-icon-badge" aria-hidden="true" data-testid="feed-l-course-badge"><span class="icon i-sparkles" data-testid="feed-l-course-icon"></span></span><span class="hint" data-testid="feed-l-course-team">' + esc(t('ln.team')) + '</span></div>' +
+      '<h3 data-testid="feed-l-course-title">' + esc(Ln.txt(s.title)) + '</h3><p data-testid="feed-l-course-meta">' + esc(t('ln.lessons', { n: n }) + ' · ' + Ln.fmtMin(Ln.minutesOf(s.id))) + '</p>' + prog +
+      '<div class="ln-actions"><a class="btn btn-primary btn-sm" href="article.html?id=' + go.id + '" data-testid="feed-l-course-cta"><span data-testid="feed-l-course-cta-label">' + esc(cta) + '</span><span class="icon i-arrow-right" aria-hidden="true" data-testid="feed-l-course-cta-icon"></span></a></div></div>';
+    b.innerHTML = card + (items.length ? '<ul class="list list-reset" style="margin-top:var(--space-3)" data-testid="feed-l-list">' + items.map(function (x) { return Ln.row(x, 'feed-l', ''); }).join('') + '</ul>' : '');
+  }
   function list(items, fn, id) { return '<ul class="list list-reset" data-testid="' + id + '">' + items.map(fn).join('') + '</ul>'; }
   function emptyBox(kind, icon, id, href) {
     return '<div class="id-empty" data-testid="' + id + '"><span class="icon i-' + icon + '" aria-hidden="true" data-testid="' + id + '-icon"></span><h3 data-i18n="feed.' + kind + '.empty.title" data-testid="' + id + '-title"></h3><p data-i18n="feed.' + kind + '.empty.body" data-testid="' + id + '-body"></p>' +
@@ -232,7 +254,9 @@ I18N.register({
       p: { icon: 'hammer', title: 'feed.p.title', more: 'feed.p.more', href: R(CFG.projects), spec: { delay: 450, load: function () { return p.items.slice(0, order[0] === 'p' ? 4 : 3); }, render: function (it, b) { b.innerHTML = list(it, rowP, 'feed-p-list'); }, empty: { kind: 'p', icon: 'hammer', id: 'feed-p-empty', href: R(CFG.projects) } } },
       r: { icon: 'compass', title: 'feed.r.title', more: 'feed.r.more', href: R(CFG.catalogue), spec: { delay: 550, load: function () { return r.items.slice(0, order[0] === 'r' ? 4 : 3); }, render: function (it, b) { b.innerHTML = list(it, rowR, 'feed-r-list'); }, empty: { kind: 'r', icon: 'compass', id: 'feed-r-empty', href: R(CFG.catalogue) } } }
     };
-    var main = order.map(function (k) { var s = specs[k]; return block(k, s.icon, s.title, s.more, s.href, esc(subs[k])); }).join('');
+    var lrn = M.learn ? { icon: 'book', title: 'feed.l.title', more: 'feed.l.more', href: R(CFG.learn) } : null;
+    var main = order.map(function (k) { var s = specs[k]; return block(k, s.icon, s.title, s.more, s.href, esc(subs[k])); }).join('') +
+      (lrn ? block('l', lrn.icon, lrn.title, lrn.more, lrn.href, esc(t(M.learn.doneCount('s-ia') ? 'feed.l.sub.cont' : 'feed.l.sub.rec'))) : '');
     var activity = '<section class="id-block" aria-labelledby="feed-a-h" data-testid="feed-a"><div class="id-head"><span class="icon i-clock" aria-hidden="true" data-testid="feed-a-icon"></span><h2 id="feed-a-h" data-i18n="feed.a.title" data-testid="feed-a-title"></h2></div>' +
       '<h3 class="id-sub id-sub-flush" data-i18n="feed.a.q" data-testid="feed-a-q-title" ></h3><div id="feed-a-q-box" data-testid="feed-a-q-box"></div>' +
       '<h3 class="id-sub id-sub-gap" data-i18n="feed.a.apps" data-testid="feed-a-apps-title"></h3><div id="feed-a-apps-box" data-testid="feed-a-apps-box"></div></section>';
@@ -242,6 +266,7 @@ I18N.register({
     I18N.apply(root);
     if (A.View) A.View.init(document.getElementById('feed-view'), '.home-main .list', 'home');
     order.forEach(function (k) { fill(document.getElementById('feed-' + k + '-box'), specs[k].spec, instant); });
+    if (lrn) { var lb = document.getElementById('feed-l-box'); A.Sim.load(lb, { delay: instant ? 0 : 600, skeleton: 2, load: function () { return [1]; }, render: function (it, b) { learnBox(b, learnItems(set)); } }); }
     fill(document.getElementById('feed-a-q-box'), { delay: 400, skeleton: 2, load: function () { return mq.slice(0, 3); }, render: function (it, b) { b.innerHTML = list(it, rowMyQ, 'feed-my-list'); }, empty: { kind: 'a.q', icon: 'message', id: 'feed-a-q-empty', href: R(CFG.ask) } }, instant);
     fill(document.getElementById('feed-a-apps-box'), { delay: 500, skeleton: 2, load: function () { return ma.slice(0, 3); }, render: function (it, b) { b.innerHTML = list(it, rowApp, 'feed-app-list'); }, empty: { kind: 'a.apps', icon: 'users', id: 'feed-a-apps-empty', href: R(CFG.projects) } }, instant);
   }

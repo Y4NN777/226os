@@ -1,18 +1,21 @@
 /* Public landing page: UI dictionary (domain: landing) + rendering of the real mock content (questions, APIs, projects, product preview). */
 I18N.register({
   fr: {
-    'landing.title': '226os · Questions, API, outils et projets open source entre développeurs africains',
-    'landing.eyebrow': 'Questions · API & outils · Projets open source',
-    'landing.h1.a': 'Du problème technique au projet,', 'landing.h1.b': 'entre développeurs africains.',
-    'landing.lede': 'Posez vos questions techniques, trouvez les API et les outils qui fonctionnent chez vous, et rejoignez les projets open source qui cherchent du monde. Tout est relié.',
-    'landing.cta.signup': 'Créer un compte', 'landing.cta.ask': 'Poser une question', 'landing.cta.browse': 'Parcourir les questions',
+    'landing.title': '226os · Questions, API, projets open source et formations entre développeurs africains',
+    'landing.eyebrow': 'Questions · API & outils · Projets open source · Apprendre',
+    'landing.h1.a': 'Résoudre, trouver, construire, apprendre :', 'landing.h1.b': 'entre développeurs africains.',
+    'landing.lede': 'Posez vos questions, trouvez les API et les outils qui fonctionnent chez vous, rejoignez des projets open source et apprenez avec des tutoriels et des formations gratuites. Tout est relié.',
+    'landing.cta.signup': 'Créer un compte', 'landing.cta.ask': 'Poser une question', 'landing.cta.browse': 'Explorer sans compte',
     'landing.note': 'Tout se lit sans compte. Il ne sert qu’au moment d’agir.',
     'landing.preview.label': 'Aperçu du produit : une question, l’API citée et un projet qui en a besoin',
     'landing.preview.api': 'L’API citée dans la réponse', 'landing.preview.project': 'Un projet qui s’en sert',
-    'landing.how.title': 'Du problème au projet', 'landing.how.lede': 'Trois étapes, et chacune mène à la suivante.',
-    'landing.how.1.t': 'Posez votre question', 'landing.how.1.d': 'Décrivez votre blocage avec votre code et votre environnement. Les réponses viennent de développeurs qui connaissent votre contexte.',
-    'landing.how.2.t': 'Trouvez l’API sourcée', 'landing.how.2.d': 'La réponse acceptée renvoie vers la fiche de l’API : pays couverts, SDK, sources et date de dernière vérification.',
-    'landing.how.3.t': 'Construisez ensemble', 'landing.how.3.d': 'Rejoignez un projet open source qui en a besoin, ou publiez le vôtre avec les compétences que vous cherchez.',
+    'landing.how.title': 'Quatre façons d’avancer', 'landing.how.lede': 'Chacune a sa place, et toutes sont reliées entre elles.',
+    'landing.pillar.questions.t': 'Questions', 'landing.pillar.questions.d': 'Décrivez votre blocage avec votre code et votre environnement. Les réponses viennent de développeurs qui connaissent votre contexte.', 'landing.pillar.questions.go': 'Voir les questions',
+    'landing.pillar.apis.t': 'API & outils', 'landing.pillar.apis.d': 'Des fiches sourcées : pays couverts, SDK, pièges connus et date de dernière vérification.', 'landing.pillar.apis.go': 'Ouvrir le catalogue',
+    'landing.pillar.projects.t': 'Projets open source', 'landing.pillar.projects.d': 'Rejoignez un projet qui a besoin de vos compétences, ou publiez le vôtre.', 'landing.pillar.projects.go': 'Voir les projets',
+    'landing.pillar.learn.t': 'Apprendre', 'landing.pillar.learn.d': 'Articles, tutoriels et formations gratuites, écrits par des membres. Chacun peut publier les siens.', 'landing.pillar.learn.go': 'Commencer à apprendre',
+    'landing.l.title': 'Apprendre avec la communauté', 'landing.l.lede': 'Des formations gratuites et des tutoriels écrits par des développeurs, pour des problèmes d’ici.', 'landing.l.more': 'Tout apprendre',
+    'landing.l.free': 'Formation gratuite', 'landing.l.start': 'Voir la formation', 'landing.l.share': 'Vous aussi, partagez un tutoriel',
     'landing.q.title': 'Des questions qui trouvent leur réponse', 'landing.q.lede': 'Lisibles par tous, dans leur langue d’origine.', 'landing.q.more': 'Toutes les questions',
     'landing.q.votes': 'votes', 'landing.q.answers': '{n} réponse(s)',
     'landing.r.title': 'Des API documentées, sources à l’appui', 'landing.r.lede': 'Chaque fiche dit ce qui a été vérifié, et quand.', 'landing.r.more': 'Parcourir le catalogue',
@@ -24,21 +27,24 @@ I18N.register({
     'landing.t.unverified.t': '« Non vérifié », c’est écrit', 'landing.t.unverified.d': 'Quand une information n’a pas été vérifiée, la fiche le dit clairement au lieu de le cacher.',
     'landing.t.open.t': 'Open source', 'landing.t.open.d': 'Le code de 226os est ouvert et chacun peut contribuer. Un code de conduite protège les échanges.',
     'landing.t.data.t': 'Vos données vous appartiennent', 'landing.t.data.d': 'Votre adresse e-mail n’est jamais publique. Vous choisissez ce que montre votre profil.',
-    'landing.end.title': 'Votre prochaine intégration commence par une question.', 'landing.end.lede': 'Créez votre compte en une minute, ou continuez à lire librement.'
+    'landing.end.title': 'Votre prochaine étape commence ici.', 'landing.end.lede': 'Créez votre compte en une minute, ou continuez à lire librement.'
   },
   en: {
-    'landing.title': '226os · Questions, APIs, tools and open-source projects among African developers',
-    'landing.eyebrow': 'Questions · APIs & tools · Open-source projects',
-    'landing.h1.a': 'From technical problem to project,', 'landing.h1.b': 'among African developers.',
-    'landing.lede': 'Ask technical questions, find the APIs and tools that work where you are, and join open-source projects looking for contributors. Everything is linked.',
-    'landing.cta.signup': 'Create an account', 'landing.cta.ask': 'Ask a question', 'landing.cta.browse': 'Browse questions',
+    'landing.title': '226os · Questions, APIs, open-source projects and trainings among African developers',
+    'landing.eyebrow': 'Questions · APIs & tools · Open-source projects · Learn',
+    'landing.h1.a': 'Solve, find, build, learn:', 'landing.h1.b': 'among African developers.',
+    'landing.lede': 'Ask questions, find the APIs and tools that work where you are, join open-source projects and learn with free tutorials and trainings. Everything is linked.',
+    'landing.cta.signup': 'Create an account', 'landing.cta.ask': 'Ask a question', 'landing.cta.browse': 'Explore without an account',
     'landing.note': 'Everything is readable without an account. You only need one to take action.',
     'landing.preview.label': 'Product preview: a question, the API it cites and a project that needs it',
     'landing.preview.api': 'The API cited in the answer', 'landing.preview.project': 'A project that uses it',
-    'landing.how.title': 'From problem to project', 'landing.how.lede': 'Three steps, each leading to the next.',
-    'landing.how.1.t': 'Ask your question', 'landing.how.1.d': 'Describe your blocker with your code and environment. Answers come from developers who know your context.',
-    'landing.how.2.t': 'Find the sourced API', 'landing.how.2.d': 'The accepted answer links to the API listing: supported countries, SDKs, sources and the date of the last check.',
-    'landing.how.3.t': 'Build together', 'landing.how.3.d': 'Join an open-source project that needs it, or publish yours with the skills you are looking for.',
+    'landing.how.title': 'Four ways to move forward', 'landing.how.lede': 'Each has its place, and all of them are linked.',
+    'landing.pillar.questions.t': 'Questions', 'landing.pillar.questions.d': 'Describe your blocker with your code and environment. Answers come from developers who know your context.', 'landing.pillar.questions.go': 'See the questions',
+    'landing.pillar.apis.t': 'APIs & tools', 'landing.pillar.apis.d': 'Sourced listings: supported countries, SDKs, known pitfalls and the date of the last check.', 'landing.pillar.apis.go': 'Open the catalogue',
+    'landing.pillar.projects.t': 'Open-source projects', 'landing.pillar.projects.d': 'Join a project that needs your skills, or publish your own.', 'landing.pillar.projects.go': 'See the projects',
+    'landing.pillar.learn.t': 'Learn', 'landing.pillar.learn.d': 'Free articles, tutorials and trainings written by members. Anyone can publish theirs.', 'landing.pillar.learn.go': 'Start learning',
+    'landing.l.title': 'Learn with the community', 'landing.l.lede': 'Free trainings and tutorials written by developers, about problems from here.', 'landing.l.more': 'Everything to learn',
+    'landing.l.free': 'Free training', 'landing.l.start': 'View the training', 'landing.l.share': 'You too, share a tutorial',
     'landing.q.title': 'Questions that get answers', 'landing.q.lede': 'Readable by everyone, in their original language.', 'landing.q.more': 'All questions',
     'landing.q.votes': 'votes', 'landing.q.answers': '{n} answer(s)',
     'landing.r.title': 'Documented APIs, backed by sources', 'landing.r.lede': 'Every listing says what was verified, and when.', 'landing.r.more': 'Browse the catalogue',
@@ -50,7 +56,7 @@ I18N.register({
     'landing.t.unverified.t': '“Unverified” is spelled out', 'landing.t.unverified.d': 'When something has not been verified, the listing says so instead of hiding it.',
     'landing.t.open.t': 'Open source', 'landing.t.open.d': '226os code is open and anyone can contribute. A code of conduct protects the conversations.',
     'landing.t.data.t': 'Your data stays yours', 'landing.t.data.d': 'Your email address is never public. You choose what your profile shows.',
-    'landing.end.title': 'Your next integration starts with a question.', 'landing.end.lede': 'Create your account in a minute, or keep reading freely.'
+    'landing.end.title': 'Your next step starts here.', 'landing.end.lede': 'Create your account in a minute, or keep reading freely.'
   }
 });
 
@@ -131,7 +137,22 @@ I18N.register({
     });
   }
 
-  function render() { renderPreview(); renderQuestions(); renderApis(); renderProjects(); }
+  function renderLearn() {
+    var L = M.learn; if (!L) return; var s = L.seriesList[0], ls = L.lessons(s.id), arts = L.itemList.slice(0, 2), n = 'landing-learn';
+    var steps = ls.map(function (l) { return '<li class="ln-step" data-testid="' + n + '-lesson-' + l.n + '"><span class="ln-step-n" data-testid="' + n + '-lesson-' + l.n + '-n">' + l.n + '</span><span class="ln-step-t" data-testid="' + n + '-lesson-' + l.n + '-title">' + esc(L.txt(l.title)) + '</span><span class="ln-step-m" data-testid="' + n + '-lesson-' + l.n + '-min">' + esc(L.fmtMin(l.minutes)) + '</span></li>'; }).join('');
+    var feat = '<div class="ln-feature lp-feature" data-testid="' + n + '-feature"><div class="ln-feature-main"><p class="ln-kicker" data-testid="' + n + '-kicker">' + ic('sparkles', n + '-kicker-icon') + '<span data-testid="' + n + '-team">' + esc(t('ln.team')) + '</span></p>' +
+      '<h3 class="lp-h2 lp-learn-h" data-testid="' + n + '-name">' + esc(L.txt(s.title)) + '</h3><p class="ln-feature-sum" data-testid="' + n + '-summary">' + esc(L.txt(s.summary)) + '</p>' +
+      '<p class="ln-facts" data-testid="' + n + '-facts"><span class="meta-item" data-testid="' + n + '-lessons">' + ic('book', n + '-lessons-icon') + esc(t('ln.lessons', { n: ls.length })) + '</span><span class="meta-item" data-testid="' + n + '-duration">' + ic('clock', n + '-duration-icon') + esc(L.fmtMin(L.minutesOf(s.id))) + '</span><span class="meta-item" data-testid="' + n + '-free">' + ic('check-circle', n + '-free-icon') + esc(t('ln.free')) + '</span></p>' +
+      '<div class="ln-actions"><a class="btn btn-primary lp-btn-md" href="pages/formation.html?id=' + s.id + '" data-testid="' + n + '-cta"><span data-testid="' + n + '-cta-label">' + esc(t('landing.l.start')) + '</span>' + ic('arrow-right', n + '-cta-icon') + '</a></div></div>' +
+      '<ol class="ln-steps list-reset" data-testid="' + n + '-lessons-list">' + steps + '</ol></div>';
+    var cards = arts.map(function (x) {
+      var k = n + '-a-' + x.id, p = L.person(x);
+      return '<li class="lp-li" data-testid="' + k + '-item"><a class="lp-card" href="' + L.href(x, 'pages/') + '" data-testid="' + k + '"><span class="lp-card-head">' + A.thumb(x.title, { size: 'lg', icon: L.icon(x), testid: k + '-thumb' }) + '<span class="lp-card-id"><span class="lp-card-name" lang="' + x.lang + '" data-user-content data-testid="' + k + '-name">' + esc(x.title) + '</span><span class="lp-meta" data-testid="' + k + '-author">' + esc(p ? p.name : '') + '</span></span></span>' +
+        '<span class="lp-card-pills"><span class="badge" data-testid="' + k + '-type">' + esc(t('ln.type.' + x.type)) + '</span><span class="badge" data-testid="' + k + '-level">' + esc(t('ln.level.' + x.level)) + '</span></span><span class="lp-card-text" lang="' + x.lang + '" data-user-content data-testid="' + k + '-summary">' + esc(x.summary) + '</span></a></li>';
+    }).join('');
+    $('#lp-learn').innerHTML = feat + '<ul class="lp-cards lp-learn-cards list-reset" data-testid="' + n + '-articles">' + cards + '<li class="lp-li" data-testid="' + n + '-share-item"><a class="lp-card lp-card-share" href="pages/apprendre.html" data-testid="' + n + '-share"><span class="ln-icon-badge" aria-hidden="true" data-testid="' + n + '-share-badge">' + ic('edit', n + '-share-icon') + '</span><span class="lp-card-name" data-testid="' + n + '-share-title">' + esc(t('landing.l.share')) + '</span></a></li></ul>';
+  }
+  function render() { renderPreview(); renderQuestions(); renderApis(); renderProjects(); renderLearn(); }
   function init() { document.title = t('landing.title'); render(); syncCta(); I18N.apply(); }
   document.addEventListener('DOMContentLoaded', init);
   document.addEventListener('i18n:change', function () { document.title = t('landing.title'); render(); });

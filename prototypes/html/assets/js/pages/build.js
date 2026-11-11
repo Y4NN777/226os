@@ -61,6 +61,8 @@ I18N.register({
   var B = MOCK.build, $ = App.$, esc = App.esc, t = function (k, p) { return I18N.t(k, p); };
   var all = B.projects();
   var st = { q: '', country: '', stage: '', lang: '', license: '', sort: 'recent', skills: [], openOnly: false, n: 0 };
+  /* Deep links: ?q= from global search, ?skill= from onboarding (contribute intent). */
+  (function () { var q0 = App.params.get('q'), k0 = App.params.get('skill'); if (q0) st.q = q0; if (k0) st.skills = [k0]; })();
 
   function hay(p) {
     var q = B.question(p.question);
@@ -129,6 +131,7 @@ I18N.register({
 
   function sync() { sim.refresh(); }
   $('#build-filter-form').addEventListener('submit', function (e) { e.preventDefault(); });
+  $('#build-q').value = st.q;
   $('#build-q').addEventListener('input', function (e) { st.q = e.target.value; sync(); });
   [['country', '#build-country'], ['stage', '#build-stage'], ['lang', '#build-lang'], ['license', '#build-license'], ['sort', '#build-sort']].forEach(function (x) {
     $(x[1]).addEventListener('change', function (e) { st[x[0]] = e.target.value; sync(); });

@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title data-i18n="landing.title">226os — Questions, API et projets entre développeurs africains</title>
-  <meta name="description" content="226os : posez vos questions techniques, trouvez des API sourcées et construisez des projets open source entre développeurs africains.">
+  <title data-i18n="landing.title">226os — Questions, API, projets et formations entre développeurs africains</title>
+  <meta name="description" content="226os : posez vos questions, trouvez des API sourcées, rejoignez des projets open source et apprenez avec des tutoriels et des formations gratuites.">
   <meta name="color-scheme" content="light dark">
   <script src="assets/js/theme-init.js"></script>
   <link rel="stylesheet" href="assets/css/tokens.css">
@@ -13,6 +13,7 @@
   <link rel="stylesheet" href="assets/css/icons.css">
   <link rel="stylesheet" href="assets/css/components.css">
   <link rel="stylesheet" href="assets/css/pages/landing.css">
+  <link rel="stylesheet" href="assets/css/pages/learn.css">
 </head>
 <body data-layout="public" data-root="">
   <a class="skip-link" href="#main" data-i18n="skip" data-testid="skip-link">Aller au contenu principal</a>
@@ -34,32 +35,38 @@
       <div class="lp-preview" id="lp-preview" role="group" data-i18n-attr="aria-label:landing.preview.label" data-testid="landing-preview"></div>
     </section>
 
-    <!-- 2. Du problème au projet -->
+    <!-- 2. Quatre piliers -->
     <section class="lp-section lp-wrap" aria-labelledby="lp-how-h" data-testid="landing-how">
       <header class="lp-head">
         <h2 id="lp-how-h" class="lp-h2" data-i18n="landing.how.title" data-testid="landing-how-title"></h2>
         <p class="lp-sub" data-i18n="landing.how.lede" data-testid="landing-how-lede"></p>
       </header>
-      <ol class="lp-steps list-reset" data-testid="landing-steps">
-        <li class="lp-step" data-testid="landing-step-1">
-          <span class="lp-step-icon" aria-hidden="true" data-testid="landing-step-1-badge"><span class="icon i-help" data-testid="landing-step-1-icon"></span></span>
-          <span class="lp-step-n tabular-nums" aria-hidden="true" data-testid="landing-step-1-n">1</span>
-          <h3 class="lp-h3" data-i18n="landing.how.1.t" data-testid="landing-step-1-title"></h3>
-          <p data-i18n="landing.how.1.d" data-testid="landing-step-1-text"></p>
-        </li>
-        <li class="lp-step" data-testid="landing-step-2">
-          <span class="lp-step-icon" aria-hidden="true" data-testid="landing-step-2-badge"><span class="icon i-shield-check" data-testid="landing-step-2-icon"></span></span>
-          <span class="lp-step-n tabular-nums" aria-hidden="true" data-testid="landing-step-2-n">2</span>
-          <h3 class="lp-h3" data-i18n="landing.how.2.t" data-testid="landing-step-2-title"></h3>
-          <p data-i18n="landing.how.2.d" data-testid="landing-step-2-text"></p>
-        </li>
-        <li class="lp-step" data-testid="landing-step-3">
-          <span class="lp-step-icon" aria-hidden="true" data-testid="landing-step-3-badge"><span class="icon i-hammer" data-testid="landing-step-3-icon"></span></span>
-          <span class="lp-step-n tabular-nums" aria-hidden="true" data-testid="landing-step-3-n">3</span>
-          <h3 class="lp-h3" data-i18n="landing.how.3.t" data-testid="landing-step-3-title"></h3>
-          <p data-i18n="landing.how.3.d" data-testid="landing-step-3-text"></p>
-        </li>
-      </ol>
+      <ul class="lp-steps lp-pillars list-reset" data-testid="landing-steps">
+        <li data-testid="landing-pillar-questions-item"><a class="lp-step lp-pillar" href="pages/solve.html" data-testid="landing-pillar-questions">
+          <span class="lp-step-icon" aria-hidden="true" data-testid="landing-pillar-questions-badge"><span class="icon i-help" data-testid="landing-pillar-questions-icon"></span></span>
+          <h3 class="lp-h3" data-i18n="landing.pillar.questions.t" data-testid="landing-pillar-questions-title"></h3>
+          <p data-i18n="landing.pillar.questions.d" data-testid="landing-pillar-questions-text"></p>
+          <span class="lp-pillar-go" data-testid="landing-pillar-questions-go"><span data-i18n="landing.pillar.questions.go" data-testid="landing-pillar-questions-go-label"></span><span class="icon i-arrow-right" aria-hidden="true" data-testid="landing-pillar-questions-go-icon"></span></span>
+        </a></li>
+        <li data-testid="landing-pillar-apis-item"><a class="lp-step lp-pillar" href="pages/discover.html" data-testid="landing-pillar-apis">
+          <span class="lp-step-icon" aria-hidden="true" data-testid="landing-pillar-apis-badge"><span class="icon i-compass" data-testid="landing-pillar-apis-icon"></span></span>
+          <h3 class="lp-h3" data-i18n="landing.pillar.apis.t" data-testid="landing-pillar-apis-title"></h3>
+          <p data-i18n="landing.pillar.apis.d" data-testid="landing-pillar-apis-text"></p>
+          <span class="lp-pillar-go" data-testid="landing-pillar-apis-go"><span data-i18n="landing.pillar.apis.go" data-testid="landing-pillar-apis-go-label"></span><span class="icon i-arrow-right" aria-hidden="true" data-testid="landing-pillar-apis-go-icon"></span></span>
+        </a></li>
+        <li data-testid="landing-pillar-projects-item"><a class="lp-step lp-pillar" href="pages/build.html" data-testid="landing-pillar-projects">
+          <span class="lp-step-icon" aria-hidden="true" data-testid="landing-pillar-projects-badge"><span class="icon i-hammer" data-testid="landing-pillar-projects-icon"></span></span>
+          <h3 class="lp-h3" data-i18n="landing.pillar.projects.t" data-testid="landing-pillar-projects-title"></h3>
+          <p data-i18n="landing.pillar.projects.d" data-testid="landing-pillar-projects-text"></p>
+          <span class="lp-pillar-go" data-testid="landing-pillar-projects-go"><span data-i18n="landing.pillar.projects.go" data-testid="landing-pillar-projects-go-label"></span><span class="icon i-arrow-right" aria-hidden="true" data-testid="landing-pillar-projects-go-icon"></span></span>
+        </a></li>
+        <li data-testid="landing-pillar-learn-item"><a class="lp-step lp-pillar" href="pages/apprendre.html" data-testid="landing-pillar-learn">
+          <span class="lp-step-icon" aria-hidden="true" data-testid="landing-pillar-learn-badge"><span class="icon i-book" data-testid="landing-pillar-learn-icon"></span></span>
+          <h3 class="lp-h3" data-i18n="landing.pillar.learn.t" data-testid="landing-pillar-learn-title"></h3>
+          <p data-i18n="landing.pillar.learn.d" data-testid="landing-pillar-learn-text"></p>
+          <span class="lp-pillar-go" data-testid="landing-pillar-learn-go"><span data-i18n="landing.pillar.learn.go" data-testid="landing-pillar-learn-go-label"></span><span class="icon i-arrow-right" aria-hidden="true" data-testid="landing-pillar-learn-go-icon"></span></span>
+        </a></li>
+      </ul>
     </section>
 
     <!-- 3. Contenu réel -->
@@ -85,6 +92,14 @@
         <a class="lp-link" href="pages/build.html" data-testid="landing-projects-more"><span data-i18n="landing.p.more" data-testid="landing-projects-more-label"></span><span class="icon i-arrow-right" aria-hidden="true" data-testid="landing-projects-more-icon"></span></a>
       </header>
       <ul class="lp-cards list-reset" id="lp-projects" data-testid="landing-projects-list"></ul>
+    </section>
+
+    <section class="lp-section lp-wrap" aria-labelledby="lp-l-h" data-testid="landing-learn">
+      <header class="lp-head lp-head-row">
+        <div><h2 id="lp-l-h" class="lp-h2" data-i18n="landing.l.title" data-testid="landing-learn-title"></h2><p class="lp-sub" data-i18n="landing.l.lede" data-testid="landing-learn-lede"></p></div>
+        <a class="lp-link" href="pages/apprendre.html" data-testid="landing-learn-more"><span data-i18n="landing.l.more" data-testid="landing-learn-more-label"></span><span class="icon i-arrow-right" aria-hidden="true" data-testid="landing-learn-more-icon"></span></a>
+      </header>
+      <div class="lp-learn" id="lp-learn" data-testid="landing-learn-block"></div>
     </section>
 
     <!-- 4. Confiance -->
@@ -137,6 +152,7 @@
   <script defer src="assets/js/i18n-common.js"></script>
   <script defer src="assets/data/people.js"></script>
   <script defer src="assets/data/common.js"></script>
+  <script defer src="assets/data/learn.js"></script>
   <script defer src="assets/js/pages/landing.js"></script>
 </body>
 </html>
