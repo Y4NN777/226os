@@ -1,0 +1,44 @@
+# 226OS Spec Kit
+
+**Status:** implementation-ready documentation baseline, pending human approval
+**Date:** 2026-11-11
+**Owner:** 7's / human approver to assign
+
+## Purpose
+
+This directory is the canonical implementation handoff for 226OS. It does not replace the product or engineering source documents; it binds them into an executable plan and records what is accepted, open, specified, verified, or not run.
+
+## Document precedence
+
+1. `AGENTS.md` governs agent permissions, evidence, and human approval.
+2. `PRD.md` governs product scope and rationale, including all eight domains and four differentiators.
+3. `SPEC.md` governs observable behavior, invariants, and API boundaries.
+4. `docs/architecture/ARCHITECTURE.md` governs accepted technical boundaries.
+5. `DESIGN.md` governs UI direction and Astryx usage.
+6. `RULES.md`, `TEST.md`, `DEV.md`, and `SHIP.md` govern engineering, quality, implementation, and release procedure.
+7. `docs/decisions/` records accepted or pending changes; a later accepted ADR supersedes an earlier decision only when explicitly stated.
+8. This Spec Kit binds the above documents into tasks. It cannot approve an open decision or change product scope.
+
+The repository currently keeps the primary documents at the repository root. Links and future work must use those canonical paths until a human-approved documentation move is made.
+
+## Status vocabulary
+
+- `SPECIFIED`: documented requirement or procedure; no execution evidence yet.
+- `VERIFIED`: inspected evidence exists in the repository or a recorded review.
+- `PASS`: an executable gate produced acceptable evidence for the target SHA.
+- `FAIL`: an executable gate produced unacceptable evidence.
+- `NOT RUN`: no executable check was run; never treat it as success.
+- `BLOCKED`: cannot proceed until an explicit dependency or human decision is resolved.
+
+## Contents
+
+- [Traceability](TRACEABILITY.md): PRD, SPEC, UI/API/data, BDD, tasks, and gates.
+- [Contracts](CONTRACTS.md): API, data, search, frontend, security, and operational contracts to approve before parallel implementation.
+- [Tasks](TASKS.md): bounded implementation work items with owners, allowed paths, tests, evidence, and dependencies.
+- [Quality and release](QUALITY_RELEASE.md): deterministic gates, evidence records, and release prerequisites.
+- [Decisions](../decisions/README.md): accepted baseline and pending human decisions.
+- [Claude handoff](CLAUDE_HANDOFF.md): standalone first-session instructions.
+
+## Current readiness
+
+Documentation review is `VERIFIED` for the findings recorded in the handoff. G0 is `BLOCKED` pending human approval of owners, contracts, and open decisions. G1-G7 are `NOT RUN` because no application, infrastructure, CI, or test artifacts exist yet.
