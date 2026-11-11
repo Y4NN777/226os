@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title data-i18n="resource.title">Fiche API — 226os</title>
+  <meta name="color-scheme" content="light dark">
+  <script src="../assets/js/theme-init.js"></script>
+  <link rel="stylesheet" href="../assets/css/tokens.css">
+  <link rel="stylesheet" href="../assets/css/base.css">
+  <link rel="stylesheet" href="../assets/css/layout.css">
+  <link rel="stylesheet" href="../assets/css/icons.css">
+  <link rel="stylesheet" href="../assets/css/components.css">
+  <link rel="stylesheet" href="../assets/css/pages/discover.css">
+</head>
+<body class="app" data-active="discover" data-root="../">
+  <a class="skip-link" href="#main" data-i18n="skip" data-testid="skip-link">Aller au contenu principal</a>
+
+  <main id="main" tabindex="-1">
+    <nav class="breadcrumbs" data-i18n-attr="aria-label:common.breadcrumb" data-testid="breadcrumbs">
+      <ol>
+        <li><a href="../index.html" data-i18n="nav.explore" data-testid="breadcrumb-home"></a></li>
+        <li><a href="discover.html" data-i18n="nav.discover" data-testid="breadcrumb-discover"></a></li>
+        <li><span aria-current="page" id="resource-crumb" data-testid="breadcrumb-current"></span></li>
+      </ol>
+    </nav>
+
+    <div id="resource-state" data-testid="resource-state" aria-live="polite"></div>
+
+    <div id="resource-content" data-testid="resource-content">
+      <header class="page-header">
+        <div class="page-header-row">
+          <div class="resource-head">
+            <span id="resource-thumb" data-testid="resource-thumb-slot"></span>
+            <div class="stack-sm">
+              <p class="eyebrow" id="resource-eyebrow" data-testid="resource-eyebrow"></p>
+              <h1 id="resource-name" data-testid="resource-title"></h1>
+              <p class="text-sm text-muted" id="resource-provider" data-testid="resource-provider"></p>
+            </div>
+          </div>
+          <div class="resource-actions">
+            <a class="btn btn-primary link-external" id="resource-docs-link" rel="noopener noreferrer" target="_blank" data-testid="resource-docs-link"><span class="icon i-book" aria-hidden="true" data-testid="resource-docs-link-icon"></span><span data-i18n="resource.docs" data-testid="resource-docs-link-label"></span></a>
+            <button type="button" class="btn btn-icon tip-top" id="resource-share" data-i18n-attr="aria-label:resource.share" data-testid="resource-share-button"><span class="icon i-link icon-main" aria-hidden="true" data-testid="resource-share-icon"></span><span class="icon i-check icon-alt" aria-hidden="true" data-testid="resource-share-icon-done"></span></button>
+            <button type="button" class="btn btn-icon tip-top" id="resource-report-open" data-i18n-attr="aria-label:resource.report.open" data-testid="resource-report-button"><span class="icon i-flag" aria-hidden="true" data-testid="resource-report-button-icon"></span></button>
+          </div>
+        </div>
+        <div class="resource-facts" id="resource-badges" data-testid="resource-badges"></div>
+        <p class="lede" id="resource-summary" lang="fr" data-user-content data-testid="resource-summary"></p>
+      </header>
+
+      <div data-tabs data-testid="resource-tabs">
+        <div class="tablist" role="tablist" data-i18n-attr="aria-label:resource.tabs.label" data-testid="resource-tablist">
+          <button class="tab" role="tab" id="tab-overview" aria-controls="panel-overview" aria-selected="true" data-testid="resource-tab-overview"><span class="icon i-info" aria-hidden="true" data-testid="resource-tab-overview-icon"></span><span data-i18n="resource.tab.overview" data-testid="resource-tab-overview-label"></span></button>
+          <button class="tab" role="tab" id="tab-integration" aria-controls="panel-integration" aria-selected="false" tabindex="-1" data-testid="resource-tab-integration"><span class="icon i-code" aria-hidden="true" data-testid="resource-tab-integration-icon"></span><span data-i18n="resource.tab.integration" data-testid="resource-tab-integration-label"></span></button>
+          <button class="tab" role="tab" id="tab-discussions" aria-controls="panel-discussions" aria-selected="false" tabindex="-1" data-testid="resource-tab-discussions"><span class="icon i-message" aria-hidden="true" data-testid="resource-tab-discussions-icon"></span><span data-i18n="resource.tab.discussions" data-testid="resource-tab-discussions-label"></span></button>
+        </div>
+        <div class="tabpanel" role="tabpanel" id="panel-overview" aria-labelledby="tab-overview" tabindex="0" data-testid="resource-panel-overview"></div>
+        <div class="tabpanel" role="tabpanel" id="panel-integration" aria-labelledby="tab-integration" tabindex="0" hidden data-testid="resource-panel-integration"></div>
+        <div class="tabpanel" role="tabpanel" id="panel-discussions" aria-labelledby="tab-discussions" tabindex="0" hidden data-testid="resource-panel-discussions"></div>
+      </div>
+
+      <section class="section" aria-labelledby="resource-projects-h" data-testid="resource-projects-section">
+        <div class="section-head"><h2 id="resource-projects-h" data-i18n="resource.disc.proj" data-testid="resource-projects-h"></h2></div>
+        <div id="resource-projects-body" data-testid="resource-projects-body"></div>
+      </section>
+
+      <section class="section" id="resource-reviews" aria-labelledby="resource-reviews-h" tabindex="-1" data-testid="resource-reviews-section">
+        <div class="section-head"><h2 id="resource-reviews-h" data-i18n="resource.rev.h" data-testid="resource-reviews-h"></h2>
+          <button type="button" class="btn" id="resource-review-open" data-testid="resource-review-open"><span class="icon i-edit" aria-hidden="true" data-testid="resource-review-open-icon"></span><span data-i18n="resource.rev.write" data-testid="resource-review-open-label"></span></button></div>
+        <div id="resource-reviews-body" data-testid="resource-reviews-body"></div>
+      </section>
+
+      <section class="section" aria-labelledby="resource-linked-h" data-testid="resource-linked-section">
+        <div class="section-head"><h2 id="resource-linked-h" data-i18n="resource.linked.h" data-testid="resource-linked-h"></h2></div>
+        <div class="linked-items" id="resource-linked" data-testid="resource-linked"></div>
+      </section>
+    </div>
+  </main>
+
+  <dialog class="dialog" id="resource-report-dialog" aria-labelledby="resource-report-title" data-testid="resource-report-dialog">
+    <form id="resource-report-form" novalidate data-testid="resource-report-form">
+      <div class="dialog-head">
+        <div class="stack-sm">
+          <h2 id="resource-report-title" data-i18n="resource.report.title" data-testid="resource-report-title"></h2>
+          <span class="badge badge-sim" data-proto data-i18n="sim.badge" data-testid="resource-report-sim"></span>
+        </div>
+        <button type="button" class="btn btn-ghost btn-icon" data-dialog-close data-i18n-attr="aria-label:common.close" data-testid="resource-report-close"><span class="icon i-x" aria-hidden="true" data-testid="resource-report-close-icon"></span></button>
+      </div>
+      <div class="dialog-body">
+        <p class="text-sm text-muted" data-proto data-i18n="resource.report.intro" data-testid="resource-report-intro"></p>
+        <div class="form-summary" id="report-summary" role="alert" tabindex="-1" hidden data-testid="resource-report-summary">
+          <h2 data-i18n="resource.report.summary" data-testid="resource-report-summary-title"></h2>
+          <ul id="report-summary-list" data-testid="resource-report-summary-list"></ul>
+        </div>
+        <div class="field" id="field-kind">
+          <label class="label" for="report-kind" data-testid="resource-report-kind-label"><span data-i18n="resource.report.kind" data-testid="resource-report-kind-label-text"></span> <span class="req" aria-hidden="true" data-testid="resource-report-kind-required">*</span></label>
+          <select id="report-kind" name="kind" class="select" required aria-describedby="report-kind-error" data-testid="resource-report-kind-input">
+            <option value="" data-i18n="resource.report.choose" data-testid="resource-report-kind-option-none"></option>
+            <option value="outdated" data-i18n="resource.report.k.outdated" data-testid="resource-report-kind-option-outdated"></option>
+            <option value="broken" data-i18n="resource.report.k.broken" data-testid="resource-report-kind-option-broken"></option>
+            <option value="coverage" data-i18n="resource.report.k.coverage" data-testid="resource-report-kind-option-coverage"></option>
+            <option value="other" data-i18n="resource.report.k.other" data-testid="resource-report-kind-option-other"></option>
+          </select>
+          <p class="error-msg" id="report-kind-error" data-testid="resource-report-kind-error" hidden></p>
+        </div>
+        <div class="field" id="field-detail">
+          <label class="label" for="report-detail" data-testid="resource-report-detail-label"><span data-i18n="resource.report.detail" data-testid="resource-report-detail-label-text"></span> <span class="req" aria-hidden="true" data-testid="resource-report-detail-required">*</span></label>
+          <p class="hint" id="report-detail-hint" data-i18n="resource.report.detail.hint" data-testid="resource-report-detail-hint"></p>
+          <textarea id="report-detail" name="detail" class="textarea" rows="4" required aria-describedby="report-detail-hint report-detail-error" data-testid="resource-report-detail-input"></textarea>
+          <p class="error-msg" id="report-detail-error" data-testid="resource-report-detail-error" hidden></p>
+        </div>
+        <div class="field" id="field-source">
+          <label class="label" for="report-source" data-i18n="resource.report.source" data-testid="resource-report-source-label"></label>
+          <p class="hint" id="report-source-hint" data-i18n="resource.report.source.hint" data-testid="resource-report-source-hint"></p>
+          <input id="report-source" name="source" class="input" type="url" inputmode="url" autocomplete="off" placeholder="https://example.org/…" aria-describedby="report-source-hint report-source-error" data-testid="resource-report-source-input">
+          <p class="error-msg" id="report-source-error" data-testid="resource-report-source-error" hidden></p>
+        </div>
+      </div>
+      <div class="dialog-foot">
+        <button type="button" class="btn" data-dialog-close data-testid="resource-report-cancel"><span data-i18n="common.cancel" data-testid="resource-report-cancel-label"></span></button>
+        <button type="submit" class="btn btn-primary" data-testid="resource-report-submit"><span class="icon i-send" aria-hidden="true" data-testid="resource-report-submit-icon"></span><span data-i18n="resource.report.submit" data-testid="resource-report-submit-label"></span></button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog class="dialog" id="resource-review-dialog" aria-labelledby="resource-review-title" data-testid="resource-review-dialog">
+    <form id="resource-review-form" novalidate data-testid="resource-review-form">
+      <div class="dialog-head">
+        <h2 id="resource-review-title" data-i18n="resource.rev.write" data-testid="resource-review-title"></h2>
+        <button type="button" class="btn btn-ghost btn-icon" data-dialog-close data-i18n-attr="aria-label:common.close" data-testid="resource-review-close"><span class="icon i-x" aria-hidden="true" data-testid="resource-review-close-icon"></span></button>
+      </div>
+      <div class="dialog-body" id="review-body">
+        <p class="text-sm text-muted" data-proto data-i18n="resource.rev.proto" data-testid="resource-review-proto"></p>
+        <div class="form-summary" id="review-summary" role="alert" tabindex="-1" hidden data-testid="resource-review-summary">
+          <h2 data-i18n="resource.report.summary" data-testid="resource-review-summary-title"></h2>
+          <ul id="review-summary-list" data-testid="resource-review-summary-list"></ul>
+        </div>
+        <div class="field" id="field-rating">
+          <span id="review-rating-slot" data-testid="resource-review-rating-slot"></span>
+          <p class="error-msg" id="review-rating-error" data-testid="resource-review-rating-error" hidden></p>
+        </div>
+        <div class="field" id="field-text">
+          <label class="label" for="review-text" data-i18n="resource.rev.text" data-testid="resource-review-text-label"></label>
+          <textarea id="review-text" name="text" class="textarea" rows="4" maxlength="600" required aria-describedby="review-text-error" data-i18n-attr="placeholder:resource.rev.placeholder" data-testid="resource-review-text-input"></textarea>
+          <p class="error-msg" id="review-text-error" data-testid="resource-review-text-error" hidden></p>
+        </div>
+      </div>
+      <div class="dialog-body res-next" id="review-success" role="status" hidden data-testid="resource-review-success">
+        <div class="res-next-head"><span class="icon i-check-circle" aria-hidden="true" data-testid="resource-review-success-icon"></span><div><h3 data-i18n="resource.rev.success.title" data-testid="resource-review-success-title"></h3><p class="text-sm text-muted" data-i18n="resource.rev.success.msg" data-testid="resource-review-success-msg"></p></div></div>
+        <h3 class="h4" data-i18n="resource.rev.next" data-testid="resource-review-next-title"></h3>
+        <div id="review-next-list" data-testid="resource-review-next-list"></div>
+      </div>
+      <div class="dialog-foot">
+        <button type="button" class="btn" id="review-cancel" data-dialog-close data-testid="resource-review-cancel"><span data-i18n="common.cancel" data-testid="resource-review-cancel-label"></span></button>
+        <button type="submit" class="btn btn-primary" id="review-submit" data-testid="resource-review-submit"><span class="icon i-send" aria-hidden="true" data-testid="resource-review-submit-icon"></span><span data-i18n="resource.rev.submit" data-testid="resource-review-submit-label"></span></button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="../assets/js/shell.js"></script>
+  <script defer src="../assets/js/app.js"></script>
+  <script defer src="../assets/js/i18n-common.js"></script>
+  <script defer src="../assets/js/markdown.js"></script>
+  <script defer src="../assets/data/people.js"></script>
+  <script defer src="../assets/data/common.js"></script>
+  <script defer src="../assets/data/build.js"></script>
+  <script defer src="../assets/data/discover.js"></script>
+  <script defer src="../assets/js/pages/resource.js"></script>
+</body>
+</html>

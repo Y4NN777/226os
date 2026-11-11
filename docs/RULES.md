@@ -3,7 +3,7 @@
 **Portée :** humains, Claude Code, autres agents et CI. **Priorité :** sécurité/intégrité > PRD > SPEC > ADR acceptés > règles techniques > préférences locales. Aucune règle dans ce fichier ne permet d'ignorer des contraintes supérieures.
 
 ## Produit et fidélité
-1. Préserver les **huit piliers** définis dans PRD ; P0/P1/P2 = ordre, jamais suppression. Pas de nouvelles features implicites.
+1. Préserver les **neuf domaines** définis dans PRD (amendement 3.1 : Apprendre) ; P0/P1/P2 = ordre, jamais suppression. Pas de nouvelles features implicites.
 2. Tout changement public a une user story et un test d'acceptation ; modifier SPEC/OpenAPI si comportement change.
 3. Respecter le monorepo, le monolithe Go modulaire et la stack approuvée ; toute dérogation par ADR signé.
 4. Ne pas déclarer « done » si le produit déployé, la preuve de test ou un critère d'acceptation manque.

@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title data-i18n="landing.title">226os — Questions, API, projets et formations entre développeurs africains</title>
+  <meta name="description" content="226os : posez vos questions, trouvez des API sourcées, rejoignez des projets open source et apprenez avec des tutoriels et des formations gratuites.">
+  <meta name="color-scheme" content="light dark">
+  <script src="assets/js/theme-init.js"></script>
+  <link rel="stylesheet" href="assets/css/tokens.css">
+  <link rel="stylesheet" href="assets/css/base.css">
+  <link rel="stylesheet" href="assets/css/layout.css">
+  <link rel="stylesheet" href="assets/css/icons.css">
+  <link rel="stylesheet" href="assets/css/components.css">
+  <link rel="stylesheet" href="assets/css/pages/landing.css">
+  <link rel="stylesheet" href="assets/css/pages/learn.css">
+</head>
+<body data-layout="public" data-root="">
+  <a class="skip-link" href="#main" data-i18n="skip" data-testid="skip-link">Aller au contenu principal</a>
+
+  <main id="main" class="lp" tabindex="-1">
+
+    <!-- 1. Hero -->
+    <section class="lp-hero lp-wrap" aria-labelledby="lp-h1" data-testid="landing-hero">
+      <div class="lp-hero-copy">
+        <p class="lp-eyebrow" data-testid="landing-eyebrow"><span class="icon i-sparkles" aria-hidden="true" data-testid="landing-eyebrow-icon"></span><span data-i18n="landing.eyebrow" data-testid="landing-eyebrow-text"></span></p>
+        <h1 id="lp-h1" class="lp-h1" data-testid="landing-h1"><span data-i18n="landing.h1.a" data-testid="landing-h1-a"></span> <span class="lp-h1-em" data-i18n="landing.h1.b" data-testid="landing-h1-b"></span></h1>
+        <p class="lp-lede" data-i18n="landing.lede" data-testid="landing-lede"></p>
+        <div class="lp-actions" data-testid="landing-actions">
+          <a class="btn btn-primary lp-btn-lg" id="lp-cta" href="pages/inscription.html" data-testid="landing-cta-signup"><span class="icon i-user-plus" aria-hidden="true" data-testid="landing-cta-signup-icon"></span><span id="lp-cta-label" data-i18n="landing.cta.signup" data-testid="landing-cta-signup-label"></span></a>
+          <a class="lp-link" href="pages/solve.html" data-testid="landing-cta-browse"><span data-i18n="landing.cta.browse" data-testid="landing-cta-browse-label"></span><span class="icon i-arrow-right" aria-hidden="true" data-testid="landing-cta-browse-icon"></span></a>
+        </div>
+        <p class="lp-note" data-testid="landing-note"><span class="icon i-eye" aria-hidden="true" data-testid="landing-note-icon"></span><span data-i18n="landing.note" data-testid="landing-note-text"></span></p>
+      </div>
+      <div class="lp-preview" id="lp-preview" role="group" data-i18n-attr="aria-label:landing.preview.label" data-testid="landing-preview"></div>
+    </section>
+
+    <!-- 2. Quatre piliers -->
+    <section class="lp-section lp-wrap" aria-labelledby="lp-how-h" data-testid="landing-how">
+      <header class="lp-head">
+        <h2 id="lp-how-h" class="lp-h2" data-i18n="landing.how.title" data-testid="landing-how-title"></h2>
+        <p class="lp-sub" data-i18n="landing.how.lede" data-testid="landing-how-lede"></p>
+      </header>
+      <ul class="lp-steps lp-pillars list-reset" data-testid="landing-steps">
+        <li data-testid="landing-pillar-questions-item"><a class="lp-step lp-pillar" href="pages/solve.html" data-testid="landing-pillar-questions">
+          <span class="lp-step-icon" aria-hidden="true" data-testid="landing-pillar-questions-badge"><span class="icon i-help" data-testid="landing-pillar-questions-icon"></span></span>
+          <h3 class="lp-h3" data-i18n="landing.pillar.questions.t" data-testid="landing-pillar-questions-title"></h3>
+          <p data-i18n="landing.pillar.questions.d" data-testid="landing-pillar-questions-text"></p>
+          <span class="lp-pillar-go" data-testid="landing-pillar-questions-go"><span data-i18n="landing.pillar.questions.go" data-testid="landing-pillar-questions-go-label"></span><span class="icon i-arrow-right" aria-hidden="true" data-testid="landing-pillar-questions-go-icon"></span></span>
+        </a></li>
+        <li data-testid="landing-pillar-apis-item"><a class="lp-step lp-pillar" href="pages/discover.html" data-testid="landing-pillar-apis">
+          <span class="lp-step-icon" aria-hidden="true" data-testid="landing-pillar-apis-badge"><span class="icon i-compass" data-testid="landing-pillar-apis-icon"></span></span>
+          <h3 class="lp-h3" data-i18n="landing.pillar.apis.t" data-testid="landing-pillar-apis-title"></h3>
+          <p data-i18n="landing.pillar.apis.d" data-testid="landing-pillar-apis-text"></p>
+          <span class="lp-pillar-go" data-testid="landing-pillar-apis-go"><span data-i18n="landing.pillar.apis.go" data-testid="landing-pillar-apis-go-label"></span><span class="icon i-arrow-right" aria-hidden="true" data-testid="landing-pillar-apis-go-icon"></span></span>
+        </a></li>
+        <li data-testid="landing-pillar-projects-item"><a class="lp-step lp-pillar" href="pages/build.html" data-testid="landing-pillar-projects">
+          <span class="lp-step-icon" aria-hidden="true" data-testid="landing-pillar-projects-badge"><span class="icon i-hammer" data-testid="landing-pillar-projects-icon"></span></span>
+          <h3 class="lp-h3" data-i18n="landing.pillar.projects.t" data-testid="landing-pillar-projects-title"></h3>
+          <p data-i18n="landing.pillar.projects.d" data-testid="landing-pillar-projects-text"></p>
+          <span class="lp-pillar-go" data-testid="landing-pillar-projects-go"><span data-i18n="landing.pillar.projects.go" data-testid="landing-pillar-projects-go-label"></span><span class="icon i-arrow-right" aria-hidden="true" data-testid="landing-pillar-projects-go-icon"></span></span>
+        </a></li>
+        <li data-testid="landing-pillar-learn-item"><a class="lp-step lp-pillar" href="pages/apprendre.html" data-testid="landing-pillar-learn">
+          <span class="lp-step-icon" aria-hidden="true" data-testid="landing-pillar-learn-badge"><span class="icon i-book" data-testid="landing-pillar-learn-icon"></span></span>
+          <h3 class="lp-h3" data-i18n="landing.pillar.learn.t" data-testid="landing-pillar-learn-title"></h3>
+          <p data-i18n="landing.pillar.learn.d" data-testid="landing-pillar-learn-text"></p>
+          <span class="lp-pillar-go" data-testid="landing-pillar-learn-go"><span data-i18n="landing.pillar.learn.go" data-testid="landing-pillar-learn-go-label"></span><span class="icon i-arrow-right" aria-hidden="true" data-testid="landing-pillar-learn-go-icon"></span></span>
+        </a></li>
+      </ul>
+    </section>
+
+    <!-- 3. Contenu réel -->
+    <section class="lp-section lp-wrap" aria-labelledby="lp-q-h" data-testid="landing-questions">
+      <header class="lp-head lp-head-row">
+        <div><h2 id="lp-q-h" class="lp-h2" data-i18n="landing.q.title" data-testid="landing-questions-title"></h2><p class="lp-sub" data-i18n="landing.q.lede" data-testid="landing-questions-lede"></p></div>
+        <a class="lp-link" href="pages/solve.html" data-testid="landing-questions-more"><span data-i18n="landing.q.more" data-testid="landing-questions-more-label"></span><span class="icon i-arrow-right" aria-hidden="true" data-testid="landing-questions-more-icon"></span></a>
+      </header>
+      <ul class="lp-qlist list-reset" id="lp-questions" data-testid="landing-questions-list"></ul>
+    </section>
+
+    <section class="lp-section lp-wrap" aria-labelledby="lp-r-h" data-testid="landing-apis">
+      <header class="lp-head lp-head-row">
+        <div><h2 id="lp-r-h" class="lp-h2" data-i18n="landing.r.title" data-testid="landing-apis-title"></h2><p class="lp-sub" data-i18n="landing.r.lede" data-testid="landing-apis-lede"></p></div>
+        <a class="lp-link" href="pages/discover.html" data-testid="landing-apis-more"><span data-i18n="landing.r.more" data-testid="landing-apis-more-label"></span><span class="icon i-arrow-right" aria-hidden="true" data-testid="landing-apis-more-icon"></span></a>
+      </header>
+      <ul class="lp-cards list-reset" id="lp-apis" data-testid="landing-apis-list"></ul>
+    </section>
+
+    <section class="lp-section lp-wrap" aria-labelledby="lp-p-h" data-testid="landing-projects">
+      <header class="lp-head lp-head-row">
+        <div><h2 id="lp-p-h" class="lp-h2" data-i18n="landing.p.title" data-testid="landing-projects-title"></h2><p class="lp-sub" data-i18n="landing.p.lede" data-testid="landing-projects-lede"></p></div>
+        <a class="lp-link" href="pages/build.html" data-testid="landing-projects-more"><span data-i18n="landing.p.more" data-testid="landing-projects-more-label"></span><span class="icon i-arrow-right" aria-hidden="true" data-testid="landing-projects-more-icon"></span></a>
+      </header>
+      <ul class="lp-cards list-reset" id="lp-projects" data-testid="landing-projects-list"></ul>
+    </section>
+
+    <section class="lp-section lp-wrap" aria-labelledby="lp-l-h" data-testid="landing-learn">
+      <header class="lp-head lp-head-row">
+        <div><h2 id="lp-l-h" class="lp-h2" data-i18n="landing.l.title" data-testid="landing-learn-title"></h2><p class="lp-sub" data-i18n="landing.l.lede" data-testid="landing-learn-lede"></p></div>
+        <a class="lp-link" href="pages/apprendre.html" data-testid="landing-learn-more"><span data-i18n="landing.l.more" data-testid="landing-learn-more-label"></span><span class="icon i-arrow-right" aria-hidden="true" data-testid="landing-learn-more-icon"></span></a>
+      </header>
+      <div class="lp-learn" id="lp-learn" data-testid="landing-learn-block"></div>
+    </section>
+
+    <!-- 4. Confiance -->
+    <section class="lp-section lp-wrap" aria-labelledby="lp-t-h" data-testid="landing-trust">
+      <header class="lp-head">
+        <h2 id="lp-t-h" class="lp-h2" data-i18n="landing.t.title" data-testid="landing-trust-title"></h2>
+        <p class="lp-sub" data-i18n="landing.t.lede" data-testid="landing-trust-lede"></p>
+      </header>
+      <ul class="lp-trust list-reset" data-testid="landing-trust-list">
+        <li class="lp-trust-item" data-testid="landing-trust-sources">
+          <span class="lp-trust-badge" aria-hidden="true" data-testid="landing-trust-sources-icon-badge"><span class="icon i-clock" data-testid="landing-trust-sources-icon"></span></span>
+          <h3 class="lp-h3" data-i18n="landing.t.sources.t" data-testid="landing-trust-sources-title"></h3>
+          <p data-i18n="landing.t.sources.d" data-testid="landing-trust-sources-text"></p>
+        </li>
+        <li class="lp-trust-item" data-testid="landing-trust-unverified">
+          <span class="lp-trust-badge" aria-hidden="true" data-testid="landing-trust-unverified-icon-badge"><span class="icon i-help" data-testid="landing-trust-unverified-icon"></span></span>
+          <h3 class="lp-h3" data-i18n="landing.t.unverified.t" data-testid="landing-trust-unverified-title"></h3>
+          <p data-i18n="landing.t.unverified.d" data-testid="landing-trust-unverified-text"></p>
+        </li>
+        <li class="lp-trust-item" data-testid="landing-trust-open">
+          <span class="lp-trust-badge" aria-hidden="true" data-testid="landing-trust-open-icon-badge"><span class="icon i-git-branch" data-testid="landing-trust-open-icon"></span></span>
+          <h3 class="lp-h3" data-i18n="landing.t.open.t" data-testid="landing-trust-open-title"></h3>
+          <p data-i18n="landing.t.open.d" data-testid="landing-trust-open-text"></p>
+          <p class="lp-trust-links"><a href="https://example.org/226os/contribuer" rel="noopener noreferrer" data-i18n="footer.contribute" data-testid="landing-trust-contribute"></a><a href="https://example.org/226os/code-de-conduite" rel="noopener noreferrer" data-i18n="footer.conduct" data-testid="landing-trust-conduct"></a></p>
+        </li>
+        <li class="lp-trust-item" data-testid="landing-trust-data">
+          <span class="lp-trust-badge" aria-hidden="true" data-testid="landing-trust-data-icon-badge"><span class="icon i-lock" data-testid="landing-trust-data-icon"></span></span>
+          <h3 class="lp-h3" data-i18n="landing.t.data.t" data-testid="landing-trust-data-title"></h3>
+          <p data-i18n="landing.t.data.d" data-testid="landing-trust-data-text"></p>
+          <p class="lp-trust-links"><a href="https://example.org/226os/confidentialite" rel="noopener noreferrer" data-i18n="footer.privacy" data-testid="landing-trust-privacy"></a></p>
+        </li>
+      </ul>
+    </section>
+
+    <!-- 5. Appel final -->
+    <section class="lp-wrap lp-final-wrap" aria-labelledby="lp-end-h" data-testid="landing-final">
+      <div class="lp-final" data-testid="landing-final-band">
+        <h2 id="lp-end-h" class="lp-final-h" data-i18n="landing.end.title" data-testid="landing-final-title"></h2>
+        <p class="lp-final-sub" data-i18n="landing.end.lede" data-testid="landing-final-lede"></p>
+        <div class="lp-actions lp-actions-center">
+          <a class="lp-btn-lime lp-btn-lg" id="lp-cta-end" href="pages/inscription.html" data-testid="landing-final-signup"><span class="icon i-user-plus" aria-hidden="true" data-testid="landing-final-signup-icon"></span><span id="lp-cta-end-label" data-i18n="landing.cta.signup" data-testid="landing-final-signup-label"></span></a>
+          <a class="lp-link lp-link-light" href="pages/solve.html" data-testid="landing-final-browse"><span data-i18n="landing.cta.browse" data-testid="landing-final-browse-label"></span><span class="icon i-arrow-right" aria-hidden="true" data-testid="landing-final-browse-icon"></span></a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="assets/js/shell.js"></script>
+  <script defer src="assets/js/app.js"></script>
+  <script defer src="assets/js/i18n-common.js"></script>
+  <script defer src="assets/data/people.js"></script>
+  <script defer src="assets/data/common.js"></script>
+  <script defer src="assets/data/learn.js"></script>
+  <script defer src="assets/js/pages/landing.js"></script>
+</body>
+</html>

@@ -34,7 +34,7 @@ rationale: "The proposed G0 defaults are accepted as the implementation planning
 
 ## Approval checklist
 
-- [ ] All eight product domains and four differentiators remain preserved.
+- [ ] All nine product domains (PRD amendment 3.1 adds Learn) and four differentiators remain preserved.
 - [ ] P0 stories, ACs, owners, reviewers, allowed paths, dependencies, and evidence paths are assigned.
 - [ ] Authentication/session and authorization matrix are accepted or explicitly conditioned.
 - [ ] OpenAPI/error/idempotency policy is accepted or explicitly conditioned.

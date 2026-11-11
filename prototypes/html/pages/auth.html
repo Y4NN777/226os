@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Connexion — 226os</title>
+  <meta name="robots" content="noindex">
+  <script>
+    /* Legacy URL: forward to connexion.html keeping ?next and ?state (and QA overrides). */
+    (function () { var p = new URLSearchParams(location.search), q = new URLSearchParams(); ['next', 'state', 'lang', 'session'].forEach(function (k) { if (p.has(k)) q.set(k, p.get(k)); }); var s = q.toString(); location.replace('connexion.html' + (s ? '?' + s : '') + location.hash); })();
+  </script>
+  <noscript><meta http-equiv="refresh" content="0; url=connexion.html"></noscript>
+</head>
+<body><p><a href="connexion.html">Connexion</a></p></body>
+</html>

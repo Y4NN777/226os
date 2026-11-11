@@ -22,7 +22,7 @@ No shell commands, builds, tests, package installs, deployments, remote mutation
 
 Read `AGENTS.md` first. Then use the precedence in `docs/spec-kit/README.md`.
 
-Preserve all eight PRD domains: Solve, Discover, Build, Identity & Community, Connect, Language, Access, and Intelligence. Preserve all four differentiators: African Integration Intelligence, Problem-to-Project, Cross-Border Developer Collaboration, and Evidence-Based Technical Knowledge.
+Preserve all nine PRD domains: Solve, Discover, Build, Learn (PRD amendment 3.1), Identity & Community, Connect, Language, Access, and Intelligence. Preserve all four differentiators: African Integration Intelligence, Problem-to-Project, Cross-Border Developer Collaboration, and Evidence-Based Technical Knowledge.
 
 Accepted baseline:
 

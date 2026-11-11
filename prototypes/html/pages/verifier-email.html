@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title data-i18n="acc.verify.title">Vérifiez votre boîte mail — 226os</title>
+  <meta name="color-scheme" content="light dark">
+  <meta name="robots" content="noindex">
+  <script src="../assets/js/theme-init.js"></script>
+  <link rel="stylesheet" href="../assets/css/tokens.css">
+  <link rel="stylesheet" href="../assets/css/base.css">
+  <link rel="stylesheet" href="../assets/css/layout.css">
+  <link rel="stylesheet" href="../assets/css/icons.css">
+  <link rel="stylesheet" href="../assets/css/components.css">
+  <link rel="stylesheet" href="../assets/css/pages/account.css">
+</head>
+<body data-layout="account" data-root="../">
+  <a class="skip-link" href="#main" data-i18n="skip" data-testid="skip-link">Aller au contenu principal</a>
+
+  <main id="main" tabindex="-1">
+    <div class="account-card" data-testid="verify-card">
+      <header class="acc-head">
+        <span class="acc-badge" aria-hidden="true" data-testid="verify-badge"><span class="icon i-inbox" data-testid="verify-badge-icon"></span></span>
+        <h1 class="h2" data-i18n="acc.verify.h1" data-testid="verify-h1"></h1>
+        <p data-testid="verify-lede-row"><span data-i18n="acc.verify.lede" data-testid="verify-lede"></span> <span class="acc-mail" id="verify-mail" data-testid="verify-mail"></span></p>
+        <p data-i18n="acc.verify.neutral" data-testid="verify-neutral"></p>
+      </header>
+      <p class="visually-hidden" id="verify-status" role="status" aria-live="polite" data-testid="verify-status"></p>
+      <div class="acc-stack">
+        <button type="button" class="btn acc-ghost" id="verify-resend" data-testid="verify-resend"><span class="icon i-refresh" aria-hidden="true" data-testid="verify-resend-icon"></span><span id="verify-resend-label" data-testid="verify-resend-label"></span></button>
+      </div>
+      <p class="acc-switch" data-testid="verify-switch"><a href="inscription.html" data-i18n="acc.verify.change" data-testid="verify-change-link"></a> · <a href="connexion.html" data-i18n="acc.verify.back" data-testid="verify-back-link"></a></p>
+      <div class="acc-proto callout" data-proto data-testid="verify-proto">
+        <span class="icon i-info" aria-hidden="true" data-testid="verify-proto-icon"></span>
+        <div><span data-i18n="acc.proto.verify" data-testid="verify-proto-text"></span><br>
+          <button type="button" class="btn btn-sm" id="verify-simulate" data-testid="verify-simulate"><span class="icon i-link" aria-hidden="true" data-testid="verify-simulate-icon"></span><span data-i18n="acc.verify.simulate" data-testid="verify-simulate-label"></span></button></div>
+      </div>
+    </div>
+  </main>
+
+  <script src="../assets/js/shell.js"></script>
+  <script defer src="../assets/js/app.js"></script>
+  <script defer src="../assets/js/i18n-common.js"></script>
+  <script defer src="../assets/js/pages/account.js"></script>
+</body>
+</html>
