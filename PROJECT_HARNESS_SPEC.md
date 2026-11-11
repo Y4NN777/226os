@@ -38,7 +38,7 @@ Avoid assigning both implementers overlapping contracts, root config, migration 
 5. Confirm CADEV compliance review for source licensing, AI provenance and third-party dependencies.
 
 ## Rollout plan
-- **H0** (harness-only): review and commit `CLAUDE.md` and `HARNESS_PLAN.md` on a documentation branch targeting `develop`. Runtime `.claude/` settings, agents and skills remain a follow-up until their exact files are added and validated. No application code.
+- **H0** (harness-only): review and commit `CLAUDE.md` and `PROJECT_HARNESS_SPEC.md` on a documentation branch targeting `develop`. Runtime `.claude/` settings, agents and skills remain a follow-up until their exact files are added and validated. No application code.
 - **G0**: use Opus main + `/advisor` for open decisions, write proposed ADRs and gather human approval. `ADR-0001` records a conditional baseline; do not silently turn deferred or conditional decisions into unconditional acceptance.
 - **B0** (post-G0): Go + web + database + Make + Compose skeleton in bounded tasks. Sonnet workers, Haiku read-only scouting. Define and validate CI quality gates; no fake PASS.
 - **B1**: Solve vertical slice, then Discover + Build and relations, followed by FR/EN, responsive, security, performance, CADEV demo.
@@ -60,3 +60,83 @@ Avoid assigning both implementers overlapping contracts, root config, migration 
 - https://code.claude.com/docs/en/agent-teams
 - https://code.claude.com/docs/en/model-config
 - https://blog.buildfastwithai.com/claude-opus-5-prompts-tested
+
+## H0/G0 Claude prompt (XML)
+
+Use the following prompt to start Claude Code as the 226OS lead orchestrator:
+
+```xml
+<mission>
+	<role>Act as the 226OS lead technical orchestrator.</role>
+	<primary_goal>Validate H0 harness readiness and prepare G0 readiness.</primary_goal>
+	<language>English for repository artifacts; concise reporting.</language>
+</mission>
+
+<required_inspection>
+	<file>AGENTS.md</file>
+	<file>CLAUDE.md</file>
+	<file>docs/spec-kit/CLAUDE_HANDOFF.md</file>
+	<file>docs/spec-kit/G0_DECISIONS.md</file>
+	<file>docs/spec-kit/G0_APPROVAL_TEMPLATE.md</file>
+	<file>docs/spec-kit/TASKS.md</file>
+	<file>docs/GIT_WORKFLOW.md</file>
+	<item>Current Git branch, status, remotes, and recent history</item>
+</required_inspection>
+
+<execution_order>
+	<step id="H0">Validate the Claude harness before application work.</step>
+	<step id="G0">Identify G0 decisions, approvals, owners, reviewers, and blockers.</step>
+	<step id="STOP">Stop before application implementation unless the explicit conditions below are satisfied.</step>
+</execution_order>
+
+<harness_validation>
+	<requirement>Verify that .claude/settings.json loads on the installed Claude Code version.</requirement>
+	<requirement>Verify that custom agents load and their scopes are effective.</requirement>
+	<requirement>Verify that project skills load and can be invoked.</requirement>
+	<requirement>Use the installed Claude Code validation commands or UI where available.</requirement>
+	<rule>Do not claim that a configuration works without observed validation evidence.</rule>
+	<rule>If a runtime file is absent, report it as missing; do not infer successful loading.</rule>
+</harness_validation>
+
+<delegation>
+	<scout model="Haiku" mode="read-only">Perform one bounded inventory of repository harness files, G0 artifacts, and missing configuration. Return paths, observed facts, and gaps only. Do not edit files or run remote mutations.</scout>
+	<advisor model="Opus" condition="only-if-needed">Ask for an opinion only when a genuinely disputed architecture decision is found. Do not invoke advisor for routine inventory, formatting, or already-decided policy.</advisor>
+	<rule>Do not use parallel autonomous editors or overlapping implementation agents.</rule>
+</delegation>
+
+<g0_review>
+	<identify>Open G0 decisions and their current status.</identify>
+	<identify>Missing named owners and distinct reviewers.</identify>
+	<identify>Exact next human approvals, conditions, and evidence required.</identify>
+	<identify>Decisions that are conditionally accepted versus deferred.</identify>
+</g0_review>
+
+<git_plan>
+	<rule>Use the existing workflow: work branch -&gt; PR develop -&gt; PR main.</rule>
+	<rule>develop is staging/preview; main is production.</rule>
+	<rule>Preserve the tested commit SHA through promotion.</rule>
+	<deliverable>Propose the smallest branch and commit plan for harness-only changes.</deliverable>
+</git_plan>
+
+<prohibited_scope>
+	<item>Do not create apps/.</item>
+	<item>Do not create database migrations or application database code.</item>
+	<item>Do not create infra/.</item>
+	<item>Do not install dependencies.</item>
+	<item>Do not create CI jobs.</item>
+	<item>Do not start application implementation until explicit G0 app-implementation approval is recorded.</item>
+	<item>Do not deploy, access secrets, or mutate external infrastructure.</item>
+</prohibited_scope>
+
+<report>
+	<include>Observed facts with paths and commands actually run.</include>
+	<include>Missing evidence and unresolved decisions.</include>
+	<include>Named owner/reviewer gaps.</include>
+	<include>Minimal harness branch/commit plan.</include>
+	<include>Actionable stop condition.</include>
+	<rule>Keep the report concise.</rule>
+	<rule>Use PASS, FAIL, NOT RUN, or BLOCKED only when supported by evidence.</rule>
+</report>
+
+<stop_condition>Stop after H0/G0 reporting when harness validation is incomplete, a required human approval is missing, or the task would cross into application implementation.</stop_condition>
+```

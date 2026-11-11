@@ -59,9 +59,12 @@ graph LR
 
 A critical production fix uses `hotfix/<domain>/<short-name>` from `main`. It must be reviewed as a PR into `main`, pass the applicable security and regression checks, and receive production approval. After release, back-merge it into `develop`. A hotfix never bypasses evidence or approval; it may reduce scope only when the incident record documents the reason and compensating checks.
 
-## Commit and PR rules
+-## Commit and PR rules
 
-- Use the repository identity `Y4NN77 <axel.studiesmail@gmail.com>`.
+- Each human contributor uses their own reviewed project identity. The repository owner identity is `Y4NN77 <axel.studiesmail@gmail.com>`; other identities require project review.
+- Before a contributor's first commit, record their GitHub username, approved Git `user.name`, and approved Git `user.email` with the maintainer. The identity must be attributable to that human contributor and must not be shared.
+- Recommended local setup after approval: `git config --local user.name "<approved commit name>"` and `git config --local user.email "<approved commit email>"`. Verify with `git config --local --get user.name` and `git config --local --get user.email`.
+- Do not add `Co-authored-by` trailers for AI systems or agents; the responsible human contributor remains the sole commit author. Record AI assistance in `AI_USAGE.md` instead.
 - Keep commits focused and use imperative subjects such as `docs: clarify branch promotion`.
 - Do not force-push shared branches. Force-pushes to work branches are discouraged and must never rewrite `develop` or `main`.
 - Squash or merge commit policy must be selected in GitHub branch protection; whichever policy is selected must preserve the target SHA and review evidence.
