@@ -151,6 +151,8 @@ Also added: spacing, radius, motion, z-index, layout and font-size scales (DESIG
 
 Menu labels are one word, page titles add the noun. English keeps the PRD names (Connect is shown as "Mentoring"). Code identifiers, file names, `data-active` values and `data-testid`s keep the PRD names, so specs and tests are unaffected. The English domain words never appear in French UI strings (nav, breadcrumbs, titles, H1, home table, toasts, aria labels).
 
+Pillar note (PRD amendment 3.1, 2026-11-11): the four public pillars are Questions, API & outils, Projets open source and **Apprendre** (EN **Learn**, domain id `LEARN`, PRD 5.9). Articles, tutorials and trainings belong to Apprendre, not to Solve; as for the other domains, code identifiers and `data-testid`s keep the domain id (`LEARN`) while FR UI strings say « Apprendre ».
+
 ### 10.2 UX simplification decisions
 
 - **Annotations toggle.** Everything that explains the prototype (Simulé badges, notes, role explanations, P0/P1 labels) is `[data-proto]` and hidden by default; shown via the Prototype button or `?proto=1`.

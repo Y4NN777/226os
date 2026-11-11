@@ -1,10 +1,26 @@
 # 226os — Product Requirements Document
 
-**Version :** 3.0 · **Statut :** périmètre produit approuvé, plan de réalisation adaptable · **Date :** 2026-11-11  
+**Version :** 3.1 · **Statut :** périmètre produit approuvé, plan de réalisation adaptable · **Date :** 2026-11-11  
 **Équipe :** 7's (3 membres, 1–2 renforts possibles) · **Produit :** 226os · **Domaine :** 226os.tech (DNS à vérifier)
 
+## Amendement 3.1 — Pilier Apprendre (Learn)
+
+**Date :** 2026-11-11 · **Version :** 3.0 → 3.1 · **Approbation :** décision explicite du propriétaire du dépôt (Y4NN77), donnée le 2026-11-11. Cet amendement est un changement de périmètre au sens de la règle de traçabilité ci-dessous ; il est consigné ici sans réécrire l'historique des versions précédentes.
+
+**Décision :** le contenu d'apprentissage devient un pilier public pleinement visible, de poids égal aux autres. Il couvre les articles, les tutoriels et les formations, y compris des **formations gratuites à l'IA que le fondateur donne personnellement à travers ses articles et ses tutoriels**. Chaque membre est **invité à publier les siens**.
+
+**Piliers publics :** Questions · API & outils · Projets open source · Apprendre (articles, tutoriels, formations). Libellé utilisateur FR « Apprendre », EN « Learn ».
+
+**Structure :** Learn (identifiant de domaine `LEARN`) est un **neuvième domaine**, section 5.9, à côté des huit existants. Les contenus d'apprentissage cessent d'être une ligne « articles » du domaine Solve ; les questions/réponses, snippets, votes et revue de code restent dans Solve.
+
+**Supersession :** la mention « articles » en P1 sous Solve (sections 5.1 et 8, version 3.0) est remplacée par cet amendement. Les « retours d'expérience » restent listés sous Solve.
+
+**Statut des priorités :** la répartition P0/P1/P2 de la section 5.9 est **PROPOSÉE — à valider** par le propriétaire et l'équipe ; elle n'est pas encore un engagement de livraison. Les quatre expériences différenciantes (section 6) sont inchangées.
+
+**Impact documentaire :** SPEC (US-LEARN-001, frontières de domaines), TRACEABILITY (DOM-LEARN), TASKS (notes de périmètre, sans nouvelle tâche), README.
+
 ## Objet et séparation des responsabilités
-Ce document est la **source de vérité du QUOI et du POURQUOI**. Il ne prescrit ni l'implémentation détaillée ni les commandes d'outillage. Les domaines P1/P2 demeurent dans le produit ; une priorité est un ordre de livraison, jamais une suppression. **Aucune nouvelle fonctionnalité n'est ajoutée par ce découpage.**
+Ce document est la **source de vérité du QUOI et du POURQUOI**. Il ne prescrit ni l'implémentation détaillée ni les commandes d'outillage. Les domaines P1/P2 demeurent dans le produit ; une priorité est un ordre de livraison, jamais une suppression. **Aucune nouvelle fonctionnalité n'est ajoutée par ce découpage** ; l'amendement 3.1 ci-dessus est la seule extension de périmètre, avec accord humain explicite.
 
 Documents liés : [SPEC](SPEC.md) (comportements et contrats), [DEV](DEV.md) (mise en œuvre), [TEST](TEST.md) (preuves), [SHIP](SHIP.md) (mise en production), [RULES](RULES.md) (normes), [AGENTS](../AGENTS.md) (orchestration).
 
@@ -14,7 +30,7 @@ Documents liés : [SPEC](SPEC.md) (comportements et contrats), [DEV](DEV.md) (mi
 
 **Positionnement :** « L'écosystème où les développeurs africains partagent leurs connaissances, résolvent leurs défis et construisent ensemble. »
 
-**Différence recherchée :** relier une question technique à une réponse expliquée et sourcée, à des ressources pertinentes, puis à un projet ou une opportunité de collaboration. 226os n'est ni un clone de Stack Overflow, ni un simple annuaire open source.
+**Différence recherchée :** relier une question technique à une réponse expliquée et sourcée, à des ressources pertinentes, puis à un projet ou une opportunité de collaboration, et à des articles, tutoriels et formations qui permettent d'apprendre et de transmettre. 226os n'est ni un clone de Stack Overflow, ni un simple annuaire open source.
 
 **Référence de marché :** 225os (`https://www.225os.com/`) est une inspiration en matière de découverte de projets et d'identité communautaire ; 226os ne doit pas en reproduire le produit ni le code.
 
@@ -31,6 +47,7 @@ Documents liés : [SPEC](SPEC.md) (comportements et contrats), [DEV](DEV.md) (mi
 ### Objectifs produit
 
 - Résoudre et capitaliser des problèmes techniques.
+- Apprendre et transmettre : articles, tutoriels et formations, dont des formations gratuites à l'IA, ouverts à la publication par tous les membres.
 - Rendre visibles et exploitables des ressources et projets africains.
 - Permettre la collaboration et la contribution open source.
 - Connecter personnes, connaissances, outils et opportunités.
@@ -62,7 +79,7 @@ Pour CADEV : parcours de démonstration fonctionnels, disponibilité HTTPS, aucu
 - **Mobile-first, FR/EN, faible bande passante :** expériences utilisables dans des conditions réelles.
 - **Sécurité et modération intégrées :** protections de base dès la première livraison.
 
-## 5. Périmètre fonctionnel complet : huit piliers
+## 5. Périmètre fonctionnel complet : neuf domaines, quatre piliers publics
 
 ### 5.1 SOLVE — Entraide technique et connaissances
 
@@ -71,7 +88,7 @@ Pour CADEV : parcours de démonstration fonctionnels, disponibilité HTTPS, aucu
 - Markdown, blocs de code et coloration syntaxique ; extraits réutilisables.
 - Votes, réponse acceptée, réputation et badges.
 - Revue de code collaborative.
-- Articles, tutoriels et retours d'expérience.
+- Retours d'expérience (les articles, tutoriels et formations relèvent du domaine LEARN, section 5.9, depuis l'amendement 3.1).
 - Recherche par mots-clés, langage, technologie, difficulté, tags et statut.
 - Discussions thématiques et liens vers ressources/projets.
 - Contexte technique : langage, version, environnement, erreurs, description des tentatives.
@@ -79,7 +96,7 @@ Pour CADEV : parcours de démonstration fonctionnels, disponibilité HTTPS, aucu
 
 **Parcours minimal :** A pose une question avec un snippet ; B répond ; A accepte ; C retrouve la réponse via la recherche et suit le lien vers une ressource ou un projet lié.
 
-**Priorités de réalisation :** P0 questions/réponses, snippets, tags, votes, réponse acceptée, recherche et liens contextuels ; P1 réputation, badges, discussions plus riches et articles ; P2 revue de code avancée.
+**Priorités de réalisation :** P0 questions/réponses, snippets, tags, votes, réponse acceptée, recherche et liens contextuels ; P1 réputation, badges et discussions plus riches (la ligne « articles » en P1 de la version 3.0 est remplacée par l'amendement 3.1) ; P2 revue de code avancée.
 
 ### 5.2 DISCOVER — African API & Developer Tools Hub
 
@@ -171,6 +188,22 @@ Pour CADEV : parcours de démonstration fonctionnels, disponibilité HTTPS, aucu
 
 **Priorités :** P0 recherche textuelle et liens contextuels déterministes ; P1 suggestions simples ; P2 sémantique, résumés et assistant contextuel sourcé. L'IA ne doit pas inventer des garanties sur une API ou la vérification d'une solution.
 
+### 5.9 LEARN — Apprendre : articles, tutoriels et formations
+
+Pilier public de même poids que Questions, API & outils et Projets open source (amendement 3.1). Libellé FR « Apprendre », EN « Learn ».
+
+**Fonctionnalités conservées :**
+- Articles et tutoriels : Markdown, blocs de code, tags, niveau et langue ; consultation publique.
+- Formations gratuites à l'IA, données personnellement par le fondateur à travers ses articles et tutoriels, lisibles publiquement.
+- Publication ouverte : chaque membre est invité à publier ses propres articles, tutoriels et formations.
+- Liens explicites vers les questions, API/outils et projets concernés, et retour depuis ceux-ci.
+- Séries de formation structurées avec progression, mises en avant d'auteurs, formats plus riches.
+- Certificats et exercices interactifs.
+
+**Parcours minimal :** un visiteur lit un tutoriel, suit la série gratuite sur l'IA, puis ouvre la question ou le projet lié ; un membre publie son propre article.
+
+**Priorités de réalisation (PROPOSÉ — à valider) :** P0 lire et publier des articles et tutoriels (Markdown, code, tags, niveau, langue) avec liens vers questions/API/projets, et série de formations gratuites lisible publiquement ; P1 séries de formation structurées avec progression, mises en avant d'auteurs, formats plus riches ; P2 certificats, exercices interactifs. Le contenu original reste identifiable selon sa langue (FR/EN), sans traduction automatique implicite.
+
 ## 6. Quatre expériences différenciantes à démontrer ou préparer
 
 1. **African Integration Intelligence** — relier fournisseurs et SDK par pays aux exemples, limitations, sources et retours d'intégration.
@@ -178,7 +211,7 @@ Pour CADEV : parcours de démonstration fonctionnels, disponibilité HTTPS, aucu
 3. **Cross-Border Developer Collaboration** — faire découvrir une collaboration selon les compétences au-delà des langues et pays ; UI bilingue dès le début et traduction assistée ultérieure.
 4. **Evidence-Based Technical Knowledge** — mettre en avant versions, sources, reproductibilité, confirmations et date de mise à jour plutôt que les votes seuls.
 
-Ces expériences résultent des fonctionnalités ci-dessus ; ce ne sont **pas** quatre nouveaux produits à construire.
+Ces expériences résultent des fonctionnalités ci-dessus ; ce ne sont **pas** quatre nouveaux produits à construire. Le partage des connaissances (domaine LEARN) les nourrit : un article ou un tutoriel s'appuie sur les mêmes sources, versions et liens contextuels.
 
 ## 7. Parcours utilisateurs et critères d'acceptation
 
@@ -202,6 +235,10 @@ Ces expériences résultent des fonctionnalités ci-dessus ; ce ne sont **pas** 
 
 **Étant donné** deux membres de pays/langues différents, **quand** ils consultent 226os, **alors** l'interface peut être affichée en FR ou EN, tandis que le contenu original reste identifiable. Les traductions automatisées ne sont pas implicitement promises pour le MVP.
 
+### G — Apprendre et publier un contenu (PROPOSÉ — à valider)
+
+**Étant donné** un visiteur, **quand** il ouvre un article, un tutoriel ou la série de formations gratuites, **alors** il peut le lire sans compte ; **étant donné** un membre connecté, **quand** il publie un article avec titre, contenu Markdown, tags, niveau et langue, **alors** il apparaît dans Apprendre et la recherche, avec ses liens vers questions, API ou projets. Un visiteur non connecté ne peut pas publier.
+
 ### F — Réseau limité
 
 **Étant donné** un téléphone et un réseau simulé lent, **quand** les pages principales chargent, **alors** elles restent utilisables, affichent les états d'attente et ne dépendent pas de médias lourds pour accomplir les tâches essentielles.
@@ -210,7 +247,8 @@ Ces expériences résultent des fonctionnalités ci-dessus ; ce ne sont **pas** 
 
 | Domaine | Démonstration CADEV / P0 | Suite prévue (P1/P2) |
 |---|---|---|
-| Solve | Q&A, snippets, réponse acceptée, votes, recherche | Réputation, articles, discussions et revue de code avancée |
+| Solve | Q&A, snippets, réponse acceptée, votes, recherche | Réputation, discussions et revue de code avancée |
+| Learn (PROPOSÉ — à valider) | Lecture et publication d'articles et tutoriels, série de formations gratuites lisible publiquement | Séries structurées avec progression, mises en avant d'auteurs, formats riches ; certificats et exercices interactifs (P2) |
 | Discover | Catalogue API/SDK, fiches sourcées, pays, catégories | Comparaison, feedback et vérifications |
 | Build | Projets GitHub, besoins, candidatures et liens | Matching et synchronisation avancée |
 | Identity & Community | Auth, profils et identité reliée aux contenus | Réputation, fil, communautés |
@@ -227,6 +265,7 @@ Ces expériences résultent des fonctionnalités ci-dessus ; ce ne sont **pas** 
 |---|---|
 | Explore | Accueil, recherche unifiée, contenus et projets à découvrir |
 | Solve | Questions, détail de question, poser une question, réponses |
+| Learn | Apprendre : liste d'articles/tutoriels/formations, lecture, publier un article (PROPOSÉ — à valider) |
 | Discover | Annuaire d'API/outils, filtres, fiche ressource, liens documentaires |
 | Build | Annuaire de projets, détail, publier, besoin de contribution, candidature |
 | Identity | Inscription, connexion, profil public, paramètres |
@@ -249,7 +288,7 @@ Le design system doit être cohérent sur l'ensemble des domaines : navigation p
 **Rôles individuels non affectés :** Yanis Axel DABO est capitaine/porteur ; Abdoul Aziz KABORE est membre connu ; le troisième membre n'est pas nommé ici ; renforts non confirmés. Ne pas supposer de spécialités sans échange avec eux. Prévoir owner et reviewer pour chaque domaine, intégration régulière et décisions consignées dans le dépôt.
 
 ## Traçabilité produit
-Toute user story reçoit un identifiant `US-<DOMAINE>-NNN`, une priorité P0/P1/P2, un scénario BDD et un critère d'acceptation dans [SPEC.md](SPEC.md). Les décisions d'architecture ne changent jamais le périmètre sans un amendement versionné du PRD et un accord humain.
+Toute user story reçoit un identifiant `US-<DOMAINE>-NNN`, une priorité P0/P1/P2, un scénario BDD et un critère d'acceptation dans [SPEC.md](SPEC.md). Les décisions d'architecture ne changent jamais le périmètre sans un amendement versionné du PRD et un accord humain (exemple : amendement 3.1, pilier Apprendre).
 
 ## Non-objectifs de CADEV
 Ne pas présenter comme terminés les fonctions P1/P2 non implémentées. Les autres domaines restent visibles dans la roadmap sans écrans factices. Le concours exige un produit original, une démo publique et un déploiement Datacloud : voir [SHIP.md](SHIP.md).

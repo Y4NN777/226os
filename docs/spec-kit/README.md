@@ -11,7 +11,7 @@ This directory is the canonical implementation handoff for 226os. It does not re
 ## Document precedence
 
 1. `AGENTS.md` governs agent permissions, evidence, and human approval.
-2. `docs/PRD.md` governs product scope and rationale, including all eight domains and four differentiators.
+2. `docs/PRD.md` governs product scope and rationale, including all nine domains (PRD amendment 3.1 adds Learn) and four differentiators.
 3. `docs/SPEC.md` governs observable behavior, invariants, and API boundaries.
 4. `docs/architecture/ARCHITECTURE.md` governs accepted technical boundaries.
 5. `DESIGN.md` governs UI direction and Astryx usage.

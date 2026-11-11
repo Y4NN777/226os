@@ -1,6 +1,6 @@
 # 226os — Functional & Technical Specification
 
-**Version :** 1.0 · **Statut :** contrat initial de développement · **Source produit :** [PRD.md](PRD.md)
+**Version :** 1.1 (US-LEARN-001, PRD 3.1) · **Statut :** contrat initial de développement · **Source produit :** [PRD.md](PRD.md)
 
 ## 1. Règles de spécification
 - Toute fonctionnalité part d'une user story `US-*`, d'un scénario Given/When/Then, et d'un contrat d'API ou d'interface observables.
@@ -55,6 +55,37 @@ Feature: Collaboration
     Then le serveur refuse l'accès
 ```
 
+### US-LEARN-001 — Apprendre et publier un article (PROPOSÉ — à valider, PRD amendement 3.1)
+```gherkin
+Feature: Apprendre
+  Scenario: Lire un tutoriel et suivre la formation gratuite
+    Given un article, un tutoriel et une série de formations gratuites à l'IA sont publiés
+    When un visiteur non authentifié ouvre Apprendre
+    Then il voit la liste avec titre, niveau, langue et tags
+    And il peut lire l'article, le tutoriel et la série sans compte
+    And les liens vers les questions, API ou projets associés sont visibles et résolus
+
+  Scenario: Publier un article
+    Given Alice est authentifiée
+    When elle publie un article avec titre, contenu Markdown, tags, niveau et langue valides
+    Then l'article est persisté et visible dans Apprendre
+    And un tiers peut le retrouver via la recherche
+
+  Scenario: Interdire la publication sans authentification
+    Given un visiteur n'est pas authentifié
+    When il tente de publier un article via l'API
+    Then le serveur refuse avec 401
+    And aucun article n'est créé
+    And la lecture des articles publiés reste publique
+
+  Scenario: Préserver le contenu original FR/EN
+    Given un article est rédigé en français
+    When un visiteur choisit l'interface en anglais
+    Then les libellés de navigation s'affichent en anglais
+    And le texte original de l'article n'est pas altéré
+    And sa langue d'origine est indiquée
+```
+
 ### US-IDENTITY-001 — Identité et collaboration inter-domaines
 ```gherkin
 Feature: Profils et liens contextuels
@@ -87,6 +118,7 @@ Feature: Accès mobile
 | knowledge / solve | Questions, réponses, votes, contenus, code review | identité via interfaces |
 | resources / discover | Fournisseurs, API, SDK, pays, sources | identité, liens contextuels |
 | projects / build | Référencement GitHub, projets, besoins, candidatures | identité, liens contextuels |
+| knowledge / learn | Articles, tutoriels, formations, séries, tags, niveau, langue (amendement PRD 3.1) | identité, liens contextuels |
 | community | Espaces, fil, discussions, réputation | identité |
 | career / connect | Mentorat, opportunités, étude | identité |
 | language | Traductions UI et contenus | services contractuels |
@@ -98,7 +130,7 @@ Les modules P1/P2 ne doivent pas être artificiellement matérialisés en code v
 ## 4. Contrat REST v1 — bornes de conception
 - Préfixe `/api/v1`, JSON UTF-8 ; horodatages RFC3339 UTC ; IDs opaques UUID ; erreurs uniformes `application/problem+json` (RFC 9457).
 - Pagination par curseur stable (taille maximale documentée), limite de taille des corps, filtres validés strictement, listes ordonnées de façon déterministe.
-- Ressources initiales : `sessions`, `users/me`, `profiles`, `questions`, `answers`, `votes`, `resources`, `projects`, `contribution-needs`, `applications`, `search`.
+- Ressources initiales : `sessions`, `users/me`, `profiles`, `questions`, `answers`, `votes`, `articles` (`OPEN` : nom et schéma à fixer dans l'OpenAPI), `resources`, `projects`, `contribution-needs`, `applications`, `search`.
 - Les verbes HTTP et schémas sont figés dans `api/openapi.yaml` avant développement parallèle ; ce document ne prétend pas qu'ils sont déjà implémentés.
 - Auth via session cookie sécurisée, protections CSRF pour mutations, autorisation par propriétaire/role **sur serveur**.
 - Journaliser les tentatives d'accès interdit sans secrets ni données personnelles inutiles.
@@ -133,6 +165,7 @@ Les modules P1/P2 ne doivent pas être artificiellement matérialisés en code v
 | US-SOLVE-001 | questions/answers/votes | publication, acceptation, contrôle d'accès | test/quality/security |
 | US-DISCOVER-001 | resources/search | filtres pays, sources, recherche | test/quality |
 | US-BUILD-001 | projects/applications | candidature unique, lecture privée interdite | test/security |
+| US-LEARN-001 | articles/tutorials (`OPEN`) | lecture publique, publication authentifiée, 401 sans session, langue d'origine préservée | test/security |
 | US-IDENTITY-001 | sessions/profiles/relations | connexion, langue, liens | test/security |
 | US-ACCESS-001 | frontend/infra | mobile + réseau simulé | perf/accessibility |
 

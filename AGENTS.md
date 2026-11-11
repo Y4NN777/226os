@@ -3,10 +3,10 @@
 **Audience :** Claude Code, Codex et autres agents de développement. **Owner humain :** équipe 7's.
 
 ## Mission
-Construire 226os conformément à `docs/PRD.md`, aux contraintes de `docs/SPEC.md`, aux pratiques de `docs/DEV.md` et `docs/TEST.md`, sans dérive architecturale, avec qualité, sécurité et performance vérifiables. La vision complète comporte huit piliers ; livrer P0 d'abord sans effacer P1/P2.
+Construire 226os conformément à `docs/PRD.md`, aux contraintes de `docs/SPEC.md`, aux pratiques de `docs/DEV.md` et `docs/TEST.md`, sans dérive architecturale, avec qualité, sécurité et performance vérifiables. La vision complète comporte neuf domaines (amendement 3.1 du PRD : Apprendre) ; livrer P0 d'abord sans effacer P1/P2.
 
 ## Lecture obligatoire, dans cet ordre
-1. `docs/PRD.md` — pourquoi/quoi, huit piliers, parcours, priorité.
+1. `docs/PRD.md` — pourquoi/quoi, neuf domaines (amendement 3.1 : Apprendre), parcours, priorité.
 2. `docs/SPEC.md` — user stories, invariants, contrats, cas BDD.
 3. `docs/architecture/ARCHITECTURE.md` + ADR acceptés — frontières et choix validés.
 4. `docs/RULES.md`, `docs/TEST.md`, `docs/DEV.md`, `docs/SHIP.md` — normes et gates.

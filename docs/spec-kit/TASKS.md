@@ -13,7 +13,7 @@ priority: "P0"
 owner: "OPEN"
 reviewer: "OPEN"
 allowed_paths: ["docs/spec-kit/**", "docs/SPEC.md", "docs/PRD.md", "docs/decisions/**"]
-acceptance_criteria: ["All six PRD journeys have nominal and relevant negative cases", "All eight domains and four differentiators remain traceable", "Open decisions have an owner and due decision"]
+acceptance_criteria: ["All six PRD journeys have nominal and relevant negative cases", "All nine domains (eight plus LEARN, PRD 3.1) and four differentiators remain traceable", "Open decisions have an owner and due decision"]
 threats_and_risks: ["scope drift", "false readiness claim"]
 planned_tests: ["documentation traceability review", "link and orphan requirement review"]
 required_gates: [G0]
@@ -46,7 +46,7 @@ Dependencies: human product, architecture, security, and release approvers.
 
 ```yaml
 goal: "Implement reviewed P0 entities, invariants, migrations, deterministic seeds, and bounded PostgreSQL search."
-story_id: "US-SOLVE-001 / US-DISCOVER-001 / US-BUILD-001"
+story_id: "US-SOLVE-001 / US-DISCOVER-001 / US-BUILD-001 / US-LEARN-001 (proposed)"
 priority: "P0"
 owner: "OPEN"
 reviewer: "OPEN"
@@ -84,7 +84,7 @@ Dependencies: TASK-SPEC-001, TASK-G0-001, and approved auth decisions.
 
 ```yaml
 goal: "Create the modular Go API and implement P0 endpoints strictly from the approved OpenAPI contract."
-story_id: "US-SOLVE-001 / US-DISCOVER-001 / US-BUILD-001"
+story_id: "US-SOLVE-001 / US-DISCOVER-001 / US-BUILD-001 / US-LEARN-001 (proposed)"
 priority: "P0"
 owner: "OPEN"
 reviewer: "OPEN"
@@ -103,7 +103,7 @@ Dependencies: TASK-DATA-001, TASK-SEC-001, TASK-G0-001, and approved API contrac
 
 ```yaml
 goal: "Build accessible FR/EN Explore, Solve, Discover, Build, identity, and relation flows using the pinned Astryx foundation."
-story_id: "US-SOLVE-001 / US-DISCOVER-001 / US-BUILD-001 / US-IDENTITY-001 / US-ACCESS-001"
+story_id: "US-SOLVE-001 / US-DISCOVER-001 / US-BUILD-001 / US-IDENTITY-001 / US-ACCESS-001 / US-LEARN-001 (proposed)"
 priority: "P0"
 owner: "OPEN"
 reviewer: "OPEN"
@@ -117,6 +117,8 @@ status: PLANNED
 ```
 
 Dependencies: TASK-API-001, TASK-SEC-001, TASK-G0-001, approved Astryx release, and route/locale decisions.
+
+Scope note (PRD amendment 3.1, 2026-11-11): the Learn pillar (US-LEARN-001, priorities PROPOSED, to be validated) adds article/tutorial entities and search, API endpoints (authenticated publish, public read) and an "Apprendre"/"Learn" route to TASK-DATA-001, TASK-API-001 and TASK-WEB-001 respectively. No new task is created; the schema and OpenAPI contract remain `OPEN` until reviewed.
 
 ## TASK-OPS-001 — Make, CI, Compose, Traefik, and release evidence
 

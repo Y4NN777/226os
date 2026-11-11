@@ -5,11 +5,15 @@
   </picture>
 </p>
 
-<p align="center"><strong>Questions · API &amp; outils · Projets open source</strong><br>Entre développeurs africains</p>
+<p align="center"><strong>Questions · API &amp; outils · Projets open source · Apprendre</strong><br>Entre développeurs africains</p>
 
-226os est une plateforme pensée pour relier l'entraide technique, les ressources utiles aux développeurs africains, les projets open source et les personnes qui les font avancer. L'objectif n'est pas de créer un forum, un annuaire d'API ou un réseau professionnel supplémentaire. C'est de rendre plus direct le passage d'un problème rencontré à une solution documentée, puis à une contribution réutilisable.
+226os est une plateforme pensée pour relier l'entraide technique, les ressources utiles aux développeurs africains, les projets open source, l'apprentissage et les personnes qui les font avancer. L'objectif n'est pas de créer un forum, un annuaire d'API ou un réseau professionnel supplémentaire. C'est de rendre plus direct le passage d'un problème rencontré à une solution documentée, puis à une contribution réutilisable.
 
-il s'adresse aux développeurs de toute l'Afrique**, quels que soient leur pays, leur langue ou leur niveau d'expérience.
+**Quatre piliers publics :** **Questions** (entraide technique), **API & outils** (ressources pour développeurs africains), **Projets open source** (collaboration) et **Apprendre** (articles, tutoriels et formations).
+
+**Apprendre** est un pilier à part entière, de même poids que les trois autres. Il rassemble des articles, des tutoriels et des formations, dont des **formations gratuites à l'IA que le fondateur donne lui-même à travers ses articles et ses tutoriels**. Chaque membre est **invité à publier les siens** : 226os est aussi un lieu où l'on partage ce que l'on sait.
+
+Il s'adresse aux développeurs de toute l'Afrique, quels que soient leur pays, leur langue ou leur niveau d'expérience.
 
 > **État du projet :** cadrage et initialisation du dépôt. La documentation de cadrage est organisée dans `docs/`; les fonctionnalités présentées ci-dessous constituent la vision et le périmètre envisagés, et ne sont pas annoncées comme déjà livrées.
 >
@@ -38,13 +42,14 @@ Prenons un développeur qui intègre un service de paiement au Burkina Faso :
 
 C'est cette boucle de contribution qui constitue le cœur de 226os.
 
-## Les huit domaines du produit
+## Les neuf domaines du produit
 
 | Domaine | Fonctionnalités envisagées |
 | --- | --- |
-| **Solve — Entraide et connaissances** | Questions/réponses, snippets, solutions acceptées, votes et réputation, revue de code, articles, tutoriels et discussions thématiques. |
+| **Solve — Entraide et connaissances** | Questions/réponses, snippets, solutions acceptées, votes et réputation, revue de code et discussions thématiques. |
 | **Discover — Ressources pour développeurs africains** | Catalogue d'API, SDK et outils, couverture par pays, documentation, comparaisons, exemples d'intégration et retours communautaires. |
 | **Build — Open source et collaboration** | Découverte et import de projets GitHub, publication de projets, besoins en compétences, contributeurs et cofondateurs, candidatures et reconnaissance des contributions. |
+| **Learn — Apprendre** | Articles et tutoriels (Markdown, code, tags, niveau, langue) liés aux questions, API et projets ; formations gratuites à l'IA du fondateur, lisibles publiquement ; publication ouverte à tous les membres. Séries structurées avec progression, mises en avant d'auteurs, certificats et exercices interactifs viennent ensuite (priorités à valider). |
 | **Connect — Mentorat et carrière** | Mentorat, relecture de CV et de portfolios, préparation aux entretiens, groupes d'étude, stages et opportunités professionnelles. |
 | **Identity & Community** | Profils développeurs, compétences, contributions, réputation, communautés, activités et découverte de personnes ou d'équipes. |
 | **Language — Collaboration panafricaine** | Interface français/anglais, publications multilingues, recherche bilingue, traduction assistée avec préservation des textes originaux. |
@@ -59,13 +64,15 @@ Ces domaines définissent la **vision complète**, et non une promesse de dispon
 
 **Du problème à la contribution.** Une bonne réponse peut alimenter un guide, une issue GitHub, un correctif ou un nouveau projet collaboratif, sans perdre son contexte.
 
+**Le partage des connaissances.** Un article ou un tutoriel renvoie vers les questions, les API et les projets qu'il met en pratique, et inversement. Apprendre n'est pas un coin séparé : c'est la suite naturelle d'une réponse trouvée.
+
 **La collaboration au-delà des frontières.** Compétences et besoins guident la découverte de contenus et de contributeurs, au-delà de la langue et du pays.
 
 **La connaissance technique appuyée par des preuves.** Versions, étapes de reproduction, sources documentaires et confirmations communautaires doivent permettre de juger une solution autrement qu'au nombre de votes.
 
 ## Première livraison : CADEV 2026
 
-Le premier périmètre s'organise autour de trois parcours fonctionnels, appuyés par des profils, la recherche, une interface accessible et une navigation bilingue :
+Le premier périmètre s'organise autour de trois parcours fonctionnels (auxquels s'ajoute la lecture et la publication d'articles et de tutoriels, priorité proposée à valider : voir l'amendement 3.1 du PRD), appuyés par des profils, la recherche, une interface accessible et une navigation bilingue :
 
 - **Solve :** publier une question technique avec code et contexte, répondre et identifier une résolution.
 - **Discover :** rechercher une API ou une ressource pertinente selon le pays et consulter une fiche documentée.
@@ -137,7 +144,7 @@ Ces projets sont **des références de recherche, pas des dépendances déclaré
 
 | Document | Rôle |
 | --- | --- |
-| [PRD](docs/PRD.md) | Vision, utilisateurs, huit domaines, besoins et priorités |
+| [PRD](docs/PRD.md) | Vision, utilisateurs, neuf domaines, besoins et priorités, amendement 3.1 (pilier Apprendre) |
 | [SPEC](docs/SPEC.md) | Comportements, critères d'acceptation et contrats |
 | [Design](DESIGN.md) | Direction visuelle, tokens, composants et validation de la palette |
 | [Architecture](docs/architecture/ARCHITECTURE.md) | Architecture approuvée et frontières techniques |
