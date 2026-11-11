@@ -189,7 +189,7 @@ I18N.register({
       '<div class="app-main"><h' + hd + '>' + (owner ? '<a href="profile.html?id=' + a.person + '" data-testid="' + tid + '-person">' + esc(name(a.person)) + '</a>' : '<span data-testid="' + tid + '-person">' + esc(name(a.person)) + '</span>') + '</h' + hd + '>' +
       '<p class="text-sm text-muted"><span data-testid="' + tid + '-need-label">' + esc(t('project.app.for')) + '</span> <span lang="' + P.lang + '" data-user-content data-testid="' + tid + '-need">' + esc(nd.title) + '</span></p>' +
       '<p class="app-quote" lang="' + a.lang + '" data-user-content data-testid="' + tid + '-motivation">' + esc(a.motivation) + '</p>' +
-      '<div class="meta"><span class="meta-item" data-testid="' + tid + '-skills"><span class="visually-hidden">' + esc(t('project.app.skills')) + ' </span>' + esc(a.skills) + '</span><span class="meta-item" data-testid="' + tid + '-avail">' + esc(t('project.avail.' + (a.avail || 'choose'))) + '</span>' +
+      '<div class="meta"><span class="meta-item" data-testid="' + tid + '-skills"><span class="visually-hidden" data-testid="' + tid + '-skills-label">' + esc(t('project.app.skills')) + ' </span>' + esc(a.skills) + '</span><span class="meta-item" data-testid="' + tid + '-avail">' + esc(t('project.avail.' + (a.avail || 'choose'))) + '</span>' +
       '<time class="tabular-nums" datetime="' + a.date + '" data-testid="' + tid + '-date">' + esc(MOCK.fmtDate(a.date)) + '</time>' + badgeLang(a.lang, tid + '-lang') + '</div></div>' +
       '<div class="app-aside">' + appPill(a.status, tid + '-status') +
       (owner && a.status === 'pending'

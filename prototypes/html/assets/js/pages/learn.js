@@ -72,7 +72,7 @@ I18N.register({
       '<div class="ln-bar" role="progressbar" aria-valuemin="0" aria-valuemax="' + n + '" aria-valuenow="' + done + '" aria-label="' + esc(t('ln.progress', { done: done, total: n })) + '" data-testid="learn-feature-bar"><span style="width:' + Math.round(100 * done / n) + '%"></span></div></div>' : '';
     var steps = ls.map(function (l) {
       var d = L.isDone(l.id);
-      return '<a class="ln-step' + (d ? ' is-done' : '') + '" href="article.html?id=' + l.id + '" data-testid="learn-feature-step-' + l.n + '"><span class="ln-step-n" data-testid="learn-feature-step-' + l.n + '-n">' + (d ? ic('check', 'learn-feature-step-' + l.n + '-tick') + '<span class="visually-hidden">' + esc(t('ln.done')) + '</span>' : l.n) + '</span>' +
+      return '<a class="ln-step' + (d ? ' is-done' : '') + '" href="article.html?id=' + l.id + '" data-testid="learn-feature-step-' + l.n + '"><span class="ln-step-n" data-testid="learn-feature-step-' + l.n + '-n">' + (d ? ic('check', 'learn-feature-step-' + l.n + '-tick') + '<span class="visually-hidden" data-testid="learn-feature-step-' + l.n + '-done">' + esc(t('ln.done')) + '</span>' : l.n) + '</span>' +
         '<span class="ln-step-t" data-testid="learn-feature-step-' + l.n + '-title">' + esc(L.txt(l.title)) + '</span><span class="ln-step-m" data-testid="learn-feature-step-' + l.n + '-min">' + esc(L.fmtMin(l.minutes)) + '</span></a>';
     }).join('');
     return '<section class="ln-feature" aria-labelledby="lrn-feature-h" data-testid="learn-feature"><div class="ln-feature-main" data-testid="learn-feature-main">' +
