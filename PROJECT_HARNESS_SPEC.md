@@ -1,7 +1,7 @@
 # 226OS Claude Code Harness — Documented v0.1
 
 **Repository examined:** https://github.com/Y4NN777/226os, default branch `main`, 2026-11-11.
-**Status:** Harness contract documented for human review; runtime Claude configuration is not installed yet. This document does not grant application implementation or release approval.
+**Status:** Harness contract documented for human review; runtime `.claude/` settings, five agents and five skills are installed and load-validated on Claude Code 2.1.322 (H0 record in `AI_USAGE.md`). This document does not grant application implementation or release approval.
 
 ## Verified baseline
 - The remote tree contains PRD/SPEC/TEST/DEV/SHIP/RULES/ARCHITECTURE/DESIGN, AGENTS.md, spec-kit G0 proposals and Claude handoff, plus Git workflow and an existing branch-policy workflow.
@@ -49,7 +49,7 @@ Avoid assigning both implementers overlapping contracts, root config, migration 
 - Do not turn G0 into a bureaucratic ban on creating the harness itself. Harness setup is allowed when the user explicitly approves the scope; app implementation remains blocked.
 - 100% Go statement coverage and >70% on all four frontend metrics are configured gates once code exists; they are not factual results today.
 - README public French; technical/agent files English.
-- This harness contract is not yet validated by a Claude Code runtime in this repository. Validate with the actual installed CLI version and user's provider model access before relying on model routing or skills.
+- H0 load validation covers registration, deny-rule enforcement and one skill invocation only. Re-validate after CLI upgrades, and confirm provider model access before relying on Opus/Sonnet/Haiku routing.
 
 ## Source documentation
 - https://code.claude.com/docs/en/sub-agents

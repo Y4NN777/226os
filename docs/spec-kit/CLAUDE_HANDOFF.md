@@ -13,7 +13,7 @@ Observed in the repository:
 - The repository contains no application, API, database migration, Makefile, Compose, Traefik, workflow, OpenAPI, test, or release evidence artifacts.
 - `docs/spec-kit/`, `docs/quality/`, and `docs/decisions/` were created by this documentation review; they are plans and registries, not execution evidence.
 - `CONTRIBUTING.md`, `AI_USAGE.md`, and `THIRD_PARTY_NOTICES.md` now exist as drafts; they require human/CADEV review and project-specific completion before release/compliance review.
-- `CLAUDE.md` and `PROJECT_HARNESS_SPEC.md` document the Claude operating contract and bounded delegation model. No `.claude/` runtime configuration is present yet, so model routing and skills are not claimed as installed or tested.
+- `CLAUDE.md` and `PROJECT_HARNESS_SPEC.md` document the Claude operating contract and bounded delegation model. The `.claude/` runtime (settings, five agents, five skills) is installed and load-validated (see `AI_USAGE.md` H0 record); implementer agents remain unused until an approved slice exists.
 - `docs/decisions/0001-g0-conditional-baseline.md` records the repository-owner's conditional G0 baseline approval: implementation planning may proceed, while deferred infrastructure/licensing decisions and all execution gates remain open.
 
 No shell commands, builds, tests, package installs, deployments, remote mutations, or application implementation were executed. All execution-dependent gates are `NOT RUN`.
