@@ -1,33 +1,35 @@
 # 226os code owners. DRAFT until ADR-0008 is accepted.
-# Today the repository owner owns everything. When the owner assigns the work
-# areas (docs/team/CONTRIBUTORS.md), replace the owner on each line with the
-# area owner and keep the owner as a fallback for shared and security files.
-# Last matching pattern wins.
+# Last matching pattern wins. The owner stays a code owner everywhere so a
+# review is always possible while the team is new. `PANK4SS` has a pending
+# invitation: GitHub ignores that owner until the invitation is accepted and
+# write access is active.
 
 *                       @Y4NN777
 
-# A. Identity and platform
-/apps/api/internal/platform/   @Y4NN777
+# Ops and platform: owner
 /scripts/               @Y4NN777
 /mk/                    @Y4NN777
 /Makefile               @Y4NN777
 /compose.yaml           @Y4NN777
 /deploy/                @Y4NN777
 /.github/               @Y4NN777
+/apps/api/internal/platform/   @Y4NN777
 
-# B. Data and Discover
-/db/                    @Y4NN777
+# Backend: lead and the two backend developers
+/apps/api/              @Y4NN777 @NICE-DEV226 @mibienpanjoe
+/apps/api/internal/platform/   @Y4NN777
+/db/                    @Y4NN777 @NICE-DEV226 @mibienpanjoe
 
-# C. Frontend
-/apps/web/              @Y4NN777
-/DESIGN.md              @Y4NN777
+# Frontend: implements the prototypes, reviewed by the owner
+/apps/web/              @PANK4SS @Y4NN777
+/DESIGN.md              @PANK4SS @Y4NN777
 
-# D. Community slices and quality
-/docs/quality/          @Y4NN777
+# Contract: both sides consume it
+/api/openapi.yaml       @Y4NN777 @PANK4SS
 
-# Owner only: decisions, contracts, governance
+# Owner only: decisions, governance, quality policy
 /docs/decisions/        @Y4NN777
-/api/openapi.yaml       @Y4NN777
+/docs/quality/          @Y4NN777
 /AGENTS.md              @Y4NN777
 /CLAUDE.md              @Y4NN777
 /AI_USAGE.md            @Y4NN777

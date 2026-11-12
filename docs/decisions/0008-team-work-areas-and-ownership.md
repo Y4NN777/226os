@@ -12,20 +12,25 @@ ADR-0002 made `Y4NN77` the interim owner of every role and says roles are assign
 
 ## Decision (proposed)
 
-1. **Four work areas**, each with one owner and one reviewer from a neighbouring area. Owners are filled in `docs/team/CONTRIBUTORS.md` and `.github/CODEOWNERS` when this ADR is accepted.
+1. **Three work areas, owner decisions on 2026-11-12.** Names are GitHub logins and are listed in `docs/team/CONTRIBUTORS.md` and `.github/CODEOWNERS`.
 
-   | Area | Paths (owner edits) | Tasks |
-   |---|---|---|
-   | A. Identity and platform | `apps/api/internal/platform/**`, identity module, `scripts/**`, `mk/**`, `compose.yaml`, `deploy/**`, `.github/**` | TASK-SEC-001, API core (error mapper, validation, idempotency, ETag), TASK-OPS-001 |
-   | B. Data and Discover | `db/**` (all migrations, seeds, queries, sqlc), Discover module | TASK-DATA-001, Discover slices |
-   | C. Frontend | `apps/web/**`, `DESIGN.md` | TASK-WEB-001, ADR-0007 visual, accessibility and responsive evidence |
-   | D. Community slices and quality | Solve, Learn, Build modules, `docs/quality/**`, e2e harness | Solve, Learn, Build slices, `make test-e2e` |
+   | Area | People | Paths | Tasks |
+   |---|---|---|---|
+   | Ops and platform | `Y4NN777` (owner) | `scripts/**`, `mk/**`, `Makefile`, `compose.yaml`, `deploy/**`, `.github/**`, `apps/api/internal/platform/**` | TASK-OPS-001, CI, Compose, release evidence |
+   | Backend (lead: `Y4NN777`, who also codes) | `NICE-DEV226`, `mibienpanjoe`, with the lead; `PANK4SS` helps on backend integration and support | `apps/api/**` (except platform), `db/**`, `api/openapi.yaml` | TASK-SEC-001, TASK-DATA-001, TASK-API-001: identity and API core, data and Discover, then the Solve, Learn and Build slices |
+   | Frontend (product side, with the owner) | `PANK4SS` | `apps/web/**`, `DESIGN.md` | TASK-WEB-001: implement the existing HTML prototypes (`prototypes/html`) in the web app, plus the ADR-0007 visual, accessibility and responsive evidence |
 
-   Reviewer pairs: A with B, C with D. A reviewer is never the author.
+   `PANK4SS` is given the frontend because of a strong UX eye and the prototypes that already exist; the same person also supports backend integration (typed API client, wiring screens to endpoints) and general support. That does not give write ownership of backend paths.
+
+   The split of the backend sub-areas (identity and API core, data and Discover, community slices) between the two backend developers is decided by the backend lead per slice and is recorded as the slice owner on each PR. Nothing here fixes it in advance.
+
+   **Reviews.** A PR is never reviewed by its author. Backend PRs are reviewed by the lead or the other backend developer. Frontend PRs are reviewed by the owner. The owner's own PRs (ops and platform) are reviewed by a backend developer. A change to `api/openapi.yaml` needs the backend lead and the frontend owner, since both sides consume it.
+
+   **Help from anyone.** The owner may ask any contributor for temporary help in any area. The helper is named in the PR as co-worker; the area owner stays accountable and the PR is reviewed as above. This does not change CODEOWNERS.
 
 2. **Shared files have one editor at a time.**
    - `api/openapi.yaml`: a contract change merges as its own PR before the Go and web code that uses it.
-   - `db/migrations/**`: only area B adds migrations, so numbers are never assigned twice.
+   - `db/migrations/**`: only the backend area adds migrations, one developer at a time, so numbers are never assigned twice.
    - `go.mod`, `go.sum`, `pnpm-lock.yaml`, `mk/**`: one change per PR, merged quickly.
 
 3. **Owner decisions stay with `Y4NN77`:** ADRs, new dependencies, migrations on live data, secrets, costs, remote access, production approval, and the G4 and G7 security and legal reviews. This ADR does not waive any gate or human checkpoint.
@@ -40,17 +45,17 @@ ADR-0002 made `Y4NN77` the interim owner of every role and says roles are assign
 
 - **Keep one owner until P0 ends (ADR-0002 as is):** simple, but four people cannot work in parallel without clear ownership of shared files. Rejected for the remaining P0 work.
 - **Split by PRD pillar only (Solve, Discover, Build, Learn):** matches the product but not the shared infrastructure (auth, data, web shell), which would have no owner. Rejected.
-- **Four areas as above (chosen):** each shared surface has one owner, and domain slices stay with areas B and D.
+- **Three areas as above (chosen):** ops and platform, backend, frontend. Each shared surface has one owner, and the backend lead assigns backend slices per PR.
 
 ## Consequences
 
-- **Security:** area A owns authentication and authorization; area B and D review slices touching them. The independent security review of G4 and G7 is still required.
-- **Data:** area B is the single writer of migrations, which are forward-only and immutable once merged.
+- **Security:** the backend lead owns authentication and authorization design and reviews slices touching them. The independent security review of G4 and G7 is still required.
+- **Data:** the backend lead is the single writer of migrations (the lead may delegate a migration to one developer at a time), which are forward-only and immutable once merged.
 - **Ops:** CI `quality` stays the required check for every PR. Branch protection and required reviews on `develop` and `main` must be configured by the owner in GitHub.
-- **Cost:** none. Risk: area D carries the most slices and depends on area A and B delivering first.
+- **Cost:** none. Risk: the owner is lead of backend and ops at once, so review capacity is the bottleneck; the other backend developer reviews to relieve it.
 
 ## Evidence / verification required
 
-- `docs/team/CONTRIBUTORS.md` and `.github/CODEOWNERS` list one owner per area, with identity records confirmed by the maintainer.
+- `docs/team/CONTRIBUTORS.md` and `.github/CODEOWNERS` list the people per area, with identity records confirmed by the maintainer.
 - Each slice PR names its owner and reviewer from different areas.
 - Branch protection and required reviews are enabled for `develop` and `main` (owner action, not verified here).

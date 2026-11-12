@@ -6,19 +6,20 @@
 
 | GitHub login | GitHub access (2026-11-12) | Identity record confirmed by the maintainer | Work area (ADR-0008) |
 |---|---|---|---|
-| `Y4NN777` | admin (owner) | yes (identity `Y4NN77`) | owner of ADRs, risky decisions and releases |
-| `NICE-DEV226` | write | no | to be assigned by the owner |
-| `mibienpanjoe` | write | no | to be assigned by the owner |
-| `PANK4SS` | invitation pending | no | to be assigned by the owner |
+| `Y4NN777` | admin (owner) | yes (identity `Y4NN77`) | ops and platform; backend lead (also codes); ADRs, risky decisions, releases |
+| `NICE-DEV226` | write | no | backend |
+| `mibienpanjoe` | write | no | backend |
+| `PANK4SS` | invitation pending | no | frontend (implements the existing prototypes); also backend integration and support |
 
 ## Work areas
 
-| Area | Owner | Reviewer |
+| Area | People | Reviewed by |
 |---|---|---|
-| A. Identity and platform | _unassigned_ | owner of B |
-| B. Data and Discover | _unassigned_ | owner of A |
-| C. Frontend | _unassigned_ | owner of D |
-| D. Community slices and quality | _unassigned_ | owner of C |
+| Ops and platform | `Y4NN777` | a backend developer |
+| Backend | `NICE-DEV226`, `mibienpanjoe`, lead `Y4NN777` | the lead or the other backend developer |
+| Frontend | `PANK4SS` | the owner |
+
+The split of backend sub-areas between the two backend developers is decided per slice by the backend lead and written on the PR. The owner may ask anyone for temporary help in any area; the helper is named on the PR and the area owner stays accountable.
 
 ## Before the first commit
 
