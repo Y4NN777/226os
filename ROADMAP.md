@@ -22,10 +22,10 @@
 - **Product-review additions** (accepted by the owner on 2026-11-12):
   - **E1:** S9 teaching rules AI-1 to AI-5, AI-9 and AI-10 become acceptance tests plus the golden set.
   - **E2:** taxonomy additions and relabels through one new migration.
-  - **E3 = S11:** Learn content. The free series "Coder avec l’IA sans perdre la main".
+  - **E3 is replaced by S12** (owner decision 2026-11-12, aggregation first): content ingestion and curated learning paths. The team builds the code. Content is found, aggregated, organised and loaded for the demo; members' own content grows beside it later (ADR-0009, PROPOSED).
   - **E4:** zero-migration interaction modes. An "ask about this lesson" button and read-only topic feeds.
   - **E5:** Connect as a read-only people directory. This is a **new operation**, suggested `GET /profiles`, so it is a contract change. Once its contract PR is accepted, P0 has **44 operations**. Office hours are a process note only.
-  - **Pillars:** "Learn & Grow" and "Connect" become the prominent pillars in navigation, home and copy. This is an information-architecture and copy change only. The PRD amendment is OPEN (O7).
+  - **Pillars:** "Learn & Grow" and "Connect" are made prominent in navigation, home and wording only. No pillar is erased or demoted. The PRD amendment proposal is OPEN (O7).
   - See section 12 for what slips first.
 - **Out of scope:**
   - the 4 operations with `x-priority: P1`: `GET` and `POST /resources/{resourceId}/reviews`, and `GET` and `PUT /learn/series/{seriesId}/lessons/{lessonId}/progress`;
@@ -73,13 +73,15 @@ Each item below is a demo journey from `docs/SPEC.md` section 2 or a smoke step 
 8. **Mobile on a throttled network.** Explore, Solve and Build stay usable, with clear loading, empty and error states (US-ACCESS-001/1).
 9. **Moderation.** The owner account, promoted to moderator, hides and restores content, and each action writes an `audit_log` row (`docs/spec-kit/AUTHORIZATION_MATRIX.md`, "Moderator scope at P0").
 10. **S9 assistant, subject to V3.** Until the owner rules on V3 (free tier or billing-linked, given the EEA rule), the assistant stays disabled by config. Once enabled, it is available in search and in the ask-a-question flow. It answers only from platform content, with links to the sources it used, and it refuses when it has no source. It never invents a guarantee about an API or about whether a solution is verified (`docs/PRD.md` 5.8). The golden evaluation set has been run, and its result is recorded.
-11. **S11 and E4.**
-    - The free series "Coder avec l’IA sans perdre la main" is readable without an account. It contains only lessons written by a named human author and published by Sat 14 18:00. If B5 is unresolved, the lessons are not in production.
+11. **S12 and E4.**
+    - Discover, Build and Learn show real aggregated content, labelled "via <source>" and attributed with a canonical link. It was loaded by `make ingest` from a pinned snapshot whose hash is recorded.
+    - A curated learning path, for example "Coder avec l’IA sans perdre la main", links external lessons with attribution. It is readable without an account.
+    - Solve, identity and votes contain only member activity. There are no fake users and no fake votes.
     - From a lesson, "Poser une question sur cette leçon" opens the Solve form pre-filled and links the new question to the lesson's article.
 12. **E5 and pillars.**
     - The Connect page lists people. Anyone, signed in or not, can filter by country, language and skill. The list shows only fields that each profile allows, never an email and never a non-listable profile.
     - The "spaces" block stays labelled "bientôt". Mentoring and opportunities are shown as coming soon (PRD 5.5).
-    - Navigation and home put Learn & Grow and Connect first, with Solve, Discover and Build as the toolbox beneath.
+    - Navigation and home make Learn & Grow and Connect prominent. Solve, Discover and Build stay full pillars, reachable from the same navigation (section 12.4).
 13. **S10, only if built.** A member posts in a project or series channel and other members see the message live. A moderator can hide it. If S10 is not built, it is presented as P2.
 14. **Gates.** G1 to G4 are green on the target SHA. G5, G6 and G7 each have evidence or a dated human exception (see section 1). The logs contain no secrets (SHIP 4.5).
 15. **CADEV.** The obligations in section 9 are met.
@@ -102,8 +104,8 @@ The slices were assigned by owner decisions on 2026-11-12. The review rules come
 | S9 | Grounded AI assistant (P0 by owner decision) | `Y4NN777` (contract, ADR, port); second developer **OPEN**; UI `PANK4SS` | new, TBD | S1, S2; owner verification V1 to V4 (H12) |
 | S10 | Live channels (**CONDITIONAL**) | **OPEN**; migrations `mibienpanjoe` | new, TBD | Sat 12:00 GO, S1, S4, S5 |
 | E2 | Taxonomy: +5 learn topics, +3 resource categories, 4 relabels, no deletions, one new migration | `mibienpanjoe` | 0 | none (migration only) |
-| S11 | Learn content: the free series, up to 9 lessons, FR first | authors **OPEN** (owner names them, H14) | 0 | S4 reads; B5 ruling (H15) |
-| E4 | "Ask about this lesson" button, read-only topic feeds | `PANK4SS` with `NICE-DEV226` (Solve owner) | 0 | S3 `createQuestion`; C2 ruling before the feeds |
+| S12 | Content ingestion (`src/api/cmd/ingest`, `make ingest`), curated learning paths, a provenance migration | builder **OPEN** (a backend developer); allowlist and ADR-0009 `Y4NN777`; migration `mibienpanjoe` | 0 | ADR-0009 accepted; C15; S2, S4, S5 services; E2 |
+| E4 | "Ask about this lesson" button, read-only topic feeds | `PANK4SS` with `NICE-DEV226` (Solve owner) | 0 | S3 `createQuestion`; S12 or S4 articles; C2 ruling before the feeds |
 | E5 | Connect people directory (new operation, suggested `GET /profiles`), `connect` page, office-hours process note | backend **OPEN** (proposed: `mibienpanjoe` or `NICE-DEV226` after their first slice merges); UI `PANK4SS` | +1 (44 total once accepted) | contract PR; S1 (profiles); C14 ruling |
 | IA | Pillar emphasis: navigation, home and FR/EN copy promote Learn & Grow and Connect | `PANK4SS` | 0 | none (no new endpoints) |
 
@@ -144,7 +146,7 @@ Reviews (ADR-0008, proposed):
 
 **Thu 12, evening**
 
-- `Y4NN777`: human tasks H1 to H6 and H14 (name the S11 authors). S0 work: authz gate extension (B1), pgxpool, `/readyz`, mounting apigen. Opens the S0 PR.
+- `Y4NN777`: human tasks H1 to H6. Drafts ADR-0009 (PROPOSED) and starts choosing sources (H17). S0 work: authz gate extension (B1), pgxpool, `/readyz`, mounting apigen. Opens the S0 PR.
 - `NICE-DEV226`: identity record (H1). S1 RED tests for the domain and service with fakes: hashing, tokens, CSRF, sessions. Mounts no routes before S0 merges.
 - `mibienpanjoe`: identity record (H1). S2 sqlc queries with local EXPLAIN. Designs the seeds. Raises the Learn `topic` decision (C2). Opens the E2 taxonomy migration PR (`make migrate-new`, plus the pgtest list update).
 - `PANK4SS`: accepts the invitation (H2) and records identity (H1). S7 shell, i18n and shared components on typed fixtures.
@@ -162,8 +164,9 @@ Reviews (ADR-0008, proposed):
 
 **Fri 13, afternoon and evening**
 
-- `Y4NN777`: staging up with TLS, DNS and SMTP. Argon2id benchmark on the target host. Drafts the S9 ADR (PROPOSED, including AI-1 to AI-5, AI-9 and AI-10) and the S9 contract PR. Reviews S1. Rules on B5 (H15) and C2.
-- S11 authors (OPEN): write lessons 1 to 4 in FR, each as a tutorial article, until the Sat 18:00 cutoff.
+- `Y4NN777`: staging up with TLS, DNS and SMTP. Argon2id benchmark on the target host. Drafts the S9 ADR (PROPOSED, including AI-1 to AI-5, AI-9 and AI-10) and the S9 contract PR. Reviews S1. Rules on ADR-0009, C15, C16 and C2. Commits the source allowlist, where the licence and terms of each source are "to verify per source".
+- `mibienpanjoe`: the S12 provenance migration (`make migrate-new`, after E2), with the pgtest provenance tests.
+- S12 builder (OPEN): the `src/api/cmd/ingest` skeleton over the service layer, then the GitHub connector first.
 - E5: the owner rules on C14 and names the E5 backend owner. The E5 contract PR (backend lead plus `PANK4SS` review) is opened and merged, with `make generate`.
 - `PANK4SS`: pillar emphasis in navigation, home and FR/EN copy (information architecture only).
 - `NICE-DEV226`: S1 `me` and profiles. Merges S1.
@@ -187,7 +190,7 @@ Reviews (ADR-0008, proposed):
 - `NICE-DEV226`: S3 merged. If S10 is a GO, may build it (owner assigns).
 - `mibienpanjoe`: S5 merged. If S10 is a GO, writes its migration.
 - `PANK4SS`: write flows (ecrire, build, project, the solve ask form). The S9 panel in recherche and in the ask flow. E4 with `NICE-DEV226`: the "ask about this lesson" button once S3 merges, and the topic feeds only after C2 is ruled.
-- S11: the cutoff is Sat 18:00. A lesson that is not finished and reviewed by then is not published.
+- S12 builder (OPEN): the RSS/Atom and directory connectors, dedupe, rule-based classification, the pinned snapshot, and `make ingest` on `local-dev` and then `staging-test`. The snapshot is frozen with the code at 18:00.
 - E5 backend (OPEN owner, after their first slice merges): the people directory with privacy tests. `PANK4SS` builds the `connect` page, and the spaces block stays "bientôt".
 
 **Freeze, Sat 18:00.** After the freeze, `develop` takes only fixes for failing gates or smoke checks. The freeze applies to S9 and S10 as well.
@@ -206,6 +209,7 @@ Reviews (ADR-0008, proposed):
   - takes a backup, runs the migrations and deploys the exact SHA;
   - runs the production smoke test;
   - promotes the owner account to moderator;
+  - runs `make ingest` on production from the same pinned snapshot, with explicit confirmation, and records its hash;
   - **submits around 12:00.**
 - `NICE-DEV226` and `mibienpanjoe` support the smoke test. `PANK4SS` runs the mobile and FR/EN smoke.
 
@@ -240,11 +244,14 @@ flowchart LR
   AB --> S1
   E2[E2 taxonomy migration] --> S4r
   E2 --> S2r
-  H14[H14 S11 authors named] --> S11[S11 lessons 1-4]
-  B5{B5 ruling: path for series/lessons into prod} --> S11
-  S4r --> S11
+  A9{ADR-0009 accepted + C15 + C16} --> S12[S12 ingestion + curated paths]
+  H17[H17 sources chosen, licences verified] --> S12
+  E2 --> S12m[S12 provenance migration]
+  S12m --> S12
+  S2r & S4r & S5 --> S12
+  S12 --> SNAP[pinned snapshot + hash]
   S3 --> E4a[E4 ask-about-this-lesson]
-  S11 --> E4a
+  S12 --> E4a
   C2{C2 topic ruling} --> E4f[E4 topic feeds]
   C2 --> S4r
   C14{C14 listing rule} --> E5c[E5 contract PR]
@@ -253,7 +260,8 @@ flowchart LR
   S2r & S3 & S4w & S5 & S6 & S9 & E4a & E5 --> S7w[S7 pages wired]
   S7w --> F[Freeze Sat 18:00]
   ST --> F
-  F --> G[G5 e2e, G6 perf, G7 evidence, S9 golden run]
+  SNAP --> F
+  F --> G[G5 e2e, G6 perf, G7 evidence, S9 golden run, staging ingest]
   G --> P[Production PR, deploy, smoke]
   P --> C[CADEV submit ~Sun 12:00]
 ```
@@ -288,7 +296,7 @@ flowchart LR
 | H2 | `PANK4SS` accepts the repository invitation (pending, `docs/team/CONTRIBUTORS.md:12`) | `PANK4SS` | Thu evening | minutes (GUESS) |
 | H3 | ADR-0008 set to ACCEPTED or amended; it is PROPOSED today (`docs/decisions/0008-team-work-areas-and-ownership.md:3`) | `Y4NN777` | Thu evening | - |
 | H4 | Branch protection and required reviews on `develop` and `main`, with the `quality` check required (ADR-0006 "CI", ADR-0008 "Consequences") | `Y4NN777` | Thu evening | minutes (GUESS) |
-| H5 | Rulings on blockers B1 to B4 and contradictions C1 to C14 (section 10); B5 is H15 | `Y4NN777` | Thu evening | - |
+| H5 | Rulings on blockers B1 to B4 and contradictions C1 to C18 (section 10); B5 is H15 | `Y4NN777` | Thu evening | - |
 | H6 | Datacloud account and an **active commercial product**, SSH key, ports 80/443, storage (`docs/SHIP.md` section 3; a CADEV condition). Handled by the owner. | `Y4NN777` | Thu evening | UNVERIFIED; hours to a day (GUESS) |
 | H7 | DNS for `226os.tech` pointing to the host. Let's Encrypt works only once DNS resolves. | `Y4NN777` | as soon as the host IP is known | minutes to hours (GUESS) |
 | H8 | Gmail SMTP: create an app password, stored in the staging and production env files only; test with a real inbox | `Y4NN777` | Fri morning | GUESS: an app password needs 2-step verification on the account; verify |
@@ -297,8 +305,8 @@ flowchart LR
 | H11 | Choose the "public demo URL" (O1) | `Y4NN777` | Sat 12:00 | - |
 | H12 | S9: create the Google AI Studio API key (the owner holds the access) and store it only in the staging, then production, env file. Never in Git, CI logs or images. Check items V1 to V4 (section 10, O5) in AI Studio and Google's own current documentation. | `Y4NN777` | Fri 13 evening | UNVERIFIED |
 | H13 | Apply PRD amendment 3.2 (text in the S9 ADR) and add a SPEC story for S9, and for S10 if it is a GO; the owner applies these | `Y4NN777` | Fri evening | - |
-| H14 | Name the S11 lesson authors (human, named; UNASSIGNED today) | `Y4NN777` | Thu evening | - |
-| H15 | Rule on B5: how series and lesson rows reach production | `Y4NN777` | Fri afternoon | - |
+| H15 | Accept, amend or reject ADR-0009 (aggregated content and ingestion). Acceptance resolves B5. Also rule on C15 and C16. | `Y4NN777` | Fri afternoon | - |
+| H17 | Choose the initial sources (S12) and commit the allowlist. The licence and terms of each source are **to verify per source**, never assumed. Proposed shortlist, as categories only: Discover, provider developer-docs links with countries and categories; Build, public GitHub projects from African developer communities; Learn, free open-licence courses and docs, as links and short excerpts only. | `Y4NN777` | Fri | per source, UNVERIFIED |
 | H16 | Decide whether "Learn as the heart" becomes a PRD amendment (3.2 or 3.3), or the pillars keep equal weight and only topics, series and home ordering change (O7) | `Y4NN777` | OPEN | - |
 
 ## 9. CADEV obligations (`docs/SHIP.md` section 6)
@@ -335,7 +343,7 @@ flowchart LR
 - ADR-0006 ("CI") keeps the deploy workflows `NOT IMPLEMENTED` until TASK-OPS-001.
 - S8 must deliver a reviewed release workflow, with the protected `production` environment, before Sunday. The guard must not be weakened.
 
-**B5. Real lesson content has no path into the production database.** This needs an owner ruling (H15); it is not resolved here.
+**B5. Real lesson content has no path into the production database.** **Resolved if ADR-0009 is accepted (H15).** In that case, lessons and resources reach production through the ingestion pipeline (`make ingest`), not through seeds, and option (a) in the table below no longer applies. Until then it stays open. The original analysis is kept below.
 
 - Only reads of series and lessons are P0. No operation creates a `training_series` or a `training_lessons` row (`api/openapi.yaml:1734-1798`).
 - Seeds never run in production (ADR-0005 point 17).
@@ -396,7 +404,7 @@ flowchart LR
 - So an article author linking to a question stores a relation whose source, the question, they did not write.
 - E4 in the other direction (a question linking to an article) is consistent.
 
-**C13. `LinkRef` accepts `series`, but the database cannot store it.** `LinkRef.type` includes `series` (`api/openapi.yaml:3171`), but `content_relations` has no series column (`db/migrations/00009_content_relations.sql:24-25`; `docs/spec-kit/DATABASE_DESIGN.md:142`). This is why each S11 lesson is a `learn_article`.
+**C13. `LinkRef` accepts `series`, but the database cannot store it.** `LinkRef.type` includes `series` (`api/openapi.yaml:3171`), but `content_relations` has no series column (`db/migrations/00009_content_relations.sql:24-25`; `docs/spec-kit/DATABASE_DESIGN.md:142`). This is why each lesson in a curated path is a `learn_article` referenced by `training_lessons.article_id`.
 
 **C14. A "private profile" has no column (blocks E5).**
 
@@ -406,6 +414,38 @@ flowchart LR
   - a derivation rule, for example listed only when `users.status='active'` plus a rule on `open_to_collab` and its visibility;
   - a new column through a migration (`mibienpanjoe`, number from `make migrate-new`).
 - Filters must also apply only to fields visible to the caller. Otherwise filtering by a hidden country, language or skill reveals that field (INFERRED).
+
+**C15. Aggregated content needs an owner, and "no fake users" forbids inventing one.**
+
+- Every table that receives aggregated content requires a user foreign key:
+  - `resources.created_by` and `providers.created_by` (`db/migrations/00006_discover.sql`);
+  - `projects.owner_id` (`00007_build.sql:14`);
+  - `learn_articles.author_id` and `training_series.author_id` (`00008_learn.sql`).
+- `tags.created_by` is nullable.
+- An aggregated project owned by an account would also give that account owner rights: `PATCH`, contribution needs and applications (AUTHORIZATION_MATRIX).
+- The owner rules in ADR-0009. Options:
+  - one clearly labelled platform account (`training_series.origin` already has `platform`, `00008_learn.sql:75`);
+  - nullable author columns through an expand migration;
+  - a rule that aggregated projects accept no needs or applications.
+
+**C16. There is no "pending moderator review" state.**
+
+- Publication status is `published | removed` everywhere except `learn_articles`, which also has `draft`.
+- Moderators can only hide, restore and resolve error reports (ADR-0003).
+- So "mark for moderator review, then publish" has no table support, and the owner said no new moderation system.
+- Proposal in ADR-0009: the review happens on the committed allowlist and the pinned snapshot manifest, in a PR. Only reviewed items are published, and moderators can hide afterwards.
+
+**C17. Ingestion must reuse the service layer, but some write services do not exist.**
+
+- S12 must write through services, not raw SQL.
+- No P0 slice builds a write service for `providers`, `resources`, `training_series` or `training_lessons`. The matrix leaves catalogue loading "outside the API" (`docs/spec-kit/AUTHORIZATION_MATRIX.md:37`), and series and lessons have reads only.
+- The S12 builder adds them inside the domain packages, coordinated with the S2 and S4 owners.
+
+**C18. Connect and aggregated data.**
+
+- The brief lists `connect` among the pages that rely on aggregated data.
+- But S12 ingests no personal data and creates no users, and the E5 directory lists only real members.
+- The owner rules on what, if anything, aggregated appears on `connect`.
 
 **C2, addition (blocks the E4 topic feeds).** Questions have no topic; `listQuestions` filters only by `tag` (`api/openapi.yaml:462`). A topic feed of questions therefore needs a mapping rule, for example topic code = tag slug. That rule is part of the C2 ruling.
 
@@ -484,16 +524,19 @@ The provider is decided: Google AI Studio, Gemma 4, free tier (Decisions log). T
 - If it is built, it takes Saturday afternoon capacity from S6 and S7 integration, the G5/G6 harnesses, the backup/restore drill and the bug-fix buffer before the freeze (GUESS; not quantified).
 - It also displaces the E4-type work.
 
-**O7. "Learn as the heart", extended to two prominent pillars (OPEN, not applied).**
+**O7. Prominent pillars (wording replaced 2026-11-12; the PRD text is OPEN).**
 
-- The owner wants "Learn & Grow" and "Connect" as the two prominent pillars, with Solve, Discover and Build as the toolbox beneath.
-- The PRD amendment must cover both pillars and end the equal pillar weight of amendment 3.1. If S9 takes 3.2 (H13), this one would be 3.3.
-- The owner approves the amendment text. This plan does not edit the PRD.
-- Meanwhile, only the navigation, home and FR/EN copy change (`PANK4SS`), with no new endpoints and nothing non-functional announced.
+- "Learn & Grow" and "Connect" are made **prominent in navigation, home and wording only**.
+- **No PRD pillar is erased or demoted.** All nine domains and all four differentiators stay (AGENTS.md, "Mission"), and nothing is deleted.
+- Prominence is an emphasis in information architecture and copy (`PANK4SS`), with no new endpoints and nothing non-functional announced.
+- The PRD amendment text stays a **proposal** for the owner and must say "prominence, not removal". This plan does not edit the PRD. Its number, 3.2 or 3.3, depends on H13.
+- The pillars stay one ecosystem (section 12.4).
 
 **O9. E5 backend owner.** OPEN. Proposed: `mibienpanjoe` or `NICE-DEV226`, after their first slice merges.
 
-**O8. S11 authors.** UNASSIGNED; the owner names them (H14).
+**O10. S12 builder.** OPEN. The owner designs the allowlist and ADR-0009. A backend developer builds it, and none is named yet.
+
+**O11. Allowlist path and format.** OPEN. Proposed: a YAML file at `db/ingest/sources.yaml` (GUESS) listing, per source: name, kind (`github`, `rss`, `directory`), URL, licence (to verify), terms URL, robots.txt checked (yes or no), and its rate limit.
 
 ## 11. Risk register
 
@@ -520,13 +563,18 @@ The provider is decided: Google AI Studio, Gemma 4, free tier (Decisions log). T
 | K17 | S9 and S10 both raise moderation load: AI answers quoting bad content, chat abuse | medium | S10 messages covered by moderation hide; S9 cites only published, non-removed content |
 | K18 | S9 and S10 compete with S0 to S8 for the same four people | high (GUESS; not quantified) | S10 only if the Sat 12:00 checkpoint is GO; S9 second developer only after their first slice merges |
 | K19 | S10 live delivery: a `LISTEN` holds a dedicated DB connection; the 30 s router timeout (B3); Traefik streaming behaviour unverified | medium (INFERRED) | S10 ADR covers the transport, connection budget and timeouts |
-| K23 | E1 to E5 and the pillar change raise the total scope with no added people | high (GUESS; not quantified) | The slip order in section 12.1, decided at the Sat 12:00 checkpoint |
+| K23 | E1, E2, E4, E5, S12 and the pillar change raise the total scope with no added people | high (GUESS; not quantified) | The slip order in section 12.1, decided at the Sat 12:00 checkpoint |
 | K28 | E5 privacy: a hidden field or a non-listable profile leaks through the list or the filters; scraping of the directory | high | Visibility-filtered projection and filters; email never selected; bounded `limit` (max 50, ADR-0004); a rate limit per IP and per user (window to be set by the owner, ADR-0003 has none for this route); privacy tests |
 | K29 | E5 adds an operation, so `apigen` regenerates and the 47-operation count in `contract_test.go` and `docs/quality/COVERAGE_SCOPE.md:17` changes; B1 applies to the new route | medium | Handled in the E5 contract PR, with owner approval for `COVERAGE_SCOPE.md` |
-| K24 | B5: S11 lessons may have no path into production | high | Owner ruling (H15) by Fri afternoon; otherwise S11 is demonstrated on staging only, and reported that way |
+| K24 | B5: lesson and resource content may have no path into production | high; **resolved if ADR-0009 is accepted** | Ingestion pipeline (`make ingest`) under ADR-0009; otherwise the content is demonstrated on staging only, and reported that way |
+| K30 | **Copyright and terms of use of sources (the highest content risk)** | high | Allowlist only; licence, robots.txt and terms verified per source; facts, a short excerpt and the canonical link with attribution; full text only where the licence allows; one `THIRD_PARTY_NOTICES.md` entry per source; a takedown path |
+| K31 | Source quality and staleness | medium | `fetched_at` and content hash stored; stale sources never shown as verified (`listResourceSources` rule); re-ingest from the snapshot |
+| K32 | Aggregated content floods native member content | medium | "via <source>" and "by member" labels; ranking later |
+| K33 | S12 is a new slice competing for the same people | high (GUESS; not quantified) | Builder OPEN; connectors in priority order (GitHub, RSS/Atom, directories); slip order in section 12.1 |
+| K34 | "No fake activity" versus aggregated content | low; **resolved by provenance** | Aggregated rows are `provenance='aggregated'` with a source and never create users, votes, answers or applications. Demo fixtures stay `demo`, local-dev and staging-test only. |
+| K35 | C15: aggregated rows need an owner FK, which risks a disguised fake user or unintended owner rights | high | Owner ruling in ADR-0009 |
 | K25 | The relabel of learn topic `ai` changes its meaning, from "IA appliquée et langues africaines" (`db/migrations/00002_reference_taxonomy.sql:113`) to "Comprendre les LLM". Content already tagged `ai` (seeds, fixtures) may need re-tagging to `african-languages`. | low (INFERRED) | Check seeds and fixtures in the E2 PR |
 | K26 | E2 changes the reference lists, so `migrate_integration_test.go` (exact lists and counts at `:140-150`, `:180`, `:219`) fails unless it is updated in the same PR | medium | Same PR; owner review, because pgtest is in the platform area |
-| K27 | S11 lessons: generated text could be presented as expert work, or a lesson could be published unfinished | high | Named human author per lesson; AI help recorded in `AI_USAGE.md`; Sat 18:00 cutoff; unfinished lessons stay unpublished |
 | K20 | S9 sends user questions and platform content to a third-party provider. On the free tier, the content may be used to improve Google products and may be read by human reviewers (OFFICIAL). | high | The ADR fixes what is sent: the question text and retrieved public content, never emails, private data or secrets. The UI tells the user. |
 
 ## 12. Product review findings (2026-11-12)
@@ -540,10 +588,10 @@ If progress is behind at the Sat 12:00 checkpoint, the suggested order of what s
 1. S10 never starts.
 2. The E4 topic feeds.
 3. The E5 people directory. The `connect` page then stays "bientôt" and is reported as not built.
-4. S11 lessons beyond the first four.
+4. S12 connectors beyond GitHub: first the directory connector, then RSS/Atom. Fewer sources, never unverified ones.
 5. The S6 moderation endpoints. The fallback is the documented SQL runbook, and they are reported as not built.
 
-### 12.2 Failure modes (S9, S11 and E5)
+### 12.2 Failure modes (S9, S12 and E5)
 
 | Failure | User sees | System does | Test |
 |---|---|---|---|
@@ -552,8 +600,11 @@ If progress is behind at the Sat 12:00 checkpoint, the suggested order of what s
 | Citation not in the retrieved set (AI-2) | Only valid citations; refusal if none remain | Strips or rejects the citation; needs at least one | Fake answer cites an unknown id |
 | Prompt injection in retrieved content | A normal grounded answer, or a refusal | Retrieved text treated as untrusted data | Golden-set case with a planted instruction |
 | Secrets or emails in the question (AI-10) | The answer; a notice says the question is sent to Google | Redacted before sending; never logged | Assert the redacted payload at the fake adapter |
-| Unfinished lesson at the Sat 18:00 cutoff | The lesson is absent; the series shows only published lessons | Not published | Series read test: only published lessons |
-| Lesson published by a non-author | Never happens | Article author = session subject; no named author means no publish | `createLearnArticle` authz tests (S4); B5 path review |
+| S12: source down or format changed | Previously ingested content stays; nothing half-written | The connector fails for that source only, the run reports it, and the transaction is rolled back per item; timeouts apply | Fake source returns 5xx, a timeout, or a changed schema |
+| S12: duplicate item | One item | Dedupe by canonical URL plus content hash; an unchanged item is a no-op | Ingest the same snapshot twice; row counts unchanged |
+| S12: licence missing or unverified | The item is absent | Skipped and reported; never published | Allowlist entry without a verified licence is rejected |
+| S12: takedown request | The item disappears | Moderator hide (S6), or removal from the allowlist and a re-run; the event is recorded | Hide test; a re-run does not resurrect a taken-down item |
+| S12: malformed or hostile content (HTML, scripts, prompt-injection text) | Clean text or nothing | Sanitised; Markdown output-escaped; bounded lengths; treated as untrusted if it later feeds the assistant (S9) | XSS and oversized fixtures; a golden-set injection case |
 | E5: a hidden field or a non-listable profile appears in the list | Never happens | Visibility-filtered projection; filters only on caller-visible fields; email never selected; non-listable profiles excluded (C14) | Privacy tests: a hidden field is absent; filtering on a hidden field does not match; no email key; a non-listable profile is absent from the list and its direct read returns 404 |
 | E5: listing abuse or scraping | 429 with `Retry-After` past the limit | Bounded `limit` (above 50 returns 422), cursor only, per-IP and per-user rate limit | Limit-51 test; N+1 rate-limit test |
 | E5: empty result | A clear empty state, with a reset-filters action | 200 with `items: []` and `next_cursor: null` | Contract test and a web empty-state test |
@@ -570,6 +621,18 @@ If progress is behind at the Sat 12:00 checkpoint, the suggested order of what s
 - Taxonomy removals (`ussd-messaging`, `geo-data`, the `logistics` merge). These are deferred until after CADEV and need explicit human approval.
 - Translation of content.
 - Live chat, unless S10 is greenlit.
+
+### 12.4 Coherence spine: one ecosystem
+
+All pillars share the same spine. That is why making two of them prominent removes nothing. The PRD calls this "Un seul écosystème connecté", sharing identity, search, tags, profiles and contextual links (`docs/PRD.md:74`).
+
+- **Identity everywhere.** One account and profile, used by Solve, Learn, Build and Connect (S1).
+- **One search over everything.** `GET /search` covers questions, resources, projects and Learn (S2).
+- **Shared tags and topics.** One `tags` namespace, plus `learn_topics` and `resource_categories` (E2). Taxonomy rows are data: they evolve later through ingestion classification or a moderator path, never by editing old migrations.
+- **Typed content relations.** `content_relations` links questions, resources, projects and articles (S2 to S5, E4).
+- **The assistant** is grounded on all published content (S9).
+- **The people directory** links people to their contributions (E5).
+- **Provenance labels.** "via <source>" for aggregated content and "by member" for member content (S12), across every pillar.
 
 ## 13. NOT RUN (as of 2026-11-12)
 
@@ -592,7 +655,7 @@ If progress is behind at the Sat 12:00 checkpoint, the suggested order of what s
   - The golden evaluation set runs in CI only against the fake adapter.
 - **S10.** Everything; it is conditional.
 - **E2.** The migration and the updated pgtest lists, on fresh and upgrade runs.
-- **S11.** Every lesson. Authors are not named.
+- **S12.** All of it: the migration, the connectors, the snapshot, `make ingest` (NOT IMPLEMENTED; the target does not exist yet), and the per-source licence verification.
 - **E4.** All of it.
 - **E5.** The contract PR, the backend, the privacy tests and the `connect` page.
 - **Pillar change.** The navigation, home and copy change.
@@ -614,8 +677,10 @@ If progress is behind at the Sat 12:00 checkpoint, the suggested order of what s
 | 2026-11-12 | S9 terms findings recorded (section 10, O5; K21). Free-tier content may be used by Google and read by human reviewers. Only Paid Services may be offered to EEA, Swiss or UK users. The open items are now V1 to V4: confirm the model id, read the real limits, decide free versus billing-linked, measure on the golden set. Design rules proposed for the S9 ADR: public content and question only, a visible notice, redaction of secrets and emails, a per-environment switch, and an "assistant unavailable" fallback. | Coordinator's search results, re-fetched in this review. **Not an owner decision.** |
 | 2026-11-12 | **E1 accepted.** S9 acceptance tests and golden set:<br>- AI-1: ground or refuse. With zero retrieved passages, the provider is not called and the answer links to search.<br>- AI-2: citations are validated on the server, with at least one per answer.<br>- AI-3: no guarantees about an API or a verified solution.<br>- AI-4: every answer ends with "Comment vérifier".<br>- AI-5: uncertainty is stated, with source dates.<br>- AI-9: answers are labelled AI and can never be accepted or voted as an answer.<br>- AI-10: only the question text and public retrieved content are sent, after redaction.<br>AI-6 (hint-first) and AI-7 (ask for your attempt) are P1. | `Y4NN777` |
 | 2026-11-12 | **E2 accepted.** Taxonomy changes are add and relabel only, in one new migration by `mibienpanjoe`. Its number comes from `make migrate-new`; 00011 is reserved.<br>- +5 learn topics: `learn-to-learn`, `ai-assisted-dev`, `ai-agents`, `open-models`, `african-languages`.<br>- Relabels: `ai`, `mobile`, `open-source`, and the category `cloud-hosting`.<br>- +3 categories: `ai-models`, `ai-tooling`, `ai-datasets`.<br>Result: 14 topics and 18 categories. `payments`, `ai`, `mobile-money` and `sms-ussd` stay valid. The pgtest lists change in the same PR; the DATABASE_DESIGN lists are a docs follow-up. Removals are deferred until after CADEV and need explicit approval. | `Y4NN777` |
-| 2026-11-12 | **E3 accepted as S11.**<br>- The series "Coder avec l’IA sans perdre la main": 9 planned lessons, FR first, cutoff Sat 14 18:00 GMT.<br>- Only lessons written by a named human author are published. Authors are UNASSIGNED (owner to name them).<br>- Each lesson is a tutorial `learn_article` referenced by `training_lessons.article_id`.<br>- Lessons 5 to 8 are outline or P1.<br>- No generated text is presented as expert work.<br>B5 is flagged and not resolved. | `Y4NN777` |
+| 2026-11-12 | **E3 accepted as S11.**<br>- The series "Coder avec l’IA sans perdre la main": 9 planned lessons, FR first, cutoff Sat 14 18:00 GMT.<br>- Only lessons written by a named human author are published. Authors are UNASSIGNED (owner to name them).<br>- Each lesson is a tutorial `learn_article` referenced by `training_lessons.article_id`.<br>- Lessons 5 to 8 are outline or P1.<br>- No generated text is presented as expert work.<br>B5 is flagged and not resolved. **Superseded by the aggregation-first entry below (S12).** | `Y4NN777` |
 | 2026-11-12 | **E4 accepted.** An "ask about this lesson" button, using the existing `links[]` on question creation, and read-only topic feeds. No new table and no new moderation system. Owner: `PANK4SS` with the Solve owner. The topic feeds wait for the C2 ruling. | `Y4NN777` |
 | 2026-11-12 | **E5 accepted: Connect as a people directory.**<br>- A new read-only operation, suggested `GET /profiles`, with country, language and skill filters and cursor pagination.<br>- Public fields only, filtered by `field_visibility`. Email is never returned, and private profiles are never listed.<br>- Anonymous callers and members are both allowed.<br>- This is a contract change: the contract PR comes first (backend lead plus `PANK4SS`), with `make generate`. P0 then has 44 operations.<br>- The route goes in `scripts/public-routes.txt`.<br>- The `connect` page gets the people list. Spaces stays "bientôt".<br>- Office hours: a process note only.<br>- Mentoring, CV review, interview preparation, study groups and opportunities are not in scope and are shown as coming soon.<br>- The backend owner is OPEN.<br>C14 (no profile-level visibility column) needs a ruling first. | `Y4NN777` |
-| 2026-11-12 | **Pillars.** "Learn & Grow" and "Connect" are the two prominent pillars. O7 is extended: the PRD amendment must cover both and end the equal weight of 3.1. It is OPEN, and the owner approves its text. Meanwhile `PANK4SS` changes only the navigation, home and FR/EN copy, with no new endpoints. | `Y4NN777` |
+| 2026-11-12 | **Pillars.** "Learn & Grow" and "Connect" are the two prominent pillars. O7 is extended: the PRD amendment must cover both and end the equal weight of 3.1. It is OPEN, and the owner approves its text. Meanwhile `PANK4SS` changes only the navigation, home and FR/EN copy, with no new endpoints. **The wording was replaced later the same day:** prominence only, no demotion (see the entry below). | `Y4NN777` |
+| 2026-11-12 | **Content strategy: aggregation first. S11 is replaced by S12.**<br>- The team produces the code and the application. Content is searched, aggregated, organised and loaded for the demo; members' content grows beside it.<br>- S12 delivers an ingestion CLI (`src/api/cmd/ingest`) over the service layer, a committed source allowlist, connectors (GitHub REST, then RSS/Atom, then allowlisted directory pages or data files), dedupe, rule-based classification, `provenance='aggregated'` with source metadata, a pinned snapshot with recorded hashes, and `make ingest`, which fails closed and is confirmed outside local-dev.<br>- `make seed` stays for fake demo fixtures, local-dev and staging-test only.<br>- The scraping rules are acceptance criteria.<br>- The UI shows "via <source>" and "by member". Solve and identity stay member-only, with no fake users or votes.<br>- ADR-0009 is PROPOSED.<br>- **Removed:** H14 and O8 (S11 authors), K27 (lesson authorship), and the E3 per-lesson rules.<br>- B5 and K24 are **resolved if ADR-0009 is accepted**.<br>- Curated learning paths link external lessons with attribution. An intro and a verify step are optional glue.<br>- E2 stays add-and-relabel. Taxonomy rows are data, evolved by ingestion classification or a moderator path, not by editing old migrations. | `Y4NN777` |
+| 2026-11-12 | **Pillars, wording replaced (O7).** Learn & Grow and Connect are prominent in navigation, home and wording only. No PRD pillar is erased or demoted; all nine domains and four differentiators stay. The amendment text stays a proposal that says "prominence, not removal". The coherence spine is in section 12.4. | `Y4NN777` |
 | 2026-11-12 | **OPEN, not applied.** "Learn as the heart": a PRD amendment 3.2 or 3.3 ending the equal pillar weight of 3.1, or equal weight kept and only topics, series and home ordering change (O7). S10 is unchanged: it is conditional on the Sat 12:00 checkpoint, and if built it displaces E4-type work. | `Y4NN777` (pending) |

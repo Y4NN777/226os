@@ -43,11 +43,11 @@ One line per person. Each person edits only their own line.
 
 | Login | Next action | Updated |
 |---|---|---|
-| `Y4NN777` | Do H1, H3, H4, H6 and H14 (name the S11 authors; ROADMAP section 8). Then S0: the authz gate extension (B1) first, then pgxpool, `/readyz` and the apigen mount. Rule on B5 and C2 by Fri afternoon. Rule on C14 and name the E5 backend owner (O9). | 2026-11-12 |
+| `Y4NN777` | Do H1, H3, H4 and H6 (ROADMAP section 8). Then S0: the authz gate extension (B1) first, then pgxpool, `/readyz` and the apigen mount. By Fri afternoon: rule on ADR-0009 (H15), C15, C16, C2 and C14; choose the sources (H17); name the S12 builder (O10) and the E5 backend owner (O9). | 2026-11-12 |
 | `NICE-DEV226` | Send the identity record (H1). Start S1 RED tests for the domain and service with fakes. Mount nothing before S0 merges. | 2026-11-12 |
 | `mibienpanjoe` | Send the identity record (H1). Write the S2 sqlc queries with local EXPLAIN. Raise C2 (Learn `topic`) with the owner. Open the E2 taxonomy migration PR (`make migrate-new`, plus the pgtest lists). | 2026-11-12 |
 | `PANK4SS` | Accept the invitation (H2) and send the identity record (H1). Build the S7 shell, i18n and shared components on typed fixtures from `src/web/src/api/schema.d.ts`. E4 comes later (after S3, and after C2 for the feeds). Then the pillar navigation and copy (S7), and the `connect` page once the E5 contract merges. | 2026-11-12 |
-| S11 authors (OPEN) | Wait for the owner to name them (H14). Then write lessons 1 to 4 in FR before Sat 14 18:00. | 2026-11-12 |
+| S12 builder (OPEN) | Wait for ADR-0009 and the owner's naming (O10). Then build the `src/api/cmd/ingest` skeleton over the service layer, with the GitHub connector first. | 2026-11-12 |
 
 ## Shared pieces (O2: where each lives is decided by the backend lead at kickoff)
 
@@ -501,7 +501,8 @@ Each line below is a **proposal**. The lead confirms or reassigns it.
 **Order:** shell, i18n and shared components; then the public reads; then the identity pages; then the write flows.
 
 - [ ] **Pillar emphasis** (owner, 2026-11-12; O7):
-  - navigation, home (`accueil`) and FR/EN copy promote **Learn & Grow** and **Connect**, with Solve, Discover and Build as the toolbox beneath;
+  - navigation, home (`accueil`) and FR/EN copy make **Learn & Grow** and **Connect** prominent;
+  - Solve, Discover and Build stay full pillars in the same navigation, with no pillar erased or demoted (ROADMAP O7 and section 12.4);
   - an information-architecture and copy change only, with no new endpoints;
   - nothing non-functional is announced: Connect shows only the E5 directory as live.
 - [ ] Shell:
@@ -513,12 +514,12 @@ Each line below is a **proposal**. The lead confirms or reassigns it.
 | Page (`prototypes/html/pages/`) | Operations | Slice | Done |
 |---|---|---|---|
 | `accueil` | `listQuestions`, `listResources`, `listProjects`, `listLearnArticles` | S2 to S5 | [ ] |
-| `discover` | `listResources` | S2 | [ ] |
-| `resource` | `getResource`, `listResourceSources`, `createResourceErrorReport` | S2 | [ ] |
+| `discover` | `listResources`; demo data comes from S12 aggregation (providers, docs links, countries, categories), labelled "via <source>" | S2, S12 | [ ] |
+| `resource` | `getResource`, `listResourceSources`, `createResourceErrorReport`; source attribution shown | S2, S12 | [ ] |
 | `recherche` | `search` (plus the S9 panel) | S2, S9 | [ ] |
-| `apprendre` | `listLearnArticles`, `listTrainingSeries`; E4 topic feeds (`listLearnArticles?topic=`, `listQuestions?tag=`; blocked on C2) | S4, E4 | [ ] |
-| `article` | `getLearnArticle`; E4 "Poser une question sur cette leçon" opens `solve`, which calls `createQuestion` with `links[article]` | S4, S11, E4 | [ ] |
-| `formation` | `getTrainingSeries` (S11 series; published lessons only); E4 ask button per lesson | S4, S11, E4 | [ ] |
+| `apprendre` | `listLearnArticles`, `listTrainingSeries`; demo data = S12 aggregated articles and curated paths ("via <source>"); E4 topic feeds (`listLearnArticles?topic=`, `listQuestions?tag=`; blocked on C2) | S4, S12, E4 | [ ] |
+| `article` | `getLearnArticle` ("via <source>" for aggregated items, "by member" otherwise); E4 "Poser une question sur cette leçon" opens `solve`, which calls `createQuestion` with `links[article]` | S4, S12, E4 | [ ] |
+| `formation` | `getTrainingSeries`: a curated learning path of attributed external lessons, aggregated by S12; E4 ask button per lesson | S4, S12, E4 | [ ] |
 | `solve` | `listQuestions`, `createQuestion` (ask form, the S9 panel, and the E4 pre-fill from a lesson) | S3, S9, E4 | [ ] |
 | `question` | `getQuestion`, `listAnswers`, `createAnswer`, `castVote`, `retractVote`, `acceptAnswer`, `unacceptAnswer`, `updateQuestion` | S3 | [ ] |
 | `connexion` | `getCsrfToken`, `signIn` | S1 | [ ] |
@@ -530,9 +531,9 @@ Each line below is a **proposal**. The lead confirms or reassigns it.
 | `profile` | `getProfile` | S1 | [ ] |
 | `parametres` | `getMe`, `updateMyProfile` | S1 | [ ] |
 | `ecrire` | `createLearnArticle` | S4 | [ ] |
-| `build` | `listProjects`, `createProject` | S5 | [ ] |
+| `build` | `listProjects`, `createProject`; demo data = S12 aggregated public GitHub projects ("via GitHub"). Whether aggregated projects accept needs or applications depends on C15. | S5, S12 | [ ] |
 | `project` | `getProject`, `updateProject`, `listContributionNeeds`, `createContributionNeed`, `createApplication`, `listProjectApplications`, `decideApplication` | S5 | [ ] |
-| `connect` | E5 people list (the new operation, suggested `listProfiles` `GET /profiles`; name fixed in the contract PR) for the `connect-discovery` section with its country, language and skill filters. Its "later" badge (`connect.html:42`) and the `data-proto` preview note (`:27`) are removed only once the endpoint is live. The `connect-spaces` block stays "bientôt" (`:66-72`), with no fake spaces. Mentoring and opportunities are shown as coming soon (PRD 5.5). | E5 | [ ] |
+| `connect` | E5 people list (the new operation, suggested `listProfiles` `GET /profiles`; name fixed in the contract PR) for the `connect-discovery` section with its country, language and skill filters. Its "later" badge (`connect.html:42`) and the `data-proto` preview note (`:27`) are removed only once the endpoint is live. The `connect-spaces` block stays "bientôt" (`:66-72`), with no fake spaces. Mentoring and opportunities are shown as coming soon (PRD 5.5). **Demo data:** the people list can show only real registered members, because S12 ingests no personal data and creates no users. The brief says Connect relies on aggregated data, so the owner must rule (C18) on what aggregated data, if any, appears here (for example linked aggregated projects). | E5, S12 | [ ] |
 | `auth` | legacy redirect to `connexion` | - | n/a |
 | `_template` | template, not a page | - | n/a |
 
@@ -714,6 +715,8 @@ Each line below is a **proposal**. The lead confirms or reassigns it.
 
 Removals are **DEFERRED** until after CADEV and need explicit human approval: `ussd-messaging`, `geo-data`, the `logistics` merge.
 
+Taxonomy rows are data. Later they evolve through S12 ingestion classification or a moderator path, never by editing old migrations (ADR-0009 point 9, PROPOSED).
+
 **Allowed paths:** `db/migrations/<new file>` and `src/api/internal/platform/pgtest/migrate_integration_test.go`.
 
 **DoD:**
@@ -726,45 +729,94 @@ Removals are **DEFERRED** until after CADEV and need explicit human approval: `u
 
 ---
 
-## S11 — Learn content: "Coder avec l’IA sans perdre la main"
+## S12 — Content ingestion and curated learning paths (replaces S11)
 
-- **Authors:** **OPEN.** The owner names them (H14). Only a named human author publishes.
-- **Reviewer:** `Y4NN777` (content)
-- **Depends on:** S4 (`createLearnArticle` and the reads), E2 (topic `ai-assisted-dev`), and **B5** (owner ruling, H15).
-- **Cutoff:** Sat 14 Nov 18:00 GMT. Unfinished lessons are not published.
+- **Builder:** **OPEN** (O10; a backend developer).
+- **Design:** `Y4NN777` owns the allowlist and ADR-0009.
+- **Migration:** `mibienpanjoe` (R6).
+- **Reviewers:** `Y4NN777` (sources, licences, legal), plus the other backend developer (code).
+- **Branches:** `feature/platform/provenance-aggregated` (migration), `feature/platform/ingest-cli`, `chore/ops/make-ingest`.
+- **Depends on:**
+  - ADR-0009 accepted (H15);
+  - the C15 ruling (owner foreign key for aggregated rows) and the C16 ruling (review step);
+  - H17 (sources chosen);
+  - E2 (the taxonomy codes used by classification);
+  - the S2, S4 and S5 services.
 
-**Rules for every lesson**
+**Tasks**
 
-- It is a `learn_article` of kind `tutorial`, written in FR first.
-- It is referenced by `training_lessons.article_id`, so it can carry typed links (C13).
-- It starts with "essayez d’abord".
-- It contains a step to verify the result without AI.
-- It links to related questions, resources and projects.
-- It ends with 3 recall questions. Their answers are collapsed, in plain Markdown.
-- No generated text is presented as expert work. AI help goes in `AI_USAGE.md`.
+- [ ] `Y4NN777`: write `docs/decisions/0009-aggregated-content-and-ingestion.md`; it exists as PROPOSED. Accept, amend or reject it (H15). Acceptance resolves B5 and K24.
+- [ ] `Y4NN777`: choose the initial sources (H17) and commit the allowlist. The path and format are OPEN (O11; proposal: `db/ingest/sources.yaml`, GUESS).
+- [ ] **Each source's licence, robots.txt and terms: to verify per source.** One checkbox per source, added when the allowlist lands. None is assumed.
+- [ ] One `THIRD_PARTY_NOTICES.md` entry per source (CADEV audit). The owner edits it.
+- [ ] **(g) Migration.** Next number from `make migrate-new`, not 00011. Written by `mibienpanjoe`. The rows below were verified against the schema.
 
-**Lessons** (9 planned; lessons 5 to 8 are outline or P1)
+  | Table | Provenance CHECK today | Change | Source metadata today |
+  |---|---|---|---|
+  | `tags` | `live`, `demo` (`00002`) | add `aggregated` | none |
+  | `providers` | `live`, `demo` (`00006`) | add `aggregated` | `website_url` only |
+  | `resources` | `live`, `demo` (`00006`) | add `aggregated` | `resource_sources` (`url`, `title`, `kind`, `checked_at`), with no licence, content hash or source name |
+  | `projects` | `live`, `demo` (`00007`) | add `aggregated` | `github_url`, `license_spdx`, with no source name, `fetched_at` or hash |
+  | `learn_articles` | `live`, `demo` (`00008`) | add `aggregated` | none |
+  | `training_series` | `live`, `demo` (`00008`) | add `aggregated` | none |
+  | `users`, `questions`, `answers` | `live`, `demo` | **no change** (member-only) | - |
 
-- [ ] Owner: name the authors (H14).
-- [ ] Owner: rule on B5, the path into production for series and lesson rows (ROADMAP section 10).
-- [ ] Lesson 1: how an LLM produces an answer. Author: OPEN.
-- [ ] Lesson 2: try, then ask (an anti-dependency protocol). Author: OPEN.
-- [ ] Lesson 3: reviewing AI-generated webhook code, with 3 planted bugs (raw body, constant-time compare, replay). Author: OPEN.
-- [ ] Lesson 4: contributing to open source with AI without flooding maintainers. Author: OPEN.
-- [ ] Lessons 5 to 8: outline only (P1).
-- [ ] Lesson 9: not specified in the owner brief. The owner decides.
-- [ ] The series row: `training_series` with topic `ai-assisted-dev`. Its `origin` value is the owner's call (`member` or `platform`, `00008_learn.sql:75`). It is created through the B5 path.
+  - Add the missing source metadata: source name, source URL, licence, `fetched_at`, content hash. Per-table columns or one shared table is an ADR-0009 choice.
+  - Add a CHECK that `provenance='aggregated'` implies a source URL and `fetched_at`.
+  - In the same PR, extend the pgtest provenance tests: `aggregated` is accepted on the six tables and rejected on `users`, `questions` and `answers`. The existing `users_provenance_ck` case (`constraints_integration_test.go:46`) stays.
+  - If a new table is added, also update the table list in `migrate_integration_test.go:19-22`.
+- [ ] **(a) The CLI `src/api/cmd/ingest`.** It writes **through the service layer, never raw SQL**, so invariants hold.
+  - No service writes `providers`, `resources`, `training_series` or `training_lessons` today. The matrix leaves catalogue loading "outside the API" (`AUTHORIZATION_MATRIX.md:37`). Those write services must be added inside their domain packages, coordinated with the S2 and S4 owners (C17).
+  - Connectors, in priority order:
+    - [ ] GitHub REST API for open-source projects. Follows PRD 5.3 "import par URL GitHub" and SPEC section 7: quotas, timeouts, anti-SSRF.
+    - [ ] RSS/Atom for articles.
+    - [ ] Allowlisted pages or data files for API and tool directories: providers, docs links, countries, categories.
+- [ ] **(b) Processing pipeline.**
+  - Normalise.
+  - Dedupe by canonical URL plus content hash.
+  - Classify to a topic or category with rules first. LLM-assisted classification comes later, behind the S9 port, on public content only.
+  - Write with `provenance='aggregated'`, the source name, source URL, licence and `fetched_at`.
+  - Review per C16: proposed as review of the allowlist and snapshot in a PR.
+  - Publish.
+- [ ] **Curated learning paths.** A `training_series` (`origin='platform'`, `00008_learn.sql:75`) whose `training_lessons.article_id` points to aggregated `learn_articles`: attributed external lessons, a short excerpt and the canonical link. A short intro and a verify step are optional glue; authorship is not required. Example: "Coder avec l’IA sans perdre la main".
+- [ ] **(c) Pinned snapshot.** A deterministic snapshot for the demo that records the source list and content hashes (path GUESS: `db/ingest/snapshots/`).
+- [ ] **(d) The `make ingest` target** in `mk/50-ops.mk` (owner area; owner review; ADR-0006 table).
+  - It fails closed.
+  - Outside `local-dev` it needs explicit confirmation (`INGEST_CONFIRM=<profile>`) and backup evidence, like `migrate-up`.
+  - It is never silent in production.
+  - `make seed` stays fake demo fixtures only, `local-dev` and `staging-test` only, never in production.
+- [ ] **(e) Scraping rules**, which are acceptance criteria, each with a test:
+  - [ ] allowlist only;
+  - [ ] each source's licence, robots.txt and terms respected;
+  - [ ] store facts, a short excerpt and the canonical link with attribution; full text only where the licence allows;
+  - [ ] an identifiable user-agent;
+  - [ ] rate limits and timeouts per source;
+  - [ ] a takedown path (moderator hide plus allowlist removal; a re-run never resurrects the item);
+  - [ ] no personal data ingested;
+  - [ ] HTML sanitised and treated as untrusted, including when the assistant later uses it.
+- [ ] **(f) UI** (`PANK4SS`, S7): "via <source>" with a link for aggregated content, "by member" for member content. Solve (questions and answers) and identity stay member-only. No fake users or votes anywhere.
 
-**Allowed paths:** content goes through the API (`createLearnArticle`) under the author's own account. Series and lesson rows go only through the B5 path.
+**Failure modes:** ROADMAP section 12.2 (S12 rows).
+
+**Allowed paths:**
+
+- `src/api/cmd/ingest/**`
+- the write services in the domain packages under `src/api/internal/**` (coordinated with their slice owners)
+- `db/queries/**` (ingest-related)
+- `src/api/internal/platform/dbgen/**` (generated)
+- `db/migrations/<new>` (`mibienpanjoe` only)
+- `src/api/internal/platform/pgtest/**` (the provenance tests)
+- the allowlist and snapshot paths (O11)
+- `mk/50-ops.mk` (owner review)
 
 **DoD:**
 
-- Each published lesson meets the rules above.
-- The author is named in the PR or in the content record.
-- The owner has reviewed it.
-- The series read (`getTrainingSeries`) shows only published lessons.
+- DoD-common.
+- Connector tests run against recorded fixtures, with no network in `make quality`.
+- `make ingest` on `local-dev`, then on `staging-test`, with the snapshot hash recorded.
+- Per-source licence checkboxes are ticked, with evidence.
 
-**Status:** PLANNED (authors not assigned)
+**Status:** PLANNED (builder OPEN; blocked on ADR-0009, C15 and C16)
 
 ---
 
@@ -773,7 +825,7 @@ Removals are **DEFERRED** until after CADEV and need explicit human approval: `u
 - **Owner:** `PANK4SS` with `NICE-DEV226` (the Solve owner)
 - **Reviewer:** `Y4NN777`
 - **Branches:** `feature/solve/web-ask-about-lesson`, `feature/learn/web-topic-feeds` (C8)
-- **Depends on:** S3 (`createQuestion`) and S11 or S4 articles. **The topic feeds wait for the C2 ruling**: questions have no topic, and `listQuestions` filters only by `tag` (`api/openapi.yaml:462`).
+- **Depends on:** S3 (`createQuestion`) and S12 or S4 articles. **The topic feeds wait for the C2 ruling**: questions have no topic, and `listQuestions` filters only by `tag` (`api/openapi.yaml:462`).
 
 **No new table, no new moderation system, no contract change.**
 
@@ -910,7 +962,7 @@ A migration is needed only if C14 is ruled as a new column, and only `mibienpanj
 - [ ] Production: backup, then `migrate-up` (`MIGRATE_CONFIRM` and `BACKUP_EVIDENCE`), then deploy through the release workflow (B4), then the smoke test.
 - [ ] Owner account promoted to moderator in production (S6 runbook). A check confirms there are zero demo rows in production.
 - [ ] S9 enabled or disabled per environment, according to V3.
-- [ ] S11 series and lesson rows in production through the path the owner chose for B5, with backup and audit as that path requires. Only lessons published before Sat 18:00 by a named author are included.
+- [ ] S12: `make ingest` run on `staging-test` from the pinned snapshot, with its hash recorded. Then the same snapshot on `production-live`, with explicit confirmation and a backup first, and the same hash recorded. A check confirms zero `demo` rows in production; `aggregated` rows are allowed under ADR-0009.
 - [ ] E2 migration applied (it is part of the forward migrations on the target SHA).
 - [ ] CADEV submission around Sun 12:00 GMT, before 17:00 (ROADMAP section 9).
 - [ ] Vote reminders sent. **Every member votes between Sun 18:00 and Mon 23:59 GMT.**
