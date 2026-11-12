@@ -1,6 +1,6 @@
 # 226os Architecture Decision Registry
 
-**Status:** every G0 decision is `ACCEPTED` (2026-11-11, approver `Y4NN77`). P0 implementation is authorized under ADR-0001 to ADR-0007. Gates G1 to G7 are evidence, not decisions, and are all `NOT RUN`.
+**Status:** every G0 decision is `ACCEPTED` (2026-11-11, approver `Y4NN77`). P0 implementation is authorized under ADR-0001 to ADR-0007. Gates are evidence, not decisions: G1 to G4 run in CI through `make quality`; G5, G6 and G7 are `NOT RUN`.
 
 The register of G0 decisions is [G0_DECISIONS.md](../spec-kit/G0_DECISIONS.md); each row points to the ADR that records it.
 

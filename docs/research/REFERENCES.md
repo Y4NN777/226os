@@ -92,7 +92,7 @@ compliance_review: "PENDING : confirmation du propriétaire consignée ci-dessou
 
 ### Constats du propriétaire (consignés le 2026-11-12)
 
-- Le nom **226os** vient de l'indicatif téléphonique **+226 du Burkina Faso**.
+- Le nom **226os** se lit **« 226 Open Stack »** ; 226 est l'indicatif téléphonique **+226 du Burkina Faso**.
 - Positionnement : **Afrique de l'Ouest d'abord, puis toute l'Afrique**.
 - Les références servent d'**inspiration** : comportements et principes étudiés, jamais de code, de texte, de visuels, de marque ni de données copiés.
 - Aucun contact avec 225 Open Source n'est jugé nécessaire.

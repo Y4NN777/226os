@@ -10,7 +10,7 @@
 
 ADR-0002 made `Y4NN77` the interim owner of every role and says roles are assigned when P0 completes. The team is now four people (GitHub access: `Y4NN777` admin, `NICE-DEV226` and `mibienpanjoe` write, `PANK4SS` invited). Slice B0 (bootstrap) is merged, and the next tasks (TASK-DATA-001, TASK-SEC-001, TASK-API-001, TASK-WEB-001, TASK-OPS-001) can run in parallel only if each has one owner and shared files have one editor at a time.
 
-## Decision (proposed)
+## Decision
 
 1. **Three work areas, owner decisions on 2026-11-12.** Names are GitHub logins and are listed in `docs/team/CONTRIBUTORS.md` and `.github/CODEOWNERS`.
 

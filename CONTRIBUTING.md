@@ -1,6 +1,6 @@
 # Contributing to 226os
 
-**Status:** DRAFT; human approval required before implementation
+**Status:** policy in force (ADR-0001); P0 implementation is authorized, with human approval for the checkpoints listed in `AGENTS.md`
 
 ## Before opening a change
 

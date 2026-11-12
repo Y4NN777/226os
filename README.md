@@ -11,7 +11,7 @@
 
 Son positionnement : **l'Afrique de l'Ouest d'abord, puis toute l'Afrique**. La plateforme part du contexte ouest-africain et s'adresse ensuite aux développeurs de tout le continent, quels que soient leur pays, leur langue ou leur niveau.
 
-Le nom 226os vient de +226, l'indicatif téléphonique du Burkina Faso.
+226os se lit « 226 Open Stack » : 226 est l'indicatif téléphonique du Burkina Faso.
 
 > **Domaine :** [226os.tech](https://226os.tech), réservé, rien n'y est encore déployé.
 > **Équipe :** 7's, quatre membres.
@@ -133,6 +133,7 @@ Lisez une recette avec `make -n <cible>` avant de la lancer pour la première fo
 
 ## Où l'équipe se synchronise
 
+- [docs/team/KICKOFF.md](docs/team/KICKOFF.md) : **la page d'accueil de l'équipe**, à lire en premier : contexte, carte des documents, glossaire, une page par personne et FAQ.
 - [ROADMAP.md](ROADMAP.md) : le plan, les tranches, les règles, les décisions datées et les points ouverts.
 - [TODO.md](TODO.md) : le suivi en direct. Mettez-le à jour **dans la même PR que le travail**, une ligne par changement.
 - [docs/team/CONTRIBUTORS.md](docs/team/CONTRIBUTORS.md) : qui fait quoi (logins GitHub uniquement) et les étapes avant le premier commit.

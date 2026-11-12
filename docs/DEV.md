@@ -55,7 +55,7 @@ Les dossiers `src`, `api`, `db`, `infra` sont **cibles**, à créer lors de l'in
 - Tests Vitest + Testing Library ; Playwright pour parcours réels ; pas de snapshots comme unique preuve.
 
 ## 6. Collaboration à 3–5 personnes
-- 3 membres actuels ; responsabilités individuelles non encore affectées : `Y4NN77` est propriétaire intérimaire de tous les rôles jusqu'à la fin de P0 (ADR-0002). Chantiers : Platform/Backend, Frontend/UX, Community/Knowledge, Open Source/Collaboration, Developer Ecosystem.
+- 4 membres, inscrits à CADEV. Les zones de travail, les aides et les binômes de relecture sont fixés par l'[ADR-0008](decisions/0008-team-work-areas-and-ownership.md) (accepté) ; le détail par tranche est dans `TODO.md` et `docs/team/CONTRIBUTORS.md`. `Y4NN77` garde les décisions d'architecture, les risques et la mise en production.
 - Tout ticket a un `owner`, un reviewer distinct si disponible, un domaine, un ID story et une preuve de vérification.
 - Branches courtes, petites PRs, merge fréquents ; feature flags ou masquage explicite des fonctions inachevées.
 - Les renforts 4–5 peuvent reprendre des chantiers sans changer l'architecture.
