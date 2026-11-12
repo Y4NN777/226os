@@ -1,92 +1,384 @@
-// Negative-authz route-table check (G4). NOT part of the module build: it is compiled into
-// the httpx test binary through `go test -overlay` by scripts/check-authz-routes.sh, so it can
-// reach the internal router without touching application source. Kept as .txt so that gofmt,
-// go vet and golangci-lint over ./... never see it as a stray package.
+// Route-table gate (G4, decision B1). NOT part of the module build: it is compiled into the httpx
+// test binary through `go test -overlay` by scripts/check-authz-routes.sh, so it can reach the
+// internal router without touching application source. Kept as .txt so that gofmt, go vet and
+// golangci-lint over ./... never see it as a stray package.
+//
+// Rules, all fail-closed:
+//  1. every route mounted by httpx.NewRouter is in EXACTLY ONE of public-routes.txt,
+//     unimplemented-routes.txt, authz-tests.txt;
+//  2. every test named in authz-tests.txt exists (the candidate names come from `go test -list`);
+//  3. public and authz entries must be mounted routes; unimplemented entries must be operations of
+//     the contract (apigen route table) so a typo cannot hide a route;
+//  4. no router, mux or route registration exists outside httpx.NewRouter (go/ast scan).
 package httpx_test
 
 import (
 	"bufio"
+	"fmt"
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"io"
+	"io/fs"
 	"log/slog"
 	"net/http"
+	"net/http/httptest"
 	"os"
+	"path/filepath"
+	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/Y4NN777/226os/src/api/internal/platform/apigen"
 	"github.com/Y4NN777/226os/src/api/internal/platform/httpx"
 )
 
+const (
+	filePublic        = "public-routes.txt"
+	fileUnimplemented = "unimplemented-routes.txt"
+	fileAuthz         = "authz-tests.txt"
+	apiPrefix         = "/api/v1"
+)
+
+type entry struct{ route, test string }
+
 func TestAuthzRouteTable(t *testing.T) {
-	path := os.Getenv("AUTHZ_PUBLIC_ROUTES")
-	if path == "" {
-		t.Fatal("AUTHZ_PUBLIC_ROUTES is not set; refusing to run without the public route allowlist")
-	}
-	public, err := readAllowlist(path)
-	if err != nil {
-		t.Fatalf("read public route allowlist: %v", err)
-	}
+	dir := mustEnv(t, "AUTHZ_LISTS_DIR")
+	public := readList(t, filepath.Join(dir, filePublic), 2)
+	unimplemented := readList(t, filepath.Join(dir, fileUnimplemented), 2)
+	authz := readList(t, filepath.Join(dir, fileAuthz), 3)
+	testNames := readNames(t, mustEnv(t, "AUTHZ_TEST_NAMES"))
 
-	router, ok := httpx.NewRouter(slog.New(slog.NewTextHandler(io.Discard, nil))).(chi.Routes)
-	if !ok {
-		t.Fatal("httpx.NewRouter does not return a chi router; the route table cannot be listed")
-	}
-	var mounted []string
-	if err := chi.Walk(router, func(method, route string, _ http.Handler, _ ...func(http.Handler) http.Handler) error {
-		mounted = append(mounted, method+" "+route)
-		return nil
-	}); err != nil {
-		t.Fatalf("walk route table: %v", err)
-	}
-	sort.Strings(mounted)
+	handler := httpx.NewRouter(slog.New(slog.NewTextHandler(io.Discard, nil)))
+	mounted := walk(t, handler)
 	if len(mounted) == 0 {
-		t.Fatal("the router mounts no route at all; the check cannot prove anything")
+		t.Fatal("authz-gate: the router mounts no route at all; the check cannot prove anything")
+	}
+	contract := map[string]bool{}
+	for _, r := range walk(t, apigen.Handler(apigen.Unimplemented{})) {
+		method, path, _ := strings.Cut(r, " ")
+		contract[method+" "+apiPrefix+path] = true
+	}
+	if len(contract) == 0 {
+		t.Fatal("authz-gate: the generated server mounts no operation; the contract set is empty")
 	}
 
-	var protected []string
-	for _, r := range mounted {
-		if !public[r] {
-			protected = append(protected, r)
+	where := map[string][]string{}
+	for file, list := range map[string][]entry{filePublic: public, fileUnimplemented: unimplemented, fileAuthz: authz} {
+		for _, e := range list {
+			where[e.route] = append(where[e.route], file)
 		}
 	}
-	t.Logf("mounted routes: %d, public (allowlisted): %d", len(mounted), len(mounted)-len(protected))
+	isMounted := map[string]bool{}
 	for _, r := range mounted {
-		t.Logf("route %s public=%t", r, public[r])
+		isMounted[r] = true
 	}
-	if len(protected) == 0 {
-		t.Log("no protected routes exist yet: every mounted route is in the public allowlist")
-		return
+	t.Logf("authz-gate: mounted routes: %d, public: %d, unimplemented: %d, authz-tested: %d",
+		len(mounted), len(public), len(unimplemented), len(authz))
+	for _, r := range mounted {
+		t.Logf("route %s lists=%v", r, where[r])
 	}
-	for _, r := range protected {
-		t.Errorf("route %q is mounted but is not a public route: an authz negative test is required "+
-			"(unauthenticated and wrong-role requests must be rejected) before it can be added to scripts/public-routes.txt "+
-			"or considered covered", r)
+
+	for _, r := range mounted {
+		switch n := len(where[r]); {
+		case n == 0:
+			t.Errorf("authz-gate: route %q is mounted but is in none of scripts/%s, scripts/%s, scripts/%s: "+
+				"add it to the public list with a reason, or write its negative authz test and map it in %s",
+				r, filePublic, fileUnimplemented, fileAuthz, fileAuthz)
+		case n > 1:
+			t.Errorf("authz-gate: route %q is listed in more than one of the three lists (%v): it must be in exactly one", r, where[r])
+		}
+	}
+	for _, e := range public {
+		if !isMounted[e.route] {
+			t.Errorf("authz-gate: %s lists %q but that route is not mounted", filePublic, e.route)
+		}
+	}
+	for _, e := range authz {
+		if !isMounted[e.route] {
+			t.Errorf("authz-gate: %s lists %q but that route is not mounted", fileAuthz, e.route)
+		}
+		if !testNames[e.test] {
+			t.Errorf("authz-gate: authz test %q for route %q does not exist (go test -list)", e.test, e.route)
+		}
+	}
+	// Unimplemented entries need not be mounted yet (the mount lands in api-mount); they must be real
+	// operations, and a mounted one must really answer 501: a line left here after a slice implemented
+	// the route would otherwise exempt it from the authz-test requirement.
+	for _, e := range unimplemented {
+		if !contract[e.route] {
+			t.Errorf("authz-gate: %q in %s is not an operation of the contract (api/openapi.yaml)", e.route, fileUnimplemented)
+		}
+		if isMounted[e.route] {
+			if code := probe(handler, e.route); code != http.StatusNotImplemented {
+				t.Errorf("authz-gate: route %q is listed in %s but answers %d, want 501: remove it there and add it to %s or %s",
+					e.route, fileUnimplemented, code, filePublic, fileAuthz)
+			}
+		}
+	}
+
+	// The project tree gets the two exact exemptions (generated packages, the httpx package); an extra
+	// scan root (test hook) gets none.
+	scans := map[string]bool{mustEnv(t, "AUTHZ_SCAN_ROOT"): true}
+	if extra := os.Getenv("AUTHZ_SCAN_EXTRA"); extra != "" {
+		scans[extra] = false
+	}
+	for root, project := range scans {
+		for _, f := range scanOutsideNewRouter(t, root, project) {
+			t.Errorf("authz-gate: %s: %s outside httpx.NewRouter: every router, mux and route registration must go through httpx.NewRouter", f.pos, f.what)
+		}
 	}
 }
 
-func readAllowlist(path string) (map[string]bool, error) {
+var pathParam = regexp.MustCompile(`\{[^}]+\}`)
+
+// probe serves one request for route (path parameters filled with a UUID, no body, no session) and
+// returns the status code.
+func probe(h http.Handler, route string) int {
+	method, path, _ := strings.Cut(route, " ")
+	path = pathParam.ReplaceAllString(path, "0190c3f2-7a3b-7c1e-8a5d-3b1f2c4d5e6f")
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(method, path, nil))
+	return rec.Code
+}
+
+func mustEnv(t *testing.T, key string) string {
+	t.Helper()
+	v := os.Getenv(key)
+	if v == "" {
+		t.Fatalf("authz-gate: %s is not set; refusing to run without it", key)
+	}
+	return v
+}
+
+func walk(t *testing.T, h http.Handler) []string {
+	t.Helper()
+	router, ok := h.(chi.Routes)
+	if !ok {
+		t.Fatal("authz-gate: the handler is not a chi router; the route table cannot be listed")
+	}
+	var routes []string
+	if err := chi.Walk(router, func(method, route string, _ http.Handler, _ ...func(http.Handler) http.Handler) error {
+		routes = append(routes, method+" "+route)
+		return nil
+	}); err != nil {
+		t.Fatalf("authz-gate: walk route table: %v", err)
+	}
+	sort.Strings(routes)
+	return routes
+}
+
+func readNames(t *testing.T, path string) map[string]bool {
+	t.Helper()
+	b, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("authz-gate: read test names: %v", err)
+	}
+	names := map[string]bool{}
+	for _, n := range strings.Fields(string(b)) {
+		names[n] = true
+	}
+	return names
+}
+
+// readList parses a route list: "METHOD /path" (fields == 2) or "METHOD /path TestName" (fields == 3).
+// A malformed line is an error, never skipped. A route repeated in one file yields two entries.
+func readList(t *testing.T, path string, fields int) []entry {
+	t.Helper()
 	f, err := os.Open(path)
 	if err != nil {
-		return nil, err
+		t.Fatalf("authz-gate: BLOCKED: read %s: %v", path, err)
 	}
 	defer f.Close()
-	out := map[string]bool{}
+	var out []entry
 	sc := bufio.NewScanner(f)
-	for sc.Scan() {
+	for n := 1; sc.Scan(); n++ {
 		line := sc.Text()
 		if i := strings.Index(line, "#"); i >= 0 {
 			line = line[:i]
 		}
-		fields := strings.Fields(line)
-		if len(fields) == 0 {
+		parts := strings.Fields(line)
+		if len(parts) == 0 {
 			continue
 		}
-		if len(fields) != 2 || fields[0] != strings.ToUpper(fields[0]) || !strings.HasPrefix(fields[1], "/") {
-			return nil, &os.PathError{Op: "parse", Path: path, Err: os.ErrInvalid}
+		if len(parts) != fields || parts[0] != strings.ToUpper(parts[0]) || !strings.HasPrefix(parts[1], "/") {
+			want := `"METHOD /path"`
+			if fields == 3 {
+				want = `"METHOD /path TestName"`
+			}
+			t.Errorf("authz-gate: %s:%d: malformed line %q (want %s)", filepath.Base(path), n, strings.TrimSpace(line), want)
+			continue
 		}
-		out[fields[0]+" "+fields[1]] = true
+		e := entry{route: parts[0] + " " + parts[1]}
+		if fields == 3 {
+			e.test = parts[2]
+		}
+		out = append(out, e)
 	}
-	return out, sc.Err()
+	if err := sc.Err(); err != nil {
+		t.Fatalf("authz-gate: read %s: %v", path, err)
+	}
+	return out
+}
+
+type finding struct{ pos, what string }
+
+var (
+	routeMethods = map[string]bool{
+		"Get": true, "Post": true, "Put": true, "Patch": true, "Delete": true, "Head": true, "Options": true,
+		"Connect": true, "Trace": true, "Handle": true, "HandleFunc": true, "Mount": true, "Route": true,
+		"Method": true, "MethodFunc": true,
+	}
+	patternArg = regexp.MustCompile(`^(/|(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS|CONNECT|TRACE)( |$))`)
+	// builders[importPath] lists the functions that build a router, mux or server entry point.
+	builders = map[string]map[string]bool{
+		"github.com/go-chi/chi/v5": {"NewRouter": true, "NewMux": true},
+		"net/http": {
+			"NewServeMux": true, "Handle": true, "HandleFunc": true, "ListenAndServe": true,
+			"ListenAndServeTLS": true, "Serve": true, "ServeTLS": true, "FileServer": true, "FileServerFS": true,
+		},
+		"github.com/Y4NN777/226os/src/api/internal/platform/apigen": {
+			"Handler": true, "HandlerFromMux": true, "HandlerFromMuxWithBaseURL": true, "HandlerWithOptions": true,
+		},
+	}
+	// routerTypes[importPath] lists the types through which routes can be registered.
+	routerTypes = map[string]map[string]bool{
+		"github.com/go-chi/chi/v5": {"Router": true, "Mux": true, "Routes": true},
+		"net/http":                 {"ServeMux": true},
+	}
+)
+
+// scanOutsideNewRouter parses the non-test, non-generated Go files under root and reports every
+// router builder, router-typed reference and route registration outside the NewRouter function of
+// the httpx package. The heuristics are syntactic (patterns given as string literals, router types
+// named through their package); anything they cannot see is still caught by chi.Walk on the mounted table.
+func scanOutsideNewRouter(t *testing.T, root string, project bool) []finding {
+	t.Helper()
+	var out []finding
+	fset := token.NewFileSet()
+	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		rel, _ := filepath.Rel(root, path)
+		rel = filepath.ToSlash(rel)
+		if d.IsDir() {
+			// Exact generated packages only (not any directory that happens to carry the name), plus
+			// directories the Go toolchain itself ignores.
+			if n := d.Name(); n == "node_modules" || n == "testdata" ||
+				(project && (rel == "internal/platform/apigen" || rel == "internal/platform/dbgen")) {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
+			return nil
+		}
+		file, perr := parser.ParseFile(fset, path, nil, parser.ParseComments)
+		if perr != nil {
+			return fmt.Errorf("parse %s: %w", path, perr)
+		}
+		if isGenerated(file) {
+			return nil
+		}
+		inHTTPX := project && filepath.ToSlash(filepath.Dir(rel)) == "internal/platform/httpx"
+		out = append(out, scanFile(fset, file, inHTTPX)...)
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("authz-gate: scan %s: %v", root, err)
+	}
+	return out
+}
+
+// isGenerated honours the standard marker only above the package clause, as the Go tools do.
+func isGenerated(f *ast.File) bool {
+	for _, cg := range f.Comments {
+		if cg.Pos() > f.Package {
+			break
+		}
+		for _, c := range cg.List {
+			if strings.HasPrefix(c.Text, "// Code generated") && strings.Contains(c.Text, "DO NOT EDIT") {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func scanFile(fset *token.FileSet, file *ast.File, inHTTPX bool) []finding {
+	imports := map[string]string{} // local name -> import path
+	for _, imp := range file.Imports {
+		p, _ := strconv.Unquote(imp.Path.Value)
+		name := filepath.Base(p)
+		if p == "github.com/go-chi/chi/v5" {
+			name = "chi"
+		}
+		if imp.Name != nil {
+			name = imp.Name.Name
+		}
+		imports[name] = p
+	}
+	var out []finding
+	report := func(n ast.Node, what string) {
+		out = append(out, finding{pos: fset.Position(n.Pos()).String(), what: what})
+	}
+	for _, imp := range file.Imports {
+		if p, _ := strconv.Unquote(imp.Path.Value); imp.Name != nil && imp.Name.Name == "." && (builders[p] != nil || routerTypes[p] != nil) {
+			report(imp, "dot import of "+p+" hides router builders")
+		}
+	}
+	for _, decl := range file.Decls {
+		if fn, ok := decl.(*ast.FuncDecl); ok {
+			if inHTTPX && fn.Recv == nil && fn.Name.Name == "NewRouter" {
+				continue // the one function allowed to build and register
+			}
+			if fn.Recv != nil && fn.Name.Name == "ServeHTTP" {
+				report(fn, "a type implements http.Handler (ServeHTTP)")
+			}
+		}
+		ast.Inspect(decl, func(n ast.Node) bool {
+			switch x := n.(type) {
+			case *ast.SelectorExpr:
+				id, ok := x.X.(*ast.Ident)
+				if !ok {
+					return true
+				}
+				path := imports[id.Name]
+				if builders[path][x.Sel.Name] {
+					report(x, id.Name+"."+x.Sel.Name+" builds a router, mux or handler")
+				}
+				if routerTypes[path][x.Sel.Name] {
+					report(x, id.Name+"."+x.Sel.Name+" (router type) is used")
+				}
+				if path == "net/http" && x.Sel.Name == "Server" && !inHTTPX {
+					report(x, id.Name+".Server (a server wrapping a handler) is built")
+				}
+			case *ast.CallExpr:
+				if sel, ok := x.Fun.(*ast.SelectorExpr); ok && routeMethods[sel.Sel.Name] && hasPatternArg(x.Args) {
+					report(x, "route registration ."+sel.Sel.Name+"(...)")
+				}
+			}
+			return true
+		})
+	}
+	return out
+}
+
+func hasPatternArg(args []ast.Expr) bool {
+	for i, a := range args {
+		if i > 1 {
+			break
+		}
+		if lit, ok := a.(*ast.BasicLit); ok && lit.Kind == token.STRING {
+			if s, err := strconv.Unquote(lit.Value); err == nil && patternArg.MatchString(s) {
+				return true
+			}
+		}
+	}
+	return false
 }

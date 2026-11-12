@@ -1,9 +1,14 @@
 #!/usr/bin/env bash
-# RED/GREEN evidence for scripts/check-authz-routes.sh (negative-authz route table gate).
-#   GREEN: the real router (only GET /healthz) passes and says no protected routes exist.
-#   RED:   a scratch copy of router.go with an extra route makes the gate fail with the
-#          "authz negative test is required" message; the real router.go is never edited.
-#   RED:   a missing allowlist entry (empty allowlist) also fails.
+# RED/GREEN evidence for scripts/check-authz-routes.sh (B1 route gate).
+# The gate requires every route mounted by httpx.NewRouter to be in exactly one of
+#   scripts/public-routes.txt, scripts/unimplemented-routes.txt, scripts/authz-tests.txt
+# (a test name there must exist), and no router/handler/route may be built outside httpx.NewRouter.
+#   GREEN: the real tree passes.
+#   RED:   an unlisted mounted route; a method on a public path; a route registered outside
+#          NewRouter; an authz test name that does not exist; a route listed twice; an
+#          unimplemented entry that is not in the contract; a missing list file.
+#   GREEN: a route mapped to an existing test passes (proves the mapping is accepted).
+# Scratch inputs only: the real router.go and the real lists are never edited.
 # Usage: scripts/tests/authz-routes_test.sh
 set -euo pipefail
 
@@ -17,24 +22,190 @@ router="$root/src/api/internal/platform/httpx/router.go"
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 
+# expect_red NAME NEEDLE... -- GATE_ARGS...: the gate must exit non-zero and print every NEEDLE.
+expect_red() {
+  local name="$1"
+  shift
+  local needles=()
+  while [ "$1" != "--" ]; do
+    needles+=("$1")
+    shift
+  done
+  shift
+  local rc=0 out
+  out="$("$gate" "$@" 2>&1)" || rc=$?
+  local n
+  if [ "$rc" -eq 0 ]; then
+    ko "RED $name: gate passed but must fail"
+    return
+  fi
+  for n in "${needles[@]}"; do
+    if ! grep -qF -- "$n" <<<"$out"; then
+      ko "RED $name: output lacks '$n' (rc=$rc, out=$out)"
+      return
+    fi
+  done
+  ok "RED: $name"
+}
+
+# New list directory seeded with the real lists, so a case edits only what it needs.
+newlists() {
+  local d="$tmp/$1"
+  mkdir -p "$d"
+  cp "$root/scripts/public-routes.txt" "$root/scripts/unimplemented-routes.txt" "$root/scripts/authz-tests.txt" "$d/"
+  printf '%s' "$d"
+}
+
+# GREEN with the real tree.
 rc=0
 out="$("$gate" 2>&1)" || rc=$?
-if [ "$rc" -eq 0 ] && grep -q 'no protected routes exist yet' <<<"$out"; then ok "GREEN: only public routes are mounted"; else ko "GREEN (rc=$rc, out=$out)"; fi
+if [ "$rc" -eq 0 ] && grep -q 'check-authz-routes: PASS' <<<"$out"; then ok "GREEN: real tree passes"; else ko "GREEN real tree (rc=$rc, out=$out)"; fi
 
-# Scratch router with one extra, non-allowlisted route.
+# RED: a mounted route that is in none of the three lists.
 if ! grep -q 'r.Get("/healthz", healthz)' "$router"; then ko "cannot inject: router.go no longer contains the healthz registration"; finish; exit 1; fi
 sed 's#r.Get("/healthz", healthz)#r.Get("/healthz", healthz)\n\tr.Get("/admin/users", healthz)#' "$router" >"$tmp/router.go"
 grep -q '/admin/users' "$tmp/router.go" || { ko "injection did not apply"; finish; exit 1; }
-rc=0
-out="$("$gate" --router-override "$tmp/router.go" 2>&1)" || rc=$?
-if [ "$rc" -ne 0 ] && grep -q 'GET /admin/users' <<<"$out" && grep -q 'authz negative test is required' <<<"$out"; then
-  ok "RED: an extra mounted route fails the gate with the authz-negative-test message"
-else ko "RED injected route (rc=$rc, out=$out)"; fi
+expect_red "an unlisted mounted route fails the gate" 'GET /admin/users' 'is in none of' -- --router-override "$tmp/router.go"
 
 sed 's#r.Get("/healthz", healthz)#r.Get("/healthz", healthz)\n\tr.Post("/healthz", healthz)#' "$router" >"$tmp/router2.go"
+expect_red "another method on a public path is not public" 'POST /healthz' 'is in none of' -- --router-override "$tmp/router2.go"
+
+# RED: a router built and routes registered outside httpx.NewRouter.
+mkdir -p "$tmp/stray"
+cat >"$tmp/stray/stray.go" <<'EOF'
+package stray
+
+import (
+	"net/http"
+
+	"github.com/go-chi/chi/v5"
+)
+
+func Build() http.Handler {
+	r := chi.NewRouter()
+	r.Get("/sneaky", func(http.ResponseWriter, *http.Request) {})
+	return r
+}
+EOF
+expect_red "a router and a route built outside NewRouter" 'outside httpx.NewRouter' 'stray.go' 'chi.NewRouter' -- --scan-extra "$tmp/stray"
+
+mkdir -p "$tmp/stray2"
+cat >"$tmp/stray2/mux.go" <<'EOF'
+package stray
+
+import "net/http"
+
+func Serve() {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/x", func(http.ResponseWriter, *http.Request) {})
+	_ = http.ListenAndServe(":0", mux)
+}
+EOF
+expect_red "a net/http mux built outside NewRouter" 'outside httpx.NewRouter' 'http.NewServeMux' -- --scan-extra "$tmp/stray2"
+
+# RED: an implemented route whose line is still in unimplemented-routes.txt (it must answer 501).
+sed 's#r.Get("/healthz", healthz)#r.Get("/healthz", healthz)\n\tr.Post("/api/v1/auth/sign-in", healthz)#' "$router" >"$tmp/router3.go"
+expect_red "a route listed as unimplemented that does not answer 501" 'POST /api/v1/auth/sign-in' 'want 501' -- --router-override "$tmp/router3.go"
+
+# RED: scan bypass attempts the first version let through (skeptic review).
+scan_case() { # NAME NEEDLE FILE_RELATIVE_PATH <<<CONTENT
+  local dir="$tmp/scan-$1"
+  mkdir -p "$dir/$(dirname "$3")"
+  cat >"$dir/$3"
+  expect_red "scan: $1" 'outside httpx.NewRouter' "$2" -- --scan-extra "$dir"
+}
+scan_case generated-marker-after-package 'NewRouter' marker.go <<'EOF'
+package stray
+
+import "github.com/go-chi/chi/v5"
+
+func Build() { _ = chi.NewRouter() }
+
+// Code generated by hand. DO NOT EDIT.
+EOF
+scan_case apigen-named-dir 'NewRouter' internal/platform/apigen/x.go <<'EOF'
+package stray
+
+import "github.com/go-chi/chi/v5"
+
+func Build() { _ = chi.NewRouter() }
+EOF
+scan_case fake-httpx-dir 'NewRouter' internal/platform/httpx/a.go <<'EOF'
+package httpx
+
+import "github.com/go-chi/chi/v5"
+
+func NewRouter() { _ = chi.NewRouter() }
+EOF
+scan_case dot-import 'dot import' dot.go <<'EOF'
+package stray
+
+import . "github.com/go-chi/chi/v5"
+
+func Build() { _ = NewRouter() }
+EOF
+scan_case servehttp-type 'ServeHTTP' handler.go <<'EOF'
+package stray
+
+import "net/http"
+
+type h struct{}
+
+func (h) ServeHTTP(http.ResponseWriter, *http.Request) {}
+EOF
+scan_case http-server-literal 'http.Server' server.go <<'EOF'
+package stray
+
+import "net/http"
+
+func Build(h http.Handler) *http.Server { return &http.Server{Handler: h} }
+EOF
+scan_case file-server 'http.FileServer' fs.go <<'EOF'
+package stray
+
+import "net/http"
+
+func Build() http.Handler { return http.FileServer(http.Dir(".")) }
+EOF
+
+# RED: an authz test name that does not exist (route moved out of public so the mapping is the only entry).
+d="$(newlists missing-test)"
+grep -v '^GET /healthz' "$d/public-routes.txt" >"$d/p.tmp" && mv "$d/p.tmp" "$d/public-routes.txt"
+echo 'GET /healthz TestThisAuthzTestDoesNotExist' >>"$d/authz-tests.txt"
+expect_red "an authz test name that does not exist" 'TestThisAuthzTestDoesNotExist' 'does not exist' -- --lists-dir "$d"
+
+# GREEN: the same mapping to a test that exists passes.
+d="$(newlists mapped)"
+grep -v '^GET /healthz' "$d/public-routes.txt" >"$d/p.tmp" && mv "$d/p.tmp" "$d/public-routes.txt"
+echo 'GET /healthz TestHealthz' >>"$d/authz-tests.txt"
 rc=0
-out="$("$gate" --router-override "$tmp/router2.go" 2>&1)" || rc=$?
-[ "$rc" -ne 0 ] && grep -q 'POST /healthz' <<<"$out" && ok "RED: another method on a public path is not public" || ko "RED method (rc=$rc, out=$out)"
+out="$("$gate" --lists-dir "$d" 2>&1)" || rc=$?
+if [ "$rc" -eq 0 ]; then ok "GREEN: a route mapped to an existing test is accepted"; else ko "GREEN mapped test (rc=$rc, out=$out)"; fi
+
+# RED: the same route in two lists.
+d="$(newlists twice)"
+echo 'GET /healthz TestHealthz' >>"$d/authz-tests.txt"
+expect_red "a route in two lists" 'GET /healthz' 'more than one' -- --lists-dir "$d"
+
+# RED: an unimplemented entry that is not an operation of the contract (typo).
+d="$(newlists typo)"
+echo 'GET /api/v1/not-in-the-contract' >>"$d/unimplemented-routes.txt"
+expect_red "an unimplemented entry that is not in the contract" 'GET /api/v1/not-in-the-contract' 'not an operation' -- --lists-dir "$d"
+
+# RED: a mapping to a route that is not mounted and not in the contract (stale authz line).
+d="$(newlists stale)"
+echo 'GET /api/v1/ghost TestHealthz' >>"$d/authz-tests.txt"
+expect_red "an authz line for a route that is not mounted" 'GET /api/v1/ghost' 'not mounted' -- --lists-dir "$d"
+
+# RED: a missing list file fails closed.
+d="$(newlists nofile)"
+rm "$d/unimplemented-routes.txt"
+expect_red "a missing list file" 'BLOCKED' -- --lists-dir "$d"
+
+# RED: a malformed authz line (no test name).
+d="$(newlists malformed)"
+echo 'GET /healthz' >>"$d/authz-tests.txt"
+expect_red "a malformed authz line" 'authz-tests.txt' 'malformed' -- --lists-dir "$d"
 
 # The real router is untouched.
 git -C "$root" diff --quiet -- src/api/internal/platform/httpx/router.go && ok "router.go is unmodified" || ko "router.go was modified"

@@ -133,3 +133,19 @@ open_risks:
   - "the West Africa country list follows the UN geoscheme from memory and is to be verified"
   - "PRD amendment 3.2 is proposed until the owner approves it on the PR"
 ```
+
+## S0 authz gate (B1) record
+
+```yaml
+date: "2026-11-12"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code, Claude Sonnet 5.5"
+purpose: "Implement the B1 route gate: three route lists, test-name existence check, scan for routers built outside httpx.NewRouter"
+repository_or_source_context: "TODO.md S0, ROADMAP.md B1, scripts/check-authz-routes.sh, api/openapi.yaml"
+files_or_sections_affected: ["scripts/check-authz-routes.sh", "scripts/authz/routes_check.go.txt", "scripts/tests/authz-routes_test.sh", "scripts/public-routes.txt", "scripts/unimplemented-routes.txt", "scripts/authz-tests.txt", "TODO.md", "AI_USAGE.md"]
+third_party_sources_consulted: []
+license_review: PENDING
+human_reviewers: ["NICE-DEV226 (S0 reviewer)"]
+tests_or_evidence: ["scripts/tests/authz-routes_test.sh: RED 11 of 13 before the change, 13 of 13 after"]
+open_risks: ["the outside-NewRouter scan is syntactic (string-literal patterns, router types named through their package)"]
+```
