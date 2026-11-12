@@ -10,7 +10,7 @@ Node : le plancher `engines.node` (`>=24`, vérifié par `make doctor`) et la ve
 ## 2. Topologie du dépôt
 ```text
 226os/
-├── src/api/{cmd,internal}/        # API Go : cmd/{api,aicheck,mailcheck}, internal/{app,platform}
+├── src/api/{cmd,internal}/        # API Go : cmd/{api,aicheck,mailcheck,healthcheck}, internal/{app,platform}
 ├── src/web/src/{app,api,features,i18n,styles,test,theme}/
 ├── api/openapi.yaml               # contrat, source des types Go et TypeScript générés
 ├── db/{migrations,queries}/ + db/sqlc.yaml

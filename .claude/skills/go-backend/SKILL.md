@@ -46,7 +46,7 @@ description: 226os Go modular monolith rules and practices (Chi transport-only h
 ## SOLID / design notes for this layer
 - Layout as it exists today (check with `ls src/api/cmd src/api/internal` before adding anything):
 ```text
-src/api/cmd/{api,aicheck,mailcheck}/   # entrypoints; cmd/api is the composition root
+src/api/cmd/{api,aicheck,mailcheck,healthcheck}/   # entrypoints; cmd/api is the composition root
 src/api/internal/app/                  # application wiring and server startup
 src/api/internal/platform/             # cross-cutting, no business rules:
   apigen apispec apperr config cursor db dbgen etag httpx idempotency llm mailer pgtest subject

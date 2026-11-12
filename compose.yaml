@@ -130,8 +130,8 @@ services:
       AI_TIMEOUT: ${AI_TIMEOUT:-}
     networks: [edge, backend]
     healthcheck:
-      # Distroless has no shell; busybox wget is copied into the image just for this probe.
-      test: ["CMD", "/busybox/busybox", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/healthz"]
+      # Distroless has no shell: the image ships its own /healthcheck command (src/api/cmd/healthcheck).
+      test: ["CMD", "/healthcheck"]
       interval: 10s
       timeout: 3s
       retries: 5

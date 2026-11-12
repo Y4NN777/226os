@@ -54,13 +54,13 @@ Tags and digests are those pinned in the files. Licences of image contents are `
 | `postgres:18@sha256:e3d24f69...` | database (compose) | to verify |
 | `axllent/mailpit@sha256:aef2aacc...` | local-dev mail catcher | MIT (as recorded in `AI_USAGE.md`, S0 mailer record) |
 | `traefik:v3.6@sha256:31267173...` | edge and local-dev router | to verify |
-| `busybox:stable-musl@sha256:3c6ae800...` | health probe in the API image; staging/production helper service | GPL-2.0 per `TODO.md` S8 (observed fact); see OPEN decision below |
+| `busybox:stable-musl@sha256:3c6ae800...` | one-shot `acme-init` helper in Compose (staging/production). **No longer in the API image** (removed 2026-11-12; the API image ships its own `/healthcheck` command) | GPL-2.0 per `TODO.md` S8 (observed fact); see the owner decision below |
 | `golang:1.27.4-alpine@sha256:0a5f7fe7...` | API build stage (not shipped) | to verify |
 | `gcr.io/distroless/static-debian13:nonroot@sha256:25ac8f0c...` | API and migrate runtime base | to verify |
 | `node:26-alpine@sha256:6bd9ab43...` | web build stage (not shipped) | to verify |
 | `nginxinc/nginx-unprivileged:stable-alpine@sha256:f5116ed4...` | web runtime base | to verify |
 
-**Owner decision 2026-11-12:** runtime base images (including busybox, GPL-2.0, in the API image, and Alpine packages in the web image) are treated as deployed container images, not as bundled project code, so the GPL/LGPL ban of CADEV article 6 is read as applying to the project's own source and its declared dependencies. Residual risk: the organiser has not confirmed this reading. Optional follow-ups in `TODO.md` S8: ask the organiser (cadev@systalink.com), produce a licence report of the built images `api`, `migrate`, `web`, or remove busybox from the API image. No image licence report exists yet.
+**Owner decision 2026-11-12:** runtime base images (including busybox, GPL-2.0, in the `acme-init` helper, and Alpine packages in the web image) are treated as deployed container images, not as bundled project code, so the GPL/LGPL ban of CADEV article 6 is read as applying to the project's own source and its declared dependencies. Residual risk: the organiser has not confirmed this reading. Optional follow-ups in `TODO.md` S8: ask the organiser (cadev@systalink.com), produce a licence report of the built images `api`, `migrate`, `web`. Busybox is already out of the API image. No image licence report exists yet.
 
 ## Fonts and icons
 

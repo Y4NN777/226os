@@ -28,12 +28,12 @@ CADEV rules checklist (added 2026-11-12 from the official rules; the rules text 
 
 - [ ] **Admissibility (art. 6): a Datacloud product is actually purchased** and active at submission (H6). Owner.
 - [ ] **Admissibility (art. 6): no GPL, AGPL or LGPL component.** Observed facts:
-  - the API image copies busybox (GPL-2.0) for its health probe (`src/api/Dockerfile`);
+  - the API image no longer contains busybox (removed 2026-11-12: it ships its own `/healthcheck` command, `src/api/cmd/healthcheck`); busybox remains only as the one-shot `acme-init` helper image in Compose (staging and production);
   - the web image is `nginx-unprivileged:stable-alpine` with `apk upgrade` (`src/web/Dockerfile`), so it carries Alpine OS packages;
   - `make licenses` covers only Go modules and npm production dependencies (`scripts/licenses.sh`), not image OS packages.
   - [x] DECIDED 2026-11-12 (owner): runtime base images (busybox, Alpine, distroless, postgres, traefik, mailpit) are treated as deployed container images, not as bundled project code. Residual risk: not confirmed by the organiser; optional follow-up: ask (cadev@systalink.com) before submission.
   - [ ] Optional evidence: produce a licence report of the built container images (`api`, `migrate`, `web`) to back the decision above.
-  - [ ] Optional hardening (owner, not required by the decision above): consider removing busybox from the API image, replacing it with a tested healthcheck subcommand of the API binary. This touches `src/api/Dockerfile` and `src/api/cmd/**`, outside S8's allowed paths, so the owner assigns it.
+  - [x] DONE 2026-11-12 (owner instruction): busybox removed from the API image; `/healthcheck` replaces the wget probe (image HEALTHCHECK, Compose health check, smoke test). Not removed: `busybox` in the `acme-init` helper and the Alpine and Debian packages of the web, Traefik and PostgreSQL images (covered by the base-image decision above).
   - [x] DECIDED 2026-11-12 (owner): `isbot` (Unlicense, a public-domain dedication) is accepted; Unlicense is already on the allowed list of `scripts/check-licenses.py`. Base-image decision above. Both are recorded in `THIRD_PARTY_NOTICES.md`.
 - [ ] **Titularity:** each member declares titularity at submission. Every member.
 - [ ] **Licences declared:** every component and its licence is declared. the direct-dependency inventory is in `THIRD_PARTY_NOTICES.md`; entries marked `to verify` (Go and npm tool licences, images) must be checked before submission. Owner, with the `make licenses` artifact.
@@ -248,7 +248,7 @@ Open owner items outside CADEV (IDs and decisions in ROADMAP section 8, 10 and 1
 - [ ] H4, H6, H7, H8 follow-up, H12, K21, B4: see "Open CADEV checklist and owner decisions" above (kept there once).
 - [ ] `staging-test` up from pinned images (`make up-staging-test`, `.env.staging-test` outside Git). **No seeds on staging:** only real `live` content (owner correction B). The S4 content script is rehearsed there. Repeat the Gmail real-inbox test on the staging host.
 - [ ] Argon2id benchmark on the target host, handed to S1.
-- [ ] B2 smoke (DECIDED: `/readyz` is NOT routed at the edge). The smoke test checks `/healthz` through the public host and `/readyz` inside the container (`docker compose exec api /busybox/busybox wget -q -O- http://127.0.0.1:8080/readyz`); never probe `/readyz` through the edge, where the web catch-all answers 200 with `index.html`. Update `docs/SHIP.md` 4.2 accordingly.
+- [ ] B2 smoke (DECIDED: `/readyz` is NOT routed at the edge). The smoke test checks `/healthz` through the public host and `/readyz` inside the container (`docker compose exec api /healthcheck /readyz`); never probe `/readyz` through the edge, where the web catch-all answers 200 with `index.html`. Update `docs/SHIP.md` 4.2 accordingly.
 - [ ] **B4** release workflow (see the owner items above).
 - [ ] Implement `make test-e2e` (Playwright P0 flows, FR/EN, mobile, axe) and `make perf` (dataset, EXPLAIN, API latency, page weight); both are NOT IMPLEMENTED today.
 - [ ] Backup and restore drills on `staging-test` and `production-live` (`scripts/backup.sh`, `scripts/restore-check.sh`; the local-dev drill is done, see archive).

@@ -39,7 +39,7 @@ Aucun module métier n'existe encore dans `src/api/internal` : les modules du di
 - `platform/subject` : l'appelant authentifié, ou anonyme tant que l'identité n'est pas livrée.
 - `platform/mailer` : port d'envoi de mail, adaptateur SMTP (authentification seulement sous TLS, STARTTLS exigé) ; Mailpit en `local-dev`. Aucun code métier n'importe `net/smtp`.
 - `platform/llm` : port vers un fournisseur de modèle de langage, indépendant du fournisseur ; un adaptateur AI Studio existe. Il n'est pas encore branché sur l'API.
-- `cmd/api` : point d'entrée HTTP ; `cmd/aicheck` et `cmd/mailcheck` : vérifications manuelles de la configuration IA et SMTP, avec de vrais appels.
+- `cmd/api` : point d'entrée HTTP ; `cmd/aicheck` et `cmd/mailcheck` : vérifications manuelles de la configuration IA et SMTP, avec de vrais appels ; `cmd/healthcheck` : sonde `/healthz` ou `/readyz` embarquée dans l'image (pas de shell dans l'image distroless).
 
 ## Threat boundaries
 Entrées externes : navigateur, URL GitHub, contenu Markdown, snippets, recherche, candidatures, uploads futurs. Appliquer validation des inputs, contrôle des rôles, anti-XSS, SSRF, CSRF et logs minimaux ; jamais exécuter le code déposé.

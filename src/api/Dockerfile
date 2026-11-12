@@ -11,14 +11,12 @@ COPY go.mod go.sum ./
 RUN go mod download
 COPY src/api ./src/api
 RUN go build -trimpath -ldflags="-s -w -buildid=" -o /out/api ./src/api/cmd/api
+# Health probe for the image and the smoke test (the distroless runtime has no shell, no wget).
+RUN go build -trimpath -ldflags="-s -w -buildid=" -o /out/healthcheck ./src/api/cmd/healthcheck
 # Forward-only migration runner: goose pinned by go.mod, Postgres driver only.
 RUN go build -trimpath -ldflags="-s -w -buildid=" \
       -tags 'no_sqlite3 no_mysql no_mssql no_clickhouse no_vertica no_ydb no_libsql no_turso' \
       -o /out/goose github.com/pressly/goose/v3/cmd/goose
-
-# busybox:stable-musl (static busybox: only its wget applet is used, for health probes,
-# because the distroless runtime has no shell and the API has no health subcommand)
-FROM busybox:stable-musl@sha256:3c6ae8008e2c2eedd141725c30b20d9c36b026eb796688f88205845ef17aa213 AS busybox
 
 # gcr.io/distroless/static-debian13:nonroot (no shell, no package manager, uid 65532)
 FROM gcr.io/distroless/static-debian13:nonroot@sha256:25ac8f0c3b2334a9eb05452266bd4697864a8c8ef0ef71e5e6480d7f92868329 AS migrate
@@ -37,9 +35,9 @@ FROM gcr.io/distroless/static-debian13:nonroot@sha256:25ac8f0c3b2334a9eb05452266
 ARG VCS_REF=unknown
 LABEL org.opencontainers.image.title="226os-api" org.opencontainers.image.revision="${VCS_REF}"
 COPY --from=build /out/api /api
-COPY --from=busybox /bin/busybox /busybox/busybox
+COPY --from=build /out/healthcheck /healthcheck
 USER 65532:65532
 EXPOSE 8080
 HEALTHCHECK --interval=15s --timeout=3s --start-period=5s --retries=3 \
-  CMD ["/busybox/busybox", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/healthz"]
+  CMD ["/healthcheck"]
 ENTRYPOINT ["/api"]
