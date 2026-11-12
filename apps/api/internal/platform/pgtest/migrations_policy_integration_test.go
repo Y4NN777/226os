@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -34,7 +35,15 @@ func runCheck(t *testing.T, dir string, env ...string) (int, string) {
 	t.Helper()
 	script := filepath.Join(repoRoot(t), "scripts", "check-migrations.sh")
 	cmd := exec.CommandContext(t.Context(), "bash", script, dir)
-	cmd.Env = append(os.Environ(), env...)
+	// MIGRATIONS_BASE_REF is set by CI for the real tree; a scratch directory
+	// must only see the value a test passes explicitly.
+	var inherited []string
+	for _, kv := range os.Environ() {
+		if !strings.HasPrefix(kv, "MIGRATIONS_BASE_REF=") {
+			inherited = append(inherited, kv)
+		}
+	}
+	cmd.Env = append(inherited, env...)
 	out, err := cmd.CombinedOutput()
 	var ee *exec.ExitError
 	if errors.As(err, &ee) {
