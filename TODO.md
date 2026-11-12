@@ -648,7 +648,7 @@ Each line below is a **proposal**. The lead confirms or reassigns it.
 - [ ] **B4** (scheduled; not blocking today; before Sunday): a reviewed release workflow (protected `production` environment, exact `develop` SHA, image digests). The guard in `mk/50-ops.mk:28-32` is not weakened.
 - [ ] Implement `make test-e2e` (`mk/40-quality.mk:18`): Playwright P0 flows, FR/EN, mobile, axe.
 - [ ] Implement `make perf` (`mk/40-quality.mk:21`): dataset, EXPLAIN, API latency, page weight.
-- [ ] Backup and restore drill (`pg_dump -Fc`, restore verified), with evidence.
+- [x] Backup and restore drill (`pg_dump -Fc`, restore verified), with evidence: `scripts/backup.sh` and `scripts/restore-check.sh` on a throwaway local-dev stack (2026-11-12): 39 tables and migration version 10 identical after restore into a scratch database, which was dropped (`scripts/tests/backup_test.sh`: 24 passed). The staging-test and production-live drills are still to do.
 - [ ] Rollback drill (redeploy the previous image by digest), with evidence.
 - [ ] G7 evidence on the target SHA: build SHA, digests (`make build`, which writes `reports/image-digests.txt`), audit, backup, smoke, rollback.
 - [ ] Production promotion PR from `develop` to `main`, with owner approval.
