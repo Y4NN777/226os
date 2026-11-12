@@ -367,3 +367,20 @@ human_reviewers: []
 tests_or_evidence: ["documentation only; consistency checks by search; no quality gate run for this record"]
 open_risks: ["status: executed on branch chore/docs/cleanup-and-coherence, not yet merged", "owner review of the plan outcomes pending"]
 ```
+
+## First contract: topic code, owner-only decideApplication, profile_visibility
+
+```yaml
+date: "2026-11-12"
+contributor: "mibienpanjoe"
+tool_or_model: "Cursor, Grok 4.7"
+purpose: "Apply the decided first-contract edits in api/openapi.yaml (C2 topic code, C1 owner-only decideApplication, C14b profile_visibility) and regenerate the Go and TypeScript types."
+repository_or_source_context: "TODO.md FIRST CONTRACT PR; ROADMAP.md C1, C2, C14b; branch feature/platform/first-contract"
+files_or_sections_affected: ["api/openapi.yaml", "src/api/internal/platform/apigen/first_contract_test.go", "src/api/internal/platform/apigen/apigen.gen.go", "src/api/internal/platform/apispec/openapi.gen.yaml", "src/web/src/api/schema.d.ts"]
+third_party_sources_consulted: []
+license_review: PENDING
+human_reviewers: []
+closure: open
+tests_or_evidence: ["go test -count=1 -run TestFirstContractDecisions ./src/api/internal/platform/apigen/: RED exit 1, then GREEN exit 0", "go test -count=1 ./src/api/internal/platform/apigen/: exit 0", "scripts/check-generated.sh generate: exit 0", "pnpm exec redocly lint api/openapi.yaml: exit 0"]
+open_risks: ["handlers, the profile_visibility migration, and the response topic fields are out of scope"]
+```

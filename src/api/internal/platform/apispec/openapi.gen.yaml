@@ -1576,9 +1576,9 @@ paths:
       x-spec:
       - US-BUILD-001
       x-authz:
-        allow: owner or maintainer (accepted|declined) | applicant (withdrawn)
+        allow: owner (accepted|declined) | applicant (withdrawn)
         matrix: PATCH /applications/{id}
-        notes: 'Invalid transition (e.g. decided -> pending) -> 409 STATE_CONFLICT. Only the applicant may withdraw; only the project owner or a maintainer may accept or decline. Cross-project IDOR: applicant/owner
+        notes: 'Invalid transition (e.g. decided -> pending) -> 409 STATE_CONFLICT. Only the applicant may withdraw; only the project owner may accept or decline. A project_maintainers row grants nothing. Cross-project IDOR: applicant/owner
           relation checked in the same transaction; otherwise 404.'
       security:
       - cookieAuth: []
@@ -1645,9 +1645,9 @@ paths:
           $ref: '#/components/schemas/ArticleType'
       - name: topic
         in: query
-        description: Topic slug (matches an article tag).
+        description: Topic code (learn_topics.code).
         schema:
-          $ref: '#/components/schemas/TagSlug'
+          $ref: '#/components/schemas/TopicCode'
       - name: level
         in: query
         schema:
@@ -1771,6 +1771,11 @@ paths:
       - $ref: '#/components/parameters/Cursor'
       - $ref: '#/components/parameters/Limit'
       - $ref: '#/components/parameters/LangFilter'
+      - name: topic
+        in: query
+        description: Topic code (learn_topics.code).
+        schema:
+          $ref: '#/components/schemas/TopicCode'
       - name: level
         in: query
         schema:
@@ -2545,6 +2550,14 @@ components:
       minLength: 1
       maxLength: 32
       pattern: ^[a-z0-9][a-z0-9.+#-]*$
+    TopicCode:
+      type: string
+      minLength: 2
+      maxLength: 30
+      pattern: '^[a-z][a-z0-9-]{1,29}$'
+      description: learn_topics.code. Matches the database check learn_topics_code_ck.
+      examples:
+      - payments
     CountryCode:
       type: string
       minLength: 2
@@ -2640,6 +2653,14 @@ components:
       - public
       - members
       - private
+    ProfileVisibility:
+      type: string
+      description: Who may open this profile page. A new profile defaults to public. On a JSON Merge Patch, omitting the field leaves the stored value unchanged.
+      enum:
+      - public
+      - members
+      - private
+      default: public
     Intent:
       type: string
       enum:
@@ -2979,6 +3000,7 @@ components:
       - bio
       - open_to_collab
       - field_visibility
+      - profile_visibility
       - checklist_missing
       properties:
         username:
@@ -3042,6 +3064,8 @@ components:
             github:
               $ref: '#/components/schemas/FieldVisibility'
           additionalProperties: false
+        profile_visibility:
+          $ref: '#/components/schemas/ProfileVisibility'
         checklist_missing:
           type: array
           items:
@@ -3115,6 +3139,8 @@ components:
             github:
               $ref: '#/components/schemas/FieldVisibility'
           additionalProperties: false
+        profile_visibility:
+          $ref: '#/components/schemas/ProfileVisibility'
       additionalProperties: false
       minProperties: 1
     PublicProfile:
@@ -3124,6 +3150,7 @@ components:
       required:
       - username
       - display_name
+      - profile_visibility
       - joined_at
       properties:
         username:
@@ -3165,6 +3192,8 @@ components:
           - type: 'null'
         open_to_collab:
           type: boolean
+        profile_visibility:
+          $ref: '#/components/schemas/ProfileVisibility'
         joined_at:
           $ref: '#/components/schemas/Timestamp'
       additionalProperties: false
@@ -4253,6 +4282,9 @@ components:
           $ref: '#/components/schemas/Lang'
         level:
           $ref: '#/components/schemas/Level'
+        topic:
+          $ref: '#/components/schemas/TopicCode'
+          description: Optional learn_topics.code. Omit it when the article has no topic.
         tags:
           type: array
           items:

@@ -682,6 +682,11 @@ export interface components {
         Slug: string;
         TagSlug: string;
         /**
+         * @description learn_topics.code. Matches the database check learn_topics_code_ck.
+         * @example payments
+         */
+        TopicCode: string;
+        /**
          * @description ISO 3166-1 alpha-2.
          * @example BF
          */
@@ -722,6 +727,12 @@ export interface components {
         SearchGroup: "questions" | "resources" | "projects" | "learn";
         /** @enum {string} */
         FieldVisibility: "public" | "members" | "private";
+        /**
+         * @description Who may open this profile page. A new profile defaults to public. On a JSON Merge Patch, omitting the field leaves the stored value unchanged.
+         * @default public
+         * @enum {string}
+         */
+        ProfileVisibility: "public" | "members" | "private";
         /**
          * @description Onboarding intent (values from the prototype welcome step plus learn).
          * @enum {string}
@@ -835,6 +846,7 @@ export interface components {
                 skills?: components["schemas"]["FieldVisibility"];
                 github?: components["schemas"]["FieldVisibility"];
             };
+            profile_visibility: components["schemas"]["ProfileVisibility"];
             /** @description Checklist fields still unset (derived, read-only). */
             readonly checklist_missing: components["schemas"]["ProfileField"][];
             updated_at?: components["schemas"]["Timestamp"];
@@ -857,6 +869,7 @@ export interface components {
                 skills?: components["schemas"]["FieldVisibility"];
                 github?: components["schemas"]["FieldVisibility"];
             };
+            profile_visibility?: components["schemas"]["ProfileVisibility"];
         };
         /** @description Visibility-filtered: fields hidden by field_visibility for this caller are omitted. Never contains email. */
         PublicProfile: {
@@ -868,6 +881,7 @@ export interface components {
             skills?: components["schemas"]["TagSlug"][];
             github?: string | null;
             open_to_collab?: boolean;
+            profile_visibility: components["schemas"]["ProfileVisibility"];
             joined_at: components["schemas"]["Timestamp"];
         };
         AuthorRef: {
@@ -1174,6 +1188,8 @@ export interface components {
             body_md: string;
             lang: components["schemas"]["Lang"];
             level: components["schemas"]["Level"];
+            /** @description Optional learn_topics.code. Omit it when the article has no topic. */
+            topic?: components["schemas"]["TopicCode"];
             tags: components["schemas"]["TagSlug"][];
             /**
              * @description Creating as draft needs no verified email; publishing does (403 EMAIL_NOT_VERIFIED).
@@ -2738,8 +2754,8 @@ export interface operations {
                 limit?: components["parameters"]["Limit"];
                 q?: string;
                 type?: components["schemas"]["ArticleType"];
-                /** @description Topic slug (matches an article tag). */
-                topic?: components["schemas"]["TagSlug"];
+                /** @description Topic code (learn_topics.code). */
+                topic?: components["schemas"]["TopicCode"];
                 level?: components["schemas"]["Level"];
                 /** @description Original language of the content. */
                 lang?: components["parameters"]["LangFilter"];
@@ -2840,6 +2856,8 @@ export interface operations {
                 limit?: components["parameters"]["Limit"];
                 /** @description Original language of the content. */
                 lang?: components["parameters"]["LangFilter"];
+                /** @description Topic code (learn_topics.code). */
+                topic?: components["schemas"]["TopicCode"];
                 level?: components["schemas"]["Level"];
             };
             header?: never;
