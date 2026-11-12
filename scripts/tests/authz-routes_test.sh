@@ -296,6 +296,228 @@ grep -v 'POST /api/v1/questions ' "$d/unimplemented-routes.txt" >"$d/u.tmp" && m
 echo 'POST /api/v1/questions TestAuthzHealthzNeedsNoSession' >>"$d/authz-tests.txt"
 expect_red "a mapped test not named after the operationId" 'TestAuthzCreateQuestion' 'must start with' -- --router-override "$tmp/router6.go" --lists-dir "$d"
 
+# RED: the gate must not need Docker (test names come from the Go AST, not from `go test -list`, which
+# runs the pgtest TestMain and starts a PostgreSQL container).
+mkdir -p "$tmp/bin"
+printf '#!/bin/sh\ntouch "%s/docker-called"\nexit 127\n' "$tmp" >"$tmp/bin/docker"
+chmod +x "$tmp/bin/docker"
+rc=0
+out="$(PATH="$tmp/bin:$PATH" "$gate" 2>&1)" || rc=$?
+if [ "$rc" -eq 0 ] && [ ! -e "$tmp/docker-called" ]; then ok "GREEN: the gate does not call docker"; else ko "the gate called docker or failed (rc=$rc, out=$out)"; fi
+
+# Mapped test content. POST /api/v1/questions is mounted by a scratch router, moved out of the
+# unimplemented list and mapped to a TestAuthzCreateQuestion* test declared in a scratch directory.
+sed 's#r.Get("/healthz", healthz)#r.Get("/healthz", healthz)\n\tr.Post("/api/v1/questions", healthz)#' "$router" >"$tmp/router7.go"
+content_lists() { # NAME TESTNAME
+  local d
+  d="$(newlists "$1")"
+  grep -v 'POST /api/v1/questions ' "$d/unimplemented-routes.txt" >"$d/u.tmp" && mv "$d/u.tmp" "$d/unimplemented-routes.txt"
+  echo "POST /api/v1/questions $2" >>"$d/authz-tests.txt"
+  printf '%s' "$d"
+}
+mkdir -p "$tmp/c-good" "$tmp/c-noref" "$tmp/c-nodeny" "$tmp/c-helper"
+cat >"$tmp/c-good/good_test.go" <<'EOF'
+package stray
+
+import (
+	"net/http"
+	"testing"
+)
+
+func TestAuthzCreateQuestionAnonymous(t *testing.T) {
+	path := "/api/v1/questions"
+	if got := http.StatusUnauthorized; got != 401 || path == "" {
+		t.Fatal(got)
+	}
+}
+EOF
+cat >"$tmp/c-noref/noref_test.go" <<'EOF'
+package stray
+
+import (
+	"net/http"
+	"testing"
+)
+
+func TestAuthzCreateQuestionAnonymous(t *testing.T) {
+	if http.StatusUnauthorized != 401 {
+		t.Fatal("x")
+	}
+}
+EOF
+cat >"$tmp/c-nodeny/nodeny_test.go" <<'EOF'
+package stray
+
+import "testing"
+
+func TestAuthzCreateQuestionAnonymous(t *testing.T) {
+	if "/api/v1/questions" == "" {
+		t.Fatal("x")
+	}
+}
+EOF
+cat >"$tmp/c-helper/helper_test.go" <<'EOF'
+package stray
+
+import "testing"
+
+func skipUnlessReady(t *testing.T) { t.Skip("later") }
+
+func TestAuthzCreateQuestionAnonymous(t *testing.T) { skipUnlessReady(t) }
+EOF
+d="$(content_lists content TestAuthzCreateQuestionAnonymous)"
+rc=0
+out="$("$gate" --router-override "$tmp/router7.go" --lists-dir "$d" --scan-extra "$tmp/c-good" 2>&1)" || rc=$?
+if [ "$rc" -eq 0 ]; then ok "GREEN: a TestAuthz<OperationID> test that names the route and a denial status"; else ko "GREEN content (rc=$rc, out=$out)"; fi
+expect_red "a mapped test that does not reference the route" 'TestAuthzCreateQuestionAnonymous' 'does not reference' -- --router-override "$tmp/router7.go" --lists-dir "$d" --scan-extra "$tmp/c-noref"
+expect_red "a mapped test that asserts no denial status" 'TestAuthzCreateQuestionAnonymous' 'denial status' -- --router-override "$tmp/router7.go" --lists-dir "$d" --scan-extra "$tmp/c-nodeny"
+expect_red "a mapped test that only skips through a helper" 'TestAuthzCreateQuestionAnonymous' 'does not reference' -- --router-override "$tmp/router7.go" --lists-dir "$d" --scan-extra "$tmp/c-helper"
+
+# RED: silent-pass guard. A go test run that matches no test exits 0; the gate must refuse it.
+expect_red "go test run that matches no test is not a pass" 'did not run' -- --test-run-pattern '^TestNoSuchTestAnywhere$'
+
+# Test files the Go toolchain does not build must not make a name "exist" (scratch Go module + go list).
+GOOD_BODY='	path := "/api/v1/questions"
+	if got := http.StatusUnauthorized; got != 401 || path == "" {
+		t.Fatal(got)
+	}'
+mod_case() { # NAME FILE_RELATIVE_PATH HEADER SIGNATURE_PARAM
+  local m="$tmp/mod-$1"
+  mkdir -p "$m/$(dirname "$2")"
+  printf 'module scratch\n\ngo 1.27\n' >"$m/go.mod"
+  printf 'package scratch\n' >"$m/doc.go"
+  local header=""
+  [ -n "$3" ] && header="$3"$'\n\n'
+  printf '%spackage scratch\n\nimport (\n\t"net/http"\n\t"testing"\n)\n\nfunc TestAuthzCreateQuestionAnonymous(t %s) {\n%s\n}\n' "$header" "${4:-*testing.T}" "$GOOD_BODY" >"$m/$2"
+  printf '%s' "$m"
+}
+d="$(content_lists modcase TestAuthzCreateQuestionAnonymous)"
+for c in "hidden-dir|_hidden/x_test.go||" "underscore-file|_c_test.go||" "build-ignore|ign_test.go|//go:build ignore|" "windows-suffix|d_windows_test.go||" "wrong-signature|sig_test.go||*testing.B"; do
+  IFS='|' read -r name file header param <<<"$c"
+  m="$(mod_case "$name" "$file" "$header" "$param")"
+  expect_red "a test only in a file the toolchain ignores ($name)" 'TestAuthzCreateQuestionAnonymous' 'does not exist' -- --router-override "$tmp/router7.go" --lists-dir "$d" --scan-extra-module "$m"
+done
+m="$(mod_case built ok_test.go "" "")"
+rc=0
+out="$("$gate" --router-override "$tmp/router7.go" --lists-dir "$d" --scan-extra-module "$m" 2>&1)" || rc=$?
+if [ "$rc" -eq 0 ]; then ok "GREEN: a test in a file the toolchain builds"; else ko "GREEN built test (rc=$rc, out=$out)"; fi
+
+# Both content rules in the SAME declaration.
+mkdir -p "$tmp/c-split"
+cat >"$tmp/c-split/a_test.go" <<'EOF'
+package a
+
+import "testing"
+
+func TestAuthzCreateQuestionAnonymous(t *testing.T) { _ = "/api/v1/questions" }
+EOF
+cat >"$tmp/c-split/b_test.go" <<'EOF'
+package b
+
+import "testing"
+
+func TestAuthzCreateQuestionAnonymous(t *testing.T) { _ = 403 }
+EOF
+expect_red "route and denial status split across two declarations" 'TestAuthzCreateQuestionAnonymous' 'same test' -- --router-override "$tmp/router7.go" --lists-dir "$d" --scan-extra "$tmp/c-split"
+
+# A parent path is not the route.
+sed 's#r.Get("/healthz", healthz)#r.Get("/healthz", healthz)\n\tr.Post("/api/v1/questions/{questionId}/accept", healthz)#' "$router" >"$tmp/router8.go"
+d2="$(newlists accept)"
+grep -v 'POST /api/v1/questions/{questionId}/accept ' "$d2/unimplemented-routes.txt" >"$d2/u.tmp" && mv "$d2/u.tmp" "$d2/unimplemented-routes.txt"
+echo 'POST /api/v1/questions/{questionId}/accept TestAuthzAcceptAnswerNonOwner' >>"$d2/authz-tests.txt"
+mkdir -p "$tmp/c-parent" "$tmp/c-full"
+cat >"$tmp/c-parent/p_test.go" <<'EOF'
+package p
+
+import "testing"
+
+func TestAuthzAcceptAnswerNonOwner(t *testing.T) { _ = "/api/v1/questions"; _ = 403 }
+EOF
+cat >"$tmp/c-full/f_test.go" <<'EOF'
+package f
+
+import (
+	"fmt"
+	"testing"
+)
+
+func TestAuthzAcceptAnswerNonOwner(t *testing.T) { _ = fmt.Sprintf("/api/v1/questions/%s/accept", "id"); _ = 403 }
+EOF
+expect_red "a parent path does not reference the route" 'TestAuthzAcceptAnswerNonOwner' 'does not reference' -- --router-override "$tmp/router8.go" --lists-dir "$d2" --scan-extra "$tmp/c-parent"
+rc=0
+out="$("$gate" --router-override "$tmp/router8.go" --lists-dir "$d2" --scan-extra "$tmp/c-full" 2>&1)" || rc=$?
+if [ "$rc" -eq 0 ]; then ok "GREEN: the full route path with a parameter placeholder"; else ko "GREEN full path (rc=$rc, out=$out)"; fi
+
+# GREEN: legitimate authz test shapes must not be rejected.
+green_test() { # NAME <<<FILE CONTENT
+  mkdir -p "$tmp/g-$1"
+  cat >"$tmp/g-$1/g_test.go"
+  rc=0
+  out="$("$gate" --router-override "$tmp/router7.go" --lists-dir "$d" --scan-extra "$tmp/g-$1" 2>&1)" || rc=$?
+  if [ "$rc" -eq 0 ]; then ok "GREEN: $1"; else ko "GREEN $1 (rc=$rc, out=$out)"; fi
+}
+green_test "a Short-mode skip is allowed" <<'EOF'
+package g
+
+import (
+	"net/http"
+	"testing"
+)
+
+func TestAuthzCreateQuestionAnonymous(t *testing.T) {
+	t.Run("anonymous", func(t *testing.T) {
+		if testing.Short() {
+			t.Skip("needs PostgreSQL")
+		}
+		_ = "/api/v1/questions"
+		_ = http.StatusUnauthorized
+	})
+}
+EOF
+green_test "an unrelated Skip-named method is not a skip" <<'EOF'
+package g
+
+import "testing"
+
+type scanner struct{}
+
+func (scanner) SkipWhitespace() {}
+
+func TestAuthzCreateQuestionAnonymous(t *testing.T) {
+	scanner{}.SkipWhitespace()
+	_ = "/api/v1/questions"
+	_ = 401
+}
+EOF
+green_test "a table test using package-level constants" <<'EOF'
+package g
+
+import (
+	"net/http"
+	"testing"
+)
+
+const questionsPath = "/api/v1/questions"
+const denied = http.StatusForbidden
+
+func runMatrix(t *testing.T, path string, status int) {}
+
+func TestAuthzCreateQuestionAnonymous(t *testing.T) { runMatrix(t, questionsPath, denied) }
+EOF
+green_test "a generated client method (operation name with a suffix)" <<'EOF'
+package g
+
+import "testing"
+
+func CreateQuestionWithResponse() int { return 403 }
+
+func TestAuthzCreateQuestionAnonymous(t *testing.T) {
+	if CreateQuestionWithResponse() != 403 {
+		t.Fatal("x")
+	}
+}
+EOF
+
 # RED: an authz test name that does not exist (route moved out of public so the mapping is the only entry).
 d="$(newlists missing-test)"
 grep -v '^GET /healthz' "$d/public-routes.txt" >"$d/p.tmp" && mv "$d/p.tmp" "$d/public-routes.txt"

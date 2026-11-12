@@ -6,9 +6,13 @@
 // Rules, all fail-closed:
 //  1. every route mounted by httpx.NewRouter is in EXACTLY ONE of public-routes.txt,
 //     unimplemented-routes.txt, authz-tests.txt;
-//  2. every test named in authz-tests.txt exists (the candidate names come from `go test -list`),
-//     is named TestAuthz<OperationID>... for a contract operation (TestAuthz... for any other route),
-//     and does not call t.Skip, t.SkipNow or t.Skipf directly;
+//  2. every test named in authz-tests.txt exists as func(*testing.T) in a test file the Go toolchain
+//     builds (the file list comes from `go list`, default and integration tags: no Docker, no TestMain,
+//     no compilation), is named TestAuthz<OperationID>... for a contract operation (TestAuthz... for any
+//     other route), does not call t.Skip, t.SkipNow or t.Skipf outside an `if testing.Short()` block,
+//     and, in one declaration, names the route (a string equal to its path with parameters as %s or
+//     {name}, or the operation name) and mentions a denial status (401, 403 or 404). Package-level
+//     const and var values used by the test count (one level);
 //  3. public and authz entries must be mounted routes; unimplemented entries must be operations of
 //     the contract (apigen route table) so a typo cannot hide a route;
 //  4. no router, mux or route registration exists outside httpx.NewRouter (go/ast scan), and the
@@ -16,8 +20,8 @@
 //  5. the middleware chain installed by httpx.NewRouter equals router-middleware.txt: a middleware can
 //     answer a path that has no route (invisible to chi.Walk), so each one is a security review item.
 //
-// Residual, by design: what a mapped test actually asserts, and a skip hidden behind a helper, are
-// review matters. The scan is syntactic.
+// Residual, by design: whether a mapped test really exercises the route is a review matter; the
+// content rules only make a hollow or skipped mapping fail. The scan is syntactic.
 package httpx_test
 
 import (
@@ -63,7 +67,6 @@ func TestAuthzRouteTable(t *testing.T) {
 	public := readList(t, filepath.Join(dir, filePublic), 2)
 	unimplemented := readList(t, filepath.Join(dir, fileUnimplemented), 2)
 	authz := readList(t, filepath.Join(dir, fileAuthz), 3)
-	testNames := readNames(t, mustEnv(t, "AUTHZ_TEST_NAMES"))
 
 	handler := httpx.NewRouter(slog.New(slog.NewTextHandler(io.Discard, nil)))
 	mounted := walk(t, handler)
@@ -114,24 +117,31 @@ func TestAuthzRouteTable(t *testing.T) {
 	if extra := os.Getenv("AUTHZ_SCAN_EXTRA"); extra != "" {
 		roots[extra] = false
 	}
-	skipping := skippingTests(t, roots)
+	decls := testDecls(t, mustEnv(t, "AUTHZ_TEST_FILES"), os.Getenv("AUTHZ_SCAN_EXTRA"))
 	opIDs := operationIDs(t, mustEnv(t, "AUTHZ_OPENAPI"))
 	for _, e := range authz {
 		want := authzTestPrefix
-		if id, ok := opIDs[e.route]; ok {
-			want += strings.ToUpper(id[:1]) + id[1:]
+		opID := opIDs[e.route]
+		if opID != "" {
+			want += strings.ToUpper(opID[:1]) + opID[1:]
 		}
 		if !strings.HasPrefix(e.test, want) {
 			t.Errorf("authz-gate: test %q for route %q must start with %s (a negative authz test named after the operation)", e.test, e.route, want)
 		}
-		if pos, ok := skipping[e.test]; ok {
-			t.Errorf("authz-gate: authz test %q for route %q skips itself (%s): a skipped test proves nothing", e.test, e.route, pos)
+		found := decls[e.test]
+		for _, f := range found {
+			if pos := skipPos(f); pos != "" {
+				t.Errorf("authz-gate: authz test %q for route %q skips itself (%s): a skipped test proves nothing", e.test, e.route, pos)
+			}
+		}
+		if len(found) > 0 {
+			checkContent(t, e, opID, found)
 		}
 		if !isMounted[e.route] {
 			t.Errorf("authz-gate: %s lists %q but that route is not mounted", fileAuthz, e.route)
 		}
-		if !testNames[e.test] {
-			t.Errorf("authz-gate: authz test %q for route %q does not exist (go test -list)", e.test, e.route)
+		if len(found) == 0 {
+			t.Errorf("authz-gate: authz test %q for route %q does not exist in any _test.go file", e.test, e.route)
 		}
 	}
 	// Unimplemented entries need not be mounted yet (the mount lands in api-mount); they must be real
@@ -174,50 +184,219 @@ func probe(h http.Handler, route string) int {
 	return rec.Code
 }
 
-// skippingTests returns the test functions under the roots that call t.Skip, t.SkipNow or t.Skipf.
-func skippingTests(t *testing.T, roots map[string]bool) map[string]string {
+// testFunc is one top-level func(*testing.T) named Test... found in a test file the toolchain builds.
+type testFunc struct {
+	pos    string
+	body   *ast.BlockStmt
+	values map[string][]ast.Expr // package-level const and var values of the same file, by name
+}
+
+// testDecls maps test function name to its declarations. files is the toolchain's list of test files
+// (one path per line); extra (test hook) adds every _test.go file of one directory.
+func testDecls(t *testing.T, filesList, extra string) map[string][]testFunc {
 	t.Helper()
-	out := map[string]string{}
-	fset := token.NewFileSet()
-	for root := range roots {
-		err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
-			if err != nil {
-				return err
+	b, err := os.ReadFile(filesList)
+	if err != nil {
+		t.Fatalf("authz-gate: BLOCKED: read test file list: %v", err)
+	}
+	files := strings.Fields(string(b))
+	if extra != "" {
+		err := filepath.WalkDir(extra, func(path string, d fs.DirEntry, err error) error {
+			if err == nil && !d.IsDir() && strings.HasSuffix(path, "_test.go") {
+				files = append(files, path)
 			}
-			if d.IsDir() {
-				if d.Name() == "testdata" || d.Name() == "node_modules" {
-					return filepath.SkipDir
-				}
-				return nil
-			}
-			if !strings.HasSuffix(path, "_test.go") {
-				return nil
-			}
-			file, perr := parser.ParseFile(fset, path, nil, 0)
-			if perr != nil {
-				return fmt.Errorf("parse %s: %w", path, perr)
-			}
-			for _, decl := range file.Decls {
-				fn, ok := decl.(*ast.FuncDecl)
-				if !ok || fn.Recv != nil || fn.Body == nil {
-					continue
-				}
-				ast.Inspect(fn.Body, func(n ast.Node) bool {
-					if call, ok := n.(*ast.CallExpr); ok {
-						if sel, ok := call.Fun.(*ast.SelectorExpr); ok && strings.HasPrefix(sel.Sel.Name, "Skip") {
-							out[fn.Name.Name] = fset.Position(call.Pos()).String()
-						}
-					}
-					return true
-				})
-			}
-			return nil
+			return err
 		})
 		if err != nil {
-			t.Fatalf("authz-gate: scan tests under %s: %v", root, err)
+			t.Fatalf("authz-gate: scan %s: %v", extra, err)
+		}
+	}
+	out := map[string][]testFunc{}
+	fset := token.NewFileSet()
+	for _, path := range files {
+		file, perr := parser.ParseFile(fset, path, nil, 0)
+		if perr != nil {
+			t.Fatalf("authz-gate: parse %s: %v", path, perr)
+		}
+		values := map[string][]ast.Expr{}
+		for _, decl := range file.Decls {
+			if gd, ok := decl.(*ast.GenDecl); ok && (gd.Tok == token.CONST || gd.Tok == token.VAR) {
+				for _, spec := range gd.Specs {
+					if vs, ok := spec.(*ast.ValueSpec); ok {
+						for _, n := range vs.Names {
+							values[n.Name] = vs.Values
+						}
+					}
+				}
+			}
+		}
+		for _, decl := range file.Decls {
+			if fn, ok := decl.(*ast.FuncDecl); ok && fn.Recv == nil && fn.Body != nil && strings.HasPrefix(fn.Name.Name, "Test") && isTestSignature(fn.Type) {
+				out[fn.Name.Name] = append(out[fn.Name.Name], testFunc{pos: fset.Position(fn.Pos()).String(), body: fn.Body, values: values})
+			}
 		}
 	}
 	return out
+}
+
+// isTestSignature reports whether ft is func(*testing.T).
+func isTestSignature(ft *ast.FuncType) bool {
+	if ft.Params == nil || len(ft.Params.List) != 1 || len(ft.Params.List[0].Names) > 1 {
+		return false
+	}
+	star, ok := ft.Params.List[0].Type.(*ast.StarExpr)
+	if !ok {
+		return false
+	}
+	sel, ok := star.X.(*ast.SelectorExpr)
+	if !ok {
+		return false
+	}
+	id, ok := sel.X.(*ast.Ident)
+	return ok && id.Name == "testing" && sel.Sel.Name == "T"
+}
+
+// inspectAll visits the test body and, one level deep, the values of the package-level const and var
+// it mentions.
+func inspectAll(f testFunc, visit func(ast.Node) bool) {
+	ast.Inspect(f.body, visit)
+	seen := map[string]bool{}
+	ast.Inspect(f.body, func(n ast.Node) bool {
+		if id, ok := n.(*ast.Ident); ok && !seen[id.Name] {
+			seen[id.Name] = true
+			for _, v := range f.values[id.Name] {
+				ast.Inspect(v, visit)
+			}
+		}
+		return true
+	})
+}
+
+// skipPos returns the position of a t.Skip, t.SkipNow or t.Skipf call outside an `if testing.Short()`
+// block, or "".
+func skipPos(f testFunc) string {
+	allowed := map[ast.Node]bool{}
+	ast.Inspect(f.body, func(n ast.Node) bool {
+		if ifs, ok := n.(*ast.IfStmt); ok && mentionsShort(ifs.Cond) {
+			ast.Inspect(ifs.Body, func(m ast.Node) bool {
+				allowed[m] = true
+				return true
+			})
+		}
+		return true
+	})
+	pos := ""
+	ast.Inspect(f.body, func(n ast.Node) bool {
+		if call, ok := n.(*ast.CallExpr); ok && !allowed[call] {
+			if sel, ok := call.Fun.(*ast.SelectorExpr); ok && (sel.Sel.Name == "Skip" || sel.Sel.Name == "SkipNow" || sel.Sel.Name == "Skipf") {
+				pos = f.pos
+			}
+		}
+		return pos == ""
+	})
+	return pos
+}
+
+func mentionsShort(cond ast.Expr) bool {
+	found := false
+	ast.Inspect(cond, func(n ast.Node) bool {
+		if sel, ok := n.(*ast.SelectorExpr); ok && sel.Sel.Name == "Short" {
+			if id, ok := sel.X.(*ast.Ident); ok && id.Name == "testing" {
+				found = true
+			}
+		}
+		return !found
+	})
+	return found
+}
+
+// checkContent applies the two content rules to a mapped test. When a name is declared in several
+// packages, ONE declaration must meet both rules.
+func checkContent(t *testing.T, e entry, opID string, found []testFunc) {
+	t.Helper()
+	_, path, _ := strings.Cut(e.route, " ")
+	re := routePattern(path)
+	var anyRef, anyDenial, both bool
+	for _, f := range found {
+		ref, denial := referencesRoute(f, re, opID), mentionsDenial(f)
+		anyRef, anyDenial = anyRef || ref, anyDenial || denial
+		both = both || (ref && denial)
+	}
+	switch {
+	case !anyRef:
+		t.Errorf("authz-gate: authz test %q for route %q does not reference the route: its body must contain a string equal to %q (path parameters as %%s or {name}) or use the operation %q",
+			e.test, e.route, path, opID)
+	case !anyDenial:
+		t.Errorf("authz-gate: authz test %q for route %q mentions no denial status: a negative authz test asserts 401, 403 or 404 (http.StatusUnauthorized, StatusForbidden, StatusNotFound)", e.test, e.route)
+	case !both:
+		t.Errorf("authz-gate: authz test %q for route %q: the route and the denial status must both appear in the same test declaration", e.test, e.route)
+	}
+}
+
+var (
+	placeholder = regexp.MustCompile(`\{[^}]*\}|%[sdvq]`)
+	paramInPath = regexp.MustCompile(`\{[^}]+\}`)
+)
+
+// routePattern matches a string equal to the route path, with or without the /api/v1 prefix, with each
+// path parameter replaced by anything but a slash, and with an optional query string.
+func routePattern(path string) *regexp.Regexp {
+	var b strings.Builder
+	last := 0
+	for _, m := range paramInPath.FindAllStringIndex(path, -1) {
+		b.WriteString(regexp.QuoteMeta(path[last:m[0]]))
+		b.WriteString(`[^/]+`)
+		last = m[1]
+	}
+	b.WriteString(regexp.QuoteMeta(path[last:]))
+	body := strings.Replace(b.String(), regexp.QuoteMeta(apiPrefix), "("+regexp.QuoteMeta(apiPrefix)+")?", 1)
+	return regexp.MustCompile("^" + body + `(\?.*)?$`)
+}
+
+func referencesRoute(f testFunc, re *regexp.Regexp, opID string) bool {
+	found := false
+	upper := ""
+	if opID != "" {
+		upper = strings.ToUpper(opID[:1]) + opID[1:]
+	}
+	inspectAll(f, func(n ast.Node) bool {
+		switch x := n.(type) {
+		case *ast.BasicLit:
+			if x.Kind == token.STRING {
+				if v, err := strconv.Unquote(x.Value); err == nil {
+					if re.MatchString(placeholder.ReplaceAllString(v, "X")) || (opID != "" && (v == opID || v == upper)) {
+						found = true
+					}
+				}
+			}
+		case *ast.Ident:
+			// An operation name, or a generated client method built on it (CreateQuestionWithResponse).
+			if opID != "" && (strings.HasPrefix(x.Name, upper) || x.Name == opID) {
+				found = true
+			}
+		}
+		return !found
+	})
+	return found
+}
+
+func mentionsDenial(f testFunc) bool {
+	found := false
+	inspectAll(f, func(n ast.Node) bool {
+		switch x := n.(type) {
+		case *ast.SelectorExpr:
+			switch x.Sel.Name {
+			case "StatusUnauthorized", "StatusForbidden", "StatusNotFound":
+				found = true
+			}
+		case *ast.BasicLit:
+			if x.Kind == token.INT && (x.Value == "401" || x.Value == "403" || x.Value == "404") {
+				found = true
+			}
+		}
+		return !found
+	})
+	return found
 }
 
 // operationIDs maps "METHOD /api/v1/path" to the operationId of api/openapi.yaml.
@@ -273,19 +452,6 @@ func walk(t *testing.T, h http.Handler) []string {
 	}
 	sort.Strings(routes)
 	return routes
-}
-
-func readNames(t *testing.T, path string) map[string]bool {
-	t.Helper()
-	b, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("authz-gate: read test names: %v", err)
-	}
-	names := map[string]bool{}
-	for _, n := range strings.Fields(string(b)) {
-		names[n] = true
-	}
-	return names
 }
 
 // readList parses a route list: "METHOD /path" (fields == 2) or "METHOD /path TestName" (fields == 3).

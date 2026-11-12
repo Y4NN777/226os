@@ -92,7 +92,8 @@ func TestPanicIsRedactedProblemJSON(t *testing.T) {
 }
 
 // TestAuthzHealthzNeedsNoSession is the authz evidence for the one public route: liveness answers
-// the same with no credentials and with garbage credentials, and exposes nothing session-specific.
+// the same with no credentials and with garbage credentials, exposes nothing session-specific, and
+// no other path is served (404).
 func TestAuthzHealthzNeedsNoSession(t *testing.T) {
 	var logs bytes.Buffer
 	h := newRouter(&logs)
@@ -114,4 +115,11 @@ func TestAuthzHealthzNeedsNoSession(t *testing.T) {
 			}
 		})
 	}
+	t.Run("nothing else is served", func(t *testing.T) {
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/healthz/admin", nil))
+		if rec.Code != http.StatusNotFound {
+			t.Fatalf("status = %d, want %d", rec.Code, http.StatusNotFound)
+		}
+	})
 }
