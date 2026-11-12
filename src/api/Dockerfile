@@ -1,6 +1,6 @@
 # 226os API image (ADR-0006). Build from the repository root:
-#   docker build -f apps/api/Dockerfile --target api     -t 226os-api .
-#   docker build -f apps/api/Dockerfile --target migrate -t 226os-migrate .
+#   docker build -f src/api/Dockerfile --target api     -t 226os-api .
+#   docker build -f src/api/Dockerfile --target migrate -t 226os-migrate .
 # Every base image is pinned by digest; the tag is kept in the comment above it.
 
 # golang:1.27.4-alpine (Go toolchain 1.27.4, matching go.mod)
@@ -9,8 +9,8 @@ ENV CGO_ENABLED=0 GOFLAGS=-mod=readonly GOTOOLCHAIN=local
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
-COPY apps/api ./apps/api
-RUN go build -trimpath -ldflags="-s -w -buildid=" -o /out/api ./apps/api/cmd/api
+COPY src/api ./src/api
+RUN go build -trimpath -ldflags="-s -w -buildid=" -o /out/api ./src/api/cmd/api
 # Forward-only migration runner: goose pinned by go.mod, Postgres driver only.
 RUN go build -trimpath -ldflags="-s -w -buildid=" \
       -tags 'no_sqlite3 no_mysql no_mssql no_clickhouse no_vertica no_ydb no_libsql no_turso' \

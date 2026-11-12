@@ -20,8 +20,8 @@ root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$root"
 export GOTOOLCHAIN="${GOTOOLCHAIN:-go1.27.4}"
 
-pkg=./apps/api/internal/platform/httpx
-pkgdir="$root/apps/api/internal/platform/httpx"
+pkg=./src/api/internal/platform/httpx
+pkgdir="$root/src/api/internal/platform/httpx"
 check_src="$root/scripts/authz/routes_check.go.txt"
 allowlist="$root/scripts/public-routes.txt"
 

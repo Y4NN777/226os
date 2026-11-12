@@ -29,7 +29,7 @@ TASK-API-001 needs a reviewed contract before parallel Go and web work. `api/ope
 7. **Concurrency.** **`ETag` / `If-Match` on questions, answers and Learn articles** (412 `PRECONDITION_FAILED` on mismatch, 428 `PRECONDITION_REQUIRED` when the header is missing). Only the question `PATCH` exists in the P0 contract; answer and article edits follow the same convention when added. Other resources are explicitly last-write-wins.
 8. **Validation.** Requests are schema-validated before authorization-sensitive work with the generated spec. Mutation bodies set `additionalProperties: false`, with `maxLength`, `maxItems`, `format` and `enum` everywhere; Go decoding also uses `DisallowUnknownFields`. Body limit 1 MiB (413). `Content-Type` must be `application/json` on mutations. Responses are validated against the spec in contract tests.
 9. **Auth surface in the spec.** Session cookie as `cookieAuth` (`__Host-226os_session` deployed, `226os_session` local-dev, ADR-0003); `X-CSRF-Token` as `csrfToken` required on unsafe methods; 401/403 declared on every protected operation.
-10. **Generation and drift.** `make generate` runs oapi-codegen (Go server interface and types under a generated package in `apps/api/internal/`) and openapi-typescript (web types). Generated files are committed and never hand-edited. CI runs **`make generate && git diff --exit-code`**; any diff fails G1. Tool versions are pinned.
+10. **Generation and drift.** `make generate` runs oapi-codegen (Go server interface and types under a generated package in `src/api/internal/`) and openapi-typescript (web types). Generated files are committed and never hand-edited. CI runs **`make generate && git diff --exit-code`**; any diff fails G1. Tool versions are pinned.
 
 ## Consequences
 

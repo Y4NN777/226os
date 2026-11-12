@@ -29,7 +29,7 @@ js_ok='{"MIT":[{"name":"a","versions":["1.0.0"]}],"Apache-2.0":[{"name":"b","ver
 go_ok='github.com/x/y,https://x,MIT\ngolang.org/x/text,https://x,BSD-3-Clause\n'
 
 case_ "all allowed licences pass" pass "$go_ok" "$js_ok"
-case_ "first-party module is not checked" pass 'github.com/Y4NN777/226os/apps/api,https://x,Unknown\nx/y,u,MIT\n' "$js_ok"
+case_ "first-party module is not checked" pass 'github.com/Y4NN777/226os/src/api,https://x,Unknown\nx/y,u,MIT\n' "$js_ok"
 case_ "BSD-2, ISC, Unlicense pass" pass 'a/b,u,BSD-2-Clause\nc/d,u,ISC\ne/f,u,Unlicense\n' '{"ISC":[{"name":"i","versions":["1"]}],"Unlicense":[{"name":"u","versions":["1"]}]}'
 case_ "OR expression with one allowed alternative passes" pass "$go_ok" '{"(MIT OR GPL-3.0-only)":[{"name":"c","versions":["1"]}]}'
 case_ "parenthesised OR of allowed passes" pass "$go_ok" '{"(MIT OR Apache-2.0)":[{"name":"c","versions":["1"]}]}'

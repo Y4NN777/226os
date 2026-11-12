@@ -1,5 +1,5 @@
 # 226os web image (ADR-0006): Vite build served by an unprivileged nginx on 8080.
-# Build from the repository root: docker build -f apps/web/Dockerfile -t 226os-web .
+# Build from the repository root: docker build -f src/web/Dockerfile -t 226os-web .
 
 # node:26-alpine (Node 26.13.1; .nvmrc says 26). Node 26 no longer bundles corepack, so a pinned
 # corepack is installed, then pnpm itself is resolved from the packageManager field.
@@ -8,9 +8,9 @@ RUN npm install --global --ignore-scripts corepack@0.36.0 && corepack enable
 ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0 CI=true
 WORKDIR /repo
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY apps/web/package.json apps/web/
+COPY src/web/package.json src/web/
 RUN pnpm install --frozen-lockfile --filter web...
-COPY apps/web apps/web
+COPY src/web src/web
 COPY api api
 RUN pnpm --filter web build
 
@@ -26,9 +26,9 @@ USER root
 RUN apk upgrade --no-cache
 ARG VCS_REF=unknown
 LABEL org.opencontainers.image.title="226os-web" org.opencontainers.image.revision="${VCS_REF}"
-COPY apps/web/nginx/nginx.conf /etc/nginx/nginx.conf
-COPY apps/web/nginx/security-headers.conf /etc/nginx/security-headers.conf
-COPY --from=build /repo/apps/web/dist /usr/share/nginx/html
+COPY src/web/nginx/nginx.conf /etc/nginx/nginx.conf
+COPY src/web/nginx/security-headers.conf /etc/nginx/security-headers.conf
+COPY --from=build /repo/src/web/dist /usr/share/nginx/html
 USER 101:101
 EXPOSE 8080
 HEALTHCHECK --interval=15s --timeout=3s --start-period=5s --retries=3 \

@@ -22,7 +22,7 @@ tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 
 # 1. Digest pins: every external FROM and every non-local image: line.
-for f in apps/api/Dockerfile apps/web/Dockerfile; do
+for f in src/api/Dockerfile src/web/Dockerfile; do
   bad=0
   stages=" "
   while read -r kw ref rest; do
@@ -143,7 +143,7 @@ else pass "APP_ENV/profile mismatch refused"; fi
 # 3. Build and inspect.
 if [ "$build" -eq 1 ]; then
   rev="$(git rev-parse HEAD 2>/dev/null || echo unknown)"
-  for spec in "api:apps/api/Dockerfile:226os-api:dev" "migrate:apps/api/Dockerfile:226os-migrate:dev" "web:apps/web/Dockerfile:226os-web:dev"; do
+  for spec in "api:src/api/Dockerfile:226os-api:dev" "migrate:src/api/Dockerfile:226os-migrate:dev" "web:src/web/Dockerfile:226os-web:dev"; do
     IFS=: read -r target file img tag <<<"$spec"
     if docker build -q -f "$file" --target "$target" --build-arg "VCS_REF=$rev" -t "$img:$tag" . >/dev/null; then
       pass "docker build $img:$tag"

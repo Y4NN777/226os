@@ -5,7 +5,7 @@ description: 226os design-first REST contract (OpenAPI 3.1 in api/openapi.yaml, 
 # API Contract (OpenAPI 3.1, design-first)
 
 ## Scope and triggers
-- `api/openapi.yaml`, `api/**`, generated Go server types / TS client, `apps/api/internal/*/transport/**` status/error mapping, `apps/web` API client usage.
+- `api/openapi.yaml`, `api/**`, generated Go server types / TS client, `src/api/internal/*/transport/**` status/error mapping, `src/web` API client usage.
 - Status: `API_CONTRACT.md` is PROPOSED and becomes normative only after approval and creation of `api/openapi.yaml` (`docs/spec-kit/API_CONTRACT.md:3`); G0-API-001/002 are ACCEPTED WITH CONDITIONS (`docs/decisions/0001-g0-conditional-baseline.md:17`); exact verbs/fields/status codes remain OPEN until ADR-OPEN-004 (`docs/spec-kit/API_CONTRACT.md:30`, `docs/decisions/README.md:33`).
 
 ## Project rules (binding)

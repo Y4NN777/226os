@@ -3,7 +3,7 @@
 // files behind the "integration" build tag; this file only anchors the package
 // so the default "go test ./..." run has nothing of it to instrument.
 //
-// Run: go test -tags integration ./apps/api/internal/platform/pgtest/...
+// Run: go test -tags integration ./src/api/internal/platform/pgtest/...
 // Requires the docker CLI; the tests start (and always remove) one throwaway
 // container from a digest-pinned postgres:18 image.
 package pgtest

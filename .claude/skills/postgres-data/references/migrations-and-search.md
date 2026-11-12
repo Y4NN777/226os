@@ -81,7 +81,7 @@ sql:
     gen:
       go:
         package: solvedb
-        out: apps/api/internal/solve/repository/solvedb
+        out: src/api/internal/solve/repository/solvedb
         sql_package: pgx/v5
 ```
 Sources: https://docs.sqlc.dev/en/latest/reference/config.html · https://www.postgresql.org/docs/current/sql-altertable.html · https://www.postgresql.org/docs/current/textsearch-tables.html

@@ -5,7 +5,7 @@ description: 226os PostgreSQL data layer (pgx v5 + sqlc, forward-only versioned 
 # PostgreSQL Data (pgx + sqlc)
 
 ## Scope and triggers
-- `db/migrations/**`, `db/queries/**`, `db/seeds/**`, `sqlc.yaml`, repository adapters under `apps/api/internal/*/repository/`.
+- `db/migrations/**`, `db/queries/**`, `db/seeds/**`, `sqlc.yaml`, repository adapters under `src/api/internal/*/repository/`.
 - Status note: almost everything below is PROPOSED / ACCEPTED WITH CONDITIONS (ADR-0001, `docs/decisions/0001-g0-conditional-baseline.md:18`). Final schema, migration tool and FTS strategy wait on ADR-OPEN-005 (`docs/decisions/README.md:34`). Do not present proposals as accepted facts (`docs/spec-kit/TASKS.md:29`).
 
 ## Project rules (binding)
@@ -25,7 +25,7 @@ description: 226os PostgreSQL data layer (pgx v5 + sqlc, forward-only versioned 
 - Use `websearch_to_tsquery`; verify plans with `EXPLAIN (ANALYZE, BUFFERS)` on representative data (`docs/SPEC.md:120`; TASK-DATA-001 `docs/spec-kit/TASKS.md:56`).
 - Seeds deterministic, synthetic, provenance-labelled; never imply real users, endorsements or verification (`docs/spec-kit/DATABASE_DESIGN.md:44`).
 - DB on private network only (`docs/RULES.md:31`, `docs/architecture/ARCHITECTURE.md:24`).
-- Doc conflicts: `docs/SPEC.md:119` says "migrations SQL up/down" vs forward-only in `docs/spec-kit/G0_DECISIONS.md:16` / `docs/spec-kit/DATABASE_DESIGN.md:52` and "reversible ou plan de restauration" in `docs/SHIP.md:28` -> follow G0-DATA-001 (forward-only, restore/redeploy), flag SPEC.md as stale. `docs/SPEC.md:120` "dictionnaires adaptés" vs `simple` fallback (`docs/spec-kit/DATABASE_DESIGN.md:32`) -> `simple` until benchmark. `db/` location: root `db/` (`docs/DEV.md:26`) vs `apps/api/db` (`docs/DEV.md:24`) -> resolve in ADR-OPEN-005.
+- Doc conflicts: `docs/SPEC.md:119` says "migrations SQL up/down" vs forward-only in `docs/spec-kit/G0_DECISIONS.md:16` / `docs/spec-kit/DATABASE_DESIGN.md:52` and "reversible ou plan de restauration" in `docs/SHIP.md:28` -> follow G0-DATA-001 (forward-only, restore/redeploy), flag SPEC.md as stale. `docs/SPEC.md:120` "dictionnaires adaptés" vs `simple` fallback (`docs/spec-kit/DATABASE_DESIGN.md:32`) -> `simple` until benchmark. `db/` location: root `db/` (`docs/DEV.md:26`) vs `src/api/db` (`docs/DEV.md:24`) -> resolve in ADR-OPEN-005.
 - Migration tool and PostgreSQL major version: OPEN, pin per ADR (`docs/spec-kit/DATABASE_DESIGN.md:56`).
 
 ## Expert practices

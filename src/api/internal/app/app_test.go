@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Y4NN777/226os/apps/api/internal/app"
+	"github.com/Y4NN777/226os/src/api/internal/app"
 )
 
 func listen(t *testing.T) net.Listener {

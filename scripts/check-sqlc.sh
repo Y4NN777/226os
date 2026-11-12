@@ -9,7 +9,7 @@ set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 
 config=db/sqlc.yaml
-out=apps/api/internal/platform/dbgen
+out=src/api/internal/platform/dbgen
 
 go tool sqlc generate -f "$config"
 

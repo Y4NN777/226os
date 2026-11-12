@@ -121,7 +121,7 @@ No gap should be implemented by copying prototype CSS: the prototype is a visual
 
 1. Record package manager decision (README uses npm; `DESIGN.md` uses pnpm; `ASTRYX_VERIFICATION.md` lists it OPEN).
 2. Pin an exact release (README shows none; Beta, no GitHub releases); record integrity, MIT license and transitive licenses.
-3. Install in `apps/web` only; confirm React 19 / Vite compatibility and whether `@stylexjs/stylex` (in the README install) requires any compile step, contradicting or confirming `DESIGN.md` "no StyleX compiler required".
+3. Install in `src/web` only; confirm React 19 / Vite compatibility and whether `@stylexjs/stylex` (in the README install) requires any compile step, contradicting or confirming `DESIGN.md` "no StyleX compiler required".
 4. Run the installed CLI help; confirm which of `docs global|theme|tokens`, `component --list|--brief-all`, `theme build`, `gap-report` exist. Do not assume.
 5. Read each cited component page (`https://astryx.atmeta.com/components/<Name>`) for rows 1-50; fill props, slots, a11y notes in this table; mark rows Match / Compose / Gap definitively.
 6. Confirm `defineTheme` (or the real theme API), the token names, mode switching and import/cascade order; map section 2 table; update `DESIGN.md` if its examples are wrong (needs design decision, not a silent edit).

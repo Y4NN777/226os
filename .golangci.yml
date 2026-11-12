@@ -14,5 +14,5 @@ linters:
         module-boundaries:
           files: ["**/internal/!(platform|app)/**/*.go"]
           deny:
-            - pkg: github.com/Y4NN777/226os/apps/api/internal/app
+            - pkg: github.com/Y4NN777/226os/src/api/internal/app
               desc: modules must not import the composition root

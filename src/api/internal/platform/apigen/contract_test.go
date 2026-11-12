@@ -14,7 +14,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"go.yaml.in/yaml/v3"
 
-	"github.com/Y4NN777/226os/apps/api/internal/platform/apigen"
+	"github.com/Y4NN777/226os/src/api/internal/platform/apigen"
 )
 
 // These tests bind the generated server code to api/openapi.yaml (the source of

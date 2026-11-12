@@ -3,7 +3,7 @@
 !package.json
 !pnpm-lock.yaml
 !pnpm-workspace.yaml
-!apps/web/**
+!src/web/**
 !api/openapi.yaml
 **/node_modules
 **/dist

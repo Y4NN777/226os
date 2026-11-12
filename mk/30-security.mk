@@ -36,7 +36,7 @@ security-secrets: doctor ## G4: gitleaks (pinned image) over the working tree an
 security-sast: doctor ## G4: gosec via the pinned golangci-lint
 	go tool golangci-lint run --enable-only=gosec --tests=false ./...
 
-security-sast-js: doctor ## G4: Semgrep (pinned image, repository rules) over apps/web/src
+security-sast-js: doctor ## G4: Semgrep (pinned image, repository rules) over src/web/src
 	scripts/sast-js.sh
 
 security-images: build ## G4: Trivy (pinned image) on the built api, web, migrate images; fixable HIGH/CRITICAL fails

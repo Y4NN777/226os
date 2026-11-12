@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Y4NN777/226os/apps/api/internal/platform/apigen"
+	"github.com/Y4NN777/226os/src/api/internal/platform/apigen"
 )
 
 // Problem is the RFC 9457 body (ADR-0004 point 4): known members are typed and

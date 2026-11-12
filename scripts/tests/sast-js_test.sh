@@ -43,5 +43,5 @@ if [ "$rc" -ne 0 ]; then ok "a directory with nothing to scan fails (no silent p
 
 rc=0
 out="$(REPORTS_DIR="$tmp/reports-real" "$gate" 2>&1)" || rc=$?
-if [ "$rc" -eq 0 ]; then ok "GREEN: the real apps/web/src tree has no findings"; else ko "real tree (rc=$rc out=$out)"; fi
+if [ "$rc" -eq 0 ]; then ok "GREEN: the real src/web/src tree has no findings"; else ko "real tree (rc=$rc out=$out)"; fi
 finish

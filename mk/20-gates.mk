@@ -8,7 +8,7 @@ generate: doctor ## G1: run oapi-codegen, openapi-typescript, sqlc, then fail on
 
 lint: doctor ## G1: gofmt, vet, staticcheck, golangci-lint, ESLint, Prettier, OpenAPI lint, migration checks, ShellCheck, script tests
 	@echo "== lint: gofmt"
-	@unformatted="$$("$$(go env GOROOT)/bin/gofmt" -l apps)"; if [ -n "$$unformatted" ]; then echo "gofmt: unformatted files:" >&2; echo "$$unformatted" >&2; exit 1; fi
+	@unformatted="$$("$$(go env GOROOT)/bin/gofmt" -l src)"; if [ -n "$$unformatted" ]; then echo "gofmt: unformatted files:" >&2; echo "$$unformatted" >&2; exit 1; fi
 	@echo "== lint: go vet (default and integration build tags)"
 	go vet ./...
 	go vet -tags integration ./...
