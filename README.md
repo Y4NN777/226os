@@ -76,7 +76,7 @@ Apprendre irrigue ces quatre expériences : un article renvoie vers les questio
 
 - **Bootstrap B0 et cœur de l'API (S0) fusionnés** (PR #24, #31 à #39) : API Go avec `GET /healthz`, `GET /readyz` et les 47 opérations du contrat montées sous `/api/v1` (encore en 501 tant que leur tranche n'est pas livrée), validation du contrat, erreurs problem+json, curseurs signés, idempotence, envoi de mail, migrations `00001` à `00010`, requêtes sqlc d'identité et de référence, squelette web (Vite, React 19, TanStack, Astryx 0.7.14), profils Compose, cibles Make et CI.
 - **Implémentation P0 en cours**, découpée en tranches dans [ROADMAP.md](ROADMAP.md) et suivie dans [TODO.md](TODO.md). Le contrat compte aujourd'hui 43 opérations P0.
-- **Gates :** la CI lance `make quality` (G1 à G4) sur chaque PR vers `develop` ou `main`. G5 (e2e), G6 (performance) et G7 (livraison) sont **NOT RUN**.
+- **Gates :** la CI lance les gates G1 à G4 en groupes parallèles (une tâche par groupe, puis la tâche `quality` vérifie que chaque étape de `make quality` a réussi pour le commit testé, [ADR-0010](docs/decisions/0010-ci-parallel-gate-groups.md)) sur chaque PR vers `develop` ou `main` et à chaque push sur `develop`. `make quality` reste la définition locale, séquentielle. G5 (e2e), G6 (performance) et G7 (livraison) sont **NOT RUN**.
 - **Rien n'est déployé**, ni en préproduction ni en production.
 
 Aucune fonctionnalité P1 ou P2 n'est présentée comme livrée. La participation à CADEV impose un projet original, un dépôt Git, une démonstration en ligne sur un service Datacloud et la déclaration des dépendances, de leurs licences et de l'aide d'une IA.

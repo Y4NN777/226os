@@ -1,10 +1,17 @@
 name: Quality
 
-# ADR-0006: `make quality` (G1 to G4) on pull requests into develop and main. The job name `quality`
-# is the required status check. No secrets, no deploy step, read-only token.
+# ADR-0010: the gates of `make quality` (G1 to G4) run as parallel groups, one job each (`make ci-<group>`, defined in
+# mk/40-quality.mk), then the job `quality` proves that every step of `make quality` has a PASS for the tested commit
+# (scripts/check-quality-evidence.sh). `make quality` stays the sequential local definition of done.
+# Fail closed: a failed or missing scope job, a failed or cancelled group, a missing step or a summary for another
+# commit fails `quality`. Skipped groups are only ever the result of the documented docs-only scope, and the check
+# says so. No secrets, no deploy step, read-only token.
 on:
   pull_request:
     branches: [develop, main]
+  push:
+    # A run on develop validates what was merged and writes the caches that every later pull request restores.
+    branches: [develop]
   workflow_dispatch:
 
 permissions:
@@ -12,66 +19,173 @@ permissions:
 
 concurrency:
   group: quality-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  GOTOOLCHAIN: go1.27.4
+  # Immutability base for scripts/check-migrations.sh (pull request target branch; develop otherwise).
+  MIGRATIONS_BASE_REF: origin/${{ github.base_ref || 'develop' }}
 
 jobs:
-  quality:
-    name: quality
+  scope:
+    name: scope
     runs-on: ubuntu-latest
-    timeout-minutes: 60
-    env:
-      # Immutability base for scripts/check-migrations.sh (pull request target branch; develop for manual runs).
-      MIGRATIONS_BASE_REF: origin/${{ github.base_ref || 'develop' }}
-      GOTOOLCHAIN: go1.27.4
+    timeout-minutes: 5
+    outputs:
+      scope: ${{ steps.scope.outputs.scope }}
+      matrix: ${{ steps.scope.outputs.matrix }}
     steps:
-      - name: Check out (full history for the secret scan and the migration base)
+      - name: Check out (full history for the diff)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Set up Go (version from go.mod)
+      - name: Decide the scope (docs only, or full) and the groups to run
+        id: scope
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set -euo pipefail
+          # Only a pull request into develop may be narrowed. Promotion (into main), pushes and manual runs are always full.
+          if [ "$EVENT_NAME" != pull_request ] || [ "$BASE_REF" = main ]; then
+            scope=full
+          else
+            scope="$(git diff --name-only --no-renames -z "origin/${BASE_REF}...HEAD" | scripts/ci-scope.sh)"
+          fi
+          # The groups come from the Makefile (make ci-groups), so CI cannot drift from `make quality`.
+          if [ "$scope" = docs ]; then groups=repo; else groups="$(make -s ci-groups)"; fi
+          matrix="$(jq -cn --arg g "$groups" '{group: ($g | split(" "))}')"
+          echo "scope=${scope}" >>"$GITHUB_OUTPUT"
+          echo "matrix=${matrix}" >>"$GITHUB_OUTPUT"
+          echo "CI scope: ${scope}; groups: ${groups}" | tee -a "$GITHUB_STEP_SUMMARY"
+
+  gates:
+    name: gate ${{ matrix.group }}
+    needs: scope
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      # One job per group of `make ci-groups`; a documentation-only change runs the repository group only
+      # (secret scan, encrypted files, licences).
+      matrix: ${{ fromJSON(needs.scope.outputs.matrix) }}
+    steps:
+      - name: Check out (full history, for the migration base and the secret scan)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Go (version from go.mod; caching is done below, per group)
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
+          cache: false
 
-      - name: Set up Node (version from .nvmrc)
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      # Module and build caches are keyed per group and on go.sum, so parallel groups never fight over one key and a
+      # group restores its own compiled packages. They only speed up compilation: tests run with -count=1 and no
+      # coverage, test or linter result is ever cached (the golangci-lint cache is deliberately not restored), so the
+      # evidence is always produced by this run.
+      - name: Restore the Go caches
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          node-version-file: .nvmrc
-          package-manager-cache: false
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: go-${{ runner.os }}-${{ matrix.group }}-${{ hashFiles('go.sum') }}
+          restore-keys: |
+            go-${{ runner.os }}-${{ matrix.group }}-
 
       - name: Set up pnpm (version from the packageManager field)
         uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
         with:
           run_install: false
 
+      - name: Set up Node (version from .nvmrc; pnpm store cached on pnpm-lock.yaml)
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
       - name: Record revision
         env:
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
           EVENT_NAME: ${{ github.event_name }}
+          GROUP: ${{ matrix.group }}
         run: |
           mkdir -p reports
           {
+            echo "group: ${GROUP}"
             echo "tested head sha: ${HEAD_SHA}"
             echo "checked-out sha: $(git rev-parse HEAD)"
             echo "event: ${EVENT_NAME}"
             echo "migrations base ref: ${MIGRATIONS_BASE_REF}"
-          } | tee reports/revision.txt
+          } | tee "reports/revision-${GROUP}.txt"
 
       - name: Install from lockfiles
         run: make setup
 
-      - name: make quality
-        run: make quality
+      - name: make ci-${{ matrix.group }}
+        env:
+          GROUP: ${{ matrix.group }}
+        run: make "ci-${GROUP}"
 
-      - name: Upload evidence (logs, coverage, reports, image digests, licence inventory)
+      - name: Upload evidence (logs, summary, coverage, reports)
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: quality-evidence-${{ github.event.pull_request.head.sha || github.sha }}
+          # Tied to the commit (ADR-0006). `overwrite` lets "Re-run failed jobs" replace the evidence of a group.
+          name: ci-evidence-${{ matrix.group }}-${{ github.sha }}
+          overwrite: true
           path: |
             reports/
             coverage/
           if-no-files-found: warn
           retention-days: 30
+
+  # The only check that means "everything ran". Its name stays `quality`.
+  quality:
+    name: quality
+    needs: [scope, gates]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out (the scripts and the Makefile only)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Download the evidence of every group
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: ci-evidence-*
+          path: evidence
+
+      - name: Every step of make quality has a PASS for this commit
+        env:
+          SCOPE: ${{ needs.scope.outputs.scope }}
+          SCOPE_RESULT: ${{ needs.scope.result }}
+          GATES_RESULT: ${{ needs.gates.result }}
+          TESTED_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          {
+            echo "scope: ${SCOPE_RESULT} (${SCOPE:-unknown}); gates: ${GATES_RESULT}"
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+          [ "$SCOPE_RESULT" = success ] || { echo "the scope job did not succeed ('${SCOPE_RESULT}'): nothing is proved" >&2; exit 1; }
+          case "$GATES_RESULT" in
+            failure | cancelled) echo "a gate group ${GATES_RESULT}" >&2; exit 1 ;;
+          esac
+          if [ "$SCOPE" = docs ]; then
+            steps="$(make -s ci-steps SCOPE_GROUPS=repo)"
+            echo "NOT RUN: the code gates, because every changed file is documentation that no gate reads (scripts/ci-scope.sh). The full gates run on pull requests into main and on pushes to develop." | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "::notice title=quality is a docs-only result::The code gates were NOT RUN for this change (documentation only). Only the repository group (secret scan, encrypted files, licences) ran."
+          else
+            steps="$(make -s ci-steps)"
+          fi
+          # shellcheck disable=SC2086 # the step list is intentionally word-split
+          scripts/check-quality-evidence.sh evidence "$TESTED_SHA" $steps | tee -a "$GITHUB_STEP_SUMMARY"
