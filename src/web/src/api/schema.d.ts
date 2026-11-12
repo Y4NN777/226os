@@ -1536,6 +1536,10 @@ export interface components {
     headers: {
         /** @description Opaque request correlation id. */
         XRequestId: string;
+        /** @description Present with the value `true` when this response is the stored response of an earlier request with the same `Idempotency-Key` (a replay), not a new execution. */
+        IdempotencyReplayed: "true";
+        /** @description Present with the value `true` on a replay whose stored body did not fit the idempotency store. The status and `Location` are those of the first response; fetch the resource through `Location`. */
+        IdempotencyBodyOmitted: "true";
         /** @description Seconds to wait before retrying. */
         RetryAfter: number;
     };
@@ -1903,6 +1907,8 @@ export interface operations {
                 headers: {
                     /** @description Canonical URL of the created resource. */
                     Location?: string;
+                    "Idempotency-Replayed": components["headers"]["IdempotencyReplayed"];
+                    "Idempotency-Body-Omitted": components["headers"]["IdempotencyBodyOmitted"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -2048,6 +2054,8 @@ export interface operations {
                 headers: {
                     /** @description Canonical URL of the created resource. */
                     Location?: string;
+                    "Idempotency-Replayed": components["headers"]["IdempotencyReplayed"];
+                    "Idempotency-Body-Omitted": components["headers"]["IdempotencyBodyOmitted"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -2447,6 +2455,8 @@ export interface operations {
                 headers: {
                     /** @description Canonical URL of the created resource. */
                     Location?: string;
+                    "Idempotency-Replayed": components["headers"]["IdempotencyReplayed"];
+                    "Idempotency-Body-Omitted": components["headers"]["IdempotencyBodyOmitted"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -2584,6 +2594,8 @@ export interface operations {
                 headers: {
                     /** @description Canonical URL of the created resource. */
                     Location?: string;
+                    "Idempotency-Replayed": components["headers"]["IdempotencyReplayed"];
+                    "Idempotency-Body-Omitted": components["headers"]["IdempotencyBodyOmitted"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -2626,6 +2638,8 @@ export interface operations {
                 headers: {
                     /** @description Canonical URL of the created resource. */
                     Location?: string;
+                    "Idempotency-Replayed": components["headers"]["IdempotencyReplayed"];
+                    "Idempotency-Body-Omitted": components["headers"]["IdempotencyBodyOmitted"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -2773,6 +2787,8 @@ export interface operations {
                 headers: {
                     /** @description Canonical URL of the created resource. */
                     Location?: string;
+                    "Idempotency-Replayed": components["headers"]["IdempotencyReplayed"];
+                    "Idempotency-Body-Omitted": components["headers"]["IdempotencyBodyOmitted"];
                     [name: string]: unknown;
                 };
                 content: {
