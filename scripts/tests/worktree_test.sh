@@ -28,16 +28,16 @@ run new feature/ops/demo
 [ "$rc" -ne 0 ] && ok "an existing worktree is refused" || ko "duplicate accepted"
 
 printf x >"$dir/dirty.txt"
-run done feature/ops/demo
+run "done" feature/ops/demo
 if [ "$rc" -ne 0 ] && [ -d "$dir" ] && grep -qi 'uncommitted' <<<"$out"; then ok "done refuses a dirty worktree and keeps it"; else ko "dirty (rc=$rc out=$out)"; fi
 rm "$dir/dirty.txt"
 
 git -C "$dir" -c commit.gpgsign=false commit -q --allow-empty -m work
-run done feature/ops/demo
+run "done" feature/ops/demo
 if [ "$rc" -ne 0 ] && [ -d "$dir" ] && grep -qi 'not merged' <<<"$out"; then ok "done refuses a branch that is not merged into develop"; else ko "unmerged (rc=$rc out=$out)"; fi
 
 git -C "$repo" -c commit.gpgsign=false merge -q --no-ff -m merge feature/ops/demo
-run done feature/ops/demo
+run "done" feature/ops/demo
 if [ "$rc" -eq 0 ] && [ ! -d "$dir" ] && ! git -C "$repo" rev-parse -q --verify refs/heads/feature/ops/demo >/dev/null; then ok "done removes the merged worktree and its branch"; else ko "done (rc=$rc out=$out)"; fi
 
 if grep -vE '^[0-9]*:\s*#' <(grep -nE -- '--force|(^| )-f( |$)|branch -D' "$wt") | grep -q .; then ko "worktree.sh must never force"; else ok "worktree.sh never forces"; fi
