@@ -54,6 +54,7 @@ graph LR
 4. Validate the exact `develop` SHA with integration, contract, security, E2E, accessibility, performance, backup/restore and smoke checks.
 5. Open a production PR from `develop` into `main`. Require G7 evidence and explicit production approval.
 6. Deploy to production the artifact (image digest) built and tested from the `develop` SHA. The `main` merge commit must have the same tree as that `develop` SHA; the release check verifies it. Back-merge production-only fixes into `develop` through a PR.
+7. Right after the production PR merges, open a **back-merge PR `main` -> `develop`** (branch `chore/platform/sync-main-into-develop`, **Create a merge commit**). The promotion merge commit exists only on `main`; without this step `develop` shows as N commits behind `main` while no file differs, which reads as debt and confuses reviewers. The back-merge changes no file: check that `git diff develop...main` is empty before opening it.
 
 ## Emergency hotfixes
 
