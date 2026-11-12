@@ -519,6 +519,10 @@ paths:
                 type: string
                 format: uri-reference
                 maxLength: 512
+            Idempotency-Replayed:
+              $ref: '#/components/headers/IdempotencyReplayed'
+            Idempotency-Body-Omitted:
+              $ref: '#/components/headers/IdempotencyBodyOmitted'
           content:
             application/json:
               schema:
@@ -703,6 +707,10 @@ paths:
                 type: string
                 format: uri-reference
                 maxLength: 512
+            Idempotency-Replayed:
+              $ref: '#/components/headers/IdempotencyReplayed'
+            Idempotency-Body-Omitted:
+              $ref: '#/components/headers/IdempotencyBodyOmitted'
           content:
             application/json:
               schema:
@@ -1247,6 +1255,10 @@ paths:
                 type: string
                 format: uri-reference
                 maxLength: 512
+            Idempotency-Replayed:
+              $ref: '#/components/headers/IdempotencyReplayed'
+            Idempotency-Body-Omitted:
+              $ref: '#/components/headers/IdempotencyBodyOmitted'
           content:
             application/json:
               schema:
@@ -1422,6 +1434,10 @@ paths:
                 type: string
                 format: uri-reference
                 maxLength: 512
+            Idempotency-Replayed:
+              $ref: '#/components/headers/IdempotencyReplayed'
+            Idempotency-Body-Omitted:
+              $ref: '#/components/headers/IdempotencyBodyOmitted'
           content:
             application/json:
               schema:
@@ -1481,6 +1497,10 @@ paths:
                 type: string
                 format: uri-reference
                 maxLength: 512
+            Idempotency-Replayed:
+              $ref: '#/components/headers/IdempotencyReplayed'
+            Idempotency-Body-Omitted:
+              $ref: '#/components/headers/IdempotencyBodyOmitted'
           content:
             application/json:
               schema:
@@ -1682,6 +1702,10 @@ paths:
                 type: string
                 format: uri-reference
                 maxLength: 512
+            Idempotency-Replayed:
+              $ref: '#/components/headers/IdempotencyReplayed'
+            Idempotency-Body-Omitted:
+              $ref: '#/components/headers/IdempotencyBodyOmitted'
           content:
             application/json:
               schema:
@@ -2133,6 +2157,16 @@ components:
         type: string
         minLength: 1
         maxLength: 64
+    IdempotencyReplayed:
+      description: Present with the value `true` when this response is the stored response of an earlier request with the same `Idempotency-Key` (a replay), not a new execution.
+      schema:
+        type: string
+        enum: ['true']
+    IdempotencyBodyOmitted:
+      description: Present with the value `true` on a replay whose stored body did not fit the idempotency store. The status and `Location` are those of the first response; fetch the resource through `Location`.
+      schema:
+        type: string
+        enum: ['true']
     RetryAfter:
       description: Seconds to wait before retrying.
       schema:
