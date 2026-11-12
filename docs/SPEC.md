@@ -1,6 +1,6 @@
 # 226os — Functional & Technical Specification
 
-**Version :** 1.2 (US-INTEL-001, US-CONNECT-001, US-LEARN-002 et extension de US-IDENTITY-001, proposées avec l'amendement 3.2 du PRD ; 1.1 : US-LEARN-001, PRD 3.1). **Statut :** contrat initial de développement. **Source produit :** [PRD.md](PRD.md)
+**Version :** 1.2 (US-INTEL-001, US-CONNECT-001, US-LEARN-002 et extension de US-IDENTITY-001, validées avec l'amendement 3.2 du PRD (approuvé le 2026-11-12) ; 1.1 : US-LEARN-001, PRD 3.1). **Statut :** contrat initial de développement. **Source produit :** [PRD.md](PRD.md)
 
 ## 1. Règles de spécification
 - Toute fonctionnalité part d'une user story `US-*`, d'un scénario Given/When/Then, et d'un contrat d'API ou d'interface observables.
@@ -86,7 +86,7 @@ Feature: Apprendre
     And sa langue d'origine est indiquée
 ```
 
-### US-LEARN-002 — Poser une question sur une leçon et suivre un thème (PROPOSÉ, PRD amendement 3.2)
+### US-LEARN-002 — Poser une question sur une leçon et suivre un thème (VALIDÉ le 2026-11-12, PRD amendement 3.2)
 
 Aucune nouvelle table : la question réutilise `links[]` de la création de question, et la paire question vers article est déjà autorisée. Les fils par thème attendent une PR de contrat en attente, qui type le filtre `topic` comme code de thème ; les questions n'ont pas de thème et sont filtrées par le tag qui porte le même nom que le code du thème.
 
@@ -131,7 +131,7 @@ Feature: Profils et liens contextuels
     And le texte original des contributions n'est pas altéré
 ```
 
-**Extension : visibilité du profil (PROPOSÉ, PRD amendement 3.2).** Le profil reçoit un réglage `profile_visibility` (`public`, `members` ou `private`, `public` par défaut), modifiable par son propriétaire via `PATCH /me/profile` une fois la PR de contrat fusionnée. Les modérateurs n'ont pas d'accès particulier aux profils. Le traitement des comptes suspendus par `GET /profiles/{username}` reste une décision ouverte.
+**Extension : visibilité du profil (VALIDÉ le 2026-11-12, PRD amendement 3.2).** Le profil reçoit un réglage `profile_visibility` (`public`, `members` ou `private`, `public` par défaut), modifiable par son propriétaire via `PATCH /me/profile` une fois la PR de contrat fusionnée. Les modérateurs n'ont pas d'accès particulier aux profils. Le traitement des comptes suspendus par `GET /profiles/{username}` reste une décision ouverte.
 
 ```gherkin
 Feature: Visibilité du profil
@@ -168,7 +168,7 @@ Feature: Visibilité du profil
     Then il voit le nom d'utilisateur et le nom affiché d'Alice comme autrice
 ```
 
-### US-CONNECT-001 — Annuaire des membres (PROPOSÉ, PRD amendement 3.2)
+### US-CONNECT-001 — Annuaire des membres (VALIDÉ le 2026-11-12, PRD amendement 3.2)
 
 Opération en lecture seule, suggérée `GET /profiles`, dont le nom sera fixé par une PR de contrat en attente ; elle n'est pas encore dans `api/openapi.yaml`. Un profil est listé pour un appelant seulement si le compte est actif, si `profile_visibility` l'autorise pour cet appelant (`private` jamais, `members` pour les membres seulement), si `open_to_collab` vaut vrai et si `open_to_collab_visibility` l'autorise pour cet appelant. Un champ masqué compte comme absent, y compris pour les filtres.
 
@@ -230,7 +230,7 @@ Feature: Annuaire des membres
     And aucune mise en relation ni aucun espace fictif n'est affiché
 ```
 
-### US-INTEL-001 — Assistant IA sourcé (PROPOSÉ, PRD amendement 3.2)
+### US-INTEL-001 — Assistant IA sourcé (VALIDÉ le 2026-11-12, PRD amendement 3.2)
 
 Les opérations de l'assistant ne sont pas encore dans `api/openapi.yaml` : elles arrivent par une PR de contrat en attente, après une décision d'architecture sur les délais, le plafond de coût et le comportement FR/EN (fournisseur : [ADR-0011](decisions/0011-ai-assistant-provider.md)). L'accès des visiteurs non authentifiés est une décision ouverte ; les scénarios ci-dessous utilisent donc un membre. Tant que la restriction géographique du fournisseur n'est pas tranchée par le propriétaire (voir l'ADR-0011), l'assistant reste désactivé par configuration. Ces scénarios et les règles de refus, de citation et de confidentialité forment aussi le jeu d'évaluation de référence, exécuté en CI contre un adaptateur factice ; l'exécution contre le vrai fournisseur est consignée à part et reste NOT RUN tant qu'elle n'a pas eu lieu.
 
@@ -370,10 +370,10 @@ Ce tableau est la seule carte de traçabilité au niveau des user stories ; [TRA
 | US-DISCOVER-001 | resources/search | filtres pays, sources, recherche | test/quality |
 | US-BUILD-001 | projects/applications | candidature unique, lecture privée interdite | test/security |
 | US-LEARN-001 | learn/articles, learn/series | lecture publique, publication authentifiée, 401 sans session, langue d'origine préservée | test/security |
-| US-LEARN-002 (proposé, PRD 3.2) | questions (`links[]` vers l'article), learn/articles par code de thème, questions par tag | question liée à l'article, redirection vers la connexion sans session, fil par thème sans brouillon ni contenu retiré | test/e2e |
+| US-LEARN-002 (validé, PRD 3.2) | questions (`links[]` vers l'article), learn/articles par code de thème, questions par tag | question liée à l'article, redirection vers la connexion sans session, fil par thème sans brouillon ni contenu retiré | test/e2e |
 | US-IDENTITY-001 | sessions/profiles/relations | connexion, langue, liens ; visibilité du profil par appelant, 404 identique à un profil inconnu, signature visible, jamais d'e-mail (extension PRD 3.2) | test/security |
-| US-CONNECT-001 (proposé, PRD 3.2) | annuaire, `GET /profiles` suggéré (PR de contrat en attente) | liste par appelant selon les visibilités, filtres sur champs visibles, jamais d'e-mail, état vide, `limit=51` → 422, 429 | test/security |
-| US-INTEL-001 (proposé, PRD 3.2) | opérations de l'assistant à définir (PR de contrat en attente), search | citations limitées aux passages retrouvés, refus sans appel au fournisseur, aucune garantie, « Comment vérifier », étiquette IA non votable, aucune donnée personnelle envoyée, injection ignorée, 503, 429 ; jeu d'évaluation de référence | test/security/évaluation |
+| US-CONNECT-001 (validé, PRD 3.2) | annuaire, `GET /profiles` suggéré (PR de contrat en attente) | liste par appelant selon les visibilités, filtres sur champs visibles, jamais d'e-mail, état vide, `limit=51` → 422, 429 | test/security |
+| US-INTEL-001 (validé, PRD 3.2) | opérations de l'assistant à définir (PR de contrat en attente), search | citations limitées aux passages retrouvés, refus sans appel au fournisseur, aucune garantie, « Comment vérifier », étiquette IA non votable, aucune donnée personnelle envoyée, injection ignorée, 503, 429 ; jeu d'évaluation de référence | test/security/évaluation |
 | US-ACCESS-001 | frontend/infra | mobile + réseau simulé | perf/accessibility |
 
 `api/openapi.yaml` compte aujourd'hui 43 opérations `x-priority: P0`. Le total passe à 44 une fois la PR de contrat de l'annuaire acceptée ; le nombre d'opérations de l'assistant n'est pas encore fixé. Le calendrier de ces PR est suivi dans [ROADMAP.md](../ROADMAP.md).

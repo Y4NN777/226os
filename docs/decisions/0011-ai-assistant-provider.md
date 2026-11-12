@@ -8,7 +8,7 @@
 
 ## Context
 
-The proposed PRD amendment 3.2 makes a sourced contextual assistant part of P0: it answers only from published content, cites its sources, and stays disabled by configuration until it is integrated. It needs an external language model. ROADMAP O5 lists the questions the decision had to settle, and K13 and K21 record the risks: unknown model id and limits, and the provider terms for users in the EEA, Switzerland and the UK.
+The PRD amendment 3.2 (approved by the owner on 2026-11-12) makes a sourced contextual assistant part of P0: it answers only from published content, cites its sources, and stays disabled by configuration until it is integrated. It needs an external language model. ROADMAP O5 lists the questions the decision had to settle, and K13 and K21 record the risks: unknown model id and limits, and the provider terms for users in the EEA, Switzerland and the UK.
 
 ## Decision
 

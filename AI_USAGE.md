@@ -331,7 +331,7 @@ third_party_sources_consulted: ["npm registry metadata and `pnpm licenses` outpu
 license_review: PENDING
 human_reviewers: []
 tests_or_evidence: ["see docs/quality/ASTRYX_REPORT.md; visual, axe and responsive evidence for ADR-0007 is NOT RUN"]
-open_risks: ["isbot (Unlicense) admissibility is an OPEN owner decision", "DESIGN.md still contains pre-install Astryx statements that the report contradicts"]
+open_risks: ["isbot (Unlicense) accepted by the owner on 2026-11-12; the organiser has not ruled", "DESIGN.md still contains pre-install Astryx statements that the report contradicts"]
 ```
 
 ## Secrets documentation and AI environment record (PR #56) and promotions (PRs #57 to #59)

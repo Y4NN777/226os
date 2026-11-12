@@ -51,9 +51,9 @@ A critical production fix uses `hotfix/<domain>/<short-name>` from `main`, goes 
 
 ## GitHub branch protection
 
-Configured today (owner settings, observed 2026-11-12): `develop` and `main` require the status check "Validate branch promotion" (strict), conversation resolution, no force-push, and apply to admins. `develop` requires no review; `main` requires 0 approvals.
+Configured today (owner settings; `quality` added 2026-11-12): `develop` and `main` require the status checks "Validate branch promotion" and `quality` (strict), conversation resolution, no force-push, and apply to admins. `develop` requires no review; `main` requires 0 approvals.
 
-Planned owner settings (TODO H4): add the `quality` check as required on both branches; decide a review rule for `main` once the team pushes (with enforce-admins on, one required approval would block owner promotions until a teammate reviews). Linear history stays off, because promotion and back-merge use merge commits.
+Planned owner setting: decide a review rule for `main` once the team pushes (with enforce-admins on, one required approval would block owner promotions until a teammate reviews). Linear history stays off, because promotion and back-merge use merge commits.
 
 ## Current state
 

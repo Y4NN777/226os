@@ -46,4 +46,4 @@ Human approval is required for product scope, accepted ADRs, authentication/secu
 
 ## Branch protection (current state, observed 2026-11-12)
 
-`develop` and `main` require only the status check "Validate branch promotion". The `quality` check is not required yet, and `main` requires 0 approvals. Both are owner settings (planned, see `docs/GIT_WORKFLOW.md`). Direct pushes are prohibited; deployment jobs remain `NOT IMPLEMENTED`.
+`develop` and `main` require the status checks "Validate branch promotion" and `quality`; `main` requires 0 approvals (owner setting, see `docs/GIT_WORKFLOW.md`). Direct pushes are prohibited; deployment jobs remain `NOT IMPLEMENTED`.

@@ -21,7 +21,7 @@ The final inventory must include notices, source/license links, modification sta
 
 ## Current status
 
-The Go module file, the npm manifests and `pnpm-lock.yaml` now exist, so the "no lockfile" statement of earlier revisions no longer holds. The inventory below covers **direct** dependencies and base images only. The complete, regenerable inventory is the output of `make licenses` (`scripts/licenses.sh`), which writes `reports/licenses/` (git-ignored, tied to the target SHA); it covers Go modules and npm production dependencies, not container-image OS packages. Release compliance stays `BLOCKED` until the reviews marked OPEN below are done (G4/G7 evidence). `make licenses` result for the whole tree: NOT RUN by the author of this record; the figures below were read from an existing local `reports/licenses/` output (allowed list Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC, MIT, Unlicense; 47 dependencies checked; result PASS), not re-run.
+The Go module file, the npm manifests and `pnpm-lock.yaml` now exist, so the "no lockfile" statement of earlier revisions no longer holds. The inventory below covers **direct** dependencies and base images only. The complete, regenerable inventory is the output of `make licenses` (`scripts/licenses.sh`), which writes `reports/licenses/` (git-ignored, tied to the target SHA); it covers Go modules and npm production dependencies, not container-image OS packages. Release compliance stays `BLOCKED` until the entries marked `to verify` below are verified (G4/G7 evidence). `make licenses` result for the whole tree: NOT RUN by the author of this record; the figures below were read from an existing local `reports/licenses/` output (allowed list Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC, MIT, Unlicense; 47 dependencies checked; result PASS), not re-run.
 
 ## Go direct modules (`go.mod`, runtime `require` block)
 
@@ -43,7 +43,7 @@ Exact versions are pinned in the manifests and `pnpm-lock.yaml`.
 - Runtime (`src/web`): `@astryxdesign/core` (Meta Astryx), `@stylexjs/stylex`, `@tanstack/react-form`, `@tanstack/react-query`, `@tanstack/react-router`, `openapi-fetch`, `react`, `react-dom`.
 - Tooling (root): `@redocly/cli`, `openapi-typescript`, `typescript`. Tooling (`src/web`): `@astryxdesign/cli`, ESLint and plugins, Vite and its React plugin, Vitest and coverage, Testing Library, jsdom, Prettier, `typescript-eslint`, `globals`, `@types/*`. These are build and test tools, not shipped in the web image.
 - Licence summary recorded in `docs/quality/ASTRYX_REPORT.md` (`pnpm licenses list --filter web --prod`, 30 production packages): MIT 28; BSD-3-Clause 1 (`intl-messageformat`, pulled by Astryx core); Unlicense 1 (`isbot`, pulled by TanStack Router). Licences of the development tools are `to verify` (not covered by that summary).
-- **OPEN owner decision:** admissibility of the Unlicense (`isbot`) under the CADEV rules is not decided. The local `make licenses` allowed list contains Unlicense, but that is a tool setting, not a CADEV ruling.
+- **Owner decision 2026-11-12:** `isbot` (Unlicense, a public-domain dedication) is accepted. Unlicense is on the allowed list of `scripts/check-licenses.py`, so `make licenses` passes it. Residual risk: the CADEV organiser has not ruled on it.
 
 ## Container base images (`compose.yaml`, `src/api/Dockerfile`, `src/web/Dockerfile`)
 
@@ -60,7 +60,7 @@ Tags and digests are those pinned in the files. Licences of image contents are `
 | `node:26-alpine@sha256:6bd9ab43...` | web build stage (not shipped) | to verify |
 | `nginxinc/nginx-unprivileged:stable-alpine@sha256:f5116ed4...` | web runtime base | to verify |
 
-**OPEN owner decision, not done:** the GPL/LGPL admissibility check of base-image OS packages (CADEV article 6) is listed as OPEN items in `TODO.md` S8 (ask the organiser whether image OS packages count; produce a licence report of the built images `api`, `migrate`, `web`; consider removing busybox from the API image). No image licence report exists yet.
+**Owner decision 2026-11-12:** runtime base images (including busybox, GPL-2.0, in the API image, and Alpine packages in the web image) are treated as deployed container images, not as bundled project code, so the GPL/LGPL ban of CADEV article 6 is read as applying to the project's own source and its declared dependencies. Residual risk: the organiser has not confirmed this reading. Optional follow-ups in `TODO.md` S8: ask the organiser (cadev@systalink.com), produce a licence report of the built images `api`, `migrate`, `web`, or remove busybox from the API image. No image licence report exists yet.
 
 ## Fonts and icons
 

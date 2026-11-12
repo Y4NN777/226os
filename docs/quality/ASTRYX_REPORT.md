@@ -24,7 +24,7 @@ Scope: evidence produced while bootstrapping `src/web`. Environment: Node 24.21.
 
 - MIT: 28 (includes `@astryxdesign/core`, `@stylexjs/stylex`, TanStack packages, `react`, `react-dom`, `openapi-fetch`, `@formatjs/*`, `styleq`, `seroval*`, `cookie-es`, `scheduler`, `use-sync-external-store`, `csstype`, `@types/react`).
 - BSD-3-Clause: 1 (`intl-messageformat@11.2.15`, pulled by Astryx core).
-- Unlicense: 1 (`isbot@5.2.3`, pulled by TanStack Router). Needs a CADEV allowed-list decision; not decided here.
+- Unlicense: 1 (`isbot@5.2.3`, pulled by TanStack Router). Owner decision 2026-11-12: accepted (see `THIRD_PARTY_NOTICES.md`).
 - Dev-only tools (ESLint, Vitest, Prettier, jsdom, ...) are not in this inventory. `make licenses` (G4/G7) must formalise it. A `licenses` target now exists (`mk/30-security.mk`, `scripts/licenses.sh`, part of `make quality`); its result is not part of this snapshot: NOT RUN here (no output captured in this report).
 
 ## 3. Installed CLI output (captured)

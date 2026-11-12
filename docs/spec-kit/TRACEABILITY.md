@@ -11,14 +11,14 @@ Story-level traceability (every `US-*`, its API/module, minimum BDD cases and ga
 | DOM-SOLVE | Solve | Q&A, snippets, tags, votes, accepted answer, search, relations | US-SOLVE-001 | TASK-API-001, TASK-WEB-001 | G0-G5 |
 | DOM-DISCOVER | Discover | catalogue, country/category filters, sourced resource detail, relations | US-DISCOVER-001 | TASK-DATA-001, TASK-API-001, TASK-WEB-001 | G0-G6 |
 | DOM-BUILD | Build | public GitHub URL, project, contribution need, unique application, private applications | US-BUILD-001 | TASK-DATA-001, TASK-API-001, TASK-WEB-001 | G0-G5 |
-| DOM-LEARN | Learn (PRD 5.9, amendment 3.1; priorities approved by the owner on 2026-11-11) | read/publish articles and tutorials (Markdown, code, tags, level, language), relations, public free training series; PROPOSED (amendment 3.2): ask a question about a lesson, topic threads | US-LEARN-001; US-LEARN-002 (PROPOSED) | TASK-DATA-001, TASK-API-001, TASK-WEB-001 | G0-G5 |
+| DOM-LEARN | Learn (PRD 5.9, amendment 3.1; priorities approved by the owner on 2026-11-11) | read/publish articles and tutorials (Markdown, code, tags, level, language), relations, public free training series; APPROVED (amendment 3.2, 2026-11-12): ask a question about a lesson, topic threads | US-LEARN-001; US-LEARN-002 (APPROVED, PRD 3.2) | TASK-DATA-001, TASK-API-001, TASK-WEB-001 | G0-G5 |
 | DOM-IDENTITY | Identity & Community | account, session, minimum profile, shared identity | US-IDENTITY-001 | TASK-SEC-001, TASK-API-001, TASK-WEB-001 | G0-G5 |
-| DOM-CONNECT | Connect | roadmap contract; no false CADEV promise; PROPOSED (amendment 3.2): read-only member directory | US-CONNECT-001 (PROPOSED); PRD 5.5, 8 | TASK-SPEC-001 | G0 |
+| DOM-CONNECT | Connect | roadmap contract; no false CADEV promise; APPROVED (amendment 3.2, 2026-11-12): read-only member directory | US-CONNECT-001 (APPROVED, PRD 3.2); PRD 5.5, 8 | TASK-SPEC-001 | G0 |
 | DOM-LANGUAGE | Language | FR/EN UI, original content preserved; translation/search later | US-IDENTITY-001; PRD 5.6 | TASK-WEB-001, TASK-SPEC-001 | G0, G5 |
 | DOM-ACCESS | Access | responsive, low-bandwidth P0; offline drafts later | US-ACCESS-001 | TASK-WEB-001, TASK-OPS-001 | G0, G5, G6 |
-| DOM-INTELLIGENCE | Intelligence | deterministic PostgreSQL search and context links; sourced assistant is P0 per the PRD (PROPOSED, amendment 3.2; disabled by configuration until integrated); semantic search and summaries later (P2) | US-DISCOVER-001, US-IDENTITY-001; US-INTEL-001 (PROPOSED); PRD 5.8 | TASK-DATA-001, TASK-API-001 | G0-G6 |
+| DOM-INTELLIGENCE | Intelligence | deterministic PostgreSQL search and context links; sourced assistant is P0 per the PRD (APPROVED, amendment 3.2, 2026-11-12; disabled by configuration until integrated); semantic search and summaries later (P2) | US-DISCOVER-001, US-IDENTITY-001; US-INTEL-001 (APPROVED, PRD 3.2); PRD 5.8 | TASK-DATA-001, TASK-API-001 | G0-G6 |
 
-LEARN P1/P2 (structured series with progress, author highlights, richer formats; certificates, interactive exercises) and the other P1/P2 domains remain in the product vision. They are roadmap scope, not hidden deletions, and must not be represented by fake UI. Rows marked PROPOSED depend on the owner approving PRD amendment 3.2.
+LEARN P1/P2 (structured series with progress, author highlights, richer formats; certificates, interactive exercises) and the other P1/P2 domains remain in the product vision. They are roadmap scope, not hidden deletions, and must not be represented by fake UI. Rows marked APPROVED come from PRD amendment 3.2 (approved 2026-11-12); their contract PRs are still pending.
 
 ## Differentiating experiences
 

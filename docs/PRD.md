@@ -1,11 +1,11 @@
 # 226os — Product Requirements Document
 
-**Version :** 3.2 (amendement 3.2 proposé le 2026-11-12 ; version 3.1 approuvée le 2026-11-11). **Statut :** périmètre produit approuvé, plan de réalisation adaptable. **Date :** 2026-11-12.  
+**Version :** 3.2 (amendement 3.2 approuvé le 2026-11-12 ; version 3.1 approuvée le 2026-11-11). **Statut :** périmètre produit approuvé, plan de réalisation adaptable. **Date :** 2026-11-12.  
 **Équipe :** 7's (4 membres, inscrits à CADEV ; voir la section 12). **Produit :** 226os. **Domaine :** 226os.tech (réservé par le propriétaire, rien n'y est encore déployé).
 
 ## Amendement 3.2 — Apprendre et Connect mis en avant, assistant sourcé au P0
 
-**Date :** 2026-11-12. **Version :** 3.1 → 3.2. **Statut :** PROPOSÉ, par décision du propriétaire du dépôt (`Y4NN777`) du 2026-11-12, consignée dans le journal des décisions de [ROADMAP.md](../ROADMAP.md) (section 14). Le propriétaire approuve ce texte lors de la revue de la PR qui l'introduit ; tant que cette PR n'est pas fusionnée, l'amendement reste proposé. Comme 3.1, c'est un changement de périmètre au sens de la règle de traçabilité ci-dessous, consigné sans réécrire l'historique. Rien n'est supprimé ni rétrogradé : les neuf domaines et les quatre expériences différenciantes restent, et seuls les changements ci-dessous sont des changements de priorité.
+**Date :** 2026-11-12. **Version :** 3.1 → 3.2. **Statut :** APPROUVÉ par le propriétaire du dépôt (`Y4NN777`) le 2026-11-12, décision consignée dans le journal des décisions de [ROADMAP.md](../ROADMAP.md) (section 14). Comme 3.1, c'est un changement de périmètre au sens de la règle de traçabilité ci-dessous, consigné sans réécrire l'historique. Rien n'est supprimé ni rétrogradé : les neuf domaines et les quatre expériences différenciantes restent, et seuls les changements ci-dessous sont des changements de priorité.
 
 - **Apprendre et Connect mis en avant** (navigation, accueil, textes), sans retirer ni rétrograder Solve, Discover et Build. La question de mettre fin au « poids égal » de l'amendement 3.1 (ROADMAP O7 et H16) reste ouverte. Le libellé français définitif de « Learn & Grow » est à fixer par le propriétaire ; d'ici là, le libellé reste « Apprendre ».
 - **Assistant IA sourcé : de P2 à P0** (section 5.8). Il répond uniquement à partir des contenus publiés et cite ses sources. Le détail du fournisseur, des quotas et des conditions de l'offre est dans [ADR-0011](decisions/0011-ai-assistant-provider.md). Il reste désactivé par configuration tant qu'il n'est pas intégré et que le propriétaire n'a pas tranché la restriction géographique du fournisseur.
@@ -160,7 +160,7 @@ Pour CADEV : parcours de démonstration fonctionnels, disponibilité HTTPS, aucu
 - Parcours d'apprentissage, groupes d'étude et sessions communautaires de programmation.
 - Annuaire des membres en lecture seule, filtrable par pays, langue et compétence (ajouté, 3.2).
 
-**Priorités de réalisation :** conserver les parcours et entités dans la roadmap ; ne pas annoncer de mise en relation complète en CADEV si elle n'est pas réellement fonctionnelle. Un pilote est envisageable après validation du cœur de l'application. Amendement 3.2 (proposé) : P0 annuaire en lecture seule, sans jamais exposer l'adresse e-mail ni un champ non visible pour l'appelant ; règles détaillées dans la SPEC (US-CONNECT-001). Les autres parcours (mentorat, relecture de CV, entretiens, offres, groupes d'étude, espaces communautaires) restent P1 ou P2 et sont affichés « bientôt », sans écran factice. Les permanences sont un processus d'équipe, pas une fonctionnalité.
+**Priorités de réalisation :** conserver les parcours et entités dans la roadmap ; ne pas annoncer de mise en relation complète en CADEV si elle n'est pas réellement fonctionnelle. Un pilote est envisageable après validation du cœur de l'application. Amendement 3.2 (approuvé) : P0 annuaire en lecture seule, sans jamais exposer l'adresse e-mail ni un champ non visible pour l'appelant ; règles détaillées dans la SPEC (US-CONNECT-001). Les autres parcours (mentorat, relecture de CV, entretiens, offres, groupes d'étude, espaces communautaires) restent P1 ou P2 et sont affichés « bientôt », sans écran factice. Les permanences sont un processus d'équipe, pas une fonctionnalité.
 
 ### 5.6 LANGUAGE — Collaboration panafricaine multilingue
 
@@ -196,11 +196,11 @@ Pour CADEV : parcours de démonstration fonctionnels, disponibilité HTTPS, aucu
 - Assistance IA avec citations/références aux sources.
 - Mode pédagogique « indice d'abord » et demande de la tentative de l'apprenant avant la réponse (ajouté, 3.2).
 
-**Priorités :** P0 recherche textuelle et liens contextuels déterministes ; P1 suggestions simples, mode « indice d'abord » et demande de la tentative (3.2) ; P2 recherche sémantique et résumés. **Amendement 3.2 (proposé) :** l'assistant contextuel sourcé passe de P2 à **P0**. Il répond uniquement à partir des contenus publiés et cite ses sources, refuse sans source, ne promet aucune garantie sur une API ni sur la vérification d'une solution, termine par « Comment vérifier », est étiqueté IA (ni votable, ni acceptable comme réponse), n'envoie au fournisseur que la question et des contenus publics, et est limité en débit ; les règles complètes sont dans la SPEC (US-INTEL-001) et le choix du fournisseur dans [ADR-0011](decisions/0011-ai-assistant-provider.md). L'IA ne doit pas inventer des garanties sur une API ou la vérification d'une solution.
+**Priorités :** P0 recherche textuelle et liens contextuels déterministes ; P1 suggestions simples, mode « indice d'abord » et demande de la tentative (3.2) ; P2 recherche sémantique et résumés. **Amendement 3.2 (approuvé) :** l'assistant contextuel sourcé passe de P2 à **P0**. Il répond uniquement à partir des contenus publiés et cite ses sources, refuse sans source, ne promet aucune garantie sur une API ni sur la vérification d'une solution, termine par « Comment vérifier », est étiqueté IA (ni votable, ni acceptable comme réponse), n'envoie au fournisseur que la question et des contenus publics, et est limité en débit ; les règles complètes sont dans la SPEC (US-INTEL-001) et le choix du fournisseur dans [ADR-0011](decisions/0011-ai-assistant-provider.md). L'IA ne doit pas inventer des garanties sur une API ou la vérification d'une solution.
 
 ### 5.9 LEARN — Apprendre : articles, tutoriels et formations
 
-Pilier public de même poids que Questions, API & outils et Projets open source (amendement 3.1). Libellé FR « Apprendre », EN « Learn ». L'amendement 3.2 (proposé) le met en avant avec Connect, sans changement de périmètre pour les autres piliers.
+Pilier public de même poids que Questions, API & outils et Projets open source (amendement 3.1). Libellé FR « Apprendre », EN « Learn ». L'amendement 3.2 (approuvé) le met en avant avec Connect, sans changement de périmètre pour les autres piliers.
 
 **Fonctionnalités :**
 - Articles et tutoriels : Markdown, blocs de code, tags, niveau et langue ; consultation publique.
@@ -216,7 +216,7 @@ Pilier public de même poids que Questions, API & outils et Projets open source 
 **Parcours minimal :** un visiteur lit un tutoriel, suit la série gratuite sur l'IA, puis ouvre la question ou le projet lié ; un membre publie son propre article.
 
 **Priorités de réalisation (validées par le propriétaire le 2026-11-11) :** P0 lire et publier des articles et tutoriels (Markdown, code, tags, niveau, langue) avec liens vers questions/API/projets, et série de formations gratuites lisible publiquement ; P1 séries de formation structurées avec progression, mises en avant d'auteurs, formats plus riches ; P2 certificats, exercices interactifs. Le contenu original reste identifiable selon sa langue (FR/EN), sans traduction automatique implicite.
-Ajouts de l'amendement 3.2 (proposé) au P0 : thèmes réorientés, bouton « Poser une question sur cette leçon » et fils par thème. Aucun contenu tiers n'est importé.
+Ajouts de l'amendement 3.2 (approuvé) au P0 : thèmes réorientés, bouton « Poser une question sur cette leçon » et fils par thème. Aucun contenu tiers n'est importé.
 
 ## 6. Quatre expériences différenciantes à démontrer ou préparer
 
@@ -266,10 +266,10 @@ Ces expériences résultent des fonctionnalités ci-dessus ; ce ne sont **pas** 
 | Discover | Catalogue API/SDK, fiches sourcées, pays, catégories | Comparaison, feedback et vérifications |
 | Build | Projets GitHub, besoins, candidatures et liens | Matching et synchronisation avancée |
 | Identity & Community | Auth, profils, visibilité du profil (3.2), identité reliée aux contenus | Réputation, fil, communautés, découverte enrichie |
-| Connect (mis en avant, 3.2 proposé) | Annuaire des membres en lecture seule (3.2) ; le reste « bientôt » | Mentorat, carrière, opportunités, groupes d'étude, espaces |
+| Connect (mis en avant, 3.2 approuvé) | Annuaire des membres en lecture seule (3.2) ; le reste « bientôt » | Mentorat, carrière, opportunités, groupes d'étude, espaces |
 | Language | Interface FR/EN | Traduction des contenus, recherche translingue |
 | Access | Responsive et optimisation réseau vérifiable | Cache avancé, brouillons offline |
-| Intelligence | Recherche PostgreSQL + liens contextuels ; assistant sourcé P0 (3.2 proposé, désactivé par configuration tant qu'il n'est pas intégré) | Suggestions, « indice d'abord » (P1) ; sémantique et résumés (P2) |
+| Intelligence | Recherche PostgreSQL + liens contextuels ; assistant sourcé P0 (3.2 approuvé, désactivé par configuration tant qu'il n'est pas intégré) | Suggestions, « indice d'abord » (P1) ; sémantique et résumés (P2) |
 
 **Règle de livraison :** viser des flux complets et fiables plutôt qu'une succession d'écrans non fonctionnels. L'équipe peut augmenter le périmètre selon l'arrivée des renforts sans réécrire ce PRD.
 
@@ -287,7 +287,7 @@ Ces expériences résultent des fonctionnalités ci-dessus ; ce ne sont **pas** 
 | Identity | Inscription, connexion, profil public, paramètres (dont la visibilité du profil, 3.2) |
 | Community / Connect | Annuaire des membres au P0 (3.2) ; espaces, activité, mentorat et opportunités affichés « bientôt », à réaliser selon la roadmap |
 
-**Navigation (amendement 3.2, proposé) :** Apprendre et Connect sont mis en avant dans la navigation et sur l'accueil ; les autres zones restent accessibles depuis la même navigation, sur ordinateur comme sur mobile. Aucune zone n'est retirée ; une zone non construite est signalée « bientôt », jamais présentée comme disponible.
+**Navigation (amendement 3.2, approuvé) :** Apprendre et Connect sont mis en avant dans la navigation et sur l'accueil ; les autres zones restent accessibles depuis la même navigation, sur ordinateur comme sur mobile. Aucune zone n'est retirée ; une zone non construite est signalée « bientôt », jamais présentée comme disponible.
 
 Le design system doit être cohérent sur l'ensemble des domaines : navigation partagée, états chargement/erreur/vide, composants de code, tags, pays et technologies, mode mobile et FR/EN.
 
