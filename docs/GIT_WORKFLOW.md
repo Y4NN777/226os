@@ -39,6 +39,8 @@ Allowed domains are `solve`, `discover`, `build`, `identity`, `community`, `conn
 
 Avoid personal names, ticket-only branches, generic names such as `work` or `tmp`, spaces, uppercase letters, and unrelated changes in one branch.
 
+To work on a branch without disturbing your checkout, use `scripts/worktree.sh new <branch>` (cut from `develop`, under the git-ignored `.claude/worktrees/`) and `scripts/worktree.sh done <branch>` after the PR is merged and `develop` is pulled. `done` never forces: it refuses a dirty worktree or an unmerged branch.
+
 ## Promotion flow
 
 ```mermaid

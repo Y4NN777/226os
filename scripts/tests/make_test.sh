@@ -197,4 +197,13 @@ rc=0
 env -i PATH="$PATH" HOME="$HOME" "$root/scripts/migrate-new.sh" add_widget_table "$mig" >/dev/null 2>&1 || rc=$?
 [ "$rc" -ne 0 ] && ok "migrate-new refuses a duplicate slug" || ko "migrate-new duplicate slug accepted"
 
+# CI time: lint already runs every script test; test-integration must only add the Docker pass of the scripts
+# that read DB_RESET_TEST_DOCKER (running them all twice cost about two minutes).
+flagged="$(grep -l 'DB_RESET_TEST_DOCKER'':-' "$root"/scripts/tests/*_test.sh | xargs -n1 basename | tr '\n' ' ')"
+integ="$(awk '/^test-integration:/{f=1;next} f&&/^[^\t]/{f=0} f' "$root/mk/20-gates.mk")"
+if grep -q 'for t in scripts/tests/\*_test.sh.*DB_RESET_TEST_DOCKER=1' <<<"$integ"; then ko "test-integration re-runs every script test with the Docker flag"; else ok "test-integration does not re-run every script test"; fi
+all_flagged_run=1
+for s in $flagged; do grep -q "DB_RESET_TEST_DOCKER=1 scripts/tests/$s" <<<"$integ" || all_flagged_run=0; done
+[ -n "$flagged" ] && [ "$all_flagged_run" -eq 1 ] && ok "test-integration runs each Docker-aware script test with the flag ($flagged)" || ko "a Docker-aware script test is not run with the flag (flagged: $flagged)"
+
 finish
