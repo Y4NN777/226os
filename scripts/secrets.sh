@@ -18,6 +18,9 @@
 # Test and CI overrides: SECRETS_DIR, SECRETS_OUT_DIR, SECRETS_ENV_TEMPLATE, SOPS_AGE_KEY_FILE.
 set -euo pipefail
 umask 077
+# A KMS, PGP or Vault key group set in the caller's environment would silently change who can decrypt (or
+# break encryption): only the age recipients of secrets/<profile>.recipients count.
+unset SOPS_KMS_ARN SOPS_GCP_KMS_IDS SOPS_AZURE_KEYVAULT_URLS SOPS_PGP_FP SOPS_VAULT_URIS SOPS_HC_VAULT_TRANSIT_URI
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 secrets_dir="${SECRETS_DIR:-$root/secrets}"
@@ -43,15 +46,32 @@ profile_arg() {
 
 # recipients PROFILE: the comma-separated public age keys of secrets/<profile>.recipients.
 recipients() {
-  local f="$secrets_dir/$1.recipients" line list=""
+  local f="$secrets_dir/$1.recipients" line list="" lineno=0
   [ -f "$f" ] || die "$f is missing: each person runs 'scripts/secrets.sh keygen', then adds the PUBLIC key line to that file in a pull request"
   while IFS= read -r line || [ -n "$line" ]; do
+    lineno=$((lineno + 1))
     case "$line" in '' | '#'*) continue ;; esac
-    [[ "$line" =~ ^age1[a-z0-9]{58}$ ]] || die "$f: '$line' is not a public age key (age1...)"
+    # The offending line is NOT printed: it may be a private key pasted by mistake.
+    [[ "$line" =~ ^age1[a-z0-9]{58}$ ]] || die "$f:$lineno is not a public age key (age1...); a private key must never go in this file"
     list="${list:+$list,}$line"
   done <"$f"
   [ -n "$list" ] || die "$f lists no recipient: add at least one public age key"
   printf '%s' "$list"
+}
+
+# sops_decrypt SRC DEST: decrypt a dotenv file; on failure print what sops said (its first line; sops never
+# prints secret values) instead of a guess.
+sops_decrypt() {
+  local errf
+  errf="$(mktemp "${TMPDIR:-/tmp}/secrets-err.XXXXXX")"
+  if ! sops decrypt --input-type dotenv --output-type dotenv "$1" >"$2" 2>"$errf"; then
+    local said
+    said="$(head -n 1 "$errf")"
+    rm -f "$errf"
+    rm -f "$2"
+    die "could not decrypt $1 (sops said: ${said:-nothing}). Is your private key ($SOPS_AGE_KEY_FILE) one of its recipients?"
+  fi
+  rm -f "$errf"
 }
 
 # Plaintext is only ever held in a private directory (RAM-backed when available), removed on exit.
@@ -68,9 +88,12 @@ shift || true
 case "$cmd" in
   keygen)
     command -v age-keygen >/dev/null 2>&1 || die "age-keygen is not installed (https://github.com/FiloSottile/age)"
-    [ ! -e "$SOPS_AGE_KEY_FILE" ] || die "$SOPS_AGE_KEY_FILE already exists: not overwriting it. Your public key: $(age-keygen -y "$SOPS_AGE_KEY_FILE")"
-    mkdir -p "$(dirname "$SOPS_AGE_KEY_FILE")"
-    age-keygen -o "$SOPS_AGE_KEY_FILE" >/dev/null 2>&1
+    if [ -e "$SOPS_AGE_KEY_FILE" ] || [ -L "$SOPS_AGE_KEY_FILE" ]; then
+      pub="$(age-keygen -y "$SOPS_AGE_KEY_FILE" 2>/dev/null)" || die "$SOPS_AGE_KEY_FILE exists but is not a valid age key: not touching it"
+      die "$SOPS_AGE_KEY_FILE already exists: not overwriting it. Your public key: $pub"
+    fi
+    mkdir -p "$(dirname "$SOPS_AGE_KEY_FILE")" || die "cannot create the directory of $SOPS_AGE_KEY_FILE"
+    err="$(age-keygen -o "$SOPS_AGE_KEY_FILE" 2>&1 >/dev/null)" || die "age-keygen failed: ${err:-no message}"
     chmod 600 "$SOPS_AGE_KEY_FILE"
     printf 'Created %s (private, mode 600: back it up somewhere safe, never commit it).\n' "$SOPS_AGE_KEY_FILE"
     printf 'Your PUBLIC key, to add to secrets/<profile>.recipients in a pull request:\n%s\n' "$(age-keygen -y "$SOPS_AGE_KEY_FILE")"
@@ -84,12 +107,14 @@ case "$cmd" in
     [ -f "$template" ] || die "env template $template not found"
     list="$(recipients "$p")"
     tmpd="$(private_tmp)"
-    trap 'rm -rf "$tmpd"' EXIT
+    # The new file is staged NEXT TO the target (same filesystem), so the final mv is an atomic rename.
+    stage="$secrets_dir/.$p.enc.env.tmp.$$"
+    trap 'rm -rf "$tmpd" "$stage"' EXIT
     # Comments and blank lines are dropped: a comment would be plaintext inside the encrypted file.
     grep -vE '^[[:space:]]*(#|$)' "$template" >"$tmpd/in.env" || true
     mkdir -p "$secrets_dir"
-    sops encrypt --age "$list" --input-type dotenv --output-type dotenv "$tmpd/in.env" >"$tmpd/out.enc.env"
-    mv "$tmpd/out.enc.env" "$target"
+    sops encrypt --age "$list" --input-type dotenv --output-type dotenv "$tmpd/in.env" >"$stage"
+    mv "$stage" "$target"
     printf 'Created %s from the template (placeholders). Run: scripts/secrets.sh edit %s\n' "$target" "$p"
     ;;
 
@@ -97,6 +122,8 @@ case "$cmd" in
     p="$(profile_arg "${1:-}")"
     need_sops
     [ -f "$secrets_dir/$p.enc.env" ] || die "$secrets_dir/$p.enc.env does not exist: run 'init $p' first"
+    # sops edit keeps its own temporary plaintext (a 0700 directory in the system temp dir, on disk or not
+    # depending on the machine); that part is outside this script's control.
     exec sops edit --input-type dotenv --output-type dotenv "$secrets_dir/$p.enc.env"
     ;;
 
@@ -112,7 +139,7 @@ case "$cmd" in
     mkdir -p "$out_dir"
     partial="$dest.partial.$$"
     trap 'rm -f "$partial"' EXIT
-    sops decrypt --input-type dotenv --output-type dotenv "$src" >"$partial" 2>/dev/null || die "could not decrypt $src: is your private key ($SOPS_AGE_KEY_FILE) one of its recipients?"
+    sops_decrypt "$src" "$partial"
     chmod 600 "$partial"
     mv "$partial" "$dest"
     printf 'Wrote %s (mode 600, git-ignored). It holds plaintext secrets: do not copy it anywhere.\n' "$dest"
@@ -125,10 +152,11 @@ case "$cmd" in
     [ -f "$src" ] || die "$src does not exist"
     list="$(recipients "$p")"
     tmpd="$(private_tmp)"
-    trap 'rm -rf "$tmpd"' EXIT
-    sops decrypt --input-type dotenv --output-type dotenv "$src" >"$tmpd/plain.env" 2>/dev/null || die "could not decrypt $src: is your private key ($SOPS_AGE_KEY_FILE) one of its recipients?"
-    sops encrypt --age "$list" --input-type dotenv --output-type dotenv "$tmpd/plain.env" >"$tmpd/new.enc.env"
-    mv "$tmpd/new.enc.env" "$src"
+    stage="$secrets_dir/.$p.enc.env.tmp.$$"
+    trap 'rm -rf "$tmpd" "$stage"' EXIT
+    sops_decrypt "$src" "$tmpd/plain.env"
+    sops encrypt --age "$list" --input-type dotenv --output-type dotenv "$tmpd/plain.env" >"$stage"
+    mv "$stage" "$src"
     printf 'Re-encrypted %s for the current recipients with a fresh data key.\n' "$src"
     ;;
 

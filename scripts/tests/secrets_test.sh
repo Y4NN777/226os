@@ -47,9 +47,24 @@ run "init without a recipients file explains how to get one" fail "recipients" "
 printf '# empty\n' >"$sd/staging-test.recipients"
 run "init with an empty recipients file is refused" fail "recipient" "${common[@]}" -- init staging-test
 
+priv="AGE-SECRET-$(printf 'KEY')-1$(printf 'Q%.0s' $(seq 1 58))"
+printf '# staging\n%s\n' "$priv" >"$sd/staging-test.recipients"
+rc=0; out="$(env "${common[@]}" "$script" init staging-test 2>&1)" || rc=$?
+if [ "$rc" -ne 0 ] && ! grep -qF -- "$priv" <<<"$out"; then ok "a private key pasted into a recipients file is refused without being echoed"; else ko "private key echoed or accepted (rc=$rc): $out"; fi
+printf '# empty\n' >"$sd/staging-test.recipients"
+
 mkdir -p "$tmp/none"
 printf 'existing\n' >"$tmp/keys.txt"
-run "keygen refuses to overwrite an existing key file" fail "already exists" SECRETS_DIR="$sd" SOPS_AGE_KEY_FILE="$tmp/keys.txt" -- keygen
+run "keygen refuses to overwrite an existing key file" fail "exists" SECRETS_DIR="$sd" SOPS_AGE_KEY_FILE="$tmp/keys.txt" -- keygen
+
+if command -v age-keygen >/dev/null 2>&1; then
+  ln -s "$tmp/does-not-exist/keys.txt" "$tmp/dangling.txt"
+  rc=0; out="$(env SECRETS_DIR="$sd" SOPS_AGE_KEY_FILE="$tmp/dangling.txt" "$script" keygen 2>&1)" || rc=$?
+  if [ "$rc" -ne 0 ] && [ -n "$out" ]; then ok "keygen on a dangling symlink fails with a message, not silently"; else ko "keygen dangling symlink: rc=$rc out='$out'"; fi
+  printf 'not an age key\n' >"$tmp/garbage.txt"
+  rc=0; out="$(env SECRETS_DIR="$sd" SOPS_AGE_KEY_FILE="$tmp/garbage.txt" "$script" keygen 2>&1)" || rc=$?
+  if [ "$rc" -ne 0 ] && grep -q 'not a valid age key' <<<"$out"; then ok "keygen on an existing garbage key file says so"; else ko "keygen garbage key: rc=$rc out='$out'"; fi
+fi
 
 # The tools themselves: sops and age are optional on a machine that does not touch secrets.
 if command -v sops >/dev/null 2>&1 && command -v age-keygen >/dev/null 2>&1; then
@@ -62,7 +77,9 @@ if command -v sops >/dev/null 2>&1 && command -v age-keygen >/dev/null 2>&1; the
   printf '# staging recipients\n%s\n' "$pub1" >"$sd/staging-test.recipients"
   keyenv=(SECRETS_DIR="$sd" SECRETS_OUT_DIR="$tmp/out" SECRETS_ENV_TEMPLATE="$tmp/template.env" SOPS_AGE_KEY_FILE="$k1")
 
-  run "init encrypts the template for the recipients" pass "" "${keyenv[@]}" -- init staging-test
+  run "init encrypts the template for the recipients (a KMS or PGP key group from the environment is ignored)" pass "" "${keyenv[@]}" SOPS_KMS_ARN=arn:aws:kms:eu-west-1:111122223333:key/not-real SOPS_PGP_FP=0000000000000000000000000000000000000000 -- init staging-test
+  if grep -q '^sops_kms\|^sops_pgp' "$sd/staging-test.enc.env"; then ko "a KMS or PGP key group leaked into the encrypted file"; else ok "only age recipients in the encrypted file"; fi
+  if [ "$(find "$sd" -mindepth 1 ! -name 'staging-test.*' | wc -l)" -eq 0 ]; then ok "no staging or temporary file is left in secrets/ after init"; else ko "leftovers in secrets/: $(find "$sd" -mindepth 1 | tr '\n' ' ')"; fi
   [ -f "$sd/staging-test.enc.env" ] && ok "the encrypted file exists" || ko "no secrets/staging-test.enc.env"
   if grep -q 'CHANGE_ME' "$sd/staging-test.enc.env"; then ko "the encrypted file still contains a plaintext value"; else ok "no plaintext value in the encrypted file"; fi
   if "$root/scripts/check-secrets-encrypted.sh" "$sd" >/dev/null 2>&1; then ok "the real sops output passes check-secrets-encrypted.sh"; else ko "check-secrets-encrypted.sh rejects real sops output"; fi
@@ -74,16 +91,19 @@ if command -v sops >/dev/null 2>&1 && command -v age-keygen >/dev/null 2>&1; the
   run "decrypt refuses to overwrite an existing env file" fail "exists" "${keyenv[@]}" -- decrypt staging-test
   run "decrypt --force overwrites it" pass "" "${keyenv[@]}" -- decrypt staging-test --force
 
-  run "decrypt with the wrong key fails and writes nothing new" fail "" SECRETS_DIR="$sd" SECRETS_OUT_DIR="$tmp/out2" SOPS_AGE_KEY_FILE="$k2" -- decrypt staging-test
+  run "decrypt with the wrong key fails and shows what sops said" fail "sops said" SECRETS_DIR="$sd" SECRETS_OUT_DIR="$tmp/out2" SOPS_AGE_KEY_FILE="$k2" -- decrypt staging-test
+  if [ -z "$(find "$tmp/out2" -mindepth 1 2>/dev/null)" ]; then ok "a failed decrypt leaves no file behind (not even a partial one)"; else ko "leftovers after a failed decrypt: $(find "$tmp/out2" -mindepth 1 | tr '\n' ' ')"; fi
 
   printf '# staging recipients\n%s\n%s\n' "$pub1" "$pub2" >"$sd/staging-test.recipients"
   run "rotate re-encrypts for the new recipient list" pass "" "${keyenv[@]}" -- rotate staging-test
+  if [ "$(find "$sd" -mindepth 1 ! -name 'staging-test.*' | wc -l)" -eq 0 ]; then ok "no temporary file is left in secrets/ after rotate"; else ko "leftovers after rotate: $(find "$sd" -mindepth 1 | tr '\n' ' ')"; fi
   mkdir -p "$tmp/out3"
   run "the added recipient can now decrypt" pass "" SECRETS_DIR="$sd" SECRETS_OUT_DIR="$tmp/out3" SOPS_AGE_KEY_FILE="$k2" -- decrypt staging-test
   if "$root/scripts/check-secrets-encrypted.sh" "$sd" >/dev/null 2>&1; then ok "the rotated file still passes the encryption check"; else ko "rotated file fails the encryption check"; fi
 else
   notrun=1
   printf 'NOT RUN - the encrypt, decrypt and rotate round trip needs sops and age-keygen on PATH (not found)\n'
+  [ -z "${GITHUB_ACTIONS:-}" ] || printf '::warning title=NOT RUN::secrets round trip needs sops and age; only the check script was tested here\n'
 fi
 
 finish

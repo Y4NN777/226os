@@ -19,10 +19,13 @@ trap 'rm -rf "$tmp"' EXIT
 # Fixtures are built at run time: a literal private-key-shaped string would trip the secret scanner.
 priv="AGE-SECRET-$(printf 'KEY')-1$(printf 'Q%.0s' $(seq 1 58))"
 recip="age1$(printf 'q%.0s' $(seq 1 58))"
-enc='ENC[AES256_GCM,data:AAAA,iv:BBBB,tag:CCCC,type:str]'
+iv="$(printf 'B%.0s' $(seq 1 43))="
+tag="$(printf 'C%.0s' $(seq 1 22))=="
+enc="ENC[AES256_GCM,data:AAAA,iv:$iv,tag:$tag,type:str]"
 
 valid_file() { # DIR NAME
   mkdir -p "$1"
+  printf '# staging recipients\n%s\n' "$recip" >"$1/${2%.enc.env}.recipients"
   cat >"$1/$2" <<EOF
 POSTGRES_PASSWORD=$enc
 CURSOR_KEY=$enc
@@ -44,7 +47,7 @@ expect() { # NAME EXPECT(pass|fail) NEEDLE DIR
   ok "$name"
 }
 
-expect "no secrets directory yet: nothing to check" pass "" "$tmp/absent"
+expect "a secrets directory that does not exist is a failure, never a vacuous pass" fail "not found" "$tmp/absent"
 
 d="$tmp/valid"
 valid_file "$d" staging-test.enc.env
@@ -106,5 +109,87 @@ d="$tmp/badrecipient"
 valid_file "$d" staging-test.enc.env
 printf 'not-an-age-key\n' >"$d/staging-test.recipients"
 expect "a malformed recipients line is refused" fail "recipients" "$d"
+
+# --- findings of the independent review ---
+d="$tmp/sopsjunk"
+valid_file "$d" staging-test.enc.env
+printf 'sops_foo=Xk9fQ2mZp7LwR4vT8nBy\n' >>"$d/staging-test.enc.env"
+expect "an unknown sops_ key is refused (it could carry plaintext)" fail "sops_foo" "$d"
+
+d="$tmp/sopsversion"
+valid_file "$d" staging-test.enc.env
+sed -i 's/^sops_version=.*/sops_version=3.13.3 password=hunter2/' "$d/staging-test.enc.env"
+expect "a sops_version value that is not a version is refused" fail "sops_version" "$d"
+
+d="$tmp/sopslast"
+valid_file "$d" staging-test.enc.env
+sed -i 's/^sops_lastmodified=.*/sops_lastmodified=hunter2/' "$d/staging-test.enc.env"
+expect "a sops_lastmodified value that is not a timestamp is refused" fail "sops_lastmodified" "$d"
+
+d="$tmp/keysmuggle"
+valid_file "$d" staging-test.enc.env
+printf 'DB_PASSWORD_IS_hunter2=\n' >>"$d/staging-test.enc.env"
+expect "a key name carrying data is refused (valid names are UPPER_SNAKE_CASE)" fail "key name" "$d"
+
+d="$tmp/keyspace"
+valid_file "$d" staging-test.enc.env
+printf ' B=\n' >>"$d/staging-test.enc.env"
+expect "a key name with a leading space is refused" fail "key name" "$d"
+
+d="$tmp/keyempty"
+valid_file "$d" staging-test.enc.env
+printf '=\n' >>"$d/staging-test.enc.env"
+expect "an empty key name is refused" fail "key name" "$d"
+
+d="$tmp/shortiv"
+valid_file "$d" staging-test.enc.env
+printf 'B=ENC[AES256_GCM,data:AAAA,iv:hunter2,tag:%s,type:str]\n' "$tag" >>"$d/staging-test.enc.env"
+expect "an envelope with an iv of the wrong shape is refused" fail "B" "$d"
+
+d="$tmp/emptydata"
+valid_file "$d" staging-test.enc.env
+printf 'B=ENC[AES256_GCM,data:,iv:%s,tag:%s,type:str]\n' "$iv" "$tag" >>"$d/staging-test.enc.env"
+expect "an envelope with empty data is refused" fail "B" "$d"
+
+d="$tmp/locale"
+valid_file "$d" staging-test.enc.env
+printf 'B=ENC[AES256_GCM,data:\xc3\xa9,iv:%s,tag:%s,type:str]\n' "$iv" "$tag" >>"$d/staging-test.enc.env"
+rc=0; out="$(env LC_ALL=en_US.UTF-8 "$check" "$d" 2>&1)" || rc=$?
+if [ "$rc" -ne 0 ]; then ok "non-ASCII data is refused whatever the caller's locale"; else ko "the verdict depends on the locale (a UTF-8 locale passed non-ASCII data): $out"; fi
+
+d="$tmp/revoked"
+valid_file "$d" staging-test.enc.env
+printf 'sops_age__list_1__map_recipient=age1%s\n' "$(printf 'z%.0s' $(seq 1 58))" >>"$d/staging-test.enc.env"
+expect "a recipient still in the encrypted file but removed from .recipients is refused (run rotate)" fail "rotate" "$d"
+
+d="$tmp/addedrecipient"
+valid_file "$d" staging-test.enc.env
+printf '%s\n' "age1$(printf 'z%.0s' $(seq 1 58))" >>"$d/staging-test.recipients"
+expect "a recipient in .recipients that the encrypted file does not have is refused (run rotate)" fail "rotate" "$d"
+
+d="$tmp/norecipientsfile"
+valid_file "$d" staging-test.enc.env
+rm "$d/staging-test.recipients"
+expect "an encrypted file without its .recipients file is refused" fail "staging-test.recipients" "$d"
+
+d="$tmp/symlink"
+valid_file "$d" staging-test.enc.env
+ln -s /etc/hostname "$d/README.md"
+expect "a symlink is refused" fail "symlink" "$d"
+
+d="$tmp/readmekv"
+valid_file "$d" staging-test.enc.env
+printf 'DB_PASSWORD=hunter2verysecret\n' >"$d/README.md"
+expect "a README.md that looks like KEY=VALUE is refused" fail "README.md" "$d"
+
+d="$tmp/longcomment"
+valid_file "$d" staging-test.enc.env
+printf '# %s\n' "$(printf 'x%.0s' $(seq 1 120))" >>"$d/staging-test.recipients"
+expect "a long free-text comment in .recipients is refused" fail "comment" "$d"
+
+d="$tmp/huge"
+valid_file "$d" staging-test.enc.env
+head -c 300000 /dev/zero | tr '\0' 'A' | sed 's/^/BIG=/' >>"$d/staging-test.enc.env"
+expect "an oversized file is refused (and does not stall the gate)" fail "too large" "$d"
 
 finish
