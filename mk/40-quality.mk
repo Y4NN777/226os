@@ -5,9 +5,9 @@
 #
 # QUALITY_STEPS is a plain variable so a test can inject steps on the command line in a scratch copy;
 # CI never overrides it. The default list is G1 to G4: doctor generate lint typecheck test-unit coverage
-# test-integration security licenses.
+# test-integration security licenses docs-check.
 
-QUALITY_STEPS := doctor generate lint typecheck test-unit coverage test-integration security licenses
+QUALITY_STEPS := doctor generate lint typecheck test-unit coverage test-integration security licenses docs-check
 
 quality: ## G1 to G4 aggregate: every step runs, per-step PASS/FAIL summary, non-zero if any step failed
 	@scripts/quality.sh $(MAKE_BIN) quality $(QUALITY_STEPS)
@@ -33,7 +33,7 @@ CI_STEPS_integration-go := doctor test-integration-go
 CI_STEPS_integration-containers := doctor test-integration-containers
 CI_STEPS_security := doctor security-authz security-govulncheck security-sast security-js-audit security-sast-js
 CI_STEPS_images := doctor security-images
-CI_STEPS_repo := doctor security-secrets-encrypted security-secrets licenses
+CI_STEPS_repo := doctor security-secrets-encrypted security-secrets licenses docs-check
 
 QUALITY_LEAF_STEPS = $(foreach s,$(QUALITY_STEPS),$(if $(filter $(s),lint),$(LINT_STEPS),$(if $(filter $(s),test-integration),$(TEST_INTEGRATION_STEPS),$(if $(filter $(s),security),$(SECURITY_STEPS),$(s)))))
 
