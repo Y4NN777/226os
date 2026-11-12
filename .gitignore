@@ -7,3 +7,6 @@ dist/
 .env.*
 !.env.example
 reports/
+
+# Isolated agent worktrees (Claude Code isolation); never committed
+.claude/worktrees/
