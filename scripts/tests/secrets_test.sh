@@ -37,7 +37,7 @@ sd="$tmp/secrets"
 mkdir -p "$sd"
 common=(SECRETS_DIR="$sd" SECRETS_OUT_DIR="$tmp/out" SECRETS_ENV_TEMPLATE="$tmp/template.env" SOPS_AGE_KEY_FILE="$tmp/none/keys.txt")
 mkdir -p "$tmp/out"
-printf '# template\nPOSTGRES_PASSWORD=CHANGE_ME\nSMTP_HOST=\n\nCURSOR_KEY=CHANGE_ME\n' >"$tmp/template.env"
+printf '# template\nPOSTGRES_PASSWORD=CHANGE_ME\nSMTP_HOST=\nSMTP_PASSWORD=CHANGE_ME\n\nCURSOR_KEY=CHANGE_ME\n' >"$tmp/template.env"
 
 run "no command prints the usage and fails" fail "usage" "${common[@]}" --
 run "an unknown command fails" fail "usage" "${common[@]}" -- frobnicate
@@ -120,7 +120,7 @@ if command -v sops >/dev/null 2>&1 && command -v age-keygen >/dev/null 2>&1; the
 
   run "decrypt writes the profile env file" pass "" "${keyenv[@]}" -- decrypt staging-test
   if [ "$(stat -c %a "$tmp/out/.env.staging-test")" = 600 ]; then ok "the decrypted file is mode 600"; else ko "decrypted file mode is $(stat -c %a "$tmp/out/.env.staging-test"), want 600"; fi
-  if grep -qx 'POSTGRES_PASSWORD=CHANGE_ME' "$tmp/out/.env.staging-test"; then ok "decrypt restores the values"; else ko "decrypted content differs"; fi
+  if grep -qE "^POSTGRES_PASSWORD=[0-9a-f]{32}$" "$tmp/out/.env.staging-test" && grep -qx "SMTP_PASSWORD=CHANGE_ME" "$tmp/out/.env.staging-test"; then ok "staging: the generated secrets are filled, the external ones (SMTP_PASSWORD) stay placeholders to edit"; else ko "staging generated/external values wrong"; fi
   run "decrypt refuses to overwrite an existing env file" fail "exists" "${keyenv[@]}" -- decrypt staging-test
   run "decrypt --force overwrites it" pass "" "${keyenv[@]}" -- decrypt staging-test --force
 

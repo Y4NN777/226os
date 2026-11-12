@@ -8,7 +8,7 @@
 #
 # Commands:
 #   keygen                  create your age key (refuses to overwrite one) and print the PUBLIC key
-#   init <profile>          encrypt the env template (.env.example, comments stripped) for the profile's recipients; local-dev also gets generated secrets
+#   init <profile>          encrypt the env template (.env.example, comments stripped) for the profile's recipients; the database password, DATABASE_URL and CURSOR_KEY are generated
 #   edit <profile>          edit the encrypted file in $EDITOR (sops decrypts and re-encrypts)
 #   decrypt <profile> [--force]   write .env.<profile> (mode 600); refuses to overwrite without --force
 #   rotate <profile>        re-encrypt for the CURRENT recipients list and a fresh data key
@@ -114,24 +114,25 @@ case "$cmd" in
     trap 'rm -rf "$tmpd" "$stage"' EXIT
     # Comments and blank lines are dropped: a comment would be plaintext inside the encrypted file.
     grep -vE '^[[:space:]]*(#|$)' "$template" >"$tmpd/in.env" || true
-    if [ "$p" = local-dev ]; then
-      # local-dev only: generate the three secrets so nobody has to invent them. Staging and production stay manual.
-      # The values travel through the environment, never through argv.
-      command -v openssl >/dev/null 2>&1 || die "openssl is not installed (needed to generate the local-dev secrets)"
+    # Every profile: generate the three secrets nobody should invent (the database password, the same password
+    # inside DATABASE_URL, the cursor key). Values that come from outside (SMTP_PASSWORD, API keys, host names)
+    # stay placeholders for `edit`. The values travel through the environment, never through argv.
+    {
+      command -v openssl >/dev/null 2>&1 || die "openssl is not installed (needed to generate the secrets)"
       PW="$(openssl rand -hex 16)" CK="$(openssl rand -base64 32)" awk '
         /^POSTGRES_PASSWORD=CHANGE_ME$/ { print "POSTGRES_PASSWORD=" ENVIRON["PW"]; next }
         /^CURSOR_KEY=CHANGE_ME$/ { print "CURSOR_KEY=" ENVIRON["CK"]; next }
         /^DATABASE_URL=/ { sub(/:CHANGE_ME@/, ":" ENVIRON["PW"] "@") }
-        { print }' "$tmpd/in.env" >"$tmpd/gen.env" || die "could not generate the local-dev secrets"
+        { print }' "$tmpd/in.env" >"$tmpd/gen.env" || die "could not generate the secrets"
       mv "$tmpd/gen.env" "$tmpd/in.env"
-    fi
+    }
     mkdir -p "$secrets_dir"
     sops encrypt --age "$list" --input-type dotenv --output-type dotenv "$tmpd/in.env" >"$stage"
     mv "$stage" "$target"
     if [ "$p" = local-dev ]; then
       printf 'Created %s with generated POSTGRES_PASSWORD, DATABASE_URL and CURSOR_KEY. Nothing to fill in: run make up-local-dev.\n' "$target"
     else
-      printf 'Created %s from the template (placeholders). Run: scripts/secrets.sh edit %s\n' "$target" "$p"
+      printf 'Created %s with generated POSTGRES_PASSWORD, DATABASE_URL and CURSOR_KEY. Run scripts/secrets.sh edit %s to fill the rest (SMTP, host names, API keys).\n' "$target" "$p"
     fi
     ;;
 
