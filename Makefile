@@ -22,7 +22,7 @@ SHELL := bash
 
 .PHONY: help doctor setup \
 	generate lint typecheck test-unit coverage test-integration \
-	security security-authz security-govulncheck security-js-audit security-secrets security-sast security-sast-js security-images \
+	security security-authz security-secrets-encrypted security-govulncheck security-js-audit security-secrets security-sast security-sast-js security-images \
 	licenses test-e2e perf quality quality-full \
 	build up-local-dev down-local-dev up-staging-test down-staging-test up-production-live down-production-live \
 	_guard-production-up migrate-up migrate-status migrate-new seed db-reset _guard-db-reset
