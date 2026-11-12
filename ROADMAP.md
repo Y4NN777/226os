@@ -700,9 +700,9 @@ The provider is decided: Google AI Studio, Gemma 4 (Decisions log). The **free t
 
 **Open verification items.** These replace the earlier V1 to V6 list. Owner `Y4NN777`, due Fri 13 evening:
 
-- **V1.** Confirm the exact Gemma 4 model id and its availability inside AI Studio.
-- **V2.** Read the project's real limits in AI Studio.
-- **V3.** Decide between a free project and a billing-linked project, given the EEA rule (K21).
+- **V1.** DONE 2026-11-12: `aicheck models` lists `gemma-4-26b-a4b-it` and `gemma-4-31b-it` (both `generateContent`, 262144 input, 32768 output). Staging uses `gemma-4-26b-a4b-it`.
+- **V2.** Read the project's real limits in AI Studio. Still open; the 3 probes of `aicheck limits` do not measure them.
+- **V3.** DECIDED 2026-11-12 by the owner: free project. The K21 consequence (EEA, Switzerland, UK) is INFERRED and still to be handled by the owner.
 - **V4.** Measure FR/EN latency and quality on the golden evaluation set before the demo.
 
 **Design consequences proposed for the S9 ADR** (the owner decides):
@@ -902,3 +902,4 @@ All pillars share the same spine. That is why making two of them prominent remov
 | 2026-11-12 | **DECIDED C19 and C11: `00011` is no longer reserved.**<br>- **Reasons:** the gate is sequential with no gap, nothing depends on the reservation, and the P1 tables do not exist yet.<br>- Use the numbers from `make migrate-new`: E2 gets `00011` and `profile_visibility` gets `00012`, or the reverse depending on merge order. Both by `mibienpanjoe`. No script or gate change.<br>- Docs follow-up in the same PR: `DATABASE_DESIGN.md` section 5 and its migration plan (`mibienpanjoe`, reviewed by `NICE-DEV226`).<br>- E2 and `profile_visibility` are no longer blocked. | `Y4NN777` |
 | 2026-11-12 | **Note:** the "Learn as the heart" entry below is superseded by O7, with amendment 3.2 proposed in the docs PR and approved by the owner on that PR. | `Y4NN777` |
 | 2026-11-12 | **OPEN, not applied.** "Learn as the heart": a PRD amendment 3.2 or 3.3 ending the equal pillar weight of 3.1, or equal weight kept and only topics, series and home ordering change (O7). S10 is unchanged: it is conditional on the Sat 12:00 checkpoint, and if built it displaces E4-type work. | `Y4NN777` (pending) |
+| 2026-11-12 | **DECIDED V3: AI Studio free tier.** Staging model `gemma-4-26b-a4b-it` (V1, V2 probes and V4 measured with `aicheck` on the real key: about 6 s per answer, 3 of 3 probes ok; `gemma-4-31b-it` was slower and 2 of 3 probes unavailable). Consequences recorded as tasks in TODO S9: drop the model's reasoning text and apply one answer format; track 429, 500, 503 and timeouts. The K21 EEA rule is INFERRED to apply and is not yet handled. | `Y4NN777` |
