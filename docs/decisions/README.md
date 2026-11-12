@@ -15,7 +15,7 @@ The register of G0 decisions is [G0_DECISIONS.md](../spec-kit/G0_DECISIONS.md); 
 | [0005](0005-data-model-migrations-search.md) | Data model, migrations, search | ACCEPTED | 2026-11-11 |
 | [0006](0006-toolchain-environments-quality-commands.md) | Toolchain, environments, quality commands | ACCEPTED | 2026-11-11 |
 | [0007](0007-astryx-version-pinning-and-verification.md) | Astryx version pinning and verification | ACCEPTED | 2026-11-11 |
-| [0008](0008-team-work-areas-and-ownership.md) | Team work areas and ownership for P0 (amends ADR-0002) | PROPOSED | 2026-11-12 |
+| [0008](0008-team-work-areas-and-ownership.md) | Team work areas and ownership for P0 (amends ADR-0002) | ACCEPTED | 2026-11-12 |
 
 ## Accepted baseline
 
