@@ -17,6 +17,7 @@ The register of G0 decisions is [G0_DECISIONS.md](../spec-kit/G0_DECISIONS.md); 
 | [0007](0007-astryx-version-pinning-and-verification.md) | Astryx version pinning and verification | ACCEPTED | 2026-11-11 |
 | [0008](0008-team-work-areas-and-ownership.md) | Team work areas and ownership for P0 (amends ADR-0002) | ACCEPTED | 2026-11-12 |
 | [0009](0009-secrets-with-sops-and-age.md) | Secrets with SOPS and age (amends the "secrets never in Git" rule of ADR-0006) | ACCEPTED | 2026-11-12 |
+| [0010](0010-ci-parallel-gate-groups.md) | CI runs the quality gates as parallel groups (amends the single-job CI of ADR-0006) | ACCEPTED | 2026-11-12 |
 
 ## Accepted baseline
 
