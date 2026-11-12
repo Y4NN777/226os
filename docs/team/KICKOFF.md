@@ -14,7 +14,7 @@
 2. **Les neuf domaines restent tous** dans le produit. Rien n'est retiré ni rétrogradé.
 3. **Apprendre** (Learn & Grow) et **Connect** sont mis en avant, mais seulement dans la navigation, sur l'accueil et dans les textes (amendement 3.2 du PRD, proposé).
 4. **Positionnement public : « Afrique de l'Ouest d'abord, puis toute l'Afrique ».** 226os se lit « 226 Open Stack » ; 226 est l'indicatif téléphonique du Burkina Faso. C'est l'origine du nom, pas un positionnement.
-5. **Ce qui existe :** le bootstrap B0 est fusionné (PR #24). Une API Go qui ne sert que `GET /healthz`, les migrations `00001` à `00010`, le code généré depuis le contrat (pas encore monté), un squelette web React et la CI ([ROADMAP section 2](../../ROADMAP.md#2-starting-point-2026-11-12)).
+5. **Ce qui existe :** le bootstrap B0 (PR #24) et le cœur de l'API S0 (PR #31 à #39) sont fusionnés. Une API Go avec `GET /healthz`, `GET /readyz` et les 47 opérations du contrat montées sous `/api/v1` (encore en 501), la validation du contrat, les erreurs problem+json, les curseurs signés, l'idempotence et l'envoi de mail, les migrations `00001` à `00010`, un squelette web React et la CI ([ROADMAP section 2](../../ROADMAP.md#2-starting-point-2026-11-12)).
 6. **La CI lance `make quality` (G1 à G4) sur chaque PR**, et elle est verte d'après [ROADMAP section 2](../../ROADMAP.md#2-starting-point-2026-11-12).
 7. **Rien n'est déployé.** Le domaine `226os.tech` est à nous, mais il n'affiche que la page d'attente de l'hébergeur.
 8. **Ce qui reste à construire :** les 43 opérations P0 du contrat ([api/openapi.yaml](../../api/openapi.yaml)) et toutes les pages React. Avec l'annuaire E5, on passera à 44.

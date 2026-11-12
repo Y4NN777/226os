@@ -74,7 +74,7 @@ Apprendre irrigue ces quatre expériences : un article renvoie vers les questio
 
 ## État du projet
 
-- **Bootstrap B0 fusionné** (PR #24) : squelette d'API Go qui ne sert que `GET /healthz`, migrations `00001` à `00010`, code généré depuis `api/openapi.yaml` (pas encore monté), requêtes sqlc d'identité et de référence, squelette web (Vite, React 19, TanStack, Astryx 0.7.14), profils Compose, cibles Make et CI.
+- **Bootstrap B0 et cœur de l'API (S0) fusionnés** (PR #24, #31 à #39) : API Go avec `GET /healthz`, `GET /readyz` et les 47 opérations du contrat montées sous `/api/v1` (encore en 501 tant que leur tranche n'est pas livrée), validation du contrat, erreurs problem+json, curseurs signés, idempotence, envoi de mail, migrations `00001` à `00010`, requêtes sqlc d'identité et de référence, squelette web (Vite, React 19, TanStack, Astryx 0.7.14), profils Compose, cibles Make et CI.
 - **Implémentation P0 en cours**, découpée en tranches dans [ROADMAP.md](ROADMAP.md) et suivie dans [TODO.md](TODO.md). Le contrat compte aujourd'hui 43 opérations P0.
 - **Gates :** la CI lance `make quality` (G1 à G4) sur chaque PR vers `develop` ou `main`. G5 (e2e), G6 (performance) et G7 (livraison) sont **NOT RUN**.
 - **Rien n'est déployé**, ni en préproduction ni en production.

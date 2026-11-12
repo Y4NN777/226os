@@ -29,7 +29,7 @@ work branch -> PR develop -> develop staging/preview smoke
 
 ## 4. Smoke post-déploiement
 1. HTTPS cert valide, redirections, headers et Traefik routage.
-2. `/healthz` (liveness) et `/readyz` (DB et dépendances nécessaires) vérifiés.
+2. `/healthz` (liveness) vérifié depuis l'extérieur. `/readyz` (base de données et dépendances nécessaires) vérifié depuis l'hôte, dans le conteneur : `docker compose exec api /busybox/busybox wget -q -O- http://127.0.0.1:8080/readyz`. Jamais par l'adresse publique : le routeur n'envoie pas `/readyz` à l'API, et le site web répond `200` avec sa page d'accueil (décision B2, ROADMAP section 10).
 3. Auth, session, question/réponse/vote, recherche, fiche API, projet, candidature.
 4. Lecture anonyme autorisée ; mutations non autorisées refusées ; FR/EN, mobile.
 5. Logs sans secrets ; pas d'erreur 5xx significative sur le parcours ; métriques de latence collectées.
