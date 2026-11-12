@@ -84,14 +84,16 @@ Each line below is a **proposal**. The lead confirms or reassigns it.
 
 **Tasks**
 
-- [ ] **B1 (DECIDED and APPROVED 2026-11-12).** Change `scripts/check-authz-routes.sh` and `scripts/authz/routes_check.go.txt` so that every mounted route is in exactly one of:
+- [x] **B1 (DECIDED and APPROVED 2026-11-12). Implemented on `feature/platform/authz-gate` (see Done log).** Change `scripts/check-authz-routes.sh` and `scripts/authz/routes_check.go.txt` so that every mounted route is in exactly one of:
   - (i) `scripts/public-routes.txt` (public);
   - (ii) the new `scripts/unimplemented-routes.txt` (still answered 501 by the generated Unimplemented handler; it starts with all 47 routes and shrinks as each slice lands);
   - (iii) the new `scripts/authz-tests.txt` (method and path mapped to a negative authz Go test name).
   - The gate fails if a named test does not exist (`go test -list`), or if a route is in none of the three files.
   - The gate also fails if routes are registered or an `http.Handler` is built outside `httpx.NewRouter`. All registration goes through that one function.
   - RED/GREEN proof is required: a stray route, a missing test name and an unlisted route each turn the gate red.
-- [ ] **O3 (closed by B1).** The 4 P1 routes stay in `unimplemented-routes.txt`, answering 501.
+  - Follow-up for `feature/platform/api-mount` (tracked, not forgotten): the gate proves "a mounted route listed as unimplemented is really unimplemented" with an HTTP probe that expects 501. Once `HandlerWithOptions`, validation and session or CSRF middleware are mounted, a probe can be answered 400, 401 or 403 before the stub. Replace it there by a method-set check of the production `apigen.ServerInterface` implementation (a method not overridden is still the `apigen.Unimplemented` one), then drop the probe.
+  - Known coupling: the gate lists test names with `go test -list`, default and `integration` tags. The `integration` list starts the `pgtest` PostgreSQL container, so `make security-authz` needs Docker.
+- [x] **O3 (closed by B1).** The 4 P1 routes stay in `unimplemented-routes.txt`, answering 501.
 - [ ] Add `pgxpool` and `DATABASE_URL` to the config (`src/api/internal/platform/config`), and pass `DATABASE_URL` to `api` in `compose.yaml` (today `compose.yaml:90` omits it).
 - [ ] Add `GET /readyz` (DB ping with a deadline) to `scripts/public-routes.txt` with its reason. Decide edge routing for B2 (`deploy/traefik/dynamic.edge.yml:6`). Scheduled; not blocking today; must close before Sunday.
 - [ ] Mount `apigen` with `HandlerWithOptions` under `/api/v1`, with a problem+json `ErrorHandlerFunc`:
@@ -154,7 +156,7 @@ Each line below is a **proposal**. The lead confirms or reassigns it.
 
 **Stop condition:** stop and ask the owner if B1 cannot be solved without weakening the gate.
 
-**Status:** PLANNED
+**Status:** IN PROGRESS (B1 gate on `feature/platform/authz-gate`; api-mount, idempotency and mailer not started)
 
 ---
 
@@ -1041,3 +1043,4 @@ E5 needs the `profile_visibility` migration (C14b), which only `mibienpanjoe` wr
 |---|---|---|---|
 | 2026-11-12 | B0 bootstrap merged: API skeleton, migrations 00001 to 00010, codegen, web skeleton, Compose, Make, CI | #24 | `Y4NN777` |
 | 2026-11-12 | CADEV team registration done (H9) | n/a | `Y4NN777` |
+| 2026-11-12 | S0 B1 authz gate: three route lists, `TestAuthz*` test-name check, stray-router scan, RED/GREEN in `scripts/tests/authz-routes_test.sh` | #31 | `Y4NN777` |

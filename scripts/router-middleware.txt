@@ -1,0 +1,9 @@
+# Middleware installed by httpx.NewRouter, in order (source text of each r.Use / r.With argument).
+# A middleware can answer a path that has no route, which chi.Walk cannot see, so every addition or
+# removal here is a security review item (like scripts/public-routes.txt). The gate fails when this
+# list and src/api/internal/platform/httpx/router.go disagree.
+middleware.RequestID
+echoRequestID
+accessLog(logger)
+Recover(logger)
+middleware.Timeout(requestTimeout)
