@@ -29,7 +29,8 @@
       "Read(**/*.key)",
       "Read(**/id_rsa*)",
       "Read(**/id_ed25519*)",
-      "Read(**/secrets/**)",
+      "Read(**/secrets/*.enc.env)",
+      "Read(**/secrets/.*.tmp.*)",
       "Read(**/*.secret)",
       "Edit(**/.env)",
       "Edit(**/.env.local)",
@@ -56,7 +57,8 @@
       "Edit(**/.env.*.*)",
       "Edit(**/*.pem)",
       "Edit(**/*.key)",
-      "Edit(**/secrets/**)"
+      "Edit(**/secrets/*.enc.env)",
+      "Edit(**/secrets/*.recipients)"
     ]
   },
   "hooks": {

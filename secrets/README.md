@@ -8,7 +8,7 @@ Encrypted secrets for the deployment profiles, with SOPS and age ([ADR-0009](../
 
 ```
 scripts/secrets.sh keygen                  # once: create your key, print the public key to add to a .recipients file
-scripts/secrets.sh init staging-test       # once per profile: encrypt the .env.example placeholders
+scripts/secrets.sh init staging-test       # once per profile: encrypt .env.example; the database password, its copy in DATABASE_URL and CURSOR_KEY are generated, APP_ENV is set to the profile
 scripts/secrets.sh edit staging-test       # change values (sops decrypts, you edit, sops re-encrypts)
 scripts/secrets.sh decrypt staging-test    # only if you really want a plaintext .env.staging-test (mode 600, git-ignored)
 scripts/secrets.sh rotate staging-test     # after a recipients change

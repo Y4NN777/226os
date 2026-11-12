@@ -126,6 +126,8 @@ for name, s in svcs.items():
         errs.append(f"{name} receives CURSOR_KEY (the API only)")
     if name != "api" and "SMTP_PASSWORD" in (s.get("environment") or {}):
         errs.append(f"{name} receives SMTP_PASSWORD (the API only)")
+    if name != "api" and "AI_API_KEY" in (s.get("environment") or {}):
+        errs.append(f"{name} receives AI_API_KEY (the API only)")
 # The mail catcher is a local-dev convenience: it must never exist in a deployed profile.
 if profile != "local-dev" and "mailpit" in svcs:
     errs.append("mailpit is selected outside local-dev")

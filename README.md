@@ -25,7 +25,7 @@ Tout reste un seul écosystème : un compte, une recherche unique, des tags et 
 
 Ce qui est prévu au P0 (rien n'est encore livré) :
 
-- **Assistant IA sourcé :** il répond uniquement à partir des contenus publiés sur 226os, cite ses sources, refuse quand il n'en a pas et termine chaque réponse par une section « Comment vérifier ». Il reste désactivé par configuration tant que le propriétaire n'a pas tranché les conditions d'utilisation du fournisseur.
+- **Assistant IA sourcé :** il répond uniquement à partir des contenus publiés sur 226os, cite ses sources, refuse quand il n'en a pas et termine chaque réponse par une section « Comment vérifier ». Le propriétaire a retenu le niveau gratuit de Google AI Studio (modèle Gemma 4) le 12 novembre 2026. L'assistant reste désactivé par configuration jusqu'à son intégration, et la règle des conditions d'utilisation pour les utilisateurs de l'Espace économique européen reste à traiter.
 - **Connect :** un annuaire des membres en lecture seule, filtrable par pays, langue et compétence, qui respecte la visibilité choisie par chacun. Le mentorat, les opportunités et les espaces communautaires sont affichés comme « bientôt ».
 - **Apprendre :** des thèmes tournés vers le développement à l'ère des agents IA, un bouton « Poser une question sur cette leçon » et des fils par thème.
 - **Contenu original :** aucun contenu tiers n'est importé ni aspiré. Les sources externes apparaissent seulement comme références et comme liens documentaires sur les fiches Discover.
@@ -75,6 +75,7 @@ Apprendre irrigue ces quatre expériences : un article renvoie vers les questio
 ## État du projet
 
 - **Bootstrap B0 et cœur de l'API (S0) fusionnés** (PR #24, #31 à #39) : API Go avec `GET /healthz`, `GET /readyz` et les 47 opérations du contrat montées sous `/api/v1` (encore en 501 tant que leur tranche n'est pas livrée), validation du contrat, erreurs problem+json, curseurs signés, idempotence, envoi de mail, migrations `00001` à `00010`, requêtes sqlc d'identité et de référence, squelette web (Vite, React 19, TanStack, Astryx 0.7.14), profils Compose, cibles Make et CI.
+- **Secrets chiffrés dans Git** ([ADR-0009](docs/decisions/0009-secrets-with-sops-and-age.md)) : SOPS et age, `scripts/secrets.sh`, fichiers `secrets/local-dev.enc.env` et `secrets/staging-test.enc.env`, déchiffrés à l'exécution par `scripts/compose.sh`. Sauvegarde et restauration vérifiée : `scripts/backup.sh` et `scripts/restore-check.sh` (exercice fait sur `local-dev`, pas encore sur la préproduction).
 - **Implémentation P0 en cours**, découpée en tranches dans [ROADMAP.md](ROADMAP.md) et suivie dans [TODO.md](TODO.md). Le contrat compte aujourd'hui 43 opérations P0.
 - **Gates :** la CI lance les gates G1 à G4 en groupes parallèles (une tâche par groupe, puis la tâche `quality` vérifie que chaque étape de `make quality` a réussi pour le commit testé, [ADR-0010](docs/decisions/0010-ci-parallel-gate-groups.md)) sur chaque PR vers `develop` ou `main` et à chaque push sur `develop`. `make quality` reste la définition locale, séquentielle. G5 (e2e), G6 (performance) et G7 (livraison) sont **NOT RUN**.
 - **Rien n'est déployé**, ni en préproduction ni en production.
@@ -92,7 +93,7 @@ make up-local-dev  # démarre le profil local-dev (images construites, migration
 make down-local-dev
 ```
 
-`make up-local-dev` lit `.env.local-dev`, à créer à partir de `.env.example`. Ce fichier doit définir `APP_ENV=local-dev` une seule fois, sinon `scripts/compose-env-guard.sh` refuse de démarrer. Ne le committez pas.
+Les secrets sont chiffrés dans Git et déchiffrés à l'exécution, sans fichier en clair. Avant le premier démarrage : `scripts/secrets.sh keygen`, puis `scripts/secrets.sh init local-dev` (le mot de passe de la base et `CURSOR_KEY` sont générés), puis `make up-local-dev`. Le détail, dont l'accès des autres membres, est dans [secrets/README.md](secrets/README.md). Sans fichier chiffré, `make up-local-dev` se rabat sur `.env.local-dev`, à créer à partir de `.env.example` ; ne le committez pas.
 
 Lisez une recette avec `make -n <cible>` avant de la lancer pour la première fois ; `make help` liste toutes les cibles.
 
@@ -104,7 +105,7 @@ Lisez une recette avec `make -n <cible>` avant de la lancer pour la première fo
 | `make build` | images `api`, `web` et `migrate`, empreintes dans `reports/image-digests.txt` | disponible |
 | `make migrate-up`, `migrate-status`, `migrate-new NAME=<slug>` | migrations goose, uniquement en avant ; hors `local-dev`, `migrate-up` exige une confirmation et une preuve de sauvegarde | disponible |
 | `make db-reset` | recrée la base, avec `APP_ENV=local-dev` uniquement | disponible |
-| `make up-staging-test`, `down-staging-test` | profil de préproduction, avec `.env.staging-test` hors Git | disponible ; aucune préproduction n'est encore déployée |
+| `make up-staging-test`, `down-staging-test` | profil de préproduction, avec les secrets de `secrets/staging-test.enc.env` | disponible ; aucune préproduction n'est encore déployée |
 | `make up-production-live` | production | refusé hors du job de livraison automatisé, qui n'existe pas encore |
 | `make test-e2e` (G5), `make perf` (G6), `make seed` | e2e, performance, données de démonstration | **NOT IMPLEMENTED** |
 | `make quality-full` | `quality` plus `test-e2e` et `perf` | échoue tant que G5 et G6 ne sont pas implémentés |
@@ -118,7 +119,8 @@ Lisez une recette avec `make -n <cible>` avant de la lancer pour la première fo
 ├── api/openapi.yaml       # contrat REST, source des types Go et TypeScript générés
 ├── db/migrations/         # migrations SQL goose, immuables après fusion
 ├── db/queries/            # requêtes sqlc (db/sqlc.yaml)
-├── scripts/               # scripts appelés par Make et la CI
+├── scripts/               # scripts appelés par Make et la CI (secrets, sauvegarde, restauration, worktrees)
+├── secrets/               # secrets chiffrés (SOPS et age) et clés publiques des destinataires
 ├── deploy/                # configuration Traefik
 ├── compose.yaml           # profils local-dev, staging-test, production-live
 ├── Makefile, mk/          # point d'entrée unique des gates et des opérations
