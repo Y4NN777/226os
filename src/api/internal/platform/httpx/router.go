@@ -38,7 +38,7 @@ func NewRouter(logger *slog.Logger, deps Deps) http.Handler {
 	r.Use(echoRequestID)
 	r.Use(accessLog(logger))
 	r.Use(Recover(logger))
-	r.Use(middleware.Timeout(requestTimeout))
+	r.Use(timeout(logger, requestTimeout))
 	r.Get("/healthz", healthz)
 	r.Get("/readyz", readyz(logger, deps.Ready, deps.ReadyTimeout))
 	apigen.HandlerWithOptions(deps.Server, apigen.ChiServerOptions{

@@ -6,7 +6,7 @@ middleware.RequestID
 echoRequestID
 accessLog(logger)
 Recover(logger)
-middleware.Timeout(requestTimeout)
+timeout(logger, requestTimeout)
 # Installed through apigen.ChiServerOptions.Middlewares, in the order of the slice. apigen wraps the
 # handler with each element in turn, so the LAST one is the OUTERMOST and runs FIRST: the validator
 # runs before subject resolution (ADR-0004 point 8), then subject resolution, then idempotency (it needs

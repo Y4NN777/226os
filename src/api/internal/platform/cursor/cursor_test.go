@@ -6,6 +6,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Y4NN777/226os/src/api/internal/platform/apperr"
 	"github.com/Y4NN777/226os/src/api/internal/platform/cursor"
@@ -126,12 +127,12 @@ func TestDecodeRejections(t *testing.T) {
 func TestDecodeRejectsValidlySignedGarbage(t *testing.T) {
 	c := newCodec(t, 1)
 	for name, body := range map[string][]byte{
-		"unsupported version":       {2, 0, 0, 0},
-		"no fields":                 {1},
-		"field length past the end": {1, 5, 'a'},
-		"bad varint":                {1, 0x80},
-		"trailing bytes":            {1, 0, 0, 0, 'x'},
-		"only two fields":           {1, 0, 0},
+		"unsupported version":       {3, 0, 0, 0},
+		"no fields":                 {2},
+		"field length past the end": {2, 5, 'a'},
+		"bad varint":                {2, 0x80},
+		"trailing bytes":            {2, 0, 0, 0, 'x'},
+		"only two fields":           {2, 0, 0},
 	} {
 		t.Run(name, func(t *testing.T) {
 			_, err := c.Decode(cursor.SignForTest(c, body), "")
@@ -144,4 +145,111 @@ func TestNewRejectsAKeyWithNoEntropy(t *testing.T) {
 	if _, err := cursor.New(make([]byte, 32)); err == nil {
 		t.Fatal("an all-zero key must be refused")
 	}
+}
+
+// clock is a mutable test clock.
+type clock struct{ now time.Time }
+
+func (c *clock) Now() time.Time { return c.now }
+
+func expiryCodec(t *testing.T) (*cursor.Codec, *clock) {
+	t.Helper()
+	clk := &clock{now: time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)}
+	c, err := cursor.New(key(1), cursor.WithClock(clk.Now))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return c, clk
+}
+
+func TestCursorExpiry(t *testing.T) {
+	ttl := 24 * time.Hour
+	tests := []struct {
+		name    string
+		advance time.Duration
+		ok      bool
+	}{
+		{"fresh", 0, true},
+		{"exactly at TTL", ttl, true},
+		{"TTL plus one second", ttl + time.Second, false},
+		{"future within skew", -5 * time.Minute, true},
+		{"future beyond skew", -5*time.Minute - time.Second, false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			c, clk := expiryCodec(t)
+			s := c.Encode(sample)
+			clk.now = clk.now.Add(tc.advance)
+			got, err := c.Decode(s, sample.FilterHash)
+			if tc.ok {
+				if err != nil || got != sample {
+					t.Fatalf("got %+v, %v", got, err)
+				}
+				return
+			}
+			assertInvalid(t, err)
+			if !strings.Contains(err.Error(), "invalid or expired") || strings.Contains(strings.ToLower(err.Error()), "ttl") {
+				t.Fatalf("error text = %q", err)
+			}
+		})
+	}
+}
+
+func TestWithTTLOverridesTheDefault(t *testing.T) {
+	clk := &clock{now: time.Unix(1_800_000_000, 0)}
+	c, err := cursor.New(key(1), cursor.WithClock(clk.Now), cursor.WithTTL(time.Minute))
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := c.Encode(sample)
+	clk.now = clk.now.Add(time.Minute)
+	if _, err := c.Decode(s, sample.FilterHash); err != nil {
+		t.Fatalf("at TTL: %v", err)
+	}
+	clk.now = clk.now.Add(time.Second)
+	_, err = c.Decode(s, sample.FilterHash)
+	assertInvalid(t, err)
+}
+
+func TestDefaultClockIsTheWallClock(t *testing.T) {
+	c := newCodec(t, 1)
+	if _, err := c.Decode(c.Encode(sample), sample.FilterHash); err != nil {
+		t.Fatalf("fresh cursor on the real clock: %v", err)
+	}
+}
+
+func TestTamperedTimestampIsRejectedByTheHMAC(t *testing.T) {
+	c, _ := expiryCodec(t)
+	raw, err := base64.RawURLEncoding.DecodeString(c.Encode(sample))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ts := len(raw) - 32 - 8 // last byte of the issued-at
+	raw[ts+7] ^= 0x01
+	_, err = c.Decode(base64.RawURLEncoding.EncodeToString(raw), sample.FilterHash)
+	assertInvalid(t, err)
+}
+
+func TestVersionOneCursorIsRejected(t *testing.T) {
+	c, _ := expiryCodec(t)
+	body := []byte{1}
+	for _, f := range []string{sample.Sort, sample.ID, sample.FilterHash} {
+		body = append(body, byte(len(f)))
+		body = append(body, f...)
+	}
+	_, err := c.Decode(cursor.SignForTest(c, body), sample.FilterHash)
+	assertInvalid(t, err)
+}
+
+func TestVersionTwoWithoutTimestampIsRejected(t *testing.T) {
+	c, _ := expiryCodec(t)
+	_, err := c.Decode(cursor.SignForTest(c, []byte{2, 0, 0, 0, 1, 2, 3}), "")
+	assertInvalid(t, err)
+}
+
+func TestNegativeIssuedAtDoesNotPanic(t *testing.T) {
+	c, _ := expiryCodec(t)
+	body := append([]byte{2, 0, 0, 0}, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff)
+	_, err := c.Decode(cursor.SignForTest(c, body), "")
+	assertInvalid(t, err)
 }
