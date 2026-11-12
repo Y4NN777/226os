@@ -54,5 +54,6 @@ coverage: doctor ## G2: Go first-party statements exactly 100.00%, web above 70%
 
 test-integration: doctor ## G3: real ephemeral PostgreSQL 18 (go test -tags integration), script tests with Docker, container verification (needs Docker)
 	go test -race -count=1 -tags integration ./...
-	@for t in scripts/tests/*_test.sh; do echo "-- $$t (DB_RESET_TEST_DOCKER=1)"; DB_RESET_TEST_DOCKER=1 "$$t"; done
+	@# lint already ran every script test; only db-reset_test.sh has an extra Docker pass.
+	@echo "-- scripts/tests/db-reset_test.sh (DB_RESET_TEST_DOCKER=1)"; DB_RESET_TEST_DOCKER=1 scripts/tests/db-reset_test.sh
 	scripts/verify-containers.sh
