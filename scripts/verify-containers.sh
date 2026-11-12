@@ -46,6 +46,8 @@ done < <(grep -E '^[[:space:]]+image:' compose.yaml)
 [ "$bad" -eq 0 ] && pass "compose.yaml: external images pinned by digest"
 
 # 2. Dummy env files, one per profile, then `compose config` + policy checks on the resolved model.
+# A throwaway random value per run (never a literal key-shaped string in the source).
+cursor_key="$(head -c 32 /dev/urandom | base64 -w0 | tr '+/' '-_' | tr -d '=')"
 mk_env() { # profile
   cat >"$tmp/env.$1" <<ENV
 APP_ENV=$1
@@ -53,7 +55,7 @@ POSTGRES_USER=app226
 POSTGRES_DB=app226
 POSTGRES_PASSWORD=dummy-not-a-secret
 DATABASE_URL=postgres://app226:dummy-not-a-secret@postgres:5432/app226?sslmode=disable
-CURSOR_KEY=ZHVtbXktbm90LWEtc2VjcmV0LWR1bW15LW5vdC1hLXNlY3JldA
+CURSOR_KEY=$cursor_key
 PUBLIC_HOST=verify.example.test
 ACME_EMAIL=ops@example.test
 ENV

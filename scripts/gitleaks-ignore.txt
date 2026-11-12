@@ -1,0 +1,10 @@
+# Findings the secret scan is told to ignore, one fingerprint per line (gitleaks .gitleaksignore format:
+# <commit>:<file>:<rule>:<line>). Each entry needs a reason here and a reviewer. This file is NOT a
+# place for real secrets: a real leak is rotated, never ignored.
+#
+# fddf1a3: scripts/verify-containers.sh carried a throwaway dummy CURSOR_KEY (base64 of the text
+# "dummy-not-a-secret...") used only for `compose config` in CI. It was already pushed in PR #33
+# before the value became generated at run time, and pushed history is not rewritten.
+# The fingerprint names the commit: merge PR #33 with a merge commit (the repository's convention). If it
+# is ever squash-merged or rebased, this line must be re-pointed at the new commit in the same PR.
+fddf1a3462c72cb0c6bf645daccd143dbc34de5f:scripts/verify-containers.sh:generic-api-key:56

@@ -12,6 +12,7 @@ import (
 
 	"github.com/Y4NN777/226os/src/api/internal/platform/apigen"
 	"github.com/Y4NN777/226os/src/api/internal/platform/apispec"
+	"github.com/Y4NN777/226os/src/api/internal/platform/idempotency"
 	"github.com/Y4NN777/226os/src/api/internal/platform/subject"
 )
 
@@ -25,6 +26,9 @@ type Deps struct {
 	// Subjects resolves who is calling. Nil means everyone is anonymous; S1 provides the
 	// session-backed resolver (ADR-0003). The subject always comes from the resolver.
 	Subjects subject.Resolver
+	// Idempotency stores Idempotency-Key records (ADR-0004 point 6). Nil disables the
+	// middleware (pass-through); app always wires the PostgreSQL store.
+	Idempotency idempotency.Store
 }
 
 // NewRouter builds the root router and mounts the generated API under /api/v1.
@@ -43,8 +47,10 @@ func NewRouter(logger *slog.Logger, deps Deps) http.Handler {
 		ErrorHandlerFunc: APIErrorHandler(logger),
 		// apigen wraps the handler with each element in turn, so the LAST element is the OUTERMOST and
 		// runs first: schema validation before subject resolution, which becomes a database lookup
-		// (ADR-0004 point 8: validate before authorization-sensitive work).
+		// (ADR-0004 point 8: validate before authorization-sensitive work). Idempotency comes first
+		// in the slice, so it runs last: it needs the resolved subject and a valid request.
 		Middlewares: []apigen.MiddlewareFunc{
+			idempotency.Middleware(deps.Idempotency, logger, WriteError(logger)),
 			subject.Middleware(deps.Subjects, WriteError(logger)),
 			embeddedValidator(logger),
 		},
@@ -86,6 +92,9 @@ type statusRecorder struct {
 	http.ResponseWriter
 	status int
 }
+
+// Unwrap lets http.NewResponseController reach Flush, SetWriteDeadline and friends.
+func (s *statusRecorder) Unwrap() http.ResponseWriter { return s.ResponseWriter }
 
 func (s *statusRecorder) WriteHeader(code int) {
 	s.status = code
