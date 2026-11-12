@@ -51,7 +51,7 @@ services:
     <<: *hardened
     restart: "no"
     image: ${MIGRATE_IMAGE:-226os-migrate:dev}
-    build: { context: ., dockerfile: apps/api/Dockerfile, target: migrate }
+    build: { context: ., dockerfile: src/api/Dockerfile, target: migrate }
     profiles: [local-dev]
     user: "65532:65532"
     environment:
@@ -81,7 +81,7 @@ services:
   api:
     <<: *hardened
     image: ${API_IMAGE:-226os-api:dev}
-    build: { context: ., dockerfile: apps/api/Dockerfile, target: api }
+    build: { context: ., dockerfile: src/api/Dockerfile, target: api }
     profiles: [local-dev, staging-test, production-live]
     user: "65532:65532"
     environment:
@@ -101,7 +101,7 @@ services:
   web:
     <<: *hardened
     image: ${WEB_IMAGE:-226os-web:dev}
-    build: { context: ., dockerfile: apps/web/Dockerfile, target: web }
+    build: { context: ., dockerfile: src/web/Dockerfile, target: web }
     profiles: [local-dev, staging-test, production-live]
     user: "101:101"
     environment:

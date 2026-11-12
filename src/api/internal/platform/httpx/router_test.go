@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Y4NN777/226os/apps/api/internal/platform/httpx"
+	"github.com/Y4NN777/226os/src/api/internal/platform/httpx"
 )
 
 func newRouter(buf *bytes.Buffer) http.Handler {

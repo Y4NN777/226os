@@ -16,9 +16,9 @@ ADR-0002 made `Y4NN77` the interim owner of every role and says roles are assign
 
    | Area | People | Paths | Tasks |
    |---|---|---|---|
-   | Ops and platform | `Y4NN777` (owner) | `scripts/**`, `mk/**`, `Makefile`, `compose.yaml`, `deploy/**`, `.github/**`, `apps/api/internal/platform/**` | TASK-OPS-001, CI, Compose, release evidence |
-   | Backend (lead: `Y4NN777`, who also codes) | `NICE-DEV226`, `mibienpanjoe`, with the lead; `PANK4SS` helps on backend integration and support | `apps/api/**` (except platform), `db/**`, `api/openapi.yaml` | TASK-SEC-001, TASK-DATA-001, TASK-API-001: identity and API core, data and Discover, then the Solve, Learn and Build slices |
-   | Frontend (product side, with the owner) | `PANK4SS` | `apps/web/**`, `DESIGN.md` | TASK-WEB-001: implement the existing HTML prototypes (`prototypes/html`) in the web app, plus the ADR-0007 visual, accessibility and responsive evidence |
+   | Ops and platform | `Y4NN777` (owner) | `scripts/**`, `mk/**`, `Makefile`, `compose.yaml`, `deploy/**`, `.github/**`, `src/api/internal/platform/**` | TASK-OPS-001, CI, Compose, release evidence |
+   | Backend (lead: `Y4NN777`, who also codes) | `NICE-DEV226`, `mibienpanjoe`, with the lead; `PANK4SS` helps on backend integration and support | `src/api/**` (except platform), `db/**`, `api/openapi.yaml` | TASK-SEC-001, TASK-DATA-001, TASK-API-001: identity and API core, data and Discover, then the Solve, Learn and Build slices |
+   | Frontend (product side, with the owner) | `PANK4SS` | `src/web/**`, `DESIGN.md` | TASK-WEB-001: implement the existing HTML prototypes (`prototypes/html`) in the web app, plus the ADR-0007 visual, accessibility and responsive evidence |
 
    `PANK4SS` is given the frontend because of a strong UX eye and the prototypes that already exist; the same person also supports backend integration (typed API client, wiring screens to endpoints) and general support. That does not give write ownership of backend paths.
 

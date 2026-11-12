@@ -2,7 +2,7 @@
 # or: go tool oapi-codegen -config api/oapi-codegen.yaml api/openapi.yaml
 # Output is committed and never hand-edited; scripts/check-generated.sh fails on drift.
 package: apigen
-output: apps/api/internal/platform/apigen/apigen.gen.go
+output: src/api/internal/platform/apigen/apigen.gen.go
 generate:
   models: true
   chi-server: true

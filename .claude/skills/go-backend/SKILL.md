@@ -1,11 +1,11 @@
 ---
 name: go-backend
-description: 226os Go modular monolith rules and practices (Chi transport-only handlers, domain/service/repository boundaries, context deadlines, error wrapping, slog logging, config, concurrency, package layout, 100% statement coverage). Use when touching apps/api/**.
+description: 226os Go modular monolith rules and practices (Chi transport-only handlers, domain/service/repository boundaries, context deadlines, error wrapping, slog logging, config, concurrency, package layout, 100% statement coverage). Use when touching src/api/**.
 ---
 # Go Backend (modular monolith)
 
 ## Scope and triggers
-- `apps/api/**` (`cmd/`, `internal/<module>/...`). Pair with `postgres-data` for `db/**`, `api-contract` for `api/openapi.yaml`, `security-authz` for identity/auth paths.
+- `src/api/**` (`cmd/`, `internal/<module>/...`). Pair with `postgres-data` for `db/**`, `api-contract` for `api/openapi.yaml`, `security-authz` for identity/auth paths.
 - Status: repo is documentation-only (`docs/architecture/ARCHITECTURE.md:3`). Do not scaffold code unless a slice is opened via `/start-slice` with owner/reviewer and closed ADR-0001 conditions (`docs/decisions/0001-g0-conditional-baseline.md:29-34`).
 
 ## Project rules (binding)
@@ -41,19 +41,19 @@ description: 226os Go modular monolith rules and practices (Chi transport-only h
 - Concurrency: every goroutine has a clear exit (ctx cancellation); prefer `errgroup` for fan-out with cancellation; guard shared state with `sync.Mutex` or confine it; run `-race`. [CodeReviewComments#goroutine-lifetimes](https://go.dev/wiki/CodeReviewComments#goroutine-lifetimes), [errgroup](https://pkg.go.dev/golang.org/x/sync/errgroup)
 - Don't `panic` for normal errors; Recoverer is the last line, not control flow. [CodeReviewComments#dont-panic](https://go.dev/wiki/CodeReviewComments#dont-panic)
 - Package names short, singular, meaningful; no `util`, `common`, `types`, `api`. [CodeReviewComments#package-names](https://go.dev/wiki/CodeReviewComments#package-names), [Effective Go](https://go.dev/doc/effective_go#names)
-- `internal/` only hides packages from code outside `apps/api/`; it does NOT stop `internal/solve` importing `internal/identity/transport`. Enforce the module boundary (`docs/architecture/ARCHITECTURE.md:20`) with an import-boundary linter (e.g. golangci-lint depguard — tool pin per ADR) plus review. [Go internal packages](https://go.dev/doc/go1.4#internalpackages), [Go modules layout](https://go.dev/doc/modules/layout)
+- `internal/` only hides packages from code outside `src/api/`; it does NOT stop `internal/solve` importing `internal/identity/transport`. Enforce the module boundary (`docs/architecture/ARCHITECTURE.md:20`) with an import-boundary linter (e.g. golangci-lint depguard — tool pin per ADR) plus review. [Go internal packages](https://go.dev/doc/go1.4#internalpackages), [Go modules layout](https://go.dev/doc/modules/layout)
 
 ## SOLID / design notes for this layer
 - Layout (INFERRED from `docs/DEV.md:24`, `:44`; confirm in TASK-API-001):
 ```text
-apps/api/cmd/api/main.go               # composition root only
-apps/api/internal/platform/{config,httpx,logging,pg}/   # cross-cutting, no business rules
-apps/api/internal/<module>/domain/     # entities, invariants, sentinel errors (no IO)
-apps/api/internal/<module>/service/    # use cases, authz call, tx orchestration
-apps/api/internal/<module>/repository/ # sqlc-backed adapters, error translation
-apps/api/internal/<module>/transport/  # Chi handlers, DTO <-> domain, problem+json mapping
+src/api/cmd/api/main.go               # composition root only
+src/api/internal/platform/{config,httpx,logging,pg}/   # cross-cutting, no business rules
+src/api/internal/<module>/domain/     # entities, invariants, sentinel errors (no IO)
+src/api/internal/<module>/service/    # use cases, authz call, tx orchestration
+src/api/internal/<module>/repository/ # sqlc-backed adapters, error translation
+src/api/internal/<module>/transport/  # Chi handlers, DTO <-> domain, problem+json mapping
 ```
-Doc tension: brief/TASKS use "application/domain" (`docs/spec-kit/TASKS.md:92`); DEV.md names it `service` — use `service`. `db/` location differs between `apps/api/db` (`docs/DEV.md:24`) and root `db/` (`docs/DEV.md:26`) — resolve in ADR-OPEN-005.
+Doc tension: brief/TASKS use "application/domain" (`docs/spec-kit/TASKS.md:92`); DEV.md names it `service` — use `service`. `db/` location differs between `src/api/db` (`docs/DEV.md:24`) and root `db/` (`docs/DEV.md:26`) — resolve in ADR-OPEN-005.
 - SRP: handler = decode/validate shape, call one service method, encode. Service = one use case. Repository = SQL only.
 - DIP/ISP: service owns tiny interfaces (`QuestionStore{ Get(ctx,id) ...}`), not the whole `sqlc.Querier`; repository implements them.
 - OCP: add a module/route by mounting a new `transport.Routes(r chi.Router)`; never edit neighbour modules.

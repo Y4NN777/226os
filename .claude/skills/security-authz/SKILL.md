@@ -1,11 +1,11 @@
 ---
 name: security-authz
-description: 226os authentication and authorization (first-party email/password, Argon2id, opaque hashed sessions in PostgreSQL, cookie flags, synchronizer CSRF, PostgreSQL rate limits, anonymous/member/moderator/owner + resource ownership/IDOR, negative authz tests, error redaction, OWASP ASVS/Top 10). Use when touching apps/api/internal/identity/**, apps/api/**/auth*/**, apps/web/src/features/identity/**, or any endpoint's permission check.
+description: 226os authentication and authorization (first-party email/password, Argon2id, opaque hashed sessions in PostgreSQL, cookie flags, synchronizer CSRF, PostgreSQL rate limits, anonymous/member/moderator/owner + resource ownership/IDOR, negative authz tests, error redaction, OWASP ASVS/Top 10). Use when touching src/api/internal/identity/**, src/api/**/auth*/**, src/web/src/features/identity/**, or any endpoint's permission check.
 ---
 # Security, Authentication & Authorization
 
 ## Scope and triggers
-- `apps/api/internal/identity/**`, `apps/api/**/auth*/**`, session/CSRF/rate-limit middleware, every service-level permission check, `apps/web/src/features/identity/**`.
+- `src/api/internal/identity/**`, `src/api/**/auth*/**`, session/CSRF/rate-limit middleware, every service-level permission check, `src/web/src/features/identity/**`.
 - Status: G0-AUTH-001..004 and G0-AUTHZ-001 are ACCEPTED WITH CONDITIONS (`docs/decisions/0001-g0-conditional-baseline.md:16`); the matrix is PROPOSED (`docs/spec-kit/AUTHORIZATION_MATRIX.md:3`); ADR-OPEN-003 must close before TASK-SEC-001 (`docs/decisions/README.md:32`, `docs/spec-kit/AUTHORIZATION_MATRIX.md:55`). Timeouts, Argon2 profile and rate windows are proposals, not accepted values.
 
 ## Project rules (binding)

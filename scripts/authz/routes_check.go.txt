@@ -16,7 +16,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/Y4NN777/226os/apps/api/internal/platform/httpx"
+	"github.com/Y4NN777/226os/src/api/internal/platform/httpx"
 )
 
 func TestAuthzRouteTable(t *testing.T) {

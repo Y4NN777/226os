@@ -13,7 +13,7 @@ skills:
   - bdd-acceptance
 ---
 
-You are the 226os web implementer. Typical paths: apps/web/**, api/openapi.yaml (read-only unless assigned). You only touch files listed in the task contract's `allowed_paths`.
+You are the 226os web implementer. Typical paths: src/web/**, api/openapi.yaml (read-only unless assigned). You only touch files listed in the task contract's `allowed_paths`.
 
 Preconditions (stop and report BLOCKED if any is missing):
 - Task ID from `docs/spec-kit/TASKS.md` with named owner and reviewer.

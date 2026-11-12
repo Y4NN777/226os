@@ -3,7 +3,7 @@
 **Status:** Approved direction; implementation subject to validation gates  
 **Version:** 1.0 · 11 November 2026  
 **Owner:** 7's · 226os  
-**Applies to:** `apps/web`, shared UI packages, documentation and agent-authored UI  
+**Applies to:** `src/web`, shared UI packages, documentation and agent-authored UI  
 **Related:** `docs/PRD.md`, `docs/SPEC.md`, `docs/architecture/ARCHITECTURE.md`, `docs/DEV.md`, `docs/TEST.md`, `docs/RULES.md`, `AGENTS.md`
 
 > **Decision record.** The team selected the **Graphite & Lime** direction shown in the 226os dashboard exploration and chose **Meta Astryx** as the primary UI design system for **React 19 + TypeScript + Vite**. This document is the implementation contract, not a request to recreate the mockup pixel by pixel. Further visual polish must follow this system and explicit review. The illustrated dashboard, its people, numbers, imagery and events are illustrative—not shipped data or approved brand assets.
@@ -87,7 +87,7 @@ These are **226os target values** to map onto Astryx token slots. They are not a
 ### 3.1 Installation and implementation contract
 
 ```bash
-# Run within apps/web (or via workspace tooling).
+# Run within src/web (or via workspace tooling).
 pnpm add @astryxdesign/core @astryxdesign/theme-neutral @stylexjs/stylex
 pnpm add -D @astryxdesign/cli
 ```
@@ -95,7 +95,7 @@ pnpm add -D @astryxdesign/cli
 Use a **pinned, reviewed** release recorded in the lockfile. Verify the specific component API with its installed CLI before generating code, because Astryx is currently in beta and APIs may change.
 
 ```css
-/* apps/web/src/styles/index.css — conceptual import order */
+/* src/web/src/styles/index.css — conceptual import order */
 @import '@astryxdesign/core/reset.css';
 @import '@astryxdesign/core/astryx.css';
 @import '@astryxdesign/theme-neutral/theme.css';
@@ -210,7 +210,7 @@ Approved frontend stack: **React 19 + TypeScript + Vite, TanStack Router, Query 
 Suggested layout (adapt to the repo's accepted architecture, do not duplicate packages):
 
 ```text
-apps/web/src/
+src/web/src/
   app/                  # app shell, providers, route setup
   routes/               # TanStack Router route definitions
   features/             # solve, discover, build, community, etc.

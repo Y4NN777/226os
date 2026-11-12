@@ -13,15 +13,15 @@
 /compose.yaml           @Y4NN777
 /deploy/                @Y4NN777
 /.github/               @Y4NN777
-/apps/api/internal/platform/   @Y4NN777
+/src/api/internal/platform/   @Y4NN777
 
 # Backend: lead and the two backend developers
-/apps/api/              @Y4NN777 @NICE-DEV226 @mibienpanjoe
-/apps/api/internal/platform/   @Y4NN777
+/src/api/              @Y4NN777 @NICE-DEV226 @mibienpanjoe
+/src/api/internal/platform/   @Y4NN777
 /db/                    @Y4NN777 @NICE-DEV226 @mibienpanjoe
 
 # Frontend: implements the prototypes, reviewed by the owner
-/apps/web/              @PANK4SS @Y4NN777
+/src/web/              @PANK4SS @Y4NN777
 /DESIGN.md              @PANK4SS @Y4NN777
 
 # Contract: both sides consume it

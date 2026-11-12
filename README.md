@@ -155,7 +155,7 @@ La méthode de développement repose sur des objectifs explicites, des contrats 
 	└── spec-kit/              # Handoff, contrats, tâches et G0
 ```
 
-Les répertoires d'application (`apps/`), de données (`db/`), d'infrastructure (`infra/`), le contrat `api/openapi.yaml`, le `Makefile` et les workflows CI restent à créer. **Il n'existe pas encore de procédure d'installation en une commande vérifiée.**
+Les répertoires d'application (`src/`), de données (`db/`), d'infrastructure (`infra/`), le contrat `api/openapi.yaml`, le `Makefile` et les workflows CI restent à créer. **Il n'existe pas encore de procédure d'installation en une commande vérifiée.**
 
 ## Références étudiées
 

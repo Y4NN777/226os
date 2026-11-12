@@ -1,7 +1,7 @@
 # Routes that are intentionally reachable without authentication (negative-authz gate, G4).
 # Format: one "METHOD /path" per line (chi route pattern, upper-case method). Comments start with '#'.
 #
-# `make security` fails when the router mounted by apps/api/internal/platform/httpx.NewRouter
+# `make security` fails when the router mounted by src/api/internal/platform/httpx.NewRouter
 # serves any route that is not listed here, until an authz negative test covers that route
 # and the route is either added here (public by design) or protected and covered by a test.
 # Changing this file is a security review item: every addition needs a reviewer and a reason.

@@ -19,7 +19,7 @@
 ├── docs/research/REFERENCES.md
 ├── docs/decisions/
 ├── docs/quality/
-├── apps/
+├── src/
 │   ├── web/src/{routes,features,components,lib,i18n}/
 │   └── api/{cmd,internal}/
 ├── api/openapi.yaml
@@ -28,7 +28,7 @@
 ├── .github/workflows/
 └── THIRD_PARTY_NOTICES.md
 ```
-Les dossiers `apps`, `api`, `db`, `infra` sont **cibles**, à créer lors de l'initialisation du code. Le paquet livré ici constitue les documents de pilotage, pas une application déjà compilable.
+Les dossiers `src`, `api`, `db`, `infra` sont **cibles**, à créer lors de l'initialisation du code. Le paquet livré ici constitue les documents de pilotage, pas une application déjà compilable.
 
 ## 3. Organisation du travail : vertical slices
 1. Décrire le problème et le critère d'acceptation (PRD + SPEC, ID stable).

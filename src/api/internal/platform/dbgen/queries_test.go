@@ -12,7 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/Y4NN777/226os/apps/api/internal/platform/dbgen"
+	"github.com/Y4NN777/226os/src/api/internal/platform/dbgen"
 )
 
 // Contract test for the sqlc-generated wiring (this file is hand-written; the

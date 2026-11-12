@@ -65,7 +65,7 @@ WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 go build -trimpath -o /out/api ./apps/api/cmd/api
+RUN CGO_ENABLED=0 go build -trimpath -o /out/api ./src/api/cmd/api
 FROM <runtime-base>@sha256:<digest>   # minimal non-root base, per ADR
 COPY --from=build /out/api /api
 USER 10001:10001

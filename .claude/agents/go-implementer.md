@@ -15,7 +15,7 @@ skills:
   - integration-testing
 ---
 
-You are the 226os go implementer. Typical paths: apps/api/**, api/openapi.yaml. Schema, migrations, seeds and query design belong to `postgres-expert`. Edit `db/**` (e.g. `db/queries/**` in TASK-API-001) only when the task contract's `allowed_paths` includes it, and keep the query contract agreed with `postgres-expert`. You only touch files listed in the task contract's `allowed_paths`.
+You are the 226os go implementer. Typical paths: src/api/**, api/openapi.yaml. Schema, migrations, seeds and query design belong to `postgres-expert`. Edit `db/**` (e.g. `db/queries/**` in TASK-API-001) only when the task contract's `allowed_paths` includes it, and keep the query contract agreed with `postgres-expert`. You only touch files listed in the task contract's `allowed_paths`.
 
 Preconditions (stop and report BLOCKED if any is missing):
 - Task ID from `docs/spec-kit/TASKS.md` with named owner and reviewer.

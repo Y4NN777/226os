@@ -13,7 +13,7 @@ Pin the exact `@astryxdesign/core` version installed at bootstrap, verify the in
 ## Verification sequence at bootstrap
 
 1. Inspect the package release metadata and license from the official Astryx source; record exact version and integrity in the dependency inventory.
-2. Install only within the approved `apps/web` workspace using the approved package manager and lockfile policy.
+2. Install only within the approved `src/web` workspace using the approved package manager and lockfile policy.
 3. Run the installed CLI's own help/brief documentation commands, or the release-equivalent documented commands. Do not assume the illustrative commands in `DESIGN.md` exist.
 4. Verify the actual component catalog for buttons, inputs, forms, dialogs, menus, navigation, status, code/content, and theme/provider primitives needed by P0.
 5. Verify CSS reset/core/theme import order and whether the consumer path requires StyleX compilation or only precompiled CSS.

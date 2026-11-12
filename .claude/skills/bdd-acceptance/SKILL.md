@@ -1,11 +1,11 @@
 ---
 name: bdd-acceptance
-description: Acceptance tests for 226os. Given/When/Then is taken verbatim from docs/SPEC.md, traced to US-* IDs, and run as Playwright E2E with FR/EN, mobile, slow network, accessibility and negative cases (G5). Use when touching tests/e2e/**, e2e/**, **/*.feature, apps/web/e2e/**.
+description: Acceptance tests for 226os. Given/When/Then is taken verbatim from docs/SPEC.md, traced to US-* IDs, and run as Playwright E2E with FR/EN, mobile, slow network, accessibility and negative cases (G5). Use when touching tests/e2e/**, e2e/**, **/*.feature, src/web/e2e/**.
 ---
 # BDD Acceptance and E2E (G5)
 
 ## Scope and triggers
-- Executable acceptance scenarios: `**/*.feature`, `tests/e2e/**`, `e2e/**`, `apps/web/e2e/**`, plus the Playwright config and fixtures.
+- Executable acceptance scenarios: `**/*.feature`, `tests/e2e/**`, `e2e/**`, `src/web/e2e/**`, plus the Playwright config and fixtures.
 - Any P0 story change (`US-SOLVE-001`, `US-DISCOVER-001`, `US-BUILD-001`, `US-IDENTITY-001`, `US-ACCESS-001`).
 - HTTP-level acceptance against the API belongs to `integration-testing`. This skill owns the traceability and the browser journeys.
 

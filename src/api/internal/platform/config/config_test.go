@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Y4NN777/226os/apps/api/internal/platform/config"
+	"github.com/Y4NN777/226os/src/api/internal/platform/config"
 )
 
 func env(m map[string]string) func(string) string {

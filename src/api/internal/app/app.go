@@ -9,8 +9,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/Y4NN777/226os/apps/api/internal/platform/config"
-	"github.com/Y4NN777/226os/apps/api/internal/platform/httpx"
+	"github.com/Y4NN777/226os/src/api/internal/platform/config"
+	"github.com/Y4NN777/226os/src/api/internal/platform/httpx"
 )
 
 const shutdownTimeout = 10 * time.Second

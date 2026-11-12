@@ -2,7 +2,7 @@
 *
 !go.mod
 !go.sum
-!apps/api/**
+!src/api/**
 !db/migrations/**
 **/node_modules
 **/coverage

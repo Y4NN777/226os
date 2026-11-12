@@ -18,14 +18,14 @@ cd "$(git rev-parse --show-toplevel)"
 spec=api/openapi.yaml
 go_config=api/oapi-codegen.yaml
 generated=(
-  apps/api/internal/platform/apigen/apigen.gen.go
-  apps/web/src/api/schema.d.ts
+  src/api/internal/platform/apigen/apigen.gen.go
+  src/web/src/api/schema.d.ts
 )
 
 generate() {
   go tool oapi-codegen -config "$go_config" "$spec"
-  mkdir -p apps/web/src/api
-  pnpm exec openapi-typescript "$spec" -o apps/web/src/api/schema.d.ts >/dev/null
+  mkdir -p src/web/src/api
+  pnpm exec openapi-typescript "$spec" -o src/web/src/api/schema.d.ts >/dev/null
 }
 
 mode="${1:-check}"

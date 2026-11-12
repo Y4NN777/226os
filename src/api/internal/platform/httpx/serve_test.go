@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Y4NN777/226os/apps/api/internal/platform/httpx"
+	"github.com/Y4NN777/226os/src/api/internal/platform/httpx"
 )
 
 func listen(t *testing.T) net.Listener {
