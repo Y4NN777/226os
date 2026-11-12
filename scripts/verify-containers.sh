@@ -78,8 +78,8 @@ if not svcs:
 for name, s in svcs.items():
     if name == "postgres" and s.get("ports"):
         errs.append("postgres publishes ports")
-    if s.get("ports") and not name.startswith("traefik"):
-        errs.append(f"{name} publishes ports (only traefik may)")
+    if s.get("ports") and not name.startswith("traefik") and not (name == "mailpit" and profile == "local-dev"):
+        errs.append(f"{name} publishes ports (only traefik, and mailpit in local-dev, may)")
     for p in s.get("ports", []):
         if profile != "local-dev" and name == "traefik" and p.get("published") not in ("80", "443"):
             errs.append(f"traefik unexpected port {p}")
@@ -124,7 +124,12 @@ for var in ("DATABASE_URL", "CURSOR_KEY"):
 for name, s in svcs.items():
     if name != "api" and "CURSOR_KEY" in (s.get("environment") or {}):
         errs.append(f"{name} receives CURSOR_KEY (the API only)")
-expected = {"local-dev": {"postgres", "migrate", "api", "web", "traefik-local"},
+    if name != "api" and "SMTP_PASSWORD" in (s.get("environment") or {}):
+        errs.append(f"{name} receives SMTP_PASSWORD (the API only)")
+# The mail catcher is a local-dev convenience: it must never exist in a deployed profile.
+if profile != "local-dev" and "mailpit" in svcs:
+    errs.append("mailpit is selected outside local-dev")
+expected = {"local-dev": {"postgres", "migrate", "api", "web", "traefik-local", "mailpit"},
             "staging-test": {"postgres", "api", "web", "traefik", "acme-init"},
             "production-live": {"postgres", "api", "web", "traefik", "acme-init"}}[profile]
 if set(svcs) != expected:

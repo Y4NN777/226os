@@ -39,8 +39,8 @@ type dbPool interface {
 }
 
 // newDeps builds the router collaborators; the idempotency store is always the PostgreSQL one.
-func newDeps(pool dbPool) httpx.Deps {
-	return httpx.Deps{Server: NewServer(), Ready: pool, Idempotency: idempotency.NewPgStore(pool)}
+func newDeps(pool dbPool, opts ...Option) httpx.Deps {
+	return httpx.Deps{Server: NewServer(opts...), Ready: pool, Idempotency: idempotency.NewPgStore(pool)}
 }
 
 // poolOpener builds the database pool; injectable so tests need no database.
@@ -69,7 +69,7 @@ func run(ctx context.Context, getenv func(string) string, out io.Writer, serve s
 		return 1
 	}
 	defer pool.Close()
-	deps := newDeps(pool)
+	deps := newDeps(pool, WithMailer(newMailer(cfg, logger)))
 	// Deferred after pool.Close, so it runs first: the purge job stops before the pool closes.
 	stopPurge := startPurge(ctx, deps.Idempotency, logger)
 	defer stopPurge()
