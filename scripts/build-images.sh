@@ -24,7 +24,7 @@ digests="$reports/image-digests.txt"
 printf '# image digests (local image ID) for revision %s (tag %s)\n' "$sha" "$tag" >"$digests"
 
 # name:dockerfile:target
-for spec in "226os-api:apps/api/Dockerfile:api" "226os-migrate:apps/api/Dockerfile:migrate" "226os-web:apps/web/Dockerfile:web"; do
+for spec in "226os-api:src/api/Dockerfile:api" "226os-migrate:src/api/Dockerfile:migrate" "226os-web:src/web/Dockerfile:web"; do
   IFS=: read -r name file target <<<"$spec"
   docker build --file "$file" --target "$target" --build-arg "VCS_REF=$sha" --tag "$name:$tag" .
   id="$(docker image inspect "$name:$tag" --format '{{.Id}}')"

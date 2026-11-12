@@ -1,8 +1,0 @@
-# Allow-list: only what the Go build needs reaches the daemon.
-*
-!go.mod
-!go.sum
-!apps/api/**
-!db/migrations/**
-**/node_modules
-**/coverage

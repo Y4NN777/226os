@@ -42,7 +42,7 @@ rules:
           - pattern: $EL.outerHTML = $X
           - pattern: $EL.insertAdjacentHTML(...)
       # A constant string literal carries no data and cannot be injected (e.g. the test setup
-      # `document.body.innerHTML = '<div id="root"></div>'` in apps/web/src/main.test.tsx).
+      # `document.body.innerHTML = '<div id="root"></div>'` in src/web/src/main.test.tsx).
       - pattern-not: $EL.innerHTML = "..."
       - pattern-not: $EL.outerHTML = "..."
 

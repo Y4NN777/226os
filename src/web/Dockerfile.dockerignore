@@ -1,0 +1,10 @@
+# Allow-list: only what the Vite build needs reaches the daemon.
+*
+!package.json
+!pnpm-lock.yaml
+!pnpm-workspace.yaml
+!src/web/**
+!api/openapi.yaml
+**/node_modules
+**/dist
+**/coverage

@@ -24,8 +24,8 @@ mapfile -t excludes < <(awk '/^```coverage-exclude-go$/{f=1;next} /^```$/{f=0} f
 # Every exclusion must be a full repo-relative first-party path to an existing file
 # (a short entry such as main.go would otherwise match every file with that name).
 for p in "${excludes[@]}"; do
-  if [[ "$p" != apps/* || ! -f "$p" ]]; then
-    echo "BLOCKED: invalid coverage exclusion '$p' (must be an existing file under apps/)" >&2
+  if [[ "$p" != src/* || ! -f "$p" ]]; then
+    echo "BLOCKED: invalid coverage exclusion '$p' (must be an existing file under src/)" >&2
     exit 1
   fi
 done

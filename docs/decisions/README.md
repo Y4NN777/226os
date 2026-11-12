@@ -1,6 +1,6 @@
 # 226os Architecture Decision Registry
 
-**Status:** every G0 decision is `ACCEPTED` (2026-11-11, approver `Y4NN77`). P0 implementation is authorized under ADR-0001 to ADR-0007. Gates G1 to G7 are evidence, not decisions, and are all `NOT RUN`.
+**Status:** every G0 decision is `ACCEPTED` (2026-11-11, approver `Y4NN77`). P0 implementation is authorized under ADR-0001 to ADR-0007. Gates are evidence, not decisions: G1 to G4 run in CI through `make quality`; G5, G6 and G7 are `NOT RUN`.
 
 The register of G0 decisions is [G0_DECISIONS.md](../spec-kit/G0_DECISIONS.md); each row points to the ADR that records it.
 
@@ -15,6 +15,7 @@ The register of G0 decisions is [G0_DECISIONS.md](../spec-kit/G0_DECISIONS.md); 
 | [0005](0005-data-model-migrations-search.md) | Data model, migrations, search | ACCEPTED | 2026-11-11 |
 | [0006](0006-toolchain-environments-quality-commands.md) | Toolchain, environments, quality commands | ACCEPTED | 2026-11-11 |
 | [0007](0007-astryx-version-pinning-and-verification.md) | Astryx version pinning and verification | ACCEPTED | 2026-11-11 |
+| [0008](0008-team-work-areas-and-ownership.md) | Team work areas and ownership for P0 (amends ADR-0002) | ACCEPTED | 2026-11-12 |
 
 ## Accepted baseline
 

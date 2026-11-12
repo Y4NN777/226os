@@ -1,11 +1,11 @@
 ---
 name: engineering-principles
-description: Cross-cutting 226os design and review standards: SOLID applied concretely to Go and React/TS, clean/hexagonal boundaries inside the Go modular monolith, KISS/YAGNI, DRY vs coupling, naming, error handling, the TDD refactor step, and code-review standards. Use when touching apps/**, db/** or api/**.
+description: Cross-cutting 226os design and review standards: SOLID applied concretely to Go and React/TS, clean/hexagonal boundaries inside the Go modular monolith, KISS/YAGNI, DRY vs coupling, naming, error handling, the TDD refactor step, and code-review standards. Use when touching src/**, db/** or api/**.
 ---
 # 226os Engineering Principles
 
 ## Scope and triggers
-- Any design, implementation, refactor or review under `apps/api/**`, `apps/web/**`, `db/**` or `api/**`.
+- Any design, implementation, refactor or review under `src/api/**`, `src/web/**`, `db/**` or `api/**`.
 - Pair this skill with the layer skill, for example `web-frontend`.
 - Precedence when sources conflict: security/integrity > PRD > SPEC > accepted ADRs > technical rules > local preference (`docs/RULES.md:3`). The principles below never override a project document. Flag conflicts instead of resolving them silently (`DESIGN.md:284`, `docs/DEV.md:64`).
 
@@ -104,7 +104,7 @@ description: Cross-cutting 226os design and review standards: SOLID applied conc
 - Approve once the change clearly improves code health, even if it is imperfect. Correctness, security and contract compliance are never trade-offs ([Google eng-practices](https://google.github.io/eng-practices/review/reviewer/standard.html)).
 
 ## SOLID / design notes
-| Principle | Go (apps/api) | React/TS (apps/web) |
+| Principle | Go (src/api) | React/TS (src/web) |
 |---|---|---|
 | SRP | One reason to change per package. The handler parses, authenticates the session, calls the service and maps errors, and does nothing else | Split data hook, view and route |
 | OCP | Add behaviour through a new type that implements a small consumer interface. Avoid flag parameters | Extend through composition and slots, not `variant` prop explosions |

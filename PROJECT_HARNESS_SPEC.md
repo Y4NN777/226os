@@ -5,7 +5,7 @@
 
 ## Verified baseline
 - The remote tree contains PRD/SPEC/TEST/DEV/SHIP/RULES/ARCHITECTURE/DESIGN, AGENTS.md, spec-kit G0 proposals and Claude handoff, plus Git workflow and an existing branch-policy workflow.
-- The tree does **not** yet contain apps/web, apps/api, db migrations, Makefile, Compose/Traefik manifests, OpenAPI file, operational tests or deploy pipelines.
+- The tree does **not** yet contain src/web, src/api, db migrations, Makefile, Compose/Traefik manifests, OpenAPI file, operational tests or deploy pipelines.
 - `docs/spec-kit/CLAUDE_HANDOFF.md` records CONDITIONAL GO for implementation planning; application implementation and release remain gated by conditions and evidence.
 - `docs/spec-kit/G0_DECISIONS.md` contains proposed defaults; `docs/decisions/0001-g0-conditional-baseline.md` records which defaults are accepted with conditions and which decisions remain deferred.
 - Root README/DESIGN are canonical; engineering docs live under docs/. Avoid a wholesale docs move just for harness setup.

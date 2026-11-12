@@ -12,7 +12,7 @@ root="$(cd "$here/../.." && pwd)"
 # shellcheck source=scripts/tests/lib.sh
 source "$here/lib.sh"
 gate="$root/scripts/check-authz-routes.sh"
-router="$root/apps/api/internal/platform/httpx/router.go"
+router="$root/src/api/internal/platform/httpx/router.go"
 
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
@@ -37,6 +37,6 @@ out="$("$gate" --router-override "$tmp/router2.go" 2>&1)" || rc=$?
 [ "$rc" -ne 0 ] && grep -q 'POST /healthz' <<<"$out" && ok "RED: another method on a public path is not public" || ko "RED method (rc=$rc, out=$out)"
 
 # The real router is untouched.
-git -C "$root" diff --quiet -- apps/api/internal/platform/httpx/router.go && ok "router.go is unmodified" || ko "router.go was modified"
+git -C "$root" diff --quiet -- src/api/internal/platform/httpx/router.go && ok "router.go is unmodified" || ko "router.go was modified"
 
 finish

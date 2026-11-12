@@ -1,11 +1,11 @@
 ---
 name: web-frontend
-description: 226os frontend rules for React 19 + strict TypeScript + Vite + TanStack Router/Query/Form on a pinned Meta Astryx foundation with Graphite & Lime tokens, FR/EN i18n, WCAG 2.2 AA, mobile/low-bandwidth, typed OpenAPI client and CSRF-protected mutations. Use when touching apps/web/**.
+description: 226os frontend rules for React 19 + strict TypeScript + Vite + TanStack Router/Query/Form on a pinned Meta Astryx foundation with Graphite & Lime tokens, FR/EN i18n, WCAG 2.2 AA, mobile/low-bandwidth, typed OpenAPI client and CSRF-protected mutations. Use when touching src/web/**.
 ---
 # 226os Web Frontend
 
 ## Scope and triggers
-- Any create/edit under `apps/web/**`: routes, features, product components, theme/token mapping, i18n catalogs, API client wiring, frontend tests.
+- Any create/edit under `src/web/**`: routes, features, product components, theme/token mapping, i18n catalogs, API client wiring, frontend tests.
 - Reading `api/openapi.yaml` to consume it. TASK-WEB-001 lists it in `allowed_paths` (`docs/spec-kit/TASKS.md:110`), but contract changes belong to the API owner — never change the contract to fit the UI (`DESIGN.md:226`, `docs/RULES.md:13`).
 - Precondition: G0-UI-001 (Astryx pin) and route/locale decisions closed (`docs/spec-kit/TASKS.md:119`, `docs/decisions/0001-g0-conditional-baseline.md:31`). Otherwise stop and run `/start-slice`. No frontend implementation before that.
 - Load `engineering-principles` too. Follow the root `DESIGN.md` on every UI change (`DESIGN.md:284`).
@@ -156,7 +156,7 @@ description: 226os frontend rules for React 19 + strict TypeScript + Vite + TanS
 ## References
 - Project: `DESIGN.md`, `docs/DEV.md`, `docs/RULES.md`, `docs/TEST.md`, `docs/SPEC.md`, `docs/spec-kit/{CONTRACTS,API_CONTRACT,AUTHORIZATION_MATRIX,ASTRYX_VERIFICATION,G0_DECISIONS,TASKS}.md`.
 - Tensions to escalate rather than resolve silently:
-  1. `apps/web/src` layout: `app/`, `design-system/` and `styles/` (`DESIGN.md:212-221`) vs `lib/` (`docs/DEV.md:23`).
+  1. `src/web/src` layout: `app/`, `design-system/` and `styles/` (`DESIGN.md:212-221`) vs `lib/` (`docs/DEV.md:23`).
   2. StyleX: "no compiler required" (`DESIGN.md:85`) vs "verify" (`docs/spec-kit/ASTRYX_VERIFICATION.md:21`).
   3. Astryx CLI commands: given as workflow steps (`DESIGN.md:129`) vs "do not assume they exist" (`docs/spec-kit/ASTRYX_VERIFICATION.md:19`).
   4. `pnpm` is stated (`DESIGN.md:91`) but the package manager is `OPEN`.

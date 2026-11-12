@@ -18,8 +18,8 @@ REAL_MAP = REPO / ".claude" / "hooks" / "skill-map.json"
 
 FAKE_MAP = {
     "skills": [
-        {"skill": "engineering-principles", "paths": ["apps/**", "db/**", "api/**"]},
-        {"skill": "go-backend", "paths": ["apps/api/**"]},
+        {"skill": "engineering-principles", "paths": ["src/**", "db/**", "api/**"]},
+        {"skill": "go-backend", "paths": ["src/api/**"]},
         {"skill": "tdd-unit", "paths": ["**/*_test.go", "**/*.test.ts"]},
         {"skill": "ci-cd-delivery", "paths": ["Makefile", ".github/workflows/**"]},
     ]
@@ -76,7 +76,7 @@ class PreToolUseTests(HookHarness):
         self.assertIsNone(self.pre("Edit", "README.md"))
 
     def test_first_write_is_denied_naming_missing_skills_without_bodies(self):
-        reason = self.reason(self.pre("Write", "apps/api/server.go"))
+        reason = self.reason(self.pre("Write", "src/api/server.go"))
         self.assertIn("go-backend", reason)
         self.assertIn("engineering-principles", reason)
         self.assertIn("Skill tool", reason)
@@ -85,36 +85,36 @@ class PreToolUseTests(HookHarness):
         self.assertLess(len(reason), 1500, "must stay under the hook-output preview limit")
 
     def test_write_stays_denied_until_skills_are_loaded(self):
-        self.pre("Edit", "apps/api/server.go")
-        self.reason(self.pre("Edit", "apps/api/server.go"))
+        self.pre("Edit", "src/api/server.go")
+        self.reason(self.pre("Edit", "src/api/server.go"))
         self.load("go-backend")
-        self.assertIn("engineering-principles", self.reason(self.pre("Edit", "apps/api/server.go")))
+        self.assertIn("engineering-principles", self.reason(self.pre("Edit", "src/api/server.go")))
         self.load("engineering-principles")
-        self.assertIsNone(self.pre("Edit", "apps/api/server.go"))
+        self.assertIsNone(self.pre("Edit", "src/api/server.go"))
 
     def test_loaded_skills_are_cached_and_only_new_ones_requested(self):
         self.load("go-backend", "engineering-principles")
-        self.assertIsNone(self.pre("Edit", "apps/api/other.go"))
-        reason = self.reason(self.pre("Edit", "apps/api/server_test.go"))
+        self.assertIsNone(self.pre("Edit", "src/api/other.go"))
+        reason = self.reason(self.pre("Edit", "src/api/server_test.go"))
         self.assertIn("tdd-unit", reason)
         self.assertNotIn("go-backend", reason)
 
     def test_other_session_is_not_cached(self):
         self.load("go-backend", "engineering-principles", session="s1")
-        self.reason(self.pre("Edit", "apps/api/server.go", session="s2"))
+        self.reason(self.pre("Edit", "src/api/server.go", session="s2"))
 
     def test_subagent_has_its_own_cache(self):
         self.load("go-backend", "engineering-principles")
-        self.reason(self.pre("Edit", "apps/api/server.go", agent_id="sub-1", agent_type="scout"))
+        self.reason(self.pre("Edit", "src/api/server.go", agent_id="sub-1", agent_type="scout"))
 
     def test_read_adds_short_directive_once_and_does_not_unlock_writes(self):
-        hso = self.pre("Read", "apps/api/server.go")["hookSpecificOutput"]
+        hso = self.pre("Read", "src/api/server.go")["hookSpecificOutput"]
         self.assertNotIn("permissionDecision", hso)
         self.assertIn("go-backend", hso["additionalContext"])
         self.assertIn("Skill tool", hso["additionalContext"])
         self.assertNotIn("BODY-", hso["additionalContext"])
-        self.assertIsNone(self.pre("Read", "apps/api/other.go"), "directive is not repeated")
-        self.reason(self.pre("Write", "apps/api/server.go"))
+        self.assertIsNone(self.pre("Read", "src/api/other.go"), "directive is not repeated")
+        self.reason(self.pre("Write", "src/api/server.go"))
 
     def test_root_level_globs(self):
         self.assertIn("tdd-unit", self.reason(self.pre("Edit", "x_test.go")))
@@ -122,15 +122,15 @@ class PreToolUseTests(HookHarness):
 
     def test_multiedit_and_notebook_are_guarded(self):
         self.reason(self.pre("MultiEdit", "db/x.sql"))
-        self.reason(self.pre("NotebookEdit", "apps/web/a.ipynb", session="s3"))
+        self.reason(self.pre("NotebookEdit", "src/web/a.ipynb", session="s3"))
 
     def test_path_outside_project_is_ignored(self):
-        payload = {"session_id": "s1", "tool_name": "Edit", "tool_input": {"file_path": "/etc/apps/api/x.go"}}
+        payload = {"session_id": "s1", "tool_name": "Edit", "tool_input": {"file_path": "/etc/src/api/x.go"}}
         self.assertIsNone(self.run_hook("pre", payload))
 
     def test_relative_path_resolves_against_cwd(self):
         payload = {"session_id": "s1", "cwd": str(self.project), "tool_name": "Edit",
-                   "tool_input": {"file_path": "apps/api/x.go"}}
+                   "tool_input": {"file_path": "src/api/x.go"}}
         self.reason(self.run_hook("pre", payload))
 
     def test_malformed_input_fails_open_silently(self):
@@ -138,7 +138,7 @@ class PreToolUseTests(HookHarness):
 
     def test_missing_skill_file_blocks_writes(self):
         (self.project / ".claude" / "skills" / "go-backend" / "SKILL.md").unlink()
-        reason = self.reason(self.pre("Edit", "apps/api/server.go"))
+        reason = self.reason(self.pre("Edit", "src/api/server.go"))
         self.assertIn("go-backend", reason)
         self.assertIn("missing", reason.lower())
 
@@ -146,7 +146,7 @@ class PreToolUseTests(HookHarness):
 class FailClosedAndPreloadTests(HookHarness):
     def test_broken_map_blocks_writes(self):
         (self.project / ".claude" / "hooks" / "skill-map.json").write_text("{not json")
-        hso = self.pre("Edit", "apps/api/server.go")["hookSpecificOutput"]
+        hso = self.pre("Edit", "src/api/server.go")["hookSpecificOutput"]
         self.assertEqual(hso["permissionDecision"], "deny")
         self.assertIn("skill-map.json", hso["permissionDecisionReason"])
 
@@ -161,7 +161,7 @@ class FailClosedAndPreloadTests(HookHarness):
 
     def test_broken_map_does_not_block_reads(self):
         (self.project / ".claude" / "hooks" / "skill-map.json").unlink()
-        self.assertIsNone(self.pre("Read", "apps/api/server.go"))
+        self.assertIsNone(self.pre("Read", "src/api/server.go"))
 
     def test_non_dict_tool_input_fails_open(self):
         payload = {"session_id": "s1", "tool_name": "Edit", "tool_input": "oops"}
@@ -172,8 +172,8 @@ class FailClosedAndPreloadTests(HookHarness):
         agents.mkdir()
         (agents / "go-implementer.md").write_text(
             "---\nname: go-implementer\nskills:\n  - engineering-principles\n  - go-backend\n---\nbody\n")
-        self.assertIsNone(self.pre("Edit", "apps/api/server.go", agent_id="sub-1", agent_type="go-implementer"))
-        hso = self.pre("Edit", "apps/api/server_test.go", agent_id="sub-1", agent_type="go-implementer")["hookSpecificOutput"]
+        self.assertIsNone(self.pre("Edit", "src/api/server.go", agent_id="sub-1", agent_type="go-implementer"))
+        hso = self.pre("Edit", "src/api/server_test.go", agent_id="sub-1", agent_type="go-implementer")["hookSpecificOutput"]
         self.assertIn("tdd-unit", hso["permissionDecisionReason"])
         self.assertNotIn("go-backend", hso["permissionDecisionReason"])
 
@@ -182,17 +182,17 @@ class SkillAndSessionTests(HookHarness):
     def test_slash_form_skill_name_is_normalised(self):
         self.run_hook("post-skill", {"session_id": "s1", "tool_name": "Skill", "tool_input": {"skill": "/go-backend extra"}})
         self.run_hook("post-skill", {"session_id": "s1", "tool_name": "Skill", "tool_input": {"skill": "engineering-principles"}})
-        self.assertIsNone(self.pre("Edit", "apps/api/server.go"))
+        self.assertIsNone(self.pre("Edit", "src/api/server.go"))
 
     def test_compact_clears_cache(self):
         PreToolUseTests.load(self, "go-backend", "engineering-principles")
         self.run_hook("session-start", {"session_id": "s1", "source": "compact"})
-        self.assertEqual(self.pre("Edit", "apps/api/server.go")["hookSpecificOutput"]["permissionDecision"], "deny")
+        self.assertEqual(self.pre("Edit", "src/api/server.go")["hookSpecificOutput"]["permissionDecision"], "deny")
 
     def test_resume_keeps_cache(self):
         PreToolUseTests.load(self, "go-backend", "engineering-principles")
         self.run_hook("session-start", {"session_id": "s1", "source": "resume"})
-        self.assertIsNone(self.pre("Edit", "apps/api/server.go"))
+        self.assertIsNone(self.pre("Edit", "src/api/server.go"))
 
 
 class RealConfigTests(unittest.TestCase):
@@ -219,11 +219,11 @@ class RealConfigTests(unittest.TestCase):
         sys.path.insert(0, str(HOOK.parent))
         import domain_skills
         cases = {
-            "apps/api/internal/identity/session.go": {"engineering-principles", "go-backend", "security-authz"},
-            "apps/api/internal/identity/session_test.go": {"engineering-principles", "go-backend", "security-authz", "tdd-unit"},
+            "src/api/internal/identity/session.go": {"engineering-principles", "go-backend", "security-authz"},
+            "src/api/internal/identity/session_test.go": {"engineering-principles", "go-backend", "security-authz", "tdd-unit"},
             "db/migrations/0001_init.sql": {"engineering-principles", "postgres-data"},
             "api/openapi.yaml": {"engineering-principles", "api-contract"},
-            "apps/web/src/features/solve/Question.test.tsx": {"engineering-principles", "web-frontend", "tdd-unit"},
+            "src/web/src/features/solve/Question.test.tsx": {"engineering-principles", "web-frontend", "tdd-unit"},
             "tests/e2e/solve.feature": {"bdd-acceptance"},
             ".github/workflows/ci.yml": {"ci-cd-delivery"},
             "Makefile": {"ci-cd-delivery"},

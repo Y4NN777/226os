@@ -104,7 +104,7 @@ Per-page load example, `question.html`: CSS 69,636 B (6 files) + JS 89,822 B (9 
 ## 8. Recommended next steps
 
 1. Human G0 decision on package manager, Astryx pin, DESIGN.md amendments (defineTheme/CLI) and the 401 vs 403 contract.
-2. Execute ASTRYX_MAPPING section 5 checklist (install in `apps/web`, read component pages, write gap records).
+2. Execute ASTRYX_MAPPING section 5 checklist (install in `src/web`, read component pages, write gap records).
 3. Run axe + manual keyboard + one screen-reader pass on the 10 screens; fix; record NOT RUN items as run.
 4. Throttled-network and gzip measurement on Explore, Solve, Build (US-ACCESS-001).
 5. Decide the wording for nav items Language/Access/Intelligence (conflict 6) and add the Identity settings screen (auth already exists in `auth.html`) or mark it out of the prototype.

@@ -1,8 +1,8 @@
 # 226os P0 PostgreSQL Schema and Migration Design
 
-**Status:** ACCEPTED design (ADR-0005, 2026-11-11, approver `Y4NN77`). No SQL or application code is implemented yet and no `db/` directory exists; B0 bootstrap and TASK-DATA-001 create them from this document.
+**Status:** ACCEPTED design (ADR-0005, 2026-11-11, approver `Y4NN77`). Implementation state (updated 2026-11-12): B0 bootstrap (PR #24) created `db/migrations/00001` to `00010` from this document, `db/sqlc.yaml`, and sqlc queries for identity, platform and reference data only (`db/queries/identity.sql`, `platform.sql`, `reference.sql`). No domain application code beyond the API skeleton exists yet. Planned additions that are not yet migrations are marked **PLANNED** below (3.1, 3.2, 3.4, 5).
 **Target engine:** **PostgreSQL 18** with native `uuidv7()`. **Tooling:** goose forward-only SQL migrations under root `db/migrations/`, sqlc queries under `db/queries/`, `pgx` v5.
-**Decision owner:** `Y4NN77` (interim owner, ADR-0002). The SQL blocks are the accepted design; they have **not been executed** against any database yet. Executing them on PostgreSQL 18 (fresh and upgrade) is G3 evidence.
+**Decision owner:** `Y4NN77` (interim owner, ADR-0002). The SQL blocks are the accepted design. Migrations `00001` to `00010` implementing them are executed on a **fresh** PostgreSQL 18 database by the B0 integration suite `src/api/internal/platform/pgtest` (`TestFreshMigrationToHead` in `migrate_integration_test.go:28-88`; image pinned to `postgres:18` by digest in `harness_integration_test.go:29-31`), run by `make test-integration`, which `make quality` and CI include. `ROADMAP.md` section 2 records `make quality` green in CI; this document does not re-run it. Not established here: an upgrade-from-previous-schema test (none exists in pgtest yet, see 5), and a line-by-line match between the DDL blocks below and the migration files. That diff has not been done; any difference it finds is a finding for the owner.
 
 Citations use `path:line` against the repository at the time of the first draft; line numbers in the cited documents may have shifted since the G0 reconciliation, so treat them as pointers to the topic. `SPEC:n` means `docs/SPEC.md:n`; `AUTHZ:n` means `docs/spec-kit/AUTHORIZATION_MATRIX.md:n`; `G0:n` means `docs/spec-kit/G0_DECISIONS.md:n`; `CONTRACTS:n` means `docs/spec-kit/CONTRACTS.md:n`; `API:n` means `docs/spec-kit/API_CONTRACT.md:n`.
 
@@ -194,7 +194,9 @@ CREATE TABLE tags (
 CREATE INDEX tags_slug_trgm_idx ON tags USING gin (slug gin_trgm_ops);   -- tag autocomplete (bounded, slug <= 32)
 ```
 
-**`learn_topics`** - small reference list for Learn (`ai`, `payments`, `backend`, `data`, `mobile`, `devops` in the prototype) so new topics are data, not constraint changes.
+**`learn_topics`** - small reference list for Learn so new topics are data, not constraint changes. The current rows are the 9 owner-approved topics inserted by `db/migrations/00002_reference_taxonomy.sql:112-121` (`ai`, `payments`, `ussd-messaging`, `mobile`, `api-integration`, `security-privacy`, `cloud-devops`, `geo-data`, `open-source`); the prototype list that used to be cited here is superseded.
+
+**PLANNED (E2, owner decision 2026-11-12; new migration, not in 00002, which is immutable):** one new forward-only migration, numbered by `make migrate-new` and written by the single migration writer (`ROADMAP.md` R6), adds 5 topics (`learn-to-learn`, `ai-assisted-dev`, `ai-agents`, `open-models`, `african-languages`) and relabels `ai`, `mobile` and `open-source` (same codes, new `name_fr`/`name_en`), for **14 topics**. No row is deleted; removals are deferred and need explicit human approval. The exact labels are in `TODO.md`, section E2. The same PR updates the exact lists and counts in `src/api/internal/platform/pgtest/migrate_integration_test.go`.
 
 ```sql
 CREATE TABLE learn_topics (
@@ -284,6 +286,20 @@ CREATE TABLE profiles (
 );
 CREATE INDEX profiles_country_idx ON profiles (country_code) WHERE country_code IS NOT NULL;
 ```
+
+**PLANNED: `profiles.profile_visibility` (C14b, decided by the owner and the main session on 2026-11-12; new migration, not in 00003, which is immutable).** The accepted DDL above is unchanged. A separate forward-only migration, numbered by `make migrate-new` and written by the single migration writer, adds:
+
+- `profile_visibility text NOT NULL DEFAULT 'public'` on `profiles`, with a named `CHECK (profile_visibility IN ('public','members','private'))`;
+- in the same PR, the pgtest tests that assert table structure and constraints.
+
+Semantics (`ROADMAP.md` section 10, C14):
+
+- `GET /profiles/{username}`: `public` is visible to everyone, `members` to authenticated members only, `private` to the owner only. Everyone else gets a 404 whose body is identical to an unknown or deleted username. Moderators get no special profile access.
+- Author bylines on published content keep showing the username and display name whatever `profile_visibility` says; deleted accounts still show "membre supprimé" (1.1).
+- People directory (E5): a profile is listed for a caller only if the user is `active`, `profile_visibility` allows that caller, `open_to_collab = true` and `open_to_collab_visibility` allows that caller. Listed fields and filters use only fields visible to the caller. Email is never selected.
+- Not decided: how suspended users are treated by `GET /profiles/{username}`.
+
+Once this migration merges, decision 8 in section 10 ("only `projects` and profile fields carry visibility") also covers this profile-level column.
 
 **`user_skills`** - user skills/technologies as tags (feeds the skills-based home feed and project needs matching). Join row: CASCADE from either side.
 
@@ -529,7 +545,9 @@ CREATE TABLE answer_sources (
 
 ### 3.4 Discover (`00006`)
 
-**`resource_categories`** - controlled category codes with FR/EN labels (payments, SMS/USSD, KYC, maps, ...).
+**`resource_categories`** - controlled category codes with FR/EN labels. The current rows are the 15 owner-approved categories inserted by `db/migrations/00002_reference_taxonomy.sql:124-139`, `sort_order` in steps of 10 (`mobile-money` through `dev-tools`).
+
+**PLANNED (E2, owner decision 2026-11-12; new migration, not in 00002, which is immutable):** the same E2 migration as for `learn_topics` adds `ai-models`, `ai-tooling` and `ai-datasets` (each with an explicit `sort_order`) and relabels `cloud-hosting`, for **18 categories**. `mobile-money` and `sms-ussd` stay (differentiator 1). No row is deleted.
 
 ```sql
 CREATE TABLE resource_categories (
@@ -1263,7 +1281,7 @@ Enforced by service plus transaction (not expressible as a constraint): acceptan
 
 ## 5. Initial migration plan
 
-**ADR-0005 is accepted and P0 implementation is authorized (ADR-0001). These files are created in `db/migrations/` by TASK-DATA-001 after B0 bootstrap; no file under `db/` exists yet and this document does not create them.** Tool: goose, plain SQL, forward-only: no `-- +goose Down` section; CI rejects one. Sequential names `NNNNN_<slug>.sql` per ADR-0005 point 3. Every file begins with the header required by the migration policy (6.1): purpose, tables/indexes, lock risk, volume, transaction behaviour, compatibility window, restore plan, owner (`Y4NN77` under ADR-0002).
+**ADR-0005 is accepted and P0 implementation is authorized (ADR-0001). Files `00001` to `00010` below exist in `db/migrations/` since B0 bootstrap (PR #24) and are immutable; the rows marked PLANNED are not written yet.** Tool: goose, plain SQL, forward-only: no `-- +goose Down` section; CI rejects one. Sequential names `NNNNN_<slug>.sql` per ADR-0005 point 3. Every file begins with the header required by the migration policy (6.1): purpose, tables/indexes, lock risk, volume, transaction behaviour, compatibility window, restore plan, owner (`Y4NN77` under ADR-0002).
 
 | File | Contents | Lock / impact notes |
 |---|---|---|
@@ -1278,6 +1296,10 @@ Enforced by service plus transaction (not expressible as a constraint): acceptan
 | `00009_content_relations.sql` | `content_relations` | Must follow 00005 to 00008 (FK targets). |
 | `00010_search_indexes.sql` | GIN/trigram indexes in 3.9 (and the optional query indexes from section 7 once measured) | On empty tables a normal transactional `CREATE INDEX` is fine. **After data exists**, every new index uses `CREATE INDEX CONCURRENTLY` in its own file starting with `-- +goose NO TRANSACTION` (cannot run in a transaction block); set `lock_timeout` to fail fast. |
 | `00011_learn_progress_reviews_reports.sql` | **Deferred (P1).** `learn_progress`, `resource_reviews`, `content_reports` | Created in a later release; listed here so the ERD and ADR-0005 stay consistent. |
+| next number from `make migrate-new` (**PLANNED**, E2) | Taxonomy add and relabel: 5 `learn_topics`, 3 `resource_categories`, 4 relabels (3.1, 3.4); no deletions | Small reference tables, `INSERT` and `UPDATE` only. Not in `00002`, which is immutable. |
+| next number from `make migrate-new` (**PLANNED**, C14b) | `profiles.profile_visibility` with its named CHECK (3.2) | `ALTER TABLE ... ADD COLUMN ... NOT NULL DEFAULT 'public'` with a constant default (no table rewrite) takes a short `ACCESS EXCLUSIVE` lock; adding the CHECK validates it with a scan of `profiles`, which is small at P0. Separate file from E2; not in `00003`, which is immutable. |
+
+Numbering caveat: `00011` is reserved above for the deferred P1 tables (`ROADMAP.md` C11), but `scripts/migrate-new.sh` assigns the highest existing number plus one, so today it would produce `00011`. The owner decides how the reservation and the planned migrations are numbered before the first of them is created.
 
 Cross-file rules: foreign keys to populated tables are added `NOT VALID` then `VALIDATE CONSTRAINT`; destructive changes (drop column/table, type narrowing) follow expand/contract with a backup/restore plan and a human-approved ADR (`AGENTS.md:85`, `AGENTS.md:130`); each migration is exercised on a fresh database and on upgrade-from-previous in CI; releases run a dry run and verify a backup first (`docs/SHIP.md:27`); an application rollback never undoes a data migration (`docs/SHIP.md:38`).
 
@@ -1371,4 +1393,4 @@ Dynamic `ORDER BY` is never built from user input; sort options map to a fixed a
 
 ## 11. Approval record
 
-ADR-0005 is ACCEPTED (2026-11-11, `Y4NN77`). The items above, the DDL in section 3 and the migration plan in section 5 are the approved design. Executing them against PostgreSQL 18 and the constraint, relevance and restore tests are G3, G6 and G7 evidence.
+ADR-0005 is ACCEPTED (2026-11-11, `Y4NN77`). The items above, the DDL in section 3 and the migration plan in section 5 are the approved design. Migrations `00001` to `00010` run on a fresh PostgreSQL 18 database in the pgtest integration suite (see the header). The upgrade-path run, the relevance dataset and EXPLAIN evidence, and the restore drill remain G3, G6 and G7 evidence that is NOT RUN as of 2026-11-12.

@@ -5,7 +5,7 @@ description: RED/GREEN/REFACTOR unit-test discipline for 226os Go (testing, tabl
 # TDD and Unit Tests (G2)
 
 ## Scope and triggers
-- Any unit test file: `**/*_test.go`, `**/*.test.ts(x)`, `**/*.spec.ts(x)`; any production change in `apps/api/**` or `apps/web/src/**` (it needs a RED test first).
+- Any unit test file: `**/*_test.go`, `**/*.test.ts(x)`, `**/*.spec.ts(x)`; any production change in `src/api/**` or `src/web/src/**` (it needs a RED test first).
 - G2 evidence: Go statement coverage, frontend 4-metric coverage, race tests.
 - Out of scope: real-DB tests (use `integration-testing`), browser journeys (use `bdd-acceptance`).
 

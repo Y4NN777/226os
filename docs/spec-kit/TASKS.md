@@ -1,6 +1,6 @@
 # 226os Implementation Tasks
 
-**Status:** PLANNED; G0 is GO (ADR-0001 to ADR-0007). Owner and reviewer are `Y4NN77` for every task until P0 completes (ADR-0002). Bootstrap task B0 (repository scaffold: Makefile, Compose tree, workflows, lockfiles, version pins) starts first; it is covered by TASK-OPS-001 and TASK-WEB-001 scope.
+**Status:** PLANNED; G0 is GO (ADR-0001 to ADR-0007). Owners, reviewers and helpers per slice are set by ADR-0008 (accepted) and tracked in the root `TODO.md`; `Y4NN77` keeps architecture, risk and release decisions. Bootstrap task B0 (repository scaffold: Makefile, Compose tree, workflows, lockfiles, version pins) starts first; it is covered by TASK-OPS-001 and TASK-WEB-001 scope.
 
 Every task follows the governance work-item contract. No task is `DONE` until its evidence paths contain real results for the target SHA.
 
@@ -50,7 +50,7 @@ story_id: "US-SOLVE-001 / US-DISCOVER-001 / US-BUILD-001 / US-LEARN-001"
 priority: "P0"
 owner: "Y4NN77"
 reviewer: "Y4NN77"
-allowed_paths: ["db/**", "apps/api/internal/**", "docs/decisions/**"]
+allowed_paths: ["db/**", "src/api/internal/**", "docs/decisions/**"]
 acceptance_criteria: ["All listed invariants are enforced in the database", "Fresh and upgrade migration paths are tested", "Search filters and stable ordering work on representative data"]
 threats_and_risks: ["data corruption", "expensive search", "seed data misrepresented as real"]
 planned_tests: ["migration tests", "constraint tests", "EXPLAIN ANALYZE evidence", "real PostgreSQL integration"]
@@ -69,7 +69,7 @@ story_id: "US-IDENTITY-001 / US-SOLVE-001 / US-BUILD-001"
 priority: "P0"
 owner: "Y4NN77"
 reviewer: "Y4NN77"
-allowed_paths: ["apps/api/**", "apps/web/src/features/identity/**", "api/openapi.yaml", "docs/spec-kit/**"]
+allowed_paths: ["src/api/**", "src/web/src/features/identity/**", "api/openapi.yaml", "docs/spec-kit/**"]
 acceptance_criteria: ["Anonymous, owner, maintainer, accepted-applicant (collaborator relationship), moderator and third-party access cases are explicit", "CSRF/session controls are tested", "Sensitive failures reveal no unnecessary data"]
 threats_and_risks: ["IDOR", "session theft", "CSRF", "privacy leakage"]
 planned_tests: ["negative authorization matrix", "session expiry/revocation", "CSRF", "rate-limit tests"]
@@ -88,7 +88,7 @@ story_id: "US-SOLVE-001 / US-DISCOVER-001 / US-BUILD-001 / US-LEARN-001"
 priority: "P0"
 owner: "Y4NN77"
 reviewer: "Y4NN77"
-allowed_paths: ["apps/api/**", "api/openapi.yaml", "db/queries/**"]
+allowed_paths: ["src/api/**", "api/openapi.yaml", "db/queries/**"]
 acceptance_criteria: ["Handlers contain transport concerns only", "Business invariants live in application/domain boundaries", "Generated client/API contract has no drift"]
 threats_and_risks: ["contract drift", "authorization bypass", "unbounded request cost"]
 planned_tests: ["RED/GREEN unit tests", "HTTP integration", "OpenAPI validation/generation diff", "race tests"]
@@ -107,7 +107,7 @@ story_id: "US-SOLVE-001 / US-DISCOVER-001 / US-BUILD-001 / US-IDENTITY-001 / US-
 priority: "P0"
 owner: "Y4NN77"
 reviewer: "Y4NN77"
-allowed_paths: ["apps/web/**", "api/openapi.yaml", "docs/spec-kit/**"]
+allowed_paths: ["src/web/**", "api/openapi.yaml", "docs/spec-kit/**"]
 acceptance_criteria: ["Core routes work at required responsive checkpoints", "Keyboard/focus/loading/error/empty states are covered", "FR/EN preserves original content and form edits"]
 threats_and_risks: ["accessibility failure", "contract drift", "false UI state", "low-bandwidth regression"]
 planned_tests: ["Vitest/Testing Library", "Playwright P0 flows", "axe/contrast", "throttled network", "frontend coverage"]

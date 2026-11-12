@@ -1,5 +1,7 @@
 # 226os — standalone HTML prototype
 
+> **WARNING: design preview only, partly outdated since 2026-11-12. Read [DISCLAIMER.md](DISCLAIMER.md) before using anything in this folder.** All data is fictional. The real application is `src/web`.
+
 High-fidelity, static prototype of the 226os UI (Graphite & Lime). It is a **design/UX proof**, not the product: no backend, no build step, no external resources, no Astryx runtime. Authority: `/DESIGN.md`, `/docs/PRD.md`, `/docs/SPEC.md`. Lane authors read `CONVENTIONS.md`.
 
 ## Preview
