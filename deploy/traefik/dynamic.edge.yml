@@ -1,0 +1,36 @@
+# staging-test / production-live routes. The host comes from PUBLIC_HOST through Traefik's
+# file-provider templating (nothing is hard-coded). TLS comes from the entrypoint's ACME resolver.
+http:
+  routers:
+    api:
+      rule: 'Host(`{{ env "PUBLIC_HOST" }}`) && (PathPrefix(`/api/`) || Path(`/healthz`))'
+      entryPoints: [websecure]
+      service: api
+      middlewares: [secure-headers]
+      priority: 100
+      tls: {}
+    web:
+      rule: 'Host(`{{ env "PUBLIC_HOST" }}`)'
+      entryPoints: [websecure]
+      service: web
+      middlewares: [secure-headers]
+      priority: 1
+      tls: {}
+  middlewares:
+    secure-headers:
+      headers:
+        stsSeconds: 31536000
+        stsIncludeSubdomains: false
+        stsPreload: false
+        contentTypeNosniff: true
+        frameDeny: true
+        referrerPolicy: strict-origin-when-cross-origin
+  services:
+    api:
+      loadBalancer:
+        servers:
+          - url: http://api:8080
+    web:
+      loadBalancer:
+        servers:
+          - url: http://web:8080
