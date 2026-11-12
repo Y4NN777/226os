@@ -66,6 +66,39 @@ if command -v age-keygen >/dev/null 2>&1; then
   if [ "$rc" -ne 0 ] && grep -q 'not a valid age key' <<<"$out"; then ok "keygen on an existing garbage key file says so"; else ko "keygen garbage key: rc=$rc out='$out'"; fi
 fi
 
+# CI has neither sops nor age: the checks that need no tool (profile, recipients file, existing files) must
+# answer BEFORE the tool check. Emulated here with a PATH of symlinks that leaves sops and age out.
+nb="$tmp/notools-bin"
+mkdir -p "$nb"
+for c in bash env sed grep mktemp rm mkdir head dirname basename cat sort tr mv chmod find wc stat ln cp tail awk readlink seq; do
+  src="$(command -v "$c" 2>/dev/null || true)"
+  [ -n "$src" ] && ln -sf "$src" "$nb/$c"
+done
+if PATH="$nb" command -v sops >/dev/null 2>&1 || PATH="$nb" command -v age-keygen >/dev/null 2>&1; then
+  ko "the no-tools PATH still finds sops or age-keygen"
+fi
+nt() { # NAME EXPECT NEEDLE ARGS... : run secrets.sh with sops and age hidden
+  local name="$1" want="$2" needle="$3"
+  shift 3
+  local rc=0 out
+  out="$(env -i PATH="$nb" HOME="$tmp" SECRETS_DIR="$sd" SECRETS_OUT_DIR="$tmp/out" SECRETS_ENV_TEMPLATE="$tmp/template.env" \
+    SOPS_AGE_KEY_FILE="$tmp/keys.txt" "$script" "$@" 2>&1)" || rc=$?
+  if [ "$want" = fail ] && [ "$rc" -eq 0 ]; then ko "$name: should fail"; return; fi
+  if ! grep -qF -- "$needle" <<<"$out"; then ko "$name: output lacks '$needle' (rc=$rc, out=$out)"; return; fi
+  ok "$name (no sops, no age)"
+}
+rm -f "$sd/nofile.recipients"
+nt "init without a recipients file says so, not 'sops is not installed'" fail "recipients" init production-live
+nt "init with an empty recipients file says so" fail "recipient" init staging-test
+nt "keygen on an existing key file refuses before needing age-keygen" fail "exists" keygen
+nt "decrypt of a missing file says it does not exist" fail "does not exist" decrypt local-dev
+nt "edit of a missing file says to init first" fail "init" edit local-dev
+nt "rotate of a missing file says it does not exist" fail "does not exist" rotate local-dev
+nt "a bad profile is refused" fail "profile" decrypt nope
+printf '%s\n' "age1$(printf 'q%.0s' $(seq 1 58))" >"$sd/local-dev.recipients"
+nt "with everything valid but no tool, the error names sops" fail "sops is not installed" init local-dev
+rm -f "$sd/local-dev.recipients"
+
 # The tools themselves: sops and age are optional on a machine that does not touch secrets.
 if command -v sops >/dev/null 2>&1 && command -v age-keygen >/dev/null 2>&1; then
   k1="$tmp/k1.txt"

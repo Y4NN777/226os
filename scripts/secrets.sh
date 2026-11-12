@@ -87,11 +87,13 @@ shift || true
 
 case "$cmd" in
   keygen)
-    command -v age-keygen >/dev/null 2>&1 || die "age-keygen is not installed (https://github.com/FiloSottile/age)"
+    # Cheap checks first (they need no tool); a tool check before them would hide the real answer.
     if [ -e "$SOPS_AGE_KEY_FILE" ] || [ -L "$SOPS_AGE_KEY_FILE" ]; then
+      command -v age-keygen >/dev/null 2>&1 || die "$SOPS_AGE_KEY_FILE already exists: not overwriting it"
       pub="$(age-keygen -y "$SOPS_AGE_KEY_FILE" 2>/dev/null)" || die "$SOPS_AGE_KEY_FILE exists but is not a valid age key: not touching it"
       die "$SOPS_AGE_KEY_FILE already exists: not overwriting it. Your public key: $pub"
     fi
+    command -v age-keygen >/dev/null 2>&1 || die "age-keygen is not installed (https://github.com/FiloSottile/age)"
     mkdir -p "$(dirname "$SOPS_AGE_KEY_FILE")" || die "cannot create the directory of $SOPS_AGE_KEY_FILE"
     err="$(age-keygen -o "$SOPS_AGE_KEY_FILE" 2>&1 >/dev/null)" || die "age-keygen failed: ${err:-no message}"
     chmod 600 "$SOPS_AGE_KEY_FILE"
@@ -101,11 +103,11 @@ case "$cmd" in
 
   init)
     p="$(profile_arg "${1:-}")"
-    need_sops
     target="$secrets_dir/$p.enc.env"
     [ ! -e "$target" ] || die "$target exists: use 'edit' (or 'rotate' after a recipients change)"
     [ -f "$template" ] || die "env template $template not found"
     list="$(recipients "$p")"
+    need_sops
     tmpd="$(private_tmp)"
     # The new file is staged NEXT TO the target (same filesystem), so the final mv is an atomic rename.
     stage="$secrets_dir/.$p.enc.env.tmp.$$"
@@ -120,8 +122,8 @@ case "$cmd" in
 
   edit)
     p="$(profile_arg "${1:-}")"
-    need_sops
     [ -f "$secrets_dir/$p.enc.env" ] || die "$secrets_dir/$p.enc.env does not exist: run 'init $p' first"
+    need_sops
     # sops edit keeps its own temporary plaintext (a 0700 directory in the system temp dir, on disk or not
     # depending on the machine); that part is outside this script's control.
     exec sops edit --input-type dotenv --output-type dotenv "$secrets_dir/$p.enc.env"
@@ -131,11 +133,11 @@ case "$cmd" in
     p="$(profile_arg "${1:-}")"
     force=0
     [ "${2:-}" = "--force" ] && force=1
-    need_sops
     src="$secrets_dir/$p.enc.env"
     dest="$out_dir/.env.$p"
     [ -f "$src" ] || die "$src does not exist"
     [ "$force" -eq 1 ] || [ ! -e "$dest" ] || die "$dest exists: refusing to overwrite it (use --force)"
+    need_sops
     mkdir -p "$out_dir"
     partial="$dest.partial.$$"
     trap 'rm -f "$partial"' EXIT
@@ -147,10 +149,10 @@ case "$cmd" in
 
   rotate)
     p="$(profile_arg "${1:-}")"
-    need_sops
     src="$secrets_dir/$p.enc.env"
     [ -f "$src" ] || die "$src does not exist"
     list="$(recipients "$p")"
+    need_sops
     tmpd="$(private_tmp)"
     stage="$secrets_dir/.$p.enc.env.tmp.$$"
     trap 'rm -rf "$tmpd" "$stage"' EXIT
