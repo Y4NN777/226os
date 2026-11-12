@@ -8,7 +8,7 @@
 #
 # Commands:
 #   keygen                  create your age key (refuses to overwrite one) and print the PUBLIC key
-#   init <profile>          encrypt the env template (.env.example, comments stripped) for the profile's recipients; the database password, DATABASE_URL and CURSOR_KEY are generated
+#   init <profile>          encrypt the env template (.env.example, comments stripped) for the profile's recipients; the database password, DATABASE_URL and CURSOR_KEY are generated and APP_ENV is set to the profile
 #   edit <profile>          edit the encrypted file in $EDITOR (sops decrypts and re-encrypts)
 #   decrypt <profile> [--force]   write .env.<profile> (mode 600); refuses to overwrite without --force
 #   rotate <profile>        re-encrypt for the CURRENT recipients list and a fresh data key
@@ -119,7 +119,8 @@ case "$cmd" in
     # stay placeholders for `edit`. The values travel through the environment, never through argv.
     {
       command -v openssl >/dev/null 2>&1 || die "openssl is not installed (needed to generate the secrets)"
-      PW="$(openssl rand -hex 16)" CK="$(openssl rand -base64 32)" awk '
+      PROFILE="$p" PW="$(openssl rand -hex 16)" CK="$(openssl rand -base64 32)" awk '
+        /^APP_ENV=/ { print "APP_ENV=" ENVIRON["PROFILE"]; next }
         /^POSTGRES_PASSWORD=CHANGE_ME$/ { print "POSTGRES_PASSWORD=" ENVIRON["PW"]; next }
         /^CURSOR_KEY=CHANGE_ME$/ { print "CURSOR_KEY=" ENVIRON["CK"]; next }
         /^DATABASE_URL=/ { sub(/:CHANGE_ME@/, ":" ENVIRON["PW"] "@") }
