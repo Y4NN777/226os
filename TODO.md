@@ -45,7 +45,7 @@ One line per person. Each person edits only their own line.
 |---|---|---|
 | `Y4NN777` | Personal tasks: H6 and H7 (Datacloud account and product; DNS A records for `226os.tech` and the staging subdomain), H8 (Gmail SMTP), H12 (AI Studio key, V1 to V4). Also H4 (branch protection). S0: implement the B1 gate as DECIDED (RED/GREEN), then pgxpool, `/readyz` and the `HandlerWithOptions` mount. Review: `NICE-DEV226`. | 2026-11-12 |
 | `NICE-DEV226` | Send the identity record (H1). Start S1 RED tests for the domain and service with fakes; mount nothing before S0 merges. Review S0. After S1, S3; then help on S5 (default), the S9 second developer, and the E5 backend if time allows. | 2026-11-12 |
-| `mibienpanjoe` | Send the identity record (H1). Write the S2 sqlc queries with local EXPLAIN. Raise C2 (Learn `topic`) with the owner. Open the E2 taxonomy migration PR (`make migrate-new`, plus the pgtest lists). Then S4 (with the content script) and S5, with helpers `Y4NN777` and `NICE-DEV226`. | 2026-11-12 |
+| `mibienpanjoe` | Send the identity record (H1). **Open the C2 contract PR first** (topic code; reviewers `Y4NN777` and `PANK4SS`; then `make generate`), and in parallel the E2 taxonomy migration PR (`make migrate-new`, plus the pgtest lists). Then the S2 sqlc queries with local EXPLAIN. Then S4 (with the content script) and S5, with helpers `Y4NN777` and `NICE-DEV226`. | 2026-11-12 |
 | `PANK4SS` | Accept the invitation (H2) and send the identity record (H1). Build the S7 shell, i18n, shared components and the pillar navigation on typed fixtures from `src/web/src/api/schema.d.ts`. Write the SEED fixtures (`local-dev` only, C15 demo accounts). Later: E4, the E5 UI, and on-demand support to any area owner. | 2026-11-12 |
 
 ## Shared pieces (O2: where each lives is decided by the backend lead at kickoff)
@@ -93,7 +93,7 @@ Each line below is a **proposal**. The lead confirms or reassigns it.
   - RED/GREEN proof is required: a stray route, a missing test name and an unlisted route each turn the gate red.
 - [ ] **O3 (closed by B1).** The 4 P1 routes stay in `unimplemented-routes.txt`, answering 501.
 - [ ] Add `pgxpool` and `DATABASE_URL` to the config (`src/api/internal/platform/config`), and pass `DATABASE_URL` to `api` in `compose.yaml` (today `compose.yaml:90` omits it).
-- [ ] Add `GET /readyz` (DB ping with a deadline) to `scripts/public-routes.txt` with its reason. Decide edge routing for B2 (`deploy/traefik/dynamic.edge.yml:6`).
+- [ ] Add `GET /readyz` (DB ping with a deadline) to `scripts/public-routes.txt` with its reason. Decide edge routing for B2 (`deploy/traefik/dynamic.edge.yml:6`). Scheduled; not blocking today; must close before Sunday.
 - [ ] Mount `apigen` with `HandlerWithOptions` under `/api/v1`, with a problem+json `ErrorHandlerFunc`:
   - missing required `If-Match` returns 428 `PRECONDITION_REQUIRED`;
   - bad parameters return 400 `MALFORMED_REQUEST` or 422 `VALIDATION_ERROR` (ADR-0004);
@@ -119,7 +119,7 @@ Each line below is a **proposal**. The lead confirms or reassigns it.
   - a digest-pinned Mailpit service in the `local-dev` profile of `compose.yaml`;
   - `SMTP_*` variables in `.env.example` (their current presence is UNVERIFIED);
   - the Gmail app password only in the staging and production env files.
-- [ ] Per-route timeout decision for B3 (`httpx/router.go:14,23`; matters for S9 and S10).
+- [ ] Per-route timeout decision for B3 (`httpx/router.go:14,23`; matters for S9 and S10). Scheduled; not blocking today; must close before Sunday.
 - [ ] Session resolver port with an anonymous default (Shared pieces).
 
 **Tables:** `idempotency_keys` (migration `00004`).
@@ -342,11 +342,16 @@ Each line below is a **proposal**. The lead confirms or reassigns it.
 - **Reviewer:** `NICE-DEV226`. If `NICE-DEV226` co-wrote the PR, `Y4NN777` reviews it, unless `Y4NN777` co-wrote it too.
 - **Helpers:** `Y4NN777` (default: S4 and the content script, after the Fri 13 Nov 23:00 checkpoint), `NICE-DEV226`, and `PANK4SS` on demand
 - **Branch:** `feature/learn/articles-series` (C8: `learn` is not in `docs/GIT_WORKFLOW.md:38`; owner ruling)
-- **Depends on:** S0 for the reads; S1 for publishing. **Resolve C2 first**, and C3 too.
+- **Depends on:** S0 for the reads; S1 for publishing; **the C2 contract PR merged** (C2 DECIDED 2026-11-12). C3 (`my_progress`) is still open.
 
 **Operations (5)**
 
-- [ ] `listLearnArticles` `GET /learn/articles` (public; the `topic` filter is blocked on C2)
+- [ ] **C2 contract PR (first, its own PR).** Author `mibienpanjoe`; reviewers `Y4NN777` and `PANK4SS` (R7).
+  - The `listLearnArticles` `topic` parameter is retyped as the topic code, pattern `^[a-z][a-z0-9-]{1,29}$` (the DB CHECK), with an updated description.
+  - A `topic` parameter of the same type is added to `listTrainingSeries`, which has none today (`api/openapi.yaml:1746-1753`).
+  - An optional `topic` field is added to `ArticleCreate` (`api/openapi.yaml:4194-4241`).
+  - Then `make generate` (`apigen` and `schema.d.ts`).
+- [ ] `listLearnArticles` `GET /learn/articles` (public; `topic` = topic code, after the C2 contract PR)
 - [ ] `createLearnArticle` `POST /learn/articles`
   - no session returns 401;
   - publishing needs a verified email (403); saving a `draft` does not;
@@ -388,7 +393,7 @@ Each line below is a **proposal**. The lead confirms or reassigns it.
 
 **DoD:** DoD-common, plus a test that original-language content is preserved.
 
-**Stop condition:** stop until C2 is ruled.
+**Stop condition:** do not merge the S4 handlers before the C2 contract PR has merged.
 
 **Status:** PLANNED
 
@@ -400,7 +405,7 @@ Each line below is a **proposal**. The lead confirms or reassigns it.
 - **Reviewers:** `NICE-DEV226`. When `NICE-DEV226` co-writes the PR (the default after Solve), `Y4NN777` reviews it. `Y4NN777` co-reviews the GitHub fetch and anti-SSRF code (K10).
 - **Helpers:** `NICE-DEV226` (default first helper after Solve; the Fri 13 Nov 23:00 checkpoint decides), `Y4NN777`, and `PANK4SS` on demand
 - **Branches:** `feature/build/projects-needs`, `feature/build/applications`
-- **Depends on:** S1. **Resolve C1 (maintainer rights) first.**
+- **Depends on:** S1. **C1 DECIDED 2026-11-12:** project owner only; no maintainer delegation at P0; the applicant may withdraw.
 
 **Operations (9)**
 
@@ -427,9 +432,11 @@ Each line below is a **proposal**. The lead confirms or reassigns it.
 - [ ] `listProjectApplications` `GET /projects/{projectId}/applications` (owner, C1; Charlie gets 403 or 404 and no count)
 - [ ] `decideApplication` `PATCH /applications/{applicationId}`
   - the applicant can withdraw;
-  - the owner or a maintainer can accept or decline;
+  - **only the project owner** can accept or decline (C1 DECIDED). A maintainer gets the same refusal as any third party;
   - an invalid transition returns 409;
   - a cross-project IDOR returns 404.
+- [ ] Correct `decideApplication` x-authz: it still says "owner or maintainer" (`api/openapi.yaml:1559-1561`). This is a contract change, so it goes in its own small PR or is bundled into the C2 contract PR, reviewed by `Y4NN777` and `PANK4SS` (R7).
+- [ ] In the S5 PR, correct `AUTHORIZATION_MATRIX.md` lines 40, 42 and 45 from "owner or maintainer" to "owner only" (C1). This narrows ADR-0005 point 10, and the owner records it.
 
 **Tables:** `projects`, `project_maintainers`, `project_tags`, `contribution_needs`, `need_skills`, `applications`, `content_relations`, `tags`, `idempotency_keys`, `rate_limit_buckets` (`00007`).
 
@@ -437,20 +444,20 @@ Each line below is a **proposal**. The lead confirms or reassigns it.
 
 **Prototype pages:** `build`, `project`.
 
-**Allowed paths:** `src/api/internal/build/**`, `db/queries/**` (build files), `src/api/internal/platform/dbgen/**` (generated only), and `scripts/public-routes.txt` (the 3 public reads).
+**Allowed paths:** `src/api/internal/build/**`, `db/queries/**` (build files), `src/api/internal/platform/dbgen/**` (generated only), `scripts/public-routes.txt` (the 3 public reads), and `docs/spec-kit/AUTHORIZATION_MATRIX.md` (lines 40, 42 and 45 only, per C1; owner review).
 
 **Negative authz** (`AUTHORIZATION_MATRIX.md:39-46`):
 
 - invalid GitHub URL, SSRF targets and the rate limit are rejected;
 - a non-owner cannot mutate a project, and a private project returns 404;
-- only the owner (or a maintainer, per C1) publishes a need;
+- only the project owner publishes a need, lists applications, or accepts or declines one (C1). Test that a `project_maintainers` row grants nothing;
 - duplicate applications, closed needs, and re-applying after a decline are rejected;
 - a third party cannot read applications, and nothing leaks a count;
 - cross-project IDOR is blocked.
 
 **DoD:** DoD-common, plus an SSRF test suite (private IPs, redirects, non-GitHub hosts) and a double-click application test.
 
-**Stop condition:** stop until C1 is ruled.
+**Stop condition:** stop on any change to `api/openapi.yaml` outside a contract PR (R7).
 
 **Status:** PLANNED
 
@@ -531,7 +538,7 @@ Each line below is a **proposal**. The lead confirms or reassigns it.
 | `discover` | `listResources`. Staging and production show only real `live` entries (K39: no Discover write path; owner ruling). `local-dev` shows SEED fixtures with a demo badge. | S2, SEED (local-dev) | [ ] |
 | `resource` | `getResource`, `listResourceSources` (documentary source links), `createResourceErrorReport` | S2 | [ ] |
 | `recherche` | `search` (plus the S9 panel) | S2, S9 | [ ] |
-| `apprendre` | `listLearnArticles`, `listTrainingSeries`. Staging and production: member articles and the content-script series (`live`). `local-dev`: SEED fixtures with a demo badge. E4 topic feeds (`listLearnArticles?topic=`, `listQuestions?tag=`; blocked on C2). | S4, E4 | [ ] |
+| `apprendre` | `listLearnArticles`, `listTrainingSeries`. Staging and production: member articles and the content-script series (`live`). `local-dev`: SEED fixtures with a demo badge. E4 topic feeds: articles by topic code (`listLearnArticles?topic=`), questions by tag equal to the topic code (`listQuestions?tag=`), after the C2 contract PR. | S4, E4 | [ ] |
 | `article` | `getLearnArticle` (demo badge when `provenance='demo'`, which happens in `local-dev` only). E4 "Poser une question sur cette leçon" works on any article (member-written, a series lesson, or a `local-dev` fixture): it opens `solve`, which calls `createQuestion` with `links[article]`. | S4, E4 | [ ] |
 | `formation` | `getTrainingSeries`: the free series of 3 to 4 short original lessons (US-LEARN-001). On staging and production it comes from the S4 content script; on `local-dev` from SEED. E4 ask button per lesson. | S4, E4 | [ ] |
 | `solve` | `listQuestions`, `createQuestion` (ask form, the S9 panel, and the E4 pre-fill from a lesson) | S3, S9, E4 | [ ] |
@@ -589,8 +596,8 @@ Each line below is a **proposal**. The lead confirms or reassigns it.
 - [ ] `staging-test` up from pinned images (`make up-staging-test`, `.env.staging-test` outside Git). **No seeds on staging:** it holds only real `live` content (owner correction B). The S4 content script is rehearsed there.
 - [ ] Gmail SMTP on staging with a real-inbox test (H8).
 - [ ] Argon2id benchmark on the target host, handed to S1.
-- [ ] B2: `/readyz` reachable for the smoke check (route it, or check from the host).
-- [ ] **B4:** a reviewed release workflow (protected `production` environment, exact `develop` SHA, image digests). The guard in `mk/50-ops.mk:28-32` is not weakened.
+- [ ] B2: `/readyz` reachable for the smoke check (route it, or check from the host). Scheduled; not blocking today; before Sunday.
+- [ ] **B4** (scheduled; not blocking today; before Sunday): a reviewed release workflow (protected `production` environment, exact `develop` SHA, image digests). The guard in `mk/50-ops.mk:28-32` is not weakened.
 - [ ] Implement `make test-e2e` (`mk/40-quality.mk:18`): Playwright P0 flows, FR/EN, mobile, axe.
 - [ ] Implement `make perf` (`mk/40-quality.mk:21`): dataset, EXPLAIN, API latency, page weight.
 - [ ] Backup and restore drill (`pg_dump -Fc`, restore verified), with evidence.
@@ -806,7 +813,7 @@ Taxonomy rows are data. Later they change through a new forward-only migration o
 - **Helpers:** none beyond the co-owners
 - **Reviewer:** `Y4NN777`
 - **Branches:** `feature/solve/web-ask-about-lesson`, `feature/learn/web-topic-feeds` (C8)
-- **Depends on:** S3 (`createQuestion`), plus a lesson to exist: the button works on any member-written article (S4) or demo-fixture article (SEED). **The topic feeds wait for the C2 ruling**: questions have no topic, and `listQuestions` filters only by `tag` (`api/openapi.yaml:462`).
+- **Depends on:** S3 (`createQuestion`), plus a lesson to exist: the button works on any member-written article (S4) or demo-fixture article (SEED). **The topic feeds wait for the C2 contract PR** (C2 DECIDED 2026-11-12). Questions have no topic, and `listQuestions` filters only by `tag` (`api/openapi.yaml:462`).
 
 **No new table, no new moderation system, no contract change.**
 
@@ -816,7 +823,9 @@ Taxonomy rows are data. Later they change through a new forward-only migration o
   - It pre-fills the `solve` ask form.
   - On submit, `createQuestion` sends `links: [{type: article, id}]`.
   - That relation pair is allowed (`db/migrations/00009_content_relations.sql:52`), and the question author is the author of the source item.
-- [ ] Read-only topic feeds: filtered views of questions and articles per topic, using `listLearnArticles?topic=` and `listQuestions?tag=`. **Blocked on C2.**
+- [ ] Read-only topic feeds, after the C2 contract PR. Mapping rule (C2):
+  - articles filtered by **topic code** (`listLearnArticles?topic=<code>`);
+  - questions filtered by **tag**; by convention, a topic page lists questions tagged with the same slug as the topic code (`listQuestions?tag=<code>`).
 - [ ] Tests: the pre-fill, the link created, and a question with an anonymous session redirects to sign-in. Web coverage stays above 70%.
 
 **Allowed paths:** `src/web/**`. Backend changes only in `src/api/internal/solve/**`, and only if the link handling needs a fix.
@@ -834,7 +843,12 @@ Taxonomy rows are data. Later they change through a new forward-only migration o
 - **Reviewers:** `mibienpanjoe` for the backend; `Y4NN777` for the UI. The contract PR needs `Y4NN777` and `PANK4SS` (R7).
 - **Helpers:** `PANK4SS` on demand (typed client wiring)
 - **Branches:** `feature/connect/profiles-contract`, then `feature/connect/people-directory` (`connect` is in `docs/GIT_WORKFLOW.md:38`)
-- **Depends on:** S1 (profiles, session resolver) and **C14** (an owner ruling on what makes a profile listable).
+- **Depends on:** S1 (profiles, session resolver). **C14 DECIDED 2026-11-12:**
+  - listable only if the user is **active** and `open_to_collab = true`;
+  - fields shown per `field_visibility` for the caller;
+  - email never shown;
+  - filters apply only to caller-visible fields, so a hidden field counts as absent;
+  - no column and no migration.
 
 **Tasks**
 
@@ -850,7 +864,8 @@ Taxonomy rows are data. Later they change through a new forward-only migration o
 - [ ] Add `GET /api/v1/profiles` to `scripts/public-routes.txt`, with its reason (public by design). B1 applies.
 - [ ] Backend: a projection filtered by `field_visibility`, depending on the caller (anonymous or member).
   - Email is never selected.
-  - Only listable profiles appear (C14). Deleted and suspended users never appear.
+  - Only listable profiles appear (C14: `users.status='active'` and `open_to_collab = true`). Deleted and suspended users never appear.
+  - Residual (INFERRED): `open_to_collab_visibility` may be `members` or `private`. Listing such a profile to an anonymous caller would reveal the flag. Either also require that visibility to allow the caller, or record that it is accepted. The owner decides in the E5 PR.
   - Filters match only fields visible to the caller.
   - Stable order with a UUID tie-breaker.
   - A rate limit per IP and per user. The window is the owner's call, because ADR-0003 has none for this route.
@@ -864,7 +879,7 @@ Taxonomy rows are data. Later they change through a new forward-only migration o
 - a hidden field (`members` or `private`) never appears for a caller who may not see it;
 - filtering on a hidden field never matches;
 - no `email` key ever appears;
-- a non-listable or private profile is absent from the list, and `getProfile` returns 404 for it (matrix row `GET /profiles/{username}`);
+- a non-listable profile (inactive user, or `open_to_collab = false`) is absent from the list. Its direct read follows `getProfile`'s own rule (C14), which is 404 only for a private profile (matrix row `GET /profiles/{username}`);
 - `limit=51` returns 422;
 - a tampered cursor returns 400;
 - the N+1 request past the rate limit gets 429.
@@ -879,11 +894,11 @@ Taxonomy rows are data. Later they change through a new forward-only migration o
 - `scripts/public-routes.txt`
 - `src/web/**` (`PANK4SS`)
 
-A migration is needed only if C14 is ruled as a new column, and only `mibienpanjoe` writes it (R6).
+No migration is needed (C14 DECIDED: no new column).
 
 **DoD:** DoD-common, plus the privacy tests above on real PostgreSQL, plus the failure modes in ROADMAP section 12.2.
 
-**Status:** PLANNED (backend `NICE-DEV226`, after Solve; blocked on C14)
+**Status:** PLANNED (backend `NICE-DEV226`, after Solve; C14 DECIDED, unblocked)
 
 ---
 

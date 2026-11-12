@@ -111,8 +111,8 @@ The slices were assigned by owner decisions on 2026-11-12. The review rules come
 | S10 | Live channels (**CONDITIONAL**) | **unassigned**, conditional on Sat 14 Nov 12:00; migrations `mibienpanjoe` | new, TBD | Sat 12:00 GO, S1, S4, S5 |
 | E2 | Taxonomy: +5 learn topics, +3 resource categories, 4 relabels, no deletions, one new migration | `mibienpanjoe`, the only migration writer; helpers `Y4NN777` and `NICE-DEV226` on the pgtest updates only, never on the migration | 0 | none (migration only) |
 | SEED | Demo fixtures for **`local-dev` only**, for local development and e2e: `db/seeds` and `make seed` (NOT IMPLEMENTED today; refuses everywhere except `local-dev`), demo accounts as decided in C15, and a local copy of the 3 to 4 lesson series | `PANK4SS` (reviewed by `mibienpanjoe`; the `mk/50-ops.mk` change also by `Y4NN777`, area owner) | 0 | migrations 00001 to 00010 and E2; C15 DECIDED |
-| E4 | "Ask about this lesson" button, read-only topic feeds | `PANK4SS` with `NICE-DEV226` (Solve owner) | 0 | S3 `createQuestion`; any member-written or demo-fixture article (S4, SEED); C2 ruling before the feeds |
-| E5 | Connect people directory (new operation, suggested `GET /profiles`), `connect` page, office-hours process note | backend `NICE-DEV226` after Solve, if time allows (it slips early); UI `PANK4SS` | +1 (44 total once accepted) | contract PR; S1 (profiles); C14 ruling |
+| E4 | "Ask about this lesson" button, read-only topic feeds | `PANK4SS` with `NICE-DEV226` (Solve owner) | 0 | S3 `createQuestion`; any article (S4, the content script, or SEED in `local-dev`); the C2 contract PR before the feeds (C2 DECIDED) |
+| E5 | Connect people directory (new operation, suggested `GET /profiles`), `connect` page, office-hours process note | backend `NICE-DEV226` after Solve, if time allows (it slips early); UI `PANK4SS` | +1 (44 total once accepted) | contract PR; S1 (profiles); C14 DECIDED |
 | IA | Pillar emphasis: navigation, home and FR/EN copy promote Learn & Grow and Connect | `PANK4SS` | 0 | none (no new endpoints) |
 
 **Reviewer pairs (owner instruction 2026-11-12).** A reviewer is never the author.
@@ -177,7 +177,7 @@ Reviews (ADR-0008, proposed):
 
 - `Y4NN777`: personal tasks H6 and H7 (Datacloud, DNS) and H4 (branch protection). S0 work: the B1 gate as DECIDED (three route files, `go test -list` check, single registration point, RED/GREEN), then pgxpool, `/readyz` and the apigen mount via `HandlerWithOptions`. Opens the S0 PR for `NICE-DEV226` to review.
 - `NICE-DEV226`: identity record (H1). S1 RED tests for the domain and service with fakes: hashing, tokens, CSRF, sessions. Mounts no routes before S0 merges.
-- `mibienpanjoe`: identity record (H1). S2 sqlc queries with local EXPLAIN. Designs the seeds. Raises the Learn `topic` decision (C2). Opens the E2 taxonomy migration PR (`make migrate-new`, plus the pgtest list update).
+- `mibienpanjoe`: identity record (H1). S2 sqlc queries with local EXPLAIN. Opens **the C2 contract PR first** (topic code in `listLearnArticles` and `listTrainingSeries`, an optional `topic` on `ArticleCreate`, `make generate`; reviewed by `Y4NN777` and `PANK4SS`). In parallel, opens the E2 taxonomy migration PR (`make migrate-new`, plus the pgtest list update).
 - `PANK4SS`: accepts the invitation (H2) and records identity (H1). S7 shell, i18n and shared components on typed fixtures. SEED design: demo accounts per C15.
 
 **Checkpoint, Thu end of day: S0 merged or in review.**
@@ -193,7 +193,7 @@ Reviews (ADR-0008, proposed):
 
 **Fri 13, afternoon and evening**
 
-- `Y4NN777`: staging up with TLS, DNS and SMTP (H8). AI Studio key and V1 to V4 (H12). Argon2id benchmark on the target host. Drafts the S9 ADR (PROPOSED, including AI-1 to AI-5, AI-9 and AI-10) and the S9 contract PR. Rules on C2 and C14.
+- `Y4NN777`: staging up with TLS, DNS and SMTP (H8). AI Studio key and V1 to V4 (H12). Argon2id benchmark on the target host. Drafts the S9 ADR (PROPOSED, including AI-1 to AI-5, AI-9 and AI-10) and the S9 contract PR. Reviews the C2 contract PR.
 - `PANK4SS` (SEED): fixtures for Discover, Build and the 3 to 4 lesson Learn series, written as original team text, with demo accounts per C15. `make seed` refuses everywhere except `local-dev`. Reviewed by `mibienpanjoe`.
 - E5: the contract PR (backend lead plus `PANK4SS` review) is opened, with `make generate`. The backend comes later, by `NICE-DEV226`.
 - `PANK4SS`: pillar emphasis in navigation, home and FR/EN copy (information architecture only).
@@ -219,7 +219,7 @@ Reviews (ADR-0008, proposed):
 - `Y4NN777`: S6 moderation merged. S9 merged, with `NICE-DEV226` as second developer. `make perf` harness. Backup and restore drill on staging.
 - `NICE-DEV226`: S3 merged. Then helps on S5 Build, then is the S9 second developer, then builds the E5 backend if time allows. If S10 is a GO, the owner assigns it; S10 is unassigned today.
 - `mibienpanjoe`: S5 merged, with helpers. The content script is rehearsed on `staging-test`. If S10 is a GO, writes its migration.
-- `PANK4SS`: write flows (ecrire, build, project, the solve ask form). The S9 panel in recherche and in the ask flow. E4 with `NICE-DEV226`: the "ask about this lesson" button once S3 merges, and the topic feeds only after C2 is ruled.
+- `PANK4SS`: write flows (ecrire, build, project, the solve ask form). The S9 panel in recherche and in the ask flow. E4 with `NICE-DEV226`: the "ask about this lesson" button once S3 merges, and the topic feeds once the C2 contract PR merges (articles by topic code, questions by tag).
 - `PANK4SS` (SEED): fixtures finished, and `make seed` run on `local-dev` for e2e.
 - Content rehearsal on `staging-test`: the team's real accounts create real `live` content, and the free-series content script is rehearsed there with the same procedure as production.
 - E5 backend (`NICE-DEV226`, if time allows): the people directory with privacy tests. `PANK4SS` builds the `connect` page, and the spaces block stays "bientôt".
@@ -281,9 +281,9 @@ flowchart LR
   SEED --> E4a[E4 ask-about-this-lesson]
   S3 --> E4a
   S4w --> E4a
-  C2{C2 topic ruling} --> E4f[E4 topic feeds]
+  C2[C2 contract PR: topic code] --> E4f[E4 topic feeds]
   C2 --> S4r
-  C14{C14 listing rule} --> E5c[E5 contract PR]
+  C14[C14 DECIDED: active + open_to_collab] --> E5c[E5 contract PR]
   E5c --> E5[E5 people directory]
   S1 --> E5
   S2r & S3 & S4w & S5 & S6 & S9 & E4a & E5 --> S7w[S7 pages wired]
@@ -335,7 +335,7 @@ The other rows below are not personal owner tasks. Their status is unchanged unl
 | H2 | `PANK4SS` accepts the repository invitation (pending, `docs/team/CONTRIBUTORS.md:12`) | `PANK4SS` | Thu evening | minutes (GUESS) |
 | H3 | ADR-0008 set to ACCEPTED or amended; it is PROPOSED today (`docs/decisions/0008-team-work-areas-and-ownership.md:3`) | `Y4NN777` | Thu evening | - |
 | H4 | Branch protection and required reviews on `develop` and `main`, with the `quality` check required (ADR-0006 "CI", ADR-0008 "Consequences") | `Y4NN777` | Thu evening | minutes (GUESS) |
-| H5 | Rulings on the items still open in section 10. B1, B5 (for CADEV) and C15 are DECIDED as of 2026-11-12. Still open: B2, B3, B4, C1 to C14, O4 to O7. | `Y4NN777` | Thu evening | - |
+| H5 | Rulings on the items still open in section 10. B1, B5 (for CADEV), C1, C2, C14 and C15 are DECIDED as of 2026-11-12. B2, B3 and B4 are scheduled in S0 and S8, not blocking today. Still open: C3 to C13, O4 to O7. | `Y4NN777` | Thu evening | - |
 | H6 | Datacloud account and an **active commercial product**, SSH key, ports 80/443, storage (`docs/SHIP.md` section 3; a CADEV condition). Handled by the owner. | `Y4NN777` | Thu evening | UNVERIFIED; hours to a day (GUESS) |
 | H7 | DNS. The domain `226os.tech` exists and the owner holds it, but **nothing is deployed on it**: today it shows only the hosting provider's placeholder page. When the Datacloud host IP is known, point the apex `226os.tech` and the staging subdomain (PROPOSAL: `staging.226os.tech`, owner to confirm) to it with A records, in the registrar or DNS panel the owner holds. TLS issues through Traefik and Let's Encrypt **only after DNS resolves**, so DNS comes before the first HTTPS smoke test. Never assume DNS works (`docs/SHIP.md` section 1). | `Y4NN777` | as soon as the host IP is known | minutes to hours (GUESS) |
 | H8 | Gmail SMTP: create an app password, stored in the staging and production env files only; test with a real inbox | `Y4NN777` | Fri morning | GUESS: an app password needs 2-step verification on the account; verify |
@@ -388,11 +388,13 @@ The other rows below are not personal owner tasks. Their status is unchanged unl
 - The overlay check (`routes_check.go.txt:32`) changes in the S0 PR.
 - K3 drops to low once the S0 PR is green.
 
-**B2. `/readyz` cannot be reached from outside.** The edge rule routes only `/api/` and `/healthz` (`deploy/traefik/dynamic.edge.yml:6`), but SHIP 4.2 smoke-tests `/readyz`. The owner decides between routing it and checking it from the host.
+**B2, B3 and B4 are scheduled, not blocking today** (owner, 2026-11-12). They are tasks in S0 and S8 that must close before Sunday.
 
-**B3. The router's request timeout breaks long requests.** It is 30 s (`src/api/internal/platform/httpx/router.go:14,23`) and applies to every route. A server-sent events stream (S10) is cut after 30 s, and slow LLM calls (S9) are cut too (INFERRED). S0, S9 and S10 need a per-route timeout decision.
+**B2. `/readyz` cannot be reached from outside (scheduled: S8 and S0).** The edge rule routes only `/api/` and `/healthz` (`deploy/traefik/dynamic.edge.yml:6`), but SHIP 4.2 smoke-tests `/readyz`. The owner decides between routing it and checking it from the host.
 
-**B4. Production has no deploy path yet.**
+**B3. The router's request timeout breaks long requests (scheduled: S0).** It is 30 s (`src/api/internal/platform/httpx/router.go:14,23`) and applies to every route. A server-sent events stream (S10) is cut after 30 s, and slow LLM calls (S9) are cut too (INFERRED). S0, S9 and S10 need a per-route timeout decision.
+
+**B4. Production has no deploy path yet (scheduled: S8, before Sunday).**
 
 - `make up-production-live` runs only from an automated release job: it requires `CI=true`, no interactive terminal and `PRODUCTION_UP_CONFIRM=production-live`.
 - The Makefile itself says "There is no deploy workflow yet (TASK-OPS-001), so today no context satisfies the guard" (`mk/50-ops.mk:20-24`).
@@ -430,19 +432,46 @@ The original analysis follows.
 | (b) One-time admin script run by the owner | Can use the real user and article ids after the authors publish. No contract change. | Manual production mutation that needs human approval (AGENTS.md). Must be rehearsed on staging, take a backup first and write an `audit_log` row. Not exercised in CI. |
 | (c) Restricted create endpoint (for example moderator-only) | A proper, tested path | A contract change late in the week (R7 review by `Y4NN777` and `PANK4SS`), new negative authz tests, B1 applies, and more scope |
 
-### Contradictions (rulings needed; nothing is resolved here)
+### Contradictions (each item is open unless marked DECIDED)
 
-**C1. Maintainer rights.**
+**C1. Maintainer rights. DECIDED 2026-11-12 (owner approved).**
+
+The finding:
 
 - The matrix gives "O or maintainer" for `PATCH /projects/{projectId}`, `POST .../contribution-needs` and `GET .../applications` (`docs/spec-kit/AUTHORIZATION_MATRIX.md:40,42,45`; ADR-0005 point 10).
 - OpenAPI x-authz says `allow: owner` with "no delegation in P0" (`api/openapi.yaml:1313-1317`, `:1397-1401`, `:1515-1519`).
 - No P0 operation creates a maintainer.
 
-**C2. Learn `topic`.**
+**Decision:** project actions belong to the **project owner only** at P0. That covers editing the project, adding needs, listing applications, and accepting or declining an application. There is no maintainer delegation. The applicant can still withdraw their own application.
+
+**Reason:** OpenAPI x-authz already says this for three of the four operations, and no operation creates a maintainer.
+
+**Consequences:**
+
+- The S5 PR corrects matrix lines 40, 42 and 45 to "owner only".
+- S5 authz is unblocked.
+- `decideApplication` x-authz still says "owner or maintainer (accepted|declined)" (`api/openapi.yaml:1559-1561`), so the "already says" premise does not hold for that one operation. Its x-authz text needs a correction in a contract PR (R7: `Y4NN777` and `PANK4SS`).
+- ADR-0005 point 10 and the matrix are ACCEPTED documents (ADR-0003). This ruling narrows them. The owner records it as an amendment, and this plan does not edit the ADRs.
+
+**C2. Learn `topic`. DECIDED 2026-11-12 (owner approved).**
+
+The finding:
 
 - `listLearnArticles` types `topic` as a `TagSlug` that "matches an article tag" (`api/openapi.yaml:1626-1630`).
 - The database stores `topic_code` as an FK to `learn_topics` (`docs/spec-kit/DATABASE_DESIGN.md:920,931`).
 - `ArticleCreate` has no topic field at all (`api/openapi.yaml:4194-4241`).
+
+**Decision:** the topic filter uses the **topic code** (`learn_topics.code`, the database FK), not a tag slug. This is a **contract fix** in its own PR, merged before the S4 handlers and the E4 topic feeds:
+
+- The `listLearnArticles` `topic` parameter is retyped as the topic code, with the DB CHECK pattern `^[a-z][a-z0-9-]{1,29}$` and an updated description.
+- `listTrainingSeries` has no `topic` parameter today (`api/openapi.yaml:1746-1753`), so one is added with the same type.
+- An optional `topic` field is added to `ArticleCreate`.
+- `make generate` follows.
+- Authored by `mibienpanjoe` and reviewed by `Y4NN777` (backend lead) and `PANK4SS`.
+
+**Mapping rule:** questions have no topic. The E4 topic feeds show articles by topic code and questions by tag. By convention, a topic's feed page may also list questions tagged with the same slug as the topic code. Topic codes match the `TagSlug` pattern.
+
+**Consequence:** S4 and the E4 topic feeds are unblocked once that contract PR merges.
 
 **C3. `my_progress` without a progress table.** `getTrainingSeries` promises `my_progress` when a session exists (`api/openapi.yaml:1780`), but `learn_progress` is P1 and arrives in migration 00011 (ADR-0005 point 16).
 
@@ -481,7 +510,25 @@ The original analysis follows.
 
 **C13. `LinkRef` accepts `series`, but the database cannot store it.** `LinkRef.type` includes `series` (`api/openapi.yaml:3171`), but `content_relations` has no series column (`db/migrations/00009_content_relations.sql:24-25`; `docs/spec-kit/DATABASE_DESIGN.md:142`). This is why each lesson of the demo-fixture series is a `learn_article` of kind `tutorial`, referenced by `training_lessons.article_id`.
 
-**C14. A "private profile" has no column (blocks E5).**
+**C14. A "private profile" has no column. DECIDED 2026-11-12 (owner approved).**
+
+**Decision:**
+
+- A profile is **listable** in the people directory only when its owner is an **active** user **and** has set `open_to_collab = true`.
+- Listed fields are limited to those whose `field_visibility` allows the caller, anonymous or member.
+- Email is never listed.
+- The directory filters (country, language, skill) apply **only to fields visible to the caller**. A hidden field counts as absent for filtering, so a filter cannot reveal its value.
+- There is no new column and no migration.
+- The direct read `GET /profiles/{username}` keeps its own rule.
+
+**Consequence:** the E5 contract PR and the E5 backend are unblocked.
+
+**Residual points (INFERRED):**
+
+- `open_to_collab` has its own visibility (`open_to_collab_visibility`, `db/migrations/00003_identity.sql:58`). If an owner set it to `members` or `private`, listing them to anonymous callers reveals that they are open to collaboration. The E5 PR should either also require that visibility to allow the caller, or accept this and record it.
+- `getProfile`'s `private_profile: 404` (`api/openapi.yaml:414-415`) still has no backing column, and "its own rule" is not defined anywhere.
+
+The original analysis follows.
 
 - `getProfile` declares `private_profile: 404` (`api/openapi.yaml:414-415`), and E5 requires "private profiles never listed".
 - The `profiles` table has only per-field visibility (`country`, `languages`, `skills`, `github`, `bio`, `open_to_collab`; `db/migrations/00003_identity.sql:53-58`). It has no profile-level visibility and no listing opt-in.
@@ -524,7 +571,7 @@ This item still applied after the ingestion was removed, because fixtures raise 
 - Whatever the choice, fixtures create **no votes, answers by fake people, or applications**.
 - C16, C17 and C18 were removed with the ingestion. C17's remaining point, that there is no write path for the catalogue, is folded into B5.
 
-**C2, addition (blocks the E4 topic feeds).** Questions have no topic; `listQuestions` filters only by `tag` (`api/openapi.yaml:462`). A topic feed of questions therefore needs a mapping rule, for example topic code = tag slug. That rule is part of the C2 ruling.
+**C2, addition. DECIDED with C2.** Questions have no topic; `listQuestions` filters only by `tag` (`api/openapi.yaml:462`). Mapping rule: a topic's feed shows articles by topic code and questions whose tag equals the topic code.
 
 ### Open decisions
 
@@ -686,7 +733,7 @@ If progress is behind at the Sat 12:00 checkpoint, the suggested order of what s
 | SEED: `make seed` run outside `local-dev` | A refusal | Exits non-zero before touching the database | Refusal tests for `APP_ENV=staging-test` and `production-live` |
 | SEED: demo rows reach staging or production | Never happens | A check finds zero `provenance='demo'` rows on **both** staging and production (`docs/spec-kit/DATABASE_DESIGN.md:1296`, extended to staging) | The check in the G7 evidence, for both environments |
 | SEED: a fixture is mistaken for real activity | A visible demo badge | `provenance='demo'` rendered as a badge; no fake votes or applications | UI test for the badge; a seed test that no votes or applications are seeded |
-| E5: a hidden field or a non-listable profile appears in the list | Never happens | Visibility-filtered projection; filters only on caller-visible fields; email never selected; non-listable profiles excluded (C14) | Privacy tests: a hidden field is absent; filtering on a hidden field does not match; no email key; a non-listable profile is absent from the list and its direct read returns 404 |
+| E5: a hidden field or a non-listable profile appears in the list | Never happens | Visibility-filtered projection; filters only on caller-visible fields; email never selected; non-listable profiles excluded (C14) | Privacy tests: a hidden field is absent; filtering on a hidden field does not match; no email key; a non-listable profile (inactive, or `open_to_collab = false`) is absent from the list, and its direct read follows `getProfile`'s own rule |
 | E5: listing abuse or scraping | 429 with `Retry-After` past the limit | Bounded `limit` (above 50 returns 422), cursor only, per-IP and per-user rate limit | Limit-51 test; N+1 rate-limit test |
 | E5: empty result | A clear empty state, with a reset-filters action | 200 with `items: []` and `next_cursor: null` | Contract test and a web empty-state test |
 
@@ -774,4 +821,8 @@ All pillars share the same spine. That is why making two of them prominent remov
 | 2026-11-12 | **Helpers (owner amendment).**<br>- `Y4NN777` and `NICE-DEV226` are named helpers on `mibienpanjoe`'s S2, S4, S5, E2 and content script. They are co-workers on the PR. `mibienpanjoe` stays accountable and is still the only migration writer.<br>- Default split after Solve: `NICE-DEV226` helps on S5, `Y4NN777` helps on S4 and the content script.<br>- The Fri 13 Nov 23:00 checkpoint decides who helps first. This replaces the "`NICE-DEV226` takes Build" fallback.<br>- `PANK4SS` supports anyone on demand, as a co-worker on the PR, without changing frontend ownership. | `Y4NN777` |
 | 2026-11-12 | **Owner correction B, fixtures.**<br>- `staging-test` and `production-live` are similar real environments, and neither has demo data. Only `local-dev` has demo fixtures.<br>- `make seed` refuses everywhere except `local-dev`. This is stricter than ADR-0005 point 17, which allows `local-dev` and `staging-test`; the owner chooses not to use staging seeds, so **no ADR change is needed**.<br>- Demo accounts exist only in `local-dev`. SEED serves local development and e2e.<br>- The deployment checklist checks zero `demo` rows on both staging and production.<br>- The free-series content script runs on staging and on production with the same procedure. | `Y4NN777` |
 | 2026-11-12 | **Owner correction C, domain.**<br>- `226os.tech` exists and the owner holds it, but nothing is deployed on it; it shows the hosting provider's placeholder page.<br>- The CADEV URL is `https://226os.tech` once `production-live` is deployed.<br>- Staging uses a subdomain: PROPOSAL `staging.226os.tech`, owner to confirm.<br>- H7: A records for the apex and the staging subdomain once the Datacloud host IP is known. TLS follows only after DNS resolves. | `Y4NN777` |
+| 2026-11-12 | **DECIDED (owner approved) C1.**<br>- Project actions belong to the project owner only: edit, needs, list applications, accept and decline.<br>- No maintainer delegation at P0. The applicant may still withdraw.<br>- The S5 PR corrects matrix lines 40, 42 and 45.<br>**Reason:** matches OpenAPI x-authz, and no operation creates a maintainer.<br>**Consequences:**<br>- S5 authz is unblocked.<br>- `decideApplication` x-authz (`openapi.yaml:1559-1561`) still says "owner or maintainer" and needs a contract correction.<br>- This narrows ADR-0005 point 10, which the owner records as an amendment. | `Y4NN777` |
+| 2026-11-12 | **DECIDED (owner approved) C2.**<br>- The Learn topic filter uses the topic code (`learn_topics.code`, pattern `^[a-z][a-z0-9-]{1,29}$`).<br>- Its own contract PR: retype the `listLearnArticles` topic, add a topic to `listTrainingSeries` (none today), and add an optional `topic` to `ArticleCreate`, then `make generate`. Author `mibienpanjoe`; reviewers `Y4NN777` and `PANK4SS`. It merges before the S4 handlers and the E4 feeds.<br>**Mapping rule:** feeds show articles by topic code and questions by tag; a topic page may list questions tagged with the topic code.<br>**Consequence:** S4 and E4 are unblocked after that PR. | `Y4NN777` |
+| 2026-11-12 | **DECIDED (owner approved) C14.**<br>- A profile is listable only if its user is active and has set `open_to_collab = true`.<br>- Fields are shown per `field_visibility` for the caller. Email is never shown.<br>- Filters apply only to fields the caller can see.<br>- No column and no migration. `GET /profiles/{username}` keeps its own rule.<br>**Consequence:** the E5 contract PR and backend are unblocked. **Residual:** `open_to_collab_visibility` and the undefined `private_profile` rule (section 10, C14). | `Y4NN777` |
+| 2026-11-12 | **B2, B3 and B4 are scheduled, not blocking today.** They are tasks in S0 and S8 that must close before Sunday. | `Y4NN777` |
 | 2026-11-12 | **OPEN, not applied.** "Learn as the heart": a PRD amendment 3.2 or 3.3 ending the equal pillar weight of 3.1, or equal weight kept and only topics, series and home ordering change (O7). S10 is unchanged: it is conditional on the Sat 12:00 checkpoint, and if built it displaces E4-type work. | `Y4NN777` (pending) |
