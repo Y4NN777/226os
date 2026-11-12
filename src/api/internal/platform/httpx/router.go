@@ -9,12 +9,26 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+
+	"github.com/Y4NN777/226os/src/api/internal/platform/apigen"
+	"github.com/Y4NN777/226os/src/api/internal/platform/apispec"
+	"github.com/Y4NN777/226os/src/api/internal/platform/subject"
 )
 
 const requestTimeout = 30 * time.Second
 
-// NewRouter builds the root router. Domain modules mount their routes here later.
-func NewRouter(logger *slog.Logger) http.Handler {
+// Deps are the collaborators the router needs; app wires them.
+type Deps struct {
+	Server       apigen.ServerInterface
+	Ready        Pinger
+	ReadyTimeout time.Duration // zero means 2s
+	// Subjects resolves who is calling. Nil means everyone is anonymous; S1 provides the
+	// session-backed resolver (ADR-0003). The subject always comes from the resolver.
+	Subjects subject.Resolver
+}
+
+// NewRouter builds the root router and mounts the generated API under /api/v1.
+func NewRouter(logger *slog.Logger, deps Deps) http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
 	r.Use(echoRequestID)
@@ -22,6 +36,19 @@ func NewRouter(logger *slog.Logger) http.Handler {
 	r.Use(Recover(logger))
 	r.Use(middleware.Timeout(requestTimeout))
 	r.Get("/healthz", healthz)
+	r.Get("/readyz", readyz(logger, deps.Ready, deps.ReadyTimeout))
+	apigen.HandlerWithOptions(deps.Server, apigen.ChiServerOptions{
+		BaseURL:          "/api/v1",
+		BaseRouter:       r,
+		ErrorHandlerFunc: APIErrorHandler(logger),
+		// apigen wraps the handler with each element in turn, so the LAST element is the OUTERMOST and
+		// runs first: schema validation before subject resolution, which becomes a database lookup
+		// (ADR-0004 point 8: validate before authorization-sensitive work).
+		Middlewares: []apigen.MiddlewareFunc{
+			subject.Middleware(deps.Subjects, WriteError(logger)),
+			embeddedValidator(logger),
+		},
+	})
 	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
 		writeProblem(w, r, http.StatusNotFound, "NOT_FOUND", "Not Found")
 	})
@@ -31,6 +58,18 @@ func NewRouter(logger *slog.Logger) http.Handler {
 	return r
 }
 
+// embeddedValidator builds the contract validator from the spec embedded in the
+// binary. A failure means the shipped api/openapi.yaml is unusable, a build-time
+// invariant (apispec's tests and the router tests load it), so refusing to
+// construct the router beats serving /api/v1 unvalidated.
+func embeddedValidator(logger *slog.Logger) apigen.MiddlewareFunc {
+	validate, err := NewValidator(logger, apispec.YAML)
+	if err != nil {
+		panic("httpx: embedded OpenAPI contract is unusable: " + err.Error())
+	}
+	return validate
+}
+
 func healthz(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	_, _ = w.Write([]byte(`{"status":"ok"}`))
@@ -38,7 +77,7 @@ func healthz(w http.ResponseWriter, _ *http.Request) {
 
 func echoRequestID(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set(middleware.RequestIDHeader, middleware.GetReqID(r.Context()))
+		w.Header().Set(middleware.RequestIDHeader, requestID(r.Context()))
 		next.ServeHTTP(w, r)
 	})
 }
@@ -60,7 +99,7 @@ func accessLog(logger *slog.Logger) func(http.Handler) http.Handler {
 			start := time.Now()
 			next.ServeHTTP(rec, r)
 			logger.LogAttrs(r.Context(), slog.LevelInfo, "request",
-				slog.String("request_id", middleware.GetReqID(r.Context())),
+				slog.String("request_id", requestID(r.Context())),
 				slog.String("method", r.Method),
 				slog.String("path", r.URL.Path),
 				slog.Int("status", rec.status),
@@ -77,7 +116,7 @@ func Recover(logger *slog.Logger) func(http.Handler) http.Handler {
 			defer func() {
 				if rec := recover(); rec != nil {
 					logger.LogAttrs(r.Context(), slog.LevelError, "panic recovered",
-						slog.String("request_id", middleware.GetReqID(r.Context())),
+						slog.String("request_id", requestID(r.Context())),
 						slog.Any("panic", rec),
 					)
 					writeProblem(w, r, http.StatusInternalServerError, "INTERNAL_ERROR", "Internal Server Error")
@@ -97,7 +136,7 @@ func writeProblem(w http.ResponseWriter, r *http.Request, status int, code, titl
 		"title":      title,
 		"status":     status,
 		"code":       code,
-		"instance":   r.URL.Path,
-		"request_id": middleware.GetReqID(r.Context()),
+		"instance":   capRunes(r.URL.Path, maxInstanceLen),
+		"request_id": requestID(r.Context()),
 	})
 }

@@ -94,19 +94,21 @@ Each line below is a **proposal**. The lead confirms or reassigns it.
   - Follow-up for `feature/platform/api-mount` (tracked, not forgotten): the gate proves "a mounted route listed as unimplemented is really unimplemented" with an HTTP probe that expects 501. Once `HandlerWithOptions`, validation and session or CSRF middleware are mounted, a probe can be answered 400, 401 or 403 before the stub. Replace it there by a method-set check of the production `apigen.ServerInterface` implementation (a method not overridden is still the `apigen.Unimplemented` one), then drop the probe.
   - Hardening on `fix/platform/authz-gate-hardening`: test files come from `go list` (the toolchain's own build rules; no `go test -list`, so `make security-authz` needs no Docker) and names from their AST; a mapped test must, in one declaration, name its route (exact path or operation) and mention a denial status (401, 403 or 404); the "test did not run" guard has a RED test. Still open: the 501 probe, replaced in `feature/platform/api-mount`.
 - [x] **O3 (closed by B1).** The 4 P1 routes stay in `unimplemented-routes.txt`, answering 501.
-- [ ] Add `pgxpool` and `DATABASE_URL` to the config (`src/api/internal/platform/config`), and pass `DATABASE_URL` to `api` in `compose.yaml` (today `compose.yaml:90` omits it).
+- [x] Add `pgxpool` and `DATABASE_URL` to the config (`src/api/internal/platform/config`), and pass `DATABASE_URL` to `api` in `compose.yaml` (today `compose.yaml:90` omits it). (`feature/platform/api-mount`; `CURSOR_KEY` added to config, compose and `.env.example` too.)
 - [ ] Add `GET /readyz` (DB ping with a deadline) to `scripts/public-routes.txt` with its reason. Decide edge routing for B2 (`deploy/traefik/dynamic.edge.yml:6`). Scheduled; not blocking today; must close before Sunday.
-- [ ] Mount `apigen` with `HandlerWithOptions` under `/api/v1`, with a problem+json `ErrorHandlerFunc`:
+  - Follow-ups recorded by the skeptic review (api-mount): cursors carry no expiry (ADR-0004 point 5 lists "expired"; needs a TTL decision); `METHOD_NOT_ALLOWED`, the bare 501 of `apigen.Unimplemented` and a 405 without an `Allow` header are outside the contract (C5); `Application/JSON` (mixed case) is refused 400 by the validator while `DecodeJSON` accepts it.
+  - `GET /readyz` is built, tested and in `scripts/public-routes.txt` (`feature/platform/api-mount`). **B2 (edge routing of `/readyz`) is NOT decided yet.**
+- [x] Mount `apigen` with `HandlerWithOptions` under `/api/v1`, with a problem+json `ErrorHandlerFunc`: (`feature/platform/api-mount`. The router still answers `METHOD_NOT_ALLOWED` for unknown methods, a code outside the enum: C5 stays open.)
   - missing required `If-Match` returns 428 `PRECONDITION_REQUIRED`;
   - bad parameters return 400 `MALFORMED_REQUEST` or 422 `VALIDATION_ERROR` (ADR-0004);
   - `METHOD_NOT_ALLOWED` is outside the enum (C5).
-- [ ] If the `httpx.NewRouter` signature changes, update the overlay in the same PR (`routes_check.go.txt:32`).
-- [ ] Request validation:
+- [x] If the `httpx.NewRouter` signature changes, update the overlay in the same PR (`routes_check.go.txt:32`). (done: the gate now calls `NewRouter(logger, Deps)` and checks the production `app.Server` method set.)
+- [x] Request validation:
   - `additionalProperties: false` and `DisallowUnknownFields`;
   - `maxLength` and `maxItems`;
   - 1 MiB body limit, returning 413 `PAYLOAD_TOO_LARGE`;
   - `Content-Type: application/json` on mutations (the error code for this is open, C5).
-- [ ] Signed opaque cursors: HMAC key from env, sort key plus UUID plus filter hash, 400 `INVALID_CURSOR`. `limit` defaults to 20 and returns 422 above 50.
+- [x] Signed opaque cursors: HMAC key from env, sort key plus UUID plus filter hash, 400 `INVALID_CURSOR`. `limit` defaults to 20 and returns 422 above 50. (codec in `platform/cursor`, `httpx.Limit`; the list handlers of S2 to S5 call them.)
 - [ ] `ETag` and `If-Match` helper returning 412 and 428. It is used by `updateQuestion` (S3).
 - [ ] Idempotency-Key on the six operations listed in Shared pieces:
   - stored in `idempotency_keys` for 24 hours;
@@ -115,14 +117,14 @@ Each line below is a **proposal**. The lead confirms or reassigns it.
   - same key with a different hash returns 422 `IDEMPOTENCY_KEY_REUSED`;
   - a request still in flight returns 409 `IDEMPOTENCY_IN_PROGRESS`;
   - a purge job removes expired rows.
-- [ ] Transaction runner (multi-table mutations in one transaction).
-- [ ] Domain error to problem+json mapping table (one place).
+- [x] Transaction runner (multi-table mutations in one transaction).
+- [x] Domain error to problem+json mapping table (one place).
 - [ ] Mailer port, SMTP adapter and fake:
   - a digest-pinned Mailpit service in the `local-dev` profile of `compose.yaml`;
   - `SMTP_*` variables in `.env.example` (their current presence is UNVERIFIED);
   - the Gmail app password only in the staging and production env files.
 - [ ] Per-route timeout decision for B3 (`httpx/router.go:14,23`; matters for S9 and S10). Scheduled; not blocking today; must close before Sunday.
-- [ ] Session resolver port with an anonymous default (Shared pieces).
+- [x] Session resolver port with an anonymous default (Shared pieces).
 
 **Tables:** `idempotency_keys` (migration `00004`).
 
@@ -156,7 +158,7 @@ Each line below is a **proposal**. The lead confirms or reassigns it.
 
 **Stop condition:** stop and ask the owner if B1 cannot be solved without weakening the gate.
 
-**Status:** IN PROGRESS (B1 gate on `feature/platform/authz-gate`; api-mount, idempotency and mailer not started)
+**Status:** IN PROGRESS (B1 gate merged, hardening in PR #32; api-mount on `feature/platform/api-mount`; idempotency, ETag, mailer, B2 and B3 not started)
 
 ---
 
@@ -1045,3 +1047,4 @@ E5 needs the `profile_visibility` migration (C14b), which only `mibienpanjoe` wr
 | 2026-11-12 | CADEV team registration done (H9) | n/a | `Y4NN777` |
 | 2026-11-12 | S0 B1 authz gate: three route lists, `TestAuthz*` test-name check, stray-router scan, RED/GREEN in `scripts/tests/authz-routes_test.sh` | #31 | `Y4NN777` |
 | 2026-11-12 | S0 B1 gate hardening: toolchain test files (no Docker), mapped-test content rules, silent-pass guard RED test | #32 | `Y4NN777` |
+| 2026-11-12 | S0 api-mount: pgxpool and `/readyz`, apigen mount under `/api/v1`, problem+json error table, spec-driven request validation, signed cursors, transaction runner, subject port | #33 | `Y4NN777` |

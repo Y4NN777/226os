@@ -19,6 +19,7 @@ source "$here/lib.sh"
 gate="$root/scripts/check-authz-routes.sh"
 router="$root/src/api/internal/platform/httpx/router.go"
 
+router_sum="$(sha256sum <"$router")"
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 
@@ -103,9 +104,77 @@ func Serve() {
 EOF
 expect_red "a net/http mux built outside NewRouter" 'outside httpx.NewRouter' 'http.NewServeMux' -- --scan-extra "$tmp/stray2"
 
-# RED: an implemented route whose line is still in unimplemented-routes.txt (it must answer 501).
+# RED: a route registered directly in NewRouter under /api/v1 would shadow the stub.
 sed 's#r.Get("/healthz", healthz)#r.Get("/healthz", healthz)\n\tr.Post("/api/v1/auth/sign-in", healthz)#' "$router" >"$tmp/router3.go"
-expect_red "a route listed as unimplemented that does not answer 501" 'POST /api/v1/auth/sign-in' 'want 501' -- --router-override "$tmp/router3.go"
+expect_red "a direct /api/v1 route in NewRouter" 'POST /api/v1/auth/sign-in' 'apigen mount' -- --router-override "$tmp/router3.go"
+
+# RED: an implemented operation whose line is still in unimplemented-routes.txt (checked on the
+# production server's method set, not through HTTP).
+mkdir -p "$tmp/srv"
+cat >"$tmp/srv/implemented.go" <<'EOF'
+package app
+
+import (
+	"net/http"
+
+	"github.com/Y4NN777/226os/src/api/internal/platform/apigen"
+)
+
+type Server struct{ apigen.Unimplemented }
+
+func NewServer() *Server { return &Server{} }
+
+func (*Server) SignIn(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) }
+EOF
+expect_red "an implemented operation still listed as unimplemented" 'POST /api/v1/auth/sign-in' 'declares its own' -- --server-override "$tmp/srv/implemented.go"
+cat >"$tmp/srv/panics.go" <<'EOF'
+package app
+
+import (
+	"net/http"
+
+	"github.com/Y4NN777/226os/src/api/internal/platform/apigen"
+)
+
+type Server struct {
+	apigen.Unimplemented
+	m map[string]int
+}
+
+func NewServer() *Server { return &Server{} }
+
+func (s *Server) SignIn(http.ResponseWriter, *http.Request) { s.m["x"] = 1 }
+EOF
+expect_red "an implemented operation that panics on zero dependencies" 'POST /api/v1/auth/sign-in' 'declares its own' -- --server-override "$tmp/srv/panics.go"
+cat >"$tmp/srv/declared501.go" <<'EOF'
+package app
+
+import (
+	"net/http"
+
+	"github.com/Y4NN777/226os/src/api/internal/platform/apigen"
+)
+
+type Server struct{ apigen.Unimplemented }
+
+func NewServer() *Server { return &Server{} }
+
+// Real code that happens to answer 501 on a zero-value call: still not the generated stub.
+func (s *Server) SignIn(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNotImplemented) }
+EOF
+expect_red "an operation declared on the server that answers 501" 'POST /api/v1/auth/sign-in' 'declares its own' -- --server-override "$tmp/srv/declared501.go"
+cat >"$tmp/srv/missing.go" <<'EOF'
+package app
+
+import "github.com/Y4NN777/226os/src/api/internal/platform/apigen"
+
+type Server struct{ apigen.Unimplemented }
+
+func NewServer() *Server { return &Server{} }
+EOF
+d="$(newlists unmounted)"
+echo 'GET /api/v1/nowhere' >>"$d/unimplemented-routes.txt"
+expect_red "an unimplemented entry that is not mounted" 'GET /api/v1/nowhere' 'not' -- --lists-dir "$d"
 
 # RED: scan bypass attempts the first version let through (skeptic review).
 scan_case() { # NAME NEEDLE FILE_RELATIVE_PATH <<<CONTENT
@@ -285,16 +354,32 @@ EOF
 # RED: a middleware not in router-middleware.txt (it could answer a path without any route).
 sed 's#r.Use(middleware.RequestID)#r.Use(middleware.RequestID)\n\tr.Use(middleware.NoCache)#' "$router" >"$tmp/router5.go"
 expect_red "an unlisted middleware installed by NewRouter" 'middleware.NoCache' 'router-middleware.txt' -- --router-override "$tmp/router5.go"
+# RED: a middleware installed through apigen's Middlewares option is as invisible to chi.Walk as r.Use.
+sed 's#subject.Middleware(deps.Subjects, WriteError(logger)),#subject.Middleware(deps.Subjects, WriteError(logger)),\n\t\t\tfunc(h http.Handler) http.Handler { return h },#' "$router" >"$tmp/router9.go"
+grep -q 'return h }' "$tmp/router9.go" || { ko "router9 injection did not apply"; }
+expect_red "a middleware installed through the Middlewares option" 'Middlewares' 'router-middleware.txt' -- --router-override "$tmp/router9.go"
+# RED: the middleware order matters (apigen runs the last element first): a swapped list fails.
+d="$(newlists mworder)"
+python3 - "$d/router-middleware.txt" <<'PY'
+import sys
+p = sys.argv[1]
+lines = open(p).read().split("\n")
+idx = [i for i, l in enumerate(lines) if l.startswith("Middlewares:")]
+assert len(idx) == 2, idx
+lines[idx[0]], lines[idx[1]] = lines[idx[1]], lines[idx[0]]
+open(p, "w").write("\n".join(lines))
+PY
+expect_red "the middleware list in another order than the router installs" 'router-middleware.txt' 'order' -- --lists-dir "$d"
+
 d="$(newlists mwstale)"
 echo 'neverInstalled' >>"$d/router-middleware.txt"
 expect_red "a listed middleware that NewRouter does not install" 'neverInstalled' 'router-middleware.txt' -- --lists-dir "$d"
 
 # RED: a mapped test for a contract operation must be named TestAuthz<OperationID>.
-sed 's#r.Get("/healthz", healthz)#r.Get("/healthz", healthz)\n\tr.Post("/api/v1/questions", healthz)#' "$router" >"$tmp/router6.go"
 d="$(newlists opid)"
 grep -v 'POST /api/v1/questions ' "$d/unimplemented-routes.txt" >"$d/u.tmp" && mv "$d/u.tmp" "$d/unimplemented-routes.txt"
 echo 'POST /api/v1/questions TestAuthzHealthzNeedsNoSession' >>"$d/authz-tests.txt"
-expect_red "a mapped test not named after the operationId" 'TestAuthzCreateQuestion' 'must start with' -- --router-override "$tmp/router6.go" --lists-dir "$d"
+expect_red "a mapped test not named after the operationId" 'TestAuthzCreateQuestion' 'must start with' -- --lists-dir "$d"
 
 # RED: the gate must not need Docker (test names come from the Go AST, not from `go test -list`, which
 # runs the pgtest TestMain and starts a PostgreSQL container).
@@ -307,7 +392,6 @@ if [ "$rc" -eq 0 ] && [ ! -e "$tmp/docker-called" ]; then ok "GREEN: the gate do
 
 # Mapped test content. POST /api/v1/questions is mounted by a scratch router, moved out of the
 # unimplemented list and mapped to a TestAuthzCreateQuestion* test declared in a scratch directory.
-sed 's#r.Get("/healthz", healthz)#r.Get("/healthz", healthz)\n\tr.Post("/api/v1/questions", healthz)#' "$router" >"$tmp/router7.go"
 content_lists() { # NAME TESTNAME
   local d
   d="$(newlists "$1")"
@@ -367,11 +451,11 @@ func TestAuthzCreateQuestionAnonymous(t *testing.T) { skipUnlessReady(t) }
 EOF
 d="$(content_lists content TestAuthzCreateQuestionAnonymous)"
 rc=0
-out="$("$gate" --router-override "$tmp/router7.go" --lists-dir "$d" --scan-extra "$tmp/c-good" 2>&1)" || rc=$?
+out="$("$gate" --lists-dir "$d" --scan-extra "$tmp/c-good" 2>&1)" || rc=$?
 if [ "$rc" -eq 0 ]; then ok "GREEN: a TestAuthz<OperationID> test that names the route and a denial status"; else ko "GREEN content (rc=$rc, out=$out)"; fi
-expect_red "a mapped test that does not reference the route" 'TestAuthzCreateQuestionAnonymous' 'does not reference' -- --router-override "$tmp/router7.go" --lists-dir "$d" --scan-extra "$tmp/c-noref"
-expect_red "a mapped test that asserts no denial status" 'TestAuthzCreateQuestionAnonymous' 'denial status' -- --router-override "$tmp/router7.go" --lists-dir "$d" --scan-extra "$tmp/c-nodeny"
-expect_red "a mapped test that only skips through a helper" 'TestAuthzCreateQuestionAnonymous' 'does not reference' -- --router-override "$tmp/router7.go" --lists-dir "$d" --scan-extra "$tmp/c-helper"
+expect_red "a mapped test that does not reference the route" 'TestAuthzCreateQuestionAnonymous' 'does not reference' -- --lists-dir "$d" --scan-extra "$tmp/c-noref"
+expect_red "a mapped test that asserts no denial status" 'TestAuthzCreateQuestionAnonymous' 'denial status' -- --lists-dir "$d" --scan-extra "$tmp/c-nodeny"
+expect_red "a mapped test that only skips through a helper" 'TestAuthzCreateQuestionAnonymous' 'does not reference' -- --lists-dir "$d" --scan-extra "$tmp/c-helper"
 
 # RED: silent-pass guard. A go test run that matches no test exits 0; the gate must refuse it.
 expect_red "go test run that matches no test is not a pass" 'did not run' -- --test-run-pattern '^TestNoSuchTestAnywhere$'
@@ -395,11 +479,11 @@ d="$(content_lists modcase TestAuthzCreateQuestionAnonymous)"
 for c in "hidden-dir|_hidden/x_test.go||" "underscore-file|_c_test.go||" "build-ignore|ign_test.go|//go:build ignore|" "windows-suffix|d_windows_test.go||" "wrong-signature|sig_test.go||*testing.B"; do
   IFS='|' read -r name file header param <<<"$c"
   m="$(mod_case "$name" "$file" "$header" "$param")"
-  expect_red "a test only in a file the toolchain ignores ($name)" 'TestAuthzCreateQuestionAnonymous' 'does not exist' -- --router-override "$tmp/router7.go" --lists-dir "$d" --scan-extra-module "$m"
+  expect_red "a test only in a file the toolchain ignores ($name)" 'TestAuthzCreateQuestionAnonymous' 'does not exist' -- --lists-dir "$d" --scan-extra-module "$m"
 done
 m="$(mod_case built ok_test.go "" "")"
 rc=0
-out="$("$gate" --router-override "$tmp/router7.go" --lists-dir "$d" --scan-extra-module "$m" 2>&1)" || rc=$?
+out="$("$gate" --lists-dir "$d" --scan-extra-module "$m" 2>&1)" || rc=$?
 if [ "$rc" -eq 0 ]; then ok "GREEN: a test in a file the toolchain builds"; else ko "GREEN built test (rc=$rc, out=$out)"; fi
 
 # Both content rules in the SAME declaration.
@@ -418,10 +502,9 @@ import "testing"
 
 func TestAuthzCreateQuestionAnonymous(t *testing.T) { _ = 403 }
 EOF
-expect_red "route and denial status split across two declarations" 'TestAuthzCreateQuestionAnonymous' 'same test' -- --router-override "$tmp/router7.go" --lists-dir "$d" --scan-extra "$tmp/c-split"
+expect_red "route and denial status split across two declarations" 'TestAuthzCreateQuestionAnonymous' 'same test' -- --lists-dir "$d" --scan-extra "$tmp/c-split"
 
 # A parent path is not the route.
-sed 's#r.Get("/healthz", healthz)#r.Get("/healthz", healthz)\n\tr.Post("/api/v1/questions/{questionId}/accept", healthz)#' "$router" >"$tmp/router8.go"
 d2="$(newlists accept)"
 grep -v 'POST /api/v1/questions/{questionId}/accept ' "$d2/unimplemented-routes.txt" >"$d2/u.tmp" && mv "$d2/u.tmp" "$d2/unimplemented-routes.txt"
 echo 'POST /api/v1/questions/{questionId}/accept TestAuthzAcceptAnswerNonOwner' >>"$d2/authz-tests.txt"
@@ -443,9 +526,9 @@ import (
 
 func TestAuthzAcceptAnswerNonOwner(t *testing.T) { _ = fmt.Sprintf("/api/v1/questions/%s/accept", "id"); _ = 403 }
 EOF
-expect_red "a parent path does not reference the route" 'TestAuthzAcceptAnswerNonOwner' 'does not reference' -- --router-override "$tmp/router8.go" --lists-dir "$d2" --scan-extra "$tmp/c-parent"
+expect_red "a parent path does not reference the route" 'TestAuthzAcceptAnswerNonOwner' 'does not reference' -- --lists-dir "$d2" --scan-extra "$tmp/c-parent"
 rc=0
-out="$("$gate" --router-override "$tmp/router8.go" --lists-dir "$d2" --scan-extra "$tmp/c-full" 2>&1)" || rc=$?
+out="$("$gate" --lists-dir "$d2" --scan-extra "$tmp/c-full" 2>&1)" || rc=$?
 if [ "$rc" -eq 0 ]; then ok "GREEN: the full route path with a parameter placeholder"; else ko "GREEN full path (rc=$rc, out=$out)"; fi
 
 # GREEN: legitimate authz test shapes must not be rejected.
@@ -453,7 +536,7 @@ green_test() { # NAME <<<FILE CONTENT
   mkdir -p "$tmp/g-$1"
   cat >"$tmp/g-$1/g_test.go"
   rc=0
-  out="$("$gate" --router-override "$tmp/router7.go" --lists-dir "$d" --scan-extra "$tmp/g-$1" 2>&1)" || rc=$?
+  out="$("$gate" --lists-dir "$d" --scan-extra "$tmp/g-$1" 2>&1)" || rc=$?
   if [ "$rc" -eq 0 ]; then ok "GREEN: $1"; else ko "GREEN $1 (rc=$rc, out=$out)"; fi
 }
 green_test "a Short-mode skip is allowed" <<'EOF'
@@ -558,6 +641,6 @@ echo 'GET /healthz' >>"$d/authz-tests.txt"
 expect_red "a malformed authz line" 'authz-tests.txt' 'malformed' -- --lists-dir "$d"
 
 # The real router is untouched.
-git -C "$root" diff --quiet -- src/api/internal/platform/httpx/router.go && ok "router.go is unmodified" || ko "router.go was modified"
+[ "$(sha256sum <"$router")" = "$router_sum" ] && ok "router.go is unmodified by this suite" || ko "router.go was modified by this suite"
 
 finish

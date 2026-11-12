@@ -19,11 +19,15 @@ spec=api/openapi.yaml
 go_config=api/oapi-codegen.yaml
 generated=(
   src/api/internal/platform/apigen/apigen.gen.go
+  src/api/internal/platform/apispec/openapi.gen.yaml
   src/web/src/api/schema.d.ts
 )
 
 generate() {
   go tool oapi-codegen -config "$go_config" "$spec"
+  # The request validator embeds the contract (go:embed cannot reach api/): a verbatim, drift-checked copy.
+  mkdir -p src/api/internal/platform/apispec
+  cp "$spec" src/api/internal/platform/apispec/openapi.gen.yaml
   mkdir -p src/web/src/api
   pnpm exec openapi-typescript "$spec" -o src/web/src/api/schema.d.ts >/dev/null
 }
