@@ -94,7 +94,7 @@ Each item below is a demo journey from `docs/SPEC.md` section 2 or a smoke step 
 
 ## 4. People and slices
 
-The slices were assigned by owner decisions on 2026-11-12. The review rules come from ADR-0008, which is still **PROPOSED**. The detail of each slice is in [TODO.md](TODO.md).
+The slices were assigned by owner decisions on 2026-11-12. The review rules come from ADR-0008, **ACCEPTED by the owner on 2026-11-12**. The detail of each slice is in [TODO.md](TODO.md).
 
 | Slice | Content | Owner | Ops | Starts after |
 |---|---|---|---:|---|
@@ -112,7 +112,7 @@ The slices were assigned by owner decisions on 2026-11-12. The review rules come
 | E2 | Taxonomy: +5 learn topics, +3 resource categories, 4 relabels, no deletions, one new migration | `mibienpanjoe`, the only migration writer; helpers `Y4NN777` and `NICE-DEV226` on the pgtest updates only, never on the migration | 0 | none (migration only) |
 | SEED | Demo fixtures for **`local-dev` only**, for local development and e2e: `db/seeds` and `make seed` (NOT IMPLEMENTED today; refuses everywhere except `local-dev`), demo accounts as decided in C15, and a local copy of the 3 to 4 lesson series | `PANK4SS` (reviewed by `mibienpanjoe`; the `mk/50-ops.mk` change also by `Y4NN777`, area owner) | 0 | migrations 00001 to 00010 and E2; C15 DECIDED |
 | E4 | "Ask about this lesson" button, read-only topic feeds | `PANK4SS` with `NICE-DEV226` (Solve owner) | 0 | S3 `createQuestion`; any article (S4, the content script, or SEED in `local-dev`); the C2 contract PR before the feeds (C2 DECIDED) |
-| E5 | Connect people directory (new operation, suggested `GET /profiles`), `connect` page, office-hours process note | backend `NICE-DEV226` after Solve, if time allows (it slips early); UI `PANK4SS` | +1 (44 total once accepted) | contract PR; S1 (profiles); C14 DECIDED |
+| E5 | Connect people directory (new operation, suggested `GET /profiles`), `connect` page, office-hours process note | backend `NICE-DEV226` after Solve, if time allows (it slips early); UI `PANK4SS` | +1 (44 total once accepted) | contract PR; S1 (profiles); the `profile_visibility` migration (C14 DECIDED) |
 | IA | Pillar emphasis: navigation, home and FR/EN copy promote Learn & Grow and Connect | `PANK4SS` | 0 | none (no new endpoints) |
 
 **Reviewer pairs (owner instruction 2026-11-12).** A reviewer is never the author.
@@ -137,6 +137,7 @@ The slices were assigned by owner decisions on 2026-11-12. The review rules come
 - The default split once `NICE-DEV226` finishes Solve: `NICE-DEV226` helps on S5 Build first, and `Y4NN777` helps on S4 Learn and the content script.
 - **Checkpoint Fri 13 Nov 23:00 GMT.** The progress of S4 and S5 at that time decides who helps first. This replaces the earlier rule that `NICE-DEV226` takes Build.
 - The instruction said "Fri 14 Nov", but 14 Nov is a Saturday, so Friday 13 Nov is assumed.
+- **C14b adds work in the same window:** one migration (`mibienpanjoe`), one contract field (first contract PR), one S1 task (`NICE-DEV226`) and one settings UI task (`PANK4SS`). GUESS: size S, about half a day of extra work across the three owners. It enters the slip order only if the team is behind, and then the visibility setting UI slips before the column.
 
 Workload: the 43 P0 operations are spread as 11 + 5 + 10 + 5 + 9 + 3. `NICE-DEV226` has 21 of them and `mibienpanjoe` has 19. The owner carries S0, S6, S8, the core of S9 and most reviews. S9, S10, E1 to E5 and the pillar change add work for the same four people (GUESS; not quantified). E1 is part of S9.
 
@@ -164,7 +165,7 @@ Workload: the 43 P0 operations are spread as 11 + 5 + 10 + 5 + 9 + 3. `NICE-DEV2
   - No secrets in Git, logs, fixtures, prompts or screenshots. This covers SMTP, the cursor key and the LLM API key.
 - **R11 Honest status.** Never claim a P1 or P2 feature. Report a check that did not run as `NOT RUN`, never `PASS`.
 
-Reviews (ADR-0008, proposed):
+Reviews (ADR-0008, accepted 2026-11-12):
 
 - Backend PRs: the lead or the other backend developer.
 - Frontend PRs: `Y4NN777`.
@@ -176,8 +177,12 @@ Reviews (ADR-0008, proposed):
 **Thu 12, evening**
 
 - `Y4NN777`: personal tasks H6 and H7 (Datacloud, DNS) and H4 (branch protection). S0 work: the B1 gate as DECIDED (three route files, `go test -list` check, single registration point, RED/GREEN), then pgxpool, `/readyz` and the apigen mount via `HandlerWithOptions`. Opens the S0 PR for `NICE-DEV226` to review.
-- `NICE-DEV226`: identity record (H1). S1 RED tests for the domain and service with fakes: hashing, tokens, CSRF, sessions. Mounts no routes before S0 merges.
-- `mibienpanjoe`: identity record (H1). S2 sqlc queries with local EXPLAIN. Opens **the C2 contract PR first** (topic code in `listLearnArticles` and `listTrainingSeries`, an optional `topic` on `ArticleCreate`, `make generate`; reviewed by `Y4NN777` and `PANK4SS`). In parallel, opens the E2 taxonomy migration PR (`make migrate-new`, plus the pgtest list update).
+- `NICE-DEV226`: identity confirmed (H1 done). S1 RED tests for the domain and service with fakes: hashing, tokens, CSRF, sessions. Mounts no routes before S0 merges.
+- `mibienpanjoe`: identity confirmed (H1 done). S2 sqlc queries with local EXPLAIN. Opens **the first contract PR** (reviewed by `Y4NN777` and `PANK4SS`, then `make generate`). It carries:
+  - the C2 topic code in `listLearnArticles` and `listTrainingSeries`, and an optional `topic` on `ArticleCreate`;
+  - the `decideApplication` owner-only x-authz (C1);
+  - `profile_visibility` in the profile read and update schemas, and `deny_status 404` on `getProfile` with the C14b semantics.
+- `mibienpanjoe` also writes the `profile_visibility` migration (C14b, `make migrate-new`). It may share a PR with E2 but stays a separate file, and the pgtest structure tests change in the same PR. In parallel, opens the E2 taxonomy migration PR (`make migrate-new`, plus the pgtest list update).
 - `PANK4SS`: accepts the invitation (H2) and records identity (H1). S7 shell, i18n and shared components on typed fixtures. SEED design: demo accounts per C15.
 
 **Checkpoint, Thu end of day: S0 merged or in review.**
@@ -283,7 +288,7 @@ flowchart LR
   S4w --> E4a
   C2[C2 contract PR: topic code] --> E4f[E4 topic feeds]
   C2 --> S4r
-  C14[C14 DECIDED: active + open_to_collab] --> E5c[E5 contract PR]
+  C14[C14b profile_visibility migration + first contract PR] --> E5c[E5 contract PR]
   E5c --> E5[E5 people directory]
   S1 --> E5
   S2r & S3 & S4w & S5 & S6 & S9 & E4a & E5 --> S7w[S7 pages wired]
@@ -297,7 +302,7 @@ flowchart LR
 
 **Critical path.** Each step waits for the one before it:
 
-1. human identity records (H1);
+1. human identity records (H1, done 2026-11-12) and the `PANK4SS` invitation (H2);
 2. S0, including the authz gate extension (B1);
 3. S1;
 4. the member writes in S3, S4 and S5;
@@ -331,11 +336,11 @@ The other rows below are not personal owner tasks. Their status is unchanged unl
 
 | Id | Task | Who | Start by | Lead time |
 |---|---|---|---|---|
-| H1 | Confirm the Git identity records for `NICE-DEV226`, `mibienpanjoe` and `PANK4SS`; all three are "no" today (`docs/team/CONTRIBUTORS.md:10-12`). Nobody commits before confirmation. | `Y4NN777` + each member | Thu evening | minutes (GUESS) |
+| H1 | Confirm the Git identity records for `NICE-DEV226`, `mibienpanjoe` and `PANK4SS` | `Y4NN777` + each member | **DONE 2026-11-12** (owner confirmed; `docs/team/CONTRIBUTORS.md`) | - |
 | H2 | `PANK4SS` accepts the repository invitation (pending, `docs/team/CONTRIBUTORS.md:12`) | `PANK4SS` | Thu evening | minutes (GUESS) |
-| H3 | ADR-0008 set to ACCEPTED or amended; it is PROPOSED today (`docs/decisions/0008-team-work-areas-and-ownership.md:3`) | `Y4NN777` | Thu evening | - |
+| H3 | ADR-0008 set to ACCEPTED or amended | `Y4NN777` | **DONE 2026-11-12** (ACCEPTED; the main session edits the ADR file) | - |
 | H4 | Branch protection and required reviews on `develop` and `main`, with the `quality` check required (ADR-0006 "CI", ADR-0008 "Consequences") | `Y4NN777` | Thu evening | minutes (GUESS) |
-| H5 | Rulings on the items still open in section 10. B1, B5 (for CADEV), C1, C2, C14 and C15 are DECIDED as of 2026-11-12. B2, B3 and B4 are scheduled in S0 and S8, not blocking today. Still open: C3 to C13, O4 to O7. | `Y4NN777` | Thu evening | - |
+| H5 | Rulings on the items still open in section 10. B1, B5 (for CADEV), C1, C2, C14 and C15 are DECIDED as of 2026-11-12. B2, B3 and B4 are scheduled in S0 and S8, not blocking today. C14 is fully decided, including (a) and (b). Still open: C3 to C13, suspended users in `getProfile`, and O4 to O7. H1 and H3 are done. | `Y4NN777` | Thu evening | - |
 | H6 | Datacloud account and an **active commercial product**, SSH key, ports 80/443, storage (`docs/SHIP.md` section 3; a CADEV condition). Handled by the owner. | `Y4NN777` | Thu evening | UNVERIFIED; hours to a day (GUESS) |
 | H7 | DNS. The domain `226os.tech` exists and the owner holds it, but **nothing is deployed on it**: today it shows only the hosting provider's placeholder page. When the Datacloud host IP is known, point the apex `226os.tech` and the staging subdomain (PROPOSAL: `staging.226os.tech`, owner to confirm) to it with A records, in the registrar or DNS panel the owner holds. TLS issues through Traefik and Let's Encrypt **only after DNS resolves**, so DNS comes before the first HTTPS smoke test. Never assume DNS works (`docs/SHIP.md` section 1). | `Y4NN777` | as soon as the host IP is known | minutes to hours (GUESS) |
 | H8 | Gmail SMTP: create an app password, stored in the staging and production env files only; test with a real inbox | `Y4NN777` | Fri morning | GUESS: an app password needs 2-step verification on the account; verify |
@@ -484,7 +489,7 @@ The finding:
 
 **C6. Ownership.**
 
-- ADR-0008 is PROPOSED, but `docs/spec-kit/TASKS.md:3` and `docs/DEV.md:58` still say there are 3 members and one owner/reviewer (`Y4NN77`) for everything.
+- ADR-0008 is ACCEPTED (2026-11-12), but `docs/spec-kit/TASKS.md:3` and `docs/DEV.md:58` still say there are 3 members and one owner/reviewer (`Y4NN77`) for everything. This is now a stale-docs follow-up.
 - ADR-0008 gives migrations to the lead, who may delegate them. The owner decision gives them to `mibienpanjoe`. The two agree only if that is recorded as a delegation.
 
 **C7. Stale `db/` status.** `docs/spec-kit/DATABASE_DESIGN.md:3` and `:1266` say `db/` does not exist. B0 created migrations 00001 to 00010.
@@ -519,14 +524,44 @@ The finding:
 - Email is never listed.
 - The directory filters (country, language, skill) apply **only to fields visible to the caller**. A hidden field counts as absent for filtering, so a filter cannot reveal its value.
 - There is no new column and no migration.
-- The direct read `GET /profiles/{username}` keeps its own rule.
+- The direct read `GET /profiles/{username}` keeps its own rule, defined in (b) below.
 
-**Consequence:** the E5 contract PR and the E5 backend are unblocked.
+**Consequence:** C14 is fully decided. E5 depends on the `profile_visibility` migration and the first contract PR.
 
-**Residual points (INFERRED):**
+**Residual points (a) and (b): both DECIDED 2026-11-12, jointly by the owner and the main session.**
 
-- `open_to_collab` has its own visibility (`open_to_collab_visibility`, `db/migrations/00003_identity.sql:58`). If an owner set it to `members` or `private`, listing them to anonymous callers reveals that they are open to collaboration. The E5 PR should either also require that visibility to allow the caller, or accept this and record it.
-- `getProfile`'s `private_profile: 404` (`api/openapi.yaml:414-415`) still has no backing column, and "its own rule" is not defined anywhere.
+**(a) The listing predicate and `open_to_collab` visibility. DECIDED.**
+
+- The finding: `open_to_collab_visibility` takes the values `public | members | private`, default `public` (`db/migrations/00003_identity.sql:58,71-74`). Listing on the flag alone would reveal it.
+- **Decision:**
+  - A profile is listed for a given caller only if `open_to_collab = true` **and** that caller may see the flag under `open_to_collab_visibility`. Anonymous callers see `public`; members see `public` and `members`; `private` is never listed.
+  - The listing predicate and every directory filter use caller-visible fields only; a hidden field counts as absent.
+  - E5 has negative tests per visibility value and per caller.
+
+**(b) Profile-level visibility. DECIDED: add a column.**
+
+- The finding: `getProfile` declares `private_profile: 404` (`api/openapi.yaml:414-415`), but no profile-level visibility column backs it (`00003_identity.sql:42-75`).
+- **Decision:** add `profile_visibility text NOT NULL DEFAULT 'public'` with `CHECK (profile_visibility IN ('public','members','private'))` on `profiles`.
+  - It goes in a **new migration written only by `mibienpanjoe`**, numbered by `make migrate-new`.
+  - It may share a PR with the E2 migration, but it stays a separate migration file.
+  - The pgtest tests that assert table structure and constraints change in the same PR.
+  - The `DATABASE_DESIGN.md` line about `profiles` is a docs follow-up.
+- **`GET /profiles/{username}` semantics:**
+  - `public`: visible to everyone.
+  - `members`: visible to authenticated members; anonymous callers get 404.
+  - `private`: visible only to the owner; everyone else gets 404.
+  - The 404 body for a hidden profile is **identical** to the 404 for an unknown or deleted username, so they cannot be told apart.
+- **Moderators** have no special profile access at P0. That is the rule: moderation acts on content, not on profiles.
+- **Author bylines:** username and display name stay visible in the author byline of published content, whatever `profile_visibility` says. The byline is part of the content, not the profile page, and the distinction is deliberate. Deleted accounts show "membre supprimé" (ADR-0005 point 15).
+- **People directory:** a profile is listed only if `profile_visibility` allows the caller (`private` never; `members` only for members) **and** rule (a) holds.
+- **Contract (the first contract PR):** together with the C2 topic fix and the `decideApplication` owner-only fix, it:
+  - adds `profile_visibility` to the profile read and update schemas, so `PATCH /me/profile` accepts it, with default `public`;
+  - keeps `deny_status 404` on `getProfile`, with the semantics above.
+- **Owners:**
+  - S1 (`NICE-DEV226`) owns the profile read and write and their negative tests.
+  - S7 (`PANK4SS`) adds a profile visibility setting on the settings page, with FR/EN copy.
+  - E5 depends on the migration.
+- **Not covered by the decision:** how suspended users (`users.status='suspended'`) are treated by `getProfile`.
 
 The original analysis follows.
 
@@ -718,8 +753,9 @@ If progress is behind at the Sat 12:00 checkpoint, the suggested order of what s
 1. S10 never starts.
 2. The E4 topic feeds.
 3. The E5 people directory. The `connect` page then stays "bientôt" and is reported as not built.
-4. Extra demo fixtures beyond the minimum. The minimum is the 3 to 4 lesson series plus a few Discover and Build entries.
-5. The S6 moderation endpoints. The fallback is the documented SQL runbook, and they are reported as not built.
+4. Extra demo fixtures beyond the minimum (`local-dev`). The minimum is the 3 to 4 lesson series plus a few Discover and Build entries.
+5. Only if behind: the profile visibility setting UI (S7). The `profile_visibility` column and its API semantics stay; the column never slips before the UI.
+6. The S6 moderation endpoints. The fallback is the documented SQL runbook, and they are reported as not built.
 
 ### 12.2 Failure modes (S9, SEED and E5)
 
@@ -733,7 +769,8 @@ If progress is behind at the Sat 12:00 checkpoint, the suggested order of what s
 | SEED: `make seed` run outside `local-dev` | A refusal | Exits non-zero before touching the database | Refusal tests for `APP_ENV=staging-test` and `production-live` |
 | SEED: demo rows reach staging or production | Never happens | A check finds zero `provenance='demo'` rows on **both** staging and production (`docs/spec-kit/DATABASE_DESIGN.md:1296`, extended to staging) | The check in the G7 evidence, for both environments |
 | SEED: a fixture is mistaken for real activity | A visible demo badge | `provenance='demo'` rendered as a badge; no fake votes or applications | UI test for the badge; a seed test that no votes or applications are seeded |
-| E5: a hidden field or a non-listable profile appears in the list | Never happens | Visibility-filtered projection; filters only on caller-visible fields; email never selected; non-listable profiles excluded (C14) | Privacy tests: a hidden field is absent; filtering on a hidden field does not match; no email key; a non-listable profile (inactive, or `open_to_collab = false`) is absent from the list, and its direct read follows `getProfile`'s own rule |
+| E5: a hidden field or a non-listable profile appears in the list | Never happens | Listed only if the user is active, `profile_visibility` allows the caller, `open_to_collab = true`, and `open_to_collab_visibility` allows the caller; filters only on caller-visible fields; email never selected | Privacy tests per `profile_visibility` × caller and per `open_to_collab_visibility` × caller (anonymous, member); filtering on a hidden field does not match; no email key |
+| S1: direct read of a hidden profile | The same 404 as an unknown username | `members` profile → 404 for anonymous callers; `private` → 404 for everyone but the owner; the 404 body is identical to unknown or deleted; moderators get no special access | `getProfile` tests per `profile_visibility` × caller (anonymous, member, owner, moderator); 404 bodies compared byte for byte, apart from `request_id` and `instance` |
 | E5: listing abuse or scraping | 429 with `Retry-After` past the limit | Bounded `limit` (above 50 returns 422), cursor only, per-IP and per-user rate limit | Limit-51 test; N+1 rate-limit test |
 | E5: empty result | A clear empty state, with a reset-filters action | 200 with `items: []` and `next_cursor: null` | Contract test and a web empty-state test |
 
@@ -825,4 +862,9 @@ All pillars share the same spine. That is why making two of them prominent remov
 | 2026-11-12 | **DECIDED (owner approved) C2.**<br>- The Learn topic filter uses the topic code (`learn_topics.code`, pattern `^[a-z][a-z0-9-]{1,29}$`).<br>- Its own contract PR: retype the `listLearnArticles` topic, add a topic to `listTrainingSeries` (none today), and add an optional `topic` to `ArticleCreate`, then `make generate`. Author `mibienpanjoe`; reviewers `Y4NN777` and `PANK4SS`. It merges before the S4 handlers and the E4 feeds.<br>**Mapping rule:** feeds show articles by topic code and questions by tag; a topic page may list questions tagged with the topic code.<br>**Consequence:** S4 and E4 are unblocked after that PR. | `Y4NN777` |
 | 2026-11-12 | **DECIDED (owner approved) C14.**<br>- A profile is listable only if its user is active and has set `open_to_collab = true`.<br>- Fields are shown per `field_visibility` for the caller. Email is never shown.<br>- Filters apply only to fields the caller can see.<br>- No column and no migration. `GET /profiles/{username}` keeps its own rule.<br>**Consequence:** the E5 contract PR and backend are unblocked. **Residual:** `open_to_collab_visibility` and the undefined `private_profile` rule (section 10, C14). | `Y4NN777` |
 | 2026-11-12 | **B2, B3 and B4 are scheduled, not blocking today.** They are tasks in S0 and S8 that must close before Sunday. | `Y4NN777` |
+| 2026-11-12 | **H1 DONE.** The owner confirmed the identity records of `NICE-DEV226`, `mibienpanjoe` and `PANK4SS`; no names or emails are recorded. `PANK4SS` still needs to accept the repository invitation (H2) before pushing. | `Y4NN777` |
+| 2026-11-12 | **H3 DONE. ADR-0008 ACCEPTED** by the owner. The main session edits the ADR file. | `Y4NN777` |
+| 2026-11-12 | **The C14 residual points were briefly recorded as DECIDED, then retracted to OPEN on the coordinator's correction. They are now DECIDED jointly; see the next two entries.** | - |
+| 2026-11-12 | **DECIDED (owner and main session, jointly) C14a, `open_to_collab` visibility.**<br>- A profile is listed for a caller only if `open_to_collab = true` and the caller may see that flag: anonymous callers see `public`, members see `public` and `members`, and `private` is never listed.<br>- The predicate and all filters use caller-visible fields only.<br>- Negative tests per value × caller. | `Y4NN777` + main session |
+| 2026-11-12 | **DECIDED (owner and main session, jointly) C14b, profile-level visibility column.**<br>- `profiles.profile_visibility text NOT NULL DEFAULT 'public'`, CHECK `public|members|private`. A new migration by `mibienpanjoe` only (numbered by `make migrate-new`), which may share a PR with E2 as a separate file; the pgtest structure tests change in the same PR; the `DATABASE_DESIGN.md` line is a docs follow-up.<br>- `getProfile`: `public` is visible to all; `members` gives anonymous callers 404; `private` is visible to the owner only. The 404 is identical to an unknown or deleted username.<br>- Moderators have no special profile access at P0.<br>- Bylines on published content always show the username and display name; deleted accounts show "membre supprimé" (ADR-0005 point 15).<br>- The directory requires `profile_visibility` to allow the caller **and** C14a.<br>- First contract PR: `profile_visibility` in the profile read and update schemas, `PATCH /me/profile` accepts it, and `deny_status 404` stays with these semantics.<br>- S1 (`NICE-DEV226`) does the read, write and tests. S7 (`PANK4SS`) adds the settings UI. E5 depends on the migration.<br>**Open:** suspended users. | `Y4NN777` + main session | `Y4NN777` |
 | 2026-11-12 | **OPEN, not applied.** "Learn as the heart": a PRD amendment 3.2 or 3.3 ending the equal pillar weight of 3.1, or equal weight kept and only topics, series and home ordering change (O7). S10 is unchanged: it is conditional on the Sat 12:00 checkpoint, and if built it displaces E4-type work. | `Y4NN777` (pending) |

@@ -1,15 +1,15 @@
 # 226os contributors and work areas
 
-**Status:** DRAFT, pending ADR-0008 acceptance by the owner. Only GitHub logins are recorded here. Real names and emails stay with the maintainer and are never committed.
+**Status:** ACCEPTED on 2026-11-12, with ADR-0008 accepted by the owner. Only GitHub logins are recorded here. Real names and emails stay with the maintainer and are never committed.
 
 ## Contributors
 
 | GitHub login | GitHub access (2026-11-12) | Identity record confirmed by the maintainer | Work area (ADR-0008) |
 |---|---|---|---|
 | `Y4NN777` | admin (owner) | yes (identity `Y4NN77`) | ops and platform; backend lead (also codes); ADRs, risky decisions, releases. Slices: S0, S6, S8, S9; helper on S2, S4 (and the content script, which the owner runs), S5 and E2; reviews frontend PRs |
-| `NICE-DEV226` | write | no | backend. Slices: S1, then S3, then the E5 backend if time allows; S9 second developer; helper on S2, S4, S5 and E2 (default after Solve: S5); reviews `mibienpanjoe` and S0 |
-| `mibienpanjoe` | write | no | backend, and the single migration writer. Slices: S2, S4 (including the content script), S5, and the E2 migration (accountable even when helped); reviews `NICE-DEV226`, SEED, S6 and S9 |
-| `PANK4SS` | invitation pending | no | frontend (implements the existing prototypes). Slices: S7 (shell, i18n, pillar navigation, all pages), E4 (with the Solve owner), the E5 UI, and SEED (`local-dev` fixtures only); supports any slice on demand (backend integration, typed client wiring, fixtures, small fixes), noted as co-worker on the PR |
+| `NICE-DEV226` | write | yes (confirmed by the owner 2026-11-12) | backend. Slices: S1, then S3, then the E5 backend if time allows; S9 second developer; helper on S2, S4, S5 and E2 (default after Solve: S5); reviews `mibienpanjoe` and S0 |
+| `mibienpanjoe` | write | yes (confirmed by the owner 2026-11-12) | backend, and the single migration writer. Slices: S2, S4 (including the content script and the first contract PR), S5, the E2 migration and the `profile_visibility` migration (accountable even when helped); reviews `NICE-DEV226`, SEED, S6 and S9 |
+| `PANK4SS` | invitation pending (must accept before pushing) | yes (confirmed by the owner 2026-11-12) | frontend (implements the existing prototypes). Slices: S7 (shell, i18n, pillar navigation, all pages), E4 (with the Solve owner), the E5 UI, and SEED (`local-dev` fixtures only); supports any slice on demand (backend integration, typed client wiring, fixtures, small fixes), noted as co-worker on the PR |
 
 ## Work areas
 

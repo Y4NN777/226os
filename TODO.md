@@ -44,9 +44,9 @@ One line per person. Each person edits only their own line.
 | Login | Next action | Updated |
 |---|---|---|
 | `Y4NN777` | Personal tasks: H6 and H7 (Datacloud account and product; DNS A records for `226os.tech` and the staging subdomain), H8 (Gmail SMTP), H12 (AI Studio key, V1 to V4). Also H4 (branch protection). S0: implement the B1 gate as DECIDED (RED/GREEN), then pgxpool, `/readyz` and the `HandlerWithOptions` mount. Review: `NICE-DEV226`. | 2026-11-12 |
-| `NICE-DEV226` | Send the identity record (H1). Start S1 RED tests for the domain and service with fakes; mount nothing before S0 merges. Review S0. After S1, S3; then help on S5 (default), the S9 second developer, and the E5 backend if time allows. | 2026-11-12 |
-| `mibienpanjoe` | Send the identity record (H1). **Open the C2 contract PR first** (topic code; reviewers `Y4NN777` and `PANK4SS`; then `make generate`), and in parallel the E2 taxonomy migration PR (`make migrate-new`, plus the pgtest lists). Then the S2 sqlc queries with local EXPLAIN. Then S4 (with the content script) and S5, with helpers `Y4NN777` and `NICE-DEV226`. | 2026-11-12 |
-| `PANK4SS` | Accept the invitation (H2) and send the identity record (H1). Build the S7 shell, i18n, shared components and the pillar navigation on typed fixtures from `src/web/src/api/schema.d.ts`. Write the SEED fixtures (`local-dev` only, C15 demo accounts). Later: E4, the E5 UI, and on-demand support to any area owner. | 2026-11-12 |
+| `NICE-DEV226` | Identity confirmed (H1 done 2026-11-12). Start S1 RED tests for the domain and service with fakes; mount nothing before S0 merges. Review S0. After S1, S3; then help on S5 (default), the S9 second developer, and the E5 backend if time allows. | 2026-11-12 |
+| `mibienpanjoe` | Identity confirmed (H1 done 2026-11-12). **Open the first contract PR** (reviewers `Y4NN777` and `PANK4SS`; then `make generate`). It carries the C2 topic code and the `decideApplication` owner-only x-authz (C1). It also carries `profile_visibility` in the profile read and update schemas, with `deny_status 404` on `getProfile` (C14b). In parallel, open the E2 taxonomy migration PR (`make migrate-new`, plus the pgtest lists) and the separate `profile_visibility` migration file (C14b; the two may share a PR). Then the S2 sqlc queries with local EXPLAIN. Then S4 (with the content script) and S5, with helpers `Y4NN777` and `NICE-DEV226`. | 2026-11-12 |
+| `PANK4SS` | Identity confirmed (H1 done 2026-11-12). **Accept the repository invitation (H2) before pushing.** Build the S7 shell, i18n, shared components and the pillar navigation on typed fixtures from `src/web/src/api/schema.d.ts`. Write the SEED fixtures (`local-dev` only, C15 demo accounts). Later: E4, the E5 UI, and on-demand support to any area owner. | 2026-11-12 |
 
 ## Shared pieces (O2: where each lives is decided by the backend lead at kickoff)
 
@@ -79,7 +79,7 @@ Each line below is a **proposal**. The lead confirms or reassigns it.
 - **Reviewer:** `NICE-DEV226` (assigned 2026-11-12)
 - **Helpers:** `PANK4SS` on demand
 - **Branches:** `feature/platform/authz-gate`, `feature/platform/api-mount`, `feature/platform/idempotency`, `feature/platform/mailer`
-- **Depends on:** H1 and H4
+- **Depends on:** H4 (H1 done 2026-11-12)
 - **Operations:** none of its own. It mounts the generated `apigen` interface (47 operations).
 
 **Tasks**
@@ -184,7 +184,16 @@ Each line below is a **proposal**. The lead confirms or reassigns it.
 - [ ] `confirmPasswordReset` `POST /auth/password-reset/confirm` (30 minutes; revokes all of the user's sessions)
 - [ ] `getMe` `GET /me` (the only place the email is returned)
 - [ ] `updateMyProfile` `PATCH /me/profile` (own profile only; JSON Merge Patch)
-- [ ] `getProfile` `GET /profiles/{username}` (field visibility; email never returned; private profile 404)
+- [ ] `getProfile` `GET /profiles/{username}` (C14b DECIDED, after the migration and the first contract PR)
+  - field visibility applies and the email is never returned;
+  - `profile_visibility = public` is visible to all;
+  - `members` gives anonymous callers 404;
+  - `private` is visible to the owner only;
+  - the 404 body is identical to the one for an unknown or deleted username;
+  - moderators get no special access.
+  - Suspended users are not covered by the decision (OPEN).
+- [ ] `updateMyProfile` accepts `profile_visibility` (`public|members|private`, default `public`).
+- [ ] Bylines on published content keep showing the username and display name whatever `profile_visibility` says. Deleted accounts show "membre supprimé" (ADR-0005 point 15). This distinction is deliberate.
 
 **Also:**
 
@@ -210,7 +219,8 @@ Each line below is a **proposal**. The lead confirms or reassigns it.
 - nobody can revoke another user's session;
 - anonymous `GET /me` and `PATCH /me/profile` return 401;
 - cross-user access is impossible;
-- a private profile returns 404 and the email never leaks;
+- hidden fields never leak to a caller who may not see them, and the email never leaks;
+- `getProfile` is tested per `profile_visibility` × caller (anonymous, member, owner, moderator). A hidden profile's 404 is identical to an unknown or deleted username's 404, apart from `request_id` and `instance`;
 - rate limits, generic errors and CSRF are enforced on the anonymous endpoints.
 
 **DoD:** DoD-common, plus cookie inspection per profile and a redacted email-flow log through Mailpit.
@@ -350,6 +360,10 @@ Each line below is a **proposal**. The lead confirms or reassigns it.
   - The `listLearnArticles` `topic` parameter is retyped as the topic code, pattern `^[a-z][a-z0-9-]{1,29}$` (the DB CHECK), with an updated description.
   - A `topic` parameter of the same type is added to `listTrainingSeries`, which has none today (`api/openapi.yaml:1746-1753`).
   - An optional `topic` field is added to `ArticleCreate` (`api/openapi.yaml:4194-4241`).
+  - The same first contract PR also carries:
+    - the `decideApplication` owner-only x-authz (C1);
+    - `profile_visibility` (`public|members|private`, default `public`) in the profile read and update schemas, so `PATCH /me/profile` accepts it;
+    - `deny_status 404` on `getProfile`, kept with the C14b semantics.
   - Then `make generate` (`apigen` and `schema.d.ts`).
 - [ ] `listLearnArticles` `GET /learn/articles` (public; `topic` = topic code, after the C2 contract PR)
 - [ ] `createLearnArticle` `POST /learn/articles`
@@ -526,6 +540,7 @@ Each line below is a **proposal**. The lead confirms or reassigns it.
   - Solve, Discover and Build stay full pillars in the same navigation, with no pillar erased or demoted (ROADMAP O7 and section 12.4);
   - an information-architecture and copy change only, with no new endpoints;
   - nothing non-functional is announced: Connect shows only the E5 directory as live.
+- [ ] **Profile visibility setting** on `parametres` (C14b), with FR/EN copy explaining that bylines on published content still show the name.
 - [ ] Shell:
   - `getSession` with header sign-in and sign-out;
   - FR/EN labels without altering content;
@@ -550,7 +565,7 @@ Each line below is a **proposal**. The lead confirms or reassigns it.
 | `reinitialiser` | `confirmPasswordReset` | S1 | [ ] |
 | `bienvenue` | `updateMyProfile` (onboarding; GUESS from the prototype) | S1 | [ ] |
 | `profile` | `getProfile` | S1 | [ ] |
-| `parametres` | `getMe`, `updateMyProfile` | S1 | [ ] |
+| `parametres` | `getMe`, `updateMyProfile`, plus the **profile visibility setting** (`profile_visibility`: public, members, private; FR/EN copy; C14b). If the team is behind, this UI slips before the column. | S1, S7 | [ ] |
 | `ecrire` | `createLearnArticle` | S4 | [ ] |
 | `build` | `listProjects`, `createProject`. Staging and production: projects created by the team through the app (`live`). `local-dev`: SEED fixtures. | S5 | [ ] |
 | `project` | `getProject`, `updateProject`, `listContributionNeeds`, `createContributionNeed`, `createApplication`, `listProjectApplications`, `decideApplication` | S5 | [ ] |
@@ -742,12 +757,17 @@ Each line below is a **proposal**. The lead confirms or reassigns it.
 - [ ] In the same PR, update the exact lists and counts in `src/api/internal/platform/pgtest/migrate_integration_test.go` (`:140-150`, `:180` want 15, `:219` want 9).
 - [ ] K25: check whether seeds or fixtures tag `ai` content that really belongs under `african-languages`.
 - [ ] Docs follow-up, outside this PR: the `DATABASE_DESIGN.md` lines about the lists.
+- [ ] **Separate migration file: `profile_visibility` (C14b DECIDED 2026-11-12).**
+  - Written by `mibienpanjoe` only, numbered by `make migrate-new`. It may share this PR, but it is its own file.
+  - `ALTER TABLE profiles ADD COLUMN profile_visibility text NOT NULL DEFAULT 'public'` with a named CHECK `IN ('public','members','private')`.
+  - In the same PR, update the pgtest tests that assert table structure and constraints.
+  - Docs follow-up: the `profiles` entry in `DATABASE_DESIGN.md`.
 
 Removals are **DEFERRED** until after CADEV and need explicit human approval: `ussd-messaging`, `geo-data`, the `logistics` merge.
 
 Taxonomy rows are data. Later they change through a new forward-only migration or a moderator path, never by editing old migrations.
 
-**Allowed paths:** `db/migrations/<new file>` and `src/api/internal/platform/pgtest/migrate_integration_test.go`.
+**Allowed paths:** `db/migrations/<new files>` (E2 and `profile_visibility`) and `src/api/internal/platform/pgtest/**` (the list, structure and constraint tests).
 
 **DoD:**
 
@@ -843,8 +863,8 @@ Taxonomy rows are data. Later they change through a new forward-only migration o
 - **Reviewers:** `mibienpanjoe` for the backend; `Y4NN777` for the UI. The contract PR needs `Y4NN777` and `PANK4SS` (R7).
 - **Helpers:** `PANK4SS` on demand (typed client wiring)
 - **Branches:** `feature/connect/profiles-contract`, then `feature/connect/people-directory` (`connect` is in `docs/GIT_WORKFLOW.md:38`)
-- **Depends on:** S1 (profiles, session resolver). **C14 DECIDED 2026-11-12:**
-  - listable only if the user is **active** and `open_to_collab = true`;
+- **Depends on:** S1 (profiles, session resolver), the `profile_visibility` migration, and the first contract PR. **C14 DECIDED 2026-11-12, including the residual points, jointly by the owner and the main session:**
+  - listable only if the user is **active**, `profile_visibility` allows the caller (`private` never; `members` only for members), `open_to_collab = true`, and `open_to_collab_visibility` allows the caller (anonymous: `public`; members: `public` and `members`; `private` never);
   - fields shown per `field_visibility` for the caller;
   - email never shown;
   - filters apply only to caller-visible fields, so a hidden field counts as absent;
@@ -864,8 +884,7 @@ Taxonomy rows are data. Later they change through a new forward-only migration o
 - [ ] Add `GET /api/v1/profiles` to `scripts/public-routes.txt`, with its reason (public by design). B1 applies.
 - [ ] Backend: a projection filtered by `field_visibility`, depending on the caller (anonymous or member).
   - Email is never selected.
-  - Only listable profiles appear (C14: `users.status='active'` and `open_to_collab = true`). Deleted and suspended users never appear.
-  - Residual (INFERRED): `open_to_collab_visibility` may be `members` or `private`. Listing such a profile to an anonymous caller would reveal the flag. Either also require that visibility to allow the caller, or record that it is accepted. The owner decides in the E5 PR.
+  - Only listable profiles appear, per the full C14 predicate above. Deleted and suspended users never appear.
   - Filters match only fields visible to the caller.
   - Stable order with a UUID tie-breaker.
   - A rate limit per IP and per user. The window is the owner's call, because ADR-0003 has none for this route.
@@ -879,7 +898,8 @@ Taxonomy rows are data. Later they change through a new forward-only migration o
 - a hidden field (`members` or `private`) never appears for a caller who may not see it;
 - filtering on a hidden field never matches;
 - no `email` key ever appears;
-- a non-listable profile (inactive user, or `open_to_collab = false`) is absent from the list. Its direct read follows `getProfile`'s own rule (C14), which is 404 only for a private profile (matrix row `GET /profiles/{username}`);
+- one test per `profile_visibility` value × caller (anonymous, member), and one per `open_to_collab_visibility` value × caller: `private` is never listed, `members` is listed only for members, and `open_to_collab = false` is never listed;
+- the direct read follows the C14b semantics, tested in S1;
 - `limit=51` returns 422;
 - a tampered cursor returns 400;
 - the N+1 request past the rate limit gets 429.
@@ -894,11 +914,11 @@ Taxonomy rows are data. Later they change through a new forward-only migration o
 - `scripts/public-routes.txt`
 - `src/web/**` (`PANK4SS`)
 
-No migration is needed (C14 DECIDED: no new column).
+E5 needs the `profile_visibility` migration (C14b), which only `mibienpanjoe` writes (R6). E5 itself adds no migration.
 
 **DoD:** DoD-common, plus the privacy tests above on real PostgreSQL, plus the failure modes in ROADMAP section 12.2.
 
-**Status:** PLANNED (backend `NICE-DEV226`, after Solve; C14 DECIDED, unblocked)
+**Status:** PLANNED (backend `NICE-DEV226`, after Solve; C14 fully DECIDED; waits for the `profile_visibility` migration and the first contract PR)
 
 ---
 
