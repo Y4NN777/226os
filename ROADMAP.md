@@ -30,6 +30,7 @@
     - The Learn free series is a small demo-fixture series of 3 to 4 short original lessons (US-LEARN-001).
   - **E4:** zero-migration interaction modes. An "ask about this lesson" button and read-only topic feeds.
   - **E5:** Connect as a read-only people directory. This is a **new operation**, suggested `GET /profiles`, so it is a contract change. Once its contract PR is accepted, P0 has **44 operations**. Office hours are a process note only.
+  - **Region:** public positioning is "Afrique de l'Ouest d'abord, puis toute l'Afrique" (owner decision 2026-11-12). The default filter is "Afrique de l'Ouest", with a one-click "Toute l'Afrique". The region is a UI constant in `src/web`, with no migration and no column. See TODO S7.
   - **Pillars:** "Learn & Grow" and "Connect" are made prominent in navigation, home and wording only. No pillar is erased or demoted. The PRD amendment proposal is OPEN (O7).
   - See section 12 for what slips first.
 - **Out of scope:**
@@ -340,7 +341,7 @@ The other rows below are not personal owner tasks. Their status is unchanged unl
 | H2 | `PANK4SS` accepts the repository invitation (pending, `docs/team/CONTRIBUTORS.md:12`) | `PANK4SS` | Thu evening | minutes (GUESS) |
 | H3 | ADR-0008 set to ACCEPTED or amended | `Y4NN777` | **DONE 2026-11-12** (ACCEPTED; the main session edits the ADR file) | - |
 | H4 | Branch protection and required reviews on `develop` and `main`, with the `quality` check required (ADR-0006 "CI", ADR-0008 "Consequences") | `Y4NN777` | Thu evening | minutes (GUESS) |
-| H5 | Rulings on the items still open in section 10. B1, B5 (for CADEV), C1, C2, C14 and C15 are DECIDED as of 2026-11-12. B2, B3 and B4 are scheduled in S0 and S8, not blocking today. C14 is fully decided, including (a) and (b). Still open: C3 to C13, suspended users in `getProfile`, and O4 to O7. H1 and H3 are done. | `Y4NN777` | Thu evening | - |
+| H5 | Rulings on the items still open in section 10. B1, B5 (for CADEV), C1, C2, C14 and C15 are DECIDED as of 2026-11-12. B2, B3 and B4 are scheduled in S0 and S8, not blocking today. C14 is fully decided, including (a) and (b). C11 and C19 are DECIDED: `00011` is no longer reserved. Still open: C3 to C10, C12, C13, and O4 to O6. O7 is proposed in the docs PR. Suspended users are out of scope for P0. H1 and H3 are done. | `Y4NN777` | Thu evening | - |
 | H6 | Datacloud account and an **active commercial product**, SSH key, ports 80/443, storage (`docs/SHIP.md` section 3; a CADEV condition). Handled by the owner. | `Y4NN777` | Thu evening | UNVERIFIED; hours to a day (GUESS) |
 | H7 | DNS. The domain `226os.tech` exists and the owner holds it, but **nothing is deployed on it**: today it shows only the hosting provider's placeholder page. When the Datacloud host IP is known, point the apex `226os.tech` and the staging subdomain (PROPOSAL: `staging.226os.tech`, owner to confirm) to it with A records, in the registrar or DNS panel the owner holds. TLS issues through Traefik and Let's Encrypt **only after DNS resolves**, so DNS comes before the first HTTPS smoke test. Never assume DNS works (`docs/SHIP.md` section 1). | `Y4NN777` | as soon as the host IP is known | minutes to hours (GUESS) |
 | H8 | Gmail SMTP: create an app password, stored in the staging and production env files only; test with a real inbox | `Y4NN777` | Fri morning | GUESS: an app password needs 2-step verification on the account; verify |
@@ -351,12 +352,12 @@ The other rows below are not personal owner tasks. Their status is unchanged unl
 | H13 | Apply PRD amendment 3.2 (text in the S9 ADR) and add a SPEC story for S9, and for S10 if it is a GO; the owner applies these | `Y4NN777` | Fri evening | - |
 | H18 | O1 and the SEED owner. **Closed 2026-11-12:** O1 is DECIDED (production), and SEED is assigned to `PANK4SS`. | `Y4NN777` | closed | - |
 | H19 | Run the one-time S4 content script on `production-live` after its PR is reviewed, with explicit confirmation and a backup first. Record the run date in the TODO Done log. | `Y4NN777` (runner) | Sun morning, after the production deploy | - |
-| H16 | Decide whether "Learn as the heart" becomes a PRD amendment (3.2 or 3.3), or the pillars keep equal weight and only topics, series and home ordering change (O7) | `Y4NN777` | OPEN | - |
+| H16 | The PRD amendment for the pillars (O7). **Amendment 3.2 is proposed in the docs PR; the owner approves it on that PR.** | `Y4NN777` | on the docs PR | - |
 
 ## 9. CADEV obligations (`docs/SHIP.md` section 6)
 
 - [x] The team has 2 to 5 members, a declared representative and country, an agreed split, and every member registered. DONE 2026-11-12 (H9), as reported by the owner.
-- [ ] The names in `docs/PRD.md` section 12 match the declared team. Today that section says "3 personnes", names two people and leaves the third unnamed, while the team has four members (`docs/team/CONTRIBUTORS.md`). This is flagged here; the PRD is not edited.
+- [ ] The names in `docs/PRD.md` section 12 match the declared team. Today that section says "3 personnes", names two people and leaves the third unnamed, while the team has four members (`docs/team/CONTRIBUTORS.md`). This is flagged here, for the docs PR.
 - [ ] Git URL, a **public demo URL** (`https://226os.tech`, once `production-live` is deployed; O1), an **active Datacloud product**, the repository and its documentation, and a secured demo account if needed.
 - [ ] The project is original and was built during the contest. `THIRD_PARTY_NOTICES.md` and `AI_USAGE.md` are complete, dependency provenance is recorded, and no licence forbidden by the rules is used. The S9 provider's terms and SDK licence, if any, are added.
 - [ ] Submitted before Sun 2026-11-15 17:00 GMT.
@@ -478,7 +479,7 @@ The finding:
 
 **Consequence:** S4 and the E4 topic feeds are unblocked once that contract PR merges.
 
-**C3. `my_progress` without a progress table.** `getTrainingSeries` promises `my_progress` when a session exists (`api/openapi.yaml:1780`), but `learn_progress` is P1 and arrives in migration 00011 (ADR-0005 point 16).
+**C3. `my_progress` without a progress table.** `getTrainingSeries` promises `my_progress` when a session exists (`api/openapi.yaml:1780`), but `learn_progress` is P1 and arrives in a later migration, with whatever number is next (ADR-0005 point 16 named 00011; see C11).
 
 **C4. Search query length.** `q` has `maxLength: 200` (`api/openapi.yaml:1905`, `:1621`), but ADR-0005 point 6 bounds queries at 100 characters.
 
@@ -504,7 +505,7 @@ The finding:
 - The owner made it P0 on 2026-11-12.
 - PRD amendment 3.2 is needed (H13).
 
-**C11. Migration 00011 is reserved.** `docs/spec-kit/DATABASE_DESIGN.md:1280` reserves `00011` for the deferred P1 tables (`learn_progress`, `resource_reviews`, `content_reports`). S10 tables, and any S9 cost-counter table, take the next free number from `make migrate-new` (`scripts/migrate-new.sh`). Choosing that number is the owner's call.
+**C11. Migration 00011 is reserved. DECIDED 2026-11-12 (with C19): 00011 is no longer reserved.** `docs/spec-kit/DATABASE_DESIGN.md:1280` reserved `00011` for the deferred P1 tables (`learn_progress`, `resource_reviews`, `content_reports`). Those tables now take whatever number `make migrate-new` gives when they are built, and so do S9 and S10 tables.
 
 **C12. Who may create an article-to-question link.**
 
@@ -523,8 +524,8 @@ The finding:
 - Listed fields are limited to those whose `field_visibility` allows the caller, anonymous or member.
 - Email is never listed.
 - The directory filters (country, language, skill) apply **only to fields visible to the caller**. A hidden field counts as absent for filtering, so a filter cannot reveal its value.
-- There is no new column and no migration.
-- The direct read `GET /profiles/{username}` keeps its own rule, defined in (b) below.
+- No column is needed for the listing rule itself. The joint decision (b) below adds one column, `profiles.profile_visibility`, through one new migration written by `mibienpanjoe`.
+- The direct read `GET /profiles/{username}` follows (b) below.
 
 **Consequence:** C14 is fully decided. E5 depends on the `profile_visibility` migration and the first contract PR.
 
@@ -561,7 +562,7 @@ The finding:
   - S1 (`NICE-DEV226`) owns the profile read and write and their negative tests.
   - S7 (`PANK4SS`) adds a profile visibility setting on the settings page, with FR/EN copy.
   - E5 depends on the migration.
-- **Not covered by the decision:** how suspended users (`users.status='suspended'`) are treated by `getProfile`.
+- **Suspended users:** out of scope for P0 (owner, 2026-11-12). No suspension feature exists to test.
 
 The original analysis follows.
 
@@ -606,6 +607,29 @@ This item still applied after the ingestion was removed, because fixtures raise 
 - Whatever the choice, fixtures create **no votes, answers by fake people, or applications**.
 - C16, C17 and C18 were removed with the ingestion. C17's remaining point, that there is no write path for the catalogue, is folded into B5.
 
+**C19. Migration 00011 is reserved, but the tooling cannot skip it (reviewer finding). DECIDED 2026-11-12: 00011 is no longer reserved.**
+
+The finding:
+
+- `scripts/migrate-new.sh:16-25` creates the highest number + 1.
+- `scripts/check-migrations.sh:35-38` requires "sequential, no gap".
+- `docs/spec-kit/DATABASE_DESIGN.md` section 5 (line 1280) reserved `00011` for the P1 tables.
+
+**Decision:** `00011` is no longer reserved.
+
+**Reason:**
+
+- The gate requires sequential numbers with no gap.
+- Nothing in the code depends on the reservation.
+- The P1 tables do not exist yet, so they take the next free number when they are built.
+
+**Consequences:**
+
+- Use the number `make migrate-new` gives. The E2 taxonomy migration is `00011` and the `profile_visibility` migration is `00012`, or the reverse if `profile_visibility` merges first. Both are written by `mibienpanjoe`.
+- The scripts and the gate do not change.
+- Docs follow-up in the same PR as the migration: correct the reservation statements in `DATABASE_DESIGN.md` section 5 and its migration plan. Owner `mibienpanjoe`, reviewer `NICE-DEV226`.
+- ADR-0005 point 16 also names `00011`. The owner records that the number is no longer fixed.
+
 **C2, addition. DECIDED with C2.** Questions have no topic; `listQuestions` filters only by `tag` (`api/openapi.yaml:462`). Mapping rule: a topic's feed shows articles by topic code and questions whose tag equals the topic code.
 
 ### Open decisions
@@ -634,7 +658,7 @@ This item still applied after the ingestion was removed, because fixtures raise 
 
 **O5. S9 questions the PROPOSED ADR must decide.**
 
-The provider is decided: Google AI Studio, Gemma 4, free tier (Decisions log). These items stay open:
+The provider is decided: Google AI Studio, Gemma 4 (Decisions log). The **free tier is for development and evaluation; production use needs the V3 decision** (free versus billing-linked, EEA rule). These items stay open:
 
 - Exactly what is sent to the provider: the question text and retrieved public content only. No emails, no private data, no secrets.
 - The cost cap, or the quota guard, and where its counter lives.
@@ -693,12 +717,12 @@ The provider is decided: Google AI Studio, Gemma 4, free tier (Decisions log). T
 - If it is built, it takes Saturday afternoon capacity from S6 and S7 integration, the G5/G6 harnesses, the backup/restore drill and the bug-fix buffer before the freeze (GUESS; not quantified).
 - It also displaces the E4-type work.
 
-**O7. Prominent pillars (wording replaced 2026-11-12; the PRD text is OPEN).**
+**O7. Prominent pillars: amendment 3.2 proposed in the docs PR; the owner approves on that PR.**
 
 - "Learn & Grow" and "Connect" are made **prominent in navigation, home and wording only**.
 - **No PRD pillar is erased or demoted.** All nine domains and all four differentiators stay (AGENTS.md, "Mission"), and nothing is deleted.
 - Prominence is an emphasis in information architecture and copy (`PANK4SS`), with no new endpoints and nothing non-functional announced.
-- The PRD amendment text stays a **proposal** for the owner and must say "prominence, not removal". This plan does not edit the PRD. Its number, 3.2 or 3.3, depends on H13.
+- **PRD amendment 3.2 is written and proposed in the docs PR; the owner approves it on that PR.** It says "prominence, not removal".
 - The pillars stay one ecosystem (section 12.4).
 
 **O9. E5 backend owner. Assigned 2026-11-12:** `NICE-DEV226`, after Solve, if time allows. It slips early (section 12.1).
@@ -839,7 +863,7 @@ All pillars share the same spine. That is why making two of them prominent remov
 | 2026-11-12 | Slices S0 to S8 and their owners are as in section 4. Only `mibienpanjoe` writes migrations. Review rules are as in section 5. | `Y4NN777` |
 | 2026-11-12 | **AI first, channels if on track.** S9 is P0 and amends PRD 5.8; the owner applies amendment 3.2 from the S9 ADR. S10 is built only if the Sat 12:00 checkpoint shows S0 to S5 on track; otherwise it stays P2 and is reported as such. The LLM provider and cost are open owner decisions. | `Y4NN777` |
 | 2026-11-12 | S9 provider: the OpenAI API, with a key the owner buys (billing and a monthly spending cap). Never a ChatGPT or Codex login: personal OAuth tokens are never used in the product. **Superseded by the next entry.** | `Y4NN777` |
-| 2026-11-12 | **Supersedes the OpenAI entry.** S9 provider: Google AI Studio, model Gemma 4, free tier; the owner holds the access. The AI Studio API key lives only in the staging and production env files, never in Git, CI logs or images. The LLM port keeps the provider swappable. Development and the golden evaluation set run against the fake adapter. V1 to V6 (section 10, O5) are open verification items for the S9 ADR. Fallback: switch provider through the port by configuration; an alternative paid key is possible, at the owner's decision. | `Y4NN777` |
+| 2026-11-12 | **Supersedes the OpenAI entry.** S9 provider: Google AI Studio, model Gemma 4, free tier; the owner holds the access. The free tier was later clarified as development and evaluation only, with production use needing V3. The AI Studio API key lives only in the staging and production env files, never in Git, CI logs or images. The LLM port keeps the provider swappable. Development and the golden evaluation set run against the fake adapter. V1 to V6 (section 10, O5) are open verification items for the S9 ADR. Fallback: switch provider through the port by configuration; an alternative paid key is possible, at the owner's decision. | `Y4NN777` |
 | 2026-11-12 | S9 terms findings recorded (section 10, O5; K21). Free-tier content may be used by Google and read by human reviewers. Only Paid Services may be offered to EEA, Swiss or UK users. The open items are now V1 to V4: confirm the model id, read the real limits, decide free versus billing-linked, measure on the golden set. Design rules proposed for the S9 ADR: public content and question only, a visible notice, redaction of secrets and emails, a per-environment switch, and an "assistant unavailable" fallback. | Coordinator's search results, re-fetched in this review. **Not an owner decision.** |
 | 2026-11-12 | **E1 accepted.** S9 acceptance tests and golden set:<br>- AI-1: ground or refuse. With zero retrieved passages, the provider is not called and the answer links to search.<br>- AI-2: citations are validated on the server, with at least one per answer.<br>- AI-3: no guarantees about an API or a verified solution.<br>- AI-4: every answer ends with "Comment vérifier".<br>- AI-5: uncertainty is stated, with source dates.<br>- AI-9: answers are labelled AI and can never be accepted or voted as an answer.<br>- AI-10: only the question text and public retrieved content are sent, after redaction.<br>AI-6 (hint-first) and AI-7 (ask for your attempt) are P1. | `Y4NN777` |
 | 2026-11-12 | **E2 accepted.** Taxonomy changes are add and relabel only, in one new migration by `mibienpanjoe`. Its number comes from `make migrate-new`; 00011 is reserved.<br>- +5 learn topics: `learn-to-learn`, `ai-assisted-dev`, `ai-agents`, `open-models`, `african-languages`.<br>- Relabels: `ai`, `mobile`, `open-source`, and the category `cloud-hosting`.<br>- +3 categories: `ai-models`, `ai-tooling`, `ai-datasets`.<br>Result: 14 topics and 18 categories. `payments`, `ai`, `mobile-money` and `sms-ussd` stay valid. The pgtest lists change in the same PR; the DATABASE_DESIGN lists are a docs follow-up. Removals are deferred until after CADEV and need explicit approval. | `Y4NN777` |
@@ -867,4 +891,9 @@ All pillars share the same spine. That is why making two of them prominent remov
 | 2026-11-12 | **The C14 residual points were briefly recorded as DECIDED, then retracted to OPEN on the coordinator's correction. They are now DECIDED jointly; see the next two entries.** | - |
 | 2026-11-12 | **DECIDED (owner and main session, jointly) C14a, `open_to_collab` visibility.**<br>- A profile is listed for a caller only if `open_to_collab = true` and the caller may see that flag: anonymous callers see `public`, members see `public` and `members`, and `private` is never listed.<br>- The predicate and all filters use caller-visible fields only.<br>- Negative tests per value × caller. | `Y4NN777` + main session |
 | 2026-11-12 | **DECIDED (owner and main session, jointly) C14b, profile-level visibility column.**<br>- `profiles.profile_visibility text NOT NULL DEFAULT 'public'`, CHECK `public|members|private`. A new migration by `mibienpanjoe` only (numbered by `make migrate-new`), which may share a PR with E2 as a separate file; the pgtest structure tests change in the same PR; the `DATABASE_DESIGN.md` line is a docs follow-up.<br>- `getProfile`: `public` is visible to all; `members` gives anonymous callers 404; `private` is visible to the owner only. The 404 is identical to an unknown or deleted username.<br>- Moderators have no special profile access at P0.<br>- Bylines on published content always show the username and display name; deleted accounts show "membre supprimé" (ADR-0005 point 15).<br>- The directory requires `profile_visibility` to allow the caller **and** C14a.<br>- First contract PR: `profile_visibility` in the profile read and update schemas, `PATCH /me/profile` accepts it, and `deny_status 404` stays with these semantics.<br>- S1 (`NICE-DEV226`) does the read, write and tests. S7 (`PANK4SS`) adds the settings UI. E5 depends on the migration.<br>**Open:** suspended users. | `Y4NN777` + main session | `Y4NN777` |
+| 2026-11-12 | **Suspended users in `getProfile`: out of scope for P0.** No suspension feature exists to test. Removed from every open list. | `Y4NN777` |
+| 2026-11-12 | **DECIDED: the region.**<br>- Public positioning: "Afrique de l'Ouest d'abord, puis toute l'Afrique".<br>- The region is the UN geoscheme "Western Africa", restricted to the countries in our table: BJ, BF, CV, CI, GM, GH, GN, GW, LR, ML, MR, NE, NG, SN, SL, TG. That is 16, to be verified against the UN M49 list; the owner may adjust.<br>- It is a UI constant in `src/web`, with no migration and no column.<br>- The default filter is "Afrique de l'Ouest", with a one-click "Toute l'Afrique". | `Y4NN777` |
+| 2026-11-12 | **Reviewer fixes.**<br>- (a) C19: the reserved `00011` against the no-gap migration gate; task for `Y4NN777`.<br>- (b) `TestFreshMigrationToHead` hardcodes 10 migrations; added to the E2 and `profile_visibility` PR file list.<br>- (c) `mk/50-ops.mk:50-51` mentions staging seeds; the SEED task makes `make seed` refuse everywhere except `local-dev`.<br>- (d) `DATABASE_DESIGN.md` sections 7 and 10 still say "owner or maintainer"; docs follow-up in S5.<br>- (e) C14's "no column" text aligned with `profile_visibility`.<br>- (f) O7 and H16: amendment 3.2 proposed in the docs PR.<br>- (g) "Free tier" reworded: development and evaluation only; production needs V3.<br>- (h) S9 suggestions (similar questions, help phrasing a question) marked P1.<br>- (i) ADR-0008 "PROPOSED" mentions removed. | `Y4NN777` |
+| 2026-11-12 | **DECIDED C19 and C11: `00011` is no longer reserved.**<br>- **Reasons:** the gate is sequential with no gap, nothing depends on the reservation, and the P1 tables do not exist yet.<br>- Use the numbers from `make migrate-new`: E2 gets `00011` and `profile_visibility` gets `00012`, or the reverse depending on merge order. Both by `mibienpanjoe`. No script or gate change.<br>- Docs follow-up in the same PR: `DATABASE_DESIGN.md` section 5 and its migration plan (`mibienpanjoe`, reviewed by `NICE-DEV226`).<br>- E2 and `profile_visibility` are no longer blocked. | `Y4NN777` |
+| 2026-11-12 | **Note:** the "Learn as the heart" entry below is superseded by O7, with amendment 3.2 proposed in the docs PR and approved by the owner on that PR. | `Y4NN777` |
 | 2026-11-12 | **OPEN, not applied.** "Learn as the heart": a PRD amendment 3.2 or 3.3 ending the equal pillar weight of 3.1, or equal weight kept and only topics, series and home ordering change (O7). S10 is unchanged: it is conditional on the Sat 12:00 checkpoint, and if built it displaces E4-type work. | `Y4NN777` (pending) |

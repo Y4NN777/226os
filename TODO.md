@@ -164,7 +164,7 @@ Each line below is a **proposal**. The lead confirms or reassigns it.
 - **Reviewer:** `mibienpanjoe` (reviewer pairs, 2026-11-12). The lead may co-review the auth surface (ADR-0008 "Consequences").
 - **Helpers:** `PANK4SS` on demand
 - **Branches:** `feature/identity/auth-sessions`, `feature/identity/profiles`
-- **Depends on:** S0. Argon2id parameters are pinned only after the benchmark on the target host (S8, ADR-0003).
+- **Depends on:** S0. Argon2id parameters are pinned only after the benchmark on the target host (S8, ADR-0003). The `getProfile` and `updateMyProfile` visibility work needs the `profile_visibility` migration (`mibienpanjoe`). That PR must also update `TestFreshMigrationToHead`, which hardcodes 10 migrations (`migrate_integration_test.go:40,47-48,58-59,85`), so S1 checks it is merged before relying on the column.
 
 **Operations (11).** See `x-authz` in `api/openapi.yaml:44-435`.
 
@@ -191,7 +191,7 @@ Each line below is a **proposal**. The lead confirms or reassigns it.
   - `private` is visible to the owner only;
   - the 404 body is identical to the one for an unknown or deleted username;
   - moderators get no special access.
-  - Suspended users are not covered by the decision (OPEN).
+  - Suspended users: out of scope for P0 (owner, 2026-11-12).
 - [ ] `updateMyProfile` accepts `profile_visibility` (`public|members|private`, default `public`).
 - [ ] Bylines on published content keep showing the username and display name whatever `profile_visibility` says. Deleted accounts show "membre supprimé" (ADR-0005 point 15). This distinction is deliberate.
 
@@ -451,6 +451,7 @@ Each line below is a **proposal**. The lead confirms or reassigns it.
   - a cross-project IDOR returns 404.
 - [ ] Correct `decideApplication` x-authz: it still says "owner or maintainer" (`api/openapi.yaml:1559-1561`). This is a contract change, so it goes in its own small PR or is bundled into the C2 contract PR, reviewed by `Y4NN777` and `PANK4SS` (R7).
 - [ ] In the S5 PR, correct `AUTHORIZATION_MATRIX.md` lines 40, 42 and 45 from "owner or maintainer" to "owner only" (C1). This narrows ADR-0005 point 10, and the owner records it.
+- [ ] Docs follow-up, in the S5 PR or a docs PR: `docs/spec-kit/DATABASE_DESIGN.md` still says "owner or maintainer" in section 7 (line 1335, "owner or delegated maintainer of the need's project") and section 10 (line 1382, "owner or maintainer decides"; also line 1371 and the `project_maintainers` description at 819). Correct them to owner only (C1). Owner: `mibienpanjoe`, reviewed by `NICE-DEV226`.
 
 **Tables:** `projects`, `project_maintainers`, `project_tags`, `contribution_needs`, `need_skills`, `applications`, `content_relations`, `tags`, `idempotency_keys`, `rate_limit_buckets` (`00007`).
 
@@ -587,6 +588,28 @@ Each line below is a **proposal**. The lead confirms or reassigns it.
 
 **Stop condition:** stop if a page needs a field that is not in `schema.d.ts` (R7: contract PR first).
 
+**Prototype alignment** (added 2026-11-12 with PRD amendment 3.2, proposed; owner `PANK4SS`, reviewer `Y4NN777`). `prototypes/html/**` is outside the S7 allowed paths above (ADR-0008 gives `src/web/**` and `DESIGN.md`), so the owner confirms that these edits are in scope before they start.
+
+- [ ] Navigation and home (`accueil`) emphasise **Apprendre** and **Connect**; Solve, Discover and Build stay full pillars in the same navigation, on desktop and mobile (`DESIGN.md` 5 keeps direct mobile access to Solve, Discover and Build).
+- [ ] The `connect` page becomes the people-directory preview (country, language and skill filters; only fields the caller may see; no email). The `connect-spaces` block stays "bientôt"; mentoring and opportunities stay "coming soon"; no matchmaking is shown.
+- [ ] Learn topic labels match the 14-topic list and resource category labels match the 18-category list (E2 section above), with no topic or category removed.
+- [ ] An assistant panel mock in `recherche` and in the `solve` ask flow, visibly marked as prototype: cited sources with links, a "Comment vérifier" section, an AI label, no vote or accept control, and the notice that the question is sent to the provider.
+- [ ] A profile visibility setting (public, members, private) on `parametres`, with FR/EN copy saying that author bylines on published content still show the name.
+- [ ] Replace fictional people and data with clearly labelled demo data, or mark each remaining fictional item visibly as fictional.
+- [ ] Keep the fictional markers honest: the visible banners and badges (for example `discover.fictional.*` in `assets/js/pages/discover.js`, "lien fictif" in `assets/js/pages/project.js`) and the `FICTIONAL` header comments in `assets/data/*.js`. Check `assets/js/pages/landing.js:75`, which strips "(fictif)" from labels on the landing page. No fictional item is presented as real activity.
+
+**West Africa first** (the region and positioning are DECIDED by the owner, 2026-11-12; the other items stay PROPOSED). Positioning: "Afrique de l'Ouest d'abord, puis toute l'Afrique" (PRD amendment 3.2 point 7).
+
+- [ ] **DECIDED:** the region is a **UI constant in `src/web`**, with no migration and no column.
+  - It is the UN geoscheme "Western Africa", restricted to the countries in our table: `BJ, BF, CV, CI, GM, GH, GN, GW, LR, ML, MR, NE, NG, SN, SL, TG` (16).
+  - **To verify against the UN M49 list; the owner may adjust it.**
+  - The default filter is "Afrique de l'Ouest", with a one-click "Toute l'Afrique".
+  - Owner: `PANK4SS`. Reviewer: `Y4NN777`.
+- [ ] PROPOSED: Discover entries curated by the team, starting with the West African context. Facts and source links only; no copied text.
+- [ ] PROPOSED: the Connect directory highlights West African builders and the diaspora, within the E5 visibility rules.
+- [ ] PROPOSED: the Learn series examples use low-bandwidth and Mobile Money contexts.
+- [ ] **DECIDED:** interface copy "Afrique de l'Ouest d'abord, puis toute l'Afrique" in navigation and home (FR/EN).
+
 **Status:** PLANNED
 
 ---
@@ -601,7 +624,8 @@ Each line below is a **proposal**. The lead confirms or reassigns it.
 
 **Tasks**
 
-- [ ] H1, H3, H4: identities confirmed, ADR-0008 decided, branch protection with the `quality` check required on `develop` and `main`.
+- [x] H1 and H3: identities confirmed and ADR-0008 ACCEPTED (2026-11-12, owner).
+- [ ] H4: branch protection with the `quality` check required on `develop` and `main`.
 - [ ] Datacloud account and active product (H6).
 - [ ] DNS (H7).
   - `226os.tech` exists, but nothing is deployed on it yet; today it shows the provider's placeholder page.
@@ -622,6 +646,23 @@ Each line below is a **proposal**. The lead confirms or reassigns it.
 - [ ] CADEV checklist (ROADMAP section 9), including H10, and the check that the names in PRD section 12 match the declared team (flag only). The submission URL is `https://226os.tech`.
 - [x] H9: CADEV team registration (DONE 2026-11-12, reported by the owner).
 
+**CADEV rules checklist** (added 2026-11-12 from the official rules the owner provided; the rules text is not copied here). Owner and team tasks.
+
+- [ ] **Admissibility (art. 6): a Datacloud product is actually purchased** and active at submission (H6). Owner.
+- [ ] **Admissibility (art. 6): no GPL, AGPL or LGPL component.** Observed facts:
+  - the API image copies busybox (GPL-2.0) for its health probe (`src/api/Dockerfile:19-21,40,43-44`);
+  - the web image is `nginx-unprivileged:stable-alpine` with `apk upgrade` (`src/web/Dockerfile:24,26`), so it carries Alpine OS packages;
+  - `make licenses` covers only Go modules and npm production dependencies (`scripts/licenses.sh:18-19`), not image OS packages.
+  - [ ] OPEN owner decision: ask the organiser (cadev@systalink.com) whether base-image OS packages count.
+  - [ ] OPEN owner decision: produce a licence report of the built container images (`api`, `migrate`, `web`).
+  - [ ] OPEN owner decision: consider removing busybox from the API image, replacing it with a tested healthcheck subcommand of the API binary. This touches `src/api/Dockerfile` and `src/api/cmd/**`, outside S8's allowed paths, so the owner assigns it.
+- [ ] **Titularity:** each member declares titularity at submission. Every member.
+- [ ] **Licences declared:** every component and its licence is declared. `THIRD_PARTY_NOTICES.md` still has no inventory (`THIRD_PARTY_NOTICES.md:22-24`). Owner, with the `make licenses` artifact and the image report above.
+- [ ] **AI usage declared:** tools and the parts concerned, in `AI_USAGE.md`. Every member for their own work.
+- [ ] **Brand assets generated with AI:** complete the licence review already flagged as PENDING in `AI_USAGE.md` ("Brand assets (concept D) record"). Owner.
+- [ ] **Technical quality is 30% of the score and includes the team's ability to explain the code:** schedule a code walkthrough with all four members before the submission. Owner sets the slot.
+- [ ] **Peer vote is mandatory for every member** between Sun 2026-11-15 18:00 and Mon 2026-11-16 23:59 GMT (H10).
+
 **Allowed paths:** `Makefile`, `mk/**`, `scripts/**`, `compose.yaml`, `deploy/**`, `.github/**`, `docs/quality/**`, and `docs/evidence/**` (path GUESS).
 
 **DoD:** each item has evidence in the PR or under the evidence path for the target SHA. `make quality-full` on the `develop` SHA reports G5 and G6 `PASS`, or `NOT RUN` with a dated owner exception.
@@ -641,7 +682,7 @@ Each line below is a **proposal**. The lead confirms or reassigns it.
 - **Helpers:** `PANK4SS` on demand
 - **Branches:** `feature/intelligence/assistant-contract`, then `feature/intelligence/assistant`
 - **Depends on:** S1 (subject, rate limiter), S2 (search), and H12
-- **Provider** (owner decision 2026-11-12; supersedes the OpenAI decision): Google AI Studio, model Gemma 4, free tier.
+- **Provider** (owner decision 2026-11-12; supersedes the OpenAI decision): Google AI Studio, model Gemma 4. The **free tier is for development and evaluation; production use needs the V3 decision** (free versus billing-linked project, EEA rule).
   - The key lives only in the staging and production env files, never in Git, CI logs or images.
   - The LLM port keeps the provider swappable.
   - Development and the golden evaluation set run against the fake adapter.
@@ -686,7 +727,7 @@ Each line below is a **proposal**. The lead confirms or reassigns it.
 - [ ] No prompt logging that contains personal data or secrets.
 - [ ] A per-environment enable switch in config. The UI shows a visible notice that the question is sent to Google.
 - [ ] **Golden evaluation set**: questions with their expected cited sources, built on demo seeds (fixed UUIDs). It runs against the fake adapter in CI. The real-provider run is recorded separately (V4) and is NOT RUN until done.
-- [ ] `PANK4SS`: the assistant panel in `recherche`, and in the `solve` ask flow (similar questions, help phrasing the question).
+- [ ] `PANK4SS`: the assistant panel in `recherche` and in the `solve` ask flow: a grounded answer with citations, or a refusal. "Similar questions" and "help phrasing the question" are **P1** (PRD 5.8 suggestions); they are not promoted, so they are out of S9 scope.
 - [ ] `THIRD_PARTY_NOTICES.md` and `AI_USAGE.md` entries for the provider (owner).
 
 **E1 teaching rules** (owner-accepted 2026-11-12). Each rule is an acceptance test and appears in the golden set.
@@ -721,7 +762,7 @@ Each line below is a **proposal**. The lead confirms or reassigns it.
 
 **DoD:** DoD-common, plus the golden set green on the fake adapter, plus the recorded real-provider run with V4 numbers before the demo.
 
-**Stop condition:** stop if V3 (the EEA rule) is not decided before the staging demo. Without that decision, the assistant stays disabled by config.
+**Stop condition:** stop if V3 (the EEA rule) is not decided before the first staging smoke test. Without that decision, the assistant stays disabled by config.
 
 **Status:** PLANNED
 
@@ -737,7 +778,8 @@ Each line below is a **proposal**. The lead confirms or reassigns it.
 
 **Tasks**
 
-- [ ] Create a new migration with `make migrate-new NAME=<slug>`. Use the number it gives; **not** 00011, which is reserved (C11). It is forward-only, with the standard header.
+- [ ] Create the migration with `make migrate-new NAME=<slug>` and **use the number it gives** (C19 DECIDED 2026-11-12: `00011` is no longer reserved). E2 is `00011` and `profile_visibility` is `00012`, or the reverse if `profile_visibility` merges first; `migrate-new` decides. No script or gate change. Each migration is forward-only, with the standard header.
+- [ ] Docs follow-up **in the same PR as the migration**: correct the statements in `docs/spec-kit/DATABASE_DESIGN.md` that reserve `00011` for the P1 tables (section 5 and its migration plan, around line 1280). Owner `mibienpanjoe`, reviewer `NICE-DEV226`.
 - [ ] Add 5 learn topics:
   - `learn-to-learn` (Apprendre et rester à jour / Learning & keeping up)
   - `ai-assisted-dev` (Coder avec l’IA sans perdre la main / Coding with AI, keeping your skills)
@@ -755,6 +797,7 @@ Each line below is a **proposal**. The lead confirms or reassigns it.
   - `ai-datasets` (Jeux de données et évaluation / Datasets & evaluation)
 - [ ] Result: **14 learn topics and 18 resource categories**. `payments`, `ai`, `mobile-money` and `sms-ussd` stay valid, because fixtures use them (`pgtest/fixtures_integration_test.go:65-66`).
 - [ ] In the same PR, update the exact lists and counts in `src/api/internal/platform/pgtest/migrate_integration_test.go` (`:140-150`, `:180` want 15, `:219` want 9).
+- [ ] In the same PR, update `TestFreshMigrationToHead`, which hardcodes 10 migrations (`migrate_integration_test.go:40` message "00001..00010", `:47-48` `len(results) != 10`, `:58-59` `GetDBVersion` want 10, `:85` version list `0..10`). The new head is 10 plus the number of new migration files (`00011`, `00012`).
 - [ ] K25: check whether seeds or fixtures tag `ai` content that really belongs under `african-languages`.
 - [ ] Docs follow-up, outside this PR: the `DATABASE_DESIGN.md` lines about the lists.
 - [ ] **Separate migration file: `profile_visibility` (C14b DECIDED 2026-11-12).**
@@ -804,7 +847,9 @@ Taxonomy rows are data. Later they change through a new forward-only migration o
 **Tasks**
 
 - [x] C15 ruled and owner named (2026-11-12).
-- [ ] Implement `make seed` in `mk/50-ops.mk:50`, which is NOT IMPLEMENTED today (owner area; owner review). It **refuses everywhere except `APP_ENV=local-dev`**, and fails closed.
+- [ ] Implement `make seed`, which is NOT IMPLEMENTED today, as the Make target plus the seed script. Owner `PANK4SS`, reviewed by `mibienpanjoe`; `Y4NN777` also reviews as area owner of `mk/**` and `scripts/**`.
+  - It **refuses everywhere except `APP_ENV=local-dev`**, and fails closed.
+  - Today `mk/50-ops.mk:50-51` describes seeds as "local-dev and staging-test only", which contradicts the owner decision that only `local-dev` has demo data. Correct that help text and the guard message in the same PR.
 - [ ] A check that finds zero `provenance='demo'` rows on **both** `staging-test` and `production-live` (`DATABASE_DESIGN.md:1296`, extended to staging).
 - [ ] **The Learn free series (local copy):** a demo-fixture `training_series` of **3 to 4 short original lessons**.
   - Each lesson is a `learn_article` of kind `tutorial`, referenced by `training_lessons.article_id` (C13).
@@ -868,7 +913,7 @@ Taxonomy rows are data. Later they change through a new forward-only migration o
   - fields shown per `field_visibility` for the caller;
   - email never shown;
   - filters apply only to caller-visible fields, so a hidden field counts as absent;
-  - no column and no migration.
+  - no column for the listing rule itself. The joint decision adds `profiles.profile_visibility` through one migration by `mibienpanjoe`, and E5 depends on it.
 
 **Tasks**
 
@@ -946,7 +991,7 @@ E5 needs the `profile_visibility` migration (C14b), which only `mibienpanjoe` wr
   - Regenerate `src/api/internal/platform/apigen/**` and `src/web/src/api/schema.d.ts`.
   - Update the operation count in `contract_test.go` and in `docs/quality/COVERAGE_SCOPE.md:17` (owner approval).
   - B1 applies to every new operation.
-- [ ] Migration with the next free number (C11; `00011` is reserved), written by `mibienpanjoe`.
+- [ ] Migration with the next free number from `make migrate-new` (C11 and C19 DECIDED: no reserved numbers), written by `mibienpanjoe`.
 - [ ] A channel is attached to an existing object (a project or a Learn series). There is no free-form chat.
 - [ ] Messages are persisted in PostgreSQL and delivered live. Only members may use channels. Rate-limited. Messages carry `lang` and are never translated.
 - [ ] Moderation can hide messages (an S6 extension, audited).
