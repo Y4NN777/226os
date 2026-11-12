@@ -45,3 +45,23 @@ jobs:
               exit 1
             }
           fi
+
+      - name: Check out the repository
+        if: github.event_name == 'pull_request'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Every promotion leaves a merge commit that exists only on main. This step makes the back-merge
+      # (main -> develop) impossible to forget: other work waits until it has landed.
+      # See scripts/check-develop-contains-main.sh and docs/GIT_WORKFLOW.md (promotion flow, step 7).
+      - name: Develop must contain main
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          BASE_REF: ${{ github.base_ref }}
+          HEAD_REF: ${{ github.head_ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        shell: bash
+        run: scripts/check-develop-contains-main.sh
