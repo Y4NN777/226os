@@ -2,9 +2,11 @@ package subject_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/Y4NN777/226os/src/api/internal/platform/subject"
@@ -116,5 +118,18 @@ func TestMiddlewareNilOnErrorFallsBackTo500(t *testing.T) {
 	h.ServeHTTP(rec, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil))
 	if nextCalled || rec.Code != http.StatusInternalServerError {
 		t.Fatalf("next=%v code=%d", nextCalled, rec.Code)
+	}
+	if ct := rec.Header().Get("Content-Type"); ct != "application/problem+json" {
+		t.Fatalf("content-type = %q, want application/problem+json", ct)
+	}
+	var body map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("body %q: %v", rec.Body.String(), err)
+	}
+	if body["code"] != "INTERNAL_ERROR" || body["status"] != float64(http.StatusInternalServerError) {
+		t.Fatalf("body = %v", body)
+	}
+	if strings.Contains(rec.Body.String(), "boom") {
+		t.Fatalf("fallback body echoes the resolver error: %q", rec.Body.String())
 	}
 }

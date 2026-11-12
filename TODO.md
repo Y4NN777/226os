@@ -96,7 +96,8 @@ Each line below is a **proposal**. The lead confirms or reassigns it.
 - [x] **O3 (closed by B1).** The 4 P1 routes stay in `unimplemented-routes.txt`, answering 501.
 - [x] Add `pgxpool` and `DATABASE_URL` to the config (`src/api/internal/platform/config`), and pass `DATABASE_URL` to `api` in `compose.yaml` (today `compose.yaml:90` omits it). (`feature/platform/api-mount`; `CURSOR_KEY` added to config, compose and `.env.example` too.)
 - [x] Add `GET /readyz` (DB ping with a deadline) to `scripts/public-routes.txt` with its reason. Decide edge routing for B2 (`deploy/traefik/dynamic.edge.yml:6`). Scheduled; not blocking today; must close before Sunday.
-  - Follow-ups recorded by the skeptic review (api-mount): cursors carry no expiry (ADR-0004 point 5 lists "expired"; needs a TTL decision); `METHOD_NOT_ALLOWED`, the bare 501 of `apigen.Unimplemented` and a 405 without an `Allow` header are outside the contract (C5); `Application/JSON` (mixed case) is refused 400 by the validator while `DecodeJSON` accepts it.
+  - Follow-ups recorded by the skeptic review (api-mount): `METHOD_NOT_ALLOWED`, the bare 501 of `apigen.Unimplemented` and a 405 without an `Allow` header are outside the contract (C5). Closed in the follow-ups PR: cursors now expire after 24 h (wire format v2 carries the issue time; a 5 minute clock skew is tolerated), the request timeout answers a problem+json 503 `SERVICE_UNAVAILABLE` with `Retry-After` instead of a bare 504, a mixed-case `Application/JSON` is validated like `application/json`, `subject.Middleware` without an error writer answers problem+json, and a test fails if one of the six idempotency operations ever gains a query parameter (the query is deliberately not in the request hash).
+  - **Decision (PROPOSED by S0, owner approves by merging): the response headers `Idempotency-Replayed` and `Idempotency-Body-Omitted` are declared in the contract on the six bound operations, in their own contract PR (R7: merged alone, by the contract owners).** Until then ADR-0004 point 2 applies: clients ignore unknown response headers; both are informational.
   - `GET /readyz` is built, tested and in `scripts/public-routes.txt` (`feature/platform/api-mount`). **B2 decision (PROPOSED by S0, owner approves by merging this PR): do NOT route `/readyz` at the edge** (`deploy/traefik/dynamic.edge.yml` stays `/api/` and `/healthz`). `/readyz` is unauthenticated and pings the database, so a public route would be a database-state oracle and a cheap way to force pings. The deploy smoke test (SHIP 4.2) runs it from the host instead: `docker compose exec api /busybox/busybox wget -q -O- http://127.0.0.1:8080/readyz`. The compose healthcheck keeps `/healthz` (liveness), so a database outage does not restart the API. S8 updates SHIP 4.2 accordingly; ROADMAP section 14 needs the owner line. **Verified trap (2026-11-12):** at the edge `/readyz` is NOT served by the API but falls through to the `web` catch-all, which answers `200` with the SPA `index.html`; a smoke check through the public host would report ready with the API down. Probe it only inside the container.
 - [x] Mount `apigen` with `HandlerWithOptions` under `/api/v1`, with a problem+json `ErrorHandlerFunc`: (`feature/platform/api-mount`. The router still answers `METHOD_NOT_ALLOWED` for unknown methods, a code outside the enum: C5 stays open.)
   - missing required `If-Match` returns 428 `PRECONDITION_REQUIRED`;
@@ -162,7 +163,7 @@ Each line below is a **proposal**. The lead confirms or reassigns it.
 
 **Stop condition:** stop and ask the owner if B1 cannot be solved without weakening the gate.
 
-**Status:** IN REVIEW (all S0 tasks built: gate hardening #32, api-mount #33, idempotency and ETag #34, mailer on `feature/platform/mailer`; B2 and B3 proposed, owner approval pending; DoD proof recorded in the mailer PR)
+**Status:** DONE (PRs #31 to #35 and the follow-ups PR, 2026-11-12). B2 and B3 are PROPOSED here and the owner approves by merging; the owner's line in ROADMAP section 14 and the Gmail verification on staging (H8) remain.
 
 ---
 
@@ -1054,3 +1055,4 @@ E5 needs the `profile_visibility` migration (C14b), which only `mibienpanjoe` wr
 | 2026-11-12 | S0 api-mount: pgxpool and `/readyz`, apigen mount under `/api/v1`, problem+json error table, spec-driven request validation, signed cursors, transaction runner, subject port | #33 | `Y4NN777` |
 | 2026-11-12 | S0 Idempotency-Key and ETag helper; B2 and B3 proposals | #34 | `Y4NN777` |
 | 2026-11-12 | S0 mailer (port, SMTP adapter, fake, Mailpit in local-dev, mailcheck) and the DoD proof | #35 | `Y4NN777` |
+| 2026-11-12 | S0 follow-ups: cursor expiry, problem+json timeout, mixed-case media type, query guard | #36 | `Y4NN777` |

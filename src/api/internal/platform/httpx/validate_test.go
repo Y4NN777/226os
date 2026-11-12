@@ -345,3 +345,46 @@ func TestValidatorParameterFaultsWithoutBinding(t *testing.T) {
 		}
 	}
 }
+
+// ctProbe records the Content-Type its handler is given.
+type ctProbe struct {
+	apigen.Unimplemented
+	seen string
+}
+
+func (p *ctProbe) CreateQuestion(w http.ResponseWriter, r *http.Request, _ apigen.CreateQuestionParams) {
+	p.seen = r.Header.Get("Content-Type")
+	w.WriteHeader(http.StatusCreated)
+}
+
+func TestValidatorAcceptsMixedCaseJSONMediaType(t *testing.T) {
+	for _, ct := range []string{"Application/JSON; charset=UTF-8", "APPLICATION/JSON", "application/json"} {
+		t.Run(ct, func(t *testing.T) {
+			probe := &ctProbe{}
+			rec := serve(t, probe, http.MethodPost, "/api/v1/questions", ct, validQuestion)
+			if rec.Code != http.StatusCreated {
+				t.Fatalf("status %d body %s", rec.Code, rec.Body.String())
+			}
+			if probe.seen != ct {
+				t.Fatalf("handler saw Content-Type %q, want the original %q", probe.seen, ct)
+			}
+		})
+	}
+}
+
+func TestValidatorStillChecksTheBodyOfAMixedCaseJSONRequest(t *testing.T) {
+	rec := serve(t, &ctProbe{}, http.MethodPost, "/api/v1/questions", "Application/JSON", withJSON(t, "lang", "xx-not-a-lang-at-all"))
+	p := decodeProblem(t, rec)
+	if rec.Code != http.StatusUnprocessableEntity || p.Code != "VALIDATION_ERROR" || len(p.Violations) == 0 {
+		t.Fatalf("status %d problem %+v", rec.Code, p)
+	}
+}
+
+func TestValidatorKeepsRefusingOtherMediaTypes(t *testing.T) {
+	for _, ct := range []string{"Text/Plain", "application/jsonx", "Application/JSON; charset=latin1"} {
+		rec := serve(t, &ctProbe{}, http.MethodPost, "/api/v1/questions", ct, validQuestion)
+		if rec.Code != http.StatusUnprocessableEntity {
+			t.Fatalf("%q: status %d, want 422", ct, rec.Code)
+		}
+	}
+}

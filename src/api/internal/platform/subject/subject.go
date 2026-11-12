@@ -49,16 +49,22 @@ func From(ctx context.Context) Subject {
 	return s
 }
 
+// fallbackProblem is the static RFC 9457 body of the nil-onError fallback: it carries no
+// request-supplied data and no error text. The app always passes httpx.WriteError instead.
+const fallbackProblem = `{"type":"urn:226os:problem:INTERNAL_ERROR","title":"Internal server error","status":500,"code":"INTERNAL_ERROR"}` + "\n"
+
 // Middleware resolves the Subject with res (nil means AnonymousResolver) and
 // stores it in the request context. On a resolver error it calls onError (a
-// bare 500 when onError is nil) and does not call the next handler.
+// static problem+json 500 when onError is nil) and does not call the next handler.
 func Middleware(res Resolver, onError func(w http.ResponseWriter, r *http.Request, err error)) func(http.Handler) http.Handler {
 	if res == nil {
 		res = AnonymousResolver{}
 	}
 	if onError == nil {
 		onError = func(w http.ResponseWriter, _ *http.Request, _ error) {
-			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			w.Header().Set("Content-Type", "application/problem+json")
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = w.Write([]byte(fallbackProblem))
 		}
 	}
 	return func(next http.Handler) http.Handler {

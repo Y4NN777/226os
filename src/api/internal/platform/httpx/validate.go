@@ -178,7 +178,7 @@ func validateRequest(w http.ResponseWriter, r *http.Request, router routers.Rout
 		return apperr.New(apperr.CodeMalformedRequest, "The request body must be a single JSON value.")
 	}
 	err = openapi3filter.ValidateRequest(r.Context(), &openapi3filter.RequestValidationInput{
-		Request:    r,
+		Request:    canonicalJSONRequest(r),
 		PathParams: pathParams,
 		Route:      route,
 		Options:    options,
@@ -188,6 +188,20 @@ func validateRequest(w http.ResponseWriter, r *http.Request, router routers.Rout
 		return nil
 	}
 	return contractError(err)
+}
+
+// canonicalJSONRequest returns the request the contract is checked against. kin-openapi compares
+// media types case-sensitively while RFC 9110 does not, so a JSON request whose media type is
+// spelled otherwise ("Application/JSON; charset=UTF-8") is validated as "application/json". Only
+// this copy changes: the handler keeps seeing the original headers. Other requests are returned as is.
+func canonicalJSONRequest(r *http.Request) *http.Request {
+	const canonical = "application/json"
+	if ct := r.Header.Get("Content-Type"); ct == canonical || !isJSONContentType(ct) {
+		return r
+	}
+	c := r.Clone(r.Context()) // deep-copies the headers; the body is shared and restored by the caller
+	c.Header.Set("Content-Type", canonical)
+	return c
 }
 
 // findings accumulates what one failed validation says about the request.
