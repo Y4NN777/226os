@@ -146,6 +146,6 @@ files_or_sections_affected: ["scripts/check-authz-routes.sh", "scripts/authz/rou
 third_party_sources_consulted: []
 license_review: PENDING
 human_reviewers: ["NICE-DEV226 (S0 reviewer)"]
-tests_or_evidence: ["scripts/tests/authz-routes_test.sh: RED 11 of 13 before the change, 13 of 13 after"]
-open_risks: ["the outside-NewRouter scan is syntactic (string-literal patterns, router types named through their package)"]
+tests_or_evidence: ["scripts/tests/authz-routes_test.sh: RED 11 of 13 before the change; second RED 8 of 21 on skeptic bypasses; third RED 3 of 25 on TestAuthz convention, NotFound handler and interface registration; 25 of 25 after"]
+open_risks: ["the outside-NewRouter scan is syntactic; middleware in httpx that short-circuits a path is covered by owner review of router.go only", "the silent-pass guards (empty test list, test did not run) have no RED test", "a mapped TestAuthz test is checked for name, operationId prefix and direct t.Skip only, not for what it asserts", "the 501 probe is to be replaced by a method-set check in api-mount (TODO S0)"]
 ```

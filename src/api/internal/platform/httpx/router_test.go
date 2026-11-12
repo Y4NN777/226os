@@ -90,3 +90,28 @@ func TestPanicIsRedactedProblemJSON(t *testing.T) {
 		t.Fatalf("panic not logged: %s", logs.String())
 	}
 }
+
+// TestAuthzHealthzNeedsNoSession is the authz evidence for the one public route: liveness answers
+// the same with no credentials and with garbage credentials, and exposes nothing session-specific.
+func TestAuthzHealthzNeedsNoSession(t *testing.T) {
+	var logs bytes.Buffer
+	h := newRouter(&logs)
+	for name, setup := range map[string]func(*http.Request){
+		"anonymous":      func(*http.Request) {},
+		"garbage cookie": func(r *http.Request) { r.AddCookie(&http.Cookie{Name: "session", Value: "not-a-session"}) },
+		"garbage bearer": func(r *http.Request) { r.Header.Set("Authorization", "Bearer not-a-token") },
+	} {
+		t.Run(name, func(t *testing.T) {
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/healthz", nil)
+			setup(req)
+			rec := httptest.NewRecorder()
+			h.ServeHTTP(rec, req)
+			if rec.Code != http.StatusOK || strings.TrimSpace(rec.Body.String()) != `{"status":"ok"}` {
+				t.Fatalf("status = %d body = %q", rec.Code, rec.Body.String())
+			}
+			if rec.Header().Get("Set-Cookie") != "" {
+				t.Fatalf("liveness must not set a cookie: %q", rec.Header().Get("Set-Cookie"))
+			}
+		})
+	}
+}
