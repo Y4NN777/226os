@@ -95,9 +95,9 @@ Each line below is a **proposal**. The lead confirms or reassigns it.
   - Hardening on `fix/platform/authz-gate-hardening`: test files come from `go list` (the toolchain's own build rules; no `go test -list`, so `make security-authz` needs no Docker) and names from their AST; a mapped test must, in one declaration, name its route (exact path or operation) and mention a denial status (401, 403 or 404); the "test did not run" guard has a RED test. Still open: the 501 probe, replaced in `feature/platform/api-mount`.
 - [x] **O3 (closed by B1).** The 4 P1 routes stay in `unimplemented-routes.txt`, answering 501.
 - [x] Add `pgxpool` and `DATABASE_URL` to the config (`src/api/internal/platform/config`), and pass `DATABASE_URL` to `api` in `compose.yaml` (today `compose.yaml:90` omits it). (`feature/platform/api-mount`; `CURSOR_KEY` added to config, compose and `.env.example` too.)
-- [ ] Add `GET /readyz` (DB ping with a deadline) to `scripts/public-routes.txt` with its reason. Decide edge routing for B2 (`deploy/traefik/dynamic.edge.yml:6`). Scheduled; not blocking today; must close before Sunday.
+- [x] Add `GET /readyz` (DB ping with a deadline) to `scripts/public-routes.txt` with its reason. Decide edge routing for B2 (`deploy/traefik/dynamic.edge.yml:6`). Scheduled; not blocking today; must close before Sunday.
   - Follow-ups recorded by the skeptic review (api-mount): cursors carry no expiry (ADR-0004 point 5 lists "expired"; needs a TTL decision); `METHOD_NOT_ALLOWED`, the bare 501 of `apigen.Unimplemented` and a 405 without an `Allow` header are outside the contract (C5); `Application/JSON` (mixed case) is refused 400 by the validator while `DecodeJSON` accepts it.
-  - `GET /readyz` is built, tested and in `scripts/public-routes.txt` (`feature/platform/api-mount`). **B2 (edge routing of `/readyz`) is NOT decided yet.**
+  - `GET /readyz` is built, tested and in `scripts/public-routes.txt` (`feature/platform/api-mount`). **B2 decision (PROPOSED by S0, owner approves by merging this PR): do NOT route `/readyz` at the edge** (`deploy/traefik/dynamic.edge.yml` stays `/api/` and `/healthz`). `/readyz` is unauthenticated and pings the database, so a public route would be a database-state oracle and a cheap way to force pings. The deploy smoke test (SHIP 4.2) runs it from the host instead: `docker compose exec api /busybox/busybox wget -q -O- http://127.0.0.1:8080/readyz`. The compose healthcheck keeps `/healthz` (liveness), so a database outage does not restart the API. S8 updates SHIP 4.2 accordingly; ROADMAP section 14 needs the owner line.
 - [x] Mount `apigen` with `HandlerWithOptions` under `/api/v1`, with a problem+json `ErrorHandlerFunc`: (`feature/platform/api-mount`. The router still answers `METHOD_NOT_ALLOWED` for unknown methods, a code outside the enum: C5 stays open.)
   - missing required `If-Match` returns 428 `PRECONDITION_REQUIRED`;
   - bad parameters return 400 `MALFORMED_REQUEST` or 422 `VALIDATION_ERROR` (ADR-0004);
@@ -109,8 +109,10 @@ Each line below is a **proposal**. The lead confirms or reassigns it.
   - 1 MiB body limit, returning 413 `PAYLOAD_TOO_LARGE`;
   - `Content-Type: application/json` on mutations (the error code for this is open, C5).
 - [x] Signed opaque cursors: HMAC key from env, sort key plus UUID plus filter hash, 400 `INVALID_CURSOR`. `limit` defaults to 20 and returns 422 above 50. (codec in `platform/cursor`, `httpx.Limit`; the list handlers of S2 to S5 call them.)
-- [ ] `ETag` and `If-Match` helper returning 412 and 428. It is used by `updateQuestion` (S3).
-- [ ] Idempotency-Key on the six operations listed in Shared pieces:
+- [x] `ETag` and `If-Match` helper returning 412 and 428. It is used by `updateQuestion` (S3).
+  - `platform/etag` (`feature/platform/idempotency`): strong tags (`Tag`, length-prefixed parts), `Check` (428 missing, 412 mismatch, 400 invalid, RFC 9110 strong comparison, empty list members ignored). S3 must run authorization and the 404 check BEFORE `Check` (an absent resource answers 412 here).
+- [x] Idempotency-Key on the six operations listed in Shared pieces:
+  - Built in `platform/idempotency` (`feature/platform/idempotency`). Policy: the hash covers method, route template, the concrete path and the body; 2xx and 4xx are replayed except 401, 403, 408, 425, 429 and every 5xx, which abandon the key so a retry runs again; a silent give-up on timeout or cancel abandons. Table `idempotency_keys` has no header or content-type column and migrations are `mibienpanjoe`'s, so the stored `response_body` is a versioned envelope (`v`, `content_type`, allowlisted `Location` and `ETag`, `body`); a body that does not fit the 16 KiB column check replays status and `Location` without a body. Follow-up (optional, `mibienpanjoe`): a wider body or explicit header columns. The row is not part of the business transaction: a crash between the handler commit and `Complete` lets an identical retry run the handler again after 2 minutes; the unique constraints of the business tables are the backstop. S1: CSRF and session checks must sit OUTSIDE the idempotency middleware (a replay answers from the store without running the handler).
   - stored in `idempotency_keys` for 24 hours;
   - bound to subject, route and request hash;
   - same key and hash replays the stored response;
@@ -123,7 +125,8 @@ Each line below is a **proposal**. The lead confirms or reassigns it.
   - a digest-pinned Mailpit service in the `local-dev` profile of `compose.yaml`;
   - `SMTP_*` variables in `.env.example` (their current presence is UNVERIFIED);
   - the Gmail app password only in the staging and production env files.
-- [ ] Per-route timeout decision for B3 (`httpx/router.go:14,23`; matters for S9 and S10). Scheduled; not blocking today; must close before Sunday.
+- [x] Per-route timeout decision for B3 (`httpx/router.go:14,23`; matters for S9 and S10). Scheduled; not blocking today; must close before Sunday.
+  - **B3 decision (PROPOSED by S0, owner approves by merging this PR; not yet written in ROADMAP section 14, which is the owner's file).** Keep the 30 s `requestTimeout` as the default for every route. A route that needs longer (the S9 assistant, the S10 live stream) is declared in ONE table in `httpx` (operation, duration) and applied by a per-operation middleware installed through the apigen `Middlewares` slice, because chi `r.Use` middleware runs before routing and cannot know the route. Streams also extend the connection's write deadline with `http.ResponseController` (the server `WriteTimeout` is 35 s, `serve.go`). Nothing is built now: no S9 or S10 operation exists yet in the 47 (YAGNI); the first slice that needs it adds the table row, the middleware (reviewed through `scripts/router-middleware.txt`) and its test.
 - [x] Session resolver port with an anonymous default (Shared pieces).
 
 **Tables:** `idempotency_keys` (migration `00004`).
@@ -1048,3 +1051,4 @@ E5 needs the `profile_visibility` migration (C14b), which only `mibienpanjoe` wr
 | 2026-11-12 | S0 B1 authz gate: three route lists, `TestAuthz*` test-name check, stray-router scan, RED/GREEN in `scripts/tests/authz-routes_test.sh` | #31 | `Y4NN777` |
 | 2026-11-12 | S0 B1 gate hardening: toolchain test files (no Docker), mapped-test content rules, silent-pass guard RED test | #32 | `Y4NN777` |
 | 2026-11-12 | S0 api-mount: pgxpool and `/readyz`, apigen mount under `/api/v1`, problem+json error table, spec-driven request validation, signed cursors, transaction runner, subject port | #33 | `Y4NN777` |
+| 2026-11-12 | S0 Idempotency-Key and ETag helper; B2 and B3 proposals | #34 | `Y4NN777` |

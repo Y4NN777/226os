@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -12,12 +13,17 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
+	"github.com/go-chi/chi/v5"
 	"go.yaml.in/yaml/v3"
 
 	"github.com/Y4NN777/226os/src/api/internal/platform/apigen"
 	"github.com/Y4NN777/226os/src/api/internal/platform/httpx"
+	"github.com/Y4NN777/226os/src/api/internal/platform/idempotency"
+	"github.com/Y4NN777/226os/src/api/internal/platform/subject"
 )
 
 type okPinger struct{}
@@ -287,4 +293,247 @@ func TestMountedAPIParameterErrorsAreProblemJSON(t *testing.T) {
 			t.Fatalf("status = %d problem = %v", rec.Code, p)
 		}
 	})
+}
+
+// memStore is the smallest in-memory idempotency.Store: it counts Begin calls so the
+// tests can tell whether the middleware ran.
+type memStore struct {
+	mu     sync.Mutex
+	begins int
+	rows   map[string]idempotency.Response
+	hashes map[string][32]byte
+}
+
+func newMemStore() *memStore {
+	return &memStore{rows: map[string]idempotency.Response{}, hashes: map[string][32]byte{}}
+}
+
+func (m *memStore) Begin(_ context.Context, userID, key, _, _ string, hash [32]byte, _ time.Time) (idempotency.Outcome, idempotency.Attempt, idempotency.Response, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.begins++
+	id := userID + "|" + key
+	h, seen := m.hashes[id]
+	switch stored, done := m.rows[id]; {
+	case !seen:
+		m.hashes[id] = hash
+		return idempotency.Started, 1, idempotency.Response{}, nil
+	case h != hash:
+		return idempotency.Reused, 0, idempotency.Response{}, nil
+	case done:
+		return idempotency.Replay, 0, stored, nil
+	}
+	return idempotency.InProgress, 0, idempotency.Response{}, nil
+}
+
+func (m *memStore) Complete(_ context.Context, userID, key string, _ idempotency.Attempt, resp idempotency.Response, _ time.Time) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.rows[userID+"|"+key] = resp
+	return nil
+}
+
+func (m *memStore) Abandon(context.Context, string, string, idempotency.Attempt) error { return nil }
+
+func (m *memStore) Purge(context.Context, time.Time) (int64, error) { return 0, nil }
+
+// questionProbe counts the CreateQuestion calls that reach the handler.
+type questionProbe struct {
+	apigen.Unimplemented
+	calls int
+}
+
+func (p *questionProbe) CreateQuestion(w http.ResponseWriter, _ *http.Request, _ apigen.CreateQuestionParams) {
+	p.calls++
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	_, _ = w.Write([]byte(`{"id":"q1"}`))
+}
+
+const questionBody = `{"title":"How do I retry safely?","body_md":"Details","lang":"en","tags":["go"]}`
+
+// idemKey is built at run time: a literal key-shaped string in the source trips the secret scanner.
+var idemKey = fmt.Sprintf("retry-%022d", 1)
+
+func postQuestion(t *testing.T, h http.Handler, body string) *httptest.ResponseRecorder {
+	t.Helper()
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/questions", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Idempotency-Key", idemKey)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	return rec
+}
+
+func idempotentRouter(probe *questionProbe, store idempotency.Store, sub subject.Subject) http.Handler {
+	return httpx.NewRouter(slog.New(slog.NewJSONHandler(io.Discard, nil)),
+		httpx.Deps{Server: probe, Ready: okPinger{}, Subjects: fixedResolver{sub: sub}, Idempotency: store})
+}
+
+func TestIdempotencyReplaysThroughTheRouter(t *testing.T) {
+	probe, store := &questionProbe{}, newMemStore()
+	h := idempotentRouter(probe, store, subject.Subject{UserID: "u1"})
+	first := postQuestion(t, h, questionBody)
+	second := postQuestion(t, h, questionBody)
+	if probe.calls != 1 || first.Code != http.StatusCreated || second.Code != http.StatusCreated ||
+		second.Header().Get("Idempotency-Replayed") != "true" || second.Body.String() != first.Body.String() {
+		t.Fatalf("calls=%d first=%d second=%d replayed=%q", probe.calls, first.Code, second.Code, second.Header().Get("Idempotency-Replayed"))
+	}
+	other := strings.Replace(questionBody, "Details", "Other", 1)
+	if rec := postQuestion(t, h, other); rec.Code != http.StatusUnprocessableEntity || problemOf(t, rec)["code"] != "IDEMPOTENCY_KEY_REUSED" {
+		t.Fatalf("different body: %d %s", rec.Code, rec.Body.String())
+	}
+}
+
+// The middleware order is validation, then subject resolution, then idempotency:
+// an invalid body never reaches the store, and an anonymous caller never claims a key.
+func TestIdempotencyRunsAfterValidationAndSubjectResolution(t *testing.T) {
+	t.Run("invalid body is refused before the store", func(t *testing.T) {
+		probe, store := &questionProbe{}, newMemStore()
+		rec := postQuestion(t, idempotentRouter(probe, store, subject.Subject{UserID: "u1"}), `{}`)
+		if rec.Code != http.StatusUnprocessableEntity || problemOf(t, rec)["code"] != "VALIDATION_ERROR" || store.begins != 0 || probe.calls != 0 {
+			t.Fatalf("code=%d begins=%d calls=%d", rec.Code, store.begins, probe.calls)
+		}
+	})
+	t.Run("anonymous caller bypasses the store", func(t *testing.T) {
+		probe, store := &questionProbe{}, newMemStore()
+		rec := postQuestion(t, idempotentRouter(probe, store, subject.Subject{}), questionBody)
+		if rec.Code != http.StatusCreated || store.begins != 0 || probe.calls != 1 {
+			t.Fatalf("code=%d begins=%d calls=%d", rec.Code, store.begins, probe.calls)
+		}
+	})
+	t.Run("nil store passes through", func(t *testing.T) {
+		probe := &questionProbe{}
+		h := idempotentRouter(probe, nil, subject.Subject{UserID: "u1"})
+		postQuestion(t, h, questionBody)
+		postQuestion(t, h, questionBody)
+		if probe.calls != 2 {
+			t.Fatalf("calls=%d", probe.calls)
+		}
+	})
+}
+
+// Every operation the middleware acts on must be a route the router really
+// registers, or the middleware would silently never match.
+func TestRouterRegistersEveryIdempotentOperation(t *testing.T) {
+	mux, ok := idempotentRouter(&questionProbe{}, nil, subject.Subject{}).(chi.Routes)
+	if !ok {
+		t.Fatal("NewRouter must return a chi router")
+	}
+	registered := map[string]bool{}
+	if err := chi.Walk(mux, func(method, route string, _ http.Handler, _ ...func(http.Handler) http.Handler) error {
+		registered[method+" "+route] = true
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	for _, op := range idempotency.Operations() {
+		if !registered[op.Method+" "+op.Pattern] {
+			t.Errorf("%s %s is not a registered route", op.Method, op.Pattern)
+		}
+	}
+}
+
+// idProbe answers the three nested create operations with a body that names the id of the
+// parent in the path, so a replay served to the wrong parent is visible.
+type idProbe struct {
+	apigen.Unimplemented
+	calls int
+}
+
+func (p *idProbe) answer(w http.ResponseWriter, r *http.Request) {
+	p.calls++
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Location", r.URL.Path+"/created")
+	w.WriteHeader(http.StatusCreated)
+	_, _ = fmt.Fprintf(w, `{"parent":%q}`, r.URL.Path)
+}
+
+func (p *idProbe) CreateAnswer(w http.ResponseWriter, r *http.Request, _ apigen.QuestionId, _ apigen.CreateAnswerParams) {
+	p.answer(w, r)
+}
+
+func (p *idProbe) CreateContributionNeed(w http.ResponseWriter, r *http.Request, _ apigen.ProjectId, _ apigen.CreateContributionNeedParams) {
+	p.answer(w, r)
+}
+
+func (p *idProbe) CreateApplication(w http.ResponseWriter, r *http.Request, _ apigen.NeedId, _ apigen.CreateApplicationParams) {
+	p.answer(w, r)
+}
+
+// The same user, key and body posted under another parent id must never replay the
+// response created for the first parent.
+func TestIdempotencyKeyIsBoundToTheConcretePath(t *testing.T) {
+	const idA, idB = "0190c3f2-0000-7000-8000-00000000000a", "0190c3f2-0000-7000-8000-00000000000b"
+	tests := []struct{ name, tmpl, body string }{
+		{"answers", "/api/v1/questions/%s/answers", `{"body_md":"x","lang":"en"}`},
+		{"contribution needs", "/api/v1/projects/%s/contribution-needs", `{"title":"Need","description":"d","lang":"en","skills":["go"]}`},
+		{"applications", "/api/v1/contribution-needs/%s/applications", `{"message":"hi"}`},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			probe := &idProbe{}
+			h := httpx.NewRouter(slog.New(slog.NewJSONHandler(io.Discard, nil)),
+				httpx.Deps{Server: probe, Ready: okPinger{}, Subjects: fixedResolver{sub: subject.Subject{UserID: "u1"}}, Idempotency: newMemStore()})
+			post := func(id, key string) *httptest.ResponseRecorder {
+				req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, fmt.Sprintf(tc.tmpl, id), strings.NewReader(tc.body))
+				req.Header.Set("Content-Type", "application/json")
+				req.Header.Set("Idempotency-Key", key)
+				rec := httptest.NewRecorder()
+				h.ServeHTTP(rec, req)
+				return rec
+			}
+			first, other, again := post(idA, idemKey), post(idB, idemKey), post(idA, idemKey)
+			if first.Code != http.StatusCreated {
+				t.Fatalf("first: %d %s", first.Code, first.Body.String())
+			}
+			if other.Code != http.StatusUnprocessableEntity || problemOf(t, other)["code"] != "IDEMPOTENCY_KEY_REUSED" || probe.calls != 1 {
+				t.Fatalf("other parent: %d %s calls=%d", other.Code, other.Body.String(), probe.calls)
+			}
+			if again.Header().Get("Idempotency-Replayed") != "true" || again.Body.String() != first.Body.String() || again.Header().Get("Location") != first.Header().Get("Location") {
+				t.Fatalf("same parent: replayed=%q", again.Header().Get("Idempotency-Replayed"))
+			}
+			// Another key is another request: it runs the handler for the second parent.
+			if fresh := post(idB, fmt.Sprintf("retry-%022d", 2)); fresh.Code != http.StatusCreated || probe.calls != 2 {
+				t.Fatalf("another key: %d calls=%d", fresh.Code, probe.calls)
+			}
+		})
+	}
+}
+
+// streamProbe lets a handler use http.ResponseController through the real router.
+type streamProbe struct {
+	apigen.Unimplemented
+	flushErr, deadlineErr error
+	done                  chan struct{}
+}
+
+func (p *streamProbe) GetSession(w http.ResponseWriter, _ *http.Request) {
+	rc := http.NewResponseController(w)
+	p.flushErr = rc.Flush()
+	p.deadlineErr = rc.SetWriteDeadline(time.Now().Add(time.Minute))
+	close(p.done)
+}
+
+// The access-log wrapper must stay transparent to http.ResponseController (streaming needs
+// Flush and SetWriteDeadline); status capture is covered by TestHealthz. A real server is used:
+// httptest.ResponseRecorder does not support write deadlines.
+func TestResponseControllerReachesTheRealWriterThroughTheRouter(t *testing.T) {
+	probe := &streamProbe{done: make(chan struct{})}
+	srv := httptest.NewServer(httpx.NewRouter(slog.New(slog.NewJSONHandler(io.Discard, nil)),
+		httpx.Deps{Server: probe, Ready: okPinger{}, Subjects: fixedResolver{sub: subject.Subject{UserID: "u1"}}}))
+	t.Cleanup(srv.Close)
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, srv.URL+"/api/v1/auth/session", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := srv.Client().Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = res.Body.Close()
+	<-probe.done
+	if probe.flushErr != nil || probe.deadlineErr != nil {
+		t.Fatalf("Flush: %v, SetWriteDeadline: %v", probe.flushErr, probe.deadlineErr)
+	}
 }

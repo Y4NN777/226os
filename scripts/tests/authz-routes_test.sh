@@ -365,8 +365,8 @@ import sys
 p = sys.argv[1]
 lines = open(p).read().split("\n")
 idx = [i for i, l in enumerate(lines) if l.startswith("Middlewares:")]
-assert len(idx) == 2, idx
-lines[idx[0]], lines[idx[1]] = lines[idx[1]], lines[idx[0]]
+assert len(idx) >= 2, idx
+lines[idx[0]], lines[idx[-1]] = lines[idx[-1]], lines[idx[0]]
 open(p, "w").write("\n".join(lines))
 PY
 expect_red "the middleware list in another order than the router installs" 'router-middleware.txt' 'order' -- --lists-dir "$d"

@@ -211,8 +211,14 @@ func TestValidatorQueryParameters(t *testing.T) {
 			if len(p.Violations) != 1 || p.Violations[0].Field != tc.wantField || p.Violations[0].Code != tc.wantViol {
 				t.Fatalf("violations = %+v", p.Violations)
 			}
-			if strings.Contains(rec.Body.String(), "abc") || strings.Contains(rec.Body.String(), "51") && tc.wantField == "limit" {
-				t.Fatalf("submitted value echoed: %s", rec.Body.String())
+			// The echo check reads the fields a client could influence, not the raw body: request_id comes from
+			// a sequential counter whose digits can contain "51" or "abc" by chance (order-dependent flake).
+			fields := p.Title + "|" + p.Detail + "|" + p.Instance
+			for _, v := range p.Violations {
+				fields += "|" + v.Field + "|" + v.Code
+			}
+			if strings.Contains(fields, "abc") || strings.Contains(fields, "51") && tc.wantField == "limit" {
+				t.Fatalf("submitted value echoed: %s", fields)
 			}
 		})
 	}
