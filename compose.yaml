@@ -1,0 +1,223 @@
+# 226os Compose tree (ADR-0006): one file, profiles local-dev | staging-test | production-live.
+# Always go through scripts/compose.sh (it runs scripts/compose-env-guard.sh: APP_ENV must equal
+# the profile). A profile selects services; it is not a safety boundary.
+#
+# Networks: `edge` (Traefik, web, api) and `backend` (internal: true, no route out; api, postgres,
+# migrate). PostgreSQL is on `backend` only and is never published in any profile: developers use
+# `scripts/compose.sh local-dev exec postgres psql ...` (no host port also avoids clashes with
+# other local Postgres instances).
+# Secrets come only from the per-profile env file (see .env.example), never from this file.
+name: os226
+
+x-logging: &logging
+  driver: json-file
+  options: { max-size: "10m", max-file: "3" }
+
+x-hardened: &hardened
+  restart: unless-stopped
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+  read_only: true
+  logging: *logging
+
+services:
+  postgres:
+    <<: *hardened
+    # postgres:18 (pinned by digest; same digest as the pgtest integration harness)
+    image: postgres:18@sha256:e3d24f6906d0760bf4da0dae872415391ededefad23fd471c47dc53b0ddf3c42
+    profiles: [local-dev, staging-test, production-live]
+    user: "999:999"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER}
+      POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql
+    tmpfs:
+      - /tmp
+      - /run/postgresql:uid=999,gid=999,mode=0755
+    networks: [backend]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\" -h 127.0.0.1"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+    deploy: { resources: { limits: { cpus: "1.0", memory: 512M, pids: 200 } } }
+    stop_grace_period: 30s
+
+  # Forward-only goose `up`, run automatically by `up` in local-dev only.
+  migrate:
+    <<: *hardened
+    restart: "no"
+    image: ${MIGRATE_IMAGE:-226os-migrate:dev}
+    build: { context: ., dockerfile: apps/api/Dockerfile, target: migrate }
+    profiles: [local-dev]
+    user: "65532:65532"
+    environment:
+      GOOSE_DBSTRING: ${DATABASE_URL:?set DATABASE_URL}
+    networks: [backend]
+    depends_on: { postgres: { condition: service_healthy } }
+    deploy: { resources: { limits: { cpus: "0.5", memory: 128M, pids: 50 } } }
+
+  # Same job for staging-test / production-live: never part of a default `up`; it lives in its own
+  # `migrate-gated` profile. Compose interpolates every service whatever the profile, so required-variable
+  # checks cannot live here: scripts/migrate-up.sh enforces MIGRATE_CONFIRM=<profile> and BACKUP_EVIDENCE.
+  # Likewise PUBLIC_HOST / ACME_EMAIL for the edge are enforced by scripts/compose-env-guard.sh.
+  migrate-gated:
+    <<: *hardened
+    restart: "no"
+    image: ${MIGRATE_IMAGE:-226os-migrate:dev}
+    profiles: [migrate-gated]
+    user: "65532:65532"
+    environment:
+      GOOSE_DBSTRING: ${DATABASE_URL:?set DATABASE_URL}
+      MIGRATE_CONFIRM: ${MIGRATE_CONFIRM:-}
+      BACKUP_EVIDENCE: ${BACKUP_EVIDENCE:-}
+    networks: [backend]
+    depends_on: { postgres: { condition: service_healthy } }
+    deploy: { resources: { limits: { cpus: "0.5", memory: 128M, pids: 50 } } }
+
+  api:
+    <<: *hardened
+    image: ${API_IMAGE:-226os-api:dev}
+    build: { context: ., dockerfile: apps/api/Dockerfile, target: api }
+    profiles: [local-dev, staging-test, production-live]
+    user: "65532:65532"
+    environment:
+      APP_ENV: ${APP_ENV:?set APP_ENV}
+      API_ADDR: ":8080"
+    # DATABASE_URL is deliberately not passed yet: the API has no database code (B0).
+    networks: [edge, backend]
+    healthcheck:
+      # Distroless has no shell; busybox wget is copied into the image just for this probe.
+      test: ["CMD", "/busybox/busybox", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    deploy: { resources: { limits: { cpus: "0.5", memory: 128M, pids: 100 } } }
+
+  web:
+    <<: *hardened
+    image: ${WEB_IMAGE:-226os-web:dev}
+    build: { context: ., dockerfile: apps/web/Dockerfile, target: web }
+    profiles: [local-dev, staging-test, production-live]
+    user: "101:101"
+    environment:
+      APP_ENV: ${APP_ENV:?set APP_ENV}
+    tmpfs: [/tmp]
+    networks: [edge]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    deploy: { resources: { limits: { cpus: "0.25", memory: 64M, pids: 50 } } }
+
+  # local-dev edge: plain HTTP on loopback only.
+  traefik-local:
+    <<: *hardened
+    # traefik:v3.6 (3.6.25)
+    image: traefik:v3.6@sha256:31267173a15b4944e797a76ffd9c419707c8d8b32fe5b610f80cd0cfa05f372d
+    profiles: [local-dev]
+    user: "65532:65532"
+    command:
+      - --global.checkNewVersion=false
+      - --global.sendAnonymousUsage=false
+      - --entrypoints.web.address=:8000
+      - --providers.file.filename=/etc/traefik/dynamic.yml
+      - --providers.file.watch=false
+      - --ping=true
+      - --log.format=json
+      - --accesslog=true
+      - --accesslog.format=json
+    volumes:
+      - ./deploy/traefik/dynamic.local.yml:/etc/traefik/dynamic.yml:ro
+    ports:
+      - "${HTTP_BIND:-127.0.0.1}:${HTTP_PORT:-8088}:8000"
+    networks: [edge]
+    depends_on:
+      api: { condition: service_healthy }
+      web: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck", "--ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    deploy: { resources: { limits: { cpus: "0.5", memory: 128M, pids: 100 } } }
+
+  # One-shot: make the ACME volume writable by the unprivileged Traefik user (named volumes start root-owned).
+  acme-init:
+    # busybox:stable-musl (same digest as the api Dockerfile)
+    image: busybox:stable-musl@sha256:3c6ae8008e2c2eedd141725c30b20d9c36b026eb796688f88205845ef17aa213
+    profiles: [staging-test, production-live]
+    restart: "no"
+    user: "0:0"
+    read_only: true
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER]
+    security_opt: ["no-new-privileges:true"]
+    command: ["sh", "-c", "chown 65532:65532 /acme && chmod 700 /acme"]
+    volumes: [traefik-acme:/acme]
+    network_mode: none
+    logging: *logging
+    deploy: { resources: { limits: { cpus: "0.1", memory: 16M, pids: 10 } } }
+
+  # staging-test / production-live edge: the ONLY public service. HTTP redirects to HTTPS,
+  # certificates from ACME (HTTP-01). No Docker socket: routes are a static file (deploy/traefik).
+  traefik:
+    <<: *hardened
+    image: traefik:v3.6@sha256:31267173a15b4944e797a76ffd9c419707c8d8b32fe5b610f80cd0cfa05f372d
+    profiles: [staging-test, production-live]
+    user: "65532:65532"
+    environment:
+      PUBLIC_HOST: ${PUBLIC_HOST:-}
+    command:
+      - --global.checkNewVersion=false
+      - --global.sendAnonymousUsage=false
+      - --entrypoints.web.address=:8000
+      - --entrypoints.web.http.redirections.entryPoint.to=:443
+      - --entrypoints.web.http.redirections.entryPoint.scheme=https
+      - --entrypoints.websecure.address=:8443
+      - --entrypoints.websecure.http.tls.certResolver=le
+      - --entrypoints.websecure.http.tls.domains[0].main=${PUBLIC_HOST:-}
+      - --certificatesresolvers.le.acme.email=${ACME_EMAIL:-}
+      - --certificatesresolvers.le.acme.caServer=${ACME_CA_SERVER:-https://acme-v02.api.letsencrypt.org/directory}
+      - --certificatesresolvers.le.acme.storage=/acme/acme.json
+      - --certificatesresolvers.le.acme.httpChallenge.entryPoint=web
+      - --providers.file.filename=/etc/traefik/dynamic.yml
+      - --providers.file.watch=false
+      - --ping=true
+      - --log.format=json
+      - --accesslog=true
+      - --accesslog.format=json
+    volumes:
+      - ./deploy/traefik/dynamic.edge.yml:/etc/traefik/dynamic.yml:ro
+      - traefik-acme:/acme
+    ports:
+      - "80:8000"
+      - "443:8443"
+    networks: [edge]
+    depends_on:
+      acme-init: { condition: service_completed_successfully }
+      api: { condition: service_healthy }
+      web: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck", "--ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    deploy: { resources: { limits: { cpus: "0.5", memory: 128M, pids: 100 } } }
+
+networks:
+  edge: {}
+  backend:
+    internal: true
+
+volumes:
+  pgdata: {}
+  traefik-acme: {}

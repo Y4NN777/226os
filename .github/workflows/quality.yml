@@ -1,0 +1,77 @@
+name: Quality
+
+# ADR-0006: `make quality` (G1 to G4) on pull requests into develop and main. The job name `quality`
+# is the required status check. No secrets, no deploy step, read-only token.
+on:
+  pull_request:
+    branches: [develop, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      # Immutability base for scripts/check-migrations.sh (pull request target branch; develop for manual runs).
+      MIGRATIONS_BASE_REF: origin/${{ github.base_ref || 'develop' }}
+      GOTOOLCHAIN: go1.27.4
+    steps:
+      - name: Check out (full history for the secret scan and the migration base)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Go (version from go.mod)
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+
+      - name: Set up Node (version from .nvmrc)
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+
+      - name: Set up pnpm (version from the packageManager field)
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+        with:
+          run_install: false
+
+      - name: Record revision
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          mkdir -p reports
+          {
+            echo "tested head sha: ${HEAD_SHA}"
+            echo "checked-out sha: $(git rev-parse HEAD)"
+            echo "event: ${EVENT_NAME}"
+            echo "migrations base ref: ${MIGRATIONS_BASE_REF}"
+          } | tee reports/revision.txt
+
+      - name: Install from lockfiles
+        run: make setup
+
+      - name: make quality
+        run: make quality
+
+      - name: Upload evidence (logs, coverage, reports, image digests, licence inventory)
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: quality-evidence-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            reports/
+            coverage/
+          if-no-files-found: warn
+          retention-days: 30

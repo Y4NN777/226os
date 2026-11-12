@@ -1,0 +1,12 @@
+# Default for any image built from the repository root without a Dockerfile-specific list.
+.git
+.github
+.claude
+.env
+.env.*
+!.env.example
+**/node_modules
+**/dist
+**/coverage
+docs
+prototypes
