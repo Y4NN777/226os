@@ -43,11 +43,10 @@ One line per person. Each person edits only their own line.
 
 | Login | Next action | Updated |
 |---|---|---|
-| `Y4NN777` | Do H1, H3, H4 and H6 (ROADMAP section 8). Then S0: the authz gate extension (B1) first, then pgxpool, `/readyz` and the apigen mount. By Fri afternoon: rule on C15 (fixture authors), C2 and C14; confirm O1 (demo URL = staging, recommended; H18); name the SEED owner and fixture writers (O10) and the E5 backend owner (O9). | 2026-11-12 |
-| `NICE-DEV226` | Send the identity record (H1). Start S1 RED tests for the domain and service with fakes. Mount nothing before S0 merges. | 2026-11-12 |
-| `mibienpanjoe` | Send the identity record (H1). Write the S2 sqlc queries with local EXPLAIN. Raise C2 (Learn `topic`) with the owner. Open the E2 taxonomy migration PR (`make migrate-new`, plus the pgtest lists). | 2026-11-12 |
-| `PANK4SS` | Accept the invitation (H2) and send the identity record (H1). Build the S7 shell, i18n and shared components on typed fixtures from `src/web/src/api/schema.d.ts`. E4 comes later (after S3, and after C2 for the feeds). Then the pillar navigation and copy (S7), and the `connect` page once the E5 contract merges. | 2026-11-12 |
-| SEED owner (OPEN) | Wait for the owner's naming (O10) and the C15 ruling. Then write the original fixtures and implement `make seed`. | 2026-11-12 |
+| `Y4NN777` | Personal tasks: H6 and H7 (Datacloud account and product; DNS A records for `226os.tech` and the staging subdomain), H8 (Gmail SMTP), H12 (AI Studio key, V1 to V4). Also H4 (branch protection). S0: implement the B1 gate as DECIDED (RED/GREEN), then pgxpool, `/readyz` and the `HandlerWithOptions` mount. Review: `NICE-DEV226`. | 2026-11-12 |
+| `NICE-DEV226` | Send the identity record (H1). Start S1 RED tests for the domain and service with fakes; mount nothing before S0 merges. Review S0. After S1, S3; then help on S5 (default), the S9 second developer, and the E5 backend if time allows. | 2026-11-12 |
+| `mibienpanjoe` | Send the identity record (H1). Write the S2 sqlc queries with local EXPLAIN. Raise C2 (Learn `topic`) with the owner. Open the E2 taxonomy migration PR (`make migrate-new`, plus the pgtest lists). Then S4 (with the content script) and S5, with helpers `Y4NN777` and `NICE-DEV226`. | 2026-11-12 |
+| `PANK4SS` | Accept the invitation (H2) and send the identity record (H1). Build the S7 shell, i18n, shared components and the pillar navigation on typed fixtures from `src/web/src/api/schema.d.ts`. Write the SEED fixtures (`local-dev` only, C15 demo accounts). Later: E4, the E5 UI, and on-demand support to any area owner. | 2026-11-12 |
 
 ## Shared pieces (O2: where each lives is decided by the backend lead at kickoff)
 
@@ -77,15 +76,22 @@ Each line below is a **proposal**. The lead confirms or reassigns it.
 ## S0 — API core
 
 - **Owner:** `Y4NN777`
-- **Reviewer:** `NICE-DEV226` (proposed; the owner's PRs are reviewed by a backend developer)
+- **Reviewer:** `NICE-DEV226` (assigned 2026-11-12)
+- **Helpers:** `PANK4SS` on demand
 - **Branches:** `feature/platform/authz-gate`, `feature/platform/api-mount`, `feature/platform/idempotency`, `feature/platform/mailer`
 - **Depends on:** H1 and H4
 - **Operations:** none of its own. It mounts the generated `apigen` interface (47 operations).
 
 **Tasks**
 
-- [ ] **B1.** Extend `scripts/check-authz-routes.sh` and `scripts/authz/routes_check.go.txt` so that a protected route passes only when it is bound to named negative tests that ran and passed, or mount only implemented operations. Owner review. The gate must not be weakened.
-- [ ] **O3.** Decide how the 4 P1 routes are handled: kept at 501 and covered by the gate, or not mounted.
+- [ ] **B1 (DECIDED and APPROVED 2026-11-12).** Change `scripts/check-authz-routes.sh` and `scripts/authz/routes_check.go.txt` so that every mounted route is in exactly one of:
+  - (i) `scripts/public-routes.txt` (public);
+  - (ii) the new `scripts/unimplemented-routes.txt` (still answered 501 by the generated Unimplemented handler; it starts with all 47 routes and shrinks as each slice lands);
+  - (iii) the new `scripts/authz-tests.txt` (method and path mapped to a negative authz Go test name).
+  - The gate fails if a named test does not exist (`go test -list`), or if a route is in none of the three files.
+  - The gate also fails if routes are registered or an `http.Handler` is built outside `httpx.NewRouter`. All registration goes through that one function.
+  - RED/GREEN proof is required: a stray route, a missing test name and an unlisted route each turn the gate red.
+- [ ] **O3 (closed by B1).** The 4 P1 routes stay in `unimplemented-routes.txt`, answering 501.
 - [ ] Add `pgxpool` and `DATABASE_URL` to the config (`src/api/internal/platform/config`), and pass `DATABASE_URL` to `api` in `compose.yaml` (today `compose.yaml:90` omits it).
 - [ ] Add `GET /readyz` (DB ping with a deadline) to `scripts/public-routes.txt` with its reason. Decide edge routing for B2 (`deploy/traefik/dynamic.edge.yml:6`).
 - [ ] Mount `apigen` with `HandlerWithOptions` under `/api/v1`, with a problem+json `ErrorHandlerFunc`:
@@ -155,7 +161,8 @@ Each line below is a **proposal**. The lead confirms or reassigns it.
 ## S1 — Identity
 
 - **Owner:** `NICE-DEV226`
-- **Reviewer:** `Y4NN777` (lead; auth surface, ADR-0008 "Consequences")
+- **Reviewer:** `mibienpanjoe` (reviewer pairs, 2026-11-12). The lead may co-review the auth surface (ADR-0008 "Consequences").
+- **Helpers:** `PANK4SS` on demand
 - **Branches:** `feature/identity/auth-sessions`, `feature/identity/profiles`
 - **Depends on:** S0. Argon2id parameters are pinned only after the benchmark on the target host (S8, ADR-0003).
 
@@ -216,8 +223,9 @@ Each line below is a **proposal**. The lead confirms or reassigns it.
 
 ## S2 — Discover and search
 
-- **Owner:** `mibienpanjoe`
-- **Reviewer:** `NICE-DEV226` (proposed)
+- **Owner:** `mibienpanjoe` (accountable)
+- **Reviewer:** `NICE-DEV226`. If `NICE-DEV226` co-wrote the PR, `Y4NN777` reviews it.
+- **Helpers:** `Y4NN777`, `NICE-DEV226` (co-workers on the PR; never migrations), and `PANK4SS` on demand
 - **Branches:** `feature/discover/catalogue-read`, `feature/discover/search`
 - **Depends on:** S0. The error report and the anonymous-search 429 also need S1.
 
@@ -235,7 +243,7 @@ Each line below is a **proposal**. The lead confirms or reassigns it.
 
 **Also**
 
-- Demo fixtures and `make seed` moved to the **SEED** section (owner OPEN, 2026-11-12). The demo accounts planned in `DATABASE_DESIGN.md:1295` depend on the C15 ruling.
+- Demo fixtures and `make seed` moved to the **SEED** section (`PANK4SS`, `local-dev` only; C15 DECIDED 2026-11-12).
 - [ ] Bounded sqlc queries with `EXPLAIN (ANALYZE, BUFFERS)` evidence, plus a bilingual relevance dataset (ADR-0005 point 6).
 - [ ] Resolved-links reader (Shared pieces, proposal).
 
@@ -273,7 +281,8 @@ Each line below is a **proposal**. The lead confirms or reassigns it.
 ## S3 — Solve
 
 - **Owner:** `NICE-DEV226`
-- **Reviewer:** `mibienpanjoe` (proposed)
+- **Reviewer:** `mibienpanjoe`
+- **Helpers:** `PANK4SS` on demand
 - **Branches:** `feature/solve/questions-answers`, `feature/solve/votes-accept`
 - **Depends on:** S1, and Idempotency-Key from S0.
 
@@ -329,8 +338,9 @@ Each line below is a **proposal**. The lead confirms or reassigns it.
 
 ## S4 — Learn
 
-- **Owner:** `mibienpanjoe`
-- **Reviewer:** `NICE-DEV226` (proposed)
+- **Owner:** `mibienpanjoe` (accountable)
+- **Reviewer:** `NICE-DEV226`. If `NICE-DEV226` co-wrote the PR, `Y4NN777` reviews it, unless `Y4NN777` co-wrote it too.
+- **Helpers:** `Y4NN777` (default: S4 and the content script, after the Fri 13 Nov 23:00 checkpoint), `NICE-DEV226`, and `PANK4SS` on demand
 - **Branch:** `feature/learn/articles-series` (C8: `learn` is not in `docs/GIT_WORKFLOW.md:38`; owner ruling)
 - **Depends on:** S0 for the reads; S1 for publishing. **Resolve C2 first**, and C3 too.
 
@@ -349,7 +359,15 @@ Each line below is a **proposal**. The lead confirms or reassigns it.
 
 **Also**
 
-- The public free series is a demo fixture of 3 to 4 short original lessons, in the **SEED** section.
+- The `local-dev` copy of the free series is a demo fixture in the **SEED** section.
+- [ ] **Content script for the free series (B5 DECIDED, 2026-11-12).**
+  - Written by `mibienpanjoe`, helped by `Y4NN777`, and **run by `Y4NN777`** (H19).
+  - Path: `scripts/content/`. It is plain SQL, a one-time run, PR-reviewed, and neither a seed nor a migration.
+  - It creates one `training_series` and 3 to 4 tutorial `learn_articles` referenced by `training_lessons.article_id`. The text is original team text; it may reuse the SEED series text, rewritten as `live` content.
+  - It attributes everything to the owner's real account, **looked up by username**, never a hard-coded id, with `provenance='live'`.
+  - It runs with an explicit confirmation like `migrate-up`, after a backup.
+  - It runs on `staging-test` first, then on `production-live`, with the same procedure.
+  - Record each run date in the Done log.
 - [ ] `links[]` writer (Shared pieces, proposal).
 
 **Tables:** `learn_articles`, `learn_article_tags`, `training_series`, `training_lessons`, `learn_topics`, `tags`, `content_relations` (`00008`). `learn_progress` is P1.
@@ -358,7 +376,7 @@ Each line below is a **proposal**. The lead confirms or reassigns it.
 
 **Prototype pages:** `apprendre`, `article`, `formation`, `ecrire`.
 
-**Allowed paths:** `src/api/internal/learn/**`, `db/queries/**` (learn files), `src/api/internal/platform/dbgen/**` (generated only), and `scripts/public-routes.txt` (the 4 public reads).
+**Allowed paths:** `src/api/internal/learn/**`, `db/queries/**` (learn files), `src/api/internal/platform/dbgen/**` (generated only), `scripts/public-routes.txt` (the 4 public reads), and `scripts/content/**` (the content script; `scripts/**` is the owner's area, so `Y4NN777` co-reviews).
 
 **Negative authz** (`AUTHORIZATION_MATRIX.md:24,48`):
 
@@ -378,8 +396,9 @@ Each line below is a **proposal**. The lead confirms or reassigns it.
 
 ## S5 — Build
 
-- **Owner:** `mibienpanjoe`
-- **Reviewers:** `NICE-DEV226` (proposed); `Y4NN777` co-reviews the GitHub fetch and anti-SSRF code (K10)
+- **Owner:** `mibienpanjoe` (accountable)
+- **Reviewers:** `NICE-DEV226`. When `NICE-DEV226` co-writes the PR (the default after Solve), `Y4NN777` reviews it. `Y4NN777` co-reviews the GitHub fetch and anti-SSRF code (K10).
+- **Helpers:** `NICE-DEV226` (default first helper after Solve; the Fri 13 Nov 23:00 checkpoint decides), `Y4NN777`, and `PANK4SS` on demand
 - **Branches:** `feature/build/projects-needs`, `feature/build/applications`
 - **Depends on:** S1. **Resolve C1 (maintainer rights) first.**
 
@@ -440,7 +459,8 @@ Each line below is a **proposal**. The lead confirms or reassigns it.
 ## S6 — Moderation (built last)
 
 - **Owner:** `Y4NN777`
-- **Reviewer:** `mibienpanjoe` (proposed)
+- **Reviewer:** `mibienpanjoe`
+- **Helpers:** `PANK4SS` on demand
 - **Branch:** `feature/community/moderation` (domain choice is a GUESS; `community` is in `docs/GIT_WORKFLOW.md:38`)
 - **Depends on:** S0 and S1. Its targets come from S2 to S5 (S10 if built).
 
@@ -488,6 +508,7 @@ Each line below is a **proposal**. The lead confirms or reassigns it.
 
 - **Owner:** `PANK4SS`
 - **Reviewer:** `Y4NN777`
+- **Helpers:** none named. `PANK4SS` also supports backend integration on demand.
 - **Branches:** `feature/<page domain>/web-<page>`, for example `feature/discover/web-resource`
 - **Depends on:** typed fixtures from `src/web/src/api/schema.d.ts` until each endpoint merges, then switch to the live endpoint.
 
@@ -507,12 +528,12 @@ Each line below is a **proposal**. The lead confirms or reassigns it.
 | Page (`prototypes/html/pages/`) | Operations | Slice | Done |
 |---|---|---|---|
 | `accueil` | `listQuestions`, `listResources`, `listProjects`, `listLearnArticles` | S2 to S5 | [ ] |
-| `discover` | `listResources`; demo data comes from team-written SEED fixtures with a demo badge, with source links as metadata | S2, SEED | [ ] |
-| `resource` | `getResource`, `listResourceSources` (documentary source links), `createResourceErrorReport` | S2, SEED | [ ] |
+| `discover` | `listResources`. Staging and production show only real `live` entries (K39: no Discover write path; owner ruling). `local-dev` shows SEED fixtures with a demo badge. | S2, SEED (local-dev) | [ ] |
+| `resource` | `getResource`, `listResourceSources` (documentary source links), `createResourceErrorReport` | S2 | [ ] |
 | `recherche` | `search` (plus the S9 panel) | S2, S9 | [ ] |
-| `apprendre` | `listLearnArticles`, `listTrainingSeries`; demo data = member articles (`live`) plus SEED fixtures with a demo badge; E4 topic feeds (`listLearnArticles?topic=`, `listQuestions?tag=`; blocked on C2) | S4, SEED, E4 | [ ] |
-| `article` | `getLearnArticle` (demo badge when `provenance='demo'`); E4 "Poser une question sur cette leçon" works on any member-written or demo-fixture article: it opens `solve`, which calls `createQuestion` with `links[article]` | S4, SEED, E4 | [ ] |
-| `formation` | `getTrainingSeries`: the demo-fixture free series of 3 to 4 short original lessons (US-LEARN-001); E4 ask button per lesson | S4, SEED, E4 | [ ] |
+| `apprendre` | `listLearnArticles`, `listTrainingSeries`. Staging and production: member articles and the content-script series (`live`). `local-dev`: SEED fixtures with a demo badge. E4 topic feeds (`listLearnArticles?topic=`, `listQuestions?tag=`; blocked on C2). | S4, E4 | [ ] |
+| `article` | `getLearnArticle` (demo badge when `provenance='demo'`, which happens in `local-dev` only). E4 "Poser une question sur cette leçon" works on any article (member-written, a series lesson, or a `local-dev` fixture): it opens `solve`, which calls `createQuestion` with `links[article]`. | S4, E4 | [ ] |
+| `formation` | `getTrainingSeries`: the free series of 3 to 4 short original lessons (US-LEARN-001). On staging and production it comes from the S4 content script; on `local-dev` from SEED. E4 ask button per lesson. | S4, E4 | [ ] |
 | `solve` | `listQuestions`, `createQuestion` (ask form, the S9 panel, and the E4 pre-fill from a lesson) | S3, S9, E4 | [ ] |
 | `question` | `getQuestion`, `listAnswers`, `createAnswer`, `castVote`, `retractVote`, `acceptAnswer`, `unacceptAnswer`, `updateQuestion` | S3 | [ ] |
 | `connexion` | `getCsrfToken`, `signIn` | S1 | [ ] |
@@ -524,7 +545,7 @@ Each line below is a **proposal**. The lead confirms or reassigns it.
 | `profile` | `getProfile` | S1 | [ ] |
 | `parametres` | `getMe`, `updateMyProfile` | S1 | [ ] |
 | `ecrire` | `createLearnArticle` | S4 | [ ] |
-| `build` | `listProjects`, `createProject`; demo data = projects created by the team through the app (`live`), plus SEED fixtures if C15 allows | S5, SEED | [ ] |
+| `build` | `listProjects`, `createProject`. Staging and production: projects created by the team through the app (`live`). `local-dev`: SEED fixtures. | S5 | [ ] |
 | `project` | `getProject`, `updateProject`, `listContributionNeeds`, `createContributionNeed`, `createApplication`, `listProjectApplications`, `decideApplication` | S5 | [ ] |
 | `connect` | E5 people list (the new operation, suggested `listProfiles` `GET /profiles`; name fixed in the contract PR) for the `connect-discovery` section with its country, language and skill filters. Its "later" badge (`connect.html:42`) and the `data-proto` preview note (`:27`) are removed only once the endpoint is live. The `connect-spaces` block stays "bientôt" (`:66-72`), with no fake spaces. Mentoring and opportunities are shown as coming soon (PRD 5.5). **Demo data:** the people list shows only real registered members (the team's accounts), because there are no fake users. | E5 | [ ] |
 | `auth` | legacy redirect to `connexion` | - | n/a |
@@ -552,14 +573,20 @@ Each line below is a **proposal**. The lead confirms or reassigns it.
 
 - **Owner:** `Y4NN777`
 - **Reviewer:** `NICE-DEV226` or `mibienpanjoe`
+- **Helpers:** `PANK4SS` on demand
 - **Branches:** `chore/ops/staging`, `chore/ops/release-workflow`, `chore/ops/e2e-harness`, `chore/ops/perf-harness`
 - **Depends on:** H6 to H8
 
 **Tasks**
 
 - [ ] H1, H3, H4: identities confirmed, ADR-0008 decided, branch protection with the `quality` check required on `develop` and `main`.
-- [ ] Datacloud account and active product (H6). DNS `226os.tech` (H7). TLS through Traefik. The DB is never published.
-- [ ] `staging-test` up from pinned images (`make up-staging-test`, `.env.staging-test` outside Git). `make seed` on staging (SEED), which is the recommended demo URL (O1).
+- [ ] Datacloud account and active product (H6).
+- [ ] DNS (H7).
+  - `226os.tech` exists, but nothing is deployed on it yet; today it shows the provider's placeholder page.
+  - Once the host IP is known, add A records for the apex and the staging subdomain (PROPOSAL `staging.226os.tech`, owner to confirm).
+  - TLS through Traefik and Let's Encrypt **only after DNS resolves**, so DNS comes before the first HTTPS smoke test.
+  - The DB is never published.
+- [ ] `staging-test` up from pinned images (`make up-staging-test`, `.env.staging-test` outside Git). **No seeds on staging:** it holds only real `live` content (owner correction B). The S4 content script is rehearsed there.
 - [ ] Gmail SMTP on staging with a real-inbox test (H8).
 - [ ] Argon2id benchmark on the target host, handed to S1.
 - [ ] B2: `/readyz` reachable for the smoke check (route it, or check from the host).
@@ -570,7 +597,8 @@ Each line below is a **proposal**. The lead confirms or reassigns it.
 - [ ] Rollback drill (redeploy the previous image by digest), with evidence.
 - [ ] G7 evidence on the target SHA: build SHA, digests (`make build`, which writes `reports/image-digests.txt`), audit, backup, smoke, rollback.
 - [ ] Production promotion PR from `develop` to `main`, with owner approval.
-- [ ] CADEV checklist (ROADMAP section 9), including H9 and H10, and the check that names in PRD section 12 match the declared team (flag only).
+- [ ] CADEV checklist (ROADMAP section 9), including H10, and the check that the names in PRD section 12 match the declared team (flag only). The submission URL is `https://226os.tech`.
+- [x] H9: CADEV team registration (DONE 2026-11-12, reported by the owner).
 
 **Allowed paths:** `Makefile`, `mk/**`, `scripts/**`, `compose.yaml`, `deploy/**`, `.github/**`, `docs/quality/**`, and `docs/evidence/**` (path GUESS).
 
@@ -584,10 +612,11 @@ Each line below is a **proposal**. The lead confirms or reassigns it.
 
 ## S9 — Grounded AI assistant (P0 by owner decision, amends PRD 5.8)
 
-- **Owner:** `Y4NN777` (contract, ADR, port)
-- **Second developer:** **OPEN** (`NICE-DEV226` or `mibienpanjoe`, once their first slice merges)
+- **Owner:** `Y4NN777` (contract PR, LLM port, backend)
+- **Second developer:** `NICE-DEV226`, after Solve (assigned 2026-11-12)
 - **UI:** `PANK4SS`
-- **Reviewers:** a backend developer for the owner's PRs; `Y4NN777` and `PANK4SS` for the contract
+- **Reviewers:** `mibienpanjoe` for the owner's backend PRs, because `NICE-DEV226` co-develops. `Y4NN777` and `PANK4SS` for the contract (R7).
+- **Helpers:** `PANK4SS` on demand
 - **Branches:** `feature/intelligence/assistant-contract`, then `feature/intelligence/assistant`
 - **Depends on:** S1 (subject, rate limiter), S2 (search), and H12
 - **Provider** (owner decision 2026-11-12; supersedes the OpenAI decision): Google AI Studio, model Gemma 4, free tier.
@@ -678,8 +707,9 @@ Each line below is a **proposal**. The lead confirms or reassigns it.
 
 ## E2 — Taxonomy: add and relabel only
 
-- **Owner:** `mibienpanjoe` (the only migration writer, R6)
-- **Reviewer:** `Y4NN777`, because pgtest is in the platform area
+- **Owner:** `mibienpanjoe` (the only migration writer, R6; accountable)
+- **Reviewer:** `NICE-DEV226` (reviewer pairs). `Y4NN777` co-reviews the pgtest change, because pgtest is in the platform area.
+- **Helpers:** `Y4NN777` and `NICE-DEV226` on the pgtest updates only. **Helpers never write or add a migration.** `PANK4SS` on demand.
 - **Branch:** `feature/platform/taxonomy-ai-topics`
 - **Depends on:** nothing. One migration at a time (R6).
 
@@ -724,49 +754,56 @@ Taxonomy rows are data. Later they change through a new forward-only migration o
 
 ## SEED — Original demo fixtures and `make seed`
 
-- **Owner:** **OPEN** (O10). The owner names who implements `make seed` and who writes the fixture text.
-- **Reviewer:** `Y4NN777`, who curates demo content (`docs/spec-kit/DATABASE_DESIGN.md:1299`).
+- **Owner:** `PANK4SS` (assigned 2026-11-12). Writes the original fixture text, the SQL in `db/seeds` and `make seed`.
+- **Reviewer:** `mibienpanjoe`. `Y4NN777` also reviews the `mk/50-ops.mk` change, as area owner, and curates demo content (`docs/spec-kit/DATABASE_DESIGN.md:1299`).
+- **Helpers:** none named
+- **Purpose:** **`local-dev` only**, for local development and e2e (owner correction B, 2026-11-12). Staging and production never hold demo data.
 - **Branches:** `feature/platform/demo-seeds`, `chore/ops/make-seed`
-- **Depends on:**
-  - migrations 00001 to 00010, and E2 (the topic `ai-assisted-dev` for the series);
-  - **the C15 ruling** (who authors the fixtures, given "no fake users").
+- **Depends on:** migrations 00001 to 00010, E2 (the topic `ai-assisted-dev` for the series), and C15 (DECIDED).
 
-**Rules** (ADR-0005 point 17 and `DATABASE_DESIGN.md` section 6, unchanged):
+**Rules:**
 
+- ADR-0005 point 17 allows `local-dev` and `staging-test`. The owner chooses `local-dev` only, which is stricter, so no ADR change is needed.
 - Fixtures are deterministic SQL in `db/seeds/` with fixed UUIDs, and the text is original, written by the team.
 - Every root row has `provenance='demo'`, and the UI shows it as demo.
-- No fake users and no fake votes, answers or applications (C15).
-- Fixtures run only in `local-dev` and `staging-test`, never in `production-live`.
+- **Demo accounts (C15 DECIDED):**
+  - usernames prefixed `demo-`;
+  - emails on the reserved invalid domain (`@demo.226os.invalid`);
+  - **no `user_credentials` row**, so they cannot sign in;
+  - `provenance='demo'`, and they exist only in `local-dev`.
+- No fake votes, endorsements or verifications. No applications.
 - External material appears only as source links on Discover entries, in `resource_sources`, as metadata and a link. Never copied text.
 
 **Tasks**
 
-- [ ] `Y4NN777`: rule on C15 and name the owner and writers (O10).
-- [ ] Implement `make seed` in `mk/50-ops.mk:50`, which is NOT IMPLEMENTED today (owner area; owner review).
-  - It refuses unless `APP_ENV` is `local-dev` or `staging-test`, and fails closed.
-- [ ] A release check that finds zero `provenance='demo'` rows in `production-live` (`DATABASE_DESIGN.md:1296`).
-- [ ] **The Learn free series** (US-LEARN-001 needs a readable public series).
-  - A demo-fixture `training_series` of **3 to 4 short original lessons** written by the team. The writer is OPEN.
+- [x] C15 ruled and owner named (2026-11-12).
+- [ ] Implement `make seed` in `mk/50-ops.mk:50`, which is NOT IMPLEMENTED today (owner area; owner review). It **refuses everywhere except `APP_ENV=local-dev`**, and fails closed.
+- [ ] A check that finds zero `provenance='demo'` rows on **both** `staging-test` and `production-live` (`DATABASE_DESIGN.md:1296`, extended to staging).
+- [ ] **The Learn free series (local copy):** a demo-fixture `training_series` of **3 to 4 short original lessons**.
   - Each lesson is a `learn_article` of kind `tutorial`, referenced by `training_lessons.article_id` (C13).
-  - There is no authors-and-cutoff ceremony.
-- [ ] A few Discover fixtures (providers and resources with countries, categories and source links) and Build fixtures, if C15 allows.
-- [ ] A seed provenance test, and a test that no votes or applications are seeded.
+  - The staging and production copy is the S4 content script.
+- [ ] A few Discover fixtures (providers and resources with countries, categories and source links) and Build fixtures.
+- [ ] Tests:
+  - seed provenance;
+  - demo accounts have no credentials;
+  - no votes or applications are seeded.
 
 **Allowed paths:** `db/seeds/**` and `mk/50-ops.mk` (the `seed` target, with owner review).
 
 **DoD:**
 
 - DoD-common.
-- `make seed` evidence on `local-dev` and on `staging-test`.
-- The refusal test passes for `production-live`.
+- `make seed` evidence on `local-dev`.
+- The refusal tests pass for `staging-test` and `production-live`.
 
-**Status:** PLANNED (owner OPEN; blocked on C15)
+**Status:** PLANNED (assigned; unblocked)
 
 ---
 
 ## E4 — Zero-migration interaction modes
 
 - **Owner:** `PANK4SS` with `NICE-DEV226` (the Solve owner)
+- **Helpers:** none beyond the co-owners
 - **Reviewer:** `Y4NN777`
 - **Branches:** `feature/solve/web-ask-about-lesson`, `feature/learn/web-topic-feeds` (C8)
 - **Depends on:** S3 (`createQuestion`), plus a lesson to exist: the button works on any member-written article (S4) or demo-fixture article (SEED). **The topic feeds wait for the C2 ruling**: questions have no topic, and `listQuestions` filters only by `tag` (`api/openapi.yaml:462`).
@@ -792,9 +829,10 @@ Taxonomy rows are data. Later they change through a new forward-only migration o
 
 ## E5 — Connect: people directory
 
-- **Backend owner:** **OPEN** (O9). Proposed: `mibienpanjoe` or `NICE-DEV226`, after their first slice merges.
+- **Backend owner:** `NICE-DEV226`, after Solve, if time allows. It slips early (assigned 2026-11-12).
 - **UI:** `PANK4SS`
-- **Reviewers:** the backend lead (`Y4NN777`) or the other backend developer. The contract PR needs `Y4NN777` and `PANK4SS` (R7).
+- **Reviewers:** `mibienpanjoe` for the backend; `Y4NN777` for the UI. The contract PR needs `Y4NN777` and `PANK4SS` (R7).
+- **Helpers:** `PANK4SS` on demand (typed client wiring)
 - **Branches:** `feature/connect/profiles-contract`, then `feature/connect/people-directory` (`connect` is in `docs/GIT_WORKFLOW.md:38`)
 - **Depends on:** S1 (profiles, session resolver) and **C14** (an owner ruling on what makes a profile listable).
 
@@ -845,13 +883,14 @@ A migration is needed only if C14 is ruled as a new column, and only `mibienpanj
 
 **DoD:** DoD-common, plus the privacy tests above on real PostgreSQL, plus the failure modes in ROADMAP section 12.2.
 
-**Status:** PLANNED (owner OPEN; blocked on C14)
+**Status:** PLANNED (backend `NICE-DEV226`, after Solve; blocked on C14)
 
 ---
 
 ## S10 — Live channels (CONDITIONAL)
 
-- **Owner:** **OPEN**
+- **Owner:** **unassigned** (owner instruction 2026-11-12). Conditional on the Sat 14 Nov 12:00 checkpoint.
+- **Helpers:** none until it is a GO
 - **Migrations:** `mibienpanjoe` (R6)
 - **UI:** `PANK4SS`
 - **Reviewers:** OPEN
@@ -906,7 +945,12 @@ A migration is needed only if C14 is ruled as a new column, and only `mibienpanj
 - [ ] Production: backup, then `migrate-up` (`MIGRATE_CONFIRM` and `BACKUP_EVIDENCE`), then deploy through the release workflow (B4), then the smoke test.
 - [ ] Owner account promoted to moderator in production (S6 runbook). A check confirms there are zero demo rows in production.
 - [ ] S9 enabled or disabled per environment, according to V3.
-- [ ] SEED: `make seed` run on `staging-test` (the recommended demo URL, O1). The team creates its member content through the app on staging. `production-live` starts empty: a check confirms zero `demo` rows there, and no seeds run there.
+- [ ] Zero `provenance='demo'` rows on **both** `staging-test` and `production-live`. No seeds ever run there (owner correction B).
+- [ ] Staging rehearsal: the team's real accounts create real `live` content through the app, and the S4 content script is run on staging with the production procedure. Record the run date in the Done log.
+- [ ] Production content window, after the deploy: the team's real accounts create real `live` content through the app. Gmail SMTP must work in production, because publishing needs a verified email (K38).
+- [ ] The S4 content script run on `production-live` by `Y4NN777` (H19), with confirmation and a backup first. Record the run date in the Done log.
+- [ ] DNS resolves for `226os.tech` and the staging subdomain before the first HTTPS smoke test (H7).
+- [ ] CADEV submission URL: `https://226os.tech` (O1).
 - [ ] E2 migration applied (it is part of the forward migrations on the target SHA).
 - [ ] CADEV submission around Sun 12:00 GMT, before 17:00 (ROADMAP section 9).
 - [ ] Vote reminders sent. **Every member votes between Sun 18:00 and Mon 23:59 GMT.**
@@ -916,3 +960,4 @@ A migration is needed only if C14 is ruled as a new column, and only `mibienpanj
 | Date | Item | PR | By |
 |---|---|---|---|
 | 2026-11-12 | B0 bootstrap merged: API skeleton, migrations 00001 to 00010, codegen, web skeleton, Compose, Make, CI | #24 | `Y4NN777` |
+| 2026-11-12 | CADEV team registration done (H9) | n/a | `Y4NN777` |

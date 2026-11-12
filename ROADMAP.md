@@ -24,7 +24,8 @@
   - **E2:** taxonomy additions and relabels through one new migration.
   - **Content is original** (owner decision 2026-11-12; it supersedes aggregation-first). No third-party content is ingested. Demo-day content comes from two places:
     - (a) member content created through the app by the team's real accounts (`live`);
-    - (b) small deterministic demo fixtures in `db/seeds`, original text written by the team, `provenance='demo'`, visibly marked, `local-dev` and `staging-test` only (ADR-0005 point 17, unchanged).
+    - (b) small deterministic demo fixtures in `db/seeds`, original text written by the team, `provenance='demo'`, visibly marked, **`local-dev` only**. This is for local development and e2e. ADR-0005 point 17 allows `local-dev` and `staging-test`; the owner chooses not to use staging seeds, so no ADR change is needed (owner correction 2026-11-12).
+    - `staging-test` and `production-live` are similar real environments and **neither has demo data**. Both hold only real `live` content.
     - External material remains only as references (`docs/research/REFERENCES.md` style) and as source links on Discover entries.
     - The Learn free series is a small demo-fixture series of 3 to 4 short original lessons (US-LEARN-001).
   - **E4:** zero-migration interaction modes. An "ask about this lesson" button and read-only topic feeds.
@@ -77,12 +78,12 @@ Each item below is a demo journey from `docs/SPEC.md` section 2 or a smoke step 
 8. **Mobile on a throttled network.** Explore, Solve and Build stay usable, with clear loading, empty and error states (US-ACCESS-001/1).
 9. **Moderation.** The owner account, promoted to moderator, hides and restores content, and each action writes an `audit_log` row (`docs/spec-kit/AUTHORIZATION_MATRIX.md`, "Moderator scope at P0").
 10. **S9 assistant, subject to V3.** Until the owner rules on V3 (free tier or billing-linked, given the EEA rule), the assistant stays disabled by config. Once enabled, it is available in search and in the ask-a-question flow. It answers only from platform content, with links to the sources it used, and it refuses when it has no source. It never invents a guarantee about an API or about whether a solution is verified (`docs/PRD.md` 5.8). The golden evaluation set has been run, and its result is recorded.
-11. **Original content and E4.** On the demo URL (O1, recommended: `staging-test`):
-    - Discover, Build and Learn show team-written content. That is member content (`live`) plus demo fixtures with a visible demo badge.
-    - The free series is a demo fixture of 3 to 4 short original lessons, readable without an account.
+11. **Original content and E4, at `https://226os.tech` (O1):**
+    - Discover, Build and Learn show only real `live` content created through the app by the team's real accounts.
+    - The free series (3 to 4 short original lessons) arrives through the reviewed content script (B5) and is readable without an account.
     - Discover entries carry source links (metadata and a link, the PRD core), never copied third-party text.
-    - There are no fake users and no fake votes (C15).
-    - From any member-written or demo-fixture article, "Poser une question sur cette leçon" opens the Solve form pre-filled and links the new question to the article.
+    - Staging and production contain no demo data, no fake users and no fake votes.
+    - From any article, "Poser une question sur cette leçon" opens the Solve form pre-filled and links the new question to the article. That covers member-written articles, series lessons, and demo-fixture articles in `local-dev`.
 12. **E5 and pillars.**
     - The Connect page lists people. Anyone, signed in or not, can filter by country, language and skill. The list shows only fields that each profile allows, never an email and never a non-listable profile.
     - The "spaces" block stays labelled "bientôt". Mentoring and opportunities are shown as coming soon (PRD 5.5).
@@ -99,20 +100,43 @@ The slices were assigned by owner decisions on 2026-11-12. The review rules come
 |---|---|---|---:|---|
 | S0 | API core: DB pool, `/readyz`, apigen mount, validation, cursors, ETag, Idempotency-Key, transactions, mailer | `Y4NN777` | 0 | - |
 | S1 | Identity: auth (8), me (2), profiles (1) | `NICE-DEV226` | 11 | S0 |
-| S2 | Discover and search (demo fixtures moved to SEED) | `mibienpanjoe` | 5 | S0 (the error report also needs S1) |
+| S2 | Discover and search (demo fixtures moved to SEED) | `mibienpanjoe` (accountable); helpers `Y4NN777`, `NICE-DEV226` | 5 | S0 (the error report also needs S1) |
 | S3 | Solve | `NICE-DEV226` | 10 | S1 |
-| S4 | Learn | `mibienpanjoe` | 5 | S0 (publishing also needs S1) |
-| S5 | Build | `mibienpanjoe` | 9 | S1 |
+| S4 | Learn, including the one-time production content script for the free series (B5) | `mibienpanjoe` (accountable); helpers `Y4NN777` (S4 and content script), `NICE-DEV226`; script run by `Y4NN777` | 5 | S0 (publishing also needs S1) |
+| S5 | Build | `mibienpanjoe` (accountable); helpers `NICE-DEV226` (first, after Solve), `Y4NN777` | 9 | S1 |
 | S6 | Moderation, built last | `Y4NN777` | 3 | S0, S1; targets from S2 to S5 |
 | S7 | Frontend: the prototypes become React pages | `PANK4SS` | - | typed fixtures first, then each merged endpoint |
 | S8 | Ops, release and CADEV submission | `Y4NN777` | - | Datacloud, DNS, SMTP |
-| S9 | Grounded AI assistant (P0 by owner decision) | `Y4NN777` (contract, ADR, port); second developer **OPEN**; UI `PANK4SS` | new, TBD | S1, S2; owner verification V1 to V4 (H12) |
-| S10 | Live channels (**CONDITIONAL**) | **OPEN**; migrations `mibienpanjoe` | new, TBD | Sat 12:00 GO, S1, S4, S5 |
-| E2 | Taxonomy: +5 learn topics, +3 resource categories, 4 relabels, no deletions, one new migration | `mibienpanjoe` | 0 | none (migration only) |
-| SEED | Demo fixtures: `db/seeds` and `make seed` (NOT IMPLEMENTED today), including the 3 to 4 lesson Learn series | **OPEN** (owner names who writes the fixtures and who implements `make seed`) | 0 | migrations 00001 to 00010 and E2; C15 ruling |
+| S9 | Grounded AI assistant (P0 by owner decision) | `Y4NN777` (contract PR, LLM port, backend); second developer `NICE-DEV226` after Solve; UI `PANK4SS` | new, TBD | S1, S2; owner verification V1 to V4 (H12) |
+| S10 | Live channels (**CONDITIONAL**) | **unassigned**, conditional on Sat 14 Nov 12:00; migrations `mibienpanjoe` | new, TBD | Sat 12:00 GO, S1, S4, S5 |
+| E2 | Taxonomy: +5 learn topics, +3 resource categories, 4 relabels, no deletions, one new migration | `mibienpanjoe`, the only migration writer; helpers `Y4NN777` and `NICE-DEV226` on the pgtest updates only, never on the migration | 0 | none (migration only) |
+| SEED | Demo fixtures for **`local-dev` only**, for local development and e2e: `db/seeds` and `make seed` (NOT IMPLEMENTED today; refuses everywhere except `local-dev`), demo accounts as decided in C15, and a local copy of the 3 to 4 lesson series | `PANK4SS` (reviewed by `mibienpanjoe`; the `mk/50-ops.mk` change also by `Y4NN777`, area owner) | 0 | migrations 00001 to 00010 and E2; C15 DECIDED |
 | E4 | "Ask about this lesson" button, read-only topic feeds | `PANK4SS` with `NICE-DEV226` (Solve owner) | 0 | S3 `createQuestion`; any member-written or demo-fixture article (S4, SEED); C2 ruling before the feeds |
-| E5 | Connect people directory (new operation, suggested `GET /profiles`), `connect` page, office-hours process note | backend **OPEN** (proposed: `mibienpanjoe` or `NICE-DEV226` after their first slice merges); UI `PANK4SS` | +1 (44 total once accepted) | contract PR; S1 (profiles); C14 ruling |
+| E5 | Connect people directory (new operation, suggested `GET /profiles`), `connect` page, office-hours process note | backend `NICE-DEV226` after Solve, if time allows (it slips early); UI `PANK4SS` | +1 (44 total once accepted) | contract PR; S1 (profiles); C14 ruling |
 | IA | Pillar emphasis: navigation, home and FR/EN copy promote Learn & Grow and Connect | `PANK4SS` | 0 | none (no new endpoints) |
+
+**Reviewer pairs (owner instruction 2026-11-12).** A reviewer is never the author.
+
+- `NICE-DEV226` and `mibienpanjoe` review each other.
+- `Y4NN777` reviews `PANK4SS`.
+- A backend developer reviews `Y4NN777`: `NICE-DEV226` for S0, and `mibienpanjoe` for S6 and S9, because `NICE-DEV226` co-develops S9.
+- When a helper co-writes a PR, that helper cannot review it:
+  - S5 PRs co-written by `NICE-DEV226` are reviewed by `Y4NN777`;
+  - S4 and content-script PRs co-written by `Y4NN777` are reviewed by `NICE-DEV226`.
+
+**Helpers** (owner amendment 2026-11-12).
+
+- `Y4NN777` and `NICE-DEV226` are named helpers on `mibienpanjoe`'s slices: S2, S4, S5, E2 and the content script.
+- A helper is named on the PR as co-worker and may write code on that slice's branch. `mibienpanjoe` stays accountable.
+- **Only `mibienpanjoe` writes migrations; helpers never add one.**
+- `PANK4SS` supports the whole team on demand: backend integration, typed client wiring, fixtures, and small fixes on any slice when an area owner asks. Each support request is noted on the PR as co-worker. This does not change frontend ownership.
+
+**Capacity note (GUESS).**
+
+- `mibienpanjoe` carries the most: about 19 operations, plus the E2 migration and the S4 content script.
+- The default split once `NICE-DEV226` finishes Solve: `NICE-DEV226` helps on S5 Build first, and `Y4NN777` helps on S4 Learn and the content script.
+- **Checkpoint Fri 13 Nov 23:00 GMT.** The progress of S4 and S5 at that time decides who helps first. This replaces the earlier rule that `NICE-DEV226` takes Build.
+- The instruction said "Fri 14 Nov", but 14 Nov is a Saturday, so Friday 13 Nov is assumed.
 
 Workload: the 43 P0 operations are spread as 11 + 5 + 10 + 5 + 9 + 3. `NICE-DEV226` has 21 of them and `mibienpanjoe` has 19. The owner carries S0, S6, S8, the core of S9 and most reviews. S9, S10, E1 to E5 and the pillar change add work for the same four people (GUESS; not quantified). E1 is part of S9.
 
@@ -151,10 +175,10 @@ Reviews (ADR-0008, proposed):
 
 **Thu 12, evening**
 
-- `Y4NN777`: human tasks H1 to H6. Names the SEED owner and fixture writers (O10). S0 work: authz gate extension (B1), pgxpool, `/readyz`, mounting apigen. Opens the S0 PR.
+- `Y4NN777`: personal tasks H6 and H7 (Datacloud, DNS) and H4 (branch protection). S0 work: the B1 gate as DECIDED (three route files, `go test -list` check, single registration point, RED/GREEN), then pgxpool, `/readyz` and the apigen mount via `HandlerWithOptions`. Opens the S0 PR for `NICE-DEV226` to review.
 - `NICE-DEV226`: identity record (H1). S1 RED tests for the domain and service with fakes: hashing, tokens, CSRF, sessions. Mounts no routes before S0 merges.
 - `mibienpanjoe`: identity record (H1). S2 sqlc queries with local EXPLAIN. Designs the seeds. Raises the Learn `topic` decision (C2). Opens the E2 taxonomy migration PR (`make migrate-new`, plus the pgtest list update).
-- `PANK4SS`: accepts the invitation (H2) and records identity (H1). S7 shell, i18n and shared components on typed fixtures.
+- `PANK4SS`: accepts the invitation (H2) and records identity (H1). S7 shell, i18n and shared components on typed fixtures. SEED design: demo accounts per C15.
 
 **Checkpoint, Thu end of day: S0 merged or in review.**
 
@@ -162,16 +186,16 @@ Reviews (ADR-0008, proposed):
 
 - `Y4NN777`: merges S0. S0 follow-ups: Idempotency-Key, mailer, Mailpit. Starts S8 staging. Reviews.
 - `NICE-DEV226`: S1 auth endpoints and the rate limiter.
-- `mibienpanjoe`: S2 reads merged, then the S4 reads. `make seed` is SEED, with its owner OPEN.
+- `mibienpanjoe`: S2 reads merged, then the S4 reads.
 - `PANK4SS`: public read pages: accueil, discover, resource, recherche.
 
 **Checkpoint, Fri 12:00: public reads merged.** That means S2's `listResources`, `getResource`, `listResourceSources` and `search`. The S4 reads are in review. The Solve and Build reads come with S3 and S5, after S1.
 
 **Fri 13, afternoon and evening**
 
-- `Y4NN777`: staging up with TLS, DNS and SMTP. Argon2id benchmark on the target host. Drafts the S9 ADR (PROPOSED, including AI-1 to AI-5, AI-9 and AI-10) and the S9 contract PR. Reviews S1. Rules on C15 and C2, and confirms the O1 recommendation (demo URL = staging).
-- SEED (OPEN): fixtures for Discover, Build and the 3 to 4 lesson Learn series, written as original team text. `make seed` refuses outside `local-dev` and `staging-test`.
-- E5: the owner rules on C14 and names the E5 backend owner. The E5 contract PR (backend lead plus `PANK4SS` review) is opened and merged, with `make generate`.
+- `Y4NN777`: staging up with TLS, DNS and SMTP (H8). AI Studio key and V1 to V4 (H12). Argon2id benchmark on the target host. Drafts the S9 ADR (PROPOSED, including AI-1 to AI-5, AI-9 and AI-10) and the S9 contract PR. Rules on C2 and C14.
+- `PANK4SS` (SEED): fixtures for Discover, Build and the 3 to 4 lesson Learn series, written as original team text, with demo accounts per C15. `make seed` refuses everywhere except `local-dev`. Reviewed by `mibienpanjoe`.
+- E5: the contract PR (backend lead plus `PANK4SS` review) is opened, with `make generate`. The backend comes later, by `NICE-DEV226`.
 - `PANK4SS`: pillar emphasis in navigation, home and FR/EN copy (information architecture only).
 - `NICE-DEV226`: S1 `me` and profiles. Merges S1.
 - `mibienpanjoe`: S4 reads merged. S2 error report and S4 publish once S1 has merged.
@@ -179,23 +203,26 @@ Reviews (ADR-0008, proposed):
 
 **Checkpoint, Fri end of day: S1 merged. AI Studio key in the staging env file, and V1 to V4 checked, including the free versus billing decision (H12, K21).**
 
+**Checkpoint, Fri 13 Nov 23:00: helpers.** The progress of S4 and S5 decides who helps first. By default, `NICE-DEV226` helps on S5 after Solve, and `Y4NN777` helps on S4 and the content script.
+
 **Sat 14, until noon**
 
-- `Y4NN777`: S9 LLM port, fake adapter and retrieval over S2 search. Starts the S8 `make test-e2e` harness. Reviews.
+- `Y4NN777`: S9 LLM port, fake adapter and retrieval over S2 search. Helps on S4 and the content script. Starts the S8 `make test-e2e` harness. Reviews.
 - `NICE-DEV226`: S3 Solve.
-- `mibienpanjoe`: S4 publish, then S5 Build.
+- `mibienpanjoe`: S4 publish and the content script (`scripts/content/`), then S5 Build.
 - `PANK4SS`: wires the identity pages to live endpoints, and solve and question to S3.
 
 **Checkpoint, Sat 12:00 (progress).** The owner decides any drop or exception from measured progress (merged PRs, CI status), and decides whether S10 is a GO. These decisions go in the log below.
 
 **Sat 14, until 18:00**
 
-- `Y4NN777`: S6 moderation merged. S9 merged, with the second developer (OPEN). `make perf` harness. Backup and restore drill on staging.
-- `NICE-DEV226`: S3 merged. If S10 is a GO, may build it (owner assigns).
-- `mibienpanjoe`: S5 merged. If S10 is a GO, writes its migration.
+- `Y4NN777`: S6 moderation merged. S9 merged, with `NICE-DEV226` as second developer. `make perf` harness. Backup and restore drill on staging.
+- `NICE-DEV226`: S3 merged. Then helps on S5 Build, then is the S9 second developer, then builds the E5 backend if time allows. If S10 is a GO, the owner assigns it; S10 is unassigned today.
+- `mibienpanjoe`: S5 merged, with helpers. The content script is rehearsed on `staging-test`. If S10 is a GO, writes its migration.
 - `PANK4SS`: write flows (ecrire, build, project, the solve ask form). The S9 panel in recherche and in the ask flow. E4 with `NICE-DEV226`: the "ask about this lesson" button once S3 merges, and the topic feeds only after C2 is ruled.
-- SEED (OPEN): fixtures finished and `make seed` run on `staging-test`. Team members create real member content through the app on staging: questions, answers, articles, projects.
-- E5 backend (OPEN owner, after their first slice merges): the people directory with privacy tests. `PANK4SS` builds the `connect` page, and the spaces block stays "bientôt".
+- `PANK4SS` (SEED): fixtures finished, and `make seed` run on `local-dev` for e2e.
+- Content rehearsal on `staging-test`: the team's real accounts create real `live` content, and the free-series content script is rehearsed there with the same procedure as production.
+- E5 backend (`NICE-DEV226`, if time allows): the people directory with privacy tests. `PANK4SS` builds the `connect` page, and the spaces block stays "bientôt".
 
 **Freeze, Sat 18:00.** After the freeze, `develop` takes only fixes for failing gates or smoke checks. The freeze applies to S9 and S10 as well.
 
@@ -203,7 +230,7 @@ Reviews (ADR-0008, proposed):
 
 - `Y4NN777`: `make quality-full` on the `develop` SHA. Rollback drill. S9 golden evaluation run. Collects the G7 evidence.
 - `NICE-DEV226`: bug fixes and e2e support.
-- `mibienpanjoe`: bug fixes and a seed check on staging.
+- `mibienpanjoe`: bug fixes, and a check of the content-script run on staging.
 - `PANK4SS`: bug fixes. ADR-0007 visual, axe and responsive evidence.
 
 **Sun 15, morning**
@@ -213,8 +240,9 @@ Reviews (ADR-0008, proposed):
   - takes a backup, runs the migrations and deploys the exact SHA;
   - runs the production smoke test;
   - promotes the owner account to moderator;
-  - production starts empty: no seeds run there (O1); the CADEV demo URL is staging, if the owner confirms O1;
-  - **submits around 12:00.**
+  - runs the reviewed free-series content script on production (H19), with confirmation and a backup first;
+  - **submits `https://226os.tech` around 12:00** (O1).
+- **Content window (all four), right after the production deploy:** the team's real accounts create real `live` content through the app: questions, answers, articles and projects. No seeds run in production (K38).
 - `NICE-DEV226` and `mibienpanjoe` support the smoke test. `PANK4SS` runs the mobile and FR/EN smoke.
 
 **Sun 18:00 to Mon 23:59: every member votes (H10).**
@@ -262,7 +290,7 @@ flowchart LR
   S7w --> F[Freeze Sat 18:00]
   ST --> F
   SEED --> F
-  F --> G[G5 e2e, G6 perf, G7 evidence, S9 golden run, staging seed]
+  F --> G[G5 e2e on local-dev fixtures, G6 perf, G7 evidence, S9 golden run, staging content rehearsal]
   G --> P[Production PR, deploy, smoke]
   P --> C[CADEV submit ~Sun 12:00]
 ```
@@ -291,29 +319,40 @@ flowchart LR
 
 ## 8. Human tasks and lead time
 
+**The owner's remaining personal tasks** (owner instruction 2026-11-12) are exactly three, plus the two kept items:
+
+1. H6 and H7: the Datacloud account and active product, and DNS.
+2. H8: the Gmail SMTP app password.
+3. H12: the AI Studio API key and the checks V1 to V4.
+
+Kept as they are: H4 (branch protection) and H10 (vote reminders). H19 is the owner running the reviewed content script.
+
+The other rows below are not personal owner tasks. Their status is unchanged unless a row says otherwise.
+
 | Id | Task | Who | Start by | Lead time |
 |---|---|---|---|---|
 | H1 | Confirm the Git identity records for `NICE-DEV226`, `mibienpanjoe` and `PANK4SS`; all three are "no" today (`docs/team/CONTRIBUTORS.md:10-12`). Nobody commits before confirmation. | `Y4NN777` + each member | Thu evening | minutes (GUESS) |
 | H2 | `PANK4SS` accepts the repository invitation (pending, `docs/team/CONTRIBUTORS.md:12`) | `PANK4SS` | Thu evening | minutes (GUESS) |
 | H3 | ADR-0008 set to ACCEPTED or amended; it is PROPOSED today (`docs/decisions/0008-team-work-areas-and-ownership.md:3`) | `Y4NN777` | Thu evening | - |
 | H4 | Branch protection and required reviews on `develop` and `main`, with the `quality` check required (ADR-0006 "CI", ADR-0008 "Consequences") | `Y4NN777` | Thu evening | minutes (GUESS) |
-| H5 | Rulings on blockers B1 to B4 and contradictions C1 to C15 (section 10). B5 is after CADEV only. | `Y4NN777` | Thu evening | - |
+| H5 | Rulings on the items still open in section 10. B1, B5 (for CADEV) and C15 are DECIDED as of 2026-11-12. Still open: B2, B3, B4, C1 to C14, O4 to O7. | `Y4NN777` | Thu evening | - |
 | H6 | Datacloud account and an **active commercial product**, SSH key, ports 80/443, storage (`docs/SHIP.md` section 3; a CADEV condition). Handled by the owner. | `Y4NN777` | Thu evening | UNVERIFIED; hours to a day (GUESS) |
-| H7 | DNS for `226os.tech` pointing to the host. Let's Encrypt works only once DNS resolves. | `Y4NN777` | as soon as the host IP is known | minutes to hours (GUESS) |
+| H7 | DNS. The domain `226os.tech` exists and the owner holds it, but **nothing is deployed on it**: today it shows only the hosting provider's placeholder page. When the Datacloud host IP is known, point the apex `226os.tech` and the staging subdomain (PROPOSAL: `staging.226os.tech`, owner to confirm) to it with A records, in the registrar or DNS panel the owner holds. TLS issues through Traefik and Let's Encrypt **only after DNS resolves**, so DNS comes before the first HTTPS smoke test. Never assume DNS works (`docs/SHIP.md` section 1). | `Y4NN777` | as soon as the host IP is known | minutes to hours (GUESS) |
 | H8 | Gmail SMTP: create an app password, stored in the staging and production env files only; test with a real inbox | `Y4NN777` | Fri morning | GUESS: an app password needs 2-step verification on the account; verify |
-| H9 | CADEV registration: team declaration (2 to 5 members), representative and country, split, members registered (`docs/SHIP.md` section 6) | `Y4NN777` | Fri | UNVERIFIED |
+| H9 | CADEV registration: team declaration (2 to 5 members), representative and country, split, members registered (`docs/SHIP.md` section 6) | `Y4NN777` | **DONE 2026-11-12** | - |
 | H10 | Vote reminders to all four members, plus a named follow-up person (SHIP section 6, "Prévoir responsable de suivi") | `Y4NN777` | Sun 17:00 | - |
-| H11 | The "public demo URL" (O1). Now covered by H18 (recommended: staging). | `Y4NN777` | Fri | - |
+| H11 | The "public demo URL" (O1). **DECIDED 2026-11-12:** `production-live` on the project domain (see C). | `Y4NN777` | closed | - |
 | H12 | S9: create the Google AI Studio API key (the owner holds the access) and store it only in the staging, then production, env file. Never in Git, CI logs or images. Check items V1 to V4 (section 10, O5) in AI Studio and Google's own current documentation. | `Y4NN777` | Fri 13 evening | UNVERIFIED |
 | H13 | Apply PRD amendment 3.2 (text in the S9 ADR) and add a SPEC story for S9, and for S10 if it is a GO; the owner applies these | `Y4NN777` | Fri evening | - |
-| H18 | Confirm or overrule the O1 recommendation (CADEV demo URL = `staging-test`). Name the SEED owner and the fixture writers (O10). | `Y4NN777` | Fri | - |
+| H18 | O1 and the SEED owner. **Closed 2026-11-12:** O1 is DECIDED (production), and SEED is assigned to `PANK4SS`. | `Y4NN777` | closed | - |
+| H19 | Run the one-time S4 content script on `production-live` after its PR is reviewed, with explicit confirmation and a backup first. Record the run date in the TODO Done log. | `Y4NN777` (runner) | Sun morning, after the production deploy | - |
 | H16 | Decide whether "Learn as the heart" becomes a PRD amendment (3.2 or 3.3), or the pillars keep equal weight and only topics, series and home ordering change (O7) | `Y4NN777` | OPEN | - |
 
 ## 9. CADEV obligations (`docs/SHIP.md` section 6)
 
-- [ ] The team has 2 to 5 members, a declared representative and country, an agreed split, and every member registered.
+- [x] The team has 2 to 5 members, a declared representative and country, an agreed split, and every member registered. DONE 2026-11-12 (H9), as reported by the owner.
 - [ ] The names in `docs/PRD.md` section 12 match the declared team. Today that section says "3 personnes", names two people and leaves the third unnamed, while the team has four members (`docs/team/CONTRIBUTORS.md`). This is flagged here; the PRD is not edited.
-- [ ] Git URL, a **public demo URL**, an **active Datacloud product**, the repository and its documentation, and a secured demo account if needed.
+- [ ] Git URL, a **public demo URL** (`https://226os.tech`, once `production-live` is deployed; O1), an **active Datacloud product**, the repository and its documentation, and a secured demo account if needed.
 - [ ] The project is original and was built during the contest. `THIRD_PARTY_NOTICES.md` and `AI_USAGE.md` are complete, dependency provenance is recorded, and no licence forbidden by the rules is used. The S9 provider's terms and SDK licence, if any, are added.
 - [ ] Submitted before Sun 2026-11-15 17:00 GMT.
 - [ ] Each member votes between Sun 2026-11-15 18:00 and Mon 2026-11-16 23:59 GMT.
@@ -322,15 +361,32 @@ flowchart LR
 
 ### Blockers
 
-**B1. The authz gate cannot pass once any protected route is mounted.**
+**B1. The authz gate cannot pass once any protected route is mounted. DECIDED 2026-11-12 (owner instruction: close).**
 
-- `scripts/authz/routes_check.go.txt:48-66` fails on every mounted route that is not in `scripts/public-routes.txt`. It has no way to see that a negative test exists.
+**The problem.**
+
+- `scripts/authz/routes_check.go.txt:48-66` fails on every mounted route that is not in `scripts/public-routes.txt`. It cannot see whether a negative test exists.
 - `HandlerWithOptions` mounts all 47 operations at once.
-- S0 must therefore extend the gate without weakening it. Either:
-  - add a protected-route manifest that binds each route to named negative tests, and check that those tests ran and passed; or
-  - mount only the operations that are implemented.
-- The extension needs owner review.
-- The check calls `httpx.NewRouter(logger)` (line 32). If S0 changes that signature, update the overlay in the same PR.
+
+**The decision.**
+
+- S0 mounts the generated server through `HandlerWithOptions`.
+- The gate rule becomes: every mounted route must be in one of three files:
+  - (i) `scripts/public-routes.txt`, for public routes;
+  - (ii) a new `scripts/unimplemented-routes.txt`, for routes the generated Unimplemented handler still answers with 501. This file starts with all 47 routes and **shrinks** as each slice lands. A route removed from it must then be public or covered;
+  - (iii) a new `scripts/authz-tests.txt`, which maps method and path to the name of a negative authz Go test.
+- The gate fails if a named test does not exist (checked with `go test -list`), or if a route is in none of the three files.
+- The gate also detects routes registered outside `httpx.NewRouter`. All registration goes through that one function, and the gate checks that the `http.Handler` is built only there.
+- The gate change needs RED/GREEN proof.
+
+**The reason.** This mounts the contract in one step without weakening the gate. Every route is accounted for at all times.
+
+**The consequences.**
+
+- O3 is closed: the 4 P1 routes stay in `unimplemented-routes.txt` (501).
+- Every slice PR moves its routes out of `unimplemented-routes.txt` into `public-routes.txt` or `authz-tests.txt`.
+- The overlay check (`routes_check.go.txt:32`) changes in the S0 PR.
+- K3 drops to low once the S0 PR is green.
 
 **B2. `/readyz` cannot be reached from outside.** The edge rule routes only `/api/` and `/healthz` (`deploy/traefik/dynamic.edge.yml:6`), but SHIP 4.2 smoke-tests `/readyz`. The owner decides between routing it and checking it from the host.
 
@@ -343,11 +399,26 @@ flowchart LR
 - ADR-0006 ("CI") keeps the deploy workflows `NOT IMPLEMENTED` until TASK-OPS-001.
 - S8 must deliver a reviewed release workflow, with the protected `production` environment, before Sunday. The guard must not be weakened.
 
-**B5. Real lesson content has no path into the production database. OPEN, after CADEV only.**
+**B5. Real lesson content has no path into the production database. DECIDED for CADEV, 2026-11-12 (owner instruction: close).**
 
-- With O1 (demo URL = staging, production starts empty), the demo needs no Learn series or lesson in production.
-- After CADEV, the owner picks one of the options below: a reviewed content migration, an owner-run script, or a restricted create endpoint.
-- The same gap applies to the Discover catalogue: no operation writes providers or resources, and the matrix says the owner "loads catalogue content outside the API" (`docs/spec-kit/AUTHORIZATION_MATRIX.md:37`).
+**The decision.** Option (b), adapted. The free public series (US-LEARN-001) reaches production through a **one-time, PR-reviewed, owner-run content script**. It is neither a seed nor a migration.
+
+- The SQL lives in `scripts/content/`.
+- It is run once with an explicit confirmation, like `migrate-up`, and a backup first.
+- It attributes the lessons to the owner's real account, looked up by username, with `provenance='live'`.
+- The run date is recorded in the TODO Done log.
+- It is an S4 task: `mibienpanjoe` writes it and `Y4NN777` runs it (H19).
+
+**The reason.** The production demo needs the series. A restricted create endpoint would be a late contract change, and seeds never run in production (ADR-0005 point 17).
+
+**The consequences.**
+
+- The script is a remote mutation that needs human approval (AGENTS.md); the owner gives it by running the script.
+- It is rehearsed on `staging-test` first.
+- A restricted create endpoint stays a post-CADEV option.
+- The Discover catalogue gap is the same: no operation writes providers or resources (`docs/spec-kit/AUTHORIZATION_MATRIX.md:37`). For CADEV, production Discover entries come from the team's real content path. The owner decides whether the same script pattern covers them.
+
+The original analysis follows.
 
 - Only reads of series and lessons are P0. No operation creates a `training_series` or a `training_lessons` row (`api/openapi.yaml:1734-1798`).
 - Seeds never run in production (ADR-0005 point 17).
@@ -419,9 +490,25 @@ flowchart LR
   - a new column through a migration (`mibienpanjoe`, number from `make migrate-new`).
 - Filters must also apply only to fields visible to the caller. Otherwise filtering by a hidden country, language or skill reveals that field (INFERRED).
 
-**C15. Demo fixtures need authors, but "no fake users".**
+**C15. Demo fixtures need authors, but "no fake users". DECIDED 2026-11-12 (owner instruction: close).**
 
-This one still applies after the ingestion was removed, because fixtures raise the same problem.
+**The decision.**
+
+- Demo fixtures use clearly labelled **non-real demo accounts**:
+  - usernames prefixed `demo-`;
+  - emails on the reserved invalid domain (`@demo.226os.invalid`, `docs/spec-kit/DATABASE_DESIGN.md:1295`);
+  - **no password hash**, meaning no `user_credentials` row, so they cannot sign in;
+  - `provenance='demo'` and a visible "demo" badge in the UI;
+  - **`local-dev` only**. This is owner correction B, 2026-11-12. The original wording said "local-dev and staging-test". ADR-0005 allows staging seeds, but the owner chooses not to use them, so no ADR change is needed.
+- There are **no fake votes, endorsements or verifications**.
+- The team's real accounts create real `live` content through the app.
+- "No real users" in ADR-0005 point 17 means never impersonate real people.
+
+**The reason.** ADR-0005 point 17 and `DATABASE_DESIGN.md:1295` already plan these demo accounts, so this introduces nothing new.
+
+**The consequence.** SEED is unblocked and assigned to `PANK4SS`. The options below are kept as history.
+
+This item still applied after the ingestion was removed, because fixtures raise the same problem.
 
 - Every fixture root row requires a user foreign key:
   - `resources.created_by` and `providers.created_by` (`db/migrations/00006_discover.sql`);
@@ -441,16 +528,25 @@ This one still applies after the ingestion was removed, because fixtures raise t
 
 ### Open decisions
 
-**O1. The public demo URL. A recommendation, not a decision; the owner confirms it (H18).**
+**O1. The public demo URL. DECIDED 2026-11-12 (owner instruction: close).**
 
-- **Recommended:** the public CADEV demo URL is **`staging-test`**. It may carry demo fixtures with a visible demo label, plus the team's member content.
-- **`production-live` starts empty**, because seeds never run in production (ADR-0005 point 17, unchanged). It is still deployed, because G7 requires it.
-- **Consequence:** Learn series and lessons need no path into production for the demo. B5 stays OPEN, for after CADEV only.
-- Check against `docs/SHIP.md` section 6: staging is also hosted on Datacloud, and the URL must be public and usable (UNVERIFIED against the CADEV rules for which environment counts).
+**The decision.**
+
+- The CADEV submission URL is **`https://226os.tech`**, the `production-live` deployment, once it is deployed. Nothing is deployed there today; it shows the hosting provider's placeholder page (owner correction C, 2026-11-12).
+- Before submission it is populated with **real `live` content** created through the app by the team's real accounts.
+- `staging-test` (PROPOSAL: `staging.226os.tech`, owner to confirm) is a similar real environment. It has **no demo data** and is used for rehearsals with real accounts and real content (owner correction B, 2026-11-12).
+
+**The reason.** This does not depend on the unverified question of whether a staging URL counts for CADEV.
+
+**The consequences.**
+
+- The free series reaches production through the B5 content script.
+- The team needs a content window on production before submission, which needs Gmail SMTP working in production so accounts can verify their emails and publish (K38).
+- No seeds ever run in production (ADR-0005 point 17, unchanged).
 
 **O2. Where the shared pieces live.** These are listed in TODO.md under "Shared pieces": the rate limiter, the session resolver that defaults to anonymous, the `links[]` relation writer and reader, the audit-log writer, and the `EMAIL_NOT_VERIFIED` check.
 
-**O3. The 4 P1 routes.** `HandlerWithOptions` mounts them. The choice is between keeping them at 501 with gate coverage, or not mounting them.
+**O3. The 4 P1 routes. CLOSED by B1 (2026-11-12).** They are mounted and stay listed in `scripts/unimplemented-routes.txt`, where they answer 501.
 
 **O4. Resending the verification email.** ADR-0003 sets a resend rate limit of 3 per account per hour, but no P0 operation resends a verification email.
 
@@ -465,7 +561,7 @@ The provider is decided: Google AI Studio, Gemma 4, free tier (Decisions log). T
 - FR/EN behaviour.
 - The evaluation set and its pass criteria.
 - Whether anonymous users may call it, and the per-subject rate limit.
-- Who the second developer is.
+- Who the second developer is. **Assigned 2026-11-12:** `NICE-DEV226`, after Solve.
 
 **Facts from Google's terms.** Source: `https://aistudio.google.com/docs/terms`, "Effective March 23, 2026". The coordinator fetched this page and this review re-fetched it on 2026-11-12; label OFFICIAL.
 
@@ -523,9 +619,9 @@ The provider is decided: Google AI Studio, Gemma 4, free tier (Decisions log). T
 - The PRD amendment text stays a **proposal** for the owner and must say "prominence, not removal". This plan does not edit the PRD. Its number, 3.2 or 3.3, depends on H13.
 - The pillars stay one ecosystem (section 12.4).
 
-**O9. E5 backend owner.** OPEN. Proposed: `mibienpanjoe` or `NICE-DEV226`, after their first slice merges.
+**O9. E5 backend owner. Assigned 2026-11-12:** `NICE-DEV226`, after Solve, if time allows. It slips early (section 12.1).
 
-**O10. SEED owner and fixture writers.** OPEN. The owner names who implements `make seed` and who writes the original fixture text, including the 3 to 4 lesson series (H18).
+**O10. SEED owner and fixture writers. Assigned 2026-11-12:** `PANK4SS` writes the original fixture text, the SQL in `db/seeds` and `make seed`. Reviewed by `mibienpanjoe`; the `mk/50-ops.mk` change is also reviewed by `Y4NN777`, the area owner. The production copy of the series is the S4 content script (B5).
 
 ## 11. Risk register
 
@@ -533,7 +629,7 @@ The provider is decided: Google AI Studio, Gemma 4, free tier (Decisions log). T
 |---|---|---|---|
 | K1 | Capacity: 19 to 21 operations per backend developer, at 100% coverage with negative authz tests, in about 2.5 days | high (GUESS) | Sat 12:00 checkpoint, small PRs, the owner can ask for help (ADR-0008) |
 | K2 | Owner review bottleneck: the owner reviews frontend, S1 and much more while building S0, S6, S8 and S9 | high | Backend developers review each other (ADR-0008 "Consequences") |
-| K3 | B1 authz gate blocks the S0 merge | high | First S0 task, owner-reviewed |
+| K3 | B1 authz gate blocks the S0 merge | medium (B1 DECIDED; implementation pending) | First S0 task, with RED/GREEN proof, reviewed by `NICE-DEV226` |
 | K22 | B4: no release workflow, so production cannot be started under the existing guard | high | S8 builds the workflow by Sat; rehearse it on staging first |
 | K4 | Gmail SMTP daily sending limits and spam filtering | medium (GUESS) | Real inbox test on staging; Mailpit locally |
 | K5 | Datacloud account or product lead time | high (GUESS) | Start Thu evening (H6) |
@@ -543,7 +639,9 @@ The provider is decided: Google AI Studio, Gemma 4, free tier (Decisions log). T
 | K9 | The CSP has `style-src 'unsafe-inline'` (`src/web/nginx/security-headers.conf:2`) | medium | G4 review item; record as residual risk or remove |
 | K10 | `createProject` fetches GitHub with anti-SSRF controls (`api/openapi.yaml:1226`), a new outbound surface | medium | S5 threat model, owner co-review |
 | K11 | The rate-limit table is UNLOGGED, so counters reset after a crash | low | Accepted (ADR-0003) |
-| K12 | No demo content in production (O1) | medium | Recommended: the demo URL is staging; production starts empty. Owner confirms (H18). |
+| K12 | Thin content on the production demo URL (O1 DECIDED: production) | high | The team creates real `live` content through the app before submission; the series arrives through the content script (H19) |
+| K38 | The production content window is short: production deploys Sun morning, content must be created before the ~12:00 submission, and publishing needs a verified email, so Gmail SMTP must work in production | high (GUESS on timing) | Deploy production as early as G7 allows; rehearse the content run on staging Sat evening; test SMTP in production first |
+| K39 | Discover has no write operation (`AUTHORIZATION_MATRIX.md:37`), so the team cannot create Discover entries "through the app" in production | high | Owner decides whether the content-script pattern (B5) also covers a few original Discover entries |
 | K13 | S9 provider (Google AI Studio, Gemma 4): the model id and free-tier limits are UNKNOWN (V1, V2); third-party figures conflict | high | Owner verifies by Fri 13 evening; the fake adapter means work does not wait; provider can be switched by configuration |
 | K21 | **EEA rule (OFFICIAL, AI Studio terms):** only Paid Services may be offered to users in the EEA, Switzerland or the UK. INFERRED: a French UI and a public demo make EEA users likely, and the free tier cannot serve them. The free tier also allows human review and product use of the data, and forbids personal information. | high | Owner decides (V3): link the project to a billing account (paid terms; cost to be measured) or do not offer the assistant to EEA users (not realistic). Until then, the assistant is switchable off per environment. |
 | K14 | S9 key handling and quota or cost: key leak, quota exhausted during the demo | high | Key only in the env secret; per-subject rate limit; quota or cost guard; "assistant unavailable" degradation; no prompt logging of personal data or secrets |
@@ -555,9 +653,9 @@ The provider is decided: Google AI Studio, Gemma 4, free tier (Decisions log). T
 | K23 | E1, E2, E4, E5, SEED and the pillar change raise the total scope with no added people | high (GUESS; not quantified) | The slip order in section 12.1, decided at the Sat 12:00 checkpoint |
 | K28 | E5 privacy: a hidden field or a non-listable profile leaks through the list or the filters; scraping of the directory | high | Visibility-filtered projection and filters; email never selected; bounded `limit` (max 50, ADR-0004); a rate limit per IP and per user (window to be set by the owner, ADR-0003 has none for this route); privacy tests |
 | K29 | E5 adds an operation, so `apigen` regenerates and the 47-operation count in `contract_test.go` and `docs/quality/COVERAGE_SCOPE.md:17` changes; B1 applies to the new route | medium | Handled in the E5 contract PR, with owner approval for `COVERAGE_SCOPE.md` |
-| K24 | B5: no content path into production | low for CADEV (O1: the demo is on staging); open after CADEV | Owner picks a path after CADEV |
-| K36 | Thin demo content: only team-written fixtures and member content | medium | Small, deterministic, original fixtures (SEED), plus real member activity by the team on staging |
-| K37 | C15: fixture authors versus "no fake users" | medium | Owner ruling before SEED starts |
+| K24 | B5: no content path into production | medium (B5 DECIDED for CADEV: the content script) | Script reviewed in a PR, rehearsed on staging, run by the owner (H19) |
+| K36 | Thin content: staging and production hold only real content written by the team | medium | Real member activity by the team on staging (rehearsal) and on production (content window), plus the free-series script |
+| K37 | C15: fixture authors versus "no fake users" | low (DECIDED: non-real demo accounts that cannot sign in) | Seed tests: no credentials rows for demo accounts, no votes |
 | K25 | The relabel of learn topic `ai` changes its meaning, from "IA appliquée et langues africaines" (`db/migrations/00002_reference_taxonomy.sql:113`) to "Comprendre les LLM". Content already tagged `ai` (seeds, fixtures) may need re-tagging to `african-languages`. | low (INFERRED) | Check seeds and fixtures in the E2 PR |
 | K26 | E2 changes the reference lists, so `migrate_integration_test.go` (exact lists and counts at `:140-150`, `:180`, `:219`) fails unless it is updated in the same PR | medium | Same PR; owner review, because pgtest is in the platform area |
 | K20 | S9 sends user questions and platform content to a third-party provider. On the free tier, the content may be used to improve Google products and may be read by human reviewers (OFFICIAL). | high | The ADR fixes what is sent: the question text and retrieved public content, never emails, private data or secrets. The UI tells the user. |
@@ -585,8 +683,8 @@ If progress is behind at the Sat 12:00 checkpoint, the suggested order of what s
 | Citation not in the retrieved set (AI-2) | Only valid citations; refusal if none remain | Strips or rejects the citation; needs at least one | Fake answer cites an unknown id |
 | Prompt injection in retrieved content | A normal grounded answer, or a refusal | Retrieved text treated as untrusted data | Golden-set case with a planted instruction |
 | Secrets or emails in the question (AI-10) | The answer; a notice says the question is sent to Google | Redacted before sending; never logged | Assert the redacted payload at the fake adapter |
-| SEED: `make seed` run outside `local-dev` or `staging-test` | A refusal | Exits non-zero before touching the database | Refusal test for `APP_ENV=production-live` |
-| SEED: demo rows reach production | Never happens | A release check finds zero `provenance='demo'` rows in production (`docs/spec-kit/DATABASE_DESIGN.md:1296`) | The check in the G7 evidence |
+| SEED: `make seed` run outside `local-dev` | A refusal | Exits non-zero before touching the database | Refusal tests for `APP_ENV=staging-test` and `production-live` |
+| SEED: demo rows reach staging or production | Never happens | A check finds zero `provenance='demo'` rows on **both** staging and production (`docs/spec-kit/DATABASE_DESIGN.md:1296`, extended to staging) | The check in the G7 evidence, for both environments |
 | SEED: a fixture is mistaken for real activity | A visible demo badge | `provenance='demo'` rendered as a badge; no fake votes or applications | UI test for the badge; a seed test that no votes or applications are seeded |
 | E5: a hidden field or a non-listable profile appears in the list | Never happens | Visibility-filtered projection; filters only on caller-visible fields; email never selected; non-listable profiles excluded (C14) | Privacy tests: a hidden field is absent; filtering on a hidden field does not match; no email key; a non-listable profile is absent from the list and its direct read returns 404 |
 | E5: listing abuse or scraping | 429 with `Retry-After` past the limit | Bounded `limit` (above 50 returns 422), cursor only, per-IP and per-user rate limit | Limit-51 test; N+1 rate-limit test |
@@ -666,6 +764,14 @@ All pillars share the same spine. That is why making two of them prominent remov
 | 2026-11-12 | **E5 accepted: Connect as a people directory.**<br>- A new read-only operation, suggested `GET /profiles`, with country, language and skill filters and cursor pagination.<br>- Public fields only, filtered by `field_visibility`. Email is never returned, and private profiles are never listed.<br>- Anonymous callers and members are both allowed.<br>- This is a contract change: the contract PR comes first (backend lead plus `PANK4SS`), with `make generate`. P0 then has 44 operations.<br>- The route goes in `scripts/public-routes.txt`.<br>- The `connect` page gets the people list. Spaces stays "bientôt".<br>- Office hours: a process note only.<br>- Mentoring, CV review, interview preparation, study groups and opportunities are not in scope and are shown as coming soon.<br>- The backend owner is OPEN.<br>C14 (no profile-level visibility column) needs a ruling first. | `Y4NN777` |
 | 2026-11-12 | **Pillars.** "Learn & Grow" and "Connect" are the two prominent pillars. O7 is extended: the PRD amendment must cover both and end the equal weight of 3.1. It is OPEN, and the owner approves its text. Meanwhile `PANK4SS` changes only the navigation, home and FR/EN copy, with no new endpoints. **The wording was replaced later the same day:** prominence only, no demotion (see the entry below). | `Y4NN777` |
 | 2026-11-12 | **SUPERSEDED. Content strategy: aggregation first.** S11 was replaced by an ingestion slice, S12: an ingestion CLI, source allowlist, connectors, `provenance='aggregated'`, a pinned snapshot, `make ingest`, and scraping rules. H14, O8 and K27 were removed. **Superseded by the next entry.** | `Y4NN777` |
-| 2026-11-12 | **No third-party content (supersedes aggregation first).**<br>- **Reasons:** originality and the CADEV third-party rules (`docs/SHIP.md` section 6), copyright and terms of use, and licence overhead.<br>- **Removed:** S12 (ingestion and curated paths), the `aggregated` provenance migration, `make ingest`, the scraping criteria, the ingestion human tasks and open decisions, risks K30 to K35, and contradictions C16 to C18. C15 is kept, reworded for demo fixtures.<br>- **Content is original:** (a) member content by the team's real accounts through the app (`live`); (b) small deterministic demo fixtures in `db/seeds`, original team text, `provenance='demo'`, visibly marked, no fake users or votes, `local-dev` and `staging-test` only (ADR-0005 point 17, unchanged).<br>- `make seed` is a task again (SEED), with its owner OPEN.<br>- The Learn series is a demo fixture of 3 to 4 short original lessons. Each lesson is a `learn_article` of kind `tutorial` referenced by `training_lessons.article_id`.<br>- External material stays as references and as source links on Discover entries.<br>- **O1 recommended:** the demo URL is `staging-test`, and production starts empty. B5 is OPEN for after CADEV only.<br>- No new ADR is needed. | `Y4NN777` |
+| 2026-11-12 | **No third-party content (supersedes aggregation first).**<br>- **Reasons:** originality and the CADEV third-party rules (`docs/SHIP.md` section 6), copyright and terms of use, and licence overhead.<br>- **Removed:** S12 (ingestion and curated paths), the `aggregated` provenance migration, `make ingest`, the scraping criteria, the ingestion human tasks and open decisions, risks K30 to K35, and contradictions C16 to C18. C15 is kept, reworded for demo fixtures.<br>- **Content is original:** (a) member content by the team's real accounts through the app (`live`); (b) small deterministic demo fixtures in `db/seeds`, original team text, `provenance='demo'`, visibly marked, no fake users or votes, `local-dev` and `staging-test` only (ADR-0005 point 17, unchanged).<br>- `make seed` is a task again (SEED), with its owner OPEN.<br>- The Learn series is a demo fixture of 3 to 4 short original lessons. Each lesson is a `learn_article` of kind `tutorial` referenced by `training_lessons.article_id`.<br>- External material stays as references and as source links on Discover entries.<br>- **O1 recommended:** the demo URL is `staging-test`, and production starts empty. B5 is OPEN for after CADEV only.<br>- No new ADR is needed.<br>**Parts superseded the same day:** the fixture environments (now `local-dev` only), O1 (now production) and B5 (now the content script). See the entries below. | `Y4NN777` |
 | 2026-11-12 | **Pillars, wording replaced (O7).** Learn & Grow and Connect are prominent in navigation, home and wording only. No PRD pillar is erased or demoted; all nine domains and four differentiators stay. The amendment text stays a proposal that says "prominence, not removal". The coherence spine is in section 12.4. | `Y4NN777` |
+| 2026-11-12 | **CADEV team registration DONE (H9).** | `Y4NN777` |
+| 2026-11-12 | **DECIDED (owner instruction: close) B1, the authz gate.**<br>- Mount through `HandlerWithOptions`.<br>- Every mounted route must be in `scripts/public-routes.txt`, in `scripts/unimplemented-routes.txt` (starts with all 47 and shrinks), or in `scripts/authz-tests.txt` (route mapped to a negative authz Go test, whose existence is checked with `go test -list`).<br>- The gate fails on a route in none of the three, or on a handler built outside `httpx.NewRouter`.<br>- RED/GREEN proof is required.<br>**Reason:** mounts the contract without weakening the gate. **Consequence:** O3 is closed, and each slice moves its routes out of the unimplemented list. **APPROVED as written** (owner correction A). | `Y4NN777` |
+| 2026-11-12 | **DECIDED (owner instruction: close) C15, fixture authors.**<br>- Non-real demo accounts: a `demo-` prefix, an email on the reserved invalid domain, no password hash so they cannot sign in, `provenance='demo'`, a visible badge.<br>- No fake votes, endorsements or verifications.<br>- "No real users" in ADR-0005 means never impersonate real people.<br>**Reason:** already planned by ADR-0005 point 17 and `DATABASE_DESIGN.md:1295`. **Consequence:** SEED is unblocked and goes to `PANK4SS`, reviewed by `mibienpanjoe`. | `Y4NN777` |
+| 2026-11-12 | **DECIDED (owner instruction: close) O1 and B5, the URL and the series.**<br>- The CADEV URL is `production-live` on the project domain, populated with real `live` content created by the team's real accounts through the app before submission.<br>- The free series reaches production through a one-time, PR-reviewed, owner-run content script in `scripts/content/`. It is neither a seed nor a migration. It needs explicit confirmation, attributes the lessons to the owner's real account looked up by username, uses `provenance='live'`, and its run date goes in the Done log.<br>- It is an S4 task: `mibienpanjoe` writes it and `Y4NN777` runs it.<br>- A restricted create endpoint stays a post-CADEV option.<br>**Reason:** does not depend on whether staging counts for CADEV. **Consequence:** K38 (short content window), K39 (no Discover write path). | `Y4NN777` |
+| 2026-11-12 | **Assignments** (every OPEN owner replaced):<br>- `Y4NN777`: S0, S6, S8, S9 (second developer `NICE-DEV226`, after Solve), and frontend reviews.<br>- `NICE-DEV226`: S1, then S3, then the E5 backend if time allows.<br>- `mibienpanjoe`: S2, S4 (with the content script), S5, and the E2 migration as the single migration writer.<br>- `PANK4SS`: S7 (pillar navigation), E4, the E5 UI and SEED, plus on-demand support.<br>- S10 is unassigned and conditional.<br>Reviewer pairs are as in section 4. | `Y4NN777` |
+| 2026-11-12 | **Helpers (owner amendment).**<br>- `Y4NN777` and `NICE-DEV226` are named helpers on `mibienpanjoe`'s S2, S4, S5, E2 and content script. They are co-workers on the PR. `mibienpanjoe` stays accountable and is still the only migration writer.<br>- Default split after Solve: `NICE-DEV226` helps on S5, `Y4NN777` helps on S4 and the content script.<br>- The Fri 13 Nov 23:00 checkpoint decides who helps first. This replaces the "`NICE-DEV226` takes Build" fallback.<br>- `PANK4SS` supports anyone on demand, as a co-worker on the PR, without changing frontend ownership. | `Y4NN777` |
+| 2026-11-12 | **Owner correction B, fixtures.**<br>- `staging-test` and `production-live` are similar real environments, and neither has demo data. Only `local-dev` has demo fixtures.<br>- `make seed` refuses everywhere except `local-dev`. This is stricter than ADR-0005 point 17, which allows `local-dev` and `staging-test`; the owner chooses not to use staging seeds, so **no ADR change is needed**.<br>- Demo accounts exist only in `local-dev`. SEED serves local development and e2e.<br>- The deployment checklist checks zero `demo` rows on both staging and production.<br>- The free-series content script runs on staging and on production with the same procedure. | `Y4NN777` |
+| 2026-11-12 | **Owner correction C, domain.**<br>- `226os.tech` exists and the owner holds it, but nothing is deployed on it; it shows the hosting provider's placeholder page.<br>- The CADEV URL is `https://226os.tech` once `production-live` is deployed.<br>- Staging uses a subdomain: PROPOSAL `staging.226os.tech`, owner to confirm.<br>- H7: A records for the apex and the staging subdomain once the Datacloud host IP is known. TLS follows only after DNS resolves. | `Y4NN777` |
 | 2026-11-12 | **OPEN, not applied.** "Learn as the heart": a PRD amendment 3.2 or 3.3 ending the equal pillar weight of 3.1, or equal weight kept and only topics, series and home ordering change (O7). S10 is unchanged: it is conditional on the Sat 12:00 checkpoint, and if built it displaces E4-type work. | `Y4NN777` (pending) |
