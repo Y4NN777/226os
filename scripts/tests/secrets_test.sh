@@ -133,6 +133,28 @@ if command -v sops >/dev/null 2>&1 && command -v age-keygen >/dev/null 2>&1; the
   mkdir -p "$tmp/out3"
   run "the added recipient can now decrypt" pass "" SECRETS_DIR="$sd" SECRETS_OUT_DIR="$tmp/out3" SOPS_AGE_KEY_FILE="$k2" -- decrypt staging-test
   if "$root/scripts/check-secrets-encrypted.sh" "$sd" >/dev/null 2>&1; then ok "the rotated file still passes the encryption check"; else ko "rotated file fails the encryption check"; fi
+
+  # local-dev only: init generates the three secrets, so nobody has to invent them (staging and production stay manual).
+  printf '%s\n' "$pub1" >"$sd/local-dev.recipients"
+  printf 'APP_ENV=local-dev\nPOSTGRES_USER=u\nPOSTGRES_PASSWORD=CHANGE_ME\nDATABASE_URL=postgres://u:CHANGE_ME@postgres:5432/d?sslmode=disable\nCURSOR_KEY=CHANGE_ME\nSMTP_HOST=\n' >"$tmp/template-ld.env"
+  ldenv=(SECRETS_DIR="$sd" SECRETS_OUT_DIR="$tmp/out-ld" SECRETS_ENV_TEMPLATE="$tmp/template-ld.env" SOPS_AGE_KEY_FILE="$k1")
+  mkdir -p "$tmp/out-ld"
+  run "init local-dev generates its secrets" pass "" "${ldenv[@]}" -- init local-dev
+  run "decrypt of the generated local-dev file" pass "" "${ldenv[@]}" -- decrypt local-dev
+  ld="$tmp/out-ld/.env.local-dev"
+  if grep -q CHANGE_ME "$ld"; then ko "a CHANGE_ME placeholder is left in the generated local-dev file"; else ok "no placeholder left in local-dev"; fi
+  pw="$(sed -n 's/^POSTGRES_PASSWORD=//p' "$ld")"
+  if [[ "$pw" =~ ^[0-9a-f]{32}$ ]]; then ok "POSTGRES_PASSWORD is 32 random hex characters"; else ko "POSTGRES_PASSWORD has an unexpected shape"; fi
+  if grep -qxF "DATABASE_URL=postgres://u:${pw}@postgres:5432/d?sslmode=disable" "$ld"; then ok "DATABASE_URL carries the same password"; else ko "DATABASE_URL does not match POSTGRES_PASSWORD"; fi
+  ck="$(sed -n 's/^CURSOR_KEY=//p' "$ld")"
+  if [ "$(printf '%s' "$ck" | base64 -d 2>/dev/null | wc -c)" -eq 32 ]; then ok "CURSOR_KEY is 32 random bytes, base64"; else ko "CURSOR_KEY is not 32 base64 bytes"; fi
+  grep -qx 'APP_ENV=local-dev' "$ld" && grep -qx 'SMTP_HOST=' "$ld" && ok "the non-secret values are untouched" || ko "non-secret values changed"
+  "$root/scripts/check-secrets-encrypted.sh" "$sd" >/dev/null 2>&1 && ok "the generated file passes the encryption check" || ko "generated file fails the encryption check"
+  rm "$sd/local-dev.enc.env" "$ld"
+  run "a second init generates different values" pass "" "${ldenv[@]}" -- init local-dev
+  run "decrypt of the second file" pass "" "${ldenv[@]}" -- decrypt local-dev
+  [ "$(sed -n 's/^POSTGRES_PASSWORD=//p' "$ld")" != "$pw" ] && ok "values differ between two inits" || ko "the same password was generated twice"
+  rm "$sd/local-dev.enc.env" "$sd/local-dev.recipients"
 else
   notrun=1
   printf 'NOT RUN - the encrypt, decrypt and rotate round trip needs sops and age-keygen on PATH (not found)\n'
