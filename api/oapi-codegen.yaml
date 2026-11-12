@@ -1,0 +1,12 @@
+# oapi-codegen configuration (ADR-0004). Reproduce with `scripts/check-generated.sh generate`
+# or: go tool oapi-codegen -config api/oapi-codegen.yaml api/openapi.yaml
+# Output is committed and never hand-edited; scripts/check-generated.sh fails on drift.
+package: apigen
+output: apps/api/internal/platform/apigen/apigen.gen.go
+generate:
+  models: true
+  chi-server: true
+output-options:
+  # Enum Valid() methods are not generated: request validation is done against the
+  # spec, and the methods only add untestable-by-contract statements (coverage).
+  skip-enum-validate: true

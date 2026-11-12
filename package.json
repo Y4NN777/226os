@@ -1,0 +1,13 @@
+{
+  "name": "226os",
+  "private": true,
+  "packageManager": "pnpm@10.32.1",
+  "engines": {
+    "node": ">=24"
+  },
+  "devDependencies": {
+    "@redocly/cli": "2.77.0",
+    "openapi-typescript": "7.13.0",
+    "typescript": "5.9.3"
+  }
+}

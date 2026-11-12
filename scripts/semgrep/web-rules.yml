@@ -1,0 +1,82 @@
+# First-party Semgrep rules for the TypeScript/React frontend (G4 SAST, ADR-0006).
+# Written and owned by this repository (same licence as the project), so no third-party rule licence
+# applies and results never drift with a registry. Rules cover DOM XSS sinks and unsafe browser
+# patterns; they are intentionally small and precise. The registry rule packs (semgrep-rules) are NOT
+# vendored: they are under the Semgrep Rules License v1.0, which is not an open-source licence.
+# Any rule hit is a finding (scripts/sast-js.sh runs with --error). Do not suppress with nosemgrep without
+# a reviewed justification next to the comment.
+rules:
+  - id: 226os.js.no-eval
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: eval() executes strings as code (code injection). Use a data structure or a parser instead.
+    pattern: eval(...)
+
+  - id: 226os.js.no-new-function
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: new Function(...) compiles a string to code (code injection).
+    pattern: new Function(...)
+
+  - id: 226os.js.string-timer
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: A string passed to setTimeout/setInterval is evaluated as code. Pass a function.
+    pattern-either:
+      - pattern: setTimeout("...", ...)
+      - pattern: setInterval("...", ...)
+
+  - id: 226os.react.no-dangerously-set-inner-html
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: dangerouslySetInnerHTML is an XSS sink. Render text through React, or sanitize with a reviewed sanitizer and add an authz/XSS test.
+    pattern: <$EL ... dangerouslySetInnerHTML={...} ... />
+
+  - id: 226os.dom.no-inner-html-assignment
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: Assigning innerHTML/outerHTML is an XSS sink. Use textContent or React rendering.
+    patterns:
+      - pattern-either:
+          - pattern: $EL.innerHTML = $X
+          - pattern: $EL.outerHTML = $X
+          - pattern: $EL.insertAdjacentHTML(...)
+      # A constant string literal carries no data and cannot be injected (e.g. the test setup
+      # `document.body.innerHTML = '<div id="root"></div>'` in apps/web/src/main.test.tsx).
+      - pattern-not: $EL.innerHTML = "..."
+      - pattern-not: $EL.outerHTML = "..."
+
+  - id: 226os.dom.no-document-write
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: document.write is an XSS sink and blocks parsing.
+    pattern-either:
+      - pattern: document.write(...)
+      - pattern: document.writeln(...)
+
+  - id: 226os.dom.postmessage-wildcard-origin
+    languages: [typescript, javascript]
+    severity: WARNING
+    message: postMessage with a "*" target origin leaks data to any origin. Name the exact origin.
+    pattern: $W.postMessage($M, "*")
+
+  - id: 226os.storage.token-in-web-storage
+    languages: [typescript, javascript]
+    severity: WARNING
+    message: Tokens and secrets must not be kept in localStorage/sessionStorage (readable by any script, XSS impact). Use HttpOnly cookies.
+    patterns:
+      - pattern-either:
+          - pattern: localStorage.setItem($K, ...)
+          - pattern: sessionStorage.setItem($K, ...)
+      - metavariable-regex:
+          metavariable: $K
+          regex: (?i).*(token|jwt|secret|password|session).*
+
+  - id: 226os.react.target-blank-without-noopener
+    languages: [typescript, javascript]
+    severity: WARNING
+    message: target="_blank" links need rel="noopener noreferrer" (reverse tabnabbing).
+    patterns:
+      - pattern: <a ... target="_blank" ... />
+      - pattern-not: <a ... rel="..." ... />
+      - pattern-not: <a ... rel={...} ... />
