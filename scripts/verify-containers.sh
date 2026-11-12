@@ -46,6 +46,8 @@ done < <(grep -E '^[[:space:]]+image:' compose.yaml)
 [ "$bad" -eq 0 ] && pass "compose.yaml: external images pinned by digest"
 
 # 2. Dummy env files, one per profile, then `compose config` + policy checks on the resolved model.
+# A throwaway random value per run (never a literal key-shaped string in the source).
+cursor_key="$(head -c 32 /dev/urandom | base64 -w0 | tr '+/' '-_' | tr -d '=')"
 mk_env() { # profile
   cat >"$tmp/env.$1" <<ENV
 APP_ENV=$1
@@ -53,6 +55,7 @@ POSTGRES_USER=app226
 POSTGRES_DB=app226
 POSTGRES_PASSWORD=dummy-not-a-secret
 DATABASE_URL=postgres://app226:dummy-not-a-secret@postgres:5432/app226?sslmode=disable
+CURSOR_KEY=$cursor_key
 PUBLIC_HOST=verify.example.test
 ACME_EMAIL=ops@example.test
 ENV
@@ -75,8 +78,8 @@ if not svcs:
 for name, s in svcs.items():
     if name == "postgres" and s.get("ports"):
         errs.append("postgres publishes ports")
-    if s.get("ports") and not name.startswith("traefik"):
-        errs.append(f"{name} publishes ports (only traefik may)")
+    if s.get("ports") and not name.startswith("traefik") and not (name == "mailpit" and profile == "local-dev"):
+        errs.append(f"{name} publishes ports (only traefik, and mailpit in local-dev, may)")
     for p in s.get("ports", []):
         if profile != "local-dev" and name == "traefik" and p.get("published") not in ("80", "443"):
             errs.append(f"traefik unexpected port {p}")
@@ -112,9 +115,21 @@ for name, s in svcs.items():
         errs.append(f"{name} APP_ENV={env['APP_ENV']} != profile {profile}")
 if not cfg["networks"]["backend"].get("internal"):
     errs.append("backend network is not internal")
-if "api" in svcs and "DATABASE_URL" in (svcs["api"].get("environment") or {}):
-    errs.append("api receives DATABASE_URL before it has database code")
-expected = {"local-dev": {"postgres", "migrate", "api", "web", "traefik-local"},
+# The API has database code (S0): it must receive its two secrets, and no other service may get the
+# cursor-signing key.
+api_env = (svcs.get("api") or {}).get("environment") or {}
+for var in ("DATABASE_URL", "CURSOR_KEY"):
+    if "api" in svcs and var not in api_env:
+        errs.append(f"api does not receive {var}")
+for name, s in svcs.items():
+    if name != "api" and "CURSOR_KEY" in (s.get("environment") or {}):
+        errs.append(f"{name} receives CURSOR_KEY (the API only)")
+    if name != "api" and "SMTP_PASSWORD" in (s.get("environment") or {}):
+        errs.append(f"{name} receives SMTP_PASSWORD (the API only)")
+# The mail catcher is a local-dev convenience: it must never exist in a deployed profile.
+if profile != "local-dev" and "mailpit" in svcs:
+    errs.append("mailpit is selected outside local-dev")
+expected = {"local-dev": {"postgres", "migrate", "api", "web", "traefik-local", "mailpit"},
             "staging-test": {"postgres", "api", "web", "traefik", "acme-init"},
             "production-live": {"postgres", "api", "web", "traefik", "acme-init"}}[profile]
 if set(svcs) != expected:

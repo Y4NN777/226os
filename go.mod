@@ -3,6 +3,7 @@ module github.com/Y4NN777/226os
 go 1.27.4
 
 require (
+	github.com/getkin/kin-openapi v0.149.0
 	github.com/go-chi/chi/v5 v5.5.0
 	github.com/jackc/pgx/v5 v5.13.0
 	github.com/oapi-codegen/runtime v1.9.0
@@ -93,7 +94,6 @@ require (
 	github.com/firefart/nonamedreturns v1.0.8 // indirect
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/fzipp/gocyclo v0.6.0 // indirect
-	github.com/getkin/kin-openapi v0.142.0 // indirect
 	github.com/ghostiam/protogetter v1.0.1 // indirect
 	github.com/go-critic/go-critic v0.15.0 // indirect
 	github.com/go-faster/city v1.0.1 // indirect

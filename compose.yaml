@@ -78,6 +78,31 @@ services:
     depends_on: { postgres: { condition: service_healthy } }
     deploy: { resources: { limits: { cpus: "0.5", memory: 128M, pids: 50 } } }
 
+  # local-dev only: catches every mail the API sends, so no real mail ever leaves a developer machine.
+  # Mailpit v1.33.1 (MIT), pinned by digest. In-memory store (no volume), loopback-only host ports
+  # (SMTP 1025 for `go run ./src/api/cmd/mailcheck`, UI and API 8025). It joins `edge` only because a
+  # published port needs a network that is not `internal`; the API reaches it on `backend`.
+  mailpit:
+    <<: *hardened
+    image: axllent/mailpit@sha256:aef2aacc11f075ec0fb6874275ee4a421e688e11a96ebb296134d1735c7761ce
+    profiles: [local-dev]
+    user: "65532:65532"
+    environment:
+      MP_SMTP_BIND_ADDR: "0.0.0.0:1025"
+      MP_UI_BIND_ADDR: "0.0.0.0:8025"
+    ports:
+      - "127.0.0.1:1025:1025"
+      - "127.0.0.1:8025:8025"
+    tmpfs: [/tmp]
+    networks: [edge, backend]
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    deploy: { resources: { limits: { cpus: "0.25", memory: 128M, pids: 50 } } }
+
   api:
     <<: *hardened
     image: ${API_IMAGE:-226os-api:dev}
@@ -87,7 +112,16 @@ services:
     environment:
       APP_ENV: ${APP_ENV:?set APP_ENV}
       API_ADDR: ":8080"
-    # DATABASE_URL is deliberately not passed yet: the API has no database code (B0).
+      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL}
+      CURSOR_KEY: ${CURSOR_KEY:?set CURSOR_KEY}
+      # Outgoing mail (optional as a group). local-dev points at the mailpit service below; staging-test and
+      # production-live use the Gmail SMTP app password from their env file (never from Git).
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      SMTP_TLS: ${SMTP_TLS:-}
     networks: [edge, backend]
     healthcheck:
       # Distroless has no shell; busybox wget is copied into the image just for this probe.

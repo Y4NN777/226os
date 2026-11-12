@@ -9,7 +9,7 @@
 
 226os est une plateforme qui relie l'entraide technique, les ressources utiles aux développeurs africains, les projets open source, l'apprentissage et les personnes qui font avancer tout cela. Le but n'est pas d'ajouter un forum, un annuaire d'API ou un réseau professionnel de plus, mais de raccourcir le chemin entre un problème rencontré, une solution documentée et une contribution que d'autres peuvent réutiliser.
 
-Son positionnement : **l'Afrique de l'Ouest d'abord, puis toute l'Afrique**. La plateforme part du contexte ouest-africain et s'adresse ensuite aux développeurs de tout le continent, quels que soient leur pays, leur langue ou leur niveau.
+Son positionnement : **Burkina Faso et Afrique de l'Ouest d'abord, puis toute l'Afrique**. La plateforme part du contexte ouest-africain et s'adresse ensuite aux développeurs de tout le continent, quels que soient leur pays, leur langue ou leur niveau.
 
 226os se lit « 226 Open Stack » : 226 est l'indicatif téléphonique du Burkina Faso.
 
@@ -74,7 +74,7 @@ Apprendre irrigue ces quatre expériences : un article renvoie vers les questio
 
 ## État du projet
 
-- **Bootstrap B0 fusionné** (PR #24) : squelette d'API Go qui ne sert que `GET /healthz`, migrations `00001` à `00010`, code généré depuis `api/openapi.yaml` (pas encore monté), requêtes sqlc d'identité et de référence, squelette web (Vite, React 19, TanStack, Astryx 0.7.14), profils Compose, cibles Make et CI.
+- **Bootstrap B0 et cœur de l'API (S0) fusionnés** (PR #24, #31 à #39) : API Go avec `GET /healthz`, `GET /readyz` et les 47 opérations du contrat montées sous `/api/v1` (encore en 501 tant que leur tranche n'est pas livrée), validation du contrat, erreurs problem+json, curseurs signés, idempotence, envoi de mail, migrations `00001` à `00010`, requêtes sqlc d'identité et de référence, squelette web (Vite, React 19, TanStack, Astryx 0.7.14), profils Compose, cibles Make et CI.
 - **Implémentation P0 en cours**, découpée en tranches dans [ROADMAP.md](ROADMAP.md) et suivie dans [TODO.md](TODO.md). Le contrat compte aujourd'hui 43 opérations P0.
 - **Gates :** la CI lance `make quality` (G1 à G4) sur chaque PR vers `develop` ou `main`. G5 (e2e), G6 (performance) et G7 (livraison) sont **NOT RUN**.
 - **Rien n'est déployé**, ni en préproduction ni en production.
@@ -195,4 +195,4 @@ Le **code original de 226os** est publié sous licence [Apache 2.0](LICENSE) (vo
 
 ---
 
-**226os part de l'Afrique de l'Ouest. Son terrain de collaboration dépasse les frontières.**
+**226os part du Burkina et de l'Afrique de l'Ouest. Son terrain de collaboration dépasse les frontières.**

@@ -133,3 +133,131 @@ open_risks:
   - "the West Africa country list follows the UN geoscheme from memory and is to be verified"
   - "PRD amendment 3.2 is proposed until the owner approves it on the PR"
 ```
+
+## S0 authz gate (B1) record
+
+```yaml
+date: "2026-11-12"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code, Claude Sonnet 5.5"
+purpose: "Implement the B1 route gate: three route lists, test-name existence check, scan for routers built outside httpx.NewRouter"
+repository_or_source_context: "TODO.md S0, ROADMAP.md B1, scripts/check-authz-routes.sh, api/openapi.yaml"
+files_or_sections_affected: ["scripts/check-authz-routes.sh", "scripts/authz/routes_check.go.txt", "scripts/tests/authz-routes_test.sh", "scripts/public-routes.txt", "scripts/unimplemented-routes.txt", "scripts/authz-tests.txt", "TODO.md", "AI_USAGE.md"]
+third_party_sources_consulted: []
+license_review: PENDING
+human_reviewers: ["NICE-DEV226 (S0 reviewer)"]
+tests_or_evidence: ["scripts/tests/authz-routes_test.sh: RED 11 of 13 before the change; second RED 8 of 21 on skeptic bypasses; third RED 3 of 25 on TestAuthz convention, NotFound handler and interface registration; 25 of 25 after"]
+open_risks: ["the outside-NewRouter scan is syntactic; middleware in httpx that short-circuits a path is covered by owner review of router.go only", "the silent-pass guards (empty test list, test did not run) have no RED test", "a mapped TestAuthz test is checked for name, operationId prefix and direct t.Skip only, not for what it asserts", "the 501 probe is to be replaced by a method-set check in api-mount (TODO S0)"]
+```
+
+## S0 authz gate hardening record
+
+```yaml
+date: "2026-11-12"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code, Claude Sonnet 5.5"
+purpose: "Close the open gaps of the B1 gate: Docker coupling, hollow test mappings, silent-pass guard"
+repository_or_source_context: "PR #31 review findings, TODO.md S0"
+files_or_sections_affected: ["scripts/check-authz-routes.sh", "scripts/authz/routes_check.go.txt", "scripts/tests/authz-routes_test.sh", "src/api/internal/platform/httpx/router_test.go", "TODO.md", "AI_USAGE.md"]
+third_party_sources_consulted: []
+license_review: PENDING
+human_reviewers: ["NICE-DEV226 (S0 reviewer)"]
+tests_or_evidence: ["scripts/tests/authz-routes_test.sh: RED 6 of 40 (Docker coupling, content rules, silent-pass guard), then RED 12 of 53 after the second skeptic review (toolchain-ignored test files, same-declaration, parent path, false positives); GREEN 53 of 53 (about 22 s)"]
+open_risks: ["a mapped test is checked syntactically (route named, denial status mentioned, no skip outside testing.Short), not for what it really asserts: unused literals, dead code and an aliased t.Skip still pass and are review matters", "a planted init() or TestMain in package httpx could print a forged PASS line (repo-write attacker, review matter)", "GOPROXY and GOTOOLCHAIN from the caller are not scrubbed", "the 501 probe is replaced in api-mount"]
+```
+
+## S0 api-mount record
+
+```yaml
+date: "2026-11-12"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code, Claude Sonnet 5.5 (orchestration) and go-implementer subagents (Sonnet)"
+purpose: "S0 api-mount: pgxpool and /readyz, apigen mount, problem+json error table, cursor codec, spec-driven request validation, transaction runner, subject port, gate adaptation"
+repository_or_source_context: "TODO.md S0, ADR-0003, ADR-0004, api/openapi.yaml, scripts/check-authz-routes.sh"
+files_or_sections_affected: ["src/api/internal/platform/{apperr,cursor,apispec,db,subject,httpx,config}/**", "src/api/internal/app/**", "src/api/internal/platform/pgtest/tx_integration_test.go", "scripts/{check-authz-routes.sh,check-generated.sh,public-routes.txt,router-middleware.txt,authz/routes_check.go.txt,tests/authz-routes_test.sh}", "compose.yaml", ".env.example", ".claude/settings.json", "TODO.md", "AI_USAGE.md"]
+third_party_sources_consulted: ["github.com/getkin/kin-openapi (v0.142.0 already in go.sum, promoted from indirect to direct, then bumped to v0.149.0 because govulncheck reported 8 advisories fixed up to v0.149.0)"]
+license_review: PENDING
+human_reviewers: ["NICE-DEV226 (S0 reviewer)"]
+tests_or_evidence: ["per-slice RED then GREEN reported by the implementers; see the PR description"]
+open_risks: ["doc.OpenAPI is set to 3.0.3 at runtime so kin-openapi uses its keyword-reporting schema engine for a 3.1 contract", "the Content-Type violation code (C5) and METHOD_NOT_ALLOWED are outside the contract enum", "scripts/verify-containers.sh: the B0 rule 'api must not receive DATABASE_URL' is inverted (api must receive DATABASE_URL and CURSOR_KEY; no other service gets CURSOR_KEY)", "cursors carry no expiry (ADR-0004 point 5 says expired cursors are refused); not decided"]
+```
+
+## S0 idempotency and ETag record
+
+```yaml
+date: "2026-11-12"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code, Claude Sonnet 5.5 (orchestration) and go-implementer subagents (Sonnet)"
+purpose: "S0 Idempotency-Key middleware and store, ETag/If-Match helper, review fixes, B2 and B3 proposals"
+repository_or_source_context: "TODO.md S0, ADR-0004 points 6 and 7, db/migrations/00004, api/openapi.yaml"
+files_or_sections_affected: ["src/api/internal/platform/{idempotency,etag}/**", "src/api/internal/platform/httpx/{router.go,router_test.go,validate_test.go}", "src/api/internal/app/**", "src/api/internal/platform/pgtest/idempotency_integration_test.go", "scripts/{router-middleware.txt,secrets-scan.sh,gitleaks-ignore.txt,verify-containers.sh,tests/authz-routes_test.sh}", "TODO.md", "AI_USAGE.md"]
+third_party_sources_consulted: ["RFC 9110 sections 5.6.1.2 and 8.8.3 (read from memory of the standard; not fetched)"]
+license_review: PENDING
+human_reviewers: ["NICE-DEV226 (S0 reviewer)"]
+tests_or_evidence: ["skeptic review reproduced a cross-resource replay (hash covered the route template only), fixed test-first; unit and PostgreSQL integration tests per finding"]
+open_risks: ["the idempotency row is outside the business transaction (crash window of 2 minutes)", "bodies over the 16 KiB column check replay without a body", "scripts/gitleaks-ignore.txt holds one fingerprint for a dummy value already in pushed history"]
+```
+
+## S0 mailer record
+
+```yaml
+date: "2026-11-12"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code, Claude Sonnet 5.5 (orchestration) and go-implementer subagents (Sonnet)"
+purpose: "S0 mailer port, SMTP adapter, fake, Mailpit service, mailcheck command, DoD run"
+repository_or_source_context: "TODO.md S0, ADR-0003, ADR-0006, compose.yaml, scripts/verify-containers.sh"
+files_or_sections_affected: ["src/api/internal/platform/{mailer,config}/**", "src/api/internal/app/**", "src/api/cmd/mailcheck/**", "compose.yaml", ".env.example", "scripts/verify-containers.sh", "TODO.md", "AI_USAGE.md"]
+third_party_sources_consulted: ["axllent/mailpit v1.33.1 image (MIT), pinned by digest sha256:aef2aacc...61ce after `docker pull`"]
+license_review: PENDING
+human_reviewers: ["NICE-DEV226 (S0 reviewer)"]
+tests_or_evidence: ["make up-local-dev on an isolated Compose project: /readyz 200 inside the api container, mailcheck delivered a test mail to Mailpit (message count 1)"]
+open_risks: ["Gmail STARTTLS with the app password was not exercised (NOT RUN, H8)", "only AUTH PLAIN is supported", "a throwaway volume os226-s0-dod_pgdata remains on the developer machine"]
+```
+
+## S0 follow-ups record
+
+```yaml
+date: "2026-11-12"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code, Claude Sonnet 5.5 (orchestration) and a go-implementer subagent (Sonnet)"
+purpose: "Close the open points of the reviews of PRs #33 to #35: cursor expiry, problem+json request timeout, mixed-case media type, subject fallback, idempotency query-parameter guard"
+repository_or_source_context: "review threads of PRs #33 and #34, ADR-0004 points 5 and 8, TODO.md S0"
+files_or_sections_affected: ["src/api/internal/platform/{cursor,httpx,subject,idempotency}/**", "scripts/router-middleware.txt", "TODO.md", "AI_USAGE.md"]
+third_party_sources_consulted: []
+license_review: PENDING
+human_reviewers: []
+tests_or_evidence: ["each item test-first with a RED line; 100.0% statement coverage on cursor, httpx, subject and idempotency; route gate suite 59 passed"]
+open_risks: ["a handler that ignores its context deadline still blocks the 503 until it returns (the middleware is synchronous like chi's)", "cursors issued before this change (wire format v1) are refused; none existed in production"]
+```
+
+## S9 foundation record (llm port, AI Studio adapter, aicheck)
+
+```yaml
+date: "2026-11-12"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code, Claude Sonnet 5.5 (orchestration) and a go-implementer subagent (Sonnet) in an isolated worktree"
+purpose: "Provider-agnostic LLM port, a Google AI Studio adapter, AI_* configuration and the aicheck command that lets the owner answer V1, V2 and V4"
+repository_or_source_context: "TODO.md S9, the mailer slice as the style reference"
+files_or_sections_affected: ["src/api/internal/platform/llm/**", "src/api/internal/platform/config/{ai.go,config.go}", "src/api/internal/app/aicheck.go", "src/api/cmd/aicheck/**", "TODO.md", "AI_USAGE.md"]
+third_party_sources_consulted: ["Google AI Studio REST API (field names from the task brief, NOT confirmed against Google's documentation)"]
+license_review: PENDING
+human_reviewers: []
+tests_or_evidence: ["each deliverable test-first; 100.0% statement coverage on llm, llm/aistest, config, app, cmd/aicheck; no external network in tests"]
+open_risks: ["the Gemini REST field names are unconfirmed until the first real aicheck run", "the adapter has never called the real API (V1 to V4 are the owner's)", "a ListModels page near 1 MiB would be rejected"]
+```
+
+## Secrets, backup and CI follow-ups record
+
+```yaml
+date: "2026-11-12"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code, Claude Sonnet 5.5"
+purpose: "SOPS and age secrets workflow (ADR-0009) with generated values, backup and restore drill, CI time (script tests no longer run twice), worktree helper, staging secrets file, AI Studio V1 to V4 measurements"
+repository_or_source_context: "ADR-0009, docs/SHIP.md, mk/20-gates.mk, TODO.md S8 and S9, PRs #44 to #53"
+files_or_sections_affected: ["scripts/{secrets,backup,restore-check,worktree}.sh", "scripts/tests/**", "mk/20-gates.mk", "secrets/*.recipients", "secrets/staging-test.enc.env", "docs/{SHIP,GIT_WORKFLOW}.md", "docs/decisions/0009-secrets-with-sops-and-age.md", "TODO.md", "ROADMAP.md", "AI_USAGE.md"]
+third_party_sources_consulted: ["sops and age documentation (sops set --value-stdin)", "third-party model catalogs and Google AI forum posts for Gemma 4 (NOT official, used only to know what to check; every id was confirmed with aicheck on the real key)"]
+license_review: PENDING
+human_reviewers: []
+tests_or_evidence: ["secrets_test 47 passed, backup_test 24 passed, worktree_test 8 passed, make_test 42 passed", "make security PASS", "backup and restore drill on a throwaway local-dev stack: 39 tables and migration version 10 identical after restore", "aicheck models, ping fr, ping en, limits run by the assistant through sops exec-env with the owner's key at the owner's request (the key was never printed)"]
+open_risks: ["the encrypted files are readable only with the owner's private age key (collaborators: issue #46)", "staging and production backup drills are NOT RUN", "the K21 EEA rule for the free tier is not yet handled", "the answers of both Gemma 4 models contain reasoning text: the adapter must drop it (TODO S9)"]
+```

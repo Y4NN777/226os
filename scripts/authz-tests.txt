@@ -1,0 +1,13 @@
+# Mounted, implemented, NON-public routes mapped to an existing negative authz Go test (negative-authz gate, B1).
+# Format: "METHOD /path TestName" (chi route pattern incl. the /api/v1 prefix, then the name of a Go test
+# function). Comments start with '#'.
+#
+# Convention: TestName is TestAuthz<OperationID>... (for example TestAuthzCreateQuestionAnonymous), a
+# func(*testing.T) in a test file the Go toolchain builds. scripts/check-authz-routes.sh checks that
+# the test exists, does not call t.Skip (a skip inside `if testing.Short()` is allowed), contains a
+# string equal to the route path (path parameters as %s or {name}) or uses the operation name, and
+# mentions a denial status (401, 403 or 404) in the same declaration. It also checks that every
+# mounted route is in exactly one of:
+#   scripts/public-routes.txt, scripts/unimplemented-routes.txt, scripts/authz-tests.txt.
+# The test must reject unauthenticated and wrong-role requests for that route (AUTHORIZATION_MATRIX).
+# Empty today: no implemented non-public route exists yet. Slices add their lines in their own PR.

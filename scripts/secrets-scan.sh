@@ -27,6 +27,9 @@ cfg=()
 if [ -f .gitleaks.toml ]; then cfg=(--config /repo-config/.gitleaks.toml); fi
 cfg_mount=()
 if [ -f .gitleaks.toml ]; then cfg_mount=(-v "$root/.gitleaks.toml:/repo-config/.gitleaks.toml:ro"); fi
+# Reviewed, fingerprint-level exceptions only (see the file header); never a path or rule allowlist.
+cfg+=(--gitleaks-ignore-path /repo-config/gitleaks-ignore)
+cfg_mount+=(-v "$root/scripts/gitleaks-ignore.txt:/repo-config/gitleaks-ignore/.gitleaksignore:ro")
 
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT

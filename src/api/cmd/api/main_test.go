@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"net"
 	"net/http"
 	"os"
@@ -28,6 +30,12 @@ func TestMainStartsAndStopsOnSIGTERM(t *testing.T) {
 	_ = ln.Close()
 	t.Setenv("APP_ENV", "local-dev")
 	t.Setenv("API_ADDR", addr)
+	t.Setenv("DATABASE_URL", "postgres://u:p@127.0.0.1:1/db") // closed port: the lazy pool never connects
+	key := make([]byte, 32)
+	if _, err := rand.Read(key); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("CURSOR_KEY", base64.StdEncoding.EncodeToString(key))
 
 	// Keep the test process alive if SIGTERM lands before main installs its handler.
 	guard := make(chan os.Signal, 1)

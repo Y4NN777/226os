@@ -1,0 +1,16 @@
+# Middleware installed by httpx.NewRouter, in order (source text of each r.Use / r.With argument).
+# A middleware can answer a path that has no route, which chi.Walk cannot see, so every addition or
+# removal here is a security review item (like scripts/public-routes.txt). The gate fails when this
+# list and src/api/internal/platform/httpx/router.go disagree.
+middleware.RequestID
+echoRequestID
+accessLog(logger)
+Recover(logger)
+timeout(logger, requestTimeout)
+# Installed through apigen.ChiServerOptions.Middlewares, in the order of the slice. apigen wraps the
+# handler with each element in turn, so the LAST one is the OUTERMOST and runs FIRST: the validator
+# runs before subject resolution (ADR-0004 point 8), then subject resolution, then idempotency (it needs
+# the subject and the validated body), then the handler. The gate compares this order exactly.
+Middlewares: idempotency.Middleware(deps.Idempotency, logger, WriteError(logger))
+Middlewares: subject.Middleware(deps.Subjects, WriteError(logger))
+Middlewares: embeddedValidator(logger)

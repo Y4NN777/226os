@@ -14,7 +14,7 @@
 2. **Les neuf domaines restent tous** dans le produit. Rien n'est retiré ni rétrogradé.
 3. **Apprendre** (Learn & Grow) et **Connect** sont mis en avant, mais seulement dans la navigation, sur l'accueil et dans les textes (amendement 3.2 du PRD, proposé).
 4. **Positionnement public : « Afrique de l'Ouest d'abord, puis toute l'Afrique ».** 226os se lit « 226 Open Stack » ; 226 est l'indicatif téléphonique du Burkina Faso. C'est l'origine du nom, pas un positionnement.
-5. **Ce qui existe :** le bootstrap B0 est fusionné (PR #24). Une API Go qui ne sert que `GET /healthz`, les migrations `00001` à `00010`, le code généré depuis le contrat (pas encore monté), un squelette web React et la CI ([ROADMAP section 2](../../ROADMAP.md#2-starting-point-2026-11-12)).
+5. **Ce qui existe :** le bootstrap B0 (PR #24) et le cœur de l'API S0 (PR #31 à #39) sont fusionnés. Une API Go avec `GET /healthz`, `GET /readyz` et les 47 opérations du contrat montées sous `/api/v1` (encore en 501), la validation du contrat, les erreurs problem+json, les curseurs signés, l'idempotence et l'envoi de mail, les migrations `00001` à `00010`, un squelette web React et la CI ([ROADMAP section 2](../../ROADMAP.md#2-starting-point-2026-11-12)).
 6. **La CI lance `make quality` (G1 à G4) sur chaque PR**, et elle est verte d'après [ROADMAP section 2](../../ROADMAP.md#2-starting-point-2026-11-12).
 7. **Rien n'est déployé.** Le domaine `226os.tech` est à nous, mais il n'affiche que la page d'attente de l'hébergeur.
 8. **Ce qui reste à construire :** les 43 opérations P0 du contrat ([api/openapi.yaml](../../api/openapi.yaml)) et toutes les pages React. Avec l'annuaire E5, on passera à 44.
@@ -134,8 +134,8 @@ On ne rouvre pas ces points en réunion. Pour en changer un, on passe par le pro
 | Code | Sens | Code | Sens |
 |---|---|---|---|
 | B1 | Gate d'autorisation : DÉCIDÉ, trois listes de routes | C8 | Domaine de branche `learn` absent de GIT_WORKFLOW : ouvert |
-| B2 | `/readyz` pas joignable de l'extérieur : planifié (S0, S8) | C9 | Libellés `x-authz` périmés : ouvert |
-| B3 | Timeout de 30 s du routeur, gênant pour S9 et S10 : planifié (S0) | C10 | Priorité de S9 (P2 dans le PRD, P0 décidé) : amendement 3.2 |
+| B2 | `/readyz` jamais routé vers l'extérieur : DÉCIDÉ (la sonde se lance dans le conteneur) | C9 | Libellés `x-authz` périmés : ouvert |
+| B3 | Timeout de 30 s du routeur : DÉCIDÉ (30 s par défaut, une table d'exceptions par route quand S9 ou S10 en a besoin) | C10 | Priorité de S9 (P2 dans le PRD, P0 décidé) : amendement 3.2 |
 | B4 | Aucun chemin de déploiement en production : planifié (S8) | C11 | `00011` réservé : DÉCIDÉ avec C19 |
 | B5 | Série gratuite en production : DÉCIDÉ, script de contenu | C12 | Qui peut créer un lien article vers question : ouvert |
 | C1 | Droits de mainteneur : DÉCIDÉ, propriétaire seul | C13 | `LinkRef` accepte `series`, la base non : ouvert |
@@ -207,7 +207,7 @@ Les relecteurs viennent de [ROADMAP section 4](../../ROADMAP.md#4-people-and-sli
 - **Chemins autorisés (S0) :** `src/api/cmd/**`, `src/api/internal/app/**`, `src/api/internal/platform/**` (apigen généré seulement), `scripts/**`, `compose.yaml`, `deploy/**`, `.env.example`, `mk/**` (un changement par PR).
 - **Qui t'aide, qui te relit :** `NICE-DEV226` relit S0 ; `mibienpanjoe` relit S6 et S9 ; S8 est relu par `NICE-DEV226` ou `mibienpanjoe`. `PANK4SS` aide à la demande.
 - **Sections TODO :** [S0](../../TODO.md#s0--api-core), [S6](../../TODO.md#s6--moderation-built-last), [S8](../../TODO.md#s8--ops-release-and-cadev), [S9](../../TODO.md#s9--grounded-ai-assistant-p0-by-owner-decision-amends-prd-58), [pièces partagées](../../TODO.md#shared-pieces-o2-where-each-lives-is-decided-by-the-backend-lead-at-kickoff), [checklist de déploiement](../../TODO.md#deployment-checklist-owner-y4nn777-target-sha-recorded-on-each-line).
-- **Points ouverts qui te concernent :** O2, B2, B3, B4, O4, O5 et V1 à V4, O6 (S10), K39 (contenu Discover en production), interface de modération (S6), question GPL des images de base, approbation de l'amendement 3.2, sous-domaine de staging à confirmer.
+- **Points ouverts qui te concernent :** O2, B4, O4, O5 et V1 à V4, O6 (S10), K39 (contenu Discover en production), interface de modération (S6), question GPL des images de base, approbation de l'amendement 3.2, sous-domaine de staging à confirmer.
 - **Fini quand :** `make quality` vert en CI sur le SHA de la PR (DoD-common), plus `make up-local-dev` avec `/readyz` à 200 et un mail de test reçu dans Mailpit (preuve dans la PR).
 - **Ce qui te bloque :** le délai Datacloud (K5) et la relecture de S0 par `NICE-DEV226`. Si B1 ne peut pas se résoudre sans affaiblir le gate, tu t'arrêtes et tu tranches en propriétaire.
 
@@ -344,7 +344,8 @@ Et trois habitudes d'équipe :
 | Handlers Learn (S4) et fils E4 attendent la PR de contrat C2 | PR à ouvrir | `mibienpanjoe`, relu par `Y4NN777` et `PANK4SS` |
 | Visibilité des profils (S1, E5) attend la migration `profile_visibility` | À écrire | `mibienpanjoe` |
 | Comptes du propriétaire : Datacloud (H6), DNS (H7), mot de passe d'application Gmail (H8), clé AI Studio (H12) | À faire | `Y4NN777` |
-| `/readyz` externe (B2), timeout du routeur (B3), workflow de livraison (B4) | Planifiés dans S0 et S8, à fermer avant dimanche | `Y4NN777` |
+| `/readyz` externe (B2), timeout du routeur (B3) | Décidés le 2026-11-12 (voir le journal des décisions) | fait |
+| Workflow de livraison (B4) | Planifié dans S8, à fermer avant dimanche | `Y4NN777` |
 
 **Décisions encore ouvertes côté propriétaire** ([liste complète, H5](../../ROADMAP.md#8-human-tasks-and-lead-time)) :
 

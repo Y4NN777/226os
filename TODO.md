@@ -84,43 +84,52 @@ Each line below is a **proposal**. The lead confirms or reassigns it.
 
 **Tasks**
 
-- [ ] **B1 (DECIDED and APPROVED 2026-11-12).** Change `scripts/check-authz-routes.sh` and `scripts/authz/routes_check.go.txt` so that every mounted route is in exactly one of:
+- [x] **B1 (DECIDED and APPROVED 2026-11-12). Implemented on `feature/platform/authz-gate` (see Done log).** Change `scripts/check-authz-routes.sh` and `scripts/authz/routes_check.go.txt` so that every mounted route is in exactly one of:
   - (i) `scripts/public-routes.txt` (public);
   - (ii) the new `scripts/unimplemented-routes.txt` (still answered 501 by the generated Unimplemented handler; it starts with all 47 routes and shrinks as each slice lands);
   - (iii) the new `scripts/authz-tests.txt` (method and path mapped to a negative authz Go test name).
   - The gate fails if a named test does not exist (`go test -list`), or if a route is in none of the three files.
   - The gate also fails if routes are registered or an `http.Handler` is built outside `httpx.NewRouter`. All registration goes through that one function.
   - RED/GREEN proof is required: a stray route, a missing test name and an unlisted route each turn the gate red.
-- [ ] **O3 (closed by B1).** The 4 P1 routes stay in `unimplemented-routes.txt`, answering 501.
-- [ ] Add `pgxpool` and `DATABASE_URL` to the config (`src/api/internal/platform/config`), and pass `DATABASE_URL` to `api` in `compose.yaml` (today `compose.yaml:90` omits it).
-- [ ] Add `GET /readyz` (DB ping with a deadline) to `scripts/public-routes.txt` with its reason. Decide edge routing for B2 (`deploy/traefik/dynamic.edge.yml:6`). Scheduled; not blocking today; must close before Sunday.
-- [ ] Mount `apigen` with `HandlerWithOptions` under `/api/v1`, with a problem+json `ErrorHandlerFunc`:
+  - Follow-up for `feature/platform/api-mount` (tracked, not forgotten): the gate proves "a mounted route listed as unimplemented is really unimplemented" with an HTTP probe that expects 501. Once `HandlerWithOptions`, validation and session or CSRF middleware are mounted, a probe can be answered 400, 401 or 403 before the stub. Replace it there by a method-set check of the production `apigen.ServerInterface` implementation (a method not overridden is still the `apigen.Unimplemented` one), then drop the probe.
+  - Hardening on `fix/platform/authz-gate-hardening`: test files come from `go list` (the toolchain's own build rules; no `go test -list`, so `make security-authz` needs no Docker) and names from their AST; a mapped test must, in one declaration, name its route (exact path or operation) and mention a denial status (401, 403 or 404); the "test did not run" guard has a RED test. Still open: the 501 probe, replaced in `feature/platform/api-mount`.
+- [x] **O3 (closed by B1).** The 4 P1 routes stay in `unimplemented-routes.txt`, answering 501.
+- [x] Add `pgxpool` and `DATABASE_URL` to the config (`src/api/internal/platform/config`), and pass `DATABASE_URL` to `api` in `compose.yaml` (today `compose.yaml:90` omits it). (`feature/platform/api-mount`; `CURSOR_KEY` added to config, compose and `.env.example` too.)
+- [x] Add `GET /readyz` (DB ping with a deadline) to `scripts/public-routes.txt` with its reason. Decide edge routing for B2 (`deploy/traefik/dynamic.edge.yml:6`). Scheduled; not blocking today; must close before Sunday.
+  - Follow-ups recorded by the skeptic review (api-mount): `METHOD_NOT_ALLOWED`, the bare 501 of `apigen.Unimplemented` and a 405 without an `Allow` header are outside the contract (C5). Closed in the follow-ups PR: cursors now expire after 24 h (wire format v2 carries the issue time; a 5 minute clock skew is tolerated), the request timeout answers a problem+json 503 `SERVICE_UNAVAILABLE` with `Retry-After` instead of a bare 504, a mixed-case `Application/JSON` is validated like `application/json`, `subject.Middleware` without an error writer answers problem+json, and a test fails if one of the six idempotency operations ever gains a query parameter (the query is deliberately not in the request hash).
+  - **Decision (PROPOSED by S0, owner approves by merging): the response headers `Idempotency-Replayed` and `Idempotency-Body-Omitted` are declared in the contract on the six bound operations, in their own contract PR (R7: merged alone, by the contract owners).** Until then ADR-0004 point 2 applies: clients ignore unknown response headers; both are informational.
+  - `GET /readyz` is built, tested and in `scripts/public-routes.txt` (`feature/platform/api-mount`). **B2 decision (DECIDED, owner approved 2026-11-12; recorded in ROADMAP sections 10 and 14): do NOT route `/readyz` at the edge** (`deploy/traefik/dynamic.edge.yml` stays `/api/` and `/healthz`). `/readyz` is unauthenticated and pings the database, so a public route would be a database-state oracle and a cheap way to force pings. The deploy smoke test (SHIP 4.2) runs it from the host instead: `docker compose exec api /busybox/busybox wget -q -O- http://127.0.0.1:8080/readyz`. The compose healthcheck keeps `/healthz` (liveness), so a database outage does not restart the API. S8 updates SHIP 4.2 accordingly. **Verified trap (2026-11-12):** at the edge `/readyz` is NOT served by the API but falls through to the `web` catch-all, which answers `200` with the SPA `index.html`; a smoke check through the public host would report ready with the API down. Probe it only inside the container.
+- [x] Mount `apigen` with `HandlerWithOptions` under `/api/v1`, with a problem+json `ErrorHandlerFunc`: (`feature/platform/api-mount`. The router still answers `METHOD_NOT_ALLOWED` for unknown methods, a code outside the enum: C5 stays open.)
   - missing required `If-Match` returns 428 `PRECONDITION_REQUIRED`;
   - bad parameters return 400 `MALFORMED_REQUEST` or 422 `VALIDATION_ERROR` (ADR-0004);
   - `METHOD_NOT_ALLOWED` is outside the enum (C5).
-- [ ] If the `httpx.NewRouter` signature changes, update the overlay in the same PR (`routes_check.go.txt:32`).
-- [ ] Request validation:
+- [x] If the `httpx.NewRouter` signature changes, update the overlay in the same PR (`routes_check.go.txt:32`). (done: the gate now calls `NewRouter(logger, Deps)` and checks the production `app.Server` method set.)
+- [x] Request validation:
   - `additionalProperties: false` and `DisallowUnknownFields`;
   - `maxLength` and `maxItems`;
   - 1 MiB body limit, returning 413 `PAYLOAD_TOO_LARGE`;
   - `Content-Type: application/json` on mutations (the error code for this is open, C5).
-- [ ] Signed opaque cursors: HMAC key from env, sort key plus UUID plus filter hash, 400 `INVALID_CURSOR`. `limit` defaults to 20 and returns 422 above 50.
-- [ ] `ETag` and `If-Match` helper returning 412 and 428. It is used by `updateQuestion` (S3).
-- [ ] Idempotency-Key on the six operations listed in Shared pieces:
+- [x] Signed opaque cursors: HMAC key from env, sort key plus UUID plus filter hash, 400 `INVALID_CURSOR`. `limit` defaults to 20 and returns 422 above 50. (codec in `platform/cursor`, `httpx.Limit`; the list handlers of S2 to S5 call them.)
+- [x] `ETag` and `If-Match` helper returning 412 and 428. It is used by `updateQuestion` (S3).
+  - `platform/etag` (`feature/platform/idempotency`): strong tags (`Tag`, length-prefixed parts), `Check` (428 missing, 412 mismatch, 400 invalid, RFC 9110 strong comparison, empty list members ignored). S3 must run authorization and the 404 check BEFORE `Check` (an absent resource answers 412 here).
+- [x] Idempotency-Key on the six operations listed in Shared pieces:
+  - Built in `platform/idempotency` (`feature/platform/idempotency`). Policy: the hash covers method, route template, the concrete path and the body; 2xx and 4xx are replayed except 401, 403, 408, 425, 429 and every 5xx, which abandon the key so a retry runs again; a silent give-up on timeout or cancel abandons. Table `idempotency_keys` has no header or content-type column and migrations are `mibienpanjoe`'s, so the stored `response_body` is a versioned envelope (`v`, `content_type`, allowlisted `Location` and `ETag`, `body`); a body that does not fit the 16 KiB column check replays status and `Location` without a body. Follow-up (optional, `mibienpanjoe`): a wider body or explicit header columns. The row is not part of the business transaction: a crash between the handler commit and `Complete` lets an identical retry run the handler again after 2 minutes; the unique constraints of the business tables are the backstop. S1: CSRF and session checks must sit OUTSIDE the idempotency middleware (a replay answers from the store without running the handler).
   - stored in `idempotency_keys` for 24 hours;
   - bound to subject, route and request hash;
   - same key and hash replays the stored response;
   - same key with a different hash returns 422 `IDEMPOTENCY_KEY_REUSED`;
   - a request still in flight returns 409 `IDEMPOTENCY_IN_PROGRESS`;
   - a purge job removes expired rows.
-- [ ] Transaction runner (multi-table mutations in one transaction).
-- [ ] Domain error to problem+json mapping table (one place).
-- [ ] Mailer port, SMTP adapter and fake:
+- [x] Transaction runner (multi-table mutations in one transaction).
+- [x] Domain error to problem+json mapping table (one place).
+- [x] Mailer port, SMTP adapter and fake:
+  - Built on `feature/platform/mailer`: `platform/mailer` (port, SMTP adapter with `none`/`starttls`/`tls`, AUTH PLAIN only over TLS, no silent downgrade, header-injection checks before any I/O, `Fake`, `Disabled`), `mailer/smtptest` (in-process ESMTP server for tests), `SMTP_*` in config (a half-set group or `none` outside local-dev is refused; the password never appears in errors, logs or `%v`), `app.Server.Mailer()` for S1, and `go run ./src/api/cmd/mailcheck <recipient>` for the DoD proof. Compose: a digest-pinned Mailpit v1.33.1 (MIT) in the `local-dev` profile only, host ports on 127.0.0.1; `.env.example` documents `SMTP_*`. **Gmail STARTTLS with the app password (H8) is VERIFIED (owner, 2026-11-12):** `mailcheck` sent a real mail through `smtp.gmail.com:587`. Gmail rewrites the `From` header to the authenticated account unless the sender is a verified "Send mail as" alias, so a branded sender such as `noreply@226os.tech` needs that alias (or a real SMTP domain) before production.
   - a digest-pinned Mailpit service in the `local-dev` profile of `compose.yaml`;
   - `SMTP_*` variables in `.env.example` (their current presence is UNVERIFIED);
   - the Gmail app password only in the staging and production env files.
-- [ ] Per-route timeout decision for B3 (`httpx/router.go:14,23`; matters for S9 and S10). Scheduled; not blocking today; must close before Sunday.
-- [ ] Session resolver port with an anonymous default (Shared pieces).
+- [x] Per-route timeout decision for B3 (`httpx/router.go:14,23`; matters for S9 and S10). Scheduled; not blocking today; must close before Sunday.
+  - **B3 decision (DECIDED, owner approved 2026-11-12; recorded in ROADMAP sections 10 and 14).** Keep the 30 s `requestTimeout` as the default for every route. A route that needs longer (the S9 assistant, the S10 live stream) is declared in ONE table in `httpx` (operation, duration) and applied by a per-operation middleware installed through the apigen `Middlewares` slice, because chi `r.Use` middleware runs before routing and cannot know the route. Streams also extend the connection's write deadline with `http.ResponseController` (the server `WriteTimeout` is 35 s, `serve.go`). Nothing is built now: no S9 or S10 operation exists yet in the 47 (YAGNI); the first slice that needs it adds the table row, the middleware (reviewed through `scripts/router-middleware.txt`) and its test.
+- [x] Session resolver port with an anonymous default (Shared pieces).
 
 **Tables:** `idempotency_keys` (migration `00004`).
 
@@ -154,7 +163,7 @@ Each line below is a **proposal**. The lead confirms or reassigns it.
 
 **Stop condition:** stop and ask the owner if B1 cannot be solved without weakening the gate.
 
-**Status:** PLANNED
+**Status:** DONE (PRs #31 to #35 and the follow-ups PR, 2026-11-12). B2 and B3 are DECIDED (owner approved 2026-11-12); the Gmail test mail (H8) is done.
 
 ---
 
@@ -633,13 +642,13 @@ Each line below is a **proposal**. The lead confirms or reassigns it.
   - TLS through Traefik and Let's Encrypt **only after DNS resolves**, so DNS comes before the first HTTPS smoke test.
   - The DB is never published.
 - [ ] `staging-test` up from pinned images (`make up-staging-test`, `.env.staging-test` outside Git). **No seeds on staging:** it holds only real `live` content (owner correction B). The S4 content script is rehearsed there.
-- [ ] Gmail SMTP on staging with a real-inbox test (H8).
+- [ ] Gmail SMTP on staging with a real-inbox test (H8). Verified once from a developer machine on 2026-11-12; repeat it on the staging host.
 - [ ] Argon2id benchmark on the target host, handed to S1.
 - [ ] B2: `/readyz` reachable for the smoke check (route it, or check from the host). Scheduled; not blocking today; before Sunday.
 - [ ] **B4** (scheduled; not blocking today; before Sunday): a reviewed release workflow (protected `production` environment, exact `develop` SHA, image digests). The guard in `mk/50-ops.mk:28-32` is not weakened.
 - [ ] Implement `make test-e2e` (`mk/40-quality.mk:18`): Playwright P0 flows, FR/EN, mobile, axe.
 - [ ] Implement `make perf` (`mk/40-quality.mk:21`): dataset, EXPLAIN, API latency, page weight.
-- [ ] Backup and restore drill (`pg_dump -Fc`, restore verified), with evidence.
+- [x] Backup and restore drill (`pg_dump -Fc`, restore verified), with evidence: `scripts/backup.sh` and `scripts/restore-check.sh` on a throwaway local-dev stack (2026-11-12): 39 tables and migration version 10 identical after restore into a scratch database, which was dropped (`scripts/tests/backup_test.sh`: 24 passed). The staging-test and production-live drills are still to do.
 - [ ] Rollback drill (redeploy the previous image by digest), with evidence.
 - [ ] G7 evidence on the target SHA: build SHA, digests (`make build`, which writes `reports/image-digests.txt`), audit, backup, smoke, rollback.
 - [ ] Production promotion PR from `develop` to `main`, with owner approval.
@@ -697,11 +706,13 @@ Each line below is a **proposal**. The lead confirms or reassigns it.
 
 **Tasks**
 
-- [ ] `Y4NN777`: create the AI Studio API key and store it in the staging env file.
-- [ ] `Y4NN777`: verify V1 to V4 in AI Studio and Google's docs. **Due Fri 13 Nov evening.**
-  - V1: the exact Gemma 4 model id and its availability. Ids reported by third-party aggregators are NOT CONFIRMED.
-  - V2: the project's real limits. They are UNKNOWN, and third-party figures conflict.
-  - V3: a free project or a billing-linked one, given the EEA rule.
+- [x] `Y4NN777`: create the AI Studio API key and store it in the staging env file (`secrets/staging-test.enc.env`, SOPS and age, ADR-0009; done 2026-11-12).
+- [ ] S9 adapter, test-first with a recorded fixture: both Gemma 4 models put their reasoning in the answer text. Drop it (and any `thought` part) before the answer is used, then apply one answer format (plain text or limited markdown, the cited sources kept as links, no reasoning, no invented guarantee).
+- [ ] S9 tracking of the free tier: count and log 429, 500, 503 and timeouts per model, with latency (never the prompt or the key). When the model is unavailable, search still works and the assistant answers "unavailable" instead of failing. Read the numbers before the demo (free-tier errors were observed on 2026-11-12: `gemma-4-31b-it` 2 of 3 probes unavailable).
+- [ ] `Y4NN777`: verify V1 to V4 in AI Studio and Google's docs. **Due Fri 13 Nov evening.** Measured 2026-11-12 with `aicheck` on the real key (staging free tier): **V1** two Gemma 4 ids with `generateContent`, 262144 input and 32768 output tokens: `gemma-4-26b-a4b-it` and `gemma-4-31b-it`. **V4** both answer fr and en but put their reasoning in the answer text (the adapter must drop it). **V2** (3 probes only, not the project limits): `gemma-4-26b-a4b-it` 3 of 3 ok in about 1 s each, ping about 6 s; `gemma-4-31b-it` 2 of 3 unavailable, ping 21 to 26 s. Chosen for staging: `gemma-4-26b-a4b-it` (`AI_MODEL`). **V3 DECIDED by the owner 2026-11-12: free tier** (ROADMAP Decisions log); the real quotas are still to be read in the AI Studio console (V2).
+  - V1: DONE (see above): the ids are confirmed by `aicheck models` on the real key.
+  - V2: the project's real limits are still UNKNOWN (the 3 probes do not measure them), and third-party figures conflict.
+  - V3: DECIDED, free tier. The K21 consequence (only Paid Services may be offered to EEA, Swiss and UK users) is INFERRED and is NOT yet handled: the owner still has to say how the assistant is restricted or disabled for those users.
   - V4: FR/EN latency and quality on the golden set.
 - [ ] PROPOSED ADR for the AI integration (next free ADR number). It must decide:
   - the data sent: the question text and retrieved public content only; no emails, private data or secrets;
@@ -718,7 +729,9 @@ Each line below is a **proposal**. The lead confirms or reassigns it.
   - Update the operation count (47) in `src/api/internal/platform/apigen/contract_test.go`.
   - Amend the exclusion justification in `docs/quality/COVERAGE_SCOPE.md:17`, which cites 47 operations. That file is change-controlled, so the change needs owner, reviewer and date.
   - Each new operation is a newly mounted route, so B1 applies to it.
-- [ ] LLM port with a fake adapter. Tests make no network calls, and Go coverage stays at 100.00%. The real adapter is selected by configuration.
+- [x] LLM port with a fake adapter. Tests make no network calls, and Go coverage stays at 100.00%. The real adapter is selected by configuration.
+  - Built on `feature/intelligence/llm-port` (`platform/llm`: `Client`, `Fake`, `Disabled`, the Google AI Studio adapter with the key only in the `x-goog-api-key` header, no redirects, a fixed base URL that only tests can override; `llm/aistest`, an in-process fake of the Google endpoints). Configuration `AI_ENABLED` (default false), `AI_API_KEY` (redacted like the SMTP password), `AI_MODEL` (**required when enabled, no default: the exact Gemma 4 id is V1**), `AI_TIMEOUT`. Not wired into `app.Server` or the router: S9 does that after S1 and S2.
+  - **V1, V2 and V4 are answered with `aicheck`** (the owner runs it with the real key; the key is never in Git or CI): `go run ./src/api/cmd/aicheck models` (V1: which Gemma model ids exist, with their methods and token limits), `ping` (V4: one fixed harmless FR and EN prompt, with latency and token counts), `limits` (V2: three tiny requests, never a loop; the real project limits are read in the AI Studio console). The Gemini REST field names come from the task brief, so the first real run is also their proof: **NOT RUN against the real API.**
 - [ ] Retrieval through the existing PostgreSQL search (S2), over published and public content only, with the top results as context. No vector database.
 - [ ] Answers carry links to the sources used. The assistant refuses when there is no source, and never invents guarantees about an API or about whether a solution is verified (PRD 5.8).
 - [ ] Retrieved content is treated as untrusted (prompt injection).
@@ -1041,3 +1054,9 @@ E5 needs the `profile_visibility` migration (C14b), which only `mibienpanjoe` wr
 |---|---|---|---|
 | 2026-11-12 | B0 bootstrap merged: API skeleton, migrations 00001 to 00010, codegen, web skeleton, Compose, Make, CI | #24 | `Y4NN777` |
 | 2026-11-12 | CADEV team registration done (H9) | n/a | `Y4NN777` |
+| 2026-11-12 | S0 B1 authz gate: three route lists, `TestAuthz*` test-name check, stray-router scan, RED/GREEN in `scripts/tests/authz-routes_test.sh` | #31 | `Y4NN777` |
+| 2026-11-12 | S0 B1 gate hardening: toolchain test files (no Docker), mapped-test content rules, silent-pass guard RED test | #32 | `Y4NN777` |
+| 2026-11-12 | S0 api-mount: pgxpool and `/readyz`, apigen mount under `/api/v1`, problem+json error table, spec-driven request validation, signed cursors, transaction runner, subject port | #33 | `Y4NN777` |
+| 2026-11-12 | S0 Idempotency-Key and ETag helper; B2 and B3 proposals | #34 | `Y4NN777` |
+| 2026-11-12 | S0 mailer (port, SMTP adapter, fake, Mailpit in local-dev, mailcheck) and the DoD proof | #35 | `Y4NN777` |
+| 2026-11-12 | S0 follow-ups: cursor expiry, problem+json timeout, mixed-case media type, query guard | #36 | `Y4NN777` |

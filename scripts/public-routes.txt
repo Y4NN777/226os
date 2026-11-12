@@ -1,8 +1,10 @@
 # Routes that are intentionally reachable without authentication (negative-authz gate, G4).
 # Format: one "METHOD /path" per line (chi route pattern, upper-case method). Comments start with '#'.
 #
-# `make security` fails when the router mounted by src/api/internal/platform/httpx.NewRouter
-# serves any route that is not listed here, until an authz negative test covers that route
-# and the route is either added here (public by design) or protected and covered by a test.
+# `make security` (scripts/check-authz-routes.sh, decision B1) fails when a route mounted by
+# src/api/internal/platform/httpx.NewRouter is not in EXACTLY ONE of this file,
+# scripts/unimplemented-routes.txt and scripts/authz-tests.txt. It also fails when an entry here is
+# not a mounted route, or when a router or route is built outside httpx.NewRouter.
 # Changing this file is a security review item: every addition needs a reviewer and a reason.
 GET /healthz   # liveness probe, no data, no session (docs/SHIP.md)
+GET /readyz    # readiness probe: pings the database, no data, no session (docs/SHIP.md, B2)
