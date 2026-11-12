@@ -123,7 +123,7 @@ Each line below is a **proposal**. The lead confirms or reassigns it.
 - [x] Transaction runner (multi-table mutations in one transaction).
 - [x] Domain error to problem+json mapping table (one place).
 - [x] Mailer port, SMTP adapter and fake:
-  - Built on `feature/platform/mailer`: `platform/mailer` (port, SMTP adapter with `none`/`starttls`/`tls`, AUTH PLAIN only over TLS, no silent downgrade, header-injection checks before any I/O, `Fake`, `Disabled`), `mailer/smtptest` (in-process ESMTP server for tests), `SMTP_*` in config (a half-set group or `none` outside local-dev is refused; the password never appears in errors, logs or `%v`), `app.Server.Mailer()` for S1, and `go run ./src/api/cmd/mailcheck <recipient>` for the DoD proof. Compose: a digest-pinned Mailpit v1.33.1 (MIT) in the `local-dev` profile only, host ports on 127.0.0.1; `.env.example` documents `SMTP_*`. **Gmail STARTTLS with the app password (H8) is NOT RUN**: only the in-process server and Mailpit were exercised; verify on staging.
+  - Built on `feature/platform/mailer`: `platform/mailer` (port, SMTP adapter with `none`/`starttls`/`tls`, AUTH PLAIN only over TLS, no silent downgrade, header-injection checks before any I/O, `Fake`, `Disabled`), `mailer/smtptest` (in-process ESMTP server for tests), `SMTP_*` in config (a half-set group or `none` outside local-dev is refused; the password never appears in errors, logs or `%v`), `app.Server.Mailer()` for S1, and `go run ./src/api/cmd/mailcheck <recipient>` for the DoD proof. Compose: a digest-pinned Mailpit v1.33.1 (MIT) in the `local-dev` profile only, host ports on 127.0.0.1; `.env.example` documents `SMTP_*`. **Gmail STARTTLS with the app password (H8) is VERIFIED (owner, 2026-11-12):** `mailcheck` sent a real mail through `smtp.gmail.com:587`. Gmail rewrites the `From` header to the authenticated account unless the sender is a verified "Send mail as" alias, so a branded sender such as `noreply@226os.tech` needs that alias (or a real SMTP domain) before production.
   - a digest-pinned Mailpit service in the `local-dev` profile of `compose.yaml`;
   - `SMTP_*` variables in `.env.example` (their current presence is UNVERIFIED);
   - the Gmail app password only in the staging and production env files.
@@ -163,7 +163,7 @@ Each line below is a **proposal**. The lead confirms or reassigns it.
 
 **Stop condition:** stop and ask the owner if B1 cannot be solved without weakening the gate.
 
-**Status:** DONE (PRs #31 to #35 and the follow-ups PR, 2026-11-12). B2 and B3 are DECIDED (owner approved 2026-11-12); the Gmail verification on staging (H8) remains.
+**Status:** DONE (PRs #31 to #35 and the follow-ups PR, 2026-11-12). B2 and B3 are DECIDED (owner approved 2026-11-12); the Gmail test mail (H8) is done.
 
 ---
 
@@ -642,7 +642,7 @@ Each line below is a **proposal**. The lead confirms or reassigns it.
   - TLS through Traefik and Let's Encrypt **only after DNS resolves**, so DNS comes before the first HTTPS smoke test.
   - The DB is never published.
 - [ ] `staging-test` up from pinned images (`make up-staging-test`, `.env.staging-test` outside Git). **No seeds on staging:** it holds only real `live` content (owner correction B). The S4 content script is rehearsed there.
-- [ ] Gmail SMTP on staging with a real-inbox test (H8).
+- [ ] Gmail SMTP on staging with a real-inbox test (H8). Verified once from a developer machine on 2026-11-12; repeat it on the staging host.
 - [ ] Argon2id benchmark on the target host, handed to S1.
 - [ ] B2: `/readyz` reachable for the smoke check (route it, or check from the host). Scheduled; not blocking today; before Sunday.
 - [ ] **B4** (scheduled; not blocking today; before Sunday): a reviewed release workflow (protected `production` environment, exact `develop` SHA, image digests). The guard in `mk/50-ops.mk:28-32` is not weakened.
