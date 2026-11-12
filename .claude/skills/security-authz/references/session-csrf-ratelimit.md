@@ -1,6 +1,6 @@
 # security-authz — session, CSRF, rate-limit patterns
 
-Illustrative; every numeric value is a placeholder until ADR-OPEN-003.
+Illustrative shapes. The numeric values are fixed by `docs/decisions/0003-authentication-sessions-csrf-rate-limits.md`; take them from there, not from this file.
 
 ## Sessions table (shape per `docs/spec-kit/AUTHORIZATION_MATRIX.md:10`)
 ```sql
@@ -43,8 +43,8 @@ Source: https://pkg.go.dev/golang.org/x/crypto/argon2 · https://cheatsheetserie
 1. Safe methods (GET/HEAD/OPTIONS) pass, and must not mutate.
 2. Reject if `Sec-Fetch-Site` = `cross-site`; if absent, require `Origin` (or `Referer` host) to exactly equal the configured public origin; never accept `null`.
 3. Require session; compare `sha256(header token)` with `csrf_hash` via `subtle.ConstantTimeCompare`.
-4. Failure -> 403 problem `csrf-failed` (`code: CSRF_FAILED` placeholder), log route + request_id only.
-Pre-session endpoints (sign-in, registration, reset request) have no session token: rely on Origin/Fetch-Metadata + rate limits, or a pre-session CSRF token — decision OPEN, record in ADR-OPEN-003 (login CSRF risk).
+4. Failure -> 403 problem `csrf-failed` (`code: CSRF_FAILED`), log route + request_id only.
+Pre-session endpoints (sign-in, registration, reset request) have no session token: ADR-0003 decides they use a pre-session CSRF token (Origin/Fetch-Metadata checks and rate limits still apply).
 Source: https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html
 
 ## PostgreSQL rate limit (G0-AUTH-004)
@@ -64,7 +64,7 @@ RETURNING count;
 ```
 - `date_bin` requires PostgreSQL 14+ — UNVERIFIED against pinned major.
 - Fail closed for auth scopes on DB error (503/429 per ADR). Purge rows older than the longest window periodically.
-- Hot-row contention under attack is the known cost (`docs/spec-kit/G0_DECISIONS.md:12`); measure in G6.
+- Hot-row contention under attack is the known cost (`docs/archive/spec-kit/G0_DECISIONS.md:12`); measure in G6.
 - Client IP only from trusted-proxy-aware extraction (Traefik), never raw `X-Forwarded-For`.
 
 ## Authorization matrix test skeleton

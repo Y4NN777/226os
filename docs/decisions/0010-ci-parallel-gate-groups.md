@@ -28,4 +28,4 @@
 
 ## Evidence / verification required
 
-`scripts/tests/make_test.sh` (the split loses no check, the groups equal the leaf steps, an unknown group fails), `scripts/tests/quality-evidence_test.sh` (13 cases: missing step, FAIL, NOT RUN, another commit, cut-off summary, no summary), `scripts/tests/ci-scope_test.sh` (23 cases), `actionlint` on the workflow, and the CI run of the pull request that introduced it.
+`scripts/tests/make_test.sh` (the split loses no check, the groups equal the leaf steps, an unknown group fails), `scripts/tests/quality-evidence_test.sh` (missing step, FAIL, NOT RUN, another commit, cut-off summary, no summary), `scripts/tests/ci-scope_test.sh`, `actionlint` on the workflow, and the CI run of the pull request that introduced it.

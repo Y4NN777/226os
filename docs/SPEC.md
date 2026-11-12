@@ -6,7 +6,7 @@
 - Toute fonctionnalité part d'une user story `US-*`, d'un scénario Given/When/Then, et d'un contrat d'API ou d'interface observables.
 - P0, P1, P2 sont des **priorités de livraison**, non des fonctions supprimées. La vision exacte reste dans le PRD.
 - La spécification est évolutive par PR et doit précéder le changement de comportement. Un agent n'invente pas de fonctionnalités.
-- Les contrats approuvés sont marqués `ACCEPTED` (ADR-0001 à ADR-0007) ; toute nouvelle hypothèse non validée doit être signalée comme telle dans la PR qui l'introduit.
+- Les contrats approuvés sont marqués `ACCEPTED` (voir l'[index des ADR](decisions/README.md)) ; toute nouvelle hypothèse non validée doit être signalée comme telle dans la PR qui l'introduit.
 
 ## 2. Parcours P0 et scénarios BDD
 
@@ -88,7 +88,7 @@ Feature: Apprendre
 
 ### US-LEARN-002 — Poser une question sur une leçon et suivre un thème (PROPOSÉ, PRD amendement 3.2)
 
-Aucune nouvelle table : la question réutilise `links[]` de la création de question, et la paire question vers article est déjà autorisée. Les fils par thème attendent la PR de contrat qui type le filtre `topic` comme code de thème (ROADMAP C2) ; les questions n'ont pas de thème et sont filtrées par le tag qui porte le même nom que le code du thème.
+Aucune nouvelle table : la question réutilise `links[]` de la création de question, et la paire question vers article est déjà autorisée. Les fils par thème attendent une PR de contrat en attente, qui type le filtre `topic` comme code de thème ; les questions n'ont pas de thème et sont filtrées par le tag qui porte le même nom que le code du thème.
 
 ```gherkin
 Feature: Relier les discussions aux leçons
@@ -170,7 +170,7 @@ Feature: Visibilité du profil
 
 ### US-CONNECT-001 — Annuaire des membres (PROPOSÉ, PRD amendement 3.2)
 
-Opération en lecture seule, suggérée `GET /profiles`, dont le nom est fixé par la PR de contrat E5 ; elle n'est pas encore dans `api/openapi.yaml`. Un profil est listé pour un appelant seulement si le compte est actif, si `profile_visibility` l'autorise pour cet appelant (`private` jamais, `members` pour les membres seulement), si `open_to_collab` vaut vrai et si `open_to_collab_visibility` l'autorise pour cet appelant. Un champ masqué compte comme absent, y compris pour les filtres.
+Opération en lecture seule, suggérée `GET /profiles`, dont le nom sera fixé par une PR de contrat en attente ; elle n'est pas encore dans `api/openapi.yaml`. Un profil est listé pour un appelant seulement si le compte est actif, si `profile_visibility` l'autorise pour cet appelant (`private` jamais, `members` pour les membres seulement), si `open_to_collab` vaut vrai et si `open_to_collab_visibility` l'autorise pour cet appelant. Un champ masqué compte comme absent, y compris pour les filtres.
 
 ```gherkin
 Feature: Annuaire des membres
@@ -232,7 +232,7 @@ Feature: Annuaire des membres
 
 ### US-INTEL-001 — Assistant IA sourcé (PROPOSÉ, PRD amendement 3.2)
 
-Les opérations de l'assistant ne sont pas encore dans `api/openapi.yaml` : elles arrivent par la PR de contrat S9, après l'ADR qui fixe les délais, le plafond de coût et le comportement FR/EN. L'accès des visiteurs non authentifiés est une décision ouverte (ROADMAP O5) ; les scénarios ci-dessous utilisent donc un membre. Tant que le propriétaire n'a pas choisi entre un projet gratuit et un projet lié à la facturation, l'assistant reste désactivé par configuration. Ces scénarios et les règles AI-1 à AI-5, AI-9 et AI-10 forment aussi le jeu d'évaluation de référence, exécuté en CI contre un adaptateur factice ; l'exécution contre le vrai fournisseur est consignée à part et reste NOT RUN tant qu'elle n'a pas eu lieu.
+Les opérations de l'assistant ne sont pas encore dans `api/openapi.yaml` : elles arrivent par une PR de contrat en attente, après une décision d'architecture sur les délais, le plafond de coût et le comportement FR/EN (fournisseur : [ADR-0011](decisions/0011-ai-assistant-provider.md)). L'accès des visiteurs non authentifiés est une décision ouverte ; les scénarios ci-dessous utilisent donc un membre. Tant que la restriction géographique du fournisseur n'est pas tranchée par le propriétaire (voir l'ADR-0011), l'assistant reste désactivé par configuration. Ces scénarios et les règles de refus, de citation et de confidentialité forment aussi le jeu d'évaluation de référence, exécuté en CI contre un adaptateur factice ; l'exécution contre le vrai fournisseur est consignée à part et reste NOT RUN tant qu'elle n'a pas eu lieu.
 
 ```gherkin
 Feature: Assistant sourcé
@@ -362,6 +362,8 @@ Les modules P1/P2 ne doivent pas être artificiellement matérialisés en code v
 - SLO de démonstration : santé API, navigation mobile et flux critiques prouvés sur l'environnement de déploiement.
 
 ## 8. Traceability map
+Ce tableau est la seule carte de traçabilité au niveau des user stories ; [TRACEABILITY.md](spec-kit/TRACEABILITY.md) ne couvre que les domaines, les expériences et les parcours.
+
 | User story | API / module | Test BDD minimum | Gate |
 |---|---|---|---|
 | US-SOLVE-001 | questions/answers/votes | publication, acceptation, contrôle d'accès | test/quality/security |
@@ -370,11 +372,11 @@ Les modules P1/P2 ne doivent pas être artificiellement matérialisés en code v
 | US-LEARN-001 | learn/articles, learn/series | lecture publique, publication authentifiée, 401 sans session, langue d'origine préservée | test/security |
 | US-LEARN-002 (proposé, PRD 3.2) | questions (`links[]` vers l'article), learn/articles par code de thème, questions par tag | question liée à l'article, redirection vers la connexion sans session, fil par thème sans brouillon ni contenu retiré | test/e2e |
 | US-IDENTITY-001 | sessions/profiles/relations | connexion, langue, liens ; visibilité du profil par appelant, 404 identique à un profil inconnu, signature visible, jamais d'e-mail (extension PRD 3.2) | test/security |
-| US-CONNECT-001 (proposé, PRD 3.2) | annuaire, `GET /profiles` suggéré (PR de contrat E5) | liste par appelant selon les visibilités, filtres sur champs visibles, jamais d'e-mail, état vide, `limit=51` → 422, 429 | test/security |
-| US-INTEL-001 (proposé, PRD 3.2) | opérations de l'assistant à définir (PR de contrat S9), search | citations limitées aux passages retrouvés, refus sans appel au fournisseur, aucune garantie, « Comment vérifier », étiquette IA non votable, aucune donnée personnelle envoyée, injection ignorée, 503, 429 ; jeu d'évaluation de référence | test/security/évaluation |
+| US-CONNECT-001 (proposé, PRD 3.2) | annuaire, `GET /profiles` suggéré (PR de contrat en attente) | liste par appelant selon les visibilités, filtres sur champs visibles, jamais d'e-mail, état vide, `limit=51` → 422, 429 | test/security |
+| US-INTEL-001 (proposé, PRD 3.2) | opérations de l'assistant à définir (PR de contrat en attente), search | citations limitées aux passages retrouvés, refus sans appel au fournisseur, aucune garantie, « Comment vérifier », étiquette IA non votable, aucune donnée personnelle envoyée, injection ignorée, 503, 429 ; jeu d'évaluation de référence | test/security/évaluation |
 | US-ACCESS-001 | frontend/infra | mobile + réseau simulé | perf/accessibility |
 
-`api/openapi.yaml` compte aujourd'hui 43 opérations `x-priority: P0`. Le total passe à 44 une fois la PR de contrat E5 (annuaire) acceptée ; le nombre d'opérations de l'assistant n'est pas encore fixé (ROADMAP section 1).
+`api/openapi.yaml` compte aujourd'hui 43 opérations `x-priority: P0`. Le total passe à 44 une fois la PR de contrat de l'annuaire acceptée ; le nombre d'opérations de l'assistant n'est pas encore fixé. Le calendrier de ces PR est suivi dans [ROADMAP.md](../ROADMAP.md).
 
 ## 9. Références normatives
-`api/openapi.yaml` (accepté), `docs/spec-kit/DATABASE_DESIGN.md` (modèle accepté) et les ADR 0003 à 0007 sont normatifs. Les migrations `00001` à `00010` de `db/migrations` et le code généré depuis `api/openapi.yaml` existent depuis le bootstrap B0 (PR #24) ; les migrations suivantes, le code applicatif et les seeds sont à produire sous revue. Ce document ne présume aucun statut d'exécution des gates G1 à G7.
+`api/openapi.yaml` (accepté), `docs/spec-kit/DATABASE_DESIGN.md` (modèle accepté) et les ADR acceptés (voir l'[index des ADR](decisions/README.md)) sont normatifs. Les migrations `00001` à `00010` de `db/migrations` et le code généré depuis `api/openapi.yaml` existent depuis le bootstrap B0 (PR #24) ; les migrations suivantes, le code applicatif et les seeds sont à produire sous revue. Ce document ne présume aucun statut d'exécution des gates G1 à G7.

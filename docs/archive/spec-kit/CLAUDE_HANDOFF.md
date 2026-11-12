@@ -1,8 +1,11 @@
+> Archived 2026-11-12. Historical record, not maintained.
+> Current source: [docs/spec-kit/README.md](../../spec-kit/README.md) and `CLAUDE.md`.
+
 # 226os Claude Code Handoff
 
 **Prepared:** 2026-11-11
 **Mode:** documentation review by the `lead` agent (`.claude/agents/lead.md`) and Claude harness contract documented; G0 reconciled, ready for the B0 bootstrap
-**Recommendation:** **GO for P0 implementation (B0 bootstrap next)** under [ADR-0001](../decisions/0001-g0-conditional-baseline.md) to ADR-0007. Gates G1 to G7 are `NOT RUN`; release remains blocked until they produce evidence on the target SHA.
+**Recommendation:** **GO for P0 implementation (B0 bootstrap next)** under [ADR-0001](../../decisions/0001-g0-conditional-baseline.md) to ADR-0007. Gates G1 to G7 are `NOT RUN`; release remains blocked until they produce evidence on the target SHA.
 
 ## Verified repository state
 

@@ -1,19 +1,14 @@
 # 226os P0 Authentication and Authorization Matrix
 
-**Status:** ACCEPTED (ADR-0003, 2026-11-11, approver `Y4NN77`)
+**Status:** ACCEPTED (ADR-0003, 2026-11-11, approver `Y4NN777`)
 **Subject roles:** anonymous, member, moderator, owner. `owner` always means ownership of the specific resource, not a global administrator. "Collaborator" is **not** a role: it is a resource-scoped relationship (an applicant whose application was accepted on a project, ADR-0005). Owner-added `project_maintainers` have explicit rights on their project (edit project, manage needs and applications).
 **Paths** are the `api/openapi.yaml` paths under `/api/v1`.
 
-## Authentication and session policy (ADR-0003)
+## Authentication and session policy
 
-- Email/password; no external identity provider at P0.
-- Argon2id m=64 MiB, t=3, p=1, benchmarked on the target host, never below the OWASP floor m=19 MiB, t=2, p=1. Password length 12-128, no composition rules.
-- Sessions: opaque random token, only its hash stored; **idle 2 h, absolute 7 d**. Re-authentication is required when the last sign-in is more than **15 min** old for password change, email change and session revocation (403 `REAUTH_REQUIRED`). Rotate on sign-in, password change/reset, email change and privilege change; revoke on sign-out and security events.
-- Cookie `__Host-226os_session` in `staging-test`/`production-live`, `226os_session` in `local-dev`; `HttpOnly`, `Secure` (deployed), `SameSite=Lax`; no secrets in URLs.
-- CSRF: synchronizer token in `X-CSRF-Token` on every unsafe method. Anonymous auth endpoints use a pre-session token from `GET /auth/csrf` plus an Origin/Fetch-Metadata check.
-- Reset token 30 min, verification token 24 h. Generic responses prevent enumeration; sign-in, sign-up and reset are rate limited by IP and account (windows in ADR-0003).
-- **Status codes:** 401 unauthenticated; 403 authenticated but not allowed on an object visible to the caller; 404 when a private object's existence must not leak (rule: 403 if visible to the caller, 404 if not).
-- **Unverified email:** may sign in, read and draft. Publishing a question, answer, article, project, need, application or review needs a verified email, else 403 `EMAIL_NOT_VERIFIED`.
+The policy (Argon2id parameters, session lifetimes, cookie and CSRF rules, token lifetimes, 401/403/404 rule, unverified-email limits, rate limits) is owned by [ADR-0003](../decisions/0003-authentication-sessions-csrf-rate-limits.md) and is not repeated here. Rule used below: 403 if the object is visible to the caller, 404 if its existence must not leak. Publishing needs a verified email (403 `EMAIL_NOT_VERIFIED`).
+
+**Status:** negative authorization tests mapped: none yet; `scripts/authz-tests.txt` is empty and slices add their lines with their routes (checked by `scripts/check-authz-routes.sh`).
 
 ## Matrix
 
@@ -22,6 +17,11 @@ Legend: `A` allowed, `D` denied (401 for anonymous, 403 or 404 per the rule abov
 | Capability / endpoint (OpenAPI) | Anonymous | Member | Owner | Moderator | Required negative cases |
 |---|---:|---:|---:|---:|---|
 | `GET /search`, public `GET /questions`, `/resources`, `/projects`, `/learn/*` | V | V | V | V | private, unpublished and removed content never leaks |
+| `GET /questions/{questionId}`, `GET /questions/{questionId}/answers` (getQuestion, listAnswers) | V | V | V | V | non-published question is 404 |
+| `GET /resources/{resourceId}/sources` (listResourceSources) | V | V | V | V | a stale source is never shown as verified |
+| `GET /resources/{resourceId}/reviews` (listResourceReviews) | P1 | P1 | P1 | P1 | P1 read, minimal |
+| `GET /projects/{projectId}/contribution-needs` (listContributionNeeds) | V | V | V | V | follows project visibility; private project 404 |
+| `GET /learn/series`, `/learn/series/{seriesId}` | V | V | V | V | public; `my_progress` only with a session |
 | `GET /auth/csrf`, `POST /auth/sign-up`, `/auth/sign-in`, `/auth/password-reset/*`, `/auth/verify-email` | A | A | A | A | rate limit, generic errors, no enumeration, CSRF |
 | `POST /auth/sign-out`, `GET /auth/session` | D / A (session state) | A | A | A | cannot revoke another user's session |
 | `GET /me`, `PATCH /me/profile` | D | C | C | C | anonymous and cross-user access denied |
@@ -44,7 +44,7 @@ Legend: `A` allowed, `D` denied (401 for anonymous, 403 or 404 per the rule abov
 | `POST /contribution-needs/{needId}/applications` | D | C (verified, not the project owner) | C | C | duplicate application, closed need, re-apply only after own withdrawal |
 | `GET /projects/{projectId}/applications` | D | O or maintainer | O | D | third party denied; no count or data leak |
 | `PATCH /applications/{applicationId}` | D | applicant (withdraw) or project owner/maintainer (accept, decline) | O | D | cross-project IDOR, invalid state transition, no re-apply after decline |
-| `GET /learn/series/{seriesId}/lessons/{lessonId}/progress`, `PUT` (lesson progress) | P1 | P1 | P1 | P1 | table deferred to migration 00011 |
+| `GET /learn/series/{seriesId}/lessons/{lessonId}/progress`, `PUT` (lesson progress) | P1 | P1 | P1 | P1 | table deferred to a later migration |
 | `POST /learn/articles` | D (401) | C (verified) | C | C | unauthenticated 401, unverified 403, CSRF |
 | content relations via `links[]` on create/update | D | C: only the author of the source item, only to published public targets | O of source | remove only (below) | dangling/private target, non-author link |
 | `POST /moderation/{targetType}/{targetId}/hide`, `/restore` | D | D | D | M | audit row in the same transaction; non-moderator 403 |

@@ -6,12 +6,12 @@ description: 226os Go modular monolith rules and practices (Chi transport-only h
 
 ## Scope and triggers
 - `src/api/**` (`cmd/`, `internal/<module>/...`). Pair with `postgres-data` for `db/**`, `api-contract` for `api/openapi.yaml`, `security-authz` for identity/auth paths.
-- Status: repo is documentation-only (`docs/architecture/ARCHITECTURE.md:3`). Do not scaffold code unless a slice is opened via `/start-slice` with owner/reviewer and closed ADR-0001 conditions (`docs/decisions/0001-g0-conditional-baseline.md:29-34`).
+- Status: the API exists under `src/api` (see Layout below). Work only inside an open slice: its block in `TODO.md` names owner, reviewer and allowed paths (ADR-0008). Ask the user to run `/start-slice` if none is open.
 
 ## Project rules (binding)
 - Stack: Go, Chi, `pgx`, `sqlc`, modular monolith, REST, OpenAPI 3.1 (`docs/DEV.md:7`; ACCEPTED as BASE-004 `docs/decisions/README.md:22`).
 - No general-purpose ORM, external search engine, microservices, Redis or Kubernetes without an approved ADR (`docs/DEV.md:10`, `docs/architecture/ARCHITECTURE.md:27`).
-- Business logic never lives in HTTP handlers (`docs/DEV.md:10`, `docs/RULES.md:12`); handlers carry transport concerns only, invariants live in domain/application boundaries (`docs/spec-kit/TASKS.md:92`).
+- Business logic never lives in HTTP handlers (`docs/DEV.md:10`, `docs/RULES.md:12`); handlers carry transport concerns only, invariants live in the domain/service boundary.
 - Packages per domain: `domain`, `service`, `repository`, `transport`; interfaces at the boundary, dependencies point toward business logic (`docs/DEV.md:44`).
 - Modules: identity, solve, discover, build, community, connect, language, intelligence (`docs/architecture/ARCHITECTURE.md:10`); a module never imports a neighbour's HTTP transport, share through explicit interfaces and limited models (`docs/architecture/ARCHITECTURE.md:20`).
 - Do not materialize empty P1/P2 module folders (`docs/SPEC.md:96`).
@@ -19,11 +19,11 @@ description: 226os Go modular monolith rules and practices (Chi transport-only h
 - `go fmt`, `go vet`, `staticcheck`, `golangci-lint` at pinned versions; `go test -race`; PG integration on Docker (`docs/DEV.md:46`).
 - Separate configuration, application and handlers; never log secrets (`docs/DEV.md:48`, `docs/RULES.md:25`).
 - API owns invariants and permissions; access checks as close as possible to the business operation (`docs/architecture/ARCHITECTURE.md:19`, `:23`).
-- Multi-table mutations are transactional (`docs/SPEC.md:119`, `docs/spec-kit/CONTRACTS.md:24`).
-- Health/readiness endpoints and structured logs without secrets are required (`docs/spec-kit/CONTRACTS.md:57`).
+- Multi-table mutations are transactional (`docs/SPEC.md:119`, `docs/archive/spec-kit/CONTRACTS.md:24`).
+- Health/readiness endpoints and structured logs without secrets are required (`docs/archive/spec-kit/CONTRACTS.md:57`).
 - GitHub public API access is limited, read-only, with quotas, timeouts and anti-SSRF (`docs/architecture/ARCHITECTURE.md:13`, `docs/SPEC.md:126`).
-- Coverage: 100.00% of instrumentable first-party Go statements via `go test -covermode=atomic -coverprofile=coverage.out ./...` + `go tool cover -func` (`docs/TEST.md:6`, `AGENTS.md:48`). Exclusions only via `docs/quality/COVERAGE_SCOPE.md`, which currently has none active (`docs/quality/COVERAGE_SCOPE.md:5`, `:10`) — so generated sqlc/OpenAPI code is NOT yet excluded; pending review.
-- Run only reviewed Make targets after reading their recipe (`AGENTS.md:120-121`). Go toolchain and linter versions: pin per ADR (`docs/architecture/ARCHITECTURE.md:3`).
+- Coverage: 100.00% of instrumentable first-party Go statements via `go test -covermode=atomic -coverprofile=coverage.out ./...` + `go tool cover -func` (`docs/TEST.md:6`, `AGENTS.md:48`). Run through `make coverage` (`scripts/coverage-go.sh`). Exclusions only via the `coverage-exclude-go` block of `docs/quality/COVERAGE_SCOPE.md`; read the block for what is excluded today. Never add an exclusion yourself: it is an owner-reviewed file.
+- Run only reviewed Make targets after reading their recipe (`AGENTS.md:120-121`). Go toolchain and linter versions are pinned in `go.mod`, `mk/00-config.mk` and the toolchain files (ADR-0006); do not restate them.
 
 ## Expert practices
 - Wire everything in `cmd/api/main.go`: load config, build `pgxpool`, construct repositories -> services -> handlers, mount Chi router; no package-level mutable globals or `init()` side effects. [Go Code Review Comments](https://go.dev/wiki/CodeReviewComments)
@@ -41,19 +41,17 @@ description: 226os Go modular monolith rules and practices (Chi transport-only h
 - Concurrency: every goroutine has a clear exit (ctx cancellation); prefer `errgroup` for fan-out with cancellation; guard shared state with `sync.Mutex` or confine it; run `-race`. [CodeReviewComments#goroutine-lifetimes](https://go.dev/wiki/CodeReviewComments#goroutine-lifetimes), [errgroup](https://pkg.go.dev/golang.org/x/sync/errgroup)
 - Don't `panic` for normal errors; Recoverer is the last line, not control flow. [CodeReviewComments#dont-panic](https://go.dev/wiki/CodeReviewComments#dont-panic)
 - Package names short, singular, meaningful; no `util`, `common`, `types`, `api`. [CodeReviewComments#package-names](https://go.dev/wiki/CodeReviewComments#package-names), [Effective Go](https://go.dev/doc/effective_go#names)
-- `internal/` only hides packages from code outside `src/api/`; it does NOT stop `internal/solve` importing `internal/identity/transport`. Enforce the module boundary (`docs/architecture/ARCHITECTURE.md:20`) with an import-boundary linter (e.g. golangci-lint depguard — tool pin per ADR) plus review. [Go internal packages](https://go.dev/doc/go1.4#internalpackages), [Go modules layout](https://go.dev/doc/modules/layout)
+- `internal/` only hides packages from code outside `src/api/`; it does NOT stop `internal/solve` importing `internal/identity/transport`. Enforce the module boundary (`docs/architecture/ARCHITECTURE.md:20`) with an import-boundary linter (golangci-lint depguard, configured in `.golangci.yml`) plus review. [Go internal packages](https://go.dev/doc/go1.4#internalpackages), [Go modules layout](https://go.dev/doc/modules/layout)
 
 ## SOLID / design notes for this layer
-- Layout (INFERRED from `docs/DEV.md:24`, `:44`; confirm in TASK-API-001):
+- Layout as it exists today (check with `ls src/api/cmd src/api/internal` before adding anything):
 ```text
-src/api/cmd/api/main.go               # composition root only
-src/api/internal/platform/{config,httpx,logging,pg}/   # cross-cutting, no business rules
-src/api/internal/<module>/domain/     # entities, invariants, sentinel errors (no IO)
-src/api/internal/<module>/service/    # use cases, authz call, tx orchestration
-src/api/internal/<module>/repository/ # sqlc-backed adapters, error translation
-src/api/internal/<module>/transport/  # Chi handlers, DTO <-> domain, problem+json mapping
+src/api/cmd/{api,aicheck,mailcheck}/   # entrypoints; cmd/api is the composition root
+src/api/internal/app/                  # application wiring and server startup
+src/api/internal/platform/             # cross-cutting, no business rules:
+  apigen apispec apperr config cursor db dbgen etag httpx idempotency llm mailer pgtest subject
 ```
-Doc tension: brief/TASKS use "application/domain" (`docs/spec-kit/TASKS.md:92`); DEV.md names it `service` — use `service`. `db/` location differs between `src/api/db` (`docs/DEV.md:24`) and root `db/` (`docs/DEV.md:26`) — resolve in ADR-OPEN-005.
+Domain modules are not created yet. When a slice adds one, use `src/api/internal/<module>/{domain,service,repository,transport}` (domain: entities, invariants, sentinel errors, no IO; service: use cases, authz call, tx orchestration; repository: sqlc-backed adapters and error translation; transport: Chi handlers, DTO mapping, problem+json) and do not create empty modules. The layer between transport and domain is named `service`. `db/` is the repository root `db/` (ADR-0005); sqlc output goes to `src/api/internal/platform/dbgen` and is never hand-edited.
 - SRP: handler = decode/validate shape, call one service method, encode. Service = one use case. Repository = SQL only.
 - DIP/ISP: service owns tiny interfaces (`QuestionStore{ Get(ctx,id) ...}`), not the whole `sqlc.Querier`; repository implements them.
 - OCP: add a module/route by mounting a new `transport.Routes(r chi.Router)`; never edit neighbour modules.

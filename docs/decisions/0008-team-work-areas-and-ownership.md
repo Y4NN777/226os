@@ -2,13 +2,14 @@
 
 - **Status:** ACCEPTED
 - **Date:** 2026-11-12
-- **Approver:** `Y4NN77`, repository owner (accepted 2026-11-12; slice assignments, helpers and reviewer pairs are kept in `ROADMAP.md` section 4 and `TODO.md`)
+- **Approver:** `Y4NN777`, repository owner (accepted 2026-11-12; slice assignments, helpers and reviewer pairs are kept in `ROADMAP.md` section 4 and `TODO.md`)
 - **Scope:** who owns which work area during the rest of P0 now that the team has four members; amends the interim ownership of [ADR-0002](0002-interim-single-maintainer-ownership.md)
-- **Related:** [ADR-0002](0002-interim-single-maintainer-ownership.md), `docs/GIT_WORKFLOW.md`, `docs/DEV.md` section 6, `docs/spec-kit/TASKS.md`, `.github/CODEOWNERS`, `docs/team/CONTRIBUTORS.md`
+- **Related:** [ADR-0002](0002-interim-single-maintainer-ownership.md), `docs/GIT_WORKFLOW.md`, `docs/DEV.md` section 6, `TODO.md`, `.github/CODEOWNERS`, `docs/team/CONTRIBUTORS.md`
+- **Metadata note 2026-11-12:** approver spelling normalised to the GitHub login (`Y4NN777`); the decision text is unchanged.
 
 ## Context
 
-ADR-0002 made `Y4NN77` the interim owner of every role and says roles are assigned when P0 completes. The team is now four people (GitHub access: `Y4NN777` admin, `NICE-DEV226` and `mibienpanjoe` write, `PANK4SS` invited). Slice B0 (bootstrap) is merged, and the next tasks (TASK-DATA-001, TASK-SEC-001, TASK-API-001, TASK-WEB-001, TASK-OPS-001) can run in parallel only if each has one owner and shared files have one editor at a time.
+ADR-0002 made `Y4NN777` the interim owner of every role and says roles are assigned when P0 completes. The team is now four people (GitHub access: `Y4NN777` admin, `NICE-DEV226` and `mibienpanjoe` write, `PANK4SS` invited). Slice B0 (bootstrap) is merged, and the next tasks (TASK-DATA-001, TASK-SEC-001, TASK-API-001, TASK-WEB-001, TASK-OPS-001) can run in parallel only if each has one owner and shared files have one editor at a time.
 
 ## Decision
 
@@ -33,7 +34,7 @@ ADR-0002 made `Y4NN77` the interim owner of every role and says roles are assign
    - `db/migrations/**`: only the backend area adds migrations, one developer at a time, so numbers are never assigned twice.
    - `go.mod`, `go.sum`, `pnpm-lock.yaml`, `mk/**`: one change per PR, merged quickly.
 
-3. **Owner decisions stay with `Y4NN77`:** ADRs, new dependencies, migrations on live data, secrets, costs, remote access, production approval, and the G4 and G7 security and legal reviews. This ADR does not waive any gate or human checkpoint.
+3. **Owner decisions stay with `Y4NN777`:** ADRs, new dependencies, migrations on live data, secrets, costs, remote access, production approval, and the G4 and G7 security and legal reviews. This ADR does not waive any gate or human checkpoint.
 
 4. **Identity.** Each person records their GitHub username and approved Git identity with the maintainer before their first commit, as `CONTRIBUTING.md` requires, and commits only under their own identity. Emails are never recorded in the repository. No AI agent is an author or `Co-authored-by`; AI assistance is recorded in `AI_USAGE.md`.
 

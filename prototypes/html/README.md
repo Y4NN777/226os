@@ -10,7 +10,7 @@ High-fidelity, static prototype of the 226os UI (Graphite & Lime). It is a **des
 - Query parameters (all pages): `?lang=fr|en` (default fr), `?theme=light|dark` (default: OS preference), `?state=loading|empty|error|notfound` (forces the simulated async state), `?q=` on `index.html` (search).
 - QA parameters: `?lang=fr|en` (overrides the persisted choice and is not saved; headless browsers default to English, always pass it), `?role=` (simulated viewer: question `author|member|anonymous`, project `owner|applicant|member|anonymous`, profile `self|member|anonymous`; `?as=` is kept as an alias on profile), `?proto=1|0` (annotations and prototype scaffolding on or off), `?state=loading|empty|error` (auth also `expired|ratelimit|badcreds|verify`).
 - The floating **Prototype** button (bottom-left) opens the same controls (role, screen state, annotations switch) without editing the URL.
-- Navigation uses French menu labels (Explorer, Résoudre, Découvrir, Construire, Communauté, Mentorat); English keeps the PRD domain names. See `DESIGN_REVIEW.md` section 10.
+- Navigation uses French menu labels (Explorer, Résoudre, Découvrir, Construire, Communauté, Mentorat); English keeps the PRD domain names. See `docs/archive/prototypes/DESIGN_REVIEW.md` section 10.
 - Language and theme choices persist in `localStorage` (keys `226os.lang`, `226os.theme`); the page still works if storage is blocked.
 
 ## What is simulated
@@ -35,7 +35,5 @@ assets/js/                 theme-init (head), shell (injects nav), app (runtime,
 assets/js/pages/           <name>.js per page, plus home-domains.js (Explore domain priority table)
 assets/data/               people.js, common.js (shared), <lane>.js (lane-owned)
 CONVENTIONS.md             contract for lane agents (data-testid rules)
-ASTRYX_MAPPING.md          prototype -> Astryx component mapping; names verified against the official component index, props/behaviour NOT verified
-ASTRYX_NOTES.md            SUPERSEDED second-hand notes (not verified); use ASTRYX_MAPPING.md
-DESIGN_REVIEW.md           self-review: decisions, coverage, a11y, tokens added beyond DESIGN.md, document conflicts
+(archived in docs/archive/prototypes/: ASTRYX_MAPPING.md, ASTRYX_NOTES.md, DESIGN_REVIEW.md; Astryx evidence: docs/quality/ASTRYX_REPORT.md)
 ```

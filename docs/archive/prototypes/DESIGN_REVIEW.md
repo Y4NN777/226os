@@ -1,3 +1,6 @@
+> Archived 2026-11-12. Historical record, not maintained.
+> Current source: [DESIGN.md](../../../DESIGN.md) and [docs/quality/ASTRYX_REPORT.md](../../quality/ASTRYX_REPORT.md).
+
 # Design review: 226os HTML prototype
 
 **Status:** self-review by the author agents, 2026-11-11. This is NOT an independent design or accessibility audit. What was verified and what was not is stated per section. Authority on conflict: `DESIGN.md` > `CONVENTIONS.md`.

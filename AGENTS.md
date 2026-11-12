@@ -1,12 +1,12 @@
 # 226os — Agent Orchestration Contract
 
-**Audience:** Claude Code, Codex and other development agents. **Human owner:** the 7's team.
+**Audience:** Claude Code, Codex and other development agents. **Human owner:** `Y4NN777` (repository owner), with a team of four members (see `docs/team/CONTRIBUTORS.md`).
 
 ## Mission
-Build 226os in accordance with `docs/PRD.md`, the constraints of `docs/SPEC.md`, and the practices of `docs/DEV.md` and `docs/TEST.md`, with no architectural drift and with verifiable quality, security and performance. The full vision has nine domains (PRD amendment 3.1: Learn); deliver P0 first without erasing P1/P2.
+Build 226os in accordance with `docs/PRD.md`, the constraints of `docs/SPEC.md`, and the practices of `docs/DEV.md` and `docs/TEST.md`, with no architectural drift and with verifiable quality, security and performance. The full vision has nine domains (see `docs/PRD.md` for the current amendment status); deliver P0 first without erasing P1/P2.
 
 ## Required reading, in this order
-1. `docs/PRD.md` — why/what, nine domains (amendment 3.1: Learn), user journeys, priority.
+1. `docs/PRD.md` — why/what, nine domains (see it for the current amendment status), user journeys, priority.
 2. `docs/SPEC.md` — user stories, invariants, contracts, BDD cases.
 3. `docs/architecture/ARCHITECTURE.md` + accepted ADRs — validated boundaries and choices.
 4. `docs/RULES.md`, `docs/TEST.md`, `docs/DEV.md`, `docs/SHIP.md` — standards and gates.
@@ -16,8 +16,8 @@ Build 226os in accordance with `docs/PRD.md`, the constraints of `docs/SPEC.md`,
 ## Git workflow for agents
 
 - Start work from `develop`, unless the task is an approved hotfix from `main`.
-- Use `feature/<domain>/<name>`, `fix/<domain>/<name>`, `hotfix/<domain>/<name>`, `refactor/<domain>/<name>`, `test/<domain>/<name>`, `docs/<domain>/<name>` or `chore/<domain>/<name>`.
-- Open a pull request from the work branch to `develop`; never push directly to `develop` or `main` once branch protection is active. Routine low-risk staging/preview PRs may be merged by the agent/orchestrator after required checks pass when no second maintainer exists.
+- Branch naming and domains: `docs/GIT_WORKFLOW.md` (owner of the convention).
+- Open a pull request from the work branch to `develop`; never push directly to `develop` or `main` once branch protection is active. Reviewer pairs follow ADR-0008 and `docs/team/CONTRIBUTORS.md`; an agent never merges its own PR without the review that ADR requires.
 - Treat `develop` as staging/Preview, then promote `develop` to `main` through a production pull request with G7 evidence and human approval.
 - Keep the tested commit SHA unchanged during promotion. Back-merge production fixes into `develop` through a pull request.
 - Read `docs/GIT_WORKFLOW.md` before creating, renaming, rebasing or promoting a branch. Do not force-push shared branches.
@@ -58,16 +58,17 @@ Build 226os in accordance with `docs/PRD.md`, the constraints of `docs/SPEC.md`,
 goal: "..."
 story_id: "US-SOLVE-001"
 priority: "P0"
-owner: "unassigned"
-reviewer: "unassigned"
+owner: "<GitHub login of the slice owner, ADR-0008>"
+reviewer: "<GitHub login of the reviewer, ADR-0008>"
 allowed_paths: []
 acceptance_criteria: []
 threats_and_risks: []
 planned_tests: []
-required_gates: [G0,G1,G2,G3,G4,G5,G6]
+required_gates: [G1,G2,G3,G4,G5,G6,G7] # G0 is closed
 evidence_paths: []
 status: PLANNED # PLANNED | RED | GREEN | REVIEW | BLOCKED | DONE
 ```
+The pull request checklist in `.github/PULL_REQUEST_TEMPLATE.md` and `docs/team/KICKOFF.md` carries the same fields; keep them aligned.
 
 ## Anti-hallucination rules & tools
 - Do not claim to have read a source or run a command without a real reference.
@@ -79,8 +80,7 @@ status: PLANNED # PLANNED | RED | GREEN | REVIEW | BLOCKED | DONE
 
 ## Git and permissions
 - Read/explore by default; write only within the assigned task.
-- Every committed contribution uses the Git identity of the responsible human contributor, configured per `docs/GIT_WORKFLOW.md`. No AI agent, bot or subagent may be added as an author or through a `Co-authored-by` trailer.
-- Before their first contribution, each member provides the maintainer with their GitHub username and their approved Git `user.name` / `user.email` for the project. A contributor never uses another member's identity.
+- Identity rule and Day one: `CONTRIBUTING.md`. Every committed contribution uses the Git identity of the responsible human contributor. No AI agent, bot or subagent may be added as an author or through a `Co-authored-by` trailer; this overrides any default attribution a tool suggests.
 - AI assistance is recorded in `AI_USAGE.md` when relevant; it does not replace the human author responsible for the contribution.
 - No GitHub mutation (issues/PRs/actions), no Datacloud purchase, no deployment, no deletion or destructive migration without explicit human approval.
 - Follow `CONTRIBUTING.md` and `docs/RULES.md`. For any unresolved decision, produce an actionable blocker and continue only the safe work.
@@ -103,7 +103,7 @@ status: PLANNED # PLANNED | RED | GREEN | REVIEW | BLOCKED | DONE
 
 | Profile | Allowed tools | Commands | Writes |
 |---|---|---|---|
-| Documentation review (`lead`) | `Read`, `Grep`, `Glob`, `Edit`, `Write`, `WebFetch`, `WebSearch`, `Agent`, `TodoWrite`, `Skill` | **Forbidden** | In-scope Markdown/spec artifacts only |
+| Lead (`lead`) | `Read`, `Grep`, `Glob`, `Edit`, `Write`, `WebFetch`, `WebSearch`, `Agent`, `TodoWrite`, `Skill` | Project-approved `make` targets only (recipe inspected first) | In-scope documentation and assigned files |
 | Research/explorer subagent | `read`, `search`, optionally `web` | **Forbidden** | **Forbidden** |
 | Planning/spec reviewer | `read`, `search`, optionally `web` | **Forbidden** | Only with an explicit document-edit assignment |
 | Implementation builder (after human GO) | `read`, `search`, `edit`, approved validation execution | Minimal, bounded | Assigned code and tests only |
@@ -112,18 +112,18 @@ status: PLANNED # PLANNED | RED | GREEN | REVIEW | BLOCKED | DONE
 
 A tool allowlist is a defense-in-depth restriction, not a substitute for platform permission controls or review. Do not represent these instructions as an OS-level sandbox.
 
-### 3. When execution is genuinely necessary (future implementation phase only)
+### 3. When execution is genuinely necessary
 
-The documentation-only scope prohibits application implementation, dependency installation, builds, tests, deployment, and infrastructure mutation. It does not prohibit explicitly authorized Git inspection, staging, committing, or pushing of in-scope documentation changes. Such Git operations must exclude secrets, generated artifacts, unrelated changes, history rewrites, and force-pushes.
+Git inspection, staging, committing and non-force pushing are permitted when explicitly authorized for the task scope. They must exclude secrets, generated artifacts, unrelated changes, history rewrites, and force-pushes.
 
-- **Documentation and Spec Kit work:** do not execute application commands, install packages, scaffold projects, run builds/tests, or deploy. Define verification steps as proposed evidence only. Explicitly authorized Git inspection, staging, commits, and pushes remain permitted for the approved documentation scope.
-- **Implementation:** run **only necessary repository-approved, predictable targets**, primarily `make doctor`, `make lint`, `make test-unit`, `make test-integration`, `make coverage`, `make security`, `make licenses`, `make quality`, and `make build`, once implemented and reviewed.
+- **Documentation-only changes:** do not run application builds or deploy; Git operations as above and cheap read-only checks are enough.
+- **Implementation (inside an open slice):** run **only necessary repository-approved, predictable targets**, primarily `make doctor`, `make generate`, `make lint`, `make test-unit`, `make test-integration`, `make coverage`, `make security`, `make licenses` and `make quality`; `make help` lists the real targets.
 - First inspect the target's recipe and safety: **Make targets are not intrinsically safe**. Do not execute unknown, dynamically generated, destructive, or network-mutating targets just because they have a `make` prefix.
 - Prefer one aggregate `make quality` invocation to repeated individual checks **if** its implementation and outputs prove all required gates ran. Do not rerun expensive checks without a changed input, failing evidence, or a justified diagnostic need.
 - Require an execution rationale: command, purpose, permitted paths, expected side effects, expected artifacts, and time/cost impact. Group operations conservatively; no long exploratory shell chains.
 - For unavoidable commands not yet covered by a reviewed Make target, request human approval before execution and record why a structured tool/Make target was insufficient.
 - No `curl | sh`, remote installer scripts, `sudo`, destructive filesystem operations, git history rewrites, secrets access, infrastructure provisioning, `docker compose down -v`, cloud mutations, or deploy without explicit approval and a documented task scope. A documented explicit authorization may permit a bounded non-force Git push of in-scope documentation commits.
-- Never create fake PASS results from stubs, skipped commands, or previously cached output. Report `NOT RUN` when unexecuted.
+- Never create fake PASS results from stubs, skipped commands, or previously cached output. Report `NOT RUN` when unexecuted. G5 and G6 are `NOT IMPLEMENTED` as targets and G7 is `NOT RUN`; do not report them as PASS.
 
 ### 4. Human approval & final evidence contract
 
@@ -131,4 +131,4 @@ Human approval is mandatory for scope/architecture changes, accepted ADR status,
 
 ### 5. `lead` agent orchestration
 
-The Claude Code agent `.claude/agents/lead.md` (formerly the Copilot agent COP-ASS) is the documentation-review coordinator. It retains the **Principal Software Engineer / Architect / Product Specification Reviewer / Agent Orchestrator** mandate. It may coordinate parallel specialist reviews, consolidate their findings, and edit approved documentation. **It must not execute commands or start application implementation**, and it must stop for human review.
+The Claude Code agent `.claude/agents/lead.md` (formerly the Copilot agent COP-ASS) is the documentation-review coordinator. It retains the **Principal Software Engineer / Architect / Product Specification Reviewer / Agent Orchestrator** mandate. It may coordinate parallel specialist reviews, consolidate their findings, edit assigned files and run project-approved `make` targets. **It must not start work outside an open slice**, and it must stop for human review at the checkpoints above.

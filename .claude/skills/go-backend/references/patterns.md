@@ -1,6 +1,6 @@
 # go-backend — reference patterns
 
-Illustrative shapes, not approved code. Names are placeholders until TASK-API-001 fixes the layout.
+Illustrative shapes, not approved code. Check the real packages under `src/api/internal/platform` before reusing a name; the domain modules follow the layout in `SKILL.md`.
 
 ## Domain errors and transport mapping
 ```go

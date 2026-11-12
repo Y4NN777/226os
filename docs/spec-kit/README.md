@@ -1,50 +1,44 @@
 # 226os Spec Kit
 
-**Status:** implementation-ready documentation baseline, pending human approval
-**Date:** 2026-11-11
-**Owner:** 7's / human approver to assign
+**Status:** G0 closed (see [docs/decisions/README.md](../decisions/README.md)); the application is under implementation.
+**Date:** 2026-11-12
+**Owner:** Y4NN777
 
 ## Purpose
 
-This directory is the canonical implementation handoff for 226os. It does not replace the product or engineering source documents; it binds them into an executable plan and records what is accepted, open, specified, verified, or not run.
+This directory binds the product and engineering documents into implementation contracts. It does not replace them and cannot approve an open decision or change product scope.
 
 ## Document precedence
 
-1. `AGENTS.md` governs agent permissions, evidence, and human approval.
-2. `docs/PRD.md` governs product scope and rationale, including all nine domains (PRD amendment 3.1 adds Learn) and four differentiators.
-3. `docs/SPEC.md` governs observable behavior, invariants, and API boundaries.
-4. `docs/architecture/ARCHITECTURE.md` governs accepted technical boundaries.
-5. `DESIGN.md` governs UI direction and Astryx usage.
-6. `docs/RULES.md`, `docs/TEST.md`, `docs/DEV.md`, and `docs/SHIP.md` govern engineering, quality, implementation, and release procedure.
-7. `docs/decisions/` records accepted or pending changes; a later accepted ADR supersedes an earlier decision only when explicitly stated.
-8. This Spec Kit binds the above documents into tasks. It cannot approve an open decision or change product scope.
-
-The repository keeps the primary product and engineering documents under `docs/`; root-level `README.md`, `DESIGN.md`, and governance files remain entry points and control documents.
+1. `AGENTS.md`: agent permissions, evidence, human approval.
+2. `docs/PRD.md`: product scope and rationale.
+3. `docs/SPEC.md`: observable behavior, invariants, API boundaries.
+4. `docs/architecture/ARCHITECTURE.md`: accepted technical boundaries.
+5. `DESIGN.md`: UI direction and Astryx usage.
+6. `docs/RULES.md`, `docs/TEST.md`, `docs/DEV.md`, `docs/SHIP.md`: engineering, quality, implementation and release procedure.
+7. `docs/decisions/`: ADRs; a later accepted ADR supersedes an earlier one only when it says so.
+8. This Spec Kit.
 
 ## Status vocabulary
 
-- `SPECIFIED`: documented requirement or procedure; no execution evidence yet.
-- `VERIFIED`: inspected evidence exists in the repository or a recorded review.
-- `PASS`: an executable gate produced acceptable evidence for the target SHA.
-- `FAIL`: an executable gate produced unacceptable evidence.
-- `NOT RUN`: no executable check was run; never treat it as success.
-- `BLOCKED`: cannot proceed until an explicit dependency or human decision is resolved.
+`SPECIFIED` (documented, no execution evidence), `VERIFIED` (inspected evidence), `PASS`, `FAIL`, `NOT RUN` (never a success), `BLOCKED`. Gate statuses come only from commands that were run.
 
 ## Contents
 
-- [Traceability](TRACEABILITY.md): PRD, SPEC, UI/API/data, BDD, tasks, and gates.
-- [Contracts](CONTRACTS.md): API, data, search, frontend, security, and operational contracts to approve before parallel implementation.
-- [G0 decisions](G0_DECISIONS.md): proposed defaults and concise human decision register.
-- [Authentication and authorization](AUTHORIZATION_MATRIX.md): proposed session policy and endpoint permission matrix.
-- [API contract](API_CONTRACT.md): proposed REST, error, pagination, and idempotency contract.
-- [Database design](DATABASE_DESIGN.md): proposed schema, migration, seed, and search design.
-- [Astryx verification](ASTRYX_VERIFICATION.md): release/API verification protocol; no package is installed by this task.
-- [G0 approval template](G0_APPROVAL_TEMPLATE.md): human sign-off record and checklist.
-- [Tasks](TASKS.md): bounded implementation work items with owners, allowed paths, tests, evidence, and dependencies.
-- [Quality and release](QUALITY_RELEASE.md): deterministic gates, evidence records, and release prerequisites.
-- [Decisions](../decisions/README.md): accepted baseline and pending human decisions.
-- [Claude handoff](CLAUDE_HANDOFF.md): standalone first-session instructions.
+- [Traceability](TRACEABILITY.md): PRD, SPEC, UI/API/data, BDD and gates.
+- [Authentication and authorization](AUTHORIZATION_MATRIX.md): endpoint permission matrix.
+- [API contract](API_CONTRACT.md): accepted REST, error and pagination decisions.
+- [Database design](DATABASE_DESIGN.md): schema rationale, invariants, search and seed design.
+- [Astryx verification](ASTRYX_VERIFICATION.md): verification protocol and criteria.
+- [Quality and release](QUALITY_RELEASE.md): gate status and evidence record.
+- Archive (historical, not maintained): [Tasks](../archive/spec-kit/TASKS.md), [G0 decisions](../archive/spec-kit/G0_DECISIONS.md), [G0 approval record](../archive/spec-kit/G0_APPROVAL_RECORD.md), [Claude handoff](../archive/spec-kit/CLAUDE_HANDOFF.md), [Contracts](../archive/spec-kit/CONTRACTS.md).
 
-## Current readiness
+## Contract index
 
-Documentation review is `VERIFIED` for the findings recorded in the handoff. G0 is `GO` for P0 implementation under ADR-0001…0007 (all ACCEPTED on 2026-11-11), with interim ownership per ADR-0002; the next step is the B0 bootstrap (`docs/spec-kit/CLAUDE_HANDOFF.md`). G1-G7 are `NOT RUN` because no application, infrastructure, CI, or test artifacts exist yet.
+Detail lives in `api/openapi.yaml`, `db/migrations/`, the documents above and ADR-0003 to ADR-0007. Contracts not stated elsewhere:
+
+- Search: questions, resources, projects and Learn articles; bounded, stable ordering; country/tag/type/language filters; PostgreSQL full-text (`simple` plus immutable `unaccent` wrapper), GIN and `pg_trgm`. Cost is bounded and plans are captured with `EXPLAIN (ANALYZE, BUFFERS)`. No semantic search or AI claims at P0; relevance dataset and latency budgets are G6 evidence.
+- Frontend: React 19, TypeScript strict, Vite, TanStack Router/Query/Form, Astryx as the primary component foundation. Public reads need no session; every mutation does. Shared UI covers loading, empty, error, success, focus, keyboard and dialog states. The FR/EN choice preserves original user content and unsaved form state. Responsive checkpoints: 360, 768, 1024, 1440 px and 200% zoom.
+- Security evidence: negative authorization, CSRF/session, XSS/SSRF and rate-limit tests, SAST, SCA, secret and licence scans. No code execution from snippets or user Markdown.
+- Operations: Docker multi-stage images; one profile-based Compose tree (`local-dev`, `staging-test`, `production-live`) behind Traefik; PostgreSQL stays private; health/readiness endpoints; structured logs without secrets; encrypted backup/restore evidence. Valkey and S3-compatible storage are excluded at P0 (new ADR needed). Make and GitHub Actions are the only gate interfaces.
+- Seeds are deterministic, synthetic, and never presented as real activity or provider verification.

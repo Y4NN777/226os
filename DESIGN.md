@@ -2,7 +2,7 @@
 
 **Status:** Approved direction; implementation subject to validation gates  
 **Version:** 1.0 · 11 November 2026  
-**Owner:** 7's · 226os  
+**Owner:** Y4NN777 · 226os  
 **Applies to:** `src/web`, shared UI packages, documentation and agent-authored UI  
 **Related:** `docs/PRD.md`, `docs/SPEC.md`, `docs/architecture/ARCHITECTURE.md`, `docs/DEV.md`, `docs/TEST.md`, `docs/RULES.md`, `AGENTS.md`
 
@@ -88,18 +88,17 @@ These are **226os target values** to map onto Astryx token slots. They are not a
 
 ```bash
 # Run within src/web (or via workspace tooling).
-pnpm add @astryxdesign/core @astryxdesign/theme-neutral @stylexjs/stylex
+pnpm add @astryxdesign/core @stylexjs/stylex
 pnpm add -D @astryxdesign/cli
 ```
 
-Use a **pinned, reviewed** release recorded in the lockfile. Verify the specific component API with its installed CLI before generating code, because Astryx is currently in beta and APIs may change.
+`@astryxdesign/theme-neutral` is not used: it brings a remote font that conflicts with the system-fonts rule (see `docs/quality/ASTRYX_REPORT.md`). Pin: see `src/web/package.json` and ADR-0007. Use a **pinned, reviewed** release recorded in the lockfile. Verify the specific component API with its installed CLI before generating code, because Astryx is currently in beta and APIs may change.
 
 ```css
 /* src/web/src/styles/index.css — conceptual import order */
 @import '@astryxdesign/core/reset.css';
 @import '@astryxdesign/core/astryx.css';
-@import '@astryxdesign/theme-neutral/theme.css';
-/* Then import the generated 226os theme overrides and app styles. */
+/* Then the 226os theme (src/web/src/theme) and app styles. */
 ```
 
 For a Tailwind integration, follow **Astryx's official cascade-layer order** and use its optional `tailwind-theme.css` token bridge. Never guess the order: the upstream docs demonstrate that a wrong cascade can silently override components. The Astryx `Theme` provider should wrap the application once, using a 226os theme created with the supported `defineTheme()` API and an explicit light/dark/system mode strategy.
@@ -126,7 +125,7 @@ The tokens above illustrate how to map an approved palette; **confirm token supp
 Before an agent authors a UI component:
 
 1. Read this file plus the relevant requirement in `docs/SPEC.md` and the existing UI patterns.
-2. Inspect the **installed** Astryx CLI documentation: `pnpm exec astryx component --brief-all`, `pnpm exec astryx docs tokens`, `pnpm exec astryx docs theme`, and a targeted `pnpm exec astryx component <ComponentName>`.
+2. Inspect the **installed** Astryx CLI documentation: `pnpm exec astryx component --detail brief` (or `--list`), `pnpm exec astryx docs tokens`, `pnpm exec astryx docs theme`, and a targeted `pnpm exec astryx component <ComponentName>`.
 3. Prefer verified Astryx primitives and compositions; use typed, composable props and CSS variable overrides.
 4. Build reusable **226os product components** out of Astryx primitives instead of patching vendor code.
 5. If an Astryx component is missing or deficient, record the gap, evaluation and outcome before a custom accessible component is approved. `swizzle` is an exceptional escape hatch that brings ongoing maintenance and attribution responsibilities.
@@ -207,17 +206,17 @@ Each actionable component must consider: **default, hover, focus-visible, active
 
 Approved frontend stack: **React 19 + TypeScript + Vite, TanStack Router, Query and Form, Astryx, Tailwind only where complementary**.
 
-Suggested layout (adapt to the repo's accepted architecture, do not duplicate packages):
+Actual `src/web/src` layout (adapt only through reviewed changes):
 
 ```text
 src/web/src/
-  app/                  # app shell, providers, route setup
-  routes/               # TanStack Router route definitions
-  features/             # solve, discover, build, community, etc.
-  components/           # cross-domain product compositions
-  design-system/        # 226os theme, token mapping, approved wrappers
-  styles/               # application CSS and imports
-  i18n/                 # French and English message catalogs
+  app/                  # app shell, providers, code-based router (router.tsx)
+  api/                  # generated OpenAPI client and typed fetch helpers
+  features/             # one folder per domain feature (health, settings so far)
+  i18n/                 # French and English message catalogs and provider
+  styles/               # application CSS and Astryx imports
+  test/                 # test setup and render helpers
+  theme/                # 226os theme and ThemeProvider
 ```
 
 - Prefer Astryx source of truth for component behavior and CSS properties. UI compositions live in app code, not in a private fork of Astryx.
@@ -252,7 +251,7 @@ Quality gates must run through the documented `make` targets and GitHub Actions 
 | Decision | Status | Scope |
 | --- | --- | --- |
 | DES-01 Graphite & Lime brand direction | **Approved** | Palette family and visual character |
-| DES-02 Meta Astryx as primary component system | **Approved** | React/Vite UI foundations |
+| DES-02 Meta Astryx as primary component system | **Approved direction**; verification gaps in `docs/quality/ASTRYX_REPORT.md` | React/Vite UI foundations |
 | DES-03 Detailed light semantic palette | **Baseline; validate in implementation** | Contrast and component-state refinements |
 | DES-04 Detailed dark semantic palette | **Proposed baseline; approval after checks** | Contrast and usability |
 | DES-05 System typography | **Approved default** | Change via evidence-backed ADR |

@@ -1,3 +1,6 @@
+> Archived 2026-11-12. Historical record, not maintained.
+> Current source: [docs/decisions/0001-g0-conditional-baseline.md](../../decisions/0001-g0-conditional-baseline.md).
+
 # 226os G0 Approval Record
 
 **Status:** GO recorded for implementation of P0 under ADR-0001 to ADR-0007 (repository owner, 2026-11-11). G1 to G7 are evidence, not decisions, and remain `NOT RUN`.

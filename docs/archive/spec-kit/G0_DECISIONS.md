@@ -1,3 +1,6 @@
+> Archived 2026-11-12. Historical record, not maintained.
+> Current source: [docs/decisions/README.md](../../decisions/README.md) (ADR-0001 to ADR-0010).
+
 # 226os G0 Human Decision Register
 
 **Status:** ALL DECISIONS ACCEPTED (2026-11-11, approver Y4NN77). No row is proposed, conditional or deferred.

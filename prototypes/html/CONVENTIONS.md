@@ -1,3 +1,5 @@
+> Prototype documents. The prototype is frozen; `DESIGN.md` governs `src/web`.
+
 # Conventions — contract for lane agents
 
 Foundation files are **frozen** for lanes (UX pass: see section 11) (integration pass done; see section 10 for the shared APIs they now expose): `assets/css/{tokens,base,layout,icons,components}.css`, `assets/js/{app,shell,theme-init,i18n-common}.js`, `assets/data/{people,common}.js`, `index.html`, `pages/_template.html`. If you need a change, write it down in your report instead of editing (parallel edits of shared files are forbidden). Authority on conflict: `/DESIGN.md` > this file.
@@ -86,11 +88,11 @@ Skip link works; logical tab order; visible focus (never remove outlines); label
 ## 9. Screenshot review command
 
 ```bash
-S=/tmp/claude-1000/-home-aiobi6-Personal-Temp-226os/e447cffd-f11d-4447-8c7d-816101a3a029/scratchpad/shots; mkdir -p $S
+S=./shots; mkdir -p "$S"   # run from prototypes/html
 for w in 390 768 1280; do for th in light dark; do
 google-chrome --headless=new --disable-gpu --no-sandbox --hide-scrollbars --virtual-time-budget=4000 \
-  --screenshot=$S/<page>-$w-$th.png --window-size=$w,2400 \
-  "file:///home/aiobi6/Personal_Temp/226os/prototypes/html/pages/<page>.html?theme=$th&lang=fr"
+  --screenshot="$S/<page>-$w-$th.png" --window-size=$w,2400 \
+  "file://$PWD/pages/<page>.html?theme=$th&lang=fr"
 done; done
 # English once; forced states:  ?lang=en   ?state=error   ?state=empty   ?state=loading
 ```
@@ -153,7 +155,7 @@ Read the PNGs, fix overflow/overlap/contrast issues, and re-shoot. A virtual-tim
 - Tooltips (`.btn-icon[aria-label]`, `.has-tip`, `[data-tip]`) auto-flip: `app.js` measures the `::after` box on hover/focus and adds `.tip-flip-end` / `.tip-flip-start` near the viewport edges. Do not add per-page margins to compensate.
 - `.row-lead` stays visible in narrow containers (thumbnails, avatars, icons). Only leads containing `.vote` or `.solve-stats` collapse below 480px.
 - `.filter-bar-grid` and `.discover-filters` are one column below 480px, two from 480px.
-- French copy rules are in `DESIGN_REVIEW.md` section 10.
+- French copy rules are in `docs/archive/prototypes/DESIGN_REVIEW.md` section 10.
 
 ## 12. Direction v2 (supersedes sections 2-11 where they conflict). Phase A: shared visual system, layouts, session
 

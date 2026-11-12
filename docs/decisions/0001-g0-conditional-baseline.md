@@ -2,17 +2,18 @@
 
 - **Status:** ACCEPTED
 - **Date:** 2026-11-11
-- **Approver:** Yanis Axel DABO (`Y4NN77`), repository owner
+- **Approver:** `Y4NN777`, repository owner
 - **Scope:** G0 decisions for implementation preparation and the approval of P0 implementation under ADR-0001 to ADR-0007; not a release approval
 - **Amended:** 2026-11-11, same approver. The owner decided that no G0 decision may remain proposed or conditional. This ADR was first recorded as a conditional baseline (hence the file name, kept so links stay stable). It now records each original condition as met and how, and records the decisions that were deferred.
+- **Metadata note 2026-11-12:** approver spelling normalised to the GitHub login (`Y4NN777`); the decision text is unchanged.
 
 ## Context
 
-The G0 register contained proposed defaults for identity, authorization, API contracts, PostgreSQL, UI foundation, governance, operations, and licensing. At the time of the first recording the repository was documentation-only. Application code, executable contracts, deployment artifacts and gate evidence still do not exist; G1 to G7 are evidence, not decisions, and are all `NOT RUN`.
+The G0 register contained proposed defaults for identity, authorization, API contracts, PostgreSQL, UI foundation, governance, operations, and licensing. At the first recording (2026-11-11) the repository was documentation-only. Application code, executable contracts, deployment artifacts and gate evidence did not exist yet; G1 to G7 are evidence, not decisions, and were all `NOT RUN` at that date. Current gate status is in [the decisions README](README.md).
 
 ## Decision
 
-All rows of `docs/spec-kit/G0_DECISIONS.md` are `ACCEPTED`:
+All rows of `docs/archive/spec-kit/G0_DECISIONS.md` (archived 2026-11-12) are `ACCEPTED`:
 
 | Decisions | Recorded in |
 |---|---|
@@ -33,12 +34,12 @@ Together with the baseline already recorded in `docs/decisions/README.md` (BASE-
 
 | # | Condition (as first recorded) | Status | How |
 |---|---|---|---|
-| 1 | Name product, backend, frontend, security, QA, and release owners before implementation | Met | [ADR-0002](0002-interim-single-maintainer-ownership.md): `Y4NN77` is the interim owner of every role until P0 completes. |
+| 1 | Name product, backend, frontend, security, QA, and release owners before implementation | Met | [ADR-0002](0002-interim-single-maintainer-ownership.md): `Y4NN777` is the interim owner of every role until P0 completes (amended by [ADR-0008](0008-team-work-areas-and-ownership.md): work areas for the four-person team). |
 | 2 | Convert each proposal into a detailed ADR or approved contract before its slice changes behavior | Met | ADR-0003 (auth), ADR-0004 (API), ADR-0005 (data), ADR-0006 (toolchain), ADR-0007 (Astryx); `docs/spec-kit/AUTHORIZATION_MATRIX.md`, `API_CONTRACT.md`, `DATABASE_DESIGN.md`. |
 | 3 | Verify the installed Astryx release/API and pin the package-manager lockfile before frontend implementation | Met as a decision | ADR-0006 fixes pnpm via `packageManager` and a committed lockfile; ADR-0007 fixes the Astryx pin-and-verify procedure. Running it is task B0/TASK-WEB-001 evidence. |
 | 4 | Approve OpenAPI, DTO/error, migration, authorization, and search contracts before parallel implementation | Met | ADR-0004 and `api/openapi.yaml`; ADR-0005 and `DATABASE_DESIGN.md`; ADR-0003 and `AUTHORIZATION_MATRIX.md`. Executable verification (generator run, linter) happens at bootstrap. |
 | 5 | Complete AI provenance, third-party notices, SPDX/licence review before G4/G7 | Decided; evidence at G4/G7 | G0-GOV-002 and G0-COMP-001 above. The dependency inventory and licence report are produced on the target SHA at G4/G7. |
-| 6 | Keep G1 to G7 `NOT RUN` until reproducible evidence exists on the target SHA | Standing rule, met | Every gate is `NOT RUN` today. |
+| 6 | Keep G1 to G7 `NOT RUN` until reproducible evidence exists on the target SHA | Standing rule, met | At the first recording (2026-11-11) every gate was `NOT RUN`; see the decisions README for the current status. |
 | 7 | Revisit deferred operations and licensing decisions before production release | Met | G0-OPS-002 and G0-COMP-001 are decided above. Datacloud account, DNS, budget and approver evidence remain G7 evidence. |
 
 ## Consequences
@@ -49,7 +50,7 @@ Together with the baseline already recorded in `docs/decisions/README.md` (BASE-
 
 ## Evidence
 
-- `docs/spec-kit/G0_DECISIONS.md`
+- `docs/archive/spec-kit/G0_DECISIONS.md` (archived 2026-11-12)
 - `docs/spec-kit/G0_APPROVAL_TEMPLATE.md`
 - `docs/spec-kit/QUALITY_RELEASE.md`
 - `docs/SHIP.md`

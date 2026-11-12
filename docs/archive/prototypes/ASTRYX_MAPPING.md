@@ -1,3 +1,6 @@
+> Archived 2026-11-12. Historical record, not maintained.
+> Current source: [docs/quality/ASTRYX_REPORT.md](../../quality/ASTRYX_REPORT.md) and [DESIGN.md](../../../DESIGN.md).
+
 # Astryx mapping: HTML prototype -> `@astryxdesign/core` components
 
 **Status:** PROPOSED mapping, written 2026-11-11. Component **names** are verified against the official index; **props, slots, variants, token names and behaviour are UNVERIFIED** until the pinned package is installed and inspected (G0-UI-001, `docs/spec-kit/ASTRYX_VERIFICATION.md`). Nothing here is an integration claim. The prototype itself runs no Astryx code.

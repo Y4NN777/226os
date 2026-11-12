@@ -1,6 +1,6 @@
 # api-contract — OpenAPI 3.1 patterns
 
-Illustrative fragments; names, limits and paths are PROPOSED until ADR-OPEN-004.
+Illustrative fragments. The real contract is `api/openapi.yaml` (ADR-0004); when they differ, the contract wins.
 
 ## Shared components
 ```yaml
@@ -9,11 +9,11 @@ info: { title: 226os API, version: 1.0.0 }
 servers: [{ url: /api/v1 }]
 components:
   securitySchemes:
-    session: { type: apiKey, in: cookie, name: __Host-session }   # cookie name pin per ADR-OPEN-003
+    session: { type: apiKey, in: cookie, name: __Host-session }   # cookie name per ADR-0003
   parameters:
     CsrfToken: { name: X-CSRF-Token, in: header, required: true, schema: { type: string, maxLength: 128 } }
     IdempotencyKey: { name: Idempotency-Key, in: header, required: false, schema: { type: string, maxLength: 255 } }
-    Limit: { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 50, default: 20 } }  # max 50 proposed, API_CONTRACT.md:9
+    Limit: { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 50, default: 20 } }  # default 20, max 50 (ADR-0004)
     Cursor: { name: cursor, in: query, schema: { type: string, maxLength: 512 } }
   schemas:
     Problem:
@@ -67,12 +67,12 @@ Header names (`X-CSRF-Token`) and cookie name are UNVERIFIED placeholders.
 ## Idempotency store (server side)
 - Table keyed by `(subject_id, route, key)`; columns: request_hash, status (in_progress/completed), response status+body, created_at, expires_at.
 - Flow: insert `in_progress` with `ON CONFLICT DO NOTHING`; if conflict: hash differs -> 422; still in progress -> 409; completed -> replay stored response.
-- Purge by `expires_at` (retention OPEN, `docs/spec-kit/API_CONTRACT.md:70`). Never store secrets in the cached body.
+- Purge by `expires_at` (retention 24 hours, ADR-0004). Never store secrets in the cached body.
 - Source: https://datatracker.ietf.org/doc/draft-ietf-httpapi-idempotency-key-header/ (Internet-Draft, not RFC).
 
-## Drift gate (proposed Make target, recipe to be reviewed)
+## Drift gate (`make generate`, recipe in `mk/20-gates.mk`; read it before running)
 1. Lint `api/openapi.yaml`.
 2. Regenerate Go server types and TS client.
 3. `git diff --exit-code` on generated paths.
 4. Run HTTP integration tests that validate responses against the spec.
-Codegen tools (e.g. oapi-codegen for Go, openapi-typescript for web) are UNVERIFIED choices — pin per ADR and license-check (`docs/research/REFERENCES.md:3`).
+Codegen tools are oapi-codegen (Go) and openapi-typescript (web), chosen in ADR-0004; licence-check them (`docs/research/REFERENCES.md`).

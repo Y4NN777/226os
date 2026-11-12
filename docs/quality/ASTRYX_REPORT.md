@@ -1,5 +1,7 @@
 # Astryx verification report (B0 unit 4, ADR-0007)
 
+> Verification snapshot 2026-11-11. Environment: Node 24.21.0 at that time; the current pin is `.nvmrc` 26 (`engines` floor 24 in `src/web/package.json`). Evidence below is not re-run; re-run it on every Astryx bump. Moved from `src/web/ASTRYX_REPORT.md` on 2026-11-12. Protocol: `docs/spec-kit/ASTRYX_VERIFICATION.md`.
+
 Scope: evidence produced while bootstrapping `src/web`. Environment: Node 24.21.0, pnpm 10.32.1, React 19.3.1, Vite 8.3.8. Status words follow AGENTS.md: PASS / FAIL / NOT RUN.
 
 ## 1. Package identity
@@ -23,7 +25,7 @@ Scope: evidence produced while bootstrapping `src/web`. Environment: Node 24.21.
 - MIT: 28 (includes `@astryxdesign/core`, `@stylexjs/stylex`, TanStack packages, `react`, `react-dom`, `openapi-fetch`, `@formatjs/*`, `styleq`, `seroval*`, `cookie-es`, `scheduler`, `use-sync-external-store`, `csstype`, `@types/react`).
 - BSD-3-Clause: 1 (`intl-messageformat@11.2.15`, pulled by Astryx core).
 - Unlicense: 1 (`isbot@5.2.3`, pulled by TanStack Router). Needs a CADEV allowed-list decision; not decided here.
-- Dev-only tools (ESLint, Vitest, Prettier, jsdom, ...) are not in this inventory. `make licenses` (G4/G7) must formalise it. Gate status: NOT RUN (no target exists yet).
+- Dev-only tools (ESLint, Vitest, Prettier, jsdom, ...) are not in this inventory. `make licenses` (G4/G7) must formalise it. A `licenses` target now exists (`mk/30-security.mk`, `scripts/licenses.sh`, part of `make quality`); its result is not part of this snapshot: NOT RUN here (no output captured in this report).
 
 ## 3. Installed CLI output (captured)
 
@@ -81,8 +83,8 @@ Exported components relevant to P0 (catalog of 174): Button, IconButton, TextInp
 | ----------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
 | Exact version + lockfile integrity                                                                                      | PASS (section 1)                                                                                                  |
 | Installed CLI/docs output captured                                                                                      | PASS (section 3)                                                                                                  |
-| Licence inventory                                                                                                       | PASS for production inventory; Unlicense entry needs policy decision; `make licenses` NOT RUN                     |
-| React 19 / Vite compatibility                                                                                           | PASS (typecheck, 66 tests, production build)                                                                      |
+| Licence inventory                                                                                                       | PASS for production inventory (snapshot); Unlicense entry needs policy decision (OPEN); `make licenses` target exists, NOT RUN in this report                     |
+| React 19 / Vite compatibility                                                                                           | PASS at the snapshot (typecheck, tests, production build; the test count "66" recorded then is not re-verified)                                                                      |
 | Documented CSS import path works without a compiler                                                                     | PASS (build)                                                                                                      |
 | Theme API light/dark/system                                                                                             | PASS in jsdom (`data-theme` asserted); rendered visual check NOT RUN                                              |
 | Three representative flows (Solve, Discover, Build) rendered in light/dark/system at 360/768/1024/1440 px and 200% zoom | NOT RUN (flows not built; no browser)                                                                             |

@@ -2,10 +2,11 @@
 
 - **Status:** ACCEPTED
 - **Date:** 2026-11-11
-- **Approver:** `Y4NN77`
+- **Approver:** `Y4NN777`
 - **Closes:** ADR-OPEN-004
 - **Refines:** G0-API-001, G0-API-002
 - **Related:** `docs/spec-kit/API_CONTRACT.md`, `api/openapi.yaml`, [ADR-0003](0003-authentication-sessions-csrf-rate-limits.md), [ADR-0006](0006-toolchain-environments-quality-commands.md)
+- **Metadata note 2026-11-12:** approver spelling normalised to the GitHub login (`Y4NN777`); the decision text is unchanged.
 
 ## Context
 
