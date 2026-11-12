@@ -1,29 +1,12 @@
 # 226os Quality and Release Evidence
 
-**Status:** SPECIFIED; all executable gates are NOT RUN in this documentation phase
+**Status:** G1 to G4 run in CI through `make quality`; G5 and G6 are NOT IMPLEMENTED; G7 is NOT RUN (nothing is deployed). The gate matrix, thresholds and commands are owned by [docs/TEST.md](../TEST.md); the exclusion policy by [docs/quality/COVERAGE_SCOPE.md](../quality/COVERAGE_SCOPE.md).
 
-## Gate matrix
-
-| Gate | Required evidence | Current status | Blocking condition |
-|---|---|---|---|
-| G0 | approved stories, AC, threats, owners, plan, explicit decision register, and governance review | GO | all G0 decisions ACCEPTED (ADR-0001 to ADR-0007, 2026-11-11); owners per ADR-0002; the G4/G7 security and legal reviews are still required |
-| G1 | format/lint/typecheck/generation logs from target SHA | NOT RUN | no implementation or CI |
-| G2 | Go first-party statements 100.00%; frontend statements/branches/functions/lines strictly >70%; unit evidence | NOT RUN | no code/tests/scope file |
-| G3 | real PostgreSQL integration, OpenAPI validation/generation diff, permission/invariant tests | NOT RUN | contracts and database absent |
-| G4 | negative auth tests, SAST, SCA, secret and license scans | NOT RUN | security implementation and reports absent |
-| G5 | Playwright P0 traces, FR/EN, mobile, keyboard, axe/contrast/manual review | NOT RUN | application absent |
-| G6 | reproducible dataset/config, SQL plans, API latency, page weight, LCP/INP/CLS, throttled network | NOT RUN | baseline and implementation absent |
-| G7 | SHA/image digest, staging smoke, backup/restore, migration and rollback evidence, human approval | NOT RUN | deployment artifacts and approval absent |
-
-No `NOT RUN` result is a pass. No exclusion, threshold, or exception may be created to hide a failure.
-
-## Coverage scope
-
-The canonical exclusion policy must be maintained in `docs/quality/COVERAGE_SCOPE.md`. Until that file is reviewed and populated, coverage gates are blocked. Generated code, vendors, migrations, pure types/configuration, and mocks may be excluded only by a versioned, justified list; business branches and difficult endpoints may not be excluded.
+No `NOT RUN` or `NOT IMPLEMENTED` result is a pass. No exclusion, threshold or exception may be created to hide a failure.
 
 ## Evidence record
 
-Each task/PR evidence record must identify:
+Each task/PR evidence record identifies:
 
 ```yaml
 story_ids: []
@@ -38,8 +21,8 @@ reviewer: ""
 known_risks: []
 ```
 
-Evidence is retained with the target SHA. Screenshots, traces, and reports must not contain credentials, tokens, private user data, or undisclosed secrets.
+Evidence is retained with the target SHA. Screenshots, traces and reports must not contain credentials, tokens, private user data or secrets.
 
 ## Release prerequisites
 
-The release runbook in `docs/SHIP.md` remains authoritative. Before any release decision, the team must verify Datacloud (host of `staging-test` and `production-live`) account/product eligibility, DNS/TLS, secrets outside Git, protected production approval, immutable image references, database backup, restore evidence, migration plan, post-deploy smoke, and an honest P1/P2 status.
+The runbook in `docs/SHIP.md` is authoritative. Before any release decision: Datacloud account/product eligibility, DNS/TLS, secrets outside Git, protected production approval, immutable image references, database backup, restore evidence, migration plan, post-deploy smoke, and an honest P1/P2 status.

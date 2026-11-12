@@ -2,10 +2,12 @@
 
 - **Status:** ACCEPTED
 - **Date:** 2026-11-11
-- **Approver:** `Y4NN77`
+- **Approver:** `Y4NN777`
 - **Closes:** ADR-OPEN-006 (cache and object storage stay excluded) and ADR-OPEN-007 together with the hosting decision recorded in ADR-0001 (Datacloud)
 - **Refines:** G0-OPS-001, G0-OPS-002
 - **Related:** `docs/DEV.md`, `docs/TEST.md`, `docs/SHIP.md`, `docs/GIT_WORKFLOW.md`, `docs/spec-kit/QUALITY_RELEASE.md`, [ADR-0007](0007-astryx-version-pinning-and-verification.md)
+- **Amended by:** [ADR-0009](0009-secrets-with-sops-and-age.md) (secrets in Git, encrypted) and [ADR-0010](0010-ci-parallel-gate-groups.md) (CI as parallel groups)
+- **Metadata note 2026-11-12:** approver spelling normalised to the GitHub login (`Y4NN777`); the decision text is unchanged.
 
 ## Context
 
@@ -32,7 +34,7 @@ No Makefile, workflow, Compose file or lockfile exists yet. G1 to G6 need one re
 | `staging-test` | shared staging/preview of the `develop` SHA | `develop` | Datacloud |
 | `production-live` | production | `main` | Datacloud |
 
-**This satisfies the intent of `docs/SHIP.md` "Compose local et prod séparés"**: local and production are separate profiles with separate env files, hardened service definitions and no shared secrets; they are not separate file trees. `docs/SHIP.md` is updated accordingly. A profile selects which services run; it is not a safety boundary. A required `APP_ENV` value must match the profile, and destructive or live-affecting targets check it and refuse otherwise. Per-environment config comes from `.env.example` plus secrets stored outside Git; secrets are never in images or Compose files.
+**This satisfies the intent of `docs/SHIP.md` "Compose local et prod séparés"**: local and production are separate profiles with separate env files, hardened service definitions and no shared secrets; they are not separate file trees. `docs/SHIP.md` is updated accordingly. A profile selects which services run; it is not a safety boundary. A required `APP_ENV` value must match the profile, and destructive or live-affecting targets check it and refuse otherwise. Per-environment config comes from `.env.example` plus secrets stored outside Git; secrets are never in images or Compose files. (Amended by [ADR-0009](0009-secrets-with-sops-and-age.md): encrypted secrets may be committed to Git, plaintext never.)
 
 **Makefile as the single entrypoint.** Recipes use `SHELL := bash`, `.SHELLFLAGS := -euo pipefail -c`, `.DELETE_ON_ERROR`, `.PHONY`. Fail-closed rules: a missing tool or unimplemented target exits non-zero with `NOT IMPLEMENTED`/`NOT RUN`, never 0; no `|| true`, no `-` prefixed lines, no echo of PASS without running the check; versions pinned; no network downloads at gate time beyond locked dependency fetch.
 
@@ -60,7 +62,7 @@ No Makefile, workflow, Compose file or lockfile exists yet. G1 to G6 need one re
 
 Both `make quality` and `make quality-full` are kept. G7 (SHA, image digest, staging smoke, backup/restore, rollback, human approval) is a runbook and release-workflow concern, not part of `quality`. `up-production-live` is never run from a developer machine.
 
-**CI.** `.github/workflows/quality.yml` runs **`make quality`** on pull requests into `develop` and `main`; `permissions: contents: read`, actions pinned by SHA, no secrets for forked PRs, concurrency cancel, evidence (logs, coverage, reports) uploaded tied to the commit SHA. Its job name is the required status check. It has no deploy step. Deploy workflows for `staging-test` and `production-live` remain `NOT IMPLEMENTED` until TASK-OPS-001; production uses the protected `production` environment and an artifact built from the validated `develop` SHA.
+**CI.** `.github/workflows/quality.yml` runs **`make quality`** on pull requests into `develop` and `main`; `permissions: contents: read`, actions pinned by SHA, no secrets for forked PRs, concurrency cancel, evidence (logs, coverage, reports) uploaded tied to the commit SHA. Its job name is the required status check. It has no deploy step. (Amended by [ADR-0010](0010-ci-parallel-gate-groups.md): CI runs the gates as parallel groups under the same required check; `make quality` stays the local definition of done.) Deploy workflows for `staging-test` and `production-live` remain `NOT IMPLEMENTED` until TASK-OPS-001; production uses the protected `production` environment and an artifact built from the validated `develop` SHA.
 
 ## Consequences
 

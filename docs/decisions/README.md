@@ -1,15 +1,15 @@
 # 226os Architecture Decision Registry
 
-**Status:** every G0 decision is `ACCEPTED` (2026-11-11, approver `Y4NN77`). P0 implementation is authorized under ADR-0001 to ADR-0007. Gates are evidence, not decisions: G1 to G4 run in CI through `make quality`; G5, G6 and G7 are `NOT RUN`.
+**Status:** G0 is closed (2026-11-11): every G0 decision is `ACCEPTED` (approver `Y4NN777`), and P0 implementation is authorized under ADR-0001 to ADR-0010. ADR-0008 to ADR-0011 are dated 2026-11-12. Gates are evidence, not decisions: G1 to G4 run in CI through `make quality`; G5, G6 and G7 are `NOT RUN`.
 
-The register of G0 decisions is [G0_DECISIONS.md](../spec-kit/G0_DECISIONS.md); each row points to the ADR that records it.
+The (archived) register of G0 decisions is [G0_DECISIONS.md](../archive/spec-kit/G0_DECISIONS.md); each row points to the ADR that records it.
 
 ## ADR registry
 
 | ADR | Title | Status | Date |
 |---|---|---|---|
 | [0001](0001-g0-conditional-baseline.md) | G0 implementation baseline (original conditions recorded as met; hosting, licence, layout and governance decisions) | ACCEPTED | 2026-11-11 |
-| [0002](0002-interim-single-maintainer-ownership.md) | Interim single-maintainer ownership | ACCEPTED | 2026-11-11 |
+| [0002](0002-interim-single-maintainer-ownership.md) | Interim single-maintainer ownership (amended by ADR-0008) | ACCEPTED | 2026-11-11 |
 | [0003](0003-authentication-sessions-csrf-rate-limits.md) | Authentication, sessions, CSRF, rate limits | ACCEPTED | 2026-11-11 |
 | [0004](0004-api-contract-conventions.md) | API contract conventions | ACCEPTED | 2026-11-11 |
 | [0005](0005-data-model-migrations-search.md) | Data model, migrations, search | ACCEPTED | 2026-11-11 |
@@ -18,6 +18,7 @@ The register of G0 decisions is [G0_DECISIONS.md](../spec-kit/G0_DECISIONS.md); 
 | [0008](0008-team-work-areas-and-ownership.md) | Team work areas and ownership for P0 (amends ADR-0002) | ACCEPTED | 2026-11-12 |
 | [0009](0009-secrets-with-sops-and-age.md) | Secrets with SOPS and age (amends the "secrets never in Git" rule of ADR-0006) | ACCEPTED | 2026-11-12 |
 | [0010](0010-ci-parallel-gate-groups.md) | CI runs the quality gates as parallel groups (amends the single-job CI of ADR-0006) | ACCEPTED | 2026-11-12 |
+| [0011](0011-ai-assistant-provider.md) | AI assistant provider (Google AI Studio, Gemma 4) | ACCEPTED | 2026-11-12 |
 
 ## Accepted baseline
 
@@ -44,4 +45,4 @@ The register of G0 decisions is [G0_DECISIONS.md](../spec-kit/G0_DECISIONS.md); 
 | ADR-OPEN-008 | Original-code licence | ADR-0001 (Apache-2.0; `LICENSE`, `NOTICE`) | ACCEPTED |
 | ADR-OPEN-010 | Governance documents, AI provenance, third-party notices | ADR-0001 (policies in force) | ACCEPTED |
 
-The owner roles in ADR-0002 are interim until P0 completes. Items that remain are execution evidence (Datacloud account/product, DNS, budget and approver evidence for G7; the dependency and licence inventory at G4/G7; the exact tool versions recorded at bootstrap), not open decisions. A change to an accepted decision needs a new or superseding ADR with context, alternatives, decision, migration/security/performance impact, approver and date.
+The owner roles in ADR-0002 are interim until P0 completes and were amended by ADR-0008 (work areas for the four-person team). The id ADR-OPEN-009 was never used (no trace in the Git history), hence the gap in the table above. Items that remain are execution evidence (Datacloud account/product, DNS, budget and approver evidence for G7; the dependency and licence inventory at G4/G7; the exact tool versions recorded at bootstrap), not open decisions. A change to an accepted decision needs a new or superseding ADR with context, alternatives, decision, migration/security/performance impact, approver and date.

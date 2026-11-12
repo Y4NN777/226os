@@ -1,3 +1,7 @@
+> Archived 2026-11-12. Historical record, not maintained.
+> Current source: [AGENTS.md](../../AGENTS.md) and [CLAUDE.md](../../CLAUDE.md).
+> Its snapshot of the repository (no `src/`, no Makefile, Claude Code 2.1.322) is out of date.
+
 # 226os Claude Code Harness — Documented v0.1
 
 **Repository examined:** https://github.com/Y4NN777/226os, default branch `main`, 2026-11-11.

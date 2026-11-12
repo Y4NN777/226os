@@ -1,36 +1,32 @@
 # 226os — Engineering Rules & Non-Negotiables
 
-**Portée :** humains, Claude Code, autres agents et CI. **Priorité :** sécurité/intégrité > PRD > SPEC > ADR acceptés > règles techniques > préférences locales. Aucune règle dans ce fichier ne permet d'ignorer des contraintes supérieures.
+**Portée :** humains, agents IA et CI. **Priorité :** sécurité/intégrité > PRD > SPEC > ADR acceptés > règles techniques > préférences locales (les permissions, gates et preuves des agents sont dans [AGENTS](../AGENTS.md)). Aucune règle de ce fichier ne permet d'ignorer des contraintes supérieures.
 
-## Produit et fidélité
-1. Préserver les **neuf domaines** définis dans PRD (amendement 3.1 : Apprendre) ; P0/P1/P2 = ordre, jamais suppression. Pas de nouvelles features implicites.
-2. Tout changement public a une user story et un test d'acceptation ; modifier SPEC/OpenAPI si comportement change.
-3. Respecter le monorepo, le monolithe Go modulaire et la stack approuvée ; toute dérogation par ADR signé.
-4. Ne pas déclarer « done » si le produit déployé, la preuve de test ou un critère d'acceptation manque.
+## Produit
+1. Préserver les **neuf domaines** du [PRD](PRD.md) ; P0/P1/P2 = ordre, jamais suppression. Pas de nouvelle fonctionnalité implicite.
+2. Tout changement public a une user story et un test d'acceptation ; SPEC et OpenAPI suivent le comportement.
+3. Stack et frontières : [ARCHITECTURE](architecture/ARCHITECTURE.md), toute dérogation par ADR signé.
+4. Ne pas déclarer « done » sans produit déployé, preuve de test et critère d'acceptation.
 
 ## Code et données
-5. Go : `gofmt`, statique, context/deadline, erreurs explicites, SQL paramétré, aucune logique métier dans les handlers.
-6. React : TypeScript strict, TanStack Router/Query/Form, composants accessibles, i18n FR/EN, aucun endpoint inventé ou DTO divergent.
-7. PostgreSQL : migrations traçables et testées, contraintes et index documentés ; recherche FTS/GIN/pg_trgm, limites requêtes et plans EXPLAIN.
-8. OpenAPI 3.1 est le contrat partagé ; les clients sont générés ou validés automatiquement ; pas de drift toléré.
+5. Pas de logique métier dans les handlers ; SQL paramétré ; context avec deadline ; erreurs explicites ([DEV](DEV.md)).
+6. OpenAPI 3.1 est le contrat partagé : clients générés ou validés, aucun drift toléré.
+7. Migrations SQL traçables, testées, en avant seulement ; contraintes et index documentés.
 
-## Test et evidence
-9. BDD avant code (AC observables) ; TDD RED -> GREEN -> REFACTOR ; régressions et cas de refus testés.
-10. Couverture **backend 100 % statements mesurables first-party**, frontend **strictement >70 % statements/branches/functions/lines**, scopes documentés et pas d'exclusions opportunistes.
-11. Des tests d'intégration DB et E2E sont indispensables ; 100 % coverage seul ne suffit pas. Toutes les gates G0–G7 doivent être vérifiées par artefacts produits à partir du SHA concerné.
-12. Ne jamais inventer un test exécuté, une source lue, une performance mesurée ou un audit fait. Utiliser `NOT RUN`/`UNKNOWN` si preuve absente.
+## Tests et preuves
+8. BDD avant code, TDD RED, GREEN, REFACTOR ; refus et régressions testés ([TEST](TEST.md)).
+9. Couverture : backend 100 % des statements first-party mesurables, frontend strictement >70 % sur quatre métriques ; [TEST](TEST.md) en est le propriétaire.
+10. Les gates G0 à G7 se prouvent par des artefacts du SHA concerné. Ne jamais inventer un test exécuté, une source lue, une mesure ou un audit. Sans preuve : `NOT RUN` ; si une condition bloque : `BLOCKED`.
 
-## Security & privacy by design
-13. Modèle de menace avant implémentation de toute surface sensible ; moindre privilège, auth serveur, CSRF, rate-limit, anti-IDOR, XSS/SSRF, validation input, gestion d'erreurs non révélatrices.
-14. Aucune clé, credential, donnée privée, token ou mot de passe dans Git, prompt, logs, traces, screenshots ou fixtures partagées. Secrets seulement via mécanismes approuvés.
-15. Contrôles automatisés SAST, SCA, secret scan et licence ; vulnérabilité critique non résolue = blocage release.
-16. IA : sorties traitées comme non fiables, code revu/testé, usage déclaré. Les droits d'auteur ne disparaissent pas après réécriture ou traduction du code.
+## Sécurité et vie privée
+11. Modèle de menace avant toute surface sensible ; moindre privilège, auth serveur, CSRF, rate-limit, anti-IDOR, XSS/SSRF, erreurs non révélatrices.
+12. Aucun secret ni donnée privée dans Git, prompts, logs, captures ou fixtures ; secrets par les mécanismes approuvés ([ADR-0009](decisions/0009-secrets-with-sops-and-age.md)).
+13. SAST, SCA, scan de secrets et licences automatisés ; vulnérabilité critique non résolue = blocage de release.
+14. IA : sorties non fiables, code revu et testé, usage déclaré dans [AI_USAGE](../AI_USAGE.md).
 
-## Performance et exploitation
-17. Baseline perf avant optimisation ; budgets et régressions mesurés avec dataset et configuration reproductibles. Les réseaux mobiles sont un cas de test obligatoire.
-18. Docker Compose/Traefik : DB privée, TLS, non-root quand possible, ressources limitées, images immuables, healthchecks, backups et rollback testés.
-19. CI GitHub Actions exécute les gates ; release protégée par approbation et traçabilité commit/digest.
-20. PRs petites, revue humaine pour choix produit, sécurité, migrations, dépôts tiers et changement d'architecture.
+## Exploitation
+15. DB privée, TLS, images immuables, healthchecks, sauvegarde et rollback testés ; release protégée et traçable commit/digest ([SHIP](SHIP.md)).
+16. PRs petites ; revue humaine pour choix produit, sécurité, migrations, dépôts tiers et architecture.
 
-## Politique d'exception
-L'agent ne peut pas s'accorder seul une dérogation. Une exception nécessite `owner`, justification, risque, durée, compensations et décision humaine versionnée. Pas d'exception pour divulgation de secrets ou preuve falsifiée.
+## Exceptions
+L'agent ne peut pas s'accorder seul une dérogation. Une exception exige `owner`, justification, risque, durée, compensations et décision humaine versionnée. Aucune exception pour divulgation de secret ou preuve falsifiée.

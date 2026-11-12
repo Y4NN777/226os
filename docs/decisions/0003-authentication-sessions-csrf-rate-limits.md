@@ -2,10 +2,11 @@
 
 - **Status:** ACCEPTED
 - **Date:** 2026-11-11
-- **Approver:** `Y4NN77`
+- **Approver:** `Y4NN777`
 - **Closes:** ADR-OPEN-003
 - **Refines:** G0-AUTH-001, G0-AUTH-002, G0-AUTH-003, G0-AUTH-004, G0-AUTHZ-001
 - **Related:** `docs/spec-kit/AUTHORIZATION_MATRIX.md`, `docs/spec-kit/API_CONTRACT.md`, `api/openapi.yaml`, [ADR-0004](0004-api-contract-conventions.md), [ADR-0005](0005-data-model-migrations-search.md)
+- **Metadata note 2026-11-12:** approver spelling normalised to the GitHub login (`Y4NN777`); the decision text is unchanged.
 
 ## Context
 

@@ -14,7 +14,7 @@ description: Cross-cutting 226os design and review standards: SOLID applied conc
 - Go modular monolith with Chi, `pgx` and `sqlc`, REST and OpenAPI 3.1. No general-purpose ORM, no external search engine, no microservices, Redis or Kubernetes without an ADR (`docs/DEV.md:7`, `docs/DEV.md:10`, `docs/architecture/ARCHITECTURE.md:27`).
 
 **Boundaries**
-- Handlers are transport only. Business invariants live in the domain/service layer (`docs/DEV.md:10`, `docs/RULES.md:12`, `docs/spec-kit/TASKS.md:92`).
+- Handlers are transport only. Business invariants live in the domain/service layer (`docs/DEV.md:10`, `docs/RULES.md:12`; the layer is named `service`).
 - Each domain package has `domain`, `service`, `repository` and `transport` layers, with dependencies pointing toward business logic (`docs/DEV.md:44`).
 - A module never imports a neighbour's HTTP transport. Share through explicit interfaces and limited models (`docs/architecture/ARCHITECTURE.md:20`).
 - Domains and their allowed dependencies are listed in `docs/SPEC.md:83-94`. Example: solve may depend on identity only through interfaces.
@@ -37,7 +37,7 @@ description: Cross-cutting 226os design and review standards: SOLID applied conc
 - The authorization subject comes from the server session, never from a client-supplied owner ID (`docs/spec-kit/AUTHORIZATION_MATRIX.md:46`).
 
 **Errors and logging**
-- Status: problem+json (`docs/SPEC.md:99`) is firm. The field details, the immutable-migration rule and the authorization-matrix items are the ADR-0001 planning baseline (`docs/decisions/0001-g0-conditional-baseline.md:16-19`). They become normative only once the contracts are approved (`docs/spec-kit/API_CONTRACT.md:3`, `docs/spec-kit/DATABASE_DESIGN.md:3`). Re-check before coding.
+- Status: problem+json (`docs/SPEC.md:99`), the immutable-migration rule and the authorization matrix are accepted (ADR-0003, ADR-0004, ADR-0005); `api/openapi.yaml` is the contract.
 - Errors leave the API as RFC 9457 problem+json with a stable `code`. Never expose stack traces, SQL, tokens, internal hosts or whether a private object exists (`docs/spec-kit/API_CONTRACT.md:51-57`).
 - Never log secrets or unnecessary personal data (`docs/RULES.md:14`, `docs/SPEC.md:104`).
 
@@ -148,5 +148,5 @@ description: Cross-cutting 226os design and review standards: SOLID applied conc
 - [ ] Review standards met. Human author identity used. Gates reported PASS, FAIL, NOT RUN or BLOCKED via `/verify-slice`.
 
 ## References
-- Project: `docs/RULES.md`, `docs/DEV.md`, `docs/TEST.md`, `docs/SPEC.md`, `docs/architecture/ARCHITECTURE.md`, `docs/spec-kit/{API_CONTRACT,AUTHORIZATION_MATRIX,DATABASE_DESIGN,TASKS}.md`, `docs/quality/COVERAGE_SCOPE.md`, `AGENTS.md`, `CONTRIBUTING.md`.
+- Project: `docs/RULES.md`, `docs/DEV.md`, `docs/TEST.md`, `docs/SPEC.md`, `docs/architecture/ARCHITECTURE.md`, `docs/spec-kit/{API_CONTRACT,AUTHORIZATION_MATRIX,DATABASE_DESIGN}.md`, the slice block in `TODO.md`, `docs/quality/COVERAGE_SCOPE.md`, `AGENTS.md`, `CONTRIBUTING.md`.
 - Web: [Go CodeReviewComments](https://go.dev/wiki/CodeReviewComments), [SOLID Go Design](https://dave.cheney.net/2016/08/20/solid-go-design), [Go 1.13 errors](https://go.dev/blog/go1.13-errors), [Hexagonal](https://alistair.cockburn.us/hexagonal-architecture/), [Yagni](https://martinfowler.com/bliki/Yagni.html), [Refactoring definition](https://martinfowler.com/bliki/DefinitionOfRefactoring.html), [Wrong abstraction](https://sandimetz.com/blog/2016/1/20/the-wrong-abstraction), [Google review standard](https://google.github.io/eng-practices/review/reviewer/standard.html), [react.dev custom hooks](https://react.dev/learn/reusing-logic-with-custom-hooks).

@@ -1,4 +1,4 @@
-# 226os code owners. DRAFT until ADR-0008 is accepted.
+# 226os code owners (ADR-0008, accepted).
 # Last matching pattern wins. The owner stays a code owner everywhere so a
 # review is always possible while the team is new. `PANK4SS` has a pending
 # invitation: GitHub ignores that owner until the invitation is accepted and
@@ -7,13 +7,13 @@
 *                       @Y4NN777
 
 # Ops and platform: owner
+# Open owner decision: co-ownership of ops paths (ADR-0008: the owner's PRs are reviewed by a backend developer).
 /scripts/               @Y4NN777
 /mk/                    @Y4NN777
 /Makefile               @Y4NN777
 /compose.yaml           @Y4NN777
 /deploy/                @Y4NN777
 /.github/               @Y4NN777
-/src/api/internal/platform/   @Y4NN777
 
 # Backend: lead and the two backend developers
 /src/api/              @Y4NN777 @NICE-DEV226 @mibienpanjoe
@@ -33,3 +33,6 @@
 /AGENTS.md              @Y4NN777
 /CLAUDE.md              @Y4NN777
 /AI_USAGE.md            @Y4NN777
+/secrets/               @Y4NN777
+/THIRD_PARTY_NOTICES.md @Y4NN777
+/.claude/               @Y4NN777

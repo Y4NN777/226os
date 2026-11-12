@@ -1,6 +1,6 @@
 # postgres-data — migration and search patterns
 
-Illustrative only. Table/column names are placeholders until ADR-OPEN-005 approves the schema.
+Illustrative only. The real schema is in `db/migrations/` and `docs/spec-kit/DATABASE_DESIGN.md` (ADR-0005); table and column names here are examples.
 
 ## Migration header (required fields from `docs/spec-kit/DATABASE_DESIGN.md:41`)
 ```sql
@@ -12,7 +12,7 @@ Illustrative only. Table/column names are placeholders until ADR-OPEN-005 approv
 -- compatibility window: app vN and vN+1 both work
 -- rollback/restore: redeploy previous image; column is additive; restore from backup if data changed
 -- owner: <named human>
-SET lock_timeout = '5s';   -- value pin per ADR
+SET lock_timeout = '5s';   -- example value
 ```
 Note: adding a STORED generated column rewrites the table (UNVERIFIED for the pinned major — confirm on ALTER TABLE docs before running against data).
 
@@ -57,9 +57,9 @@ WHERE status = 'published' AND visibility = 'public'
   AND (sqlc.narg('tag')::text IS NULL OR id IN (SELECT qt.question_id FROM question_tags qt JOIN tags t ON t.id = qt.tag_id WHERE t.code = sqlc.narg('tag')))
   -- AND <keyset cursor predicate on (rank, created_at, id)>  -- placeholder
 ORDER BY rank DESC, created_at DESC, id DESC
-LIMIT @page_limit;          -- server clamps to approved max (proposed 50, API_CONTRACT.md:9)
+LIMIT @page_limit;          -- server clamps to approved max (max 50, ADR-0004)
 ```
-- Validate `len(query)` in Go before SQL (max length pin per ADR).
+- Validate `len(query)` in Go before SQL (100 characters, ADR-0005).
 - Cursor encodes `(rank, created_at, id)`; float rank equality across pages is fragile — UNVERIFIED approach; consider ordering by `(rank rounded, id)` or snapshotting.
 - Typo tolerance: secondary `title % @query` on `gin_trgm_ops` index only when FTS returns too few rows; require minimum query length (trigram-less patterns scan the whole index — https://www.postgresql.org/docs/current/pgtrgm.html).
 
@@ -71,7 +71,7 @@ ROLLBACK;
 ```
 Record: dataset size + seed version, PG version, params, plan, execution time, buffers hit/read. Confirm `Bitmap Index Scan` on the GIN index and no `Seq Scan` on large tables.
 
-## sqlc.yaml shape (pin sqlc version per ADR)
+## sqlc.yaml shape (sqlc version pinned in the toolchain files)
 ```yaml
 version: "2"
 sql:

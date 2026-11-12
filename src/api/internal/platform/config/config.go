@@ -26,6 +26,14 @@ const (
 	minCursorKey = 32
 )
 
+// ListenAddr is the address the API listens on: API_ADDR, or the default when it is empty.
+func ListenAddr(getenv func(string) string) string {
+	if addr := getenv("API_ADDR"); addr != "" {
+		return addr
+	}
+	return defaultAddr
+}
+
 // Load reads configuration through getenv and fails fast on invalid values.
 // Error messages name the variable, never its value.
 func Load(getenv func(string) string) (Config, error) {
@@ -35,10 +43,7 @@ func Load(getenv func(string) string) (Config, error) {
 	default:
 		return Config{}, fmt.Errorf("APP_ENV must be local-dev, staging-test or production-live, got %q", env)
 	}
-	addr := getenv("API_ADDR")
-	if addr == "" {
-		addr = defaultAddr
-	}
+	addr := ListenAddr(getenv)
 	dbURL := getenv("DATABASE_URL")
 	if err := checkDatabaseURL(dbURL); err != nil {
 		return Config{}, err

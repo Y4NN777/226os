@@ -5,17 +5,17 @@ description: 226os delivery pipeline (G1-G7 wiring). Covers fail-closed Make tar
 # CI/CD and Delivery
 
 ## Scope and triggers
-- `Makefile`, `.github/workflows/**`, `infra/**` (compose, traefik), `docker/**`, `**/Dockerfile`, `compose*.yml`, `.env.example`, release/rollback runbooks.
-- Owning task is `TASK-OPS-001` (`docs/spec-kit/TASKS.md:121-136`). G0-OPS-002 (Datacloud, DNS, registry, backup, approver) is DEFERRED (`docs/decisions/0001-g0-conditional-baseline.md:22`). Any deployment job stays `NOT IMPLEMENTED`.
+- `Makefile`, `mk/**`, `.github/workflows/**`, `compose.yaml`, `deploy/**`, `**/Dockerfile`, `.env.example`, release/rollback runbooks.
+- Ops and platform slices (S8 and platform work) are read from their block in `TODO.md` with owner/reviewer per ADR-0008. G0-OPS-002 (Datacloud hosting, DNS, registry, backup, approver) is ACCEPTED (ADR-0006), but nothing is deployed: no deploy workflow exists yet. `.github/workflows/` holds `quality.yml` and `branch-policy.yml`. G5 and G6 are NOT IMPLEMENTED as targets, G7 is NOT RUN. Any deployment job stays `NOT IMPLEMENTED` until the owner opens it.
 
 ## Project rules (binding)
-- The approved interface is `make doctor|lint|test-unit|test-integration|coverage|security|licenses|quality|build`. Read each recipe before running it, and prefer a single `make quality` that proves all gates ran. `AGENTS.md:120-122`. GitHub Actions and Make are the only success path. `docs/spec-kit/CONTRACTS.md:59`.
-- There is no G5 (E2E) or G6 (perf) target in that list. Any `test-e2e`/`perf` target is PROPOSED and needs approval. `AGENTS.md:124`.
-- Gates fail closed: TASK-OPS-001 AC says "G1-G7 commands are explicit and fail closed" (`docs/spec-kit/TASKS.md:130`). No step may be skipped tacitly, and there is no exception for an exposed secret or a critical vulnerability (`docs/TEST.md:52`). `NOT RUN` != `PASS` (`AGENTS.md:31`, `AGENTS.md:126`).
+- The approved interface is the real Make targets (`make help` lists them): `doctor|generate|lint|typecheck|test-unit|coverage|test-integration|security|licenses|quality|build`, with the Make files under `mk/`. Read each recipe before running it, and prefer a single `make quality` that proves all gates ran (`AGENTS.md`). GitHub Actions and Make are the only success path (`docs/archive/spec-kit/CONTRACTS.md:59`). CI runs the gates as parallel groups (ADR-0010).
+- G5 (`make test-e2e`) and G6 (`make perf`) exist as targets in `mk/40-quality.mk` but are NOT IMPLEMENTED and fail by design; never report them as PASS or skip them tacitly.
+- Gates fail closed: no step may be skipped tacitly, and there is no exception for an exposed secret or a critical vulnerability (`docs/TEST.md:52`). `NOT RUN` != `PASS` (`AGENTS.md:31`, `AGENTS.md:126`).
 - Use minimal `permissions`, OIDC where possible, and never expose SSH keys or tokens to fork PRs. Production requires environment approval, and nothing auto-deploys from a PR. `docs/SHIP.md:21-22`. The in-repo pattern is at `.github/workflows/branch-policy.yml:9-10` (`contents: read`) and `:18-22` (untrusted refs passed via `env`, not inlined).
-- Scan secrets and dependencies on every PR, plus a runtime licence report. A high or critical exploitable vulnerability blocks release. `docs/TEST.md:38`, `docs/RULES.md:26`. G4 tools are not chosen yet, so pick them by ADR.
-- Pin `gofmt`/`staticcheck`/`golangci-lint` versions and run sqlc drift. `docs/DEV.md:46-47`. G1 covers format/lint/types/reproducible OpenAPI+sqlc generation. `AGENTS.md:47`.
-- Images: multi-stage, non-root where possible, pinned versions and digests, healthchecks, resource limits, structured logs, secrets via secure config. `docs/SHIP.md:9`, `docs/RULES.md:31`, `docs/spec-kit/CONTRACTS.md:56-57`.
+- Scan secrets and dependencies on every PR, plus a runtime licence report. A high or critical exploitable vulnerability blocks release. `docs/TEST.md:38`, `docs/RULES.md:26`. The G4 steps are the `security-*` targets in `mk/30-security.mk` and `make licenses`.
+- Linter versions are pinned in the toolchain files (ADR-0006); run sqlc drift. `docs/DEV.md:46-47`. G1 covers format/lint/types/reproducible OpenAPI+sqlc generation. `AGENTS.md:47`.
+- Images: multi-stage, non-root where possible, pinned versions and digests, healthchecks, resource limits, structured logs, secrets via secure config. `docs/SHIP.md:9`, `docs/RULES.md:31`, `docs/archive/spec-kit/CONTRACTS.md:56-57`.
 - Topology: separate dev and prod Compose files; Traefik is the only public edge with Let's Encrypt TLS; the DB is never public. `docs/SHIP.md:6-7`, `docs/architecture/ARCHITECTURE.md:24`. Expose `/healthz` (liveness) and `/readyz` (readiness). `docs/SHIP.md:32`.
 - Flow: work branch -> PR develop -> staging smoke -> PR main -> approval -> backup -> migrations -> deploy -> smoke -> monitor. `docs/SHIP.md:13-15`, `docs/GIT_WORKFLOW.md:51-56`.
 - `branch-policy.yml:27-41` enforces that work branches target develop and that only `develop` or `hotfix/*` may target main.
@@ -93,10 +93,10 @@ test "$(git rev-parse origin/main^{tree})" = "$(git rev-parse "$TESTED_SHA^{tree
 - [ ] Compose prod validated (`docker compose -f … config` via a reviewed target). DB has no public port. TLS verified on staging.
 - [ ] Backup taken, restore drill done, rollback-by-digest rehearsed, with evidence paths.
 - [ ] Promotion record: tested SHA, image digest, main SHA plus tree-equality check, approver, smoke results (`docs/SHIP.md:31-35`).
-- [ ] Each G1-G7 reported as `PASS/FAIL/NOT RUN/BLOCKED` with command, exit code, report path and SHA. Deploy stays `BLOCKED` until G0-OPS-002 closes.
+- [ ] Each G1-G7 reported as `PASS/FAIL/NOT RUN/BLOCKED` with command, exit code, report path and SHA. Deploy stays `BLOCKED` until the G7 evidence exists (Datacloud account, DNS, approver, backup and rollback drills).
 
 ## References
-- `AGENTS.md`, `docs/SHIP.md`, `docs/GIT_WORKFLOW.md`, `docs/RULES.md`, `docs/TEST.md`, `.github/workflows/branch-policy.yml`, `docs/spec-kit/CONTRACTS.md`
+- `AGENTS.md`, `docs/SHIP.md`, `docs/GIT_WORKFLOW.md`, `docs/RULES.md`, `docs/TEST.md`, `.github/workflows/branch-policy.yml`, `docs/archive/spec-kit/CONTRACTS.md`
 - https://docs.github.com/en/actions/security-for-github-actions/security-guides/security-hardening-for-github-actions
 - https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/about-merge-methods-on-github
 - https://github.com/ossf/scorecard/blob/main/docs/checks.md · https://docs.docker.com/build/building/best-practices/

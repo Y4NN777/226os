@@ -6,16 +6,16 @@ description: 226os frontend rules for React 19 + strict TypeScript + Vite + TanS
 
 ## Scope and triggers
 - Any create/edit under `src/web/**`: routes, features, product components, theme/token mapping, i18n catalogs, API client wiring, frontend tests.
-- Reading `api/openapi.yaml` to consume it. TASK-WEB-001 lists it in `allowed_paths` (`docs/spec-kit/TASKS.md:110`), but contract changes belong to the API owner — never change the contract to fit the UI (`DESIGN.md:226`, `docs/RULES.md:13`).
-- Precondition: G0-UI-001 (Astryx pin) and route/locale decisions closed (`docs/spec-kit/TASKS.md:119`, `docs/decisions/0001-g0-conditional-baseline.md:31`). Otherwise stop and run `/start-slice`. No frontend implementation before that.
+- Reading `api/openapi.yaml` to consume it. The frontend slice lists it as read-only in its allowed paths (slice block in `TODO.md`), and contract changes belong to the API owner and need the frontend owner's review (ADR-0008) — never change the contract to fit the UI (`DESIGN.md:226`, `docs/RULES.md:13`).
+- Precondition: an open slice in `TODO.md` (S7 or the slice you were given) with named owner and reviewer and its allowed paths; the Astryx pin is decided by ADR-0007. Otherwise stop and ask the user to run `/start-slice`.
 - Load `engineering-principles` too. Follow the root `DESIGN.md` on every UI change (`DESIGN.md:284`).
 
 ## Project rules (binding)
 **Stack and foundation**
-- Stack: React 19, strict TS, Vite, TanStack Router/Query/Form, Astryx primary, Tailwind for layout only and never a second component system (`DESIGN.md:83`, `DESIGN.md:208`, `docs/DEV.md:6`, `docs/spec-kit/CONTRACTS.md:39`).
+- Stack: React 19, strict TS, Vite, TanStack Router/Query/Form, Astryx primary, Tailwind for layout only and never a second component system (`DESIGN.md:83`, `DESIGN.md:208`, `docs/DEV.md:6`, `docs/archive/spec-kit/CONTRACTS.md:39`).
 - No shadcn/ui and no re-creating Astryx components. A custom primitive needs a recorded gap, an accessible plan, provenance and human review (`DESIGN.md:83`, `DESIGN.md:132`, `docs/spec-kit/ASTRYX_VERIFICATION.md:25`).
-- Astryx release, CLI syntax, component APIs, token names and CSS import order are **UNVERIFIED until installed and pinned**. The snippets in DESIGN.md are illustrative, not normative (`docs/spec-kit/CONTRACTS.md:44`, `DESIGN.md:122`, `docs/spec-kit/ASTRYX_VERIFICATION.md:19`, `docs/spec-kit/ASTRYX_VERIFICATION.md:47`). Never write an Astryx component name, prop or token from memory. Read the installed package's docs, types and CLI output first.
-- Use a pinned release, no floating range. Package manager and lockfile policy are `OPEN` (`DESIGN.md:95`, `docs/spec-kit/ASTRYX_VERIFICATION.md:11`, `docs/spec-kit/G0_DECISIONS.md:19`).
+- Astryx is pinned by ADR-0007 (exact version in `src/web/package.json`, lockfile committed); the verification record is `docs/spec-kit/ASTRYX_VERIFICATION.md` (section on version verification). CLI syntax, component APIs, token names and CSS import order must still be verified against the installed package. The snippets in DESIGN.md are illustrative, not normative (`docs/archive/spec-kit/CONTRACTS.md:44`, `DESIGN.md:122`). Never write an Astryx component name, prop or token from memory. Read the installed package's docs, types and CLI output first.
+- Use the pinned release, no floating range. Package manager is pnpm with a committed lockfile (ADR-0006, ADR-0007).
 - Use precompiled Astryx CSS first. Follow the upstream cascade-layer order exactly and never guess it (`DESIGN.md:85`, `DESIGN.md:105`).
 - Wrap the app in one theme provider with an explicit light/dark/system strategy (`DESIGN.md:105`).
 
@@ -43,30 +43,30 @@ description: 226os frontend rules for React 19 + strict TypeScript + Vite + TanS
 - WCAG 2.2 AA is a release gate: text ≥4.5:1, large text ≥3:1, non-text UI ≥3:1 (`DESIGN.md:204`).
 - Targets aim for 44×44px (`DESIGN.md:153`).
 - Respect reduced motion and OS text scaling (`DESIGN.md:197`).
-- Responsive checkpoints: 360, 768, 1024 and 1440px plus 200% zoom. No page-level horizontal scroll. Code blocks scroll inside their own labelled region (`DESIGN.md:188`, `docs/spec-kit/CONTRACTS.md:43`).
+- Responsive checkpoints: 360, 768, 1024 and 1440px plus 200% zoom. No page-level horizontal scroll. Code blocks scroll inside their own labelled region (`DESIGN.md:188`, `docs/archive/spec-kit/CONTRACTS.md:43`).
 - Low bandwidth: core flows must not depend on heavy media (`docs/SPEC.md:76-81`, `DESIGN.md:27`).
 - Performance budgets are pending (DES-07). Don't invent thresholds and don't fabricate measurements (`DESIGN.md:245`, `DESIGN.md:260`).
 
 **Internationalization**
 - FR/EN UI. No hard-coded text on critical screens (`docs/DEV.md:54`).
-- Switching locale changes UI labels only. Original user content stays unchanged and unsaved form edits survive (`docs/SPEC.md:66-70`, `DESIGN.md:198-199`, `docs/spec-kit/CONTRACTS.md:42`).
+- Switching locale changes UI labels only. Original user content stays unchanged and unsaved form edits survive (`docs/SPEC.md:66-70`, `DESIGN.md:198-199`, `docs/archive/spec-kit/CONTRACTS.md:42`).
 - Locale persistence and fallback are `OPEN`.
 
 **Data, contract and security**
-- Status: the CSRF, idempotency, problem-field and cookie rules below are the ADR-0001 planning baseline (ACCEPT_WITH_CONDITION, `docs/decisions/0001-g0-conditional-baseline.md:16-19`). They become normative only once `api/openapi.yaml` and the auth contract are approved (`docs/spec-kit/API_CONTRACT.md:3`, `docs/spec-kit/G0_DECISIONS.md:10`). Re-check against the approved spec before coding.
+- Status: the CSRF, idempotency, problem-field and cookie rules below are fixed by ADR-0003 and ADR-0004 and by `api/openapi.yaml`. When in doubt, the contract wins.
 - Server state goes through TanStack Query with deterministic keys and documented invalidation. Don't duplicate it in a global store (`docs/DEV.md:52`, `DESIGN.md:225`).
 - Use Router for typed navigation, with loaders and errors handled (`docs/DEV.md:53`).
 - Forms use TanStack Form (`DESIGN.md:225`).
 - The API client is typed and generated from OpenAPI 3.1. No hand-written DTOs, no invented endpoints, drift is checked (`docs/DEV.md:51`, `docs/RULES.md:13`, `docs/RULES.md:15`).
-- `api/openapi.yaml` does not exist yet (`docs/SPEC.md:102`, `docs/SPEC.md:140`). The generator choice is `OPEN` and needs an ADR (`docs/DEV.md:64`).
+- `api/openapi.yaml` exists; the typed client is generated from it by `make generate` (openapi-typescript, ADR-0004). Never hand-write DTOs.
 - Errors are `application/problem+json` (RFC 9457, `docs/SPEC.md:99`):
-  - Branch on the stable `code`/`status` (`docs/spec-kit/API_CONTRACT.md:53`).
+  - Branch on the stable `code`/`status` (`docs/spec-kit/API_CONTRACT.md`, section on errors).
   - `detail` may be localized on the client.
   - Map `violations[].field` to form fields.
   - Show `request_id` as a support reference.
   - Honour `Retry-After` on 429 and 503 responses (`docs/spec-kit/API_CONTRACT.md:58`).
 - Sessions use HttpOnly cookies, so the frontend never reads or stores a session token.
-- Every state-changing request sends the synchronizer CSRF token (`docs/spec-kit/AUTHORIZATION_MATRIX.md:12`, `docs/spec-kit/AUTHORIZATION_MATRIX.md:50`, `docs/spec-kit/G0_DECISIONS.md:10`). How the token is delivered and its header name are `OPEN`.
+- Every state-changing request sends the synchronizer CSRF token (`docs/spec-kit/AUTHORIZATION_MATRIX.md:12`, `docs/spec-kit/AUTHORIZATION_MATRIX.md:50`, `docs/archive/spec-kit/G0_DECISIONS.md:10`). How the token is delivered and its header name are `OPEN`.
 - No bearer tokens (`docs/spec-kit/API_CONTRACT.md:11`).
 - Retried creates (applications, votes, relations) send an `Idempotency-Key` that is reused across retries (`docs/spec-kit/API_CONTRACT.md:12`).
 - Authorization is enforced on the server only. UI hiding is cosmetic (`docs/architecture/ARCHITECTURE.md:19`, `docs/spec-kit/AUTHORIZATION_MATRIX.md:46`).
@@ -129,7 +129,7 @@ description: 226os frontend rules for React 19 + strict TypeScript + Vite + TanS
   - the CSRF header present on mutations
   - the double-submit guard
 - Mock at the network boundary with fixtures that conform to the contract, never by hand-mocking internals.
-- Playwright P0 flows: Solve question detail, Discover API detail and Build contribution request. Run each in light and dark at 360 and 1440px, plus a throttled-network run (`DESIGN.md:268`, `docs/spec-kit/TASKS.md:113`).
+- Playwright P0 flows: Solve question detail, Discover API detail and Build contribution request. Run each in light and dark at 360 and 1440px, plus a throttled-network run (`DESIGN.md:268`; slice block S7 in `TODO.md`).
 - Automated accessibility checks run per page with axe, for example `@axe-core/playwright` (candidate, pin per ADR). Keyboard and screen-reader review stays manual (`docs/TEST.md:21`, `DESIGN.md:242`).
 - Coverage must be strictly above 70% for statements, branches, functions and lines, with thresholds set at ≥71. Exclusions are allowed only through `docs/quality/COVERAGE_SCOPE.md` (`docs/TEST.md:7-8`, `docs/quality/COVERAGE_SCOPE.md:5`).
 - Never edit a test just to make it pass (`docs/TEST.md:32`).
@@ -154,11 +154,10 @@ description: 226os frontend rules for React 19 + strict TypeScript + Vite + TanS
 - [ ] Gates run through the reviewed `make` targets. `/verify-slice` reports PASS, FAIL, NOT RUN or BLOCKED.
 
 ## References
-- Project: `DESIGN.md`, `docs/DEV.md`, `docs/RULES.md`, `docs/TEST.md`, `docs/SPEC.md`, `docs/spec-kit/{CONTRACTS,API_CONTRACT,AUTHORIZATION_MATRIX,ASTRYX_VERIFICATION,G0_DECISIONS,TASKS}.md`.
+- Project: `DESIGN.md`, `docs/DEV.md`, `docs/RULES.md`, `docs/TEST.md`, `docs/SPEC.md`, `docs/spec-kit/{API_CONTRACT,AUTHORIZATION_MATRIX,ASTRYX_VERIFICATION}.md`, archived `docs/archive/spec-kit/{CONTRACTS,G0_DECISIONS}.md`, the slice block in `TODO.md`.
 - Tensions to escalate rather than resolve silently:
   1. `src/web/src` layout: `app/`, `design-system/` and `styles/` (`DESIGN.md:212-221`) vs `lib/` (`docs/DEV.md:23`).
   2. StyleX: "no compiler required" (`DESIGN.md:85`) vs "verify" (`docs/spec-kit/ASTRYX_VERIFICATION.md:21`).
   3. Astryx CLI commands: given as workflow steps (`DESIGN.md:129`) vs "do not assume they exist" (`docs/spec-kit/ASTRYX_VERIFICATION.md:19`).
-  4. `pnpm` is stated (`DESIGN.md:91`) but the package manager is `OPEN`.
-  5. React 19 form Actions vs mandated TanStack Form (`DESIGN.md:225`). Use TanStack Form.
+  4. React 19 form Actions vs mandated TanStack Form (`DESIGN.md:225`). Use TanStack Form.
 - Web: [react.dev](https://react.dev/blog/2024/12/05/react-19), [TanStack Query](https://tanstack.com/query/latest/docs/framework/react/guides/query-keys), [TanStack Router](https://tanstack.com/router/latest/docs/framework/react/guide/external-data-loading), [TanStack Form](https://tanstack.com/form/latest/docs/framework/react/guides/validation), [Vite env](https://vite.dev/guide/env-and-mode), [WCAG 2.2](https://www.w3.org/TR/WCAG22/), [APG](https://www.w3.org/WAI/ARIA/apg/patterns/), [OWASP CSRF](https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html), [Testing Library](https://testing-library.com/docs/queries/about), [Astryx (upstream)](https://github.com/meta/astryx).

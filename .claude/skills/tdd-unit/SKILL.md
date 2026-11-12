@@ -67,19 +67,7 @@ func TestAcceptAnswer(t *testing.T) {
 	}
 }
 ```
-```sh
-# PROPOSED recipe body for `make coverage` (fail closed, no rounding)
-set -euo pipefail
-EXCL=coverage-excludes.txt            # literal path prefixes mirrored from COVERAGE_SCOPE.md only
-[ -r "$EXCL" ] || { echo "missing $EXCL"; exit 1; }   # no scope file = BLOCKED, never pass
-go test -race -covermode=atomic -coverprofile=coverage.out ./...
-# Sum counts per block (a block may repeat), list blocks never executed.
-awk 'NR>1 {c[$1]+=$NF} END {for (b in c) if (c[b]==0) print b}' coverage.out > uncovered.all
-rc=0; grep -vF -f "$EXCL" uncovered.all > uncovered.txt || rc=$?
-[ "$rc" -le 1 ] || { echo "grep error $rc"; exit 1; }   # 1 = no lines selected; >1 = error
-[ ! -s uncovered.txt ] || { cat uncovered.txt; exit 1; } # any uncovered block = FAIL
-# Note: an empty $EXCL makes grep -f match nothing, so -v keeps every line (correct).
-```
+The real gate is `make coverage` (recipe in `mk/20-gates.mk`, Go part in `scripts/coverage-go.sh`): read both before running. It fails closed if `docs/quality/COVERAGE_SCOPE.md` is absent, accepts only exclusions from its `coverage-exclude-go` block (each a full path to an existing file under `src/`), and requires exactly 100.00% of the remaining first-party statements. Do not re-implement it in a slice.
 ```ts
 // vitest.config.ts (excerpt)
 coverage: {

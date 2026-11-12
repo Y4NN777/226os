@@ -1,11 +1,11 @@
 ---
 name: verify-slice
 description: Verify a 226os slice before declaring success. Reports PASS/FAIL/NOT RUN/BLOCKED per gate from actual command evidence on the target SHA.
-argument-hint: "<TASK-ID>"
+argument-hint: "<slice id, e.g. S1>"
 disable-model-invocation: true
 ---
 
-Task: $ARGUMENTS
+Slice: $ARGUMENTS (its block in `TODO.md` is the task contract)
 
 1. Record the target SHA (`git rev-parse HEAD`) and the changed paths (`git diff --name-only origin/develop...HEAD`). Flag any path outside the task's `allowed_paths`.
 2. For each gate in the task's `required_gates`, run only the reviewed Make target that `docs/TEST.md` maps to it, after reading its recipe. Capture the exact command, exit code, and report path.

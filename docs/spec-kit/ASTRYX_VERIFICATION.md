@@ -1,14 +1,8 @@
 # 226os Astryx Verification Protocol
 
-**Status:** ACCEPTED (ADR-0007, 2026-11-11). The verification below is run at bootstrap (B0/TASK-WEB-001); no package installation or CLI execution has been performed yet.
+**Status:** ACCEPTED (ADR-0007, 2026-11-11). The pin-and-verify decision is recorded in ADR-0007 and not repeated here. Executed at B0: see [docs/quality/ASTRYX_REPORT.md](../quality/ASTRYX_REPORT.md) (human review of its open gaps pending).
 
-## Approved decision preserved
-
-Meta Astryx is the approved primary component foundation under `DESIGN.md` and the existing architecture baseline. This document does not reopen that decision. It defines what is verified before implementation relies on a particular release or API.
-
-## Decision
-
-Pin the exact `@astryxdesign/core` version installed at bootstrap, verify the installed API via its CLI/docs before use, and record capability gaps before any custom component. The pinned release must be the first release that satisfies React 19 compatibility, documented CSS distribution, theme support, keyboard/focus behavior, and required components for the three representative flows: Solve question detail, Discover API detail, and Build contribution request. Do not use a floating version range. Record package manager (pnpm, ADR-0006), exact versions, lockfile hash, license metadata, and known beta limitations in the bootstrap PR. No version number is asserted before installation.
+This document defines what is verified before implementation relies on a particular Astryx release or API. The three representative flows are Solve question detail, Discover API detail and Build contribution request. Record package manager, exact versions, lockfile hash, licence metadata and known beta limitations in the bootstrap PR.
 
 ## Verification sequence at bootstrap
 
@@ -40,6 +34,6 @@ Pin the exact `@astryxdesign/core` version installed at bootstrap, verify the in
 - **shadcn/ui:** composable alternative but conflicts with the approved Astryx decision; requires a new ADR to replace it.
 - **Custom primitives:** maximum control but highest accessibility, maintenance, and provenance risk; allowed only for evidenced gaps.
 
-## Status of the G0 decision
+## Ownership
 
-The pin-and-verify decision, the package manager (pnpm) and the lockfile policy are decided. The beta-mitigation owner is `Y4NN77` (ADR-0002). The exact version and the verified component/API set are bootstrap evidence; no agent may claim Astryx integration is verified before this protocol produces evidence.
+The beta-mitigation owner is `Y4NN777` (ADR-0002). No agent may claim Astryx integration is verified beyond what the report evidences.

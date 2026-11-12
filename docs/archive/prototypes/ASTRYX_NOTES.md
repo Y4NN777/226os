@@ -1,3 +1,6 @@
+> Archived 2026-11-12. Historical record, not maintained.
+> Current source: [docs/quality/ASTRYX_REPORT.md](../../quality/ASTRYX_REPORT.md).
+
 # Astryx research notes (vocabulary only)
 
 > **Superseded by ASTRYX_MAPPING.md — second-hand notes, not verified.** Kept only as a record of what the first, partly failed research pass saw.

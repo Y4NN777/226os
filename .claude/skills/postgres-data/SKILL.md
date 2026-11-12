@@ -6,27 +6,27 @@ description: 226os PostgreSQL data layer (pgx v5 + sqlc, forward-only versioned 
 
 ## Scope and triggers
 - `db/migrations/**`, `db/queries/**`, `db/seeds/**`, `sqlc.yaml`, repository adapters under `src/api/internal/*/repository/`.
-- Status note: almost everything below is PROPOSED / ACCEPTED WITH CONDITIONS (ADR-0001, `docs/decisions/0001-g0-conditional-baseline.md:18`). Final schema, migration tool and FTS strategy wait on ADR-OPEN-005 (`docs/decisions/README.md:34`). Do not present proposals as accepted facts (`docs/spec-kit/TASKS.md:29`).
+- Status: ADR-0005 (`docs/decisions/0005-data-model-migrations-search.md`) is ACCEPTED: PostgreSQL 18, goose forward-only migrations, root `db/` layout, `simple` + `unaccent` search. Table-level detail is in `docs/spec-kit/DATABASE_DESIGN.md`. The slice (owner/reviewer, allowed paths) is read from its block in `TODO.md`.
 
 ## Project rules (binding)
 - PostgreSQL with FTS, GIN, pg_trgm is the initial data/search system — ACCEPTED BASE-005 (`docs/decisions/README.md:23`); single source of truth, no external secondary index (`docs/architecture/ARCHITECTURE.md:21`).
-- Access via `pgx` + `sqlc`, no general-purpose ORM (`docs/DEV.md:7`, `:10`); SQL parameterized only (`docs/DEV.md:45`, `docs/spec-kit/CONTRACTS.md:24`).
+- Access via `pgx` + `sqlc`, no general-purpose ORM (`docs/DEV.md:7`, `:10`); SQL parameterized only (`docs/DEV.md:45`, `docs/archive/spec-kit/CONTRACTS.md:24`).
 - Keep generated sqlc in sync with `db/queries` and migrations; non-drift test (`docs/DEV.md:47`); generated output never hand-edited (`docs/spec-kit/DATABASE_DESIGN.md:43`).
 - Migrations traceable and tested, constraints and indexes documented, FTS/GIN/pg_trgm, bounded queries and EXPLAIN plans (`docs/RULES.md:14`).
-- Migrations: versioned SQL in `db/migrations/`, immutable after merge, prefer forward-only; destructive changes need expand/contract + backup/restore plan + human-approved ADR (`docs/spec-kit/DATABASE_DESIGN.md:39-40`; G0-DATA-001 `docs/spec-kit/G0_DECISIONS.md:16`).
+- Migrations: versioned SQL in `db/migrations/`, immutable after merge, forward-only (no `Down` sections, CI rejects them; goose, ADR-0005); destructive changes need expand/contract + backup/restore plan + human-approved ADR (`docs/spec-kit/DATABASE_DESIGN.md:39-40`; G0-DATA-001 `docs/archive/spec-kit/G0_DECISIONS.md:16`).
 - Each migration documents purpose, tables/indexes, lock risk, data volume, transaction behaviour, compatibility window, rollback/restore plan, owner (`docs/spec-kit/DATABASE_DESIGN.md:41`).
 - CI runs fresh DB and upgrade-from-previous; release does dry run + backup check (`docs/spec-kit/DATABASE_DESIGN.md:42`, `docs/SHIP.md:27`). Never assume an app rollback undoes a data migration (`docs/SHIP.md:38`).
 - Destructive migrations require explicit human approval (`AGENTS.md:85`, `:130`).
-- Invariants enforced in DB: normalized unique email; one accepted answer per question; unique `(user_id,target_type,target_id)` vote; unique `(user_id,contribution_need_id)` application; normalized GitHub URL; bounded statuses; explicit visibility; no dangling relations (`docs/SPEC.md:108-116`, `docs/spec-kit/CONTRACTS.md:23`, TASK-DATA-001 AC `docs/spec-kit/TASKS.md:54`).
+- Invariants enforced in DB: normalized unique email; one accepted answer per question; unique `(user_id,target_type,target_id)` vote; unique `(user_id,contribution_need_id)` application; normalized GitHub URL; bounded statuses; explicit visibility; no dangling relations (`docs/SPEC.md:108-116`, `docs/archive/spec-kit/CONTRACTS.md:23`, the data slice acceptance criteria in `TODO.md`).
 - Separate tables per domain + typed `content_relations`; no polymorphic content table (`docs/architecture/ARCHITECTURE.md:22`, `docs/spec-kit/DATABASE_DESIGN.md:7`, `:48`).
 - UUID PKs generated server-side; IDs are not authorization (`docs/spec-kit/DATABASE_DESIGN.md:22`); `timestamptz` UTC `created_at`/`updated_at` (`:23`); explicit status + separate visibility (`:24`).
 - No cascading delete by default for user-owned content; prefer archival (`docs/spec-kit/DATABASE_DESIGN.md:25-26`).
-- Search (proposed): stored/generated `search_document tsvector` + GIN on questions/resources/projects; `simple` config until bilingual relevance benchmark; `pg_trgm` only on bounded user-facing fields; max query length, bounded results, stable ordering + deterministic tie-breaker (`docs/spec-kit/DATABASE_DESIGN.md:31-34`; G0-DATA-002 `docs/spec-kit/G0_DECISIONS.md:17`).
-- Use `websearch_to_tsquery`; verify plans with `EXPLAIN (ANALYZE, BUFFERS)` on representative data (`docs/SPEC.md:120`; TASK-DATA-001 `docs/spec-kit/TASKS.md:56`).
+- Search (ADR-0005): stored generated `search_document tsvector` + GIN on questions, answers, resources, projects and Learn articles; `simple` + `unaccent` through the immutable wrapper `f_unaccent`; `pg_trgm` only on bounded user-facing fields; max query length, bounded results, stable ordering + deterministic tie-breaker (`docs/spec-kit/DATABASE_DESIGN.md:31-34`; G0-DATA-002 `docs/archive/spec-kit/G0_DECISIONS.md:17`).
+- Use `websearch_to_tsquery`; verify plans with `EXPLAIN (ANALYZE, BUFFERS)` on representative data (`docs/SPEC.md`, search section; ADR-0005).
 - Seeds deterministic, synthetic, provenance-labelled; never imply real users, endorsements or verification (`docs/spec-kit/DATABASE_DESIGN.md:44`).
 - DB on private network only (`docs/RULES.md:31`, `docs/architecture/ARCHITECTURE.md:24`).
-- Doc conflicts: `docs/SPEC.md:119` says "migrations SQL up/down" vs forward-only in `docs/spec-kit/G0_DECISIONS.md:16` / `docs/spec-kit/DATABASE_DESIGN.md:52` and "reversible ou plan de restauration" in `docs/SHIP.md:28` -> follow G0-DATA-001 (forward-only, restore/redeploy), flag SPEC.md as stale. `docs/SPEC.md:120` "dictionnaires adaptés" vs `simple` fallback (`docs/spec-kit/DATABASE_DESIGN.md:32`) -> `simple` until benchmark. `db/` location: root `db/` (`docs/DEV.md:26`) vs `src/api/db` (`docs/DEV.md:24`) -> resolve in ADR-OPEN-005.
-- Migration tool and PostgreSQL major version: OPEN, pin per ADR (`docs/spec-kit/DATABASE_DESIGN.md:56`).
+- Search config: ADR-0005 fixes `simple` + `unaccent` (not language dictionaries) for P0; the PostgreSQL database root is `db/` (no `src/api/db`).
+- Migration tool and version: goose, PostgreSQL 18 (ADR-0005). Tool pins live in the toolchain files, not in this skill.
 
 ## Expert practices
 - Name constraints explicitly (`questions_one_accepted_answer_uq`) so repositories map SQLSTATE + constraint name to domain errors. [CREATE TABLE](https://www.postgresql.org/docs/current/sql-createtable.html), [Error codes](https://www.postgresql.org/docs/current/errcodes-appendix.html)
@@ -58,7 +58,7 @@ description: 226os PostgreSQL data layer (pgx v5 + sqlc, forward-only versioned 
 - Migration tests: fresh install; upgrade from previous release schema with representative rows; re-run idempotence of the runner.
 - Concurrency test: N goroutines vote/apply/accept concurrently -> exactly one row / one accepted answer.
 - Search tests: filters (country, tag, type, language), stable order + tie-break, pagination with no dupes/gaps, max length rejected, SQL-injection strings treated as data (`docs/TEST.md:37`), private/unpublished never returned (`docs/spec-kit/AUTHORIZATION_MATRIX.md:23`).
-- Evidence: EXPLAIN (ANALYZE, BUFFERS) output per search/list query in `docs/evidence/TASK-DATA-001/` (`docs/spec-kit/TASKS.md:58`).
+- Evidence: EXPLAIN (ANALYZE, BUFFERS) output per search/list query in the evidence path named by the slice block in `TODO.md`.
 - sqlc drift check in G1 (`AGENTS.md:47`).
 
 ## Anti-patterns (reject in review)

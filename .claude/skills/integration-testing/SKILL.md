@@ -12,19 +12,19 @@ description: 226os integration and contract tests (G3/G4). Covers real ephemeral
 - Integration means a real, ephemeral PostgreSQL under Docker plus HTTP tests. It is mandatory. Contract means real API responses checked against OpenAPI and the generated client. It is mandatory. `docs/TEST.md:16-17`.
 - G3 is real PostgreSQL, API contract conformance and invariants. Its evidence is the suite logs and the OpenAPI diff. `AGENTS.md:49`, `docs/TEST.md:46`.
 - 100% coverage does not replace DB integration tests. `docs/RULES.md:20`, `docs/TEST.md:9`.
-- Invariants are enforced in the database: unique normalised email, one accepted answer, unique vote `(user_id,target_type,target_id)`, unique application `(user_id,contribution_need_id)`, no dangling relations, and the others listed. `docs/SPEC.md:110-116`, `docs/spec-kit/CONTRACTS.md:23`. TASK-DATA-001 AC is at `docs/spec-kit/TASKS.md:54-56`.
-- Migrations are versioned, immutable after merge, and forward-only. CI exercises a fresh DB and an upgrade from the previous schema. `docs/spec-kit/DATABASE_DESIGN.md:39-42`, `docs/spec-kit/G0_DECISIONS.md:16`. TENSION: `docs/SPEC.md:119` says "up/down". Follow forward-only plus restore (the G0 default) until an ADR resolves it.
-- Seeds are deterministic, synthetic, provenance-labelled, and never implied to be real. `docs/spec-kit/DATABASE_DESIGN.md:44`, `docs/spec-kit/CONTRACTS.md:25`.
+- Invariants are enforced in the database: unique normalised email, one accepted answer, unique vote `(user_id,target_type,target_id)`, unique application `(user_id,contribution_need_id)`, no dangling relations, and the others listed. `docs/SPEC.md:110-116`, `docs/archive/spec-kit/CONTRACTS.md:23`. The data slice acceptance criteria are in its block in `TODO.md`.
+- Migrations are versioned, immutable after merge, and forward-only. CI exercises a fresh DB and an upgrade from the previous schema. `docs/spec-kit/DATABASE_DESIGN.md:39-42`, `docs/archive/spec-kit/G0_DECISIONS.md:16`.
+- Seeds are deterministic, synthetic, provenance-labelled, and never implied to be real. `docs/spec-kit/DATABASE_DESIGN.md:44`, `docs/archive/spec-kit/CONTRACTS.md:25`.
 - sqlc output stays in sync, with a no-drift test. `docs/DEV.md:47`. SQL is parameterised only, with a context deadline on DB access. `docs/DEV.md:45`.
-- OpenAPI 3.1 is the shared contract and drift is not tolerated. `docs/RULES.md:15`. Errors use RFC 9457 `application/problem+json`. `docs/SPEC.md:99`, `docs/spec-kit/G0_DECISIONS.md:15`.
-- Status mapping (proposed): 400/401/403/404/409/413/422/429/500/503, with `Retry-After` on 429/503. `docs/spec-kit/API_CONTRACT.md:57-58`.
-- The authZ negative matrix covers anonymous, member, owner, moderator and third party for every sensitive row. `docs/spec-kit/AUTHORIZATION_MATRIX.md:21-42`, `docs/spec-kit/API_CONTRACT.md:62`, `docs/TEST.md:36`.
-- Also required: CSRF rejection, unknown fields, oversized body, invalid cursor, replay, idempotency key with the same or a different hash, and redaction. `docs/spec-kit/API_CONTRACT.md:63-65`.
+- OpenAPI 3.1 is the shared contract and drift is not tolerated. `docs/RULES.md:15`. Errors use RFC 9457 `application/problem+json`. `docs/SPEC.md:99`, `docs/archive/spec-kit/G0_DECISIONS.md:15`.
+- Status mapping (ADR-0004): 400/401/403/404/409/413/422/429/500/503, with `Retry-After` on 429/503. `docs/spec-kit/API_CONTRACT.md` and ADR-0004.
+- The authZ negative matrix covers anonymous, member, owner, moderator and third party for every sensitive row. `docs/spec-kit/AUTHORIZATION_MATRIX.md:21-42`, `docs/TEST.md:36`.
+- Also required: CSRF rejection, unknown fields, oversized body, invalid cursor, replay, idempotency key with the same or a different hash, and redaction. `docs/spec-kit/API_CONTRACT.md`, required contract tests.
 - Search is bounded with a stable tie-breaker and `EXPLAIN (ANALYZE, BUFFERS)` on representative data. `docs/SPEC.md:120-121`, `docs/spec-kit/DATABASE_DESIGN.md:34`.
 - Run via `make test-integration` after reading its recipe. Never `docker compose down -v` outside approved scope. `AGENTS.md:120-125`.
 
 ## Expert practices
-- The container vs Compose choice is OPEN. Option A is testcontainers-go `postgres.Run(ctx, <image pinned per ADR>, ...)` with explicit wait strategies (`postgres.BasicWaitStrategies()`). Option B is a Compose `db-test` service with a healthcheck. Pick one in an ADR. Pin the image by digest. [testcontainers-go postgres](https://golang.testcontainers.org/modules/postgres/)
+- The in-repo harness is `src/api/internal/platform/pgtest` (read `doc.go` first): it starts one throwaway digest-pinned PostgreSQL container through the docker CLI and always removes it. Reuse it rather than adding a second mechanism. For reference, the alternatives are testcontainers-go `postgres.Run(ctx, <image>, ...)` with explicit wait strategies (`postgres.BasicWaitStrategies()`) or a Compose service with a healthcheck. Pin images by digest. [testcontainers-go postgres](https://golang.testcontainers.org/modules/postgres/)
 - Start one container per test package (`TestMain`), apply migrations from scratch with the real migration tool, then isolate per test.
 - Per-test isolation: (a) open a transaction, run the test, roll back. This works only when the code under test accepts a `pgx.Tx`/`DBTX` and does not commit itself. (b) Clone a template DB per test (`CREATE DATABASE t_x TEMPLATE migrated`). (c) Use testcontainers `Snapshot`/`Restore`, avoiding the `postgres` DB name and registering the `pgx` driver. [testcontainers-go postgres](https://golang.testcontainers.org/modules/postgres/)
 - Use (b) or (c) whenever the code commits, uses advisory locks, or opens several connections. Transactional rollback hides commit-time constraint errors (deferred constraints) and serialisation conflicts.
@@ -51,7 +51,7 @@ func TestAcceptAnswer_AuthzMatrix(t *testing.T) {
 		{"anonymous", fixture.Anonymous, http.StatusUnauthorized},
 		{"member non-author (Bob)", fixture.Bob, http.StatusForbidden}, // SPEC.md:24-28
 		{"question owner (Alice)", fixture.Alice, http.StatusOK},
-		// moderator row: "M only by policy" — OPEN until policy approved
+		// moderator row: per docs/spec-kit/AUTHORIZATION_MATRIX.md and ADR-0003 (hide/restore content, resolve error reports only)
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -89,10 +89,10 @@ func TestAcceptAnswer_AuthzMatrix(t *testing.T) {
 - [ ] All integration responses pass OpenAPI validation. Generation diff is empty. sqlc no-drift passes.
 - [ ] `make test-integration`: exit code, log path, PG image digest, target SHA recorded.
 - [ ] EXPLAIN evidence attached for changed search queries (G6 input).
-- [ ] Evidence under `docs/evidence/<TASK-ID>/`. Status reported as `PASS/FAIL/NOT RUN/BLOCKED`. Missing approved OpenAPI or migrations means `BLOCKED` (`docs/SPEC.md:140`, ADR-0001 condition 4).
+- [ ] Evidence under `docs/evidence/<TASK-ID>/`. Status reported as `PASS/FAIL/NOT RUN/BLOCKED`. Missing or unreviewed `api/openapi.yaml` or migrations means `BLOCKED`.
 
 ## References
-- `docs/TEST.md`, `docs/SPEC.md`, `docs/spec-kit/{CONTRACTS,API_CONTRACT,AUTHORIZATION_MATRIX,DATABASE_DESIGN,G0_DECISIONS}.md`, `docs/decisions/0001-g0-conditional-baseline.md`
+- `docs/TEST.md`, `docs/SPEC.md`, `docs/spec-kit/{API_CONTRACT,AUTHORIZATION_MATRIX,DATABASE_DESIGN}.md`, archived `docs/archive/spec-kit/{CONTRACTS,G0_DECISIONS}.md`, `docs/decisions/` (ADR-0003, 0004, 0005)
 - https://golang.testcontainers.org/modules/postgres/
 - https://pkg.go.dev/net/http/httptest (UNVERIFIED) · https://owasp.org/www-project-web-security-testing-guide/ (UNVERIFIED)
 - https://www.rfc-editor.org/rfc/rfc9457 (UNVERIFIED)

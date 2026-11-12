@@ -2,10 +2,11 @@
 
 - **Status:** ACCEPTED
 - **Date:** 2026-11-12
-- **Approver:** `Y4NN77`, repository owner ("we will use sops for secrets", 2026-11-12)
+- **Approver:** `Y4NN777`, repository owner ("we will use sops for secrets", 2026-11-12)
 - **Scope:** how the project's secrets (database password, cursor-signing key, SMTP and AI Studio credentials) are stored, shared, deployed and rotated
 - **Amends:** the rule "secrets never in Git" of [ADR-0006](0006-toolchain-environments-quality-commands.md) and `docs/SHIP.md`: encrypted secrets MAY be committed; plaintext never.
 - **Related:** [ADR-0003](0003-authentication-sessions-csrf-rate-limits.md), `scripts/secrets.sh`, `scripts/check-secrets-encrypted.sh`, `.env.example`
+- **Metadata note 2026-11-12:** approver spelling normalised to the GitHub login (`Y4NN777`); the decision text is unchanged.
 
 ## Context
 
@@ -33,7 +34,7 @@ Until now each profile's secrets lived only in a git-ignored `.env.<profile>` on
 
 - **Security:** secrets are reviewable by name in diffs and recoverable from Git history, but the history is permanent: a value committed under a compromised key stays decryptable by whoever holds that key, so rotation is mandatory after any key loss. The recipient list is the access-control list; changing it is a security review item.
 - **Operations:** a new teammate cannot decrypt anything until an existing recipient adds their public key and rotates. The deployment host key must be backed up by the owner.
-- **Quality:** `make security` gains one fast, dependency-free check with 29 test cases. The wrapper's round trip (init, decrypt, rotate, the wrong key, KMS variables ignored, no leftovers) and the runtime decryption through `compose.sh` need `sops` and `age`: where they are missing the tests print NOT RUN, and in GitHub Actions they emit a `::warning` annotation so it is visible on the pull request. CI therefore verifies the check script but not the round trip; run `scripts/tests/secrets_test.sh` and `scripts/tests/compose-secrets_test.sh` locally after changing the scripts.
+- **Quality:** `make security` gains one fast, dependency-free check covered by tests in `scripts/tests`. The wrapper's round trip (init, decrypt, rotate, the wrong key, KMS variables ignored, no leftovers) and the runtime decryption through `compose.sh` need `sops` and `age`: where they are missing the tests print NOT RUN, and in GitHub Actions they emit a `::warning` annotation so it is visible on the pull request. CI therefore verifies the check script but not the round trip; run `scripts/tests/secrets_test.sh` and `scripts/tests/compose-secrets_test.sh` locally after changing the scripts.
 - **Cost:** none.
 
 ## Evidence / verification required
