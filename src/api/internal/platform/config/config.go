@@ -17,6 +17,7 @@ type Config struct {
 	Addr        string // TCP listen address
 	DatabaseURL string // postgres:// or postgresql:// connection URL (secret)
 	CursorKey   []byte // HMAC key for pagination cursors, at least 32 bytes (secret)
+	SMTP        *SMTP  // nil when no SMTP_* variable is set; Username and Password are secrets
 }
 
 const (
@@ -45,7 +46,11 @@ func Load(getenv func(string) string) (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
-	return Config{AppEnv: env, Addr: addr, DatabaseURL: dbURL, CursorKey: key}, nil
+	smtp, err := LoadSMTP(getenv, env)
+	if err != nil {
+		return Config{}, err
+	}
+	return Config{AppEnv: env, Addr: addr, DatabaseURL: dbURL, CursorKey: key, SMTP: smtp}, nil
 }
 
 func checkDatabaseURL(raw string) error {
@@ -75,7 +80,14 @@ func decodeCursorKey(raw string) ([]byte, error) {
 // LogValue keeps slog.Any("config", cfg) from printing the secrets.
 func (c Config) LogValue() slog.Value {
 	return slog.GroupValue(slog.String("AppEnv", c.AppEnv), slog.String("Addr", c.Addr),
-		slog.String("DatabaseURL", "[redacted]"), slog.String("CursorKey", "[redacted]"))
+		slog.String("DatabaseURL", "[redacted]"), slog.String("CursorKey", "[redacted]"), c.smtpAttr())
+}
+
+func (c Config) smtpAttr() slog.Attr {
+	if c.SMTP == nil {
+		return slog.String("SMTP", "none")
+	}
+	return slog.Any("SMTP", *c.SMTP)
 }
 
 // GoString is the redacted form used by %#v.
@@ -83,5 +95,9 @@ func (c Config) GoString() string { return c.String() }
 
 // String is the redacted form used by %v / %+v and logs.
 func (c Config) String() string {
-	return fmt.Sprintf("{AppEnv:%s Addr:%s DatabaseURL:[redacted] CursorKey:[redacted]}", c.AppEnv, c.Addr)
+	out := fmt.Sprintf("{AppEnv:%s Addr:%s DatabaseURL:[redacted] CursorKey:[redacted]", c.AppEnv, c.Addr)
+	if c.SMTP != nil {
+		out += " SMTP:" + c.SMTP.String()
+	}
+	return out + "}"
 }

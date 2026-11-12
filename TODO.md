@@ -97,7 +97,7 @@ Each line below is a **proposal**. The lead confirms or reassigns it.
 - [x] Add `pgxpool` and `DATABASE_URL` to the config (`src/api/internal/platform/config`), and pass `DATABASE_URL` to `api` in `compose.yaml` (today `compose.yaml:90` omits it). (`feature/platform/api-mount`; `CURSOR_KEY` added to config, compose and `.env.example` too.)
 - [x] Add `GET /readyz` (DB ping with a deadline) to `scripts/public-routes.txt` with its reason. Decide edge routing for B2 (`deploy/traefik/dynamic.edge.yml:6`). Scheduled; not blocking today; must close before Sunday.
   - Follow-ups recorded by the skeptic review (api-mount): cursors carry no expiry (ADR-0004 point 5 lists "expired"; needs a TTL decision); `METHOD_NOT_ALLOWED`, the bare 501 of `apigen.Unimplemented` and a 405 without an `Allow` header are outside the contract (C5); `Application/JSON` (mixed case) is refused 400 by the validator while `DecodeJSON` accepts it.
-  - `GET /readyz` is built, tested and in `scripts/public-routes.txt` (`feature/platform/api-mount`). **B2 decision (PROPOSED by S0, owner approves by merging this PR): do NOT route `/readyz` at the edge** (`deploy/traefik/dynamic.edge.yml` stays `/api/` and `/healthz`). `/readyz` is unauthenticated and pings the database, so a public route would be a database-state oracle and a cheap way to force pings. The deploy smoke test (SHIP 4.2) runs it from the host instead: `docker compose exec api /busybox/busybox wget -q -O- http://127.0.0.1:8080/readyz`. The compose healthcheck keeps `/healthz` (liveness), so a database outage does not restart the API. S8 updates SHIP 4.2 accordingly; ROADMAP section 14 needs the owner line.
+  - `GET /readyz` is built, tested and in `scripts/public-routes.txt` (`feature/platform/api-mount`). **B2 decision (PROPOSED by S0, owner approves by merging this PR): do NOT route `/readyz` at the edge** (`deploy/traefik/dynamic.edge.yml` stays `/api/` and `/healthz`). `/readyz` is unauthenticated and pings the database, so a public route would be a database-state oracle and a cheap way to force pings. The deploy smoke test (SHIP 4.2) runs it from the host instead: `docker compose exec api /busybox/busybox wget -q -O- http://127.0.0.1:8080/readyz`. The compose healthcheck keeps `/healthz` (liveness), so a database outage does not restart the API. S8 updates SHIP 4.2 accordingly; ROADMAP section 14 needs the owner line. **Verified trap (2026-11-12):** at the edge `/readyz` is NOT served by the API but falls through to the `web` catch-all, which answers `200` with the SPA `index.html`; a smoke check through the public host would report ready with the API down. Probe it only inside the container.
 - [x] Mount `apigen` with `HandlerWithOptions` under `/api/v1`, with a problem+json `ErrorHandlerFunc`: (`feature/platform/api-mount`. The router still answers `METHOD_NOT_ALLOWED` for unknown methods, a code outside the enum: C5 stays open.)
   - missing required `If-Match` returns 428 `PRECONDITION_REQUIRED`;
   - bad parameters return 400 `MALFORMED_REQUEST` or 422 `VALIDATION_ERROR` (ADR-0004);
@@ -121,7 +121,8 @@ Each line below is a **proposal**. The lead confirms or reassigns it.
   - a purge job removes expired rows.
 - [x] Transaction runner (multi-table mutations in one transaction).
 - [x] Domain error to problem+json mapping table (one place).
-- [ ] Mailer port, SMTP adapter and fake:
+- [x] Mailer port, SMTP adapter and fake:
+  - Built on `feature/platform/mailer`: `platform/mailer` (port, SMTP adapter with `none`/`starttls`/`tls`, AUTH PLAIN only over TLS, no silent downgrade, header-injection checks before any I/O, `Fake`, `Disabled`), `mailer/smtptest` (in-process ESMTP server for tests), `SMTP_*` in config (a half-set group or `none` outside local-dev is refused; the password never appears in errors, logs or `%v`), `app.Server.Mailer()` for S1, and `go run ./src/api/cmd/mailcheck <recipient>` for the DoD proof. Compose: a digest-pinned Mailpit v1.33.1 (MIT) in the `local-dev` profile only, host ports on 127.0.0.1; `.env.example` documents `SMTP_*`. **Gmail STARTTLS with the app password (H8) is NOT RUN**: only the in-process server and Mailpit were exercised; verify on staging.
   - a digest-pinned Mailpit service in the `local-dev` profile of `compose.yaml`;
   - `SMTP_*` variables in `.env.example` (their current presence is UNVERIFIED);
   - the Gmail app password only in the staging and production env files.
@@ -161,7 +162,7 @@ Each line below is a **proposal**. The lead confirms or reassigns it.
 
 **Stop condition:** stop and ask the owner if B1 cannot be solved without weakening the gate.
 
-**Status:** IN PROGRESS (B1 gate merged, hardening in PR #32; api-mount on `feature/platform/api-mount`; idempotency, ETag, mailer, B2 and B3 not started)
+**Status:** IN REVIEW (all S0 tasks built: gate hardening #32, api-mount #33, idempotency and ETag #34, mailer on `feature/platform/mailer`; B2 and B3 proposed, owner approval pending; DoD proof recorded in the mailer PR)
 
 ---
 
@@ -1052,3 +1053,4 @@ E5 needs the `profile_visibility` migration (C14b), which only `mibienpanjoe` wr
 | 2026-11-12 | S0 B1 gate hardening: toolchain test files (no Docker), mapped-test content rules, silent-pass guard RED test | #32 | `Y4NN777` |
 | 2026-11-12 | S0 api-mount: pgxpool and `/readyz`, apigen mount under `/api/v1`, problem+json error table, spec-driven request validation, signed cursors, transaction runner, subject port | #33 | `Y4NN777` |
 | 2026-11-12 | S0 Idempotency-Key and ETag helper; B2 and B3 proposals | #34 | `Y4NN777` |
+| 2026-11-12 | S0 mailer (port, SMTP adapter, fake, Mailpit in local-dev, mailcheck) and the DoD proof | #35 | `Y4NN777` |

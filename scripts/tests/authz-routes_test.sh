@@ -111,67 +111,25 @@ expect_red "a direct /api/v1 route in NewRouter" 'POST /api/v1/auth/sign-in' 'ap
 # RED: an implemented operation whose line is still in unimplemented-routes.txt (checked on the
 # production server's method set, not through HTTP).
 mkdir -p "$tmp/srv"
-cat >"$tmp/srv/implemented.go" <<'EOF'
-package app
-
-import (
-	"net/http"
-
-	"github.com/Y4NN777/226os/src/api/internal/platform/apigen"
-)
-
-type Server struct{ apigen.Unimplemented }
-
-func NewServer() *Server { return &Server{} }
-
-func (*Server) SignIn(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) }
-EOF
-expect_red "an implemented operation still listed as unimplemented" 'POST /api/v1/auth/sign-in' 'declares its own' -- --server-override "$tmp/srv/implemented.go"
-cat >"$tmp/srv/panics.go" <<'EOF'
-package app
-
-import (
-	"net/http"
-
-	"github.com/Y4NN777/226os/src/api/internal/platform/apigen"
-)
-
-type Server struct {
-	apigen.Unimplemented
-	m map[string]int
+# Fixtures are the REAL app/server.go plus one method, so they follow the app's wiring (options, mailer)
+# instead of re-declaring Server by hand.
+real_server="$root/src/api/internal/app/server.go"
+with_method() { # OUT METHOD_SOURCE
+  python3 - "$real_server" "$1" "$2" <<'PY'
+import sys
+src = open(sys.argv[1]).read()
+if '"net/http"' not in src:
+    src = src.replace("import (", 'import (\n\t"net/http"', 1)
+open(sys.argv[2], "w").write(src + "\n" + sys.argv[3] + "\n")
+PY
 }
-
-func NewServer() *Server { return &Server{} }
-
-func (s *Server) SignIn(http.ResponseWriter, *http.Request) { s.m["x"] = 1 }
-EOF
+with_method "$tmp/srv/implemented.go" 'func (*Server) SignIn(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) }'
+expect_red "an implemented operation still listed as unimplemented" 'POST /api/v1/auth/sign-in' 'declares its own' -- --server-override "$tmp/srv/implemented.go"
+with_method "$tmp/srv/panics.go" 'func (*Server) SignIn(http.ResponseWriter, *http.Request) { var m map[string]int; m["x"] = 1 }'
 expect_red "an implemented operation that panics on zero dependencies" 'POST /api/v1/auth/sign-in' 'declares its own' -- --server-override "$tmp/srv/panics.go"
-cat >"$tmp/srv/declared501.go" <<'EOF'
-package app
-
-import (
-	"net/http"
-
-	"github.com/Y4NN777/226os/src/api/internal/platform/apigen"
-)
-
-type Server struct{ apigen.Unimplemented }
-
-func NewServer() *Server { return &Server{} }
-
-// Real code that happens to answer 501 on a zero-value call: still not the generated stub.
-func (s *Server) SignIn(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNotImplemented) }
-EOF
+# Real code that happens to answer 501 on a zero-value call: still not the generated stub.
+with_method "$tmp/srv/declared501.go" 'func (*Server) SignIn(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNotImplemented) }'
 expect_red "an operation declared on the server that answers 501" 'POST /api/v1/auth/sign-in' 'declares its own' -- --server-override "$tmp/srv/declared501.go"
-cat >"$tmp/srv/missing.go" <<'EOF'
-package app
-
-import "github.com/Y4NN777/226os/src/api/internal/platform/apigen"
-
-type Server struct{ apigen.Unimplemented }
-
-func NewServer() *Server { return &Server{} }
-EOF
 d="$(newlists unmounted)"
 echo 'GET /api/v1/nowhere' >>"$d/unimplemented-routes.txt"
 expect_red "an unimplemented entry that is not mounted" 'GET /api/v1/nowhere' 'not' -- --lists-dir "$d"
