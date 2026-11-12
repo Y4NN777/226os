@@ -196,7 +196,7 @@ Reviews (ADR-0008, accepted 2026-11-12):
 
 ## 8. Human tasks and lead time
 
-Owner personal tasks still open (owner instruction 2026-11-12): **H6 and H7** (Datacloud, DNS), **H12** (V2 quotas and K21 EEA decision; V1 and V3 are done), **H10** (vote reminders), the **Gmail sender alias check** for `noreply@226os.tech` (H8 follow-up) and issue #46 (collaborators' age keys). H8 itself is DONE. H19 is the owner running the reviewed content script. Closed rows (H1, H3, H9, H11, H18) are in the archive.
+Owner personal tasks still open (owner instruction 2026-11-12): **H6 and H7** (Datacloud, DNS), **H12** (V2 quotas and K21 EEA decision; V1 and V3 are done), **H10** (vote reminders), and issue #46 (collaborators' age keys). H8 itself is DONE. H19 is the owner running the reviewed content script. Closed rows (H1, H3, H9, H11, H18) are in the archive.
 
 | Id | Task | Who | Start by | Lead time |
 |---|---|---|---|---|
@@ -205,7 +205,7 @@ Owner personal tasks still open (owner instruction 2026-11-12): **H6 and H7** (D
 | H5 | Rulings on the items still open in section 10 (C3 to C10, C12, C13, O4 to O6; O7 proposed; B4 scheduled). Decided so far: B1, B2, B3, B5, C1, C2, C14, C15, C19, O1 | `Y4NN777` | Thu evening | - |
 | H6 | **OPEN.** Datacloud account and an **active commercial product**, SSH key, ports 80/443, storage (`docs/SHIP.md` section 3; a CADEV condition) | `Y4NN777` | Thu evening | UNVERIFIED; hours to a day (GUESS) |
 | H7 | **OPEN.** DNS: `226os.tech` is held by the owner but nothing is deployed on it. When the host IP is known, add A records for the apex and the staging subdomain (PROPOSAL `staging.226os.tech`, owner to confirm). TLS (Traefik, Let's Encrypt) only after DNS resolves (`docs/SHIP.md`) | `Y4NN777` | when the host IP is known | minutes to hours (GUESS) |
-| H8 | Gmail SMTP app password in the staging and production env files only. **DONE 2026-11-12:** `mailcheck` sent a real mail through `smtp.gmail.com:587` (STARTTLS); the settings are in the staging secrets file. **Follow-up OPEN:** verify the Gmail "Send mail as" alias for the branded sender `noreply@226os.tech` (owner decision 2026-11-12), otherwise Gmail rewrites `From`; repeat the test on the staging host | `Y4NN777` | Fri morning | an app password needs 2-step verification (GUESS; verify) |
+| H8 | Gmail SMTP app password in the staging and production env files only. **DONE 2026-11-12:** `mailcheck` sent a real mail through `smtp.gmail.com:587` (STARTTLS); the settings are in the staging secrets file. **Alias verified (owner statement, 2026-11-12):** the Gmail "Send mail as" alias for the branded sender `noreply@226os.tech` is set up, so Gmail does not rewrite `From`. Remaining: repeat the test on the staging host once it exists | `Y4NN777` | Fri morning | an app password needs 2-step verification (GUESS; verify) |
 | H10 | Vote reminders to all four members, plus a named follow-up person (SHIP section 6) | `Y4NN777` | Sun 17:00 | - |
 | H12 | S9: AI Studio key (DONE, in `secrets/staging-test.enc.env`); V1 DONE, V3 DECIDED; **V2 and K21 OPEN** | `Y4NN777` | Fri 13 evening | - |
 | H13 | Apply PRD amendment 3.2 and add a SPEC story for S9 (and S10 if GO); the owner applies these | `Y4NN777` | Fri evening | - |
