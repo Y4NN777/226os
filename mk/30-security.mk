@@ -16,13 +16,16 @@
 # no drift, no third-party rule licence (semgrep-rules is under the non-OSS Semgrep Rules License v1.0 and
 # is not vendored). Any finding at ERROR or WARNING severity fails; generated schema.d.ts is excluded.
 
-SECURITY_STEPS := security-authz security-govulncheck security-js-audit security-secrets security-sast security-sast-js security-images
+SECURITY_STEPS := security-authz security-secrets-encrypted security-govulncheck security-js-audit security-secrets security-sast security-sast-js security-images
 
 security: doctor ## G4: negative authz route table, govulncheck, JS audit, secret scan, SAST (gosec, Semgrep), image scan
 	@scripts/quality.sh $(MAKE_BIN) security $(SECURITY_STEPS)
 
 security-authz: doctor ## G4: every mounted route is public by allowlist or covered by an authz negative test
 	scripts/check-authz-routes.sh
+
+security-secrets-encrypted: doctor ## G4: everything under secrets/ is SOPS-encrypted (ADR-0009)
+	scripts/check-secrets-encrypted.sh
 
 security-govulncheck: doctor ## G4: Go vulnerability scan (queries vuln.go.dev)
 	go tool govulncheck ./...
