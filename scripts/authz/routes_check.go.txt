@@ -1,0 +1,92 @@
+// Negative-authz route-table check (G4). NOT part of the module build: it is compiled into
+// the httpx test binary through `go test -overlay` by scripts/check-authz-routes.sh, so it can
+// reach the internal router without touching application source. Kept as .txt so that gofmt,
+// go vet and golangci-lint over ./... never see it as a stray package.
+package httpx_test
+
+import (
+	"bufio"
+	"io"
+	"log/slog"
+	"net/http"
+	"os"
+	"sort"
+	"strings"
+	"testing"
+
+	"github.com/go-chi/chi/v5"
+
+	"github.com/Y4NN777/226os/apps/api/internal/platform/httpx"
+)
+
+func TestAuthzRouteTable(t *testing.T) {
+	path := os.Getenv("AUTHZ_PUBLIC_ROUTES")
+	if path == "" {
+		t.Fatal("AUTHZ_PUBLIC_ROUTES is not set; refusing to run without the public route allowlist")
+	}
+	public, err := readAllowlist(path)
+	if err != nil {
+		t.Fatalf("read public route allowlist: %v", err)
+	}
+
+	router, ok := httpx.NewRouter(slog.New(slog.NewTextHandler(io.Discard, nil))).(chi.Routes)
+	if !ok {
+		t.Fatal("httpx.NewRouter does not return a chi router; the route table cannot be listed")
+	}
+	var mounted []string
+	if err := chi.Walk(router, func(method, route string, _ http.Handler, _ ...func(http.Handler) http.Handler) error {
+		mounted = append(mounted, method+" "+route)
+		return nil
+	}); err != nil {
+		t.Fatalf("walk route table: %v", err)
+	}
+	sort.Strings(mounted)
+	if len(mounted) == 0 {
+		t.Fatal("the router mounts no route at all; the check cannot prove anything")
+	}
+
+	var protected []string
+	for _, r := range mounted {
+		if !public[r] {
+			protected = append(protected, r)
+		}
+	}
+	t.Logf("mounted routes: %d, public (allowlisted): %d", len(mounted), len(mounted)-len(protected))
+	for _, r := range mounted {
+		t.Logf("route %s public=%t", r, public[r])
+	}
+	if len(protected) == 0 {
+		t.Log("no protected routes exist yet: every mounted route is in the public allowlist")
+		return
+	}
+	for _, r := range protected {
+		t.Errorf("route %q is mounted but is not a public route: an authz negative test is required "+
+			"(unauthenticated and wrong-role requests must be rejected) before it can be added to scripts/public-routes.txt "+
+			"or considered covered", r)
+	}
+}
+
+func readAllowlist(path string) (map[string]bool, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	out := map[string]bool{}
+	sc := bufio.NewScanner(f)
+	for sc.Scan() {
+		line := sc.Text()
+		if i := strings.Index(line, "#"); i >= 0 {
+			line = line[:i]
+		}
+		fields := strings.Fields(line)
+		if len(fields) == 0 {
+			continue
+		}
+		if len(fields) != 2 || fields[0] != strings.ToUpper(fields[0]) || !strings.HasPrefix(fields[1], "/") {
+			return nil, &os.PathError{Op: "parse", Path: path, Err: os.ErrInvalid}
+		}
+		out[fields[0]+" "+fields[1]] = true
+	}
+	return out, sc.Err()
+}

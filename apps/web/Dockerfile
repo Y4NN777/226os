@@ -14,8 +14,16 @@ COPY apps/web apps/web
 COPY api api
 RUN pnpm --filter web build
 
-# nginxinc/nginx-unprivileged:stable-alpine (nginx 1.30.6, uid 101, no root at runtime)
+# nginxinc/nginx-unprivileged:stable-alpine (nginx 1.30.6, alpine 3.24.2, uid 101, no root at runtime).
+# Digest re-resolved 2026-11-12: upstream had not republished (same digest), and no variant was clean
+# (stable-alpine-slim and mainline-alpine-slim still had 3 fixable HIGH findings). The base therefore
+# carries fixable HIGH/CRITICAL OS-package CVEs (brotli, curl, expat, libxslt, musl, zlib), fixed by the
+# `apk upgrade` layer below. Trade-off: that layer pulls the then-current alpine packages at build time, so
+# two builds of the same commit can differ until upstream republishes the base; the final image is
+# recorded by digest at build, and image-scan.sh gates it. Drop the layer when the base is clean.
 FROM nginxinc/nginx-unprivileged:stable-alpine@sha256:f5116ed4606f3eb015dd4a8e28cb9b351476dc0ad4bc6e9f93b19cec130cdf03 AS web
+USER root
+RUN apk upgrade --no-cache
 ARG VCS_REF=unknown
 LABEL org.opencontainers.image.title="226os-web" org.opencontainers.image.revision="${VCS_REF}"
 COPY apps/web/nginx/nginx.conf /etc/nginx/nginx.conf
