@@ -1,6 +1,6 @@
 # 226os Implementation Tasks
 
-**Status:** PLANNED; G0 is GO (ADR-0001 to ADR-0007). Owner and reviewer are `Y4NN77` for every task until P0 completes (ADR-0002). Bootstrap task B0 (repository scaffold: Makefile, Compose tree, workflows, lockfiles, version pins) starts first; it is covered by TASK-OPS-001 and TASK-WEB-001 scope.
+**Status:** PLANNED; G0 is GO (ADR-0001 to ADR-0007). Owners, reviewers and helpers per slice are set by ADR-0008 (accepted) and tracked in the root `TODO.md`; `Y4NN77` keeps architecture, risk and release decisions. Bootstrap task B0 (repository scaffold: Makefile, Compose tree, workflows, lockfiles, version pins) starts first; it is covered by TASK-OPS-001 and TASK-WEB-001 scope.
 
 Every task follows the governance work-item contract. No task is `DONE` until its evidence paths contain real results for the target SHA.
 

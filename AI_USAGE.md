@@ -113,3 +113,23 @@ open_risks:
   - "taxonomy lists are research proposals approved by the owner, not user-tested"
   - "ADR-0007 visual, axe and responsive evidence is NOT RUN; G5 to G7 NOT RUN"
 ```
+
+## Product direction documentation record
+
+```yaml
+date: "2026-11-12"
+contributor: "Y4NN77"
+tool_or_model: "Claude Code (orchestrator session) with a Claude subagent (lead) for the documentation sync; a Claude research subagent for the agentic-era topics and the reference study; the grounded assistant planned in S9 will call Google AI Studio (Gemma) at runtime"
+purpose: "Align README, PRD amendment 3.2 (proposed), SPEC stories, DATABASE_DESIGN notes, the reference study for 225 Open Source and the prototype disclaimer with the product decisions of 2026-11-12"
+repository_or_source_context: "this repository at develop c55fbde; the public home page text of 225os.com was read by the owner and paraphrased in the study; no text, visuals or data from it are copied"
+files_or_sections_affected: ["README.md", "docs/PRD.md", "docs/SPEC.md", "docs/spec-kit/DATABASE_DESIGN.md", "docs/research/REFERENCES.md", "prototypes/html/DISCLAIMER.md", "prototypes/html/README.md", "docs/screenshots (removed)", "docs/team/KICKOFF.md", "ROADMAP.md", "TODO.md"]
+third_party_sources_consulted:
+  - "Stack Overflow Developer Survey 2025, Anthropic and PNAS studies on AI assistance and learning, GSMA 2026 mobile money report, Google AI Studio terms (aistudio.google.com/docs/terms): used as research input for the plan; figures are cited in ROADMAP.md with their source quality"
+license_review: PENDING
+human_reviewers: ["Y4NN77 (decisions on positioning, content, assistant, Connect directory, profile visibility, demo data policy)"]
+tests_or_evidence: ["no gate applies to documentation; consistency checks by search across the changed files", "NOT RUN: make quality is unaffected by these files"]
+open_risks:
+  - "the 225 Open Source study is based on home page text only; the team must read its terms and complete the study"
+  - "the West Africa country list follows the UN geoscheme from memory and is to be verified"
+  - "PRD amendment 3.2 is proposed until the owner approves it on the PR"
+```

@@ -12,7 +12,7 @@
 | Planned submission | Sun 2026-11-15 about 12:00 | owner decision, 2026-11-12 |
 | Progress checkpoint (drop decisions, S10 go/no-go) | Sat 2026-11-14 12:00 | owner decision, 2026-11-12 |
 | Feature freeze on `develop` | Sat 2026-11-14 18:00 | owner decision, 2026-11-12 |
-| **Every member votes**, or that member is excluded | Sun 2026-11-15 18:00 to Mon 2026-11-16 23:59 | `docs/SHIP.md` section 6 |
+| **Every member votes**, or the team's project is excluded | Sun 2026-11-15 18:00 to Mon 2026-11-16 23:59 | `docs/SHIP.md` section 6 |
 
 **Scope**
 

@@ -5,190 +5,194 @@
   </picture>
 </p>
 
-<p align="center"><strong>Questions · API &amp; outils · Projets open source · Apprendre</strong><br>Entre développeurs africains</p>
+<p align="center"><strong>Apprendre, se connecter, résoudre, découvrir et construire</strong><br>Entre développeurs africains</p>
 
-226os est une plateforme pensée pour relier l'entraide technique, les ressources utiles aux développeurs africains, les projets open source, l'apprentissage et les personnes qui les font avancer. L'objectif n'est pas de créer un forum, un annuaire d'API ou un réseau professionnel supplémentaire. C'est de rendre plus direct le passage d'un problème rencontré à une solution documentée, puis à une contribution réutilisable.
+226os est une plateforme qui relie l'entraide technique, les ressources utiles aux développeurs africains, les projets open source, l'apprentissage et les personnes qui font avancer tout cela. Le but n'est pas d'ajouter un forum, un annuaire d'API ou un réseau professionnel de plus, mais de raccourcir le chemin entre un problème rencontré, une solution documentée et une contribution que d'autres peuvent réutiliser.
 
-**Quatre piliers publics :** **Questions** (entraide technique), **API & outils** (ressources pour développeurs africains), **Projets open source** (collaboration) et **Apprendre** (articles, tutoriels et formations).
+Son positionnement : **l'Afrique de l'Ouest d'abord, puis toute l'Afrique**. La plateforme part du contexte ouest-africain et s'adresse ensuite aux développeurs de tout le continent, quels que soient leur pays, leur langue ou leur niveau.
 
-**Apprendre** est un pilier à part entière, de même poids que les trois autres. Il rassemble des articles, des tutoriels et des formations, dont des **formations gratuites à l'IA que le fondateur donne lui-même à travers ses articles et ses tutoriels**. Chaque membre est **invité à publier les siens** : 226os est aussi un lieu où l'on partage ce que l'on sait.
+226os se lit « 226 Open Stack » : 226 est l'indicatif téléphonique du Burkina Faso.
 
-Il s'adresse aux développeurs de toute l'Afrique, quels que soient leur pays, leur langue ou leur niveau d'expérience.
+> **Domaine :** [226os.tech](https://226os.tech), réservé, rien n'y est encore déployé.
+> **Équipe :** 7's, quatre membres.
+> **Premier contexte de livraison :** CADEV 2026, soumission avant le 15 novembre 2026 à 17:00 GMT.
 
-> **État du projet :** cadrage et initialisation du dépôt. La documentation de cadrage est organisée dans `docs/`; les fonctionnalités présentées ci-dessous constituent la vision et le périmètre envisagés, et ne sont pas annoncées comme déjà livrées.
->
-> **Domaine prévu :** [226os.tech](https://226os.tech) 
-> **Équipe :** 7's   
-> **Premier contexte de livraison :** CADEV 2026.
+## L'orientation actuelle
 
-## Pourquoi 226os ?
+Depuis le 12 novembre 2026, la navigation, l'accueil et les textes mettent en avant deux piliers : **Apprendre** et **Connect**. Solve (questions), Discover (API et outils) et Build (projets open source) restent des piliers à part entière, accessibles depuis la même navigation. Rien n'est retiré : les neuf domaines et les quatre expériences différenciantes du [PRD](docs/PRD.md) restent en place. C'est un changement de mise en avant, pas de périmètre (amendement 3.2 du PRD, proposé).
 
-Intégrer un service de paiement, retrouver un exemple fiable, comprendre une erreur de déploiement ou rechercher des contributeurs implique souvent de passer d'un groupe de discussion à une documentation incomplète, puis à plusieurs dépôts GitHub. Une solution trouvée disparaît parfois dans un fil de messages ; un projet intéressant peine à rencontrer les bonnes compétences.
+Tout reste un seul écosystème : un compte, une recherche unique, des tags et des thèmes partagés, des liens typés entre contenus, un assistant qui s'appuie sur tout ce qui est publié, et un annuaire qui relie les personnes à leurs contributions.
 
-Les plateformes existantes répondent chacune à une partie du problème. Ce qui manque souvent, c'est la **continuité du contexte** : les services disponibles selon les pays, les contraintes techniques réellement rencontrées, les solutions vérifiables et les personnes qui peuvent faire progresser un projet.
+Ce qui est prévu au P0 (rien n'est encore livré) :
 
-226os veut relier ces éléments plutôt que les juxtaposer.
+- **Assistant IA sourcé :** il répond uniquement à partir des contenus publiés sur 226os, cite ses sources, refuse quand il n'en a pas et termine chaque réponse par une section « Comment vérifier ». Il reste désactivé par configuration tant que le propriétaire n'a pas tranché les conditions d'utilisation du fournisseur.
+- **Connect :** un annuaire des membres en lecture seule, filtrable par pays, langue et compétence, qui respecte la visibilité choisie par chacun. Le mentorat, les opportunités et les espaces communautaires sont affichés comme « bientôt ».
+- **Apprendre :** des thèmes tournés vers le développement à l'ère des agents IA, un bouton « Poser une question sur cette leçon » et des fils par thème.
+- **Contenu original :** aucun contenu tiers n'est importé ni aspiré. Les sources externes apparaissent seulement comme références et comme liens documentaires sur les fiches Discover.
+
+## Pourquoi 226os ?
+
+Intégrer un service de paiement, retrouver un exemple fiable, comprendre une erreur de déploiement ou trouver des contributeurs oblige souvent à passer d'un groupe de discussion à une documentation incomplète, puis à plusieurs dépôts GitHub. Une solution trouvée se perd dans un fil de messages ; un projet intéressant ne croise pas les bonnes compétences.
+
+Ce qui manque, c'est la **continuité du contexte** : quels services existent dans quels pays, quelles contraintes techniques se posent vraiment, quelles solutions sont vérifiables et qui peut faire avancer un projet. 226os veut relier ces éléments plutôt que les juxtaposer.
 
 ## Un parcours continu
 
 **Discover → Solve → Build → Share back**
 
-Prenons un développeur qui intègre un service de paiement au Burkina Faso :
+Prenons un développeur d'Afrique de l'Ouest qui intègre un service, un modèle ou une API dans un produit utilisé avec une connexion limitée :
 
-1. **Discover :** il identifie les fournisseurs, les pays couverts, les SDK, les exemples et les limites documentées.
-2. **Solve :** il pose une question avec son contexte technique, partage son code, échange avec la communauté et documente la résolution.
-3. **Build :** il découvre un projet open source lié à son besoin, propose une contribution ou recherche d'autres développeurs.
-4. **Share back :** le correctif, l'exemple ou le guide devient une ressource que d'autres peuvent retrouver et évaluer.
-
-C'est cette boucle de contribution qui constitue le cœur de 226os.
+1. **Discover :** il repère les fournisseurs, les pays couverts, les SDK et les modèles, les exemples et les limites documentées.
+2. **Solve :** il pose une question avec son contexte technique et son code, échange avec la communauté et documente la résolution.
+3. **Build :** il trouve un projet open source lié à son besoin, propose une contribution ou cherche d'autres développeurs.
+4. **Share back :** le correctif, l'exemple ou le guide devient une ressource que d'autres retrouvent et évaluent.
 
 ## Les neuf domaines du produit
 
 | Domaine | Fonctionnalités envisagées |
 | --- | --- |
-| **Solve — Entraide et connaissances** | Questions/réponses, snippets, solutions acceptées, votes et réputation, revue de code et discussions thématiques. |
-| **Discover — Ressources pour développeurs africains** | Catalogue d'API, SDK et outils, couverture par pays, documentation, comparaisons, exemples d'intégration et retours communautaires. |
-| **Build — Open source et collaboration** | Découverte et import de projets GitHub, publication de projets, besoins en compétences, contributeurs et cofondateurs, candidatures et reconnaissance des contributions. |
-| **Learn — Apprendre** | Articles et tutoriels (Markdown, code, tags, niveau, langue) liés aux questions, API et projets ; formations gratuites à l'IA du fondateur, lisibles publiquement ; publication ouverte à tous les membres. Séries structurées avec progression, mises en avant d'auteurs, certificats et exercices interactifs viennent ensuite (priorités P1/P2). |
-| **Connect — Mentorat et carrière** | Mentorat, relecture de CV et de portfolios, préparation aux entretiens, groupes d'étude, stages et opportunités professionnelles. |
-| **Identity & Community** | Profils développeurs, compétences, contributions, réputation, communautés, activités et découverte de personnes ou d'équipes. |
-| **Language — Collaboration panafricaine** | Interface français/anglais, publications multilingues, recherche bilingue, traduction assistée avec préservation des textes originaux. |
-| **Access — Connexions limitées** | Interface mobile-first, chargement progressif, réduction des transferts, cache, brouillons hors ligne et dégradation contrôlée. |
-| **Intelligence — Assistance contextualisée** | Questions similaires, ressources et projets liés, aide à la rédaction, résumés et recommandations assistées par IA avec sources explicites. |
+| **Solve, entraide et connaissances** | Questions et réponses, snippets, solutions acceptées, votes et réputation, revue de code et discussions thématiques. |
+| **Discover, ressources pour développeurs africains** | Catalogue d'API, de SDK et d'outils, couverture par pays, documentation, comparaisons, exemples d'intégration et retours de la communauté. |
+| **Build, open source et collaboration** | Découverte et import de projets GitHub, publication de projets, besoins en compétences, contributeurs et cofondateurs, candidatures et reconnaissance des contributions. |
+| **Learn, apprendre** | Articles et tutoriels (Markdown, code, tags, niveau, langue) liés aux questions, aux API et aux projets ; série gratuite sur l'IA lisible sans compte ; publication ouverte à tous les membres. Les séries avec progression, les certificats et les exercices interactifs viennent ensuite (P1 et P2). |
+| **Connect, mentorat et carrière** | Annuaire des membres (P0) ; mentorat, relecture de CV et de portfolios, préparation aux entretiens, groupes d'étude, stages et opportunités (plus tard). |
+| **Identity & Community** | Profils développeurs, visibilité du profil, compétences, contributions, réputation, communautés et activité. |
+| **Language, collaboration panafricaine** | Interface en français et en anglais, publications multilingues, recherche bilingue, traduction assistée qui conserve le texte original. |
+| **Access, connexions limitées** | Interface mobile d'abord, chargement progressif, transferts réduits, cache, brouillons hors ligne et dégradation maîtrisée. |
+| **Intelligence, assistance contextuelle** | Assistant qui répond à partir des contenus publiés avec ses sources (P0), questions similaires, ressources et projets liés, aide à la rédaction, résumés. |
 
-Ces domaines définissent la **vision complète**, et non une promesse de disponibilité immédiate.
+Ces domaines décrivent la **vision complète**, pas ce qui est disponible aujourd'hui. Les priorités P0, P1 et P2 sont dans le [PRD](docs/PRD.md).
 
 ### Ce qui doit nous distinguer
 
-**Le contexte des intégrations africaines.** Une fiche d'API doit indiquer les pays couverts, les options techniques disponibles, les limites documentées et les échanges qui étayent ces informations.
+- **Le contexte des intégrations africaines.** Une fiche d'API indique les pays couverts, les options techniques, les limites documentées et les échanges qui étayent ces informations.
+- **Du problème à la contribution.** Une bonne réponse peut nourrir un guide, une issue GitHub, un correctif ou un nouveau projet, sans perdre son contexte.
+- **La collaboration au-delà des frontières.** Les compétences et les besoins guident la découverte de contenus et de contributeurs, au-delà de la langue et du pays.
+- **La connaissance technique appuyée par des preuves.** Versions, étapes de reproduction, sources et confirmations permettent de juger une solution autrement qu'au nombre de votes.
 
-**Du problème à la contribution.** Une bonne réponse peut alimenter un guide, une issue GitHub, un correctif ou un nouveau projet collaboratif, sans perdre son contexte.
+Apprendre irrigue ces quatre expériences : un article renvoie vers les questions, les API et les projets qu'il met en pratique, et inversement.
 
-**Le partage des connaissances.** Un article ou un tutoriel renvoie vers les questions, les API et les projets qu'il met en pratique, et inversement. Apprendre n'est pas un coin séparé : c'est la suite naturelle d'une réponse trouvée.
+## État du projet
 
-**La collaboration au-delà des frontières.** Compétences et besoins guident la découverte de contenus et de contributeurs, au-delà de la langue et du pays.
+- **Bootstrap B0 fusionné** (PR #24) : squelette d'API Go qui ne sert que `GET /healthz`, migrations `00001` à `00010`, code généré depuis `api/openapi.yaml` (pas encore monté), requêtes sqlc d'identité et de référence, squelette web (Vite, React 19, TanStack, Astryx 0.7.14), profils Compose, cibles Make et CI.
+- **Implémentation P0 en cours**, découpée en tranches dans [ROADMAP.md](ROADMAP.md) et suivie dans [TODO.md](TODO.md). Le contrat compte aujourd'hui 43 opérations P0.
+- **Gates :** la CI lance `make quality` (G1 à G4) sur chaque PR vers `develop` ou `main`. G5 (e2e), G6 (performance) et G7 (livraison) sont **NOT RUN**.
+- **Rien n'est déployé**, ni en préproduction ni en production.
 
-**La connaissance technique appuyée par des preuves.** Versions, étapes de reproduction, sources documentaires et confirmations communautaires doivent permettre de juger une solution autrement qu'au nombre de votes.
+Aucune fonctionnalité P1 ou P2 n'est présentée comme livrée. La participation à CADEV impose un projet original, un dépôt Git, une démonstration en ligne sur un service Datacloud et la déclaration des dépendances, de leurs licences et de l'aide d'une IA.
 
-## Aperçu du prototype
+## Lancer le projet en local
 
-Prototype HTML haute fidélité, navigable et sans dépendance : ouvrez [`prototypes/html/index.html`](prototypes/html/index.html) dans un navigateur. Les données sont fictives et les actions simulées. Détails : [`prototypes/html/README.md`](prototypes/html/README.md).
+Prérequis vérifiés par `make doctor` : la version de Go fixée dans `go.mod`, Node (plancher `engines.node`), la version exacte de pnpm fixée dans `package.json`, Docker avec le plugin Compose, Git et Python 3.
 
-<p align="center">
-  <img src="docs/screenshots/landing.jpg" alt="Page d'accueil publique : du problème technique au projet, avec un aperçu question, API et projet reliés" width="900">
-</p>
+```sh
+make doctor        # vérifie la chaîne d'outils, sans rien modifier
+make setup         # go mod download et pnpm install --frozen-lockfile
+make up-local-dev  # démarre le profil local-dev (images construites, migrations appliquées)
+make down-local-dev
+```
 
-<table>
-  <tr>
-    <td width="50%"><img src="docs/screenshots/accueil.jpg" alt="Accueil connecté personnalisé selon les sujets de l'utilisateur"><br><sub><b>Accueil connecté</b> · questions à résoudre et projets selon vos sujets</sub></td>
-    <td width="50%"><img src="docs/screenshots/question.jpg" alt="Question technique avec réponse acceptée, code et liens associés"><br><sub><b>Résoudre</b> · question, réponse acceptée, code et liens associés</sub></td>
-  </tr>
-  <tr>
-    <td><img src="docs/screenshots/decouvrir.jpg" alt="Catalogue des API et outils en vue cartes, avec outils open source de la communauté"><br><sub><b>Découvrir</b> · API & outils sourcés, vue cartes</sub></td>
-    <td><img src="docs/screenshots/projet.jpg" alt="Projet open source avec besoins de contributeurs"><br><sub><b>Construire</b> · projet open source et besoins de contributeurs</sub></td>
-  </tr>
-  <tr>
-    <td><img src="docs/screenshots/apprendre.jpg" alt="Apprendre : formation gratuite IA appliquée pour développeurs africains, en thème sombre"><br><sub><b>Apprendre</b> · formation IA gratuite, articles et tutoriels (thème sombre)</sub></td>
-    <td><img src="docs/screenshots/profil.jpg" alt="Profil développeur avec liste de complétion"><br><sub><b>Communauté</b> · profil et liste de complétion</sub></td>
-  </tr>
-</table>
+`make up-local-dev` lit `.env.local-dev`, à créer à partir de `.env.example`. Ce fichier doit définir `APP_ENV=local-dev` une seule fois, sinon `scripts/compose-env-guard.sh` refuse de démarrer. Ne le committez pas.
 
-<p align="center">
-  <img src="docs/screenshots/mobile-landing.jpg" alt="Accueil public sur mobile" width="240">
-  <img src="docs/screenshots/mobile-question.jpg" alt="Question sur mobile" width="240">
-  <img src="docs/screenshots/mobile-connexion.jpg" alt="Connexion sur mobile" width="240">
-</p>
+Lisez une recette avec `make -n <cible>` avant de la lancer pour la première fois ; `make help` liste toutes les cibles.
 
-## Première livraison : CADEV 2026
+| Cible | Rôle | État |
+| --- | --- | --- |
+| `make quality` | G1 à G4 : `doctor generate lint typecheck test-unit coverage test-integration security licenses` | disponible ; `test-integration` et `security` ont besoin de Docker |
+| `make generate`, `lint`, `typecheck`, `test-unit`, `coverage`, `test-integration` | étapes de G1 à G3 ; `test-integration` lance un PostgreSQL 18 éphémère | disponible |
+| `make security`, `make licenses` | G4 : routes et autorisations, vulnérabilités, secrets, SAST, images, licences | disponible |
+| `make build` | images `api`, `web` et `migrate`, empreintes dans `reports/image-digests.txt` | disponible |
+| `make migrate-up`, `migrate-status`, `migrate-new NAME=<slug>` | migrations goose, uniquement en avant ; hors `local-dev`, `migrate-up` exige une confirmation et une preuve de sauvegarde | disponible |
+| `make db-reset` | recrée la base, avec `APP_ENV=local-dev` uniquement | disponible |
+| `make up-staging-test`, `down-staging-test` | profil de préproduction, avec `.env.staging-test` hors Git | disponible ; aucune préproduction n'est encore déployée |
+| `make up-production-live` | production | refusé hors du job de livraison automatisé, qui n'existe pas encore |
+| `make test-e2e` (G5), `make perf` (G6), `make seed` | e2e, performance, données de démonstration | **NOT IMPLEMENTED** |
+| `make quality-full` | `quality` plus `test-e2e` et `perf` | échoue tant que G5 et G6 ne sont pas implémentés |
 
-Le premier périmètre s'organise autour de trois parcours fonctionnels (auxquels s'ajoute la lecture et la publication d'articles et de tutoriels, priorité P0 validée : voir l'amendement 3.1 du PRD), appuyés par des profils, la recherche, une interface accessible et une navigation bilingue :
-
-- **Solve :** publier une question technique avec code et contexte, répondre et identifier une résolution.
-- **Discover :** rechercher une API ou une ressource pertinente selon le pays et consulter une fiche documentée.
-- **Build :** publier ou référencer un projet open source, annoncer des besoins en compétences et manifester son intérêt pour contribuer.
-
-**La collaboration open source fait partie du premier périmètre**, et ne constitue pas une option repoussée à plus tard. Les autres domaines restent dans la vision du produit ; leur profondeur de livraison dépendra des capacités réelles de l'équipe et des contrôles qualité.
-
-La participation à CADEV implique un projet original, un dépôt Git et une démonstration utilisable en ligne, déployée avec un service Datacloud éligible. Les dépendances, leurs licences et l'assistance IA doivent être déclarées. Réécrire ou traduire le code d'un tiers ne suffit pas à faire disparaître les obligations de droit d'auteur et d'originalité.
-
-## Architecture et méthode d'ingénierie
-
-226os adopte un **monolithe Go modulaire** exposant une API REST/OpenAPI, une application React indépendante et PostgreSQL comme source de vérité et moteur de recherche initial. Les composants d'infrastructure supplémentaires sont introduits en réponse à des besoins justifiés, pas par défaut.
-
-| Couche | Choix et orientations |
-| --- | --- |
-| **Frontend** | React 19, TypeScript, Vite, TanStack Router / Query / Form, Meta Astryx comme système de composants principal, Tailwind CSS uniquement en complément de mise en page. |
-| **Backend** | Go, Chi, REST/OpenAPI, pgx, sqlc ; domaines métier explicitement séparés. |
-| **Base et recherche** | PostgreSQL, recherche full-text, index GIN, `pg_trgm`, migrations SQL versionnées. |
-| **Cache** | Valkey, compatible Redis et sous BSD-3, uniquement pour cache, limitation de débit ou coordination justifiés. |
-| **Objets** | Interface S3-compatible ; service Datacloud à évaluer en production et SeaweedFS à étudier pour l'auto-hébergement. |
-| **Infrastructure** | Docker, Docker Compose, Traefik et HTTPS. |
-| **Automatisation** | Make comme interface stable des tâches locales ; GitHub Actions pour CI/CD et contrôles de livraison. |
-
-Meta Astryx est le système de composants principal approuvé par [DESIGN.md](DESIGN.md). Sa version, ses APIs installées et son intégration restent à vérifier avant implémentation.
-
-La méthode de développement repose sur des objectifs explicites, des contrats BDD, le cycle TDD, des tests d'intégration, des vérifications de sécurité, des preuves de performance et des **gates déterministes** avant livraison. Les objectifs de couverture documentés sont **100 % des statements backend Go mesurables** et **plus de 70 % pour les métriques frontend définies** ; la couverture ne remplace ni les tests d'autorisation ni la vérification des parcours complets.
-
-### Organisation actuelle du dépôt
+## Organisation du dépôt
 
 ```text
 226os/
-├── .claude/                  # Harnais Claude Code : agents (dont lead), skills, hooks
-├── AGENTS.md                  # Contrat d'orchestration des agents
-├── README.md                  # Présentation et point d'entrée du dépôt
-├── DESIGN.md                  # Direction visuelle frontend
-├── CONTRIBUTING.md            # Règles de contribution, brouillon gouverné
-├── AI_USAGE.md                # Provenance IA, brouillon gouverné
-├── THIRD_PARTY_NOTICES.md     # Politique licences (en vigueur)
-├── .mailmap                   # Normalisation des identités Git
-└── docs/
-	├── PRD.md                 # Vision et périmètre produit
-	├── SPEC.md                # Comportements et contrats fonctionnels
-	├── DEV.md                 # Playbook de développement
-	├── TEST.md                # Tests et quality gates
-	├── SHIP.md                # Livraison et exploitation
-	├── RULES.md               # Règles d'ingénierie
-	├── architecture/          # Architecture et frontières
-	├── decisions/             # Registre ADR et décisions humaines
-	├── quality/               # Périmètre de couverture
-	├── research/              # Références externes
-	└── spec-kit/              # Handoff, contrats, tâches et G0
+├── src/api/               # API Go (Chi, pgx, sqlc) : cmd/api, internal/
+├── src/web/               # application React 19 + TypeScript + Vite
+├── api/openapi.yaml       # contrat REST, source des types Go et TypeScript générés
+├── db/migrations/         # migrations SQL goose, immuables après fusion
+├── db/queries/            # requêtes sqlc (db/sqlc.yaml)
+├── scripts/               # scripts appelés par Make et la CI
+├── deploy/                # configuration Traefik
+├── compose.yaml           # profils local-dev, staging-test, production-live
+├── Makefile, mk/          # point d'entrée unique des gates et des opérations
+├── .github/               # workflows quality et branch-policy, CODEOWNERS
+├── prototypes/html/       # aperçu de design, pas le produit
+├── docs/                  # PRD, SPEC, architecture, ADR, tests, livraison
+├── ROADMAP.md             # plan jusqu'à la soumission CADEV
+└── TODO.md                # suivi en direct des tâches
 ```
 
-Les répertoires d'application (`src/`), de données (`db/`), d'infrastructure (`infra/`), le contrat `api/openapi.yaml`, le `Makefile` et les workflows CI restent à créer. **Il n'existe pas encore de procédure d'installation en une commande vérifiée.**
+`prototypes/html` est un aperçu de design statique, pas le produit : ses données sont fictives et ses actions simulées. Voir [`prototypes/html/DISCLAIMER.md`](prototypes/html/DISCLAIMER.md).
 
-## Références étudiées
+## Où l'équipe se synchronise
 
-226os s'inspire d'approches existantes pour comprendre les bons compromis, sans présenter leurs implémentations comme du code original :
+- [docs/team/KICKOFF.md](docs/team/KICKOFF.md) : **la page d'accueil de l'équipe**, à lire en premier : contexte, carte des documents, glossaire, une page par personne et FAQ.
+- [ROADMAP.md](ROADMAP.md) : le plan, les tranches, les règles, les décisions datées et les points ouverts.
+- [TODO.md](TODO.md) : le suivi en direct. Mettez-le à jour **dans la même PR que le travail**, une ligne par changement.
+- [docs/team/CONTRIBUTORS.md](docs/team/CONTRIBUTORS.md) : qui fait quoi (logins GitHub uniquement) et les étapes avant le premier commit.
+- [docs/GIT_WORKFLOW.md](docs/GIT_WORKFLOW.md) : branches `feature/<domaine>/<nom>` depuis `develop`, PR vers `develop`, promotion vers `main` par PR de production.
+- [docs/decisions/](docs/decisions/) : les ADR. Une décision acceptée ne change que par un nouvel ADR.
 
-- **[225 Open Source](https://github.com/kouame09/225_os)** — découverte de projets, lancements, pitches, articles et visibilité des développeurs. Une référence régionale qui montre qu'un annuaire seul ne suffirait pas à nous différencier.
-- **[Apache Answer](https://github.com/apache/answer)** — structure des questions/réponses, recherche, réputation, historique et extensibilité.
-- **[Flarum](https://github.com/flarum/framework)** — discussions, modération, permissions et expérience communautaire adaptable.
-- **[Nuxt Hacker News](https://github.com/nuxt/hackernews)** — navigation sobre, lecture de contenus et attention portée aux performances.
-- **[Meta Astryx](https://github.com/meta/astryx)** — système de design React 19+ retenu comme fondation principale, sous réserve de vérification de la version et des APIs installées. shadcn/ui reste une référence comparative, pas une dépendance approuvée.
+Chaque contribution est signée par la personne qui en répond, avec son identité Git validée. Aucun agent IA n'apparaît comme auteur ni dans un `Co-authored-by` ; l'aide d'une IA se déclare dans [AI_USAGE.md](AI_USAGE.md).
 
-Ces projets sont **des références de recherche, pas des dépendances déclarées**. Les analyses, attributions et décisions de réutilisation appartiennent à [`docs/research/REFERENCES.md`](docs/research/REFERENCES.md).
+## Architecture
+
+Un **monolithe Go modulaire** expose une API REST décrite en OpenAPI, une application React indépendante la consomme, et PostgreSQL sert à la fois de source de vérité et de moteur de recherche. Aucun composant d'infrastructure n'est ajouté sans besoin justifié et sans ADR.
+
+| Couche | Choix |
+| --- | --- |
+| **Frontend** | React 19, TypeScript, Vite, TanStack Router, Query et Form ; Meta Astryx 0.7.14 comme système de composants principal ([ADR-0007](docs/decisions/0007-astryx-version-pinning-and-verification.md), [DESIGN.md](DESIGN.md)). |
+| **Backend** | Go, Chi, pgx, sqlc ; REST et OpenAPI ; domaines métier séparés. |
+| **Base et recherche** | PostgreSQL 18, recherche plein texte, index GIN, `pg_trgm`, migrations SQL versionnées. |
+| **Cache et stockage objet** | Valkey et le stockage compatible S3 sont exclus au P0 ([ADR-0006](docs/decisions/0006-toolchain-environments-quality-commands.md)) ; les adopter demandera un nouvel ADR. |
+| **Infrastructure** | Docker, Docker Compose, Traefik et HTTPS, hébergement Datacloud. |
+| **Automatisation** | Make comme interface unique ; GitHub Actions pour la CI. |
+
+La méthode : contrats BDD, cycle TDD, tests d'intégration sur un vrai PostgreSQL, contrôles de sécurité et **gates déterministes** avant livraison. Les seuils de couverture sont **100 % des instructions Go du projet (hors code généré)** et **plus de 70 % sur les quatre métriques frontend** ; la couverture ne remplace ni les tests d'autorisation ni la vérification des parcours complets.
+
+## Inspirations et originalité
+
+226os est un produit original, développé par notre équipe pendant la période du concours, sous licence Apache-2.0. Nous citons ouvertement 225 Open Source comme une source d'inspiration pour la découverte de projets et l'identité communautaire, comme les autres projets open source que nous avons étudiés. Nous avons étudié des comportements et des principes de conception, sans copier de code, de texte, de visuels ni de données. Chaque dépendance tierce est déclarée, épinglée et vérifiée côté licence. Notre orientation produit nous est propre : une plateforme qui part de l'Afrique de l'Ouest et s'ouvre à toute l'Afrique, avec un assistant d'apprentissage qui cite ses sources, un parcours pour apprendre et progresser à l'ère des agents, un annuaire d'API et d'intégrations africaines, et une mise en relation qui respecte la vie privée.
+
+L'étude détaillée de 225 Open Source (ce que nous avons observé, ce que nous faisons différemment, nos garde-fous) est dans [`docs/research/REFERENCES.md`](docs/research/REFERENCES.md#étude--225-open-source-référence-dinspiration).
+
+Références étudiées, pour comprendre les bons compromis :
+
+- **[225 Open Source](https://github.com/kouame09/225_os)** : découverte de projets, lancements, articles et visibilité des développeurs. Une référence régionale qui montre qu'un annuaire seul ne suffirait pas à nous distinguer.
+- **[Apache Answer](https://github.com/apache/answer)** : structure des questions et réponses, recherche, réputation, historique.
+- **[Flarum](https://github.com/flarum/framework)** : discussions, modération, permissions.
+- **[Nuxt Hacker News](https://github.com/nuxt/hackernews)** : navigation sobre, lecture de contenus, attention aux performances.
+- **[Meta Astryx](https://github.com/meta/astryx)** : système de design React retenu comme fondation principale.
+
+Ce sont des **références de recherche, pas des dépendances** : elles inspirent des choix de comportement et d'ergonomie, rien de plus. Les analyses et les règles de réutilisation sont dans [`docs/research/REFERENCES.md`](docs/research/REFERENCES.md).
 
 ## Documentation
 
 | Document | Rôle |
 | --- | --- |
-| [PRD](docs/PRD.md) | Vision, utilisateurs, neuf domaines, besoins et priorités, amendement 3.1 (pilier Apprendre) |
-| [SPEC](docs/SPEC.md) | Comportements, critères d'acceptation et contrats |
-| [Design](DESIGN.md) | Direction visuelle, tokens, composants et validation de la palette |
+| [PRD](docs/PRD.md) | Vision, neuf domaines, priorités, amendements 3.1 (Apprendre) et 3.2 (proposé) |
+| [SPEC](docs/SPEC.md) | User stories, scénarios BDD et traçabilité |
+| [Design](DESIGN.md) | Direction visuelle, tokens et composants |
 | [Architecture](docs/architecture/ARCHITECTURE.md) | Architecture approuvée et frontières techniques |
 | [Development](docs/DEV.md) | Conventions et workflow de développement |
-| [Testing](docs/TEST.md) | Stratégie de tests et quality gates |
+| [Testing](docs/TEST.md) | Stratégie de tests et gates |
 | [Shipping](docs/SHIP.md) | Déploiement, vérification et rollback |
 | [Rules](docs/RULES.md) | Contraintes d'ingénierie |
-| [Git workflow](docs/GIT_WORKFLOW.md) | Branches, pull requests, staging/preview et production |
-| [Agent instructions](AGENTS.md) | Orchestration par objectifs, permissions et preuves |
-
+| [Git workflow](docs/GIT_WORKFLOW.md) | Branches, pull requests, préproduction et production |
+| [Contributing](CONTRIBUTING.md) | Règles de contribution |
+| [Agent instructions](AGENTS.md) | Orchestration des agents, permissions et preuves |
 
 ## Licence
 
-Le **code original de 226os** est publié sous licence [Apache 2.0](LICENSE) (voir aussi [NOTICE](NOTICE)). Les dépendances tierces conservent leurs licences et obligations de notification ([THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)).
+Le **code original de 226os** est publié sous licence [Apache 2.0](LICENSE) (voir aussi [NOTICE](NOTICE)). Les dépendances tierces conservent leurs licences et leurs obligations de mention ([THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)).
 
 ---
 
-**226os prend racine au Burkina Faso. Son terrain de collaboration dépasse les frontières.**
+**226os part de l'Afrique de l'Ouest. Son terrain de collaboration dépasse les frontières.**

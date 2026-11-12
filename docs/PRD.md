@@ -1,7 +1,47 @@
 # 226os — Product Requirements Document
 
-**Version :** 3.1 · **Statut :** périmètre produit approuvé, plan de réalisation adaptable · **Date :** 2026-11-11  
-**Équipe :** 7's (3 membres, 1–2 renforts possibles) · **Produit :** 226os · **Domaine :** 226os.tech (DNS à vérifier)
+**Version :** 3.2 (amendement 3.2 proposé le 2026-11-12 ; version 3.1 approuvée le 2026-11-11). **Statut :** périmètre produit approuvé, plan de réalisation adaptable. **Date :** 2026-11-12.  
+**Équipe :** 7's (4 membres, inscrits à CADEV). **Produit :** 226os. **Domaine :** 226os.tech (réservé par le propriétaire, rien n'y est encore déployé).
+
+## Amendement 3.2 — Apprendre et Connect mis en avant, assistant sourcé au P0
+
+**Date :** 2026-11-12. **Version :** 3.1 → 3.2. **Statut :** PROPOSÉ, par décision du propriétaire du dépôt (Y4NN77) du 2026-11-12, consignée dans le journal des décisions de [ROADMAP.md](../ROADMAP.md) (section 14). Le propriétaire approuve ce texte lors de la revue de la PR qui l'introduit ; tant que cette PR n'est pas fusionnée, l'amendement reste proposé. Comme 3.1, c'est un changement de périmètre au sens de la règle de traçabilité ci-dessous, consigné sans réécrire l'historique des versions précédentes.
+
+**Principe :** rien n'est supprimé ni rétrogradé. Les neuf domaines (section 5) et les quatre expériences différenciantes (section 6) restent tels quels. Les seuls changements de priorité sont ceux listés ci-dessous, chacun de façon explicite.
+
+**1. Apprendre et Connect mis en avant.** Apprendre (libellé de travail « Learn & Grow ») et Connect deviennent les deux piliers mis en avant dans la navigation, sur l'accueil et dans les textes. Solve, Discover et Build restent des piliers de premier plan, accessibles depuis la même navigation. C'est un choix d'architecture de l'information et de rédaction : il ne retire ni ne rétrograde aucun pilier. La question de mettre fin au « poids égal » de l'amendement 3.1 (« Learn as the heart », ROADMAP O7 et H16) reste ouverte et n'est pas tranchée ici. Le libellé français définitif de « Learn & Grow » est à fixer par le propriétaire ; d'ici là, le libellé utilisateur reste « Apprendre ». Tous les piliers forment un seul écosystème : une identité, une recherche, des tags et des thèmes partagés, des relations typées entre contenus, un assistant appuyé sur tous les contenus publiés et un annuaire qui relie les personnes à leurs contributions.
+
+**2. Assistant IA sourcé : de P2 à P0 (section 5.8).** Décision du propriétaire. L'assistant :
+- répond uniquement à partir des contenus publiés sur la plateforme et cite ses sources, que le serveur vérifie parmi les passages retrouvés ;
+- refuse quand il ne trouve aucune source, sans appeler le fournisseur, et renvoie vers la recherche ;
+- n'affirme jamais de garantie sur une API ni sur la vérification d'une solution ;
+- signale son incertitude, avec les dates des sources, quand celles-ci divergent ou ne sont pas datées ;
+- termine chaque réponse par une section « Comment vérifier » ;
+- est étiqueté comme IA et ne peut jamais être voté ni accepté comme réponse ;
+- n'envoie au fournisseur que le texte de la question et les contenus publics retrouvés, après masquage des secrets et des adresses e-mail évidents ; l'interface indique que la question part chez le fournisseur ;
+- est limité en débit, et répond « assistant indisponible » sans faire échouer la page si le fournisseur est en panne ou le quota épuisé.
+
+Fournisseur : Google AI Studio avec les modèles Gemma, derrière un port qui permet d'en changer par configuration. Restent à vérifier par le propriétaire : l'identifiant exact du modèle, les quotas réels et les conditions de l'offre gratuite. Les conditions d'AI Studio n'autorisent que les services payants pour des utilisateurs de l'Espace économique européen, de la Suisse et du Royaume-Uni ; choisir entre un projet gratuit et un projet lié à un compte de facturation reste une décision ouverte du propriétaire, et l'assistant reste désactivé par configuration tant qu'elle n'est pas prise. L'accès des visiteurs non connectés reste aussi à décider. Le mode pédagogique « indice d'abord » et la demande de la tentative de l'apprenant sont P1. La recherche sémantique et les résumés restent P2.
+
+**3. Connect au P0, minimal et réel (section 5.5).** Un annuaire des membres en lecture seule, filtrable par pays, langue et compétence :
+- il n'expose que les champs que l'appelant a le droit de voir, et jamais l'adresse e-mail ;
+- un profil n'y apparaît pour un appelant que si le compte est actif, si `open_to_collab` vaut vrai et que l'appelant peut voir cette information, et si la visibilité du profil le permet ;
+- les filtres ne portent que sur des champs visibles pour l'appelant.
+
+Un nouveau réglage de visibilité du profil (public, membres, privé) est ajouté à Identity (section 5.4). Un profil masqué renvoie la même 404 qu'un profil inconnu. La signature d'auteur sur les contenus publiés reste visible quel que soit ce réglage. Cet annuaire est la forme minimale de la « découverte de membres » de la section 5.4 ; la découverte enrichie reste P1. Le mentorat, la relecture de CV, la préparation aux entretiens, les opportunités, les groupes d'étude et les espaces communautaires restent P1 ou P2 et sont présentés honnêtement comme « bientôt » ; aucune mise en relation n'est annoncée. Les permanences (office hours) sont un processus d'équipe, pas une fonctionnalité.
+
+**4. Apprendre (section 5.9).**
+- Thèmes réorientés vers le développement à l'ère des agents IA : 14 thèmes après une migration d'ajout et de renommage. Les 9 thèmes existants restent ; s'ajoutent `learn-to-learn`, `ai-assisted-dev`, `ai-agents`, `open-models` et `african-languages` ; `ai`, `mobile` et `open-source` sont renommés sans changer de code.
+- Catégories de ressources (Discover, section 5.2) : ajout de `ai-models`, `ai-tooling` et `ai-datasets`, soit 18 catégories après la migration ; `cloud-hosting` est renommée. Le thème `payments` et les catégories `mobile-money` et `sms-ussd` restent, comme l'expérience différenciante 1.
+- Un bouton « Poser une question sur cette leçon » et des fils par thème relient les discussions aux leçons, sans nouvelle table.
+- Les salons en direct (rattachés à un projet ou à une série) sont CONDITIONNELS : ils ne sont construits que si le point d'étape du samedi 2026-11-14 à 12:00 GMT le permet ; sinon ils restent P2 et sont présentés comme non construits.
+
+**5. Contenu original, sans contenu tiers.** Aucun contenu tiers n'est importé ni aspiré. Les sources externes servent uniquement de références qui nous inspirent et de liens documentaires sur les fiches Discover. En préproduction et en production, le contenu est réel : il est créé via l'application par les comptes réels de l'équipe. Les données de démonstration, avec des comptes de démonstration qui ne correspondent à personne, n'existent qu'en `local-dev`. La série gratuite publique (US-LEARN-001) est une courte série originale, chargée une seule fois par un script revu en PR et lancé par le propriétaire.
+
+**6. Équipe et calendrier.** L'équipe compte quatre personnes (le propriétaire et responsable du projet, deux développeurs backend, une personne frontend), inscrites à CADEV. Soumission CADEV avant le 2026-11-15 à 17:00 GMT ; vote du 2026-11-15 18:00 au 2026-11-16 23:59 GMT. Le domaine 226os.tech est réservé par le propriétaire et n'est pas encore déployé.
+
+**7. Positionnement : l'Afrique de l'Ouest d'abord, puis toute l'Afrique.** Ce libellé remplace la présentation du produit comme « plateforme panafricaine » ; l'ouverture panafricaine n'est pas exclue, elle vient ensuite. Le modèle de données, la liste des 54 pays et l'interface FR/EN ne changent pas. La région « Afrique de l'Ouest » du produit est celle de la classification des Nations unies, limitée aux pays de notre liste : BJ, BF, CV, CI, GM, GH, GN, GW, LR, ML, MR, NE, NG, SN, SL, TG (16 pays ; à vérifier sur la liste M49, le propriétaire peut l'ajuster). Elle vit comme une constante côté interface, sans migration ni colonne. Les propositions d'interface qui en découlent (filtre de région par défaut avec « Toute l'Afrique » en un clic, curation, mises en avant) sont listées dans `TODO.md` (S7) au statut PROPOSÉ. Le nom 226os se lit « 226 Open Stack » ; 226 est l'indicatif téléphonique du Burkina Faso. Cela concerne le nom, pas le positionnement.
+**Impact documentaire :** SPEC (US-INTEL-001, US-CONNECT-001, US-LEARN-002, extension de US-IDENTITY-001, traçabilité), DATABASE_DESIGN (colonne `profile_visibility` et ajouts de taxonomie prévus), README, ROADMAP et TODO. Les opérations de l'annuaire et de l'assistant entrent dans `api/openapi.yaml` par des PR de contrat séparées, avec les lignes correspondantes de la matrice d'autorisation.
 
 ## Amendement 3.1 — Pilier Apprendre (Learn)
 
@@ -20,13 +60,13 @@
 **Impact documentaire :** SPEC (US-LEARN-001, frontières de domaines), TRACEABILITY (DOM-LEARN), TASKS (notes de périmètre, sans nouvelle tâche), README.
 
 ## Objet et séparation des responsabilités
-Ce document est la **source de vérité du QUOI et du POURQUOI**. Il ne prescrit ni l'implémentation détaillée ni les commandes d'outillage. Les domaines P1/P2 demeurent dans le produit ; une priorité est un ordre de livraison, jamais une suppression. **Aucune nouvelle fonctionnalité n'est ajoutée par ce découpage** ; l'amendement 3.1 ci-dessus est la seule extension de périmètre, avec accord humain explicite.
+Ce document est la **source de vérité du QUOI et du POURQUOI**. Il ne prescrit ni l'implémentation détaillée ni les commandes d'outillage. Les domaines P1/P2 demeurent dans le produit ; une priorité est un ordre de livraison, jamais une suppression. **Aucune nouvelle fonctionnalité n'est ajoutée par ce découpage** ; les amendements 3.1 et 3.2 ci-dessus sont les seules extensions de périmètre, avec accord humain explicite (pour 3.2, l'approbation du propriétaire sur la PR qui l'introduit).
 
 Documents liés : [SPEC](SPEC.md) (comportements et contrats), [DEV](DEV.md) (mise en œuvre), [TEST](TEST.md) (preuves), [SHIP](SHIP.md) (mise en production), [RULES](RULES.md) (normes), [AGENTS](../AGENTS.md) (orchestration).
 
 ## 1. Résumé exécutif
 
-226os est une plateforme panafricaine construite pour et par les développeurs. Elle réunit l'entraide technique, les connaissances vérifiables, la découverte d'API/SDK et de services locaux, les projets open source, la collaboration et les opportunités de carrière dans un écosystème commun. Elle vise à franchir les barrières géographiques, linguistiques et de connectivité.
+226os est une plateforme construite pour et par les développeurs, qui part de l'Afrique de l'Ouest et s'ouvre à toute l'Afrique (amendement 3.2). Elle réunit l'entraide technique, les connaissances vérifiables, la découverte d'API/SDK et de services locaux, les projets open source, la collaboration et les opportunités de carrière dans un écosystème commun. Elle vise à franchir les barrières géographiques, linguistiques et de connectivité.
 
 **Positionnement :** « L'écosystème où les développeurs africains partagent leurs connaissances, résolvent leurs défis et construisent ensemble. »
 
@@ -150,8 +190,11 @@ Pour CADEV : parcours de démonstration fonctionnels, disponibilité HTTPS, aucu
 - Préparation aux entretiens techniques.
 - Offres de stages, emplois et missions à distance.
 - Parcours d'apprentissage, groupes d'étude et sessions communautaires de programmation.
+- Annuaire des membres en lecture seule, filtrable par pays, langue et compétence (amendement 3.2).
 
 **Priorité :** conserver les parcours et entités dans la roadmap ; ne pas annoncer de mise en relation complète en CADEV si elle n'est pas réellement fonctionnelle. Un pilote est envisageable après validation du cœur de l'application.
+
+**Priorités de réalisation (amendement 3.2, proposé) :** P0 annuaire des membres en lecture seule : seuls les champs visibles pour l'appelant, jamais l'adresse e-mail, filtres limités aux champs visibles, profil listé seulement si le compte est actif, si `open_to_collab` est vrai et visible pour l'appelant et si la visibilité du profil le permet. Les autres parcours de Connect (mentorat et mise en relation, relecture de CV et de portfolios, préparation aux entretiens, offres de stages, d'emplois et de missions, groupes d'étude, sessions et espaces communautaires) restent P1 ou P2 et sont affichés comme « bientôt », sans écran factice. Les permanences sont un processus d'équipe, pas une fonctionnalité.
 
 ### 5.6 LANGUAGE — Collaboration panafricaine multilingue
 
@@ -185,12 +228,15 @@ Pour CADEV : parcours de démonstration fonctionnels, disponibilité HTTPS, aucu
 - Résumés de longues discussions.
 - Suggestions d'API liées au problème.
 - Assistance IA avec citations/références aux sources.
+- Mode pédagogique « indice d'abord » et demande de la tentative de l'apprenant avant la réponse (amendement 3.2).
 
 **Priorités :** P0 recherche textuelle et liens contextuels déterministes ; P1 suggestions simples ; P2 sémantique, résumés et assistant contextuel sourcé. L'IA ne doit pas inventer des garanties sur une API ou la vérification d'une solution.
 
+**Priorités révisées (amendement 3.2, proposé) :** l'assistant sourcé passe de **P2 à P0**. Il répond uniquement à partir des contenus publiés sur la plateforme, cite ses sources, refuse sans source, n'affirme aucune garantie sur une API ni sur la vérification d'une solution, termine chaque réponse par « Comment vérifier », est étiqueté comme IA et ne peut être ni voté ni accepté comme réponse, n'envoie au fournisseur que la question et des contenus publics, et est limité en débit (règles complètes dans l'amendement 3.2). Il reste désactivé par configuration tant que le propriétaire n'a pas choisi entre un projet gratuit et un projet lié à la facturation. Le mode « indice d'abord » et la demande de la tentative de l'apprenant sont **P1**, avec les suggestions simples. La recherche sémantique et les résumés restent **P2**.
+
 ### 5.9 LEARN — Apprendre : articles, tutoriels et formations
 
-Pilier public de même poids que Questions, API & outils et Projets open source (amendement 3.1). Libellé FR « Apprendre », EN « Learn ».
+Pilier public de même poids que Questions, API & outils et Projets open source (amendement 3.1). Libellé FR « Apprendre », EN « Learn ». Depuis l'amendement 3.2 (proposé), Apprendre est mis en avant avec Connect dans la navigation, sur l'accueil et dans les textes, sans changement de périmètre pour les autres piliers.
 
 **Fonctionnalités conservées :**
 - Articles et tutoriels : Markdown, blocs de code, tags, niveau et langue ; consultation publique.
@@ -199,10 +245,15 @@ Pilier public de même poids que Questions, API & outils et Projets open source 
 - Liens explicites vers les questions, API/outils et projets concernés, et retour depuis ceux-ci.
 - Séries de formation structurées avec progression, mises en avant d'auteurs, formats plus riches.
 - Certificats et exercices interactifs.
+- Thèmes tournés vers le développement à l'ère des agents IA : 14 thèmes après l'ajout de `learn-to-learn`, `ai-assisted-dev`, `ai-agents`, `open-models` et `african-languages`, et le renommage de `ai`, `mobile` et `open-source` (amendement 3.2).
+- Bouton « Poser une question sur cette leçon » qui ouvre une question Solve liée à l'article, et fils par thème qui réunissent les articles d'un thème et les questions portant le tag du même nom (amendement 3.2).
+- Salons en direct rattachés à une série (amendement 3.2, conditionnels).
 
 **Parcours minimal :** un visiteur lit un tutoriel, suit la série gratuite sur l'IA, puis ouvre la question ou le projet lié ; un membre publie son propre article.
 
 **Priorités de réalisation (validées par le propriétaire le 2026-11-11) :** P0 lire et publier des articles et tutoriels (Markdown, code, tags, niveau, langue) avec liens vers questions/API/projets, et série de formations gratuites lisible publiquement ; P1 séries de formation structurées avec progression, mises en avant d'auteurs, formats plus riches ; P2 certificats, exercices interactifs. Le contenu original reste identifiable selon sa langue (FR/EN), sans traduction automatique implicite.
+
+**Ajouts au P0 (amendement 3.2, proposé) :** thèmes réorientés (14 thèmes), bouton « Poser une question sur cette leçon » et fils par thème, sans nouvelle table. La série gratuite est une courte série originale, chargée en préproduction et en production par un script unique revu en PR et lancé par le propriétaire ; aucun contenu tiers n'est importé. Les salons en direct sont **conditionnels** au point d'étape du samedi 2026-11-14 à 12:00 GMT ; sans feu vert, ils restent **P2** et sont présentés comme non construits.
 
 ## 6. Quatre expériences différenciantes à démontrer ou préparer
 
@@ -248,14 +299,14 @@ Ces expériences résultent des fonctionnalités ci-dessus ; ce ne sont **pas** 
 | Domaine | Démonstration CADEV / P0 | Suite prévue (P1/P2) |
 |---|---|---|
 | Solve | Q&A, snippets, réponse acceptée, votes, recherche | Réputation, discussions et revue de code avancée |
-| Learn (VALIDÉ par le propriétaire le 2026-11-11) | Lecture et publication d'articles et tutoriels, série de formations gratuites lisible publiquement | Séries structurées avec progression, mises en avant d'auteurs, formats riches ; certificats et exercices interactifs (P2) |
+| Learn (VALIDÉ par le propriétaire le 2026-11-11 ; mis en avant, amendement 3.2 proposé) | Lecture et publication d'articles et tutoriels, série de formations gratuites lisible publiquement ; thèmes réorientés, « Poser une question sur cette leçon » et fils par thème (3.2) | Séries structurées avec progression, mises en avant d'auteurs, formats riches ; certificats et exercices interactifs (P2) ; salons en direct conditionnels au point d'étape du 2026-11-14, sinon P2 (3.2) |
 | Discover | Catalogue API/SDK, fiches sourcées, pays, catégories | Comparaison, feedback et vérifications |
 | Build | Projets GitHub, besoins, candidatures et liens | Matching et synchronisation avancée |
-| Identity & Community | Auth, profils et identité reliée aux contenus | Réputation, fil, communautés |
-| Connect | Périmètre documenté et parcours conçu | Mentorat, carrière, opportunités, groupes d'étude |
+| Identity & Community | Auth, profils, réglage de visibilité du profil (3.2) et identité reliée aux contenus | Réputation, fil, communautés, découverte enrichie des membres |
+| Connect (mis en avant, amendement 3.2 proposé) | Annuaire des membres en lecture seule (3.2) ; autres parcours affichés « bientôt » | Mentorat, carrière, opportunités, groupes d'étude, espaces communautaires |
 | Language | Interface FR/EN | Traduction des contenus, recherche translingue |
 | Access | Responsive et optimisation réseau vérifiable | Cache avancé, brouillons offline |
-| Intelligence | Recherche PostgreSQL + liens contextuels | Suggestions, sémantique, IA sourcée |
+| Intelligence | Recherche PostgreSQL + liens contextuels ; assistant sourcé, déplacé de P2 à P0 (3.2), désactivé par configuration tant que la décision sur l'offre du fournisseur n'est pas prise | Suggestions, mode « indice d'abord » et demande de la tentative (P1) ; sémantique et résumés (P2) |
 
 **Règle de livraison :** viser des flux complets et fiables plutôt qu'une succession d'écrans non fonctionnels. L'équipe peut augmenter le périmètre selon l'arrivée des renforts sans réécrire ce PRD.
 
@@ -263,19 +314,21 @@ Ces expériences résultent des fonctionnalités ci-dessus ; ce ne sont **pas** 
 
 | Zone | Pages/écrans attendus |
 |---|---|
-| Explore | Accueil, recherche unifiée, contenus et projets à découvrir |
-| Solve | Questions, détail de question, poser une question, réponses |
-| Learn | Apprendre : liste d'articles/tutoriels/formations, lecture, publier un article |
+| Explore | Accueil, recherche unifiée (avec le panneau de l'assistant, 3.2), contenus et projets à découvrir |
+| Solve | Questions, détail de question, poser une question (avec le panneau de l'assistant, 3.2), réponses |
+| Learn | Apprendre : liste d'articles/tutoriels/formations, lecture, publier un article, fils par thème et « Poser une question sur cette leçon » (3.2) |
 | Discover | Annuaire d'API/outils, filtres, fiche ressource, liens documentaires |
 | Build | Annuaire de projets, détail, publier, besoin de contribution, candidature |
-| Identity | Inscription, connexion, profil public, paramètres |
-| Community / Connect | Espaces, activité, mentorat et opportunités — interfaces à réaliser progressivement selon roadmap |
+| Identity | Inscription, connexion, profil public, paramètres (dont la visibilité du profil, 3.2) |
+| Community / Connect | Espaces, activité, mentorat et opportunités — interfaces à réaliser progressivement selon roadmap. Annuaire des membres au P0 (3.2) ; le reste est affiché « bientôt » |
+
+**Navigation (amendement 3.2, proposé) :** Apprendre et Connect sont mis en avant dans la navigation et sur l'accueil. Explore, Solve, Discover, Build et Identity restent accessibles depuis la même navigation, sur ordinateur comme sur mobile. Aucune zone n'est retirée ; une zone non construite est signalée comme « bientôt », jamais présentée comme disponible.
 
 Le design system doit être cohérent sur l'ensemble des domaines : navigation partagée, états chargement/erreur/vide, composants de code, tags, pays et technologies, mode mobile et FR/EN.
 
 ## 12. Organisation de l'équipe 7's
 
-**Situation actuelle :** 3 personnes ; 1 ou 2 personnes supplémentaires pourraient rejoindre l'équipe. Les responsabilités ci-dessous sont des **chantiers**, non des affectations imposées aux individus.
+**Situation actuelle (mise à jour 2026-11-12, amendement 3.2) :** 4 personnes inscrites à CADEV : le propriétaire et responsable du projet, deux développeurs backend et une personne frontend. La répartition par zone de travail est dans [ADR-0008](decisions/0008-team-work-areas-and-ownership.md) et [docs/team/CONTRIBUTORS.md](team/CONTRIBUTORS.md) (logins GitHub uniquement). Les responsabilités ci-dessous sont des **chantiers**, non des affectations imposées aux individus.
 
 | Chantier | Responsabilités | Mode à 3 | Mode à 4–5 |
 |---|---|---|---|
@@ -286,6 +339,8 @@ Le design system doit être cohérent sur l'ensemble des domaines : navigation p
 | Developer Ecosystem | Discover, API Hub, données sourcées, Connect et Intelligence selon priorité | Partagé | Renfort contenu/intégrations |
 
 **Rôles individuels non affectés :** Yanis Axel DABO est capitaine/porteur ; Abdoul Aziz KABORE est membre connu ; le troisième membre n'est pas nommé ici ; renforts non confirmés. Ne pas supposer de spécialités sans échange avec eux. Prévoir owner et reviewer pour chaque domaine, intégration régulière et décisions consignées dans le dépôt.
+
+Note (2026-11-12) : l'équipe compte désormais quatre membres ; le propriétaire met à jour les noms de cette section.
 
 ## Traçabilité produit
 Toute user story reçoit un identifiant `US-<DOMAINE>-NNN`, une priorité P0/P1/P2, un scénario BDD et un critère d'acceptation dans [SPEC.md](SPEC.md). Les décisions d'architecture ne changent jamais le périmètre sans un amendement versionné du PRD et un accord humain (exemple : amendement 3.1, pilier Apprendre).
