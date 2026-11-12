@@ -24,7 +24,15 @@ tests_or_evidence: []
 open_risks: []
 ```
 
+Rule on `contributor` (added 2026-11-12): going forward the field holds the GitHub login. `Y4NN77` (the Git author name) and `Y4NN777` (the GitHub login) denote the same person, the repository owner; older records keep the value they were written with and are not rewritten.
+
+## Review and closure status (2026-11-12)
+
+Every record in this file has `license_review: PENDING` and no human CADEV review is recorded yet; `human_reviewers` is empty or names an owner decision or a reviewer role, not an evidenced licence review. Convention for later records: add a `closure` line (`open` or `closed: <date>, <reviewer login>`) once the licence review and human review of that record are done. This note adds the convention only; no record is closed. Original-work statement: `docs/research/REFERENCES.md`, section "Déclaration d'originalité". Dependency inventory: `THIRD_PARTY_NOTICES.md`.
+
 ## Current task record
+
+> Dated historical record (2026-11-11, documentation audit and G0 preparation); it no longer describes the repository, see the dated records below.
 
 - Task: documentation audit and G0 Spec Kit preparation.
 - AI assistance: repository reading, bounded specialist review, and Markdown drafting.
@@ -276,4 +284,86 @@ license_review: PENDING
 human_reviewers: []
 tests_or_evidence: ["make_test 49 passed, quality-evidence_test 13 passed, ci-scope_test 31 passed, lint-shell OK, actionlint clean", "all 11 groups run locally through make ci-<group> and the fan-in check PASS for 19 steps", "a skeptic subagent review found a confirmed rename hole in the docs scope (fixed with --no-renames -z) and smaller items (fixed)"]
 open_risks: ["real GitHub Actions behaviour (matrix, artifacts, caches) is only proved by the CI run of the pull request", "a green quality on a documentation-only pull request means docs only (accepted in ADR-0010)", "the checker and the workflow come from the pull request itself: CODEOWNERS review is the control"]
+```
+
+## ADR 0007 to 0010 and decision documents record
+
+```yaml
+date: "2026-11-12"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code (orchestrator session) with Claude subagents (lead, skeptic review for ADR-0010); model versions as stated in the neighbouring records"
+purpose: "Draft and update ADR-0007 (Astryx pinning, dated 2026-11-11), ADR-0008 (team work areas, CODEOWNERS), ADR-0009 (secrets with SOPS and age) and ADR-0010 (parallel CI gate groups) and the related documents"
+repository_or_source_context: "docs/decisions/, docs/team/, CODEOWNERS, ROADMAP.md, TODO.md; commits 738a65c, e0fbfd3, fa17ca5, 20dd18a, b625ffa"
+files_or_sections_affected: ["docs/decisions/0007-*.md", "docs/decisions/0008-*.md", "docs/decisions/0009-*.md", "docs/decisions/0010-*.md", "docs/decisions/README.md", "CODEOWNERS", "docs/team/**"]
+third_party_sources_consulted: ["sops and age documentation (ADR-0009)", "GitHub Actions documentation on required checks and path filters (ADR-0010)"]
+license_review: PENDING
+human_reviewers: []
+tests_or_evidence: ["documentation: no gate applies to the ADR text; the implementation evidence is in the slice records above (secrets, CI parallel gate groups)"]
+open_risks: ["ADR approvals are owner decisions recorded in the files; this record does not prove them"]
+```
+
+## Prototype and UX record (Direction v2, design review)
+
+```yaml
+date: "2026-11-11"
+contributor: "Y4NN77"
+tool_or_model: "Claude Code (orchestrator session) with Claude subagents; exact model versions not recorded"
+purpose: "HTML prototype v2 (Direction v2 flows, onboarding, premium visual system, French navigation, Apprendre pillar, global search), design review and QA fixes"
+repository_or_source_context: "this repository, commits 3af147d, f2f8077, 7688c8a, 73a36fd, 536975d, d9c8783 (dates from git log)"
+files_or_sections_affected: ["prototypes/html/**", "DESIGN.md", "docs/PRD.md (amendment 3.1)"]
+third_party_sources_consulted: []
+license_review: PENDING
+human_reviewers: []
+tests_or_evidence: ["prototype QA findings closed in d9c8783; no automated gate applies to the static prototype"]
+open_risks: ["the prototype is frozen as a reference; DESIGN.md governs the product UI", "prototype icons are an own CSS sprite; no third-party asset recorded"]
+```
+
+## Astryx verification and web skeleton record
+
+```yaml
+date: "2026-11-12"
+contributor: "Y4NN77"
+tool_or_model: "Claude Code (orchestrator session) with a web-implementer subagent (Sonnet); exact model versions not recorded"
+purpose: "Install and verify Meta Astryx against the registry and CLI (ADR-0007), record the result, and add the React 19 web skeleton with TanStack and a Vitest coverage gate"
+repository_or_source_context: "ADR-0007, DESIGN.md, commit cb7e7f9; owner-approved package installs"
+files_or_sections_affected: ["src/web/**", "docs/quality/ASTRYX_REPORT.md", "pnpm-lock.yaml", "package.json"]
+third_party_sources_consulted: ["npm registry metadata and `pnpm licenses` output for the web production dependencies (summary in docs/quality/ASTRYX_REPORT.md and THIRD_PARTY_NOTICES.md)"]
+license_review: PENDING
+human_reviewers: []
+tests_or_evidence: ["see docs/quality/ASTRYX_REPORT.md; visual, axe and responsive evidence for ADR-0007 is NOT RUN"]
+open_risks: ["isbot (Unlicense) accepted by the owner on 2026-11-12; the organiser has not ruled", "DESIGN.md still contains pre-install Astryx statements that the report contradicts"]
+```
+
+## Secrets documentation and AI environment record (PR #56) and promotions (PRs #57 to #59)
+
+```yaml
+date: "2026-11-12"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code, Claude Sonnet 5.5"
+purpose: "PR #56: README matches the encrypted-secrets flow, AI variables reach the api container, secrets README note. PR #57 is the CI parallel gate groups work already recorded above. PRs #58 and #59 are promotion and back-merge merge commits with no new authored content."
+repository_or_source_context: "commits 7597803, f512164, 0b57cb7; PRs #56 to #59 (merge commits dated 2026-11-12)"
+files_or_sections_affected: [".claude/settings.json", ".env.example", "README.md", "compose.yaml", "scripts/verify-containers.sh", "secrets/README.md"]
+third_party_sources_consulted: []
+license_review: PENDING
+human_reviewers: []
+tests_or_evidence: ["see the PR descriptions; no separate evidence is claimed here"]
+open_risks: ["file list taken from `git show --stat` of commit 7597803 only; the merges of PR #56 were not re-diffed"]
+```
+
+## Documentation audit and cleanup record (2026-11-12)
+
+```yaml
+date: "2026-11-12"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code (VS Code extension) with claude-sonnet-5-5 as lead model; 20 read-only subagents (scout, Explore), same model; execution agents on the same branch"
+note: "The task specification named claude-opus-5-5 for the lead; the session ran on Sonnet 5.5."
+purpose: "Documentation audit, cleanup plan and its execution: coherence fixes, archive of stale documents, CADEV records completed (additive only)"
+repository_or_source_context: "tracked repository files, git metadata, read-only gh api GET calls; plan and findings in reports/docs-cleanup-plan.md and reports/docs-audit-findings.md (git-ignored)"
+files_or_sections_affected: ["THIRD_PARTY_NOTICES.md", "AI_USAGE.md", "docs/SHIP.md", "docs/research/REFERENCES.md", "other documentation files per the pull request"]
+third_party_sources_consulted: []
+commands: "git diff/log, gh api GET, make help, make -s ci-groups, make -n quality; no build, test or install"
+license_review: "NOT APPLICABLE (no third-party code or generated asset added)"
+human_reviewers: []
+tests_or_evidence: ["documentation only; consistency checks by search; no quality gate run for this record"]
+open_risks: ["status: executed on branch chore/docs/cleanup-and-coherence, not yet merged", "owner review of the plan outcomes pending"]
 ```

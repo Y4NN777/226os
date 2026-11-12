@@ -2,9 +2,11 @@
 
 - **Status:** ACCEPTED
 - **Date:** 2026-11-11
-- **Approver:** `Y4NN77`, repository owner (explicit decision recorded 2026-11-11; reconfirmed 2026-11-11 with the final G0 reconciliation)
+- **Approver:** `Y4NN777`, repository owner (explicit decision recorded 2026-11-11; reconfirmed 2026-11-11 with the final G0 reconciliation)
 - **Scope:** who holds which role until P0 completes; relation to ADR-0001 condition 1
 - **Related:** [ADR-0001](0001-g0-conditional-baseline.md), `docs/GIT_WORKFLOW.md`, `AGENTS.md`, `docs/DEV.md` section 6
+- **Amended by:** [ADR-0008](0008-team-work-areas-and-ownership.md) (work areas for the four-person team)
+- **Metadata note 2026-11-12:** approver spelling normalised to the GitHub login (`Y4NN777`); the decision text is unchanged.
 
 ## Context
 
@@ -18,7 +20,7 @@ ADR-0001 condition 1 requires named product, backend, frontend, security, QA, an
 
 ## Decision
 
-- `Y4NN77` is the interim owner for product, backend, frontend, security, QA, and release until P0 completes. Work items set `owner: Y4NN77`; `reviewer` is `Y4NN77` unless another human is named on the item.
+- `Y4NN777` is the interim owner for product, backend, frontend, security, QA, and release until P0 completes. Work items set `owner: Y4NN777`; `reviewer` is `Y4NN777` unless another human is named on the item.
 - Pull requests from work branches into `develop` may be owner-reviewed, as `docs/GIT_WORKFLOW.md` already allows for routine low-risk staging integration. Required CI checks still apply; owner review does not replace them.
 - Promotion of `develop` to `main` (production) requires explicit owner approval recorded on the production PR with G7 evidence, plus the protected `production` environment approval. **During the interim, owner approval is sufficient for `main` promotion**; `docs/GIT_WORKFLOW.md` refers to this ADR for the "distinct human approval on `main`" rule, so that rule is satisfied by the owner approval until this ADR is superseded.
 - The security and legal reviews required by G4 and G7 are still required. This ADR does not waive them. Owner self-review is not an independent security or legal review; the `skeptic` agent output is advisory evidence, not a substitute for the human review that G4/G7 name.

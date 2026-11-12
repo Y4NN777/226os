@@ -52,6 +52,9 @@ lint-scripts: doctor ## G1: ShellCheck (pinned image), script tests (no Docker f
 	@echo "== lint: script tests (no Docker flags)"
 	@for t in scripts/tests/*_test.sh; do echo "-- $$t"; "$$t"; done
 
+docs-check: doctor ## G1: documentation checks (relative links, no private paths, operation count, ADR index)
+	python3 -I scripts/check-docs.py
+
 typecheck: doctor ## G1: tsc --noEmit (strict) for web, go build ./...
 	pnpm --filter web run typecheck
 	go build ./...

@@ -11,12 +11,13 @@
 | 225 Open Source | https://www.225os.com/ | découverte des projets et positionnement | site tiers (non source à réutiliser) |
 | TanStack Router | https://github.com/TanStack/router | route typée | MIT |
 | TanStack Query | https://github.com/TanStack/query | synchronisation / cache serveur | MIT |
-| TanStack Form | https://github.com/TanStack/form | validations formulaire | vérifier |
+| TanStack Form | https://github.com/TanStack/form | validations formulaire | voir THIRD_PARTY_NOTICES.md |
+| Astryx (Meta) | https://github.com/meta/astryx | UI principale (dépendance `@astryxdesign/core`) | MIT (voir THIRD_PARTY_NOTICES.md) |
 | shadcn/ui | https://github.com/shadcn-ui/ui | UI accessible et composable | vérifier |
-| Chi | https://github.com/go-chi/chi | API/middlewares Go | vérifier |
-| pgx | https://github.com/jackc/pgx | PostgreSQL Go | vérifier |
-| sqlc | https://github.com/sqlc-dev/sqlc | SQL Go typé | vérifier |
-| Traefik | https://github.com/traefik/traefik | TLS/edge/routing | vérifier |
+| Chi | https://github.com/go-chi/chi | API/middlewares Go | voir THIRD_PARTY_NOTICES.md |
+| pgx | https://github.com/jackc/pgx | PostgreSQL Go | voir THIRD_PARTY_NOTICES.md |
+| sqlc | https://github.com/sqlc-dev/sqlc | SQL Go typé | voir THIRD_PARTY_NOTICES.md |
+| Traefik | https://github.com/traefik/traefik | TLS/edge/routing | voir THIRD_PARTY_NOTICES.md |
 | GitHub Actions | https://github.com/actions/starter-workflows | CI workflows | workflows à adapter |
 
 ## Format obligatoire d'une étude
@@ -99,6 +100,8 @@ compliance_review: "PENDING : confirmation du propriétaire consignée ci-dessou
 - Le propriétaire a approuvé cette démarche et confirme que le projet respecte la règle de création pendant la période du concours (à joindre à la revue CADEV, **non vérifié par le dépôt**).
 
 ## Déclaration d'originalité
+
+*Confirmation : le propriétaire du dépôt (`Y4NN777`) doit confirmer cette déclaration ; confirmation en attente, non vérifiée par le dépôt. Inventaire des dépendances : `THIRD_PARTY_NOTICES.md`.*
 
 **Français.** 226os est un produit original, développé par notre équipe pendant la période du concours, sous licence Apache-2.0. Nous citons ouvertement 225 Open Source comme une source d'inspiration pour la découverte de projets et l'identité communautaire, comme les autres projets open source que nous avons étudiés. Nous avons étudié des comportements et des principes de conception, sans copier de code, de texte, de visuels ni de données. Chaque dépendance tierce est déclarée, épinglée et vérifiée côté licence. Notre orientation produit nous est propre : une plateforme qui part de l'Afrique de l'Ouest et s'ouvre à toute l'Afrique, avec un assistant d'apprentissage qui cite ses sources, un parcours pour apprendre et progresser à l'ère des agents, un annuaire d'API et d'intégrations africaines, et une mise en relation qui respecte la vie privée.
 

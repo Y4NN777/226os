@@ -2,10 +2,11 @@
 
 - **Status:** ACCEPTED
 - **Date:** 2026-11-11
-- **Approver:** `Y4NN77`
+- **Approver:** `Y4NN777`
 - **Closes:** ADR-OPEN-005
 - **Refines:** G0-DATA-001, G0-DATA-002, G0-DATA-003
 - **Related:** `docs/spec-kit/DATABASE_DESIGN.md` (entity detail and DDL), [ADR-0003](0003-authentication-sessions-csrf-rate-limits.md), [ADR-0004](0004-api-contract-conventions.md), [ADR-0006](0006-toolchain-environments-quality-commands.md)
+- **Metadata note 2026-11-12:** approver spelling normalised to the GitHub login (`Y4NN777`); the decision text is unchanged.
 
 ## Context
 
@@ -30,7 +31,7 @@ TASK-DATA-001 needs the migration tool, PostgreSQL version, ID strategy, search 
    - **Publication lifecycle** (column `status`): Learn articles `draft | published | archived | removed`; every other publishable entity (questions, answers, resources, providers, projects, training series, lessons) `published | removed`.
    - **Question solve state** is **derived**, not stored: the API exposes `state` = `open` (no answers), `answered` (has answers, none accepted) or `resolved` (`accepted_answer_id` set), computed from answers and `accepted_answer_id`.
    - **Project visibility**: `public | private` (a column, independent of `status`).
-   - A moderator **hide** sets `status = 'removed'` (with `removed_at` and an `audit_log` row); **restore** sets it back and clears `removed_at`.
+   - A moderator **hide** sets `status = 'removed'` (with `removed_at` and an `audit_log` row); **restore** sets it back and clears `removed_at`. Status vocabulary: `removed` is the publication status of content (not shown publicly, restorable by a moderator); `hidden` is the status of a moderated content relation or tag (a separate column with its own check, see decision 13).
 8. **Votes.** Up or down on questions and answers (`value` +1 / -1). **Self-vote is forbidden**: 403 `SELF_VOTE_FORBIDDEN`, a service rule inside the vote transaction.
 9. **Applications.** Unique per `(user, need)`. **Re-applying is allowed only if the previous application was withdrawn by the applicant**: the row is reused and reopened (`withdrawn -> pending`). **No re-apply after a decline.** `accepted` and `declined` are terminal at P0.
 10. **"Collaborator".** A collaborator is **an applicant whose application was accepted on a project**: a resource-scoped relationship derived from `applications`, **not a global role**. It is not in any role list. `project_maintainers` stays for owner-added maintainers, who have explicit rights (edit the project, manage needs and applications).
@@ -39,7 +40,7 @@ TASK-DATA-001 needs the migration tool, PostgreSQL version, ID strategy, search 
 13. **Content relations.** Types: question-resource, question-project, resource-project, article-question, article-resource, article-project. **Only the author of the source item creates a relation, only to published public targets; moderators can remove them** (`status = 'hidden'`, audited).
 14. **Resources.** `resources.type` is `api | sdk | tool` (what the item is). The table formerly named `resource_sdks` is **`resource_sdk_languages`**: the languages in which the resource has an official SDK.
 15. **Account deletion.** Credentials, sessions and profile personal data are deleted **within 30 days** of the request. Authored public content is kept and **anonymized as "membre supprimé"** (the account row stays with `status = 'deleted'`, the email is replaced by a placeholder, no username or display name is shown).
-16. **Learn.** `learn_articles` (`kind` article | tutorial, language, level, tags), `training_series` and `training_lessons` (P0: one public free series readable without login) are P0. **Learn progress is P1**: `learn_progress` is created in a later migration (`00011`), not in the bootstrap.
+16. **Learn.** `learn_articles` (`kind` article | tutorial, language, level, tags), `training_series` and `training_lessons` (P0: one public free series readable without login) are P0. **Learn progress is P1**: `learn_progress` is created in a later migration, not in the bootstrap.
 17. **Seeds.** Deterministic SQL in `db/seeds/`, fixed UUIDs, every root row `provenance = 'demo'` and visibly marked in the UI; no fake endorsements, verifications or real users. Seeds run **only in `local-dev` and `staging-test`**, never in `production-live`.
 
 ## Consequences

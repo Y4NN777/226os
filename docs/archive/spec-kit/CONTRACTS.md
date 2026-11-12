@@ -1,3 +1,6 @@
+> Archived 2026-11-12. Historical record, not maintained.
+> Current source: [docs/spec-kit/README.md](../../spec-kit/README.md) (contract index), `api/openapi.yaml`.
+
 # 226os Implementation Contracts
 
 **Status:** ACCEPTED (ADR-0003 to ADR-0007, 2026-11-11). Parallel implementation may start from these contracts; execution evidence is G1 to G7.

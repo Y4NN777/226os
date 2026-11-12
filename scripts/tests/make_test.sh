@@ -172,10 +172,10 @@ else ko "quality-full (rc=$rc, out=$out)"; fi
 # Default step list covers G1-G4 (dry run: the driver is not executed).
 dry="$(mk "$root" env -i PATH="$PATH" HOME="$HOME" make -n quality 2>&1)" || true
 miss=""
-for s in doctor generate lint typecheck test-unit coverage test-integration security licenses; do
+for s in doctor generate lint typecheck test-unit coverage test-integration security licenses docs-check; do
   grep -qE "(^|[[:space:]])$s([[:space:]]|$)" <<<"$dry" || miss+=" $s"
 done
-[ -z "$miss" ] && ok "default quality steps cover G1-G4 (doctor generate lint typecheck test-unit coverage test-integration security licenses)" || ko "quality default steps missing:$miss"
+[ -z "$miss" ] && ok "default quality steps cover G1-G4 (doctor generate lint typecheck test-unit coverage test-integration security licenses docs-check)" || ko "quality default steps missing:$miss"
 dry="$(mk "$root" env -i PATH="$PATH" HOME="$HOME" make -n quality-full 2>&1)" || true
 grep -qE '(^|[[:space:]])test-e2e([[:space:]]|$)' <<<"$dry" && grep -qE '(^|[[:space:]])perf([[:space:]]|$)' <<<"$dry" && ok "quality-full adds test-e2e and perf" || ko "quality-full default steps"
 
@@ -234,7 +234,7 @@ for g in $groups; do
 done
 ok "every CI group runs through the fail-closed driver, doctor first"
 docs_steps="$({ mk "$root" env -i PATH="$PATH" HOME="$HOME" make -s ci-steps SCOPE_GROUPS=repo 2>/dev/null || true; } | tr ' ' '\n' | sed '/^$/d' | sort -u | tr '\n' ' ')"
-[ "$docs_steps" = "doctor licenses security-secrets security-secrets-encrypted " ] && ok "SCOPE_GROUPS=repo narrows the expected steps to the repository group" || ko "docs-scope steps: [$docs_steps]"
+[ "$docs_steps" = "docs-check doctor licenses security-secrets security-secrets-encrypted " ] && ok "SCOPE_GROUPS=repo narrows the expected steps to the repository group" || ko "docs-scope steps: [$docs_steps]"
 run_make make ci-no-such-group
 [ "$rc" -ne 0 ] && ok "an unknown CI group fails (no steps is not a pass)" || ko "unknown CI group passed (rc=$rc, out=$out)"
 

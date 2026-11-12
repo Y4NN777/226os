@@ -1,67 +1,63 @@
 # 226os — Development Playbook
 
-**Statut :** règles d'exécution approuvées par direction produit · **Voir :** [RULES](RULES.md), [SPEC](SPEC.md), [TEST](TEST.md), [AGENTS](../AGENTS.md)
+**Statut :** règles d'exécution approuvées par direction produit · **Voir :** [RULES](RULES.md), [SPEC](SPEC.md), [TEST](TEST.md), [ARCHITECTURE](architecture/ARCHITECTURE.md), [AGENTS](../AGENTS.md)
 
-## 1. Architecture figée
-- **Web :** React 19 + TypeScript strict + Vite, TanStack Router / Query / Form, Meta Astryx comme système de composants principal, Tailwind uniquement en complément de mise en page.
-- **API :** Go, Chi, `pgx`, `sqlc`; monolithe modulaire, HTTP REST, contrat OpenAPI 3.1.
-- **Persistance :** PostgreSQL 18, `tsvector`/GIN/`pg_trgm`/`unaccent`, migrations SQL goose forward-only dans `db/` (ADR-0005).
-- **Infra :** Docker multi-stage, Compose (un arbre à profils `local-dev`, `staging-test`, `production-live`, ADR-0006), Traefik HTTPS, GitHub Actions, GHCR.
-- **Contraintes :** pas d'ORM généraliste, de moteur de recherche externe, microservices, Redis ou Kubernetes sans ADR approuvée. Le code métier ne doit pas résider dans les handlers HTTP.
+## 1. Stack et versions
+La stack, les frontières et la règle « tout écart passe par un ADR » sont dans [ARCHITECTURE](architecture/ARCHITECTURE.md). Les versions d'outils sont fixées par [ADR-0006](decisions/0006-toolchain-environments-quality-commands.md) et [ADR-0007](decisions/0007-astryx-version-pinning-and-verification.md), dans `go.mod`, `package.json` et `compose.yaml`.
 
-## 2. Topologie cible
+Node : le plancher `engines.node` (`>=24`, vérifié par `make doctor`) et la version épinglée par `.nvmrc` (26, utilisée pour l'image web) diffèrent volontairement. Le plancher dit ce que le code supporte, `.nvmrc` ce que nous exécutons.
+
+## 2. Topologie du dépôt
 ```text
 226os/
-├── AGENTS.md
-├── README.md
-├── {PRD,SPEC,DESIGN,DEV,TEST,SHIP,RULES}.md
-├── docs/architecture/ARCHITECTURE.md
-├── docs/research/REFERENCES.md
-├── docs/decisions/
-├── docs/quality/
-├── src/
-│   ├── web/src/{routes,features,components,lib,i18n}/
-│   └── api/{cmd,internal}/
-├── api/openapi.yaml
-├── db/{migrations,queries,seeds}/
-├── infra/{compose,traefik}/
+├── src/api/{cmd,internal}/        # API Go : cmd/{api,aicheck,mailcheck,healthcheck}, internal/{app,platform}
+├── src/web/src/{app,api,features,i18n,styles,test,theme}/
+├── api/openapi.yaml               # contrat, source des types Go et TypeScript générés
+├── db/{migrations,queries}/ + db/sqlc.yaml
+├── deploy/                        # configuration Traefik
+├── compose.yaml                   # profils local-dev, staging-test, production-live
+├── Makefile + mk/                 # gates et opérations
+├── scripts/                       # appelés par Make et la CI
+├── secrets/                       # fichiers chiffrés (SOPS, age), voir secrets/README.md
+├── docs/                          # PRD, SPEC, DEV, TEST, SHIP, RULES, architecture, decisions, team
 ├── .github/workflows/
-└── THIRD_PARTY_NOTICES.md
+└── DESIGN.md, AGENTS.md, THIRD_PARTY_NOTICES.md, AI_USAGE.md
 ```
-Les dossiers `src`, `api`, `db`, `infra` sont **cibles**, à créer lors de l'initialisation du code. Le paquet livré ici constitue les documents de pilotage, pas une application déjà compilable.
 
-## 3. Organisation du travail : vertical slices
+## 3. Cibles Make
+`make help` est la source de vérité ; lisez une recette avec `make -n <cible>` avant de la lancer.
+
+| Cible | Rôle |
+| --- | --- |
+| `doctor`, `setup` | vérifier la chaîne d'outils ; installer depuis les lockfiles uniquement |
+| `quality` | G1 à G4, toutes les étapes, résumé PASS/FAIL par étape ; définition locale de « fini » |
+| `generate`, `lint`, `typecheck`, `docs-check`, `test-unit`, `coverage` | G1 et G2 ; `lint-*` et `test-integration-*` sont les sous-cibles des groupes CI |
+| `test-integration`, `security`, `licenses` | G3 et G4 ; Docker requis pour les deux premières |
+| `ci-groups`, `ci-steps` | groupes CI et étapes attendues par la tâche `quality` ([ADR-0010](decisions/0010-ci-parallel-gate-groups.md)) |
+| `build` | images `api`, `web`, `migrate` ; empreintes dans `reports/image-digests.txt` |
+| `up-local-dev`, `down-local-dev` | profil local ; `up-staging-test` et `down-staging-test` pour la préproduction |
+| `up-production-live` | refusé hors du contexte de livraison documenté |
+| `migrate-up`, `migrate-status`, `migrate-new NAME=<slug>` | migrations goose, en avant seulement ; confirmation et preuve de sauvegarde hors `local-dev` |
+| `db-reset` | recrée la base, `APP_ENV=local-dev` uniquement |
+| `test-e2e` (G5), `perf` (G6), `seed` | **NOT IMPLEMENTED** ; `quality-full` échoue tant que G5 et G6 le sont |
+
+## 4. Organisation du travail : vertical slices
 1. Décrire le problème et le critère d'acceptation (PRD + SPEC, ID stable).
-2. Écrire les scénarios BDD, y compris échec/autorisations et régression.
-3. Implémenter un test échouant (TDD RED) reproduisant le comportement.
-4. Écrire le code minimal (GREEN), refactorer sans changer l'observable.
-5. Vérifier les invariants SQL / permission / sécurité / performance.
-6. Relier un écran au véritable contrat API, sans fausses données en production.
-7. Joindre preuves (commandes, résultats, coverage, perf) dans la PR.
-8. Merger seulement après gates CI et revue humaine.
+2. Écrire les scénarios BDD, y compris échec, autorisations et régression.
+3. Implémenter un test échouant (RED), puis le code minimal (GREEN), puis refactorer.
+4. Vérifier les invariants SQL, permissions, sécurité, performance.
+5. Relier un écran au vrai contrat API, sans fausses données en production.
+6. Joindre les preuves (commandes, résultats) dans la PR ; merger après gates CI et revue humaine.
 
-## 4. Go backend
-- Packages par domaine : `domain`, `service`, `repository`, `transport` ; interfaces à la frontière, dépendances orientées vers la logique métier.
-- Context avec deadline sur accès DB, requêtes HTTP et intégrations externes ; erreurs typées et wrapping ; SQL paramétré uniquement.
-- `go fmt`, `go vet`, `staticcheck`, `golangci-lint` sous versions épinglées ; `go test -race`, tests intégration PG sur Docker.
-- Maintenir `sqlc` généré en phase avec `db/queries` et migrations ; test de non-drift.
-- Séparer configuration, application et handlers ; éviter la journalisation de secrets.
+## 5. Go et React
+- **Go :** packages `domain`, `service`, `repository`, `transport` ; context avec deadline sur tout accès externe ; erreurs typées ; SQL paramétré ; `sqlc` sans drift (vérifié par `make generate`).
+- **React :** TypeScript strict ; client OpenAPI typé, sans DTO manuel ; TanStack Query pour l'état serveur ; composants accessibles ; i18n FR/EN.
+- **Tests :** Vitest et Testing Library côté web. Playwright (G5, parcours réels) : **NOT IMPLEMENTED**, voir [TEST](TEST.md).
 
-## 5. React frontend
-- TypeScript strict ; validations de formulaire explicites ; client OpenAPI typé, sans duplication manuelle des DTO.
-- TanStack Query pour état serveur ; pas de duplication arbitraire dans store global ; clés de cache déterministes et invalidation documentée.
-- TanStack Router pour navigation typée ; route-level lazy loading si utile ; erreurs et loaders traités systématiquement.
-- Composants accessibles (labels, focus, aria, clavier), contraste, responsive, traduction UI FR/EN sans texte en dur dans les écrans critiques.
-- Tests Vitest + Testing Library ; Playwright pour parcours réels ; pas de snapshots comme unique preuve.
+## 6. Équipe
+Zones de travail, binômes de relecture et rôles : [ADR-0008](decisions/0008-team-work-areas-and-ownership.md) et [docs/team/CONTRIBUTORS.md](team/CONTRIBUTORS.md). Le propriétaire est `Y4NN777` (login GitHub).
 
-## 6. Collaboration à 3–5 personnes
-- 4 membres, inscrits à CADEV. Les zones de travail, les aides et les binômes de relecture sont fixés par l'[ADR-0008](decisions/0008-team-work-areas-and-ownership.md) (accepté) ; le détail par tranche est dans `TODO.md` et `docs/team/CONTRIBUTORS.md`. `Y4NN77` garde les décisions d'architecture, les risques et la mise en production.
-- Tout ticket a un `owner`, un reviewer distinct si disponible, un domaine, un ID story et une preuve de vérification.
-- Branches courtes, petites PRs, merge fréquents ; feature flags ou masquage explicite des fonctions inachevées.
-- Les renforts 4–5 peuvent reprendre des chantiers sans changer l'architecture.
+Tout ticket a un `owner`, un reviewer distinct si possible, un domaine, un ID de story et une preuve de vérification. Petites PRs, merges fréquents, fonctions inachevées masquées.
 
-## 7. Changement d'architecture
-Une modification de stack, contrat, dépendance importante ou frontière métier demande un ADR (`docs/decisions/NNNN-titre.md`) avec contexte, alternatives, décision, coût de migration, impact sécurité/performance et approbation. Refuser toute dérive silencieuse.
-
-## 8. Respect des références et de l'originalité
-Étudier le comportement, l'architecture et les tests des repos existants ; documenter URL, licence, commit, observations. Ne pas prendre la traduction de code par une IA pour une œuvre automatiquement indépendante. Déclarer les composants incorporés et les outils d'IA ; vérifier les licences directes/transitives. Voir [REFERENCES](research/REFERENCES.md).
+## 7. Originalité et dépendances
+Étudier le comportement, pas copier le code ; documenter URL, licence, commit et observations dans [REFERENCES](research/REFERENCES.md). Les dépendances et leurs licences sont dans [THIRD_PARTY_NOTICES](../THIRD_PARTY_NOTICES.md), l'aide d'une IA dans [AI_USAGE](../AI_USAGE.md).

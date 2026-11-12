@@ -130,8 +130,8 @@ services:
       AI_TIMEOUT: ${AI_TIMEOUT:-}
     networks: [edge, backend]
     healthcheck:
-      # Distroless has no shell; busybox wget is copied into the image just for this probe.
-      test: ["CMD", "/busybox/busybox", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/healthz"]
+      # Distroless has no shell: the image ships its own /healthcheck command (src/api/cmd/healthcheck).
+      test: ["CMD", "/healthcheck"]
       interval: 10s
       timeout: 3s
       retries: 5
@@ -191,7 +191,7 @@ services:
 
   # One-shot: make the ACME volume writable by the unprivileged Traefik user (named volumes start root-owned).
   acme-init:
-    # busybox:stable-musl (same digest as the api Dockerfile)
+    # busybox:stable-musl: only for this one-shot chown/chmod (the distroless images have no shell). GPL-2.0; see THIRD_PARTY_NOTICES.md.
     image: busybox:stable-musl@sha256:3c6ae8008e2c2eedd141725c30b20d9c36b026eb796688f88205845ef17aa213
     profiles: [staging-test, production-live]
     restart: "no"

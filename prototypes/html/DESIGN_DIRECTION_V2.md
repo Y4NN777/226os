@@ -1,6 +1,8 @@
+> Prototype documents. The prototype is frozen; `DESIGN.md` governs `src/web`.
+
 # 226os prototype: Direction v2 (flows and premium look)
 
-**Status:** PROPOSAL, awaiting the repository owner's approval. Nothing below is implemented yet.
+**Status:** Approved (see CONVENTIONS.md §12).
 **Inputs:**
 - the owner's feedback of 2026-11-11: no vertical bars; sign-in should not sit inside the app; no landing page; the prototype lacks a premium feel; flow problems affect the whole prototype, not just auth;
 - four web research reports (sources listed below);

@@ -2,10 +2,11 @@
 
 - **Status:** ACCEPTED
 - **Date:** 2026-11-11
-- **Approver:** `Y4NN77`
+- **Approver:** `Y4NN777`
 - **Closes:** ADR-OPEN-001
 - **Refines:** G0-UI-001
 - **Related:** `DESIGN.md`, `docs/spec-kit/ASTRYX_VERIFICATION.md`, [ADR-0006](0006-toolchain-environments-quality-commands.md)
+- **Metadata note 2026-11-12:** approver spelling normalised to the GitHub login (`Y4NN777`); the decision text is unchanged.
 
 ## Context
 

@@ -1,22 +1,23 @@
 # 226os P0 REST and Error Contract
 
-**Status:** ACCEPTED (ADR-0004, ADR-0003, ADR-0005; 2026-11-11, approver `Y4NN77`)
+**Status:** ACCEPTED (ADR-0004, ADR-0003, ADR-0005; 2026-11-11, approver `Y4NN777`)
 **Source of truth:** [`api/openapi.yaml`](../../api/openapi.yaml) (OpenAPI 3.1.0, `servers: /api/v1`). Verbs, paths, schemas, status codes and per-operation `x-authz` live there; this note summarises the accepted decisions. If they disagree, the YAML wins and this file is a bug.
 
 ## Accepted conventions
 
-- Every operation has `operationId`, a tag, `x-priority` (P0|P1), `x-spec` (US-* refs) and `x-authz` (subjects allowed, 403/404 choice, matrix row).
-- Resources: `/auth/*` (csrf, sign-up, sign-in, sign-out, session, verify-email, password-reset), `/me`, `/me/profile`, `/profiles/{username}`, questions, answers, `/votes`, `accept`/`unaccept`, resources (sources, error-reports, reviews P1), projects, contribution needs, applications, `/learn/articles`, `/learn/series` (lesson progress P1), `/search`, `/moderation/*`.
-- Errors: RFC 9457 `application/problem+json` through one `Problem` schema (`type`, `title`, `status`, `detail`, `instance`, `code`, `request_id`, `violations[]`). **`type` is `urn:226os:problem:<code>`**, a non-dereferenceable identifier at P0. The `ErrorCode` enum with `x-error-catalogue` is the closed catalogue.
-- Status policy: 401 no or invalid session (including Learn publish without a session); **403 if the object is visible to the caller** (for example a non-author accepting an answer), CSRF failure, `EMAIL_NOT_VERIFIED`, `SELF_VOTE_FORBIDDEN`, `REAUTH_REQUIRED`; **404 if the object is absent or private and its existence must not leak** (private projects, private profiles); 409 duplicate application, state conflict, in-flight idempotent duplicate; 412 `If-Match` mismatch; 413; 422 validation, `limit` above 50 and `Idempotency-Key` reuse with a different body; 428 missing `If-Match`; 429 with `Retry-After`; 400 only for malformed syntax and an invalid cursor.
-- Pagination: opaque integrity-protected `cursor` plus `limit` (default 20, 1..50, above 50 returns 422); envelope `{items, next_cursor}`; deterministic order with a UUID tie-breaker. `/search` is the exception (grouped, bounded `per_group`, no cursor); it spans questions, resources, projects and **Learn**.
-- Idempotency: optional `Idempotency-Key` header on creates (application, answer, project, article, question, contribution need), **24 h retention**, our own convention (the IETF draft is not an RFC). Votes are idempotent by database uniqueness `(user, target_type, target_id)`.
-- Concurrency: `ETag` / `If-Match` on questions, answers and Learn articles. The question `PATCH` is the only P0 edit endpoint of the three; the others follow the same rule when added.
-- Security: `cookieAuth` (opaque session cookie `__Host-226os_session` deployed, `226os_session` local-dev) plus `csrfToken` (`X-CSRF-Token`) on every unsafe method, including anonymous ones (sign-in, sign-up, reset, using the pre-session token from `GET /auth/csrf` plus an Origin/Fetch-Metadata check); no bearer tokens.
-- Schemas: `additionalProperties: false` on all request bodies, bounded strings and arrays, enums for statuses, UUID ids, RFC 3339 UTC, `lang` fr|en on user content (original language preserved, no auto-translation). PATCH is JSON Merge Patch. Tags are lowercase slugs of at most 32 characters, at most 5 per item.
-- Status model in the API: publication `status` is internal (published/removed; articles also draft/archived and may be created as `draft`); a question exposes derived `state` open/answered/resolved; a project exposes `visibility` public/private.
-- Public profile never returns email; fields default to public and each optional field has an owner-controlled visibility (`public|members|private`).
-- Generation: oapi-codegen (Go), with a verification step at bootstrap and ogen as the documented fallback; openapi-typescript (web); `make generate && git diff --exit-code`.
+General conventions (base path, UUIDs, timestamps, cookie session plus `X-CSRF-Token`, Problem type, pagination, status policy, `lang`, JSON Merge Patch) are stated once in `api/openapi.yaml` `info.description`; they are not repeated here.
+
+- Extensions: every operation has `operationId`, a tag, `x-priority` (P0|P1), `x-spec` (US-* refs) and `x-authz` with `allow` and `notes` (subjects allowed, 403/404 choice). The `matrix` label (a row of `AUTHORIZATION_MATRIX.md`) is present on only some operations; labels follow ROADMAP C9 and do not always match the matrix names.
+- Resources: `/auth/*`, `/me`, `/me/profile`, `/profiles/{username}`, questions, answers, `/votes`, `accept`/`unaccept`, resources (sources, error-reports, reviews P1), projects, contribution needs, applications, `/learn/articles`, `/learn/series` (lesson progress P1), `/search`, `/moderation/*`.
+- Error catalogue: `ErrorCode` enum with `x-error-catalogue` is closed; `type` is `urn:226os:problem:<code>`, non-dereferenceable at P0.
+- `/search` is the pagination exception (grouped, bounded `per_group`, no cursor); it spans questions, resources, projects and Learn.
+- Idempotency: `Idempotency-Key` on the six create operations that declare it in the YAML (question, answer, project, contribution need, application, Learn article), 24 h retention, our own convention (the IETF draft is not an RFC). Votes are idempotent by database uniqueness `(user, target_type, target_id)`.
+- Concurrency: `ETag` / `If-Match` is implemented on the question `PATCH` only. Answers and Learn articles have no P0 edit endpoint; they follow the same rule when one is added.
+- Security: no bearer tokens; anonymous unsafe methods (sign-in, sign-up, reset) use the pre-session token from `GET /auth/csrf` plus an Origin/Fetch-Metadata check.
+- Schemas: `additionalProperties: false` on request bodies, bounded strings and arrays, enums for statuses. Tags are lowercase slugs of at most 32 characters, at most 5 per item.
+- Status model: publication `status` is internal (published/removed; articles also draft/archived); a question exposes derived `state`; a project exposes `visibility`.
+- Public profile never returns email; each optional field has an owner-controlled visibility (`public|members|private`).
+- Generation: oapi-codegen (Go), ogen as the documented fallback; openapi-typescript (web); `make generate && git diff --exit-code`.
 
 ## Decisions on points first listed as divergences
 

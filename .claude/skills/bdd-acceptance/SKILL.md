@@ -18,9 +18,9 @@ description: Acceptance tests for 226os. Given/When/Then is taken verbatim from 
 - G5 evidence is Playwright P0 traces, FR/EN, mobile, keyboard, axe/contrast, and a manual review. `docs/spec-kit/QUALITY_RELEASE.md:14`, `docs/TEST.md:48`, `AGENTS.md:51`.
 - Responsive checkpoints are 360/768/1024/1440px and 200% zoom, with no horizontal document scroll. `DESIGN.md:188`. Accessibility, reduced motion and touch targets are mandatory. `DESIGN.md:26`, `DESIGN.md:153`.
 - Frontend coverage needs companion evidence: P0 E2E, keyboard/a11y, locale and throttled-network tests. `docs/quality/COVERAGE_SCOPE.md:17`.
-- Seeds and fixtures are deterministic, clearly synthetic, and never suggest real users, endorsements or verification. `docs/spec-kit/CONTRACTS.md:25`. No secrets or private data in fixtures, traces or screenshots. `docs/RULES.md:25`, `docs/spec-kit/QUALITY_RELEASE.md:41`.
+- Seeds and fixtures are deterministic, clearly synthetic, and never suggest real users, endorsements or verification. `docs/archive/spec-kit/CONTRACTS.md:25`. No secrets or private data in fixtures, traces or screenshots. `docs/RULES.md:25`, `docs/spec-kit/QUALITY_RELEASE.md:41`.
 - The CADEV exit requires the flows to be tested on the real deployed application. `docs/TEST.md:58`.
-- The Make target list in `AGENTS.md:120` has no E2E target. Any `make test-e2e` is PROPOSED and needs review and approval before use (`AGENTS.md:124`).
+- `make test-e2e` exists in `mk/40-quality.mk` but is NOT IMPLEMENTED (G5): it fails by design and must be reported `NOT IMPLEMENTED`, never `PASS`. Implementing it is a reviewed slice, not an ad-hoc command.
 
 ## Expert practices
 - Copy SPEC step text verbatim, in French, with the English `Given/When/Then/And` keywords exactly as SPEC writes them. Do not translate and do not add `# language: fr`, since the keywords in SPEC are English. [Gherkin reference](https://cucumber.io/docs/gherkin/reference/)
