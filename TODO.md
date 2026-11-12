@@ -706,8 +706,8 @@ Each line below is a **proposal**. The lead confirms or reassigns it.
 
 **Tasks**
 
-- [ ] `Y4NN777`: create the AI Studio API key and store it in the staging env file.
-- [ ] `Y4NN777`: verify V1 to V4 in AI Studio and Google's docs. **Due Fri 13 Nov evening.**
+- [x] `Y4NN777`: create the AI Studio API key and store it in the staging env file (`secrets/staging-test.enc.env`, SOPS and age, ADR-0009; done 2026-11-12).
+- [ ] `Y4NN777`: verify V1 to V4 in AI Studio and Google's docs. **Due Fri 13 Nov evening.** Measured 2026-11-12 with `aicheck` on the real key (staging free tier): **V1** two Gemma 4 ids with `generateContent`, 262144 input and 32768 output tokens: `gemma-4-26b-a4b-it` and `gemma-4-31b-it`. **V4** both answer fr and en but put their reasoning in the answer text (the adapter must drop it). **V2** (3 probes only, not the project limits): `gemma-4-26b-a4b-it` 3 of 3 ok in about 1 s each, ping about 6 s; `gemma-4-31b-it` 2 of 3 unavailable, ping 21 to 26 s. Chosen for staging: `gemma-4-26b-a4b-it` (`AI_MODEL`). **V3 (free versus billing-linked project) is still the owner's decision; read the real quotas in the AI Studio console.**
   - V1: the exact Gemma 4 model id and its availability. Ids reported by third-party aggregators are NOT CONFIRMED.
   - V2: the project's real limits. They are UNKNOWN, and third-party figures conflict.
   - V3: a free project or a billing-linked one, given the EEA rule.
