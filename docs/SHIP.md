@@ -25,6 +25,7 @@ work branch -> PR develop -> develop staging/preview smoke
 - Compte Datacloud et **produit commercial actif** confirmés (condition CADEV ; l'hébergement Datacloud est décidé, la preuve du compte reste à fournir), budget, promo, IP, accès SSH par clé, ports 80/443, DNS, stockage.
 - Variables d'environnement définies par `.env.example` (sans valeurs sensibles), secrets hors Git.
 - DB backup cohérent, espace disque disponible, migration dry-run sur base éphémère ; image web et API identifiées par digest.
+- Sauvegarde : `scripts/backup.sh <profil>` (`pg_dump -Fc`, dump en mode 600, fichier de preuve à passer en `BACKUP_EVIDENCE` à `migrate-up`). Restauration vérifiée : `scripts/restore-check.sh <profil> <dump>` (base jetable `restore_check_*`, comparaison du nombre de tables et de la version de migration, base supprimée ensuite ; `RESTORE_CHECK_CONFIRM=<profil>` hors local-dev). Exercice local-dev fait le 2026-11-12 ; staging et production restent à faire.
 - Rapports quality gates sur SHA cible disponibles, migration reversible ou plan de restauration explicite.
 
 ## 4. Smoke post-déploiement

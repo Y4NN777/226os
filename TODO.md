@@ -706,11 +706,13 @@ Each line below is a **proposal**. The lead confirms or reassigns it.
 
 **Tasks**
 
-- [ ] `Y4NN777`: create the AI Studio API key and store it in the staging env file.
-- [ ] `Y4NN777`: verify V1 to V4 in AI Studio and Google's docs. **Due Fri 13 Nov evening.**
-  - V1: the exact Gemma 4 model id and its availability. Ids reported by third-party aggregators are NOT CONFIRMED.
-  - V2: the project's real limits. They are UNKNOWN, and third-party figures conflict.
-  - V3: a free project or a billing-linked one, given the EEA rule.
+- [x] `Y4NN777`: create the AI Studio API key and store it in the staging env file (`secrets/staging-test.enc.env`, SOPS and age, ADR-0009; done 2026-11-12).
+- [ ] S9 adapter, test-first with a recorded fixture: both Gemma 4 models put their reasoning in the answer text. Drop it (and any `thought` part) before the answer is used, then apply one answer format (plain text or limited markdown, the cited sources kept as links, no reasoning, no invented guarantee).
+- [ ] S9 tracking of the free tier: count and log 429, 500, 503 and timeouts per model, with latency (never the prompt or the key). When the model is unavailable, search still works and the assistant answers "unavailable" instead of failing. Read the numbers before the demo (free-tier errors were observed on 2026-11-12: `gemma-4-31b-it` 2 of 3 probes unavailable).
+- [ ] `Y4NN777`: verify V1 to V4 in AI Studio and Google's docs. **Due Fri 13 Nov evening.** Measured 2026-11-12 with `aicheck` on the real key (staging free tier): **V1** two Gemma 4 ids with `generateContent`, 262144 input and 32768 output tokens: `gemma-4-26b-a4b-it` and `gemma-4-31b-it`. **V4** both answer fr and en but put their reasoning in the answer text (the adapter must drop it). **V2** (3 probes only, not the project limits): `gemma-4-26b-a4b-it` 3 of 3 ok in about 1 s each, ping about 6 s; `gemma-4-31b-it` 2 of 3 unavailable, ping 21 to 26 s. Chosen for staging: `gemma-4-26b-a4b-it` (`AI_MODEL`). **V3 DECIDED by the owner 2026-11-12: free tier** (ROADMAP Decisions log); the real quotas are still to be read in the AI Studio console (V2).
+  - V1: DONE (see above): the ids are confirmed by `aicheck models` on the real key.
+  - V2: the project's real limits are still UNKNOWN (the 3 probes do not measure them), and third-party figures conflict.
+  - V3: DECIDED, free tier. The K21 consequence (only Paid Services may be offered to EEA, Swiss and UK users) is INFERRED and is NOT yet handled: the owner still has to say how the assistant is restricted or disabled for those users.
   - V4: FR/EN latency and quality on the golden set.
 - [ ] PROPOSED ADR for the AI integration (next free ADR number). It must decide:
   - the data sent: the question text and retrieved public content only; no emails, private data or secrets;
