@@ -47,10 +47,27 @@ func (c *container) dsn(database string) string {
 	return fmt.Sprintf("postgres://postgres:%s@%s/%s?sslmode=disable", c.password, c.hostPort, database)
 }
 
+// docker runs the docker CLI and returns its trimmed stdout. stderr is kept
+// out of the result (a cold `docker run` writes pull progress there, which
+// must never be mistaken for the container id) and is appended to the error.
 func docker(ctx context.Context, args ...string) (string, error) {
+	var stdout, stderr strings.Builder
 	cmd := exec.CommandContext(ctx, "docker", args...)
-	out, err := cmd.CombinedOutput()
-	return strings.TrimSpace(string(out)), err
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	err := cmd.Run()
+	out := strings.TrimSpace(stdout.String())
+	if err != nil {
+		return out, fmt.Errorf("%w: %s", err, strings.TrimSpace(stderr.String()))
+	}
+	return out, nil
+}
+
+// dockerLogs returns the container log: postgres writes it to stderr, which
+// `docker logs` replays on stderr, so both streams are read.
+func dockerLogs(ctx context.Context, id string) (string, error) {
+	out, err := exec.CommandContext(ctx, "docker", "logs", id).CombinedOutput()
+	return string(out), err
 }
 
 func startPostgres(ctx context.Context) (*container, error) {
@@ -103,7 +120,7 @@ func (c *container) waitReady(ctx context.Context) error {
 	const ready = "database system is ready to accept connections"
 	deadline := time.Now().Add(90 * time.Second)
 	for time.Now().Before(deadline) {
-		logs, _ := docker(ctx, "logs", c.id)
+		logs, _ := dockerLogs(ctx, c.id)
 		if strings.Count(logs, ready) >= 2 {
 			conn, err := pgx.Connect(ctx, c.dsn("postgres"))
 			if err == nil {
