@@ -1044,4 +1044,4 @@ E5 needs the `profile_visibility` migration (C14b), which only `mibienpanjoe` wr
 | 2026-11-12 | B0 bootstrap merged: API skeleton, migrations 00001 to 00010, codegen, web skeleton, Compose, Make, CI | #24 | `Y4NN777` |
 | 2026-11-12 | CADEV team registration done (H9) | n/a | `Y4NN777` |
 | 2026-11-12 | S0 B1 authz gate: three route lists, `TestAuthz*` test-name check, stray-router scan, RED/GREEN in `scripts/tests/authz-routes_test.sh` | #31 | `Y4NN777` |
-| 2026-11-12 | S0 B1 gate hardening: AST test names (no Docker), mapped-test content rules, silent-pass guard RED test | open | `Y4NN777` |
+| 2026-11-12 | S0 B1 gate hardening: toolchain test files (no Docker), mapped-test content rules, silent-pass guard RED test | #32 | `Y4NN777` |
