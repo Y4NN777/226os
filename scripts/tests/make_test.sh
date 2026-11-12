@@ -200,10 +200,42 @@ env -i PATH="$PATH" HOME="$HOME" "$root/scripts/migrate-new.sh" add_widget_table
 # CI time: lint already runs every script test; test-integration must only add the Docker pass of the scripts
 # that read DB_RESET_TEST_DOCKER (running them all twice cost about two minutes).
 flagged="$(grep -l 'DB_RESET_TEST_DOCKER'':-' "$root"/scripts/tests/*_test.sh | xargs -n1 basename | tr '\n' ' ')"
-integ="$(awk '/^test-integration:/{f=1;next} f&&/^[^\t]/{f=0} f' "$root/mk/20-gates.mk")"
+integ="$(awk '/^test-integration-containers:/{f=1;next} f&&/^[^\t]/{f=0} f' "$root/mk/20-gates.mk")"
 if grep -q 'for t in scripts/tests/\*_test.sh.*DB_RESET_TEST_DOCKER=1' <<<"$integ"; then ko "test-integration re-runs every script test with the Docker flag"; else ok "test-integration does not re-run every script test"; fi
 all_flagged_run=1
 for s in $flagged; do grep -q "DB_RESET_TEST_DOCKER=1 scripts/tests/$s" <<<"$integ" || all_flagged_run=0; done
 [ -n "$flagged" ] && [ "$all_flagged_run" -eq 1 ] && ok "test-integration runs each Docker-aware script test with the flag ($flagged)" || ko "a Docker-aware script test is not run with the flag (flagged: $flagged)"
+
+# --- CI groups (ADR-0010) --------------------------------------------------------------------------
+# CI runs the gates as parallel groups. The split must lose nothing: `make lint` and `make test-integration`
+# still run every check, and the groups cover exactly the leaf steps of `make quality` (no more, no less).
+dry() { mk "$root" env -i PATH="$PATH" HOME="$HOME" make -n "$@" 2>&1; }
+steps_of() { { mk "$root" env -i PATH="$PATH" HOME="$HOME" make -s "$1" 2>/dev/null || true; } | tr ' ' '\n' | sed '/^$/d' | sort -u | tr '\n' ' '; }
+lint_dry="$(dry lint)"
+miss=""
+for w in "gofmt" "go vet" "staticcheck" "golangci-lint" "sqlc vet" "ESLint" "Prettier" "redocly" "migration policy" "ShellCheck" "script tests"; do
+  grep -q -- "$w" <<<"$lint_dry" || miss+=" [$w]"
+done
+[ -z "$miss" ] && ok "make lint still runs every lint check after the split" || ko "make lint lost:$miss"
+integ_dry="$(dry test-integration)"
+miss=""
+for w in "-tags integration" "db-reset_test.sh" "verify-containers.sh"; do
+  grep -q -- "$w" <<<"$integ_dry" || miss+=" [$w]"
+done
+[ -z "$miss" ] && ok "make test-integration still runs the Go, script and container checks after the split" || ko "make test-integration lost:$miss"
+ci="$(steps_of ci-steps)"
+leaf="$(steps_of quality-leaf-steps)"
+if [ -n "$ci" ] && [ "$ci" = "$leaf" ]; then ok "the CI groups cover exactly the leaf steps of make quality ($ci)"; else ko "CI groups differ from the quality steps: ci=[$ci] leaf=[$leaf]"; fi
+groups="$({ mk "$root" env -i PATH="$PATH" HOME="$HOME" make -s ci-groups 2>/dev/null || true; } | tr ' ' '\n' | sed '/^$/d' | tr '\n' ' ')"
+[ -n "$groups" ] && ok "CI groups are listed ($groups)" || ko "make ci-groups prints nothing"
+for g in $groups; do
+  d="$(dry "ci-$g")"
+  if grep -q "scripts/quality.sh" <<<"$d" && grep -q "ci-$g" <<<"$d" && grep -q "doctor" <<<"$d"; then :; else ko "ci-$g does not run through the quality driver with doctor first: $d"; fi
+done
+ok "every CI group runs through the fail-closed driver, doctor first"
+docs_steps="$({ mk "$root" env -i PATH="$PATH" HOME="$HOME" make -s ci-steps SCOPE_GROUPS=repo 2>/dev/null || true; } | tr ' ' '\n' | sed '/^$/d' | sort -u | tr '\n' ' ')"
+[ "$docs_steps" = "doctor licenses security-secrets security-secrets-encrypted " ] && ok "SCOPE_GROUPS=repo narrows the expected steps to the repository group" || ko "docs-scope steps: [$docs_steps]"
+run_make make ci-no-such-group
+[ "$rc" -ne 0 ] && ok "an unknown CI group fails (no steps is not a pass)" || ko "unknown CI group passed (rc=$rc, out=$out)"
 
 finish
