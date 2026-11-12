@@ -7,3 +7,4 @@
 # not a mounted route, or when a router or route is built outside httpx.NewRouter.
 # Changing this file is a security review item: every addition needs a reviewer and a reason.
 GET /healthz   # liveness probe, no data, no session (docs/SHIP.md)
+GET /readyz    # readiness probe: pings the database, no data, no session (docs/SHIP.md, B2)

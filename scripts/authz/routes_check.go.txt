@@ -13,8 +13,10 @@
 //     and, in one declaration, names the route (a string equal to its path with parameters as %s or
 //     {name}, or the operation name) and mentions a denial status (401, 403 or 404). Package-level
 //     const and var values used by the test count (one level);
-//  3. public and authz entries must be mounted routes; unimplemented entries must be operations of
-//     the contract (apigen route table) so a typo cannot hide a route;
+//  3. public and authz entries must be mounted routes; unimplemented entries must be mounted
+//     operations of the contract, and the production server (app.NewServer) must still serve each of
+//     them with the generated apigen.Unimplemented stub (checked by calling the method directly, not
+//     through the HTTP stack, so validation and session or CSRF middleware cannot mask the answer);
 //  4. no router, mux or route registration exists outside httpx.NewRouter (go/ast scan), and the
 //     NotFound and MethodNotAllowed handlers inside it only call writeProblem (they cannot serve a path);
 //  5. the middleware chain installed by httpx.NewRouter equals router-middleware.txt: a middleware can
@@ -26,6 +28,7 @@ package httpx_test
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"go/ast"
 	"go/parser"
@@ -37,6 +40,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"reflect"
+	"runtime"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -47,6 +52,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"go.yaml.in/yaml/v3"
 
+	"github.com/Y4NN777/226os/src/api/internal/app"
 	"github.com/Y4NN777/226os/src/api/internal/platform/apigen"
 	"github.com/Y4NN777/226os/src/api/internal/platform/httpx"
 )
@@ -68,7 +74,8 @@ func TestAuthzRouteTable(t *testing.T) {
 	unimplemented := readList(t, filepath.Join(dir, fileUnimplemented), 2)
 	authz := readList(t, filepath.Join(dir, fileAuthz), 3)
 
-	handler := httpx.NewRouter(slog.New(slog.NewTextHandler(io.Discard, nil)))
+	server := app.NewServer()
+	handler := httpx.NewRouter(slog.New(slog.NewTextHandler(io.Discard, nil)), httpx.Deps{Server: server, Ready: gatePinger{}})
 	mounted := walk(t, handler)
 	if len(mounted) == 0 {
 		t.Fatal("authz-gate: the router mounts no route at all; the check cannot prove anything")
@@ -81,6 +88,8 @@ func TestAuthzRouteTable(t *testing.T) {
 	if len(contract) == 0 {
 		t.Fatal("authz-gate: the generated server mounts no operation; the contract set is empty")
 	}
+
+	opIDs := operationIDs(t, mustEnv(t, "AUTHZ_OPENAPI"))
 
 	where := map[string][]string{}
 	for file, list := range map[string][]entry{filePublic: public, fileUnimplemented: unimplemented, fileAuthz: authz} {
@@ -118,7 +127,6 @@ func TestAuthzRouteTable(t *testing.T) {
 		roots[extra] = false
 	}
 	decls := testDecls(t, mustEnv(t, "AUTHZ_TEST_FILES"), os.Getenv("AUTHZ_SCAN_EXTRA"))
-	opIDs := operationIDs(t, mustEnv(t, "AUTHZ_OPENAPI"))
 	for _, e := range authz {
 		want := authzTestPrefix
 		opID := opIDs[e.route]
@@ -144,18 +152,21 @@ func TestAuthzRouteTable(t *testing.T) {
 			t.Errorf("authz-gate: authz test %q for route %q does not exist in any _test.go file", e.test, e.route)
 		}
 	}
-	// Unimplemented entries need not be mounted yet (the mount lands in api-mount); they must be real
-	// operations, and a mounted one must really answer 501: a line left here after a slice implemented
-	// the route would otherwise exempt it from the authz-test requirement.
+	// Unimplemented entries must be real, mounted operations whose production method is still the
+	// generated stub: a line left here after a slice implemented the route would otherwise exempt it
+	// from the authz-test requirement.
 	for _, e := range unimplemented {
 		if !contract[e.route] {
 			t.Errorf("authz-gate: %q in %s is not an operation of the contract (api/openapi.yaml)", e.route, fileUnimplemented)
+			continue
 		}
-		if isMounted[e.route] {
-			if code := probe(handler, e.route); code != http.StatusNotImplemented {
-				t.Errorf("authz-gate: route %q is listed in %s but answers %d, want 501: remove it there and add it to %s or %s",
-					e.route, fileUnimplemented, code, filePublic, fileAuthz)
-			}
+		if !isMounted[e.route] {
+			t.Errorf("authz-gate: %s lists %q but that route is not mounted", fileUnimplemented, e.route)
+			continue
+		}
+		if note := notStub(server, opIDs[e.route]); note != "" {
+			t.Errorf("authz-gate: route %q is listed in %s but %s: remove it there and add it to %s or %s",
+				e.route, fileUnimplemented, note, filePublic, fileAuthz)
 		}
 	}
 
@@ -172,16 +183,46 @@ func TestAuthzRouteTable(t *testing.T) {
 	}
 }
 
-var pathParam = regexp.MustCompile(`\{[^}]+\}`)
+// gatePinger is the readiness dependency of the router under test.
+type gatePinger struct{}
 
-// probe serves one request for route (path parameters filled with a UUID, no body, no session) and
-// returns the status code.
-func probe(h http.Handler, route string) int {
-	method, path, _ := strings.Cut(route, " ")
-	path = pathParam.ReplaceAllString(path, "0190c3f2-7a3b-7c1e-8a5d-3b1f2c4d5e6f")
+func (gatePinger) Ping(context.Context) error { return nil }
+
+// notStub calls the production method of operationID directly with a recorder, a bare request and
+// zero values for every other parameter. It returns "" when the method is still the generated
+// apigen.Unimplemented stub (it answers 501), else a description of what it did instead (a panic on
+// the nil dependencies of the zero-value call also means the method is real code).
+func notStub(server any, opID string) (note string) {
+	if opID == "" {
+		return "its operation id is unknown"
+	}
+	name := strings.ToUpper(opID[:1]) + opID[1:]
+	m := reflect.ValueOf(server).MethodByName(name)
+	if !m.IsValid() {
+		return "the production server has no method " + name
+	}
+	// A method promoted from the embedded apigen.Unimplemented is compiler-generated ("<autogenerated>");
+	// a method the production server declares itself has a real source file, whatever it answers.
+	mt, _ := reflect.TypeOf(server).MethodByName(name)
+	pc := mt.Func.Pointer()
+	if file, _ := runtime.FuncForPC(pc).FileLine(pc); file != "<autogenerated>" {
+		return "the production server declares its own " + name + " (" + file + ")"
+	}
 	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, httptest.NewRequest(method, path, nil))
-	return rec.Code
+	args := []reflect.Value{reflect.ValueOf(http.ResponseWriter(rec)), reflect.ValueOf(httptest.NewRequest(http.MethodGet, "/", nil))}
+	for i := 2; i < m.Type().NumIn(); i++ {
+		args = append(args, reflect.Zero(m.Type().In(i)))
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			note = fmt.Sprintf("the production method is real code (it panicked on a zero-value call: %v)", r)
+		}
+	}()
+	m.Call(args)
+	if rec.Code != http.StatusNotImplemented {
+		return fmt.Sprintf("the production method answers %d, not 501", rec.Code)
+	}
+	return ""
 }
 
 // testFunc is one top-level func(*testing.T) named Test... found in a test file the toolchain builds.
@@ -608,6 +649,17 @@ func checkMiddleware(t *testing.T, path string, installed []string) {
 			t.Errorf("authz-gate: %s lists %q but httpx.NewRouter does not install it", fileMiddleware, m)
 		}
 	}
+	// The same set is not enough: the order decides what runs first (apigen runs the last element of
+	// Middlewares first), so a reordering must be reviewed too.
+	if len(listed) == len(installed) && !t.Failed() {
+		for i := range listed {
+			if listed[i] != installed[i] {
+				t.Errorf("authz-gate: %s has %q at position %d but httpx.NewRouter installs %q there: the order of the middleware chain is part of the review",
+					fileMiddleware, listed[i], i+1, installed[i])
+				break
+			}
+		}
+	}
 }
 
 // isGenerated honours the standard marker only above the package clause, as the Go tools do.
@@ -659,6 +711,19 @@ func scanFile(fset *token.FileSet, file *ast.File, inHTTPX bool) ([]finding, []s
 				// The one function allowed to build and register. Its NotFound and MethodNotAllowed
 				// handlers still must not answer a path themselves: chi.Walk cannot see that.
 				ast.Inspect(fn, func(n ast.Node) bool {
+					// Middleware installed through apigen.ChiServerOptions is as invisible to chi.Walk as r.Use.
+					if kv, ok := n.(*ast.KeyValueExpr); ok {
+						if key, ok := kv.Key.(*ast.Ident); ok && (key.Name == "Middlewares" || key.Name == "HandlerMiddlewares") {
+							if lit, ok := kv.Value.(*ast.CompositeLit); ok {
+								for _, e := range lit.Elts {
+									middleware = append(middleware, key.Name+": "+types.ExprString(e))
+								}
+							} else {
+								middleware = append(middleware, key.Name+": "+types.ExprString(kv.Value))
+							}
+						}
+						return true
+					}
 					call, ok := n.(*ast.CallExpr)
 					if !ok {
 						return true
@@ -666,6 +731,13 @@ func scanFile(fset *token.FileSet, file *ast.File, inHTTPX bool) ([]finding, []s
 					sel, ok := call.Fun.(*ast.SelectorExpr)
 					if !ok {
 						return true
+					}
+					if routeMethods[sel.Sel.Name] && isRegistration(sel.Sel.Name, call.Args) {
+						if lit, ok := call.Args[0].(*ast.BasicLit); ok {
+							if v, _ := strconv.Unquote(lit.Value); strings.HasPrefix(v, apiPrefix) {
+								report(call, "NewRouter registers "+v+" directly: the "+apiPrefix+" prefix belongs to the apigen mount (a direct route could shadow a stub)")
+							}
+						}
 					}
 					switch sel.Sel.Name {
 					case "NotFound", "MethodNotAllowed":

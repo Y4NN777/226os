@@ -23,6 +23,7 @@
 #   --router-override FILE  compile FILE instead of router.go
 #   --lists-dir DIR         read the three list files from DIR instead of scripts/
 #   --scan-extra DIR        also scan DIR for routes built outside NewRouter and for Test functions
+#   --server-override FILE  compile FILE instead of src/api/internal/app/server.go (an implemented operation)
 #   --scan-extra-module DIR a scratch Go module whose test files count like the project's
 #   --test-run-pattern RE   run another go test pattern (proves a run that matches nothing is not a pass)
 set -euo pipefail
@@ -41,6 +42,7 @@ override=""
 scan_extra=""
 run_pattern='^TestAuthzRouteTable$'
 scan_module=""
+server_override=""
 
 abs() { (cd "$1" && pwd); }
 while [ $# -gt 0 ]; do
@@ -60,6 +62,11 @@ while [ $# -gt 0 ]; do
       scan_extra="$(abs "$2")"
       shift 2
       ;;
+    --server-override)
+      [ -f "${2-}" ] || { printf 'check-authz-routes: server override file not found: %s\n' "${2-}" >&2; exit 2; }
+      server_override="$(abs "$(dirname "$2")")/$(basename "$2")"
+      shift 2
+      ;;
     --scan-extra-module)
       [ -f "${2-}/go.mod" ] || { printf 'check-authz-routes: scan module not found: %s\n' "${2-}" >&2; exit 2; }
       scan_module="$(abs "$2")"
@@ -70,7 +77,7 @@ while [ $# -gt 0 ]; do
       run_pattern="$2"
       shift 2
       ;;
-    *) printf 'usage: %s [--router-override FILE] [--lists-dir DIR] [--scan-extra DIR] [--test-run-pattern RE] [--scan-extra-module DIR]\n' "$0" >&2; exit 64 ;;
+    *) printf 'usage: %s [--router-override FILE] [--lists-dir DIR] [--scan-extra DIR] [--test-run-pattern RE] [--scan-extra-module DIR] [--server-override FILE]\n' "$0" >&2; exit 64 ;;
   esac
 done
 
@@ -84,6 +91,7 @@ trap 'rm -rf "$tmp"' EXIT
 {
   printf '{"Replace":{"%s":"%s"' "$pkgdir/zz_authz_routes_test.go" "$check_src"
   [ -n "$override" ] && printf ',"%s":"%s"' "$pkgdir/router.go" "$override"
+  [ -n "$server_override" ] && printf ',"%s":"%s"' "$root/src/api/internal/app/server.go" "$server_override"
   printf '}}\n'
 } >"$tmp/overlay.json"
 
@@ -110,7 +118,12 @@ done
 rc=0
 AUTHZ_TEST_FILES="$tmp/testfiles.txt" AUTHZ_OPENAPI="$root/api/openapi.yaml" AUTHZ_ROUTER_OVERRIDE="$override" AUTHZ_LISTS_DIR="$listdir" AUTHZ_SCAN_ROOT="$root/src/api" AUTHZ_SCAN_EXTRA="$scan_extra" \
   go test -count=1 -v -run "$run_pattern" -overlay "$tmp/overlay.json" "$pkg" >"$tmp/out.txt" 2>&1 || rc=$?
-grep -E 'route |mounted routes|authz-gate|^(---|FAIL|ok|panic)' "$tmp/out.txt" || cat "$tmp/out.txt"
+# A build failure has no "--- " test line: show the compiler output in full, never a filtered tail.
+if grep -q -- '^--- ' "$tmp/out.txt"; then
+  grep -E 'route |mounted routes|authz-gate|^(---|FAIL|ok|panic)' "$tmp/out.txt" || true
+else
+  cat "$tmp/out.txt"
+fi
 
 if [ "$rc" -ne 0 ]; then
   printf 'check-authz-routes: FAIL (a mounted route is not in exactly one of the three lists, a named authz test is missing, a router is built outside httpx.NewRouter, or the check could not run)\n' >&2

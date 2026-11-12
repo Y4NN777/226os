@@ -53,6 +53,7 @@ POSTGRES_USER=app226
 POSTGRES_DB=app226
 POSTGRES_PASSWORD=dummy-not-a-secret
 DATABASE_URL=postgres://app226:dummy-not-a-secret@postgres:5432/app226?sslmode=disable
+CURSOR_KEY=ZHVtbXktbm90LWEtc2VjcmV0LWR1bW15LW5vdC1hLXNlY3JldA
 PUBLIC_HOST=verify.example.test
 ACME_EMAIL=ops@example.test
 ENV
@@ -112,8 +113,15 @@ for name, s in svcs.items():
         errs.append(f"{name} APP_ENV={env['APP_ENV']} != profile {profile}")
 if not cfg["networks"]["backend"].get("internal"):
     errs.append("backend network is not internal")
-if "api" in svcs and "DATABASE_URL" in (svcs["api"].get("environment") or {}):
-    errs.append("api receives DATABASE_URL before it has database code")
+# The API has database code (S0): it must receive its two secrets, and no other service may get the
+# cursor-signing key.
+api_env = (svcs.get("api") or {}).get("environment") or {}
+for var in ("DATABASE_URL", "CURSOR_KEY"):
+    if "api" in svcs and var not in api_env:
+        errs.append(f"api does not receive {var}")
+for name, s in svcs.items():
+    if name != "api" and "CURSOR_KEY" in (s.get("environment") or {}):
+        errs.append(f"{name} receives CURSOR_KEY (the API only)")
 expected = {"local-dev": {"postgres", "migrate", "api", "web", "traefik-local"},
             "staging-test": {"postgres", "api", "web", "traefik", "acme-init"},
             "production-live": {"postgres", "api", "web", "traefik", "acme-init"}}[profile]

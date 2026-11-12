@@ -87,7 +87,8 @@ services:
     environment:
       APP_ENV: ${APP_ENV:?set APP_ENV}
       API_ADDR: ":8080"
-    # DATABASE_URL is deliberately not passed yet: the API has no database code (B0).
+      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL}
+      CURSOR_KEY: ${CURSOR_KEY:?set CURSOR_KEY}
     networks: [edge, backend]
     healthcheck:
       # Distroless has no shell; busybox wget is copied into the image just for this probe.
