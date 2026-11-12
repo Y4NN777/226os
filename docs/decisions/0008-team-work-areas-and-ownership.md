@@ -1,8 +1,8 @@
 # ADR-0008 — Team work areas and ownership for P0
 
-- **Status:** PROPOSED (not in force until the owner sets it to ACCEPTED)
+- **Status:** ACCEPTED
 - **Date:** 2026-11-12
-- **Approver:** `Y4NN77`, repository owner (pending)
+- **Approver:** `Y4NN77`, repository owner (accepted 2026-11-12; slice assignments, helpers and reviewer pairs are kept in `ROADMAP.md` section 4 and `TODO.md`)
 - **Scope:** who owns which work area during the rest of P0 now that the team has four members; amends the interim ownership of [ADR-0002](0002-interim-single-maintainer-ownership.md)
 - **Related:** [ADR-0002](0002-interim-single-maintainer-ownership.md), `docs/GIT_WORKFLOW.md`, `docs/DEV.md` section 6, `docs/spec-kit/TASKS.md`, `.github/CODEOWNERS`, `docs/team/CONTRIBUTORS.md`
 
