@@ -50,7 +50,7 @@ export function WelcomePage() {
       <HStack gap={3} wrap="wrap">
         <Button variant="primary" href="/discover" label={t('identity.welcome.discover')} />
         <Button href="/recherche" label={t('identity.welcome.search')} />
-        <Button href="/settings" label={t('identity.welcome.settings')} />
+        <Button href="/parametres" label={t('identity.welcome.settings')} />
       </HStack>
     </VStack>
   );
