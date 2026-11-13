@@ -598,6 +598,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/assistant/answers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Ask the sourced assistant (answers only from published content, with citations) */
+        post: operations["askAssistant"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/moderation/{targetType}/{targetId}/hide": {
         parameters: {
             query?: never;
@@ -653,6 +670,46 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** @description A question for the sourced assistant. Only this text, after redaction of obvious secrets and emails, is sent to the provider. */
+        AssistantQuestion: {
+            question: string;
+            lang?: components["schemas"]["Lang"];
+        };
+        /** @description A published content item the answer relies on. The server only returns items that belong to the retrieved passages and are visible to the caller. */
+        AssistantSource: {
+            /** @enum {string} */
+            type: "question" | "resource" | "project" | "article" | "series";
+            id: components["schemas"]["Uuid"];
+            title: string;
+            /**
+             * Format: uri-reference
+             * @description Canonical in-app URL of the cited content.
+             */
+            url: string;
+            /** @description Publication date when known; null when the source is undated (the answer then states the uncertainty). */
+            published_at?: components["schemas"]["Timestamp"] | null;
+        };
+        /** @description The assistant reply. Always labelled AI; it is never stored as an answer and cannot be voted or accepted. */
+        AssistantAnswer: {
+            /**
+             * @description no_source means no published content matched; the provider was not called and search_url points to the search.
+             * @enum {string}
+             */
+            outcome: "answered" | "no_source";
+            /** @enum {string} */
+            generated_by: "ai";
+            /** @description Plain text or limited Markdown. No reasoning text, no guarantee about an API, no verified-solution claim. */
+            answer: string;
+            sources: components["schemas"]["AssistantSource"][];
+            /** @description The "Comment vérifier" section that ends every answer. */
+            how_to_verify: string;
+            /**
+             * Format: uri-reference
+             * @description Present when outcome is no_source.
+             */
+            search_url?: string;
+            lang: components["schemas"]["Lang"];
+        };
         /** @enum {string} */
         ModerationTargetType: "question" | "answer" | "resource" | "project" | "article" | "relation";
         ModerationReason: {
@@ -681,6 +738,11 @@ export interface components {
         Lang: "fr" | "en";
         Slug: string;
         TagSlug: string;
+        /**
+         * @description learn_topics.code. Matches the database check learn_topics_code_ck.
+         * @example payments
+         */
+        TopicCode: string;
         /**
          * @description ISO 3166-1 alpha-2.
          * @example BF
@@ -722,6 +784,12 @@ export interface components {
         SearchGroup: "questions" | "resources" | "projects" | "learn";
         /** @enum {string} */
         FieldVisibility: "public" | "members" | "private";
+        /**
+         * @description Who may open this profile page. A new profile defaults to public. On a JSON Merge Patch, omitting the field leaves the stored value unchanged.
+         * @default public
+         * @enum {string}
+         */
+        ProfileVisibility: "public" | "members" | "private";
         /**
          * @description Onboarding intent (values from the prototype welcome step plus learn).
          * @enum {string}
@@ -835,6 +903,7 @@ export interface components {
                 skills?: components["schemas"]["FieldVisibility"];
                 github?: components["schemas"]["FieldVisibility"];
             };
+            profile_visibility: components["schemas"]["ProfileVisibility"];
             /** @description Checklist fields still unset (derived, read-only). */
             readonly checklist_missing: components["schemas"]["ProfileField"][];
             updated_at?: components["schemas"]["Timestamp"];
@@ -857,6 +926,7 @@ export interface components {
                 skills?: components["schemas"]["FieldVisibility"];
                 github?: components["schemas"]["FieldVisibility"];
             };
+            profile_visibility?: components["schemas"]["ProfileVisibility"];
         };
         /** @description Visibility-filtered: fields hidden by field_visibility for this caller are omitted. Never contains email. */
         PublicProfile: {
@@ -868,6 +938,7 @@ export interface components {
             skills?: components["schemas"]["TagSlug"][];
             github?: string | null;
             open_to_collab?: boolean;
+            profile_visibility: components["schemas"]["ProfileVisibility"];
             joined_at: components["schemas"]["Timestamp"];
         };
         AuthorRef: {
@@ -1174,6 +1245,8 @@ export interface components {
             body_md: string;
             lang: components["schemas"]["Lang"];
             level: components["schemas"]["Level"];
+            /** @description Optional learn_topics.code. Omit it when the article has no topic. */
+            topic?: components["schemas"]["TopicCode"];
             tags: components["schemas"]["TagSlug"][];
             /**
              * @description Creating as draft needs no verified email; publishing does (403 EMAIL_NOT_VERIFIED).
@@ -2738,8 +2811,8 @@ export interface operations {
                 limit?: components["parameters"]["Limit"];
                 q?: string;
                 type?: components["schemas"]["ArticleType"];
-                /** @description Topic slug (matches an article tag). */
-                topic?: components["schemas"]["TagSlug"];
+                /** @description Topic code (learn_topics.code). */
+                topic?: components["schemas"]["TopicCode"];
                 level?: components["schemas"]["Level"];
                 /** @description Original language of the content. */
                 lang?: components["parameters"]["LangFilter"];
@@ -2840,6 +2913,8 @@ export interface operations {
                 limit?: components["parameters"]["Limit"];
                 /** @description Original language of the content. */
                 lang?: components["parameters"]["LangFilter"];
+                /** @description Topic code (learn_topics.code). */
+                topic?: components["schemas"]["TopicCode"];
                 level?: components["schemas"]["Level"];
             };
             header?: never;
@@ -2987,6 +3062,39 @@ export interface operations {
             422: components["responses"]["Unprocessable"];
             429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalError"];
+        };
+    };
+    askAssistant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Strict JSON body; unknown fields rejected. */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssistantQuestion"];
+            };
+        };
+        responses: {
+            /** @description A sourced answer, or a refusal for lack of sources */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssistantAnswer"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            413: components["responses"]["PayloadTooLarge"];
+            422: components["responses"]["Unprocessable"];
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     hideContent: {
