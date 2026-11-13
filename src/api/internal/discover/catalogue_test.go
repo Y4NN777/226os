@@ -23,7 +23,7 @@ func TestNewHandler(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if NewHandler(stubDB{}, c, nil) == nil {
+	if NewHandler(stubDB{}, c, nil, nil) == nil {
 		t.Fatal("nil handler")
 	}
 }

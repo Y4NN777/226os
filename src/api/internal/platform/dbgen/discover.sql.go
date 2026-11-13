@@ -195,6 +195,54 @@ func (q *Queries) CatalogueSDKs(ctx context.Context, ids []pgtype.UUID) ([]Catal
 	return items, nil
 }
 
+const createErrorReport = `-- name: CreateErrorReport :one
+INSERT INTO error_reports (resource_id, reporter_id, kind, message, source_id)
+SELECT r.id, $1::uuid, $2::text, $3::text, $4::uuid
+FROM resources r
+JOIN providers p ON p.id = r.provider_id AND p.status = 'published' AND p.removed_at IS NULL
+WHERE r.id = $5::uuid AND r.status = 'published'
+ON CONFLICT DO NOTHING
+RETURNING id, resource_id, kind, status, created_at
+`
+
+type CreateErrorReportParams struct {
+	ReporterID pgtype.UUID
+	Kind       string
+	Message    string
+	SourceID   pgtype.UUID
+	ResourceID pgtype.UUID
+}
+
+type CreateErrorReportRow struct {
+	ID         pgtype.UUID
+	ResourceID pgtype.UUID
+	Kind       string
+	Status     string
+	CreatedAt  pgtype.Timestamptz
+}
+
+// Inserts one open report for a published resource with a published, non-removed provider.
+// No row means the resource is not visible OR an open report of the same (resource, reporter, kind)
+// exists (error_reports_open_uq). A source_id of another resource is rejected by error_reports_source_fk.
+func (q *Queries) CreateErrorReport(ctx context.Context, arg CreateErrorReportParams) (CreateErrorReportRow, error) {
+	row := q.db.QueryRow(ctx, createErrorReport,
+		arg.ReporterID,
+		arg.Kind,
+		arg.Message,
+		arg.SourceID,
+		arg.ResourceID,
+	)
+	var i CreateErrorReportRow
+	err := row.Scan(
+		&i.ID,
+		&i.ResourceID,
+		&i.Kind,
+		&i.Status,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getCatalogueEntry = `-- name: GetCatalogueEntry :one
 SELECT r.id, r.slug, r.name, r.type, r.category_code, r.summary, r.doc_languages,
        r.docs_url, r.verification_status, r.verified_at, r.updated_at, r.verified_source_id,
@@ -244,6 +292,43 @@ func (q *Queries) GetCatalogueEntry(ctx context.Context, id pgtype.UUID) (GetCat
 		&i.ProviderName,
 		&i.ProviderUrl,
 		&i.SourceCount,
+	)
+	return i, err
+}
+
+const getOpenErrorReport = `-- name: GetOpenErrorReport :one
+SELECT e.id, e.resource_id, e.kind, e.status, e.created_at
+FROM error_reports e
+JOIN resources r ON r.id = e.resource_id AND r.status = 'published'
+JOIN providers p ON p.id = r.provider_id AND p.status = 'published' AND p.removed_at IS NULL
+WHERE e.resource_id = $1 AND e.reporter_id = $2 AND e.kind = $3 AND e.status IN ('received', 'triaged')
+`
+
+type GetOpenErrorReportParams struct {
+	ResourceID pgtype.UUID
+	ReporterID pgtype.UUID
+	Kind       string
+}
+
+type GetOpenErrorReportRow struct {
+	ID         pgtype.UUID
+	ResourceID pgtype.UUID
+	Kind       string
+	Status     string
+	CreatedAt  pgtype.Timestamptz
+}
+
+// The existing open report (received or triaged) of the same resource, reporter and kind, only while
+// the resource is still visible.
+func (q *Queries) GetOpenErrorReport(ctx context.Context, arg GetOpenErrorReportParams) (GetOpenErrorReportRow, error) {
+	row := q.db.QueryRow(ctx, getOpenErrorReport, arg.ResourceID, arg.ReporterID, arg.Kind)
+	var i GetOpenErrorReportRow
+	err := row.Scan(
+		&i.ID,
+		&i.ResourceID,
+		&i.Kind,
+		&i.Status,
+		&i.CreatedAt,
 	)
 	return i, err
 }

@@ -17,7 +17,7 @@ func (stubDB) Query(context.Context, string, ...any) (pgx.Rows, error) { return 
 func (stubDB) QueryRow(context.Context, string, ...any) pgx.Row        { return nil }
 
 func TestNewHandler(t *testing.T) {
-	if NewHandler(stubDB{}, nil) == nil {
+	if NewHandler(stubDB{}, nil, nil) == nil {
 		t.Fatal("nil handler")
 	}
 }

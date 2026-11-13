@@ -16,12 +16,9 @@ GET /api/v1/learn/series   # listTrainingSeries
 GET /api/v1/learn/series/{seriesId}   # getTrainingSeries
 GET /api/v1/learn/series/{seriesId}/lessons/{lessonId}/progress   # getLessonProgress (P1)
 PUT /api/v1/learn/series/{seriesId}/lessons/{lessonId}/progress   # putLessonProgress (P1)
-GET /api/v1/me   # getMe
-PATCH /api/v1/me/profile   # updateMyProfile
 POST /api/v1/moderation/error-reports/{reportId}/resolve   # resolveErrorReport
 POST /api/v1/moderation/{targetType}/{targetId}/hide   # hideContent
 POST /api/v1/moderation/{targetType}/{targetId}/restore   # restoreContent
-GET /api/v1/profiles/{username}   # getProfile
 GET /api/v1/projects   # listProjects
 POST /api/v1/projects   # createProject
 GET /api/v1/projects/{projectId}   # getProject
@@ -37,7 +34,6 @@ POST /api/v1/questions/{questionId}/accept   # acceptAnswer
 GET /api/v1/questions/{questionId}/answers   # listAnswers
 POST /api/v1/questions/{questionId}/answers   # createAnswer
 POST /api/v1/questions/{questionId}/unaccept   # unacceptAnswer
-POST /api/v1/resources/{resourceId}/error-reports   # createResourceErrorReport
 GET /api/v1/resources/{resourceId}/reviews   # listResourceReviews (P1)
 POST /api/v1/resources/{resourceId}/reviews   # createResourceReview (P1)
 DELETE /api/v1/votes   # retractVote

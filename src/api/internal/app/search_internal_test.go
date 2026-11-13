@@ -1,10 +1,12 @@
 package app
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/Y4NN777/226os/src/api/internal/platform/apigen"
 	"github.com/Y4NN777/226os/src/api/internal/platform/httpx"
@@ -20,7 +22,7 @@ func TestSearchStaysUnimplementedWithoutAHandler(t *testing.T) {
 }
 
 func TestSearchDelegatesWhenSet(t *testing.T) {
-	s := NewServer(WithSearch(search.NewHandler(&fakePool{}, nil)))
+	s := NewServer(WithSearch(search.NewHandler(&fakePool{}, allowLimiter{}, nil)))
 	rec := httptest.NewRecorder()
 	// q is one rune: the real handler answers 422, never the 501 of the unwired route.
 	s.Search(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil), apigen.SearchParams{Q: "a"})
@@ -31,7 +33,7 @@ func TestSearchDelegatesWhenSet(t *testing.T) {
 
 // Through the real router, the contract validation answers before the handler runs.
 func TestSearchRouteStatuses(t *testing.T) {
-	routed := httpx.NewRouter(slog.New(slog.DiscardHandler), newDeps(&fakePool{}, WithSearch(search.NewHandler(&fakePool{}, nil))))
+	routed := httpx.NewRouter(slog.New(slog.DiscardHandler), newDeps(&fakePool{}, WithSearch(search.NewHandler(&fakePool{}, allowLimiter{}, nil))))
 	unwired := httpx.NewRouter(slog.New(slog.DiscardHandler), newDeps(&fakePool{}))
 	tests := []struct {
 		name   string
@@ -56,4 +58,11 @@ func TestSearchRouteStatuses(t *testing.T) {
 			}
 		})
 	}
+}
+
+// allowLimiter lets every request through, so route tests reach the handler.
+type allowLimiter struct{}
+
+func (allowLimiter) Hit(context.Context, string, string, int, time.Duration) (bool, time.Duration, error) {
+	return true, 0, nil
 }

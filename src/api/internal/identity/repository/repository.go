@@ -22,13 +22,21 @@ import (
 
 const queryTimeout = 2 * time.Second
 
+// Beginner is a DBTX that can also open a transaction: *pgxpool.Pool and
+// *pgx.Conn both satisfy it through Begin.
+type Beginner interface {
+	dbgen.DBTX
+	Begin(ctx context.Context) (pgx.Tx, error)
+}
+
 // Repository is the sqlc adapter for the identity Store port.
 type Repository struct {
-	q *dbgen.Queries
+	db Beginner
+	q  *dbgen.Queries
 }
 
 // New returns a repository over db (a *pgxpool.Pool or *pgx.Conn in tests).
-func New(db dbgen.DBTX) *Repository { return &Repository{q: dbgen.New(db)} }
+func New(db Beginner) *Repository { return &Repository{db: db, q: dbgen.New(db)} }
 
 var _ service.Store = (*Repository)(nil)
 

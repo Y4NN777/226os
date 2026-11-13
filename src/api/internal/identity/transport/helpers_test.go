@@ -35,6 +35,13 @@ func withSubject(req *http.Request, role string) context.Context {
 	})
 }
 
+// withSubjectID is withSubject for a specific account id.
+func withSubjectID(req *http.Request, userID, role string) context.Context {
+	return subject.With(req.Context(), subject.Subject{
+		UserID: userID, Roles: []string{role},
+	})
+}
+
 // op is the handler shape every S1 auth operation shares.
 type op func(http.ResponseWriter, *http.Request)
 

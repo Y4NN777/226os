@@ -125,6 +125,7 @@ func TestConstraintViolations(t *testing.T) {
 		{name: "second triaged error report", setup: []string{`UPDATE error_reports SET status = 'triaged'`},
 			stmt: `INSERT INTO error_reports (resource_id, reporter_id, kind) VALUES ('` + rKal + `', '` + uBob + `', 'broken_link')`, code: uniqueViol, constraint: "error_reports_open_uq"},
 		{name: "error report resolved without handler", stmt: `UPDATE error_reports SET status = 'resolved' WHERE id = '` + erKal + `'`, code: checkViol, constraint: "error_reports_handled_ck"},
+		{name: "error report on a source of another resource", stmt: `INSERT INTO error_reports (resource_id, reporter_id, kind, source_id) VALUES ('` + rKal + `', '` + uBob + `', 'outdated', '` + rsSahel + `')`, code: fkViol, constraint: "error_reports_source_fk"},
 		{name: "error report kind", stmt: `UPDATE error_reports SET kind = 'spam' WHERE id = '` + erKal + `'`, code: checkViol, constraint: "error_reports_kind_ck"},
 
 		// build

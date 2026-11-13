@@ -32,6 +32,8 @@ type fakeStore struct {
 	failHits          bool
 	failSessionLookup bool
 	failRevoke        bool
+	profiles          map[string]domain.ProfileRecord // by username
+	tagIDs            map[string]string               // skill slug -> tag id
 }
 
 type verifRow struct {
@@ -45,7 +47,8 @@ func newFakeStore() *fakeStore {
 		accounts: map[string]domain.Account{}, byEmail: map[string]string{},
 		sessions: map[string]domain.Session{}, byToken: map[[32]byte]string{},
 		verifs: map[[32]byte]verifRow{}, resets: map[[32]byte]verifRow{},
-		buckets: map[string]int{},
+		buckets: map[string]int{}, profiles: map[string]domain.ProfileRecord{},
+		tagIDs: map[string]string{},
 	}
 }
 
@@ -197,6 +200,93 @@ func (f *fakeStore) Hit(_ context.Context, scope string, key [32]byte, limit int
 	}
 	f.buckets[k]++
 	return true, 0, nil
+}
+
+// ---------- profiles ----------
+
+func (f *fakeStore) ProfileByUserID(_ context.Context, userID string) (domain.Profile, error) {
+	for _, rec := range f.profiles {
+		if rec.UserID == userID {
+			return rec.Profile, nil
+		}
+	}
+	return domain.Profile{}, domain.ErrNotFound
+}
+
+func (f *fakeStore) ProfileByUsername(_ context.Context, username string) (domain.ProfileRecord, error) {
+	rec, ok := f.profiles[username]
+	if !ok {
+		return domain.ProfileRecord{}, domain.ErrNotFound
+	}
+	return rec, nil
+}
+
+func (f *fakeStore) ResolveSkillSlugs(_ context.Context, slugs []string) ([]string, error) {
+	ids := make([]string, 0, len(slugs))
+	for _, s := range slugs {
+		if id, ok := f.tagIDs[s]; ok {
+			ids = append(ids, id)
+		}
+	}
+	return ids, nil
+}
+
+func (f *fakeStore) UpdateProfile(_ context.Context, userID string, w domain.ProfileWrite) error {
+	for name, rec := range f.profiles {
+		if rec.UserID != userID {
+			continue
+		}
+		p := &rec.Profile
+		if w.DisplayName.Present && w.DisplayName.Value != nil {
+			p.DisplayName = *w.DisplayName.Value
+		}
+		setStr := func(dst **string, f2 domain.PatchField[string]) {
+			if f2.Present {
+				*dst = f2.Value
+			}
+		}
+		setStr(&p.Intent, w.Intent)
+		setStr(&p.CountryCode, w.CountryCode)
+		setStr(&p.GitHub, w.GitHub)
+		setStr(&p.Bio, w.Bio)
+		if w.Languages.Present {
+			if w.Languages.Value == nil {
+				p.Languages = []string{}
+			} else {
+				p.Languages = *w.Languages.Value
+			}
+		}
+		if w.OpenToCollab.Present && w.OpenToCollab.Value != nil {
+			p.OpenToCollab = *w.OpenToCollab.Value
+		}
+		setVis := func(dst *domain.Visibility, f2 domain.PatchField[domain.Visibility]) {
+			if f2.Present && f2.Value != nil {
+				*dst = *f2.Value
+			}
+		}
+		setVis(&p.VisCountry, w.VisCountry)
+		setVis(&p.VisLanguages, w.VisLanguages)
+		setVis(&p.VisSkills, w.VisSkills)
+		setVis(&p.VisGitHub, w.VisGitHub)
+		setVis(&p.VisBio, w.VisBio)
+		setVis(&p.Visibility, w.Visibility)
+		if w.SkillTagIDs.Present {
+			p.Skills = []string{}
+			if w.SkillTagIDs.Value != nil && *w.SkillTagIDs.Value != nil {
+				for _, id := range *w.SkillTagIDs.Value {
+					for slug, tid := range f.tagIDs {
+						if tid == id {
+							p.Skills = append(p.Skills, slug)
+						}
+					}
+				}
+			}
+		}
+		rec.Profile = *p
+		f.profiles[name] = rec
+		return nil
+	}
+	return domain.ErrNotFound
 }
 
 // newAccount builds a service.NewAccount with a syntactically valid PHC hash

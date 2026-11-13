@@ -37,15 +37,15 @@ func TestFreshMigrationToHead(t *testing.T) {
 	defer func() { _ = db.Close() }()
 	p, err := newProvider(db, migrationsFS(t))
 	if err != nil {
-		t.Fatalf("goose provider (expected migrations 00001..00012 in db/migrations): %v", err)
+		t.Fatalf("goose provider (expected migrations 00001..00013 in db/migrations): %v", err)
 	}
 
 	results, err := p.Up(ctx)
 	if err != nil {
 		t.Fatalf("goose up on an empty database: %v", err)
 	}
-	if len(results) != 12 {
-		t.Fatalf("applied %d migrations, want 12", len(results))
+	if len(results) != 13 {
+		t.Fatalf("applied %d migrations, want 13", len(results))
 	}
 	for i, r := range results {
 		if r.Source.Version != int64(i+1) {
@@ -55,8 +55,8 @@ func TestFreshMigrationToHead(t *testing.T) {
 			t.Errorf("migration %d: %v", r.Source.Version, r.Error)
 		}
 	}
-	if v, err := p.GetDBVersion(ctx); err != nil || v != 12 {
-		t.Fatalf("GetDBVersion = %d, %v; want 12", v, err)
+	if v, err := p.GetDBVersion(ctx); err != nil || v != 13 {
+		t.Fatalf("GetDBVersion = %d, %v; want 13", v, err)
 	}
 
 	// Second run is a no-op.
@@ -65,7 +65,7 @@ func TestFreshMigrationToHead(t *testing.T) {
 		t.Fatalf("second Up = %d results, %v; want no-op", len(again), err)
 	}
 
-	// goose version table: baseline row 0 plus versions 1..12, all applied.
+	// goose version table: baseline row 0 plus versions 1..13, all applied.
 	rows, err := db.QueryContext(ctx, `SELECT version_id FROM goose_db_version WHERE is_applied ORDER BY version_id`)
 	if err != nil {
 		t.Fatal(err)
@@ -82,7 +82,7 @@ func TestFreshMigrationToHead(t *testing.T) {
 	if err := rows.Err(); err != nil {
 		t.Fatal(err)
 	}
-	if want := []int64{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12}; !slices.Equal(got, want) {
+	if want := []int64{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13}; !slices.Equal(got, want) {
 		t.Fatalf("goose_db_version applied = %v, want %v", got, want)
 	}
 }
@@ -285,8 +285,8 @@ func TestUpgradeFromVersion10KeepsExistingRows(t *testing.T) {
 	if _, err := p.Up(ctx); err != nil {
 		t.Fatalf("upgrade to head: %v", err)
 	}
-	if v, err := p.GetDBVersion(ctx); err != nil || v != 12 {
-		t.Fatalf("head version = %d, %v; want 12", v, err)
+	if v, err := p.GetDBVersion(ctx); err != nil || v != 13 {
+		t.Fatalf("head version = %d, %v; want 13", v, err)
 	}
 
 	var visibility string
