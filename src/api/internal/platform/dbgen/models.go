@@ -122,6 +122,7 @@ type ErrorReport struct {
 	HandledBy  pgtype.UUID
 	HandledAt  pgtype.Timestamptz
 	CreatedAt  pgtype.Timestamptz
+	SourceID   pgtype.UUID
 }
 
 type IdempotencyKey struct {

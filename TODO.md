@@ -19,7 +19,7 @@ One line per person. Each person edits only their own line.
 |---|---|---|
 | `Y4NN777` | S0 is merged (PRs #31 to #36, see Done log). Owner tasks: H6 and H7 (Datacloud, DNS), H12 (V2 quotas), issue #46 (collaborators' age keys). Build: S6 moderation, B4 release workflow, the S9 contract PR (R7) and the S9 backend. Review S1 and S0 follow-ups with `NICE-DEV226`. | 2026-11-12 |
 | `NICE-DEV226` | Identity confirmed (H1 done). S0 is merged: start S1 (RED tests for the domain and service with fakes, then the handlers on the merged S0 base). Then S3; then help on S5 (default), the S9 second developer, and the E5 backend if time allows. | 2026-11-12 |
-| `mibienpanjoe` | Catalogue reads merged (PR #83). S1 PR #89 reviewed and approved. Now: S2 search core on `feature/discover/search` (C4 PROPOSED option 1). Error reports and the search 429 wait for #89. | 2026-11-13 |
+| `mibienpanjoe` | Catalogue reads (PR #83) and search core (PR #92, C4 DECIDED option 1) merged. Now: error reports and the search 429 on `feature/discover/error-reports`; reviewing #90 and #94. | 2026-11-13 |
 | `PANK4SS` | Identity confirmed (H1 done). **Accept the repository invitation (H2) before pushing.** S7 shell, i18n, shared components and pillar navigation on typed fixtures from `src/web/src/api/schema.d.ts`; SEED fixtures (`local-dev` only, C15). Later E4, the E5 UI, on-demand support. | 2026-11-12 |
 
 ## Open CADEV checklist and owner decisions
@@ -64,6 +64,7 @@ Open owner items outside CADEV (IDs and decisions in ROADMAP section 8, 10 and 1
 - [x] **Session resolver port with an anonymous default** (S0, PR #33). Used by optional-session reads: `listProjects`, `getProject`, `listContributionNeeds`, `getTrainingSeries`, `getProfile`, `search`, `getSession`.
 - [ ] **Session resolver, session-backed implementation** (S1 provides it; S0 only has the anonymous default).
 - [ ] **PostgreSQL rate limiter** (`rate_limit_buckets`, ADR-0003 windows). S1 builds it as a reusable port; other scopes: anonymous search 60/IP/min (S2); authenticated writes 60/user/min (S3, S4, S5); GitHub import 10/user/hour (S5); assistant (S9).
+  - 2026-11-13 (`mibienpanjoe`): DECIDED by the owner on PR #96: shared limiter `src/api/internal/platform/ratelimit` (fixed window, HKDF subkey of `CURSOR_KEY`, bounded purge whose failure never fails a hit) and `httpx.ClientIPKey`, on `feature/discover/error-reports`; used by search and error reports. Identity keeps its own limiter until a follow-up after PR #90 (`NICE-DEV226`). Authenticated writes use the one `write:user` scope (60/user/min); S3 to S5 reuse it.
 - [ ] **`EMAIL_NOT_VERIFIED` check.** S1 exposes `email_verified` on the subject, and each publishing service checks it.
 - [ ] **`links[]` relation writer and resolved-links reader** (`content_relations`, ADR-0005 point 13). `mibienpanjoe` builds the reader in S2 and the writer in S4; S3 and S5 reuse them. `links` appears in `QuestionCreate`, `QuestionUpdate`, `ProjectCreate`, `ProjectUpdate`, `ArticleCreate`. 2026-11-13: the reader is in PR #83; the writer is still S4.
 - [ ] **`audit_log` writer.** Proposal: S6 builds it; S1 security events also go to `audit_log` (DATABASE_DESIGN), so the lead decides the order.
@@ -103,9 +104,10 @@ Open owner items outside CADEV (IDs and decisions in ROADMAP section 8, 10 and 1
   - [x] `verifyEmail` (single use, 24 h, 422 `INVALID_TOKEN`) — PR #89, 2026-11-13
   - [x] `requestPasswordReset` (always 202; 3/account and 10/IP per hour) — PR #89, 2026-11-13
   - [x] `confirmPasswordReset` (30 min; revokes all the user's sessions) — PR #89, 2026-11-13
-  - [ ] `getMe` (the only place the email is returned)
-  - [ ] `updateMyProfile` (own profile; JSON Merge Patch; accepts `profile_visibility`, default `public`)
-  - [ ] `getProfile` (C14b: `members` gives anonymous 404, `private` owner only, the 404 body identical to unknown or deleted; moderators no special access; suspended users out of scope for P0)
+  - [x] `getMe` (the only place the email is returned) — PR #94 pending
+  - [x] `updateMyProfile` (own profile; JSON Merge Patch; accepts `profile_visibility`, default `public`) — PR #94 pending
+  - [x] `getProfile` (C14b: `members` gives anonymous 404, `private` owner only, the 404 body identical to unknown or deleted; moderators no special access; suspended users out of scope for P0) — PR #94 pending
+  - Known deviation: `languages` accepts only 2-3 letter codes; widen the DB check and the contract after the freeze (owner owns the contract follow-up).
 - [ ] Bylines on published content keep showing username and display name whatever `profile_visibility` says; deleted accounts show "membre supprimé" (ADR-0005 point 15).
 - [x] Argon2id m=64 MiB, t=3, p=1 with a semaphore (implemented; the target-host benchmark stays with S8, K6 check pending there).
 - [x] Cookie flags per profile (ADR-0003). [x] CSRF with `X-CSRF-Token` plus an `Origin` / `Sec-Fetch-Site` check. [x] Session timeouts: 2 h idle, 7 days absolute.
@@ -129,8 +131,11 @@ Open owner items outside CADEV (IDs and decisions in ROADMAP section 8, 10 and 1
   - [x] Review of PR #83 (2026-11-13): the batched queries for related links, discussions and SDKs keep at most 20 rows per resource (a window per resource), so one resource cannot starve the others on a page (integration test `TestCatalogueBatchedQueriesCapPerResource`, red first). A related resource leaking through an unpublished provider cannot happen: `content_relations_pair_ck` allows no resource-to-resource link. The anonymous `q` throttle waits for the S1 limiter (60/IP/min, see Shared pieces).
   - [x] `listResourceSources` (public; a stale source is never shown as verified). PR #83, 2026-11-13. A source is `verified` only when it is the resource's current verified source. No freshness window is defined, so the read does not invent `stale`.
   - [ ] `createResourceErrorReport` (member; reporter kept private; rate limited)
+    - 2026-11-13: in progress on `feature/discover/error-reports` (stacked on `feature/discover/search`). DECIDED by the owner on PR #96: a verified email is required (403 `EMAIL_NOT_VERIFIED`, stricter than the contract's `allow: member`); a repeated open report returns 201 with the existing report (no contract 409); migration `00013` adds `error_reports.source_id` with a composite FK to `resource_sources (id, resource_id)`; reports draw on the shared `write:user` budget (60 per user per minute, ADR-0003), failing closed.
   - [ ] `search` (`q` 2 to 200, C4; `per_group` 1 to 20; published and visible only; anonymous 60/IP/min)
-    - 2026-11-13: in progress on `feature/discover/search`. C4 PROPOSED (option 1): the contract keeps `maxLength: 200`; the server searches on the first 100 characters at a word boundary (ADR-0005 point 6) and echoes the original `q`. The owner confirms by merging. The anonymous 60/IP/min limit waits for the S1 rate limiter (#89).
+    - 2026-11-13: anonymous 60/IP/min limit (429 with `Retry-After`, fails open) on `feature/discover/error-reports`.
+    - 2026-11-13 (#95): a blank `q` is trimmed before the 2-character minimum and gets 422. Also in S2: related links on `getResource` now alternate outgoing links and discussions before the cap of 20 (order changed for every resource; the contract fixes none), and the catalogue `q` rejects NUL and invalid UTF-8 with 422.
+    - 2026-11-13: merged (PR #92). C4 DECIDED by the owner 2026-11-13 (option 1, PR #92): the contract keeps `maxLength: 200`; the server searches on the first 100 characters at a word boundary (ADR-0005 point 6) and echoes the original `q`. The anonymous 60/IP/min limit waits for the S1 rate limiter (#89).
 - [ ] Bounded sqlc queries with `EXPLAIN (ANALYZE, BUFFERS)` evidence and a bilingual relevance dataset (ADR-0005 point 6). 2026-11-13: the catalogue list plan is logged by `TestCatalogueReadsPublishedRowsOnly`. The relevance dataset stays with search.
 - [ ] Resolved-links reader (Shared pieces). 2026-11-13: the reader is in `getResource` on this branch. The writer stays in S4. Demo fixtures are in SEED.
 - **Tables:** `resource_categories`, `providers`, `resources`, `resource_countries`, `resource_sdk_languages`, `resource_sources`, `resource_tags`, `error_reports`, `countries`, `tags`; search reads questions, answers, projects, learn articles.
@@ -408,3 +413,4 @@ Full log and the checked items: [archive](docs/archive/tracker/TODO-archive-2026
 | 2026-11-12 | Staging secrets and AI Studio V1 to V4 results; V3 decided; README and AI wiring | #53, #56 | `Y4NN777` |
 | 2026-11-12 | Parallel CI gate groups (ADR-0010); promotions `develop` to `main` and back-merges | #57, #54, #55, #58, #59 | `Y4NN777` |
 | 2026-11-13 | S2 catalogue reads: `listResources`, `getResource`, `listResourceSources` | #83 | `mibienpanjoe` |
+| 2026-11-13 | S2 search core: `search` over four groups, C4 option 1 decided by the owner | #92 | `mibienpanjoe` |

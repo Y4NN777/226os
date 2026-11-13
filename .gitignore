@@ -11,3 +11,6 @@ reports/
 # Isolated agent worktrees (Claude Code isolation); never committed
 .claude/worktrees/
 backups/
+
+# Local agent tooling (skills, rules) — never part of a slice PR
+.devin/

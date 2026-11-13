@@ -37,7 +37,7 @@ func handler(t *testing.T, reader fakeReader) *Handler {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return New(service.New(reader, c), nil)
+	return New(service.New(reader, c), nil, nil)
 }
 
 func TestListResourcesEncodesAPage(t *testing.T) {

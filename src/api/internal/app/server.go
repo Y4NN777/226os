@@ -18,6 +18,7 @@ type Server struct {
 	apigen.Unimplemented
 	mailer    mailer.Mailer
 	catalogue *transport.Handler
+	reports   *transport.Handler
 	search    *searchtransport.Handler
 	auth      *identitytransport.Handler
 }
@@ -30,6 +31,9 @@ func WithMailer(m mailer.Mailer) Option { return func(s *Server) { s.mailer = m 
 
 // WithCatalogue sets the published-catalogue reads. Without it those routes stay 501.
 func WithCatalogue(h *transport.Handler) Option { return func(s *Server) { s.catalogue = h } }
+
+// WithErrorReports sets the member error report. Without it POST /resources/{resourceId}/error-reports stays 501.
+func WithErrorReports(h *transport.Handler) Option { return func(s *Server) { s.reports = h } }
 
 // WithSearch sets the search read. Without it GET /search stays unimplemented.
 func WithSearch(h *searchtransport.Handler) Option { return func(s *Server) { s.search = h } }
@@ -75,6 +79,15 @@ func (s *Server) ListResourceSources(w http.ResponseWriter, r *http.Request, res
 		return
 	}
 	s.catalogue.ListResourceSources(w, r, resourceID)
+}
+
+// CreateResourceErrorReport files a member's error report. A server built without WithErrorReports stays unimplemented.
+func (s *Server) CreateResourceErrorReport(w http.ResponseWriter, r *http.Request, resourceID apigen.ResourceId) {
+	if s.reports == nil {
+		s.Unimplemented.CreateResourceErrorReport(w, r, resourceID)
+		return
+	}
+	s.reports.CreateResourceErrorReport(w, r, resourceID)
 }
 
 // Search serves the grouped search. A server built without WithSearch stays unimplemented.
@@ -156,4 +169,31 @@ func (s *Server) ConfirmPasswordReset(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.auth.ConfirmPasswordReset(w, r)
+}
+
+// GetMe serves the caller's account and own profile. A server built without WithIdentity stays unimplemented.
+func (s *Server) GetMe(w http.ResponseWriter, r *http.Request) {
+	if s.auth == nil {
+		s.Unimplemented.GetMe(w, r)
+		return
+	}
+	s.auth.GetMe(w, r)
+}
+
+// UpdateMyProfile applies a JSON Merge Patch to the caller's profile. A server built without WithIdentity stays unimplemented.
+func (s *Server) UpdateMyProfile(w http.ResponseWriter, r *http.Request) {
+	if s.auth == nil {
+		s.Unimplemented.UpdateMyProfile(w, r)
+		return
+	}
+	s.auth.UpdateMyProfile(w, r)
+}
+
+// GetProfile serves a visibility-filtered public profile. A server built without WithIdentity stays unimplemented.
+func (s *Server) GetProfile(w http.ResponseWriter, r *http.Request, username apigen.Username) {
+	if s.auth == nil {
+		s.Unimplemented.GetProfile(w, r, username)
+		return
+	}
+	s.auth.GetProfile(w, r, username)
 }
