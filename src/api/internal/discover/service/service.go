@@ -3,6 +3,8 @@ package service
 
 import (
 	"context"
+	"strconv"
+	"strings"
 	"unicode/utf8"
 
 	"github.com/google/uuid"
@@ -116,6 +118,11 @@ func textFilter(q *string) (string, error) {
 		return "", apperr.New(apperr.CodeValidation, "q must be between 1 and 200 characters.").
 			WithViolations(apperr.Violation{Field: "q", Code: "out_of_range"})
 	}
+	// PostgreSQL text holds neither NUL nor invalid UTF-8: refuse them here rather than answer 500.
+	if !utf8.ValidString(*q) || strings.ContainsRune(*q, 0) {
+		return "", apperr.New(apperr.CodeValidation, "q must be valid UTF-8 text.").
+			WithViolations(apperr.Violation{Field: "q", Code: "invalid"})
+	}
 	return *q, nil
 }
 
@@ -130,8 +137,16 @@ func pageSize(v *int) (int, error) {
 	return *v, nil
 }
 
+// filterHash binds a cursor to its filters. Every field is length-prefixed, so no field value can
+// imitate a boundary (a plain separator join let two different filter sets share one hash).
 func filterHash(q domain.Query) string {
-	return q.Q + "\x1f" + q.Country + "\x1f" + q.Category + "\x1f" + q.Type + "\x1f" + q.SDK + "\x1f" + q.Provider + "\x1f" + q.Doclang
+	var b strings.Builder
+	for _, f := range []string{q.Q, q.Country, q.Category, q.Type, q.SDK, q.Provider, q.Doclang} {
+		b.WriteString(strconv.Itoa(len(f)))
+		b.WriteByte(':')
+		b.WriteString(f)
+	}
+	return b.String()
 }
 
 func deref(v *string) string {

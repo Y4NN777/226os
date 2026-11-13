@@ -152,24 +152,26 @@ func (r *Repository) finish(ctx context.Context, rows []entry) ([]domain.Resourc
 	if err != nil {
 		return nil, fmt.Errorf("catalogue related: %w", err)
 	}
+	outgoing := make([][]domain.Link, len(rows))
 	for _, link := range related {
 		if i, ok := indexOf(rows, link.SrcResourceID); ok {
-			out[i].Related = appendLink(out[i].Related, link.TargetType, idString(link.TargetID), link.Title, link.Lang)
+			outgoing[i] = appendLink(outgoing[i], link.TargetType, idString(link.TargetID), link.Title, link.Lang)
 		}
 	}
 	discussions, err := r.q.CatalogueDiscussions(ctx, ids)
 	if err != nil {
 		return nil, fmt.Errorf("catalogue discussions: %w", err)
 	}
+	incoming := make([][]domain.Link, len(rows))
 	for _, d := range discussions {
 		if i, ok := indexOf(rows, d.ResourceID); ok {
-			out[i].Related = appendLink(out[i].Related, "question", idString(d.QuestionID), d.Title, d.Language)
+			incoming[i] = appendLink(incoming[i], "question", idString(d.QuestionID), d.Title, d.Language)
 		}
 	}
 	for i := range out {
 		out[i].Countries = orEmpty(out[i].Countries)
 		out[i].SDKs = orEmptySDK(out[i].SDKs)
-		out[i].Related = capRelated(out[i].Related)
+		out[i].Related = capRelated(interleave(outgoing[i], incoming[i]))
 		out[i].DocLanguages = orEmpty(out[i].DocLanguages)
 	}
 	return out, nil
@@ -185,6 +187,20 @@ func appendLink(links []domain.Link, kind, id, title, lang string) []domain.Link
 		return links
 	}
 	return append(links, domain.Link{ID: id, Type: kind, Title: title, Lang: lang})
+}
+
+// interleave alternates outgoing links and discussions, so the cap keeps both kinds when both exist.
+func interleave(outgoing, discussions []domain.Link) []domain.Link {
+	var out []domain.Link
+	for i := 0; i < len(outgoing) || i < len(discussions); i++ {
+		if i < len(outgoing) {
+			out = append(out, outgoing[i])
+		}
+		if i < len(discussions) {
+			out = append(out, discussions[i])
+		}
+	}
+	return out
 }
 
 func capRelated(links []domain.Link) []domain.Link {

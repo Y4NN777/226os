@@ -11,3 +11,4 @@ GET /readyz    # readiness probe: pings the database, no data, no session (docs/
 GET /api/v1/resources   # listResources: published catalogue only, anonymous (US-DISCOVER-001)
 GET /api/v1/resources/{resourceId}   # getResource: published resource or 404, no private fields
 GET /api/v1/resources/{resourceId}/sources   # listResourceSources: provenance of a published resource; a source is verified only when it is the current verified source
+GET /api/v1/search   # search: published and visible content only (private projects, drafts, removed content and unpublished providers never appear), anonymous or member, bounded per group (US-DISCOVER-001, US-SOLVE-001, US-LEARN-001)

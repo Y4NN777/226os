@@ -18,6 +18,7 @@ import (
 	"github.com/Y4NN777/226os/src/api/internal/platform/dbgen"
 	"github.com/Y4NN777/226os/src/api/internal/platform/httpx"
 	"github.com/Y4NN777/226os/src/api/internal/platform/idempotency"
+	"github.com/Y4NN777/226os/src/api/internal/search"
 )
 
 const (
@@ -78,7 +79,7 @@ func run(ctx context.Context, getenv func(string) string, out io.Writer, serve s
 		logger.Error("invalid cursor configuration")
 		return 1
 	}
-	deps := newDeps(pool, WithMailer(newMailer(cfg, logger)), WithCatalogue(discover.NewHandler(pool, codec, logger)))
+	deps := newDeps(pool, WithMailer(newMailer(cfg, logger)), WithCatalogue(discover.NewHandler(pool, codec, logger)), WithSearch(search.NewHandler(pool, logger)))
 	// Deferred after pool.Close, so it runs first: the purge job stops before the pool closes.
 	stopPurge := startPurge(ctx, deps.Idempotency, logger)
 	defer stopPurge()
