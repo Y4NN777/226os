@@ -694,3 +694,20 @@ human_reviewers: ["NICE-DEV226 (pending)", "Y4NN777 (migration and shared limite
 tests_or_evidence: ["make generate, lint, typecheck, test-unit, test-integration-go, security PASS (subagent run)", "make coverage PASS: Go first-party 100.0% (3079/3079), re-run in the main session"]
 open_risks: ["identity still has its own limiter until it migrates to platform/ratelimit", "rate-limit integration tests depend on the real clock (they wait for a fresh minute)", "whitespace-only report bodies are rejected with 422, stricter than the schema's minLength 1", "a repeated open report returns the existing report and drops the new body and source_id", "the client IP trusts the last X-Forwarded-For entry; correct only while Traefik is the sole ingress with default forwardedHeaders (not pinned in compose.yaml)", "/24 and /48 keying means users behind carrier NAT share 60 searches per minute"]
 ```
+
+## AI review: minimal fix, project memory and pointers (2026-11-13)
+
+```yaml
+date: "2026-11-13"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code, Sonnet 5.5 (with an Opus plan review)"
+purpose: "PR 1 of the review plan: the gate stops waiting for the AI review, one comment writer per pull request, a review only when needed (first, incremental on a still-open CRITICAL or HIGH, else skip; the label ai-review always reviews), scripts read from the BASE branch, a context pack with the project memory, the ledger and pointers found by script on the changed lines of .sql and Go files (INSERT without ON CONFLICT, DELETE and INSERT on one table in one statement, X-Forwarded-For reads, error text in log attributes), a logic lens in the review prompt, a fenced JSON ledger, and a deterministic owner ping (label needs-owner and a review request) instead of an @-mention. Reason: the review ran on every push (9 comments on #89 and #94), repeated itself, ignored answers and never read .sql files, so it missed both #94 blockers."
+repository_or_source_context: "PR #89, #90, #94, #96 review comments; .github/workflows/code-review.yml; .claude/commands/delegate-review.md; the real #94 heads 469984c, 9d12650 and 5c350d5 as test fixtures"
+files_or_sections_affected: ["docs/quality/REVIEW_CONTEXT.md", "scripts/review-context.py", "scripts/review-ping.py", "scripts/tests/review-context_test.sh", "scripts/tests/review-ping_test.sh", "scripts/tests/fixtures/review-context/**", ".opencodereview/context-map.json", ".opencodereview/rule.json", ".claude/commands/delegate-review.md", ".github/workflows/code-review.yml", "TODO.md", "AI_USAGE.md"]
+third_party_sources_consulted: ["Addy Osmani, Code Review in the Age of AI (principles only)", "O'Reilly Radar, Agentic code review (principles only)"]
+license_review: "NOT APPLICABLE: original code and text, no new dependency; the sources above were read for ideas, nothing was copied"
+closure: "open"
+human_reviewers: ["pending PR review"]
+tests_or_evidence: ["scripts/tests/review-context_test.sh and scripts/tests/review-ping_test.sh: RED first (no pointers, no decision line, no script), then GREEN; the fixtures are the real #94 heads, #96 and #110", "make lint-scripts and python3 -I scripts/check-docs.py: see the pull request", "NOT RUN until the first live pull request after the merge: the BASE-read script path, first|incremental|skip on real events, gh pr comment --edit-last --create-if-none on the runner, the needs-owner label and the review request"]
+open_risks: ["The pointers are regular expressions on changed lines: they will miss cases and add some noise; they point, they never judge.", "The review job now also runs on synchronize (it decides in seconds whether to skip), so a skipped run still costs a runner start.", "REVIEW_CONTEXT.md only helps if the owner adds a line when a decision is made."]
+```
