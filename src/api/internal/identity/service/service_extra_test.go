@@ -63,6 +63,36 @@ func TestNormalizeEmail(t *testing.T) {
 
 // ---------- SignUp error paths ----------
 
+// PostgreSQL text holds neither NUL nor invalid UTF-8: a display name with one used to reach CreateAccount and come
+// back as a 500 (22021), after paying for the password hash (review note on #127). It is a 422 before anything is
+// written, and the same 422 for a registered e-mail, so it leaks nothing about existence.
+func TestSignUpRefusesUnstorableDisplayName(t *testing.T) {
+	ctx := context.Background()
+	for name, display := range map[string]string{"NUL": "a\x00b", "invalid UTF-8": "a\xffb"} {
+		svc, st, _ := testSvc(t)
+		hashed := 0
+		origHash := hashPassword
+		hashPassword = func(p string) (string, error) { hashed++; return origHash(p) }
+		t.Cleanup(func() { hashPassword = origHash })
+		err := svc.SignUp(ctx, SignUpInput{Email: "nul@b.co", Password: testPassword, Username: "nul", DisplayName: display, IP: "10.0.1.1"})
+		if apperrCode(t, err) != apperr.CodeValidation {
+			t.Fatalf("%s: expected 422 validation, got %v", name, err)
+		}
+		if hashed != 0 || len(st.accounts) != 0 {
+			t.Fatalf("%s: nothing may be hashed or written (hashed=%d accounts=%d)", name, hashed, len(st.accounts))
+		}
+		hashPassword = origHash
+
+		// A registered e-mail answers the same 422 (no enumeration through the policy check).
+		svc, st, _ = testSvc(t)
+		seedAccount(t, st, "taken-nul@example.com")
+		if err := svc.SignUp(ctx, SignUpInput{Email: "taken-nul@example.com", Password: testPassword, Username: "tn",
+			DisplayName: display, IP: "10.0.1.2"}); apperrCode(t, err) != apperr.CodeValidation {
+			t.Fatalf("%s on a registered e-mail: %v", name, err)
+		}
+	}
+}
+
 func TestSignUpStoreAndValidationErrors(t *testing.T) {
 	ctx := context.Background()
 
