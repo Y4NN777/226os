@@ -34,6 +34,7 @@ Node : le plancher `engines.node` (`>=24`, vérifié par `make doctor`) et la ve
 | `generate`, `lint`, `typecheck`, `docs-check`, `test-unit`, `coverage` | G1 et G2 ; `lint-*` et `test-integration-*` sont les sous-cibles des groupes CI |
 | `test-integration`, `security`, `licenses` | G3 et G4 ; Docker requis pour les deux premières |
 | `ci-groups`, `ci-steps` | groupes CI et étapes attendues par la tâche `quality` ([ADR-0010](decisions/0010-ci-parallel-gate-groups.md)) |
+| `smoke PROFILE=<profil> [BASE_URL=https://<hôte>]` | fumée post-déploiement en lecture seule : `/healthz` depuis l'extérieur, redirection HTTPS, `/readyz` non routé au bord, `/readyz` dans le conteneur |
 | `build` | images `api`, `web`, `migrate` ; empreintes dans `reports/image-digests.txt` |
 | `up-local-dev`, `down-local-dev` | profil local ; `up-staging-test` et `down-staging-test` pour la préproduction |
 | `up-production-live` | refusé hors du contexte de livraison documenté |

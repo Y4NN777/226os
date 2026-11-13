@@ -28,6 +28,7 @@ work branch -> PR develop -> develop staging/preview smoke
 - Rapports quality gates sur SHA cible disponibles, migration reversible ou plan de restauration explicite.
 
 ## 4. Smoke post-déploiement
+Les points 1 et 2 s'exécutent avec `make smoke PROFILE=<profil> BASE_URL=https://<hôte>` (`scripts/smoke.sh`, lecture seule). Brouillon du workflow de release : [RELEASE_DRAFT](RELEASE_DRAFT.md).
 1. HTTPS cert valide, redirections, headers et Traefik routage.
 2. `/healthz` (liveness) vérifié depuis l'extérieur. `/readyz` (base de données et dépendances nécessaires) vérifié depuis l'hôte, dans le conteneur : `docker compose exec api /healthcheck /readyz`. Jamais par l'adresse publique : le routeur n'envoie pas `/readyz` à l'API, et le site web répond `200` avec sa page d'accueil (décision B2, ROADMAP section 10).
 3. Auth, session, question/réponse/vote, recherche, fiche API, projet, candidature.

@@ -114,7 +114,8 @@ func (a AIStudio) GoString() string { return a.String() }
 func (a AIStudio) String() string { return "AIStudio" + a.cfg.String() }
 
 type part struct {
-	Text string `json:"text"`
+	Text    string `json:"text"`
+	Thought bool   `json:"thought,omitempty"` // a reasoning summary the provider marks itself
 }
 
 type content struct {
@@ -197,12 +198,15 @@ func answerText(g generateResponse) (string, error) {
 	}
 	var sb strings.Builder
 	for _, p := range g.Candidates[0].Content.Parts {
-		sb.WriteString(p.Text)
+		if !p.Thought {
+			sb.WriteString(p.Text)
+		}
 	}
-	if sb.Len() == 0 {
+	text := CleanAnswer(sb.String())
+	if text == "" {
 		return "", unavailable("empty output")
 	}
-	return sb.String(), nil
+	return text, nil
 }
 
 // ListModels returns the models visible to the key, following nextPageToken for at most five
@@ -283,11 +287,11 @@ func (a *AIStudio) do(ctx context.Context, method, target string, body []byte) (
 	switch resp.StatusCode {
 	case http.StatusOK:
 	case http.StatusTooManyRequests:
-		return nil, fmt.Errorf("%w (http %d)", ErrQuotaExhausted, resp.StatusCode)
+		return nil, &StatusError{Kind: ErrQuotaExhausted, Status: resp.StatusCode}
 	case http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound:
-		return nil, fmt.Errorf("%w (http %d)", ErrRejected, resp.StatusCode)
+		return nil, &StatusError{Kind: ErrRejected, Status: resp.StatusCode}
 	default:
-		return nil, fmt.Errorf("%w (http %d)", ErrUnavailable, resp.StatusCode)
+		return nil, &StatusError{Kind: ErrUnavailable, Status: resp.StatusCode}
 	}
 	raw, err := io.ReadAll(io.LimitReader(resp.Body, maxBodyBytes+1))
 	if err != nil {

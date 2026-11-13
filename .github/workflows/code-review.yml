@@ -34,7 +34,6 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
-      id-token: write
     steps:
       - name: Checkout the pull request (full history for the merge base)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -46,6 +45,9 @@ jobs:
         uses: anthropics/claude-code-action@4d75e5f390ee76b2e09c1980ecc99ff3a2e088c8 # v1.0.275
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # The workflow's own token (contents: read, pull-requests: write) instead of the Claude GitHub App: no extra
+          # app needs access to the repository (the default path failed with "Claude Code is not installed").
+          github_token: ${{ github.token }}
           use_sticky_comment: 'true'
           prompt: |
             REPO: ${{ github.repository }}
