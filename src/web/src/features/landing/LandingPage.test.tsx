@@ -13,6 +13,7 @@ function resource(n: number, overrides: Partial<Resource> = {}): Resource {
     name: `Passerelle ${String(n)}`,
     slug: `passerelle-${String(n)}`,
     type: 'api',
+    provenance: 'live',
     category: 'payments',
     provider: { name: `Fournisseur ${String(n)}`, slug: `fournisseur-${String(n)}` },
     summary: `Résumé de la passerelle ${String(n)}.`,

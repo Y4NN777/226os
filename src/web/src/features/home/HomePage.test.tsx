@@ -13,6 +13,7 @@ function resource(n: string, name: string): Resource {
     name,
     slug: name.toLowerCase().replace(/\s+/g, '-'),
     type: 'api',
+    provenance: 'live',
     category: 'payments',
     provider: { name: `Fournisseur ${n}`, slug: `fournisseur-${n}` },
     summary: `Résumé de ${name}`,

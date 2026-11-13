@@ -12,6 +12,7 @@ export function resource(overrides: Partial<Resource> = {}): Resource {
     slug: 'passerelle-paiement',
     type: 'api',
     category: 'payments',
+    provenance: 'live',
     provider: { name: 'Exemple SA', slug: 'exemple-sa', url: 'https://provider.example/' },
     summary: 'Encaissement mobile money.',
     countries: ['SN', 'CI'],

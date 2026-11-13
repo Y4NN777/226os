@@ -24,22 +24,19 @@ export const WEST_AFRICA = [
   'TG',
 ] as const;
 
-const westAfrica: readonly string[] = WEST_AFRICA;
-
-/** True when the resource covers at least one West African country (none listed: false). */
-export function inWestAfrica(countries: readonly string[]): boolean {
-  return countries.some((code) => westAfrica.includes(code));
-}
-
 type ListQuery = NonNullable<paths['/resources']['get']['parameters']['query']>;
 
-/** Server-side filters. The API takes one `country`, so the region itself is filtered client-side. */
+/**
+ * Server-side filters. With no country picked and no `region=all`, the view is West
+ * Africa: the 16 codes go to the API as one comma-separated `country` (a union).
+ */
 export function listQuery(search: DiscoverSearch): ListQuery {
   const query: ListQuery = { limit: 50 };
   if (search.q) query.q = search.q;
   if (search.type) query.type = search.type;
   if (search.category) query.category = search.category;
-  if (search.country) query.country = search.country;
+  if (search.country) query.country = [search.country];
+  else if (search.region !== 'all') query.country = [...WEST_AFRICA];
   return query;
 }
 

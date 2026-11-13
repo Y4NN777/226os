@@ -14,6 +14,7 @@ import { TextInput } from '@astryxdesign/core/TextInput';
 import { VStack } from '@astryxdesign/core/VStack';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { useState } from 'react';
+import { DemoBadge } from '../../components/DemoBadge';
 import { ErrorState } from '../../components/ErrorState';
 import { LoadingState } from '../../components/LoadingState';
 import { useI18n } from '../../i18n/I18nProvider';
@@ -153,6 +154,7 @@ function ResourceCard({ resource }: { resource: Resource }) {
           </Link>
           <Badge label={t(typeKey[resource.type])} />
           <VerificationBadge status={resource.verification_status} />
+          {resource.provenance === 'demo' ? <DemoBadge /> : null}
         </HStack>
         <Text type="supporting">{t('discover.by', { name: resource.provider.name })}</Text>
         <Text as="p">{resource.summary}</Text>
