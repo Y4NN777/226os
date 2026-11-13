@@ -711,3 +711,20 @@ human_reviewers: ["pending PR review"]
 tests_or_evidence: ["scripts/tests/review-context_test.sh and scripts/tests/review-ping_test.sh: RED first (no pointers, no decision line, no script), then GREEN; the fixtures are the real #94 heads, #96 and #110", "Acceptance run (real reviewer agents, new pack, scratch worktrees built from the real heads): #94 first head 469984c with the later decisions stripped from the memory: BOTH blockers flagged (skills double-submit 500 at identity.sql:154, languages pattern drift at service/profile.go:31); #94 fixed head 5c350d5: no SQL blocker; #110: Triage NONE, empty Read first. The run also found two defects of the script itself, fixed with tests (an empty pull request answer crashed the pack; a ledger written with another summary label or key was not read)", "scripts/tests/review-context_test.sh 37 passed, review-ping_test.sh 12 passed; make lint-scripts and python3 -I scripts/check-docs.py: see the pull request", "NOT RUN until the first live pull request after the merge: the BASE-read script path, first|incremental|skip on real events, gh pr comment --edit-last --create-if-none on the runner, the needs-owner label and the review request"]
 open_risks: ["The pointers are regular expressions on changed lines: they will miss cases and add some noise; they point, they never judge.", "The review job now also runs on synchronize (it decides in seconds whether to skip), so a skipped run still costs a runner start.", "REVIEW_CONTEXT.md only helps if the owner adds a line when a decision is made."]
 ```
+
+## AI review: gates in report mode (2026-11-13)
+
+```yaml
+date: "2026-11-13"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code, Sonnet 5.5"
+purpose: "PR 3 of the review plan: three deterministic checks that replace what the AI review kept nagging about, all in report mode. Review gate: stray paths (.github/stray-paths.txt, read from the base branch: .devin, .cursor, .idea, .vscode, and .gitignore on feature and fix branches; label stray-ok exempts) and finding-to-test (a pull request that closes a finding issue must change a test file; label no-test exempts), with their own switch GATE_NEW (repository variable CODE_REVIEW_GATE_NEW: off, report, enforce). check-docs: an AI_USAGE.md record dated after the HEAD commit date (UTC, one day of tolerance) is a WARN; --strict-dates makes it a failure."
+repository_or_source_context: "plan revision 4 (owner), PR #94 (a .devin file and a .gitignore edit in a profiles pull request; an AI_USAGE record dated the next day)"
+files_or_sections_affected: ["scripts/review-gate.py", "scripts/tests/review-gate_test.sh", "scripts/check-docs.py", "scripts/tests/check-docs_test.sh", ".github/stray-paths.txt", ".github/workflows/code-review.yml", "TODO.md", "AI_USAGE.md"]
+third_party_sources_consulted: []
+license_review: "NOT APPLICABLE: original code, no new dependency"
+closure: "open"
+human_reviewers: ["pending PR review"]
+tests_or_evidence: ["scripts/tests/review-gate_test.sh 39 passed and scripts/tests/check-docs_test.sh 16 passed, RED first (the new checks did not exist)", "make lint-scripts and python3 -I scripts/check-docs.py: see the pull request", "NOT RUN until the first live pull request: the two new gate checks against the real GitHub API (labels, pull request body, the stray-paths list on the base branch)"]
+open_risks: ["Both gate checks are report only: they print a NOTE and never fail until the owner sets CODE_REVIEW_GATE_NEW=enforce (after 10 pull requests with no false positive).", "Finding-to-test reads the issue numbers after Closes/Fixes/Resolves in the pull request body: a different wording is not seen.", "In enforce mode a CRITICAL verdict is read at the next gate run (a push, a label or a review event), because the gate no longer waits for the review."]
+```
