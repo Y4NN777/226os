@@ -367,3 +367,42 @@ human_reviewers: []
 tests_or_evidence: ["documentation only; consistency checks by search; no quality gate run for this record"]
 open_risks: ["status: executed on branch chore/docs/cleanup-and-coherence, not yet merged", "owner review of the plan outcomes pending"]
 ```
+
+## E2 taxonomy and profile visibility record
+
+```yaml
+date: "2026-11-12"
+contributor: "mibienpanjoe"
+tool_or_model: "Cursor, Grok 4.7"
+purpose: "E2 forward-only migrations: five learn topics, three resource categories, four relabels, and the profiles.profile_visibility column, with pgtest fresh and upgrade coverage"
+repository_or_source_context: "TODO.md E2, docs/spec-kit/DATABASE_DESIGN.md section 5, db/migrations/00002_reference_taxonomy.sql, db/migrations/00003_identity.sql"
+files_or_sections_affected:
+  - "db/migrations/00011_taxonomy_ai_topics.sql"
+  - "db/migrations/00012_profile_visibility.sql"
+  - "src/api/internal/platform/pgtest/migrate_integration_test.go"
+  - "src/api/internal/platform/pgtest/constraints_integration_test.go"
+  - "src/api/internal/platform/pgtest/fixtures_integration_test.go"
+  - "scripts/tests/make_test.sh"
+  - "scripts/check-todo-updated.sh"
+  - "scripts/tests/check-todo-updated_test.sh"
+  - "mk/20-gates.mk"
+  - ".majesty/checks.json"
+  - "docs/spec-kit/DATABASE_DESIGN.md"
+  - "TODO.md"
+  - "AI_USAGE.md"
+third_party_sources_consulted: []
+license_review: PENDING
+human_reviewers: []
+closure: open
+tests_or_evidence:
+  - "MIGRATIONS_BASE_REF=origin/develop scripts/check-migrations.sh: OK (12 files)"
+  - "make test-integration: exit 0 (go test -race -tags integration ./... including pgtest, db-reset 42 passed, verify-containers ALL PASS)"
+  - "make lint: exit 0 on the taxonomy files before the tracker check was added"
+  - "scripts/tests/check-todo-updated_test.sh: 6 passed, 0 failed (a slice change without TODO.md fails; TODO.md moving with the slice passes)"
+  - "scripts/check-todo-updated.sh on this tree: OK (TODO.md moves with 9 slice files against origin/develop)"
+  - "scripts/lint-shell.sh: OK (47 scripts). Full make lint was not re-run after the tracker check was wired"
+open_risks:
+  - "DATABASE_DESIGN.md list counts for the immutable 00002 file are unchanged; current totals are asserted in pgtest"
+  - "the local skill-guard hook edits are not part of this slice and must stay out of the commit"
+  - "not committed and not reviewed"
+```
