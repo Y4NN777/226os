@@ -1,0 +1,56 @@
+# Advisory AI review of pull requests with open-code-review (Apache-2.0). It posts inline comments and one sticky
+# summary; it is NOT a gate: it is not part of `quality`, not a required check, and its failure never blocks a merge.
+#
+# Off by default. To turn it on (owner):
+#   1. Settings > Secrets and variables > Actions > Secrets: OCR_LLM_URL (endpoint) and OCR_LLM_AUTH_TOKEN (API key).
+#      Use an API key. "Sign in with ChatGPT" is a local, single-person preview of the tool and must not be used in
+#      shared CI (see docs/DEV.md); a stored ChatGPT login would also break on refresh-token rotation.
+#   2. Variables: OCR_LLM_MODEL, OCR_LLM_USE_ANTHROPIC ('true' for Anthropic, 'false' for OpenAI-compatible) and
+#      OCR_REVIEW_ENABLED = 'true'.
+# The diff of each pull request is sent to the provider you choose. Pull requests from forks are skipped (no secrets).
+# Project rules: .opencodereview/rule.json.
+name: AI review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [develop]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ocr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    name: AI review (advisory)
+    if: vars.OCR_REVIEW_ENABLED == 'true' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Advisory only: a provider outage or quota error must not turn the pull request red.
+    continue-on-error: true
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout (full history for the diff)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Open Code Review
+        uses: alibaba/open-code-review@4236c871fe8130aa840a2a1c0922f469e87e0416 # v1.13.8
+        with:
+          llm_url: ${{ secrets.OCR_LLM_URL }}
+          llm_auth_token: ${{ secrets.OCR_LLM_AUTH_TOKEN }}
+          llm_model: ${{ vars.OCR_LLM_MODEL }}
+          llm_use_anthropic: ${{ vars.OCR_LLM_USE_ANTHROPIC }}
+          ocr_version: '1.13.8'
+          sticky_summary: 'true'
+          incremental: 'true'
+          route_severity_below: 'low'
+          max_tokens_budget: '400000'
+          upload_artifacts: 'false'

@@ -367,3 +367,20 @@ human_reviewers: []
 tests_or_evidence: ["documentation only; consistency checks by search; no quality gate run for this record"]
 open_risks: ["status: executed on branch chore/docs/cleanup-and-coherence, not yet merged", "owner review of the plan outcomes pending"]
 ```
+
+## AI code review tooling (2026-11-13)
+
+```yaml
+date: "2026-11-13"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code (VS Code extension) with claude-sonnet-5-5 (setup); open-code-review 1.13.8 (the reviewer tool, LLM provider chosen by each user)"
+purpose: "Set up advisory AI code review: project rules, a pinned local wrapper (make review), and a GitHub Actions workflow that is off by default"
+repository_or_source_context: "alibaba/open-code-review README, action.yml and configuration docs (read as untrusted external text); no code copied"
+files_or_sections_affected: [".opencodereview/rule.json", "scripts/review.sh", "scripts/tests/review_test.sh", "mk/60-review.mk", ".github/workflows/ocr-review.yml", "docs/DEV.md", "THIRD_PARTY_NOTICES.md", "TODO.md"]
+third_party_sources_consulted: ["https://github.com/alibaba/open-code-review (Apache-2.0)"]
+commands: "scripts/tests/review_test.sh, make help, scripts/lint-shell.sh, make_test.sh; the reviewer tool itself was NOT RUN"
+license_review: "Apache-2.0 per package metadata and repository page; not re-verified from source"
+human_reviewers: []
+tests_or_evidence: ["review_test.sh 9 passed (fake npx); lint-shell OK; make_test 49 passed"]
+open_risks: ["the tool sends diffs to an external LLM provider; reviews it produces are AI output to be checked by a human; CI workflow untested until the owner adds a key"]
+```

@@ -75,6 +75,7 @@ The 226os logo, symbol and app icons were produced with an AI image generator by
 
 - Go `tool` entries in `go.mod`: golangci-lint, go-licenses, oapi-codegen, goose, sqlc, govulncheck, staticcheck. Used to build, check and generate; not part of the shipped binaries as tools. Their licences are `to verify` (go-licenses reports runtime dependencies only).
 - GitHub Actions in `.github/workflows/` are pinned by commit SHA (version in the trailing comment of each `uses:` line). Not distributed.
+- open-code-review (`@alibaba-group/open-code-review`, Apache-2.0, pinned to 1.13.8 in `scripts/review.sh` and `.github/workflows/ocr-review.yml`): optional AI code review helper run through `npx`, never installed globally and not distributed. It sends the diff to the LLM provider the user configures (`make review`, local) or the repository owner configures (CI, off by default). Licence read from the package metadata (`npm view`) and the repository page, not re-verified from the source tree.
 - Other tooling named in Make targets (for example SOPS, age, gitleaks, Trivy, Semgrep): licences `to verify`; not distributed.
 
 ## Original-work statement and regenerable inventory
