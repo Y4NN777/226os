@@ -1,6 +1,7 @@
 package transport
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -10,7 +11,7 @@ import (
 )
 
 func csrfReq(method, path string, headers map[string]string, cookies ...*http.Cookie) *http.Request {
-	req := httptest.NewRequest(method, path, nil)
+	req := httptest.NewRequestWithContext(context.Background(), method, path, nil)
 	for k, v := range headers {
 		req.Header.Set(k, v)
 	}

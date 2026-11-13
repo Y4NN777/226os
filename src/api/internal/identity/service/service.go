@@ -127,9 +127,13 @@ type SessionView struct {
 
 func normalizeEmail(email string) string { return strings.ToLower(strings.TrimSpace(email)) }
 
+// randRead is crypto/rand.Read behind a variable so tests can exercise the
+// entropy-failure branches.
+var randRead = rand.Read
+
 func randToken() (string, [32]byte, error) {
 	b := make([]byte, 32)
-	if _, err := rand.Read(b); err != nil {
+	if _, err := randRead(b); err != nil {
 		return "", [32]byte{}, err
 	}
 	return base64.RawURLEncoding.EncodeToString(b), sha256.Sum256(b), nil
@@ -177,10 +181,10 @@ func ipKey(ip string) string {
 		b := a.As4()
 		return netip.AddrFrom4([4]byte{b[0], b[1], b[2], 0}).String() + "/24"
 	}
-	if p, err := a.Prefix(48); err == nil {
-		return p.String()
-	}
-	return a.String()
+	// Everything ParseAddr returns that is not Is4 is IPv6 (BitLen 128), so
+	// Prefix(48) cannot fail.
+	p, _ := a.Prefix(48)
+	return p.String()
 }
 
 // csrfToken derives the synchronizer token from stored secret material, so
@@ -376,7 +380,10 @@ func (s *Service) SignOut(ctx context.Context, plain string) error {
 	if err != nil {
 		return nil
 	}
-	return s.store.RevokeSession(ctx, sess.ID, "logout", s.now())
+	if err := s.store.RevokeSession(ctx, sess.ID, "logout", s.now()); err != nil {
+		return apperr.Wrap(apperr.CodeInternal, err)
+	}
+	return nil
 }
 
 // ---------- CSRF ----------
@@ -386,7 +393,7 @@ func (s *Service) SignOut(ctx context.Context, plain string) error {
 // token returned to the client is derived from it.
 func (s *Service) AnonymousCSRF() (secret, token string, err error) {
 	b := make([]byte, 32)
-	if _, err := rand.Read(b); err != nil {
+	if _, err := randRead(b); err != nil {
 		return "", "", err
 	}
 	secret = base64.RawURLEncoding.EncodeToString(b)
@@ -504,7 +511,10 @@ func (s *Service) ConfirmPasswordReset(ctx context.Context, plain, newPassword s
 	if err := s.store.SetPasswordHash(ctx, userID, phc, s.now()); err != nil {
 		return apperr.Wrap(apperr.CodeInternal, err)
 	}
-	return s.store.RevokeUserSessions(ctx, userID, "password_reset", s.now(), "")
+	if err := s.store.RevokeUserSessions(ctx, userID, "password_reset", s.now(), ""); err != nil {
+		return apperr.Wrap(apperr.CodeInternal, err)
+	}
+	return nil
 }
 
 // ---------- error mapping ----------

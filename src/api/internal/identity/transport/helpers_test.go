@@ -24,7 +24,7 @@ type op func(http.ResponseWriter, *http.Request)
 // doJSON posts a JSON body through op and returns the recorder.
 func doJSON(t *testing.T, fn op, path, body string) *httptest.ResponseRecorder {
 	t.Helper()
-	req := httptest.NewRequest(http.MethodPost, path, strings.NewReader(body))
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, path, strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 	fn(rec, req)
@@ -34,7 +34,7 @@ func doJSON(t *testing.T, fn op, path, body string) *httptest.ResponseRecorder {
 // doReq builds a request with optional headers and cookies.
 func doReq(t *testing.T, method, path string, headers map[string]string, cookies ...*http.Cookie) *http.Request {
 	t.Helper()
-	req := httptest.NewRequest(method, path, nil)
+	req := httptest.NewRequestWithContext(t.Context(), method, path, nil)
 	for k, v := range headers {
 		req.Header.Set(k, v)
 	}

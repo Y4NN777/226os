@@ -25,6 +25,7 @@ type fakeStore struct {
 	verifiedAt map[string]time.Time
 	buckets    map[string]int
 	hits       []string
+	errs       map[string]error // method name -> forced error
 }
 
 type verifRow struct {
@@ -48,6 +49,9 @@ func newFake() *fakeStore {
 }
 
 func (f *fakeStore) CreateAccount(_ context.Context, in NewAccount) (domain.Account, error) {
+	if err := f.errs["CreateAccount"]; err != nil {
+		return domain.Account{}, err
+	}
 	for _, a := range f.accounts {
 		if a.Email == in.Email {
 			return domain.Account{}, domain.ErrEmailTaken
@@ -60,6 +64,9 @@ func (f *fakeStore) CreateAccount(_ context.Context, in NewAccount) (domain.Acco
 	return a, nil
 }
 func (f *fakeStore) AccountByEmail(_ context.Context, email string) (domain.Account, error) {
+	if err := f.errs["AccountByEmail"]; err != nil {
+		return domain.Account{}, err
+	}
 	for _, a := range f.accounts {
 		if a.Email == email {
 			return a, nil
@@ -68,23 +75,35 @@ func (f *fakeStore) AccountByEmail(_ context.Context, email string) (domain.Acco
 	return domain.Account{}, domain.ErrNotFound
 }
 func (f *fakeStore) AccountByID(_ context.Context, id string) (domain.Account, error) {
+	if err := f.errs["AccountByID"]; err != nil {
+		return domain.Account{}, err
+	}
 	if a, ok := f.accounts[id]; ok {
 		return a, nil
 	}
 	return domain.Account{}, domain.ErrNotFound
 }
 func (f *fakeStore) CreateSession(_ context.Context, s domain.Session) (string, error) {
+	if err := f.errs["CreateSession"]; err != nil {
+		return "", err
+	}
 	f.sessions[s.ID] = s
 	f.tokenHash[s.TokenHash] = s.ID
 	return s.ID, nil
 }
 func (f *fakeStore) SessionByTokenHash(_ context.Context, h [32]byte) (domain.Session, error) {
+	if err := f.errs["SessionByTokenHash"]; err != nil {
+		return domain.Session{}, err
+	}
 	if id, ok := f.tokenHash[h]; ok {
 		return f.sessions[id], nil
 	}
 	return domain.Session{}, domain.ErrNotFound
 }
 func (f *fakeStore) RevokeSession(_ context.Context, id, reason string, now time.Time) error {
+	if err := f.errs["RevokeSession"]; err != nil {
+		return err
+	}
 	s := f.sessions[id]
 	s.RevokedAt = &now
 	s.RevokeReason = reason
@@ -92,6 +111,9 @@ func (f *fakeStore) RevokeSession(_ context.Context, id, reason string, now time
 	return nil
 }
 func (f *fakeStore) RevokeUserSessions(_ context.Context, userID, reason string, now time.Time, keepID string) error {
+	if err := f.errs["RevokeUserSessions"]; err != nil {
+		return err
+	}
 	for id, s := range f.sessions {
 		if s.UserID == userID && id != keepID && s.RevokedAt == nil {
 			s.RevokedAt = &now
@@ -102,6 +124,9 @@ func (f *fakeStore) RevokeUserSessions(_ context.Context, userID, reason string,
 	return nil
 }
 func (f *fakeStore) TouchSession(_ context.Context, id string, lastSeen, idleExpires time.Time) error {
+	if err := f.errs["TouchSession"]; err != nil {
+		return err
+	}
 	s := f.sessions[id]
 	s.LastSeenAt = lastSeen
 	s.IdleExpiresAt = idleExpires
@@ -109,10 +134,16 @@ func (f *fakeStore) TouchSession(_ context.Context, id string, lastSeen, idleExp
 	return nil
 }
 func (f *fakeStore) CreateEmailVerification(_ context.Context, userID, email string, h [32]byte, exp time.Time) error {
+	if err := f.errs["CreateEmailVerification"]; err != nil {
+		return err
+	}
 	f.verif[h] = verifRow{userID: userID, email: email, expiresAt: exp}
 	return nil
 }
 func (f *fakeStore) ConsumeEmailVerification(_ context.Context, h [32]byte, now time.Time) (string, error) {
+	if err := f.errs["ConsumeEmailVerification"]; err != nil {
+		return "", err
+	}
 	r, ok := f.verif[h]
 	if !ok || r.consumed || now.After(r.expiresAt) {
 		return "", domain.ErrTokenInvalid
@@ -122,6 +153,9 @@ func (f *fakeStore) ConsumeEmailVerification(_ context.Context, h [32]byte, now 
 	return r.userID, nil
 }
 func (f *fakeStore) MarkEmailVerified(_ context.Context, userID string, now time.Time) error {
+	if err := f.errs["MarkEmailVerified"]; err != nil {
+		return err
+	}
 	f.verifiedAt[userID] = now
 	for id, a := range f.accounts {
 		if id == userID {
@@ -132,10 +166,16 @@ func (f *fakeStore) MarkEmailVerified(_ context.Context, userID string, now time
 	return nil
 }
 func (f *fakeStore) CreatePasswordReset(_ context.Context, userID string, h [32]byte, exp time.Time) error {
+	if err := f.errs["CreatePasswordReset"]; err != nil {
+		return err
+	}
 	f.resets[h] = resetRow{userID: userID, expiresAt: exp}
 	return nil
 }
 func (f *fakeStore) ConsumePasswordReset(_ context.Context, h [32]byte, now time.Time) (string, error) {
+	if err := f.errs["ConsumePasswordReset"]; err != nil {
+		return "", err
+	}
 	r, ok := f.resets[h]
 	if !ok || r.consumed || now.After(r.expiresAt) {
 		return "", domain.ErrTokenInvalid
@@ -145,6 +185,9 @@ func (f *fakeStore) ConsumePasswordReset(_ context.Context, h [32]byte, now time
 	return r.userID, nil
 }
 func (f *fakeStore) SetPasswordHash(_ context.Context, userID, phc string, _ time.Time) error {
+	if err := f.errs["SetPasswordHash"]; err != nil {
+		return err
+	}
 	for id, a := range f.accounts {
 		if id == userID {
 			a.PasswordHash = phc
@@ -154,6 +197,9 @@ func (f *fakeStore) SetPasswordHash(_ context.Context, userID, phc string, _ tim
 	return nil
 }
 func (f *fakeStore) Hit(_ context.Context, scope string, key [32]byte, limit int, _ time.Duration, _ time.Time) (bool, time.Duration, error) {
+	if err := f.errs["Hit"]; err != nil {
+		return false, 0, err
+	}
 	k := scope + ":" + base64.RawURLEncoding.EncodeToString(key[:8])
 	f.hits = append(f.hits, k)
 	if f.buckets[k] >= limit {
@@ -163,9 +209,15 @@ func (f *fakeStore) Hit(_ context.Context, scope string, key [32]byte, limit int
 	return true, 0, nil
 }
 
-type fakeMail struct{ sent []string }
+type fakeMail struct {
+	sent []string
+	err  error
+}
 
 func (m *fakeMail) Send(_ context.Context, msg mailer.Message) error {
+	if m.err != nil {
+		return m.err
+	}
 	m.sent = append(m.sent, msg.To...)
 	return nil
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -19,15 +20,17 @@ import (
 // semantics the sqlc repository implements (ErrNotFound, ErrTokenInvalid,
 // fixed-window buckets).
 type fakeStore struct {
-	accounts map[string]domain.Account // by id
-	byEmail  map[string]string         // email -> id
-	sessions map[string]domain.Session // by session id
-	byToken  map[[32]byte]string       // token hash -> session id
-	verifs   map[[32]byte]verifRow
-	resets   map[[32]byte]verifRow
-	buckets  map[string]int
-	hits     []string
-	failHits bool
+	accounts          map[string]domain.Account // by id
+	byEmail           map[string]string         // email -> id
+	sessions          map[string]domain.Session // by session id
+	byToken           map[[32]byte]string       // token hash -> session id
+	verifs            map[[32]byte]verifRow
+	resets            map[[32]byte]verifRow
+	buckets           map[string]int
+	hits              []string
+	failHits          bool
+	failSessionLookup bool
+	failRevoke        bool
 }
 
 type verifRow struct {
@@ -87,6 +90,9 @@ func (f *fakeStore) CreateSession(_ context.Context, s domain.Session) (string, 
 }
 
 func (f *fakeStore) SessionByTokenHash(_ context.Context, hash [32]byte) (domain.Session, error) {
+	if f.failSessionLookup {
+		return domain.Session{}, errors.New("session store down")
+	}
 	id, ok := f.byToken[hash]
 	if !ok {
 		return domain.Session{}, domain.ErrNotFound
@@ -95,6 +101,9 @@ func (f *fakeStore) SessionByTokenHash(_ context.Context, hash [32]byte) (domain
 }
 
 func (f *fakeStore) RevokeSession(_ context.Context, id, reason string, now time.Time) error {
+	if f.failRevoke {
+		return errors.New("revoke store down")
+	}
 	if s, ok := f.sessions[id]; ok && s.RevokedAt == nil {
 		s.RevokedAt = &now
 		s.RevokeReason = reason

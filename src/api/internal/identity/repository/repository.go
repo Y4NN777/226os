@@ -21,59 +21,32 @@ import (
 
 const queryTimeout = 2 * time.Second
 
-// Beginner is the pool surface the repository needs: sqlc queries plus a
-// transaction for the three-row account write.
-type Beginner interface {
-	dbgen.DBTX
-	Begin(ctx context.Context) (pgx.Tx, error)
-}
-
 // Repository is the sqlc adapter for the identity Store port.
 type Repository struct {
-	db Beginner
-	q  *dbgen.Queries
+	q *dbgen.Queries
 }
 
-// New returns a repository over db (a *pgxpool.Pool in production).
-func New(db Beginner) *Repository { return &Repository{db: db, q: dbgen.New(db)} }
+// New returns a repository over db (a *pgxpool.Pool or *pgx.Conn in tests).
+func New(db dbgen.DBTX) *Repository { return &Repository{q: dbgen.New(db)} }
 
 var _ service.Store = (*Repository)(nil)
 
 // ---------- accounts ----------
 
-// CreateAccount writes user + credential + profile in one transaction.
+// CreateAccount writes user + credential + profile in one statement: the CTE
+// is atomic, so no partial account can exist.
 func (r *Repository) CreateAccount(ctx context.Context, in service.NewAccount) (domain.Account, error) {
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
-	tx, err := r.db.Begin(ctx)
-	if err != nil {
-		return domain.Account{}, fmt.Errorf("identity create account begin: %w", err)
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-	q := dbgen.New(tx)
-	user, err := q.CreateUser(ctx, in.Email)
+	user, err := r.q.CreateAccount(ctx, dbgen.CreateAccountParams{
+		Email: in.Email, PasswordHash: in.PasswordHash,
+		Username: in.Username, DisplayName: in.DisplayName,
+	})
 	if err != nil {
 		return domain.Account{}, mapWriteErr(err, "identity create account")
 	}
-	uid := user.ID
-	if err := q.CreateUserCredential(ctx, dbgen.CreateUserCredentialParams{
-		UserID: uid, PasswordHash: in.PasswordHash,
-	}); err != nil {
-		return domain.Account{}, mapWriteErr(err, "identity create credential")
-	}
-	if err := q.CreateProfile(ctx, dbgen.CreateProfileParams{
-		UserID: uid, Username: in.Username, DisplayName: in.DisplayName,
-	}); err != nil {
-		return domain.Account{}, mapWriteErr(err, "identity create profile")
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return domain.Account{}, fmt.Errorf("identity create account commit: %w", err)
-	}
-	return domain.Account{
-		ID: uuidString(user.ID), Email: user.Email, EmailVerified: user.EmailVerifiedAt.Valid,
-		Role: user.Role, Status: user.Status, Username: in.Username, DisplayName: in.DisplayName,
-		PasswordHash: in.PasswordHash, CreatedAt: user.CreatedAt.Time,
-	}, nil
+	return accountFromRow(user.ID, user.Email, user.EmailVerifiedAt, user.Role, user.Status,
+		user.CreatedAt, in.PasswordHash, in.Username, in.DisplayName), nil
 }
 
 func (r *Repository) AccountByEmail(ctx context.Context, email string) (domain.Account, error) {

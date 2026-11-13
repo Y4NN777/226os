@@ -54,7 +54,7 @@ func (s *identityStack) do(t *testing.T, method, path, body string, headers map[
 	if body != "" {
 		rdr = strings.NewReader(body)
 	}
-	req := httptest.NewRequest(method, path, rdr)
+	req := httptest.NewRequestWithContext(t.Context(), method, path, rdr)
 	if body != "" {
 		req.Header.Set("Content-Type", "application/json")
 	}

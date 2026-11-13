@@ -3,15 +3,20 @@
 -- parameterized; the only dynamic value is the keep-id exclusion, which is a
 -- bound uuid parameter.
 
--- name: CreateUser :one
-INSERT INTO users (email) VALUES ($1)
-RETURNING id, email, email_verified_at, role, status, created_at;
-
--- name: CreateUserCredential :exec
-INSERT INTO user_credentials (user_id, password_hash) VALUES ($1, $2);
-
--- name: CreateProfile :exec
-INSERT INTO profiles (user_id, username, display_name) VALUES ($1, $2, $3);
+-- CreateAccount writes user + credential + profile atomically: a single
+-- statement is its own transaction, so no partial account can exist.
+-- name: CreateAccount :one
+WITH u AS (
+  INSERT INTO users (email) VALUES ($1)
+  RETURNING id, email, email_verified_at, role, status, created_at
+), c AS (
+  INSERT INTO user_credentials (user_id, password_hash)
+  SELECT id, $2 FROM u
+), p AS (
+  INSERT INTO profiles (user_id, username, display_name)
+  SELECT id, $3, $4 FROM u
+)
+SELECT id, email, email_verified_at, role, status, created_at FROM u;
 
 -- name: GetAccountByEmail :one
 SELECT u.id, u.email, u.email_verified_at, u.role, u.status, u.created_at,

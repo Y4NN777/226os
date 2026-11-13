@@ -10,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/Y4NN777/226os/src/api/internal/discover"
@@ -38,12 +37,11 @@ func Run(ctx context.Context, getenv func(string) string, out io.Writer) int {
 type serveFunc func(context.Context, net.Listener, http.Handler, time.Duration) error
 
 // dbPool is the pool surface the composition root needs: readiness, the idempotency
-// store queries, identity transactions and shutdown.
+// store queries and shutdown.
 type dbPool interface {
 	httpx.Pinger
 	idempotency.DB
 	dbgen.DBTX
-	Begin(ctx context.Context) (pgx.Tx, error)
 	Close()
 }
 

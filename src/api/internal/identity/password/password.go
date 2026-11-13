@@ -36,6 +36,10 @@ const maxConcurrent = 4
 
 var sem = make(chan struct{}, maxConcurrent)
 
+// randRead is crypto/rand.Read behind a variable so tests can exercise the
+// entropy-failure branches.
+var randRead = rand.Read
+
 var (
 	// ErrInvalidPassword means the password is outside the contract length
 	// (12 to 128 characters; composition rules are deliberately absent).
@@ -69,7 +73,7 @@ func Hash(pw string) (string, error) {
 		return "", ErrInvalidPassword
 	}
 	salt := make([]byte, saltLen)
-	if _, err := rand.Read(salt); err != nil {
+	if _, err := randRead(salt); err != nil {
 		return "", fmt.Errorf("password: salt: %w", err)
 	}
 	return encode(pw, salt, memKiB, time, uint8(threads)), nil
@@ -89,23 +93,16 @@ func Verify(pw, phc string) (bool, error) {
 	return subtle.ConstantTimeCompare(got, m.key) == 1, nil
 }
 
-// dummyHash is a valid PHC string under the floor profile, computed once. It
-// lets an unknown-email sign-in pay the same Argon2id cost as a real one.
-var dummyHash = mustHash("dummy-password-for-timing-equalization")
+// dummyHash is a valid PHC string under the same profile as Hash, built from
+// a fixed salt so package init needs no entropy. It lets an unknown-email
+// sign-in pay the same Argon2id cost as a real one.
+var dummyHash = encode("dummy-password-for-timing-equalization",
+	[]byte("226os-dummy-salt!"), memKiB, time, uint8(threads))
 
 // VerifyDummy runs one Argon2id against the dummy hash and always reports a
 // mismatch. Callers use it on the unknown-email path to equalize timing.
 func VerifyDummy(pw string) {
 	_, _ = Verify(pw, dummyHash)
-}
-
-func mustHash(pw string) string {
-	salt := make([]byte, saltLen)
-	if _, err := rand.Read(salt); err != nil {
-		panic(err)
-	}
-	// Same profile as Hash: the point is equalizing sign-in timing.
-	return encode(pw, salt, memKiB, time, uint8(threads))
 }
 
 type params struct {

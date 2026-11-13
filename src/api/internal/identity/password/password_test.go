@@ -1,6 +1,7 @@
 package password
 
 import (
+	"errors"
 	"strings"
 	"testing"
 )
@@ -39,13 +40,33 @@ func TestVerifyRejectsMalformedAndWeakHashes(t *testing.T) {
 	for _, bad := range []string{
 		"", "not-a-phc", "$argon2i$v=19$m=65536,t=3,p=1$c2FsdA$a2V5",
 		"$argon2id$v=16$m=65536,t=3,p=1$c2FsdHNhbHRzYWx0$a2V5a2V5a2V5a2V5a2V5",
-		"$argon2id$v=19$m=1024,t=1,p=1$c2FsdHNhbHRzYWx0$a2V5a2V5a2V5a2V5a2V5", // below OWASP floor
+		"$argon2id$v=19$m=1024,t=1,p=1$c2FsdHNhbHRzYWx0$a2V5a2V5a2V5a2V5a2V5",  // below OWASP floor
+		"$argon2id$v=19$m=65536,t=1,p=1$c2FsdHNhbHRzYWx0$a2V5a2V5a2V5a2V5a2V5", // t below floor
+		"$argon2id$v=19$m=65536,t=3,p=0$c2FsdHNhbHRzYWx0$a2V5a2V5a2V5a2V5a2V5", // p below floor
+		"$argon2id$v=19$m=65536,p=1$c2FsdHNhbHRzYWx0$a2V5a2V5a2V5a2V5a2V5",     // params not m=,t=,p=
+		"$argon2id$v=19$m=abc,t=3,p=1$c2FsdHNhbHRzYWx0$a2V5a2V5a2V5a2V5a2V5",   // non-numeric m
+		"$argon2id$v=19$m=65536,t=3,p=1$!!!$a2V5a2V5a2V5a2V5a2V5",              // salt not base64
+		"$argon2id$v=19$m=65536,t=3,p=1$c2FsdA$a2V5a2V5a2V5a2V5a2V5",           // salt too short
+		"$argon2id$v=19$m=65536,t=3,p=1$c2FsdHNhbHRzYWx0$!!!",                  // key not base64
+		"$argon2id$v=19$m=65536,t=3,p=1$c2FsdHNhbHRzYWx0$a2V5",                 // key too short
+		"$argon2id$v=19$m=65536,t=3,p=1$c2FsdHNhbHRzYWx0",                      // missing key field
 	} {
 		if _, err := Verify("whatever-password", bad); err == nil {
 			t.Fatalf("accepted malformed hash %q", bad)
 		}
 	}
 }
+
+func TestHashEntropyFailure(t *testing.T) {
+	orig := randRead
+	randRead = func([]byte) (int, error) { return 0, errTestRand }
+	t.Cleanup(func() { randRead = orig })
+	if _, err := Hash("a-very-good-password"); err == nil {
+		t.Fatal("hash succeeded without entropy")
+	}
+}
+
+var errTestRand = errors.New("no entropy")
 
 func TestVerifyDummyAlwaysMismatch(t *testing.T) {
 	// The dummy path must run a real Argon2id and report mismatch.

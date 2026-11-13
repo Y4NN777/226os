@@ -5,6 +5,7 @@
 package transport
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"log/slog"
@@ -27,9 +28,23 @@ import (
 // preSessionMaxAge bounds the anonymous CSRF cookie (ADR-0003: short-lived).
 const preSessionMaxAge = 24 * 60 * 60
 
+// Service is the identity use-case surface the transport needs.
+// *service.Service satisfies it; tests may stub single methods.
+type Service interface {
+	ResolveSession(ctx context.Context, plain string) (service.SessionView, error)
+	PreSessionCSRF(secret string) (string, bool)
+	AnonymousCSRF() (secret, token string, err error)
+	SignUp(ctx context.Context, in service.SignUpInput) error
+	SignIn(ctx context.Context, in service.SignInInput) (service.SignInResult, error)
+	SignOut(ctx context.Context, plain string) error
+	VerifyEmail(ctx context.Context, plain string) error
+	RequestPasswordReset(ctx context.Context, email, ip string) error
+	ConfirmPasswordReset(ctx context.Context, plain, newPassword string) error
+}
+
 // Handler serves the eight auth operations of S1.
 type Handler struct {
-	svc    *service.Service
+	svc    Service
 	secure bool // deployed profiles: __Host- cookie names + Secure flag
 	logger *slog.Logger
 }
@@ -37,7 +52,7 @@ type Handler struct {
 // New returns a handler. secure selects the deployed cookie profile
 // (__Host-226os_session/__Host-226os_csrf, Secure) versus local-dev
 // (226os_session/226os_csrf, plain HTTP). logger may be nil.
-func New(svc *service.Service, secure bool, logger *slog.Logger) *Handler {
+func New(svc Service, secure bool, logger *slog.Logger) *Handler {
 	if logger == nil {
 		logger = slog.New(slog.DiscardHandler)
 	}
@@ -145,13 +160,10 @@ func writeJSON(w http.ResponseWriter, status int, body any) {
 	_ = json.NewEncoder(w).Encode(body)
 }
 
+// writeErr renders err as an RFC 9457 problem; httpx.WriteError already maps
+// non-apperr causes to a redacted 500.
 func writeErr(logger *slog.Logger, w http.ResponseWriter, r *http.Request, err error) {
-	var ae *apperr.Error
-	if errors.As(err, &ae) {
-		httpx.WriteError(logger)(w, r, ae)
-		return
-	}
-	httpx.WriteError(logger)(w, r, apperr.Wrap(apperr.CodeInternal, err))
+	httpx.WriteError(logger)(w, r, err)
 }
 
 func derefStr(v *string) string {

@@ -47,6 +47,62 @@ func (q *Queries) ConsumePasswordReset(ctx context.Context, arg ConsumePasswordR
 	return user_id, err
 }
 
+const createAccount = `-- name: CreateAccount :one
+
+WITH u AS (
+  INSERT INTO users (email) VALUES ($1)
+  RETURNING id, email, email_verified_at, role, status, created_at
+), c AS (
+  INSERT INTO user_credentials (user_id, password_hash)
+  SELECT id, $2 FROM u
+), p AS (
+  INSERT INTO profiles (user_id, username, display_name)
+  SELECT id, $3, $4 FROM u
+)
+SELECT id, email, email_verified_at, role, status, created_at FROM u
+`
+
+type CreateAccountParams struct {
+	Email        string
+	PasswordHash string
+	Username     string
+	DisplayName  string
+}
+
+type CreateAccountRow struct {
+	ID              pgtype.UUID
+	Email           string
+	EmailVerifiedAt pgtype.Timestamptz
+	Role            string
+	Status          string
+	CreatedAt       pgtype.Timestamptz
+}
+
+// Identity queries for the S1 Store port (ADR-0003). Tokens and passwords are
+// only ever stored hashed; every lookup by token is by hash. All statements are
+// parameterized; the only dynamic value is the keep-id exclusion, which is a
+// bound uuid parameter.
+// CreateAccount writes user + credential + profile atomically: a single
+// statement is its own transaction, so no partial account can exist.
+func (q *Queries) CreateAccount(ctx context.Context, arg CreateAccountParams) (CreateAccountRow, error) {
+	row := q.db.QueryRow(ctx, createAccount,
+		arg.Email,
+		arg.PasswordHash,
+		arg.Username,
+		arg.DisplayName,
+	)
+	var i CreateAccountRow
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.EmailVerifiedAt,
+		&i.Role,
+		&i.Status,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const createEmailVerification = `-- name: CreateEmailVerification :exec
 INSERT INTO email_verifications (user_id, email, token_hash, expires_at)
 VALUES ($1, $2, $3, $4)
@@ -85,21 +141,6 @@ func (q *Queries) CreatePasswordReset(ctx context.Context, arg CreatePasswordRes
 	return err
 }
 
-const createProfile = `-- name: CreateProfile :exec
-INSERT INTO profiles (user_id, username, display_name) VALUES ($1, $2, $3)
-`
-
-type CreateProfileParams struct {
-	UserID      pgtype.UUID
-	Username    string
-	DisplayName string
-}
-
-func (q *Queries) CreateProfile(ctx context.Context, arg CreateProfileParams) error {
-	_, err := q.db.Exec(ctx, createProfile, arg.UserID, arg.Username, arg.DisplayName)
-	return err
-}
-
 const createSession = `-- name: CreateSession :exec
 INSERT INTO sessions (id, user_id, token_hash, csrf_token_hash, idle_expires_at, absolute_expires_at)
 VALUES ($1, $2, $3, $4, $5, $6)
@@ -123,53 +164,6 @@ func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) er
 		arg.IdleExpiresAt,
 		arg.AbsoluteExpiresAt,
 	)
-	return err
-}
-
-const createUser = `-- name: CreateUser :one
-
-INSERT INTO users (email) VALUES ($1)
-RETURNING id, email, email_verified_at, role, status, created_at
-`
-
-type CreateUserRow struct {
-	ID              pgtype.UUID
-	Email           string
-	EmailVerifiedAt pgtype.Timestamptz
-	Role            string
-	Status          string
-	CreatedAt       pgtype.Timestamptz
-}
-
-// Identity queries for the S1 Store port (ADR-0003). Tokens and passwords are
-// only ever stored hashed; every lookup by token is by hash. All statements are
-// parameterized; the only dynamic value is the keep-id exclusion, which is a
-// bound uuid parameter.
-func (q *Queries) CreateUser(ctx context.Context, email string) (CreateUserRow, error) {
-	row := q.db.QueryRow(ctx, createUser, email)
-	var i CreateUserRow
-	err := row.Scan(
-		&i.ID,
-		&i.Email,
-		&i.EmailVerifiedAt,
-		&i.Role,
-		&i.Status,
-		&i.CreatedAt,
-	)
-	return i, err
-}
-
-const createUserCredential = `-- name: CreateUserCredential :exec
-INSERT INTO user_credentials (user_id, password_hash) VALUES ($1, $2)
-`
-
-type CreateUserCredentialParams struct {
-	UserID       pgtype.UUID
-	PasswordHash string
-}
-
-func (q *Queries) CreateUserCredential(ctx context.Context, arg CreateUserCredentialParams) error {
-	_, err := q.db.Exec(ctx, createUserCredential, arg.UserID, arg.PasswordHash)
 	return err
 }
 

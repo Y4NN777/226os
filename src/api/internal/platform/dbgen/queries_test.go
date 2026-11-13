@@ -111,25 +111,26 @@ func TestGetCountryPropagatesScanError(t *testing.T) {
 	}
 }
 
-func TestGetUserByEmail(t *testing.T) {
+func TestGetAccountByEmail(t *testing.T) {
 	id := pgtype.UUID{Bytes: [16]byte{1}, Valid: true}
 	verified := pgtype.Timestamptz{Time: time.Date(2026, 11, 11, 10, 0, 0, 0, time.UTC), Valid: true}
 	created := pgtype.Timestamptz{Time: time.Date(2026, 11, 1, 10, 0, 0, 0, time.UTC), Valid: true}
-	// Column order of the generated SELECT: id, email, email_verified_at, role, status, created_at.
-	db := &fakeDB{rowVals: []any{id, "alice@example.org", verified, "member", "active", created}}
+	// Column order of the generated SELECT: id, email, email_verified_at, role,
+	// status, created_at, password_hash, username, display_name.
+	db := &fakeDB{rowVals: []any{id, "alice@example.org", verified, "member", "active", created,
+		"$argon2id$v=19$m=65536,t=3,p=1$c2FsdA$a2V5", "alice", "Alice"}}
 
-	got, err := dbgen.New(db).GetUserByEmail(t.Context(), "alice@example.org")
+	got, err := dbgen.New(db).GetAccountByEmail(t.Context(), "alice@example.org")
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := dbgen.GetUserByEmailRow{ID: id, Email: "alice@example.org", EmailVerifiedAt: verified, Role: "member", Status: "active", CreatedAt: created}
+	want := dbgen.GetAccountByEmailRow{ID: id, Email: "alice@example.org", EmailVerifiedAt: verified,
+		Role: "member", Status: "active", CreatedAt: created,
+		PasswordHash: "$argon2id$v=19$m=65536,t=3,p=1$c2FsdA$a2V5", Username: "alice", DisplayName: "Alice"}
 	if got != want {
 		t.Fatalf("got %+v, want %+v", got, want)
 	}
-	assertCall(t, db, "FROM users WHERE email = $1", []any{"alice@example.org"})
-	if strings.Contains(db.calls[0].sql, "password") {
-		t.Fatal("the identity query must never select credentials")
-	}
+	assertCall(t, db, "WHERE u.email = $1", []any{"alice@example.org"})
 }
 
 func TestDeleteExpiredIdempotencyKeys(t *testing.T) {
@@ -286,4 +287,124 @@ func assertCall(t *testing.T, db *fakeDB, sqlFragment string, args []any) {
 	if !reflect.DeepEqual(c.args, args) {
 		t.Errorf("args = %#v, want %#v", c.args, args)
 	}
+}
+
+// Identity queries (S1): contract tests pin the SQL text, bind order and scan
+// order of every generated statement.
+func TestIdentityQueries(t *testing.T) {
+	ctx := t.Context()
+	uid := pgtype.UUID{Bytes: [16]byte{1}, Valid: true}
+	uid2 := pgtype.UUID{Bytes: [16]byte{2}, Valid: true}
+	ts := pgtype.Timestamptz{Time: time.Unix(10, 0).UTC(), Valid: true}
+	text := pgtype.Text{String: "logout", Valid: true}
+	hash := make([]byte, 32)
+	accountCols := []any{uid, "a@b.co", ts, "member", "active", ts,
+		"$argon2id$v=19$m=65536,t=3,p=1$c2FsdA$a2V5", "alice", "Alice"}
+
+	// CreateAccount :one (CTE over users + credentials + profiles).
+	db := &fakeDB{rowVals: []any{uid, "a@b.co", pgtype.Timestamptz{}, "member", "active", ts}}
+	if _, err := dbgen.New(db).CreateAccount(ctx, dbgen.CreateAccountParams{
+		Email: "a@b.co", PasswordHash: "phc", Username: "alice", DisplayName: "Alice",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	assertCall(t, db, "INSERT INTO profiles", []any{"a@b.co", "phc", "alice", "Alice"})
+
+	// GetAccountByID :one — same row shape as GetAccountByEmail.
+	db = &fakeDB{rowVals: accountCols}
+	if _, err := dbgen.New(db).GetAccountByID(ctx, uid); err != nil {
+		t.Fatal(err)
+	}
+	assertCall(t, db, "WHERE u.id = $1", []any{uid})
+
+	// CreateSession :exec.
+	db = &fakeDB{}
+	if err := dbgen.New(db).CreateSession(ctx, dbgen.CreateSessionParams{
+		ID: uid, UserID: uid2, TokenHash: hash, CsrfTokenHash: hash,
+		IdleExpiresAt: ts, AbsoluteExpiresAt: ts,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	assertCall(t, db, "INSERT INTO sessions", []any{uid, uid2, hash, hash, ts, ts})
+
+	// GetSessionByTokenHash :one — 11 columns.
+	sessCols := []any{uid, uid2, hash, hash, ts, ts, ts, ts, ts, pgtype.Timestamptz{}, pgtype.Text{}}
+	db = &fakeDB{rowVals: sessCols}
+	if _, err := dbgen.New(db).GetSessionByTokenHash(ctx, hash); err != nil {
+		t.Fatal(err)
+	}
+	assertCall(t, db, "FROM sessions\nWHERE token_hash = $1", []any{hash})
+
+	// Revoked variant of the same row.
+	sessCols[9] = ts
+	sessCols[10] = text
+	db = &fakeDB{rowVals: sessCols}
+	if _, err := dbgen.New(db).GetSessionByTokenHash(ctx, hash); err != nil {
+		t.Fatal(err)
+	}
+
+	// Session mutations :exec.
+	for name, run := range map[string]func(*dbgen.Queries) error{
+		"RevokeSession": func(q *dbgen.Queries) error {
+			return q.RevokeSession(ctx, dbgen.RevokeSessionParams{ID: uid, RevokedReason: text, RevokedAt: ts})
+		},
+		"RevokeUserSessions": func(q *dbgen.Queries) error {
+			return q.RevokeUserSessions(ctx, dbgen.RevokeUserSessionsParams{
+				UserID: uid, RevokedReason: text, RevokedAt: ts, Column4: uid2})
+		},
+		"TouchSession": func(q *dbgen.Queries) error {
+			return q.TouchSession(ctx, dbgen.TouchSessionParams{ID: uid, LastSeenAt: ts, IdleExpiresAt: ts})
+		},
+		"CreateEmailVerification": func(q *dbgen.Queries) error {
+			return q.CreateEmailVerification(ctx, dbgen.CreateEmailVerificationParams{
+				UserID: uid, Email: "a@b.co", TokenHash: hash, ExpiresAt: ts})
+		},
+		"CreatePasswordReset": func(q *dbgen.Queries) error {
+			return q.CreatePasswordReset(ctx, dbgen.CreatePasswordResetParams{
+				UserID: uid, TokenHash: hash, ExpiresAt: ts})
+		},
+		"MarkEmailVerified": func(q *dbgen.Queries) error {
+			return q.MarkEmailVerified(ctx, dbgen.MarkEmailVerifiedParams{ID: uid, EmailVerifiedAt: ts})
+		},
+		"SetPasswordHash": func(q *dbgen.Queries) error {
+			return q.SetPasswordHash(ctx, dbgen.SetPasswordHashParams{
+				UserID: uid, PasswordHash: "phc", PasswordChangedAt: ts})
+		},
+	} {
+		db = &fakeDB{}
+		if err := run(dbgen.New(db)); err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if len(db.calls) != 1 {
+			t.Fatalf("%s: calls = %d", name, len(db.calls))
+		}
+	}
+
+	// Consume queries :one returning user_id.
+	for name, run := range map[string]func(*dbgen.Queries) (pgtype.UUID, error){
+		"ConsumeEmailVerification": func(q *dbgen.Queries) (pgtype.UUID, error) {
+			return q.ConsumeEmailVerification(ctx, dbgen.ConsumeEmailVerificationParams{TokenHash: hash, ConsumedAt: ts})
+		},
+		"ConsumePasswordReset": func(q *dbgen.Queries) (pgtype.UUID, error) {
+			return q.ConsumePasswordReset(ctx, dbgen.ConsumePasswordResetParams{TokenHash: hash, ConsumedAt: ts})
+		},
+	} {
+		db = &fakeDB{rowVals: []any{uid}}
+		got, err := run(dbgen.New(db))
+		if err != nil || got != uid {
+			t.Fatalf("%s: %v %v", name, got, err)
+		}
+		if len(db.calls) != 1 {
+			t.Fatalf("%s: calls = %d", name, len(db.calls))
+		}
+	}
+
+	// HitRateLimit :one returning hits.
+	db = &fakeDB{rowVals: []any{int32(7)}}
+	hits, err := dbgen.New(db).HitRateLimit(ctx, dbgen.HitRateLimitParams{
+		Scope: "signin:ip", KeyHash: hash, WindowStart: ts})
+	if err != nil || hits != 7 {
+		t.Fatalf("hits = %d, %v", hits, err)
+	}
+	assertCall(t, db, "INSERT INTO rate_limit_buckets", []any{"signin:ip", hash, ts})
 }
