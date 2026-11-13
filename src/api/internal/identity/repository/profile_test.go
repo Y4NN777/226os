@@ -236,6 +236,14 @@ func TestUpdateProfile(t *testing.T) {
 	if err := New(db).UpdateProfile(ctx, uid, w); err == nil {
 		t.Fatal("expected commit error")
 	}
+
+	// unparseable skill id -> error before any statement runs
+	wBad := w
+	wBad.SkillTagIDs = domain.PatchField[[]string]{Present: true, Value: &[]string{"bad-uuid"}}
+	db = &fakeDB{}
+	if err := New(db).UpdateProfile(ctx, uid, wBad); err == nil {
+		t.Fatal("expected bad skill id error")
+	}
 }
 
 func TestPatchHelpers(t *testing.T) {
@@ -298,20 +306,19 @@ func TestPatchHelpers(t *testing.T) {
 	}
 
 	// patchUUIDs: absent -> nil, present nil -> empty non-nil, values -> parsed
-	if v := patchUUIDs(domain.PatchField[[]string]{}); v != nil {
+	if v, err := patchUUIDs(domain.PatchField[[]string]{}); err != nil || v != nil {
 		t.Fatal("absent patchUUIDs")
 	}
-	if v := patchUUIDs(domain.PatchField[[]string]{Present: true}); v == nil || len(v) != 0 {
+	if v, err := patchUUIDs(domain.PatchField[[]string]{Present: true}); err != nil || v == nil || len(v) != 0 {
 		t.Fatal("nil patchUUIDs")
 	}
-	v := patchUUIDs(domain.PatchField[[]string]{Present: true, Value: &ids})
-	if v == nil || len(v) != 1 || !v[0].Valid {
+	v, err := patchUUIDs(domain.PatchField[[]string]{Present: true, Value: &ids})
+	if err != nil || v == nil || len(v) != 1 || !v[0].Valid {
 		t.Fatal("set patchUUIDs")
 	}
 	bad := []string{"not-a-uuid", testUUID.String()}
-	v = patchUUIDs(domain.PatchField[[]string]{Present: true, Value: &bad})
-	if len(v) != 1 {
-		t.Fatalf("bad uuid skipped: %v", v)
+	if _, err := patchUUIDs(domain.PatchField[[]string]{Present: true, Value: &bad}); err == nil {
+		t.Fatal("bad uuid must error, not skip")
 	}
 }
 

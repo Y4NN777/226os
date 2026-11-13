@@ -137,6 +137,10 @@ func (r *Repository) UpdateProfile(ctx context.Context, userID string, w domain.
 	// each on a fresh READ COMMITTED snapshot. Concurrent patches therefore
 	// serialize on the row lock and the last writer's set wins exactly,
 	// instead of merging two snapshots taken before the lock wait.
+	ids, err := patchUUIDs(w.SkillTagIDs)
+	if err != nil {
+		return err
+	}
 	tx, err := r.db.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("identity update profile begin: %w", err)
@@ -149,7 +153,7 @@ func (r *Repository) UpdateProfile(ctx context.Context, userID string, w domain.
 	if err := q.DeleteUserSkills(ctx, uid); err != nil {
 		return fmt.Errorf("identity replace skills delete: %w", err)
 	}
-	if ids := patchUUIDs(w.SkillTagIDs); len(ids) > 0 {
+	if len(ids) > 0 {
 		if err := q.InsertUserSkills(ctx, dbgen.InsertUserSkillsParams{UserID: uid, Column2: ids}); err != nil {
 			return fmt.Errorf("identity replace skills insert: %w", err)
 		}
@@ -214,20 +218,20 @@ func patchBool(f domain.PatchField[bool]) (bool, bool) {
 	return true, *f.Value
 }
 
-func patchUUIDs(f domain.PatchField[[]string]) []pgtype.UUID {
+func patchUUIDs(f domain.PatchField[[]string]) ([]pgtype.UUID, error) {
 	if !f.Present {
-		return nil // NULL: leave user_skills untouched
+		return nil, nil // NULL: leave user_skills untouched
 	}
 	if f.Value == nil || *f.Value == nil {
-		return []pgtype.UUID{} // present + empty: clear every skill
+		return []pgtype.UUID{}, nil // present + empty: clear every skill
 	}
 	out := make([]pgtype.UUID, 0, len(*f.Value))
 	for _, s := range *f.Value {
 		u, err := parseUUID(s)
 		if err != nil {
-			continue // service resolved these; a bad id cannot reach here
+			return nil, fmt.Errorf("identity skill id %q: %w", s, err)
 		}
 		out = append(out, u)
 	}
-	return out // non-nil even when empty: an empty set clears all skills
+	return out, nil // non-nil even when empty: an empty set clears all skills
 }

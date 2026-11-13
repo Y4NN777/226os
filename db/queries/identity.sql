@@ -176,10 +176,11 @@ UPDATE profiles SET
   WHERE profiles.user_id = $1
 RETURNING profiles.user_id;
 
--- ReplaceUserSkills deletes every skill of the user; InsertUserSkills adds the
--- resolved set. The repository runs both inside the UpdateProfile transaction,
--- after the profile row lock is held, so each statement sees a fresh snapshot
--- and concurrent patches serialize instead of merging.
+-- Skill replacement pair: DeleteUserSkills wipes the user's skill rows and
+-- InsertUserSkills adds the resolved set. The repository runs both inside
+-- the UpdateProfile transaction, after the profile row lock is held, so
+-- each statement sees a fresh snapshot and concurrent patches serialize
+-- instead of merging.
 -- name: DeleteUserSkills :exec
 DELETE FROM user_skills WHERE user_id = $1;
 

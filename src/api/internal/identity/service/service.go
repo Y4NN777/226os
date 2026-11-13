@@ -87,7 +87,7 @@ type Store interface {
 	// smaller than the input when a slug is unknown or the tag is hidden.
 	ResolveSkillSlugs(ctx context.Context, slugs []string) ([]string, error)
 	// UpdateProfile applies a resolved merge patch atomically: profile columns
-	// and the skill set move in one statement.
+	// and the skill set commit or roll back together in one transaction.
 	UpdateProfile(ctx context.Context, userID string, w domain.ProfileWrite) error
 }
 
