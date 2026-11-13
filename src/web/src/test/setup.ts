@@ -29,3 +29,9 @@ afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
+
+afterEach(async () => {
+  // The CSRF token lives in memory for the app's lifetime; tests must not share it.
+  const { api } = await import('../api/http');
+  api.csrf.set(null);
+});
