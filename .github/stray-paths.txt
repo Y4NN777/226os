@@ -1,0 +1,8 @@
+# Paths that do not belong to a product pull request (Review gate, report only until GATE_NEW=enforce).
+# Read from the BASE branch. One rule per line: `always: PATTERN` (any branch) or `feature: PATTERN` (only on feature/* and fix/*).
+# The label stray-ok exempts a pull request. Patterns are fnmatch (`*` also matches `/`).
+always: .devin/*
+always: .cursor/*
+always: .idea/*
+always: .vscode/*
+feature: .gitignore
