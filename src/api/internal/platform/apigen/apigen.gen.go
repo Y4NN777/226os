@@ -245,6 +245,12 @@ const (
 	RelatedLinkTypeSeries   RelatedLinkType = "series"
 )
 
+// Defines values for ResourceProvenance.
+const (
+	Demo ResourceProvenance = "demo"
+	Live ResourceProvenance = "live"
+)
+
 // Defines values for ResourceSourceKind.
 const (
 	ResourceSourceKindChangelog    ResourceSourceKind = "changelog"
@@ -1037,7 +1043,10 @@ type Resource struct {
 	LastVerifiedAt *Timestamp `json:"last_verified_at"`
 	Limitations    *[]string  `json:"limitations,omitempty"`
 	Name           string     `json:"name"`
-	Provider       struct {
+
+	// Provenance live = real content; demo = local-dev SEED fixture, shown with a visible badge (C15).
+	Provenance ResourceProvenance `json:"provenance"`
+	Provider   struct {
 		Name string  `json:"name"`
 		Slug Slug    `json:"slug"`
 		Url  *string `json:"url,omitempty"`
@@ -1063,6 +1072,9 @@ type Resource struct {
 	UpdatedAt          Timestamp          `json:"updated_at"`
 	VerificationStatus VerificationStatus `json:"verification_status"`
 }
+
+// ResourceProvenance live = real content; demo = local-dev SEED fixture, shown with a visible badge (C15).
+type ResourceProvenance string
 
 // ResourcePage defines model for ResourcePage.
 type ResourcePage struct {
@@ -1537,11 +1549,13 @@ type ListResourcesParams struct {
 	Cursor *Cursor `form:"cursor,omitempty" json:"cursor,omitempty"`
 
 	// Limit Page size, 1..50 (above 50 -> 422).
-	Limit    *Limit        `form:"limit,omitempty" json:"limit,omitempty"`
-	Q        *string       `form:"q,omitempty" json:"q,omitempty"`
-	Country  *Country      `form:"country,omitempty" json:"country,omitempty"`
-	Category *Slug         `form:"category,omitempty" json:"category,omitempty"`
-	Type     *ResourceType `form:"type,omitempty" json:"type,omitempty"`
+	Limit *Limit  `form:"limit,omitempty" json:"limit,omitempty"`
+	Q     *string `form:"q,omitempty" json:"q,omitempty"`
+
+	// Country One or more ISO 3166-1 alpha-2 codes, comma separated (BF,CI,SN); a resource matches when it supports any of them.
+	Country  *[]CountryCode `form:"country,omitempty" json:"country,omitempty"`
+	Category *Slug          `form:"category,omitempty" json:"category,omitempty"`
+	Type     *ResourceType  `form:"type,omitempty" json:"type,omitempty"`
 
 	// Sdk SDK language available (e.g. python, js, go).
 	Sdk *Slug `form:"sdk,omitempty" json:"sdk,omitempty"`
@@ -3780,7 +3794,7 @@ func (siw *ServerInterfaceWrapper) ListResources(w http.ResponseWriter, r *http.
 
 	// ------------- Optional query parameter "country" -------------
 
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "country", r.URL.Query(), &params.Country, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	err = runtime.BindQueryParameterWithOptions("form", false, false, "country", r.URL.Query(), &params.Country, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
 	if err != nil {
 		var requiredError *runtime.RequiredParameterError
 		if errors.As(err, &requiredError) {

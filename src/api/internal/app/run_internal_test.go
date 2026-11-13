@@ -175,3 +175,38 @@ func TestStartPurgeStopWaitsForTheJob(t *testing.T) {
 	stop2 := startPurge(t.Context(), idempotency.NewPgStore(pool), slog.New(slog.NewJSONHandler(io.Discard, nil)))
 	stop2()
 }
+
+func envWith(base func(string) string, k, v string) func(string) string {
+	return func(name string) string {
+		if name == k {
+			return v
+		}
+		return base(name)
+	}
+}
+
+func TestRunRefusesABadAppBaseURLWithoutEchoingIt(t *testing.T) {
+	var out bytes.Buffer
+	pool := &fakePool{}
+	code := run(context.Background(), envWith(validEnv(t), "APP_BASE_URL", "https://pw0rd-s3cret@226os.example/x?y#z"), &out,
+		func(context.Context, net.Listener, http.Handler, time.Duration) error {
+			t.Fatal("serve should not be called")
+			return nil
+		}, fakeOpener(pool))
+	if code != 1 || !strings.Contains(out.String(), "APP_BASE_URL") || strings.Contains(out.String(), "pw0rd-s3cret") {
+		t.Fatalf("code = %d log = %s", code, out.String())
+	}
+}
+
+func TestRunStartsWithAValidAppBaseURL(t *testing.T) {
+	var out bytes.Buffer
+	served := false
+	code := run(context.Background(), envWith(validEnv(t), "APP_BASE_URL", "http://127.0.0.1:8088"), &out,
+		func(context.Context, net.Listener, http.Handler, time.Duration) error {
+			served = true
+			return nil
+		}, fakeOpener(&fakePool{}))
+	if code != 0 || !served {
+		t.Fatalf("code = %d served = %v log = %s", code, served, out.String())
+	}
+}

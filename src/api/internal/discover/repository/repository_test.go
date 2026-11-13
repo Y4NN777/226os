@@ -35,7 +35,7 @@ func when() pgtype.Timestamptz {
 func listVals() []any {
 	return []any{
 		uid(resID), "alpha", "Alpha Pay", "api", "mobile-money", "Paiement", []string{"fr"},
-		pgtype.Text{String: "https://docs.example", Valid: true}, "verified", when(), when(), uid(srcID),
+		pgtype.Text{String: "https://docs.example", Valid: true}, "verified", when(), when(), uid(srcID), "demo",
 		"acme", "Acme", pgtype.Text{String: "https://acme.example", Valid: true}, int32(2),
 	}
 }
@@ -45,6 +45,8 @@ type script struct {
 	steps [][][]any
 	errs  []error
 	n     int
+	// firstArgs are the arguments of the first query, for tests that check what reaches SQL.
+	firstArgs []any
 }
 
 func (s *script) next(kind string) ([][]any, error) {
@@ -61,7 +63,10 @@ func (s *script) Exec(context.Context, string, ...any) (pgconn.CommandTag, error
 	return pgconn.CommandTag{}, errors.New("not used")
 }
 
-func (s *script) Query(_ context.Context, _ string, _ ...any) (pgx.Rows, error) {
+func (s *script) Query(_ context.Context, _ string, args ...any) (pgx.Rows, error) {
+	if s.n == 0 {
+		s.firstArgs = args
+	}
 	rows, err := s.next("query")
 	if err != nil {
 		return nil, err
@@ -148,11 +153,11 @@ func children() [][][]any {
 
 func TestListAssemblesPublishedRows(t *testing.T) {
 	repo := New(okScript(t, children()...))
-	got, err := repo.List(t.Context(), domain.Query{Q: "paiement", Country: "BF", Limit: 21})
+	got, err := repo.List(t.Context(), domain.Query{Q: "paiement", Countries: []string{"BF", "CI"}, Limit: 21})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(got) != 1 || got[0].Name != "Alpha Pay" || got[0].VerificationStatus != "verified" {
+	if len(got) != 1 || got[0].Name != "Alpha Pay" || got[0].VerificationStatus != "verified" || got[0].Provenance != "demo" {
 		t.Fatalf("%+v", got)
 	}
 	if len(got[0].Countries) != 1 || got[0].Countries[0] != "BF" {
@@ -166,6 +171,28 @@ func TestListAssemblesPublishedRows(t *testing.T) {
 	}
 	if got[0].DocsURL == nil || got[0].LastVerifiedAt == nil {
 		t.Fatal("expected docs url and verified time")
+	}
+}
+
+// A country filter reaches the query as a text[] (so ANY() matches), and no filter stays NULL, not '{}'.
+func TestListPassesTheCountryListAsAnArray(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		in   []string
+		want any
+	}{
+		{"unset", nil, []string(nil)},
+		{"two", []string{"BF", "CI"}, []string{"BF", "CI"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s := &script{t: t, steps: [][][]any{nil}, errs: []error{nil}}
+			if _, err := New(s).List(t.Context(), domain.Query{Countries: tc.in, Limit: 21}); err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(s.firstArgs[3], tc.want) {
+				t.Fatalf("country arg = %#v, want %#v", s.firstArgs[3], tc.want)
+			}
+		})
 	}
 }
 
