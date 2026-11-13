@@ -153,10 +153,11 @@ const deleteUserSkills = `-- name: DeleteUserSkills :exec
 DELETE FROM user_skills WHERE user_id = $1
 `
 
-// ReplaceUserSkills deletes every skill of the user; InsertUserSkills adds the
-// resolved set. The repository runs both inside the UpdateProfile transaction,
-// after the profile row lock is held, so each statement sees a fresh snapshot
-// and concurrent patches serialize instead of merging.
+// Skill replacement pair: DeleteUserSkills wipes the user's skill rows and
+// InsertUserSkills adds the resolved set. The repository runs both inside
+// the UpdateProfile transaction, after the profile row lock is held, so
+// each statement sees a fresh snapshot and concurrent patches serialize
+// instead of merging.
 func (q *Queries) DeleteUserSkills(ctx context.Context, userID pgtype.UUID) error {
 	_, err := q.db.Exec(ctx, deleteUserSkills, userID)
 	return err
