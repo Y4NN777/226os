@@ -497,7 +497,7 @@ func TestErrorReportRateLimitIs60PerUserPerMinute(t *testing.T) {
 	}
 	// No user id or address is stored in clear: the bucket is an HMAC.
 	var plain int
-	if err := s.conn.QueryRow(ctx, `SELECT count(*) FROM rate_limit_buckets WHERE scope = 'error_report:user' AND position($1::bytea in key_hash) > 0`, []byte(alice.id)).Scan(&plain); err != nil || plain != 0 {
+	if err := s.conn.QueryRow(ctx, `SELECT count(*) FROM rate_limit_buckets WHERE scope = 'write:user' AND position($1::bytea in key_hash) > 0`, []byte(alice.id)).Scan(&plain); err != nil || plain != 0 {
 		t.Fatalf("plain user id in a bucket key: %d, %v", plain, err)
 	}
 }

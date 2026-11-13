@@ -10,9 +10,12 @@ import (
 // ClientIPKey returns the rate-limit identity of the caller: the address reduced to its /24 (IPv4)
 // or /48 (IPv6) prefix, or "unknown" when no address can be parsed.
 //
-// Only the right-most X-Forwarded-For entry is used. Traefik is the only ingress and appends the
-// peer address it observed at the end of the header, so earlier entries are client supplied and
-// spoofable. Without the header the socket peer is used.
+// Only the right-most X-Forwarded-For entry is used. The API port is not published (compose.yaml
+// has no ports: on api), so Traefik is the only ingress; it overwrites an untrusted client's
+// X-Forwarded-For with the peer it saw, so the right-most entry is that peer and earlier entries
+// are client supplied and spoofable. Without the header the socket peer is used. If the API is
+// ever exposed directly, or placed behind another proxy, a trusted-proxy setting is required
+// before this value can be trusted.
 func ClientIPKey(r *http.Request) string {
 	return prefixKey(clientAddr(r))
 }

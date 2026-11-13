@@ -72,8 +72,8 @@ func TestCreateErrorReportStoresTheReportOfTheSessionSubject(t *testing.T) {
 	if len(store.got) != 1 || store.got[0] != wantIn {
 		t.Fatalf("stored %+v, want %+v", store.got, wantIn)
 	}
-	if len(lim.calls) != 1 || lim.calls[0] != "error_report:user|"+member || lim.limit != 60 || lim.window != time.Minute {
-		t.Fatalf("limiter %v %d %v; want error_report:user, 60 per minute, keyed by the session user", lim.calls, lim.limit, lim.window)
+	if len(lim.calls) != 1 || lim.calls[0] != "write:user|"+member || lim.limit != 60 || lim.window != time.Minute {
+		t.Fatalf("limiter %v %d %v; want write:user, 60 per minute, keyed by the session user", lim.calls, lim.limit, lim.window)
 	}
 }
 

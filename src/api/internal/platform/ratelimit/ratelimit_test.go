@@ -183,7 +183,7 @@ func TestBucketKeyUsesAnHKDFSubkeyNotTheRawSecret(t *testing.T) {
 func TestBucketKeySeparatesScopesAndValues(t *testing.T) {
 	l := newLimiter(&fakeQueries{}, secret(), nil)
 	a := l.bucketKey("search:ip", "1.2.3.0/24")
-	if bytes.Equal(a, l.bucketKey("error_report:user", "1.2.3.0/24")) || bytes.Equal(a, l.bucketKey("search:ip", "1.2.4.0/24")) {
+	if bytes.Equal(a, l.bucketKey("write:user", "1.2.3.0/24")) || bytes.Equal(a, l.bucketKey("search:ip", "1.2.4.0/24")) {
 		t.Fatal("scope and value must both change the bucket key")
 	}
 	if !bytes.Equal(a, l.bucketKey("search:ip", "1.2.3.0/24")) {

@@ -54,7 +54,7 @@ func TestRateLimiterFixedWindowAndRetryAfter(t *testing.T) {
 		t.Fatalf("4th hit = %v, %v, %v; want denied with 0 < retry <= 1m", ok, retry, err)
 	}
 	// Other values and other scopes have their own buckets.
-	for _, c := range [][2]string{{"search:ip", "198.51.100.0/24"}, {"error_report:user", "203.0.113.0/24"}} {
+	for _, c := range [][2]string{{"search:ip", "198.51.100.0/24"}, {"write:user", "203.0.113.0/24"}} {
 		if ok, _, err := l.Hit(ctx, c[0], c[1], 3, time.Minute); err != nil || !ok {
 			t.Fatalf("%v = %v, %v; want its own bucket", c, ok, err)
 		}
@@ -216,7 +216,7 @@ func TestRateLimiterScopesPassTheTableCheck(t *testing.T) {
 	defer cancel()
 	pool, _ := limiterPool(ctx, t)
 	l := ratelimit.New(pool, s2Secret, nil)
-	for _, scope := range []string{"search:ip", "error_report:user"} {
+	for _, scope := range []string{"search:ip", "write:user"} {
 		if _, _, err := l.Hit(ctx, scope, "x", 1, time.Minute); err != nil {
 			t.Fatalf("scope %q: %v", scope, err)
 		}

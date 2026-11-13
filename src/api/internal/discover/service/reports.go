@@ -16,8 +16,9 @@ import (
 )
 
 const (
-	// Members may file 60 reports per minute (ADR-0003, authenticated writes).
-	reportScope  = "error_report:user"
+	// Reports draw on the one authenticated-writes budget, 60 per user per minute (ADR-0003); S3 to
+	// S5 reuse the same write:user scope, so it is one budget, not one per feature.
+	reportScope  = "write:user"
 	reportLimit  = 60
 	reportWindow = time.Minute
 )
