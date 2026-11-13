@@ -4,6 +4,7 @@ import {
   createRoute,
   createRouter,
   Outlet,
+  redirect,
   type RouterHistory,
 } from '@tanstack/react-router';
 import { RouterAnchor } from '../components/RouterAnchor';
@@ -42,8 +43,17 @@ const appLayout = createRoute({ getParentRoute: () => rootRoute, id: 'app', comp
 const homeRoute = createRoute({ getParentRoute: () => appLayout, path: '/', component: IndexPage });
 const settingsRoute = createRoute({
   getParentRoute: () => appLayout,
-  path: '/settings',
+  path: '/parametres',
   component: SettingsPage,
+});
+// Old address kept working (bookmarks, earlier links).
+const legacySettingsRoute = createRoute({
+  getParentRoute: () => appLayout,
+  path: '/settings',
+  beforeLoad: () => {
+    // eslint-disable-next-line @typescript-eslint/only-throw-error -- TanStack Router redirect API
+    throw redirect({ to: '/parametres' });
+  },
 });
 const discoverRoute = createRoute({
   getParentRoute: () => appLayout,
@@ -102,7 +112,14 @@ const welcomeRoute = createRoute({
 });
 
 const routeTree = rootRoute.addChildren([
-  appLayout.addChildren([homeRoute, settingsRoute, discoverRoute, resourceRoute, searchRoute]),
+  appLayout.addChildren([
+    homeRoute,
+    settingsRoute,
+    legacySettingsRoute,
+    discoverRoute,
+    resourceRoute,
+    searchRoute,
+  ]),
   authLayout.addChildren([
     signInRoute,
     signUpRoute,

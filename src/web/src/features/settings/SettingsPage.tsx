@@ -10,6 +10,7 @@ import { readStorage, writeStorage } from '../../app/storage';
 import { useI18n } from '../../i18n/I18nProvider';
 import { isLocale, locales } from '../../i18n/messages';
 import { useThemePreference, type ThemeMode } from '../../theme/ThemeProvider';
+import { ProfileVisibility } from './ProfileVisibility';
 import { DISPLAY_NAME_KEY, DISPLAY_NAME_MIN_LENGTH, validateDisplayName } from './useDisplayName';
 
 const themeModes = ['light', 'dark', 'system'] as const satisfies readonly ThemeMode[];
@@ -118,6 +119,8 @@ export function SettingsPage() {
           <div role="status">{saved ? <Text>{t('form.saved')}</Text> : null}</div>
         </VStack>
       </form>
+
+      <ProfileVisibility />
     </VStack>
   );
 }
