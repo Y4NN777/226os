@@ -84,7 +84,7 @@ func run(ctx context.Context, getenv func(string) string, out io.Writer, serve s
 	}
 	mail := newMailer(cfg, logger)
 	secureCookies := cfg.AppEnv != "local-dev"
-	identSvc := service.New(repository.New(pool), mail, cfg.CursorKey)
+	identSvc := service.New(repository.New(pool), mail, cfg.CursorKey, service.WithBaseURL(cfg.AppBaseURL))
 	authHandler := identitytransport.New(identSvc, secureCookies, logger)
 	limiter := ratelimit.New(pool, cfg.CursorKey, logger)
 	catalogue := discover.NewHandler(pool, codec, limiter, logger)

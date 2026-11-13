@@ -743,3 +743,20 @@ human_reviewers: ["mibienpanjoe (pending)"]
 tests_or_evidence: ["RED then GREEN (ProfileVisibility.test.tsx, LandingPage.test.tsx, HomePage.test.tsx, translate.test.ts key-collision check)", "Real-browser journeys on make up-local-dev with Mailpit: sign-up, verify, sign-in, sign-out, wrong password, reset, sign-in with the new password; axe on 13 pages; no horizontal scroll at 360/768/1024/1440 and 200% zoom (56/56)"]
 open_risks: ["Demo examples on the member home stay until listLearnArticles, listQuestions and listProjects are live.", "The local display-name field on parametres is a prototype leftover kept for now (owner decision)."]
 ```
+
+## S7 API gaps: provenance, country lists, mail links
+
+```yaml
+date: "2026-11-13"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code, Claude Opus 5.5 (integrator) and Claude Sonnet 5.5 (go-implementer in a separate worktree)"
+purpose: "Close three gaps found while building S7: Resource.provenance in the contract and responses, a comma-separated country list on listResources (union, max 20), and verify/reset mails carrying a #token= link built from an optional APP_BASE_URL."
+repository_or_source_context: "branch fix/platform/s7-api-gaps, owner decision 2026-11-13 (one backend PR), based on PR #96"
+files_or_sections_affected: ["api/openapi.yaml", "generated outputs (apigen, apispec, dbgen, src/web/src/api/schema.d.ts)", "db/queries/discover.sql", "src/api/internal/discover/**", "src/api/internal/identity/service/**", "src/api/internal/platform/config/**", "src/api/internal/app/**", "src/api/internal/platform/pgtest/**", "compose.yaml", ".env.example", "TODO.md", "AI_USAGE.md"]
+third_party_sources_consulted: []
+license_review: "NOT APPLICABLE: original code, no new dependency"
+closure: "open"
+human_reviewers: ["mibienpanjoe (pending)", "NICE-DEV226 (pending)"]
+tests_or_evidence: ["RED then GREEN: TestListResourcesEncodesAPage, TestListPassesTheCountryListAsAnArray, TestLoadAppBaseURL, TestVerificationMailCarriesALinkWhenABaseURLIsSet, TestResetMailCarriesALinkWhenABaseURLIsSet", "integration on real PostgreSQL: TestResourceProvenanceIsServed, TestResourceCountryListIsAUnion, TestResourceCountryListPaginatesStably, TestResourceCountryListRefusesBadInput", "make generate twice, no drift; make test-unit, make coverage (Go 100.0%), make test-integration-go exit 0"]
+open_risks: ["No test fails if app.go stops passing WithBaseURL (wiring line only).", "Two filter-hash collision tests now use category instead of country (country is validated)."]
+```
