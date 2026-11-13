@@ -12,6 +12,9 @@
 # path (.github/sensitive-paths.txt) without the owner's approval. It fails OPEN when the review did not run, and it
 # does NOT wait for the review (no `needs`): a merge never waits for the AI.
 # GATE MODE: repository variable CODE_REVIEW_GATE = off | report (default, never blocks) | enforce.
+# Two newer checks have their own switch, CODE_REVIEW_GATE_NEW = off | report (default, prints a NOTE) | enforce:
+# stray paths (.github/stray-paths.txt) and a finding issue closed without a test change. Promote to enforce after 10
+# pull requests without a false positive.
 #
 # WHEN THE REVIEW RUNS: scripts/review-context.py (from the BASE branch) prints REVIEW_DECISION:
 #   first        no usable previous review: review now, in parallel with the Quality workflow;
@@ -183,6 +186,7 @@ jobs:
       - name: Review gate
         env:
           GATE_MODE: ${{ vars.CODE_REVIEW_GATE || 'report' }}
+          GATE_NEW: ${{ vars.CODE_REVIEW_GATE_NEW || 'report' }}
           REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_AUTHOR: ${{ github.event.pull_request.user.login }}

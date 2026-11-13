@@ -32,6 +32,12 @@ VERDICT = re.compile(r"^Triage:\s*(CRITICAL|HIGH|MEDIUM|NONE)\s*\|\s*blast radiu
 EVIDENCE = re.compile(r"[\w./-]+\.\w+:\d+")
 OVERRIDE_LABEL = "owner-override"
 LIST_PATH = ".github/sensitive-paths.txt"
+STRAY_LIST = ".github/stray-paths.txt"
+STRAY_OK_LABEL = "stray-ok"
+NO_TEST_LABEL = "no-test"
+FINDING_LABEL = "finding"
+CLOSES = re.compile(r"\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+#(\d+)", re.I)
+TEST_FILE = re.compile(r"(_test\.go$|\.test\.tsx?$|^scripts/tests/)")
 
 
 class GitHubError(Exception):
@@ -138,6 +144,77 @@ def check_sensitive(gh, repo, pr, author, owner, base):
     return "sensitive paths touched (%s) without the owner's approval" % shown, ""
 
 
+def label_names(obj):
+    return [x if isinstance(x, str) else (x or {}).get("name", "") for x in obj.get("labels") or []]
+
+
+def fetch_pull(gh, repo, pr):
+    items = gh_api(gh, "repos/%s/pulls/%s" % (repo, pr))
+    return items[0] if items else {}
+
+
+def stray_rules(gh, repo, base):
+    """({'always': [...], 'feature': [...]}, or None when the list is missing). Lines are `always: PATTERN` or
+    `feature: PATTERN` (the latter only on feature/* and fix/* branches); read from the BASE branch."""
+    try:
+        items = gh_api(gh, "repos/%s/contents/%s?ref=%s" % (repo, STRAY_LIST, base))
+        raw = base64.b64decode(items[0]["content"]).decode("utf-8")
+    except (GitHubError, KeyError, IndexError, ValueError):
+        return None
+    rules = {"always": [], "feature": []}
+    for line in raw.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or ":" not in line:
+            continue
+        when, pattern = (x.strip() for x in line.split(":", 1))
+        if when in rules and pattern:
+            rules[when].append(pattern)
+    return rules
+
+
+def check_stray(gh, repo, base, pull):
+    """(failure or None, note): files that do not belong to a product pull request (agent or editor directories, a
+    .gitignore edit on a feature or fix branch). The label stray-ok exempts."""
+    rules = stray_rules(gh, repo, base)
+    if rules is None:
+        return None, "stray paths: NOT RUN (no stray-paths list on %s)" % base
+    if STRAY_OK_LABEL in label_names(pull):
+        return None, "stray paths: exempted by the label %s" % STRAY_OK_LABEL
+    ref = (pull.get("head") or {}).get("ref", "")
+    patterns = rules["always"] + (rules["feature"] if ref.startswith(("feature/", "fix/")) else [])
+    files = [f.get("filename", "") for f in gh_api(gh, "repos/%s/pulls/%s/files" % (repo, pr_number(pull)))]
+    hits = sorted(f for f in files if any(fnmatch.fnmatchcase(f, p) for p in patterns))
+    if not hits:
+        return None, "stray paths: none"
+    shown = ", ".join(hits[:6]) + (" ..." if len(hits) > 6 else "")
+    return "stray paths touched (%s): remove them from this pull request, or add the label %s" % (shown, STRAY_OK_LABEL), ""
+
+
+def pr_number(pull):
+    return pull.get("number") or os.environ.get("PR_NUMBER", "")
+
+
+def check_finding_tests(gh, repo, pull):
+    """(failure or None, note): a pull request that closes a `finding` issue must change a test file, so the finding
+    becomes a permanent check. The label no-test exempts."""
+    body = pull.get("body") or ""
+    numbers = sorted(set(CLOSES.findall(body)))
+    closed = []
+    for n in numbers:
+        issues = gh_api(gh, "repos/%s/issues/%s" % (repo, n))
+        if issues and FINDING_LABEL in label_names(issues[0]):
+            closed.append(n)
+    if not closed:
+        return None, "finding to test: no finding issue is closed by this pull request"
+    if NO_TEST_LABEL in label_names(pull):
+        return None, "finding to test: exempted by the label %s" % NO_TEST_LABEL
+    files = [f.get("filename", "") for f in gh_api(gh, "repos/%s/pulls/%s/files" % (repo, pr_number(pull)))]
+    if any(TEST_FILE.search(f) for f in files):
+        return None, "finding to test: a test file changed"
+    return ("closes finding issue(s) %s without changing a test file: add a test that fails without the fix, or add the "
+            "label %s" % (", ".join("#" + n for n in closed), NO_TEST_LABEL)), ""
+
+
 def main():
     mode = os.environ.get("GATE_MODE", "report").strip().lower() or "report"
     if mode not in ("off", "report", "enforce"):
@@ -167,6 +244,33 @@ def main():
             print("review-gate: " + note)
         if failure:
             failures.append(failure)
+
+    # The two newer checks have their own switch: report only until the owner sets GATE_NEW=enforce (promotion after 10
+    # pull requests without a false positive), whatever GATE_MODE says. They never fail the gate in report mode.
+    new_mode = os.environ.get("GATE_NEW", "report").strip().lower() or "report"
+    if new_mode not in ("off", "report", "enforce"):
+        new_mode = "report"
+    if new_mode != "off":
+        try:
+            pull = fetch_pull(gh, repo, pr)
+            pull.setdefault("number", pr)
+            new_checks = (("stray", lambda: check_stray(gh, repo, base, pull)),
+                          ("finding-to-test", lambda: check_finding_tests(gh, repo, pull)))
+        except GitHubError as exc:
+            print("review-gate: new checks NOT RUN (%s)" % exc)
+            new_checks = ()
+        for name, check in new_checks:
+            try:
+                failure, note = check()
+            except GitHubError as exc:
+                print("review-gate: %s check NOT RUN (%s)" % (name, exc))
+                continue
+            if note:
+                print("review-gate: " + note)
+            if failure and new_mode == "enforce":
+                failures.append(failure)
+            elif failure:
+                print("review-gate: NOTE (report only, GATE_NEW=report): WOULD FAIL: " + failure)
 
     if not failures:
         print("review-gate: PASS (mode %s)" % mode)

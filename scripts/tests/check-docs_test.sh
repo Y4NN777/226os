@@ -75,4 +75,48 @@ rm -rf "$tmp/t"
 mkdir -p "$tmp/t"
 run "an empty tree is BLOCKED (fails closed)" fail
 
+# ---------- AI_USAGE.md record dates (report mode: a WARN, never a failure; --strict-dates makes it one) ----------
+# dated_tree HEAD_DATE RECORD_DATE: a git repository whose HEAD commit is dated HEAD_DATE, with one AI_USAGE record.
+dated_tree() {
+  fresh
+  printf '# AI use\n\n```yaml\ndate: "%s"\ncontributor: "x"\n```\n' "$2" >"$tmp/t/AI_USAGE.md"
+  (
+    cd "$tmp/t"
+    git init -q -b main
+    git config user.email t@example.invalid
+    git config user.name t
+    git add -A
+    GIT_AUTHOR_DATE="$1T12:00:00Z" GIT_COMMITTER_DATE="$1T12:00:00Z" git -c commit.gpgsign=false commit -q -m "tree"
+  )
+}
+# dates_run [ARGS...]: runs the checker on the tree; sets rc and out.
+dates_run() {
+  rc=0
+  out="$(python3 -I "$checker" --root "$tmp/t" "$@" 2>&1)" || rc=$?
+}
+
+dated_tree 2026-11-13 2026-11-13
+dates_run
+[ "$rc" -eq 0 ] && ! grep -q 'WARN' <<<"$out" && ok "a record dated the HEAD commit day passes without a warning" || ko "same day (rc=$rc out=$out)"
+
+dated_tree 2026-11-13 2026-11-14
+dates_run
+[ "$rc" -eq 0 ] && ! grep -q 'WARN' <<<"$out" && ok "a record one day ahead is tolerated (timezones, rebases)" || ko "one day (rc=$rc out=$out)"
+
+dated_tree 2026-11-13 2026-11-16
+dates_run
+[ "$rc" -eq 0 ] && grep -q 'WARN: ai-usage: AI_USAGE.md:4 date 2026-11-16 is after the HEAD commit date 2026-11-13' <<<"$out" && ok "a record dated days after HEAD is reported as a warning (report mode)" || ko "future (rc=$rc out=$out)"
+
+dates_run --strict-dates
+[ "$rc" -eq 1 ] && ok "--strict-dates turns that warning into a failure (the promotion switch)" || ko "strict (rc=$rc out=$out)"
+
+dated_tree 2026-11-13 2026-11-10
+dates_run --strict-dates
+[ "$rc" -eq 0 ] && ok "an older record is fine even in strict mode" || ko "older strict (rc=$rc out=$out)"
+
+fresh
+printf '# AI use\n\n```yaml\ndate: "2030-01-01"\n```\n' >"$tmp/t/AI_USAGE.md"
+dates_run --strict-dates
+[ "$rc" -eq 0 ] && grep -q 'NOT RUN' <<<"$out" && ok "outside a git repository the date check is NOT RUN, not a failure" || ko "no git (rc=$rc out=$out)"
+
 finish
