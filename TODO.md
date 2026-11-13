@@ -36,7 +36,7 @@ CADEV rules checklist (added 2026-11-12 from the official rules; the rules text 
   - [x] DONE 2026-11-12 (owner instruction): busybox removed from the API image; `/healthcheck` replaces the wget probe (image HEALTHCHECK, Compose health check, smoke test). Not removed: `busybox` in the `acme-init` helper and the Alpine and Debian packages of the web, Traefik and PostgreSQL images (covered by the base-image decision above).
   - [x] DECIDED 2026-11-12 (owner): `isbot` (Unlicense, a public-domain dedication) is accepted; Unlicense is already on the allowed list of `scripts/check-licenses.py`. Base-image decision above. Both are recorded in `THIRD_PARTY_NOTICES.md`.
 - [ ] **Titularity:** each member declares titularity at submission. Every member.
-- [x] **Licences declared (closed by the owner, 2026-11-13):** the direct-dependency inventory is in `THIRD_PARTY_NOTICES.md`; entries marked `not verified` were not independently verified and are accepted as they are.
+- [x] **Licences declared and verified (2026-11-13):** the direct-dependency inventory is in `THIRD_PARTY_NOTICES.md`; licences were verified against the upstream licence files on 2026-11-13 (method and limits in the "Verification" section of that file); the brand-asset copyright is an owner decision.
 - [x] **AI usage declared:** tools and the parts concerned, in `AI_USAGE.md`. Every member for their own work. Closed by the owner on 2026-11-13.
 - [x] **Brand assets generated with AI (closed by the owner, 2026-11-13):** the record in `AI_USAGE.md` is closed; no further licence review.
 - [ ] **Technical quality is 30% of the score and includes the team's ability to explain the code:** schedule a code walkthrough with all four members before the submission. Owner sets the slot.
