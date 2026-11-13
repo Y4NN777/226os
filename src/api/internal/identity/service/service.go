@@ -24,6 +24,7 @@ import (
 	"github.com/Y4NN777/226os/src/api/internal/identity/domain"
 	"github.com/Y4NN777/226os/src/api/internal/identity/password"
 	"github.com/Y4NN777/226os/src/api/internal/platform/apperr"
+	"github.com/Y4NN777/226os/src/api/internal/platform/mailer"
 )
 
 const (
@@ -55,7 +56,7 @@ type Store interface {
 	SessionByTokenHash(ctx context.Context, hash [32]byte) (domain.Session, error)
 	RevokeSession(ctx context.Context, id, reason string, now time.Time) error
 	RevokeUserSessions(ctx context.Context, userID, reason string, now time.Time, keepID string) error
-	TouchSession(ctx context.Context, id string, now time.Time) error
+	TouchSession(ctx context.Context, id string, lastSeenAt, idleExpiresAt time.Time) error
 
 	CreateEmailVerification(ctx context.Context, userID, email string, hash [32]byte, expiresAt time.Time) error
 	ConsumeEmailVerification(ctx context.Context, hash [32]byte, now time.Time) (userID string, err error)
@@ -68,12 +69,6 @@ type Store interface {
 	// Hit records one attempt in a fixed-window bucket and reports whether it
 	// is allowed plus the retry delay when it is not. key is already hashed.
 	Hit(ctx context.Context, scope string, key [32]byte, limit int, window time.Duration, now time.Time) (bool, time.Duration, error)
-}
-
-// Mailer is the outgoing-mail port, narrowed so the service never imports an
-// adapter. to/subject/text only; the sender is fixed by configuration.
-type Mailer interface {
-	Send(ctx context.Context, to []string, subject, text string) error
 }
 
 // NewAccount is the sign-up write model. Password is the PHC hash.
@@ -97,14 +92,14 @@ type SignInInput struct {
 // Service is the identity use-case boundary.
 type Service struct {
 	store Store
-	mail  Mailer
+	mail  mailer.Mailer
 	key   []byte // HMAC key for rate-limit bucket keys and CSRF derivation
 	now   func() time.Time
 }
 
 // New returns an identity service. mail may be nil: verification and reset
 // mails are then skipped (local-dev without SMTP relies on this).
-func New(store Store, mail Mailer, hmacKey []byte) *Service {
+func New(store Store, mail mailer.Mailer, hmacKey []byte) *Service {
 	return &Service{store: store, mail: mail, key: hmacKey, now: time.Now}
 }
 
@@ -269,8 +264,10 @@ func (s *Service) sendVerification(ctx context.Context, acct domain.Account) {
 	if err := s.store.CreateEmailVerification(ctx, acct.ID, acct.Email, hash, s.now().Add(verifyTTL)); err != nil {
 		return
 	}
-	_ = s.mail.Send(ctx, []string{acct.Email}, "Verify your 226os e-mail",
-		"Confirm your e-mail address:\n\n"+plain+"\n\nThis link expires in 24 hours.")
+	_ = s.mail.Send(ctx, mailer.Message{
+		To: []string{acct.Email}, Subject: "Verify your 226os e-mail",
+		Text: "Confirm your e-mail address:\n\n" + plain + "\n\nThis link expires in 24 hours.",
+	})
 }
 
 // ---------- sign-in ----------
@@ -353,7 +350,7 @@ func (s *Service) ResolveSession(ctx context.Context, plain string) (SessionView
 		return SessionView{}, unauthenticated()
 	}
 	if now.Sub(sess.LastSeenAt) >= lastSeenEvery {
-		_ = s.store.TouchSession(ctx, sess.ID, now)
+		_ = s.store.TouchSession(ctx, sess.ID, now, now.Add(idleTTL))
 	}
 	acct, err := s.store.AccountByID(ctx, sess.UserID)
 	if err != nil || acct.Status != "active" {
@@ -394,6 +391,17 @@ func (s *Service) AnonymousCSRF() (secret, token string, err error) {
 	}
 	secret = base64.RawURLEncoding.EncodeToString(b)
 	return secret, s.csrfToken(sha256.Sum256(b)), nil
+}
+
+// PreSessionCSRF derives the synchronizer token for an existing pre-session
+// secret cookie, so GET /auth/csrf and GET /auth/session can answer without
+// rotating the secret on every call. ok is false for a malformed secret.
+func (s *Service) PreSessionCSRF(secret string) (token string, ok bool) {
+	b, err := base64.RawURLEncoding.DecodeString(secret)
+	if err != nil || len(b) != 32 {
+		return "", false
+	}
+	return s.csrfToken(sha256.Sum256(b)), true
 }
 
 // CheckCSRF verifies the X-CSRF-Token header against session-bound or
@@ -467,8 +475,10 @@ func (s *Service) RequestPasswordReset(ctx context.Context, email, ip string) er
 	if err := s.store.CreatePasswordReset(ctx, acct.ID, hash, s.now().Add(resetTTL)); err != nil {
 		return apperr.Wrap(apperr.CodeInternal, err)
 	}
-	_ = s.mail.Send(ctx, []string{acct.Email}, "Reset your 226os password",
-		"Reset your password:\n\n"+plain+"\n\nThis link expires in 30 minutes.")
+	_ = s.mail.Send(ctx, mailer.Message{
+		To: []string{acct.Email}, Subject: "Reset your 226os password",
+		Text: "Reset your password:\n\n" + plain + "\n\nThis link expires in 30 minutes.",
+	})
 	return nil
 }
 

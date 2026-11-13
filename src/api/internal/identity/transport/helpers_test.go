@@ -1,0 +1,53 @@
+package transport
+
+import (
+	"context"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+
+	"github.com/Y4NN777/226os/src/api/internal/platform/subject"
+)
+
+// withSubject returns req with a member Subject in its context, like
+// subject.Middleware installs after a successful session resolution.
+func withSubject(req *http.Request, role string) context.Context {
+	return subject.With(req.Context(), subject.Subject{
+		UserID: "019a0000-0000-7000-8000-0000000000ff", Roles: []string{role},
+	})
+}
+
+// op is the handler shape every S1 auth operation shares.
+type op func(http.ResponseWriter, *http.Request)
+
+// doJSON posts a JSON body through op and returns the recorder.
+func doJSON(t *testing.T, fn op, path, body string) *httptest.ResponseRecorder {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodPost, path, strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	fn(rec, req)
+	return rec
+}
+
+// doReq builds a request with optional headers and cookies.
+func doReq(t *testing.T, method, path string, headers map[string]string, cookies ...*http.Cookie) *http.Request {
+	t.Helper()
+	req := httptest.NewRequest(method, path, nil)
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
+	for _, c := range cookies {
+		req.AddCookie(c)
+	}
+	return req
+}
+
+// call invokes op with req and returns the recorder.
+func call(t *testing.T, fn op, req *http.Request) *httptest.ResponseRecorder {
+	t.Helper()
+	rec := httptest.NewRecorder()
+	fn(rec, req)
+	return rec
+}

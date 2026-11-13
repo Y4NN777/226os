@@ -11,6 +11,7 @@ import (
 	"github.com/Y4NN777/226os/src/api/internal/identity/domain"
 	"github.com/Y4NN777/226os/src/api/internal/identity/password"
 	"github.com/Y4NN777/226os/src/api/internal/platform/apperr"
+	"github.com/Y4NN777/226os/src/api/internal/platform/mailer"
 )
 
 // fakeStore is an in-memory Store for unit tests. It is deliberately strict:
@@ -100,9 +101,10 @@ func (f *fakeStore) RevokeUserSessions(_ context.Context, userID, reason string,
 	}
 	return nil
 }
-func (f *fakeStore) TouchSession(_ context.Context, id string, now time.Time) error {
+func (f *fakeStore) TouchSession(_ context.Context, id string, lastSeen, idleExpires time.Time) error {
 	s := f.sessions[id]
-	s.LastSeenAt = now
+	s.LastSeenAt = lastSeen
+	s.IdleExpiresAt = idleExpires
 	f.sessions[id] = s
 	return nil
 }
@@ -163,8 +165,8 @@ func (f *fakeStore) Hit(_ context.Context, scope string, key [32]byte, limit int
 
 type fakeMail struct{ sent []string }
 
-func (m *fakeMail) Send(_ context.Context, to []string, _, _ string) error {
-	m.sent = append(m.sent, to...)
+func (m *fakeMail) Send(_ context.Context, msg mailer.Message) error {
+	m.sent = append(m.sent, msg.To...)
 	return nil
 }
 
