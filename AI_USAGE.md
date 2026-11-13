@@ -458,7 +458,11 @@ human_reviewers: ["Y4NN777 (owner closure, 2026-11-13)"]
 tests_or_evidence: ["go tool sqlc generate -f db/sqlc.yaml then git diff: one added field, Profile.ProfileVisibility. make lint and the CI re-run are NOT RUN locally"]
 open_risks: ["the generated field is appended where sqlc places an ALTER-added column, at the end of the Profile struct"]
 
+```
+
 ## S9 assistant contract (2026-11-13)
+
+```yaml
 tool_or_model: "Claude Code (VS Code extension) with claude-sonnet-5-5"
 purpose: "S9 contract PR: one OpenAPI operation, askAssistant (POST /assistant/answers), with tests first; generated outputs refreshed; dependent documents aligned; Gmail alias note (H8) recorded"
 repository_or_source_context: "api/openapi.yaml, docs/SPEC.md US-INTEL-001, ADR-0011, TODO.md S9 block"
@@ -470,7 +474,11 @@ human_reviewers: ["Y4NN777 (owner closure, 2026-11-13)"]
 tests_or_evidence: ["assistant_contract_test.go and contract_test.go (48 operations) pass; lint-contract and security-authz pass; make quality as a whole NOT RUN locally"]
 open_risks: ["design choices to confirm in review: members only with a verified email, no anonymous access (O5 open), no Idempotency-Key, 503 reuses SERVICE_UNAVAILABLE, the 'AI-6/AI-7' P1 modes are out of scope"]
 
+```
+
 ## AI code review tooling (2026-11-13)
+
+```yaml
 tool_or_model: "Claude Code (VS Code extension) with claude-sonnet-5-5 (setup); open-code-review 1.13.8 (the reviewer tool, LLM provider chosen by each user)"
 purpose: "Set up advisory AI code review: project rules, a pinned local wrapper (make review), a Claude Code command (/delegate-review) adapted from open-code-review, and a Claude Code GitHub Actions workflow (OAuth token) that is off by default"
 repository_or_source_context: "alibaba/open-code-review README, action.yml and configuration docs (read as untrusted external text); no code copied"
@@ -600,4 +608,21 @@ closure: "open"
 human_reviewers: ["mibienpanjoe (assigned reviewer, pending PR)"]
 tests_or_evidence: ["go test -race -count=1 ./src/api/internal/identity/... exit 0", "go test -race -count=1 -tags integration ./src/api/internal/platform/pgtest/ exit 0", "scripts/coverage-go.sh coverage: go first-party statement coverage 100.0% (2705/2705), PASS", "make coverage exit 0 (web 99.27% statements)", "make test-integration exit 0", "make lint-scripts security-sast exit 0 (gosec 0 issues)", "scripts/check-generated.sh check exit 0", "make quality full rerun on the PR head SHA pending at the time of this entry"]
 open_risks: ["rate-limit bucket keys reuse CURSOR_KEY as HMAC key pending a dedicated secret decision", "CSRF tokens are derived (HMAC of stored token hash / pre-session secret) rather than stored, per ADR-0003 rotation requirement", "no resend-verification operation exists in the contract (open question for the owner, flagged in the PR)", "getMe, updateMyProfile, getProfile and the profile-visibility matrix remain for feature/identity/profiles", "Argon2id parameters await the target-host benchmark at S8 (K6 container check)"]
+```
+
+## Identity test reset-mail race (#91)
+
+```yaml
+date: "2026-11-13"
+contributor: "mibienpanjoe"
+tool_or_model: "Claude Code, Claude Opus 5.5"
+purpose: "Fix the flaky identity integration test: mails are sent off the request path, so mailToken now waits for the next mail after a given count instead of returning the latest one; the sibling-token test waits for both reset mails."
+repository_or_source_context: "issue #91, branch fix/identity/reset-mail-race"
+files_or_sections_affected: ["src/api/internal/platform/pgtest/identity_integration_test.go", "TODO.md", "AI_USAGE.md"]
+third_party_sources_consulted: []
+license_review: "NOT APPLICABLE (test code only)"
+closure: "open"
+human_reviewers: ["NICE-DEV226 (pending)"]
+tests_or_evidence: ["before: go test -tags integration -run TestIdentitySignInRotationAndReset failed 3/3 on clean develop 512a290", "after: go test -count=1 -tags integration -run TestIdentity ./src/api/internal/platform/pgtest/ passed 8/8", "go test -race -count=1 -tags integration ./src/api/internal/platform/pgtest/ ok", "make lint-go PASS"]
+open_risks: []
 ```

@@ -115,6 +115,7 @@ Open owner items outside CADEV (IDs and decisions in ROADMAP section 8, 10 and 1
 - **Prototype pages:** `connexion`, `inscription`, `verifier-email`, `mot-de-passe-oublie`, `reinitialiser`, `bienvenue`, `profile`, `parametres`.
 - **Allowed paths:** `src/api/internal/identity/**`, `db/queries/identity.sql`, `db/queries/platform.sql`, generated `dbgen` (via `make generate`), `scripts/public-routes.txt` (anonymous auth routes, with reasons). **DoD:** DoD-common plus cookie inspection per profile and a redacted email-flow log through Mailpit. **Stop:** if ADR-0003 values would need to change.
 - **Status:** IN PROGRESS — `feature/identity/auth-sessions` implements the 8 auth operations end to end (sign-up through password reset, CSRF, session resolver, PostgreSQL rate limits, pgtest integration); `getMe`, `updateMyProfile`, `getProfile` and the profile-visibility matrix remain for `feature/identity/profiles`.
+  - 2026-11-13 (`mibienpanjoe`): issue #91, the reset-mail race in `TestIdentitySignInRotationAndReset`, fixed on `fix/identity/reset-mail-race` (test-only: `mailToken` waits for the next mail instead of returning the latest).
 
 ---
 
