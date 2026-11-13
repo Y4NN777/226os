@@ -6,10 +6,10 @@
 # Off by default. To turn it on (owner):
 #   1. Run `claude setup-token` on your machine and store the result as the repository secret CLAUDE_CODE_OAUTH_TOKEN.
 #      Check Anthropic's current terms for using a subscription token in shared CI before you do.
-#   2. Set the repository variable CLAUDE_REVIEW_ENABLED = 'true'.
+#   2. Set the repository variable CODE_REVIEW_ENABLED = 'true'.
 # The diff and the files Claude reads are sent to Anthropic. Pull requests from forks are skipped (no secrets).
 # The prompt contains only the repository name and the PR number, never PR text (no prompt injection through titles).
-name: Claude review
+name: Code review
 
 on:
   pull_request:
@@ -20,13 +20,13 @@ permissions:
   contents: read
 
 concurrency:
-  group: claude-review-${{ github.event.pull_request.number }}
+  group: code-review-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 jobs:
   review:
-    name: Claude review (advisory)
-    if: vars.CLAUDE_REVIEW_ENABLED == 'true' && github.event.pull_request.head.repo.full_name == github.repository
+    name: Code review (advisory)
+    if: vars.CODE_REVIEW_ENABLED == 'true' && github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 25
     # Advisory only: a provider outage or quota error must not turn the pull request red.
@@ -42,7 +42,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Claude review (delegation mode)
+      - name: Code review (delegation mode)
         uses: anthropics/claude-code-action@4d75e5f390ee76b2e09c1980ecc99ff3a2e088c8 # v1.0.275
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}

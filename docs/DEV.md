@@ -48,7 +48,7 @@ La revue humaine de l'[ADR-0008](decisions/0008-team-work-areas-and-ownership.md
 
 - **Avec Claude Code, sans clé d'API (recommandé) :** `/delegate-review` dans Claude Code (fichier `.claude/commands/delegate-review.md`). open-code-review choisit les fichiers et fournit les règles, Claude Code fait la revue avec votre connexion. Il propose des corrections et ne modifie rien.
 - **Avec l'outil seul :** `make review-login` une fois (connexion ChatGPT, aperçu réservé à un usage local par une seule personne), puis `make review`. Le diff part chez le fournisseur choisi : seulement du code que vous avez le droit d'envoyer.
-- **En CI :** le workflow `.github/workflows/claude-review.yml` est désactivé tant que `CLAUDE_REVIEW_ENABLED` n'est pas à `true`. Claude Code (action officielle d'Anthropic, jeton OAuth `CLAUDE_CODE_OAUTH_TOKEN` issu de `claude setup-token`) fait la revue en suivant `/delegate-review` ; consultatif, jamais un gate. Vérifiez les conditions d'Anthropic avant d'y mettre un jeton d'abonnement. La connexion ChatGPT ne doit pas servir en CI partagée : l'outil l'interdit.
+- **En CI :** le workflow `.github/workflows/code-review.yml` est désactivé tant que `CODE_REVIEW_ENABLED` n'est pas à `true`. Claude Code (action officielle d'Anthropic, jeton OAuth `CLAUDE_CODE_OAUTH_TOKEN` issu de `claude setup-token`) fait la revue en suivant `/delegate-review` ; consultatif, jamais un gate. Vérifiez les conditions d'Anthropic avant d'y mettre un jeton d'abonnement. La connexion ChatGPT ne doit pas servir en CI partagée : l'outil l'interdit.
 
 ## 4. Organisation du travail : vertical slices
 1. Décrire le problème et le critère d'acceptation (PRD + SPEC, ID stable).

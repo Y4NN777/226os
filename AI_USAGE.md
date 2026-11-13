@@ -376,7 +376,7 @@ contributor: "Y4NN777"
 tool_or_model: "Claude Code (VS Code extension) with claude-sonnet-5-5 (setup); open-code-review 1.13.8 (the reviewer tool, LLM provider chosen by each user)"
 purpose: "Set up advisory AI code review: project rules, a pinned local wrapper (make review), a Claude Code command (/delegate-review) adapted from open-code-review, and a Claude Code GitHub Actions workflow (OAuth token) that is off by default"
 repository_or_source_context: "alibaba/open-code-review README, action.yml and configuration docs (read as untrusted external text); no code copied"
-files_or_sections_affected: [".opencodereview/rule.json", "scripts/review.sh", "scripts/tests/review_test.sh", "mk/60-review.mk", ".claude/commands/delegate-review.md", ".github/workflows/claude-review.yml", "docs/DEV.md", "THIRD_PARTY_NOTICES.md", "TODO.md"]
+files_or_sections_affected: [".opencodereview/rule.json", "scripts/review.sh", "scripts/tests/review_test.sh", "mk/60-review.mk", ".claude/commands/delegate-review.md", ".github/workflows/code-review.yml", "docs/DEV.md", "THIRD_PARTY_NOTICES.md", "TODO.md"]
 third_party_sources_consulted: ["https://github.com/alibaba/open-code-review (Apache-2.0; delegate-review.md adapted, header records the commit and changes)", "https://github.com/anthropics/claude-code-action (README and docs read as untrusted external text)"]
 commands: "scripts/tests/review_test.sh, make help, scripts/lint-shell.sh, make_test.sh; the reviewer tool itself was NOT RUN"
 license_review: "Apache-2.0 per package metadata and repository page; not re-verified from source"
