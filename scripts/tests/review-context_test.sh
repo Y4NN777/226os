@@ -22,6 +22,7 @@ cat >"$tmp/bin/gh" <<'EOF'
 ep="$2"
 case "$ep" in
   *"/contents/"*) echo "404" >&2; exit 1 ;;
+  *"/issues?labels=finding"*) cat "$FX/findings.json" ;;
   *"/issues/"*"/comments"*) cat "$FX/issue.json" ;;
   *"/pulls/"*"/reviews"*) cat "$FX/reviews.json" ;;
   *"/pulls/"*"/comments"*) cat "$FX/inline.json" ;;
@@ -56,6 +57,7 @@ chmod +x "$tmp/bin/gh"
 first="$(cat "$tmp/first.sha")"
 
 reset() {
+  printf '[]' >"$tmp/fx/findings.json"
   printf '[]' >"$tmp/fx/issue.json"
   printf '[]' >"$tmp/fx/reviews.json"
   printf '[]' >"$tmp/fx/inline.json"
@@ -241,6 +243,31 @@ REPO_DIR="$(scenario regexp 'api/openapi.yaml|oa.yaml|oa.yaml' 'src/api/internal
 run
 grep -q 'languagePattern' <<<"$(read_first)" && grep -q '\^\[a-z\]{2,3}\$' <<<"$(read_first)" && grep -q 'languages' <<<"$(read_first)" && grep -q '(-\[A-Za-z0-9\]{2,4})' <<<"$(read_first)" && ok "a Go regexp stricter than the contract pattern is pointed at with both patterns" || ko "regexp pointer ($out)"
 ! grep -q 'githubPattern' <<<"$(read_first)" && ok "a Go regexp identical to the contract pattern stays quiet" || ko "regexp quiet ($out)"
+
+# The INSERT pointer names the unique key the migrations give the table, so the reader sees why a double submit fails;
+# a table with only a surrogate id says so (low risk) instead of crying wolf.
+reset
+REPO_DIR="$(scenario uniq 'db/migrations/00003_x.sql|mig.sql|mig.sql' 'db/queries/x.sql||inserts.head.sql')"
+run
+rf="$(read_first)"
+grep -q 'AddSkill' <<<"$rf" && grep -q 'PRIMARY KEY (user_id, tag_id)' <<<"$rf" && ok "an INSERT into a table with a composite primary key names that key" || ko "composite key ($out)"
+grep -q 'AddMember' <<<"$rf" && grep -q 'UNIQUE (email)' <<<"$rf" && ok "an INSERT into a table with a UNIQUE constraint names it" || ko "unique key ($out)"
+grep -q 'AddNote' <<<"$rf" && grep -q 'no unique key' <<<"$rf" && ok "an INSERT into a table with only a surrogate id says no unique key was found" || ko "surrogate ($out)"
+
+# The register is the memory across pull requests: what is already tracked (open) and what was dismissed (closed as
+# not planned) is in the pack, so the reviewer does not raise it again.
+reset
+printf '[{"number":12,"title":"skills-upsert: double submit returns 500","state":"open","state_reason":null,"labels":[{"name":"finding"},{"name":"sev:high"}],"created_at":"2026-11-13T10:00:00Z","body":"x"},{"number":13,"title":"languages accepts only 2-3 letters","state":"closed","state_reason":"not_planned","labels":[{"name":"finding"}],"created_at":"2026-11-13T10:00:00Z","body":"x"},{"number":14,"title":"typo fixed","state":"closed","state_reason":"completed","labels":[{"name":"finding"}],"created_at":"2026-11-13T10:00:00Z","body":"x"},{"number":15,"title":"dashboard","state":"open","state_reason":null,"labels":[{"name":"finding"}],"created_at":"2026-11-13T10:00:00Z","body":"<!-- findings-dashboard -->"}]' >"$tmp/fx/findings.json"
+REPO_DIR="$tmp/repo"
+run
+tracked="$(sed -n '/^## Findings already tracked/,/^## [^F]/p' <<<"$out")"
+dismissed="$(sed -n '/^## Closed as not planned/,/^## [^C]/p' <<<"$out")"
+grep -q '#12' <<<"$tracked" && grep -q 'skills-upsert' <<<"$tracked" && ok "an open finding issue is listed as already tracked" || ko "tracked ($out)"
+! grep -q 'dashboard' <<<"$tracked" && ! grep -q 'typo fixed' <<<"$tracked" && ok "the dashboard issue and a completed one are not listed as tracked" || ko "tracked noise ($tracked)"
+grep -q '#13' <<<"$dismissed" && grep -q 'languages accepts only' <<<"$dismissed" && ! grep -q 'typo fixed' <<<"$dismissed" && ok "a finding closed as not planned is listed as dismissed (accepted or not a defect)" || ko "dismissed ($dismissed)"
+reset
+run
+grep -q '^## Findings already tracked' <<<"$out" && grep -q '(none)' <<<"$(sed -n '/^## Findings already tracked/,/^## [^F]/p' <<<"$out")" && ok "no finding issue yet: the sections say none" || ko "none ($out)"
 
 # ---------- the decision: first | incremental | skip ----------
 reset

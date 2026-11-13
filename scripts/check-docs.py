@@ -108,16 +108,23 @@ def check_adr(root):
 
 
 def head_commit_date(root):
-    """The HEAD commit date (UTC) as a date, or None outside a git repository."""
-    try:
-        done = subprocess.run(["git", "-C", root, "log", "-1", "--format=%cI", "HEAD"], capture_output=True, text=True,
-                              timeout=30, check=False)
-        stamp = datetime.datetime.fromisoformat(done.stdout.strip())
-    except (OSError, subprocess.SubprocessError, ValueError):
-        return None
-    if done.returncode != 0:
-        return None
-    return stamp.astimezone(datetime.timezone.utc).date()
+    """The date (UTC) of the last NON-merge commit reachable from HEAD, or the HEAD commit when there is none, or None
+    outside a git repository. In CI the checked-out HEAD is a merge commit dated "now": the author's last real commit
+    is the honest reference for the dates they wrote."""
+    for extra in (["--no-merges"], []):
+        try:
+            done = subprocess.run(["git", "-C", root, "log", "-1", "--format=%cI"] + extra + ["HEAD"], capture_output=True,
+                                  text=True, timeout=30, check=False)
+        except (OSError, subprocess.SubprocessError):
+            return None
+        if done.returncode != 0:
+            return None
+        if done.stdout.strip():
+            try:
+                return datetime.datetime.fromisoformat(done.stdout.strip()).astimezone(datetime.timezone.utc).date()
+            except ValueError:
+                return None
+    return None
 
 
 def check_ai_usage_dates(root):

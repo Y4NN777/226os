@@ -728,3 +728,20 @@ human_reviewers: ["pending PR review"]
 tests_or_evidence: ["scripts/tests/review-gate_test.sh 39 passed and scripts/tests/check-docs_test.sh 16 passed, RED first (the new checks did not exist)", "make lint-scripts and python3 -I scripts/check-docs.py: see the pull request", "NOT RUN until the first live pull request: the two new gate checks against the real GitHub API (labels, pull request body, the stray-paths list on the base branch)"]
 open_risks: ["Both gate checks are report only: they print a NOTE and never fail until the owner sets CODE_REVIEW_GATE_NEW=enforce (after 10 pull requests with no false positive).", "Finding-to-test reads the issue numbers after Closes/Fixes/Resolves in the pull request body: a different wording is not seen.", "In enforce mode a CRITICAL verdict is read at the next gate run (a push, a label or a review event), because the gate no longer waits for the review."]
 ```
+
+## AI review: findings register, dashboard and memory loop (2026-11-13)
+
+```yaml
+date: "2026-11-13"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code, Sonnet 5.5"
+purpose: "PR 2 of the review plan: when a pull request is merged, the findings the review left open become GitHub issues (CRITICAL and HIGH one each, at most 5; everything else one follow-ups checklist per pull request), once, by marker; one Findings dashboard ranks what to fix next (due, severity, area, age) from issue state only; the context pack lists the tracked and the not-planned findings so the reviewer does not raise them again; the INSERT pointer names the unique key found in db/migrations; the PR template gets a Review focus section."
+repository_or_source_context: "plan revision 4 (owner), PR #112 (PR 1); the fake gh of scripts/tests/findings_test.sh is stateful so idempotency is really tested"
+files_or_sections_affected: ["scripts/findings.py", "scripts/tests/findings_test.sh", "scripts/review-context.py", "scripts/tests/review-context_test.sh", "scripts/tests/fixtures/review-context/**", ".github/workflows/code-review.yml", ".github/PULL_REQUEST_TEMPLATE.md", "mk/60-review.mk", "TODO.md", "AI_USAGE.md"]
+third_party_sources_consulted: []
+license_review: "NOT APPLICABLE: original code, no new dependency"
+closure: "open"
+human_reviewers: ["pending PR review"]
+tests_or_evidence: ["scripts/tests/findings_test.sh 23 passed and scripts/tests/review-context_test.sh 44 passed, RED first (no script, no sections, no key names)", "make lint-scripts and python3 -I scripts/check-docs.py: see the pull request", "NOT RUN until the first merge after this PR: the harvest job on a real merged pull request, board 4 Auto-add for issues created by GITHUB_TOKEN (the owner enables the Auto-add workflow with filter label:finding in the project settings), the dashboard issue creation (make findings or scripts/findings.py dashboard once, then pin it)"]
+open_risks: ["Notes of the AI review on #114 and #115 were all addressed in this branch (the AI review said INFERRED, the owner wants them fixed): GATE_NEW=enforce now blocks on its own whatever GATE_MODE says; a negation (does not close #N) is not a closing keyword and Fixes: #N is one; the AI_USAGE date check uses the last non-merge commit (CI checks out a merge commit); an @mention in ledger text is neutralised; an issue whose marker was edited away is recognised by its title, and titles now carry the PR number so that check is per pull request; a finding whose file changed after the review is still filed but says so (GitHub compare API); a blocking GATE_NEW check still prints what the other checks found; the skipped gate job on closed is explained in the workflow. Tests added for each.", "GITHUB_TOKEN cannot write to a user project: until the Auto-add workflow of board 4 is enabled, the issues exist but are not on the board.", "Labels are created by the issue API on first use with default colours.", "The register trusts the model's ledger only through a strict schema; a malformed ledger is skipped and logged."]
+```
