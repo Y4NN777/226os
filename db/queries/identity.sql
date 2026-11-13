@@ -61,14 +61,19 @@ WHERE id = $1 AND revoked_at IS NULL;
 INSERT INTO email_verifications (user_id, email, token_hash, expires_at)
 VALUES ($1, $2, $3, $4);
 
--- name: ConsumeEmailVerification :one
-UPDATE email_verifications SET consumed_at = $2
-WHERE token_hash = $1 AND consumed_at IS NULL AND expires_at > $2
-RETURNING user_id;
-
--- name: MarkEmailVerified :exec
-UPDATE users SET email_verified_at = $2, updated_at = $2
-WHERE id = $1 AND email_verified_at IS NULL;
+-- VerifyEmail consumes the token and marks the account verified in one
+-- statement: a single statement is its own transaction, so a failure cannot
+-- burn the token while leaving the account unverified.
+-- name: VerifyEmail :one
+WITH c AS (
+  UPDATE email_verifications SET consumed_at = $2
+  WHERE email_verifications.token_hash = $1 AND consumed_at IS NULL AND expires_at > $2
+  RETURNING user_id
+), u AS (
+  UPDATE users SET email_verified_at = $2, updated_at = $2
+  FROM c WHERE users.id = c.user_id AND users.email_verified_at IS NULL
+)
+SELECT user_id FROM c;
 
 -- name: CreatePasswordReset :exec
 INSERT INTO password_resets (user_id, token_hash, expires_at)

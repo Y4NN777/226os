@@ -141,25 +141,19 @@ func (f *fakeStore) CreateEmailVerification(_ context.Context, userID, email str
 	f.verif[h] = verifRow{userID: userID, email: email, expiresAt: exp}
 	return nil
 }
-func (f *fakeStore) ConsumeEmailVerification(_ context.Context, h [32]byte, now time.Time) (string, error) {
-	if err := f.errs["ConsumeEmailVerification"]; err != nil {
-		return "", err
+func (f *fakeStore) VerifyEmail(_ context.Context, h [32]byte, now time.Time) error {
+	if err := f.errs["VerifyEmail"]; err != nil {
+		return err
 	}
 	r, ok := f.verif[h]
 	if !ok || r.consumed || now.After(r.expiresAt) {
-		return "", domain.ErrTokenInvalid
+		return domain.ErrTokenInvalid
 	}
 	r.consumed = true
 	f.verif[h] = r
-	return r.userID, nil
-}
-func (f *fakeStore) MarkEmailVerified(_ context.Context, userID string, now time.Time) error {
-	if err := f.errs["MarkEmailVerified"]; err != nil {
-		return err
-	}
-	f.verifiedAt[userID] = now
+	f.verifiedAt[r.userID] = now
 	for id, a := range f.accounts {
-		if id == userID {
+		if id == r.userID {
 			a.EmailVerified = true
 			f.accounts[id] = a
 		}

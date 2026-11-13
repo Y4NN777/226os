@@ -182,6 +182,15 @@ func TestAccountLookups(t *testing.T) {
 		t.Fatalf("account %+v err %v", a, err)
 	}
 
+	// An invalid UUID column maps to an empty ID rather than a panic.
+	invalid := acctVals(true)
+	invalid[0] = pgtype.UUID{}
+	db = &fakeDB{steps: []dbStep{{vals: invalid}}}
+	a, err = New(db).AccountByEmail(ctx, "sam@example.com")
+	if err != nil || a.ID != "" {
+		t.Fatalf("invalid uuid: %+v %v", a, err)
+	}
+
 	// Not found and driver error.
 	for _, tc := range []struct {
 		name string
@@ -337,21 +346,15 @@ func TestTokenQueries(t *testing.T) {
 		t.Fatal("exec error swallowed")
 	}
 
-	// ConsumeEmailVerification: uuid row, no rows, driver error.
+	// VerifyEmail: row, no rows, driver error.
 	db := &fakeDB{steps: []dbStep{{vals: []any{pguuid()}}}}
-	id, err := New(db).ConsumeEmailVerification(ctx, hash, testTime)
-	if err != nil || id != testUUID.String() {
-		t.Fatalf("consume verif %q %v", id, err)
+	if err := New(db).VerifyEmail(ctx, hash, testTime); err != nil {
+		t.Fatalf("verify email: %v", err)
 	}
-	db = &fakeDB{steps: []dbStep{{vals: []any{pgtype.UUID{}}}}}
-	id, err = New(db).ConsumeEmailVerification(ctx, hash, testTime)
-	if err != nil || id != "" {
-		t.Fatalf("invalid uuid row %q %v", id, err)
-	}
-	if _, err = New(&fakeDB{steps: []dbStep{{err: pgx.ErrNoRows}}}).ConsumeEmailVerification(ctx, hash, testTime); !errors.Is(err, domain.ErrTokenInvalid) {
+	if err := New(&fakeDB{steps: []dbStep{{err: pgx.ErrNoRows}}}).VerifyEmail(ctx, hash, testTime); !errors.Is(err, domain.ErrTokenInvalid) {
 		t.Fatalf("no rows: %v", err)
 	}
-	if _, err = New(&fakeDB{steps: []dbStep{{err: errors.New("down")}}}).ConsumeEmailVerification(ctx, hash, testTime); err == nil {
+	if err := New(&fakeDB{steps: []dbStep{{err: errors.New("down")}}}).VerifyEmail(ctx, hash, testTime); err == nil {
 		t.Fatal("driver error swallowed")
 	}
 
@@ -377,18 +380,6 @@ func TestTokenQueries(t *testing.T) {
 	}
 	if err := New(&fakeDB{steps: []dbStep{{err: errors.New("down")}}}).ResetPassword(ctx, hash, "phc", testTime); err == nil {
 		t.Fatal("driver error swallowed")
-	}
-
-	// MarkEmailVerified.
-	if err := New(&fakeDB{}).MarkEmailVerified(ctx, "bad", testTime); !errors.Is(err, domain.ErrNotFound) {
-		t.Fatalf("bad user: %v", err)
-	}
-	ok = &fakeDB{steps: []dbStep{{}}}
-	if err := New(ok).MarkEmailVerified(ctx, testUUID.String(), testTime); err != nil {
-		t.Fatal(err)
-	}
-	if err := New(&fakeDB{steps: []dbStep{{err: errors.New("down")}}}).MarkEmailVerified(ctx, testUUID.String(), testTime); err == nil {
-		t.Fatal("exec error swallowed")
 	}
 }
 

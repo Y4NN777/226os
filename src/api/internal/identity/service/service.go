@@ -60,8 +60,7 @@ type Store interface {
 	TouchSession(ctx context.Context, id string, lastSeenAt, idleExpiresAt time.Time) error
 
 	CreateEmailVerification(ctx context.Context, userID, email string, hash [32]byte, expiresAt time.Time) error
-	ConsumeEmailVerification(ctx context.Context, hash [32]byte, now time.Time) (userID string, err error)
-	MarkEmailVerified(ctx context.Context, userID string, now time.Time) error
+	VerifyEmail(ctx context.Context, hash [32]byte, now time.Time) error
 
 	CreatePasswordReset(ctx context.Context, userID string, hash [32]byte, expiresAt time.Time) error
 	// ResetPassword consumes the token, stores the new PHC hash and revokes
@@ -464,14 +463,10 @@ func (s *Service) VerifyEmail(ctx context.Context, plain string) error {
 	if err != nil {
 		return invalidToken()
 	}
-	userID, err := s.store.ConsumeEmailVerification(ctx, hash, s.now())
-	if err != nil {
+	if err := s.store.VerifyEmail(ctx, hash, s.now()); err != nil {
 		if errors.Is(err, domain.ErrTokenInvalid) {
 			return invalidToken()
 		}
-		return apperr.Wrap(apperr.CodeInternal, err)
-	}
-	if err := s.store.MarkEmailVerified(ctx, userID, s.now()); err != nil {
 		return apperr.Wrap(apperr.CodeInternal, err)
 	}
 	return nil

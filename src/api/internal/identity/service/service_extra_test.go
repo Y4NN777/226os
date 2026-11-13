@@ -399,17 +399,22 @@ func TestVerifyEmailErrors(t *testing.T) {
 	if err := svc.VerifyEmail(ctx, "bad-token"); apperrCode(t, err) != apperr.CodeInvalidToken {
 		t.Fatalf("bad token: %v", err)
 	}
-	st.errs = map[string]error{"ConsumeEmailVerification": errBoom}
+	st.errs = map[string]error{"VerifyEmail": errBoom}
 	if err := svc.VerifyEmail(ctx, token32()); apperrCode(t, err) != apperr.CodeInternal {
-		t.Fatalf("consume error: %v", err)
+		t.Fatalf("verify error: %v", err)
 	}
 	st.errs = nil
+	// A store failure is atomic: the token stays usable for a retry.
 	acct := seedAccount(t, st, "ve@example.com")
 	plain, hash, _ := randToken()
 	_ = st.CreateEmailVerification(ctx, acct.ID, acct.Email, hash, time.Now().Add(time.Hour))
-	st.errs = map[string]error{"MarkEmailVerified": errBoom}
+	st.errs = map[string]error{"VerifyEmail": errBoom}
 	if err := svc.VerifyEmail(ctx, plain); apperrCode(t, err) != apperr.CodeInternal {
-		t.Fatalf("mark error: %v", err)
+		t.Fatalf("verify error: %v", err)
+	}
+	st.errs = nil
+	if err := svc.VerifyEmail(ctx, plain); err != nil {
+		t.Fatalf("token burned by the failed attempt: %v", err)
 	}
 }
 

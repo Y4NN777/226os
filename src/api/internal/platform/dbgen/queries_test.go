@@ -363,9 +363,6 @@ func TestIdentityQueries(t *testing.T) {
 			return q.CreatePasswordReset(ctx, dbgen.CreatePasswordResetParams{
 				UserID: uid, TokenHash: hash, ExpiresAt: ts})
 		},
-		"MarkEmailVerified": func(q *dbgen.Queries) error {
-			return q.MarkEmailVerified(ctx, dbgen.MarkEmailVerifiedParams{ID: uid, EmailVerifiedAt: ts})
-		},
 	} {
 		db = &fakeDB{}
 		if err := run(dbgen.New(db)); err != nil {
@@ -378,8 +375,8 @@ func TestIdentityQueries(t *testing.T) {
 
 	// Consume queries :one returning user_id.
 	for name, run := range map[string]func(*dbgen.Queries) (pgtype.UUID, error){
-		"ConsumeEmailVerification": func(q *dbgen.Queries) (pgtype.UUID, error) {
-			return q.ConsumeEmailVerification(ctx, dbgen.ConsumeEmailVerificationParams{TokenHash: hash, ConsumedAt: ts})
+		"VerifyEmail": func(q *dbgen.Queries) (pgtype.UUID, error) {
+			return q.VerifyEmail(ctx, dbgen.VerifyEmailParams{TokenHash: hash, ConsumedAt: ts})
 		},
 		"ResetPassword": func(q *dbgen.Queries) (pgtype.UUID, error) {
 			return q.ResetPassword(ctx, dbgen.ResetPasswordParams{

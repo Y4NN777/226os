@@ -137,19 +137,15 @@ func (f *fakeStore) CreateEmailVerification(_ context.Context, userID, _ string,
 	return nil
 }
 
-func (f *fakeStore) ConsumeEmailVerification(_ context.Context, h [32]byte, now time.Time) (string, error) {
+func (f *fakeStore) VerifyEmail(_ context.Context, h [32]byte, now time.Time) error {
 	r, ok := f.verifs[h]
 	if !ok || r.consumed || now.After(r.expiresAt) {
-		return "", domain.ErrTokenInvalid
+		return domain.ErrTokenInvalid
 	}
 	r.consumed = true
 	f.verifs[h] = r
-	return r.userID, nil
-}
-
-func (f *fakeStore) MarkEmailVerified(_ context.Context, userID string, now time.Time) error {
 	for id, a := range f.accounts {
-		if id == userID {
+		if id == r.userID {
 			a.EmailVerified = true
 			f.accounts[id] = a
 		}

@@ -215,19 +215,20 @@ func (r *Repository) CreateEmailVerification(ctx context.Context, userID, email 
 	return nil
 }
 
-func (r *Repository) ConsumeEmailVerification(ctx context.Context, hash [32]byte, now time.Time) (string, error) {
+// VerifyEmail consumes the token and marks the account verified in one
+// atomic statement.
+func (r *Repository) VerifyEmail(ctx context.Context, hash [32]byte, now time.Time) error {
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
-	uid, err := r.q.ConsumeEmailVerification(ctx, dbgen.ConsumeEmailVerificationParams{
+	if _, err := r.q.VerifyEmail(ctx, dbgen.VerifyEmailParams{
 		TokenHash: hash[:], ConsumedAt: ts(now),
-	})
-	if err != nil {
+	}); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return "", domain.ErrTokenInvalid
+			return domain.ErrTokenInvalid
 		}
-		return "", fmt.Errorf("identity consume email verification: %w", err)
+		return fmt.Errorf("identity verify email: %w", err)
 	}
-	return uuidString(uid), nil
+	return nil
 }
 
 func (r *Repository) CreatePasswordReset(ctx context.Context, userID string, hash [32]byte, expiresAt time.Time) error {
@@ -257,21 +258,6 @@ func (r *Repository) ResetPassword(ctx context.Context, hash [32]byte, phc strin
 			return domain.ErrTokenInvalid
 		}
 		return fmt.Errorf("identity reset password: %w", err)
-	}
-	return nil
-}
-
-func (r *Repository) MarkEmailVerified(ctx context.Context, userID string, now time.Time) error {
-	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
-	defer cancel()
-	uid, err := parseUUID(userID)
-	if err != nil {
-		return domain.ErrNotFound
-	}
-	if err := r.q.MarkEmailVerified(ctx, dbgen.MarkEmailVerifiedParams{
-		ID: uid, EmailVerifiedAt: ts(now),
-	}); err != nil {
-		return fmt.Errorf("identity mark email verified: %w", err)
 	}
 	return nil
 }

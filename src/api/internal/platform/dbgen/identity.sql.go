@@ -11,24 +11,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const consumeEmailVerification = `-- name: ConsumeEmailVerification :one
-UPDATE email_verifications SET consumed_at = $2
-WHERE token_hash = $1 AND consumed_at IS NULL AND expires_at > $2
-RETURNING user_id
-`
-
-type ConsumeEmailVerificationParams struct {
-	TokenHash  []byte
-	ConsumedAt pgtype.Timestamptz
-}
-
-func (q *Queries) ConsumeEmailVerification(ctx context.Context, arg ConsumeEmailVerificationParams) (pgtype.UUID, error) {
-	row := q.db.QueryRow(ctx, consumeEmailVerification, arg.TokenHash, arg.ConsumedAt)
-	var user_id pgtype.UUID
-	err := row.Scan(&user_id)
-	return user_id, err
-}
-
 const createAccount = `-- name: CreateAccount :one
 
 WITH u AS (
@@ -286,21 +268,6 @@ func (q *Queries) HitRateLimit(ctx context.Context, arg HitRateLimitParams) (int
 	return hits, err
 }
 
-const markEmailVerified = `-- name: MarkEmailVerified :exec
-UPDATE users SET email_verified_at = $2, updated_at = $2
-WHERE id = $1 AND email_verified_at IS NULL
-`
-
-type MarkEmailVerifiedParams struct {
-	ID              pgtype.UUID
-	EmailVerifiedAt pgtype.Timestamptz
-}
-
-func (q *Queries) MarkEmailVerified(ctx context.Context, arg MarkEmailVerifiedParams) error {
-	_, err := q.db.Exec(ctx, markEmailVerified, arg.ID, arg.EmailVerifiedAt)
-	return err
-}
-
 const resetPassword = `-- name: ResetPassword :one
 WITH c AS (
   UPDATE password_resets SET consumed_at = $2
@@ -386,4 +353,31 @@ type TouchSessionParams struct {
 func (q *Queries) TouchSession(ctx context.Context, arg TouchSessionParams) error {
 	_, err := q.db.Exec(ctx, touchSession, arg.ID, arg.LastSeenAt, arg.IdleExpiresAt)
 	return err
+}
+
+const verifyEmail = `-- name: VerifyEmail :one
+WITH c AS (
+  UPDATE email_verifications SET consumed_at = $2
+  WHERE email_verifications.token_hash = $1 AND consumed_at IS NULL AND expires_at > $2
+  RETURNING user_id
+), u AS (
+  UPDATE users SET email_verified_at = $2, updated_at = $2
+  FROM c WHERE users.id = c.user_id AND users.email_verified_at IS NULL
+)
+SELECT user_id FROM c
+`
+
+type VerifyEmailParams struct {
+	TokenHash  []byte
+	ConsumedAt pgtype.Timestamptz
+}
+
+// VerifyEmail consumes the token and marks the account verified in one
+// statement: a single statement is its own transaction, so a failure cannot
+// burn the token while leaving the account unverified.
+func (q *Queries) VerifyEmail(ctx context.Context, arg VerifyEmailParams) (pgtype.UUID, error) {
+	row := q.db.QueryRow(ctx, verifyEmail, arg.TokenHash, arg.ConsumedAt)
+	var user_id pgtype.UUID
+	err := row.Scan(&user_id)
+	return user_id, err
 }

@@ -49,10 +49,7 @@ func (stubStore) TouchSession(context.Context, string, time.Time, time.Time) err
 func (stubStore) CreateEmailVerification(context.Context, string, string, [32]byte, time.Time) error {
 	return errUnused
 }
-func (stubStore) ConsumeEmailVerification(context.Context, [32]byte, time.Time) (string, error) {
-	return "", errUnused
-}
-func (stubStore) MarkEmailVerified(context.Context, string, time.Time) error { return errUnused }
+func (stubStore) VerifyEmail(context.Context, [32]byte, time.Time) error { return errUnused }
 func (stubStore) CreatePasswordReset(context.Context, string, [32]byte, time.Time) error {
 	return errUnused
 }
