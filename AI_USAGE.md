@@ -694,3 +694,20 @@ human_reviewers: ["NICE-DEV226 (pending)", "Y4NN777 (migration and shared limite
 tests_or_evidence: ["make generate, lint, typecheck, test-unit, test-integration-go, security PASS (subagent run)", "make coverage PASS: Go first-party 100.0% (3079/3079), re-run in the main session"]
 open_risks: ["identity still has its own limiter until it migrates to platform/ratelimit", "rate-limit integration tests depend on the real clock (they wait for a fresh minute)", "whitespace-only report bodies are rejected with 422, stricter than the schema's minLength 1", "a repeated open report returns the existing report and drops the new body and source_id", "the client IP trusts the last X-Forwarded-For entry; correct only while Traefik is the sole ingress with default forwardedHeaders (not pinned in compose.yaml)", "/24 and /48 keying means users behind carrier NAT share 60 searches per minute"]
 ```
+
+## S7 API gaps: provenance, country lists, mail links
+
+```yaml
+date: "2026-11-13"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code, Claude Opus 5.5 (integrator) and Claude Sonnet 5.5 (go-implementer in a separate worktree)"
+purpose: "Close three gaps found while building S7: Resource.provenance in the contract and responses, a comma-separated country list on listResources (union, max 20), and verify/reset mails carrying a #token= link built from an optional APP_BASE_URL."
+repository_or_source_context: "branch fix/platform/s7-api-gaps, owner decision 2026-11-13 (one backend PR), based on PR #96"
+files_or_sections_affected: ["api/openapi.yaml", "generated outputs (apigen, apispec, dbgen, src/web/src/api/schema.d.ts)", "db/queries/discover.sql", "src/api/internal/discover/**", "src/api/internal/identity/service/**", "src/api/internal/platform/config/**", "src/api/internal/app/**", "src/api/internal/platform/pgtest/**", "compose.yaml", ".env.example", "TODO.md", "AI_USAGE.md"]
+third_party_sources_consulted: []
+license_review: "NOT APPLICABLE: original code, no new dependency"
+closure: "open"
+human_reviewers: ["mibienpanjoe (pending)", "NICE-DEV226 (pending)"]
+tests_or_evidence: ["RED then GREEN: TestListResourcesEncodesAPage, TestListPassesTheCountryListAsAnArray, TestLoadAppBaseURL, TestVerificationMailCarriesALinkWhenABaseURLIsSet, TestResetMailCarriesALinkWhenABaseURLIsSet", "integration on real PostgreSQL: TestResourceProvenanceIsServed, TestResourceCountryListIsAUnion, TestResourceCountryListPaginatesStably, TestResourceCountryListRefusesBadInput", "make generate twice, no drift; make test-unit, make coverage (Go 100.0%), make test-integration-go exit 0"]
+open_risks: ["No test fails if app.go stops passing WithBaseURL (wiring line only).", "Two filter-hash collision tests now use category instead of country (country is validated)."]
+```
