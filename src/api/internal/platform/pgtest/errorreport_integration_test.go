@@ -24,8 +24,10 @@ import (
 	"github.com/Y4NN777/226os/src/api/internal/identity/repository"
 	"github.com/Y4NN777/226os/src/api/internal/identity/service"
 	identitytransport "github.com/Y4NN777/226os/src/api/internal/identity/transport"
+	"github.com/Y4NN777/226os/src/api/internal/learn"
 	"github.com/Y4NN777/226os/src/api/internal/platform/cursor"
 	"github.com/Y4NN777/226os/src/api/internal/platform/httpx"
+	"github.com/Y4NN777/226os/src/api/internal/platform/idempotency"
 	"github.com/Y4NN777/226os/src/api/internal/platform/mailer"
 	"github.com/Y4NN777/226os/src/api/internal/platform/ratelimit"
 	"github.com/Y4NN777/226os/src/api/internal/search"
@@ -40,7 +42,7 @@ type limiter interface {
 	searchservice.Limiter
 }
 
-// s2Stack is the production router with identity, the catalogue, error reports and search over a
+// s2Stack is the production router with identity, the catalogue, error reports, search and Learn over a
 // migrated, catalogue-seeded database and a pooled connection (the tests run requests concurrently).
 type s2Stack struct {
 	router http.Handler
@@ -80,8 +82,11 @@ func newS2Stack(ctx context.Context, t *testing.T, override limiter) *s2Stack {
 			app.WithCatalogue(catalogue),
 			app.WithErrorReports(catalogue),
 			app.WithSearch(search.NewHandler(pool, lim, nil)),
+			app.WithLearn(learn.NewHandler(pool, codec, lim, nil)),
 		),
 		Ready: pool,
+		// As in production (app.newDeps): the six bound operations, createLearnArticle among them, honour Idempotency-Key.
+		Idempotency: idempotency.NewPgStore(pool),
 	}
 	deps.Subjects = identitytransport.NewResolver(svc, false)
 	deps.CSRF = identitytransport.CSRFMiddleware(svc, false, nil)

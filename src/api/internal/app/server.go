@@ -5,6 +5,7 @@ import (
 
 	"github.com/Y4NN777/226os/src/api/internal/discover/transport"
 	identitytransport "github.com/Y4NN777/226os/src/api/internal/identity/transport"
+	learntransport "github.com/Y4NN777/226os/src/api/internal/learn/transport"
 	"github.com/Y4NN777/226os/src/api/internal/platform/apigen"
 	"github.com/Y4NN777/226os/src/api/internal/platform/mailer"
 	searchtransport "github.com/Y4NN777/226os/src/api/internal/search/transport"
@@ -21,6 +22,7 @@ type Server struct {
 	reports   *transport.Handler
 	search    *searchtransport.Handler
 	auth      *identitytransport.Handler
+	learn     *learntransport.Handler
 }
 
 // Option configures NewServer.
@@ -40,6 +42,9 @@ func WithSearch(h *searchtransport.Handler) Option { return func(s *Server) { s.
 
 // WithIdentity sets the S1 auth operations. Without it those routes stay 501.
 func WithIdentity(h *identitytransport.Handler) Option { return func(s *Server) { s.auth = h } }
+
+// WithLearn sets the S4 Learn operations. Without it those routes stay 501.
+func WithLearn(h *learntransport.Handler) Option { return func(s *Server) { s.learn = h } }
 
 // NewServer returns the production server with all operations unimplemented.
 // Without WithMailer its mailer is mailer.Disabled.
@@ -196,4 +201,49 @@ func (s *Server) GetProfile(w http.ResponseWriter, r *http.Request, username api
 		return
 	}
 	s.auth.GetProfile(w, r, username)
+}
+
+// ListLearnArticles serves published articles. A server built without WithLearn stays unimplemented.
+func (s *Server) ListLearnArticles(w http.ResponseWriter, r *http.Request, params apigen.ListLearnArticlesParams) {
+	if s.learn == nil {
+		s.Unimplemented.ListLearnArticles(w, r, params)
+		return
+	}
+	s.learn.ListLearnArticles(w, r, params)
+}
+
+// CreateLearnArticle saves a member's article. A server built without WithLearn stays unimplemented.
+func (s *Server) CreateLearnArticle(w http.ResponseWriter, r *http.Request, params apigen.CreateLearnArticleParams) {
+	if s.learn == nil {
+		s.Unimplemented.CreateLearnArticle(w, r, params)
+		return
+	}
+	s.learn.CreateLearnArticle(w, r, params)
+}
+
+// GetLearnArticle serves one article. A server built without WithLearn stays unimplemented.
+func (s *Server) GetLearnArticle(w http.ResponseWriter, r *http.Request, articleID apigen.ArticleId) {
+	if s.learn == nil {
+		s.Unimplemented.GetLearnArticle(w, r, articleID)
+		return
+	}
+	s.learn.GetLearnArticle(w, r, articleID)
+}
+
+// ListTrainingSeries serves published series. A server built without WithLearn stays unimplemented.
+func (s *Server) ListTrainingSeries(w http.ResponseWriter, r *http.Request, params apigen.ListTrainingSeriesParams) {
+	if s.learn == nil {
+		s.Unimplemented.ListTrainingSeries(w, r, params)
+		return
+	}
+	s.learn.ListTrainingSeries(w, r, params)
+}
+
+// GetTrainingSeries serves one series with its lessons. A server built without WithLearn stays unimplemented.
+func (s *Server) GetTrainingSeries(w http.ResponseWriter, r *http.Request, seriesID apigen.SeriesId) {
+	if s.learn == nil {
+		s.Unimplemented.GetTrainingSeries(w, r, seriesID)
+		return
+	}
+	s.learn.GetTrainingSeries(w, r, seriesID)
 }
