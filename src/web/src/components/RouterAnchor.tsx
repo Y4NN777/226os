@@ -1,5 +1,6 @@
 import { useRouter } from '@tanstack/react-router';
 import type { AnchorHTMLAttributes, MouseEvent, Ref } from 'react';
+import { isSafeInternalPath } from './safePath';
 
 type Props = AnchorHTMLAttributes<HTMLAnchorElement> & { ref?: Ref<HTMLAnchorElement> };
 
@@ -13,7 +14,7 @@ function isPlainLeftClick(event: MouseEvent<HTMLAnchorElement>) {
  */
 export function RouterAnchor({ href, onClick, target, ref, children, ...rest }: Props) {
   const router = useRouter();
-  const internal = href?.startsWith('/') === true && !href.startsWith('//');
+  const internal = href !== undefined && isSafeInternalPath(href);
   return (
     <a
       {...rest}

@@ -39,25 +39,31 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
+/** A hostile or buggy Retry-After must not lock a form for hours. */
+const MAX_RETRY_AFTER_SECONDS = 300;
+
 function parseRetryAfter(response: Response): number | undefined {
   const raw = response.headers.get('Retry-After');
   if (raw === null) return undefined;
   const seconds = Number(raw);
-  return Number.isFinite(seconds) && seconds >= 0 ? Math.ceil(seconds) : undefined;
+  if (!Number.isFinite(seconds) || seconds < 0) return undefined;
+  return Math.min(Math.ceil(seconds), MAX_RETRY_AFTER_SECONDS);
 }
 
 function toApiError(body: unknown, response: Response): ApiError {
   const retryAfter = parseRetryAfter(response);
-  if (isRecord(body) && typeof body.code === 'string' && typeof body.request_id === 'string') {
+  // The API always sends request_id; an edge or proxy problem may not, but its code still counts.
+  if (isRecord(body) && typeof body.code === 'string') {
     return new ApiError({
       status: response.status,
       code: body.code as ErrorCode,
-      requestId: body.request_id,
+      requestId: typeof body.request_id === 'string' ? body.request_id : undefined,
       violations: Array.isArray(body.violations) ? (body.violations as Violation[]) : [],
       retryAfter,
     });
   }
-  return new ApiError({ status: response.status, code: 'UNKNOWN', retryAfter });
+  const code = response.status === 429 ? 'RATE_LIMITED' : 'UNKNOWN';
+  return new ApiError({ status: response.status, code, retryAfter });
 }
 
 /**
@@ -72,6 +78,8 @@ export interface CsrfStore {
 function createCsrfStore(fetchImpl: typeof fetch, baseUrl: string): CsrfStore {
   let token: string | null = null;
   let pending: Promise<string> | null = null;
+  // Bumped on every set(): a fetch that started earlier must not overwrite a newer token.
+  let generation = 0;
   async function fetchToken(): Promise<string> {
     const response = await fetchImpl(
       new Request(`${baseUrl}/auth/csrf`, { credentials: 'include' }),
@@ -84,14 +92,16 @@ function createCsrfStore(fetchImpl: typeof fetch, baseUrl: string): CsrfStore {
   }
   return {
     set: (next) => {
+      generation += 1;
       token = next;
     },
     get: () => {
       if (token !== null) return Promise.resolve(token);
+      const started = generation;
       pending ??= fetchToken()
         .then((fresh) => {
-          token = fresh;
-          return fresh;
+          if (generation === started) token = fresh;
+          return token ?? fresh;
         })
         .finally(() => {
           pending = null;

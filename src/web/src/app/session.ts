@@ -1,6 +1,12 @@
-import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  queryOptions,
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type QueryClient,
+} from '@tanstack/react-query';
 import { useCallback } from 'react';
-import { api } from '../api/http';
+import { api, ApiError } from '../api/http';
 import type { components } from '../api/schema';
 
 export type SessionState = components['schemas']['SessionState'];
@@ -26,12 +32,21 @@ export function useSession() {
   return useQuery(sessionQuery);
 }
 
+/**
+ * Forgets every cached server answer except the session itself, so the next person on a
+ * shared device never sees the previous member's data. Called whenever the user changes.
+ */
+export function forgetPrivateData(queryClient: QueryClient) {
+  queryClient.removeQueries({ predicate: (query) => query.queryKey[0] !== sessionQueryKey[0] });
+}
+
 /** Stores a session returned by sign-in: the token rotates with the session. */
 export function useApplySession() {
   const queryClient = useQueryClient();
   return useCallback(
     (state: SessionState) => {
       api.csrf.set(state.csrf_token);
+      forgetPrivateData(queryClient);
       queryClient.setQueryData(sessionQueryKey, state);
     },
     [queryClient],
@@ -42,9 +57,17 @@ export function useApplySession() {
 export function useSignOut() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: () => api.call(() => api.client.POST('/auth/sign-out')),
+    mutationFn: async () => {
+      try {
+        await api.call(() => api.client.POST('/auth/sign-out'));
+      } catch (error) {
+        // 401: the session had already expired, so the member is signed out anyway.
+        if (!(error instanceof ApiError && error.status === 401)) throw error;
+      }
+    },
     onSuccess: async () => {
       api.csrf.set(null);
+      forgetPrivateData(queryClient);
       await queryClient.invalidateQueries({ queryKey: sessionQueryKey });
     },
   });
