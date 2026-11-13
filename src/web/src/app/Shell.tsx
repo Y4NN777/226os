@@ -128,11 +128,19 @@ export function Shell() {
           label={t('nav.top')}
           heading={<TopNavHeading heading={t('app.name')} headingHref="/" />}
           endContent={
-            <AccountArea
-              onSignOut={() => {
-                signOut.mutate();
-              }}
-            />
+            <HStack gap={2} vAlign="center">
+              <IconButton
+                href="/recherche"
+                variant="ghost"
+                label={t('nav.search')}
+                icon={<Icon icon="search" />}
+              />
+              <AccountArea
+                onSignOut={() => {
+                  signOut.mutate();
+                }}
+              />
+            </HStack>
           }
         />
       }
