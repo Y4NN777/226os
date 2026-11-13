@@ -29,7 +29,7 @@ Rule on `contributor` (added 2026-11-12): going forward the field holds the GitH
 
 ## Review and closure status
 
-**Closed on 2026-11-13 by the owner (`Y4NN777`).** Until then every record carried `license_review: PENDING` and an empty or role-only `human_reviewers`. The owner closed them all by decision, with no further review: `license_review: "ACCEPTED_BY_OWNER (2026-11-13): not independently verified"` records that decision, it is **not** the result of a licence review; `human_reviewers` names the owner as the person who closed the record, and no line-by-line human review is claimed; `closure` says when. The `open_risks` of each record stay as written because they are still true statements. Records added later fill the same three fields at the time they are written.
+**Closed on 2026-11-13 by the owner (`Y4NN777`).** Until then every record carried `license_review: "ACCEPTED_BY_OWNER (2026-11-13): not independently verified"` and an empty or role-only `human_reviewers`. The owner closed them all by decision, with no further review: `license_review: "ACCEPTED_BY_OWNER (2026-11-13): not independently verified"` records that decision, it is **not** the result of a licence review; `human_reviewers` names the owner as the person who closed the record, and no line-by-line human review is claimed; `closure` says when. The `open_risks` of each record stay as written because they are still true statements. Records added later fill the same three fields at the time they are written.
 
 ## Current task record
 
@@ -532,4 +532,55 @@ license_review: "NOT APPLICABLE (no third-party code or asset added)"
 human_reviewers: ["Y4NN777 (owner closure, 2026-11-13)"]
 tests_or_evidence: ["review-gate_test.sh failed first (script missing), then passed"]
 open_risks: ["the workflow YAML of a pull request runs from the PR itself, so only a human reading changes to .github can stop a PR from weakening the job (the script and the list come from the base)", "a false CRITICAL blocks one PR until the owner labels it", "report mode first: not enforced yet"]
+```
+
+## Catalogue reads (S2)
+
+```yaml
+date: "2026-11-13"
+contributor: "mibienpanjoe"
+tool_or_model: "Cursor, Grok 4.7"
+purpose: "Published catalogue reads: listResources, getResource, listResourceSources. Search and error reports are not in this change."
+repository_or_source_context: "branch feature/discover/catalogue-read, PR #83"
+files_or_sections_affected: ["db/queries/discover.sql", "src/api/internal/platform/dbgen/discover.sql.go", "src/api/internal/discover/**", "src/api/internal/app/server.go", "src/api/internal/app/app.go", "scripts/public-routes.txt", "scripts/unimplemented-routes.txt", "src/api/internal/platform/pgtest/catalogue_read_integration_test.go", "TODO.md", "AI_USAGE.md"]
+third_party_sources_consulted: []
+license_review: "ACCEPTED_BY_OWNER (2026-11-13): not independently verified"
+closure: "closed by the owner, 2026-11-13"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-13)"]
+tests_or_evidence: ["go test -race -count=1 ./src/api/... exit 0", "go test -race -count=1 -tags integration -run TestCatalogueReadsPublishedRowsOnly ./src/api/internal/platform/pgtest/ exit 0", "scripts/check-authz-routes.sh exit 0", "go tool sqlc vet -f db/sqlc.yaml exit 0", "make test-integration, make lint and make coverage were NOT RUN"]
+open_risks: ["no freshness window is defined, so a source is never labelled stale", "content_relations cannot express a series link", "a resource with no published provider is absent from the catalogue"]
+```
+
+## Tracker line for the catalogue pull request
+
+```yaml
+date: "2026-11-13"
+contributor: "mibienpanjoe"
+tool_or_model: "Cursor, Grok 4.7"
+purpose: "Record PR #83 on the three catalogue operations. Search and error reports stay open."
+repository_or_source_context: "PR #83"
+files_or_sections_affected: ["TODO.md", "AI_USAGE.md"]
+third_party_sources_consulted: []
+license_review: "ACCEPTED_BY_OWNER (2026-11-13): not independently verified"
+closure: "closed by the owner, 2026-11-13"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-13)"]
+tests_or_evidence: ["no product code in this commit"]
+open_risks: []
+```
+
+## Catalogue lint-go fix
+
+```yaml
+date: "2026-11-13"
+contributor: "mibienpanjoe"
+tool_or_model: "Cursor, Grok 4.7"
+purpose: "Clear the lint-go failure on PR #83: wrap catalogue query errors with %w, and give catalogue test requests a context."
+repository_or_source_context: "PR #83, Quality run 43355277357, gate lint-go"
+files_or_sections_affected: ["src/api/internal/discover/repository/repository.go", "src/api/internal/discover/transport/handler_test.go", "src/api/internal/app/catalogue_internal_test.go", "src/api/internal/platform/pgtest/catalogue_read_integration_test.go", "AI_USAGE.md"]
+third_party_sources_consulted: []
+license_review: "ACCEPTED_BY_OWNER (2026-11-13): not independently verified"
+closure: "closed by the owner, 2026-11-13"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-13)"]
+tests_or_evidence: ["make lint-go exit 0", "go test -race -count=1 ./src/api/internal/discover/... ./src/api/internal/app/ exit 0. The catalogue integration test was not re-run."]
+open_risks: ["Get still maps pgx.ErrNoRows to domain.ErrNotFound before wrapping. Other driver errors stay in the chain via %w."]
 ```

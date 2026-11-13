@@ -31,6 +31,10 @@ type fakeDB struct {
 	rowVals []any // values the fake row scans into the destinations, in order
 	rowErr  error
 	execErr error
+	many    [][]any
+	manyErr error
+	scanErr error
+	rowsErr error
 }
 
 func (f *fakeDB) Exec(_ context.Context, sql string, args ...any) (pgconn.CommandTag, error) {
@@ -38,8 +42,12 @@ func (f *fakeDB) Exec(_ context.Context, sql string, args ...any) (pgconn.Comman
 	return pgconn.NewCommandTag("DELETE 3"), f.execErr
 }
 
-func (f *fakeDB) Query(context.Context, string, ...any) (pgx.Rows, error) {
-	return nil, errors.New("not used by the generated queries under test")
+func (f *fakeDB) Query(_ context.Context, sql string, args ...any) (pgx.Rows, error) {
+	f.calls = append(f.calls, call{sql, args})
+	if f.manyErr != nil {
+		return nil, f.manyErr
+	}
+	return &fakeRows{rows: f.many, scanErr: f.scanErr, err: f.rowsErr}, nil
 }
 
 func (f *fakeDB) QueryRow(_ context.Context, sql string, args ...any) pgx.Row {
@@ -146,6 +154,123 @@ func TestWithTxRunsQueriesOnTheTransaction(t *testing.T) {
 	}
 	if len(outer.calls) != 0 || len(inner.calls) != 1 {
 		t.Fatalf("calls: outer=%d inner=%d; want the query to run on the transaction only", len(outer.calls), len(inner.calls))
+	}
+}
+
+type fakeRows struct {
+	rows    [][]any
+	i       int
+	scanErr error
+	err     error
+}
+
+func (r *fakeRows) Close()                                       {}
+func (r *fakeRows) Err() error                                   { return r.err }
+func (r *fakeRows) CommandTag() pgconn.CommandTag                { return pgconn.CommandTag{} }
+func (r *fakeRows) FieldDescriptions() []pgconn.FieldDescription { return nil }
+func (r *fakeRows) Values() ([]any, error)                       { return nil, nil }
+func (r *fakeRows) RawValues() [][]byte                          { return nil }
+func (r *fakeRows) Conn() *pgx.Conn                              { return nil }
+func (r *fakeRows) TypeMap() *pgtype.Map                         { return nil }
+func (r *fakeRows) Next() bool {
+	if r.i < len(r.rows) {
+		r.i++
+		return true
+	}
+	return false
+}
+func (r *fakeRows) Scan(dest ...any) error {
+	if r.scanErr != nil {
+		return r.scanErr
+	}
+	vals := r.rows[r.i-1]
+	if len(dest) != len(vals) {
+		return errors.New("scan width")
+	}
+	for i, d := range dest {
+		reflect.ValueOf(d).Elem().Set(reflect.ValueOf(vals[i]))
+	}
+	return nil
+}
+
+func TestCatalogueQueriesScanAndReject(t *testing.T) {
+	id := pgtype.UUID{Bytes: [16]byte{1}, Valid: true}
+	ts := pgtype.Timestamptz{Time: time.Unix(10, 0).UTC(), Valid: true}
+	text := pgtype.Text{String: "https://example.test", Valid: true}
+	listRow := []any{id, "alpha", "Alpha", "api", "mobile-money", "Paiement", []string{"fr"}, text, "verified", ts, ts, id, "acme", "Acme", text, int32(1)}
+	db := &fakeDB{many: [][]any{listRow}}
+	rows, err := dbgen.New(db).ListCatalogue(t.Context(), dbgen.ListCatalogueParams{RowLimit: 21, Q: text})
+	if err != nil || len(rows) != 1 || rows[0].Slug != "alpha" {
+		t.Fatalf("rows %+v err %v", rows, err)
+	}
+	if !strings.Contains(db.calls[0].sql, "LIMIT") {
+		t.Fatal("list query is not bounded")
+	}
+	got, err := dbgen.New(&fakeDB{rowVals: listRow}).GetCatalogueEntry(t.Context(), id)
+	if err != nil || got.Slug != "alpha" {
+		t.Fatalf("%+v %v", got, err)
+	}
+	countries, err := dbgen.New(&fakeDB{many: [][]any{{id, "BF"}}}).CatalogueCountries(t.Context(), []pgtype.UUID{id})
+	if err != nil || countries[0].CountryCode != "BF" {
+		t.Fatalf("%+v %v", countries, err)
+	}
+	sdks, err := dbgen.New(&fakeDB{many: [][]any{{id, "go", "Go", text}}}).CatalogueSDKs(t.Context(), []pgtype.UUID{id})
+	if err != nil || sdks[0].Language != "go" {
+		t.Fatalf("%+v %v", sdks, err)
+	}
+	related, err := dbgen.New(&fakeDB{many: [][]any{{id, "project", id, "A project", "fr"}}}).CatalogueRelated(t.Context(), []pgtype.UUID{id})
+	if err != nil || related[0].Title != "A project" {
+		t.Fatalf("%+v %v", related, err)
+	}
+	discussions, err := dbgen.New(&fakeDB{many: [][]any{{id, id, "A question", "fr"}}}).CatalogueDiscussions(t.Context(), []pgtype.UUID{id})
+	if err != nil || discussions[0].Title != "A question" {
+		t.Fatalf("%+v %v", discussions, err)
+	}
+	sources, err := dbgen.New(&fakeDB{many: [][]any{{id, "claim", "A claim", "https://claim.example", ts, "verified", id}}}).ListCatalogueSources(t.Context(), id)
+	if err != nil || sources[0].Kind != "claim" {
+		t.Fatalf("%+v %v", sources, err)
+	}
+
+	boom := errors.New("db down")
+	calls := []func(*fakeDB) error{
+		func(db *fakeDB) error {
+			_, err := dbgen.New(db).ListCatalogue(t.Context(), dbgen.ListCatalogueParams{})
+			return err
+		},
+		func(db *fakeDB) error {
+			_, err := dbgen.New(db).CatalogueCountries(t.Context(), nil)
+			return err
+		},
+		func(db *fakeDB) error {
+			_, err := dbgen.New(db).CatalogueSDKs(t.Context(), nil)
+			return err
+		},
+		func(db *fakeDB) error {
+			_, err := dbgen.New(db).CatalogueRelated(t.Context(), nil)
+			return err
+		},
+		func(db *fakeDB) error {
+			_, err := dbgen.New(db).CatalogueDiscussions(t.Context(), nil)
+			return err
+		},
+		func(db *fakeDB) error {
+			_, err := dbgen.New(db).ListCatalogueSources(t.Context(), id)
+			return err
+		},
+	}
+	for _, call := range calls {
+		if err := call(&fakeDB{manyErr: boom}); err == nil {
+			t.Fatal("expected query error")
+		}
+		if err := call(&fakeDB{scanErr: boom, many: [][]any{nil}}); err == nil {
+			t.Fatal("expected scan error")
+		}
+		if err := call(&fakeDB{rowsErr: boom}); err == nil {
+			t.Fatal("expected rows error")
+		}
+	}
+	if _, err := dbgen.New(&fakeDB{rowErr: boom}).GetCatalogueEntry(t.Context(), id); err == nil {
+		t.Fatal("expected scan error")
 	}
 }
 

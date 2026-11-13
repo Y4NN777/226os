@@ -45,12 +45,9 @@ POST /api/v1/questions/{questionId}/accept   # acceptAnswer
 GET /api/v1/questions/{questionId}/answers   # listAnswers
 POST /api/v1/questions/{questionId}/answers   # createAnswer
 POST /api/v1/questions/{questionId}/unaccept   # unacceptAnswer
-GET /api/v1/resources   # listResources
-GET /api/v1/resources/{resourceId}   # getResource
 POST /api/v1/resources/{resourceId}/error-reports   # createResourceErrorReport
 GET /api/v1/resources/{resourceId}/reviews   # listResourceReviews (P1)
 POST /api/v1/resources/{resourceId}/reviews   # createResourceReview (P1)
-GET /api/v1/resources/{resourceId}/sources   # listResourceSources
 GET /api/v1/search   # search
 DELETE /api/v1/votes   # retractVote
 POST /api/v1/votes   # castVote
