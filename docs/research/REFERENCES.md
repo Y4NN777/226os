@@ -31,7 +31,7 @@ source_files_and_lines: []
 tradeoffs: []
 behaviors_for_226os: []
 third_party_code_integrated: false
-compliance_review: PENDING
+compliance_review: "CLOSED par le propriétaire le 2026-11-13 (sans revue indépendante)"
 ```
 Chaque proposition d'amélioration issue d'une référence inclut : (1) le problème **observé**, (2) ses sources et références précises, (3) une expérience ou métrique capable de prouver l'amélioration.
 
@@ -62,7 +62,7 @@ behaviors_for_226os:
   - "Inspiration déclarée dans docs/PRD.md : découverte de projets open source et identité communautaire."
 third_party_code_integrated: false
 third_party_text_visuals_or_data_copied: false
-compliance_review: "PENDING : confirmation du propriétaire consignée ci-dessous ; revue d'admissibilité CADEV à joindre"
+compliance_review: "CLOSED par le propriétaire le 2026-11-13 : confirmation consignée ci-dessous, sans revue d'admissibilité indépendante"
 ```
 
 ### Comparaison honnête (observé sur la page d'accueil et notre périmètre)
@@ -101,7 +101,7 @@ compliance_review: "PENDING : confirmation du propriétaire consignée ci-dessou
 
 ## Déclaration d'originalité
 
-*Confirmation : le propriétaire du dépôt (`Y4NN777`) doit confirmer cette déclaration ; confirmation en attente, non vérifiée par le dépôt. Inventaire des dépendances : `THIRD_PARTY_NOTICES.md`.*
+*Confirmation : déclaration confirmée par le propriétaire du dépôt (`Y4NN777`) le 2026-11-13.*
 
 **Français.** 226os est un produit original, développé par notre équipe pendant la période du concours, sous licence Apache-2.0. Nous citons ouvertement 225 Open Source comme une source d'inspiration pour la découverte de projets et l'identité communautaire, comme les autres projets open source que nous avons étudiés. Nous avons étudié des comportements et des principes de conception, sans copier de code, de texte, de visuels ni de données. Chaque dépendance tierce est déclarée, épinglée et vérifiée côté licence. Notre orientation produit nous est propre : une plateforme qui part de l'Afrique de l'Ouest et s'ouvre à toute l'Afrique, avec un assistant d'apprentissage qui cite ses sources, un parcours pour apprendre et progresser à l'ère des agents, un annuaire d'API et d'intégrations africaines, et une mise en relation qui respecte la vie privée.
 

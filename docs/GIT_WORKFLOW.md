@@ -55,6 +55,13 @@ Configured today (owner settings; `quality` added 2026-11-12): `develop` and `ma
 
 Planned owner setting: decide a review rule for `main` once the team pushes (with enforce-admins on, one required approval would block owner promotions until a teammate reviews). Linear history stays off, because promotion and back-merge use merge commits.
 
+## If a bad change reaches develop
+
+1. Open a revert PR (`git revert -m 1 <merge commit>`), bundle it with the fix if the fix is small. `develop` is staging, so this is quick and nothing reaches production.
+2. The promotion PR into `main` is the second gate: the owner reads it and runs `make smoke` first; production is never promoted from a red `develop`.
+3. In production, redeploy the previous image by digest ([SHIP](SHIP.md) section 5); an application rollback does not undo a migration.
+4. Say what happened in the PR and add the missing check or rule, so the same change cannot pass again.
+
 ## Current state
 
 No deployment workflow exists yet. The application, the Compose profiles and CI exist. Deployment jobs and the `production` environment approval remain `NOT IMPLEMENTED` until the ops slice (TODO S8) is done.

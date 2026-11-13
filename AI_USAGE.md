@@ -1,6 +1,6 @@
 # 226os AI Use and Provenance Record
 
-**Status:** DRAFT; human and CADEV compliance review required
+**Status:** FINAL. Closed by the owner on 2026-11-13 (see "Review and closure status"). Records are as written; licences were not independently verified.
 
 ## Policy
 
@@ -18,17 +18,18 @@ purpose: ""
 repository_or_source_context: ""
 files_or_sections_affected: []
 third_party_sources_consulted: []
-license_review: PENDING
-human_reviewers: []
+license_review: ""   # NOT APPLICABLE, a verified licence, or ACCEPTED_BY_OWNER (date)
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-13)"]
+closure: ""          # closed by the owner (date)
 tests_or_evidence: []
 open_risks: []
 ```
 
 Rule on `contributor` (added 2026-11-12): going forward the field holds the GitHub login. `Y4NN77` (the Git author name) and `Y4NN777` (the GitHub login) denote the same person, the repository owner; older records keep the value they were written with and are not rewritten.
 
-## Review and closure status (2026-11-12)
+## Review and closure status
 
-Every record in this file has `license_review: PENDING` and no human CADEV review is recorded yet; `human_reviewers` is empty or names an owner decision or a reviewer role, not an evidenced licence review. Convention for later records: add a `closure` line (`open` or `closed: <date>, <reviewer login>`) once the licence review and human review of that record are done. This note adds the convention only; no record is closed. Original-work statement: `docs/research/REFERENCES.md`, section "Déclaration d'originalité". Dependency inventory: `THIRD_PARTY_NOTICES.md`.
+**Closed on 2026-11-13 by the owner (`Y4NN777`).** Until then every record carried `license_review: "ACCEPTED_BY_OWNER (2026-11-13): not independently verified"` and an empty or role-only `human_reviewers`. The owner closed them all by decision, with no further review: `license_review: "ACCEPTED_BY_OWNER (2026-11-13): not independently verified"` records that decision, it is **not** the result of a licence review; `human_reviewers` names the owner as the person who closed the record, and no line-by-line human review is claimed; `closure` says when. The `open_risks` of each record stay as written because they are still true statements. Records added later fill the same three fields at the time they are written.
 
 ## Current task record
 
@@ -39,7 +40,7 @@ Every record in this file has `license_review: PENDING` and no human CADEV revie
 - Application implementation: none.
 - Commands/builds/tests/deployments: none in the audit phase; Git publication was separately authorized and recorded outside application evidence.
 - Third-party code integrated: none observed in this documentation set.
-- Compliance status: `PENDING` human/CADEV review.
+- Compliance status: closed by the owner on 2026-11-13 (no further review; not independently verified).
 
 ## H0 Claude runtime harness record
 
@@ -51,8 +52,8 @@ purpose: "Add and validate the .claude/ runtime harness; reconcile main into dev
 repository_or_source_context: "PROJECT_HARNESS_SPEC.md, AGENTS.md, CLAUDE.md, docs/GIT_WORKFLOW.md"
 files_or_sections_affected: [".claude/settings.json", ".claude/agents/*.md", ".claude/skills/*/SKILL.md", "PROJECT_HARNESS_SPEC.md", "docs/spec-kit/CLAUDE_HANDOFF.md", "AI_USAGE.md"]
 third_party_sources_consulted: []
-license_review: PENDING
-human_reviewers: []
+license_review: "ACCEPTED_BY_OWNER (2026-11-13): not independently verified"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-13)"]
 tests_or_evidence:
   - "settings.json deny rule enforced live: a write to .env.probe was blocked by the harness"
   - "claude -p --output-format stream-json init event: agents [advisor, go-implementer, scout, skeptic, web-implementer]; skills/slash_commands [advisor, ship-check, spec-to-task, start-slice, verify-slice]"
@@ -71,8 +72,8 @@ purpose: "Add ten domain skills, the postgres-expert agent, and the domain-skill
 repository_or_source_context: "AGENTS.md, DESIGN.md, docs/{DEV,TEST,RULES,SPEC,SHIP,GIT_WORKFLOW}.md, docs/spec-kit/*, docs/decisions/*, docs/quality/COVERAGE_SCOPE.md"
 files_or_sections_affected: [".claude/skills/<10 domain skills>/**", ".claude/agents/*.md", ".claude/hooks/**", ".claude/settings.json", "CLAUDE.md", "PROJECT_HARNESS_SPEC.md"]
 third_party_sources_consulted: ["Official docs cited inline in each SKILL.md (Go, Chi, pgx, sqlc, PostgreSQL, OpenAPI 3.1, RFC 9457, OWASP, React, TanStack, WCAG, Playwright, testcontainers-go, GitHub Actions, Docker, Traefik)"]
-license_review: PENDING
-human_reviewers: []
+license_review: "ACCEPTED_BY_OWNER (2026-11-13): not independently verified"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-13)"]
 tests_or_evidence:
   - "python3 -m unittest discover -s .claude/hooks/tests: 26 tests OK"
   - "claude -p probe A (first design): first Write to src/api/ denied by the hook; no file created"
@@ -94,8 +95,8 @@ purpose: "226os logo, symbol, app icons; README header and social preview; proto
 repository_or_source_context: "Owner-provided ~/Downloads/226os-concept-d-assets.zip (transparent PNG extracted from an approved four-concept board); Gemini_Generated_Image_*.jpeg not used (checkerboard baked into a JPEG, no real transparency)"
 files_or_sections_affected: ["docs/brand/226os-logo.png", "docs/brand/226os-logo-white.png", "docs/brand/226os-social-preview.png", "prototypes/html/assets/brand/*", "README.md header", "prototypes/html/assets/js/shell.js brand"]
 third_party_sources_consulted: []
-license_review: PENDING
-human_reviewers: []
+license_review: "ACCEPTED_BY_OWNER (2026-11-13): not independently verified"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-13)"]
 tests_or_evidence: ["visual check of every exported PNG", "prototype header rendered in light and dark"]
 open_risks:
   - "AI-generated raster, not vector: approximate edges, needs review at 16/32 px; a clean SVG redraw is recommended before release"
@@ -113,7 +114,7 @@ repository_or_source_context: "this repository at develop 0372648; owner-approve
 files_or_sections_affected: ["go.mod", "go.sum", "src/api/**", "src/web/**", "db/**", "api/oapi-codegen.yaml", "package.json", "pnpm-workspace.yaml", "pnpm-lock.yaml", "compose.yaml", "deploy/**", "Makefile", "mk/**", "scripts/**", ".github/workflows/quality.yml", ".env.example", ".golangci.yml", "docs/quality/COVERAGE_SCOPE.md"]
 third_party_sources_consulted:
   - "reference taxonomy research for resource_categories and learn_topics: web sources listed in the PR description (GSMA, OpenUK, KRA eTIMS, TechCabal, and others); figures labelled secondary were not opened by the reviewer"
-license_review: PENDING
+license_review: "ACCEPTED_BY_OWNER (2026-11-13): not independently verified"
 human_reviewers: ["Y4NN77 (owner decisions: 54-country list, 15 resource categories, 9 learn topics, coverage exclusion for apigen.gen.go, Node 26, licence allowlist, Semgrep)"]
 tests_or_evidence: ["make quality exit 0 on the B0 tip (reported by proof:verifier and the unit agents)", "per-unit RED/GREEN records in the unit reports and PR description"]
 open_risks:
@@ -133,7 +134,7 @@ repository_or_source_context: "this repository at develop c55fbde; the public ho
 files_or_sections_affected: ["README.md", "docs/PRD.md", "docs/SPEC.md", "docs/spec-kit/DATABASE_DESIGN.md", "docs/research/REFERENCES.md", "prototypes/html/DISCLAIMER.md", "prototypes/html/README.md", "docs/screenshots (removed)", "docs/team/KICKOFF.md", "ROADMAP.md", "TODO.md"]
 third_party_sources_consulted:
   - "Stack Overflow Developer Survey 2025, Anthropic and PNAS studies on AI assistance and learning, GSMA 2026 mobile money report, Google AI Studio terms (aistudio.google.com/docs/terms): used as research input for the plan; figures are cited in ROADMAP.md with their source quality"
-license_review: PENDING
+license_review: "ACCEPTED_BY_OWNER (2026-11-13): not independently verified"
 human_reviewers: ["Y4NN77 (decisions on positioning, content, assistant, Connect directory, profile visibility, demo data policy)"]
 tests_or_evidence: ["no gate applies to documentation; consistency checks by search across the changed files", "NOT RUN: make quality is unaffected by these files"]
 open_risks:
@@ -152,7 +153,7 @@ purpose: "Implement the B1 route gate: three route lists, test-name existence ch
 repository_or_source_context: "TODO.md S0, ROADMAP.md B1, scripts/check-authz-routes.sh, api/openapi.yaml"
 files_or_sections_affected: ["scripts/check-authz-routes.sh", "scripts/authz/routes_check.go.txt", "scripts/tests/authz-routes_test.sh", "scripts/public-routes.txt", "scripts/unimplemented-routes.txt", "scripts/authz-tests.txt", "TODO.md", "AI_USAGE.md"]
 third_party_sources_consulted: []
-license_review: PENDING
+license_review: "ACCEPTED_BY_OWNER (2026-11-13): not independently verified"
 human_reviewers: ["NICE-DEV226 (S0 reviewer)"]
 tests_or_evidence: ["scripts/tests/authz-routes_test.sh: RED 11 of 13 before the change; second RED 8 of 21 on skeptic bypasses; third RED 3 of 25 on TestAuthz convention, NotFound handler and interface registration; 25 of 25 after"]
 open_risks: ["the outside-NewRouter scan is syntactic; middleware in httpx that short-circuits a path is covered by owner review of router.go only", "the silent-pass guards (empty test list, test did not run) have no RED test", "a mapped TestAuthz test is checked for name, operationId prefix and direct t.Skip only, not for what it asserts", "the 501 probe is to be replaced by a method-set check in api-mount (TODO S0)"]
@@ -168,7 +169,7 @@ purpose: "Close the open gaps of the B1 gate: Docker coupling, hollow test mappi
 repository_or_source_context: "PR #31 review findings, TODO.md S0"
 files_or_sections_affected: ["scripts/check-authz-routes.sh", "scripts/authz/routes_check.go.txt", "scripts/tests/authz-routes_test.sh", "src/api/internal/platform/httpx/router_test.go", "TODO.md", "AI_USAGE.md"]
 third_party_sources_consulted: []
-license_review: PENDING
+license_review: "ACCEPTED_BY_OWNER (2026-11-13): not independently verified"
 human_reviewers: ["NICE-DEV226 (S0 reviewer)"]
 tests_or_evidence: ["scripts/tests/authz-routes_test.sh: RED 6 of 40 (Docker coupling, content rules, silent-pass guard), then RED 12 of 53 after the second skeptic review (toolchain-ignored test files, same-declaration, parent path, false positives); GREEN 53 of 53 (about 22 s)"]
 open_risks: ["a mapped test is checked syntactically (route named, denial status mentioned, no skip outside testing.Short), not for what it really asserts: unused literals, dead code and an aliased t.Skip still pass and are review matters", "a planted init() or TestMain in package httpx could print a forged PASS line (repo-write attacker, review matter)", "GOPROXY and GOTOOLCHAIN from the caller are not scrubbed", "the 501 probe is replaced in api-mount"]
@@ -184,7 +185,7 @@ purpose: "S0 api-mount: pgxpool and /readyz, apigen mount, problem+json error ta
 repository_or_source_context: "TODO.md S0, ADR-0003, ADR-0004, api/openapi.yaml, scripts/check-authz-routes.sh"
 files_or_sections_affected: ["src/api/internal/platform/{apperr,cursor,apispec,db,subject,httpx,config}/**", "src/api/internal/app/**", "src/api/internal/platform/pgtest/tx_integration_test.go", "scripts/{check-authz-routes.sh,check-generated.sh,public-routes.txt,router-middleware.txt,authz/routes_check.go.txt,tests/authz-routes_test.sh}", "compose.yaml", ".env.example", ".claude/settings.json", "TODO.md", "AI_USAGE.md"]
 third_party_sources_consulted: ["github.com/getkin/kin-openapi (v0.142.0 already in go.sum, promoted from indirect to direct, then bumped to v0.149.0 because govulncheck reported 8 advisories fixed up to v0.149.0)"]
-license_review: PENDING
+license_review: "ACCEPTED_BY_OWNER (2026-11-13): not independently verified"
 human_reviewers: ["NICE-DEV226 (S0 reviewer)"]
 tests_or_evidence: ["per-slice RED then GREEN reported by the implementers; see the PR description"]
 open_risks: ["doc.OpenAPI is set to 3.0.3 at runtime so kin-openapi uses its keyword-reporting schema engine for a 3.1 contract", "the Content-Type violation code (C5) and METHOD_NOT_ALLOWED are outside the contract enum", "scripts/verify-containers.sh: the B0 rule 'api must not receive DATABASE_URL' is inverted (api must receive DATABASE_URL and CURSOR_KEY; no other service gets CURSOR_KEY)", "cursors carry no expiry (ADR-0004 point 5 says expired cursors are refused); not decided"]
@@ -200,7 +201,7 @@ purpose: "S0 Idempotency-Key middleware and store, ETag/If-Match helper, review 
 repository_or_source_context: "TODO.md S0, ADR-0004 points 6 and 7, db/migrations/00004, api/openapi.yaml"
 files_or_sections_affected: ["src/api/internal/platform/{idempotency,etag}/**", "src/api/internal/platform/httpx/{router.go,router_test.go,validate_test.go}", "src/api/internal/app/**", "src/api/internal/platform/pgtest/idempotency_integration_test.go", "scripts/{router-middleware.txt,secrets-scan.sh,gitleaks-ignore.txt,verify-containers.sh,tests/authz-routes_test.sh}", "TODO.md", "AI_USAGE.md"]
 third_party_sources_consulted: ["RFC 9110 sections 5.6.1.2 and 8.8.3 (read from memory of the standard; not fetched)"]
-license_review: PENDING
+license_review: "ACCEPTED_BY_OWNER (2026-11-13): not independently verified"
 human_reviewers: ["NICE-DEV226 (S0 reviewer)"]
 tests_or_evidence: ["skeptic review reproduced a cross-resource replay (hash covered the route template only), fixed test-first; unit and PostgreSQL integration tests per finding"]
 open_risks: ["the idempotency row is outside the business transaction (crash window of 2 minutes)", "bodies over the 16 KiB column check replay without a body", "scripts/gitleaks-ignore.txt holds one fingerprint for a dummy value already in pushed history"]
@@ -216,7 +217,7 @@ purpose: "S0 mailer port, SMTP adapter, fake, Mailpit service, mailcheck command
 repository_or_source_context: "TODO.md S0, ADR-0003, ADR-0006, compose.yaml, scripts/verify-containers.sh"
 files_or_sections_affected: ["src/api/internal/platform/{mailer,config}/**", "src/api/internal/app/**", "src/api/cmd/mailcheck/**", "compose.yaml", ".env.example", "scripts/verify-containers.sh", "TODO.md", "AI_USAGE.md"]
 third_party_sources_consulted: ["axllent/mailpit v1.33.1 image (MIT), pinned by digest sha256:aef2aacc...61ce after `docker pull`"]
-license_review: PENDING
+license_review: "ACCEPTED_BY_OWNER (2026-11-13): not independently verified"
 human_reviewers: ["NICE-DEV226 (S0 reviewer)"]
 tests_or_evidence: ["make up-local-dev on an isolated Compose project: /readyz 200 inside the api container, mailcheck delivered a test mail to Mailpit (message count 1)"]
 open_risks: ["Gmail STARTTLS with the app password was not exercised (NOT RUN, H8)", "only AUTH PLAIN is supported", "a throwaway volume os226-s0-dod_pgdata remains on the developer machine"]
@@ -232,8 +233,8 @@ purpose: "Close the open points of the reviews of PRs #33 to #35: cursor expiry,
 repository_or_source_context: "review threads of PRs #33 and #34, ADR-0004 points 5 and 8, TODO.md S0"
 files_or_sections_affected: ["src/api/internal/platform/{cursor,httpx,subject,idempotency}/**", "scripts/router-middleware.txt", "TODO.md", "AI_USAGE.md"]
 third_party_sources_consulted: []
-license_review: PENDING
-human_reviewers: []
+license_review: "ACCEPTED_BY_OWNER (2026-11-13): not independently verified"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-13)"]
 tests_or_evidence: ["each item test-first with a RED line; 100.0% statement coverage on cursor, httpx, subject and idempotency; route gate suite 59 passed"]
 open_risks: ["a handler that ignores its context deadline still blocks the 503 until it returns (the middleware is synchronous like chi's)", "cursors issued before this change (wire format v1) are refused; none existed in production"]
 ```
@@ -248,8 +249,8 @@ purpose: "Provider-agnostic LLM port, a Google AI Studio adapter, AI_* configura
 repository_or_source_context: "TODO.md S9, the mailer slice as the style reference"
 files_or_sections_affected: ["src/api/internal/platform/llm/**", "src/api/internal/platform/config/{ai.go,config.go}", "src/api/internal/app/aicheck.go", "src/api/cmd/aicheck/**", "TODO.md", "AI_USAGE.md"]
 third_party_sources_consulted: ["Google AI Studio REST API (field names from the task brief, NOT confirmed against Google's documentation)"]
-license_review: PENDING
-human_reviewers: []
+license_review: "ACCEPTED_BY_OWNER (2026-11-13): not independently verified"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-13)"]
 tests_or_evidence: ["each deliverable test-first; 100.0% statement coverage on llm, llm/aistest, config, app, cmd/aicheck; no external network in tests"]
 open_risks: ["the Gemini REST field names are unconfirmed until the first real aicheck run", "the adapter has never called the real API (V1 to V4 are the owner's)", "a ListModels page near 1 MiB would be rejected"]
 ```
@@ -264,8 +265,8 @@ purpose: "SOPS and age secrets workflow (ADR-0009) with generated values, backup
 repository_or_source_context: "ADR-0009, docs/SHIP.md, mk/20-gates.mk, TODO.md S8 and S9, PRs #44 to #53"
 files_or_sections_affected: ["scripts/{secrets,backup,restore-check,worktree}.sh", "scripts/tests/**", "mk/20-gates.mk", "secrets/*.recipients", "secrets/staging-test.enc.env", "docs/{SHIP,GIT_WORKFLOW}.md", "docs/decisions/0009-secrets-with-sops-and-age.md", "TODO.md", "ROADMAP.md", "AI_USAGE.md"]
 third_party_sources_consulted: ["sops and age documentation (sops set --value-stdin)", "third-party model catalogs and Google AI forum posts for Gemma 4 (NOT official, used only to know what to check; every id was confirmed with aicheck on the real key)"]
-license_review: PENDING
-human_reviewers: []
+license_review: "ACCEPTED_BY_OWNER (2026-11-13): not independently verified"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-13)"]
 tests_or_evidence: ["secrets_test 47 passed, backup_test 24 passed, worktree_test 8 passed, make_test 42 passed", "make security PASS", "backup and restore drill on a throwaway local-dev stack: 39 tables and migration version 10 identical after restore", "aicheck models, ping fr, ping en, limits run by the assistant through sops exec-env with the owner's key at the owner's request (the key was never printed)"]
 open_risks: ["the encrypted files are readable only with the owner's private age key (collaborators: issue #46)", "staging and production backup drills are NOT RUN", "the K21 EEA rule for the free tier is not yet handled", "the answers of both Gemma 4 models contain reasoning text: the adapter must drop it (TODO S9)"]
 ```
@@ -280,8 +281,8 @@ purpose: "Run the quality gates as parallel CI groups with a fan-in check, cache
 repository_or_source_context: "ADR-0006, mk/20-gates.mk, mk/40-quality.mk, .github/workflows/quality.yml, measured CI timings of 2026-11-12"
 files_or_sections_affected: [".github/workflows/quality.yml", "mk/20-gates.mk", "mk/40-quality.mk", "Makefile", "scripts/{check-quality-evidence,ci-scope}.sh", "scripts/tests/{make,quality-evidence,ci-scope}_test.sh", "docs/decisions/0010-ci-parallel-gate-groups.md", "README.md", "AI_USAGE.md"]
 third_party_sources_consulted: ["GitHub Actions documentation and community guidance on required checks, path filters and aggregator jobs (web search); pinned action versions verified with the GitHub API"]
-license_review: PENDING
-human_reviewers: []
+license_review: "ACCEPTED_BY_OWNER (2026-11-13): not independently verified"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-13)"]
 tests_or_evidence: ["make_test 49 passed, quality-evidence_test 13 passed, ci-scope_test 31 passed, lint-shell OK, actionlint clean", "all 11 groups run locally through make ci-<group> and the fan-in check PASS for 19 steps", "a skeptic subagent review found a confirmed rename hole in the docs scope (fixed with --no-renames -z) and smaller items (fixed)"]
 open_risks: ["real GitHub Actions behaviour (matrix, artifacts, caches) is only proved by the CI run of the pull request", "a green quality on a documentation-only pull request means docs only (accepted in ADR-0010)", "the checker and the workflow come from the pull request itself: CODEOWNERS review is the control"]
 ```
@@ -296,8 +297,8 @@ purpose: "Draft and update ADR-0007 (Astryx pinning, dated 2026-11-11), ADR-0008
 repository_or_source_context: "docs/decisions/, docs/team/, CODEOWNERS, ROADMAP.md, TODO.md; commits 738a65c, e0fbfd3, fa17ca5, 20dd18a, b625ffa"
 files_or_sections_affected: ["docs/decisions/0007-*.md", "docs/decisions/0008-*.md", "docs/decisions/0009-*.md", "docs/decisions/0010-*.md", "docs/decisions/README.md", "CODEOWNERS", "docs/team/**"]
 third_party_sources_consulted: ["sops and age documentation (ADR-0009)", "GitHub Actions documentation on required checks and path filters (ADR-0010)"]
-license_review: PENDING
-human_reviewers: []
+license_review: "ACCEPTED_BY_OWNER (2026-11-13): not independently verified"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-13)"]
 tests_or_evidence: ["documentation: no gate applies to the ADR text; the implementation evidence is in the slice records above (secrets, CI parallel gate groups)"]
 open_risks: ["ADR approvals are owner decisions recorded in the files; this record does not prove them"]
 ```
@@ -312,8 +313,8 @@ purpose: "HTML prototype v2 (Direction v2 flows, onboarding, premium visual syst
 repository_or_source_context: "this repository, commits 3af147d, f2f8077, 7688c8a, 73a36fd, 536975d, d9c8783 (dates from git log)"
 files_or_sections_affected: ["prototypes/html/**", "DESIGN.md", "docs/PRD.md (amendment 3.1)"]
 third_party_sources_consulted: []
-license_review: PENDING
-human_reviewers: []
+license_review: "ACCEPTED_BY_OWNER (2026-11-13): not independently verified"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-13)"]
 tests_or_evidence: ["prototype QA findings closed in d9c8783; no automated gate applies to the static prototype"]
 open_risks: ["the prototype is frozen as a reference; DESIGN.md governs the product UI", "prototype icons are an own CSS sprite; no third-party asset recorded"]
 ```
@@ -328,8 +329,8 @@ purpose: "Install and verify Meta Astryx against the registry and CLI (ADR-0007)
 repository_or_source_context: "ADR-0007, DESIGN.md, commit cb7e7f9; owner-approved package installs"
 files_or_sections_affected: ["src/web/**", "docs/quality/ASTRYX_REPORT.md", "pnpm-lock.yaml", "package.json"]
 third_party_sources_consulted: ["npm registry metadata and `pnpm licenses` output for the web production dependencies (summary in docs/quality/ASTRYX_REPORT.md and THIRD_PARTY_NOTICES.md)"]
-license_review: PENDING
-human_reviewers: []
+license_review: "ACCEPTED_BY_OWNER (2026-11-13): not independently verified"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-13)"]
 tests_or_evidence: ["see docs/quality/ASTRYX_REPORT.md; visual, axe and responsive evidence for ADR-0007 is NOT RUN"]
 open_risks: ["isbot (Unlicense) accepted by the owner on 2026-11-12; the organiser has not ruled", "DESIGN.md still contains pre-install Astryx statements that the report contradicts"]
 ```
@@ -344,8 +345,8 @@ purpose: "PR #56: README matches the encrypted-secrets flow, AI variables reach 
 repository_or_source_context: "commits 7597803, f512164, 0b57cb7; PRs #56 to #59 (merge commits dated 2026-11-12)"
 files_or_sections_affected: [".claude/settings.json", ".env.example", "README.md", "compose.yaml", "scripts/verify-containers.sh", "secrets/README.md"]
 third_party_sources_consulted: []
-license_review: PENDING
-human_reviewers: []
+license_review: "ACCEPTED_BY_OWNER (2026-11-13): not independently verified"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-13)"]
 tests_or_evidence: ["see the PR descriptions; no separate evidence is claimed here"]
 open_risks: ["file list taken from `git show --stat` of commit 7597803 only; the merges of PR #56 were not re-diffed"]
 ```
@@ -363,7 +364,7 @@ files_or_sections_affected: ["THIRD_PARTY_NOTICES.md", "AI_USAGE.md", "docs/SHIP
 third_party_sources_consulted: []
 commands: "git diff/log, gh api GET, make help, make -s ci-groups, make -n quality; no build, test or install"
 license_review: "NOT APPLICABLE (no third-party code or generated asset added)"
-human_reviewers: []
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-13)"]
 tests_or_evidence: ["documentation only; consistency checks by search; no quality gate run for this record"]
 open_risks: ["status: executed on branch chore/docs/cleanup-and-coherence, not yet merged", "owner review of the plan outcomes pending"]
 ```
@@ -378,9 +379,9 @@ purpose: "Apply the decided first-contract edits in api/openapi.yaml (C2 topic c
 repository_or_source_context: "TODO.md FIRST CONTRACT PR; ROADMAP.md C1, C2, C14b; branch feature/platform/first-contract"
 files_or_sections_affected: ["api/openapi.yaml", "src/api/internal/platform/apigen/first_contract_test.go", "src/api/internal/platform/apigen/apigen.gen.go", "src/api/internal/platform/apispec/openapi.gen.yaml", "src/web/src/api/schema.d.ts"]
 third_party_sources_consulted: []
-license_review: PENDING
-human_reviewers: []
-closure: open
+license_review: "ACCEPTED_BY_OWNER (2026-11-13): not independently verified"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-13)"]
+closure: "closed by the owner, 2026-11-13"
 tests_or_evidence: ["go test -count=1 -run TestFirstContractDecisions ./src/api/internal/platform/apigen/: RED exit 1, then GREEN exit 0", "go test -count=1 ./src/api/internal/platform/apigen/: exit 0", "scripts/check-generated.sh generate: exit 0", "pnpm exec redocly lint api/openapi.yaml: exit 0"]
 open_risks: ["handlers, the profile_visibility migration, and the response topic fields are out of scope"]
 ```
@@ -395,9 +396,9 @@ purpose: "Mark the first contract pull request in TODO.md. The contract diff its
 repository_or_source_context: "TODO.md header: update the tracker in the same PR. PR #79."
 files_or_sections_affected: ["TODO.md", "AI_USAGE.md"]
 third_party_sources_consulted: []
-license_review: PENDING
-human_reviewers: []
-closure: open
+license_review: "ACCEPTED_BY_OWNER (2026-11-13): not independently verified"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-13)"]
+closure: "closed by the owner, 2026-11-13"
 tests_or_evidence: ["no product code changed; the box names PR #79 and the S5 docs follow-ups stay open"]
 open_risks: ["the pull request is in review, not merged"]
 ```
@@ -425,9 +426,9 @@ files_or_sections_affected:
   - "TODO.md"
   - "AI_USAGE.md"
 third_party_sources_consulted: []
-license_review: PENDING
-human_reviewers: []
-closure: open
+license_review: "ACCEPTED_BY_OWNER (2026-11-13): not independently verified"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-13)"]
+closure: "closed by the owner, 2026-11-13"
 tests_or_evidence:
   - "MIGRATIONS_BASE_REF=origin/develop scripts/check-migrations.sh: OK (12 files)"
   - "make test-integration: exit 0 (go test -race -tags integration ./... including pgtest, db-reset 42 passed, verify-containers ALL PASS)"
@@ -451,105 +452,9 @@ purpose: "Commit the sqlc model field that migration 00012 adds, so the static g
 repository_or_source_context: "PR #80, CI run 43334086904, gate static"
 files_or_sections_affected: ["src/api/internal/platform/dbgen/models.go", "TODO.md", "AI_USAGE.md"]
 third_party_sources_consulted: []
-license_review: PENDING
-closure: open
-human_reviewers: []
-tests_or_evidence: ["go tool sqlc generate -f db/sqlc.yaml then git diff: one added field, Profile.ProfileVisibility. make lint and the CI re-run are NOT RUN locally"]
-open_risks: ["the generated field is appended where sqlc places an ALTER-added column, at the end of the Profile struct"]
-
-## S9 assistant contract (2026-11-13)
-
-## AI code review tooling (2026-11-13)
-
-```yaml
-date: "2026-11-13"
-contributor: "Y4NN777"
-## First contract: topic code, owner-only decideApplication, profile_visibility
-
-```yaml
-date: "2026-11-12"
-contributor: "mibienpanjoe"
-tool_or_model: "Cursor, Grok 4.7"
-purpose: "Apply the decided first-contract edits in api/openapi.yaml (C2 topic code, C1 owner-only decideApplication, C14b profile_visibility) and regenerate the Go and TypeScript types."
-repository_or_source_context: "TODO.md FIRST CONTRACT PR; ROADMAP.md C1, C2, C14b; branch feature/platform/first-contract"
-files_or_sections_affected: ["api/openapi.yaml", "src/api/internal/platform/apigen/first_contract_test.go", "src/api/internal/platform/apigen/apigen.gen.go", "src/api/internal/platform/apispec/openapi.gen.yaml", "src/web/src/api/schema.d.ts"]
-third_party_sources_consulted: []
-license_review: PENDING
-human_reviewers: []
-closure: open
-tests_or_evidence: ["go test -count=1 -run TestFirstContractDecisions ./src/api/internal/platform/apigen/: RED exit 1, then GREEN exit 0", "go test -count=1 ./src/api/internal/platform/apigen/: exit 0", "scripts/check-generated.sh generate: exit 0", "pnpm exec redocly lint api/openapi.yaml: exit 0"]
-open_risks: ["handlers, the profile_visibility migration, and the response topic fields are out of scope"]
-```
-
-## Tracker line for the first contract pull request
-
-```yaml
-date: "2026-11-12"
-contributor: "mibienpanjoe"
-tool_or_model: "Cursor, Grok 4.7"
-purpose: "Mark the first contract pull request in TODO.md. The contract diff itself is the earlier commit on this branch."
-repository_or_source_context: "TODO.md header: update the tracker in the same PR. PR #79."
-files_or_sections_affected: ["TODO.md", "AI_USAGE.md"]
-third_party_sources_consulted: []
-license_review: PENDING
-human_reviewers: []
-closure: open
-tests_or_evidence: ["no product code changed; the box names PR #79 and the S5 docs follow-ups stay open"]
-open_risks: ["the pull request is in review, not merged"]
-```
-
-## E2 taxonomy and profile visibility record
-
-```yaml
-date: "2026-11-12"
-contributor: "mibienpanjoe"
-tool_or_model: "Cursor, Grok 4.7"
-purpose: "E2 forward-only migrations: five learn topics, three resource categories, four relabels, and the profiles.profile_visibility column, with pgtest fresh and upgrade coverage"
-repository_or_source_context: "TODO.md E2, docs/spec-kit/DATABASE_DESIGN.md section 5, db/migrations/00002_reference_taxonomy.sql, db/migrations/00003_identity.sql"
-files_or_sections_affected:
-  - "db/migrations/00011_taxonomy_ai_topics.sql"
-  - "db/migrations/00012_profile_visibility.sql"
-  - "src/api/internal/platform/pgtest/migrate_integration_test.go"
-  - "src/api/internal/platform/pgtest/constraints_integration_test.go"
-  - "src/api/internal/platform/pgtest/fixtures_integration_test.go"
-  - "scripts/tests/make_test.sh"
-  - "scripts/check-todo-updated.sh"
-  - "scripts/tests/check-todo-updated_test.sh"
-  - "mk/20-gates.mk"
-  - ".majesty/checks.json"
-  - "docs/spec-kit/DATABASE_DESIGN.md"
-  - "TODO.md"
-  - "AI_USAGE.md"
-third_party_sources_consulted: []
-license_review: PENDING
-human_reviewers: []
-closure: open
-tests_or_evidence:
-  - "MIGRATIONS_BASE_REF=origin/develop scripts/check-migrations.sh: OK (12 files)"
-  - "make test-integration: exit 0 (go test -race -tags integration ./... including pgtest, db-reset 42 passed, verify-containers ALL PASS)"
-  - "make lint: exit 0 on the taxonomy files before the tracker check was added"
-  - "scripts/tests/check-todo-updated_test.sh: 6 passed, 0 failed (a slice change without TODO.md fails; TODO.md moving with the slice passes)"
-  - "scripts/check-todo-updated.sh on this tree: OK (TODO.md moves with 9 slice files against origin/develop)"
-  - "scripts/lint-shell.sh: OK (47 scripts). Full make lint was not re-run after the tracker check was wired"
-open_risks:
-  - "DATABASE_DESIGN.md list counts for the immutable 00002 file are unchanged; current totals are asserted in pgtest"
-  - "the local skill-guard hook edits are not part of this slice and must stay out of the commit"
-  - "not committed and not reviewed"
-```
-
-## Regenerated profile model for PR #80
-
-```yaml
-date: "2026-11-13"
-contributor: "mibienpanjoe"
-tool_or_model: "Cursor, Grok 4.7"
-purpose: "Commit the sqlc model field that migration 00012 adds, so the static gate's generate check matches the index"
-repository_or_source_context: "PR #80, CI run 43334086904, gate static"
-files_or_sections_affected: ["src/api/internal/platform/dbgen/models.go", "TODO.md", "AI_USAGE.md"]
-third_party_sources_consulted: []
-license_review: PENDING
-closure: open
-human_reviewers: []
+license_review: "ACCEPTED_BY_OWNER (2026-11-13): not independently verified"
+closure: "closed by the owner, 2026-11-13"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-13)"]
 tests_or_evidence: ["go tool sqlc generate -f db/sqlc.yaml then git diff: one added field, Profile.ProfileVisibility. make lint and the CI re-run are NOT RUN locally"]
 open_risks: ["the generated field is appended where sqlc places an ALTER-added column, at the end of the Profile struct"]
 
@@ -561,7 +466,7 @@ files_or_sections_affected: ["api/openapi.yaml", "src/api/internal/platform/apig
 third_party_sources_consulted: []
 commands: "go test (apigen), make lint-contract, make security-authz, scripts/check-generated.sh generate"
 license_review: "NOT APPLICABLE (no third-party code or asset added; generated code comes from the pinned generators)"
-human_reviewers: []
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-13)"]
 tests_or_evidence: ["assistant_contract_test.go and contract_test.go (48 operations) pass; lint-contract and security-authz pass; make quality as a whole NOT RUN locally"]
 open_risks: ["design choices to confirm in review: members only with a verified email, no anonymous access (O5 open), no Idempotency-Key, 503 reuses SERVICE_UNAVAILABLE, the 'AI-6/AI-7' P1 modes are out of scope"]
 
@@ -573,9 +478,60 @@ files_or_sections_affected: [".opencodereview/rule.json", "scripts/review.sh", "
 third_party_sources_consulted: ["https://github.com/alibaba/open-code-review (Apache-2.0; delegate-review.md adapted, header records the commit and changes)", "https://github.com/anthropics/claude-code-action (README and docs read as untrusted external text)"]
 commands: "scripts/tests/review_test.sh, make help, scripts/lint-shell.sh, make_test.sh; the reviewer tool itself was NOT RUN"
 license_review: "Apache-2.0 per package metadata and repository page; not re-verified from source"
-human_reviewers: []
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-13)"]
 tests_or_evidence: ["review_test.sh 9 passed (fake npx); lint-shell OK; make_test 49 passed"]
 open_risks: ["the reviewers send diffs to an external provider (Anthropic for /delegate-review and the CI workflow); reviews are AI output to be checked by a human; the CI workflow and /delegate-review are NOT RUN until the owner enables them; Anthropic terms for a subscription token in shared CI are unverified"]
+```
+
+## S9 adapter output cleaning and free-tier tracking (2026-11-13)
+
+```yaml
+date: "2026-11-13"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code (VS Code extension) with claude-sonnet-5-5"
+purpose: "S9 adapter groundwork in platform/llm, test first: remove reasoning text from model answers (CleanAnswer, thought parts) and track 429/500/503/timeouts and latency per model (Tracker, StatusError)"
+repository_or_source_context: "TODO.md S9 block, ROADMAP V1 to V4 results, existing platform/llm and aistest packages"
+files_or_sections_affected: ["src/api/internal/platform/llm/answer.go", "src/api/internal/platform/llm/answer_test.go", "src/api/internal/platform/llm/tracker.go", "src/api/internal/platform/llm/tracker_test.go", "src/api/internal/platform/llm/llm.go", "src/api/internal/platform/llm/aistudio.go", "TODO.md"]
+third_party_sources_consulted: []
+commands: "go test -race -cover (llm: 100% statements), go vet, golangci-lint, staticcheck, go test -race ./... (all packages pass)"
+license_review: "NOT APPLICABLE (no third-party code or asset added)"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-13)"]
+tests_or_evidence: ["answer_test.go and tracker_test.go failed first (undefined symbols), then passed; llm coverage 100%"]
+open_risks: ["test fixtures are synthetic: the real Gemma 4 reasoning shape was NOT observed here (needs the owner's aicheck run); nothing is wired into the API yet"]
+```
+
+## S8 smoke script and release workflow draft (2026-11-13)
+
+```yaml
+date: "2026-11-13"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code (VS Code extension) with claude-sonnet-5-5"
+purpose: "S8: post-deploy smoke script (scripts/smoke.sh, make smoke) written test first, and a non-active draft of the release workflow (docs/RELEASE_DRAFT.md)"
+repository_or_source_context: "docs/SHIP.md sections 2 to 5, ROADMAP B2 and B4, docs/decisions/0006, scripts/compose.sh, scripts/build-images.sh"
+files_or_sections_affected: ["scripts/smoke.sh", "scripts/tests/smoke_test.sh", "mk/50-ops.mk", "docs/RELEASE_DRAFT.md", "docs/SHIP.md", "docs/DEV.md", "TODO.md"]
+third_party_sources_consulted: []
+commands: "scripts/tests/smoke_test.sh (12 passed, fake curl and fake compose), scripts/lint-shell.sh, make_test.sh; the smoke script itself was NOT RUN against a real host"
+license_review: "NOT APPLICABLE (no third-party code or asset added)"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-13)"]
+tests_or_evidence: ["smoke_test.sh failed first (script missing), then passed; ShellCheck clean"]
+open_risks: ["the script has only run against fakes: the real curl output formats and a real stack are untested", "the release draft is a proposal with open owner questions; no workflow file was added"]
+```
+
+## Review gate (2026-11-13)
+
+```yaml
+date: "2026-11-13"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code (VS Code extension) with claude-sonnet-5-5"
+purpose: "A required check that lets the AI review stop an OBSERVED CRITICAL (owner override, fail open) and asks the owner's approval only on sensitive paths; report mode first. Written test first."
+repository_or_source_context: "the first review output on PR #85, ADR-0008, GIT_WORKFLOW, branch protection settings read with gh api"
+files_or_sections_affected: ["scripts/review-gate.py", "scripts/tests/review-gate_test.sh", ".github/workflows/code-review.yml", ".github/sensitive-paths.txt", ".claude/commands/delegate-review.md", "docs/DEV.md", "docs/GIT_WORKFLOW.md", "TODO.md"]
+third_party_sources_consulted: []
+commands: "scripts/tests/review-gate_test.sh (26 passed, fake gh), scripts/lint-shell.sh; the gate was NOT RUN on GitHub yet"
+license_review: "NOT APPLICABLE (no third-party code or asset added)"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-13)"]
+tests_or_evidence: ["review-gate_test.sh failed first (script missing), then passed"]
+open_risks: ["the workflow YAML of a pull request runs from the PR itself, so only a human reading changes to .github can stop a PR from weakening the job (the script and the list come from the base)", "a false CRITICAL blocks one PR until the owner labels it", "report mode first: not enforced yet"]
 ```
 
 ## Catalogue reads (S2)
@@ -588,9 +544,9 @@ purpose: "Published catalogue reads: listResources, getResource, listResourceSou
 repository_or_source_context: "branch feature/discover/catalogue-read, PR #83"
 files_or_sections_affected: ["db/queries/discover.sql", "src/api/internal/platform/dbgen/discover.sql.go", "src/api/internal/discover/**", "src/api/internal/app/server.go", "src/api/internal/app/app.go", "scripts/public-routes.txt", "scripts/unimplemented-routes.txt", "src/api/internal/platform/pgtest/catalogue_read_integration_test.go", "TODO.md", "AI_USAGE.md"]
 third_party_sources_consulted: []
-license_review: PENDING
-closure: open
-human_reviewers: []
+license_review: "ACCEPTED_BY_OWNER (2026-11-13): not independently verified"
+closure: "closed by the owner, 2026-11-13"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-13)"]
 tests_or_evidence: ["go test -race -count=1 ./src/api/... exit 0", "go test -race -count=1 -tags integration -run TestCatalogueReadsPublishedRowsOnly ./src/api/internal/platform/pgtest/ exit 0", "scripts/check-authz-routes.sh exit 0", "go tool sqlc vet -f db/sqlc.yaml exit 0", "make test-integration, make lint and make coverage were NOT RUN"]
 open_risks: ["no freshness window is defined, so a source is never labelled stale", "content_relations cannot express a series link", "a resource with no published provider is absent from the catalogue"]
 ```
@@ -605,9 +561,9 @@ purpose: "Record PR #83 on the three catalogue operations. Search and error repo
 repository_or_source_context: "PR #83"
 files_or_sections_affected: ["TODO.md", "AI_USAGE.md"]
 third_party_sources_consulted: []
-license_review: PENDING
-closure: open
-human_reviewers: []
+license_review: "ACCEPTED_BY_OWNER (2026-11-13): not independently verified"
+closure: "closed by the owner, 2026-11-13"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-13)"]
 tests_or_evidence: ["no product code in this commit"]
 open_risks: []
 ```
@@ -622,9 +578,9 @@ purpose: "Clear the lint-go failure on PR #83: wrap catalogue query errors with 
 repository_or_source_context: "PR #83, Quality run 43355277357, gate lint-go"
 files_or_sections_affected: ["src/api/internal/discover/repository/repository.go", "src/api/internal/discover/transport/handler_test.go", "src/api/internal/app/catalogue_internal_test.go", "src/api/internal/platform/pgtest/catalogue_read_integration_test.go", "AI_USAGE.md"]
 third_party_sources_consulted: []
-license_review: PENDING
-closure: open
-human_reviewers: []
+license_review: "ACCEPTED_BY_OWNER (2026-11-13): not independently verified"
+closure: "closed by the owner, 2026-11-13"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-13)"]
 tests_or_evidence: ["make lint-go exit 0", "go test -race -count=1 ./src/api/internal/discover/... ./src/api/internal/app/ exit 0. The catalogue integration test was not re-run."]
 open_risks: ["Get still maps pgx.ErrNoRows to domain.ErrNotFound before wrapping. Other driver errors stay in the chain via %w."]
 ```

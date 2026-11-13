@@ -34,6 +34,7 @@ Node : le plancher `engines.node` (`>=24`, vérifié par `make doctor`) et la ve
 | `generate`, `lint`, `typecheck`, `docs-check`, `test-unit`, `coverage` | G1 et G2 ; `lint-*` et `test-integration-*` sont les sous-cibles des groupes CI |
 | `test-integration`, `security`, `licenses` | G3 et G4 ; Docker requis pour les deux premières |
 | `ci-groups`, `ci-steps` | groupes CI et étapes attendues par la tâche `quality` ([ADR-0010](decisions/0010-ci-parallel-gate-groups.md)) |
+| `smoke PROFILE=<profil> [BASE_URL=https://<hôte>]` | fumée post-déploiement en lecture seule : `/healthz` depuis l'extérieur, redirection HTTPS, `/readyz` non routé au bord, `/readyz` dans le conteneur |
 | `build` | images `api`, `web`, `migrate` ; empreintes dans `reports/image-digests.txt` |
 | `up-local-dev`, `down-local-dev` | profil local ; `up-staging-test` et `down-staging-test` pour la préproduction |
 | `up-production-live` | refusé hors du contexte de livraison documenté |
@@ -46,6 +47,8 @@ Node : le plancher `engines.node` (`>=24`, vérifié par `make doctor`) et la ve
 
 La revue humaine de l'[ADR-0008](decisions/0008-team-work-areas-and-ownership.md) reste obligatoire ; la revue IA n'est qu'une aide, jamais un gate. Règles du projet : `.opencodereview/rule.json`.
 
+- **Triage :** la revue classe le changement en CRITICAL, HIGH, MEDIUM ou NONE avec son périmètre d'impact (cette PR, une tranche, le travail des autres, toute l'équipe, la production), sur six axes (architecture, règles, planning et délai, sécurité, performance, cohérence). Elle ne mentionne le propriétaire que pour CRITICAL et ne bloque jamais.
+- **Review gate (un check requis, jamais pour attendre une relecture) :** `scripts/review-gate.py`, exécuté depuis la branche de base. Il ne bloque que (1) un verdict CRITICAL avec preuve OBSERVED (`fichier:ligne`) que le propriétaire n'a pas levé avec le label `owner-override` (posé par lui seul), ou (2) une PR qui touche un chemin sensible (`.github/sensitive-paths.txt`, lu sur la branche de base) sans l'approbation du propriétaire (ses propres PR passent). Il ne bloque jamais si la revue n'a pas tourné ou si GitHub est illisible. Mode : variable `CODE_REVIEW_GATE` = `off`, `report` (défaut, ne bloque rien) ou `enforce`.
 - **Avec Claude Code, sans clé d'API (recommandé) :** `/delegate-review` dans Claude Code (fichier `.claude/commands/delegate-review.md`). open-code-review choisit les fichiers et fournit les règles, Claude Code fait la revue avec votre connexion. Il propose des corrections et ne modifie rien.
 - **Avec l'outil seul :** `make review-login` une fois (connexion ChatGPT, aperçu réservé à un usage local par une seule personne), puis `make review`. Le diff part chez le fournisseur choisi : seulement du code que vous avez le droit d'envoyer.
 - **En CI :** le workflow `.github/workflows/code-review.yml` est désactivé tant que `CODE_REVIEW_ENABLED` n'est pas à `true`. Claude Code (action officielle d'Anthropic, jeton OAuth `CLAUDE_CODE_OAUTH_TOKEN` issu de `claude setup-token`) fait la revue en suivant `/delegate-review` ; consultatif, jamais un gate. Vérifiez les conditions d'Anthropic avant d'y mettre un jeton d'abonnement. La connexion ChatGPT ne doit pas servir en CI partagée : l'outil l'interdit.
