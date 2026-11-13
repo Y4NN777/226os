@@ -9,11 +9,16 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
+
 	"github.com/Y4NN777/226os/src/api/internal/app"
+	"github.com/Y4NN777/226os/src/api/internal/identity/domain"
 	"github.com/Y4NN777/226os/src/api/internal/identity/repository"
 	"github.com/Y4NN777/226os/src/api/internal/identity/service"
 	identitytransport "github.com/Y4NN777/226os/src/api/internal/identity/transport"
@@ -27,6 +32,7 @@ import (
 type identityStack struct {
 	router http.Handler
 	mail   *mailer.Fake
+	conn   *pgx.Conn
 }
 
 func newIdentityStack(ctx context.Context, t *testing.T) *identityStack {
@@ -47,6 +53,7 @@ func newIdentityStack(ctx context.Context, t *testing.T) *identityStack {
 	return &identityStack{
 		router: httpx.NewRouter(slog.New(slog.NewTextHandler(io.Discard, nil)), deps),
 		mail:   mail,
+		conn:   conn,
 	}
 }
 
@@ -394,6 +401,211 @@ func TestIdentityRateLimitFailsClosed(t *testing.T) {
 	}
 }
 
+// signInMember registers nothing new: it signs in with the stack password and
+// returns the session cookie plus the session-bound CSRF token.
+func (s *identityStack) signInMember(t *testing.T, email string) (*http.Cookie, string) {
+	t.Helper()
+	cookie, csrf := s.csrfToken(t)
+	rec := s.do(t, http.MethodPost, "/api/v1/auth/sign-in",
+		`{"email":"`+email+`","password":"correct-horse-battery"}`,
+		map[string]string{"X-CSRF-Token": csrf}, cookie)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("sign-in %d %s", rec.Code, rec.Body.String())
+	}
+	var state struct {
+		CsrfToken string `json:"csrf_token"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &state); err != nil || state.CsrfToken == "" {
+		t.Fatalf("sign-in body %s", rec.Body.String())
+	}
+	for _, c := range rec.Result().Cookies() {
+		if c.Name == "226os_session" {
+			return c, state.CsrfToken
+		}
+	}
+	t.Fatal("no session cookie")
+	return nil, ""
+}
+
+func TestIdentityProfilesEndToEnd(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 90*time.Second)
+	defer cancel()
+	s := newIdentityStack(ctx, t)
+	s.signUp(t, "prof@example.com", "profuser")
+	sess, csrf := s.signInMember(t, "prof@example.com")
+
+	// Anonymous callers get 401 on /me.
+	rec := s.do(t, http.MethodGet, "/api/v1/me", "", nil)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("anon /me %d", rec.Code)
+	}
+
+	// Member getMe: account + own profile, checklist derived.
+	rec = s.do(t, http.MethodGet, "/api/v1/me", "", nil, sess)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("getMe %d %s", rec.Code, rec.Body.String())
+	}
+	var me struct {
+		Account struct {
+			Email    string `json:"email"`
+			Username string `json:"username"`
+		} `json:"account"`
+		Profile struct {
+			Username          string   `json:"username"`
+			DisplayName       string   `json:"display_name"`
+			ChecklistMissing  []string `json:"checklist_missing"`
+			ProfileVisibility string   `json:"profile_visibility"`
+		} `json:"profile"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &me); err != nil {
+		t.Fatal(err)
+	}
+	if me.Account.Email != "prof@example.com" || me.Profile.Username != "profuser" ||
+		len(me.Profile.ChecklistMissing) == 0 || me.Profile.ProfileVisibility != "public" {
+		t.Fatalf("me %s", rec.Body.String())
+	}
+
+	// Seed an active tag so the skills patch resolves (same database the
+	// stack serves: migratedDB clones a fresh schema per call).
+	conn := s.conn
+	if _, err := conn.Exec(ctx,
+		`INSERT INTO tags (slug, label, status, provenance) VALUES ('go', 'Go', 'active', 'live'), ('rust', 'Rust', 'active', 'live')`); err != nil {
+		t.Fatalf("seed tag: %v", err)
+	}
+
+	// Merge patch: set fields, replace skills atomically.
+	rec = s.do(t, http.MethodPatch, "/api/v1/me/profile",
+		`{"display_name":"Pro","intent":"help","country":"BJ","languages":["fr"],`+
+			`"github":"octocat","bio":"hello world","open_to_collab":true,"skills":["go"]}`,
+		map[string]string{"X-CSRF-Token": csrf}, sess)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("patch %d %s", rec.Code, rec.Body.String())
+	}
+	var patched struct {
+		Bio          *string  `json:"bio"`
+		Country      *string  `json:"country"`
+		Languages    []string `json:"languages"`
+		Skills       []string `json:"skills"`
+		OpenToCollab bool     `json:"open_to_collab"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &patched); err != nil {
+		t.Fatal(err)
+	}
+	if patched.Bio == nil || *patched.Bio != "hello world" || patched.Country == nil ||
+		*patched.Country != "BJ" || len(patched.Skills) != 1 || patched.Skills[0] != "go" ||
+		!patched.OpenToCollab {
+		t.Fatalf("patched %s", rec.Body.String())
+	}
+
+	// Overlapping skill replacements: [go] -> [go, rust] -> [rust]. The
+	// delete/insert CTEs are disjoint, so kept tags survive both directions.
+	for _, step := range []struct {
+		patch string
+		want  []string
+	}{
+		{`{"skills":["go","rust"]}`, []string{"go", "rust"}},
+		{`{"skills":["rust"]}`, []string{"rust"}},
+	} {
+		rec = s.do(t, http.MethodPatch, "/api/v1/me/profile", step.patch,
+			map[string]string{"X-CSRF-Token": csrf}, sess)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("skills %s %d %s", step.patch, rec.Code, rec.Body.String())
+		}
+		var got struct {
+			Skills []string `json:"skills"`
+		}
+		_ = json.Unmarshal(rec.Body.Bytes(), &got)
+		if !slices.Equal(got.Skills, step.want) {
+			t.Fatalf("skills %s -> %v, want %v", step.patch, got.Skills, step.want)
+		}
+	}
+
+	// bio_language derived to 'en' by the service (contract exposes no field).
+	var bioLang *string
+	if err := conn.QueryRow(ctx,
+		`SELECT bio_language FROM profiles WHERE username = 'profuser'`).Scan(&bioLang); err != nil {
+		t.Fatalf("bio_language: %v", err)
+	}
+	if bioLang == nil || *bioLang != "en" {
+		t.Fatalf("bio_language = %v", bioLang)
+	}
+
+	// Explicit null clears bio and its derived language together.
+	rec = s.do(t, http.MethodPatch, "/api/v1/me/profile", `{"bio":null}`,
+		map[string]string{"X-CSRF-Token": csrf}, sess)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("clear bio %d %s", rec.Code, rec.Body.String())
+	}
+	var cleared struct {
+		Bio *string `json:"bio"`
+	}
+	_ = json.Unmarshal(rec.Body.Bytes(), &cleared)
+	if cleared.Bio != nil {
+		t.Fatalf("bio not cleared: %s", rec.Body.String())
+	}
+	if err := conn.QueryRow(ctx,
+		`SELECT bio_language FROM profiles WHERE username = 'profuser'`).Scan(&bioLang); err != nil {
+		t.Fatal(err)
+	}
+	if bioLang != nil {
+		t.Fatalf("bio_language survived bio clear: %v", *bioLang)
+	}
+
+	// Unknown skill slug rejects the whole patch (422), nothing applied.
+	rec = s.do(t, http.MethodPatch, "/api/v1/me/profile", `{"skills":["nope"],"display_name":"ShouldNotApply"}`,
+		map[string]string{"X-CSRF-Token": csrf}, sess)
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("unknown skill %d %s", rec.Code, rec.Body.String())
+	}
+	rec = s.do(t, http.MethodGet, "/api/v1/me", "", nil, sess)
+	var after struct {
+		Profile struct {
+			DisplayName string `json:"display_name"`
+		} `json:"profile"`
+	}
+	_ = json.Unmarshal(rec.Body.Bytes(), &after)
+	if after.Profile.DisplayName == "ShouldNotApply" {
+		t.Fatal("partial patch applied despite unknown skill")
+	}
+
+	// Unknown country code hits the FK -> 422, not 500.
+	rec = s.do(t, http.MethodPatch, "/api/v1/me/profile", `{"country":"ZZ"}`,
+		map[string]string{"X-CSRF-Token": csrf}, sess)
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("unknown country %d %s", rec.Code, rec.Body.String())
+	}
+
+	// Empty patch -> 422.
+	rec = s.do(t, http.MethodPatch, "/api/v1/me/profile", `{}`,
+		map[string]string{"X-CSRF-Token": csrf}, sess)
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("empty patch %d", rec.Code)
+	}
+
+	// Public profile readable anonymously; visibility flip hides it.
+	rec = s.do(t, http.MethodGet, "/api/v1/profiles/profuser", "", nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("public profile %d %s", rec.Code, rec.Body.String())
+	}
+	rec = s.do(t, http.MethodPatch, "/api/v1/me/profile", `{"profile_visibility":"members"}`,
+		map[string]string{"X-CSRF-Token": csrf}, sess)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("vis patch %d", rec.Code)
+	}
+	rec = s.do(t, http.MethodGet, "/api/v1/profiles/profuser", "", nil)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("anon on members profile: %d", rec.Code)
+	}
+	rec = s.do(t, http.MethodGet, "/api/v1/profiles/profuser", "", nil, sess)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("member on members profile: %d", rec.Code)
+	}
+	rec = s.do(t, http.MethodGet, "/api/v1/profiles/ghostuser", "", nil)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("unknown profile: %d", rec.Code)
+	}
+}
+
 func TestIdentityRateLimitPurgesOldWindows(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 120*time.Second)
 	defer cancel()
@@ -450,6 +662,177 @@ func TestIdentitySignInCountsOnlyFailures(t *testing.T) {
 		rec := signIn(email, "correct-horse-battery")
 		if rec.Code != http.StatusTooManyRequests || rec.Header().Get("Retry-After") == "" {
 			t.Fatalf("%s after 5 failures: %d retry-after=%q", email, rec.Code, rec.Header().Get("Retry-After"))
+		}
+	}
+}
+
+// TestIdentityProfileHiddenTagFiltered proves read queries only surface
+// active tags: a hidden tag linked to the user must not appear on /me or on
+// the public profile, and patching the visible set back must not fail.
+func TestIdentityProfileHiddenTagFiltered(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 90*time.Second)
+	defer cancel()
+	s := newIdentityStack(ctx, t)
+	s.signUp(t, "hid@example.com", "hiduser")
+	sess, csrf := s.signInMember(t, "hid@example.com")
+	conn := s.conn
+
+	if _, err := conn.Exec(ctx,
+		`INSERT INTO tags (slug, label, status, provenance) VALUES
+		 ('go', 'Go', 'active', 'live'), ('secret', 'Secret', 'hidden', 'live')`); err != nil {
+		t.Fatalf("seed tags: %v", err)
+	}
+	// Link both tags directly, bypassing the service resolution.
+	if _, err := conn.Exec(ctx,
+		`INSERT INTO user_skills (user_id, tag_id)
+		 SELECT u.id, t.id FROM users u, tags t
+		 WHERE u.email = 'hid@example.com' AND t.slug IN ('go', 'secret')`); err != nil {
+		t.Fatalf("link skills: %v", err)
+	}
+
+	wantSkills := func(path string, cookies ...*http.Cookie) {
+		t.Helper()
+		rec := s.do(t, http.MethodGet, path, "", nil, cookies...)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("%s %d %s", path, rec.Code, rec.Body.String())
+		}
+		var body struct {
+			Profile struct {
+				Skills []string `json:"skills"`
+			} `json:"profile"`
+			Skills []string `json:"skills"`
+		}
+		if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+			t.Fatal(err)
+		}
+		got := body.Profile.Skills
+		if got == nil {
+			got = body.Skills
+		}
+		if !slices.Equal(got, []string{"go"}) {
+			t.Fatalf("%s skills = %v, want [go] (hidden tag must be filtered)", path, got)
+		}
+	}
+	wantSkills("/api/v1/me", sess)
+	wantSkills("/api/v1/profiles/hiduser")
+
+	// Saving the visible set back must succeed: the hidden tag is neither
+	// resolved nor blocking.
+	rec := s.do(t, http.MethodPatch, "/api/v1/me/profile", `{"skills":["go"]}`,
+		map[string]string{"X-CSRF-Token": csrf}, sess)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("resave visible skills %d %s", rec.Code, rec.Body.String())
+	}
+}
+
+// TestIdentityProfileConcurrentSkillReplace proves two concurrent skill
+// replacements serialize on the profile row lock: the final set is exactly
+// one caller's set, never a union and never a 500.
+func TestIdentityProfileConcurrentSkillReplace(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 120*time.Second)
+	defer cancel()
+	s := newIdentityStack(ctx, t)
+	s.signUp(t, "race@example.com", "raceuser")
+	conn := s.conn
+
+	if _, err := conn.Exec(ctx,
+		`INSERT INTO tags (slug, label, status, provenance) VALUES
+		 ('go', 'Go', 'active', 'live'), ('rust', 'Rust', 'active', 'live')`); err != nil {
+		t.Fatalf("seed tags: %v", err)
+	}
+	var uid string
+	if err := conn.QueryRow(ctx,
+		`SELECT id::text FROM users WHERE email = 'race@example.com'`).Scan(&uid); err != nil {
+		t.Fatalf("user id: %v", err)
+	}
+	tagIDs := map[string]string{}
+	rows, err := conn.Query(ctx, `SELECT slug, id::text FROM tags WHERE slug IN ('go','rust')`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for rows.Next() {
+		var slug, id string
+		if err := rows.Scan(&slug, &id); err != nil {
+			t.Fatal(err)
+		}
+		tagIDs[slug] = id
+	}
+	rows.Close()
+
+	// A second connection gives the two repositories independent sessions so
+	// the updates genuinely overlap on the server.
+	dsn := conn.Config().ConnString()
+	conn2, err := pgx.Connect(ctx, dsn)
+	if err != nil {
+		t.Fatalf("second conn: %v", err)
+	}
+	defer func() { _ = conn2.Close(context.Background()) }()
+	repo1 := repository.New(conn)
+	repo2 := repository.New(conn2)
+
+	write := func(ids ...string) domain.ProfileWrite {
+		return domain.ProfileWrite{SkillTagIDs: domain.PatchField[[]string]{Present: true, Value: &ids}}
+	}
+	setA := write(tagIDs["go"])
+	setB := write(tagIDs["rust"])
+
+	finalSkills := func() []string {
+		t.Helper()
+		rows, err := conn.Query(ctx,
+			`SELECT t.slug FROM user_skills us JOIN tags t ON t.id = us.tag_id
+			 WHERE us.user_id = $1::uuid ORDER BY t.slug`, uid)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer rows.Close()
+		var out []string
+		for rows.Next() {
+			var s string
+			if err := rows.Scan(&s); err != nil {
+				t.Fatal(err)
+			}
+			out = append(out, s)
+		}
+		return out
+	}
+
+	// Conflicting sets: repeat enough rounds that the row-lock wait overlaps;
+	// the final state must be exactly one side, never [go rust].
+	for i := 0; i < 10; i++ {
+		var wg sync.WaitGroup
+		errs := make([]error, 2)
+		wg.Add(2)
+		go func() { defer wg.Done(); errs[0] = repo1.UpdateProfile(ctx, uid, setA) }()
+		go func() { defer wg.Done(); errs[1] = repo2.UpdateProfile(ctx, uid, setB) }()
+		wg.Wait()
+		for j, err := range errs {
+			if err != nil {
+				t.Fatalf("round %d update %d: %v", i, j, err)
+			}
+		}
+		got := finalSkills()
+		exact := slices.Equal(got, []string{"go"}) || slices.Equal(got, []string{"rust"})
+		if !exact {
+			t.Fatalf("round %d final skills %v: union or partial merge", i, got)
+		}
+	}
+
+	// Identical concurrent sets (the double-click case): both succeed and the
+	// set stays exact.
+	for i := 0; i < 5; i++ {
+		var wg sync.WaitGroup
+		errs := make([]error, 2)
+		wg.Add(2)
+		go func() { defer wg.Done(); errs[0] = repo1.UpdateProfile(ctx, uid, setA) }()
+		go func() { defer wg.Done(); errs[1] = repo2.UpdateProfile(ctx, uid, setA) }()
+		wg.Wait()
+		for j, err := range errs {
+			if err != nil {
+				t.Fatalf("identical round %d update %d: %v", i, j, err)
+			}
+		}
+		if got := finalSkills(); !slices.Equal(got, []string{"go"}) {
+			t.Fatalf("identical round %d skills %v", i, got)
 		}
 	}
 }

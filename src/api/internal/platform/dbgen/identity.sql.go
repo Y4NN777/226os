@@ -149,6 +149,20 @@ func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) er
 	return err
 }
 
+const deleteUserSkills = `-- name: DeleteUserSkills :exec
+DELETE FROM user_skills WHERE user_id = $1
+`
+
+// Skill replacement pair: DeleteUserSkills wipes the user's skill rows and
+// InsertUserSkills adds the resolved set. The repository runs both inside
+// the UpdateProfile transaction, after the profile row lock is held, so
+// each statement sees a fresh snapshot and concurrent patches serialize
+// instead of merging.
+func (q *Queries) DeleteUserSkills(ctx context.Context, userID pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, deleteUserSkills, userID)
+	return err
+}
+
 const getAccountByEmail = `-- name: GetAccountByEmail :one
 SELECT u.id, u.email, u.email_verified_at, u.role, u.status, u.created_at,
        c.password_hash, p.username, p.display_name
@@ -225,6 +239,146 @@ func (q *Queries) GetAccountByID(ctx context.Context, id pgtype.UUID) (GetAccoun
 	return i, err
 }
 
+const getProfileByUserID = `-- name: GetProfileByUserID :one
+
+SELECT p.user_id, p.username, p.display_name, p.intent, p.country_code,
+       p.languages, p.github_username, p.bio, p.bio_language, p.open_to_collab,
+       p.country_visibility, p.languages_visibility, p.skills_visibility,
+       p.github_visibility, p.bio_visibility, p.open_to_collab_visibility,
+       p.profile_visibility, p.created_at, p.updated_at,
+       COALESCE((SELECT array_agg(t.slug ORDER BY t.slug)
+                 FROM user_skills us JOIN tags t ON t.id = us.tag_id
+                 WHERE us.user_id = p.user_id AND t.status = 'active'), '{}'::text[])::text[] AS skills
+FROM profiles p
+WHERE p.user_id = $1
+`
+
+type GetProfileByUserIDRow struct {
+	UserID                 pgtype.UUID
+	Username               string
+	DisplayName            string
+	Intent                 pgtype.Text
+	CountryCode            pgtype.Text
+	Languages              []string
+	GithubUsername         pgtype.Text
+	Bio                    pgtype.Text
+	BioLanguage            pgtype.Text
+	OpenToCollab           bool
+	CountryVisibility      string
+	LanguagesVisibility    string
+	SkillsVisibility       string
+	GithubVisibility       string
+	BioVisibility          string
+	OpenToCollabVisibility string
+	ProfileVisibility      string
+	CreatedAt              pgtype.Timestamptz
+	UpdatedAt              pgtype.Timestamptz
+	Skills                 []string
+}
+
+// ---------- profiles (S1 profiles slice) ----------
+// ProfileColumns is the shared projection: every profiles column plus the
+// owner's skill slugs, ordered for stable output.
+func (q *Queries) GetProfileByUserID(ctx context.Context, userID pgtype.UUID) (GetProfileByUserIDRow, error) {
+	row := q.db.QueryRow(ctx, getProfileByUserID, userID)
+	var i GetProfileByUserIDRow
+	err := row.Scan(
+		&i.UserID,
+		&i.Username,
+		&i.DisplayName,
+		&i.Intent,
+		&i.CountryCode,
+		&i.Languages,
+		&i.GithubUsername,
+		&i.Bio,
+		&i.BioLanguage,
+		&i.OpenToCollab,
+		&i.CountryVisibility,
+		&i.LanguagesVisibility,
+		&i.SkillsVisibility,
+		&i.GithubVisibility,
+		&i.BioVisibility,
+		&i.OpenToCollabVisibility,
+		&i.ProfileVisibility,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Skills,
+	)
+	return i, err
+}
+
+const getProfileByUsername = `-- name: GetProfileByUsername :one
+SELECT p.user_id, p.username, p.display_name, p.intent, p.country_code,
+       p.languages, p.github_username, p.bio, p.bio_language, p.open_to_collab,
+       p.country_visibility, p.languages_visibility, p.skills_visibility,
+       p.github_visibility, p.bio_visibility, p.open_to_collab_visibility,
+       p.profile_visibility, p.created_at, p.updated_at,
+       u.status AS account_status, u.created_at AS joined_at,
+       COALESCE((SELECT array_agg(t.slug ORDER BY t.slug)
+                 FROM user_skills us JOIN tags t ON t.id = us.tag_id
+                 WHERE us.user_id = p.user_id AND t.status = 'active'), '{}'::text[])::text[] AS skills
+FROM profiles p
+JOIN users u ON u.id = p.user_id
+WHERE p.username = $1
+`
+
+type GetProfileByUsernameRow struct {
+	UserID                 pgtype.UUID
+	Username               string
+	DisplayName            string
+	Intent                 pgtype.Text
+	CountryCode            pgtype.Text
+	Languages              []string
+	GithubUsername         pgtype.Text
+	Bio                    pgtype.Text
+	BioLanguage            pgtype.Text
+	OpenToCollab           bool
+	CountryVisibility      string
+	LanguagesVisibility    string
+	SkillsVisibility       string
+	GithubVisibility       string
+	BioVisibility          string
+	OpenToCollabVisibility string
+	ProfileVisibility      string
+	CreatedAt              pgtype.Timestamptz
+	UpdatedAt              pgtype.Timestamptz
+	AccountStatus          string
+	JoinedAt               pgtype.Timestamptz
+	Skills                 []string
+}
+
+// GetProfileByUsername adds the account status and join date the visibility
+// decision needs: non-active accounts must answer like unknown usernames.
+func (q *Queries) GetProfileByUsername(ctx context.Context, username string) (GetProfileByUsernameRow, error) {
+	row := q.db.QueryRow(ctx, getProfileByUsername, username)
+	var i GetProfileByUsernameRow
+	err := row.Scan(
+		&i.UserID,
+		&i.Username,
+		&i.DisplayName,
+		&i.Intent,
+		&i.CountryCode,
+		&i.Languages,
+		&i.GithubUsername,
+		&i.Bio,
+		&i.BioLanguage,
+		&i.OpenToCollab,
+		&i.CountryVisibility,
+		&i.LanguagesVisibility,
+		&i.SkillsVisibility,
+		&i.GithubVisibility,
+		&i.BioVisibility,
+		&i.OpenToCollabVisibility,
+		&i.ProfileVisibility,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.AccountStatus,
+		&i.JoinedAt,
+		&i.Skills,
+	)
+	return i, err
+}
+
 const getSessionByTokenHash = `-- name: GetSessionByTokenHash :one
 SELECT id, user_id, token_hash, csrf_token_hash, created_at, last_seen_at,
        authenticated_at, idle_expires_at, absolute_expires_at, revoked_at, revoked_reason
@@ -286,6 +440,22 @@ func (q *Queries) HitRateLimit(ctx context.Context, arg HitRateLimitParams) (int
 	return hits, err
 }
 
+const insertUserSkills = `-- name: InsertUserSkills :exec
+INSERT INTO user_skills (user_id, tag_id)
+SELECT $1, unnest($2::uuid[])
+ON CONFLICT DO NOTHING
+`
+
+type InsertUserSkillsParams struct {
+	UserID  pgtype.UUID
+	Column2 []pgtype.UUID
+}
+
+func (q *Queries) InsertUserSkills(ctx context.Context, arg InsertUserSkillsParams) error {
+	_, err := q.db.Exec(ctx, insertUserSkills, arg.UserID, arg.Column2)
+	return err
+}
+
 const purgeRateLimitBuckets = `-- name: PurgeRateLimitBuckets :exec
 DELETE FROM rate_limit_buckets
 WHERE ctid IN (
@@ -334,6 +504,41 @@ func (q *Queries) ResetPassword(ctx context.Context, arg ResetPasswordParams) (p
 	var user_id pgtype.UUID
 	err := row.Scan(&user_id)
 	return user_id, err
+}
+
+const resolveSkillSlugs = `-- name: ResolveSkillSlugs :many
+SELECT id, slug FROM tags WHERE slug = ANY($1::text[]) AND status = 'active'
+LIMIT 100
+`
+
+type ResolveSkillSlugsRow struct {
+	ID   pgtype.UUID
+	Slug string
+}
+
+// ResolveSkillSlugs maps contract skill slugs to tag ids. Only active tags
+// resolve; the service rejects the patch when the count differs.
+// The input array is contract-bounded (maxItems 30); the LIMIT satisfies the
+// bounded-list rule and can only truncate an already-invalid oversized input,
+// which the service count check then rejects.
+func (q *Queries) ResolveSkillSlugs(ctx context.Context, dollar_1 []string) ([]ResolveSkillSlugsRow, error) {
+	rows, err := q.db.Query(ctx, resolveSkillSlugs, dollar_1)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ResolveSkillSlugsRow{}
+	for rows.Next() {
+		var i ResolveSkillSlugsRow
+		if err := rows.Scan(&i.ID, &i.Slug); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const revokeSession = `-- name: RevokeSession :exec
@@ -389,6 +594,103 @@ type TouchSessionParams struct {
 func (q *Queries) TouchSession(ctx context.Context, arg TouchSessionParams) error {
 	_, err := q.db.Exec(ctx, touchSession, arg.ID, arg.LastSeenAt, arg.IdleExpiresAt)
 	return err
+}
+
+const updateProfile = `-- name: UpdateProfile :one
+UPDATE profiles SET
+    display_name          = CASE WHEN $2::boolean THEN $3  ELSE display_name END,
+    intent                = CASE WHEN $4::boolean THEN $5  ELSE intent END,
+    country_code          = CASE WHEN $6::boolean THEN $7  ELSE country_code END,
+    languages             = CASE WHEN $8::boolean THEN $9  ELSE languages END,
+    github_username       = CASE WHEN $10::boolean THEN $11 ELSE github_username END,
+    bio                   = CASE WHEN $12::boolean THEN $13 ELSE bio END,
+    bio_language          = CASE WHEN $14::boolean THEN $15 ELSE bio_language END,
+    open_to_collab        = CASE WHEN $16::boolean THEN $17 ELSE open_to_collab END,
+    country_visibility    = CASE WHEN $18::boolean THEN $19 ELSE country_visibility END,
+    languages_visibility  = CASE WHEN $20::boolean THEN $21 ELSE languages_visibility END,
+    skills_visibility     = CASE WHEN $22::boolean THEN $23 ELSE skills_visibility END,
+    github_visibility     = CASE WHEN $24::boolean THEN $25 ELSE github_visibility END,
+    bio_visibility        = CASE WHEN $26::boolean THEN $27 ELSE bio_visibility END,
+    profile_visibility    = CASE WHEN $28::boolean THEN $29 ELSE profile_visibility END,
+    updated_at            = now()
+  WHERE profiles.user_id = $1
+RETURNING profiles.user_id
+`
+
+type UpdateProfileParams struct {
+	UserID              pgtype.UUID
+	Column2             bool
+	DisplayName         string
+	Column4             bool
+	Intent              pgtype.Text
+	Column6             bool
+	CountryCode         pgtype.Text
+	Column8             bool
+	Languages           []string
+	Column10            bool
+	GithubUsername      pgtype.Text
+	Column12            bool
+	Bio                 pgtype.Text
+	Column14            bool
+	BioLanguage         pgtype.Text
+	Column16            bool
+	OpenToCollab        bool
+	Column18            bool
+	CountryVisibility   string
+	Column20            bool
+	LanguagesVisibility string
+	Column22            bool
+	SkillsVisibility    string
+	Column24            bool
+	GithubVisibility    string
+	Column26            bool
+	BioVisibility       string
+	Column28            bool
+	ProfileVisibility   string
+}
+
+// UpdateProfile applies a resolved JSON Merge Patch: every column is guarded
+// by a set-flag so omitted members keep their stored value and explicit nulls
+// clear nullable columns. bio_language follows bio (the pair CHECK requires
+// them set or cleared together; the service derives the language, 'en' by
+// contract decision). Skills are replaced by DeleteUserSkills +
+// InsertUserSkills inside the same transaction, after this UPDATE holds the
+// profile row lock, so concurrent patches serialize on fresh snapshots.
+func (q *Queries) UpdateProfile(ctx context.Context, arg UpdateProfileParams) (pgtype.UUID, error) {
+	row := q.db.QueryRow(ctx, updateProfile,
+		arg.UserID,
+		arg.Column2,
+		arg.DisplayName,
+		arg.Column4,
+		arg.Intent,
+		arg.Column6,
+		arg.CountryCode,
+		arg.Column8,
+		arg.Languages,
+		arg.Column10,
+		arg.GithubUsername,
+		arg.Column12,
+		arg.Bio,
+		arg.Column14,
+		arg.BioLanguage,
+		arg.Column16,
+		arg.OpenToCollab,
+		arg.Column18,
+		arg.CountryVisibility,
+		arg.Column20,
+		arg.LanguagesVisibility,
+		arg.Column22,
+		arg.SkillsVisibility,
+		arg.Column24,
+		arg.GithubVisibility,
+		arg.Column26,
+		arg.BioVisibility,
+		arg.Column28,
+		arg.ProfileVisibility,
+	)
+	var user_id pgtype.UUID
+	err := row.Scan(&user_id)
+	return user_id, err
 }
 
 const verifyEmail = `-- name: VerifyEmail :one

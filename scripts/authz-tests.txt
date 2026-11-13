@@ -12,4 +12,6 @@
 # The test must reject unauthenticated and wrong-role requests for that route (AUTHORIZATION_MATRIX).
 # Slices add their lines in their own PR.
 POST /api/v1/auth/sign-out TestAuthzSignOutAnonymous   # member only: anonymous callers get 401
+GET /api/v1/me TestAuthzGetMeAnonymous   # member only: anonymous callers get 401
+PATCH /api/v1/me/profile TestAuthzUpdateMyProfileAnonymous   # member only + CSRF: anonymous callers get 401
 POST /api/v1/resources/{resourceId}/error-reports TestAuthzCreateResourceErrorReportAnonymous   # member with a verified email: anonymous 401, unverified 403
