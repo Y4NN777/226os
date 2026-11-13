@@ -19,7 +19,7 @@ One line per person. Each person edits only their own line.
 |---|---|---|
 | `Y4NN777` | S0 is merged (PRs #31 to #36, see Done log). Owner tasks: H6 and H7 (Datacloud, DNS), H8 follow-up (verify the Gmail alias `noreply@226os.tech`), H12 (V2 quotas, K21 EEA handling), issue #46 (collaborators' age keys). Build: S6 moderation, B4 release workflow, the S9 contract PR (R7) and the S9 backend. Review S1 and S0 follow-ups with `NICE-DEV226`. | 2026-11-12 |
 | `NICE-DEV226` | Identity confirmed (H1 done). S0 is merged: start S1 (RED tests for the domain and service with fakes, then the handlers on the merged S0 base). Then S3; then help on S5 (default), the S9 second developer, and the E5 backend if time allows. | 2026-11-12 |
-| `mibienpanjoe` | Identity confirmed (H1 done). First contract PR is #79, in review. E2 is IN PROGRESS as PR #80. Then S2 sqlc queries with local EXPLAIN, S4 (with the content script) and S5, with helpers `Y4NN777` and `NICE-DEV226`. | 2026-11-13 |
+| `mibienpanjoe` | Identity confirmed (H1 done). First contract PR #79 is merged. E2 is IN PROGRESS as PR #80. Then S2 sqlc queries with local EXPLAIN, S4 (with the content script) and S5, with helpers `Y4NN777` and `NICE-DEV226`. | 2026-11-13 |
 | `PANK4SS` | Identity confirmed (H1 done). **Accept the repository invitation (H2) before pushing.** S7 shell, i18n, shared components and pillar navigation on typed fixtures from `src/web/src/api/schema.d.ts`; SEED fixtures (`local-dev` only, C15). Later E4, the E5 UI, on-demand support. | 2026-11-12 |
 
 ## Open CADEV checklist and owner decisions
