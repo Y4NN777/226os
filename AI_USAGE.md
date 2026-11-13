@@ -1,6 +1,6 @@
 # 226os AI Use and Provenance Record
 
-**Status:** FINAL. Closed by the owner on 2026-11-13 (see "Review and closure status"). Records are as written; licences were not independently verified.
+**Status:** records dated up to the owner's closure on 2026-11-13 are closed (see "Review and closure status"); each later record carries its own `closure` field and stays `open` until the owner closes it. Records are as written; licences were not independently verified.
 
 ## Policy
 
@@ -659,4 +659,21 @@ closure: "open"
 human_reviewers: ["NICE-DEV226 (pending)"]
 tests_or_evidence: ["before: go test -tags integration -run TestIdentitySignInRotationAndReset failed 3/3 on clean develop 512a290", "after: go test -count=1 -tags integration -run TestIdentity ./src/api/internal/platform/pgtest/ passed 8/8", "go test -race -count=1 -tags integration ./src/api/internal/platform/pgtest/ ok", "make lint-go PASS"]
 open_risks: []
+```
+
+## Error reports, search rate limit and shared limiter (S2)
+
+```yaml
+date: "2026-11-13"
+contributor: "mibienpanjoe"
+tool_or_model: "Claude Code, Claude Opus 5.5 (main session) with Claude Sonnet subagents (go-implementer, skeptic review)"
+purpose: "createResourceErrorReport (verified member, reporter private, duplicate open report returns the existing one, 60/user/min failing closed), anonymous search limit of 60/IP/min failing open, shared platform/ratelimit limiter and httpx.ClientIPKey, migration 00013 error_reports.source_id with a composite FK."
+repository_or_source_context: "branch feature/discover/error-reports"
+files_or_sections_affected: ["db/migrations/00013_error_report_source.sql", "db/queries/ratelimit.sql", "db/queries/discover.sql", "src/api/internal/platform/ratelimit/**", "src/api/internal/platform/httpx/clientip*.go", "src/api/internal/platform/dbgen/**", "src/api/internal/discover/**", "src/api/internal/search/**", "src/api/internal/app/**", "src/api/internal/platform/pgtest/**", "scripts/authz-tests.txt", "scripts/unimplemented-routes.txt", "scripts/public-routes.txt", "TODO.md", "AI_USAGE.md"]
+third_party_sources_consulted: []
+license_review: "PENDING: owner review"
+closure: "open"
+human_reviewers: ["NICE-DEV226 (pending)", "Y4NN777 (migration and shared limiter, pending)"]
+tests_or_evidence: ["make generate, lint, typecheck, test-unit, test-integration-go, security PASS (subagent run)", "make coverage PASS: Go first-party 100.0% (3079/3079), re-run in the main session"]
+open_risks: ["identity still has its own limiter until it migrates to platform/ratelimit", "rate-limit integration tests depend on the real clock (they wait for a fresh minute)", "whitespace-only report bodies are rejected with 422, stricter than the schema's minLength 1", "a repeated open report returns the existing report and drops the new body and source_id", "the client IP trusts the last X-Forwarded-For entry; correct only while Traefik is the sole ingress with default forwardedHeaders (not pinned in compose.yaml)", "/24 and /48 keying means users behind carrier NAT share 60 searches per minute"]
 ```

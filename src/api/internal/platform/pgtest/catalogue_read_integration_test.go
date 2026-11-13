@@ -46,7 +46,7 @@ func TestCatalogueReadsPublishedRowsOnly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	h := discover.NewHandler(conn, codec, nil)
+	h := discover.NewHandler(conn, codec, nil, nil)
 	alpha := uuid.MustParse(catAlpha)
 
 	rec := callList(ctx, h, apigen.ListResourcesParams{})
@@ -146,7 +146,7 @@ func TestCatalogueReadsPublishedRowsOnly(t *testing.T) {
 	// The dataset here is tiny, so the planner is free to scan; the plans are logged as evidence of the
 	// shape (bounded by Limit, filters as index or semi-join conditions), not as a scale claim.
 	recorder := &recordingDB{db: conn}
-	probe := discover.NewHandler(recorder, codec, nil)
+	probe := discover.NewHandler(recorder, codec, nil, nil)
 	sdk := "go"
 	text := "paiement"
 	for _, path := range []struct {

@@ -6,8 +6,8 @@ import (
 	"unicode/utf8"
 )
 
-// C4 PROPOSED option 1, ADR-0005 point 6: the server truncates q to 100 runes at a word boundary.
-func TestTruncateQueryC4ProposedOption1(t *testing.T) {
+// C4 DECIDED option 1, ADR-0005 point 6: the server truncates q to 100 runes at a word boundary.
+func TestTruncateQueryC4Option1(t *testing.T) {
 	word := strings.Repeat("a", 9) + " " // 10 runes per word
 	tests := []struct {
 		name string
