@@ -49,7 +49,7 @@ func TestCatalogueReadsPublishedRowsOnly(t *testing.T) {
 	h := discover.NewHandler(conn, codec, nil)
 	alpha := uuid.MustParse(catAlpha)
 
-	rec := callList(h, apigen.ListResourcesParams{})
+	rec := callList(ctx, h, apigen.ListResourcesParams{})
 	if rec.Code != http.StatusOK {
 		t.Fatalf("list %d %s", rec.Code, rec.Body.String())
 	}
@@ -71,25 +71,25 @@ func TestCatalogueReadsPublishedRowsOnly(t *testing.T) {
 	}
 
 	one := 1
-	firstPage := callList(h, apigen.ListResourcesParams{Limit: &one})
+	firstPage := callList(ctx, h, apigen.ListResourcesParams{Limit: &one})
 	var first apigen.ResourcePage
 	if err := json.Unmarshal(firstPage.Body.Bytes(), &first); err != nil || len(first.Items) != 1 || first.Items[0].Name != "Alpha Pay" || first.NextCursor == nil {
 		t.Fatalf("first page %d %s", firstPage.Code, firstPage.Body.String())
 	}
-	second := callList(h, apigen.ListResourcesParams{Limit: &one, Cursor: first.NextCursor})
+	second := callList(ctx, h, apigen.ListResourcesParams{Limit: &one, Cursor: first.NextCursor})
 	var rest apigen.ResourcePage
 	if err := json.Unmarshal(second.Body.Bytes(), &rest); err != nil || len(rest.Items) != 1 || rest.Items[0].Name != "Beta Pay" || rest.NextCursor != nil {
 		t.Fatalf("second page %s", second.Body.String())
 	}
 	country := "BF"
-	filtered := callList(h, apigen.ListResourcesParams{Country: &country})
+	filtered := callList(ctx, h, apigen.ListResourcesParams{Country: &country})
 	var only apigen.ResourcePage
 	if err := json.Unmarshal(filtered.Body.Bytes(), &only); err != nil || len(only.Items) != 1 || only.Items[0].Name != "Alpha Pay" {
 		t.Fatalf("country filter %s", filtered.Body.String())
 	}
 
 	q := "'; DROP TABLE resources; --"
-	injected := callList(h, apigen.ListResourcesParams{Q: &q})
+	injected := callList(ctx, h, apigen.ListResourcesParams{Q: &q})
 	if injected.Code != http.StatusOK {
 		t.Fatalf("search text must stay a parameter: %d %s", injected.Code, injected.Body.String())
 	}
@@ -98,21 +98,21 @@ func TestCatalogueReadsPublishedRowsOnly(t *testing.T) {
 		t.Fatalf("resources after the search text: %d %v", still, err)
 	}
 
-	got := callGet(h, alpha)
+	got := callGet(ctx, h, alpha)
 	if got.Code != http.StatusOK {
 		t.Fatalf("get %d %s", got.Code, got.Body.String())
 	}
-	missing := callGet(h, uuid.MustParse(catRemoved))
+	missing := callGet(ctx, h, uuid.MustParse(catRemoved))
 	if missing.Code != http.StatusNotFound {
 		t.Fatalf("removed status %d", missing.Code)
 	}
-	hidden := callGet(h, uuid.MustParse(catSecret))
+	hidden := callGet(ctx, h, uuid.MustParse(catSecret))
 	if hidden.Code != http.StatusNotFound {
 		t.Fatalf("unpublished provider status %d", hidden.Code)
 	}
 
 	src := httptest.NewRecorder()
-	h.ListResourceSources(src, httptest.NewRequest(http.MethodGet, "/", nil), alpha)
+	h.ListResourceSources(src, httptest.NewRequestWithContext(ctx, http.MethodGet, "/", nil), alpha)
 	var sources apigen.ResourceSourceList
 	if err := json.Unmarshal(src.Body.Bytes(), &sources); err != nil || len(sources.Items) != 3 {
 		t.Fatalf("sources %d %s", src.Code, src.Body.String())
@@ -160,19 +160,19 @@ func TestCatalogueReadsPublishedRowsOnly(t *testing.T) {
 	}
 }
 
-func callList(h interface {
+func callList(ctx context.Context, h interface {
 	ListResources(http.ResponseWriter, *http.Request, apigen.ListResourcesParams)
 }, params apigen.ListResourcesParams) *httptest.ResponseRecorder {
 	rec := httptest.NewRecorder()
-	h.ListResources(rec, httptest.NewRequest(http.MethodGet, "/api/v1/resources", nil), params)
+	h.ListResources(rec, httptest.NewRequestWithContext(ctx, http.MethodGet, "/api/v1/resources", nil), params)
 	return rec
 }
 
-func callGet(h interface {
+func callGet(ctx context.Context, h interface {
 	GetResource(http.ResponseWriter, *http.Request, apigen.ResourceId)
 }, id apigen.ResourceId) *httptest.ResponseRecorder {
 	rec := httptest.NewRecorder()
-	h.GetResource(rec, httptest.NewRequest(http.MethodGet, "/", nil), id)
+	h.GetResource(rec, httptest.NewRequestWithContext(ctx, http.MethodGet, "/", nil), id)
 	return rec
 }
 

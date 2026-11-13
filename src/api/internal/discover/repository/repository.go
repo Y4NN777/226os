@@ -56,7 +56,7 @@ func (r *Repository) List(ctx context.Context, q domain.Query) ([]domain.Resourc
 		AfterName: text(q.AfterName), AfterID: after, RowLimit: int32(q.Limit), //nolint:gosec // page size is at most 51
 	})
 	if err != nil {
-		return nil, fmt.Errorf("catalogue list: %v", err)
+		return nil, fmt.Errorf("catalogue list: %w", err)
 	}
 	entries := make([]entry, len(rows))
 	for i, row := range rows {
@@ -90,7 +90,7 @@ func (r *Repository) Sources(ctx context.Context, id string) ([]domain.Source, e
 	}
 	rows, err := r.q.ListCatalogueSources(ctx, row.id)
 	if err != nil {
-		return nil, fmt.Errorf("catalogue sources: %v", err)
+		return nil, fmt.Errorf("catalogue sources: %w", err)
 	}
 	out := make([]domain.Source, len(rows))
 	for i, row := range rows {
@@ -111,7 +111,7 @@ func (r *Repository) getEntry(ctx context.Context, id string) (entry, error) {
 		return entry{}, domain.ErrNotFound
 	}
 	if err != nil {
-		return entry{}, fmt.Errorf("catalogue get: %v", err)
+		return entry{}, fmt.Errorf("catalogue get: %w", err)
 	}
 	return entryFromGet(row), nil
 }
@@ -128,7 +128,7 @@ func (r *Repository) finish(ctx context.Context, rows []entry) ([]domain.Resourc
 	}
 	countries, err := r.q.CatalogueCountries(ctx, ids)
 	if err != nil {
-		return nil, fmt.Errorf("catalogue countries: %v", err)
+		return nil, fmt.Errorf("catalogue countries: %w", err)
 	}
 	for _, c := range countries {
 		if i, ok := indexOf(rows, c.ResourceID); ok {
@@ -137,7 +137,7 @@ func (r *Repository) finish(ctx context.Context, rows []entry) ([]domain.Resourc
 	}
 	sdks, err := r.q.CatalogueSDKs(ctx, ids)
 	if err != nil {
-		return nil, fmt.Errorf("catalogue sdks: %v", err)
+		return nil, fmt.Errorf("catalogue sdks: %w", err)
 	}
 	for _, s := range sdks {
 		url := textPtr(s.Url)
@@ -150,7 +150,7 @@ func (r *Repository) finish(ctx context.Context, rows []entry) ([]domain.Resourc
 	}
 	related, err := r.q.CatalogueRelated(ctx, ids)
 	if err != nil {
-		return nil, fmt.Errorf("catalogue related: %v", err)
+		return nil, fmt.Errorf("catalogue related: %w", err)
 	}
 	for _, link := range related {
 		if i, ok := indexOf(rows, link.SrcResourceID); ok {
@@ -159,7 +159,7 @@ func (r *Repository) finish(ctx context.Context, rows []entry) ([]domain.Resourc
 	}
 	discussions, err := r.q.CatalogueDiscussions(ctx, ids)
 	if err != nil {
-		return nil, fmt.Errorf("catalogue discussions: %v", err)
+		return nil, fmt.Errorf("catalogue discussions: %w", err)
 	}
 	for _, d := range discussions {
 		if i, ok := indexOf(rows, d.ResourceID); ok {

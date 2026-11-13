@@ -17,13 +17,13 @@ func TestCatalogueStaysUnimplementedWithoutAHandler(t *testing.T) {
 	id := uuid.MustParse("00000000-0000-7000-8000-0000000000a1")
 	for _, call := range []func(*httptest.ResponseRecorder){
 		func(rec *httptest.ResponseRecorder) {
-			s.ListResources(rec, httptest.NewRequest(http.MethodGet, "/", nil), apigen.ListResourcesParams{})
+			s.ListResources(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil), apigen.ListResourcesParams{})
 		},
 		func(rec *httptest.ResponseRecorder) {
-			s.GetResource(rec, httptest.NewRequest(http.MethodGet, "/", nil), id)
+			s.GetResource(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil), id)
 		},
 		func(rec *httptest.ResponseRecorder) {
-			s.ListResourceSources(rec, httptest.NewRequest(http.MethodGet, "/", nil), id)
+			s.ListResourceSources(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil), id)
 		},
 	} {
 		rec := httptest.NewRecorder()
@@ -41,18 +41,18 @@ func TestCatalogueMethodsDelegateWhenSet(t *testing.T) {
 	}
 	s := NewServer(WithCatalogue(discover.NewHandler(&fakePool{}, c, nil)))
 	rec := httptest.NewRecorder()
-	s.ListResources(rec, httptest.NewRequest(http.MethodGet, "/", nil), apigen.ListResourcesParams{})
+	s.ListResources(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil), apigen.ListResourcesParams{})
 	if rec.Code == http.StatusNotImplemented {
 		t.Fatal("catalogue was not wired")
 	}
 	id := uuid.MustParse("00000000-0000-7000-8000-0000000000a1")
 	rec = httptest.NewRecorder()
-	s.GetResource(rec, httptest.NewRequest(http.MethodGet, "/", nil), id)
+	s.GetResource(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil), id)
 	if rec.Code == http.StatusNotImplemented {
 		t.Fatal("get was not wired")
 	}
 	rec = httptest.NewRecorder()
-	s.ListResourceSources(rec, httptest.NewRequest(http.MethodGet, "/", nil), id)
+	s.ListResourceSources(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil), id)
 	if rec.Code == http.StatusNotImplemented {
 		t.Fatal("sources was not wired")
 	}

@@ -611,3 +611,20 @@ human_reviewers: []
 tests_or_evidence: ["no product code in this commit"]
 open_risks: []
 ```
+
+## Catalogue lint-go fix
+
+```yaml
+date: "2026-11-13"
+contributor: "mibienpanjoe"
+tool_or_model: "Cursor, Grok 4.7"
+purpose: "Clear the lint-go failure on PR #83: wrap catalogue query errors with %w, and give catalogue test requests a context."
+repository_or_source_context: "PR #83, Quality run 43355277357, gate lint-go"
+files_or_sections_affected: ["src/api/internal/discover/repository/repository.go", "src/api/internal/discover/transport/handler_test.go", "src/api/internal/app/catalogue_internal_test.go", "src/api/internal/platform/pgtest/catalogue_read_integration_test.go", "AI_USAGE.md"]
+third_party_sources_consulted: []
+license_review: PENDING
+closure: open
+human_reviewers: []
+tests_or_evidence: ["make lint-go exit 0", "go test -race -count=1 ./src/api/internal/discover/... ./src/api/internal/app/ exit 0. The catalogue integration test was not re-run."]
+open_risks: ["Get still maps pgx.ErrNoRows to domain.ErrNotFound before wrapping. Other driver errors stay in the chain via %w."]
+```

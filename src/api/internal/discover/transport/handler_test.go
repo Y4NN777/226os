@@ -61,7 +61,7 @@ func TestListResourcesEncodesAPage(t *testing.T) {
 	kind := apigen.ResourceType("api")
 	doc := apigen.Lang("fr")
 	blank := ""
-	h.ListResources(rec, httptest.NewRequest(http.MethodGet, "/api/v1/resources", nil), apigen.ListResourcesParams{Limit: &one, Type: &kind, Doclang: &doc, Cursor: &blank})
+	h.ListResources(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/resources", nil), apigen.ListResourcesParams{Limit: &one, Type: &kind, Doclang: &doc, Cursor: &blank})
 	if rec.Code != http.StatusOK || rec.Header().Get("Content-Type") != "application/json" {
 		t.Fatalf("status %d type %s", rec.Code, rec.Header().Get("Content-Type"))
 	}
@@ -88,23 +88,23 @@ func TestCatalogueErrors(t *testing.T) {
 		sources: func(string) ([]domain.Source, error) { return nil, domain.ErrNotFound },
 	})
 	rec := httptest.NewRecorder()
-	h.ListResources(rec, httptest.NewRequest(http.MethodGet, "/api/v1/resources", nil), apigen.ListResourcesParams{})
+	h.ListResources(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/resources", nil), apigen.ListResourcesParams{})
 	if rec.Code != http.StatusInternalServerError || contains(rec.Body.String(), "secret") {
 		t.Fatalf("status %d body %s", rec.Code, rec.Body.String())
 	}
 	bad := 99
 	rec = httptest.NewRecorder()
-	h.ListResources(rec, httptest.NewRequest(http.MethodGet, "/api/v1/resources?limit=99", nil), apigen.ListResourcesParams{Limit: &bad})
+	h.ListResources(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/resources?limit=99", nil), apigen.ListResourcesParams{Limit: &bad})
 	if rec.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("limit status %d", rec.Code)
 	}
 	rec = httptest.NewRecorder()
-	h.GetResource(rec, httptest.NewRequest(http.MethodGet, "/", nil), id)
+	h.GetResource(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil), id)
 	if rec.Code != http.StatusNotFound || rec.Header().Get("Content-Type") != "application/problem+json" {
 		t.Fatalf("get %d %s", rec.Code, rec.Header().Get("Content-Type"))
 	}
 	rec = httptest.NewRecorder()
-	h.ListResourceSources(rec, httptest.NewRequest(http.MethodGet, "/", nil), id)
+	h.ListResourceSources(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil), id)
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("sources %d", rec.Code)
 	}
@@ -116,7 +116,7 @@ func TestListResourceSourcesEncodesStatus(t *testing.T) {
 		return []domain.Source{{ID: "00000000-0000-7000-8000-0000000000b1", Kind: "official_docs", Title: "Docs", URL: "https://docs.example", Status: "verified", VerifiedAt: &when}, {ID: "00000000-0000-7000-8000-0000000000b2", Kind: "claim", URL: "https://claim.example", Status: "claimed"}}, nil
 	}})
 	rec := httptest.NewRecorder()
-	h.ListResourceSources(rec, httptest.NewRequest(http.MethodGet, "/", nil), uuid.MustParse("00000000-0000-7000-8000-0000000000a1"))
+	h.ListResourceSources(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil), uuid.MustParse("00000000-0000-7000-8000-0000000000a1"))
 	var body apigen.ResourceSourceList
 	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
 		t.Fatal(err)
@@ -140,17 +140,17 @@ func TestGetResourceAndBadIDs(t *testing.T) {
 		},
 	})
 	rec := httptest.NewRecorder()
-	h.GetResource(rec, httptest.NewRequest(http.MethodGet, "/", nil), uuid.MustParse("00000000-0000-7000-8000-0000000000a1"))
+	h.GetResource(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil), uuid.MustParse("00000000-0000-7000-8000-0000000000a1"))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("get %d %s", rec.Code, rec.Body.String())
 	}
 	rec = httptest.NewRecorder()
-	h.ListResources(rec, httptest.NewRequest(http.MethodGet, "/", nil), apigen.ListResourcesParams{})
+	h.ListResources(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil), apigen.ListResourcesParams{})
 	if rec.Code != http.StatusInternalServerError {
 		t.Fatalf("bad resource id %d", rec.Code)
 	}
 	rec = httptest.NewRecorder()
-	h.ListResourceSources(rec, httptest.NewRequest(http.MethodGet, "/", nil), uuid.MustParse("00000000-0000-7000-8000-0000000000a1"))
+	h.ListResourceSources(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil), uuid.MustParse("00000000-0000-7000-8000-0000000000a1"))
 	if rec.Code != http.StatusInternalServerError {
 		t.Fatalf("bad source id %d", rec.Code)
 	}
@@ -158,7 +158,7 @@ func TestGetResourceAndBadIDs(t *testing.T) {
 		return domain.Resource{ID: "00000000-0000-7000-8000-0000000000a1", Related: []domain.Link{{ID: "bad", Type: "project", Title: "P"}}}, nil
 	}})
 	rec = httptest.NewRecorder()
-	badLink.GetResource(rec, httptest.NewRequest(http.MethodGet, "/", nil), uuid.MustParse("00000000-0000-7000-8000-0000000000a1"))
+	badLink.GetResource(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil), uuid.MustParse("00000000-0000-7000-8000-0000000000a1"))
 	if rec.Code != http.StatusInternalServerError {
 		t.Fatalf("bad link id %d", rec.Code)
 	}
