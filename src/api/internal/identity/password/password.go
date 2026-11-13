@@ -29,6 +29,10 @@ const (
 
 	floorMemKiB = 19 * 1024
 	floorTime   = 2
+
+	// maxKeyLen bounds the derived-key length accepted from a stored PHC
+	// string; our profile always writes keyLen (32).
+	maxKeyLen = 1024
 )
 
 // maxConcurrent bounds simultaneous Argon2id runs: each holds ~64 MiB.
@@ -89,7 +93,7 @@ func Verify(pw, phc string) (bool, error) {
 	}
 	sem <- struct{}{}
 	defer func() { <-sem }()
-	got := argon2.IDKey([]byte(Normalize(pw)), m.salt, m.time, m.mem, m.threads, uint32(len(m.key)))
+	got := argon2.IDKey([]byte(Normalize(pw)), m.salt, m.time, m.mem, m.threads, m.keyLen)
 	return subtle.ConstantTimeCompare(got, m.key) == 1, nil
 }
 
@@ -109,6 +113,7 @@ type params struct {
 	mem       uint32
 	time      uint32
 	threads   uint8
+	keyLen    uint32
 	salt, key []byte
 }
 
@@ -142,8 +147,10 @@ func decode(phc string) (params, error) {
 	if m.salt, err = base64.RawStdEncoding.DecodeString(parts[4]); err != nil || len(m.salt) < 8 {
 		return m, ErrMalformedHash
 	}
-	if m.key, err = base64.RawStdEncoding.DecodeString(parts[5]); err != nil || len(m.key) < 16 {
+	if m.key, err = base64.RawStdEncoding.DecodeString(parts[5]); err != nil ||
+		len(m.key) < 16 || len(m.key) > maxKeyLen {
 		return m, ErrMalformedHash
 	}
+	m.keyLen = uint32(len(m.key)) //nolint:gosec // G115: len(m.key) <= maxKeyLen (1024) is enforced above
 	return m, nil
 }

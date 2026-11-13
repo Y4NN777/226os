@@ -97,14 +97,14 @@ func (h *Handler) preSessionSecret(r *http.Request) string {
 }
 
 func (h *Handler) setCookie(w http.ResponseWriter, name, value string, maxAge int, expires time.Time) {
-	http.SetCookie(w, &http.Cookie{
+	http.SetCookie(w, &http.Cookie{ //nolint:gosec // G124: Secure follows the deployment profile; only local-dev http omits it, and __Host- names require it
 		Name: name, Value: value, Path: "/", MaxAge: maxAge, Expires: expires,
 		HttpOnly: true, Secure: h.secure, SameSite: http.SameSiteLaxMode,
 	})
 }
 
 func (h *Handler) clearSessionCookie(w http.ResponseWriter) {
-	http.SetCookie(w, &http.Cookie{
+	http.SetCookie(w, &http.Cookie{ //nolint:gosec // G124: Secure follows the deployment profile; only local-dev http omits it, and __Host- names require it
 		Name: h.sessionCookie(), Value: "", Path: "/", MaxAge: -1,
 		HttpOnly: true, Secure: h.secure, SameSite: http.SameSiteLaxMode,
 	})
