@@ -8,16 +8,22 @@ Checks, over the Markdown files under --root (default: the current directory):
            operationId entries in api/openapi.yaml
   adr      every docs/decisions/NNNN-*.md file is listed in docs/decisions/README.md
 
+  dates    (report mode) an AI_USAGE.md record whose `date:` is after the HEAD commit date (UTC, one day of tolerance) is
+           a WARN; `--strict-dates` makes it a failure. NOT RUN outside a git repository.
+
 Exits 0 when every check passes, 1 on any failure, 2 on a usage error or when there is nothing to check (BLOCKED).
 Excluded directories: .git, node_modules, reports, coverage, dist, .claude/worktrees, docs/archive (history is kept as is,
 but its links are still checked: only privacy and ops ignore it).
 """
 import argparse
+import datetime
 import os
 import re
+import subprocess
 import sys
 
 SKIP_DIRS = {".git", "node_modules", "reports", "coverage", "dist"}
+RECORD_DATE = re.compile(r'^date:\s*"(\d{4}-\d{2}-\d{2})"')
 LINK = re.compile(r"\]\(([^)\s]+)\)")
 FENCE = re.compile(r"```.*?```", re.S)
 INLINE = re.compile(r"`[^`\n]*`")
@@ -101,9 +107,57 @@ def check_adr(root):
     ]
 
 
+def head_commit_date(root):
+    """The date (UTC) of the last NON-merge commit reachable from HEAD, or the HEAD commit when there is none, or None
+    outside a git repository. In CI the checked-out HEAD is a merge commit dated "now": the author's last real commit
+    is the honest reference for the dates they wrote."""
+    for extra in (["--no-merges"], []):
+        try:
+            done = subprocess.run(["git", "-C", root, "log", "-1", "--format=%cI"] + extra + ["HEAD"], capture_output=True,
+                                  text=True, timeout=30, check=False)
+        except (OSError, subprocess.SubprocessError):
+            return None
+        if done.returncode != 0:
+            return None
+        if done.stdout.strip():
+            try:
+                return datetime.datetime.fromisoformat(done.stdout.strip()).astimezone(datetime.timezone.utc).date()
+            except ValueError:
+                return None
+    return None
+
+
+def check_ai_usage_dates(root):
+    """(warnings, note): an AI_USAGE.md record dated after the HEAD commit date (one day of tolerance for timezones and
+    rebases) was written with a wrong date. Report mode by default; --strict-dates makes the warnings failures."""
+    path = os.path.join(root, "AI_USAGE.md")
+    if not os.path.exists(path):
+        return [], ""
+    head = head_commit_date(root)
+    if head is None:
+        return [], "check-docs: NOT RUN: ai-usage dates (no git history under %s)" % root
+    limit = head + datetime.timedelta(days=1)
+    warnings = []
+    for number, line in enumerate(read(root, "AI_USAGE.md").splitlines(), 1):
+        match = RECORD_DATE.match(line)
+        if not match:
+            continue
+        try:
+            day = datetime.date.fromisoformat(match.group(1))
+        except ValueError:
+            warnings.append("ai-usage: AI_USAGE.md:%d date %s is not a valid date" % (number, match.group(1)))
+            continue
+        if day > limit:
+            warnings.append("ai-usage: AI_USAGE.md:%d date %s is after the HEAD commit date %s (one day of tolerance)"
+                            % (number, day, head))
+    return warnings, ""
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--root", default=".")
+    parser.add_argument("--strict-dates", action="store_true",
+                        help="fail (instead of warn) on an AI_USAGE.md record dated after the HEAD commit date")
     args = parser.parse_args()
     root = os.path.abspath(args.root)
     if not os.path.isdir(root):
@@ -114,8 +168,16 @@ def main():
         print("check-docs: BLOCKED: no Markdown file found under %s" % root, file=sys.stderr)
         return 2
     errors = check_links(root, files) + check_privacy(root, files) + check_ops(root) + check_adr(root)
+    date_warnings, date_note = check_ai_usage_dates(root)
+    if args.strict_dates:
+        errors += date_warnings
+        date_warnings = []
     for error in errors:
         print("check-docs: FAIL: " + error, file=sys.stderr)
+    for warning in date_warnings:
+        print("check-docs: WARN: " + warning, file=sys.stderr)
+    if date_note:
+        print(date_note, file=sys.stderr)
     if errors:
         return 1
     print("check-docs: PASS (%d Markdown files: links, privacy, operation count, ADR index)" % len(files))

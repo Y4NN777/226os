@@ -1,0 +1,11 @@
+[
+  {"glob": "src/api/internal/identity/*", "docs": ["docs/decisions/0003-authentication-sessions-csrf-rate-limits.md", "docs/spec-kit/AUTHORIZATION_MATRIX.md"], "note": "Identity: C14, C14a, C14b profile visibility are DECIDED (ROADMAP.md section 8); languages 2 to 3 letters and bio_language en are accepted deviations."},
+  {"glob": "src/api/internal/platform/ratelimit/*", "docs": ["docs/decisions/0003-authentication-sessions-csrf-rate-limits.md"], "note": "Auth and write limits fail closed; anonymous reads fail open; one shared write:user budget."},
+  {"glob": "src/api/internal/discover/*", "docs": ["docs/decisions/0005-data-model-migrations-search.md", "docs/spec-kit/AUTHORIZATION_MATRIX.md"], "note": "Discover: one 404 for unknown, removed or unpublished (provider included); C4 search q cut at 100 runes."},
+  {"glob": "src/api/internal/search/*", "docs": ["docs/decisions/0005-data-model-migrations-search.md"], "note": "Search: published and visible content only; per_group bounded; C4 DECIDED."},
+  {"glob": "db/*", "docs": ["docs/decisions/0005-data-model-migrations-search.md", "docs/spec-kit/DATABASE_DESIGN.md"], "note": "Read the SQL yourself: the preview tool skips .sql files. Migrations: only mibienpanjoe, forward-only, immutable after merge."},
+  {"glob": "api/openapi.yaml", "docs": ["docs/decisions/0004-api-contract-conventions.md"], "note": "A contract change goes through its own contract PR (R7), reviewed by Y4NN777 and PANK4SS."},
+  {"glob": "src/web/*", "docs": ["DESIGN.md", "docs/decisions/0007-astryx-version-pinning-and-verification.md"], "note": "Owner UX preferences: minimal real-product UI, icon buttons, no left-border accents, idiomatic French, automatic language."},
+  {"glob": ".github/*", "docs": ["docs/decisions/0010-ci-parallel-gate-groups.md", "docs/GIT_WORKFLOW.md"], "note": "Actions pinned by full SHA, minimal permissions, no pull_request_target with PR checkout."},
+  {"glob": "AI_USAGE.md", "docs": ["AGENTS.md"], "note": "Records stay open until the owner closes them; not a finding."}
+]
