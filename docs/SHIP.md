@@ -44,6 +44,7 @@ Les points 1 et 2 s'exécutent avec `make smoke PROFILE=<profil> BASE_URL=https:
 - Équipe 2–5 participants, représentant et pays déclarés, clé de répartition et membre(s) inscrits.
 - URL Git, URL démo publique, produit Datacloud actif, dépôt/documentation, compte de démonstration sécurisé si nécessaire.
 - Projet original construit pendant le concours, registre `THIRD_PARTY_NOTICES.md`, `AI_USAGE.md`, provenance des dépendances, absence de licences interdites par le règlement.
+- Avant la soumission : `make ai-usage` régénère le bloc généré de `AI_USAGE.md` à partir de `docs/ai-usage/` (un fichier par enregistrement), puis `make ai-usage-check` doit passer.
 - Soumission avant **15 novembre 2026, 17:00 GMT**. Chaque membre doit voter entre **15 novembre 18:00 et 16 novembre 23:59 GMT** sous peine d'exclusion. Prévoir responsable de suivi.
 - Pointeurs : déclaration d'originalité dans [`docs/research/REFERENCES.md`](research/REFERENCES.md) (section « Déclaration d'originalité »), inventaire des dépendances dans [`THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md), usage de l'IA dans [`AI_USAGE.md`](../AI_USAGE.md).
 

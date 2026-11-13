@@ -34,7 +34,7 @@ Language convention: product docs (README, PRD, SPEC, DEV, RULES, TEST, SHIP, AR
 - Write or update observable BDD/acceptance tests before implementation (RED, then GREEN); preserve negative authorization cases.
 - Do not commit credentials, tokens, private data, generated artifacts without a documented source, or copied third-party code.
 - Record evidence by target SHA. `NOT RUN` is not `PASS`; no agent may self-approve a gate or exception.
-- Never add `Co-authored-by` trailers for AI systems or agents; record AI assistance in `AI_USAGE.md`.
+- Never add `Co-authored-by` trailers for AI systems or agents; record AI assistance as one file in `docs/ai-usage/` (`AI_USAGE.md` is generated from those files).
 
 ## Reviews
 
