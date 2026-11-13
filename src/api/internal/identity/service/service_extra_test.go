@@ -615,3 +615,21 @@ func TestRequestPasswordResetInactiveAndNoMailer(t *testing.T) {
 		t.Fatal("reset token created without a mailer")
 	}
 }
+
+// The configured secret is shared with pagination cursors, so the service must
+// not use it directly: each purpose gets its own derived subkey (domain
+// separation), and rotating one purpose cannot be replayed against another.
+func TestSubkeysAreDerivedPerPurpose(t *testing.T) {
+	raw := []byte("0123456789abcdef0123456789abcdef")
+	svc := New(&fakeStore{}, nil, raw)
+	if string(svc.bucketKeyKey) == string(raw) || string(svc.csrfKey) == string(raw) {
+		t.Fatal("a purpose key equals the shared secret")
+	}
+	if string(svc.bucketKeyKey) == string(svc.csrfKey) {
+		t.Fatal("bucket and CSRF keys are not separated")
+	}
+	again := New(&fakeStore{}, nil, raw)
+	if string(again.csrfKey) != string(svc.csrfKey) {
+		t.Fatal("derivation is not deterministic")
+	}
+}

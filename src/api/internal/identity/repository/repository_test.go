@@ -411,3 +411,24 @@ func TestHit(t *testing.T) {
 		t.Fatal("driver error swallowed")
 	}
 }
+
+func TestHitPurgesExpiredBucketsWhenAWindowOpens(t *testing.T) {
+	ctx := context.Background()
+	// First hit of a new bucket: the table only grows through new buckets, so
+	// that is when old windows are purged (one bounded DELETE).
+	db := &fakeDB{steps: []dbStep{{vals: []any{int32(1)}}, {}}}
+	ok, _, err := New(db).Hit(ctx, "signin:ip", testToken, 5, 15*time.Minute, testTime)
+	if err != nil || !ok || db.n != 2 {
+		t.Fatalf("purge not run: ok=%v err=%v steps=%d", ok, err, db.n)
+	}
+	// A later hit in the same window does not purge.
+	db = &fakeDB{steps: []dbStep{{vals: []any{int32(2)}}}}
+	if _, _, err = New(db).Hit(ctx, "signin:ip", testToken, 5, 15*time.Minute, testTime); err != nil || db.n != 1 {
+		t.Fatalf("unexpected purge: err=%v steps=%d", err, db.n)
+	}
+	// A failed purge is an error, never silently dropped.
+	db = &fakeDB{steps: []dbStep{{vals: []any{int32(1)}}, {err: errors.New("down")}}}
+	if _, _, err = New(db).Hit(ctx, "signin:ip", testToken, 5, 15*time.Minute, testTime); err == nil {
+		t.Fatal("purge error swallowed")
+	}
+}

@@ -401,4 +401,11 @@ func TestIdentityQueries(t *testing.T) {
 		t.Fatalf("hits = %d, %v", hits, err)
 	}
 	assertCall(t, db, "INSERT INTO rate_limit_buckets", []any{"signin:ip", hash, ts})
+
+	// PurgeRateLimitBuckets :exec.
+	db = &fakeDB{}
+	if err := dbgen.New(db).PurgeRateLimitBuckets(ctx, ts); err != nil {
+		t.Fatalf("purge: %v", err)
+	}
+	assertCall(t, db, "DELETE FROM rate_limit_buckets", []any{ts})
 }

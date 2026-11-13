@@ -397,3 +397,31 @@ func TestIdentityRateLimitFailsClosed(t *testing.T) {
 		t.Fatal("429 without Retry-After")
 	}
 }
+
+func TestIdentityRateLimitPurgesOldWindows(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 120*time.Second)
+	defer cancel()
+	conn := migratedDB(ctx, t)
+	t.Cleanup(func() { _ = conn.Close(ctx) })
+	now := time.Now().UTC().Truncate(time.Minute)
+	for i, age := range []time.Duration{3 * time.Hour, 5 * time.Hour, 30 * time.Minute} {
+		if _, err := conn.Exec(ctx,
+			`INSERT INTO rate_limit_buckets (scope, key_hash, window_start, hits) VALUES ('old', $1, $2, 1)`,
+			[]byte{byte(i)}, now.Add(-age)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// Opening a new window purges the finished ones older than 2 h and keeps the recent one.
+	ok, _, err := repository.New(conn).Hit(ctx, "signin:ip", [32]byte{9}, 5, 15*time.Minute, now)
+	if err != nil || !ok {
+		t.Fatalf("hit: %v %v", ok, err)
+	}
+	var old, recent int
+	if err := conn.QueryRow(ctx, `SELECT count(*) FILTER (WHERE window_start < $1), count(*) FILTER (WHERE window_start >= $1) FROM rate_limit_buckets`,
+		now.Add(-2*time.Hour)).Scan(&old, &recent); err != nil {
+		t.Fatal(err)
+	}
+	if old != 0 || recent != 2 {
+		t.Fatalf("old=%d recent=%d, want 0 and 2 (the kept 30 min window plus the new bucket)", old, recent)
+	}
+}

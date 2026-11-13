@@ -582,7 +582,7 @@ license_review: "ACCEPTED_BY_OWNER (2026-11-13): not independently verified"
 closure: "closed by the owner, 2026-11-13"
 human_reviewers: ["Y4NN777 (owner closure, 2026-11-13)"]
 tests_or_evidence: ["make lint-go exit 0", "go test -race -count=1 ./src/api/internal/discover/... ./src/api/internal/app/ exit 0. The catalogue integration test was not re-run."]
-open_risks: ["Get still maps pgx.ErrNoRows to domain.ErrNotFound before wrapping. Other driver errors stay in the chain via %w."]
+open_risks: ["Intended, not a defect: Get translates pgx.ErrNoRows to domain.ErrNotFound and returns it without wrapping, so no driver type leaks past the repository (go-backend rule). Every other driver error stays in the chain via %w."]
 ```
 
 ## S1 identity: domain, password hashing and auth service core
@@ -600,4 +600,21 @@ closure: "open"
 human_reviewers: ["mibienpanjoe (assigned reviewer, pending PR)"]
 tests_or_evidence: ["go test -race -count=1 ./src/api/internal/identity/... exit 0", "go test -race -count=1 -tags integration ./src/api/internal/platform/pgtest/ exit 0", "scripts/coverage-go.sh coverage: go first-party statement coverage 100.0% (2705/2705), PASS", "make coverage exit 0 (web 99.27% statements)", "make test-integration exit 0", "make lint-scripts security-sast exit 0 (gosec 0 issues)", "scripts/check-generated.sh check exit 0", "make quality full rerun on the PR head SHA pending at the time of this entry"]
 open_risks: ["rate-limit bucket keys reuse CURSOR_KEY as HMAC key pending a dedicated secret decision", "CSRF tokens are derived (HMAC of stored token hash / pre-session secret) rather than stored, per ADR-0003 rotation requirement", "no resend-verification operation exists in the contract (open question for the owner, flagged in the PR)", "getMe, updateMyProfile, getProfile and the profile-visibility matrix remain for feature/identity/profiles", "Argon2id parameters await the target-host benchmark at S8 (K6 container check)"]
+```
+
+## S1 identity: review follow-ups (rate-limit purge, key separation)
+
+```yaml
+date: "2026-11-13"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code, Sonnet 5.5"
+purpose: "Close two follow-ups left open by the review of PR #89: purge finished rate_limit_buckets windows when a new bucket opens (bounded DELETE on the window index), and derive separate HKDF-Expand subkeys for rate-limit bucket keys and CSRF tokens instead of using CURSOR_KEY directly."
+repository_or_source_context: "branch feature/identity/review-followups, issue #65"
+files_or_sections_affected: ["src/api/internal/identity/service/service.go", "src/api/internal/identity/repository/repository.go", "db/queries/identity.sql", "src/api/internal/platform/dbgen/identity.sql.go", "src/api/internal/platform/dbgen/queries_test.go", "src/api/internal/platform/pgtest/identity_integration_test.go", "TODO.md", "AI_USAGE.md"]
+third_party_sources_consulted: ["RFC 5869 (HKDF-Expand, implemented with crypto/hmac)"]
+license_review: "ACCEPTED_BY_OWNER (2026-11-13): original work, no third-party code"
+closure: "open"
+human_reviewers: ["pending PR review"]
+tests_or_evidence: ["RED: TestHitPurgesExpiredBucketsWhenAWindowOpens failed (purge not run), TestSubkeysAreDerivedPerPurpose did not compile", "go test -race ./src/api/internal/identity/... ./src/api/internal/app/... exit 0", "go test -tags integration -run TestIdentityRateLimitPurgesOldWindows ./src/api/internal/platform/pgtest/ exit 0 (real PostgreSQL)", "make coverage: go first-party 100.0% (2705/2705)", "make lint exit 0, scripts/check-generated.sh check exit 0, check-docs PASS"]
+open_risks: ["Not done here: the session is still resolved up to 3 times per request (needs a request-scoped cache across the platform subject middleware), signin:account counts only failures (ADR-0003 sign-off), ui_lang column (migration, mibienpanjoe), csrf_token_hash unused column, residual reset-request timing delta of one INSERT.", "Existing CSRF tokens and rate-limit buckets are invalidated once at deploy (the derived keys differ from the old ones); harmless before launch."]
 ```

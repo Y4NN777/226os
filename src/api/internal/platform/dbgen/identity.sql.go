@@ -268,6 +268,20 @@ func (q *Queries) HitRateLimit(ctx context.Context, arg HitRateLimitParams) (int
 	return hits, err
 }
 
+const purgeRateLimitBuckets = `-- name: PurgeRateLimitBuckets :exec
+DELETE FROM rate_limit_buckets
+WHERE ctid IN (
+  SELECT b.ctid FROM rate_limit_buckets b WHERE b.window_start < $1 LIMIT 500
+)
+`
+
+// Bounded purge of windows that ended long ago (fixed windows never exceed 1 h);
+// uses rate_limit_buckets_window_idx.
+func (q *Queries) PurgeRateLimitBuckets(ctx context.Context, windowStart pgtype.Timestamptz) error {
+	_, err := q.db.Exec(ctx, purgeRateLimitBuckets, windowStart)
+	return err
+}
+
 const resetPassword = `-- name: ResetPassword :one
 WITH c AS (
   UPDATE password_resets SET consumed_at = $2

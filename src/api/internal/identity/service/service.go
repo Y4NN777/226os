@@ -94,14 +94,31 @@ type SignInInput struct {
 type Service struct {
 	store Store
 	mail  mailer.Mailer
-	key   []byte // HMAC key for rate-limit bucket keys and CSRF derivation
-	now   func() time.Time
+	// Purpose keys derived from the shared secret (the same secret signs
+	// pagination cursors), so no purpose ever uses the secret itself.
+	bucketKeyKey []byte // HMAC key for rate-limit bucket keys
+	csrfKey      []byte // HMAC key for CSRF tokens
+	now          func() time.Time
 }
 
 // New returns an identity service. mail may be nil: verification and reset
 // mails are then skipped (local-dev without SMTP relies on this).
 func New(store Store, mail mailer.Mailer, hmacKey []byte) *Service {
-	return &Service{store: store, mail: mail, key: hmacKey, now: time.Now}
+	return &Service{
+		store: store, mail: mail, now: time.Now,
+		bucketKeyKey: subkey(hmacKey, "rate-limit-bucket"),
+		csrfKey:      subkey(hmacKey, "csrf"),
+	}
+}
+
+// subkey is HKDF-Expand (RFC 5869, SHA-256, one 32-byte block) of the shared
+// secret for one purpose: HMAC(secret, info || 0x01). The secret is already
+// high-entropy (at least 32 bytes), so the extract step is not needed.
+func subkey(secret []byte, purpose string) []byte {
+	m := hmac.New(sha256.New, secret)
+	m.Write([]byte("226os/identity/" + purpose))
+	m.Write([]byte{1})
+	return m.Sum(nil)
 }
 
 // SessionCookie is what transport needs to set the session cookie.
@@ -159,7 +176,7 @@ func hashToken(plain string) ([32]byte, error) {
 // bucketKey is the HMAC the rate-limit table stores instead of the raw IP or
 // e-mail (ADR-0003: "keyed by an HMAC of the IP or the normalized email").
 func (s *Service) bucketKey(scope, value string) [32]byte {
-	m := hmac.New(sha256.New, s.key)
+	m := hmac.New(sha256.New, s.bucketKeyKey)
 	m.Write([]byte(scope + "|" + value))
 	var out [32]byte
 	copy(out[:], m.Sum(nil))
@@ -201,7 +218,7 @@ func ipKey(ip string) string {
 // for the anonymous pre-session flow it is HMAC(pre-session secret). The
 // derived value rotates with the session, as ADR-0003 requires.
 func (s *Service) csrfToken(secret [32]byte) string {
-	m := hmac.New(sha256.New, s.key)
+	m := hmac.New(sha256.New, s.csrfKey)
 	m.Write(secret[:])
 	m.Write([]byte("|226os-csrf"))
 	return base64.RawURLEncoding.EncodeToString(m.Sum(nil))

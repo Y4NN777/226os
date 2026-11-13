@@ -107,3 +107,11 @@ VALUES ($1, $2, $3, 1)
 ON CONFLICT (scope, key_hash, window_start)
 DO UPDATE SET hits = rate_limit_buckets.hits + 1
 RETURNING hits;
+
+-- name: PurgeRateLimitBuckets :exec
+-- Bounded purge of windows that ended long ago (fixed windows never exceed 1 h);
+-- uses rate_limit_buckets_window_idx.
+DELETE FROM rate_limit_buckets
+WHERE ctid IN (
+  SELECT b.ctid FROM rate_limit_buckets b WHERE b.window_start < $1 LIMIT 500
+);
