@@ -707,7 +707,7 @@ files_or_sections_affected: ["api/openapi.yaml", "generated outputs (apigen, api
 third_party_sources_consulted: []
 license_review: "NOT APPLICABLE: original code, no new dependency"
 closure: "open"
-human_reviewers: ["mibienpanjoe (pending)", "NICE-DEV226 (pending)"]
+human_reviewers: ["PANK4SS (pending)"]
 tests_or_evidence: ["RED then GREEN: TestListResourcesEncodesAPage, TestListPassesTheCountryListAsAnArray, TestLoadAppBaseURL, TestVerificationMailCarriesALinkWhenABaseURLIsSet, TestResetMailCarriesALinkWhenABaseURLIsSet", "integration on real PostgreSQL: TestResourceProvenanceIsServed, TestResourceCountryListIsAUnion, TestResourceCountryListPaginatesStably, TestResourceCountryListRefusesBadInput", "make generate twice, no drift; make test-unit, make coverage (Go 100.0%), make test-integration-go exit 0"]
 open_risks: ["No test fails if app.go stops passing WithBaseURL (wiring line only).", "Two filter-hash collision tests now use category instead of country (country is validated)."]
 ```
