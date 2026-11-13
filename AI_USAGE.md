@@ -384,3 +384,20 @@ human_reviewers: []
 tests_or_evidence: ["go test -race -count=1 ./src/api/... exit 0", "go test -race -count=1 -tags integration -run TestCatalogueReadsPublishedRowsOnly ./src/api/internal/platform/pgtest/ exit 0", "scripts/check-authz-routes.sh exit 0", "go tool sqlc vet -f db/sqlc.yaml exit 0", "make test-integration, make lint and make coverage were NOT RUN"]
 open_risks: ["no freshness window is defined, so a source is never labelled stale", "content_relations cannot express a series link", "a resource with no published provider is absent from the catalogue", "pull request not opened"]
 ```
+
+## Tracker line for the catalogue pull request
+
+```yaml
+date: "2026-11-13"
+contributor: "mibienpanjoe"
+tool_or_model: "Cursor, Grok 4.7"
+purpose: "Record PR #83 on the three catalogue operations. Search and error reports stay open."
+repository_or_source_context: "PR #83"
+files_or_sections_affected: ["TODO.md", "AI_USAGE.md"]
+third_party_sources_consulted: []
+license_review: PENDING
+closure: open
+human_reviewers: []
+tests_or_evidence: ["no product code in this commit"]
+open_risks: []
+```

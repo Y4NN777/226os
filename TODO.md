@@ -19,7 +19,7 @@ One line per person. Each person edits only their own line.
 |---|---|---|
 | `Y4NN777` | S0 is merged (PRs #31 to #36, see Done log). Owner tasks: H6 and H7 (Datacloud, DNS), H8 follow-up (verify the Gmail alias `noreply@226os.tech`), H12 (V2 quotas, K21 EEA handling), issue #46 (collaborators' age keys). Build: S6 moderation, B4 release workflow, the S9 contract PR (R7) and the S9 backend. Review S1 and S0 follow-ups with `NICE-DEV226`. | 2026-11-12 |
 | `NICE-DEV226` | Identity confirmed (H1 done). S0 is merged: start S1 (RED tests for the domain and service with fakes, then the handlers on the merged S0 base). Then S3; then help on S5 (default), the S9 second developer, and the E5 backend if time allows. | 2026-11-12 |
-| `mibienpanjoe` | Identity confirmed (H1 done). Catalogue reads (`listResources`, `getResource`, `listResourceSources`) are IN PROGRESS on `feature/discover/catalogue-read`. Search and error reports wait on S1. | 2026-11-13 |
+| `mibienpanjoe` | Identity confirmed (H1 done). Catalogue reads are in review as PR #83. Search and error reports wait on S1. | 2026-11-13 |
 | `PANK4SS` | Identity confirmed (H1 done). **Accept the repository invitation (H2) before pushing.** S7 shell, i18n, shared components and pillar navigation on typed fixtures from `src/web/src/api/schema.d.ts`; SEED fixtures (`local-dev` only, C15). Later E4, the E5 UI, on-demand support. | 2026-11-12 |
 
 ## Open CADEV checklist and owner decisions
@@ -64,7 +64,7 @@ Open owner items outside CADEV (IDs and decisions in ROADMAP section 8, 10 and 1
 - [ ] **Session resolver, session-backed implementation** (S1 provides it; S0 only has the anonymous default).
 - [ ] **PostgreSQL rate limiter** (`rate_limit_buckets`, ADR-0003 windows). S1 builds it as a reusable port; other scopes: anonymous search 60/IP/min (S2); authenticated writes 60/user/min (S3, S4, S5); GitHub import 10/user/hour (S5); assistant (S9).
 - [ ] **`EMAIL_NOT_VERIFIED` check.** S1 exposes `email_verified` on the subject, and each publishing service checks it.
-- [ ] **`links[]` relation writer and resolved-links reader** (`content_relations`, ADR-0005 point 13). `mibienpanjoe` builds the reader in S2 and the writer in S4; S3 and S5 reuse them. `links` appears in `QuestionCreate`, `QuestionUpdate`, `ProjectCreate`, `ProjectUpdate`, `ArticleCreate`. 2026-11-13: the reader is on `feature/discover/catalogue-read`; the writer is still S4.
+- [ ] **`links[]` relation writer and resolved-links reader** (`content_relations`, ADR-0005 point 13). `mibienpanjoe` builds the reader in S2 and the writer in S4; S3 and S5 reuse them. `links` appears in `QuestionCreate`, `QuestionUpdate`, `ProjectCreate`, `ProjectUpdate`, `ArticleCreate`. 2026-11-13: the reader is in PR #83; the writer is still S4.
 - [ ] **`audit_log` writer.** Proposal: S6 builds it; S1 security events also go to `audit_log` (DATABASE_DESIGN), so the lead decides the order.
 - [x] **Idempotency-Key** on the six operations (`createQuestion`, `createAnswer`, `createProject`, `createContributionNeed`, `createApplication`, `createLearnArticle`; `castVote` does not bind the header). Built in S0 (PR #34).
 - [ ] **Contract PR for the Idempotency response headers** (own PR, R7): declare `Idempotency-Replayed` and `Idempotency-Body-Omitted` on the six bound operations. PROPOSED by S0; the owner approves by merging. OBSERVED 2026-11-12: `api/openapi.yaml` already declares both headers; the owner confirms the approval and ticks this. Until then ADR-0004 point 2 applies (clients ignore unknown headers).
@@ -122,9 +122,9 @@ Open owner items outside CADEV (IDs and decisions in ROADMAP section 8, 10 and 1
 - **Owner:** `mibienpanjoe` (accountable). **Reviewer:** `NICE-DEV226` (`Y4NN777` if `NICE-DEV226` co-wrote). **Helpers:** `Y4NN777`, `NICE-DEV226` (never migrations), `PANK4SS` on demand.
 - **Branches:** `feature/discover/catalogue-read`, `feature/discover/search`. **Depends on:** S0 (merged); the error report and the anonymous-search 429 also need S1.
 - **Operations:**
-  - [ ] `listResources` (public; provenance on each item). 2026-11-13: implemented on `feature/discover/catalogue-read`; the box stays open until the pull request number exists.
-  - [ ] `getResource` (public; resolved related links, visible items only). 2026-11-13: same branch. Outgoing links are published projects and articles; incoming links are published questions. `content_relations` has no series.
-  - [ ] `listResourceSources` (public; a stale source is never shown as verified). 2026-11-13: same branch. A source is `verified` only when it is the resource's current verified source. No freshness window is defined, so the read does not invent `stale`.
+  - [x] `listResources` (public; provenance on each item). PR #83, 2026-11-13.
+  - [x] `getResource` (public; resolved related links, visible items only). PR #83, 2026-11-13. Outgoing links are published projects and articles; incoming links are published questions. `content_relations` has no series.
+  - [x] `listResourceSources` (public; a stale source is never shown as verified). PR #83, 2026-11-13. A source is `verified` only when it is the resource's current verified source. No freshness window is defined, so the read does not invent `stale`.
   - [ ] `createResourceErrorReport` (member; reporter kept private; rate limited)
   - [ ] `search` (`q` 2 to 200, C4; `per_group` 1 to 20; published and visible only; anonymous 60/IP/min)
 - [ ] Bounded sqlc queries with `EXPLAIN (ANALYZE, BUFFERS)` evidence and a bilingual relevance dataset (ADR-0005 point 6). 2026-11-13: the catalogue list plan is logged by `TestCatalogueReadsPublishedRowsOnly`. The relevance dataset stays with search.
@@ -132,7 +132,7 @@ Open owner items outside CADEV (IDs and decisions in ROADMAP section 8, 10 and 1
 - **Tables:** `resource_categories`, `providers`, `resources`, `resource_countries`, `resource_sdk_languages`, `resource_sources`, `resource_tags`, `error_reports`, `countries`, `tags`; search reads questions, answers, projects, learn articles.
 - **Acceptance:** `US-DISCOVER-001/1`, search steps of `US-SOLVE-001/1` and `US-LEARN-001/2`. Negative authz: no private or removed content through lists or search; anonymous error report 401; CSRF 403; reporter identity never exposed; rate limit.
 - **Prototype pages:** `discover`, `resource`, `recherche`, part of `accueil`. **Allowed paths:** `src/api/internal/discover/**`, `src/api/internal/search/**`, `db/queries/**` (these files), generated `dbgen`, `db/migrations/**` only if needed (R6), `scripts/public-routes.txt`. **DoD:** DoD-common plus EXPLAIN plans. **Stop:** if a query cannot be bounded within ADR-0005.
-- **Status:** IN PROGRESS (2026-11-13, pull request not opened)
+- **Status:** IN PROGRESS (PR #83, 2026-11-13). `DONE` waits for the merge. Search and error reports stay open.
 
 ---
 
