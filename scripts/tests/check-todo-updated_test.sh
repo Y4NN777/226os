@@ -66,4 +66,20 @@ mkdir -p "$repo/.claude/hooks"
 printf '# hook\n' >"$repo/.claude/hooks/domain_skills.py"
 run "a harness-only change passes" pass
 
+# The base moved on after the branch started and TODO.md changed there: that must not count for this branch.
+gitc checkout -q -- docs/note.md 2>/dev/null || true
+rm -rf "$repo/db" "$repo/.claude"
+gitc checkout -q -B feature/slice
+printf 'package p\nfunc G() {}\n' >"$repo/src/main.go"
+gitc add src/main.go
+gitc commit -q -m "slice change without the tracker"
+gitc checkout -q -B develop master 2>/dev/null || gitc checkout -q -B develop "$(gitc rev-list --max-parents=0 HEAD)"
+printf '# tracker\n- [x] item\n- [x] other work\n' >"$repo/TODO.md"
+gitc add TODO.md
+gitc commit -q -m "someone else moved the tracker on develop"
+gitc checkout -q feature/slice
+rc=0
+out="$(TODO_BASE_REF=develop "$checker" "$repo" 2>&1)" || rc=$?
+[ "$rc" -ne 0 ] && ok "a TODO.md change made on the base after the branch started does not count" || ko "stale base counted (rc=$rc out=$out)"
+
 finish

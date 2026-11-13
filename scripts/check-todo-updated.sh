@@ -3,7 +3,7 @@
 #
 # When the diff against the base changes a slice file, TODO.md must change in
 # that same diff. The check does not read checkboxes and does not require every
-# box to be ticked. A docs-only, harness-only or Majesty-only diff passes.
+# box to be ticked. A docs-only or harness-only diff passes.
 #
 # Slice files: src/, db/, api/, scripts/, mk/ and Makefile.
 # Untracked slice files count. The working tree counts, not only commits.
@@ -43,11 +43,15 @@ is_slice() {
   esac
 }
 
+# Compare with the merge base, not the tip of the base: on a branch behind it, a two-dot diff would also see the
+# changes (including TODO.md) that landed on the base after the branch started.
+mergebase="$(git -C "$root" merge-base "$base" HEAD)" || die "no merge base between '${base}' and HEAD"
+
 paths=()
 while IFS= read -r path; do
   [ -n "$path" ] || continue
   paths+=("$path")
-done < <(git -C "$root" diff --name-only "$base"; git -C "$root" ls-files --others --exclude-standard)
+done < <(git -C "$root" diff --name-only "$mergebase"; git -C "$root" ls-files --others --exclude-standard)
 
 todo=0
 slice=()
