@@ -96,6 +96,7 @@ Coverage: <reviewed>/<total> reviewable files. Gates and tests were NOT RUN by t
 ```
 
 - Inline comments only for CRITICAL and HIGH findings. MEDIUM goes in the summary only. LOW is dropped.
+- **A CRITICAL must be OBSERVED and cite `file:line`** (for example `OBSERVED: src/api/config.go:12 holds a literal key`). If you cannot observe it in the diff or the files, it is HIGH, not CRITICAL. The Review gate only acts on a CRITICAL with that evidence.
 - **Ping rule:** write `@Y4NN777` only when the level is CRITICAL, with the reason and what to do first. For every other level, do not mention anyone.
 - Record each previewed `(path, status)` as `reviewed` or `skipped` with a reason for every skipped entry; report `reviewed_files`, `skipped_files` and the coverage rate.
 - Separate OBSERVED from INFERRED. If nothing is wrong, say `Triage: NONE`.
