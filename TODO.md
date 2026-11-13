@@ -36,13 +36,13 @@ CADEV rules checklist (added 2026-11-12 from the official rules; the rules text 
   - [x] DONE 2026-11-12 (owner instruction): busybox removed from the API image; `/healthcheck` replaces the wget probe (image HEALTHCHECK, Compose health check, smoke test). Not removed: `busybox` in the `acme-init` helper and the Alpine and Debian packages of the web, Traefik and PostgreSQL images (covered by the base-image decision above).
   - [x] DECIDED 2026-11-12 (owner): `isbot` (Unlicense, a public-domain dedication) is accepted; Unlicense is already on the allowed list of `scripts/check-licenses.py`. Base-image decision above. Both are recorded in `THIRD_PARTY_NOTICES.md`.
 - [ ] **Titularity:** each member declares titularity at submission. Every member.
-- [ ] **Licences declared:** every component and its licence is declared. the direct-dependency inventory is in `THIRD_PARTY_NOTICES.md`; entries marked `to verify` (Go and npm tool licences, images) must be checked before submission. Owner, with the `make licenses` artifact.
-- [ ] **AI usage declared:** tools and the parts concerned, in `AI_USAGE.md`. Every member for their own work.
-- [ ] **Brand assets generated with AI:** complete the licence review flagged PENDING in `AI_USAGE.md` ("Brand assets (concept D) record"). Owner.
+- [x] **Licences declared (closed by the owner, 2026-11-13):** the direct-dependency inventory is in `THIRD_PARTY_NOTICES.md`; entries marked `not verified` were not independently verified and are accepted as they are.
+- [x] **AI usage declared:** tools and the parts concerned, in `AI_USAGE.md`. Every member for their own work. Closed by the owner on 2026-11-13.
+- [x] **Brand assets generated with AI (closed by the owner, 2026-11-13):** the record in `AI_USAGE.md` is closed; no further licence review.
 - [ ] **Technical quality is 30% of the score and includes the team's ability to explain the code:** schedule a code walkthrough with all four members before the submission. Owner sets the slot.
 - [ ] **Peer vote is mandatory for every member** between Sun 2026-11-15 18:00 and Mon 2026-11-16 23:59 GMT (H10).
 - [ ] The names in `docs/PRD.md` section 12 match the declared team (flag only; ROADMAP section 9).
-- [x] Licence decisions are recorded in `THIRD_PARTY_NOTICES.md`: isbot (Unlicense) accepted, base images treated as not bundled code (2026-11-12). Still open: the review of the AI-generated brand assets.
+- [x] Licence decisions are recorded in `THIRD_PARTY_NOTICES.md` and closed by the owner (2026-11-13): isbot (Unlicense) accepted, base images treated as not bundled code, the AI-generated brand assets accepted.
 
 Open owner items outside CADEV (IDs and decisions in ROADMAP section 8, 10 and 11):
 
