@@ -19,6 +19,7 @@ import (
 // fakeStore is an in-memory Store for unit tests. It is deliberately strict:
 // unknown lookups return domain.ErrNotFound like the sqlc repository does.
 type fakeStore struct {
+	lastWrite  domain.ProfileWrite // the last patch handed to UpdateProfile
 	accounts   map[string]domain.Account
 	sessions   map[string]domain.Session // by session id
 	tokenHash  map[[32]byte]string       // session token hash -> session id
@@ -259,6 +260,7 @@ func (f *fakeStore) ResolveSkillSlugs(_ context.Context, slugs []string) ([]stri
 
 // applyPatch mirrors the SQL CASE WHEN semantics on the fake's Profile copy.
 func (f *fakeStore) UpdateProfile(_ context.Context, userID string, w domain.ProfileWrite) error {
+	f.lastWrite = w
 	if err := f.errs["UpdateProfile"]; err != nil {
 		return err
 	}

@@ -99,8 +99,11 @@ type ProfileWrite struct {
 	VisGitHub    PatchField[Visibility]
 	VisBio       PatchField[Visibility]
 	Visibility   PatchField[Visibility]
-	// SkillSlugs replaces the whole skill set when Present; Value nil +
-	// Present clears every skill. Tag ids are resolved by the service.
+	// SkillSlugs is the client's input: it replaces the whole skill set when
+	// Present; Value nil + Present clears every skill. Only the transport sets it.
+	SkillSlugs PatchField[[]string]
+	// SkillTagIDs is the same set resolved to active tag ids. Only the service
+	// sets it (from SkillSlugs); the repository reads only this one.
 	SkillTagIDs PatchField[[]string]
 }
 
