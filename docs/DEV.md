@@ -39,7 +39,16 @@ Node : le plancher `engines.node` (`>=24`, vérifié par `make doctor`) et la ve
 | `up-production-live` | refusé hors du contexte de livraison documenté |
 | `migrate-up`, `migrate-status`, `migrate-new NAME=<slug>` | migrations goose, en avant seulement ; confirmation et preuve de sauvegarde hors `local-dev` |
 | `db-reset` | recrée la base, `APP_ENV=local-dev` uniquement |
+| `review`, `review-login` | revue IA locale et consultative ([open-code-review](https://github.com/alibaba/open-code-review), version fixée dans `scripts/review.sh`, lancée par `npx`) ; envoie le diff au fournisseur LLM configuré ; pas un gate. Sans clé : la commande `/delegate-review` de Claude Code |
 | `test-e2e` (G5), `perf` (G6), `seed` | **NOT IMPLEMENTED** ; `quality-full` échoue tant que G5 et G6 le sont |
+
+### Revue IA consultative (optionnelle)
+
+La revue humaine de l'[ADR-0008](decisions/0008-team-work-areas-and-ownership.md) reste obligatoire ; la revue IA n'est qu'une aide, jamais un gate. Règles du projet : `.opencodereview/rule.json`.
+
+- **Avec Claude Code, sans clé d'API (recommandé) :** `/delegate-review` dans Claude Code (fichier `.claude/commands/delegate-review.md`). open-code-review choisit les fichiers et fournit les règles, Claude Code fait la revue avec votre connexion. Il propose des corrections et ne modifie rien.
+- **Avec l'outil seul :** `make review-login` une fois (connexion ChatGPT, aperçu réservé à un usage local par une seule personne), puis `make review`. Le diff part chez le fournisseur choisi : seulement du code que vous avez le droit d'envoyer.
+- **En CI :** le workflow `.github/workflows/code-review.yml` est désactivé tant que `CODE_REVIEW_ENABLED` n'est pas à `true`. Claude Code (action officielle d'Anthropic, jeton OAuth `CLAUDE_CODE_OAUTH_TOKEN` issu de `claude setup-token`) fait la revue en suivant `/delegate-review` ; consultatif, jamais un gate. Vérifiez les conditions d'Anthropic avant d'y mettre un jeton d'abonnement. La connexion ChatGPT ne doit pas servir en CI partagée : l'outil l'interdit.
 
 ## 4. Organisation du travail : vertical slices
 1. Décrire le problème et le critère d'acceptation (PRD + SPEC, ID stable).

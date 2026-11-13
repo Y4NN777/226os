@@ -459,9 +459,101 @@ open_risks: ["the generated field is appended where sqlc places an ALTER-added c
 
 ## S9 assistant contract (2026-11-13)
 
+## AI code review tooling (2026-11-13)
+
 ```yaml
 date: "2026-11-13"
 contributor: "Y4NN777"
+## First contract: topic code, owner-only decideApplication, profile_visibility
+
+```yaml
+date: "2026-11-12"
+contributor: "mibienpanjoe"
+tool_or_model: "Cursor, Grok 4.7"
+purpose: "Apply the decided first-contract edits in api/openapi.yaml (C2 topic code, C1 owner-only decideApplication, C14b profile_visibility) and regenerate the Go and TypeScript types."
+repository_or_source_context: "TODO.md FIRST CONTRACT PR; ROADMAP.md C1, C2, C14b; branch feature/platform/first-contract"
+files_or_sections_affected: ["api/openapi.yaml", "src/api/internal/platform/apigen/first_contract_test.go", "src/api/internal/platform/apigen/apigen.gen.go", "src/api/internal/platform/apispec/openapi.gen.yaml", "src/web/src/api/schema.d.ts"]
+third_party_sources_consulted: []
+license_review: PENDING
+human_reviewers: []
+closure: open
+tests_or_evidence: ["go test -count=1 -run TestFirstContractDecisions ./src/api/internal/platform/apigen/: RED exit 1, then GREEN exit 0", "go test -count=1 ./src/api/internal/platform/apigen/: exit 0", "scripts/check-generated.sh generate: exit 0", "pnpm exec redocly lint api/openapi.yaml: exit 0"]
+open_risks: ["handlers, the profile_visibility migration, and the response topic fields are out of scope"]
+```
+
+## Tracker line for the first contract pull request
+
+```yaml
+date: "2026-11-12"
+contributor: "mibienpanjoe"
+tool_or_model: "Cursor, Grok 4.7"
+purpose: "Mark the first contract pull request in TODO.md. The contract diff itself is the earlier commit on this branch."
+repository_or_source_context: "TODO.md header: update the tracker in the same PR. PR #79."
+files_or_sections_affected: ["TODO.md", "AI_USAGE.md"]
+third_party_sources_consulted: []
+license_review: PENDING
+human_reviewers: []
+closure: open
+tests_or_evidence: ["no product code changed; the box names PR #79 and the S5 docs follow-ups stay open"]
+open_risks: ["the pull request is in review, not merged"]
+```
+
+## E2 taxonomy and profile visibility record
+
+```yaml
+date: "2026-11-12"
+contributor: "mibienpanjoe"
+tool_or_model: "Cursor, Grok 4.7"
+purpose: "E2 forward-only migrations: five learn topics, three resource categories, four relabels, and the profiles.profile_visibility column, with pgtest fresh and upgrade coverage"
+repository_or_source_context: "TODO.md E2, docs/spec-kit/DATABASE_DESIGN.md section 5, db/migrations/00002_reference_taxonomy.sql, db/migrations/00003_identity.sql"
+files_or_sections_affected:
+  - "db/migrations/00011_taxonomy_ai_topics.sql"
+  - "db/migrations/00012_profile_visibility.sql"
+  - "src/api/internal/platform/pgtest/migrate_integration_test.go"
+  - "src/api/internal/platform/pgtest/constraints_integration_test.go"
+  - "src/api/internal/platform/pgtest/fixtures_integration_test.go"
+  - "scripts/tests/make_test.sh"
+  - "scripts/check-todo-updated.sh"
+  - "scripts/tests/check-todo-updated_test.sh"
+  - "mk/20-gates.mk"
+  - ".majesty/checks.json"
+  - "docs/spec-kit/DATABASE_DESIGN.md"
+  - "TODO.md"
+  - "AI_USAGE.md"
+third_party_sources_consulted: []
+license_review: PENDING
+human_reviewers: []
+closure: open
+tests_or_evidence:
+  - "MIGRATIONS_BASE_REF=origin/develop scripts/check-migrations.sh: OK (12 files)"
+  - "make test-integration: exit 0 (go test -race -tags integration ./... including pgtest, db-reset 42 passed, verify-containers ALL PASS)"
+  - "make lint: exit 0 on the taxonomy files before the tracker check was added"
+  - "scripts/tests/check-todo-updated_test.sh: 6 passed, 0 failed (a slice change without TODO.md fails; TODO.md moving with the slice passes)"
+  - "scripts/check-todo-updated.sh on this tree: OK (TODO.md moves with 9 slice files against origin/develop)"
+  - "scripts/lint-shell.sh: OK (47 scripts). Full make lint was not re-run after the tracker check was wired"
+open_risks:
+  - "DATABASE_DESIGN.md list counts for the immutable 00002 file are unchanged; current totals are asserted in pgtest"
+  - "the local skill-guard hook edits are not part of this slice and must stay out of the commit"
+  - "not committed and not reviewed"
+```
+
+## Regenerated profile model for PR #80
+
+```yaml
+date: "2026-11-13"
+contributor: "mibienpanjoe"
+tool_or_model: "Cursor, Grok 4.7"
+purpose: "Commit the sqlc model field that migration 00012 adds, so the static gate's generate check matches the index"
+repository_or_source_context: "PR #80, CI run 43334086904, gate static"
+files_or_sections_affected: ["src/api/internal/platform/dbgen/models.go", "TODO.md", "AI_USAGE.md"]
+third_party_sources_consulted: []
+license_review: PENDING
+closure: open
+human_reviewers: []
+tests_or_evidence: ["go tool sqlc generate -f db/sqlc.yaml then git diff: one added field, Profile.ProfileVisibility. make lint and the CI re-run are NOT RUN locally"]
+open_risks: ["the generated field is appended where sqlc places an ALTER-added column, at the end of the Profile struct"]
+
+## S9 assistant contract (2026-11-13)
 tool_or_model: "Claude Code (VS Code extension) with claude-sonnet-5-5"
 purpose: "S9 contract PR: one OpenAPI operation, askAssistant (POST /assistant/answers), with tests first; generated outputs refreshed; dependent documents aligned; Gmail alias note (H8) recorded"
 repository_or_source_context: "api/openapi.yaml, docs/SPEC.md US-INTEL-001, ADR-0011, TODO.md S9 block"
@@ -472,4 +564,16 @@ license_review: "NOT APPLICABLE (no third-party code or asset added; generated c
 human_reviewers: []
 tests_or_evidence: ["assistant_contract_test.go and contract_test.go (48 operations) pass; lint-contract and security-authz pass; make quality as a whole NOT RUN locally"]
 open_risks: ["design choices to confirm in review: members only with a verified email, no anonymous access (O5 open), no Idempotency-Key, 503 reuses SERVICE_UNAVAILABLE, the 'AI-6/AI-7' P1 modes are out of scope"]
+
+## AI code review tooling (2026-11-13)
+tool_or_model: "Claude Code (VS Code extension) with claude-sonnet-5-5 (setup); open-code-review 1.13.8 (the reviewer tool, LLM provider chosen by each user)"
+purpose: "Set up advisory AI code review: project rules, a pinned local wrapper (make review), a Claude Code command (/delegate-review) adapted from open-code-review, and a Claude Code GitHub Actions workflow (OAuth token) that is off by default"
+repository_or_source_context: "alibaba/open-code-review README, action.yml and configuration docs (read as untrusted external text); no code copied"
+files_or_sections_affected: [".opencodereview/rule.json", "scripts/review.sh", "scripts/tests/review_test.sh", "mk/60-review.mk", ".claude/commands/delegate-review.md", ".github/workflows/code-review.yml", "docs/DEV.md", "THIRD_PARTY_NOTICES.md", "TODO.md"]
+third_party_sources_consulted: ["https://github.com/alibaba/open-code-review (Apache-2.0; delegate-review.md adapted, header records the commit and changes)", "https://github.com/anthropics/claude-code-action (README and docs read as untrusted external text)"]
+commands: "scripts/tests/review_test.sh, make help, scripts/lint-shell.sh, make_test.sh; the reviewer tool itself was NOT RUN"
+license_review: "Apache-2.0 per package metadata and repository page; not re-verified from source"
+human_reviewers: []
+tests_or_evidence: ["review_test.sh 9 passed (fake npx); lint-shell OK; make_test 49 passed"]
+open_risks: ["the reviewers send diffs to an external provider (Anthropic for /delegate-review and the CI workflow); reviews are AI output to be checked by a human; the CI workflow and /delegate-review are NOT RUN until the owner enables them; Anthropic terms for a subscription token in shared CI are unverified"]
 ```
