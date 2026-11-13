@@ -22,6 +22,9 @@ cat >"$tmp/bin/gh" <<'EOF'
 ep="$2"
 case "$ep" in
   *"/contents/.github/sensitive-paths.txt"*) [ -z "${FAKE_NO_LIST:-}" ] || { echo "404" >&2; exit 1; }; cat "$FX/contents.json" ;;
+  *"/contents/.github/stray-paths.txt"*) [ -z "${FAKE_NO_STRAY:-}" ] || { echo "404" >&2; exit 1; }; cat "$FX/stray.json" ;;
+  *"/pulls/7") cat "$FX/pull.json" ;;
+  *"/issues/12") cat "$FX/issue12.json" ;;
   *"/comments"*) cat "$FX/comments.json" ;;
   *"/events"*) cat "$FX/events.json" ;;
   *"/reviews"*) cat "$FX/reviews.json" ;;
@@ -34,7 +37,12 @@ chmod +x "$tmp/bin/gh"
 list_b64="$(printf 'db/migrations/*\n.github/*\nscripts/*\nmk/*\nsecrets/*\napi/openapi.yaml\n# a comment\n\n' | base64 -w0)"
 printf '{"content":"%s","encoding":"base64"}' "$list_b64" >"$tmp/fx/contents.json"
 
+stray_b64="$(printf '# one pattern per line, prefixed by when it applies\nalways: .devin/*\nalways: .cursor/*\nalways: .idea/*\nalways: .vscode/*\nfeature: .gitignore\n' | base64 -w0)"
+printf '{"content":"%s","encoding":"base64"}' "$stray_b64" >"$tmp/fx/stray.json"
+
 reset() {
+  printf '{"body":"","labels":[],"head":{"ref":"feature/identity/profiles"},"user":{"login":"dev"}}' >"$tmp/fx/pull.json"
+  printf '{"number":12,"labels":[{"name":"finding"}]}' >"$tmp/fx/issue12.json"
   printf '[]' >"$tmp/fx/comments.json"
   printf '[]' >"$tmp/fx/events.json"
   printf '[]' >"$tmp/fx/reviews.json"
@@ -185,5 +193,84 @@ FAKE_NO_LIST=1 run enforce dev
 reset; files scripts/x.sh; comment "$BOT" 2026-11-13T01:00:00Z "$crit_ok"
 run enforce dev
 [ "$rc" -eq 1 ] && [ "$(grep -c 'FAIL' <<<"$out")" -ge 2 ] && ok "both failures are reported together" || ko "both (rc=$rc out=$out)"
+
+# --- stray paths and finding-to-test: report only until GATE_NEW=enforce (the promotion switch) ---
+set_pull() { # BODY LABELS_JSON HEAD_REF
+  python3 -I -c 'import json,sys; json.dump({"body": sys.argv[2], "labels": json.loads(sys.argv[3]), "head": {"ref": sys.argv[4]}, "user": {"login": "dev"}}, open(sys.argv[1], "w"))' "$tmp/fx/pull.json" "$1" "$2" "$3"
+}
+
+reset; files .gitignore src/api/internal/app/app.go
+run enforce dev
+[ "$rc" -eq 0 ] && grep -q 'stray' <<<"$out" && grep -q '\.gitignore' <<<"$out" && grep -q 'report only' <<<"$out" && ok "a stray .gitignore on a feature branch is reported, and never blocks while the checks are report-only" || ko "stray report (rc=$rc out=$out)"
+GATE_NEW=enforce run enforce dev
+[ "$rc" -eq 1 ] && grep -q 'stray' <<<"$out" && ok "with GATE_NEW=enforce the stray path fails (the promotion switch)" || ko "stray enforce (rc=$rc out=$out)"
+
+reset; files .gitignore; set_pull "" "[]" "chore/ops/x"
+GATE_NEW=enforce run enforce dev
+[ "$rc" -eq 0 ] && ok ".gitignore on a chore branch is not stray" || ko "gitignore chore (rc=$rc out=$out)"
+
+reset; files .devin/skills/pr-review/SKILL.md; set_pull "" "[]" "chore/ops/x"
+GATE_NEW=enforce run enforce dev
+[ "$rc" -eq 1 ] && grep -q '\.devin' <<<"$out" && ok "an editor or agent directory is stray on any branch" || ko "devin (rc=$rc out=$out)"
+
+reset; files .devin/skills/x; set_pull "" '[{"name":"stray-ok"}]' "feature/identity/profiles"
+GATE_NEW=enforce run enforce dev
+[ "$rc" -eq 0 ] && ok "the label stray-ok exempts a pull request" || ko "stray-ok (rc=$rc out=$out)"
+
+reset; files .devin/skills/x
+FAKE_NO_STRAY=1 GATE_NEW=enforce run enforce dev
+[ "$rc" -eq 0 ] && grep -q 'stray paths: NOT RUN' <<<"$out" && ok "a missing stray-paths list is NOT RUN, never a failure" || ko "no stray list (rc=$rc out=$out)"
+
+reset; set_pull "Closes #12" "[]" "fix/identity/x"; files src/api/internal/app/app.go
+run enforce dev
+[ "$rc" -eq 0 ] && grep -q 'finding' <<<"$out" && grep -q 'test' <<<"$out" && grep -q 'report only' <<<"$out" && ok "closing a finding issue without a test change is reported (report only)" || ko "finding no test (rc=$rc out=$out)"
+GATE_NEW=enforce run enforce dev
+[ "$rc" -eq 1 ] && ok "with GATE_NEW=enforce a finding closed without a test fails" || ko "finding enforce (rc=$rc out=$out)"
+
+reset; set_pull "Fixes #12" "[]" "fix/identity/x"; files src/api/internal/identity/service/profile.go src/api/internal/identity/service/profile_test.go
+GATE_NEW=enforce run enforce dev
+[ "$rc" -eq 0 ] && ok "a finding closed together with a Go test passes" || ko "finding with test (rc=$rc out=$out)"
+
+reset; set_pull "Resolves #12" "[]" "fix/web/x"; files src/web/src/a.ts scripts/tests/review_test.sh
+GATE_NEW=enforce run enforce Y4NN777
+[ "$rc" -eq 0 ] && grep -q 'a test file changed' <<<"$out" && ok "a script test under scripts/tests counts as a test (owner-authored: scripts/ is a sensitive path)" || ko "script test (rc=$rc out=$out)"
+
+reset; set_pull "Closes #12" '[{"name":"no-test"}]' "fix/identity/x"; files src/api/internal/app/app.go
+GATE_NEW=enforce run enforce dev
+[ "$rc" -eq 0 ] && ok "the label no-test exempts a finding closed without a test" || ko "no-test (rc=$rc out=$out)"
+
+reset; set_pull "Closes #12" "[]" "fix/identity/x"; files src/api/internal/app/app.go
+printf '{"number":12,"labels":[{"name":"bug"}]}' >"$tmp/fx/issue12.json"
+GATE_NEW=enforce run enforce dev
+[ "$rc" -eq 0 ] && ok "closing an issue that is not a finding needs no test" || ko "not a finding (rc=$rc out=$out)"
+
+reset; set_pull "Closes #12" "[]" "fix/identity/x"; files src/api/internal/app/app.go
+GATE_NEW=off run enforce dev
+[ "$rc" -eq 0 ] && ! grep -q 'finding' <<<"$out" && ok "GATE_NEW=off disables the two new checks" || ko "new off (rc=$rc out=$out)"
+
+# The promotion switch is independent: GATE_NEW=enforce blocks even while the main gate is still in report mode
+# (review note on #114: promoting GATE_NEW alone used to stay silently non-blocking).
+reset; files .devin/skills/x
+GATE_NEW=enforce run report dev
+[ "$rc" -eq 1 ] && grep -q 'stray' <<<"$out" && ok "GATE_NEW=enforce blocks a stray path even when GATE_MODE=report" || ko "independent switch (rc=$rc out=$out)"
+reset; set_pull "Closes #12" "[]" "fix/identity/x"; files src/api/internal/app/app.go
+GATE_NEW=enforce run report dev
+[ "$rc" -eq 1 ] && ok "GATE_NEW=enforce blocks a finding closed without a test even when GATE_MODE=report" || ko "independent switch finding (rc=$rc out=$out)"
+reset; files src/api/internal/app/app.go
+GATE_NEW=enforce run report dev
+[ "$rc" -eq 0 ] && ok "GATE_NEW=enforce with nothing to report passes in report mode" || ko "independent clean (rc=$rc out=$out)"
+
+# When GATE_NEW=enforce blocks, the findings of the other checks are still printed (review note on #115).
+reset; files .devin/skills/x scripts/x.sh
+GATE_NEW=enforce run report dev
+[ "$rc" -eq 1 ] && grep -q 'FAIL (GATE_NEW=enforce)' <<<"$out" && grep -q 'WOULD FAIL: sensitive paths touched' <<<"$out" && ok "a blocking new check still prints what the other checks found" || ko "print all (rc=$rc out=$out)"
+
+# A negation is not a closing keyword (review note on #114).
+reset; set_pull "This does not close #12, it only prepares it." "[]" "fix/identity/x"; files src/api/internal/app/app.go
+GATE_NEW=enforce run enforce dev
+[ "$rc" -eq 0 ] && ok "\"does not close #12\" is not a closing keyword" || ko "negation (rc=$rc out=$out)"
+reset; set_pull "Fixes: #12" "[]" "fix/identity/x"; files src/api/internal/app/app.go
+GATE_NEW=enforce run enforce dev
+[ "$rc" -eq 1 ] && ok "\"Fixes: #12\" (with a colon, as GitHub reads it) is a closing keyword" || ko "colon (rc=$rc out=$out)"
 
 finish
