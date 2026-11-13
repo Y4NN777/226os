@@ -693,6 +693,8 @@ closure: "open"
 human_reviewers: ["NICE-DEV226 (pending)", "Y4NN777 (migration and shared limiter, pending)"]
 tests_or_evidence: ["make generate, lint, typecheck, test-unit, test-integration-go, security PASS (subagent run)", "make coverage PASS: Go first-party 100.0% (3079/3079), re-run in the main session"]
 open_risks: ["identity still has its own limiter until it migrates to platform/ratelimit", "rate-limit integration tests depend on the real clock (they wait for a fresh minute)", "whitespace-only report bodies are rejected with 422, stricter than the schema's minLength 1", "a repeated open report returns the existing report and drops the new body and source_id", "the client IP trusts the last X-Forwarded-For entry; correct only while Traefik is the sole ingress with default forwardedHeaders (not pinned in compose.yaml)", "/24 and /48 keying means users behind carrier NAT share 60 searches per minute"]
+```
+
 ## S7 frontend PR 1: shell and identity pages
 
 ```yaml
@@ -705,7 +707,7 @@ files_or_sections_affected: ["src/web/src/**", "TODO.md", "AI_USAGE.md"]
 third_party_sources_consulted: ["installed @astryxdesign/cli 0.7.14 component docs", "openapi-fetch 0.17 type declarations"]
 license_review: "NOT APPLICABLE: original code, no new dependency"
 closure: "open"
-human_reviewers: ["mibienpanjoe (pending)"]
+human_reviewers: ["PANK4SS (pending)"]
 tests_or_evidence: ["RED then GREEN per file with Vitest (api/http.test.ts, app/Shell.test.tsx, features/identity/*.test.tsx)", "pnpm --filter web run lint/format:check/typecheck/test/coverage exit 0; coverage 96.94/87.29/98.75/98.38"]
 open_risks: ["Visual, axe and responsive evidence (ADR-0007) not produced in jsdom.", "Mails carry a bare token until APP_BASE_URL links land (fix/platform/s7-api-gaps)."]
 ```
