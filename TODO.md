@@ -66,7 +66,7 @@ Open owner items outside CADEV (IDs and decisions in ROADMAP section 8, 10 and 1
 - [ ] **PostgreSQL rate limiter** (`rate_limit_buckets`, ADR-0003 windows). S1 builds it as a reusable port; other scopes: anonymous search 60/IP/min (S2); authenticated writes 60/user/min (S3, S4, S5); GitHub import 10/user/hour (S5); assistant (S9).
   - 2026-11-13 (`mibienpanjoe`): DECIDED by the owner on PR #96: shared limiter `src/api/internal/platform/ratelimit` (fixed window, HKDF subkey of `CURSOR_KEY`, bounded purge whose failure never fails a hit) and `httpx.ClientIPKey`, on `feature/discover/error-reports`; used by search and error reports. Identity keeps its own limiter until a follow-up after PR #90 (`NICE-DEV226`). Authenticated writes use the one `write:user` scope (60/user/min); S3 to S5 reuse it.
 - [ ] **`EMAIL_NOT_VERIFIED` check.** S1 exposes `email_verified` on the subject, and each publishing service checks it.
-- [ ] **`links[]` relation writer and resolved-links reader** (`content_relations`, ADR-0005 point 13). `mibienpanjoe` builds the reader in S2 and the writer in S4; S3 and S5 reuse them. `links` appears in `QuestionCreate`, `QuestionUpdate`, `ProjectCreate`, `ProjectUpdate`, `ArticleCreate`. 2026-11-13: the reader is in PR #83; the writer is still S4.
+- [ ] **`links[]` relation writer and resolved-links reader** (`content_relations`, ADR-0005 point 13). `mibienpanjoe` builds the reader in S2 and the writer in S4; S3 and S5 reuse them. `links` appears in `QuestionCreate`, `QuestionUpdate`, `ProjectCreate`, `ProjectUpdate`, `ArticleCreate`. 2026-11-13: the reader is in PR #83; the article writer is on `feature/learn/articles-series` (S4).
 - [ ] **`audit_log` writer.** Proposal: S6 builds it; S1 security events also go to `audit_log` (DATABASE_DESIGN), so the lead decides the order.
 - [x] **Idempotency-Key** on the six operations (`createQuestion`, `createAnswer`, `createProject`, `createContributionNeed`, `createApplication`, `createLearnArticle`; `castVote` does not bind the header). Built in S0 (PR #34).
 - [ ] **Contract PR for the Idempotency response headers** (own PR, R7): declare `Idempotency-Replayed` and `Idempotency-Body-Omitted` on the six bound operations. PROPOSED by S0; the owner approves by merging. OBSERVED 2026-11-12: `api/openapi.yaml` already declares both headers; the owner confirms the approval and ticks this. Until then ADR-0004 point 2 applies (clients ignore unknown headers).
@@ -104,9 +104,9 @@ Open owner items outside CADEV (IDs and decisions in ROADMAP section 8, 10 and 1
   - [x] `verifyEmail` (single use, 24 h, 422 `INVALID_TOKEN`) — PR #89, 2026-11-13
   - [x] `requestPasswordReset` (always 202; 3/account and 10/IP per hour) — PR #89, 2026-11-13
   - [x] `confirmPasswordReset` (30 min; revokes all the user's sessions) — PR #89, 2026-11-13
-  - [x] `getMe` (the only place the email is returned) — PR #94 pending
-  - [x] `updateMyProfile` (own profile; JSON Merge Patch; accepts `profile_visibility`, default `public`) — PR #94 pending
-  - [x] `getProfile` (C14b: `members` gives anonymous 404, `private` owner only, the 404 body identical to unknown or deleted; moderators no special access; suspended users out of scope for P0) — PR #94 pending
+  - [x] `getMe` (the only place the email is returned) — PR #94, 2026-11-13
+  - [x] `updateMyProfile` (own profile; JSON Merge Patch; accepts `profile_visibility`, default `public`) — PR #94, 2026-11-13
+  - [x] `getProfile` (C14b: `members` gives anonymous 404, `private` owner only, the 404 body identical to unknown or deleted; moderators no special access; suspended users out of scope for P0) — PR #94, 2026-11-13
   - Known deviation: `languages` accepts only 2-3 letter codes; widen the DB check and the contract after the freeze (owner owns the contract follow-up).
 - [ ] Bylines on published content keep showing username and display name whatever `profile_visibility` says; deleted accounts show "membre supprimé" (ADR-0005 point 15).
 - [x] Argon2id m=64 MiB, t=3, p=1 with a semaphore (implemented; the target-host benchmark stays with S8, K6 check pending there).
@@ -116,7 +116,7 @@ Open owner items outside CADEV (IDs and decisions in ROADMAP section 8, 10 and 1
 - **Acceptance:** `US-IDENTITY-001/2` (with S7); ADR-0003 "Evidence" (session expiry, rotation, revocation; CSRF cases; enumeration and timing; 429 with `Retry-After`; no token in logs). Negative authz per [AUTHORIZATION_MATRIX](docs/spec-kit/AUTHORIZATION_MATRIX.md) identity rows, plus `getProfile` per `profile_visibility` x caller (anonymous, member, owner, moderator) with identical 404 bodies.
 - **Prototype pages:** `connexion`, `inscription`, `verifier-email`, `mot-de-passe-oublie`, `reinitialiser`, `bienvenue`, `profile`, `parametres`.
 - **Allowed paths:** `src/api/internal/identity/**`, `db/queries/identity.sql`, `db/queries/platform.sql`, generated `dbgen` (via `make generate`), `scripts/public-routes.txt` (anonymous auth routes, with reasons). **DoD:** DoD-common plus cookie inspection per profile and a redacted email-flow log through Mailpit. **Stop:** if ADR-0003 values would need to change.
-- **Status:** IN PROGRESS — PR #89 (merged 2026-11-13; review follow-ups: bucket purge and key separation on `feature/identity/review-followups`) implemented the 8 auth operations end to end (sign-up through password reset, CSRF, session resolver, PostgreSQL rate limits, pgtest integration); `getMe`, `updateMyProfile`, `getProfile` and the profile-visibility matrix remain for `feature/identity/profiles`.
+- **Status:** OPERATIONS DONE — the 8 auth operations (PR #89, follow-ups #90 and #93) and the profile operations (PR #94) are merged (2026-11-13); issue #65 closed. Still open: the bylines item (Learn reads show username and display name whatever `profile_visibility` says, 2026-11-13, S4; deleted accounts are not handled yet) and O4 (owner ruling).
   - 2026-11-13 (`mibienpanjoe`): issue #91, the reset-mail race in `TestIdentitySignInRotationAndReset`, fixed on `fix/identity/reset-mail-race` (test-only: `mailToken` waits for the next mail instead of returning the latest).
 
 ---
@@ -130,9 +130,9 @@ Open owner items outside CADEV (IDs and decisions in ROADMAP section 8, 10 and 1
   - [x] `getResource` (public; resolved related links, visible items only). PR #83, 2026-11-13. Outgoing links are published projects and articles; incoming links are published questions. `content_relations` has no series.
   - [x] Review of PR #83 (2026-11-13): the batched queries for related links, discussions and SDKs keep at most 20 rows per resource (a window per resource), so one resource cannot starve the others on a page (integration test `TestCatalogueBatchedQueriesCapPerResource`, red first). A related resource leaking through an unpublished provider cannot happen: `content_relations_pair_ck` allows no resource-to-resource link. The anonymous `q` throttle waits for the S1 limiter (60/IP/min, see Shared pieces).
   - [x] `listResourceSources` (public; a stale source is never shown as verified). PR #83, 2026-11-13. A source is `verified` only when it is the resource's current verified source. No freshness window is defined, so the read does not invent `stale`.
-  - [ ] `createResourceErrorReport` (member; reporter kept private; rate limited)
+  - [x] `createResourceErrorReport` (member; reporter kept private; rate limited) — PR #96, 2026-11-13
     - 2026-11-13: in progress on `feature/discover/error-reports` (stacked on `feature/discover/search`). DECIDED by the owner on PR #96: a verified email is required (403 `EMAIL_NOT_VERIFIED`, stricter than the contract's `allow: member`); a repeated open report returns 201 with the existing report (no contract 409); migration `00013` adds `error_reports.source_id` with a composite FK to `resource_sources (id, resource_id)`; reports draw on the shared `write:user` budget (60 per user per minute, ADR-0003), failing closed.
-  - [ ] `search` (`q` 2 to 200, C4; `per_group` 1 to 20; published and visible only; anonymous 60/IP/min)
+  - [x] `search` (`q` 2 to 200, C4; `per_group` 1 to 20; published and visible only; anonymous 60/IP/min) — PR #92, 2026-11-13
     - 2026-11-13: anonymous 60/IP/min limit (429 with `Retry-After`, fails open) on `feature/discover/error-reports`.
     - 2026-11-13 (#95): a blank `q` is trimmed before the 2-character minimum and gets 422. Also in S2: related links on `getResource` now alternate outgoing links and discussions before the cap of 20 (order changed for every resource; the contract fixes none), and the catalogue `q` rejects NUL and invalid UTF-8 with 422.
     - 2026-11-13: merged (PR #92). C4 DECIDED by the owner 2026-11-13 (option 1, PR #92): the contract keeps `maxLength: 200`; the server searches on the first 100 characters at a word boundary (ADR-0005 point 6) and echoes the original `q`. The anonymous 60/IP/min limit waits for the S1 rate limiter (#89).
@@ -141,7 +141,7 @@ Open owner items outside CADEV (IDs and decisions in ROADMAP section 8, 10 and 1
 - **Tables:** `resource_categories`, `providers`, `resources`, `resource_countries`, `resource_sdk_languages`, `resource_sources`, `resource_tags`, `error_reports`, `countries`, `tags`; search reads questions, answers, projects, learn articles.
 - **Acceptance:** `US-DISCOVER-001/1`, search steps of `US-SOLVE-001/1` and `US-LEARN-001/2`. Negative authz: no private or removed content through lists or search; anonymous error report 401; CSRF 403; reporter identity never exposed; rate limit.
 - **Prototype pages:** `discover`, `resource`, `recherche`, part of `accueil`. **Allowed paths:** `src/api/internal/discover/**`, `src/api/internal/search/**`, `db/queries/**` (these files), generated `dbgen`, `db/migrations/**` only if needed (R6), `scripts/public-routes.txt`. **DoD:** DoD-common plus EXPLAIN plans. **Stop:** if a query cannot be bounded within ADR-0005.
-- **Status:** IN PROGRESS. Catalogue reads merged (PR #83, 2026-11-13). Search in progress on `feature/discover/search`; error reports wait for S1 (#89).
+- **Status:** OPERATIONS DONE — catalogue reads (PR #83), search (PR #92) and error reports (PR #96) merged 2026-11-13; issue #66 closed. Still open: the EXPLAIN and bilingual relevance dataset item (G6).
 
 ---
 
@@ -171,17 +171,17 @@ Open owner items outside CADEV (IDs and decisions in ROADMAP section 8, 10 and 1
 - **Owner:** `mibienpanjoe` (accountable). **Reviewer:** `NICE-DEV226` (`Y4NN777` if `NICE-DEV226` co-wrote, unless `Y4NN777` co-wrote too). **Helpers:** `Y4NN777` (default: S4 and the content script, after the Fri 13 Nov 23:00 checkpoint), `NICE-DEV226`, `PANK4SS` on demand.
 - **Branch:** `feature/learn/articles-series` (C8). **Depends on:** S0 for reads; S1 for publishing; **the first contract PR (C2) merged**. C3 (`my_progress`) is open.
 - **Operations:**
-  - [ ] `listLearnArticles` (public; `topic` = topic code, after the first contract PR)
-  - [ ] `createLearnArticle` (no session 401; publishing needs a verified email 403, a `draft` does not; Idempotency-Key; `links[]`; keeps the original language)
-  - [ ] `getLearnArticle` (original-language body plus `lang`; resolved links)
-  - [ ] `listTrainingSeries` (public)
-  - [ ] `getTrainingSeries` (public; `my_progress` blocked on C3)
-- [ ] **Content script for the free series (B5 DECIDED; H19).** Written by `mibienpanjoe`, helped by `Y4NN777`, **run by `Y4NN777`**. Path `scripts/content/`: plain SQL, one-time, PR-reviewed, neither a seed nor a migration. Creates one `training_series` and 3 to 4 tutorial `learn_articles` referenced by `training_lessons.article_id` (original team text, `provenance='live'`, attributed to the owner's real account looked up by username, never a hard-coded id). Runs with an explicit confirmation like `migrate-up`, after a backup; first on `staging-test`, then on `production-live`. Record each run date in the Done log.
-- [ ] `links[]` writer (Shared pieces).
+  - [x] `listLearnArticles` (public; `topic` = topic code, after the first contract PR) — `feature/learn/articles-series`, 2026-11-13
+  - [x] `createLearnArticle` (no session 401; publishing needs a verified email 403, a `draft` does not; Idempotency-Key; `links[]`; keeps the original language) — same branch; shared `write:user` budget
+  - [x] `getLearnArticle` (original-language body plus `lang`; resolved links; a draft or archived article only to its author) — same branch
+  - [x] `listTrainingSeries` (public) — same branch
+  - [x] `getTrainingSeries` (public; `my_progress` blocked on C3: not served, the field is optional) — same branch
+- [x] **Content script for the free series (B5 DECIDED; H19).** 2026-11-13: `scripts/content/free-series.sql` and `run-free-series.sh` written (gate tested by `scripts/tests/free-series_test.sh`, SQL by `TestFreeSeriesContentScript`); the text needs the team's review in the PR. Not run on any shared environment yet; the staging and production runs stay in S8. Written by `mibienpanjoe`, helped by `Y4NN777`, **run by `Y4NN777`**. Path `scripts/content/`: plain SQL, one-time, PR-reviewed, neither a seed nor a migration. Creates one `training_series` and 3 to 4 tutorial `learn_articles` referenced by `training_lessons.article_id` (original team text, `provenance='live'`, attributed to the owner's real account looked up by username, never a hard-coded id). Runs with an explicit confirmation like `migrate-up`, after a backup; first on `staging-test`, then on `production-live`. Record each run date in the Done log.
+- [x] `links[]` writer (Shared pieces). 2026-11-13: article links are stored canonically (question, resource or project -> article), each target locked FOR SHARE and checked published and public in the creating transaction. `series` and `article` targets are refused with 422 because `content_relations` has no such pair.
 - **Tables:** `learn_articles`, `learn_article_tags`, `training_series`, `training_lessons`, `learn_topics`, `tags`, `content_relations`. `learn_progress` is P1.
 - **Acceptance:** `US-LEARN-001/1` to `/4`. Negative authz: anonymous publish 401 and nothing created; unverified publish 403; CSRF 403; a draft visible only to its author; removed content never leaks.
 - **Prototype pages:** `apprendre`, `article`, `formation`, `ecrire`. **Allowed paths:** `src/api/internal/learn/**`, `db/queries/**` (learn files), generated `dbgen`, `scripts/public-routes.txt`, `scripts/content/**` (`Y4NN777` co-reviews). **DoD:** DoD-common plus a test that original-language content is preserved. **Stop:** do not merge the S4 handlers before the first contract PR has merged.
-- **Status:** PLANNED
+- **Status:** IN PROGRESS on `feature/learn/articles-series` (2026-11-13): the five P0 operations, the `links[]` writer and the content script are written with unit, real-PostgreSQL and route-gate tests; `DONE` waits for the review and the merge.
 
 ---
 

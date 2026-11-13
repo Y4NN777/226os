@@ -16,6 +16,7 @@ import (
 	"github.com/Y4NN777/226os/src/api/internal/identity/repository"
 	"github.com/Y4NN777/226os/src/api/internal/identity/service"
 	identitytransport "github.com/Y4NN777/226os/src/api/internal/identity/transport"
+	"github.com/Y4NN777/226os/src/api/internal/learn"
 	"github.com/Y4NN777/226os/src/api/internal/platform/config"
 	"github.com/Y4NN777/226os/src/api/internal/platform/cursor"
 	"github.com/Y4NN777/226os/src/api/internal/platform/httpx"
@@ -94,6 +95,7 @@ func run(ctx context.Context, getenv func(string) string, out io.Writer, serve s
 		WithErrorReports(catalogue),
 		WithIdentity(authHandler),
 		WithSearch(search.NewHandler(pool, limiter, logger)),
+		WithLearn(learn.NewHandler(pool, codec, limiter, logger)),
 	)
 	deps.Subjects = identitytransport.NewResolver(identSvc, secureCookies)
 	deps.CSRF = identitytransport.CSRFMiddleware(identSvc, secureCookies, logger)
