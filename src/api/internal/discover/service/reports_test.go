@@ -104,13 +104,13 @@ func TestCreateErrorReportValidation(t *testing.T) {
 		edit  func(*ReportRequest)
 		field string
 	}{
-		{"unknown kind", func(r *ReportRequest) { r.Kind = "spam" }, "kind"},
-		{"empty body", func(r *ReportRequest) { r.Body = "" }, "body"},
-		{"blank body", func(r *ReportRequest) { r.Body = " \n\t " }, "body"},
-		{"body of 2001 characters", func(r *ReportRequest) { r.Body = strings.Repeat("é", 2001) }, "body"},
-		{"body with NUL", func(r *ReportRequest) { r.Body = "a\x00b" }, "body"},
-		{"body that is not UTF-8", func(r *ReportRequest) { r.Body = "a\xffb" }, "body"},
-		{"malformed source id", func(r *ReportRequest) { r.SourceID = "nope" }, "source_id"},
+		{"unknown kind", func(r *ReportRequest) { r.Kind = "spam" }, "/kind"},
+		{"empty body", func(r *ReportRequest) { r.Body = "" }, "/body"},
+		{"blank body", func(r *ReportRequest) { r.Body = " \n\t " }, "/body"},
+		{"body of 2001 characters", func(r *ReportRequest) { r.Body = strings.Repeat("é", 2001) }, "/body"},
+		{"body with NUL", func(r *ReportRequest) { r.Body = "a\x00b" }, "/body"},
+		{"body that is not UTF-8", func(r *ReportRequest) { r.Body = "a\xffb" }, "/body"},
+		{"malformed source id", func(r *ReportRequest) { r.SourceID = "nope" }, "/source_id"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -119,8 +119,9 @@ func TestCreateErrorReportValidation(t *testing.T) {
 			tc.edit(&req)
 			_, err := NewReports(store, lim).Create(t.Context(), verified(), req)
 			ae := code(t, err, apperr.CodeValidation)
-			if len(ae.Violations) != 1 || ae.Violations[0].Field != tc.field {
-				t.Fatalf("violations %+v, want one on %q", ae.Violations, tc.field)
+			// A JSON pointer and a Violation.code enum value, so the web form can map them (issue #116 rule).
+			if len(ae.Violations) != 1 || ae.Violations[0].Field != tc.field || !contractCodes[ae.Violations[0].Code] {
+				t.Fatalf("violations %+v, want one contract violation on %q", ae.Violations, tc.field)
 			}
 			if len(store.got) != 0 || len(lim.calls) != 0 {
 				t.Fatal("an invalid request reached the limiter or the store")
@@ -174,9 +175,15 @@ func TestCreateErrorReportPropagatesStoreErrors(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			_, err := NewReports(&fakeReports{err: tc.err}, &fakeLimiter{allowed: true}).Create(t.Context(), verified(), okReq())
 			ae := code(t, err, tc.want)
-			if tc.want == apperr.CodeValidation && (len(ae.Violations) != 1 || ae.Violations[0].Field != "source_id") {
+			if tc.want == apperr.CodeValidation && (len(ae.Violations) != 1 || ae.Violations[0].Field != "/source_id" || !contractCodes[ae.Violations[0].Code]) {
 				t.Fatalf("violations %+v, want one on source_id", ae.Violations)
 			}
 		})
 	}
+}
+
+// contractCodes is the Violation.code enum of api/openapi.yaml.
+var contractCodes = map[string]bool{
+	"required": true, "too_short": true, "too_long": true, "invalid_format": true, "invalid_value": true,
+	"out_of_range": true, "too_many_items": true, "duplicate": true, "unknown_field": true,
 }
