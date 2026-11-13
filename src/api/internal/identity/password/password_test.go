@@ -34,6 +34,21 @@ func TestHashRejectsShortAndLong(t *testing.T) {
 	if Valid("  padded-password-12  ") != true {
 		t.Fatal("padded valid password rejected")
 	}
+	// The contract counts characters, not bytes: 12 CJK chars are 36 bytes.
+	if !Valid("のパスワードテストです。") {
+		t.Fatal("12-rune multi-byte password rejected")
+	}
+	// 3 CJK chars are 9 bytes but only 3 characters: must be rejected.
+	if Valid("パスワ") {
+		t.Fatal("3-rune multi-byte password accepted")
+	}
+	// 128 accented chars (256 bytes) must pass; 129 must fail.
+	if !Valid(strings.Repeat("é", 128)) {
+		t.Fatal("128-rune multi-byte password rejected")
+	}
+	if Valid(strings.Repeat("é", 129)) {
+		t.Fatal("129-rune password accepted")
+	}
 }
 
 func TestVerifyRejectsMalformedAndWeakHashes(t *testing.T) {

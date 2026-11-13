@@ -15,6 +15,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"unicode/utf8"
 
 	"golang.org/x/crypto/argon2"
 )
@@ -66,8 +67,10 @@ func Normalize(pw string) string {
 }
 
 // Valid reports whether pw satisfies the length contract after Normalize.
+// The contract counts characters, not bytes: a multi-byte password must not
+// be rejected early or accepted past the real limit.
 func Valid(pw string) bool {
-	n := len(Normalize(pw))
+	n := utf8.RuneCountInString(Normalize(pw))
 	return n >= 12 && n <= 128
 }
 

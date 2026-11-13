@@ -217,7 +217,7 @@ func TestRequestPasswordResetAlways202(t *testing.T) {
 			t.Fatalf("%s: %d", email, rec.Code)
 		}
 	}
-	if len(mail.Sent()) == 0 {
+	if len(waitMail(t, mail, 1)) == 0 {
 		t.Fatal("no reset mail sent for known account")
 	}
 	_ = st

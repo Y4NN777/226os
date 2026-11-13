@@ -327,6 +327,55 @@ func TestSignOutBranches(t *testing.T) {
 	if err := svc.SignOut(ctx, res.Cookie.Value); err == nil {
 		t.Fatal("revoke error swallowed")
 	}
+	st.errs = nil
+
+	// Lookup failure is NOT the silent no-op: the session may still be live,
+	// so the client must see a retryable error instead of a false 204.
+	st.errs = map[string]error{"SessionByTokenHash": errBoom}
+	if err := svc.SignOut(ctx, res.Cookie.Value); apperrCode(t, err) != apperr.CodeInternal {
+		t.Fatalf("lookup error: %v", err)
+	}
+	st.errs = nil
+}
+
+func TestResolveSessionAccountLookupErrorIsInternal(t *testing.T) {
+	ctx := context.Background()
+	svc, st, _ := testSvc(t)
+	acct := seedAccount(t, st, "accterr@example.com")
+	res, err := svc.SignIn(ctx, SignInInput{Email: acct.Email, Password: testPassword, IP: "10.5.0.2"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// A transient store failure must be a retryable 500, not a silent 401
+	// that logs the member out.
+	st.errs = map[string]error{"AccountByID": errBoom}
+	if _, err := svc.ResolveSession(ctx, res.Cookie.Value); apperrCode(t, err) != apperr.CodeInternal {
+		t.Fatalf("account lookup error: %v", err)
+	}
+}
+
+func TestResolveSessionIdleExpiryCappedAtAbsolute(t *testing.T) {
+	svc, st, _ := testSvc(t)
+	ctx := context.Background()
+	acct := seedAccount(t, st, "cap@example.com")
+	res, err := svc.SignIn(ctx, SignInInput{Email: acct.Email, Password: testPassword, IP: "10.5.0.3"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	h, _ := hashToken(res.Cookie.Value)
+	sess := st.sessions[st.tokenHash[h]]
+	// Push the session into its last two hours: now+idleTTL would exceed
+	// absolute_expires_at and violate sessions_expiry_ck.
+	sess.LastSeenAt = time.Now().Add(-10 * time.Minute)
+	sess.AbsoluteExpiresAt = time.Now().Add(time.Hour)
+	st.sessions[sess.ID] = sess
+	if _, err := svc.ResolveSession(ctx, res.Cookie.Value); err != nil {
+		t.Fatal(err)
+	}
+	got := st.sessions[sess.ID]
+	if !got.IdleExpiresAt.Equal(got.AbsoluteExpiresAt) {
+		t.Fatalf("idle %v not capped at absolute %v", got.IdleExpiresAt, got.AbsoluteExpiresAt)
+	}
 }
 
 // ---------- CSRF service surface ----------

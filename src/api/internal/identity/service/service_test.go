@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -206,6 +207,7 @@ func (f *fakeStore) Hit(_ context.Context, scope string, key [32]byte, limit int
 }
 
 type fakeMail struct {
+	mu   sync.Mutex
 	sent []string
 	err  error
 }
@@ -214,8 +216,26 @@ func (m *fakeMail) Send(_ context.Context, msg mailer.Message) error {
 	if m.err != nil {
 		return m.err
 	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.sent = append(m.sent, msg.To...)
 	return nil
+}
+
+// waitSent polls until at least n sends landed (mail goes out async).
+func (m *fakeMail) waitSent(t *testing.T, n int) {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		m.mu.Lock()
+		got := len(m.sent)
+		m.mu.Unlock()
+		if got >= n {
+			return
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	t.Fatalf("expected %d mails, got none in time", n)
 }
 
 func testSvc(t *testing.T) (*Service, *fakeStore, *fakeMail) {
@@ -267,14 +287,21 @@ func TestSignUpIsGenericAndSendsVerification(t *testing.T) {
 	if err != nil || a.Email != "new@example.com" {
 		t.Fatalf("account %+v err %v", a, err)
 	}
+	mail.waitSent(t, 1)
+	mail.mu.Lock()
 	if len(mail.sent) != 1 || mail.sent[0] != "new@example.com" {
 		t.Fatalf("mail %v", mail.sent)
 	}
+	mail.mu.Unlock()
 	// Second sign-up with the same email: same nil result, no second mail.
 	if err := svc.SignUp(ctx, SignUpInput{Email: "new@example.com", Password: testPassword,
 		Username: "newbie2", IP: "203.0.113.8"}); err != nil {
 		t.Fatal(err)
 	}
+	// Give a hypothetical stray async send a moment to land before asserting.
+	time.Sleep(50 * time.Millisecond)
+	mail.mu.Lock()
+	defer mail.mu.Unlock()
 	if len(mail.sent) != 1 {
 		t.Fatal("duplicate sign-up sent another mail")
 	}

@@ -312,6 +312,72 @@ func TestIdentitySignInRotationAndReset(t *testing.T) {
 	}
 }
 
+// Two reset mails may be live at once (3/account/hour), but confirming with
+// one must burn every other open token for that account.
+func TestIdentityResetBurnsSiblingTokens(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 60*time.Second)
+	defer cancel()
+	s := newIdentityStack(ctx, t)
+
+	s.signUp(t, "sib@example.com", "sibuser")
+	vtok := s.mailToken(t, "sib@example.com")
+	cookie, csrf := s.csrfToken(t)
+	rec := s.do(t, http.MethodPost, "/api/v1/auth/verify-email",
+		`{"token":"`+vtok+`"}`, map[string]string{"X-CSRF-Token": csrf}, cookie)
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("verify %d", rec.Code)
+	}
+
+	// Two reset requests -> two live tokens; mailToken returns the latest.
+	cookie, csrf = s.csrfToken(t)
+	for i := 0; i < 2; i++ {
+		rec = s.do(t, http.MethodPost, "/api/v1/auth/password-reset/request",
+			`{"email":"sib@example.com"}`, map[string]string{"X-CSRF-Token": csrf}, cookie)
+		if rec.Code != http.StatusAccepted {
+			t.Fatalf("reset request %d", rec.Code)
+		}
+	}
+	newest := s.mailToken(t, "sib@example.com")
+	// The older token is the previous mail's: extract it by counting mails.
+	var tokens []string
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) && len(tokens) < 3 {
+		tokens = nil
+		for _, m := range s.mail.Sent() {
+			if len(m.To) == 1 && m.To[0] == "sib@example.com" {
+				for _, line := range strings.Split(m.Text, "\n") {
+					line = strings.TrimSpace(line)
+					if len(line) >= 40 && !strings.ContainsAny(line, " :") {
+						tokens = append(tokens, line)
+					}
+				}
+			}
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if len(tokens) < 3 {
+		t.Fatalf("expected verification + 2 reset tokens, got %d", len(tokens))
+	}
+	oldest := tokens[len(tokens)-2] // first reset token (before newest)
+
+	// Confirm with the OLDER token: it must still work once...
+	cookie, csrf = s.csrfToken(t)
+	rec = s.do(t, http.MethodPost, "/api/v1/auth/password-reset/confirm",
+		`{"token":"`+oldest+`","new_password":"sib-new-password-1"}`,
+		map[string]string{"X-CSRF-Token": csrf}, cookie)
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("confirm older token %d %s", rec.Code, rec.Body.String())
+	}
+	// ...and the newer sibling must now be dead.
+	cookie, csrf = s.csrfToken(t)
+	rec = s.do(t, http.MethodPost, "/api/v1/auth/password-reset/confirm",
+		`{"token":"`+newest+`","new_password":"sib-other-password-1"}`,
+		map[string]string{"X-CSRF-Token": csrf}, cookie)
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("sibling token survived: %d %s", rec.Code, rec.Body.String())
+	}
+}
+
 func TestIdentityRateLimitFailsClosed(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 120*time.Second)
 	defer cancel()

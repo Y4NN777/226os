@@ -79,10 +79,11 @@ SELECT user_id FROM c;
 INSERT INTO password_resets (user_id, token_hash, expires_at)
 VALUES ($1, $2, $3);
 
--- ResetPassword consumes the token, stores the new hash and revokes every
--- session of the account in one statement: a single statement is its own
--- transaction, so a failure cannot leave a consumed token with the old
--- password still active.
+-- ResetPassword consumes the token, stores the new hash, revokes every
+-- session of the account and burns every other open reset token for that
+-- account in one statement: a single statement is its own transaction, so a
+-- failure cannot leave a consumed token with the old password still active,
+-- and an intercepted older mail cannot reset the account again.
 -- name: ResetPassword :one
 WITH c AS (
   UPDATE password_resets SET consumed_at = $2
@@ -94,6 +95,9 @@ WITH c AS (
 ), s AS (
   UPDATE sessions SET revoked_at = $2, revoked_reason = 'password_reset'
   FROM c WHERE sessions.user_id = c.user_id AND sessions.revoked_at IS NULL
+), t AS (
+  UPDATE password_resets pr SET consumed_at = $2
+  FROM c WHERE pr.user_id = c.user_id AND pr.token_hash <> $1 AND pr.consumed_at IS NULL
 )
 SELECT user_id FROM c;
 

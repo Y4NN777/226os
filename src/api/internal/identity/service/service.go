@@ -287,10 +287,23 @@ func (s *Service) sendVerification(ctx context.Context, acct domain.Account) {
 	if err := s.store.CreateEmailVerification(ctx, acct.ID, acct.Email, hash, s.now().Add(verifyTTL)); err != nil {
 		return
 	}
-	_ = s.mail.Send(ctx, mailer.Message{
+	s.sendMail(ctx, mailer.Message{
 		To: []string{acct.Email}, Subject: "Verify your 226os e-mail",
 		Text: "Confirm your e-mail address:\n\n" + plain + "\n\nThis link expires in 24 hours.",
 	})
+}
+
+// mailTimeout bounds a detached send: the request path must not wait on SMTP.
+const mailTimeout = 30 * time.Second
+
+// sendMail delivers off the request path so silent and known-account
+// responses stay in the same time envelope (no SMTP-timing oracle).
+func (s *Service) sendMail(ctx context.Context, m mailer.Message) {
+	go func() {
+		c, cancel := context.WithTimeout(context.WithoutCancel(ctx), mailTimeout)
+		defer cancel()
+		_ = s.mail.Send(c, m)
+	}()
 }
 
 // ---------- sign-in ----------
@@ -375,10 +388,23 @@ func (s *Service) ResolveSession(ctx context.Context, plain string) (SessionView
 		return SessionView{}, unauthenticated()
 	}
 	if now.Sub(sess.LastSeenAt) >= lastSeenEvery {
-		_ = s.store.TouchSession(ctx, sess.ID, now, now.Add(idleTTL))
+		// Cap the refreshed idle expiry at the absolute expiry: beyond the
+		// session's last two hours an uncapped value would violate
+		// sessions_expiry_ck and the touch would silently fail forever.
+		idle := now.Add(idleTTL)
+		if idle.After(sess.AbsoluteExpiresAt) {
+			idle = sess.AbsoluteExpiresAt
+		}
+		_ = s.store.TouchSession(ctx, sess.ID, now, idle)
 	}
 	acct, err := s.store.AccountByID(ctx, sess.UserID)
-	if err != nil || acct.Status != "active" {
+	if err != nil {
+		if errors.Is(err, domain.ErrNotFound) {
+			return SessionView{}, unauthenticated()
+		}
+		return SessionView{}, apperr.Wrap(apperr.CodeInternal, err)
+	}
+	if acct.Status != "active" {
 		return SessionView{}, unauthenticated()
 	}
 	return SessionView{
@@ -399,7 +425,12 @@ func (s *Service) SignOut(ctx context.Context, plain string) error {
 	}
 	sess, err := s.store.SessionByTokenHash(ctx, hash)
 	if err != nil {
-		return nil
+		// Only a missing session is the silent no-op; a store failure must
+		// surface so the client retries instead of keeping a live session.
+		if errors.Is(err, domain.ErrNotFound) {
+			return nil
+		}
+		return apperr.Wrap(apperr.CodeInternal, err)
 	}
 	if err := s.store.RevokeSession(ctx, sess.ID, "logout", s.now()); err != nil {
 		return apperr.Wrap(apperr.CodeInternal, err)
@@ -496,7 +527,7 @@ func (s *Service) RequestPasswordReset(ctx context.Context, email, ip string) er
 	if err := s.store.CreatePasswordReset(ctx, acct.ID, hash, s.now().Add(resetTTL)); err != nil {
 		return apperr.Wrap(apperr.CodeInternal, err)
 	}
-	_ = s.mail.Send(ctx, mailer.Message{
+	s.sendMail(ctx, mailer.Message{
 		To: []string{acct.Email}, Subject: "Reset your 226os password",
 		Text: "Reset your password:\n\n" + plain + "\n\nThis link expires in 30 minutes.",
 	})

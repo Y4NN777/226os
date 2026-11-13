@@ -6,9 +6,26 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/Y4NN777/226os/src/api/internal/platform/mailer"
 	"github.com/Y4NN777/226os/src/api/internal/platform/subject"
 )
+
+// waitMail polls until the fake mailer holds at least n messages: sends go
+// out asynchronously so the request path never waits on SMTP.
+func waitMail(t *testing.T, mail *mailer.Fake, n int) []mailer.Message {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if sent := mail.Sent(); len(sent) >= n {
+			return sent
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	t.Fatalf("expected %d mails, got %d", n, len(mail.Sent()))
+	return nil
+}
 
 // withSubject returns req with a member Subject in its context, like
 // subject.Middleware installs after a successful session resolution.

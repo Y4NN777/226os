@@ -265,7 +265,7 @@ func TestVerifyEmailSuccess(t *testing.T) {
 	h, _, _, mail := testStack(t, false)
 	doJSON(t, h.SignUp, "/api/v1/auth/sign-up",
 		`{"email":"verok@example.com","password":"correct-horse-battery","username":"verok"}`)
-	sent := mail.Sent()
+	sent := waitMail(t, mail, 1)
 	if len(sent) == 0 {
 		t.Fatal("no verification mail")
 	}
@@ -323,7 +323,7 @@ func TestConfirmPasswordResetFlows(t *testing.T) {
 	if rec.Code != http.StatusAccepted {
 		t.Fatalf("reset request: %d", rec.Code)
 	}
-	sent := mail.Sent()
+	sent := waitMail(t, mail, 2) // verification + reset mails
 	token := tokenFromMail(t, sent[len(sent)-1].Text, "Reset your password:")
 	rec = doJSONWithCookie(t, h.ConfirmPasswordReset, "/api/v1/auth/password-reset/confirm",
 		`{"token":"`+token+`","new_password":"another-good-password"}`,
