@@ -1,8 +1,8 @@
 # 226os P0 PostgreSQL Schema and Migration Design
 
-**Status:** ACCEPTED design (ADR-0005, 2026-11-11, approver `Y4NN777`). The DDL is owned by `db/migrations/00001` to `00010` (immutable). A statement-by-statement diff of this document's former DDL against those migrations was done on 2026-11-12: identical for the 38 P0 tables (names, constraints, indexes); the only differences were the 3 P1 tables below (no migration) and the reference `INSERT`s in `00002`. This document keeps the rationale, the rules SQL cannot express, and the DDL of what has no migration. Items with no migration yet are marked **PLANNED**.
+**Status:** ACCEPTED design (ADR-0005, 2026-11-11, approver `Y4NN777`). The DDL is owned by `db/migrations/00001` to `00012` (immutable once merged). A statement-by-statement diff of this document's former DDL against those migrations was done on 2026-11-12: identical for the 38 P0 tables (names, constraints, indexes); the only differences were the 3 P1 tables below (no migration) and the reference `INSERT`s in `00002`. This document keeps the rationale, the rules SQL cannot express, and the DDL of what has no migration. Items with no migration yet are marked **PLANNED**.
 **Target engine:** **PostgreSQL 18** with native `uuidv7()`. **Tooling:** goose forward-only SQL migrations under root `db/migrations/`, sqlc queries under `db/queries/`, `pgx` v5.
-**Decision owner:** `Y4NN777` (interim owner, ADR-0002). Migrations `00001` to `00010` run on a **fresh** PostgreSQL 18 database in the integration suite `src/api/internal/platform/pgtest` (`TestFreshMigrationToHead`), run by `make test-integration`, which `make quality` and CI include. Not established here: an upgrade-from-previous-schema test (none exists in pgtest yet, see 5). sqlc queries exist for identity, platform and reference data only (`db/queries/`).
+**Decision owner:** `Y4NN777` (interim owner, ADR-0002). Migrations `00001` to `00012` run on a **fresh** PostgreSQL 18 database in the integration suite `src/api/internal/platform/pgtest` (`TestFreshMigrationToHead`), and `TestUpgradeFromVersion10KeepsExistingRows` applies `00011` and `00012` on top of version 10. Both run under `make test-integration`, which `make quality` and CI include. sqlc queries exist for identity, platform and reference data only (`db/queries/`).
 
 References to other documents cite section names or IDs, not line numbers.
 
@@ -183,7 +183,7 @@ DDL: see `db/migrations/00003_identity.sql`.
 
 DDL: see `db/migrations/00003_identity.sql`.
 
-**PLANNED: `profiles.profile_visibility` (C14b, decided by the owner and the main session on 2026-11-12; new migration, not in 00003, which is immutable).** The accepted DDL above is unchanged. A separate forward-only migration, numbered by `make migrate-new` and written by the single migration writer, adds:
+**`profiles.profile_visibility` (C14b, decided by the owner and the main session on 2026-11-12; `db/migrations/00012_profile_visibility.sql`, not in 00003, which is immutable).** The accepted DDL of 00003 is unchanged. `00012` adds:
 
 - `profile_visibility text NOT NULL DEFAULT 'public'` on `profiles`, with a named `CHECK (profile_visibility IN ('public','members','private'))`;
 - in the same PR, the pgtest tests that assert table structure and constraints.
@@ -475,7 +475,7 @@ Enforced by service plus transaction (not expressible as a constraint): acceptan
 
 ## 5. Initial migration plan
 
-**ADR-0005 is accepted and P0 implementation is authorized (ADR-0001). Files `00001` to `00010` below exist in `db/migrations/` since B0 bootstrap (PR #24) and are immutable; the rows marked PLANNED are not written yet.** Tool: goose, plain SQL, forward-only: no `-- +goose Down` section; CI rejects one. Sequential names `NNNNN_<slug>.sql` per ADR-0005 point 3. Every file begins with the header required by the migration policy (6.1): purpose, tables/indexes, lock risk, volume, transaction behaviour, compatibility window, restore plan, owner (`Y4NN777` under ADR-0002).
+**ADR-0005 is accepted and P0 implementation is authorized (ADR-0001). Files `00001` to `00010` below exist in `db/migrations/` since B0 bootstrap (PR #24) and are immutable. `00011` and `00012` are the E2 and C14b files. The row marked PLANNED is not written yet.** Tool: goose, plain SQL, forward-only: no `-- +goose Down` section; CI rejects one. Sequential names `NNNNN_<slug>.sql` per ADR-0005 point 3. Every file begins with the header required by the migration policy (6.1): purpose, tables/indexes, lock risk, volume, transaction behaviour, compatibility window, restore plan, owner (`Y4NN777` under ADR-0002; `mibienpanjoe` for `00011` and `00012`).
 
 | File | Contents | Lock / impact notes |
 |---|---|---|
@@ -489,11 +489,11 @@ Enforced by service plus transaction (not expressible as a constraint): acceptan
 | `00008_learn` | `learn_articles`, `learn_article_tags`, `training_series`, `training_lessons` | |
 | `00009_content_relations` | `content_relations` | Must follow 00005 to 00008 (FK targets). |
 | `00010_search_indexes` | GIN/trigram indexes (3.9) | Normal `CREATE INDEX` on empty tables. **After data exists**, each new index is `CREATE INDEX CONCURRENTLY` in its own file starting with `-- +goose NO TRANSACTION`, with `lock_timeout` set. |
-| a later migration (number from `make migrate-new`) | **Deferred (P1).** `learn_progress`, `resource_reviews`, `content_reports` (DDL in 3.4, 3.6, 3.7) | Listed so the ERD and ADR-0005 stay consistent. |
-| a later migration (**PLANNED**, E2) | 5 `learn_topics`, 3 `resource_categories`, 4 relabels (3.1, 3.4); no deletions | `INSERT`/`UPDATE` on small reference tables. Not in `00002` (immutable). |
-| a later migration (**PLANNED**, C14b) | `profiles.profile_visibility` with its named CHECK (3.2) | Constant-default `ADD COLUMN` (no rewrite, short `ACCESS EXCLUSIVE` lock); the CHECK scans `profiles`, small at P0. Separate from E2; not in `00003`. |
+| a later migration (number from `make migrate-new`) | **Deferred (P1).** `learn_progress`, `resource_reviews`, `content_reports` (DDL in 3.4, 3.6, 3.7) | Listed so the ERD and ADR-0005 stay consistent. `00011` is not reserved for these tables. |
+| `00011_taxonomy_ai_topics` | 5 `learn_topics`, 3 `resource_categories`, 4 relabels (3.1, 3.4); no deletions | `INSERT`/`UPDATE` on small reference tables. Not in `00002` (immutable). |
+| `00012_profile_visibility` | `profiles.profile_visibility` with its named CHECK (3.2) | Constant-default `ADD COLUMN` (no rewrite, short `ACCESS EXCLUSIVE` lock); the CHECK scans `profiles`, small at P0. Separate file from E2; not in `00003`. |
 
-Numbering: `scripts/migrate-new.sh` assigns the highest existing number plus one, so the first of the later migrations above gets `00011`. The owner decides the order in which the P1 and PLANNED migrations are created (`ROADMAP.md` C11).
+Numbering: `scripts/migrate-new.sh` assigns the highest existing number plus one. `00011` and `00012` are the taxonomy and profile-visibility files. The deferred P1 tables take whatever number the script gives when they are written (`ROADMAP.md` C11). The list counts in the `00002` row stay the counts of that immutable file; current totals live in the pgtest list tests.
 
 Cross-file rules: foreign keys to populated tables are added `NOT VALID` then `VALIDATE CONSTRAINT`; destructive changes (drop column/table, type narrowing) follow expand/contract with a backup/restore plan and a human-approved ADR (`AGENTS.md`, `AGENTS.md`); each migration is exercised on a fresh database and on upgrade-from-previous in CI; releases run a dry run and verify a backup first (`docs/SHIP.md`); an application rollback never undoes a data migration (`docs/SHIP.md`).
 
@@ -579,4 +579,4 @@ Dynamic `ORDER BY` is never built from user input; sort options map to a fixed a
 
 ## 11. Approval record
 
-ADR-0005 is ACCEPTED (2026-11-11, `Y4NN777`). The items above, the table notes in section 3 and the migration plan in section 5 are the approved design. Migrations `00001` to `00010` run on a fresh PostgreSQL 18 database in the pgtest integration suite (see the header). The upgrade-path run, the relevance dataset and EXPLAIN evidence, and the restore drill remain G3, G6 and G7 evidence that is NOT RUN as of 2026-11-12.
+ADR-0005 is ACCEPTED (2026-11-11, `Y4NN777`). The items above, the table notes in section 3 and the migration plan in section 5 are the approved design. Migrations `00001` to `00012` run on a fresh PostgreSQL 18 database in the pgtest integration suite, and the upgrade from version 10 is `TestUpgradeFromVersion10KeepsExistingRows` (see the header). The relevance dataset and EXPLAIN evidence, and the restore drill, remain G6 and G7 evidence that is NOT RUN as of 2026-11-12.
