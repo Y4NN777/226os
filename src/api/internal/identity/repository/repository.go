@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -264,6 +265,24 @@ func (r *Repository) ResetPassword(ctx context.Context, hash [32]byte, phc strin
 
 // ---------- rate limits ----------
 
+// Count reports the hits already recorded in the window that contains now,
+// without recording one. A window with no row has zero hits.
+func (r *Repository) Count(ctx context.Context, scope string, key [32]byte, window time.Duration, now time.Time) (int, time.Duration, error) {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+	windowStart := now.Truncate(window)
+	hits, err := r.q.CountRateLimit(ctx, dbgen.CountRateLimitParams{
+		Scope: scope, KeyHash: key[:], WindowStart: ts(windowStart),
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return 0, windowStart.Add(window).Sub(now), nil
+	}
+	if err != nil {
+		return 0, 0, fmt.Errorf("identity rate limit count: %w", err)
+	}
+	return int(hits), windowStart.Add(window).Sub(now), nil
+}
+
 // purgeAfter is how long a finished window is kept before it is purged.
 const purgeAfter = 2 * time.Hour
 
@@ -282,8 +301,11 @@ func (r *Repository) Hit(ctx context.Context, scope string, key [32]byte, limit 
 	// The table grows only through new buckets, so old windows are purged when
 	// one opens (bounded DELETE; every window is at most an hour).
 	if hits == 1 {
+		// Housekeeping must not deny a request whose hit is already counted:
+		// a failed purge is logged (no key or address in it) and retried by the
+		// next new bucket.
 		if err := r.q.PurgeRateLimitBuckets(ctx, ts(now.Add(-purgeAfter))); err != nil {
-			return false, 0, fmt.Errorf("identity rate limit purge: %w", err)
+			slog.WarnContext(ctx, "identity rate limit purge failed", slog.String("error", err.Error()))
 		}
 	}
 	if int(hits) > limit {

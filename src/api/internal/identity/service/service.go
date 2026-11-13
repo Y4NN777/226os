@@ -67,6 +67,10 @@ type Store interface {
 	// every session of the account in one atomic write.
 	ResetPassword(ctx context.Context, hash [32]byte, phc string, now time.Time) error
 
+	// Count reports the hits recorded so far in the fixed window that contains
+	// now, plus the time until that window ends. No hit is recorded.
+	Count(ctx context.Context, scope string, key [32]byte, window time.Duration, now time.Time) (int, time.Duration, error)
+
 	// Hit records one attempt in a fixed-window bucket and reports whether it
 	// is allowed plus the retry delay when it is not. key is already hashed.
 	Hit(ctx context.Context, scope string, key [32]byte, limit int, window time.Duration, now time.Time) (bool, time.Duration, error)
@@ -99,17 +103,33 @@ type Service struct {
 	bucketKeyKey []byte // HMAC key for rate-limit bucket keys
 	csrfKey      []byte // HMAC key for CSRF tokens
 	now          func() time.Time
+	// spawn runs work off the request path (a goroutine in production; tests
+	// run it inline to stay deterministic).
+	spawn func(func())
 }
 
-// New returns an identity service. mail may be nil: verification and reset
+// New returns an identity service. hmacKey is the shared secret, at least 32
+// bytes (config.Load enforces it); the purpose keys are derived from it. mail may be nil: verification and reset
 // mails are then skipped (local-dev without SMTP relies on this).
-func New(store Store, mail mailer.Mailer, hmacKey []byte) *Service {
-	return &Service{
-		store: store, mail: mail, now: time.Now,
+func New(store Store, mail mailer.Mailer, hmacKey []byte, opts ...Option) *Service {
+	svc := &Service{
+		store: store, mail: mail, now: time.Now, spawn: func(f func()) { go f() },
 		bucketKeyKey: subkey(hmacKey, "rate-limit-bucket"),
 		csrfKey:      subkey(hmacKey, "csrf"),
 	}
+	for _, o := range opts {
+		o(svc)
+	}
+	return svc
 }
+
+// Option customises a Service.
+type Option func(*Service)
+
+// WithBackground sets how work that must leave the request path (mails, reset
+// tokens) is run. The default starts a goroutine; a test over a single
+// database connection passes an inline runner.
+func WithBackground(run func(func())) Option { return func(s *Service) { s.spawn = run } }
 
 // subkey is HKDF-Expand (RFC 5869, SHA-256, one 32-byte block) of the shared
 // secret for one purpose: HMAC(secret, info || 0x01). The secret is already
@@ -316,11 +336,11 @@ const mailTimeout = 30 * time.Second
 // sendMail delivers off the request path so silent and known-account
 // responses stay in the same time envelope (no SMTP-timing oracle).
 func (s *Service) sendMail(ctx context.Context, m mailer.Message) {
-	go func() {
+	s.spawn(func() {
 		c, cancel := context.WithTimeout(context.WithoutCancel(ctx), mailTimeout)
 		defer cancel()
 		_ = s.mail.Send(c, m)
-	}()
+	})
 }
 
 // ---------- sign-in ----------
@@ -340,26 +360,28 @@ func (s *Service) SignIn(ctx context.Context, in SignInInput) (SignInResult, err
 		return SignInResult{}, err
 	}
 	email := normalizeEmail(in.Email)
-	// The account bucket is hit before the lookup so a known and an unknown
-	// e-mail exhaust it identically: no 429-vs-401 enumeration oracle.
-	if err := s.allow(ctx, "signin:account", email, signInAccountLimit, signInWindow); err != nil {
+	// ADR-0003: 5 failures per account per window. The bucket is read before
+	// the lookup and a failure is counted the same way for a known and an
+	// unknown e-mail, so there is no 429-vs-401 enumeration oracle; successes
+	// are not counted.
+	if err := s.accountNotBlocked(ctx, email); err != nil {
 		return SignInResult{}, err
 	}
 	acct, err := s.store.AccountByEmail(ctx, email)
 	if err != nil {
 		if errors.Is(err, domain.ErrNotFound) {
 			verifyDummy(in.Password)
-			return SignInResult{}, invalidCredentials()
+			return SignInResult{}, s.signInFailed(ctx, email)
 		}
 		return SignInResult{}, apperr.Wrap(apperr.CodeInternal, err)
 	}
 	if acct.Status != "active" {
 		verifyDummy(in.Password)
-		return SignInResult{}, invalidCredentials()
+		return SignInResult{}, s.signInFailed(ctx, email)
 	}
 	ok, err := password.Verify(in.Password, acct.PasswordHash)
 	if err != nil || !ok {
-		return SignInResult{}, invalidCredentials()
+		return SignInResult{}, s.signInFailed(ctx, email)
 	}
 	cookie, sess, err := s.sessionSecrets()
 	if err != nil {
@@ -378,6 +400,28 @@ func (s *Service) SignIn(ctx context.Context, in SignInInput) (SignInResult, err
 	}
 	cookie.Name = "" // transport picks the profile-specific name
 	return SignInResult{Cookie: cookie, Account: acct}, nil
+}
+
+// accountNotBlocked denies the sign-in when the account already has the maximum
+// number of failures in the window. A store error fails closed.
+func (s *Service) accountNotBlocked(ctx context.Context, email string) error {
+	hits, retry, err := s.store.Count(ctx, "signin:account", s.bucketKey("signin:account", email), signInWindow, s.now())
+	if err != nil {
+		return apperr.Wrap(apperr.CodeInternal, err)
+	}
+	if hits >= signInAccountLimit {
+		return apperr.New(apperr.CodeRateLimited, "Too many requests.").WithRetryAfter(retry)
+	}
+	return nil
+}
+
+// signInFailed counts one failure against the account bucket and returns the
+// generic invalid-credentials problem. A store error fails closed.
+func (s *Service) signInFailed(ctx context.Context, email string) error {
+	if _, _, err := s.store.Hit(ctx, "signin:account", s.bucketKey("signin:account", email), signInAccountLimit, signInWindow, s.now()); err != nil {
+		return apperr.Wrap(apperr.CodeInternal, err)
+	}
+	return invalidCredentials()
 }
 
 // ---------- session ----------
@@ -540,12 +584,21 @@ func (s *Service) RequestPasswordReset(ctx context.Context, email, ip string) er
 	if err != nil {
 		return apperr.Wrap(apperr.CodeInternal, err)
 	}
-	if err := s.store.CreatePasswordReset(ctx, acct.ID, hash, s.now().Add(resetTTL)); err != nil {
-		return apperr.Wrap(apperr.CodeInternal, err)
-	}
-	s.sendMail(ctx, mailer.Message{
+	// The token write and the mail leave the request path together: the known
+	// and the unknown account then do the same synchronous work (two bucket
+	// hits and one lookup), so neither the response time nor a store error
+	// tells them apart. A failed write simply sends no mail; the person asks again.
+	expires, msg := s.now().Add(resetTTL), mailer.Message{
 		To: []string{acct.Email}, Subject: "Reset your 226os password",
 		Text: "Reset your password:\n\n" + plain + "\n\nThis link expires in 30 minutes.",
+	}
+	s.spawn(func() {
+		c, cancel := context.WithTimeout(context.WithoutCancel(ctx), mailTimeout)
+		defer cancel()
+		if err := s.store.CreatePasswordReset(c, acct.ID, hash, expires); err != nil {
+			return
+		}
+		_ = s.mail.Send(c, msg)
 	})
 	return nil
 }

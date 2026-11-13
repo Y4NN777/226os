@@ -402,6 +402,15 @@ func TestIdentityQueries(t *testing.T) {
 	}
 	assertCall(t, db, "INSERT INTO rate_limit_buckets", []any{"signin:ip", hash, ts})
 
+	// CountRateLimit :one.
+	db = &fakeDB{rowVals: []any{int32(3)}}
+	got, err := dbgen.New(db).CountRateLimit(ctx, dbgen.CountRateLimitParams{
+		Scope: "signin:account", KeyHash: hash, WindowStart: ts})
+	if err != nil || got != 3 {
+		t.Fatalf("count = %d, %v", got, err)
+	}
+	assertCall(t, db, "SELECT hits FROM rate_limit_buckets", []any{"signin:account", hash, ts})
+
 	// PurgeRateLimitBuckets :exec.
 	db = &fakeDB{}
 	if err := dbgen.New(db).PurgeRateLimitBuckets(ctx, ts); err != nil {

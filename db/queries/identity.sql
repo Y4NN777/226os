@@ -113,5 +113,9 @@ RETURNING hits;
 -- uses rate_limit_buckets_window_idx.
 DELETE FROM rate_limit_buckets
 WHERE ctid IN (
-  SELECT b.ctid FROM rate_limit_buckets b WHERE b.window_start < $1 LIMIT 500
+  SELECT b.ctid FROM rate_limit_buckets b WHERE b.window_start < $1 LIMIT 500 FOR UPDATE SKIP LOCKED
 );
+
+-- name: CountRateLimit :one
+SELECT hits FROM rate_limit_buckets
+WHERE scope = $1 AND key_hash = $2 AND window_start = $3;

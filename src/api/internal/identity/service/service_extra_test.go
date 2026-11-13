@@ -481,12 +481,17 @@ func TestRequestPasswordResetRateLimitAndErrors(t *testing.T) {
 		t.Fatalf("expected RATE_LIMITED, got %v", last)
 	}
 
-	// Internal store error on reset create -> internal (visible only as 500).
-	svc, st, _ = testSvc(t)
+	// A store error while creating the token happens off the request path and
+	// is never visible: a 500 here would tell a known account from an unknown
+	// one (ADR-0003: same response whether or not the email exists). No mail.
+	svc, st, mail := testSvc(t)
 	acct = seedAccount(t, st, "rl3@example.com")
 	st.errs = map[string]error{"CreatePasswordReset": errBoom}
-	if err := svc.RequestPasswordReset(ctx, acct.Email, "10.6.9.1"); apperrCode(t, err) != apperr.CodeInternal {
-		t.Fatalf("create reset error: %v", err)
+	if err := svc.RequestPasswordReset(ctx, acct.Email, "10.6.9.1"); err != nil {
+		t.Fatalf("create reset error must stay silent: %v", err)
+	}
+	if len(mail.sent) != 0 {
+		t.Fatalf("mail sent although the token was not stored: %v", mail.sent)
 	}
 	// randToken failure -> internal.
 	svc, st, _ = testSvc(t)
@@ -631,5 +636,16 @@ func TestSubkeysAreDerivedPerPurpose(t *testing.T) {
 	again := New(&fakeStore{}, nil, raw)
 	if string(again.csrfKey) != string(svc.csrfKey) {
 		t.Fatal("derivation is not deterministic")
+	}
+}
+
+func TestDefaultBackgroundRunnerRunsTheWork(t *testing.T) {
+	svc := New(newFake(), nil, []byte("0123456789abcdef0123456789abcdef"))
+	done := make(chan struct{})
+	svc.spawn(func() { close(done) })
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("the default runner did not run the work")
 	}
 }

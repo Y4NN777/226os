@@ -426,9 +426,28 @@ func TestHitPurgesExpiredBucketsWhenAWindowOpens(t *testing.T) {
 	if _, _, err = New(db).Hit(ctx, "signin:ip", testToken, 5, 15*time.Minute, testTime); err != nil || db.n != 1 {
 		t.Fatalf("unexpected purge: err=%v steps=%d", err, db.n)
 	}
-	// A failed purge is an error, never silently dropped.
+	// Housekeeping must never deny a request: the hit is already counted, so a
+	// failed purge is logged and the normal result is returned.
 	db = &fakeDB{steps: []dbStep{{vals: []any{int32(1)}}, {err: errors.New("down")}}}
-	if _, _, err = New(db).Hit(ctx, "signin:ip", testToken, 5, 15*time.Minute, testTime); err == nil {
-		t.Fatal("purge error swallowed")
+	ok, _, err = New(db).Hit(ctx, "signin:ip", testToken, 5, 15*time.Minute, testTime)
+	if err != nil || !ok {
+		t.Fatalf("a purge failure must not fail the hit: ok=%v err=%v", ok, err)
+	}
+}
+
+func TestCount(t *testing.T) {
+	ctx := context.Background()
+	db := &fakeDB{steps: []dbStep{{vals: []any{int32(4)}}}}
+	hits, retry, err := New(db).Count(ctx, "signin:account", testToken, 15*time.Minute, testTime)
+	if err != nil || hits != 4 || retry <= 0 {
+		t.Fatalf("count %d %v %v", hits, retry, err)
+	}
+	// No row yet: zero hits, not an error.
+	db = &fakeDB{steps: []dbStep{{}}}
+	if hits, _, err = New(db).Count(ctx, "signin:account", testToken, 15*time.Minute, testTime); err != nil || hits != 0 {
+		t.Fatalf("empty window: %d %v", hits, err)
+	}
+	if _, _, err = New(&fakeDB{steps: []dbStep{{err: errors.New("down")}}}).Count(ctx, "s", testToken, time.Minute, testTime); err == nil {
+		t.Fatal("driver error swallowed")
 	}
 }
