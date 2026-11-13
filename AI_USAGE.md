@@ -1,6 +1,6 @@
 # 226os AI Use and Provenance Record
 
-**Status:** FINAL. Closed by the owner on 2026-11-13 (see "Review and closure status"). Records are as written; licences were not independently verified.
+**Status:** records dated up to the owner's closure on 2026-11-13 are closed (see "Review and closure status"); each later record carries its own `closure` field and stays `open` until the owner closes it. Records are as written; licences were not independently verified.
 
 ## Policy
 
