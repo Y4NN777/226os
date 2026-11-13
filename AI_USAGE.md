@@ -590,7 +590,7 @@ license_review: "ACCEPTED_BY_OWNER (2026-11-13): not independently verified"
 closure: "closed by the owner, 2026-11-13"
 human_reviewers: ["Y4NN777 (owner closure, 2026-11-13)"]
 tests_or_evidence: ["make lint-go exit 0", "go test -race -count=1 ./src/api/internal/discover/... ./src/api/internal/app/ exit 0. The catalogue integration test was not re-run."]
-open_risks: ["Get still maps pgx.ErrNoRows to domain.ErrNotFound before wrapping. Other driver errors stay in the chain via %w."]
+open_risks: ["Intended, not a defect: Get translates pgx.ErrNoRows to domain.ErrNotFound and returns it without wrapping, so no driver type leaks past the repository (go-backend rule). Every other driver error stays in the chain via %w."]
 ```
 
 ## Search core and catalogue follow-ups (S2)
@@ -625,6 +625,23 @@ closure: "open"
 human_reviewers: ["mibienpanjoe (assigned reviewer, pending PR)"]
 tests_or_evidence: ["go test -race -count=1 ./src/api/internal/identity/... exit 0", "go test -race -count=1 -tags integration ./src/api/internal/platform/pgtest/ exit 0", "scripts/coverage-go.sh coverage: go first-party statement coverage 100.0% (2705/2705), PASS", "make coverage exit 0 (web 99.27% statements)", "make test-integration exit 0", "make lint-scripts security-sast exit 0 (gosec 0 issues)", "scripts/check-generated.sh check exit 0", "make quality full rerun on the PR head SHA pending at the time of this entry"]
 open_risks: ["rate-limit bucket keys reuse CURSOR_KEY as HMAC key pending a dedicated secret decision", "CSRF tokens are derived (HMAC of stored token hash / pre-session secret) rather than stored, per ADR-0003 rotation requirement", "no resend-verification operation exists in the contract (open question for the owner, flagged in the PR)", "getMe, updateMyProfile, getProfile and the profile-visibility matrix remain for feature/identity/profiles", "Argon2id parameters await the target-host benchmark at S8 (K6 container check)"]
+```
+
+## S1 identity: review follow-ups (rate-limit purge, key separation)
+
+```yaml
+date: "2026-11-13"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code, Sonnet 5.5"
+purpose: "Close the follow-ups left open by the review of PR #89: purge finished rate_limit_buckets windows when a new bucket opens (bounded DELETE with SKIP LOCKED; a failed purge is logged, never denies the request), separate HKDF-Expand subkeys for rate-limit bucket keys and CSRF tokens, one session lookup per request through a per-request memo in platform/subject, sign-in counting only failures per ADR-0003 (read before the lookup, written on failure, same for known and unknown emails), and the reset-request token write plus mail moved off the request path so a store error and the response time no longer tell a known account from an unknown one."
+repository_or_source_context: "branch feature/identity/review-followups, issue #65"
+files_or_sections_affected: ["src/api/internal/identity/service/service.go", "src/api/internal/identity/repository/repository.go", "db/queries/identity.sql", "src/api/internal/platform/dbgen/identity.sql.go", "src/api/internal/platform/dbgen/queries_test.go", "src/api/internal/platform/pgtest/identity_integration_test.go", "src/api/internal/platform/subject/subject.go", "src/api/internal/identity/transport/**", "src/api/internal/app/server_identity_test.go", "TODO.md", "AI_USAGE.md"]
+third_party_sources_consulted: ["RFC 5869 (HKDF-Expand, implemented with crypto/hmac)"]
+license_review: "ACCEPTED_BY_OWNER (2026-11-13): original work, no third-party code"
+closure: "open"
+human_reviewers: ["pending PR review"]
+tests_or_evidence: ["RED: TestHitPurgesExpiredBucketsWhenAWindowOpens, TestSubkeysAreDerivedPerPurpose, TestSessionIsResolvedOncePerRequest (3 lookups, want 2), TestSignInSuccessDoesNotCountAgainstTheAccountLimit (6th success 429), TestMemo*, TestRequestPasswordResetRateLimitAndErrors (500 became a silent 202; expectation changed because a 500 on the known path is an enumeration oracle, ADR-0003)", "go test -race -tags integration -run Identity ./src/api/internal/platform/pgtest/ exit 0 (real PostgreSQL, incl. TestIdentitySignInCountsOnlyFailures)", "go test -race ./src/api/internal/identity/... ./src/api/internal/app/... exit 0", "go test -tags integration -run TestIdentityRateLimitPurgesOldWindows ./src/api/internal/platform/pgtest/ exit 0 (real PostgreSQL)", "make coverage: go first-party 100.0% (2705/2705)", "make lint exit 0, scripts/check-generated.sh check exit 0, check-docs PASS"]
+open_risks: ["ui_lang has no column and csrf_token_hash is never read: both need a migration (mibienpanjoe), tracked on issue #65.", "Sign-in failure counting is check-then-increment: parallel wrong guesses can slip a few attempts past the account bucket; the per-IP bucket (atomic) and the Argon2id semaphore bound it.", "A reset token write that fails in the background sends no mail and the person asks again; it is not logged.", "Existing CSRF tokens and rate-limit buckets are invalidated once at deploy (derived keys differ); harmless before launch."]
 ```
 
 ## Identity test reset-mail race (#91)

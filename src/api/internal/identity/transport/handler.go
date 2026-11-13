@@ -180,7 +180,7 @@ func derefStr(v *string) string {
 // GetCsrfToken serves GET /auth/csrf: the session-bound token for a live
 // session, else the pre-session token (issuing the cookie when absent).
 func (h *Handler) GetCsrfToken(w http.ResponseWriter, r *http.Request) {
-	if view, err := h.svc.ResolveSession(r.Context(), h.sessionPlain(r)); err == nil {
+	if view, err := resolveSession(r, h.svc, h.sessionPlain(r)); err == nil {
 		writeJSON(w, http.StatusOK, apigen.CsrfToken{CsrfToken: view.CSRF})
 		return
 	} else if !isUnauthenticated(err) {
@@ -257,7 +257,7 @@ func (h *Handler) SignIn(w http.ResponseWriter, r *http.Request) {
 // currentSessionID resolves the session cookie to its id for rotation. An
 // invalid or absent cookie yields "" and rotation is skipped.
 func (h *Handler) currentSessionID(r *http.Request) string {
-	view, err := h.svc.ResolveSession(r.Context(), h.sessionPlain(r))
+	view, err := resolveSession(r, h.svc, h.sessionPlain(r))
 	if err != nil {
 		return ""
 	}
@@ -283,7 +283,7 @@ func (h *Handler) SignOut(w http.ResponseWriter, r *http.Request) {
 // their account and a fresh CSRF token; anonymous callers get the pre-session
 // token (and the cookie when it is missing or malformed).
 func (h *Handler) GetSession(w http.ResponseWriter, r *http.Request) {
-	view, err := h.svc.ResolveSession(r.Context(), h.sessionPlain(r))
+	view, err := resolveSession(r, h.svc, h.sessionPlain(r))
 	if err == nil {
 		state, err := sessionStateJSON(view)
 		if err != nil {

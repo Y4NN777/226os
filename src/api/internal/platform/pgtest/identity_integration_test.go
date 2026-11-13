@@ -34,7 +34,9 @@ func newIdentityStack(ctx context.Context, t *testing.T) *identityStack {
 	conn := migratedDB(ctx, t)
 	t.Cleanup(func() { _ = conn.Close(ctx) })
 	mail := mailer.NewFake()
-	svc := service.New(repository.New(conn), mail, []byte("0123456789abcdef0123456789abcdef"))
+	// One connection serves the whole stack, so background work runs inline.
+	svc := service.New(repository.New(conn), mail, []byte("0123456789abcdef0123456789abcdef"),
+		service.WithBackground(func(f func()) { f() }))
 	handler := identitytransport.New(svc, false, nil)
 	deps := httpx.Deps{
 		Server: app.NewServer(app.WithIdentity(handler)),
@@ -389,5 +391,65 @@ func TestIdentityRateLimitFailsClosed(t *testing.T) {
 	}
 	if ra := last.Header().Get("Retry-After"); ra == "" {
 		t.Fatal("429 without Retry-After")
+	}
+}
+
+func TestIdentityRateLimitPurgesOldWindows(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 120*time.Second)
+	defer cancel()
+	conn := migratedDB(ctx, t)
+	t.Cleanup(func() { _ = conn.Close(ctx) })
+	now := time.Now().UTC().Truncate(time.Minute)
+	for i, age := range []time.Duration{3 * time.Hour, 5 * time.Hour, 30 * time.Minute} {
+		if _, err := conn.Exec(ctx,
+			`INSERT INTO rate_limit_buckets (scope, key_hash, window_start, hits) VALUES ('old', $1, $2, 1)`,
+			[]byte{byte(i)}, now.Add(-age)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// Opening a new window purges the finished ones older than 2 h and keeps the recent one.
+	ok, _, err := repository.New(conn).Hit(ctx, "signin:ip", [32]byte{9}, 5, 15*time.Minute, now)
+	if err != nil || !ok {
+		t.Fatalf("hit: %v %v", ok, err)
+	}
+	var old, recent int
+	if err := conn.QueryRow(ctx, `SELECT count(*) FILTER (WHERE window_start < $1), count(*) FILTER (WHERE window_start >= $1) FROM rate_limit_buckets`,
+		now.Add(-2*time.Hour)).Scan(&old, &recent); err != nil {
+		t.Fatal(err)
+	}
+	if old != 0 || recent != 2 {
+		t.Fatalf("old=%d recent=%d, want 0 and 2 (the kept 30 min window plus the new bucket)", old, recent)
+	}
+}
+
+// ADR-0003: 5 failures per account per window. Successful sign-ins are not
+// counted (a demo account used from several devices is never throttled); after
+// five failures even the right password gets 429 with Retry-After, and an
+// unknown email behaves exactly the same.
+func TestIdentitySignInCountsOnlyFailures(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 120*time.Second)
+	defer cancel()
+	s := newIdentityStack(ctx, t)
+	s.signUp(t, "cnt@example.com", "cntuser")
+	cookie, csrf := s.csrfToken(t)
+	signIn := func(email, pw string) *httptest.ResponseRecorder {
+		return s.do(t, http.MethodPost, "/api/v1/auth/sign-in",
+			`{"email":"`+email+`","password":"`+pw+`"}`, map[string]string{"X-CSRF-Token": csrf}, cookie)
+	}
+	for i := 0; i < 7; i++ {
+		if rec := signIn("cnt@example.com", "correct-horse-battery"); rec.Code != http.StatusOK {
+			t.Fatalf("success %d: %d %s", i+1, rec.Code, rec.Body.String())
+		}
+	}
+	for _, email := range []string{"cnt@example.com", "ghost@example.com"} {
+		for i := 0; i < 5; i++ {
+			if rec := signIn(email, "wrong-password-123"); rec.Code != http.StatusUnauthorized {
+				t.Fatalf("%s failure %d: %d", email, i+1, rec.Code)
+			}
+		}
+		rec := signIn(email, "correct-horse-battery")
+		if rec.Code != http.StatusTooManyRequests || rec.Header().Get("Retry-After") == "" {
+			t.Fatalf("%s after 5 failures: %d retry-after=%q", email, rec.Code, rec.Header().Get("Retry-After"))
+		}
 	}
 }

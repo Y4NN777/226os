@@ -44,7 +44,7 @@ func CSRFMiddleware(svc *service.Service, secure bool, logger *slog.Logger) func
 			}
 			header := r.Header.Get("X-CSRF-Token")
 			plain := cookieValue(r, sessionName)
-			view, err := svc.ResolveSession(r.Context(), plain)
+			view, err := resolveSession(r, svc, plain)
 			switch {
 			case err == nil:
 				if svc.CheckCSRF(&view.TokenHash, "", header) {

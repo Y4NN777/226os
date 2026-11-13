@@ -8,6 +8,8 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+
+	"github.com/Y4NN777/226os/src/api/internal/platform/subject"
 )
 
 func csrfReq(method, path string, headers map[string]string, cookies ...*http.Cookie) *http.Request {
@@ -218,5 +220,28 @@ func TestResolverUnknownCookieIsAnonymous(t *testing.T) {
 	s, err := res.Resolve(req)
 	if err != nil || !s.Anonymous() {
 		t.Fatalf("bogus: %+v %v", s, err)
+	}
+}
+
+// A request resolves its session once: the subject middleware, the CSRF
+// middleware and the handler share one lookup (hot path, one query).
+func TestSessionIsResolvedOncePerRequest(t *testing.T) {
+	h, svc, st, _ := testStack(t, false)
+	plain, csrf := signupAndSignIn(t, h, "once@example.com")
+	before := st.sessionLookups
+	chain := subject.Middleware(NewResolver(svc, false), nil)(
+		CSRFMiddleware(svc, false, nil)(http.HandlerFunc(h.SignOut)))
+	req := doReq(t, http.MethodPost, "/api/v1/auth/sign-out",
+		map[string]string{"X-CSRF-Token": csrf, "Origin": "http://example.com", "Sec-Fetch-Site": "same-origin"},
+		&http.Cookie{Name: sessionCookieName(false), Value: plain})
+	req.Host = "example.com"
+	rec := httptest.NewRecorder()
+	chain.ServeHTTP(rec, req)
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("sign-out %d %s", rec.Code, rec.Body.String())
+	}
+	// One shared resolution plus SignOut's own lookup of the row to revoke.
+	if got := st.sessionLookups - before; got != 2 {
+		t.Fatalf("session lookups per request = %d, want 2", got)
 	}
 }
