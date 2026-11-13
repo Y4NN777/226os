@@ -367,3 +367,20 @@ human_reviewers: []
 tests_or_evidence: ["documentation only; consistency checks by search; no quality gate run for this record"]
 open_risks: ["status: executed on branch chore/docs/cleanup-and-coherence, not yet merged", "owner review of the plan outcomes pending"]
 ```
+
+## S9 assistant contract (2026-11-13)
+
+```yaml
+date: "2026-11-13"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code (VS Code extension) with claude-sonnet-5-5"
+purpose: "S9 contract PR: one OpenAPI operation, askAssistant (POST /assistant/answers), with tests first; generated outputs refreshed; dependent documents aligned; Gmail alias note (H8) recorded"
+repository_or_source_context: "api/openapi.yaml, docs/SPEC.md US-INTEL-001, ADR-0011, TODO.md S9 block"
+files_or_sections_affected: ["api/openapi.yaml", "src/api/internal/platform/apigen/apigen.gen.go", "src/api/internal/platform/apispec/openapi.gen.yaml", "src/web/src/api/schema.d.ts", "src/api/internal/platform/apigen/assistant_contract_test.go", "src/api/internal/platform/apigen/contract_test.go", "scripts/unimplemented-routes.txt", "docs/quality/COVERAGE_SCOPE.md", "docs/SPEC.md", "docs/spec-kit/AUTHORIZATION_MATRIX.md", "TODO.md", "ROADMAP.md"]
+third_party_sources_consulted: []
+commands: "go test (apigen), make lint-contract, make security-authz, scripts/check-generated.sh generate"
+license_review: "NOT APPLICABLE (no third-party code or asset added; generated code comes from the pinned generators)"
+human_reviewers: []
+tests_or_evidence: ["assistant_contract_test.go and contract_test.go (48 operations) pass; lint-contract and security-authz pass; make quality as a whole NOT RUN locally"]
+open_risks: ["design choices to confirm in review: members only with a verified email, no anonymous access (O5 open), no Idempotency-Key, 503 reuses SERVICE_UNAVAILABLE, the 'AI-6/AI-7' P1 modes are out of scope"]
+```
