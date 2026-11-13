@@ -465,6 +465,22 @@ func TestIdentityQueries(t *testing.T) {
 		t.Fatalf("hits = %d, %v", hits, err)
 	}
 	assertCall(t, db, "INSERT INTO rate_limit_buckets", []any{"signin:ip", hash, ts})
+
+	// CountRateLimit :one.
+	db = &fakeDB{rowVals: []any{int32(3)}}
+	got, err := dbgen.New(db).CountRateLimit(ctx, dbgen.CountRateLimitParams{
+		Scope: "signin:account", KeyHash: hash, WindowStart: ts})
+	if err != nil || got != 3 {
+		t.Fatalf("count = %d, %v", got, err)
+	}
+	assertCall(t, db, "SELECT hits FROM rate_limit_buckets", []any{"signin:account", hash, ts})
+
+	// PurgeRateLimitBuckets :exec.
+	db = &fakeDB{}
+	if err := dbgen.New(db).PurgeRateLimitBuckets(ctx, ts); err != nil {
+		t.Fatalf("purge: %v", err)
+	}
+	assertCall(t, db, "DELETE FROM rate_limit_buckets", []any{ts})
 }
 
 // Shared limiter and error report queries (S2): SQL text, bind order, scan order and error propagation.

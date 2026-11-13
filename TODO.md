@@ -96,14 +96,14 @@ Open owner items outside CADEV (IDs and decisions in ROADMAP section 8, 10 and 1
 - **Branches:** `feature/identity/auth-sessions`, `feature/identity/profiles`
 - **Depends on:** S0 (merged). Argon2id parameters are pinned after the benchmark on the target host (S8, ADR-0003). The `getProfile` and `updateMyProfile` visibility work needs the `profile_visibility` migration (`mibienpanjoe`), and that PR must also update `TestFreshMigrationToHead` (hardcodes the migration count).
 - **Operations** (see `x-authz` in [api/openapi.yaml](api/openapi.yaml) by operationId; rules in ADR-0003):
-  - [x] `getCsrfToken` (public; pre-session token) — PR pending
-  - [x] `signUp` (generic 202, no enumeration, 5/IP/h, sends the verification email) — PR pending
-  - [x] `signIn` (generic `INVALID_CREDENTIALS`, equal timing, 5 failures/account and 20/IP per 15 min failing closed, rotates the session) — PR pending
-  - [x] `signOut` (revokes only the caller's own session) — PR pending
-  - [x] `getSession` (never 401) — PR pending
-  - [x] `verifyEmail` (single use, 24 h, 422 `INVALID_TOKEN`) — PR pending
-  - [x] `requestPasswordReset` (always 202; 3/account and 10/IP per hour) — PR pending
-  - [x] `confirmPasswordReset` (30 min; revokes all the user's sessions) — PR pending
+  - [x] `getCsrfToken` (public; pre-session token) — PR #89, 2026-11-13
+  - [x] `signUp` (generic 202, no enumeration, 5/IP/h, sends the verification email) — PR #89, 2026-11-13
+  - [x] `signIn` (generic `INVALID_CREDENTIALS`, equal timing, 5 failures/account and 20/IP per 15 min failing closed, rotates the session) — PR #89, 2026-11-13
+  - [x] `signOut` (revokes only the caller's own session) — PR #89, 2026-11-13
+  - [x] `getSession` (never 401) — PR #89, 2026-11-13
+  - [x] `verifyEmail` (single use, 24 h, 422 `INVALID_TOKEN`) — PR #89, 2026-11-13
+  - [x] `requestPasswordReset` (always 202; 3/account and 10/IP per hour) — PR #89, 2026-11-13
+  - [x] `confirmPasswordReset` (30 min; revokes all the user's sessions) — PR #89, 2026-11-13
   - [ ] `getMe` (the only place the email is returned)
   - [ ] `updateMyProfile` (own profile; JSON Merge Patch; accepts `profile_visibility`, default `public`)
   - [ ] `getProfile` (C14b: `members` gives anonymous 404, `private` owner only, the 404 body identical to unknown or deleted; moderators no special access; suspended users out of scope for P0)
@@ -115,7 +115,7 @@ Open owner items outside CADEV (IDs and decisions in ROADMAP section 8, 10 and 1
 - **Acceptance:** `US-IDENTITY-001/2` (with S7); ADR-0003 "Evidence" (session expiry, rotation, revocation; CSRF cases; enumeration and timing; 429 with `Retry-After`; no token in logs). Negative authz per [AUTHORIZATION_MATRIX](docs/spec-kit/AUTHORIZATION_MATRIX.md) identity rows, plus `getProfile` per `profile_visibility` x caller (anonymous, member, owner, moderator) with identical 404 bodies.
 - **Prototype pages:** `connexion`, `inscription`, `verifier-email`, `mot-de-passe-oublie`, `reinitialiser`, `bienvenue`, `profile`, `parametres`.
 - **Allowed paths:** `src/api/internal/identity/**`, `db/queries/identity.sql`, `db/queries/platform.sql`, generated `dbgen` (via `make generate`), `scripts/public-routes.txt` (anonymous auth routes, with reasons). **DoD:** DoD-common plus cookie inspection per profile and a redacted email-flow log through Mailpit. **Stop:** if ADR-0003 values would need to change.
-- **Status:** IN PROGRESS — `feature/identity/auth-sessions` implements the 8 auth operations end to end (sign-up through password reset, CSRF, session resolver, PostgreSQL rate limits, pgtest integration); `getMe`, `updateMyProfile`, `getProfile` and the profile-visibility matrix remain for `feature/identity/profiles`.
+- **Status:** IN PROGRESS — PR #89 (merged 2026-11-13; review follow-ups: bucket purge and key separation on `feature/identity/review-followups`) implemented the 8 auth operations end to end (sign-up through password reset, CSRF, session resolver, PostgreSQL rate limits, pgtest integration); `getMe`, `updateMyProfile`, `getProfile` and the profile-visibility matrix remain for `feature/identity/profiles`.
   - 2026-11-13 (`mibienpanjoe`): issue #91, the reset-mail race in `TestIdentitySignInRotationAndReset`, fixed on `fix/identity/reset-mail-race` (test-only: `mailToken` waits for the next mail instead of returning the latest).
 
 ---

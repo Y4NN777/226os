@@ -1,6 +1,7 @@
 package transport
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/Y4NN777/226os/src/api/internal/identity/service"
@@ -29,7 +30,7 @@ func (res *Resolver) Resolve(r *http.Request) (subject.Subject, error) {
 	if err != nil || c.Value == "" {
 		return subject.Subject{}, nil
 	}
-	view, err := res.svc.ResolveSession(r.Context(), c.Value)
+	view, err := resolveSession(r, res.svc, c.Value)
 	if err != nil {
 		if isUnauthenticated(err) {
 			return subject.Subject{}, nil
@@ -41,4 +42,23 @@ func (res *Resolver) Resolve(r *http.Request) (subject.Subject, error) {
 		EmailVerified: view.Account.EmailVerified,
 		Roles:         []string{view.Account.Role},
 	}, nil
+}
+
+// sessionKey keys the per-request memo by the cookie plaintext.
+type sessionKey string
+
+// sessionResolver is what resolveSession needs from the service.
+type sessionResolver interface {
+	ResolveSession(ctx context.Context, plain string) (service.SessionView, error)
+}
+
+// resolveSession resolves the session cookie once per request: the subject
+// middleware, the CSRF middleware and the handler share the result through the
+// request's memo (without one, it simply resolves each time).
+func resolveSession(r *http.Request, svc sessionResolver, plain string) (service.SessionView, error) {
+	v, err := subject.MemoFrom(r.Context()).Do(sessionKey(plain), func() (any, error) {
+		return svc.ResolveSession(r.Context(), plain)
+	})
+	view, _ := v.(service.SessionView)
+	return view, err
 }
