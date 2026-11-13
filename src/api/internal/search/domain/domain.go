@@ -10,7 +10,7 @@ import (
 
 const (
 	// MaxTextRunes is the length the server keeps of q before it reaches the tsquery parser.
-	// C4 PROPOSED option 1, ADR-0005 point 6: the owner confirms it at merge.
+	// C4 DECIDED by the owner (option 1, PR #92), ADR-0005 point 6.
 	MaxTextRunes = 100
 	// MaxSnippetRunes is the contract bound of SearchHit.snippet.
 	MaxSnippetRunes = 300
@@ -58,7 +58,7 @@ type Hit struct {
 	Lang    string
 }
 
-// TruncateQuery applies C4 PROPOSED option 1 (ADR-0005 point 6): keep at most MaxTextRunes
+// TruncateQuery applies C4 DECIDED option 1 (ADR-0005 point 6): keep at most MaxTextRunes
 // runes, cut at a word boundary, and hard-cut at MaxTextRunes when the first MaxTextRunes
 // runes contain no usable space. A boundary that would leave only spaces is ignored (hard cut).
 func TruncateQuery(q string) string {

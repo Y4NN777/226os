@@ -12,6 +12,7 @@ import (
 	"github.com/Y4NN777/226os/src/api/internal/platform/apigen"
 	"github.com/Y4NN777/226os/src/api/internal/platform/apperr"
 	"github.com/Y4NN777/226os/src/api/internal/platform/httpx"
+	"github.com/Y4NN777/226os/src/api/internal/platform/subject"
 	"github.com/Y4NN777/226os/src/api/internal/search/domain"
 	"github.com/Y4NN777/226os/src/api/internal/search/service"
 )
@@ -32,7 +33,10 @@ func New(svc *service.Service, logger *slog.Logger) *Handler {
 
 // Search serves GET /search.
 func (h *Handler) Search(w http.ResponseWriter, r *http.Request, params apigen.SearchParams) {
-	req := service.Request{Q: params.Q, PerGroup: params.PerGroup, Country: params.Country}
+	req := service.Request{
+		Q: params.Q, PerGroup: params.PerGroup, Country: params.Country,
+		Anonymous: subject.From(r.Context()).Anonymous(), Client: httpx.ClientIPKey(r),
+	}
 	if params.Types != nil {
 		for _, t := range *params.Types {
 			req.Types = append(req.Types, string(t))

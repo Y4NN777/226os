@@ -39,7 +39,7 @@ func TestCatalogueMethodsDelegateWhenSet(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := NewServer(WithCatalogue(discover.NewHandler(&fakePool{}, c, nil)))
+	s := NewServer(WithCatalogue(discover.NewHandler(&fakePool{}, c, nil, nil)))
 	rec := httptest.NewRecorder()
 	s.ListResources(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil), apigen.ListResourcesParams{})
 	if rec.Code == http.StatusNotImplemented {

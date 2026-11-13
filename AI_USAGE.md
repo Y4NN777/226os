@@ -1,6 +1,6 @@
 # 226os AI Use and Provenance Record
 
-**Status:** FINAL. Closed by the owner on 2026-11-13 (see "Review and closure status"). Records are as written; licences were not independently verified.
+**Status:** records dated up to the owner's closure on 2026-11-13 are closed (see "Review and closure status"); each later record carries its own `closure` field and stays `open` until the owner closes it. Records are as written; licences were not independently verified.
 
 ## Policy
 
@@ -644,6 +644,23 @@ tests_or_evidence: ["RED: TestHitPurgesExpiredBucketsWhenAWindowOpens, TestSubke
 open_risks: ["ui_lang has no column and csrf_token_hash is never read: both need a migration (mibienpanjoe), tracked on issue #65.", "Sign-in failure counting is check-then-increment: parallel wrong guesses can slip a few attempts past the account bucket; the per-IP bucket (atomic) and the Argon2id semaphore bound it.", "A reset token write that fails in the background sends no mail and the person asks again; it is not logged.", "Existing CSRF tokens and rate-limit buckets are invalidated once at deploy (derived keys differ); harmless before launch."]
 ```
 
+## S1 identity profiles: getMe, updateMyProfile, getProfile
+
+```yaml
+date: "2026-11-14"
+contributor: "NICE-DEV226"
+tool_or_model: "Devin (SWE-2 Flash)"
+purpose: "S1 Identity profiles slice, feature/identity/profiles branch: profile read models (own + public with account status join), JSON Merge Patch update with tri-state PatchField (absent vs explicit null), per-field CASE WHEN guarded UPDATE plus transactional skill replacement (row lock then separate DELETE/INSERT on fresh snapshots, ON CONFLICT DO NOTHING), C14b visibility matrix (page + per-field, anonymous/member/owner), skill slug resolution against active tags with active-only reads, bio_language derivation to satisfy profiles_bio_language_ck, rate limit profile:write 60/user/min, transport merge-patch decoding with key-presence detection relying on the embedded OpenAPI validator for non-nullable nulls, unit tests on fakes, repository scripted-DBTX tests, real-PostgreSQL pgtest end-to-end including concurrent PATCH serialization and hidden-tag filtering."
+repository_or_source_context: "branch feature/identity/profiles, TODO.md S1"
+files_or_sections_affected: ["src/api/internal/identity/**", "src/api/internal/app/server.go", "src/api/internal/app/server_identity_test.go", "src/api/internal/platform/dbgen/identity.sql.go", "src/api/internal/platform/dbgen/queries_test.go", "src/api/internal/platform/pgtest/identity_integration_test.go", "db/queries/identity.sql", "scripts/public-routes.txt", "scripts/authz-tests.txt", "scripts/unimplemented-routes.txt", "scripts/tests/authz-routes_test.sh", "TODO.md", "AI_USAGE.md"]
+third_party_sources_consulted: []
+license_review: "PENDING"
+closure: "open"
+human_reviewers: ["mibienpanjoe (assigned reviewer, pending PR)"]
+tests_or_evidence: ["go test -race -count=1 ./src/api/internal/identity/... ./src/api/internal/app/ exit 0", "go test -race -count=1 -tags integration ./src/api/internal/platform/pgtest/ exit 0 (TestIdentityProfilesEndToEnd, TestIdentityProfileHiddenTagFiltered, TestIdentityProfileConcurrentSkillReplace: 10 conflicting + 5 identical concurrent rounds on two real connections, final set always exact)", "scripts/coverage-go.sh coverage: go first-party statement coverage 100.0%", "go tool golangci-lint run (default and --build-tags integration): 0 issues", "make lint-contract exit 0 (sqlc vet LIMIT on ResolveSkillSlugs)", "make lint-scripts exit 0 (authz-routes self-test probes moved to ListQuestions)", "scripts/check-authz-routes.sh PASS", "gofmt clean", "go vet clean", "review round: go test -count=1 -run 'TestUpdateMyProfileLanguages' ./internal/identity/service/ exit 0 (fr-BF -> 422 languages), go test -count=1 -run 'TestUpdateMyProfile' ./internal/identity/transport/ exit 0 (null-non-nullable pinned)"]
+open_risks: ["bio_language is always derived as 'en' when bio is set: the contract exposes no bio language field (owner decision recorded in PR)", "open_to_collab_visibility column exists but the contract field_visibility has no member for it: stays 'public', flagged for owner decision", "languages: server rejects region subtags (fr-BF) with 422 on purpose while the contract still accepts them; owner owns the contract+DB widening after the freeze (TODO.md known deviation)", "checklist_missing no longer lists open_to_collab: false is a deliberate answer and no answered flag exists", "make quality full rerun pending on the PR head SHA"]
+```
+
 ## Identity test reset-mail race (#91)
 
 ```yaml
@@ -661,6 +678,21 @@ tests_or_evidence: ["before: go test -tags integration -run TestIdentitySignInRo
 open_risks: []
 ```
 
+## Error reports, search rate limit and shared limiter (S2)
+
+```yaml
+date: "2026-11-13"
+contributor: "mibienpanjoe"
+tool_or_model: "Claude Code, Claude Opus 5.5 (main session) with Claude Sonnet subagents (go-implementer, skeptic review)"
+purpose: "createResourceErrorReport (verified member, reporter private, duplicate open report returns the existing one, 60/user/min failing closed), anonymous search limit of 60/IP/min failing open, shared platform/ratelimit limiter and httpx.ClientIPKey, migration 00013 error_reports.source_id with a composite FK."
+repository_or_source_context: "branch feature/discover/error-reports"
+files_or_sections_affected: ["db/migrations/00013_error_report_source.sql", "db/queries/ratelimit.sql", "db/queries/discover.sql", "src/api/internal/platform/ratelimit/**", "src/api/internal/platform/httpx/clientip*.go", "src/api/internal/platform/dbgen/**", "src/api/internal/discover/**", "src/api/internal/search/**", "src/api/internal/app/**", "src/api/internal/platform/pgtest/**", "scripts/authz-tests.txt", "scripts/unimplemented-routes.txt", "scripts/public-routes.txt", "TODO.md", "AI_USAGE.md"]
+third_party_sources_consulted: []
+license_review: "PENDING: owner review"
+closure: "open"
+human_reviewers: ["NICE-DEV226 (pending)", "Y4NN777 (migration and shared limiter, pending)"]
+tests_or_evidence: ["make generate, lint, typecheck, test-unit, test-integration-go, security PASS (subagent run)", "make coverage PASS: Go first-party 100.0% (3079/3079), re-run in the main session"]
+open_risks: ["identity still has its own limiter until it migrates to platform/ratelimit", "rate-limit integration tests depend on the real clock (they wait for a fresh minute)", "whitespace-only report bodies are rejected with 422, stricter than the schema's minLength 1", "a repeated open report returns the existing report and drops the new body and source_id", "the client IP trusts the last X-Forwarded-For entry; correct only while Traefik is the sole ingress with default forwardedHeaders (not pinned in compose.yaml)", "/24 and /48 keying means users behind carrier NAT share 60 searches per minute"]
 ## S7 frontend PR 1: shell and identity pages
 
 ```yaml

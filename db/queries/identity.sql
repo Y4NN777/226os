@@ -108,6 +108,87 @@ ON CONFLICT (scope, key_hash, window_start)
 DO UPDATE SET hits = rate_limit_buckets.hits + 1
 RETURNING hits;
 
+-- ---------- profiles (S1 profiles slice) ----------
+
+-- ProfileColumns is the shared projection: every profiles column plus the
+-- owner's skill slugs, ordered for stable output.
+-- name: GetProfileByUserID :one
+SELECT p.user_id, p.username, p.display_name, p.intent, p.country_code,
+       p.languages, p.github_username, p.bio, p.bio_language, p.open_to_collab,
+       p.country_visibility, p.languages_visibility, p.skills_visibility,
+       p.github_visibility, p.bio_visibility, p.open_to_collab_visibility,
+       p.profile_visibility, p.created_at, p.updated_at,
+       COALESCE((SELECT array_agg(t.slug ORDER BY t.slug)
+                 FROM user_skills us JOIN tags t ON t.id = us.tag_id
+                 WHERE us.user_id = p.user_id AND t.status = 'active'), '{}'::text[])::text[] AS skills
+FROM profiles p
+WHERE p.user_id = $1;
+
+-- GetProfileByUsername adds the account status and join date the visibility
+-- decision needs: non-active accounts must answer like unknown usernames.
+-- name: GetProfileByUsername :one
+SELECT p.user_id, p.username, p.display_name, p.intent, p.country_code,
+       p.languages, p.github_username, p.bio, p.bio_language, p.open_to_collab,
+       p.country_visibility, p.languages_visibility, p.skills_visibility,
+       p.github_visibility, p.bio_visibility, p.open_to_collab_visibility,
+       p.profile_visibility, p.created_at, p.updated_at,
+       u.status AS account_status, u.created_at AS joined_at,
+       COALESCE((SELECT array_agg(t.slug ORDER BY t.slug)
+                 FROM user_skills us JOIN tags t ON t.id = us.tag_id
+                 WHERE us.user_id = p.user_id AND t.status = 'active'), '{}'::text[])::text[] AS skills
+FROM profiles p
+JOIN users u ON u.id = p.user_id
+WHERE p.username = $1;
+
+-- ResolveSkillSlugs maps contract skill slugs to tag ids. Only active tags
+-- resolve; the service rejects the patch when the count differs.
+-- name: ResolveSkillSlugs :many
+-- The input array is contract-bounded (maxItems 30); the LIMIT satisfies the
+-- bounded-list rule and can only truncate an already-invalid oversized input,
+-- which the service count check then rejects.
+SELECT id, slug FROM tags WHERE slug = ANY($1::text[]) AND status = 'active'
+LIMIT 100;
+
+-- UpdateProfile applies a resolved JSON Merge Patch: every column is guarded
+-- by a set-flag so omitted members keep their stored value and explicit nulls
+-- clear nullable columns. bio_language follows bio (the pair CHECK requires
+-- them set or cleared together; the service derives the language, 'en' by
+-- contract decision). Skills are replaced by DeleteUserSkills +
+-- InsertUserSkills inside the same transaction, after this UPDATE holds the
+-- profile row lock, so concurrent patches serialize on fresh snapshots.
+-- name: UpdateProfile :one
+UPDATE profiles SET
+    display_name          = CASE WHEN $2::boolean THEN $3  ELSE display_name END,
+    intent                = CASE WHEN $4::boolean THEN $5  ELSE intent END,
+    country_code          = CASE WHEN $6::boolean THEN $7  ELSE country_code END,
+    languages             = CASE WHEN $8::boolean THEN $9  ELSE languages END,
+    github_username       = CASE WHEN $10::boolean THEN $11 ELSE github_username END,
+    bio                   = CASE WHEN $12::boolean THEN $13 ELSE bio END,
+    bio_language          = CASE WHEN $14::boolean THEN $15 ELSE bio_language END,
+    open_to_collab        = CASE WHEN $16::boolean THEN $17 ELSE open_to_collab END,
+    country_visibility    = CASE WHEN $18::boolean THEN $19 ELSE country_visibility END,
+    languages_visibility  = CASE WHEN $20::boolean THEN $21 ELSE languages_visibility END,
+    skills_visibility     = CASE WHEN $22::boolean THEN $23 ELSE skills_visibility END,
+    github_visibility     = CASE WHEN $24::boolean THEN $25 ELSE github_visibility END,
+    bio_visibility        = CASE WHEN $26::boolean THEN $27 ELSE bio_visibility END,
+    profile_visibility    = CASE WHEN $28::boolean THEN $29 ELSE profile_visibility END,
+    updated_at            = now()
+  WHERE profiles.user_id = $1
+RETURNING profiles.user_id;
+
+-- Skill replacement pair: DeleteUserSkills wipes the user's skill rows and
+-- InsertUserSkills adds the resolved set. The repository runs both inside
+-- the UpdateProfile transaction, after the profile row lock is held, so
+-- each statement sees a fresh snapshot and concurrent patches serialize
+-- instead of merging.
+-- name: DeleteUserSkills :exec
+DELETE FROM user_skills WHERE user_id = $1;
+
+-- name: InsertUserSkills :exec
+INSERT INTO user_skills (user_id, tag_id)
+SELECT $1, unnest($2::uuid[])
+ON CONFLICT DO NOTHING;
+
 -- name: PurgeRateLimitBuckets :exec
 -- Bounded purge of windows that ended long ago (fixed windows never exceed 1 h);
 -- uses rate_limit_buckets_window_idx.

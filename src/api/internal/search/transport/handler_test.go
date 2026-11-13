@@ -8,8 +8,10 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Y4NN777/226os/src/api/internal/platform/apigen"
+	"github.com/Y4NN777/226os/src/api/internal/platform/subject"
 	"github.com/Y4NN777/226os/src/api/internal/search/domain"
 	"github.com/Y4NN777/226os/src/api/internal/search/service"
 )
@@ -24,7 +26,19 @@ func (f fakeReader) Search(_ context.Context, g domain.Group, q domain.Query) ([
 	return f.search(g, q)
 }
 
-func handler(r fakeReader) *Handler { return New(service.New(r), nil) }
+type fakeLimiter struct {
+	allowed bool
+	values  []string
+}
+
+func (f *fakeLimiter) Hit(_ context.Context, _, value string, _ int, _ time.Duration) (bool, time.Duration, error) {
+	f.values = append(f.values, value)
+	return f.allowed, 90*time.Second + time.Millisecond, nil
+}
+
+func handler(r fakeReader) *Handler {
+	return New(service.New(r, &fakeLimiter{allowed: true}, nil), nil)
+}
 
 func call(t *testing.T, h *Handler, params apigen.SearchParams) *httptest.ResponseRecorder {
 	t.Helper()
@@ -146,5 +160,43 @@ func TestSearchRejectsAnUnreadableHitID(t *testing.T) {
 	}})
 	if rec := call(t, h, apigen.SearchParams{Q: "ab"}); rec.Code != http.StatusInternalServerError {
 		t.Fatalf("status %d", rec.Code)
+	}
+}
+
+func limited(t *testing.T, l *fakeLimiter, sub subject.Subject, forwarded string) *httptest.ResponseRecorder {
+	t.Helper()
+	h := New(service.New(fakeReader{search: func(domain.Group, domain.Query) ([]domain.Hit, error) { return nil, nil }}, l, nil), nil)
+	req := httptest.NewRequestWithContext(subject.With(t.Context(), sub), http.MethodGet, "/api/v1/search", nil)
+	req.RemoteAddr = "10.0.0.2:5000"
+	if forwarded != "" {
+		req.Header.Set("X-Forwarded-For", forwarded)
+	}
+	rec := httptest.NewRecorder()
+	h.Search(rec, req, apigen.SearchParams{Q: "paiement"})
+	return rec
+}
+
+func TestAnonymousSearchOverTheLimitIs429WithRetryAfter(t *testing.T) {
+	l := &fakeLimiter{}
+	rec := limited(t, l, subject.Subject{}, "9.9.9.9, 198.51.100.7")
+	if rec.Code != http.StatusTooManyRequests || rec.Header().Get("Content-Type") != "application/problem+json" {
+		t.Fatalf("status %d type %s body %s", rec.Code, rec.Header().Get("Content-Type"), rec.Body.String())
+	}
+	if got := rec.Header().Get("Retry-After"); got != "91" {
+		t.Fatalf("Retry-After = %q, want the remaining window rounded up to whole seconds (91)", got)
+	}
+	if !strings.Contains(rec.Body.String(), `"RATE_LIMITED"`) {
+		t.Fatalf("body %s", rec.Body.String())
+	}
+	if len(l.values) != 1 || l.values[0] != "198.51.100.0/24" {
+		t.Fatalf("limiter keys = %v, want the right-most forwarded entry reduced to /24", l.values)
+	}
+}
+
+func TestMemberSearchIsNeverLimited(t *testing.T) {
+	l := &fakeLimiter{}
+	rec := limited(t, l, subject.Subject{UserID: "00000000-0000-7000-8000-0000000000a1"}, "")
+	if rec.Code != http.StatusOK || len(l.values) != 0 {
+		t.Fatalf("status %d, limiter calls %v; want 200 and no limiter call for a member", rec.Code, l.values)
 	}
 }

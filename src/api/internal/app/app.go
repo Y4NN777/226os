@@ -18,9 +18,9 @@ import (
 	identitytransport "github.com/Y4NN777/226os/src/api/internal/identity/transport"
 	"github.com/Y4NN777/226os/src/api/internal/platform/config"
 	"github.com/Y4NN777/226os/src/api/internal/platform/cursor"
-	"github.com/Y4NN777/226os/src/api/internal/platform/dbgen"
 	"github.com/Y4NN777/226os/src/api/internal/platform/httpx"
 	"github.com/Y4NN777/226os/src/api/internal/platform/idempotency"
+	"github.com/Y4NN777/226os/src/api/internal/platform/ratelimit"
 	"github.com/Y4NN777/226os/src/api/internal/search"
 )
 
@@ -42,7 +42,7 @@ type serveFunc func(context.Context, net.Listener, http.Handler, time.Duration) 
 type dbPool interface {
 	httpx.Pinger
 	idempotency.DB
-	dbgen.DBTX
+	repository.Beginner
 	Close()
 }
 
@@ -86,11 +86,14 @@ func run(ctx context.Context, getenv func(string) string, out io.Writer, serve s
 	secureCookies := cfg.AppEnv != "local-dev"
 	identSvc := service.New(repository.New(pool), mail, cfg.CursorKey)
 	authHandler := identitytransport.New(identSvc, secureCookies, logger)
+	limiter := ratelimit.New(pool, cfg.CursorKey, logger)
+	catalogue := discover.NewHandler(pool, codec, limiter, logger)
 	deps := newDeps(pool,
 		WithMailer(mail),
-		WithCatalogue(discover.NewHandler(pool, codec, logger)),
+		WithCatalogue(catalogue),
+		WithErrorReports(catalogue),
 		WithIdentity(authHandler),
-		WithSearch(search.NewHandler(pool, logger)),
+		WithSearch(search.NewHandler(pool, limiter, logger)),
 	)
 	deps.Subjects = identitytransport.NewResolver(identSvc, secureCookies)
 	deps.CSRF = identitytransport.CSRFMiddleware(identSvc, secureCookies, logger)

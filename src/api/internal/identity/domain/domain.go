@@ -25,6 +25,9 @@ var (
 	ErrRateLimited = errors.New("identity: rate limited")
 	// ErrNotFound means the account, session or token row does not exist.
 	ErrNotFound = errors.New("identity: not found")
+	// ErrCountryUnknown means a profile patch named a country code absent from
+	// the countries reference table (profiles_country_fk).
+	ErrCountryUnknown = errors.New("identity: unknown country")
 )
 
 // Account is the user row plus its credential state.

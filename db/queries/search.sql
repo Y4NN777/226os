@@ -2,7 +2,7 @@
 -- (migrations 00005-00008) and the partial GIN indexes of migration 00010: each query repeats the
 -- index predicate (status = 'published', plus visibility = 'public' for projects) so the index is usable.
 -- Order is ts_rank DESC then id, a stable UUID tie-breaker. websearch_to_tsquery never raises on
--- user input; the service caps its length first (C4 PROPOSED option 1, ADR-0005 point 6).
+-- user input; the service caps its length first (C4 DECIDED option 1, ADR-0005 point 6).
 -- The excerpt is the first 600 characters of the summary or body; the Go side turns it into a plain
 -- 300-rune snippet. Answers have no search group, so their GIN index is not queried here.
 
