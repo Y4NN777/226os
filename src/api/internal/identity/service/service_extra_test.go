@@ -438,30 +438,20 @@ func TestConfirmPasswordResetErrors(t *testing.T) {
 	if err := svc.ConfirmPasswordReset(ctx, token32(), newPw); apperrCode(t, err) != apperr.CodeInvalidToken {
 		t.Fatalf("unknown token: %v", err)
 	}
-	// Internal consume error.
-	st.errs = map[string]error{"ConsumePasswordReset": errBoom}
+	// Internal store error.
+	st.errs = map[string]error{"ResetPassword": errBoom}
 	if err := svc.ConfirmPasswordReset(ctx, token32(), newPw); apperrCode(t, err) != apperr.CodeInternal {
-		t.Fatalf("consume error: %v", err)
+		t.Fatalf("reset error: %v", err)
 	}
 	st.errs = nil
-	// Valid token, weak new password -> validation.
+	// Valid token, weak new password -> validation, and the token survives.
 	plain, hash, _ := randToken()
 	_ = st.CreatePasswordReset(ctx, acct.ID, hash, time.Now().Add(time.Hour))
 	if err := svc.ConfirmPasswordReset(ctx, plain, "short"); apperrCode(t, err) != apperr.CodeValidation {
 		t.Fatalf("weak password: %v", err)
 	}
-	// Store write failures.
-	plain2, hash2, _ := randToken()
-	_ = st.CreatePasswordReset(ctx, acct.ID, hash2, time.Now().Add(time.Hour))
-	st.errs = map[string]error{"SetPasswordHash": errBoom}
-	if err := svc.ConfirmPasswordReset(ctx, plain2, newPw); apperrCode(t, err) != apperr.CodeInternal {
-		t.Fatalf("set hash error: %v", err)
-	}
-	st.errs = map[string]error{"RevokeUserSessions": errBoom}
-	plain3, hash3, _ := randToken()
-	_ = st.CreatePasswordReset(ctx, acct.ID, hash3, time.Now().Add(time.Hour))
-	if err := svc.ConfirmPasswordReset(ctx, plain3, newPw); apperrCode(t, err) != apperr.CodeInternal {
-		t.Fatalf("revoke error: %v", err)
+	if err := svc.ConfirmPasswordReset(ctx, plain, newPw); err != nil {
+		t.Fatalf("token burned by the weak-password attempt: %v", err)
 	}
 }
 

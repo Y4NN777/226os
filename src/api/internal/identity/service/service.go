@@ -55,7 +55,6 @@ type Store interface {
 	CreateSession(ctx context.Context, s domain.Session) (string, error)
 	SessionByTokenHash(ctx context.Context, hash [32]byte) (domain.Session, error)
 	RevokeSession(ctx context.Context, id, reason string, now time.Time) error
-	RevokeUserSessions(ctx context.Context, userID, reason string, now time.Time, keepID string) error
 	TouchSession(ctx context.Context, id string, lastSeenAt, idleExpiresAt time.Time) error
 
 	CreateEmailVerification(ctx context.Context, userID, email string, hash [32]byte, expiresAt time.Time) error
@@ -63,8 +62,9 @@ type Store interface {
 	MarkEmailVerified(ctx context.Context, userID string, now time.Time) error
 
 	CreatePasswordReset(ctx context.Context, userID string, hash [32]byte, expiresAt time.Time) error
-	ConsumePasswordReset(ctx context.Context, hash [32]byte, now time.Time) (userID string, err error)
-	SetPasswordHash(ctx context.Context, userID, phc string, now time.Time) error
+	// ResetPassword consumes the token, stores the new PHC hash and revokes
+	// every session of the account in one atomic write.
+	ResetPassword(ctx context.Context, hash [32]byte, phc string, now time.Time) error
 
 	// Hit records one attempt in a fixed-window bucket and reports whether it
 	// is allowed plus the retry delay when it is not. key is already hashed.
@@ -131,6 +131,10 @@ func normalizeEmail(email string) string { return strings.ToLower(strings.TrimSp
 // entropy-failure branches.
 var randRead = rand.Read
 
+// verifyDummy is password.VerifyDummy behind a variable so tests can observe
+// the timing-equalization work on enumeration paths.
+var verifyDummy = password.VerifyDummy
+
 func randToken() (string, [32]byte, error) {
 	b := make([]byte, 32)
 	if _, err := randRead(b); err != nil {
@@ -170,8 +174,8 @@ func (s *Service) allow(ctx context.Context, scope, value string, limit int, win
 }
 
 // clientIP reduces the address to the rate-limit identity. Only the
-// Traefik-trusted X-Forwarded-For left-most entry may be used; transport
-// passes the resolved value, this keeps the /24-or-/48 prefix rule local.
+// Traefik-trusted X-Forwarded-For entry may be used; transport passes the
+// resolved value, this keeps the /24-or-/48 prefix rule local.
 func ipKey(ip string) string {
 	a, err := netip.ParseAddr(strings.TrimSpace(ip))
 	if err != nil {
@@ -228,6 +232,9 @@ func (s *Service) SignUp(ctx context.Context, in SignUpInput) error {
 	}
 	email := normalizeEmail(in.Email)
 	if _, err := s.store.AccountByEmail(ctx, email); err == nil {
+		// Pay the same Argon2id cost as a new account so the response time
+		// does not reveal that the e-mail is already registered.
+		verifyDummy(in.Password)
 		return nil
 	} else if !errors.Is(err, domain.ErrNotFound) {
 		return apperr.Wrap(apperr.CodeInternal, err)
@@ -291,20 +298,22 @@ func (s *Service) SignIn(ctx context.Context, in SignInInput) (SignInResult, err
 		return SignInResult{}, err
 	}
 	email := normalizeEmail(in.Email)
+	// The account bucket is hit before the lookup so a known and an unknown
+	// e-mail exhaust it identically: no 429-vs-401 enumeration oracle.
+	if err := s.allow(ctx, "signin:account", email, signInAccountLimit, signInWindow); err != nil {
+		return SignInResult{}, err
+	}
 	acct, err := s.store.AccountByEmail(ctx, email)
 	if err != nil {
 		if errors.Is(err, domain.ErrNotFound) {
-			password.VerifyDummy(in.Password)
+			verifyDummy(in.Password)
 			return SignInResult{}, invalidCredentials()
 		}
 		return SignInResult{}, apperr.Wrap(apperr.CodeInternal, err)
 	}
 	if acct.Status != "active" {
-		password.VerifyDummy(in.Password)
+		verifyDummy(in.Password)
 		return SignInResult{}, invalidCredentials()
-	}
-	if err := s.allow(ctx, "signin:account", email, signInAccountLimit, signInWindow); err != nil {
-		return SignInResult{}, err
 	}
 	ok, err := password.Verify(in.Password, acct.PasswordHash)
 	if err != nil || !ok {
@@ -489,29 +498,23 @@ func (s *Service) RequestPasswordReset(ctx context.Context, email, ip string) er
 	return nil
 }
 
-// ConfirmPasswordReset consumes the token, stores the new Argon2id hash and
-// revokes every session of the account (ADR-0003).
+// ConfirmPasswordReset validates and hashes the new password first — a weak
+// password must not burn the single-use token — then consumes the token and
+// applies hash + session revocation in one atomic store call.
 func (s *Service) ConfirmPasswordReset(ctx context.Context, plain, newPassword string) error {
 	hash, err := hashToken(plain)
 	if err != nil {
 		return invalidToken()
-	}
-	userID, err := s.store.ConsumePasswordReset(ctx, hash, s.now())
-	if err != nil {
-		if errors.Is(err, domain.ErrTokenInvalid) {
-			return invalidToken()
-		}
-		return apperr.Wrap(apperr.CodeInternal, err)
 	}
 	phc, err := password.Hash(newPassword)
 	if err != nil {
 		return apperr.New(apperr.CodeValidation, "password does not meet the policy.").
 			WithViolations(apperr.Violation{Field: "new_password", Code: "invalid"})
 	}
-	if err := s.store.SetPasswordHash(ctx, userID, phc, s.now()); err != nil {
-		return apperr.Wrap(apperr.CodeInternal, err)
-	}
-	if err := s.store.RevokeUserSessions(ctx, userID, "password_reset", s.now(), ""); err != nil {
+	if err := s.store.ResetPassword(ctx, hash, phc, s.now()); err != nil {
+		if errors.Is(err, domain.ErrTokenInvalid) {
+			return invalidToken()
+		}
 		return apperr.Wrap(apperr.CodeInternal, err)
 	}
 	return nil

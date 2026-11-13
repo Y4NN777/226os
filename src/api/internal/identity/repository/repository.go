@@ -245,19 +245,20 @@ func (r *Repository) CreatePasswordReset(ctx context.Context, userID string, has
 	return nil
 }
 
-func (r *Repository) ConsumePasswordReset(ctx context.Context, hash [32]byte, now time.Time) (string, error) {
+// ResetPassword consumes the token, stores the new PHC hash and revokes
+// every session of the account in one atomic statement.
+func (r *Repository) ResetPassword(ctx context.Context, hash [32]byte, phc string, now time.Time) error {
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
-	uid, err := r.q.ConsumePasswordReset(ctx, dbgen.ConsumePasswordResetParams{
-		TokenHash: hash[:], ConsumedAt: ts(now),
-	})
-	if err != nil {
+	if _, err := r.q.ResetPassword(ctx, dbgen.ResetPasswordParams{
+		TokenHash: hash[:], ConsumedAt: ts(now), PasswordHash: phc,
+	}); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return "", domain.ErrTokenInvalid
+			return domain.ErrTokenInvalid
 		}
-		return "", fmt.Errorf("identity consume password reset: %w", err)
+		return fmt.Errorf("identity reset password: %w", err)
 	}
-	return uuidString(uid), nil
+	return nil
 }
 
 func (r *Repository) MarkEmailVerified(ctx context.Context, userID string, now time.Time) error {
@@ -271,21 +272,6 @@ func (r *Repository) MarkEmailVerified(ctx context.Context, userID string, now t
 		ID: uid, EmailVerifiedAt: ts(now),
 	}); err != nil {
 		return fmt.Errorf("identity mark email verified: %w", err)
-	}
-	return nil
-}
-
-func (r *Repository) SetPasswordHash(ctx context.Context, userID, phc string, now time.Time) error {
-	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
-	defer cancel()
-	uid, err := parseUUID(userID)
-	if err != nil {
-		return domain.ErrNotFound
-	}
-	if err := r.q.SetPasswordHash(ctx, dbgen.SetPasswordHashParams{
-		UserID: uid, PasswordHash: phc, PasswordChangedAt: ts(now),
-	}); err != nil {
-		return fmt.Errorf("identity set password hash: %w", err)
 	}
 	return nil
 }

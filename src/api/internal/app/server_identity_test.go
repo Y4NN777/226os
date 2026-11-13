@@ -56,10 +56,7 @@ func (stubStore) MarkEmailVerified(context.Context, string, time.Time) error { r
 func (stubStore) CreatePasswordReset(context.Context, string, [32]byte, time.Time) error {
 	return errUnused
 }
-func (stubStore) ConsumePasswordReset(context.Context, [32]byte, time.Time) (string, error) {
-	return "", errUnused
-}
-func (stubStore) SetPasswordHash(context.Context, string, string, time.Time) error {
+func (stubStore) ResetPassword(context.Context, [32]byte, string, time.Time) error {
 	return errUnused
 }
 func (stubStore) Hit(context.Context, string, [32]byte, int, time.Duration, time.Time) (bool, time.Duration, error) {

@@ -367,20 +367,19 @@ func TestTokenQueries(t *testing.T) {
 		t.Fatal("exec error swallowed")
 	}
 
-	// ConsumePasswordReset.
+	// ResetPassword.
 	db = &fakeDB{steps: []dbStep{{vals: []any{pguuid()}}}}
-	id, err = New(db).ConsumePasswordReset(ctx, hash, testTime)
-	if err != nil || id != testUUID.String() {
-		t.Fatalf("consume reset %q %v", id, err)
+	if err := New(db).ResetPassword(ctx, hash, "phc", testTime); err != nil {
+		t.Fatalf("reset password: %v", err)
 	}
-	if _, err = New(&fakeDB{steps: []dbStep{{err: pgx.ErrNoRows}}}).ConsumePasswordReset(ctx, hash, testTime); !errors.Is(err, domain.ErrTokenInvalid) {
+	if err := New(&fakeDB{steps: []dbStep{{err: pgx.ErrNoRows}}}).ResetPassword(ctx, hash, "phc", testTime); !errors.Is(err, domain.ErrTokenInvalid) {
 		t.Fatalf("no rows: %v", err)
 	}
-	if _, err = New(&fakeDB{steps: []dbStep{{err: errors.New("down")}}}).ConsumePasswordReset(ctx, hash, testTime); err == nil {
+	if err := New(&fakeDB{steps: []dbStep{{err: errors.New("down")}}}).ResetPassword(ctx, hash, "phc", testTime); err == nil {
 		t.Fatal("driver error swallowed")
 	}
 
-	// MarkEmailVerified / SetPasswordHash.
+	// MarkEmailVerified.
 	if err := New(&fakeDB{}).MarkEmailVerified(ctx, "bad", testTime); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("bad user: %v", err)
 	}
@@ -389,16 +388,6 @@ func TestTokenQueries(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := New(&fakeDB{steps: []dbStep{{err: errors.New("down")}}}).MarkEmailVerified(ctx, testUUID.String(), testTime); err == nil {
-		t.Fatal("exec error swallowed")
-	}
-	if err := New(&fakeDB{}).SetPasswordHash(ctx, "bad", "phc", testTime); !errors.Is(err, domain.ErrNotFound) {
-		t.Fatalf("bad user: %v", err)
-	}
-	ok = &fakeDB{steps: []dbStep{{}}}
-	if err := New(ok).SetPasswordHash(ctx, testUUID.String(), "phc", testTime); err != nil {
-		t.Fatal(err)
-	}
-	if err := New(&fakeDB{steps: []dbStep{{err: errors.New("down")}}}).SetPasswordHash(ctx, testUUID.String(), "phc", testTime); err == nil {
 		t.Fatal("exec error swallowed")
 	}
 }

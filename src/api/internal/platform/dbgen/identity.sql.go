@@ -29,24 +29,6 @@ func (q *Queries) ConsumeEmailVerification(ctx context.Context, arg ConsumeEmail
 	return user_id, err
 }
 
-const consumePasswordReset = `-- name: ConsumePasswordReset :one
-UPDATE password_resets SET consumed_at = $2
-WHERE token_hash = $1 AND consumed_at IS NULL AND expires_at > $2
-RETURNING user_id
-`
-
-type ConsumePasswordResetParams struct {
-	TokenHash  []byte
-	ConsumedAt pgtype.Timestamptz
-}
-
-func (q *Queries) ConsumePasswordReset(ctx context.Context, arg ConsumePasswordResetParams) (pgtype.UUID, error) {
-	row := q.db.QueryRow(ctx, consumePasswordReset, arg.TokenHash, arg.ConsumedAt)
-	var user_id pgtype.UUID
-	err := row.Scan(&user_id)
-	return user_id, err
-}
-
 const createAccount = `-- name: CreateAccount :one
 
 WITH u AS (
@@ -319,6 +301,38 @@ func (q *Queries) MarkEmailVerified(ctx context.Context, arg MarkEmailVerifiedPa
 	return err
 }
 
+const resetPassword = `-- name: ResetPassword :one
+WITH c AS (
+  UPDATE password_resets SET consumed_at = $2
+  WHERE password_resets.token_hash = $1 AND consumed_at IS NULL AND expires_at > $2
+  RETURNING user_id
+), u AS (
+  UPDATE user_credentials SET password_hash = $3, password_changed_at = $2
+  FROM c WHERE user_credentials.user_id = c.user_id
+), s AS (
+  UPDATE sessions SET revoked_at = $2, revoked_reason = 'password_reset'
+  FROM c WHERE sessions.user_id = c.user_id AND sessions.revoked_at IS NULL
+)
+SELECT user_id FROM c
+`
+
+type ResetPasswordParams struct {
+	TokenHash    []byte
+	ConsumedAt   pgtype.Timestamptz
+	PasswordHash string
+}
+
+// ResetPassword consumes the token, stores the new hash and revokes every
+// session of the account in one statement: a single statement is its own
+// transaction, so a failure cannot leave a consumed token with the old
+// password still active.
+func (q *Queries) ResetPassword(ctx context.Context, arg ResetPasswordParams) (pgtype.UUID, error) {
+	row := q.db.QueryRow(ctx, resetPassword, arg.TokenHash, arg.ConsumedAt, arg.PasswordHash)
+	var user_id pgtype.UUID
+	err := row.Scan(&user_id)
+	return user_id, err
+}
+
 const revokeSession = `-- name: RevokeSession :exec
 UPDATE sessions SET revoked_at = $3, revoked_reason = $2
 WHERE id = $1 AND revoked_at IS NULL
@@ -355,22 +369,6 @@ func (q *Queries) RevokeUserSessions(ctx context.Context, arg RevokeUserSessions
 		arg.RevokedAt,
 		arg.Column4,
 	)
-	return err
-}
-
-const setPasswordHash = `-- name: SetPasswordHash :exec
-UPDATE user_credentials SET password_hash = $2, password_changed_at = $3
-WHERE user_id = $1
-`
-
-type SetPasswordHashParams struct {
-	UserID            pgtype.UUID
-	PasswordHash      string
-	PasswordChangedAt pgtype.Timestamptz
-}
-
-func (q *Queries) SetPasswordHash(ctx context.Context, arg SetPasswordHashParams) error {
-	_, err := q.db.Exec(ctx, setPasswordHash, arg.UserID, arg.PasswordHash, arg.PasswordChangedAt)
 	return err
 }
 

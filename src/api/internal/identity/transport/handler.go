@@ -110,13 +110,15 @@ func (h *Handler) clearSessionCookie(w http.ResponseWriter) {
 	})
 }
 
-// clientIP returns the rate-limit identity: the left-most X-Forwarded-For
-// entry set by Traefik (the only ingress), else the socket peer. The service
-// reduces it to the /24-or-/48 prefix itself.
+// clientIP returns the rate-limit identity: the right-most X-Forwarded-For
+// entry. Traefik is the only ingress and appends the peer address it observed
+// at the end of the header, so earlier entries are client-supplied and
+// spoofable; the last one is the address Traefik actually saw. Falls back to
+// the socket peer when the header is absent.
 func clientIP(r *http.Request) string {
 	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		if i := strings.IndexByte(xff, ','); i >= 0 {
-			return strings.TrimSpace(xff[:i])
+		if i := strings.LastIndexByte(xff, ','); i >= 0 {
+			return strings.TrimSpace(xff[i+1:])
 		}
 		return strings.TrimSpace(xff)
 	}

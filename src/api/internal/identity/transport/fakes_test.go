@@ -163,20 +163,23 @@ func (f *fakeStore) CreatePasswordReset(_ context.Context, userID string, h [32]
 	return nil
 }
 
-func (f *fakeStore) ConsumePasswordReset(_ context.Context, h [32]byte, now time.Time) (string, error) {
+func (f *fakeStore) ResetPassword(_ context.Context, h [32]byte, phc string, now time.Time) error {
 	r, ok := f.resets[h]
 	if !ok || r.consumed || now.After(r.expiresAt) {
-		return "", domain.ErrTokenInvalid
+		return domain.ErrTokenInvalid
 	}
 	r.consumed = true
 	f.resets[h] = r
-	return r.userID, nil
-}
-
-func (f *fakeStore) SetPasswordHash(_ context.Context, userID, phc string, _ time.Time) error {
-	if a, ok := f.accounts[userID]; ok {
+	if a, ok := f.accounts[r.userID]; ok {
 		a.PasswordHash = phc
-		f.accounts[userID] = a
+		f.accounts[r.userID] = a
+	}
+	for id, s := range f.sessions {
+		if s.UserID == r.userID && s.RevokedAt == nil {
+			s.RevokedAt = &now
+			s.RevokeReason = "password_reset"
+			f.sessions[id] = s
+		}
 	}
 	return nil
 }

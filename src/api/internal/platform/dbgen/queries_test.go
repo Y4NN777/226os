@@ -366,10 +366,6 @@ func TestIdentityQueries(t *testing.T) {
 		"MarkEmailVerified": func(q *dbgen.Queries) error {
 			return q.MarkEmailVerified(ctx, dbgen.MarkEmailVerifiedParams{ID: uid, EmailVerifiedAt: ts})
 		},
-		"SetPasswordHash": func(q *dbgen.Queries) error {
-			return q.SetPasswordHash(ctx, dbgen.SetPasswordHashParams{
-				UserID: uid, PasswordHash: "phc", PasswordChangedAt: ts})
-		},
 	} {
 		db = &fakeDB{}
 		if err := run(dbgen.New(db)); err != nil {
@@ -385,8 +381,9 @@ func TestIdentityQueries(t *testing.T) {
 		"ConsumeEmailVerification": func(q *dbgen.Queries) (pgtype.UUID, error) {
 			return q.ConsumeEmailVerification(ctx, dbgen.ConsumeEmailVerificationParams{TokenHash: hash, ConsumedAt: ts})
 		},
-		"ConsumePasswordReset": func(q *dbgen.Queries) (pgtype.UUID, error) {
-			return q.ConsumePasswordReset(ctx, dbgen.ConsumePasswordResetParams{TokenHash: hash, ConsumedAt: ts})
+		"ResetPassword": func(q *dbgen.Queries) (pgtype.UUID, error) {
+			return q.ResetPassword(ctx, dbgen.ResetPasswordParams{
+				TokenHash: hash, ConsumedAt: ts, PasswordHash: "phc"})
 		},
 	} {
 		db = &fakeDB{rowVals: []any{uid}}

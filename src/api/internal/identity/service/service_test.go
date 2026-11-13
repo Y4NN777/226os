@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -172,26 +173,27 @@ func (f *fakeStore) CreatePasswordReset(_ context.Context, userID string, h [32]
 	f.resets[h] = resetRow{userID: userID, expiresAt: exp}
 	return nil
 }
-func (f *fakeStore) ConsumePasswordReset(_ context.Context, h [32]byte, now time.Time) (string, error) {
-	if err := f.errs["ConsumePasswordReset"]; err != nil {
-		return "", err
+func (f *fakeStore) ResetPassword(_ context.Context, h [32]byte, phc string, now time.Time) error {
+	if err := f.errs["ResetPassword"]; err != nil {
+		return err
 	}
 	r, ok := f.resets[h]
 	if !ok || r.consumed || now.After(r.expiresAt) {
-		return "", domain.ErrTokenInvalid
+		return domain.ErrTokenInvalid
 	}
 	r.consumed = true
 	f.resets[h] = r
-	return r.userID, nil
-}
-func (f *fakeStore) SetPasswordHash(_ context.Context, userID, phc string, _ time.Time) error {
-	if err := f.errs["SetPasswordHash"]; err != nil {
-		return err
-	}
 	for id, a := range f.accounts {
-		if id == userID {
+		if id == r.userID {
 			a.PasswordHash = phc
 			f.accounts[id] = a
+		}
+	}
+	for id, s := range f.sessions {
+		if s.UserID == r.userID && s.RevokedAt == nil {
+			s.RevokedAt = &now
+			s.RevokeReason = "password_reset"
+			f.sessions[id] = s
 		}
 	}
 	return nil
@@ -330,6 +332,47 @@ func TestSignInRotatesSessionAndRejectsBadCredentials(t *testing.T) {
 	}
 }
 
+func TestSignInAccountBucketAppliesToUnknownEmails(t *testing.T) {
+	svc, st, _ := testSvc(t)
+	ctx := context.Background()
+	// The per-account bucket is hit before the lookup, so an unknown email
+	// exhausts it exactly like a known one: no 429-vs-401 enumeration oracle.
+	var last error
+	for i := 0; i < signInAccountLimit+1; i++ {
+		_, last = svc.SignIn(ctx, SignInInput{Email: "ghost@example.com", Password: "whatever-password",
+			IP: "198.51.100.50"})
+	}
+	if apperrCode(t, last) != apperr.CodeRateLimited {
+		t.Fatalf("expected RATE_LIMITED, got %v", last)
+	}
+	found := false
+	for _, h := range st.hits {
+		if strings.HasPrefix(h, "signin:account:") {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("signin:account bucket never hit for an unknown email")
+	}
+}
+
+func TestSignUpExistingEmailRunsDummyVerify(t *testing.T) {
+	svc, st, _ := testSvc(t)
+	ctx := context.Background()
+	seedAccount(t, st, "dup@example.com")
+	calls := 0
+	orig := verifyDummy
+	verifyDummy = func(string) { calls++ }
+	t.Cleanup(func() { verifyDummy = orig })
+	if err := svc.SignUp(ctx, SignUpInput{Email: "dup@example.com", Password: testPassword,
+		Username: "other", IP: "203.0.113.20"}); err != nil {
+		t.Fatal(err)
+	}
+	if calls != 1 {
+		t.Fatalf("dummy verify calls = %d, want 1 (timing equalization)", calls)
+	}
+}
+
 func TestResolveSessionRejectsRevokedExpiredAndUnknown(t *testing.T) {
 	svc, st, _ := testSvc(t)
 	ctx := context.Background()
@@ -430,6 +473,22 @@ func TestPasswordResetRevokesAllSessions(t *testing.T) {
 	}
 	if _, err := svc.SignIn(ctx, SignInInput{Email: acct.Email, Password: newPw, IP: "203.0.113.6"}); err != nil {
 		t.Fatalf("new password rejected: %v", err)
+	}
+}
+
+func TestConfirmPasswordResetWeakPasswordKeepsToken(t *testing.T) {
+	svc, st, _ := testSvc(t)
+	ctx := context.Background()
+	acct := seedAccount(t, st, "weak@example.com")
+	plain, hash, _ := randToken()
+	_ = st.CreatePasswordReset(ctx, acct.ID, hash, time.Now().Add(resetTTL))
+	// A weak password is rejected before the token is touched.
+	if err := svc.ConfirmPasswordReset(ctx, plain, "short"); apperrCode(t, err) != apperr.CodeValidation {
+		t.Fatalf("weak password: %v", err)
+	}
+	// The same token must still work with a compliant password.
+	if err := svc.ConfirmPasswordReset(ctx, plain, "a-brand-new-password-1"); err != nil {
+		t.Fatalf("token burned by the weak-password attempt: %v", err)
 	}
 }
 
