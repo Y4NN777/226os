@@ -79,6 +79,26 @@ func TestSignUpStoreAndValidationErrors(t *testing.T) {
 		t.Fatalf("weak password: %v", err)
 	}
 
+	// Weak password on a *registered* e-mail must also be 422: answering 202
+	// there would leak account existence through the policy check.
+	svc, st, _ = testSvc(t)
+	seedAccount(t, st, "taken-pw@example.com")
+	if err := svc.SignUp(ctx, SignUpInput{Email: "taken-pw@example.com", Password: "   ",
+		Username: "tpw", IP: "10.0.0.25"}); apperrCode(t, err) != apperr.CodeValidation {
+		t.Fatalf("weak password on existing email: %v", err)
+	}
+
+	// Hash failure (entropy) -> internal, not a fake validation error.
+	svc, _, _ = testSvc(t)
+	origHash := hashPassword
+	hashPassword = func(string) (string, error) { return "", errBoom }
+	t.Cleanup(func() { hashPassword = origHash })
+	if err := svc.SignUp(ctx, SignUpInput{Email: "rand-hash@b.co", Password: testPassword,
+		Username: "rh", IP: "10.0.0.26"}); apperrCode(t, err) != apperr.CodeInternal {
+		t.Fatalf("hash error: %v", err)
+	}
+	hashPassword = origHash
+
 	// CreateAccount failures.
 	for name, err := range map[string]error{
 		"taken":    domain.ErrEmailTaken,
@@ -425,32 +445,55 @@ func TestRequestPasswordResetRateLimitAndErrors(t *testing.T) {
 	}
 }
 
+func TestConfirmPasswordResetRateLimitedPerIP(t *testing.T) {
+	ctx := context.Background()
+	svc, _, _ := testSvc(t)
+
+	// The endpoint is anonymous and pays one Argon2id per call: the per-IP
+	// bucket must bound it even when every token is bogus.
+	var last error
+	for i := 0; i < confirmIPLimit+1; i++ {
+		last = svc.ConfirmPasswordReset(ctx, token32(), "a-valid-password-1", "10.30.0.1")
+	}
+	if apperrCode(t, last) != apperr.CodeRateLimited {
+		t.Fatalf("expected RATE_LIMITED, got %v", last)
+	}
+}
+
 func TestConfirmPasswordResetErrors(t *testing.T) {
 	ctx := context.Background()
 	svc, st, _ := testSvc(t)
 	acct := seedAccount(t, st, "cp@example.com")
 	newPw := "a-brand-new-password-9"
 
-	if err := svc.ConfirmPasswordReset(ctx, "bad-token", newPw); apperrCode(t, err) != apperr.CodeInvalidToken {
+	if err := svc.ConfirmPasswordReset(ctx, "bad-token", newPw, "10.20.0.1"); apperrCode(t, err) != apperr.CodeInvalidToken {
 		t.Fatalf("bad token: %v", err)
 	}
 	// Unknown token -> invalid token.
-	if err := svc.ConfirmPasswordReset(ctx, token32(), newPw); apperrCode(t, err) != apperr.CodeInvalidToken {
+	if err := svc.ConfirmPasswordReset(ctx, token32(), newPw, "10.20.0.1"); apperrCode(t, err) != apperr.CodeInvalidToken {
 		t.Fatalf("unknown token: %v", err)
 	}
 	// Internal store error.
 	st.errs = map[string]error{"ResetPassword": errBoom}
-	if err := svc.ConfirmPasswordReset(ctx, token32(), newPw); apperrCode(t, err) != apperr.CodeInternal {
+	if err := svc.ConfirmPasswordReset(ctx, token32(), newPw, "10.20.0.1"); apperrCode(t, err) != apperr.CodeInternal {
 		t.Fatalf("reset error: %v", err)
 	}
 	st.errs = nil
+	// Hash failure (entropy) -> internal; the token is untouched.
+	origHash := hashPassword
+	hashPassword = func(string) (string, error) { return "", errBoom }
+	t.Cleanup(func() { hashPassword = origHash })
+	if err := svc.ConfirmPasswordReset(ctx, token32(), newPw, "10.20.0.9"); apperrCode(t, err) != apperr.CodeInternal {
+		t.Fatalf("hash error: %v", err)
+	}
+	hashPassword = origHash
 	// Valid token, weak new password -> validation, and the token survives.
 	plain, hash, _ := randToken()
 	_ = st.CreatePasswordReset(ctx, acct.ID, hash, time.Now().Add(time.Hour))
-	if err := svc.ConfirmPasswordReset(ctx, plain, "short"); apperrCode(t, err) != apperr.CodeValidation {
+	if err := svc.ConfirmPasswordReset(ctx, plain, "short", "10.20.0.1"); apperrCode(t, err) != apperr.CodeValidation {
 		t.Fatalf("weak password: %v", err)
 	}
-	if err := svc.ConfirmPasswordReset(ctx, plain, newPw); err != nil {
+	if err := svc.ConfirmPasswordReset(ctx, plain, newPw, "10.20.0.1"); err != nil {
 		t.Fatalf("token burned by the weak-password attempt: %v", err)
 	}
 }

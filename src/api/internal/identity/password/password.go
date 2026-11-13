@@ -118,6 +118,8 @@ type params struct {
 }
 
 func encode(pw string, salt []byte, mem, t uint32, p uint8) string {
+	sem <- struct{}{}
+	defer func() { <-sem }()
 	key := argon2.IDKey([]byte(Normalize(pw)), salt, t, mem, p, keyLen)
 	return fmt.Sprintf("$argon2id$v=%d$m=%d,t=%d,p=%d$%s$%s",
 		argon2.Version, mem, t, p,

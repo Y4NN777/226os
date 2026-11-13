@@ -43,6 +43,8 @@ const (
 	resetAccountLimit  = 3
 	resetIPLimit       = 10
 	resetWindow        = time.Hour
+	confirmIPLimit     = 10
+	confirmWindow      = time.Hour
 )
 
 // Store is the persistence port. The repository implements it over sqlc;
@@ -134,6 +136,10 @@ var randRead = rand.Read
 // verifyDummy is password.VerifyDummy behind a variable so tests can observe
 // the timing-equalization work on enumeration paths.
 var verifyDummy = password.VerifyDummy
+
+// hashPassword is password.Hash behind a variable so tests can inject the
+// entropy-failure branch.
+var hashPassword = password.Hash
 
 func randToken() (string, [32]byte, error) {
 	b := make([]byte, 32)
@@ -231,6 +237,13 @@ func (s *Service) SignUp(ctx context.Context, in SignUpInput) error {
 		return err
 	}
 	email := normalizeEmail(in.Email)
+	// Policy check before the lookup: an invalid password must get the same
+	// 422 whether or not the e-mail is registered, or the response leaks
+	// account existence.
+	if !password.Valid(in.Password) {
+		return apperr.New(apperr.CodeValidation, "password does not meet the policy.").
+			WithViolations(apperr.Violation{Field: "password", Code: "invalid"})
+	}
 	if _, err := s.store.AccountByEmail(ctx, email); err == nil {
 		// Pay the same Argon2id cost as a new account so the response time
 		// does not reveal that the e-mail is already registered.
@@ -239,10 +252,10 @@ func (s *Service) SignUp(ctx context.Context, in SignUpInput) error {
 	} else if !errors.Is(err, domain.ErrNotFound) {
 		return apperr.Wrap(apperr.CodeInternal, err)
 	}
-	phc, err := password.Hash(in.Password)
+	phc, err := hashPassword(in.Password)
 	if err != nil {
-		return apperr.New(apperr.CodeValidation, "password does not meet the policy.").
-			WithViolations(apperr.Violation{Field: "password", Code: "invalid"})
+		// Valid() already passed, so this is an entropy failure, not policy.
+		return apperr.Wrap(apperr.CodeInternal, err)
 	}
 	display := strings.TrimSpace(in.DisplayName)
 	if display == "" {
@@ -498,15 +511,23 @@ func (s *Service) RequestPasswordReset(ctx context.Context, email, ip string) er
 // ConfirmPasswordReset validates and hashes the new password first — a weak
 // password must not burn the single-use token — then consumes the token and
 // applies hash + session revocation in one atomic store call.
-func (s *Service) ConfirmPasswordReset(ctx context.Context, plain, newPassword string) error {
+func (s *Service) ConfirmPasswordReset(ctx context.Context, plain, newPassword, ip string) error {
+	// Anonymous endpoint that pays one Argon2id per call: bound it per IP
+	// before any token or password work.
+	if err := s.allow(ctx, "reset:confirm:ip", ipKey(ip), confirmIPLimit, confirmWindow); err != nil {
+		return err
+	}
 	hash, err := hashToken(plain)
 	if err != nil {
 		return invalidToken()
 	}
-	phc, err := password.Hash(newPassword)
-	if err != nil {
+	if !password.Valid(newPassword) {
 		return apperr.New(apperr.CodeValidation, "password does not meet the policy.").
 			WithViolations(apperr.Violation{Field: "new_password", Code: "invalid"})
+	}
+	phc, err := hashPassword(newPassword)
+	if err != nil {
+		return apperr.Wrap(apperr.CodeInternal, err)
 	}
 	if err := s.store.ResetPassword(ctx, hash, phc, s.now()); err != nil {
 		if errors.Is(err, domain.ErrTokenInvalid) {

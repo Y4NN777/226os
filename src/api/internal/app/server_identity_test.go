@@ -60,7 +60,7 @@ func (stubStore) ResetPassword(context.Context, [32]byte, string, time.Time) err
 	return errUnused
 }
 func (stubStore) Hit(context.Context, string, [32]byte, int, time.Duration, time.Time) (bool, time.Duration, error) {
-	return false, 0, errUnused
+	return true, 0, nil // rate limit allowed; later store calls still fail
 }
 
 func identityServer(t *testing.T) *app.Server {
@@ -119,7 +119,7 @@ func TestServerIdentityDelegates(t *testing.T) {
 		t.Fatalf("session: %d %s", rec.Code, rec.Body.String())
 	}
 
-	// Sign-up reaches the service: the stub store fails the rate-limit hit
+	// Sign-up reaches the service: the stub store fails the account lookup
 	// and the handler answers a problem, never 501.
 	rec = httptest.NewRecorder()
 	s.SignUp(rec, postJSON(t, `{"email":"a@b.co","password":"correct-horse","username":"ab"}`))

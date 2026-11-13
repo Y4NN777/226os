@@ -459,7 +459,7 @@ func TestPasswordResetRevokesAllSessions(t *testing.T) {
 	plain, hash, _ := randToken()
 	_ = st.CreatePasswordReset(ctx, acct.ID, hash, time.Now().Add(resetTTL))
 	newPw := "a-brand-new-password-1"
-	if err := svc.ConfirmPasswordReset(ctx, plain, newPw); err != nil {
+	if err := svc.ConfirmPasswordReset(ctx, plain, newPw, "10.20.0.1"); err != nil {
 		t.Fatal(err)
 	}
 	for _, v := range []string{s1.Cookie.Value, s2.Cookie.Value} {
@@ -483,11 +483,11 @@ func TestConfirmPasswordResetWeakPasswordKeepsToken(t *testing.T) {
 	plain, hash, _ := randToken()
 	_ = st.CreatePasswordReset(ctx, acct.ID, hash, time.Now().Add(resetTTL))
 	// A weak password is rejected before the token is touched.
-	if err := svc.ConfirmPasswordReset(ctx, plain, "short"); apperrCode(t, err) != apperr.CodeValidation {
+	if err := svc.ConfirmPasswordReset(ctx, plain, "short", "10.20.0.1"); apperrCode(t, err) != apperr.CodeValidation {
 		t.Fatalf("weak password: %v", err)
 	}
 	// The same token must still work with a compliant password.
-	if err := svc.ConfirmPasswordReset(ctx, plain, "a-brand-new-password-1"); err != nil {
+	if err := svc.ConfirmPasswordReset(ctx, plain, "a-brand-new-password-1", "10.20.0.1"); err != nil {
 		t.Fatalf("token burned by the weak-password attempt: %v", err)
 	}
 }

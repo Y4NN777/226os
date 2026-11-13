@@ -39,7 +39,7 @@ type Service interface {
 	SignOut(ctx context.Context, plain string) error
 	VerifyEmail(ctx context.Context, plain string) error
 	RequestPasswordReset(ctx context.Context, email, ip string) error
-	ConfirmPasswordReset(ctx context.Context, plain, newPassword string) error
+	ConfirmPasswordReset(ctx context.Context, plain, newPassword, ip string) error
 }
 
 // Handler serves the eight auth operations of S1.
@@ -351,7 +351,7 @@ func (h *Handler) ConfirmPasswordReset(w http.ResponseWriter, r *http.Request) {
 		writeErr(h.logger, w, r, missingField("new_password"))
 		return
 	}
-	if err := h.svc.ConfirmPasswordReset(r.Context(), body.Token, *body.NewPassword); err != nil {
+	if err := h.svc.ConfirmPasswordReset(r.Context(), body.Token, *body.NewPassword, clientIP(r)); err != nil {
 		writeErr(h.logger, w, r, err)
 		return
 	}
