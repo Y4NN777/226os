@@ -611,3 +611,20 @@ human_reviewers: []
 tests_or_evidence: ["smoke_test.sh failed first (script missing), then passed; ShellCheck clean"]
 open_risks: ["the script has only run against fakes: the real curl output formats and a real stack are untested", "the release draft is a proposal with open owner questions; no workflow file was added"]
 ```
+
+## Review gate (2026-11-13)
+
+```yaml
+date: "2026-11-13"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code (VS Code extension) with claude-sonnet-5-5"
+purpose: "A required check that lets the AI review stop an OBSERVED CRITICAL (owner override, fail open) and asks the owner's approval only on sensitive paths; report mode first. Written test first."
+repository_or_source_context: "the first review output on PR #85, ADR-0008, GIT_WORKFLOW, branch protection settings read with gh api"
+files_or_sections_affected: ["scripts/review-gate.py", "scripts/tests/review-gate_test.sh", ".github/workflows/code-review.yml", ".github/sensitive-paths.txt", ".claude/commands/delegate-review.md", "docs/DEV.md", "docs/GIT_WORKFLOW.md", "TODO.md"]
+third_party_sources_consulted: []
+commands: "scripts/tests/review-gate_test.sh (26 passed, fake gh), scripts/lint-shell.sh; the gate was NOT RUN on GitHub yet"
+license_review: "NOT APPLICABLE (no third-party code or asset added)"
+human_reviewers: []
+tests_or_evidence: ["review-gate_test.sh failed first (script missing), then passed"]
+open_risks: ["the workflow YAML of a pull request runs from the PR itself, so only a human reading changes to .github can stop a PR from weakening the job (the script and the list come from the base)", "a false CRITICAL blocks one PR until the owner labels it", "report mode first: not enforced yet"]
+```
