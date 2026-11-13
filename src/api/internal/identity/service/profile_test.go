@@ -201,6 +201,19 @@ func TestUpdateMyProfileLanguagesTooManyAndBadFormat(t *testing.T) {
 	if apperrCode(t, err) != apperr.CodeValidation {
 		t.Fatalf("expected %v, got %v", apperr.CodeValidation, err)
 	}
+
+	// The contract also allows region subtags; the server rejects fr-BF with
+	// 422 on purpose until profiles_languages_ck is widened (owner decision).
+	regional := []string{"fr-BF"}
+	w = domain.ProfileWrite{Languages: domain.PatchField[[]string]{Present: true, Value: &regional}}
+	_, err = svc.UpdateMyProfile(context.Background(), "u1", w)
+	if apperrCode(t, err) != apperr.CodeValidation {
+		t.Fatalf("fr-BF: expected %v, got %v", apperr.CodeValidation, err)
+	}
+	var pe *apperr.Error
+	if errors.As(err, &pe) && (len(pe.Violations) != 1 || pe.Violations[0].Field != "languages") {
+		t.Fatalf("fr-BF violations %+v", pe.Violations)
+	}
 }
 
 func TestUpdateMyProfileSkillsResolveAndRejectUnknown(t *testing.T) {

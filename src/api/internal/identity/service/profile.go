@@ -26,8 +26,8 @@ const (
 )
 
 var (
-	// profiles_languages_ck accepts only lowercase 2-3 letter codes; the
-	// service pattern must stay at least as strict or the store 500s.
+	// The contract also accepts region subtags (fr-BF); the server rejects
+	// them with 422 on purpose until profiles_languages_ck is widened.
 	languagePattern = regexp.MustCompile(`^[a-z]{2,3}$`)
 	githubPattern   = regexp.MustCompile(`^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$`)
 	countryPattern  = regexp.MustCompile(`^[A-Z]{2}$`)

@@ -384,6 +384,37 @@ func TestUpdateMyProfileNullScalars(t *testing.T) {
 	}
 }
 
+// Explicit null on contract-non-nullable members is dropped by the handler
+// (the embedded OpenAPI validator rejects it before this point in
+// production). Pinned so the merge-patch mapping stays honest: a null-only
+// body is an empty patch (422), and null members do not block other fields.
+func TestUpdateMyProfileNullNonNullableDropped(t *testing.T) {
+	h, _, st, _ := testStack(t, false)
+	seed := func() { seedOwnProfile(t, st, "nulls@example.com") }
+
+	rec := memberCall(t, h, st, h.UpdateMyProfile, http.MethodPatch, "/api/v1/me/profile",
+		`{"skills":null,"languages":null,"open_to_collab":null}`, "nulls@example.com", seed)
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("null-only patch: expected 422, got %d %s", rec.Code, rec.Body.String())
+	}
+
+	rec = memberCall(t, h, st, h.UpdateMyProfile, http.MethodPatch, "/api/v1/me/profile",
+		`{"skills":null,"display_name":"Nulls"}`, "nulls@example.com", seed)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("mixed patch: expected 200, got %d %s", rec.Code, rec.Body.String())
+	}
+	var body struct {
+		DisplayName string   `json:"display_name"`
+		Skills      []string `json:"skills"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if body.DisplayName != "Nulls" || len(body.Skills) != 0 {
+		t.Fatalf("mixed patch result %s", rec.Body.String())
+	}
+}
+
 func TestUpdateMyProfileBodyTooLarge(t *testing.T) {
 	h, _, st, _ := testStack(t, false)
 	big := `{"display_name":"` + strings.Repeat("a", 1<<20) + `"}`
