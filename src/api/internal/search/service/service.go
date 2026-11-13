@@ -101,7 +101,9 @@ func (s *Service) Search(ctx context.Context, req Request) (Results, error) {
 	if err := s.allow(ctx, req); err != nil {
 		return Results{}, err
 	}
-	if n := utf8.RuneCountInString(req.Q); n < minQuery || n > maxQuery {
+	// The minimum counts the trimmed text, so a blank q is a 422 rather than an empty result (#95);
+	// the maximum counts the raw q, as the contract's maxLength does.
+	if n := utf8.RuneCountInString(req.Q); utf8.RuneCountInString(strings.TrimSpace(req.Q)) < minQuery || n > maxQuery {
 		return Results{}, invalid("q", "q must be between 2 and 200 characters.")
 	}
 	// PostgreSQL text holds neither NUL nor invalid UTF-8: refuse them here rather than answer 500.

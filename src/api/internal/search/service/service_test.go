@@ -169,6 +169,8 @@ func TestSearchValidation(t *testing.T) {
 	}{
 		{"q of 1 rune", Request{Q: "é"}, "q"},
 		{"empty q", Request{Q: ""}, "q"},
+		{"blank q is trimmed before the 2-rune minimum (#95)", Request{Q: "   "}, "q"},
+		{"one rune padded with spaces is still too short (#95)", Request{Q: "  é  "}, "q"},
 		{"q with a NUL byte, which PostgreSQL text cannot hold", Request{Q: "ab\x00cd"}, "q"},
 		{"q that is not valid UTF-8", Request{Q: "ab\xffcd"}, "q"},
 		{"q over 200 runes", Request{Q: strings.Repeat("é", 201)}, "q"},
