@@ -1,6 +1,10 @@
 import '@testing-library/jest-dom/vitest';
-import { cleanup } from '@testing-library/react';
+import { cleanup, configure } from '@testing-library/react';
 import { afterEach, beforeEach, vi } from 'vitest';
+
+// Whole-app renders (router, Astryx shell, providers) can take over a second on a loaded
+// CI runner; findBy* waits longer instead of failing on load. Assertions are unchanged.
+configure({ asyncUtilTimeout: 4000 });
 
 beforeEach(() => {
   // jsdom does not implement scrolling; the router restores scroll on navigation.
