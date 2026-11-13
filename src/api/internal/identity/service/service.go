@@ -514,7 +514,7 @@ func (s *Service) RequestPasswordReset(ctx context.Context, email, ip string) er
 func (s *Service) ConfirmPasswordReset(ctx context.Context, plain, newPassword, ip string) error {
 	// Anonymous endpoint that pays one Argon2id per call: bound it per IP
 	// before any token or password work.
-	if err := s.allow(ctx, "reset:confirm:ip", ipKey(ip), confirmIPLimit, confirmWindow); err != nil {
+	if err := s.allow(ctx, "confirm:ip", ipKey(ip), confirmIPLimit, confirmWindow); err != nil {
 		return err
 	}
 	hash, err := hashToken(plain)
