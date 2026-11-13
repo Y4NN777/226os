@@ -143,7 +143,11 @@ WHERE p.username = $1;
 -- ResolveSkillSlugs maps contract skill slugs to tag ids. Only active tags
 -- resolve; the service rejects the patch when the count differs.
 -- name: ResolveSkillSlugs :many
-SELECT id, slug FROM tags WHERE slug = ANY($1::text[]) AND status = 'active';
+-- The input array is contract-bounded (maxItems 30); the LIMIT satisfies the
+-- bounded-list rule and can only truncate an already-invalid oversized input,
+-- which the service count check then rejects.
+SELECT id, slug FROM tags WHERE slug = ANY($1::text[]) AND status = 'active'
+LIMIT 100;
 
 -- UpdateProfile applies a resolved JSON Merge Patch in one statement: every
 -- column is guarded by a set-flag so omitted members keep their stored value

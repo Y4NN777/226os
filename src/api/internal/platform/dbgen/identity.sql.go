@@ -446,6 +446,7 @@ func (q *Queries) ResetPassword(ctx context.Context, arg ResetPasswordParams) (p
 
 const resolveSkillSlugs = `-- name: ResolveSkillSlugs :many
 SELECT id, slug FROM tags WHERE slug = ANY($1::text[]) AND status = 'active'
+LIMIT 100
 `
 
 type ResolveSkillSlugsRow struct {
@@ -455,6 +456,9 @@ type ResolveSkillSlugsRow struct {
 
 // ResolveSkillSlugs maps contract skill slugs to tag ids. Only active tags
 // resolve; the service rejects the patch when the count differs.
+// The input array is contract-bounded (maxItems 30); the LIMIT satisfies the
+// bounded-list rule and can only truncate an already-invalid oversized input,
+// which the service count check then rejects.
 func (q *Queries) ResolveSkillSlugs(ctx context.Context, dollar_1 []string) ([]ResolveSkillSlugsRow, error) {
 	rows, err := q.db.Query(ctx, resolveSkillSlugs, dollar_1)
 	if err != nil {
