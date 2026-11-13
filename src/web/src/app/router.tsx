@@ -10,7 +10,6 @@ import { RouterAnchor } from '../components/RouterAnchor';
 import { DiscoverPage } from '../features/discover/DiscoverPage';
 import { ResourcePage } from '../features/discover/ResourcePage';
 import { validateDiscoverSearch } from '../features/discover/routeSearch';
-import { HomePage } from '../features/health/HomePage';
 import { ForgotPasswordPage } from '../features/identity/ForgotPasswordPage';
 import { ResetPasswordPage } from '../features/identity/ResetPasswordPage';
 import { validateSignInSearch } from '../features/identity/routeSearch';
@@ -23,6 +22,7 @@ import { validateSearchSearch } from '../features/search/routeSearch';
 import { SearchPage } from '../features/search/SearchPage';
 import { SettingsPage } from '../features/settings/SettingsPage';
 import { AuthLayout } from './AuthLayout';
+import { IndexPage } from './IndexPage';
 import { Shell } from './Shell';
 
 function Root() {
@@ -39,7 +39,7 @@ const rootRoute = createRootRoute({ component: Root, notFoundComponent: NotFound
 
 // Pages inside the app chrome.
 const appLayout = createRoute({ getParentRoute: () => rootRoute, id: 'app', component: Shell });
-const homeRoute = createRoute({ getParentRoute: () => appLayout, path: '/', component: HomePage });
+const homeRoute = createRoute({ getParentRoute: () => appLayout, path: '/', component: IndexPage });
 const settingsRoute = createRoute({
   getParentRoute: () => appLayout,
   path: '/settings',

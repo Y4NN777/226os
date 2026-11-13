@@ -1,5 +1,7 @@
 import * as discover from '../features/discover/messages';
+import * as home from '../features/home/messages';
 import * as identity from '../features/identity/messages';
+import * as landing from '../features/landing/messages';
 import * as search from '../features/search/messages';
 
 export type Locale = 'fr' | 'en';
@@ -156,7 +158,14 @@ const coreEn: Record<keyof typeof core, string> = {
   'error.generic': 'Something went wrong. Try again in a moment.',
 };
 
-const fr = { ...core, ...identity.fr, ...discover.fr, ...search.fr };
+const fr = {
+  ...core,
+  ...identity.fr,
+  ...discover.fr,
+  ...search.fr,
+  ...landing.fr,
+  ...home.fr,
+};
 
 export type MessageKey = keyof typeof fr;
 
@@ -165,8 +174,20 @@ const en: Record<MessageKey, string> = {
   ...identity.en,
   ...discover.en,
   ...search.en,
+  ...landing.en,
+  ...home.en,
 };
 
 export type Catalogs = Record<Locale, Partial<Record<MessageKey, string>>>;
+
+/** The French catalogues before merging, so a test can prove no key is overridden. */
+export const frenchParts: readonly Record<string, string>[] = [
+  core,
+  identity.fr,
+  discover.fr,
+  search.fr,
+  landing.fr,
+  home.fr,
+];
 
 export const catalogs: Catalogs = { fr, en };
