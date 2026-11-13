@@ -384,3 +384,20 @@ closure: open
 tests_or_evidence: ["go test -count=1 -run TestFirstContractDecisions ./src/api/internal/platform/apigen/: RED exit 1, then GREEN exit 0", "go test -count=1 ./src/api/internal/platform/apigen/: exit 0", "scripts/check-generated.sh generate: exit 0", "pnpm exec redocly lint api/openapi.yaml: exit 0"]
 open_risks: ["handlers, the profile_visibility migration, and the response topic fields are out of scope"]
 ```
+
+## Tracker line for the first contract pull request
+
+```yaml
+date: "2026-11-12"
+contributor: "mibienpanjoe"
+tool_or_model: "Cursor, Grok 4.7"
+purpose: "Mark the first contract pull request in TODO.md. The contract diff itself is the earlier commit on this branch."
+repository_or_source_context: "TODO.md header: update the tracker in the same PR. PR #79."
+files_or_sections_affected: ["TODO.md", "AI_USAGE.md"]
+third_party_sources_consulted: []
+license_review: PENDING
+human_reviewers: []
+closure: open
+tests_or_evidence: ["no product code changed; the box names PR #79 and the S5 docs follow-ups stay open"]
+open_risks: ["the pull request is in review, not merged"]
+```

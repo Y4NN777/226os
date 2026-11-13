@@ -19,7 +19,7 @@ One line per person. Each person edits only their own line.
 |---|---|---|
 | `Y4NN777` | S0 is merged (PRs #31 to #36, see Done log). Owner tasks: H6 and H7 (Datacloud, DNS), H8 follow-up (verify the Gmail alias `noreply@226os.tech`), H12 (V2 quotas, K21 EEA handling), issue #46 (collaborators' age keys). Build: S6 moderation, B4 release workflow, the S9 contract PR (R7) and the S9 backend. Review S1 and S0 follow-ups with `NICE-DEV226`. | 2026-11-12 |
 | `NICE-DEV226` | Identity confirmed (H1 done). S0 is merged: start S1 (RED tests for the domain and service with fakes, then the handlers on the merged S0 base). Then S3; then help on S5 (default), the S9 second developer, and the E5 backend if time allows. | 2026-11-12 |
-| `mibienpanjoe` | Identity confirmed (H1 done). **Open the first contract PR** (see Shared pieces), then the E2 migration PR and the separate `profile_visibility` migration file (see E2). Then S2 sqlc queries with local EXPLAIN, S4 (with the content script) and S5, with helpers `Y4NN777` and `NICE-DEV226`. | 2026-11-12 |
+| `mibienpanjoe` | Identity confirmed (H1 done). First contract PR is #79, in review. Next: the E2 migration PR and the separate `profile_visibility` migration file (see E2). Then S2 sqlc queries with local EXPLAIN, S4 (with the content script) and S5, with helpers `Y4NN777` and `NICE-DEV226`. | 2026-11-12 |
 | `PANK4SS` | Identity confirmed (H1 done). **Accept the repository invitation (H2) before pushing.** S7 shell, i18n, shared components and pillar navigation on typed fixtures from `src/web/src/api/schema.d.ts`; SEED fixtures (`local-dev` only, C15). Later E4, the E5 UI, on-demand support. | 2026-11-12 |
 
 ## Open CADEV checklist and owner decisions
@@ -68,7 +68,7 @@ Open owner items outside CADEV (IDs and decisions in ROADMAP section 8, 10 and 1
 - [ ] **`audit_log` writer.** Proposal: S6 builds it; S1 security events also go to `audit_log` (DATABASE_DESIGN), so the lead decides the order.
 - [x] **Idempotency-Key** on the six operations (`createQuestion`, `createAnswer`, `createProject`, `createContributionNeed`, `createApplication`, `createLearnArticle`; `castVote` does not bind the header). Built in S0 (PR #34).
 - [ ] **Contract PR for the Idempotency response headers** (own PR, R7): declare `Idempotency-Replayed` and `Idempotency-Body-Omitted` on the six bound operations. PROPOSED by S0; the owner approves by merging. OBSERVED 2026-11-12: `api/openapi.yaml` already declares both headers; the owner confirms the approval and ticks this. Until then ADR-0004 point 2 applies (clients ignore unknown headers).
-- [ ] **FIRST CONTRACT PR (one entry; author `mibienpanjoe`; reviewers `Y4NN777` and `PANK4SS`, R7; then `make generate` for `apigen` and `schema.d.ts`).** Carries:
+- [x] **FIRST CONTRACT PR (one entry; author `mibienpanjoe`; reviewers `Y4NN777` and `PANK4SS`, R7; then `make generate` for `apigen` and `schema.d.ts`).** PR #79, 2026-11-12. The S5 docs follow-ups in this bullet stay open. Carries:
   - C2: `listLearnArticles` `topic` retyped as the topic code (pattern `^[a-z][a-z0-9-]{1,29}$`, updated description); the same `topic` parameter added to `listTrainingSeries`; an optional `topic` on `ArticleCreate`;
   - C1: `decideApplication` x-authz corrected to owner-only (cited by operationId, not by line);
   - C14b: `profile_visibility` (`public|members|private`, default `public`) in the profile read and update schemas, so `PATCH /me/profile` accepts it, and `deny_status 404` kept on `getProfile`.
