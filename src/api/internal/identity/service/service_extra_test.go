@@ -465,6 +465,22 @@ func TestSignUpRateLimitStoreError(t *testing.T) {
 	}
 }
 
+func TestRequestPasswordResetAccountBucketAppliesToUnknownEmails(t *testing.T) {
+	ctx := context.Background()
+	svc, _, _ := testSvc(t)
+
+	// The per-address bucket must be hit before the account lookup: an unknown
+	// email must hit the same 429 as a known one, or the limit itself becomes
+	// an enumeration oracle.
+	var last error
+	for i := 0; i < resetAccountLimit+1; i++ {
+		last = svc.RequestPasswordReset(ctx, "ghost-rl@example.com", fmt.Sprintf("10.10.%d.1", i))
+	}
+	if apperrCode(t, last) != apperr.CodeRateLimited {
+		t.Fatalf("expected RATE_LIMITED for unknown email, got %v", last)
+	}
+}
+
 func TestRequestPasswordResetRateLimitStoreError(t *testing.T) {
 	ctx := context.Background()
 	svc, st, _ := testSvc(t)

@@ -473,16 +473,13 @@ func (s *Service) RequestPasswordReset(ctx context.Context, email, ip string) er
 		return err
 	}
 	normalized := normalizeEmail(email)
-	acct, err := s.store.AccountByEmail(ctx, normalized)
-	if err != nil {
-		return nil // unknown or lookup failure: same 202
-	}
-	if acct.Status != "active" || s.mail == nil {
-		return nil
-	}
 	if err := s.allow(ctx, "reset:account", normalized, resetAccountLimit, resetWindow); err != nil {
-		return err // 429 is allowed to differ: it reveals only that *someone*
-		// hammered this address, which the IP limit already bounds.
+		return err // hit before the lookup so 429 does not reveal account existence
+	}
+	acct, err := s.store.AccountByEmail(ctx, normalized)
+	if err != nil || acct.Status != "active" || s.mail == nil {
+		verifyDummy("") // pay the Argon2id cost the send path roughly matches
+		return nil      // unknown, inactive or lookup failure: same silent 202
 	}
 	plain, hash, err := randToken()
 	if err != nil {
