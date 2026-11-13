@@ -305,3 +305,51 @@ func TestQueryErrors(t *testing.T) {
 		}
 	})
 }
+
+// With 20 or more outgoing links, discussions must still appear: both lists are interleaved before the cap.
+func TestRelatedInterleavesDiscussionsBeforeTheCap(t *testing.T) {
+	links := make([][]any, 25)
+	for i := range links {
+		links[i] = row(uid(resID), "project", uid(projID), "Project", "en")
+	}
+	discussions := [][]any{row(uid(resID), uid(qID), "First question", "fr"), row(uid(resID), uid(qID), "Second question", "fr")}
+	repo := New(&script{t: t, steps: [][][]any{{listVals()}, nil, nil, links, discussions}, errs: make([]error, 5)})
+	got, err := repo.List(t.Context(), domain.Query{Limit: 21})
+	if err != nil {
+		t.Fatal(err)
+	}
+	related := got[0].Related
+	if len(related) != 20 {
+		t.Fatalf("related = %d, want the cap of 20", len(related))
+	}
+	var questions []string
+	for i, l := range related {
+		if l.Type == "question" {
+			questions = append(questions, l.Title)
+			if i > 3 {
+				t.Fatalf("discussion at position %d; interleaving must place them first", i)
+			}
+		}
+	}
+	if len(questions) != 2 || questions[0] != "First question" || questions[1] != "Second question" {
+		t.Fatalf("discussions in related = %v", questions)
+	}
+}
+
+func TestInterleaveKeepsEveryLinkWhenOneSideIsLonger(t *testing.T) {
+	a := []domain.Link{{ID: "a1"}, {ID: "a2"}, {ID: "a3"}}
+	b := []domain.Link{{ID: "b1"}}
+	got := interleave(a, b)
+	want := []string{"a1", "b1", "a2", "a3"}
+	if len(got) != len(want) {
+		t.Fatalf("got %v", got)
+	}
+	for i, l := range got {
+		if l.ID != want[i] {
+			t.Fatalf("got %v, want %v", got, want)
+		}
+	}
+	if len(interleave(nil, b)) != 1 || len(interleave(a, nil)) != 3 || interleave(nil, nil) != nil {
+		t.Fatal("empty sides")
+	}
+}

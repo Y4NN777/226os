@@ -593,6 +593,23 @@ tests_or_evidence: ["make lint-go exit 0", "go test -race -count=1 ./src/api/int
 open_risks: ["Get still maps pgx.ErrNoRows to domain.ErrNotFound before wrapping. Other driver errors stay in the chain via %w."]
 ```
 
+## Search core and catalogue follow-ups (S2)
+
+```yaml
+date: "2026-11-13"
+contributor: "mibienpanjoe"
+tool_or_model: "Claude Code, Claude Opus 5.5 (main session) with Claude Sonnet subagents (go-implementer, skeptic review)"
+purpose: "GET /search over questions, resources, projects and learn (published and visible only, C4 PROPOSED option 1), plus the PR #83 review follow-ups: length-prefixed cursor filter hash, interleaved related links, EXPLAIN plans for the catalogue q and sdk filters, and a 422 for NUL or invalid UTF-8 in the catalogue q."
+repository_or_source_context: "branch feature/discover/search"
+files_or_sections_affected: ["db/queries/search.sql", "src/api/internal/platform/dbgen/search.sql.go", "src/api/internal/platform/dbgen/queries_test.go", "src/api/internal/search/**", "src/api/internal/discover/service/**", "src/api/internal/discover/repository/**", "src/api/internal/app/app.go", "src/api/internal/app/server.go", "src/api/internal/app/search_internal_test.go", "src/api/internal/platform/pgtest/search_read_integration_test.go", "src/api/internal/platform/pgtest/explain_helpers_integration_test.go", "src/api/internal/platform/pgtest/catalogue_read_integration_test.go", "scripts/public-routes.txt", "scripts/unimplemented-routes.txt", "TODO.md", "AI_USAGE.md"]
+third_party_sources_consulted: []
+license_review: "PENDING: owner review"
+closure: "open"
+human_reviewers: ["NICE-DEV226 (pending)"]
+tests_or_evidence: ["make generate, lint-go, lint-contract, typecheck, test-unit, coverage (Go 100.0%) and test-integration-go PASS on the pre-merge tree", "EXPLAIN (ANALYZE, BUFFERS) logged per group on 6001 rows: GIN index for a rare term, about 5 ms for a common term and a negation-only query"]
+open_risks: ["no anonymous 60/IP/min limit on search yet (next S2 PR, on the S1 rate limiter)", "ts_rank scores every match before the top-N cut; bounded by LIMIT and the 2 s per-query timeout", "answers are not searched (no answers group in the contract)", "the cursor embeds the raw filter text, so a long accented q can exceed the 512-character cursor limit (pre-existing)"]
+```
+
 ## S1 identity: domain, password hashing and auth service core
 
 ```yaml

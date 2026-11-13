@@ -21,6 +21,7 @@ import (
 	"github.com/Y4NN777/226os/src/api/internal/platform/dbgen"
 	"github.com/Y4NN777/226os/src/api/internal/platform/httpx"
 	"github.com/Y4NN777/226os/src/api/internal/platform/idempotency"
+	"github.com/Y4NN777/226os/src/api/internal/search"
 )
 
 const (
@@ -89,6 +90,7 @@ func run(ctx context.Context, getenv func(string) string, out io.Writer, serve s
 		WithMailer(mail),
 		WithCatalogue(discover.NewHandler(pool, codec, logger)),
 		WithIdentity(authHandler),
+		WithSearch(search.NewHandler(pool, logger)),
 	)
 	deps.Subjects = identitytransport.NewResolver(identSvc, secureCookies)
 	deps.CSRF = identitytransport.CSRFMiddleware(identSvc, secureCookies, logger)
