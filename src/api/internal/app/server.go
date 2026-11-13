@@ -143,3 +143,30 @@ func (s *Server) ConfirmPasswordReset(w http.ResponseWriter, r *http.Request) {
 	}
 	s.auth.ConfirmPasswordReset(w, r)
 }
+
+// GetMe serves the caller's account and own profile. A server built without WithIdentity stays unimplemented.
+func (s *Server) GetMe(w http.ResponseWriter, r *http.Request) {
+	if s.auth == nil {
+		s.Unimplemented.GetMe(w, r)
+		return
+	}
+	s.auth.GetMe(w, r)
+}
+
+// UpdateMyProfile applies a JSON Merge Patch to the caller's profile. A server built without WithIdentity stays unimplemented.
+func (s *Server) UpdateMyProfile(w http.ResponseWriter, r *http.Request) {
+	if s.auth == nil {
+		s.Unimplemented.UpdateMyProfile(w, r)
+		return
+	}
+	s.auth.UpdateMyProfile(w, r)
+}
+
+// GetProfile serves a visibility-filtered public profile. A server built without WithIdentity stays unimplemented.
+func (s *Server) GetProfile(w http.ResponseWriter, r *http.Request, username apigen.Username) {
+	if s.auth == nil {
+		s.Unimplemented.GetProfile(w, r, username)
+		return
+	}
+	s.auth.GetProfile(w, r, username)
+}

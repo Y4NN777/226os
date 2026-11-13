@@ -27,7 +27,9 @@ type fakeStore struct {
 	verifiedAt map[string]time.Time
 	buckets    map[string]int
 	hits       []string
-	errs       map[string]error // method name -> forced error
+	errs       map[string]error                // method name -> forced error
+	profiles   map[string]domain.ProfileRecord // by username
+	tagIDs     map[string]string               // skill slug -> tag id (active only)
 }
 
 type verifRow struct {
@@ -46,7 +48,8 @@ func newFake() *fakeStore {
 		accounts: map[string]domain.Account{}, sessions: map[string]domain.Session{},
 		tokenHash: map[[32]byte]string{}, verif: map[[32]byte]verifRow{},
 		resets: map[[32]byte]resetRow{}, verifiedAt: map[string]time.Time{},
-		buckets: map[string]int{},
+		buckets: map[string]int{}, profiles: map[string]domain.ProfileRecord{},
+		tagIDs: map[string]string{},
 	}
 }
 
@@ -204,6 +207,112 @@ func (f *fakeStore) Hit(_ context.Context, scope string, key [32]byte, limit int
 	}
 	f.buckets[k]++
 	return true, 0, nil
+}
+
+// ---------- profiles ----------
+
+func (f *fakeStore) ProfileByUserID(_ context.Context, userID string) (domain.Profile, error) {
+	if err := f.errs["ProfileByUserID"]; err != nil {
+		return domain.Profile{}, err
+	}
+	for _, rec := range f.profiles {
+		if rec.UserID == userID {
+			return rec.Profile, nil
+		}
+	}
+	return domain.Profile{}, domain.ErrNotFound
+}
+
+func (f *fakeStore) ProfileByUsername(_ context.Context, username string) (domain.ProfileRecord, error) {
+	if err := f.errs["ProfileByUsername"]; err != nil {
+		return domain.ProfileRecord{}, err
+	}
+	rec, ok := f.profiles[username]
+	if !ok {
+		return domain.ProfileRecord{}, domain.ErrNotFound
+	}
+	return rec, nil
+}
+
+func (f *fakeStore) ResolveSkillSlugs(_ context.Context, slugs []string) ([]string, error) {
+	if err := f.errs["ResolveSkillSlugs"]; err != nil {
+		return nil, err
+	}
+	ids := make([]string, 0, len(slugs))
+	for _, s := range slugs {
+		if id, ok := f.tagIDs[s]; ok {
+			ids = append(ids, id)
+		}
+	}
+	return ids, nil
+}
+
+// applyPatch mirrors the SQL CASE WHEN semantics on the fake's Profile copy.
+func (f *fakeStore) UpdateProfile(_ context.Context, userID string, w domain.ProfileWrite) error {
+	if err := f.errs["UpdateProfile"]; err != nil {
+		return err
+	}
+	for name, rec := range f.profiles {
+		if rec.UserID != userID {
+			continue
+		}
+		p := &rec.Profile
+		setStr := func(dst **string, f2 domain.PatchField[string]) {
+			if !f2.Present {
+				return
+			}
+			*dst = f2.Value
+		}
+		if w.DisplayName.Present && w.DisplayName.Value != nil {
+			p.DisplayName = *w.DisplayName.Value
+		}
+		setStr(&p.Intent, w.Intent)
+		setStr(&p.CountryCode, w.CountryCode)
+		if w.Languages.Present {
+			if w.Languages.Value == nil {
+				p.Languages = []string{}
+			} else {
+				p.Languages = *w.Languages.Value
+			}
+		}
+		setStr(&p.GitHub, w.GitHub)
+		setStr(&p.Bio, w.Bio)
+		if w.OpenToCollab.Present && w.OpenToCollab.Value != nil {
+			p.OpenToCollab = *w.OpenToCollab.Value
+		}
+		setVis := func(dst *domain.Visibility, f2 domain.PatchField[domain.Visibility]) {
+			if f2.Present && f2.Value != nil {
+				*dst = *f2.Value
+			}
+		}
+		setVis(&p.VisCountry, w.VisCountry)
+		setVis(&p.VisLanguages, w.VisLanguages)
+		setVis(&p.VisSkills, w.VisSkills)
+		setVis(&p.VisGitHub, w.VisGitHub)
+		setVis(&p.VisBio, w.VisBio)
+		setVis(&p.Visibility, w.Visibility)
+		if w.SkillTagIDs.Present {
+			if w.SkillTagIDs.Value == nil || *w.SkillTagIDs.Value == nil {
+				p.Skills = []string{}
+			} else {
+				// The service hands resolved tag ids; the fake maps them back
+				// to slugs because Profile.Skills exposes slugs.
+				slugs := make([]string, 0, len(*w.SkillTagIDs.Value))
+				for _, id := range *w.SkillTagIDs.Value {
+					for slug, tid := range f.tagIDs {
+						if tid == id {
+							slugs = append(slugs, slug)
+						}
+					}
+				}
+				p.Skills = slugs
+			}
+		}
+		rec.Profile = *p
+		f.profiles[name] = rec
+		return nil
+	}
+	return domain.ErrNotFound
 }
 
 type fakeMail struct {

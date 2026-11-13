@@ -20,8 +20,10 @@ import (
 // fakeDB is a scripted DBTX: every Exec/QueryRow pops the next scripted
 // result, so each repository method is exercised against exact row shapes.
 type fakeDB struct {
-	steps []dbStep
-	n     int
+	steps     []dbStep
+	n         int
+	queryRows [][]any // scripted rows for Query (multi-row results)
+	queryErr  error
 }
 
 type dbStep struct {
@@ -43,8 +45,11 @@ func (f *fakeDB) Exec(context.Context, string, ...any) (pgconn.CommandTag, error
 	return pgconn.CommandTag{}, s.err
 }
 
-func (f *fakeDB) Query(context.Context, string, ...any) (pgx.Rows, error) {
-	panic("unexpected query")
+func (f *fakeDB) Query(_ context.Context, _ string, _ ...any) (pgx.Rows, error) {
+	if f.queryErr != nil {
+		return nil, f.queryErr
+	}
+	return &fakeRows{rows: f.queryRows}, nil
 }
 
 func (f *fakeDB) QueryRow(context.Context, string, ...any) pgx.Row {
@@ -69,6 +74,30 @@ func (r fakeRow) Scan(dest ...any) error {
 	}
 	return scanVals(dest, r.vals)
 }
+
+// fakeRows is a scripted pgx.Rows for Query (multi-row results).
+type fakeRows struct {
+	rows [][]any
+	i    int
+	err  error
+}
+
+func (r *fakeRows) Close()                                       {}
+func (r *fakeRows) Err() error                                   { return r.err }
+func (r *fakeRows) CommandTag() pgconn.CommandTag                { return pgconn.CommandTag{} }
+func (r *fakeRows) FieldDescriptions() []pgconn.FieldDescription { return nil }
+func (r *fakeRows) Values() ([]any, error)                       { return nil, nil }
+func (r *fakeRows) RawValues() [][]byte                          { return nil }
+func (r *fakeRows) Conn() *pgx.Conn                              { return nil }
+func (r *fakeRows) TypeMap() *pgtype.Map                         { return nil }
+func (r *fakeRows) Next() bool {
+	if r.i < len(r.rows) {
+		r.i++
+		return true
+	}
+	return false
+}
+func (r *fakeRows) Scan(dest ...any) error { return scanVals(dest, r.rows[r.i-1]) }
 
 func scanVals(dest, vals []any) error {
 	if len(dest) != len(vals) {

@@ -59,6 +59,18 @@ func (stubStore) ResetPassword(context.Context, [32]byte, string, time.Time) err
 func (stubStore) Hit(context.Context, string, [32]byte, int, time.Duration, time.Time) (bool, time.Duration, error) {
 	return true, 0, nil // rate limit allowed; later store calls still fail
 }
+func (stubStore) ProfileByUserID(context.Context, string) (domain.Profile, error) {
+	return domain.Profile{}, errUnused
+}
+func (stubStore) ProfileByUsername(context.Context, string) (domain.ProfileRecord, error) {
+	return domain.ProfileRecord{}, errUnused
+}
+func (stubStore) ResolveSkillSlugs(context.Context, []string) ([]string, error) {
+	return nil, errUnused
+}
+func (stubStore) UpdateProfile(context.Context, string, domain.ProfileWrite) error {
+	return errUnused
+}
 
 func identityServer(t *testing.T) *app.Server {
 	t.Helper()
@@ -88,6 +100,8 @@ func TestServerIdentityUnimplementedWithoutOption(t *testing.T) {
 		{"VerifyEmail", s.VerifyEmail},
 		{"RequestPasswordReset", s.RequestPasswordReset},
 		{"ConfirmPasswordReset", s.ConfirmPasswordReset},
+		{"GetMe", s.GetMe},
+		{"UpdateMyProfile", s.UpdateMyProfile},
 	}
 	for _, c := range calls {
 		rec := httptest.NewRecorder()
@@ -95,6 +109,11 @@ func TestServerIdentityUnimplementedWithoutOption(t *testing.T) {
 		if rec.Code != http.StatusNotImplemented {
 			t.Fatalf("%s: status = %d", c.name, rec.Code)
 		}
+	}
+	rec := httptest.NewRecorder()
+	s.GetProfile(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil), "user")
+	if rec.Code != http.StatusNotImplemented {
+		t.Fatalf("GetProfile: status = %d", rec.Code)
 	}
 }
 
@@ -157,6 +176,24 @@ func TestServerIdentityDelegates(t *testing.T) {
 	s.ConfirmPasswordReset(rec, postJSON(t, `{"token":"bad","new_password":"new-correct-horse"}`))
 	if rec.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("confirm: %d %s", rec.Code, rec.Body.String())
+	}
+
+	// Profile operations delegate too: anonymous requests get the handler's
+	// own answers, never the 501 fallback.
+	rec = httptest.NewRecorder()
+	s.GetMe(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil))
+	if rec.Code == http.StatusNotImplemented {
+		t.Fatal("getMe stayed unimplemented")
+	}
+	rec = httptest.NewRecorder()
+	s.UpdateMyProfile(rec, postJSON(t, `{"display_name":"x"}`))
+	if rec.Code == http.StatusNotImplemented {
+		t.Fatal("updateMyProfile stayed unimplemented")
+	}
+	rec = httptest.NewRecorder()
+	s.GetProfile(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil), "user")
+	if rec.Code == http.StatusNotImplemented {
+		t.Fatal("getProfile stayed unimplemented")
 	}
 }
 

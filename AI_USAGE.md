@@ -601,3 +601,20 @@ human_reviewers: ["mibienpanjoe (assigned reviewer, pending PR)"]
 tests_or_evidence: ["go test -race -count=1 ./src/api/internal/identity/... exit 0", "go test -race -count=1 -tags integration ./src/api/internal/platform/pgtest/ exit 0", "scripts/coverage-go.sh coverage: go first-party statement coverage 100.0% (2705/2705), PASS", "make coverage exit 0 (web 99.27% statements)", "make test-integration exit 0", "make lint-scripts security-sast exit 0 (gosec 0 issues)", "scripts/check-generated.sh check exit 0", "make quality full rerun on the PR head SHA pending at the time of this entry"]
 open_risks: ["rate-limit bucket keys reuse CURSOR_KEY as HMAC key pending a dedicated secret decision", "CSRF tokens are derived (HMAC of stored token hash / pre-session secret) rather than stored, per ADR-0003 rotation requirement", "no resend-verification operation exists in the contract (open question for the owner, flagged in the PR)", "getMe, updateMyProfile, getProfile and the profile-visibility matrix remain for feature/identity/profiles", "Argon2id parameters await the target-host benchmark at S8 (K6 container check)"]
 ```
+
+## S1 identity profiles: getMe, updateMyProfile, getProfile
+
+```yaml
+date: "2026-11-14"
+contributor: "NICE-DEV226"
+tool_or_model: "Devin (SWE-2 Flash)"
+purpose: "S1 Identity profiles slice, feature/identity/profiles branch: profile read models (own + public with account status join), JSON Merge Patch update with tri-state PatchField (absent vs explicit null), atomic single-statement UPDATE with per-field CASE WHEN flags and NULL-vs-array skill replacement, C14b visibility matrix (page + per-field, anonymous/member/owner), skill slug resolution against active tags, bio_language derivation to satisfy profiles_bio_language_ck, rate limit profile:write 60/user/min, transport merge-patch decoding with key-presence detection, unit tests on fakes, repository scripted-DBTX tests, real-PostgreSQL pgtest end-to-end. Also fixed a pre-existing flaky pgtest helper: mailToken now matches on mail subject because detached sends can land out of order."
+repository_or_source_context: "branch feature/identity/profiles, TODO.md S1"
+files_or_sections_affected: ["src/api/internal/identity/**", "src/api/internal/app/server.go", "src/api/internal/app/server_identity_test.go", "src/api/internal/platform/dbgen/identity.sql.go", "src/api/internal/platform/pgtest/identity_integration_test.go", "db/queries/identity.sql", "scripts/public-routes.txt", "scripts/authz-tests.txt", "scripts/unimplemented-routes.txt", "TODO.md", "AI_USAGE.md"]
+third_party_sources_consulted: []
+license_review: "PENDING"
+closure: "open"
+human_reviewers: ["mibienpanjoe (assigned reviewer, pending PR)"]
+tests_or_evidence: ["go test -race -count=1 ./src/api/internal/identity/... ./src/api/internal/app/ exit 0", "go test -race -count=1 -tags integration ./src/api/internal/platform/pgtest/ exit 0 (includes new TestIdentityProfilesEndToEnd and the previously flaky reset test now subject-matched)", "go tool cover -func: 100% statements on internal/identity packages", "go tool golangci-lint run (default and --build-tags integration): 0 issues", "scripts/check-authz-routes.sh PASS", "gofmt clean", "go vet clean", "scripts/check-sqlc.sh pending commit (generated output regenerated, drift check passes after commit)"]
+open_risks: ["bio_language is always derived as 'en' when bio is set: the contract exposes no bio language field (owner decision recorded in PR)", "open_to_collab_visibility column exists but the contract field_visibility has no member for it: stays 'public', flagged for owner decision", "languages service pattern tightened to ^[a-z]{2,3}$ to match profiles_languages_ck exactly (no BCP-47 regions)", "make quality full rerun pending on the PR head SHA"]
+```

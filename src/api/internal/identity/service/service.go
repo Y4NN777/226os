@@ -70,6 +70,20 @@ type Store interface {
 	// Hit records one attempt in a fixed-window bucket and reports whether it
 	// is allowed plus the retry delay when it is not. key is already hashed.
 	Hit(ctx context.Context, scope string, key [32]byte, limit int, window time.Duration, now time.Time) (bool, time.Duration, error)
+
+	// ---------- profiles ----------
+
+	// ProfileByUserID returns the caller's own profile row plus skill slugs.
+	ProfileByUserID(ctx context.Context, userID string) (domain.Profile, error)
+	// ProfileByUsername returns the profile joined with the account status and
+	// join date the public visibility decision needs.
+	ProfileByUsername(ctx context.Context, username string) (domain.ProfileRecord, error)
+	// ResolveSkillSlugs maps skill slugs to active tag ids; the count may be
+	// smaller than the input when a slug is unknown or the tag is hidden.
+	ResolveSkillSlugs(ctx context.Context, slugs []string) ([]string, error)
+	// UpdateProfile applies a resolved merge patch atomically: profile columns
+	// and the skill set move in one statement.
+	UpdateProfile(ctx context.Context, userID string, w domain.ProfileWrite) error
 }
 
 // NewAccount is the sign-up write model. Password is the PHC hash.
@@ -575,4 +589,8 @@ func invalidCredentials() error {
 
 func invalidToken() error {
 	return apperr.New(apperr.CodeInvalidToken, "The token is invalid or expired.")
+}
+
+func notFound() error {
+	return apperr.New(apperr.CodeNotFound, "Not found.")
 }
