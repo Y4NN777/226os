@@ -508,12 +508,15 @@ func TestGetProfileAllFieldsVisible(t *testing.T) {
 func TestGetMeLoadsTheAccountOnce(t *testing.T) {
 	h, svc, st, _ := testStack(t, false)
 	plain, _ := signupAndSignIn(t, h, "once-me@example.com")
+	// A profile exists, so the request succeeds: the count below is the success path (review of #110: the test used to
+	// pass on a 500 caused by a missing profile and proved nothing about a successful GET /me).
+	seedOwnProfile(t, st, "once-me@example.com")
 	before := st.accountLookups
 	chain := subject.Middleware(NewResolver(svc, false), nil)(http.HandlerFunc(h.GetMe))
 	req := doReq(t, http.MethodGet, "/api/v1/me", nil, &http.Cookie{Name: sessionCookieName(false), Value: plain})
 	rec := httptest.NewRecorder()
 	chain.ServeHTTP(rec, req)
-	if rec.Code != http.StatusInternalServerError && rec.Code != http.StatusOK {
+	if rec.Code != http.StatusOK {
 		t.Fatalf("GET /me: %d %s", rec.Code, rec.Body.String())
 	}
 	if got := st.accountLookups - before; got != 1 {
