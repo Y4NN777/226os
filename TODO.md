@@ -19,7 +19,7 @@ One line per person. Each person edits only their own line.
 |---|---|---|
 | `Y4NN777` | S0 is merged (PRs #31 to #36, see Done log). Owner tasks: H6 and H7 (Datacloud, DNS), H12 (V2 quotas), issue #46 (collaborators' age keys). Build: S6 moderation, B4 release workflow, the S9 contract PR (R7) and the S9 backend. Review S1 and S0 follow-ups with `NICE-DEV226`. | 2026-11-12 |
 | `NICE-DEV226` | Identity confirmed (H1 done). S0 is merged: start S1 (RED tests for the domain and service with fakes, then the handlers on the merged S0 base). Then S3; then help on S5 (default), the S9 second developer, and the E5 backend if time allows. | 2026-11-12 |
-| `mibienpanjoe` | Identity confirmed (H1 done). First contract PR #79 and E2 PR #80 are merged. Catalogue reads are in review as PR #83. Search and error reports wait on S1. | 2026-11-13 |
+| `mibienpanjoe` | Catalogue reads merged (PR #83). S1 PR #89 reviewed and approved. Now: S2 search core on `feature/discover/search` (C4 PROPOSED option 1). Error reports and the search 429 wait for #89. | 2026-11-13 |
 | `PANK4SS` | Identity confirmed (H1 done). **Accept the repository invitation (H2) before pushing.** S7 shell, i18n, shared components and pillar navigation on typed fixtures from `src/web/src/api/schema.d.ts`; SEED fixtures (`local-dev` only, C15). Later E4, the E5 UI, on-demand support. | 2026-11-12 |
 
 ## Open CADEV checklist and owner decisions
@@ -95,17 +95,17 @@ Open owner items outside CADEV (IDs and decisions in ROADMAP section 8, 10 and 1
 - **Branches:** `feature/identity/auth-sessions`, `feature/identity/profiles`
 - **Depends on:** S0 (merged). Argon2id parameters are pinned after the benchmark on the target host (S8, ADR-0003). The `getProfile` and `updateMyProfile` visibility work needs the `profile_visibility` migration (`mibienpanjoe`), and that PR must also update `TestFreshMigrationToHead` (hardcodes the migration count).
 - **Operations** (see `x-authz` in [api/openapi.yaml](api/openapi.yaml) by operationId; rules in ADR-0003):
-  - [x] `getCsrfToken` (public; pre-session token) — PR pending
-  - [x] `signUp` (generic 202, no enumeration, 5/IP/h, sends the verification email) — PR pending
-  - [x] `signIn` (generic `INVALID_CREDENTIALS`, equal timing, 5 failures/account and 20/IP per 15 min failing closed, rotates the session) — PR pending
-  - [x] `signOut` (revokes only the caller's own session) — PR pending
-  - [x] `getSession` (never 401) — PR pending
-  - [x] `verifyEmail` (single use, 24 h, 422 `INVALID_TOKEN`) — PR pending
-  - [x] `requestPasswordReset` (always 202; 3/account and 10/IP per hour) — PR pending
-  - [x] `confirmPasswordReset` (30 min; revokes all the user's sessions) — PR pending
-  - [x] `getMe` (the only place the email is returned) — PR pending
-  - [x] `updateMyProfile` (own profile; JSON Merge Patch; accepts `profile_visibility`, default `public`) — PR pending
-  - [x] `getProfile` (C14b: `members` gives anonymous 404, `private` owner only, the 404 body identical to unknown or deleted; moderators no special access; suspended users out of scope for P0) — PR pending
+  - [x] `getCsrfToken` (public; pre-session token) — PR #89, 2026-11-13
+  - [x] `signUp` (generic 202, no enumeration, 5/IP/h, sends the verification email) — PR #89, 2026-11-13
+  - [x] `signIn` (generic `INVALID_CREDENTIALS`, equal timing, 5 failures/account and 20/IP per 15 min failing closed, rotates the session) — PR #89, 2026-11-13
+  - [x] `signOut` (revokes only the caller's own session) — PR #89, 2026-11-13
+  - [x] `getSession` (never 401) — PR #89, 2026-11-13
+  - [x] `verifyEmail` (single use, 24 h, 422 `INVALID_TOKEN`) — PR #89, 2026-11-13
+  - [x] `requestPasswordReset` (always 202; 3/account and 10/IP per hour) — PR #89, 2026-11-13
+  - [x] `confirmPasswordReset` (30 min; revokes all the user's sessions) — PR #89, 2026-11-13
+  - [x] `getMe` (the only place the email is returned) — PR #94 pending
+  - [x] `updateMyProfile` (own profile; JSON Merge Patch; accepts `profile_visibility`, default `public`) — PR #94 pending
+  - [x] `getProfile` (C14b: `members` gives anonymous 404, `private` owner only, the 404 body identical to unknown or deleted; moderators no special access; suspended users out of scope for P0) — PR #94 pending
 - [ ] Bylines on published content keep showing username and display name whatever `profile_visibility` says; deleted accounts show "membre supprimé" (ADR-0005 point 15).
 - [x] Argon2id m=64 MiB, t=3, p=1 with a semaphore (implemented; the target-host benchmark stays with S8, K6 check pending there).
 - [x] Cookie flags per profile (ADR-0003). [x] CSRF with `X-CSRF-Token` plus an `Origin` / `Sec-Fetch-Site` check. [x] Session timeouts: 2 h idle, 7 days absolute.
@@ -114,7 +114,7 @@ Open owner items outside CADEV (IDs and decisions in ROADMAP section 8, 10 and 1
 - **Acceptance:** `US-IDENTITY-001/2` (with S7); ADR-0003 "Evidence" (session expiry, rotation, revocation; CSRF cases; enumeration and timing; 429 with `Retry-After`; no token in logs). Negative authz per [AUTHORIZATION_MATRIX](docs/spec-kit/AUTHORIZATION_MATRIX.md) identity rows, plus `getProfile` per `profile_visibility` x caller (anonymous, member, owner, moderator) with identical 404 bodies.
 - **Prototype pages:** `connexion`, `inscription`, `verifier-email`, `mot-de-passe-oublie`, `reinitialiser`, `bienvenue`, `profile`, `parametres`.
 - **Allowed paths:** `src/api/internal/identity/**`, `db/queries/identity.sql`, `db/queries/platform.sql`, generated `dbgen` (via `make generate`), `scripts/public-routes.txt` (anonymous auth routes, with reasons). **DoD:** DoD-common plus cookie inspection per profile and a redacted email-flow log through Mailpit. **Stop:** if ADR-0003 values would need to change.
-- **Status:** IN PROGRESS — `feature/identity/auth-sessions` implements the 8 auth operations end to end (sign-up through password reset, CSRF, session resolver, PostgreSQL rate limits, pgtest integration); `getMe`, `updateMyProfile`, `getProfile` and the profile-visibility matrix remain for `feature/identity/profiles`.
+- **Status:** IN PROGRESS — PR #89 (merged 2026-11-13; review follow-ups: bucket purge and key separation on `feature/identity/review-followups`) implemented the 8 auth operations end to end (sign-up through password reset, CSRF, session resolver, PostgreSQL rate limits, pgtest integration); `getMe`, `updateMyProfile`, `getProfile` and the profile-visibility matrix remain for `feature/identity/profiles`.
   - 2026-11-13 (`mibienpanjoe`): issue #91, the reset-mail race in `TestIdentitySignInRotationAndReset`, fixed on `fix/identity/reset-mail-race` (test-only: `mailToken` waits for the next mail instead of returning the latest).
 
 ---
@@ -130,12 +130,13 @@ Open owner items outside CADEV (IDs and decisions in ROADMAP section 8, 10 and 1
   - [x] `listResourceSources` (public; a stale source is never shown as verified). PR #83, 2026-11-13. A source is `verified` only when it is the resource's current verified source. No freshness window is defined, so the read does not invent `stale`.
   - [ ] `createResourceErrorReport` (member; reporter kept private; rate limited)
   - [ ] `search` (`q` 2 to 200, C4; `per_group` 1 to 20; published and visible only; anonymous 60/IP/min)
+    - 2026-11-13: in progress on `feature/discover/search`. C4 PROPOSED (option 1): the contract keeps `maxLength: 200`; the server searches on the first 100 characters at a word boundary (ADR-0005 point 6) and echoes the original `q`. The owner confirms by merging. The anonymous 60/IP/min limit waits for the S1 rate limiter (#89).
 - [ ] Bounded sqlc queries with `EXPLAIN (ANALYZE, BUFFERS)` evidence and a bilingual relevance dataset (ADR-0005 point 6). 2026-11-13: the catalogue list plan is logged by `TestCatalogueReadsPublishedRowsOnly`. The relevance dataset stays with search.
 - [ ] Resolved-links reader (Shared pieces). 2026-11-13: the reader is in `getResource` on this branch. The writer stays in S4. Demo fixtures are in SEED.
 - **Tables:** `resource_categories`, `providers`, `resources`, `resource_countries`, `resource_sdk_languages`, `resource_sources`, `resource_tags`, `error_reports`, `countries`, `tags`; search reads questions, answers, projects, learn articles.
 - **Acceptance:** `US-DISCOVER-001/1`, search steps of `US-SOLVE-001/1` and `US-LEARN-001/2`. Negative authz: no private or removed content through lists or search; anonymous error report 401; CSRF 403; reporter identity never exposed; rate limit.
 - **Prototype pages:** `discover`, `resource`, `recherche`, part of `accueil`. **Allowed paths:** `src/api/internal/discover/**`, `src/api/internal/search/**`, `db/queries/**` (these files), generated `dbgen`, `db/migrations/**` only if needed (R6), `scripts/public-routes.txt`. **DoD:** DoD-common plus EXPLAIN plans. **Stop:** if a query cannot be bounded within ADR-0005.
-- **Status:** IN PROGRESS (PR #83, 2026-11-13). `DONE` waits for the merge. Search and error reports stay open.
+- **Status:** IN PROGRESS. Catalogue reads merged (PR #83, 2026-11-13). Search in progress on `feature/discover/search`; error reports wait for S1 (#89).
 
 ---
 
@@ -403,3 +404,4 @@ Full log and the checked items: [archive](docs/archive/tracker/TODO-archive-2026
 | 2026-11-12 | Backup and restore drill on local-dev; worktree helper; secrets init generates all profiles | #47, #49, #50, #52 | `Y4NN777` |
 | 2026-11-12 | Staging secrets and AI Studio V1 to V4 results; V3 decided; README and AI wiring | #53, #56 | `Y4NN777` |
 | 2026-11-12 | Parallel CI gate groups (ADR-0010); promotions `develop` to `main` and back-merges | #57, #54, #55, #58, #59 | `Y4NN777` |
+| 2026-11-13 | S2 catalogue reads: `listResources`, `getResource`, `listResourceSources` | #83 | `mibienpanjoe` |

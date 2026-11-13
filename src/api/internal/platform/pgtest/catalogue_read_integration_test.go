@@ -131,32 +131,41 @@ func TestCatalogueReadsPublishedRowsOnly(t *testing.T) {
 		t.Fatalf("claim %+v", byID[catSrcClaim])
 	}
 
-	rows, err := conn.Query(ctx, `
-		EXPLAIN (ANALYZE, BUFFERS)
+	plan := explainPlan(ctx, t, conn, `
 		SELECT r.id FROM resources r
 		JOIN providers p ON p.id = r.provider_id AND p.status = 'published' AND p.removed_at IS NULL
 		WHERE r.status = 'published'
 		ORDER BY r.name, r.id
 		LIMIT 21`)
-	if err != nil {
-		t.Fatal(err)
+	t.Logf("catalogue list plan:\n%s", plan)
+	if !strings.Contains(plan, "Limit") {
+		t.Fatalf("plan has no Limit:\n%s", plan)
 	}
-	defer rows.Close()
-	var plan strings.Builder
-	for rows.Next() {
-		var line string
-		if err := rows.Scan(&line); err != nil {
-			t.Fatal(err)
+
+	// The q and sdk filter paths: EXPLAIN the exact statement and arguments the repository sends.
+	// The dataset here is tiny, so the planner is free to scan; the plans are logged as evidence of the
+	// shape (bounded by Limit, filters as index or semi-join conditions), not as a scale claim.
+	recorder := &recordingDB{db: conn}
+	probe := discover.NewHandler(recorder, codec, nil)
+	sdk := "go"
+	text := "paiement"
+	for _, path := range []struct {
+		name   string
+		params apigen.ListResourcesParams
+	}{
+		{"q filter", apigen.ListResourcesParams{Q: &text}},
+		{"sdk filter", apigen.ListResourcesParams{Sdk: &sdk}},
+	} {
+		recorder.reset()
+		if rec := callList(ctx, probe, path.params); rec.Code != http.StatusOK {
+			t.Fatalf("%s: %d %s", path.name, rec.Code, rec.Body.String())
 		}
-		plan.WriteString(line)
-		plan.WriteByte('\n')
-	}
-	if err := rows.Err(); err != nil {
-		t.Fatal(err)
-	}
-	t.Logf("catalogue list plan:\n%s", plan.String())
-	if !strings.Contains(plan.String(), "Limit") {
-		t.Fatalf("plan has no Limit:\n%s", plan.String())
+		stmt := recorder.first(t)
+		filterPlan := explainPlan(ctx, t, conn, stmt.sql, stmt.args...)
+		t.Logf("catalogue list plan, %s:\n%s", path.name, filterPlan)
+		if !strings.Contains(filterPlan, "Limit") {
+			t.Fatalf("%s plan has no Limit:\n%s", path.name, filterPlan)
+		}
 	}
 }
 

@@ -7,6 +7,7 @@ import (
 	identitytransport "github.com/Y4NN777/226os/src/api/internal/identity/transport"
 	"github.com/Y4NN777/226os/src/api/internal/platform/apigen"
 	"github.com/Y4NN777/226os/src/api/internal/platform/mailer"
+	searchtransport "github.com/Y4NN777/226os/src/api/internal/search/transport"
 )
 
 // Server is the ONLY production apigen.ServerInterface. Every operation answers
@@ -17,6 +18,7 @@ type Server struct {
 	apigen.Unimplemented
 	mailer    mailer.Mailer
 	catalogue *transport.Handler
+	search    *searchtransport.Handler
 	auth      *identitytransport.Handler
 }
 
@@ -28,6 +30,9 @@ func WithMailer(m mailer.Mailer) Option { return func(s *Server) { s.mailer = m 
 
 // WithCatalogue sets the published-catalogue reads. Without it those routes stay 501.
 func WithCatalogue(h *transport.Handler) Option { return func(s *Server) { s.catalogue = h } }
+
+// WithSearch sets the search read. Without it GET /search stays unimplemented.
+func WithSearch(h *searchtransport.Handler) Option { return func(s *Server) { s.search = h } }
 
 // WithIdentity sets the S1 auth operations. Without it those routes stay 501.
 func WithIdentity(h *identitytransport.Handler) Option { return func(s *Server) { s.auth = h } }
@@ -70,6 +75,15 @@ func (s *Server) ListResourceSources(w http.ResponseWriter, r *http.Request, res
 		return
 	}
 	s.catalogue.ListResourceSources(w, r, resourceID)
+}
+
+// Search serves the grouped search. A server built without WithSearch stays unimplemented.
+func (s *Server) Search(w http.ResponseWriter, r *http.Request, params apigen.SearchParams) {
+	if s.search == nil {
+		s.Unimplemented.Search(w, r, params)
+		return
+	}
+	s.search.Search(w, r, params)
 }
 
 // GetCsrfToken serves the CSRF token endpoint. A server built without WithIdentity stays unimplemented.

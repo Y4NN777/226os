@@ -196,8 +196,18 @@ func (f *fakeStore) ResetPassword(_ context.Context, h [32]byte, phc string, now
 	}
 	return nil
 }
+func (f *fakeStore) Count(_ context.Context, scope string, key [32]byte, _ time.Duration, _ time.Time) (int, time.Duration, error) {
+	if err := f.errs["Count"]; err != nil {
+		return 0, 0, err
+	}
+	return f.buckets[scope+":"+base64.RawURLEncoding.EncodeToString(key[:8])], time.Minute, nil
+}
+
 func (f *fakeStore) Hit(_ context.Context, scope string, key [32]byte, limit int, _ time.Duration, _ time.Time) (bool, time.Duration, error) {
 	if err := f.errs["Hit"]; err != nil {
+		return false, 0, err
+	}
+	if err := f.errs["Hit:"+scope]; err != nil {
 		return false, 0, err
 	}
 	k := scope + ":" + base64.RawURLEncoding.EncodeToString(key[:8])
@@ -350,7 +360,8 @@ func (m *fakeMail) waitSent(t *testing.T, n int) {
 func testSvc(t *testing.T) (*Service, *fakeStore, *fakeMail) {
 	t.Helper()
 	st, mail := newFake(), &fakeMail{}
-	return New(st, mail, []byte("0123456789abcdef0123456789abcdef")), st, mail
+	// The fake store is not goroutine safe: run background work inline.
+	return New(st, mail, []byte("0123456789abcdef0123456789abcdef"), WithBackground(func(f func()) { f() })), st, mail
 }
 
 const testPassword = "correct-horse-battery"
@@ -483,6 +494,55 @@ func TestSignInAccountBucketAppliesToUnknownEmails(t *testing.T) {
 	}
 	if !found {
 		t.Fatal("signin:account bucket never hit for an unknown email")
+	}
+}
+
+// ADR-0003: "5 failures per account per 15 min". Successful sign-ins do not
+// count, so a person (or a demo account) signing in from several devices is
+// never throttled by the account bucket.
+func TestSignInSuccessDoesNotCountAgainstTheAccountLimit(t *testing.T) {
+	svc, st, _ := testSvc(t)
+	ctx := context.Background()
+	seedAccount(t, st, "sam@example.com")
+	for i := 0; i < signInAccountLimit+3; i++ {
+		if _, err := svc.SignIn(ctx, SignInInput{Email: "sam@example.com", Password: testPassword, IP: "198.51.100.5"}); err != nil {
+			t.Fatalf("sign-in %d: %v", i+1, err)
+		}
+	}
+}
+
+func TestSignInFailuresBlockEvenTheRightPassword(t *testing.T) {
+	svc, st, _ := testSvc(t)
+	ctx := context.Background()
+	seedAccount(t, st, "sam@example.com")
+	for i := 0; i < signInAccountLimit; i++ {
+		_, err := svc.SignIn(ctx, SignInInput{Email: "sam@example.com", Password: "wrong-password-12", IP: "198.51.100.6"})
+		if apperrCode(t, err) != apperr.CodeInvalidCredentials {
+			t.Fatalf("failure %d: %v", i+1, err)
+		}
+	}
+	_, err := svc.SignIn(ctx, SignInInput{Email: "sam@example.com", Password: testPassword, IP: "198.51.100.6"})
+	if apperrCode(t, err) != apperr.CodeRateLimited {
+		t.Fatalf("expected RATE_LIMITED after %d failures, got %v", signInAccountLimit, err)
+	}
+}
+
+func TestSignInRateLimitStoreErrorsFailClosed(t *testing.T) {
+	for _, method := range []string{"Count", "Hit"} {
+		svc, st, _ := testSvc(t)
+		seedAccount(t, st, "sam@example.com")
+		withErrs(st, map[string]error{method: errBoom})
+		_, err := svc.SignIn(context.Background(), SignInInput{Email: "sam@example.com", Password: testPassword, IP: "198.51.100.7"})
+		if apperrCode(t, err) != apperr.CodeInternal {
+			t.Fatalf("%s error did not fail closed: %v", method, err)
+		}
+	}
+	// The failure counter is written on the failure path too.
+	svc, st, _ := testSvc(t)
+	seedAccount(t, st, "sam@example.com")
+	withErrs(st, map[string]error{"Hit:signin:account": errBoom})
+	if _, err := svc.SignIn(context.Background(), SignInInput{Email: "ghost@example.com", Password: "x-wrong-password", IP: "198.51.100.8"}); apperrCode(t, err) != apperr.CodeInternal {
+		t.Fatalf("unknown email: %v", err)
 	}
 }
 

@@ -194,3 +194,15 @@ WITH u AS (
     )
 )
 SELECT u.user_id FROM u;
+
+-- name: PurgeRateLimitBuckets :exec
+-- Bounded purge of windows that ended long ago (fixed windows never exceed 1 h);
+-- uses rate_limit_buckets_window_idx.
+DELETE FROM rate_limit_buckets
+WHERE ctid IN (
+  SELECT b.ctid FROM rate_limit_buckets b WHERE b.window_start < $1 LIMIT 500 FOR UPDATE SKIP LOCKED
+);
+
+-- name: CountRateLimit :one
+SELECT hits FROM rate_limit_buckets
+WHERE scope = $1 AND key_hash = $2 AND window_start = $3;

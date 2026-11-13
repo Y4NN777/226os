@@ -20,6 +20,7 @@ import (
 // semantics the sqlc repository implements (ErrNotFound, ErrTokenInvalid,
 // fixed-window buckets).
 type fakeStore struct {
+	sessionLookups    int
 	accounts          map[string]domain.Account // by id
 	byEmail           map[string]string         // email -> id
 	sessions          map[string]domain.Session // by session id
@@ -93,6 +94,7 @@ func (f *fakeStore) CreateSession(_ context.Context, s domain.Session) (string, 
 }
 
 func (f *fakeStore) SessionByTokenHash(_ context.Context, hash [32]byte) (domain.Session, error) {
+	f.sessionLookups++
 	if f.failSessionLookup {
 		return domain.Session{}, errors.New("session store down")
 	}
@@ -181,6 +183,10 @@ func (f *fakeStore) ResetPassword(_ context.Context, h [32]byte, phc string, now
 		}
 	}
 	return nil
+}
+
+func (f *fakeStore) Count(_ context.Context, scope string, key [32]byte, _ time.Duration, _ time.Time) (int, time.Duration, error) {
+	return f.buckets[scope+":"+base64.RawURLEncoding.EncodeToString(key[:])], time.Minute, nil
 }
 
 func (f *fakeStore) Hit(_ context.Context, scope string, key [32]byte, limit int, _ time.Duration, _ time.Time) (bool, time.Duration, error) {

@@ -11,6 +11,24 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countRateLimit = `-- name: CountRateLimit :one
+SELECT hits FROM rate_limit_buckets
+WHERE scope = $1 AND key_hash = $2 AND window_start = $3
+`
+
+type CountRateLimitParams struct {
+	Scope       string
+	KeyHash     []byte
+	WindowStart pgtype.Timestamptz
+}
+
+func (q *Queries) CountRateLimit(ctx context.Context, arg CountRateLimitParams) (int32, error) {
+	row := q.db.QueryRow(ctx, countRateLimit, arg.Scope, arg.KeyHash, arg.WindowStart)
+	var hits int32
+	err := row.Scan(&hits)
+	return hits, err
+}
+
 const createAccount = `-- name: CreateAccount :one
 
 WITH u AS (
@@ -406,6 +424,20 @@ func (q *Queries) HitRateLimit(ctx context.Context, arg HitRateLimitParams) (int
 	var hits int32
 	err := row.Scan(&hits)
 	return hits, err
+}
+
+const purgeRateLimitBuckets = `-- name: PurgeRateLimitBuckets :exec
+DELETE FROM rate_limit_buckets
+WHERE ctid IN (
+  SELECT b.ctid FROM rate_limit_buckets b WHERE b.window_start < $1 LIMIT 500 FOR UPDATE SKIP LOCKED
+)
+`
+
+// Bounded purge of windows that ended long ago (fixed windows never exceed 1 h);
+// uses rate_limit_buckets_window_idx.
+func (q *Queries) PurgeRateLimitBuckets(ctx context.Context, windowStart pgtype.Timestamptz) error {
+	_, err := q.db.Exec(ctx, purgeRateLimitBuckets, windowStart)
+	return err
 }
 
 const resetPassword = `-- name: ResetPassword :one
