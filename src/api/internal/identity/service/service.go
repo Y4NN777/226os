@@ -517,8 +517,7 @@ func (s *Service) RequestPasswordReset(ctx context.Context, email, ip string) er
 	}
 	acct, err := s.store.AccountByEmail(ctx, normalized)
 	if err != nil || acct.Status != "active" || s.mail == nil {
-		verifyDummy("") // pay the Argon2id cost the send path roughly matches
-		return nil      // unknown, inactive or lookup failure: same silent 202
+		return nil // unknown, inactive, lookup failure or no mailer: same silent 202
 	}
 	plain, hash, err := randToken()
 	if err != nil {
