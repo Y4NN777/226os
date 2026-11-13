@@ -10,6 +10,8 @@ Do not submit secrets, credentials, private user data, unpublished tokens, or co
 
 ## Required record for each material AI-assisted contribution
 
+**Where to write it (since 2026-11-13):** one file per record in `docs/ai-usage/` (see its README), never an edit of this file: every pull request used to append at the end here, so every merge conflicted with every other open pull request. The block at the end of this file is generated from those files by `make ai-usage` (the owner runs it before the submission). The records above the block are the historical ones and stay as written.
+
 ```yaml
 date: "YYYY-MM-DD"
 contributor: ""
@@ -762,3 +764,24 @@ human_reviewers: ["NICE-DEV226 (pending)", "Y4NN777 (content script co-review, p
 tests_or_evidence: ["RED: service tests failed to compile before the service existed; pgtest Learn tests answered 501 with the handler unwired", "make generate, lint-go, lint-contract, lint-web, lint-scripts, typecheck, docs-check PASS", "make test-unit PASS; make coverage PASS: Go first-party 100.0% (4061/4061)", "make test-integration-go PASS (TestLearn*, TestFreeSeriesContentScript, EXPLAIN plans logged by TestLearnListPlansAreBounded)", "make security-authz, security-sast, security-govulncheck, security-secrets, licenses PASS", "scripts/tests/free-series_test.sh 13/13"]
 open_risks: ["the composition root (src/api/internal/app), pgtest, dbgen tests and scripts/tests are outside the S4 allowed paths as written; S2 used the same files", "series have no tags and no relations at P0 (no tables): the API returns empty arrays", "links to a series or an article are refused with 422 (content_relations has no such pair)", "article bodies above about 16 KiB replay with Idempotency-Body-Omitted (idempotency column limit)", "deleted authors are not shown as 'membre supprimé' yet (S1 bylines item)", "the content script has not run on staging-test or production-live"]
 ```
+
+<!-- ai-usage:generated:start (do not edit by hand: `make ai-usage` rewrites everything between the two markers from docs/ai-usage/*.md) -->
+
+## AI-use records: one file per record, AI_USAGE.md generated
+
+```yaml
+date: "2026-11-13"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code, Sonnet 5.5"
+purpose: "Remove the conflict every pull request had on AI_USAGE.md (all of them appended at the end, so after any merge every other open pull request conflicted: five at once on 2026-11-13). A record is now one file in docs/ai-usage/; scripts/ai-usage.py rewrites a generated block at the end of AI_USAGE.md from those files (make ai-usage, make ai-usage-check); the date check of scripts/check-docs.py reads the record files too. The five conflicting pull requests (#99 to #102, #111) were brought up to date by a mechanical merge that kept develop's AI_USAGE.md and each branch's own new records."
+repository_or_source_context: "pull requests #99, #100, #101, #102, #111 (conflicts only in AI_USAGE.md)"
+files_or_sections_affected: ["scripts/ai-usage.py", "scripts/tests/ai-usage_test.sh", "scripts/check-docs.py", "scripts/tests/check-docs_test.sh", "docs/ai-usage/**", "AI_USAGE.md", "mk/60-review.mk", ".github/PULL_REQUEST_TEMPLATE.md", "AGENTS.md", "CLAUDE.md", "CONTRIBUTING.md", "docs/GIT_WORKFLOW.md", "docs/SHIP.md", "TODO.md"]
+third_party_sources_consulted: []
+license_review: "NOT APPLICABLE: original code, no new dependency"
+closure: "open"
+human_reviewers: ["pending PR review"]
+tests_or_evidence: ["scripts/tests/ai-usage_test.sh 16 passed and scripts/tests/check-docs_test.sh 20 passed, RED first (no script; the date check ignored the record files)", "make lint-scripts and python3 -I scripts/check-docs.py: see the pull request"]
+open_risks: ["AI_USAGE.md is only as complete as its last build: the owner must run make ai-usage before the submission (SHIP.md says so); make docs-check runs the stale check on a pull request into main (not before, by design).", "Records already appended to AI_USAGE.md stay where they are; only new records use the files."]
+```
+
+<!-- ai-usage:generated:end -->

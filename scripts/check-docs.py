@@ -24,6 +24,7 @@ import sys
 
 SKIP_DIRS = {".git", "node_modules", "reports", "coverage", "dist"}
 RECORD_DATE = re.compile(r'^date:\s*"(\d{4}-\d{2}-\d{2})"')
+RECORD_FILE = re.compile(r"^\d{4}-\d{2}-\d{2}-[a-z0-9-]+\.md$")
 LINK = re.compile(r"\]\(([^)\s]+)\)")
 FENCE = re.compile(r"```.*?```", re.S)
 INLINE = re.compile(r"`[^`\n]*`")
@@ -130,26 +131,42 @@ def head_commit_date(root):
 def check_ai_usage_dates(root):
     """(warnings, note): an AI_USAGE.md record dated after the HEAD commit date (one day of tolerance for timezones and
     rebases) was written with a wrong date. Report mode by default; --strict-dates makes the warnings failures."""
-    path = os.path.join(root, "AI_USAGE.md")
-    if not os.path.exists(path):
+    # AI_USAGE.md (policy, historical records and the generated block) and the one-record-per-file folder docs/ai-usage/.
+    paths = [p for p in ["AI_USAGE.md"] if os.path.exists(os.path.join(root, p))]
+    folder = os.path.join(root, "docs", "ai-usage")
+    if os.path.isdir(folder):
+        paths += ["docs/ai-usage/%s" % n for n in sorted(os.listdir(folder)) if RECORD_FILE.match(n)]
+    if not paths:
         return [], ""
     head = head_commit_date(root)
     if head is None:
         return [], "check-docs: NOT RUN: ai-usage dates (no git history under %s)" % root
     limit = head + datetime.timedelta(days=1)
     warnings = []
-    for number, line in enumerate(read(root, "AI_USAGE.md").splitlines(), 1):
-        match = RECORD_DATE.match(line)
-        if not match:
-            continue
-        try:
-            day = datetime.date.fromisoformat(match.group(1))
-        except ValueError:
-            warnings.append("ai-usage: AI_USAGE.md:%d date %s is not a valid date" % (number, match.group(1)))
-            continue
-        if day > limit:
-            warnings.append("ai-usage: AI_USAGE.md:%d date %s is after the HEAD commit date %s (one day of tolerance)"
-                            % (number, day, head))
+    for path in paths:
+        inside_generated = False
+        for number, line in enumerate(read(root, path).splitlines(), 1):
+            # The generated block of AI_USAGE.md repeats the record files, which are scanned on their own: skip it so a
+            # bad date warns once (review note on #120).
+            if path == "AI_USAGE.md":
+                if line.startswith("<!-- ai-usage:generated:start"):
+                    inside_generated = True
+                elif line.startswith("<!-- ai-usage:generated:end"):
+                    inside_generated = False
+                    continue
+                if inside_generated:
+                    continue
+            match = RECORD_DATE.match(line)
+            if not match:
+                continue
+            try:
+                day = datetime.date.fromisoformat(match.group(1))
+            except ValueError:
+                warnings.append("ai-usage: %s:%d date %s is not a valid date" % (path, number, match.group(1)))
+                continue
+            if day > limit:
+                warnings.append("ai-usage: %s:%d date %s is after the HEAD commit date %s (one day of tolerance)"
+                                % (path, number, day, head))
     return warnings, ""
 
 
