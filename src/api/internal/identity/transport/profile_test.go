@@ -66,6 +66,26 @@ func memberCall(t *testing.T, h *Handler, st *fakeStore, op op, method, path, bo
 
 func strptrLocal(s string) *string { return &s }
 
+// Caller-dependent reads must not be stored by a shared cache (issue #116).
+func TestGetMeAndGetProfileSendNoStore(t *testing.T) {
+	h, _, st, _ := testStack(t, false)
+	signupAndSignIn(t, h, "cache@example.com")
+	seedOwnProfile(t, st, "cache@example.com")
+	acct, _ := st.AccountByEmail(t.Context(), "cache@example.com")
+
+	rec := memberCall(t, h, st, h.GetMe, http.MethodGet, "/api/v1/me", "", "me@example.com",
+		func() { seedOwnProfile(t, st, "me@example.com") })
+	if rec.Code != http.StatusOK || rec.Header().Get("Cache-Control") != "no-store" {
+		t.Fatalf("getMe %d cache-control %q", rec.Code, rec.Header().Get("Cache-Control"))
+	}
+	rec = call(t, func(w http.ResponseWriter, r *http.Request) {
+		h.GetProfile(w, r, acct.Username)
+	}, doReq(t, http.MethodGet, "/api/v1/profiles/"+acct.Username, nil))
+	if rec.Code != http.StatusOK || rec.Header().Get("Cache-Control") != "no-store" {
+		t.Fatalf("getProfile %d cache-control %q", rec.Code, rec.Header().Get("Cache-Control"))
+	}
+}
+
 func TestGetMeReturnsAccountAndProfile(t *testing.T) {
 	h, _, st, _ := testStack(t, false)
 	rec := memberCall(t, h, st, h.GetMe, http.MethodGet, "/api/v1/me", "", "me@example.com",

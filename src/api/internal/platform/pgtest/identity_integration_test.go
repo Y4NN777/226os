@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"slices"
 	"strings"
 	"sync"
@@ -723,6 +724,34 @@ func TestIdentityProfileHiddenTagFiltered(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("resave visible skills %d %s", rec.Code, rec.Body.String())
 	}
+
+	// The hidden link survives the rewrite (issue #116): it is moderator
+	// state, not the user's visible set. Restoring the tag brings it back.
+	var hiddenLinks int
+	if err := conn.QueryRow(ctx,
+		`SELECT count(*) FROM user_skills us
+		 JOIN tags t ON t.id = us.tag_id JOIN users u ON u.id = us.user_id
+		 WHERE u.email = 'hid@example.com' AND t.slug = 'secret'`).Scan(&hiddenLinks); err != nil {
+		t.Fatal(err)
+	}
+	if hiddenLinks != 1 {
+		t.Fatalf("hidden skill link after resave = %d, want 1 (must survive)", hiddenLinks)
+	}
+	if _, err := conn.Exec(ctx, `UPDATE tags SET status = 'active' WHERE slug = 'secret'`); err != nil {
+		t.Fatal(err)
+	}
+	rec = s.do(t, http.MethodGet, "/api/v1/me", "", nil, sess)
+	var body struct {
+		Profile struct {
+			Skills []string `json:"skills"`
+		} `json:"profile"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(body.Profile.Skills, []string{"go", "secret"}) {
+		t.Fatalf("skills after tag restore = %v, want [go secret]", body.Profile.Skills)
+	}
 }
 
 // TestIdentityProfileConcurrentSkillReplace proves two concurrent skill
@@ -834,5 +863,101 @@ func TestIdentityProfileConcurrentSkillReplace(t *testing.T) {
 		if got := finalSkills(); !slices.Equal(got, []string{"go"}) {
 			t.Fatalf("identical round %d skills %v", i, got)
 		}
+	}
+}
+
+// TestIdentityProfileNotFoundBodiesIdentical is the C14b matrix on the real
+// router (ROADMAP, issue #116): unknown, deleted, suspended, members-only for
+// anonymous, and private for member and moderator all answer the same 404 —
+// same status, same headers, same body once request_id and instance are
+// removed. Moderators get no special access.
+func TestIdentityProfileNotFoundBodiesIdentical(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 120*time.Second)
+	defer cancel()
+	s := newIdentityStack(ctx, t)
+	conn := s.conn
+
+	patchVis := func(email, vis string) {
+		t.Helper()
+		sess, csrf := s.signInMember(t, email)
+		rec := s.do(t, http.MethodPatch, "/api/v1/me/profile",
+			`{"profile_visibility":"`+vis+`"}`, map[string]string{"X-CSRF-Token": csrf}, sess)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("%s visibility patch %d %s", email, rec.Code, rec.Body.String())
+		}
+	}
+
+	// Deleted and suspended owners are only ever viewed, never signed in, so
+	// they are seeded in SQL: five HTTP sign-ups would hit the per-IP limit.
+	seedViewed := func(email, username, status string) {
+		t.Helper()
+		var id string
+		if err := conn.QueryRow(ctx,
+			`INSERT INTO users (email, status, deleted_at)
+			 VALUES ($1, $2, CASE WHEN $2 = 'deleted' THEN now() END) RETURNING id::text`,
+			email, status).Scan(&id); err != nil {
+			t.Fatalf("seed user %s: %v", email, err)
+		}
+		if _, err := conn.Exec(ctx,
+			`INSERT INTO profiles (user_id, username, display_name) VALUES ($1::uuid, $2, 'U')`,
+			id, username); err != nil {
+			t.Fatalf("seed profile %s: %v", username, err)
+		}
+	}
+	seedViewed("del@example.com", "deluser", "deleted")
+	seedViewed("sus@example.com", "sususer", "suspended")
+	s.signUp(t, "mem@example.com", "memuser")
+	s.signUp(t, "priv@example.com", "privuser")
+	s.signUp(t, "mod@example.com", "moduser")
+	s.signUp(t, "caller@example.com", "calleruser")
+	if _, err := conn.Exec(ctx, `UPDATE users SET role = 'moderator' WHERE email = 'mod@example.com'`); err != nil {
+		t.Fatal(err)
+	}
+	patchVis("mem@example.com", "members")
+	patchVis("priv@example.com", "private")
+
+	// fingerprint is the 404 minus the per-request members.
+	type fingerprint struct {
+		Status      int
+		ContentType string
+		Body        map[string]any
+	}
+	get := func(username string, cookies ...*http.Cookie) fingerprint {
+		t.Helper()
+		rec := s.do(t, http.MethodGet, "/api/v1/profiles/"+username, "", nil, cookies...)
+		if rec.Code != http.StatusNotFound {
+			t.Fatalf("%s -> %d %s, want 404", username, rec.Code, rec.Body.String())
+		}
+		var body map[string]any
+		if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+			t.Fatalf("%s body not JSON: %v", username, err)
+		}
+		delete(body, "request_id")
+		delete(body, "instance")
+		return fingerprint{Status: rec.Code, ContentType: rec.Header().Get("Content-Type"), Body: body}
+	}
+
+	anon404 := get("ghostuser") // unknown username is the reference 404
+	for _, username := range []string{"deluser", "sususer", "memuser", "privuser"} {
+		if got := get(username); !reflect.DeepEqual(got, anon404) {
+			t.Fatalf("anonymous GET /profiles/%s differs from the unknown-user 404:\n got %+v\nwant %+v", username, got, anon404)
+		}
+	}
+
+	memberSess, _ := s.signInMember(t, "caller@example.com")
+	if got := get("privuser", memberSess); !reflect.DeepEqual(got, anon404) {
+		t.Fatalf("member GET /profiles/privuser differs from the unknown-user 404:\n got %+v\nwant %+v", got, anon404)
+	}
+	modSess, _ := s.signInMember(t, "mod@example.com")
+	if got := get("privuser", modSess); !reflect.DeepEqual(got, anon404) {
+		t.Fatalf("moderator GET /profiles/privuser differs from the unknown-user 404:\n got %+v\nwant %+v", got, anon404)
+	}
+
+	// Sanity: the same callers do see what the matrix allows.
+	if rec := s.do(t, http.MethodGet, "/api/v1/profiles/memuser", "", nil, memberSess); rec.Code != http.StatusOK {
+		t.Fatalf("member on members profile: %d %s", rec.Code, rec.Body.String())
+	}
+	if rec := s.do(t, http.MethodGet, "/api/v1/profiles/privuser", "", nil); rec.Code != http.StatusNotFound {
+		t.Fatalf("anonymous on private profile: %d", rec.Code)
 	}
 }

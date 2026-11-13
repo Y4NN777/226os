@@ -784,4 +784,38 @@ tests_or_evidence: ["scripts/tests/ai-usage_test.sh 16 passed and scripts/tests/
 open_risks: ["AI_USAGE.md is only as complete as its last build: the owner must run make ai-usage before the submission (SHIP.md says so); make docs-check runs the stale check on a pull request into main (not before, by design).", "Records already appended to AI_USAGE.md stay where they are; only new records use the files."]
 ```
 
+## Issue #116 after-freeze follow-ups: skills delete scope, C14b matrix, cache headers
+
+```yaml
+date: "2026-11-13"
+contributor: "NICE-DEV226"
+tool_or_model: "Devin (SWE-2 Flash)"
+purpose: "The after-freeze items of issue #116 (PR #94 audit): (1) DeleteUserSkills wiped every user_skills row, including links to moderator-hidden tags that the read projections filter out — a hidden link was silently destroyed by an unrelated write and restoring the tag did not bring the skill back; the delete now joins tags and removes only active-tag links, proven on real PostgreSQL (link survives the rewrite, skill returns on tag restore). (2) The C14b matrix lacked a moderator row and a byte-for-byte 404 comparison — TestIdentityProfileNotFoundBodiesIdentical runs unknown, deleted, suspended, members-only-for-anonymous and private-for-member-and-moderator through the real router and compares status, Content-Type and the problem body minus request_id and instance. (3) GET /me (email, PII) and GET /profiles/{username} (caller-dependent body) now send Cache-Control: no-store so a future shared cache cannot leak a members-only 200 to an anonymous caller."
+repository_or_source_context: "issue #116 (PR #94 audit follow-ups), branch fix/identity/profile-audit-116-after"
+files_or_sections_affected: ["db/queries/identity.sql", "src/api/internal/platform/dbgen/identity.sql.go", "src/api/internal/platform/dbgen/queries_test.go", "src/api/internal/identity/transport/profile.go", "src/api/internal/identity/transport/profile_test.go", "src/api/internal/platform/pgtest/identity_integration_test.go", "TODO.md", "docs/ai-usage/2026-11-13-issue-116-after-freeze.md"]
+third_party_sources_consulted: []
+license_review: "NOT APPLICABLE: original code, no new dependency"
+closure: "open"
+human_reviewers: ["pending PR review"]
+tests_or_evidence: ["go test -race -count=1 ./internal/identity/... PASS", "go test -race -count=1 -tags integration -run 'TestIdentityProfile|TestIdentityProfiles' ./internal/platform/pgtest/ PASS on real PostgreSQL (TestIdentityProfileHiddenTagFiltered extended: hidden link survives, restore brings skill back; TestIdentityProfileNotFoundBodiesIdentical: 7-case matrix)", "make generate regenerated dbgen (comment + scoped DELETE), check-sqlc drift committed", "new TestGetMeAndGetProfileSendNoStore pins the header", "go vet, gofmt clean"]
+open_risks: ["the undeclared 422 on getProfile (validator rejects a malformed path username; the contract lists no 422 response) is a contract change left for the owner before/after freeze decision", "resolveSkills still runs outside the write transaction: a tag hidden between resolve and insert is linked but filtered on read — accepted and documented, no leak", "hidden-tag links now accumulate until the tag is restored or purged; no purge exists for user_skills (same as before for active links)"]
+```
+
+## S4 Learn: articles, series, links writer and the free-series content script
+
+```yaml
+date: "2026-11-13"
+contributor: "mibienpanjoe"
+tool_or_model: "Claude Code, Claude Opus 5.5 (main session, no subagents)"
+purpose: "S4 Learn: listLearnArticles, createLearnArticle (401 anonymous, 403 publishing without a verified email, drafts allowed, shared write:user budget failing closed, Idempotency-Key, original text stored unchanged), getLearnArticle (draft or archived only to its author), listTrainingSeries, getTrainingSeries (no my_progress, C3); the article links[] writer (canonical question/resource/project -> article, target locked FOR SHARE in the creating transaction); the one-time free series content script and its gated wrapper; the S1/S2 tracker ticks."
+repository_or_source_context: "branch feature/learn/articles-series"
+files_or_sections_affected: ["db/queries/learn.sql", "src/api/internal/platform/dbgen/learn.sql.go", "src/api/internal/platform/dbgen/learn_queries_test.go", "src/api/internal/learn/**", "src/api/internal/app/server.go", "src/api/internal/app/app.go", "src/api/internal/app/learn_internal_test.go", "src/api/internal/platform/pgtest/learn_integration_test.go", "src/api/internal/platform/pgtest/errorreport_integration_test.go", "scripts/content/**", "scripts/tests/free-series_test.sh", "scripts/public-routes.txt", "scripts/unimplemented-routes.txt", "scripts/authz-tests.txt", "TODO.md", "docs/ai-usage/2026-11-13-s4-learn.md"]
+third_party_sources_consulted: []
+license_review: "PENDING: owner review (the four French lessons in scripts/content/free-series.sql were drafted with AI for the team to review and own)"
+closure: "open"
+human_reviewers: ["NICE-DEV226 (pending)", "Y4NN777 (content script co-review, pending)"]
+tests_or_evidence: ["RED: service tests failed to compile before the service existed; pgtest Learn tests answered 501 with the handler unwired", "make generate, lint-go, lint-contract, lint-web, lint-scripts, typecheck, docs-check PASS", "make test-unit PASS; make coverage PASS: Go first-party 100.0% (4061/4061)", "make test-integration-go PASS (TestLearn*, TestFreeSeriesContentScript, EXPLAIN plans logged by TestLearnListPlansAreBounded)", "make security-authz, security-sast, security-govulncheck, security-secrets, licenses PASS", "scripts/tests/free-series_test.sh 13/13"]
+open_risks: ["the composition root (src/api/internal/app), pgtest, dbgen tests and scripts/tests are outside the S4 allowed paths as written; S2 used the same files", "series have no tags and no relations at P0 (no tables): the API returns empty arrays", "links to a series or an article are refused with 422 (content_relations has no such pair)", "article bodies above about 16 KiB replay with Idempotency-Body-Omitted (idempotency column limit)", "deleted authors are not shown as 'membre supprimé' yet (S1 bylines item)", "the content script has not run on staging-test or production-live"]
+```
+
 <!-- ai-usage:generated:end -->
