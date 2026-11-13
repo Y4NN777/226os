@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"sort"
 
 	"github.com/Y4NN777/226os/src/api/internal/identity/domain"
 	"github.com/Y4NN777/226os/src/api/internal/platform/apigen"
@@ -97,6 +98,9 @@ func decodeProfilePatch(w http.ResponseWriter, r *http.Request) (apigen.ProfileU
 	if err := json.Unmarshal(data, &present); err != nil {
 		return body, nil, apperr.New(apperr.CodeMalformedRequest, "The request body is not valid JSON.")
 	}
+	if err := rejectNullNonNullable(present); err != nil {
+		return body, nil, err
+	}
 	r2 := r.Clone(r.Context())
 	r2.Body = io.NopCloser(bytes.NewReader(data))
 	if err := httpx.DecodeJSON(w, r2, &body); err != nil {
@@ -162,6 +166,53 @@ func profileWriteFrom(b apigen.ProfileUpdate, present map[string]json.RawMessage
 }
 
 func isJSONNull(raw json.RawMessage) bool { return bytes.Equal(bytes.TrimSpace(raw), []byte("null")) }
+
+// nonNullablePatchMembers are ProfileUpdate members the contract types as
+// non-nullable. There is no OpenAPI request validator on this route, so an
+// explicit null would otherwise decode to a nil pointer and be silently
+// treated as absent; merge-patch "remove" is not representable for them.
+var nonNullablePatchMembers = []string{
+	"skills", "languages", "open_to_collab", "field_visibility", "profile_visibility",
+}
+
+// fieldVisibilityMembers are the ProfileField members exposed by the contract.
+var fieldVisibilityMembers = map[string]struct{}{
+	"bio": {}, "country": {}, "languages": {}, "skills": {}, "github": {},
+}
+
+// rejectNullNonNullable returns a VALIDATION_ERROR when a non-nullable member
+// (or a field_visibility sub-member, also non-nullable) is explicitly null.
+func rejectNullNonNullable(present map[string]json.RawMessage) error {
+	var violations []apperr.Violation
+	for _, key := range nonNullablePatchMembers {
+		if raw, ok := present[key]; ok && isJSONNull(raw) {
+			violations = append(violations, apperr.Violation{Field: key, Code: "invalid_value"})
+		}
+	}
+	if raw, ok := present["field_visibility"]; ok && !isJSONNull(raw) {
+		var fv map[string]json.RawMessage
+		if err := json.Unmarshal(raw, &fv); err == nil {
+			keys := make([]string, 0, len(fv))
+			for k := range fv {
+				keys = append(keys, k)
+			}
+			sort.Strings(keys)
+			for _, k := range keys {
+				if _, known := fieldVisibilityMembers[k]; !known {
+					continue // unknown sub-fields are rejected by the typed decode
+				}
+				if isJSONNull(fv[k]) {
+					violations = append(violations, apperr.Violation{Field: "field_visibility." + k, Code: "invalid_value"})
+				}
+			}
+		}
+	}
+	if len(violations) == 0 {
+		return nil
+	}
+	return apperr.New(apperr.CodeValidation, "These profile fields do not accept null.").
+		WithViolations(violations...)
+}
 
 func intentStr(v *apigen.Intent) *string {
 	if v == nil {

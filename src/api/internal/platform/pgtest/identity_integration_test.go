@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -464,7 +465,7 @@ func TestIdentityProfilesEndToEnd(t *testing.T) {
 	// stack serves: migratedDB clones a fresh schema per call).
 	conn := s.conn
 	if _, err := conn.Exec(ctx,
-		`INSERT INTO tags (slug, label, status, provenance) VALUES ('go', 'Go', 'active', 'live')`); err != nil {
+		`INSERT INTO tags (slug, label, status, provenance) VALUES ('go', 'Go', 'active', 'live'), ('rust', 'Rust', 'active', 'live')`); err != nil {
 		t.Fatalf("seed tag: %v", err)
 	}
 
@@ -490,6 +491,29 @@ func TestIdentityProfilesEndToEnd(t *testing.T) {
 		*patched.Country != "BJ" || len(patched.Skills) != 1 || patched.Skills[0] != "go" ||
 		!patched.OpenToCollab {
 		t.Fatalf("patched %s", rec.Body.String())
+	}
+
+	// Overlapping skill replacements: [go] -> [go, rust] -> [rust]. The
+	// delete/insert CTEs are disjoint, so kept tags survive both directions.
+	for _, step := range []struct {
+		patch string
+		want  []string
+	}{
+		{`{"skills":["go","rust"]}`, []string{"go", "rust"}},
+		{`{"skills":["rust"]}`, []string{"rust"}},
+	} {
+		rec = s.do(t, http.MethodPatch, "/api/v1/me/profile", step.patch,
+			map[string]string{"X-CSRF-Token": csrf}, sess)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("skills %s %d %s", step.patch, rec.Code, rec.Body.String())
+		}
+		var got struct {
+			Skills []string `json:"skills"`
+		}
+		_ = json.Unmarshal(rec.Body.Bytes(), &got)
+		if !slices.Equal(got.Skills, step.want) {
+			t.Fatalf("skills %s -> %v, want %v", step.patch, got.Skills, step.want)
+		}
 	}
 
 	// bio_language derived to 'en' by the service (contract exposes no field).

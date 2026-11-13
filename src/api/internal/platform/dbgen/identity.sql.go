@@ -551,11 +551,19 @@ WITH u AS (
   WHERE profiles.user_id = $1
   RETURNING profiles.user_id
 ), sd AS (
-  DELETE FROM user_skills WHERE user_skills.user_id = $1 AND $30::uuid[] IS NOT NULL
+  DELETE FROM user_skills
+  WHERE user_skills.user_id = $1
+    AND $30::uuid[] IS NOT NULL
+    AND NOT (user_skills.tag_id = ANY($30::uuid[]))
 ), si AS (
   INSERT INTO user_skills (user_id, tag_id)
   SELECT $1, t.id FROM tags t
-  WHERE $30::uuid[] IS NOT NULL AND t.id = ANY($30::uuid[])
+  WHERE $30::uuid[] IS NOT NULL
+    AND t.id = ANY($30::uuid[])
+    AND NOT EXISTS (
+      SELECT 1 FROM user_skills us
+      WHERE us.user_id = $1 AND us.tag_id = t.id
+    )
 )
 SELECT u.user_id FROM u
 `
@@ -598,7 +606,10 @@ type UpdateProfileParams struct {
 // and explicit nulls clear nullable columns. bio_language follows bio (the
 // pair CHECK requires them set or cleared together; the service derives the
 // language, 'en' by contract decision). When $30 is not NULL the caller's
-// skill set is replaced atomically in the same statement.
+// skill set is replaced atomically in the same statement. The delete and
+// insert are disjoint by construction (delete only tags outside the new set,
+// insert only tags not already present) so the result does not depend on the
+// unspecified execution order of data-modifying CTEs.
 func (q *Queries) UpdateProfile(ctx context.Context, arg UpdateProfileParams) (pgtype.UUID, error) {
 	row := q.db.QueryRow(ctx, updateProfile,
 		arg.UserID,

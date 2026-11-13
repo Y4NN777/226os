@@ -384,6 +384,42 @@ func TestUpdateMyProfileNullScalars(t *testing.T) {
 	}
 }
 
+// Contract-non-nullable members must reject an explicit JSON null instead of
+// silently treating it as absent (there is no OpenAPI request validator on
+// this route). Nullable members keep their clear semantics.
+func TestUpdateMyProfileNullNonNullableRejected(t *testing.T) {
+	cases := []struct {
+		name string
+		body string
+		code int
+		want string // substring expected in the problem body, "" = any error
+	}{
+		{"skills", `{"skills":null}`, http.StatusUnprocessableEntity, "skills"},
+		{"languages", `{"languages":null}`, http.StatusUnprocessableEntity, "languages"},
+		{"open_to_collab", `{"open_to_collab":null}`, http.StatusUnprocessableEntity, "open_to_collab"},
+		{"profile_visibility", `{"profile_visibility":null}`, http.StatusUnprocessableEntity, "profile_visibility"},
+		{"field_visibility", `{"field_visibility":null}`, http.StatusUnprocessableEntity, "field_visibility"},
+		{"fv_sub_member", `{"field_visibility":{"bio":null}}`, http.StatusUnprocessableEntity, "field_visibility.bio"},
+		{"fv_mixed", `{"field_visibility":{"bio":"members","country":null}}`, http.StatusUnprocessableEntity, "field_visibility.country"},
+		{"fv_unknown_sub", `{"field_visibility":{"bogus":null}}`, http.StatusUnprocessableEntity, ""},
+		{"fv_not_object", `{"field_visibility":"x"}`, http.StatusBadRequest, ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			h, _, st, _ := testStack(t, false)
+			rec := memberCall(t, h, st, h.UpdateMyProfile, http.MethodPatch, "/api/v1/me/profile",
+				tc.body, "nonnull@example.com",
+				func() { seedOwnProfile(t, st, "nonnull@example.com") })
+			if rec.Code != tc.code {
+				t.Fatalf("%s: expected %d, got %d %s", tc.name, tc.code, rec.Code, rec.Body.String())
+			}
+			if tc.want != "" && !strings.Contains(rec.Body.String(), tc.want) {
+				t.Fatalf("%s: body missing %q: %s", tc.name, tc.want, rec.Body.String())
+			}
+		})
+	}
+}
+
 func TestUpdateMyProfileBodyTooLarge(t *testing.T) {
 	h, _, st, _ := testStack(t, false)
 	big := `{"display_name":"` + strings.Repeat("a", 1<<20) + `"}`
