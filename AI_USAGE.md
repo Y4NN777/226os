@@ -591,13 +591,13 @@ open_risks: ["Get still maps pgx.ErrNoRows to domain.ErrNotFound before wrapping
 date: "2026-11-13"
 contributor: "NICE-DEV226"
 tool_or_model: "Devin (SWE-2 Flash)"
-purpose: "S1 Identity slice: Argon2id password hashing (PHC, OWASP floor, timing-equalized dummy), session domain model, and the sign-up/sign-in/session/CSRF/verify/reset use cases behind a Store port with unit tests on fakes. Transport, repository, wiring and integration tests follow in later commits of the same branch."
+purpose: "S1 Identity slice, auth-sessions branch: Argon2id password hashing (PHC, OWASP floor, timing-equalized dummy), session domain model, sign-up/sign-in/session/CSRF/verify/reset use cases behind a Store port, sqlc queries and repository adapter (atomic account-creation CTE), HTTP transport with per-profile cookies, session-backed subject resolver, synchronizer-token CSRF middleware, PostgreSQL rate limits, app wiring, unit tests on fakes plus real-PostgreSQL pgtest integration."
 repository_or_source_context: "branch feature/identity/auth-sessions, TODO.md S1"
-files_or_sections_affected: ["src/api/internal/identity/**", "go.mod", "go.sum", "AI_USAGE.md"]
+files_or_sections_affected: ["src/api/internal/identity/**", "src/api/internal/app/**", "src/api/internal/platform/httpx/**", "src/api/internal/platform/dbgen/**", "src/api/internal/platform/pgtest/**", "db/queries/identity.sql", "scripts/public-routes.txt", "scripts/authz-tests.txt", "scripts/router-middleware.txt", "scripts/unimplemented-routes.txt", "scripts/tests/authz-routes_test.sh", "TODO.md", "go.mod", "go.sum", "AI_USAGE.md"]
 third_party_sources_consulted: []
 license_review: "PENDING"
 closure: "open"
 human_reviewers: ["mibienpanjoe (assigned reviewer, pending PR)"]
-tests_or_evidence: ["go test -race -count=1 ./src/api/internal/identity/... exit 0", "go vet ./src/api/internal/identity/... exit 0", "go test -count=1 ./src/api/internal/identity/password/ exit 0"]
-open_risks: ["rate-limit bucket keys reuse CURSOR_KEY as HMAC key pending a dedicated secret decision", "CSRF tokens are derived (HMAC of stored token hash / pre-session secret) rather than stored, per ADR-0003 rotation requirement", "no resend-verification operation exists in the contract (open question for the owner)", "transport, sqlc repository, session-backed subject resolver and CSRF middleware are not yet implemented"]
+tests_or_evidence: ["go test -race -count=1 ./src/api/internal/identity/... exit 0", "go test -race -count=1 -tags integration ./src/api/internal/platform/pgtest/ exit 0", "scripts/coverage-go.sh coverage: go first-party statement coverage 100.0% (2705/2705), PASS", "make coverage exit 0 (web 99.27% statements)", "make test-integration exit 0", "make lint-scripts security-sast exit 0 (gosec 0 issues)", "scripts/check-generated.sh check exit 0", "make quality full rerun on the PR head SHA pending at the time of this entry"]
+open_risks: ["rate-limit bucket keys reuse CURSOR_KEY as HMAC key pending a dedicated secret decision", "CSRF tokens are derived (HMAC of stored token hash / pre-session secret) rather than stored, per ADR-0003 rotation requirement", "no resend-verification operation exists in the contract (open question for the owner, flagged in the PR)", "getMe, updateMyProfile, getProfile and the profile-visibility matrix remain for feature/identity/profiles", "Argon2id parameters await the target-host benchmark at S8 (K6 container check)"]
 ```
