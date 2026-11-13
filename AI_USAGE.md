@@ -584,3 +584,20 @@ human_reviewers: ["Y4NN777 (owner closure, 2026-11-13)"]
 tests_or_evidence: ["make lint-go exit 0", "go test -race -count=1 ./src/api/internal/discover/... ./src/api/internal/app/ exit 0. The catalogue integration test was not re-run."]
 open_risks: ["Get still maps pgx.ErrNoRows to domain.ErrNotFound before wrapping. Other driver errors stay in the chain via %w."]
 ```
+
+## S1 identity: domain, password hashing and auth service core
+
+```yaml
+date: "2026-11-13"
+contributor: "NICE-DEV226"
+tool_or_model: "Devin (SWE-2 Flash)"
+purpose: "S1 Identity slice: Argon2id password hashing (PHC, OWASP floor, timing-equalized dummy), session domain model, and the sign-up/sign-in/session/CSRF/verify/reset use cases behind a Store port with unit tests on fakes. Transport, repository, wiring and integration tests follow in later commits of the same branch."
+repository_or_source_context: "branch feature/identity/auth-sessions, TODO.md S1"
+files_or_sections_affected: ["src/api/internal/identity/**", "go.mod", "go.sum", "AI_USAGE.md"]
+third_party_sources_consulted: []
+license_review: "PENDING"
+closure: "open"
+human_reviewers: ["mibienpanjoe (assigned reviewer, pending PR)"]
+tests_or_evidence: ["go test -race -count=1 ./src/api/internal/identity/... exit 0", "go vet ./src/api/internal/identity/... exit 0", "go test -count=1 ./src/api/internal/identity/password/ exit 0"]
+open_risks: ["rate-limit bucket keys reuse CURSOR_KEY as HMAC key pending a dedicated secret decision", "CSRF tokens are derived (HMAC of stored token hash / pre-session secret) rather than stored, per ADR-0003 rotation requirement", "no resend-verification operation exists in the contract (open question for the owner)", "transport, sqlc repository, session-backed subject resolver and CSRF middleware are not yet implemented"]
+```
