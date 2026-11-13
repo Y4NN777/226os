@@ -24,7 +24,7 @@ import sys
 
 BOT_LOGINS = {"github-actions[bot]", "github-actions"}
 LEDGER = re.compile(r"<!--\s*review-ledger\s+(\{.*?\})\s*-->", re.S)
-FENCED = re.compile(r"<details>\s*<summary>\s*Review ledger\s*</summary>.*?```json\s*(\{.*?\})\s*```", re.S)
+FENCED = re.compile(r"<details>\s*<summary>[^<]*ledger[^<]*</summary>.*?```json\s*(\{.*?\})\s*```", re.S | re.I)
 STATUSES = {"open", "answered", "accepted", "fixed"}
 SEVERITIES = {"CRITICAL", "HIGH", "MEDIUM", "LOW"}
 BLOCK = re.compile(r"^--\s*name:\s*(\w+)", re.M)
@@ -119,7 +119,11 @@ def parse_ledger(comments):
             data = json.loads(raw)
         except ValueError:
             continue
-        if not isinstance(data, dict) or not HEX.match(str(data.get("sha", ""))):
+        if not isinstance(data, dict):
+            continue
+        # The key is `sha`; a model sometimes writes `last_reviewed_commit` or `commit`: accept those too.
+        data["sha"] = next((str(data[k]) for k in ("sha", "last_reviewed_commit", "commit") if data.get(k)), "")
+        if not HEX.match(data["sha"]):
             continue
         entries = data.get("findings") if isinstance(data.get("findings"), list) else []
         findings = [x for x in (parse_finding(f) for f in entries) if x]
@@ -255,9 +259,56 @@ def sql_pointers(git, path, touched):
     return out
 
 
-def go_pointers(path, lines):
-    """Pointers for the added lines of one non-test Go file."""
+def openapi_patterns(git):
+    """[(property name, pattern)] from api/openapi.yaml at HEAD: each `pattern:` with the nearest enclosing property
+    name (`items:` and `properties:` are skipped, so a pattern under languages/items belongs to `languages`)."""
+    try:
+        lines = run([git, "show", "HEAD:api/openapi.yaml"]).splitlines()
+    except Unavailable:
+        return []
     out = []
+    for i, line in enumerate(lines):
+        m = re.match(r"^(\s*)pattern:\s*(.+?)\s*$", line)
+        if not m:
+            continue
+        indent = len(m.group(1))
+        pattern = m.group(2).strip("'\"")
+        for j in range(i - 1, -1, -1):
+            k = re.match(r"^(\s*)([A-Za-z_][\w.-]*):\s*(?:#.*)?$", lines[j])
+            if k and len(k.group(1)) < indent and k.group(2) not in ("items", "properties", "schema"):
+                out.append((k.group(2), pattern))
+                break
+            if k and len(k.group(1)) < indent:
+                indent = len(k.group(1))
+    return out
+
+
+def identifier_words(name):
+    """languagePattern -> ['language', 'pattern'] (lower case)."""
+    return [w.lower() for w in re.findall(r"[A-Z]?[a-z0-9]+|[A-Z]+(?![a-z])", name)]
+
+
+def regexp_pointers(path, lines, patterns):
+    """A Go regexp whose name matches an OpenAPI property but whose pattern differs from the contract's."""
+    out = []
+    for no, text in lines:
+        m = re.search(r"(\w+)\s*(?::=|=)\s*regexp\.MustCompile\(\s*[`\"](.+?)[`\"]\s*\)", text)
+        if not m:
+            continue
+        name, literal = m.group(1), m.group(2)
+        words = {w.rstrip("s") for w in identifier_words(name) if w not in ("pattern", "re", "regexp", "regex", "valid")}
+        for prop, pattern in patterns:
+            if prop.lower().rstrip("s") in words and pattern != literal:
+                out.append((path, no, 1, "%s:%d: regexp %s is `%s` but the OpenAPI pattern of `%s` is `%s`. They differ: "
+                            "a value the contract accepts is rejected (or the reverse) with a surprising 422. Decide which "
+                            "side is right and say so." % (path, no, name, literal, prop, pattern)))
+                break
+    return out
+
+
+def go_pointers(path, lines, patterns=()):
+    """Pointers for the added lines of one non-test Go file."""
+    out = regexp_pointers(path, lines, patterns)
     for no, text in lines:
         if re.search(r"x-forwarded-for", text, re.I):
             out.append((path, no, 1, "%s:%d: reads X-Forwarded-For. Only the entry the trusted proxy appended is "
@@ -275,11 +326,14 @@ def read_first(git, rng):
     except Unavailable:
         return "Read first: NOT AVAILABLE (git could not diff %s)" % rng, []
     found = []
+    patterns = None
     for path in sorted(touched):
         if path.startswith("db/queries/") and path.endswith(".sql"):
             found += sql_pointers(git, path, touched[path])
         elif path.endswith(".go") and not path.endswith("_test.go"):
-            found += go_pointers(path, added.get(path, []))
+            if patterns is None and any("regexp.MustCompile" in t for _, t in added.get(path, [])):
+                patterns = openapi_patterns(git)
+            found += go_pointers(path, added.get(path, []), patterns or ())
     total = sum(len(v) for p, v in added.items() if p.endswith(REVIEWABLE) and not p.endswith(("_test.go", ".test.ts", ".test.tsx")))
     pointed = sum(n for _, _, n, _ in found)
     return "Read first: %d hunks, %d of %d changed lines" % (len(found), pointed, total), [t for _, _, _, t in found]

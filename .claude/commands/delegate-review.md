@@ -135,7 +135,7 @@ Coverage: <reviewed by the tool>/<total>, plus <n> files you read yourself (Step
 </details>
 ```
 
-The first line must stay the `Triage:` line (the Review gate reads it). The ledger is read by machines: `scripts/review-context.py` (the next run: what is still open) and `scripts/review-ping.py` (the owner ping). Keep ids stable across runs (the same finding keeps its id), include every finding that is not `fixed` plus the ones fixed since the last run, put exactly one JSON object in the block, and never put a secret, an e-mail address or a quotation of a comment in it.
+The first line must stay the `Triage:` line (the Review gate reads it). The ledger is read by machines: `scripts/review-context.py` (the next run: what is still open) and `scripts/review-ping.py` (the owner ping). Keep ids stable across runs (the same finding keeps its id), include every finding that is not `fixed` plus the ones fixed since the last run, put exactly one JSON object in the block, use these exact names (`<summary>Review ledger</summary>`, key `sha`, never `last_reviewed_commit`; a drifted label is tolerated by the parser, a missing one means the next run starts from nothing), and never put a secret, an e-mail address or a quotation of a comment in it.
 
 - Inline comments only for CRITICAL and HIGH findings. MEDIUM goes in the summary only. LOW is dropped.
 - **A CRITICAL must be OBSERVED and cite `file:line`** (for example `OBSERVED: src/api/config.go:12 holds a literal key`). If you cannot observe it in the diff or the files, it is HIGH, not CRITICAL. The Review gate only acts on a CRITICAL with that evidence.

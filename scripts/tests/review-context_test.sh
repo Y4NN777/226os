@@ -217,6 +217,15 @@ REPO_DIR="$(scenario slog 'src/api/internal/x/x.go|log.base.go.txt|log.head.go.t
 run
 grep -q 'error text' <<<"$(read_first)" && ok "err.Error() in a log attribute is pointed at" || ko "slog ($out)"
 
+# Models drift from a format: a summary label other than "Review ledger" and the key last_reviewed_commit (seen in the
+# acceptance run) must still be read, so the next run does not start from nothing.
+reset
+add issue "{\"user\":{\"login\":\"$BOT\"},\"created_at\":\"2026-11-13T10:00:00Z\",\"body\":\"Triage: NONE | blast radius: x\\n\\n<details>\\n<summary>Ledger</summary>\\n\\n\`\`\`json\\n{\\\"last_reviewed_commit\\\":\\\"$first\\\",\\\"findings\\\":[{\\\"id\\\":\\\"f1\\\",\\\"sev\\\":\\\"HIGH\\\",\\\"file\\\":\\\"b.txt\\\",\\\"status\\\":\\\"open\\\"}]}\\n\`\`\`\\n</details>\"}"
+REPO_DIR="$tmp/repo"
+run
+grep -q '^REVIEW_DECISION: incremental$' <<<"$out" && grep -q 'f1.*\[open\]' <<<"$out" && ok "a drifted ledger (summary Ledger, key last_reviewed_commit) is still read" || ko "drifted ledger (rc=$rc out=$out)"
+reset
+
 # An empty answer for the pull request itself (not an error, just nothing) must not crash the pack: it fails open.
 reset
 printf '[]' >"$tmp/fx/pull.json"
@@ -224,6 +233,14 @@ REPO_DIR="$tmp/repo"
 run
 [ "$rc" -eq 0 ] && grep -q '^REVIEW_DECISION: first$' <<<"$out" && ok "an empty pull request answer fails open (no crash)" || ko "empty pull answer (rc=$rc out=$out)"
 reset
+
+# A Go regexp that differs from the OpenAPI pattern of the matching field is pointed at with both patterns side by side
+# (#94: the server accepted only 2-3 letter languages, the contract also fr-BF); an identical one stays quiet.
+reset
+REPO_DIR="$(scenario regexp 'api/openapi.yaml|oa.yaml|oa.yaml' 'src/api/internal/identity/service/profile.go||pattern.head.go.txt')"
+run
+grep -q 'languagePattern' <<<"$(read_first)" && grep -q '\^\[a-z\]{2,3}\$' <<<"$(read_first)" && grep -q 'languages' <<<"$(read_first)" && grep -q '(-\[A-Za-z0-9\]{2,4})' <<<"$(read_first)" && ok "a Go regexp stricter than the contract pattern is pointed at with both patterns" || ko "regexp pointer ($out)"
+! grep -q 'githubPattern' <<<"$(read_first)" && ok "a Go regexp identical to the contract pattern stays quiet" || ko "regexp quiet ($out)"
 
 # ---------- the decision: first | incremental | skip ----------
 reset
