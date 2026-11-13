@@ -15,6 +15,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"errors"
+	"log/slog"
 	"net/netip"
 	"strings"
 	"time"
@@ -596,6 +597,8 @@ func (s *Service) RequestPasswordReset(ctx context.Context, email, ip string) er
 		c, cancel := context.WithTimeout(context.WithoutCancel(ctx), mailTimeout)
 		defer cancel()
 		if err := s.store.CreatePasswordReset(c, acct.ID, hash, expires); err != nil {
+			// Invisible to the caller by design; visible to operators (no email, no token).
+			slog.WarnContext(c, "identity password reset token write failed", slog.String("error", err.Error()))
 			return
 		}
 		_ = s.mail.Send(c, msg)
