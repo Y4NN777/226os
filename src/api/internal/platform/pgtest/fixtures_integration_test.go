@@ -64,6 +64,8 @@ const (
 
 // NOTE: the fixture references reference codes learn_topics (payments, ai) and
 // resource_categories (mobile-money, sms-ussd); update them if those lists change.
+// K25: the series titled "Introduction à l'IA" stays on topic ai (Understanding LLMs).
+// It is not African-language content, so it does not move to african-languages.
 //
 // fixtureGraph inserts one valid row in every P0 table (the three reference
 // tables are filled by the migrations themselves).

@@ -37,15 +37,15 @@ func TestFreshMigrationToHead(t *testing.T) {
 	defer func() { _ = db.Close() }()
 	p, err := newProvider(db, migrationsFS(t))
 	if err != nil {
-		t.Fatalf("goose provider (expected migrations 00001..00010 in db/migrations): %v", err)
+		t.Fatalf("goose provider (expected migrations 00001..00012 in db/migrations): %v", err)
 	}
 
 	results, err := p.Up(ctx)
 	if err != nil {
 		t.Fatalf("goose up on an empty database: %v", err)
 	}
-	if len(results) != 10 {
-		t.Fatalf("applied %d migrations, want 10", len(results))
+	if len(results) != 12 {
+		t.Fatalf("applied %d migrations, want 12", len(results))
 	}
 	for i, r := range results {
 		if r.Source.Version != int64(i+1) {
@@ -55,8 +55,8 @@ func TestFreshMigrationToHead(t *testing.T) {
 			t.Errorf("migration %d: %v", r.Source.Version, r.Error)
 		}
 	}
-	if v, err := p.GetDBVersion(ctx); err != nil || v != 10 {
-		t.Fatalf("GetDBVersion = %d, %v; want 10", v, err)
+	if v, err := p.GetDBVersion(ctx); err != nil || v != 12 {
+		t.Fatalf("GetDBVersion = %d, %v; want 12", v, err)
 	}
 
 	// Second run is a no-op.
@@ -65,7 +65,7 @@ func TestFreshMigrationToHead(t *testing.T) {
 		t.Fatalf("second Up = %d results, %v; want no-op", len(again), err)
 	}
 
-	// goose version table: baseline row 0 plus versions 1..10, all applied.
+	// goose version table: baseline row 0 plus versions 1..12, all applied.
 	rows, err := db.QueryContext(ctx, `SELECT version_id FROM goose_db_version WHERE is_applied ORDER BY version_id`)
 	if err != nil {
 		t.Fatal(err)
@@ -82,7 +82,7 @@ func TestFreshMigrationToHead(t *testing.T) {
 	if err := rows.Err(); err != nil {
 		t.Fatal(err)
 	}
-	if want := []int64{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}; !slices.Equal(got, want) {
+	if want := []int64{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12}; !slices.Equal(got, want) {
 		t.Fatalf("goose_db_version applied = %v, want %v", got, want)
 	}
 }
@@ -141,12 +141,14 @@ var resourceCategoryCodes = []string{
 	"mobile-money", "online-checkout", "cross-border", "open-finance", "e-invoicing",
 	"identity-kyc", "sms-ussd", "chat-messaging", "maps-addressing", "logistics",
 	"open-gov", "energy-climate", "ai-language", "cloud-hosting", "dev-tools",
+	"ai-models", "ai-tooling", "ai-datasets",
 }
 
 // Owner-approved learn topics (decision of 2026-11-11).
 var learnTopicCodes = []string{
 	"ai", "payments", "ussd-messaging", "mobile", "api-integration",
 	"security-privacy", "cloud-devops", "geo-data", "open-source",
+	"learn-to-learn", "ai-assisted-dev", "ai-agents", "open-models", "african-languages",
 }
 
 func TestResourceCategoriesAreTheOwnerApprovedList(t *testing.T) {
@@ -176,8 +178,8 @@ func TestResourceCategoriesAreTheOwnerApprovedList(t *testing.T) {
 	if err := rows.Err(); err != nil {
 		t.Fatal(err)
 	}
-	if len(codes) != 15 {
-		t.Errorf("resource_categories has %d rows, want 15", len(codes))
+	if len(codes) != 18 {
+		t.Errorf("resource_categories has %d rows, want 18", len(codes))
 	}
 	if !slices.Equal(codes, resourceCategoryCodes) {
 		t.Errorf("resource_categories codes in sort order = %v\nwant %v", codes, resourceCategoryCodes)
@@ -189,6 +191,12 @@ func TestResourceCategoriesAreTheOwnerApprovedList(t *testing.T) {
 	}
 	if nameFR != "Transferts transfrontaliers et change" || nameEN != "Cross-border payouts & FX" {
 		t.Errorf("cross-border names = %q / %q", nameFR, nameEN)
+	}
+	if err := conn.QueryRow(ctx, `SELECT name_fr, name_en FROM resource_categories WHERE code = 'cloud-hosting'`).Scan(&nameFR, &nameEN); err != nil {
+		t.Fatal(err)
+	}
+	if nameFR != "Hébergement, cloud et GPU en Afrique" || nameEN != "Hosting, cloud & GPUs in Africa" {
+		t.Errorf("cloud-hosting names = %q / %q", nameFR, nameEN)
 	}
 }
 
@@ -215,8 +223,8 @@ func TestLearnTopicsAreTheOwnerApprovedList(t *testing.T) {
 	if err := rows.Err(); err != nil {
 		t.Fatal(err)
 	}
-	if len(codes) != 9 {
-		t.Errorf("learn_topics has %d rows, want 9", len(codes))
+	if len(codes) != 14 {
+		t.Errorf("learn_topics has %d rows, want 14", len(codes))
 	}
 	if want := slices.Sorted(slices.Values(learnTopicCodes)); !slices.Equal(codes, want) {
 		t.Errorf("learn_topics codes = %v\nwant %v", codes, want)
@@ -229,6 +237,95 @@ func TestLearnTopicsAreTheOwnerApprovedList(t *testing.T) {
 	}
 	if nameFR != "Intégration d’API et webhooks" || nameEN != "API integration & webhooks" {
 		t.Errorf("api-integration names = %q / %q", nameFR, nameEN)
+	}
+	relabels := map[string][2]string{
+		"ai":          {"Comprendre les LLM", "Understanding LLMs"},
+		"mobile":      {"Mobile, USSD et faible débit", "Mobile, USSD & low bandwidth"},
+		"open-source": {"Contribuer à l’open source", "Contributing to open source"},
+	}
+	for code, want := range relabels {
+		if err := conn.QueryRow(ctx, `SELECT name_fr, name_en FROM learn_topics WHERE code = $1`, code).Scan(&nameFR, &nameEN); err != nil {
+			t.Fatal(err)
+		}
+		if nameFR != want[0] || nameEN != want[1] {
+			t.Errorf("%s names = %q / %q, want %q / %q", code, nameFR, nameEN, want[0], want[1])
+		}
+	}
+}
+
+func TestUpgradeFromVersion10KeepsExistingRows(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Minute)
+	defer cancel()
+
+	database := createDB(ctx, t, "")
+	db, err := openSQL(pg.dsn(database))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = db.Close() }()
+	p, err := newProvider(db, migrationsFS(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := p.UpTo(ctx, 10); err != nil {
+		t.Fatalf("upgrade baseline: %v", err)
+	}
+	if v, err := p.GetDBVersion(ctx); err != nil || v != 10 {
+		t.Fatalf("baseline version = %d, %v; want 10", v, err)
+	}
+
+	const userID = "019a0000-0000-7000-8000-0000000000e2"
+	if _, err := db.ExecContext(ctx, `INSERT INTO users (id, email) VALUES ($1, 'upgrade@example.org')`, userID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `INSERT INTO profiles (user_id, username, display_name) VALUES ($1, 'upgrade', 'Upgrade')`, userID); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := p.Up(ctx); err != nil {
+		t.Fatalf("upgrade to head: %v", err)
+	}
+	if v, err := p.GetDBVersion(ctx); err != nil || v != 12 {
+		t.Fatalf("head version = %d, %v; want 12", v, err)
+	}
+
+	var visibility string
+	if err := db.QueryRowContext(ctx, `SELECT profile_visibility FROM profiles WHERE user_id = $1`, userID).Scan(&visibility); err != nil {
+		t.Fatal(err)
+	}
+	if visibility != "public" {
+		t.Fatalf("existing profile visibility = %q, want public", visibility)
+	}
+	var topics, categories int
+	if err := db.QueryRowContext(ctx, `SELECT (SELECT count(*) FROM learn_topics), (SELECT count(*) FROM resource_categories)`).Scan(&topics, &categories); err != nil {
+		t.Fatal(err)
+	}
+	if topics != 14 || categories != 18 {
+		t.Fatalf("after upgrade topics = %d, categories = %d; want 14 and 18", topics, categories)
+	}
+}
+
+func TestProfileVisibilityColumn(t *testing.T) {
+	ctx := t.Context()
+	conn := migratedDB(ctx, t)
+
+	var nullable, def string
+	err := conn.QueryRow(ctx, `
+		SELECT is_nullable, column_default
+		FROM information_schema.columns
+		WHERE table_schema = 'public' AND table_name = 'profiles' AND column_name = 'profile_visibility'`).Scan(&nullable, &def)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if nullable != "NO" || def != "'public'::text" {
+		t.Fatalf("profile_visibility nullable=%s default=%s, want NO and 'public'::text", nullable, def)
+	}
+	var name string
+	err = conn.QueryRow(ctx, `
+		SELECT conname FROM pg_constraint
+		WHERE conrelid = 'public.profiles'::regclass AND contype = 'c' AND conname = 'profiles_profile_visibility_ck'`).Scan(&name)
+	if err != nil {
+		t.Fatalf("profiles_profile_visibility_ck: %v", err)
 	}
 }
 

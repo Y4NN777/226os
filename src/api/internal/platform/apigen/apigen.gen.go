@@ -216,6 +216,13 @@ const (
 	ProfileFieldSkills       ProfileField = "skills"
 )
 
+// Defines values for ProfileVisibility.
+const (
+	ProfileVisibilityMembers ProfileVisibility = "members"
+	ProfileVisibilityPrivate ProfileVisibility = "private"
+	ProfileVisibilityPublic  ProfileVisibility = "public"
+)
+
 // Defines values for ProjectVisibility.
 const (
 	ProjectVisibilityPrivate ProjectVisibility = "private"
@@ -475,7 +482,12 @@ type ArticleCreate struct {
 	Summary *string              `json:"summary,omitempty"`
 	Tags    []TagSlug            `json:"tags"`
 	Title   string               `json:"title"`
-	Type    ArticleType          `json:"type"`
+
+	// Topic Optional learn_topics.code. Omit it when the article has no topic.
+	//
+	// Examples: payments
+	Topic *TopicCode  `json:"topic,omitempty"`
+	Type  ArticleType `json:"type"`
 }
 
 // ArticleCreateStatus Creating as draft needs no verified email; publishing does (403 EMAIL_NOT_VERIFIED).
@@ -740,11 +752,14 @@ type MyProfile struct {
 		Languages *FieldVisibility `json:"languages,omitempty"`
 		Skills    *FieldVisibility `json:"skills,omitempty"`
 	} `json:"field_visibility"`
-	Github       *string   `json:"github"`
-	Intent       *Intent   `json:"intent"`
-	Languages    []string  `json:"languages"`
-	OpenToCollab bool      `json:"open_to_collab"`
-	Skills       []TagSlug `json:"skills"`
+	Github       *string  `json:"github"`
+	Intent       *Intent  `json:"intent"`
+	Languages    []string `json:"languages"`
+	OpenToCollab bool     `json:"open_to_collab"`
+
+	// ProfileVisibility Who may open this profile page. A new profile defaults to public. On a JSON Merge Patch, omitting the field leaves the stored value unchanged.
+	ProfileVisibility ProfileVisibility `json:"profile_visibility"`
+	Skills            []TagSlug         `json:"skills"`
 
 	// UpdatedAt RFC 3339, UTC (suffix Z).
 	//
@@ -830,12 +845,18 @@ type ProfileUpdate struct {
 		Languages *FieldVisibility `json:"languages,omitempty"`
 		Skills    *FieldVisibility `json:"skills,omitempty"`
 	} `json:"field_visibility,omitempty"`
-	Github       *string    `json:"github,omitempty"`
-	Intent       *Intent    `json:"intent,omitempty"`
-	Languages    *[]string  `json:"languages,omitempty"`
-	OpenToCollab *bool      `json:"open_to_collab,omitempty"`
-	Skills       *[]TagSlug `json:"skills,omitempty"`
+	Github       *string   `json:"github,omitempty"`
+	Intent       *Intent   `json:"intent,omitempty"`
+	Languages    *[]string `json:"languages,omitempty"`
+	OpenToCollab *bool     `json:"open_to_collab,omitempty"`
+
+	// ProfileVisibility Who may open this profile page. A new profile defaults to public. On a JSON Merge Patch, omitting the field leaves the stored value unchanged.
+	ProfileVisibility *ProfileVisibility `json:"profile_visibility,omitempty"`
+	Skills            *[]TagSlug         `json:"skills,omitempty"`
 }
+
+// ProfileVisibility Who may open this profile page. A new profile defaults to public. On a JSON Merge Patch, omitting the field leaves the stored value unchanged.
+type ProfileVisibility string
 
 // Project defines model for Project.
 type Project struct {
@@ -905,11 +926,14 @@ type PublicProfile struct {
 	// JoinedAt RFC 3339, UTC (suffix Z).
 	//
 	// Examples: 2026-11-11T09:30:00Z
-	JoinedAt     Timestamp  `json:"joined_at"`
-	Languages    *[]string  `json:"languages,omitempty"`
-	OpenToCollab *bool      `json:"open_to_collab,omitempty"`
-	Skills       *[]TagSlug `json:"skills,omitempty"`
-	Username     Username   `json:"username"`
+	JoinedAt     Timestamp `json:"joined_at"`
+	Languages    *[]string `json:"languages,omitempty"`
+	OpenToCollab *bool     `json:"open_to_collab,omitempty"`
+
+	// ProfileVisibility Who may open this profile page. A new profile defaults to public. On a JSON Merge Patch, omitting the field leaves the stored value unchanged.
+	ProfileVisibility ProfileVisibility `json:"profile_visibility"`
+	Skills            *[]TagSlug        `json:"skills,omitempty"`
+	Username          Username          `json:"username"`
 }
 
 // Question defines model for Question.
@@ -1212,6 +1236,11 @@ type TokenRequest struct {
 	Token string `json:"token"`
 }
 
+// TopicCode learn_topics.code. Matches the database check learn_topics_code_ck.
+//
+// Examples: payments
+type TopicCode = string
+
 // TrainingSeries defines model for TrainingSeries.
 type TrainingSeries struct {
 	Author AuthorRef `json:"author"`
@@ -1379,9 +1408,9 @@ type ListLearnArticlesParams struct {
 	Q     *string      `form:"q,omitempty" json:"q,omitempty"`
 	Type  *ArticleType `form:"type,omitempty" json:"type,omitempty"`
 
-	// Topic Topic slug (matches an article tag).
-	Topic *TagSlug `form:"topic,omitempty" json:"topic,omitempty"`
-	Level *Level   `form:"level,omitempty" json:"level,omitempty"`
+	// Topic Topic code (learn_topics.code).
+	Topic *TopicCode `form:"topic,omitempty" json:"topic,omitempty"`
+	Level *Level     `form:"level,omitempty" json:"level,omitempty"`
 
 	// Lang Original language of the content.
 	Lang *LangFilter `form:"lang,omitempty" json:"lang,omitempty"`
@@ -1402,8 +1431,11 @@ type ListTrainingSeriesParams struct {
 	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
 
 	// Lang Original language of the content.
-	Lang  *LangFilter `form:"lang,omitempty" json:"lang,omitempty"`
-	Level *Level      `form:"level,omitempty" json:"level,omitempty"`
+	Lang *LangFilter `form:"lang,omitempty" json:"lang,omitempty"`
+
+	// Topic Topic code (learn_topics.code).
+	Topic *TopicCode `form:"topic,omitempty" json:"topic,omitempty"`
+	Level *Level     `form:"level,omitempty" json:"level,omitempty"`
 }
 
 // ListProjectsParams defines parameters for ListProjects.
@@ -2658,6 +2690,19 @@ func (siw *ServerInterfaceWrapper) ListTrainingSeries(w http.ResponseWriter, r *
 			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "lang"})
 		} else {
 			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "lang", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "topic" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "topic", r.URL.Query(), &params.Topic, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "topic"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "topic", Err: err})
 		}
 		return
 	}

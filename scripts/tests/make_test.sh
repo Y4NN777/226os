@@ -183,9 +183,12 @@ grep -qE '(^|[[:space:]])test-e2e([[:space:]]|$)' <<<"$dry" && grep -qE '(^|[[:s
 mig="$tmp/migrations"
 mkdir -p "$mig"
 cp "$root"/db/migrations/*.sql "$mig/"
+last="$(basename "$(printf '%s\n' "$mig"/*.sql | sort | tail -n 1)")"
+last="${last%%_*}"
+next="$(printf '%05d' "$((10#$last + 1))")"
 rc=0
 out="$(env -i PATH="$PATH" HOME="$HOME" "$root/scripts/migrate-new.sh" add_widget_table "$mig" 2>&1)" || rc=$?
-new="$mig/00011_add_widget_table.sql"
+new="$mig/${next}_add_widget_table.sql"
 if [ "$rc" -eq 0 ] && [ -f "$new" ] && ! grep -qi 'goose Down' "$new" && grep -q '^-- +goose Up$' "$new" \
   && env -i PATH="$PATH" HOME="$HOME" "$root/scripts/check-migrations.sh" "$mig" >/dev/null 2>&1; then
   ok "migrate-new creates the next sequential file, header template, no Down, passes check-migrations"
@@ -213,7 +216,7 @@ dry() { mk "$root" env -i PATH="$PATH" HOME="$HOME" make -n "$@" 2>&1; }
 steps_of() { { mk "$root" env -i PATH="$PATH" HOME="$HOME" make -s "$1" 2>/dev/null || true; } | tr ' ' '\n' | sed '/^$/d' | sort -u | tr '\n' ' '; }
 lint_dry="$(dry lint)"
 miss=""
-for w in "gofmt" "go vet" "staticcheck" "golangci-lint" "sqlc vet" "ESLint" "Prettier" "redocly" "migration policy" "ShellCheck" "script tests"; do
+for w in "gofmt" "go vet" "staticcheck" "golangci-lint" "sqlc vet" "ESLint" "Prettier" "redocly" "migration policy" "ShellCheck" "script tests" "check-todo-updated.sh"; do
   grep -q -- "$w" <<<"$lint_dry" || miss+=" [$w]"
 done
 [ -z "$miss" ] && ok "make lint still runs every lint check after the split" || ko "make lint lost:$miss"
