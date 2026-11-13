@@ -95,26 +95,26 @@ Open owner items outside CADEV (IDs and decisions in ROADMAP section 8, 10 and 1
 - **Branches:** `feature/identity/auth-sessions`, `feature/identity/profiles`
 - **Depends on:** S0 (merged). Argon2id parameters are pinned after the benchmark on the target host (S8, ADR-0003). The `getProfile` and `updateMyProfile` visibility work needs the `profile_visibility` migration (`mibienpanjoe`), and that PR must also update `TestFreshMigrationToHead` (hardcodes the migration count).
 - **Operations** (see `x-authz` in [api/openapi.yaml](api/openapi.yaml) by operationId; rules in ADR-0003):
-  - [ ] `getCsrfToken` (public; pre-session token)
-  - [ ] `signUp` (generic 202, no enumeration, 5/IP/h, sends the verification email)
-  - [ ] `signIn` (generic `INVALID_CREDENTIALS`, equal timing, 5 failures/account and 20/IP per 15 min failing closed, rotates the session)
-  - [ ] `signOut` (revokes only the caller's own session)
-  - [ ] `getSession` (never 401)
-  - [ ] `verifyEmail` (single use, 24 h, 422 `INVALID_TOKEN`)
-  - [ ] `requestPasswordReset` (always 202; 3/account and 10/IP per hour)
-  - [ ] `confirmPasswordReset` (30 min; revokes all the user's sessions)
+  - [x] `getCsrfToken` (public; pre-session token) — PR pending
+  - [x] `signUp` (generic 202, no enumeration, 5/IP/h, sends the verification email) — PR pending
+  - [x] `signIn` (generic `INVALID_CREDENTIALS`, equal timing, 5 failures/account and 20/IP per 15 min failing closed, rotates the session) — PR pending
+  - [x] `signOut` (revokes only the caller's own session) — PR pending
+  - [x] `getSession` (never 401) — PR pending
+  - [x] `verifyEmail` (single use, 24 h, 422 `INVALID_TOKEN`) — PR pending
+  - [x] `requestPasswordReset` (always 202; 3/account and 10/IP per hour) — PR pending
+  - [x] `confirmPasswordReset` (30 min; revokes all the user's sessions) — PR pending
   - [ ] `getMe` (the only place the email is returned)
   - [ ] `updateMyProfile` (own profile; JSON Merge Patch; accepts `profile_visibility`, default `public`)
   - [ ] `getProfile` (C14b: `members` gives anonymous 404, `private` owner only, the 404 body identical to unknown or deleted; moderators no special access; suspended users out of scope for P0)
 - [ ] Bylines on published content keep showing username and display name whatever `profile_visibility` says; deleted accounts show "membre supprimé" (ADR-0005 point 15).
-- [ ] Argon2id m=64 MiB, t=3, p=1 with a semaphore. Benchmark it, and check K6 (128M container limit).
-- [ ] Cookie flags per profile (ADR-0003). [ ] CSRF with `X-CSRF-Token` plus an `Origin` / `Sec-Fetch-Site` check. [ ] Session timeouts: 2 h idle, 7 days absolute.
-- [ ] O4: no resend-verification operation exists; ask the owner.
+- [x] Argon2id m=64 MiB, t=3, p=1 with a semaphore (implemented; the target-host benchmark stays with S8, K6 check pending there).
+- [x] Cookie flags per profile (ADR-0003). [x] CSRF with `X-CSRF-Token` plus an `Origin` / `Sec-Fetch-Site` check. [x] Session timeouts: 2 h idle, 7 days absolute.
+- [ ] O4: no resend-verification operation exists; ask the owner (flagged in the S1 PR description).
 - **Tables:** `users`, `user_credentials`, `profiles`, `user_skills`, `sessions`, `email_verifications`, `password_resets`, `rate_limit_buckets`; reads `countries`, `tags`.
 - **Acceptance:** `US-IDENTITY-001/2` (with S7); ADR-0003 "Evidence" (session expiry, rotation, revocation; CSRF cases; enumeration and timing; 429 with `Retry-After`; no token in logs). Negative authz per [AUTHORIZATION_MATRIX](docs/spec-kit/AUTHORIZATION_MATRIX.md) identity rows, plus `getProfile` per `profile_visibility` x caller (anonymous, member, owner, moderator) with identical 404 bodies.
 - **Prototype pages:** `connexion`, `inscription`, `verifier-email`, `mot-de-passe-oublie`, `reinitialiser`, `bienvenue`, `profile`, `parametres`.
 - **Allowed paths:** `src/api/internal/identity/**`, `db/queries/identity.sql`, `db/queries/platform.sql`, generated `dbgen` (via `make generate`), `scripts/public-routes.txt` (anonymous auth routes, with reasons). **DoD:** DoD-common plus cookie inspection per profile and a redacted email-flow log through Mailpit. **Stop:** if ADR-0003 values would need to change.
-- **Status:** PLANNED
+- **Status:** IN PROGRESS — `feature/identity/auth-sessions` implements the 8 auth operations end to end (sign-up through password reset, CSRF, session resolver, PostgreSQL rate limits, pgtest integration); `getMe`, `updateMyProfile`, `getProfile` and the profile-visibility matrix remain for `feature/identity/profiles`.
 
 ---
 

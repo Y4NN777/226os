@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/Y4NN777/226os/src/api/internal/discover/transport"
+	identitytransport "github.com/Y4NN777/226os/src/api/internal/identity/transport"
 	"github.com/Y4NN777/226os/src/api/internal/platform/apigen"
 	"github.com/Y4NN777/226os/src/api/internal/platform/mailer"
 	searchtransport "github.com/Y4NN777/226os/src/api/internal/search/transport"
@@ -18,6 +19,7 @@ type Server struct {
 	mailer    mailer.Mailer
 	catalogue *transport.Handler
 	search    *searchtransport.Handler
+	auth      *identitytransport.Handler
 }
 
 // Option configures NewServer.
@@ -31,6 +33,9 @@ func WithCatalogue(h *transport.Handler) Option { return func(s *Server) { s.cat
 
 // WithSearch sets the search read. Without it GET /search stays unimplemented.
 func WithSearch(h *searchtransport.Handler) Option { return func(s *Server) { s.search = h } }
+
+// WithIdentity sets the S1 auth operations. Without it those routes stay 501.
+func WithIdentity(h *identitytransport.Handler) Option { return func(s *Server) { s.auth = h } }
 
 // NewServer returns the production server with all operations unimplemented.
 // Without WithMailer its mailer is mailer.Disabled.
@@ -79,4 +84,76 @@ func (s *Server) Search(w http.ResponseWriter, r *http.Request, params apigen.Se
 		return
 	}
 	s.search.Search(w, r, params)
+}
+
+// GetCsrfToken serves the CSRF token endpoint. A server built without WithIdentity stays unimplemented.
+func (s *Server) GetCsrfToken(w http.ResponseWriter, r *http.Request) {
+	if s.auth == nil {
+		s.Unimplemented.GetCsrfToken(w, r)
+		return
+	}
+	s.auth.GetCsrfToken(w, r)
+}
+
+// SignUp serves account creation. A server built without WithIdentity stays unimplemented.
+func (s *Server) SignUp(w http.ResponseWriter, r *http.Request) {
+	if s.auth == nil {
+		s.Unimplemented.SignUp(w, r)
+		return
+	}
+	s.auth.SignUp(w, r)
+}
+
+// SignIn serves session creation. A server built without WithIdentity stays unimplemented.
+func (s *Server) SignIn(w http.ResponseWriter, r *http.Request) {
+	if s.auth == nil {
+		s.Unimplemented.SignIn(w, r)
+		return
+	}
+	s.auth.SignIn(w, r)
+}
+
+// SignOut revokes the caller's session. A server built without WithIdentity stays unimplemented.
+func (s *Server) SignOut(w http.ResponseWriter, r *http.Request) {
+	if s.auth == nil {
+		s.Unimplemented.SignOut(w, r)
+		return
+	}
+	s.auth.SignOut(w, r)
+}
+
+// GetSession serves the current session state. A server built without WithIdentity stays unimplemented.
+func (s *Server) GetSession(w http.ResponseWriter, r *http.Request) {
+	if s.auth == nil {
+		s.Unimplemented.GetSession(w, r)
+		return
+	}
+	s.auth.GetSession(w, r)
+}
+
+// VerifyEmail confirms an email address. A server built without WithIdentity stays unimplemented.
+func (s *Server) VerifyEmail(w http.ResponseWriter, r *http.Request) {
+	if s.auth == nil {
+		s.Unimplemented.VerifyEmail(w, r)
+		return
+	}
+	s.auth.VerifyEmail(w, r)
+}
+
+// RequestPasswordReset serves the reset request. A server built without WithIdentity stays unimplemented.
+func (s *Server) RequestPasswordReset(w http.ResponseWriter, r *http.Request) {
+	if s.auth == nil {
+		s.Unimplemented.RequestPasswordReset(w, r)
+		return
+	}
+	s.auth.RequestPasswordReset(w, r)
+}
+
+// ConfirmPasswordReset sets the new password. A server built without WithIdentity stays unimplemented.
+func (s *Server) ConfirmPasswordReset(w http.ResponseWriter, r *http.Request) {
+	if s.auth == nil {
+		s.Unimplemented.ConfirmPasswordReset(w, r)
+		return
+	}
+	s.auth.ConfirmPasswordReset(w, r)
 }

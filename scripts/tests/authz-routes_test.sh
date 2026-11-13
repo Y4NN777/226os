@@ -123,13 +123,13 @@ if '"net/http"' not in src:
 open(sys.argv[2], "w").write(src + "\n" + sys.argv[3] + "\n")
 PY
 }
-with_method "$tmp/srv/implemented.go" 'func (*Server) SignIn(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) }'
-expect_red "an implemented operation still listed as unimplemented" 'POST /api/v1/auth/sign-in' 'declares its own' -- --server-override "$tmp/srv/implemented.go"
-with_method "$tmp/srv/panics.go" 'func (*Server) SignIn(http.ResponseWriter, *http.Request) { var m map[string]int; m["x"] = 1 }'
-expect_red "an implemented operation that panics on zero dependencies" 'POST /api/v1/auth/sign-in' 'declares its own' -- --server-override "$tmp/srv/panics.go"
+with_method "$tmp/srv/implemented.go" 'func (*Server) GetMe(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) }'
+expect_red "an implemented operation still listed as unimplemented" 'GET /api/v1/me' 'declares its own' -- --server-override "$tmp/srv/implemented.go"
+with_method "$tmp/srv/panics.go" 'func (*Server) GetMe(http.ResponseWriter, *http.Request) { var m map[string]int; m["x"] = 1 }'
+expect_red "an implemented operation that panics on zero dependencies" 'GET /api/v1/me' 'declares its own' -- --server-override "$tmp/srv/panics.go"
 # Real code that happens to answer 501 on a zero-value call: still not the generated stub.
-with_method "$tmp/srv/declared501.go" 'func (*Server) SignIn(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNotImplemented) }'
-expect_red "an operation declared on the server that answers 501" 'POST /api/v1/auth/sign-in' 'declares its own' -- --server-override "$tmp/srv/declared501.go"
+with_method "$tmp/srv/declared501.go" 'func (*Server) GetMe(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNotImplemented) }'
+expect_red "an operation declared on the server that answers 501" 'GET /api/v1/me' 'declares its own' -- --server-override "$tmp/srv/declared501.go"
 d="$(newlists unmounted)"
 echo 'GET /api/v1/nowhere' >>"$d/unimplemented-routes.txt"
 expect_red "an unimplemented entry that is not mounted" 'GET /api/v1/nowhere' 'not' -- --lists-dir "$d"

@@ -585,6 +585,7 @@ tests_or_evidence: ["make lint-go exit 0", "go test -race -count=1 ./src/api/int
 open_risks: ["Get still maps pgx.ErrNoRows to domain.ErrNotFound before wrapping. Other driver errors stay in the chain via %w."]
 ```
 
+<<<<<<< HEAD
 ## Search core and catalogue follow-ups (S2)
 
 ```yaml
@@ -600,4 +601,21 @@ closure: "open"
 human_reviewers: ["NICE-DEV226 (pending)"]
 tests_or_evidence: ["make generate, lint-go, lint-contract, typecheck, test-unit, coverage (Go 100.0%) and test-integration-go PASS on the pre-merge tree", "EXPLAIN (ANALYZE, BUFFERS) logged per group on 6001 rows: GIN index for a rare term, about 5 ms for a common term and a negation-only query"]
 open_risks: ["no anonymous 60/IP/min limit on search yet (next S2 PR, on the S1 rate limiter)", "ts_rank scores every match before the top-N cut; bounded by LIMIT and the 2 s per-query timeout", "answers are not searched (no answers group in the contract)", "the cursor embeds the raw filter text, so a long accented q can exceed the 512-character cursor limit (pre-existing)"]
+=======
+## S1 identity: domain, password hashing and auth service core
+
+```yaml
+date: "2026-11-13"
+contributor: "NICE-DEV226"
+tool_or_model: "Devin (SWE-2 Flash)"
+purpose: "S1 Identity slice, auth-sessions branch: Argon2id password hashing (PHC, OWASP floor, timing-equalized dummy), session domain model, sign-up/sign-in/session/CSRF/verify/reset use cases behind a Store port, sqlc queries and repository adapter (atomic account-creation CTE), HTTP transport with per-profile cookies, session-backed subject resolver, synchronizer-token CSRF middleware, PostgreSQL rate limits, app wiring, unit tests on fakes plus real-PostgreSQL pgtest integration."
+repository_or_source_context: "branch feature/identity/auth-sessions, TODO.md S1"
+files_or_sections_affected: ["src/api/internal/identity/**", "src/api/internal/app/**", "src/api/internal/platform/httpx/**", "src/api/internal/platform/dbgen/**", "src/api/internal/platform/pgtest/**", "db/queries/identity.sql", "scripts/public-routes.txt", "scripts/authz-tests.txt", "scripts/router-middleware.txt", "scripts/unimplemented-routes.txt", "scripts/tests/authz-routes_test.sh", "TODO.md", "go.mod", "go.sum", "AI_USAGE.md"]
+third_party_sources_consulted: []
+license_review: "PENDING"
+closure: "open"
+human_reviewers: ["mibienpanjoe (assigned reviewer, pending PR)"]
+tests_or_evidence: ["go test -race -count=1 ./src/api/internal/identity/... exit 0", "go test -race -count=1 -tags integration ./src/api/internal/platform/pgtest/ exit 0", "scripts/coverage-go.sh coverage: go first-party statement coverage 100.0% (2705/2705), PASS", "make coverage exit 0 (web 99.27% statements)", "make test-integration exit 0", "make lint-scripts security-sast exit 0 (gosec 0 issues)", "scripts/check-generated.sh check exit 0", "make quality full rerun on the PR head SHA pending at the time of this entry"]
+open_risks: ["rate-limit bucket keys reuse CURSOR_KEY as HMAC key pending a dedicated secret decision", "CSRF tokens are derived (HMAC of stored token hash / pre-session secret) rather than stored, per ADR-0003 rotation requirement", "no resend-verification operation exists in the contract (open question for the owner, flagged in the PR)", "getMe, updateMyProfile, getProfile and the profile-visibility matrix remain for feature/identity/profiles", "Argon2id parameters await the target-host benchmark at S8 (K6 container check)"]
+>>>>>>> origin/develop
 ```

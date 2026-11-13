@@ -11,3 +11,4 @@
 #   scripts/public-routes.txt, scripts/unimplemented-routes.txt, scripts/authz-tests.txt.
 # The test must reject unauthenticated and wrong-role requests for that route (AUTHORIZATION_MATRIX).
 # Empty today: no implemented non-public route exists yet. Slices add their lines in their own PR.
+POST /api/v1/auth/sign-out TestAuthzSignOutAnonymous   # member only: anonymous callers get 401
