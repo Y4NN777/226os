@@ -406,3 +406,20 @@ open_risks:
   - "the local skill-guard hook edits are not part of this slice and must stay out of the commit"
   - "not committed and not reviewed"
 ```
+
+## Regenerated profile model for PR #80
+
+```yaml
+date: "2026-11-13"
+contributor: "mibienpanjoe"
+tool_or_model: "Cursor, Grok 4.7"
+purpose: "Commit the sqlc model field that migration 00012 adds, so the static gate's generate check matches the index"
+repository_or_source_context: "PR #80, CI run 43334086904, gate static"
+files_or_sections_affected: ["src/api/internal/platform/dbgen/models.go", "TODO.md", "AI_USAGE.md"]
+third_party_sources_consulted: []
+license_review: PENDING
+closure: open
+human_reviewers: []
+tests_or_evidence: ["go tool sqlc generate -f db/sqlc.yaml then git diff: one added field, Profile.ProfileVisibility. make lint and the CI re-run are NOT RUN locally"]
+open_risks: ["the generated field is appended where sqlc places an ALTER-added column, at the end of the Profile struct"]
+```

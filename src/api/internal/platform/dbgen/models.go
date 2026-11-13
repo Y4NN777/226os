@@ -201,6 +201,7 @@ type Profile struct {
 	OpenToCollabVisibility string
 	CreatedAt              pgtype.Timestamptz
 	UpdatedAt              pgtype.Timestamptz
+	ProfileVisibility      string
 }
 
 type Project struct {
