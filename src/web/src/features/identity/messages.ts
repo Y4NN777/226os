@@ -29,10 +29,6 @@ export const fr = {
   'identity.signIn.signUp': 'Créer un compte',
   'identity.signIn.bad.title': 'Connexion impossible',
   'identity.signIn.bad.body': 'E-mail ou mot de passe incorrect.',
-  'identity.signIn.unverified.title': 'Adresse non confirmée',
-  'identity.signIn.unverified.body':
-    'Confirmez votre adresse e-mail avant de vous connecter, avec le code reçu à l’inscription.',
-  'identity.signIn.unverified.link': 'Confirmer mon adresse',
 
   'identity.signUp.title': 'Créer votre compte',
   'identity.signUp.name.label': 'Nom d’affichage',
@@ -120,10 +116,6 @@ export const en: Record<keyof typeof fr, string> = {
   'identity.signIn.signUp': 'Create an account',
   'identity.signIn.bad.title': 'Cannot sign in',
   'identity.signIn.bad.body': 'Incorrect email or password.',
-  'identity.signIn.unverified.title': 'Address not confirmed',
-  'identity.signIn.unverified.body':
-    'Confirm your email address before signing in, using the code you received when you signed up.',
-  'identity.signIn.unverified.link': 'Confirm my address',
 
   'identity.signUp.title': 'Create your account',
   'identity.signUp.name.label': 'Display name',

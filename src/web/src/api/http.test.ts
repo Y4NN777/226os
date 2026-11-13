@@ -196,4 +196,74 @@ describe('createApi', () => {
     const post = sent(fetchMock).find((r) => r.method === 'POST');
     expect(post?.headers.get('X-CSRF-Token')).toBe('new');
   });
+
+  it('sends X-CSRF-Token on PUT, PATCH and DELETE too', async () => {
+    const fetchMock = vi.fn<typeof fetch>(() => Promise.resolve(jsonResponse({}, { status: 200 })));
+    const api = createApi(fetchMock);
+    api.csrf.set('tok');
+    await api.call(() =>
+      api.client.PUT('/learn/series/{seriesId}/lessons/{lessonId}/progress', {
+        params: { path: { seriesId: 'a', lessonId: 'b' } },
+        body: { status: 'completed' },
+      }),
+    );
+    await api.call(() => api.client.PATCH('/me/profile', { body: {} }));
+    await api.call(() =>
+      api.client.DELETE('/votes', {
+        params: { query: { target_type: 'question', target_id: 'x' } },
+      }),
+    );
+    expect(sent(fetchMock).map((r) => [r.method, r.headers.get('X-CSRF-Token')])).toEqual([
+      ['PUT', 'tok'],
+      ['PATCH', 'tok'],
+      ['DELETE', 'tok'],
+    ]);
+  });
+
+  it('keeps the problem code even without a request id (edge or proxy errors)', async () => {
+    const fetchMock = vi.fn<typeof fetch>(() =>
+      Promise.resolve(
+        new Response(JSON.stringify({ status: 429, code: 'RATE_LIMITED', title: 'x' }), {
+          status: 429,
+          headers: { 'Content-Type': 'application/problem+json', 'Retry-After': '9' },
+        }),
+      ),
+    );
+    const api = createApi(fetchMock);
+    const error = await failure(api.call(() => api.client.GET('/resources')));
+    expect(error.code).toBe('RATE_LIMITED');
+    expect(error.requestId).toBeUndefined();
+  });
+
+  it('treats a bare 429 as RATE_LIMITED and caps Retry-After at five minutes', async () => {
+    const fetchMock = vi.fn<typeof fetch>(() =>
+      Promise.resolve(
+        new Response('slow down', { status: 429, headers: { 'Retry-After': '86400' } }),
+      ),
+    );
+    const api = createApi(fetchMock);
+    const error = await failure(api.call(() => api.client.GET('/resources')));
+    expect(error.code).toBe('RATE_LIMITED');
+    expect(error.retryAfter).toBe(300);
+  });
+
+  it('never lets a token fetched earlier overwrite one set while the fetch was in flight', async () => {
+    let release: (r: Response) => void = () => undefined;
+    const fetchMock = vi.fn<typeof fetch>((input) => {
+      if (pathOf(input) === '/api/v1/auth/csrf') {
+        return new Promise<Response>((resolve) => {
+          release = resolve;
+        });
+      }
+      return Promise.resolve(new Response(null, { status: 204 }));
+    });
+    const api = createApi(fetchMock);
+    const first = api.csrf.get();
+    const second = api.csrf.get();
+    api.csrf.set('from-session');
+    release(jsonResponse({ csrf_token: 'stale-fetch' }));
+    await Promise.all([first, second]);
+    expect(sent(fetchMock).filter((r) => pathOf(r) === '/api/v1/auth/csrf')).toHaveLength(1);
+    expect(await api.csrf.get()).toBe('from-session');
+  });
 });

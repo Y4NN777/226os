@@ -7,7 +7,7 @@ import { useForm } from '@tanstack/react-form';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { api, ApiError } from '../../api/http';
-import { sessionQueryKey } from '../../app/session';
+import { forgetPrivateData, sessionQueryKey } from '../../app/session';
 import { useI18n } from '../../i18n/I18nProvider';
 import type { MessageKey } from '../../i18n/messages';
 import { FailureNotice, FocusRegion, RateLimitNotice } from './notices';
@@ -47,6 +47,7 @@ export function ResetPasswordPage() {
         );
         // Every session was revoked server-side: drop the CSRF token and read the session again.
         api.csrf.set(null);
+        forgetPrivateData(queryClient);
         await queryClient.invalidateQueries({ queryKey: sessionQueryKey });
         setPhase('done');
       } catch (error) {
@@ -114,6 +115,7 @@ export function ResetPasswordPage() {
         )
       ) : null}
       <form
+        method="post"
         ref={formRef}
         noValidate
         onSubmit={(event) => {

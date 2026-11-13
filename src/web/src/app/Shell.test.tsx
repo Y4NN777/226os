@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
-import { callsTo, memberSession, mockApi } from '../test/api';
+import { callsTo, memberSession, mockApi, problemResponse } from '../test/api';
 import { jsonResponse, renderApp, setLanguages } from '../test/render';
 
 function primaryNav() {
@@ -75,6 +75,26 @@ describe('Shell', () => {
     expect(await screen.findByRole('link', { name: 'Se connecter' })).toBeInTheDocument();
     const [signOut] = callsTo(fetchMock, 'POST /auth/sign-out');
     expect(signOut?.headers.get('X-CSRF-Token')).toBe('csrf-member');
+  });
+
+  it('treats signing out of an already expired session as signed out', async () => {
+    setLanguages(['fr-FR']);
+    let signedIn = true;
+    mockApi({
+      'GET /auth/session': () =>
+        jsonResponse(
+          signedIn ? memberSession : { authenticated: false, user: null, csrf_token: 'csrf-anon' },
+        ),
+      'POST /auth/sign-out': () => {
+        signedIn = false;
+        return problemResponse(401, 'UNAUTHENTICATED');
+      },
+    });
+    await renderApp('/');
+    await userEvent.click(await screen.findByRole('button', { name: /Awa Traoré/ }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Se déconnecter' }));
+    expect(await screen.findByRole('link', { name: 'Se connecter' })).toBeInTheDocument();
+    expect(screen.queryByText('La déconnexion a échoué. Réessayez.')).not.toBeInTheDocument();
   });
 
   it('switches the interface language from the account menu', async () => {

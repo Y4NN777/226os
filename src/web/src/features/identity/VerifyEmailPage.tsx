@@ -124,6 +124,7 @@ export function VerifyEmailPage() {
         )
       ) : null}
       <form
+        method="post"
         ref={formRef}
         noValidate
         onSubmit={(event) => {
