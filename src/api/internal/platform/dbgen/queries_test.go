@@ -466,6 +466,83 @@ func TestIdentityQueries(t *testing.T) {
 	}
 	assertCall(t, db, "INSERT INTO rate_limit_buckets", []any{"signin:ip", hash, ts})
 
+	// ---------- profiles ----------
+
+	// Shared profile projection: 20 columns ending with the skills array.
+	profCols := func() []any {
+		return []any{
+			uid, "ann", "Ann", text, text, []string{"fr"}, text, text, text,
+			true, "public", "members", "private", "public", "members", "public", "public",
+			ts, ts, []string{"go"},
+		}
+	}
+
+	// GetProfileByUserID :one.
+	db = &fakeDB{rowVals: profCols()}
+	if _, err := dbgen.New(db).GetProfileByUserID(ctx, uid); err != nil {
+		t.Fatal(err)
+	}
+	assertCall(t, db, "FROM profiles p", []any{uid})
+
+	// GetProfileByUsername :one — 22 columns: account_status and joined_at
+	// sit between updated_at and skills.
+	cols := profCols()
+	skills := cols[len(cols)-1]
+	cols = cols[:len(cols)-1]
+	cols = append(cols, "active", ts, skills)
+	db = &fakeDB{rowVals: cols}
+	if _, err := dbgen.New(db).GetProfileByUsername(ctx, "ann"); err != nil {
+		t.Fatal(err)
+	}
+	assertCall(t, db, "JOIN users u ON u.id = p.user_id", []any{"ann"})
+
+	// ResolveSkillSlugs :many — happy path plus the three error branches.
+	db = &fakeDB{many: [][]any{{uid, "go"}, {uid2, "rust"}}}
+	rows, err := dbgen.New(db).ResolveSkillSlugs(ctx, []string{"go", "rust"})
+	if err != nil || len(rows) != 2 {
+		t.Fatalf("slugs = %v, %v", rows, err)
+	}
+	assertCall(t, db, "FROM tags WHERE slug = ANY", []any{[]string{"go", "rust"}})
+
+	db = &fakeDB{manyErr: errors.New("conn reset")}
+	if _, err := dbgen.New(db).ResolveSkillSlugs(ctx, []string{"go"}); err == nil {
+		t.Fatal("query error not propagated")
+	}
+	db = &fakeDB{many: [][]any{{uid, "go"}}, scanErr: errors.New("scan boom")}
+	if _, err := dbgen.New(db).ResolveSkillSlugs(ctx, []string{"go"}); err == nil {
+		t.Fatal("scan error not propagated")
+	}
+	db = &fakeDB{many: [][]any{{uid, "go"}}, rowsErr: errors.New("rows boom")}
+	if _, err := dbgen.New(db).ResolveSkillSlugs(ctx, []string{"go"}); err == nil {
+		t.Fatal("rows error not propagated")
+	}
+
+	// UpdateProfile :one — the guarded merge patch statement (31 bind args;
+	// assert the statement shape and the user id rather than every flag).
+	db = &fakeDB{rowVals: []any{uid}}
+	if _, err := dbgen.New(db).UpdateProfile(ctx, dbgen.UpdateProfileParams{UserID: uid}); err != nil {
+		t.Fatal(err)
+	}
+	if len(db.calls) != 1 || !strings.Contains(db.calls[0].sql, "UPDATE profiles SET") ||
+		db.calls[0].args[0] != uid {
+		t.Fatalf("update profile call %+v", db.calls)
+	}
+
+	// DeleteUserSkills :exec — wipes the user's skill rows inside the tx.
+	db = &fakeDB{}
+	if err := dbgen.New(db).DeleteUserSkills(ctx, uid); err != nil {
+		t.Fatal(err)
+	}
+	assertCall(t, db, "DELETE FROM user_skills WHERE user_id", []any{uid})
+
+	// InsertUserSkills :exec — inserts the resolved tag ids, conflict-safe.
+	db = &fakeDB{}
+	ids := []pgtype.UUID{uid, uid2}
+	if err := dbgen.New(db).InsertUserSkills(ctx, dbgen.InsertUserSkillsParams{UserID: uid, Column2: ids}); err != nil {
+		t.Fatal(err)
+	}
+	assertCall(t, db, "INSERT INTO user_skills", []any{uid, ids})
+
 	// CountRateLimit :one.
 	db = &fakeDB{rowVals: []any{int32(3)}}
 	got, err := dbgen.New(db).CountRateLimit(ctx, dbgen.CountRateLimitParams{

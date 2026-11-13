@@ -56,6 +56,10 @@ func (f *fakePool) Query(context.Context, string, ...any) (pgx.Rows, error) {
 	return nil, errors.New("query not used")
 }
 
+func (f *fakePool) Begin(context.Context) (pgx.Tx, error) {
+	return nil, errors.New("tx not used")
+}
+
 func (f *fakePool) Ping(context.Context) error { return f.pingErr }
 func (f *fakePool) Close()                     { f.closed = true }
 

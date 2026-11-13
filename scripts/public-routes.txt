@@ -19,3 +19,4 @@ GET /api/v1/auth/session   # getSession: anonymous|member, never 401 (session bo
 POST /api/v1/auth/verify-email   # verifyEmail: anonymous by design; single-use hashed token, CSRF checked
 POST /api/v1/auth/password-reset/request   # requestPasswordReset: anonymous by design; always 202, IP+account rate-limited, CSRF checked
 POST /api/v1/auth/password-reset/confirm   # confirmPasswordReset: anonymous by design; single-use hashed token, revokes all sessions, CSRF checked
+GET /api/v1/profiles/{username}   # getProfile: anonymous|member, visibility-filtered, identical 404 for hidden/unknown (C14b)
