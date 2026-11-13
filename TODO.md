@@ -229,7 +229,8 @@ Open owner items outside CADEV (IDs and decisions in ROADMAP section 8, 10 and 1
 ## S7 — Frontend (prototypes become React pages)
 
 - **Owner:** `PANK4SS`. **Reviewer:** `Y4NN777`. **Branches:** `feature/<page domain>/web-<page>`. **Depends on:** typed fixtures from `src/web/src/api/schema.d.ts` until each endpoint merges. **Order:** shell, i18n and shared components; public reads; identity pages; write flows.
-- 2026-11-13: `PANK4SS` is unavailable; the owner `Y4NN777` takes the S7 owner role and delegates the build to an AI-assisted session (recorded in `AI_USAGE.md`). Reviewer: `mibienpanjoe` (or `NICE-DEV226`). Three PRs: shell and identity pages, public reads, accueil and parametres.
+- 2026-11-13: `PANK4SS` is unavailable; the owner `Y4NN777` takes the S7 owner role and delegates the build to an AI-assisted session (recorded in `AI_USAGE.md`). Three PRs: shell and identity pages, public reads, accueil and parametres.
+- 2026-11-13 (owner decision): `PANK4SS` reviews the S7 PRs and owns the S7 follow-ups (issue #109); `Y4NN777` advises on product. `mibienpanjoe` and `NICE-DEV226` stay on their own slices.
 - [ ] **Pillar emphasis (O7):** navigation, home (`accueil`) and FR/EN copy make Learn & Grow and Connect prominent; Solve, Discover and Build stay full pillars in the same navigation, on desktop and mobile (`DESIGN.md` section 5); IA and copy only, no new endpoints; nothing non-functional announced (Connect shows only the E5 directory as live). Interface copy "Afrique de l'Ouest d'abord, puis toute l'Afrique" (FR/EN) is DECIDED.
 - [ ] **Shell:** `getSession` with header sign-in and sign-out; FR/EN labels without altering content; a demo badge for `provenance='demo'`; loading, empty and error states.
   - 2026-11-13 (PR 1, `feature/platform/web-shell-identity`): shell on Astryx AppShell driven by `getSession`, sign-in/out in the header, language and settings in the account menu, CSRF-aware API helper, problem+json mapping, loading/empty/error states, `DemoBadge` component. Left open: the badge on live data waits for `provenance` in the API (`fix/platform/s7-api-gaps`).
@@ -252,7 +253,7 @@ Open owner items outside CADEV (IDs and decisions in ROADMAP section 8, 10 and 1
   - [ ] PROPOSED: Discover entries curated by the team, starting with the West African context (facts and source links only, no copied text).
   - [ ] PROPOSED: the Connect directory highlights West African builders and the diaspora, within the E5 visibility rules.
   - [ ] PROPOSED: the Learn series examples use low-bandwidth and Mobile Money contexts.
-- **Status:** IN PROGRESS (PR 1 shell and identity; PR 2 public reads; PR 3 home and settings; reviewer `mibienpanjoe`)
+- **Status:** IN REVIEW (PR #100 shell and identity, #101 public reads, #102 home and settings, API gaps #99; reviewer `PANK4SS`)
 
 ---
 
