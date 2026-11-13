@@ -27,6 +27,7 @@ Legend: `A` allowed, `D` denied (401 for anonymous, 403 or 404 per the rule abov
 | `GET /me`, `PATCH /me/profile` | D | C | C | C | anonymous and cross-user access denied |
 | `GET /profiles/{username}` | V | V | V | V | field visibility respected; email never returned |
 | `POST /questions` | D | C (verified) | C | C | unauthenticated, unverified, CSRF, invalid body |
+| `POST /assistant/answers` (askAssistant) | D | C (verified) | C | C | unauthenticated, unverified, CSRF, invalid body, rate limit 429, provider down 503; sources never include private or removed content; no `answers` or `votes` row |
 | `PATCH /questions/{questionId}` | D | O | O | D (moderators never edit others' content) | non-owner 403 on a visible object; `If-Match` required |
 | `DELETE /questions/{id}` | not in P0 | not in P0 | not in P0 | hide only (below) | no delete endpoint at P0 |
 | `POST /questions/{questionId}/answers` | D | C (verified) | C | C | unauthenticated, unverified, CSRF, closed question |

@@ -38,6 +38,8 @@ tags:
   description: 'Learn: articles, tutorials, training series'
 - name: search
   description: Cross-domain search (questions, resources, projects, Learn)
+- name: assistant
+  description: 'Intelligence: sourced AI assistant (P0, members only, disabled by configuration until integrated)'
 - name: moderation
   description: 'Moderator scope at P0: hide/restore content and resolve error reports (audited)'
 paths:
@@ -1967,6 +1969,52 @@ paths:
           $ref: '#/components/responses/TooManyRequests'
         '500':
           $ref: '#/components/responses/InternalError'
+  /assistant/answers:
+    post:
+      operationId: askAssistant
+      tags:
+      - assistant
+      summary: Ask the sourced assistant (answers only from published content, with citations)
+      x-priority: P0
+      x-spec:
+      - US-INTEL-001
+      x-authz:
+        allow: member
+        matrix: POST /assistant/answers
+        notes: Members only at P0 (no anonymous access); requires a verified email (403 EMAIL_NOT_VERIFIED). The answer is built only from published, visible content retrieved by the platform search; private or removed content is never retrieved or cited. With no retrieved source the provider is not called (outcome no_source). Only the redacted question text and public retrieved passages are sent to the provider. The reply is labelled AI and never creates an answers or votes row. Per-subject rate limit (429 with Retry-After). Provider down, quota exhausted or assistant disabled in this environment -> 503 SERVICE_UNAVAILABLE, never retried in a loop.
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      requestBody:
+        required: true
+        description: Strict JSON body; unknown fields rejected.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssistantQuestion'
+      responses:
+        '200':
+          description: A sourced answer, or a refusal for lack of sources
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssistantAnswer'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /moderation/{targetType}/{targetId}/hide:
     post:
       operationId: hideContent
@@ -2490,6 +2538,95 @@ components:
             request_id: req_01HZX0
             instance: /api/v1/questions
   schemas:
+    AssistantQuestion:
+      type: object
+      description: A question for the sourced assistant. Only this text, after redaction of obvious secrets and emails, is sent to the provider.
+      required:
+      - question
+      properties:
+        question:
+          type: string
+          minLength: 3
+          maxLength: 1000
+        lang:
+          $ref: '#/components/schemas/Lang'
+      additionalProperties: false
+    AssistantSource:
+      type: object
+      description: A published content item the answer relies on. The server only returns items that belong to the retrieved passages and are visible to the caller.
+      required:
+      - type
+      - id
+      - title
+      - url
+      properties:
+        type:
+          type: string
+          enum:
+          - question
+          - resource
+          - project
+          - article
+          - series
+        id:
+          $ref: '#/components/schemas/Uuid'
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        url:
+          type: string
+          format: uri-reference
+          maxLength: 512
+          description: Canonical in-app URL of the cited content.
+        published_at:
+          oneOf:
+          - $ref: '#/components/schemas/Timestamp'
+          - type: 'null'
+          description: Publication date when known; null when the source is undated (the answer then states the uncertainty).
+      additionalProperties: false
+    AssistantAnswer:
+      type: object
+      description: The assistant reply. Always labelled AI; it is never stored as an answer and cannot be voted or accepted.
+      required:
+      - outcome
+      - generated_by
+      - answer
+      - sources
+      - how_to_verify
+      - lang
+      properties:
+        outcome:
+          type: string
+          enum:
+          - answered
+          - no_source
+          description: no_source means no published content matched; the provider was not called and search_url points to the search.
+        generated_by:
+          type: string
+          enum:
+          - ai
+        answer:
+          type: string
+          maxLength: 4000
+          description: Plain text or limited Markdown. No reasoning text, no guarantee about an API, no verified-solution claim.
+        sources:
+          type: array
+          maxItems: 10
+          items:
+            $ref: '#/components/schemas/AssistantSource'
+        how_to_verify:
+          type: string
+          maxLength: 1000
+          description: The "Comment vérifier" section that ends every answer.
+        search_url:
+          type: string
+          format: uri-reference
+          maxLength: 512
+          description: Present when outcome is no_source.
+        lang:
+          $ref: '#/components/schemas/Lang'
+      additionalProperties: false
     ModerationTargetType:
       type: string
       enum:

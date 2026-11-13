@@ -102,7 +102,7 @@ func (s spec) sample(schema map[string]any) string {
 
 func TestRouteTableMatchesContract(t *testing.T) {
 	_, ops := loadSpec(t)
-	const wantOperations = 47
+	const wantOperations = 48
 	if len(ops) != wantOperations {
 		t.Fatalf("spec has %d operations, want %d", len(ops), wantOperations)
 	}

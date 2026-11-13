@@ -61,6 +61,26 @@ const (
 	ArticleTypeTutorial ArticleType = "tutorial"
 )
 
+// Defines values for AssistantAnswerGeneratedBy.
+const (
+	Ai AssistantAnswerGeneratedBy = "ai"
+)
+
+// Defines values for AssistantAnswerOutcome.
+const (
+	AssistantAnswerOutcomeAnswered AssistantAnswerOutcome = "answered"
+	AssistantAnswerOutcomeNoSource AssistantAnswerOutcome = "no_source"
+)
+
+// Defines values for AssistantSourceType.
+const (
+	AssistantSourceTypeArticle  AssistantSourceType = "article"
+	AssistantSourceTypeProject  AssistantSourceType = "project"
+	AssistantSourceTypeQuestion AssistantSourceType = "question"
+	AssistantSourceTypeResource AssistantSourceType = "resource"
+	AssistantSourceTypeSeries   AssistantSourceType = "series"
+)
+
 // Defines values for ErrorCode.
 const (
 	CSRFFAILED            ErrorCode = "CSRF_FAILED"
@@ -507,6 +527,56 @@ type ArticleSummary struct {
 
 // ArticleType defines model for ArticleType.
 type ArticleType string
+
+// AssistantAnswer The assistant reply. Always labelled AI; it is never stored as an answer and cannot be voted or accepted.
+type AssistantAnswer struct {
+	// Answer Plain text or limited Markdown. No reasoning text, no guarantee about an API, no verified-solution claim.
+	Answer      string                     `json:"answer"`
+	GeneratedBy AssistantAnswerGeneratedBy `json:"generated_by"`
+
+	// HowToVerify The "Comment vérifier" section that ends every answer.
+	HowToVerify string `json:"how_to_verify"`
+
+	// Lang Language of user content (original language preserved, never auto-translated).
+	Lang Lang `json:"lang"`
+
+	// Outcome no_source means no published content matched; the provider was not called and search_url points to the search.
+	Outcome AssistantAnswerOutcome `json:"outcome"`
+
+	// SearchUrl Present when outcome is no_source.
+	SearchUrl *string           `json:"search_url,omitempty"`
+	Sources   []AssistantSource `json:"sources"`
+}
+
+// AssistantAnswerGeneratedBy defines model for AssistantAnswer.GeneratedBy.
+type AssistantAnswerGeneratedBy string
+
+// AssistantAnswerOutcome no_source means no published content matched; the provider was not called and search_url points to the search.
+type AssistantAnswerOutcome string
+
+// AssistantQuestion A question for the sourced assistant. Only this text, after redaction of obvious secrets and emails, is sent to the provider.
+type AssistantQuestion struct {
+	// Lang Language of user content (original language preserved, never auto-translated).
+	Lang     *Lang  `json:"lang,omitempty"`
+	Question string `json:"question"`
+}
+
+// AssistantSource A published content item the answer relies on. The server only returns items that belong to the retrieved passages and are visible to the caller.
+type AssistantSource struct {
+	// Id Opaque identifier; never an authorization control.
+	Id Uuid `json:"id"`
+
+	// PublishedAt Publication date when known; null when the source is undated (the answer then states the uncertainty).
+	PublishedAt *Timestamp          `json:"published_at,omitempty"`
+	Title       string              `json:"title"`
+	Type        AssistantSourceType `json:"type"`
+
+	// Url Canonical in-app URL of the cited content.
+	Url string `json:"url"`
+}
+
+// AssistantSourceType defines model for AssistantSource.Type.
+type AssistantSourceType string
 
 // AuthorRef defines model for AuthorRef.
 type AuthorRef struct {
@@ -1515,6 +1585,9 @@ type RetractVoteParams struct {
 // DecideApplicationJSONRequestBody defines body for DecideApplication for application/json ContentType.
 type DecideApplicationJSONRequestBody = ApplicationDecision
 
+// AskAssistantJSONRequestBody defines body for AskAssistant for application/json ContentType.
+type AskAssistantJSONRequestBody = AssistantQuestion
+
 // ConfirmPasswordResetJSONRequestBody defines body for ConfirmPasswordReset for application/json ContentType.
 type ConfirmPasswordResetJSONRequestBody = PasswordResetConfirm
 
@@ -1749,6 +1822,9 @@ type ServerInterface interface {
 	// DecideApplication Decide on (or withdraw) an application
 	// (PATCH /applications/{applicationId})
 	DecideApplication(w http.ResponseWriter, r *http.Request, applicationId ApplicationId)
+	// AskAssistant Ask the sourced assistant (answers only from published content, with citations)
+	// (POST /assistant/answers)
+	AskAssistant(w http.ResponseWriter, r *http.Request)
 	// GetCsrfToken Obtain a CSRF token
 	// (GET /auth/csrf)
 	GetCsrfToken(w http.ResponseWriter, r *http.Request)
@@ -1896,6 +1972,12 @@ type Unimplemented struct{}
 // DecideApplication Decide on (or withdraw) an application
 // (PATCH /applications/{applicationId})
 func (_ Unimplemented) DecideApplication(w http.ResponseWriter, r *http.Request, applicationId ApplicationId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AskAssistant Ask the sourced assistant (answers only from published content, with citations)
+// (POST /assistant/answers)
+func (_ Unimplemented) AskAssistant(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -2201,6 +2283,20 @@ func (siw *ServerInterfaceWrapper) DecideApplication(w http.ResponseWriter, r *h
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.DecideApplication(w, r, applicationId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AskAssistant operation middleware
+func (siw *ServerInterfaceWrapper) AskAssistant(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AskAssistant(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -4319,6 +4415,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/search", wrapper.Search)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/assistant/answers", wrapper.AskAssistant)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/moderation/{targetType}/{targetId}/hide", wrapper.HideContent)
