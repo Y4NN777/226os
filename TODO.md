@@ -125,6 +125,7 @@ Open owner items outside CADEV (IDs and decisions in ROADMAP section 8, 10 and 1
 - **Operations:**
   - [x] `listResources` (public; provenance on each item). PR #83, 2026-11-13.
   - [x] `getResource` (public; resolved related links, visible items only). PR #83, 2026-11-13. Outgoing links are published projects and articles; incoming links are published questions. `content_relations` has no series.
+  - [x] Review of PR #83 (2026-11-13): the batched queries for related links, discussions and SDKs keep at most 20 rows per resource (a window per resource), so one resource cannot starve the others on a page (integration test `TestCatalogueBatchedQueriesCapPerResource`, red first). A related resource leaking through an unpublished provider cannot happen: `content_relations_pair_ck` allows no resource-to-resource link. The anonymous `q` throttle waits for the S1 limiter (60/IP/min, see Shared pieces).
   - [x] `listResourceSources` (public; a stale source is never shown as verified). PR #83, 2026-11-13. A source is `verified` only when it is the resource's current verified source. No freshness window is defined, so the read does not invent `stale`.
   - [ ] `createResourceErrorReport` (member; reporter kept private; rate limited)
   - [ ] `search` (`q` 2 to 200, C4; `per_group` 1 to 20; published and visible only; anonymous 60/IP/min)

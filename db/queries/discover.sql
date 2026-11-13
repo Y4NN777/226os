@@ -55,36 +55,57 @@ WHERE resource_id = ANY (sqlc.arg('ids')::uuid[])
 ORDER BY resource_id, country_code
 LIMIT 4000;
 
+-- The three batched queries below keep at most 20 rows per resource (a window over the resource), so one
+-- resource with many links cannot use the budget of the others on the same page. The final LIMIT is the
+-- page bound (50 resources x 20), not the per-resource budget.
+
 -- name: CatalogueSDKs :many
-SELECT resource_id, language, name, COALESCE(package_url, repo_url) AS url
-FROM resource_sdk_languages
-WHERE resource_id = ANY (sqlc.arg('ids')::uuid[])
-  AND COALESCE(package_url, repo_url) IS NOT NULL
+SELECT resource_id, language, name, url
+FROM (
+  SELECT resource_id, language, name, COALESCE(package_url, repo_url) AS url,
+         row_number() OVER (PARTITION BY resource_id ORDER BY language, name) AS rn
+  FROM resource_sdk_languages
+  WHERE resource_id = ANY (sqlc.arg('ids')::uuid[])
+    AND COALESCE(package_url, repo_url) IS NOT NULL
+) ranked
+WHERE rn <= 20
 ORDER BY resource_id, language, name
 LIMIT 1000;
 
 -- name: CatalogueRelated :many
-SELECT cr.src_resource_id, cr.target_type, cr.target_id,
-       COALESCE(q.title, res.name, proj.name, art.title) AS title,
-       COALESCE(q.language, res.summary_language, proj.language, art.language) AS lang
-FROM content_relations cr
-LEFT JOIN questions q ON q.id = cr.tgt_question_id AND q.status = 'published'
-LEFT JOIN resources res ON res.id = cr.tgt_resource_id AND res.status = 'published'
-LEFT JOIN projects proj ON proj.id = cr.tgt_project_id AND proj.status = 'published'
-LEFT JOIN learn_articles art ON art.id = cr.tgt_article_id AND art.status = 'published'
-WHERE cr.src_resource_id = ANY (sqlc.arg('ids')::uuid[])
-  AND cr.status = 'active'
-  AND COALESCE(q.id, res.id, proj.id, art.id) IS NOT NULL
-ORDER BY cr.src_resource_id, cr.created_at, cr.id
+SELECT src_resource_id, target_type, target_id, title, lang
+FROM (
+  SELECT cr.src_resource_id, cr.target_type, cr.target_id,
+         COALESCE(q.title, res.name, proj.name, art.title) AS title,
+         COALESCE(q.language, res.summary_language, proj.language, art.language) AS lang,
+         cr.created_at, cr.id AS relation_id,
+         row_number() OVER (PARTITION BY cr.src_resource_id ORDER BY cr.created_at, cr.id) AS rn
+  FROM content_relations cr
+  LEFT JOIN questions q ON q.id = cr.tgt_question_id AND q.status = 'published'
+  LEFT JOIN resources res ON res.id = cr.tgt_resource_id AND res.status = 'published'
+  LEFT JOIN projects proj ON proj.id = cr.tgt_project_id AND proj.status = 'published'
+  LEFT JOIN learn_articles art ON art.id = cr.tgt_article_id AND art.status = 'published'
+  WHERE cr.src_resource_id = ANY (sqlc.arg('ids')::uuid[])
+    AND cr.status = 'active'
+    AND COALESCE(q.id, res.id, proj.id, art.id) IS NOT NULL
+) ranked
+WHERE rn <= 20
+ORDER BY src_resource_id, created_at, relation_id
 LIMIT 1000;
 
 -- name: CatalogueDiscussions :many
-SELECT cr.tgt_resource_id AS resource_id, q.id AS question_id, q.title, q.language
-FROM content_relations cr
-JOIN questions q ON q.id = cr.src_question_id AND q.status = 'published'
-WHERE cr.tgt_resource_id = ANY (sqlc.arg('ids')::uuid[])
-  AND cr.source_type = 'question'
-  AND cr.target_type = 'resource'
-  AND cr.status = 'active'
-ORDER BY cr.tgt_resource_id, cr.created_at, cr.id
+SELECT resource_id, question_id, title, language
+FROM (
+  SELECT cr.tgt_resource_id AS resource_id, q.id AS question_id, q.title, q.language,
+         cr.created_at, cr.id AS relation_id,
+         row_number() OVER (PARTITION BY cr.tgt_resource_id ORDER BY cr.created_at, cr.id) AS rn
+  FROM content_relations cr
+  JOIN questions q ON q.id = cr.src_question_id AND q.status = 'published'
+  WHERE cr.tgt_resource_id = ANY (sqlc.arg('ids')::uuid[])
+    AND cr.source_type = 'question'
+    AND cr.target_type = 'resource'
+    AND cr.status = 'active'
+) ranked
+WHERE rn <= 20
+ORDER BY resource_id, created_at, relation_id
 LIMIT 1000;
