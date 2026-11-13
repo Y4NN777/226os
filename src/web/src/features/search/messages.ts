@@ -7,7 +7,7 @@ export const fr = {
   'search.start.title': 'Que cherchez-vous ?',
   'search.start.body':
     'La recherche couvre le catalogue d’API et d’outils, les questions, les contenus à apprendre et les projets.',
-  'search.short.title': 'Il faut un peu plus',
+  'search.short.title': 'Recherche trop courte',
   'search.short.body': 'Saisissez au moins deux caractères.',
   'search.error.title': 'La recherche a échoué',
   'search.group.resources': 'Catalogue',
@@ -33,7 +33,7 @@ export const en: Record<keyof typeof fr, string> = {
   'search.start.title': 'What are you looking for?',
   'search.start.body':
     'Search covers the catalogue of APIs and tools, questions, learning content and projects.',
-  'search.short.title': 'A little more, please',
+  'search.short.title': 'Search too short',
   'search.short.body': 'Enter at least two characters.',
   'search.error.title': 'Search failed',
   'search.group.resources': 'Catalogue',

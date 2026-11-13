@@ -164,7 +164,9 @@ describe('ResourcePage', () => {
     routes({ [`GET /resources/${id}`]: () => jsonResponse(bare) });
     await renderApp(`/discover/${id}`);
     await screen.findByRole('heading', { level: 1, name: 'Nu' });
-    expect(screen.getByRole('link', { name: 'Découvrir' })).toHaveAttribute('href', '/discover');
+    expect(
+      within(screen.getByRole('main')).getByRole('link', { name: 'Découvrir' }),
+    ).toHaveAttribute('href', '/discover');
     expect(screen.getByText('Sans Site')).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /Sans Site/ })).not.toBeInTheDocument();
     expect(screen.getByText('Non précisé')).toBeInTheDocument();
