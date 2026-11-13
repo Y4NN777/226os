@@ -627,6 +627,23 @@ tests_or_evidence: ["go test -race -count=1 ./src/api/internal/identity/... exit
 open_risks: ["rate-limit bucket keys reuse CURSOR_KEY as HMAC key pending a dedicated secret decision", "CSRF tokens are derived (HMAC of stored token hash / pre-session secret) rather than stored, per ADR-0003 rotation requirement", "no resend-verification operation exists in the contract (open question for the owner, flagged in the PR)", "getMe, updateMyProfile, getProfile and the profile-visibility matrix remain for feature/identity/profiles", "Argon2id parameters await the target-host benchmark at S8 (K6 container check)"]
 ```
 
+## Identity test reset-mail race (#91)
+
+```yaml
+date: "2026-11-13"
+contributor: "mibienpanjoe"
+tool_or_model: "Claude Code, Claude Opus 5.5"
+purpose: "Fix the flaky identity integration test: mails are sent off the request path, so mailToken now waits for the next mail after a given count instead of returning the latest one; the sibling-token test waits for both reset mails."
+repository_or_source_context: "issue #91, branch fix/identity/reset-mail-race"
+files_or_sections_affected: ["src/api/internal/platform/pgtest/identity_integration_test.go", "TODO.md", "AI_USAGE.md"]
+third_party_sources_consulted: []
+license_review: "NOT APPLICABLE (test code only)"
+closure: "open"
+human_reviewers: ["NICE-DEV226 (pending)"]
+tests_or_evidence: ["before: go test -tags integration -run TestIdentitySignInRotationAndReset failed 3/3 on clean develop 512a290", "after: go test -count=1 -tags integration -run TestIdentity ./src/api/internal/platform/pgtest/ passed 8/8", "go test -race -count=1 -tags integration ./src/api/internal/platform/pgtest/ ok", "make lint-go PASS"]
+open_risks: []
+```
+
 ## Error reports, search rate limit and shared limiter (S2)
 
 ```yaml
