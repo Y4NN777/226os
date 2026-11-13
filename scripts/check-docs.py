@@ -121,7 +121,9 @@ def head_commit_date(root):
             return None
         if done.stdout.strip():
             try:
-                return datetime.datetime.fromisoformat(done.stdout.strip()).astimezone(datetime.timezone.utc).date()
+                # git prints UTC as a trailing "Z", which datetime.fromisoformat accepts only from Python 3.11.
+                stamp = re.sub(r"Z$", "+00:00", done.stdout.strip())
+                return datetime.datetime.fromisoformat(stamp).astimezone(datetime.timezone.utc).date()
             except ValueError:
                 return None
     return None
