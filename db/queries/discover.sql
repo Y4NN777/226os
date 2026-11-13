@@ -7,7 +7,7 @@
 
 -- name: ListCatalogue :many
 SELECT r.id, r.slug, r.name, r.type, r.category_code, r.summary, r.doc_languages,
-       r.docs_url, r.verification_status, r.verified_at, r.updated_at, r.verified_source_id,
+       r.docs_url, r.verification_status, r.verified_at, r.updated_at, r.verified_source_id, r.provenance,
        p.slug AS provider_slug, p.name AS provider_name, p.website_url AS provider_url,
        (SELECT count(*)::int FROM resource_sources s WHERE s.resource_id = r.id) AS source_count
 FROM resources r
@@ -16,9 +16,9 @@ WHERE r.status = 'published'
   AND (sqlc.narg('category')::text IS NULL OR r.category_code = sqlc.narg('category'))
   AND (sqlc.narg('resource_type')::text IS NULL OR r.type = sqlc.narg('resource_type'))
   AND (sqlc.narg('provider')::text IS NULL OR p.slug = sqlc.narg('provider'))
-  AND (sqlc.narg('country')::text IS NULL OR EXISTS (
+  AND (sqlc.narg('countries')::text[] IS NULL OR EXISTS (
         SELECT 1 FROM resource_countries c
-        WHERE c.resource_id = r.id AND c.country_code = sqlc.narg('country')))
+        WHERE c.resource_id = r.id AND c.country_code = ANY (sqlc.narg('countries')::text[])))
   AND (sqlc.narg('sdk')::text IS NULL OR EXISTS (
         SELECT 1 FROM resource_sdk_languages k
         WHERE k.resource_id = r.id AND k.language = sqlc.narg('sdk')))
@@ -31,7 +31,7 @@ LIMIT sqlc.arg('row_limit');
 
 -- name: GetCatalogueEntry :one
 SELECT r.id, r.slug, r.name, r.type, r.category_code, r.summary, r.doc_languages,
-       r.docs_url, r.verification_status, r.verified_at, r.updated_at, r.verified_source_id,
+       r.docs_url, r.verification_status, r.verified_at, r.updated_at, r.verified_source_id, r.provenance,
        p.slug AS provider_slug, p.name AS provider_name, p.website_url AS provider_url,
        (SELECT count(*)::int FROM resource_sources s WHERE s.resource_id = r.id) AS source_count
 FROM resources r

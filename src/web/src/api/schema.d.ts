@@ -1066,6 +1066,11 @@ export interface components {
             name: string;
             slug: components["schemas"]["Slug"];
             type: components["schemas"]["ResourceType"];
+            /**
+             * @description live = real content; demo = local-dev SEED fixture, shown with a visible badge (C15).
+             * @enum {string}
+             */
+            provenance: "live" | "demo";
             category: components["schemas"]["Slug"];
             provider: {
                 name: string;
@@ -2283,7 +2288,8 @@ export interface operations {
                 /** @description Page size, 1..50 (above 50 -> 422). */
                 limit?: components["parameters"]["Limit"];
                 q?: string;
-                country?: components["parameters"]["Country"];
+                /** @description One or more ISO 3166-1 alpha-2 codes, comma separated (BF,CI,SN); a resource matches when it supports any of them. */
+                country?: components["schemas"]["CountryCode"][];
                 category?: components["schemas"]["Slug"];
                 type?: components["schemas"]["ResourceType"];
                 /** @description SDK language available (e.g. python, js, go). */
