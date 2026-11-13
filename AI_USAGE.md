@@ -695,6 +695,57 @@ tests_or_evidence: ["make generate, lint, typecheck, test-unit, test-integration
 open_risks: ["identity still has its own limiter until it migrates to platform/ratelimit", "rate-limit integration tests depend on the real clock (they wait for a fresh minute)", "whitespace-only report bodies are rejected with 422, stricter than the schema's minLength 1", "a repeated open report returns the existing report and drops the new body and source_id", "the client IP trusts the last X-Forwarded-For entry; correct only while Traefik is the sole ingress with default forwardedHeaders (not pinned in compose.yaml)", "/24 and /48 keying means users behind carrier NAT share 60 searches per minute"]
 ```
 
+## AI review: minimal fix, project memory and pointers (2026-11-13)
+
+```yaml
+date: "2026-11-13"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code, Sonnet 5.5 (with an Opus plan review)"
+purpose: "PR 1 of the review plan: the gate stops waiting for the AI review, one comment writer per pull request, a review only when needed (first, incremental on a still-open CRITICAL or HIGH, else skip; the label ai-review always reviews), scripts read from the BASE branch, a context pack with the project memory, the ledger and pointers found by script on the changed lines of .sql and Go files (INSERT without ON CONFLICT, DELETE and INSERT on one table in one statement, X-Forwarded-For reads, error text in log attributes), a logic lens in the review prompt, a fenced JSON ledger, and a deterministic owner ping (label needs-owner and a review request) instead of an @-mention. Reason: the review ran on every push (9 comments on #89 and #94), repeated itself, ignored answers and never read .sql files, so it missed both #94 blockers."
+repository_or_source_context: "PR #89, #90, #94, #96 review comments; .github/workflows/code-review.yml; .claude/commands/delegate-review.md; the real #94 heads 469984c, 9d12650 and 5c350d5 as test fixtures"
+files_or_sections_affected: ["docs/quality/REVIEW_CONTEXT.md", "scripts/review-context.py", "scripts/review-ping.py", "scripts/tests/review-context_test.sh", "scripts/tests/review-ping_test.sh", "scripts/tests/fixtures/review-context/**", ".opencodereview/context-map.json", ".opencodereview/rule.json", ".claude/commands/delegate-review.md", ".github/workflows/code-review.yml", "TODO.md", "AI_USAGE.md"]
+third_party_sources_consulted: ["Addy Osmani, Code Review in the Age of AI (principles only)", "O'Reilly Radar, Agentic code review (principles only)"]
+license_review: "NOT APPLICABLE: original code and text, no new dependency; the sources above were read for ideas, nothing was copied"
+closure: "open"
+human_reviewers: ["pending PR review"]
+tests_or_evidence: ["scripts/tests/review-context_test.sh and scripts/tests/review-ping_test.sh: RED first (no pointers, no decision line, no script), then GREEN; the fixtures are the real #94 heads, #96 and #110", "Acceptance run (real reviewer agents, new pack, scratch worktrees built from the real heads): #94 first head 469984c with the later decisions stripped from the memory: BOTH blockers flagged (skills double-submit 500 at identity.sql:154, languages pattern drift at service/profile.go:31); #94 fixed head 5c350d5: no SQL blocker; #110: Triage NONE, empty Read first. The run also found two defects of the script itself, fixed with tests (an empty pull request answer crashed the pack; a ledger written with another summary label or key was not read)", "scripts/tests/review-context_test.sh 37 passed, review-ping_test.sh 12 passed; make lint-scripts and python3 -I scripts/check-docs.py: see the pull request", "NOT RUN until the first live pull request after the merge: the BASE-read script path, first|incremental|skip on real events, gh pr comment --edit-last --create-if-none on the runner, the needs-owner label and the review request"]
+open_risks: ["The pointers are regular expressions on changed lines: they will miss cases and add some noise; they point, they never judge.", "The review job now also runs on synchronize (it decides in seconds whether to skip), so a skipped run still costs a runner start.", "REVIEW_CONTEXT.md only helps if the owner adds a line when a decision is made."]
+```
+
+## AI review: gates in report mode (2026-11-13)
+
+```yaml
+date: "2026-11-13"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code, Sonnet 5.5"
+purpose: "PR 3 of the review plan: three deterministic checks that replace what the AI review kept nagging about, all in report mode. Review gate: stray paths (.github/stray-paths.txt, read from the base branch: .devin, .cursor, .idea, .vscode, and .gitignore on feature and fix branches; label stray-ok exempts) and finding-to-test (a pull request that closes a finding issue must change a test file; label no-test exempts), with their own switch GATE_NEW (repository variable CODE_REVIEW_GATE_NEW: off, report, enforce). check-docs: an AI_USAGE.md record dated after the HEAD commit date (UTC, one day of tolerance) is a WARN; --strict-dates makes it a failure."
+repository_or_source_context: "plan revision 4 (owner), PR #94 (a .devin file and a .gitignore edit in a profiles pull request; an AI_USAGE record dated the next day)"
+files_or_sections_affected: ["scripts/review-gate.py", "scripts/tests/review-gate_test.sh", "scripts/check-docs.py", "scripts/tests/check-docs_test.sh", ".github/stray-paths.txt", ".github/workflows/code-review.yml", "TODO.md", "AI_USAGE.md"]
+third_party_sources_consulted: []
+license_review: "NOT APPLICABLE: original code, no new dependency"
+closure: "open"
+human_reviewers: ["pending PR review"]
+tests_or_evidence: ["scripts/tests/review-gate_test.sh 39 passed and scripts/tests/check-docs_test.sh 16 passed, RED first (the new checks did not exist)", "make lint-scripts and python3 -I scripts/check-docs.py: see the pull request", "NOT RUN until the first live pull request: the two new gate checks against the real GitHub API (labels, pull request body, the stray-paths list on the base branch)"]
+open_risks: ["Both gate checks are report only: they print a NOTE and never fail until the owner sets CODE_REVIEW_GATE_NEW=enforce (after 10 pull requests with no false positive).", "Finding-to-test reads the issue numbers after Closes/Fixes/Resolves in the pull request body: a different wording is not seen.", "In enforce mode a CRITICAL verdict is read at the next gate run (a push, a label or a review event), because the gate no longer waits for the review."]
+```
+
+## AI review: findings register, dashboard and memory loop (2026-11-13)
+
+```yaml
+date: "2026-11-13"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code, Sonnet 5.5"
+purpose: "PR 2 of the review plan: when a pull request is merged, the findings the review left open become GitHub issues (CRITICAL and HIGH one each, at most 5; everything else one follow-ups checklist per pull request), once, by marker; one Findings dashboard ranks what to fix next (due, severity, area, age) from issue state only; the context pack lists the tracked and the not-planned findings so the reviewer does not raise them again; the INSERT pointer names the unique key found in db/migrations; the PR template gets a Review focus section."
+repository_or_source_context: "plan revision 4 (owner), PR #112 (PR 1); the fake gh of scripts/tests/findings_test.sh is stateful so idempotency is really tested"
+files_or_sections_affected: ["scripts/findings.py", "scripts/tests/findings_test.sh", "scripts/review-context.py", "scripts/tests/review-context_test.sh", "scripts/tests/fixtures/review-context/**", ".github/workflows/code-review.yml", ".github/PULL_REQUEST_TEMPLATE.md", "mk/60-review.mk", "TODO.md", "AI_USAGE.md"]
+third_party_sources_consulted: []
+license_review: "NOT APPLICABLE: original code, no new dependency"
+closure: "open"
+human_reviewers: ["pending PR review"]
+tests_or_evidence: ["scripts/tests/findings_test.sh 23 passed and scripts/tests/review-context_test.sh 44 passed, RED first (no script, no sections, no key names)", "make lint-scripts and python3 -I scripts/check-docs.py: see the pull request", "NOT RUN until the first merge after this PR: the harvest job on a real merged pull request, board 4 Auto-add for issues created by GITHUB_TOKEN (the owner enables the Auto-add workflow with filter label:finding in the project settings), the dashboard issue creation (make findings or scripts/findings.py dashboard once, then pin it)"]
+open_risks: ["Notes of the AI review on #114 and #115 were all addressed in this branch (the AI review said INFERRED, the owner wants them fixed): GATE_NEW=enforce now blocks on its own whatever GATE_MODE says; a negation (does not close #N) is not a closing keyword and Fixes: #N is one; the AI_USAGE date check uses the last non-merge commit (CI checks out a merge commit); an @mention in ledger text is neutralised; an issue whose marker was edited away is recognised by its title, and titles now carry the PR number so that check is per pull request; a finding whose file changed after the review is still filed but says so (GitHub compare API); a blocking GATE_NEW check still prints what the other checks found; the skipped gate job on closed is explained in the workflow. Tests added for each.", "GITHUB_TOKEN cannot write to a user project: until the Auto-add workflow of board 4 is enabled, the issues exist but are not on the board.", "Labels are created by the issue API on first use with default colours.", "The register trusts the model's ledger only through a strict schema; a malformed ledger is skipped and logged."]
+```
+
 ## S4 Learn: articles, series, links writer and the free-series content script
 
 ```yaml

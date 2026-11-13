@@ -1,0 +1,5 @@
+package x
+
+func f(err error) {
+	slog.WarnContext(ctx, "purge failed", slog.String("error", err.Error()))
+}
