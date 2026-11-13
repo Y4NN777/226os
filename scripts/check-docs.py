@@ -144,7 +144,18 @@ def check_ai_usage_dates(root):
     limit = head + datetime.timedelta(days=1)
     warnings = []
     for path in paths:
+        inside_generated = False
         for number, line in enumerate(read(root, path).splitlines(), 1):
+            # The generated block of AI_USAGE.md repeats the record files, which are scanned on their own: skip it so a
+            # bad date warns once (review note on #120).
+            if path == "AI_USAGE.md":
+                if line.startswith("<!-- ai-usage:generated:start"):
+                    inside_generated = True
+                elif line.startswith("<!-- ai-usage:generated:end"):
+                    inside_generated = False
+                    continue
+                if inside_generated:
+                    continue
             match = RECORD_DATE.match(line)
             if not match:
                 continue

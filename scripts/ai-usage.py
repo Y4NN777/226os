@@ -77,7 +77,12 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("command", choices=["build", "check"])
     parser.add_argument("--root", default=".")
+    parser.add_argument("--only-on-promotion", action="store_true",
+                        help="check only when GITHUB_BASE_REF is main (a pull request into main); otherwise NOT RUN")
     args = parser.parse_args()
+    if args.only_on_promotion and args.command == "check" and os.environ.get("GITHUB_BASE_REF") != "main":
+        print("ai-usage: NOT RUN (the stale check applies to a pull request into main; the file is stale by design before)")
+        return 0
     root = os.path.abspath(args.root)
     target = os.path.join(root, "AI_USAGE.md")
     if not os.path.isfile(target):

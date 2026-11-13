@@ -12,5 +12,5 @@ license_review: "NOT APPLICABLE: original code, no new dependency"
 closure: "open"
 human_reviewers: ["pending PR review"]
 tests_or_evidence: ["scripts/tests/ai-usage_test.sh 16 passed and scripts/tests/check-docs_test.sh 20 passed, RED first (no script; the date check ignored the record files)", "make lint-scripts and python3 -I scripts/check-docs.py: see the pull request"]
-open_risks: ["AI_USAGE.md is only as complete as its last build: the owner must run make ai-usage before the submission (SHIP.md says so) and make ai-usage-check must pass.", "Records already appended to AI_USAGE.md stay where they are; only new records use the files."]
+open_risks: ["AI_USAGE.md is only as complete as its last build: the owner must run make ai-usage before the submission (SHIP.md says so); make docs-check runs the stale check on a pull request into main (not before, by design).", "Records already appended to AI_USAGE.md stay where they are; only new records use the files."]
 ```

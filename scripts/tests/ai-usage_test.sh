@@ -84,6 +84,22 @@ printf '## No contributor\n\n```yaml\ndate: "2026-11-13"\n```\n' >"$tmp/t/docs/a
 run build
 [ "$rc" -eq 2 ] && grep -q 'contributor' <<<"$out" && ok "a record without a contributor is refused" || ko "no contributor (rc=$rc out=$out)"
 
+# --only-on-promotion (what `make docs-check` passes in CI): the stale check runs only on a pull request INTO main, where
+# the submission goes through; on a pull request into develop the file is stale by design (review note on #120).
+fresh
+record 2026-11-13-one "One" 2026-11-13
+run build
+record 2026-11-13-two "Two" 2026-11-13
+rc=0; out="$(GITHUB_BASE_REF=main python3 -I "$tool" check --only-on-promotion --root "$tmp/t" 2>&1)" || rc=$?
+[ "$rc" -eq 1 ] && grep -q 'stale' <<<"$out" && ok "on a pull request into main a stale AI_USAGE.md fails the check" || ko "promotion stale (rc=$rc out=$out)"
+rc=0; out="$(GITHUB_BASE_REF=develop python3 -I "$tool" check --only-on-promotion --root "$tmp/t" 2>&1)" || rc=$?
+[ "$rc" -eq 0 ] && grep -q 'NOT RUN' <<<"$out" && ok "on a pull request into develop the same check is NOT RUN (stale by design)" || ko "develop (rc=$rc out=$out)"
+rc=0; out="$(env -u GITHUB_BASE_REF python3 -I "$tool" check --only-on-promotion --root "$tmp/t" 2>&1)" || rc=$?
+[ "$rc" -eq 0 ] && grep -q 'NOT RUN' <<<"$out" && ok "locally (no base ref) it is NOT RUN too" || ko "local (rc=$rc out=$out)"
+run build
+rc=0; out="$(GITHUB_BASE_REF=main python3 -I "$tool" check --only-on-promotion --root "$tmp/t" 2>&1)" || rc=$?
+[ "$rc" -eq 0 ] && grep -q 'PASS' <<<"$out" && ok "on a promotion pull request an up-to-date file passes" || ko "promotion fresh (rc=$rc out=$out)"
+
 fresh
 run build
 [ "$rc" -eq 0 ] && grep -q "$START" "$tmp/t/AI_USAGE.md" && ok "no record files: build still adds an empty block" || ko "empty (rc=$rc out=$out)"

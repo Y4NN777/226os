@@ -148,4 +148,10 @@ dates_run
 dates_run --strict-dates
 [ "$rc" -eq 1 ] && ok "and --strict-dates fails on it" || ko "record file strict (rc=$rc out=$out)"
 
+# After `make ai-usage` the same record also sits in the generated block of AI_USAGE.md: it must warn once, from its file
+# (review note on #120), not twice.
+python3 -I "$root/scripts/ai-usage.py" build --root "$tmp/t" >/dev/null
+dates_run
+[ "$(grep -c 'WARN' <<<"$out")" -eq 1 ] && grep -q 'docs/ai-usage/2026-11-17-future.md' <<<"$out" && ok "a bad record date warns once after a rebuild (the generated block is not scanned twice)" || ko "double warning ($out)"
+
 finish
