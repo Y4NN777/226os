@@ -121,6 +121,8 @@ for name, s in svcs.items():
         continue
     cmd = [str(c) for c in (s.get("command") or [])]
     eps = [c.split(".")[1] for c in cmd if c.startswith("--entrypoints.") and c.split("=")[0].endswith(".address")]
+    if not eps:
+        errs.append(f"{name} declares no entrypoint address: the forwardedHeaders pin cannot be verified")
     for ep in eps:
         if f"--entrypoints.{ep}.forwardedHeaders.insecure=false" not in cmd:
             errs.append(f"{name} entrypoint {ep} does not pin forwardedHeaders.insecure=false")
