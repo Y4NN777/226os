@@ -626,3 +626,20 @@ human_reviewers: ["mibienpanjoe (assigned reviewer, pending PR)"]
 tests_or_evidence: ["go test -race -count=1 ./src/api/internal/identity/... exit 0", "go test -race -count=1 -tags integration ./src/api/internal/platform/pgtest/ exit 0", "scripts/coverage-go.sh coverage: go first-party statement coverage 100.0% (2705/2705), PASS", "make coverage exit 0 (web 99.27% statements)", "make test-integration exit 0", "make lint-scripts security-sast exit 0 (gosec 0 issues)", "scripts/check-generated.sh check exit 0", "make quality full rerun on the PR head SHA pending at the time of this entry"]
 open_risks: ["rate-limit bucket keys reuse CURSOR_KEY as HMAC key pending a dedicated secret decision", "CSRF tokens are derived (HMAC of stored token hash / pre-session secret) rather than stored, per ADR-0003 rotation requirement", "no resend-verification operation exists in the contract (open question for the owner, flagged in the PR)", "getMe, updateMyProfile, getProfile and the profile-visibility matrix remain for feature/identity/profiles", "Argon2id parameters await the target-host benchmark at S8 (K6 container check)"]
 ```
+
+## Error reports, search rate limit and shared limiter (S2)
+
+```yaml
+date: "2026-11-13"
+contributor: "mibienpanjoe"
+tool_or_model: "Claude Code, Claude Opus 5.5 (main session) with Claude Sonnet subagents (go-implementer, skeptic review)"
+purpose: "createResourceErrorReport (verified member, reporter private, duplicate open report returns the existing one, 60/user/min failing closed), anonymous search limit of 60/IP/min failing open, shared platform/ratelimit limiter and httpx.ClientIPKey, migration 00013 error_reports.source_id with a composite FK."
+repository_or_source_context: "branch feature/discover/error-reports"
+files_or_sections_affected: ["db/migrations/00013_error_report_source.sql", "db/queries/ratelimit.sql", "db/queries/discover.sql", "src/api/internal/platform/ratelimit/**", "src/api/internal/platform/httpx/clientip*.go", "src/api/internal/platform/dbgen/**", "src/api/internal/discover/**", "src/api/internal/search/**", "src/api/internal/app/**", "src/api/internal/platform/pgtest/**", "scripts/authz-tests.txt", "scripts/unimplemented-routes.txt", "scripts/public-routes.txt", "TODO.md", "AI_USAGE.md"]
+third_party_sources_consulted: []
+license_review: "PENDING: owner review"
+closure: "open"
+human_reviewers: ["NICE-DEV226 (pending)", "Y4NN777 (migration and shared limiter, pending)"]
+tests_or_evidence: ["make generate, lint, typecheck, test-unit, test-integration-go, security PASS (subagent run)", "make coverage PASS: Go first-party 100.0% (3079/3079), re-run in the main session"]
+open_risks: ["identity still has its own limiter until it migrates to platform/ratelimit", "rate-limit integration tests depend on the real clock (they wait for a fresh minute)", "whitespace-only report bodies are rejected with 422, stricter than the schema's minLength 1", "a repeated open report returns the existing report and drops the new body and source_id", "the client IP trusts the last X-Forwarded-For entry; correct only while Traefik is the sole ingress with default forwardedHeaders (not pinned in compose.yaml)", "the report limit uses its own scope (error_report:user), so each later write slice choosing its own scope gives a user 60/min per feature, not 60/min overall", "/24 and /48 keying means users behind carrier NAT share 60 searches per minute"]
+```

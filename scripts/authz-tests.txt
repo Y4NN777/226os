@@ -10,5 +10,6 @@
 # mounted route is in exactly one of:
 #   scripts/public-routes.txt, scripts/unimplemented-routes.txt, scripts/authz-tests.txt.
 # The test must reject unauthenticated and wrong-role requests for that route (AUTHORIZATION_MATRIX).
-# Empty today: no implemented non-public route exists yet. Slices add their lines in their own PR.
+# Slices add their lines in their own PR.
 POST /api/v1/auth/sign-out TestAuthzSignOutAnonymous   # member only: anonymous callers get 401
+POST /api/v1/resources/{resourceId}/error-reports TestAuthzCreateResourceErrorReportAnonymous   # member with a verified email: anonymous 401, unverified 403

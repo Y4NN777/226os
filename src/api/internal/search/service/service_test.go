@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/Y4NN777/226os/src/api/internal/platform/apperr"
 	"github.com/Y4NN777/226os/src/api/internal/search/domain"
@@ -58,7 +60,7 @@ func violation(t *testing.T, err error, field string) {
 
 func TestSearchAllGroupsByDefaultWithPerGroupFive(t *testing.T) {
 	r := &fakeReader{rows: map[domain.Group]int{domain.Questions: 9, domain.Resources: 2}}
-	got, err := New(r).Search(t.Context(), Request{Q: "paiement"})
+	got, err := New(r, allow, nil).Search(t.Context(), Request{Q: "paiement"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -92,7 +94,7 @@ func TestSearchHasMoreIsExactAtTheBoundary(t *testing.T) {
 		want     int
 	}{{2, false, 2}, {3, false, 3}, {4, true, 3}, {50, true, 3}} {
 		r := &fakeReader{rows: map[domain.Group]int{domain.Learn: tc.rows}}
-		got, err := New(r).Search(t.Context(), Request{Q: "ab", Types: []string{"learn"}, PerGroup: ints(3)})
+		got, err := New(r, allow, nil).Search(t.Context(), Request{Q: "ab", Types: []string{"learn"}, PerGroup: ints(3)})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -105,7 +107,7 @@ func TestSearchHasMoreIsExactAtTheBoundary(t *testing.T) {
 
 func TestSearchOnlyRequestedTypesAreQueriedAndReturned(t *testing.T) {
 	r := &fakeReader{}
-	got, err := New(r).Search(t.Context(), Request{Q: "ab", Types: []string{"projects", "questions"}, PerGroup: ints(20)})
+	got, err := New(r, allow, nil).Search(t.Context(), Request{Q: "ab", Types: []string{"projects", "questions"}, PerGroup: ints(20)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -120,7 +122,7 @@ func TestSearchOnlyRequestedTypesAreQueriedAndReturned(t *testing.T) {
 			t.Fatalf("limit = %d, want 21", c.query.Limit)
 		}
 	}
-	empty, err := New(&fakeReader{}).Search(t.Context(), Request{Q: "ab", Types: []string{}})
+	empty, err := New(&fakeReader{}, allow, nil).Search(t.Context(), Request{Q: "ab", Types: []string{}})
 	if err != nil || len(empty.Groups) != 4 {
 		t.Fatalf("an empty types list means all groups: %d groups, %v", len(empty.Groups), err)
 	}
@@ -130,7 +132,7 @@ func TestSearchOnlyRequestedTypesAreQueriedAndReturned(t *testing.T) {
 func TestSearchTruncatesTheTextButEchoesTheOriginalC4ProposedOption1(t *testing.T) {
 	original := strings.Repeat("mot ", 40) // 160 runes
 	r := &fakeReader{}
-	got, err := New(r).Search(t.Context(), Request{Q: original, Types: []string{"learn"}})
+	got, err := New(r, allow, nil).Search(t.Context(), Request{Q: original, Types: []string{"learn"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -145,13 +147,13 @@ func TestSearchTruncatesTheTextButEchoesTheOriginalC4ProposedOption1(t *testing.
 
 func TestSearchPassesFiltersThrough(t *testing.T) {
 	r := &fakeReader{}
-	if _, err := New(r).Search(t.Context(), Request{Q: "ab", Types: []string{"questions"}, Country: str("BF"), Lang: str("fr")}); err != nil {
+	if _, err := New(r, allow, nil).Search(t.Context(), Request{Q: "ab", Types: []string{"questions"}, Country: str("BF"), Lang: str("fr")}); err != nil {
 		t.Fatal(err)
 	}
 	if q := r.calls[0].query; q.Country != "BF" || q.Lang != "fr" {
 		t.Fatalf("query = %+v", q)
 	}
-	if _, err := New(r).Search(t.Context(), Request{Q: "ab", Types: []string{"questions"}}); err != nil {
+	if _, err := New(r, allow, nil).Search(t.Context(), Request{Q: "ab", Types: []string{"questions"}}); err != nil {
 		t.Fatal(err)
 	}
 	if q := r.calls[1].query; q.Country != "" || q.Lang != "" {
@@ -179,14 +181,14 @@ func TestSearchValidation(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			r := &fakeReader{}
-			_, err := New(r).Search(t.Context(), tc.req)
+			_, err := New(r, allow, nil).Search(t.Context(), tc.req)
 			violation(t, err, tc.field)
 			if len(r.calls) != 0 {
 				t.Fatal("the reader must not run on invalid input")
 			}
 		})
 	}
-	if _, err := New(&fakeReader{}).Search(t.Context(), Request{Q: strings.Repeat("é", 200), PerGroup: ints(1)}); err != nil {
+	if _, err := New(&fakeReader{}, allow, nil).Search(t.Context(), Request{Q: strings.Repeat("é", 200), PerGroup: ints(1)}); err != nil {
 		t.Fatalf("200 runes is the maximum and must pass: %v", err)
 	}
 }
@@ -194,7 +196,75 @@ func TestSearchValidation(t *testing.T) {
 func TestSearchReturnsReaderErrors(t *testing.T) {
 	boom := errors.New("db down")
 	r := &fakeReader{err: map[domain.Group]error{domain.Projects: boom}}
-	if _, err := New(r).Search(t.Context(), Request{Q: "ab"}); !errors.Is(err, boom) {
+	if _, err := New(r, allow, nil).Search(t.Context(), Request{Q: "ab"}); !errors.Is(err, boom) {
 		t.Fatalf("err = %v", err)
+	}
+}
+
+// fakeLimiter records every hit and answers with the configured outcome.
+type fakeLimiter struct {
+	allowed bool
+	retry   time.Duration
+	err     error
+
+	scopes, values []string
+	limits         []int
+	windows        []time.Duration
+}
+
+func (f *fakeLimiter) Hit(_ context.Context, scope, value string, limit int, window time.Duration) (bool, time.Duration, error) {
+	f.scopes, f.values = append(f.scopes, scope), append(f.values, value)
+	f.limits, f.windows = append(f.limits, limit), append(f.windows, window)
+	return f.allowed, f.retry, f.err
+}
+
+var allow = &fakeLimiter{allowed: true}
+
+func TestAnonymousSearchIsLimitedPerClientNetwork(t *testing.T) {
+	r := &fakeReader{}
+	l := &fakeLimiter{allowed: true}
+	if _, err := New(r, l, nil).Search(t.Context(), Request{Q: "paiement", Anonymous: true, Client: "203.0.113.0/24"}); err != nil {
+		t.Fatal(err)
+	}
+	if len(l.scopes) != 1 || l.scopes[0] != "search:ip" || l.values[0] != "203.0.113.0/24" || l.limits[0] != 60 || l.windows[0] != time.Minute {
+		t.Fatalf("limiter calls = %v %v %v %v; want one search:ip hit of 60 per minute", l.scopes, l.values, l.limits, l.windows)
+	}
+}
+
+func TestMemberSearchIsNotLimited(t *testing.T) {
+	l := &fakeLimiter{allowed: false, err: errors.New("must not be called")}
+	if _, err := New(&fakeReader{}, l, nil).Search(t.Context(), Request{Q: "paiement", Client: "203.0.113.0/24"}); err != nil {
+		t.Fatal(err)
+	}
+	if len(l.scopes) != 0 {
+		t.Fatalf("the limiter was called for a member: %v", l.scopes)
+	}
+}
+
+func TestExceededLimitIsRateLimitedWithRetryAfterAndSearchesNothing(t *testing.T) {
+	r := &fakeReader{}
+	l := &fakeLimiter{retry: 42 * time.Second}
+	_, err := New(r, l, nil).Search(t.Context(), Request{Q: "paiement", Anonymous: true, Client: "x"})
+	var ae *apperr.Error
+	if !errors.As(err, &ae) || ae.Code != apperr.CodeRateLimited || ae.RetryAfter != 42*time.Second {
+		t.Fatalf("err = %v, want RATE_LIMITED with Retry-After 42s", err)
+	}
+	if len(r.calls) != 0 {
+		t.Fatal("a limited request reached the database")
+	}
+}
+
+// ADR-0003 makes the limiter fail closed for authentication limits only: an anonymous read must
+// stay available when the limiter store is down, and the failure must be logged.
+func TestLimiterFailureFailsOpenAndIsLogged(t *testing.T) {
+	var logs strings.Builder
+	l := &fakeLimiter{err: errors.New("connection refused: postgres://u:pw@db")}
+	r := &fakeReader{}
+	res, err := New(r, l, slog.New(slog.NewTextHandler(&logs, nil))).Search(t.Context(), Request{Q: "paiement", Anonymous: true, Client: "x"})
+	if err != nil || len(res.Groups) != 4 || len(r.calls) != 4 {
+		t.Fatalf("Search = %+v, %v (%d reads); want the search to be served", res, err, len(r.calls))
+	}
+	if !strings.Contains(logs.String(), "search rate limit unavailable") || strings.Contains(logs.String(), "pw") {
+		t.Fatalf("log = %q; want the failure logged without the driver text", logs.String())
 	}
 }

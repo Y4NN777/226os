@@ -16,18 +16,19 @@ import (
 	"github.com/Y4NN777/226os/src/api/internal/platform/httpx"
 )
 
-// Handler serves the three public catalogue reads.
+// Handler serves the three public catalogue reads and the member error report.
 type Handler struct {
-	svc    *service.Service
-	logger *slog.Logger
+	svc     *service.Service
+	reports *service.Reports
+	logger  *slog.Logger
 }
 
 // New returns a handler. logger may be nil.
-func New(svc *service.Service, logger *slog.Logger) *Handler {
+func New(svc *service.Service, reports *service.Reports, logger *slog.Logger) *Handler {
 	if logger == nil {
 		logger = slog.New(slog.DiscardHandler)
 	}
-	return &Handler{svc: svc, logger: logger}
+	return &Handler{svc: svc, reports: reports, logger: logger}
 }
 
 // ListResources serves GET /resources.
@@ -170,9 +171,11 @@ func lang(v *apigen.Lang) *string {
 	return &s
 }
 
-func writeJSON(w http.ResponseWriter, body any) {
+func writeJSON(w http.ResponseWriter, body any) { writeStatusJSON(w, http.StatusOK, body) }
+
+func writeStatusJSON(w http.ResponseWriter, status int, body any) {
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
+	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(body)
 }
 

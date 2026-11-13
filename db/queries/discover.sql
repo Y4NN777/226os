@@ -109,3 +109,24 @@ FROM (
 WHERE rn <= 20
 ORDER BY resource_id, created_at, relation_id
 LIMIT 1000;
+
+-- name: CreateErrorReport :one
+-- Inserts one open report for a published resource with a published, non-removed provider.
+-- No row means the resource is not visible OR an open report of the same (resource, reporter, kind)
+-- exists (error_reports_open_uq). A source_id of another resource is rejected by error_reports_source_fk.
+INSERT INTO error_reports (resource_id, reporter_id, kind, message, source_id)
+SELECT r.id, sqlc.arg('reporter_id')::uuid, sqlc.arg('kind')::text, sqlc.arg('message')::text, sqlc.narg('source_id')::uuid
+FROM resources r
+JOIN providers p ON p.id = r.provider_id AND p.status = 'published' AND p.removed_at IS NULL
+WHERE r.id = sqlc.arg('resource_id')::uuid AND r.status = 'published'
+ON CONFLICT DO NOTHING
+RETURNING id, resource_id, kind, status, created_at;
+
+-- name: GetOpenErrorReport :one
+-- The existing open report (received or triaged) of the same resource, reporter and kind, only while
+-- the resource is still visible.
+SELECT e.id, e.resource_id, e.kind, e.status, e.created_at
+FROM error_reports e
+JOIN resources r ON r.id = e.resource_id AND r.status = 'published'
+JOIN providers p ON p.id = r.provider_id AND p.status = 'published' AND p.removed_at IS NULL
+WHERE e.resource_id = $1 AND e.reporter_id = $2 AND e.kind = $3 AND e.status IN ('received', 'triaged');

@@ -466,3 +466,49 @@ func TestIdentityQueries(t *testing.T) {
 	}
 	assertCall(t, db, "INSERT INTO rate_limit_buckets", []any{"signin:ip", hash, ts})
 }
+
+// Shared limiter and error report queries (S2): SQL text, bind order, scan order and error propagation.
+func TestRateBucketAndErrorReportQueries(t *testing.T) {
+	ctx := t.Context()
+	errBoom := errors.New("boom")
+	id := pgtype.UUID{Bytes: [16]byte{1}, Valid: true}
+	rid := pgtype.UUID{Bytes: [16]byte{2}, Valid: true}
+	src := pgtype.UUID{Bytes: [16]byte{3}, Valid: true}
+	ts := pgtype.Timestamptz{Time: time.Unix(10, 0).UTC(), Valid: true}
+	key := make([]byte, 32)
+
+	db := &fakeDB{rowVals: []any{int32(7)}}
+	hits, err := dbgen.New(db).HitRateBucket(ctx, dbgen.HitRateBucketParams{Scope: "search:ip", KeyHash: key, WindowStart: ts})
+	if err != nil || hits != 7 {
+		t.Fatalf("HitRateBucket = %d, %v", hits, err)
+	}
+	assertCall(t, db, "INSERT INTO rate_limit_buckets", []any{"search:ip", key, ts})
+
+	db = &fakeDB{}
+	if err := dbgen.New(db).PurgeRateBuckets(ctx, ts); err != nil {
+		t.Fatal(err)
+	}
+	assertCall(t, db, "LIMIT 500", []any{ts})
+	if err := dbgen.New(&fakeDB{execErr: errBoom}).PurgeRateBuckets(ctx, ts); !errors.Is(err, errBoom) {
+		t.Fatalf("PurgeRateBuckets err = %v", err)
+	}
+
+	db = &fakeDB{rowVals: []any{id, rid, "outdated", "received", ts}}
+	created, err := dbgen.New(db).CreateErrorReport(ctx, dbgen.CreateErrorReportParams{
+		ReporterID: id, Kind: "outdated", Message: "m", SourceID: src, ResourceID: rid,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := (dbgen.CreateErrorReportRow{ID: id, ResourceID: rid, Kind: "outdated", Status: "received", CreatedAt: ts}); created != want {
+		t.Fatalf("CreateErrorReport = %+v, want %+v", created, want)
+	}
+	assertCall(t, db, "ON CONFLICT DO NOTHING", []any{id, "outdated", "m", src, rid})
+
+	db = &fakeDB{rowVals: []any{id, rid, "outdated", "triaged", ts}}
+	open, err := dbgen.New(db).GetOpenErrorReport(ctx, dbgen.GetOpenErrorReportParams{ResourceID: rid, ReporterID: id, Kind: "outdated"})
+	if err != nil || open.Status != "triaged" {
+		t.Fatalf("GetOpenErrorReport = %+v, %v", open, err)
+	}
+	assertCall(t, db, "e.status IN ('received', 'triaged')", []any{rid, id, "outdated"})
+}

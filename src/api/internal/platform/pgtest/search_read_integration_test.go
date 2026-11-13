@@ -50,7 +50,7 @@ func newSearchEnv(ctx context.Context, t *testing.T) *searchEnv {
 		}
 	}
 	rec := &recordingDB{db: conn}
-	return &searchEnv{conn: conn, recorder: rec, h: search.NewHandler(rec, nil)}
+	return &searchEnv{conn: conn, recorder: rec, h: search.NewHandler(rec, unlimited{}, nil)}
 }
 
 func (e *searchEnv) exec(ctx context.Context, t *testing.T, stmts ...string) {
