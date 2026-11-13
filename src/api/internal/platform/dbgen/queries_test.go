@@ -528,6 +528,21 @@ func TestIdentityQueries(t *testing.T) {
 		t.Fatalf("update profile call %+v", db.calls)
 	}
 
+	// DeleteUserSkills :exec — wipes the user's skill rows inside the tx.
+	db = &fakeDB{}
+	if err := dbgen.New(db).DeleteUserSkills(ctx, uid); err != nil {
+		t.Fatal(err)
+	}
+	assertCall(t, db, "DELETE FROM user_skills WHERE user_id", []any{uid})
+
+	// InsertUserSkills :exec — inserts the resolved tag ids, conflict-safe.
+	db = &fakeDB{}
+	ids := []pgtype.UUID{uid, uid2}
+	if err := dbgen.New(db).InsertUserSkills(ctx, dbgen.InsertUserSkillsParams{UserID: uid, Column2: ids}); err != nil {
+		t.Fatal(err)
+	}
+	assertCall(t, db, "INSERT INTO user_skills", []any{uid, ids})
+
 	// CountRateLimit :one.
 	db = &fakeDB{rowVals: []any{int32(3)}}
 	got, err := dbgen.New(db).CountRateLimit(ctx, dbgen.CountRateLimitParams{

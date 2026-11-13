@@ -116,8 +116,7 @@ func (r *Repository) UpdateProfile(ctx context.Context, userID string, w domain.
 	params.Column24, params.GithubVisibility = patchVisibility(w.VisGitHub)
 	params.Column26, params.BioVisibility = patchVisibility(w.VisBio)
 	params.Column28, params.ProfileVisibility = patchVisibility(w.Visibility)
-	params.Column30 = patchUUIDs(w.SkillTagIDs)
-	if _, err := r.q.UpdateProfile(ctx, params); err != nil {
+	mapErr := func(err error) error {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23503" && pgErr.ConstraintName == "profiles_country_fk" {
 			return domain.ErrCountryUnknown
@@ -126,6 +125,37 @@ func (r *Repository) UpdateProfile(ctx context.Context, userID string, w domain.
 			return domain.ErrNotFound
 		}
 		return fmt.Errorf("identity update profile: %w", err)
+	}
+	if !w.SkillTagIDs.Present {
+		if _, err := r.q.UpdateProfile(ctx, params); err != nil {
+			return mapErr(err)
+		}
+		return nil
+	}
+	// A skill replacement runs in a transaction: the guarded UPDATE takes the
+	// profile row lock first, then DELETE/INSERT run as separate statements,
+	// each on a fresh READ COMMITTED snapshot. Concurrent patches therefore
+	// serialize on the row lock and the last writer's set wins exactly,
+	// instead of merging two snapshots taken before the lock wait.
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("identity update profile begin: %w", err)
+	}
+	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
+	q := dbgen.New(tx)
+	if _, err := q.UpdateProfile(ctx, params); err != nil {
+		return mapErr(err)
+	}
+	if err := q.DeleteUserSkills(ctx, uid); err != nil {
+		return fmt.Errorf("identity replace skills delete: %w", err)
+	}
+	if ids := patchUUIDs(w.SkillTagIDs); len(ids) > 0 {
+		if err := q.InsertUserSkills(ctx, dbgen.InsertUserSkillsParams{UserID: uid, Column2: ids}); err != nil {
+			return fmt.Errorf("identity replace skills insert: %w", err)
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("identity update profile commit: %w", err)
 	}
 	return nil
 }

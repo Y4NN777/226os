@@ -24,6 +24,8 @@ type fakeDB struct {
 	n         int
 	queryRows [][]any // scripted rows for Query (multi-row results)
 	queryErr  error
+	beginErr  error
+	commitErr error
 }
 
 type dbStep struct {
@@ -62,6 +64,35 @@ func (f *fakeDB) QueryRow(context.Context, string, ...any) pgx.Row {
 	}
 	return fakeRow{vals: s.vals}
 }
+
+// Begin returns a fakeTx sharing the same scripted steps, so a transaction's
+// statements consume the same dbStep sequence.
+func (f *fakeDB) Begin(context.Context) (pgx.Tx, error) {
+	if f.beginErr != nil {
+		return nil, f.beginErr
+	}
+	return fakeTx{db: f}, nil
+}
+
+type fakeTx struct {
+	pgx.Tx
+	db *fakeDB
+}
+
+func (t fakeTx) Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error) {
+	return t.db.Exec(ctx, sql, args...)
+}
+
+func (t fakeTx) Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error) {
+	return t.db.Query(ctx, sql, args...)
+}
+
+func (t fakeTx) QueryRow(ctx context.Context, sql string, args ...any) pgx.Row {
+	return t.db.QueryRow(ctx, sql, args...)
+}
+
+func (t fakeTx) Commit(context.Context) error   { return t.db.commitErr }
+func (t fakeTx) Rollback(context.Context) error { return nil }
 
 type fakeRow struct {
 	vals []any

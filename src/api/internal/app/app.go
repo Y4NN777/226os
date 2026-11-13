@@ -18,7 +18,6 @@ import (
 	identitytransport "github.com/Y4NN777/226os/src/api/internal/identity/transport"
 	"github.com/Y4NN777/226os/src/api/internal/platform/config"
 	"github.com/Y4NN777/226os/src/api/internal/platform/cursor"
-	"github.com/Y4NN777/226os/src/api/internal/platform/dbgen"
 	"github.com/Y4NN777/226os/src/api/internal/platform/httpx"
 	"github.com/Y4NN777/226os/src/api/internal/platform/idempotency"
 	"github.com/Y4NN777/226os/src/api/internal/search"
@@ -42,7 +41,7 @@ type serveFunc func(context.Context, net.Listener, http.Handler, time.Duration) 
 type dbPool interface {
 	httpx.Pinger
 	idempotency.DB
-	dbgen.DBTX
+	repository.Beginner
 	Close()
 }
 

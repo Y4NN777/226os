@@ -156,7 +156,8 @@ func TestUpdateProfile(t *testing.T) {
 		Visibility:  domain.PatchField[domain.Visibility]{Present: true, Value: &vis},
 		SkillTagIDs: domain.PatchField[[]string]{Present: true, Value: &slugs},
 	}
-	db := &fakeDB{steps: []dbStep{{vals: []any{pguuid()}}}}
+	// skills present -> transaction: update row, delete skills, insert skills
+	db := &fakeDB{steps: []dbStep{{vals: []any{pguuid()}}, {}, {}}}
 	if err := New(db).UpdateProfile(ctx, uid, w); err != nil {
 		t.Fatal(err)
 	}
@@ -167,7 +168,7 @@ func TestUpdateProfile(t *testing.T) {
 		t.Fatalf("bad uuid: %v", err)
 	}
 
-	// no rows -> not found
+	// no rows -> not found (skills delete/insert never run)
 	db = &fakeDB{steps: []dbStep{{}}}
 	if err := New(db).UpdateProfile(ctx, uid, w); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("no rows: %v", err)
@@ -190,6 +191,50 @@ func TestUpdateProfile(t *testing.T) {
 	db = &fakeDB{steps: []dbStep{{err: errors.New("conn reset")}}}
 	if err := New(db).UpdateProfile(ctx, uid, w); err == nil {
 		t.Fatal("expected error")
+	}
+
+	// skills delete error -> wrapped, insert never runs
+	db = &fakeDB{steps: []dbStep{{vals: []any{pguuid()}}, {err: errors.New("delete reset")}}}
+	if err := New(db).UpdateProfile(ctx, uid, w); err == nil {
+		t.Fatal("expected delete error")
+	}
+
+	// skills insert error -> wrapped
+	db = &fakeDB{steps: []dbStep{{vals: []any{pguuid()}}, {}, {err: errors.New("insert reset")}}}
+	if err := New(db).UpdateProfile(ctx, uid, w); err == nil {
+		t.Fatal("expected insert error")
+	}
+
+	// clearing skills (nil value) deletes but skips the insert
+	wClear := w
+	wClear.SkillTagIDs = domain.PatchField[[]string]{Present: true}
+	db = &fakeDB{steps: []dbStep{{vals: []any{pguuid()}}, {}}}
+	if err := New(db).UpdateProfile(ctx, uid, wClear); err != nil {
+		t.Fatal(err)
+	}
+
+	// no skills member -> single-statement path, no transaction
+	wNoSkills := w
+	wNoSkills.SkillTagIDs = domain.PatchField[[]string]{}
+	db = &fakeDB{steps: []dbStep{{vals: []any{pguuid()}}}}
+	if err := New(db).UpdateProfile(ctx, uid, wNoSkills); err != nil {
+		t.Fatal(err)
+	}
+	db = &fakeDB{steps: []dbStep{{err: errors.New("conn reset")}}}
+	if err := New(db).UpdateProfile(ctx, uid, wNoSkills); err == nil {
+		t.Fatal("expected error on non-tx path")
+	}
+
+	// begin failure -> wrapped
+	db = &fakeDB{beginErr: errors.New("pool exhausted")}
+	if err := New(db).UpdateProfile(ctx, uid, w); err == nil {
+		t.Fatal("expected begin error")
+	}
+
+	// commit failure -> wrapped
+	db = &fakeDB{steps: []dbStep{{vals: []any{pguuid()}}, {}, {}}, commitErr: errors.New("commit reset")}
+	if err := New(db).UpdateProfile(ctx, uid, w); err == nil {
+		t.Fatal("expected commit error")
 	}
 }
 

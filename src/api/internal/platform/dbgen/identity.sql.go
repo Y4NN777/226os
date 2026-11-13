@@ -149,6 +149,19 @@ func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) er
 	return err
 }
 
+const deleteUserSkills = `-- name: DeleteUserSkills :exec
+DELETE FROM user_skills WHERE user_id = $1
+`
+
+// ReplaceUserSkills deletes every skill of the user; InsertUserSkills adds the
+// resolved set. The repository runs both inside the UpdateProfile transaction,
+// after the profile row lock is held, so each statement sees a fresh snapshot
+// and concurrent patches serialize instead of merging.
+func (q *Queries) DeleteUserSkills(ctx context.Context, userID pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, deleteUserSkills, userID)
+	return err
+}
+
 const getAccountByEmail = `-- name: GetAccountByEmail :one
 SELECT u.id, u.email, u.email_verified_at, u.role, u.status, u.created_at,
        c.password_hash, p.username, p.display_name
@@ -234,7 +247,7 @@ SELECT p.user_id, p.username, p.display_name, p.intent, p.country_code,
        p.profile_visibility, p.created_at, p.updated_at,
        COALESCE((SELECT array_agg(t.slug ORDER BY t.slug)
                  FROM user_skills us JOIN tags t ON t.id = us.tag_id
-                 WHERE us.user_id = p.user_id), '{}'::text[])::text[] AS skills
+                 WHERE us.user_id = p.user_id AND t.status = 'active'), '{}'::text[])::text[] AS skills
 FROM profiles p
 WHERE p.user_id = $1
 `
@@ -302,7 +315,7 @@ SELECT p.user_id, p.username, p.display_name, p.intent, p.country_code,
        u.status AS account_status, u.created_at AS joined_at,
        COALESCE((SELECT array_agg(t.slug ORDER BY t.slug)
                  FROM user_skills us JOIN tags t ON t.id = us.tag_id
-                 WHERE us.user_id = p.user_id), '{}'::text[])::text[] AS skills
+                 WHERE us.user_id = p.user_id AND t.status = 'active'), '{}'::text[])::text[] AS skills
 FROM profiles p
 JOIN users u ON u.id = p.user_id
 WHERE p.username = $1
@@ -424,6 +437,22 @@ func (q *Queries) HitRateLimit(ctx context.Context, arg HitRateLimitParams) (int
 	var hits int32
 	err := row.Scan(&hits)
 	return hits, err
+}
+
+const insertUserSkills = `-- name: InsertUserSkills :exec
+INSERT INTO user_skills (user_id, tag_id)
+SELECT $1, unnest($2::uuid[])
+ON CONFLICT DO NOTHING
+`
+
+type InsertUserSkillsParams struct {
+	UserID  pgtype.UUID
+	Column2 []pgtype.UUID
+}
+
+func (q *Queries) InsertUserSkills(ctx context.Context, arg InsertUserSkillsParams) error {
+	_, err := q.db.Exec(ctx, insertUserSkills, arg.UserID, arg.Column2)
+	return err
 }
 
 const purgeRateLimitBuckets = `-- name: PurgeRateLimitBuckets :exec
@@ -567,8 +596,7 @@ func (q *Queries) TouchSession(ctx context.Context, arg TouchSessionParams) erro
 }
 
 const updateProfile = `-- name: UpdateProfile :one
-WITH u AS (
-  UPDATE profiles SET
+UPDATE profiles SET
     display_name          = CASE WHEN $2::boolean THEN $3  ELSE display_name END,
     intent                = CASE WHEN $4::boolean THEN $5  ELSE intent END,
     country_code          = CASE WHEN $6::boolean THEN $7  ELSE country_code END,
@@ -585,23 +613,7 @@ WITH u AS (
     profile_visibility    = CASE WHEN $28::boolean THEN $29 ELSE profile_visibility END,
     updated_at            = now()
   WHERE profiles.user_id = $1
-  RETURNING profiles.user_id
-), sd AS (
-  DELETE FROM user_skills
-  WHERE user_skills.user_id = $1
-    AND $30::uuid[] IS NOT NULL
-    AND NOT (user_skills.tag_id = ANY($30::uuid[]))
-), si AS (
-  INSERT INTO user_skills (user_id, tag_id)
-  SELECT $1, t.id FROM tags t
-  WHERE $30::uuid[] IS NOT NULL
-    AND t.id = ANY($30::uuid[])
-    AND NOT EXISTS (
-      SELECT 1 FROM user_skills us
-      WHERE us.user_id = $1 AND us.tag_id = t.id
-    )
-)
-SELECT u.user_id FROM u
+RETURNING profiles.user_id
 `
 
 type UpdateProfileParams struct {
@@ -634,18 +646,15 @@ type UpdateProfileParams struct {
 	BioVisibility       string
 	Column28            bool
 	ProfileVisibility   string
-	Column30            []pgtype.UUID
 }
 
-// UpdateProfile applies a resolved JSON Merge Patch in one statement: every
-// column is guarded by a set-flag so omitted members keep their stored value
-// and explicit nulls clear nullable columns. bio_language follows bio (the
-// pair CHECK requires them set or cleared together; the service derives the
-// language, 'en' by contract decision). When $30 is not NULL the caller's
-// skill set is replaced atomically in the same statement. The delete and
-// insert are disjoint by construction (delete only tags outside the new set,
-// insert only tags not already present) so the result does not depend on the
-// unspecified execution order of data-modifying CTEs.
+// UpdateProfile applies a resolved JSON Merge Patch: every column is guarded
+// by a set-flag so omitted members keep their stored value and explicit nulls
+// clear nullable columns. bio_language follows bio (the pair CHECK requires
+// them set or cleared together; the service derives the language, 'en' by
+// contract decision). Skills are replaced by DeleteUserSkills +
+// InsertUserSkills inside the same transaction, after this UPDATE holds the
+// profile row lock, so concurrent patches serialize on fresh snapshots.
 func (q *Queries) UpdateProfile(ctx context.Context, arg UpdateProfileParams) (pgtype.UUID, error) {
 	row := q.db.QueryRow(ctx, updateProfile,
 		arg.UserID,
@@ -677,7 +686,6 @@ func (q *Queries) UpdateProfile(ctx context.Context, arg UpdateProfileParams) (p
 		arg.BioVisibility,
 		arg.Column28,
 		arg.ProfileVisibility,
-		arg.Column30,
 	)
 	var user_id pgtype.UUID
 	err := row.Scan(&user_id)
