@@ -649,16 +649,16 @@ open_risks: ["ui_lang has no column and csrf_token_hash is never read: both need
 ## S1 identity profiles: getMe, updateMyProfile, getProfile
 
 ```yaml
-date: "2026-11-14"
+date: "2026-11-13"
 contributor: "NICE-DEV226"
 tool_or_model: "Devin (SWE-2 Flash)"
 purpose: "S1 Identity profiles slice, feature/identity/profiles branch: profile read models (own + public with account status join), JSON Merge Patch update with tri-state PatchField (absent vs explicit null), per-field CASE WHEN guarded UPDATE plus transactional skill replacement (row lock then separate DELETE/INSERT on fresh snapshots, ON CONFLICT DO NOTHING), C14b visibility matrix (page + per-field, anonymous/member/owner), skill slug resolution against active tags with active-only reads, bio_language derivation to satisfy profiles_bio_language_ck, rate limit profile:write 60/user/min, transport merge-patch decoding with key-presence detection relying on the embedded OpenAPI validator for non-nullable nulls, unit tests on fakes, repository scripted-DBTX tests, real-PostgreSQL pgtest end-to-end including concurrent PATCH serialization and hidden-tag filtering."
 repository_or_source_context: "branch feature/identity/profiles, TODO.md S1"
 files_or_sections_affected: ["src/api/internal/identity/**", "src/api/internal/app/server.go", "src/api/internal/app/server_identity_test.go", "src/api/internal/platform/dbgen/identity.sql.go", "src/api/internal/platform/dbgen/queries_test.go", "src/api/internal/platform/pgtest/identity_integration_test.go", "db/queries/identity.sql", "scripts/public-routes.txt", "scripts/authz-tests.txt", "scripts/unimplemented-routes.txt", "scripts/tests/authz-routes_test.sh", "TODO.md", "AI_USAGE.md"]
 third_party_sources_consulted: []
-license_review: "PENDING"
-closure: "open"
-human_reviewers: ["mibienpanjoe (assigned reviewer, pending PR)"]
+license_review: "NOT APPLICABLE: original code, no new dependency (no go.mod, go.sum, package.json or lockfile change in PR #94; third_party_sources_consulted is empty)"
+closure: "closed by the owner, 2026-11-13"
+human_reviewers: ["mibienpanjoe (reviewed, changes requested 2026-11-13; his points verified in the code by the owner, no second round)", "Y4NN777 (owner closure, 2026-11-13; merged without a second review round, leftovers fixed in the follow-up PR)"]
 tests_or_evidence: ["go test -race -count=1 ./src/api/internal/identity/... ./src/api/internal/app/ exit 0", "go test -race -count=1 -tags integration ./src/api/internal/platform/pgtest/ exit 0 (TestIdentityProfilesEndToEnd, TestIdentityProfileHiddenTagFiltered, TestIdentityProfileConcurrentSkillReplace: 10 conflicting + 5 identical concurrent rounds on two real connections, final set always exact)", "scripts/coverage-go.sh coverage: go first-party statement coverage 100.0%", "go tool golangci-lint run (default and --build-tags integration): 0 issues", "make lint-contract exit 0 (sqlc vet LIMIT on ResolveSkillSlugs)", "make lint-scripts exit 0 (authz-routes self-test probes moved to ListQuestions)", "scripts/check-authz-routes.sh PASS", "gofmt clean", "go vet clean", "review round: go test -count=1 -run 'TestUpdateMyProfileLanguages' ./internal/identity/service/ exit 0 (fr-BF -> 422 languages), go test -count=1 -run 'TestUpdateMyProfile' ./internal/identity/transport/ exit 0 (null-non-nullable pinned)"]
 open_risks: ["bio_language is always derived as 'en' when bio is set: the contract exposes no bio language field (owner decision recorded in PR)", "open_to_collab_visibility column exists but the contract field_visibility has no member for it: stays 'public', flagged for owner decision", "languages: server rejects region subtags (fr-BF) with 422 on purpose while the contract still accepts them; owner owns the contract+DB widening after the freeze (TODO.md known deviation)", "checklist_missing no longer lists open_to_collab: false is a deliberate answer and no answered flag exists", "make quality full rerun pending on the PR head SHA"]
 ```
