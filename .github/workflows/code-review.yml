@@ -207,7 +207,10 @@ jobs:
   gate:
     name: Review gate
     # No `needs: review`: the gate fails open when there is no verdict, so a merge never waits for the AI review.
-    # A closed pull request has nothing left to gate.
+    # A closed pull request has nothing left to gate. "Review gate" is a required check, and a skipped job counts as
+    # passing, so this is deliberate and safe only because the skip exists on the `closed` event alone: an open pull
+    # request always gets a real run (opened, synchronize, reopened, ready_for_review, labeled, unlabeled and review
+    # events). If this `if` is ever widened, re-check branch protection first.
     if: github.event.action != 'closed'
     runs-on: ubuntu-latest
     timeout-minutes: 5

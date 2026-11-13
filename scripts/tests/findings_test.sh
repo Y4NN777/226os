@@ -151,6 +151,21 @@ ledger_comments "[$F_HIGH]" >"$tmp/st/comments.json"
 FAKE_GH_FAIL=1 run harvest
 [ "$rc" -eq 0 ] && grep -q 'NOT RUN' <<<"$out" && ok "a GitHub error fails open (NOT RUN, exit 0)" || ko "gh failure (rc=$rc out=$out)"
 
+# A stray @name in the ledger text must not notify anyone (review note on #115): the mention is neutralised.
+reset
+F_MENTION='{"id":"mention","sev":"HIGH","file":"a.go","line":1,"scenario":"@Y4NN777 should look: a bad scenario","status":"open"}'
+ledger_comments "[$F_MENTION]" >"$tmp/st/comments.json"
+run harvest
+[ "$(count_issues)" -eq 1 ] && ! grep -q '@Y4NN777' <<<"$(field 0 title) $(field 0 body)" && grep -q 'Y4NN777' <<<"$(field 0 body)" && ok "an @mention in the ledger text is neutralised in the issue (the name stays readable)" || ko "mention (n=$(count_issues) t=$(field 0 title) b=$(field 0 body))"
+
+# A human who removed the marker from an issue body must not cause a duplicate on a re-run (review note on #115): the
+# title of the issue is checked too.
+reset
+ledger_comments "[$F_HIGH,$F_MED1]" >"$tmp/st/comments.json"
+printf '[{"number":100,"title":"skills-upsert: double submit returns 500","body":"edited by a human, marker gone","state":"open","state_reason":null,"labels":["finding"],"created_at":"2026-11-13T09:00:00Z"},{"number":101,"title":"PR94 follow-ups","body":"edited by a human","state":"open","state_reason":null,"labels":["finding"],"created_at":"2026-11-13T09:00:00Z"}]' >"$tmp/st/issues.json"
+run harvest
+[ "$(count_issues)" -eq 2 ] && ok "an issue whose marker was edited away is recognised by its title: no duplicate" || ko "title dedupe (n=$(count_issues) out=$out)"
+
 # ---------- dashboard: what to fix next, from issue state only ----------
 mkissue() { # NUMBER STATE REASON "label,label" CREATED TITLE
   python3 -I - "$tmp/st/issues.json" "$@" <<'EOF'

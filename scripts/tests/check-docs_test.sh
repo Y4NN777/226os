@@ -114,6 +114,24 @@ dated_tree 2026-11-13 2026-11-10
 dates_run --strict-dates
 [ "$rc" -eq 0 ] && ok "an older record is fine even in strict mode" || ko "older strict (rc=$rc out=$out)"
 
+# In CI the checked-out HEAD is a merge commit dated "now": the author's last real commit is the reference, otherwise a
+# future-dated record would pass whenever the merge happens later (review note on #114).
+dated_tree 2026-11-13 2026-11-16
+(
+  cd "$tmp/t"
+  git checkout -q -b side
+  echo x >x.txt
+  git add -A
+  GIT_AUTHOR_DATE="2026-11-13T13:00:00Z" GIT_COMMITTER_DATE="2026-11-13T13:00:00Z" git -c commit.gpgsign=false commit -q -m "side"
+  git checkout -q main
+  echo y >y.txt
+  git add -A
+  GIT_AUTHOR_DATE="2026-11-13T14:00:00Z" GIT_COMMITTER_DATE="2026-11-13T14:00:00Z" git -c commit.gpgsign=false commit -q -m "main"
+  GIT_AUTHOR_DATE="2026-11-20T12:00:00Z" GIT_COMMITTER_DATE="2026-11-20T12:00:00Z" git -c commit.gpgsign=false merge -q --no-ff side -m "merge of the pull request"
+)
+dates_run
+[ "$rc" -eq 0 ] && grep -q 'WARN: ai-usage: AI_USAGE.md:4 date 2026-11-16 is after the HEAD commit date 2026-11-13' <<<"$out" && ok "a merge commit dated later does not hide a future-dated record (the last non-merge commit is the reference)" || ko "merge commit (rc=$rc out=$out)"
+
 fresh
 printf '# AI use\n\n```yaml\ndate: "2030-01-01"\n```\n' >"$tmp/t/AI_USAGE.md"
 dates_run --strict-dates

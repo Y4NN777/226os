@@ -92,14 +92,29 @@ def create_issue(binary, repo, title, body, labels, author):
     return ok
 
 
+def neutral(text):
+    """Text that came from the ledger (model output): an @mention would notify the person, so a zero-width space is
+    put after the @. The name stays readable."""
+    return re.sub(r"@(?=[A-Za-z0-9_-])", "@​", text or "")
+
+
+def slug(identifier):
+    """A finding id as it appears in a marker: letters, digits, underscore and dash only."""
+    return re.sub(r"[^\w-]+", "-", identifier)
+
+
+def single_title(f):
+    return neutral("%s: %s" % (f["id"], f["title"][:90]))
+
+
 def single_body(pr, pr_title, f):
     return "\n".join([
-        marker_of(pr, f["id"]),
-        "Found by the AI review of PR #%s (%s)." % (pr, pr_title),
+        marker_of(pr, slug(f["id"])),
+        "Found by the AI review of PR #%s (%s)." % (pr, neutral(pr_title)),
         "",
-        "- Where: `%s:%s`" % (f["file"] or "?", f["line"] or "?"),
+        "- Where: `%s:%s`" % (neutral(f["file"]) or "?", f["line"] or "?"),
         "- Severity: %s" % f["sev"],
-        "- Scenario: %s" % f["title"],
+        "- Scenario: %s" % neutral(f["title"]),
         "",
         "Close as **completed** when it is fixed (with a test), or as **not planned** when it is accepted or not a defect "
         "(say why in the closing comment).",
@@ -108,9 +123,10 @@ def single_body(pr, pr_title, f):
 
 def followups_body(pr, pr_title, findings):
     lines = [marker_of(pr, "followups"), "Open findings of the AI review of PR #%s (%s) that do not get their own issue. "
-             "Tick a box when it is fixed; close the issue when none is left." % (pr, pr_title), ""]
+             "Tick a box when it is fixed; close the issue when none is left." % (pr, neutral(pr_title)), ""]
     for f in findings:
-        lines.append("- [ ] `%s` [%s] `%s:%s` %s" % (f["id"], f["sev"], f["file"] or "?", f["line"] or "?", f["title"]))
+        lines.append("- [ ] `%s` [%s] `%s:%s` %s" % (neutral(f["id"]), f["sev"], neutral(f["file"]) or "?", f["line"] or "?",
+                                                      neutral(f["title"])))
     return "\n".join(lines)
 
 
@@ -134,25 +150,27 @@ def harvest(ctx, binary, repo, pr, author_env):
     author = author_env or (info.get("user") or {}).get("login", "")
     area = area_from_branch((info.get("head") or {}).get("ref", ""))
     title = info.get("title", "")
-    existing = set()
+    existing, existing_titles = set(), set()
     for issue in list_issues(ctx, binary, repo):
         existing.update(MARK.findall(issue.get("body") or ""))
+        # A human may edit an issue body and drop the marker: the title is checked too, so a re-run files no duplicate.
+        existing_titles.add(issue.get("title", ""))
 
     serious = [f for f in open_findings if f["sev"] in SERIOUS]
     singles, overflow = serious[:MAX_SINGLE], serious[MAX_SINGLE:]
     rest = overflow + [f for f in open_findings if f["sev"] not in SERIOUS]
     filed = 0
     for f in singles:
-        key = "PR%s#%s" % (pr, f["id"])
-        if key in existing:
+        key = "PR%s#%s" % (pr, slug(f["id"]))
+        issue_title = single_title(f)
+        if key in existing or issue_title in existing_titles:
             continue
-        issue_title = "%s: %s" % (f["id"], f["title"][:90])
         if create_issue(binary, repo, issue_title, single_body(pr, title, f), finding_labels(f["sev"], area), author):
             filed += 1
             print("findings: filed %s" % key)
         else:
             print("findings: NOT RUN for %s (the issue could not be created)" % key)
-    if rest and "PR%s#followups" % pr not in existing:
+    if rest and "PR%s#followups" % pr not in existing and "PR%s follow-ups" % pr not in existing_titles:
         worst = min((f["sev"] for f in rest), key=lambda s: SEV_RANK[s])
         labels = finding_labels(worst, area)
         labels[-1] = "due:after-freeze"

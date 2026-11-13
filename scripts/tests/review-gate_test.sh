@@ -248,4 +248,24 @@ reset; set_pull "Closes #12" "[]" "fix/identity/x"; files src/api/internal/app/a
 GATE_NEW=off run enforce dev
 [ "$rc" -eq 0 ] && ! grep -q 'finding' <<<"$out" && ok "GATE_NEW=off disables the two new checks" || ko "new off (rc=$rc out=$out)"
 
+# The promotion switch is independent: GATE_NEW=enforce blocks even while the main gate is still in report mode
+# (review note on #114: promoting GATE_NEW alone used to stay silently non-blocking).
+reset; files .devin/skills/x
+GATE_NEW=enforce run report dev
+[ "$rc" -eq 1 ] && grep -q 'stray' <<<"$out" && ok "GATE_NEW=enforce blocks a stray path even when GATE_MODE=report" || ko "independent switch (rc=$rc out=$out)"
+reset; set_pull "Closes #12" "[]" "fix/identity/x"; files src/api/internal/app/app.go
+GATE_NEW=enforce run report dev
+[ "$rc" -eq 1 ] && ok "GATE_NEW=enforce blocks a finding closed without a test even when GATE_MODE=report" || ko "independent switch finding (rc=$rc out=$out)"
+reset; files src/api/internal/app/app.go
+GATE_NEW=enforce run report dev
+[ "$rc" -eq 0 ] && ok "GATE_NEW=enforce with nothing to report passes in report mode" || ko "independent clean (rc=$rc out=$out)"
+
+# A negation is not a closing keyword (review note on #114).
+reset; set_pull "This does not close #12, it only prepares it." "[]" "fix/identity/x"; files src/api/internal/app/app.go
+GATE_NEW=enforce run enforce dev
+[ "$rc" -eq 0 ] && ok "\"does not close #12\" is not a closing keyword" || ko "negation (rc=$rc out=$out)"
+reset; set_pull "Fixes: #12" "[]" "fix/identity/x"; files src/api/internal/app/app.go
+GATE_NEW=enforce run enforce dev
+[ "$rc" -eq 1 ] && ok "\"Fixes: #12\" (with a colon, as GitHub reads it) is a closing keyword" || ko "colon (rc=$rc out=$out)"
+
 finish

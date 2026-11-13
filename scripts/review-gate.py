@@ -36,7 +36,9 @@ STRAY_LIST = ".github/stray-paths.txt"
 STRAY_OK_LABEL = "stray-ok"
 NO_TEST_LABEL = "no-test"
 FINDING_LABEL = "finding"
-CLOSES = re.compile(r"\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+#(\d+)", re.I)
+# GitHub's closing keywords, with an optional colon ("Fixes: #12"); a negation before the keyword ("does not close #12",
+# "doesn't fix #12", "never closes #12") is not one.
+CLOSES = re.compile(r"(?<!not )(?<!n't )(?<!never )\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?):?\s+#(\d+)", re.I)
 TEST_FILE = re.compile(r"(_test\.go$|\.test\.tsx?$|^scripts/tests/)")
 
 
@@ -250,6 +252,7 @@ def main():
     new_mode = os.environ.get("GATE_NEW", "report").strip().lower() or "report"
     if new_mode not in ("off", "report", "enforce"):
         new_mode = "report"
+    new_failures = []
     if new_mode != "off":
         try:
             pull = fetch_pull(gh, repo, pr)
@@ -268,9 +271,16 @@ def main():
             if note:
                 print("review-gate: " + note)
             if failure and new_mode == "enforce":
-                failures.append(failure)
+                new_failures.append(failure)
             elif failure:
                 print("review-gate: NOTE (report only, GATE_NEW=report): WOULD FAIL: " + failure)
+
+    # GATE_NEW=enforce blocks on its own: promoting it does not depend on GATE_MODE (review note on #114).
+    if new_failures:
+        for f in new_failures:
+            print("review-gate: FAIL (GATE_NEW=enforce): " + f)
+        print("review-gate: FAIL")
+        return 1
 
     if not failures:
         print("review-gate: PASS (mode %s)" % mode)
