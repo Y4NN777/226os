@@ -52,6 +52,7 @@ func TestConstraintViolations(t *testing.T) {
 		{name: "bad username", stmt: `INSERT INTO profiles (user_id, username, display_name) VALUES ('` + uMod + `', 'A!', 'Mod')`, code: checkViol, constraint: "profiles_username_ck"},
 		{name: "bio without language", stmt: `INSERT INTO profiles (user_id, username, display_name, bio) VALUES ('` + uMod + `', 'mod', 'Mod', 'hi')`, code: checkViol, constraint: "profiles_bio_language_ck"},
 		{name: "bad profile visibility", stmt: `INSERT INTO profiles (user_id, username, display_name, bio_visibility) VALUES ('` + uMod + `', 'mod', 'Mod', 'friends')`, code: checkViol, constraint: "profiles_visibility_ck"},
+		{name: "unknown profile visibility", stmt: `INSERT INTO profiles (user_id, username, display_name, profile_visibility) VALUES ('` + uMod + `', 'mod', 'Mod', 'friends')`, code: checkViol, constraint: "profiles_profile_visibility_ck"},
 		{name: "duplicate session token hash", stmt: `INSERT INTO sessions (user_id, token_hash, csrf_token_hash, idle_expires_at, absolute_expires_at)
 			VALUES ('` + uBob + `', decode(repeat('ab', 32), 'hex'), decode(repeat('ee', 32), 'hex'), now() + interval '1 hour', now() + interval '1 day')`, code: uniqueViol, constraint: "sessions_token_hash_uq"},
 		{name: "session hash of wrong length", stmt: `INSERT INTO sessions (user_id, token_hash, csrf_token_hash, idle_expires_at, absolute_expires_at)

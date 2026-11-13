@@ -18,7 +18,7 @@
 
 **Scope**
 
-- **The full P0.** These are the 43 operations with `x-priority: P0` in `api/openapi.yaml`, moderation included, and 44 once the E5 contract PR is accepted. No cut line is agreed in advance.
+- **The full P0.** These are the 44 operations with `x-priority: P0` in `api/openapi.yaml` (48 in total with the four P1), moderation and the assistant included, and 45 once the E5 contract PR is accepted. No cut line is agreed in advance.
 - **S9, grounded AI assistant.** It is P0 by an owner decision taken 2026-11-12 ("AI first"). It amends `docs/PRD.md` 5.8, where the sourced assistant is P2. Its operations are **not yet** in `api/openapi.yaml`. It may not be claimed until the owner applies PRD amendment 3.2 and a SPEC story exists (`docs/PRD.md`, "Traçabilité produit"; `docs/SPEC.md` section 1).
 - **S10, live channels.** Conditional ("channels if on track"). It is built only if the Sat 12:00 checkpoint shows S0 to S5 on track. Otherwise it stays P2 and is reported as not built.
 - **Product-review additions** (accepted by the owner on 2026-11-12):
@@ -31,7 +31,7 @@
     - External material remains only as references (`docs/research/REFERENCES.md` style) and as source links on Discover entries.
     - The Learn free series is a small demo-fixture series of 3 to 4 short original lessons (US-LEARN-001).
   - **E4:** zero-migration interaction modes. An "ask about this lesson" button and read-only topic feeds.
-  - **E5:** Connect as a read-only people directory. This is a **new operation**, suggested `GET /profiles`, so it is a contract change. Once its contract PR is accepted, P0 has **44 operations**. Office hours are a process note only.
+  - **E5:** Connect as a read-only people directory. This is a **new operation**, suggested `GET /profiles`, so it is a contract change. Once its contract PR is accepted, P0 has **45 operations**. Office hours are a process note only.
   - **Region:** public positioning is "Afrique de l'Ouest d'abord, puis toute l'Afrique" (owner decision 2026-11-12). The default filter is "Afrique de l'Ouest", with a one-click "Toute l'Afrique". The region is a UI constant in `src/web`, with no migration and no column. See TODO S7.
   - **Pillars:** "Learn & Grow" and "Connect" are made prominent in navigation, home and wording only. No pillar is erased or demoted. The PRD amendment proposal is OPEN (O7).
   - See section 12 for what slips first.
@@ -196,7 +196,7 @@ Reviews (ADR-0008, accepted 2026-11-12):
 
 ## 8. Human tasks and lead time
 
-Owner personal tasks still open (owner instruction 2026-11-12): **H6 and H7** (Datacloud, DNS), **H12** (V2 quotas and K21 EEA decision; V1 and V3 are done), **H10** (vote reminders), the **Gmail sender alias check** for `noreply@226os.tech` (H8 follow-up) and issue #46 (collaborators' age keys). H8 itself is DONE. H19 is the owner running the reviewed content script. Closed rows (H1, H3, H9, H11, H18) are in the archive.
+Owner personal tasks still open (owner instruction 2026-11-12): **H6 and H7** (Datacloud, DNS), **H12** (V2 quotas and K21 EEA decision; V1 and V3 are done), **H10** (vote reminders), and issue #46 (collaborators' age keys). H8 itself is DONE. H19 is the owner running the reviewed content script. Closed rows (H1, H3, H9, H11, H18) are in the archive.
 
 | Id | Task | Who | Start by | Lead time |
 |---|---|---|---|---|
@@ -205,7 +205,7 @@ Owner personal tasks still open (owner instruction 2026-11-12): **H6 and H7** (D
 | H5 | Rulings on the items still open in section 10 (C3 to C10, C12, C13, O4 to O6; O7 proposed; B4 scheduled). Decided so far: B1, B2, B3, B5, C1, C2, C14, C15, C19, O1 | `Y4NN777` | Thu evening | - |
 | H6 | **OPEN.** Datacloud account and an **active commercial product**, SSH key, ports 80/443, storage (`docs/SHIP.md` section 3; a CADEV condition) | `Y4NN777` | Thu evening | UNVERIFIED; hours to a day (GUESS) |
 | H7 | **OPEN.** DNS: `226os.tech` is held by the owner but nothing is deployed on it. When the host IP is known, add A records for the apex and the staging subdomain (PROPOSAL `staging.226os.tech`, owner to confirm). TLS (Traefik, Let's Encrypt) only after DNS resolves (`docs/SHIP.md`) | `Y4NN777` | when the host IP is known | minutes to hours (GUESS) |
-| H8 | Gmail SMTP app password in the staging and production env files only. **DONE 2026-11-12:** `mailcheck` sent a real mail through `smtp.gmail.com:587` (STARTTLS); the settings are in the staging secrets file. **Follow-up OPEN:** verify the Gmail "Send mail as" alias for the branded sender `noreply@226os.tech` (owner decision 2026-11-12), otherwise Gmail rewrites `From`; repeat the test on the staging host | `Y4NN777` | Fri morning | an app password needs 2-step verification (GUESS; verify) |
+| H8 | Gmail SMTP app password in the staging and production env files only. **DONE 2026-11-12:** `mailcheck` sent a real mail through `smtp.gmail.com:587` (STARTTLS); the settings are in the staging secrets file. **Alias verified (owner statement, 2026-11-12):** the Gmail "Send mail as" alias for the branded sender `noreply@226os.tech` is set up, so Gmail does not rewrite `From`. Remaining: repeat the test on the staging host once it exists | `Y4NN777` | Fri morning | an app password needs 2-step verification (GUESS; verify) |
 | H10 | Vote reminders to all four members, plus a named follow-up person (SHIP section 6) | `Y4NN777` | Sun 17:00 | - |
 | H12 | S9: AI Studio key (DONE, in `secrets/staging-test.enc.env`); V1 DONE, V3 DECIDED; **V2 and K21 OPEN** | `Y4NN777` | Fri 13 evening | - |
 | H13 | Apply PRD amendment 3.2 and add a SPEC story for S9 (and S10 if GO); the owner applies these | `Y4NN777` | Fri evening | - |

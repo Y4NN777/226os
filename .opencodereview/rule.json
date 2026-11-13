@@ -1,0 +1,48 @@
+{
+  "exclude": [
+    "**/*.gen.go",
+    "src/web/src/api/schema.d.ts",
+    "src/api/internal/platform/apispec/openapi.gen.yaml",
+    "pnpm-lock.yaml",
+    "go.sum",
+    "docs/archive/**",
+    "prototypes/**"
+  ],
+  "rules": [
+    {
+      "path": "src/api/**/*.go",
+      "merge_system_rule": true,
+      "rule": "226os Go API (modular monolith, Chi, pgx, sqlc). Flag: business logic in HTTP handlers (handlers are transport only); a route without an authorization decision (every mounted route is public, unimplemented, or covered by a negative authz test); missing 403/404 distinction (404 for objects the caller must not know about); context without deadline; unwrapped errors; secrets, tokens, emails or request bodies in logs or error messages; SQL built by string concatenation; a new code path without a test (the project requires 100% statement coverage of first-party Go). Cursor, idempotency and ETag rules are in docs/decisions/0004."
+    },
+    {
+      "path": "db/migrations/**",
+      "merge_system_rule": true,
+      "rule": "Forward-only goose migrations (ADR-0005). Flag: any change to an already merged migration (they are immutable); a Down section; a missing header (purpose, lock risk, data volume, restore plan, Owner); an ACCESS EXCLUSIVE lock or full table rewrite on a populated table; an index built without CONCURRENTLY on existing data; a destructive change without expand/contract; a constraint without a name."
+    },
+    {
+      "path": "api/openapi.yaml",
+      "merge_system_rule": true,
+      "rule": "OpenAPI contract (ADR-0004, source of truth). Flag: an operation without operationId, tag, x-priority, x-spec and x-authz; an unsafe method without cookieAuth and csrfToken; a list without cursor and limit (max 50); missing 401/403/422/429 responses where they apply; a breaking change to a released shape; counts in tests, scripts/unimplemented-routes.txt and docs/quality/COVERAGE_SCOPE.md not updated."
+    },
+    {
+      "path": "src/web/**/*.{ts,tsx}",
+      "merge_system_rule": true,
+      "rule": "React 19 + TypeScript strict + TanStack + Astryx. Flag: any/ts-ignore without reason; user-visible text not going through i18n (FR and EN); missing keyboard or accessible name; data fetching outside the typed client; secrets or tokens in the bundle; dangerouslySetInnerHTML; a new component without tests (frontend coverage must stay above 70%)."
+    },
+    {
+      "path": "{scripts,mk}/**",
+      "merge_system_rule": true,
+      "rule": "Shell and Make gates. Flag: a gate that can pass silently (ignored exit code, || true, missing set -euo pipefail, make -k); a step skipped without a visible NOT RUN; unquoted variables; secrets printed; a new script without a test under scripts/tests/ and without ShellCheck cleanliness."
+    },
+    {
+      "path": ".github/**",
+      "merge_system_rule": true,
+      "rule": "GitHub Actions. Flag: an action not pinned by full commit SHA; permissions broader than needed (default must be contents: read); pull_request_target with checkout of PR code; secrets exposed to forks or echoed; a deploy step (none may exist before the release workflow is approved)."
+    },
+    {
+      "path": "**/*",
+      "merge_system_rule": true,
+      "rule": "Never accept a committed secret, token, private key or .env file (encrypted secrets/*.enc.env are the only allowed form, ADR-0009). Flag AI attribution trailers (Co-authored-by for an AI) and personal emails in tracked files."
+    }
+  ]
+}

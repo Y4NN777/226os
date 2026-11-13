@@ -46,11 +46,13 @@ lint-web: doctor ## G1: ESLint, Prettier check
 	@echo "== lint: Prettier check"
 	pnpm --filter web run format:check
 
-lint-scripts: doctor ## G1: ShellCheck (pinned image), script tests (no Docker flags)
+lint-scripts: doctor ## G1: ShellCheck (pinned image), script tests (no Docker flags), tracker moves with the slice
 	@echo "== lint: ShellCheck (pinned image)"
 	scripts/lint-shell.sh
 	@echo "== lint: script tests (no Docker flags)"
 	@for t in scripts/tests/*_test.sh; do echo "-- $$t"; "$$t"; done
+	@echo "== lint: tracker moves with the slice"
+	scripts/check-todo-updated.sh
 
 docs-check: doctor ## G1: documentation checks (relative links, no private paths, operation count, ADR index)
 	python3 -I scripts/check-docs.py

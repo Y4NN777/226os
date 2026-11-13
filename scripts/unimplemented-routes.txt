@@ -1,12 +1,13 @@
 # Routes still answered 501 by the generated apigen.Unimplemented handler (negative-authz gate, B1).
 # Format: one "METHOD /path" per line (chi route pattern incl. the /api/v1 prefix). Comments start with '#'.
 #
-# Starts with all 47 operations of api/openapi.yaml and SHRINKS as each slice implements its
+# Starts with all operations of api/openapi.yaml and SHRINKS as each slice implements its
 # operations: when a slice implements a route, it removes the line here and adds it either to
 # scripts/public-routes.txt (public by design, with a reason) or to scripts/authz-tests.txt
 # (mapped to an existing negative authz test). A route listed here must answer 501.
 # The 4 P1 operations stay here for the whole P0 (ROADMAP O3, closed by B1).
 PATCH /api/v1/applications/{applicationId}   # decideApplication
+POST /api/v1/assistant/answers   # askAssistant
 GET /api/v1/auth/csrf   # getCsrfToken
 POST /api/v1/auth/password-reset/confirm   # confirmPasswordReset
 POST /api/v1/auth/password-reset/request   # requestPasswordReset

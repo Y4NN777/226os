@@ -74,7 +74,9 @@ The 226os logo, symbol and app icons were produced with an AI image generator by
 ## Build and CI tooling (not distributed)
 
 - Go `tool` entries in `go.mod`: golangci-lint, go-licenses, oapi-codegen, goose, sqlc, govulncheck, staticcheck. Used to build, check and generate; not part of the shipped binaries as tools. Their licences are `to verify` (go-licenses reports runtime dependencies only).
+- `anthropics/claude-code-action` (pinned by commit SHA to v1.0.275 in `.github/workflows/code-review.yml`, off by default): runs Claude Code in CI for the advisory review; licence `to verify`; not distributed.
 - GitHub Actions in `.github/workflows/` are pinned by commit SHA (version in the trailing comment of each `uses:` line). Not distributed.
+- open-code-review (`@alibaba-group/open-code-review`, Apache-2.0, pinned to 1.13.8 in `scripts/review.sh`): optional AI code review helper run through `npx`, never installed globally and not distributed. `.claude/commands/delegate-review.md` is adapted from its `delegate-review.md` (commit 4236c871fe8130aa840a2a1c0922f469e87e0416, Apache-2.0, Copyright 2026 Alibaba; changes listed in the file header). With `make review` it sends the diff to the LLM provider the user configures; with `/delegate-review` the reviewer is Claude Code. Licence read from the package metadata (`npm view`) and the repository page, not re-verified from the source tree.
 - Other tooling named in Make targets (for example SOPS, age, gitleaks, Trivy, Semgrep): licences `to verify`; not distributed.
 
 ## Original-work statement and regenerable inventory
