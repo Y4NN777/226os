@@ -17,6 +17,10 @@ up-staging-test: doctor ## Start the staging-test profile from pinned images (re
 down-staging-test: doctor ## Stop the staging-test profile (volumes are kept)
 	scripts/compose.sh staging-test down
 
+smoke: doctor ## Post-deploy smoke (read-only): make smoke PROFILE=local-dev|staging-test|production-live [BASE_URL=https://<host>]
+	@[ -n "$(PROFILE)" ] || { echo "smoke: PROFILE is required (local-dev, staging-test or production-live)" >&2; exit 64; }
+	scripts/smoke.sh "$(PROFILE)" $(BASE_URL)
+
 # up-production-live is never run from a developer machine (ADR-0006). Guard (_guard-production-up): the
 # documented deploy context is an automated release job, i.e. CI=true, no interactive terminal on stdin, and
 # an explicit PRODUCTION_UP_CONFIRM=production-live. scripts/compose.sh then still requires APP_ENV=production-live

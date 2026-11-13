@@ -594,3 +594,20 @@ human_reviewers: []
 tests_or_evidence: ["answer_test.go and tracker_test.go failed first (undefined symbols), then passed; llm coverage 100%"]
 open_risks: ["test fixtures are synthetic: the real Gemma 4 reasoning shape was NOT observed here (needs the owner's aicheck run); nothing is wired into the API yet"]
 ```
+
+## S8 smoke script and release workflow draft (2026-11-13)
+
+```yaml
+date: "2026-11-13"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code (VS Code extension) with claude-sonnet-5-5"
+purpose: "S8: post-deploy smoke script (scripts/smoke.sh, make smoke) written test first, and a non-active draft of the release workflow (docs/RELEASE_DRAFT.md)"
+repository_or_source_context: "docs/SHIP.md sections 2 to 5, ROADMAP B2 and B4, docs/decisions/0006, scripts/compose.sh, scripts/build-images.sh"
+files_or_sections_affected: ["scripts/smoke.sh", "scripts/tests/smoke_test.sh", "mk/50-ops.mk", "docs/RELEASE_DRAFT.md", "docs/SHIP.md", "docs/DEV.md", "TODO.md"]
+third_party_sources_consulted: []
+commands: "scripts/tests/smoke_test.sh (12 passed, fake curl and fake compose), scripts/lint-shell.sh, make_test.sh; the smoke script itself was NOT RUN against a real host"
+license_review: "NOT APPLICABLE (no third-party code or asset added)"
+human_reviewers: []
+tests_or_evidence: ["smoke_test.sh failed first (script missing), then passed; ShellCheck clean"]
+open_risks: ["the script has only run against fakes: the real curl output formats and a real stack are untested", "the release draft is a proposal with open owner questions; no workflow file was added"]
+```
