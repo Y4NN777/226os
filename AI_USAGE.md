@@ -577,3 +577,20 @@ human_reviewers: []
 tests_or_evidence: ["review_test.sh 9 passed (fake npx); lint-shell OK; make_test 49 passed"]
 open_risks: ["the reviewers send diffs to an external provider (Anthropic for /delegate-review and the CI workflow); reviews are AI output to be checked by a human; the CI workflow and /delegate-review are NOT RUN until the owner enables them; Anthropic terms for a subscription token in shared CI are unverified"]
 ```
+
+## S9 adapter output cleaning and free-tier tracking (2026-11-13)
+
+```yaml
+date: "2026-11-13"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code (VS Code extension) with claude-sonnet-5-5"
+purpose: "S9 adapter groundwork in platform/llm, test first: remove reasoning text from model answers (CleanAnswer, thought parts) and track 429/500/503/timeouts and latency per model (Tracker, StatusError)"
+repository_or_source_context: "TODO.md S9 block, ROADMAP V1 to V4 results, existing platform/llm and aistest packages"
+files_or_sections_affected: ["src/api/internal/platform/llm/answer.go", "src/api/internal/platform/llm/answer_test.go", "src/api/internal/platform/llm/tracker.go", "src/api/internal/platform/llm/tracker_test.go", "src/api/internal/platform/llm/llm.go", "src/api/internal/platform/llm/aistudio.go", "TODO.md"]
+third_party_sources_consulted: []
+commands: "go test -race -cover (llm: 100% statements), go vet, golangci-lint, staticcheck, go test -race ./... (all packages pass)"
+license_review: "NOT APPLICABLE (no third-party code or asset added)"
+human_reviewers: []
+tests_or_evidence: ["answer_test.go and tracker_test.go failed first (undefined symbols), then passed; llm coverage 100%"]
+open_risks: ["test fixtures are synthetic: the real Gemma 4 reasoning shape was NOT observed here (needs the owner's aicheck run); nothing is wired into the API yet"]
+```
