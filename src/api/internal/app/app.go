@@ -13,6 +13,9 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/Y4NN777/226os/src/api/internal/discover"
+	"github.com/Y4NN777/226os/src/api/internal/identity/repository"
+	"github.com/Y4NN777/226os/src/api/internal/identity/service"
+	identitytransport "github.com/Y4NN777/226os/src/api/internal/identity/transport"
 	"github.com/Y4NN777/226os/src/api/internal/platform/config"
 	"github.com/Y4NN777/226os/src/api/internal/platform/cursor"
 	"github.com/Y4NN777/226os/src/api/internal/platform/dbgen"
@@ -78,7 +81,17 @@ func run(ctx context.Context, getenv func(string) string, out io.Writer, serve s
 		logger.Error("invalid cursor configuration")
 		return 1
 	}
-	deps := newDeps(pool, WithMailer(newMailer(cfg, logger)), WithCatalogue(discover.NewHandler(pool, codec, logger)))
+	mail := newMailer(cfg, logger)
+	secureCookies := cfg.AppEnv != "local-dev"
+	identSvc := service.New(repository.New(pool), mail, cfg.CursorKey)
+	authHandler := identitytransport.New(identSvc, secureCookies, logger)
+	deps := newDeps(pool,
+		WithMailer(mail),
+		WithCatalogue(discover.NewHandler(pool, codec, logger)),
+		WithIdentity(authHandler),
+	)
+	deps.Subjects = identitytransport.NewResolver(identSvc, secureCookies)
+	deps.CSRF = identitytransport.CSRFMiddleware(identSvc, secureCookies, logger)
 	// Deferred after pool.Close, so it runs first: the purge job stops before the pool closes.
 	stopPurge := startPurge(ctx, deps.Idempotency, logger)
 	defer stopPurge()

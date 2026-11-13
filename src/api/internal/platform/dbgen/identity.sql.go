@@ -11,11 +11,29 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, email, email_verified_at, role, status, created_at FROM users WHERE email = $1
+const createAccount = `-- name: CreateAccount :one
+
+WITH u AS (
+  INSERT INTO users (email) VALUES ($1)
+  RETURNING id, email, email_verified_at, role, status, created_at
+), c AS (
+  INSERT INTO user_credentials (user_id, password_hash)
+  SELECT id, $2 FROM u
+), p AS (
+  INSERT INTO profiles (user_id, username, display_name)
+  SELECT id, $3, $4 FROM u
+)
+SELECT id, email, email_verified_at, role, status, created_at FROM u
 `
 
-type GetUserByEmailRow struct {
+type CreateAccountParams struct {
+	Email        string
+	PasswordHash string
+	Username     string
+	DisplayName  string
+}
+
+type CreateAccountRow struct {
 	ID              pgtype.UUID
 	Email           string
 	EmailVerifiedAt pgtype.Timestamptz
@@ -24,10 +42,20 @@ type GetUserByEmailRow struct {
 	CreatedAt       pgtype.Timestamptz
 }
 
-// Minimal bootstrap query proving generation for the identity area (never selects credentials).
-func (q *Queries) GetUserByEmail(ctx context.Context, email string) (GetUserByEmailRow, error) {
-	row := q.db.QueryRow(ctx, getUserByEmail, email)
-	var i GetUserByEmailRow
+// Identity queries for the S1 Store port (ADR-0003). Tokens and passwords are
+// only ever stored hashed; every lookup by token is by hash. All statements are
+// parameterized; the only dynamic value is the keep-id exclusion, which is a
+// bound uuid parameter.
+// CreateAccount writes user + credential + profile atomically: a single
+// statement is its own transaction, so no partial account can exist.
+func (q *Queries) CreateAccount(ctx context.Context, arg CreateAccountParams) (CreateAccountRow, error) {
+	row := q.db.QueryRow(ctx, createAccount,
+		arg.Email,
+		arg.PasswordHash,
+		arg.Username,
+		arg.DisplayName,
+	)
+	var i CreateAccountRow
 	err := row.Scan(
 		&i.ID,
 		&i.Email,
@@ -37,4 +65,323 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (GetUserByEm
 		&i.CreatedAt,
 	)
 	return i, err
+}
+
+const createEmailVerification = `-- name: CreateEmailVerification :exec
+INSERT INTO email_verifications (user_id, email, token_hash, expires_at)
+VALUES ($1, $2, $3, $4)
+`
+
+type CreateEmailVerificationParams struct {
+	UserID    pgtype.UUID
+	Email     string
+	TokenHash []byte
+	ExpiresAt pgtype.Timestamptz
+}
+
+func (q *Queries) CreateEmailVerification(ctx context.Context, arg CreateEmailVerificationParams) error {
+	_, err := q.db.Exec(ctx, createEmailVerification,
+		arg.UserID,
+		arg.Email,
+		arg.TokenHash,
+		arg.ExpiresAt,
+	)
+	return err
+}
+
+const createPasswordReset = `-- name: CreatePasswordReset :exec
+INSERT INTO password_resets (user_id, token_hash, expires_at)
+VALUES ($1, $2, $3)
+`
+
+type CreatePasswordResetParams struct {
+	UserID    pgtype.UUID
+	TokenHash []byte
+	ExpiresAt pgtype.Timestamptz
+}
+
+func (q *Queries) CreatePasswordReset(ctx context.Context, arg CreatePasswordResetParams) error {
+	_, err := q.db.Exec(ctx, createPasswordReset, arg.UserID, arg.TokenHash, arg.ExpiresAt)
+	return err
+}
+
+const createSession = `-- name: CreateSession :exec
+INSERT INTO sessions (id, user_id, token_hash, csrf_token_hash, idle_expires_at, absolute_expires_at)
+VALUES ($1, $2, $3, $4, $5, $6)
+`
+
+type CreateSessionParams struct {
+	ID                pgtype.UUID
+	UserID            pgtype.UUID
+	TokenHash         []byte
+	CsrfTokenHash     []byte
+	IdleExpiresAt     pgtype.Timestamptz
+	AbsoluteExpiresAt pgtype.Timestamptz
+}
+
+func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) error {
+	_, err := q.db.Exec(ctx, createSession,
+		arg.ID,
+		arg.UserID,
+		arg.TokenHash,
+		arg.CsrfTokenHash,
+		arg.IdleExpiresAt,
+		arg.AbsoluteExpiresAt,
+	)
+	return err
+}
+
+const getAccountByEmail = `-- name: GetAccountByEmail :one
+SELECT u.id, u.email, u.email_verified_at, u.role, u.status, u.created_at,
+       c.password_hash, p.username, p.display_name
+FROM users u
+JOIN user_credentials c ON c.user_id = u.id
+JOIN profiles p ON p.user_id = u.id
+WHERE u.email = $1
+`
+
+type GetAccountByEmailRow struct {
+	ID              pgtype.UUID
+	Email           string
+	EmailVerifiedAt pgtype.Timestamptz
+	Role            string
+	Status          string
+	CreatedAt       pgtype.Timestamptz
+	PasswordHash    string
+	Username        string
+	DisplayName     string
+}
+
+func (q *Queries) GetAccountByEmail(ctx context.Context, email string) (GetAccountByEmailRow, error) {
+	row := q.db.QueryRow(ctx, getAccountByEmail, email)
+	var i GetAccountByEmailRow
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.EmailVerifiedAt,
+		&i.Role,
+		&i.Status,
+		&i.CreatedAt,
+		&i.PasswordHash,
+		&i.Username,
+		&i.DisplayName,
+	)
+	return i, err
+}
+
+const getAccountByID = `-- name: GetAccountByID :one
+SELECT u.id, u.email, u.email_verified_at, u.role, u.status, u.created_at,
+       c.password_hash, p.username, p.display_name
+FROM users u
+JOIN user_credentials c ON c.user_id = u.id
+JOIN profiles p ON p.user_id = u.id
+WHERE u.id = $1
+`
+
+type GetAccountByIDRow struct {
+	ID              pgtype.UUID
+	Email           string
+	EmailVerifiedAt pgtype.Timestamptz
+	Role            string
+	Status          string
+	CreatedAt       pgtype.Timestamptz
+	PasswordHash    string
+	Username        string
+	DisplayName     string
+}
+
+func (q *Queries) GetAccountByID(ctx context.Context, id pgtype.UUID) (GetAccountByIDRow, error) {
+	row := q.db.QueryRow(ctx, getAccountByID, id)
+	var i GetAccountByIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.EmailVerifiedAt,
+		&i.Role,
+		&i.Status,
+		&i.CreatedAt,
+		&i.PasswordHash,
+		&i.Username,
+		&i.DisplayName,
+	)
+	return i, err
+}
+
+const getSessionByTokenHash = `-- name: GetSessionByTokenHash :one
+SELECT id, user_id, token_hash, csrf_token_hash, created_at, last_seen_at,
+       authenticated_at, idle_expires_at, absolute_expires_at, revoked_at, revoked_reason
+FROM sessions
+WHERE token_hash = $1
+`
+
+type GetSessionByTokenHashRow struct {
+	ID                pgtype.UUID
+	UserID            pgtype.UUID
+	TokenHash         []byte
+	CsrfTokenHash     []byte
+	CreatedAt         pgtype.Timestamptz
+	LastSeenAt        pgtype.Timestamptz
+	AuthenticatedAt   pgtype.Timestamptz
+	IdleExpiresAt     pgtype.Timestamptz
+	AbsoluteExpiresAt pgtype.Timestamptz
+	RevokedAt         pgtype.Timestamptz
+	RevokedReason     pgtype.Text
+}
+
+func (q *Queries) GetSessionByTokenHash(ctx context.Context, tokenHash []byte) (GetSessionByTokenHashRow, error) {
+	row := q.db.QueryRow(ctx, getSessionByTokenHash, tokenHash)
+	var i GetSessionByTokenHashRow
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.TokenHash,
+		&i.CsrfTokenHash,
+		&i.CreatedAt,
+		&i.LastSeenAt,
+		&i.AuthenticatedAt,
+		&i.IdleExpiresAt,
+		&i.AbsoluteExpiresAt,
+		&i.RevokedAt,
+		&i.RevokedReason,
+	)
+	return i, err
+}
+
+const hitRateLimit = `-- name: HitRateLimit :one
+INSERT INTO rate_limit_buckets (scope, key_hash, window_start, hits)
+VALUES ($1, $2, $3, 1)
+ON CONFLICT (scope, key_hash, window_start)
+DO UPDATE SET hits = rate_limit_buckets.hits + 1
+RETURNING hits
+`
+
+type HitRateLimitParams struct {
+	Scope       string
+	KeyHash     []byte
+	WindowStart pgtype.Timestamptz
+}
+
+func (q *Queries) HitRateLimit(ctx context.Context, arg HitRateLimitParams) (int32, error) {
+	row := q.db.QueryRow(ctx, hitRateLimit, arg.Scope, arg.KeyHash, arg.WindowStart)
+	var hits int32
+	err := row.Scan(&hits)
+	return hits, err
+}
+
+const resetPassword = `-- name: ResetPassword :one
+WITH c AS (
+  UPDATE password_resets SET consumed_at = $2
+  WHERE password_resets.token_hash = $1 AND consumed_at IS NULL AND expires_at > $2
+  RETURNING user_id
+), u AS (
+  UPDATE user_credentials SET password_hash = $3, password_changed_at = $2
+  FROM c WHERE user_credentials.user_id = c.user_id
+), s AS (
+  UPDATE sessions SET revoked_at = $2, revoked_reason = 'password_reset'
+  FROM c WHERE sessions.user_id = c.user_id AND sessions.revoked_at IS NULL
+), t AS (
+  UPDATE password_resets pr SET consumed_at = $2
+  FROM c WHERE pr.user_id = c.user_id AND pr.token_hash <> $1 AND pr.consumed_at IS NULL
+)
+SELECT user_id FROM c
+`
+
+type ResetPasswordParams struct {
+	TokenHash    []byte
+	ConsumedAt   pgtype.Timestamptz
+	PasswordHash string
+}
+
+// ResetPassword consumes the token, stores the new hash, revokes every
+// session of the account and burns every other open reset token for that
+// account in one statement: a single statement is its own transaction, so a
+// failure cannot leave a consumed token with the old password still active,
+// and an intercepted older mail cannot reset the account again.
+func (q *Queries) ResetPassword(ctx context.Context, arg ResetPasswordParams) (pgtype.UUID, error) {
+	row := q.db.QueryRow(ctx, resetPassword, arg.TokenHash, arg.ConsumedAt, arg.PasswordHash)
+	var user_id pgtype.UUID
+	err := row.Scan(&user_id)
+	return user_id, err
+}
+
+const revokeSession = `-- name: RevokeSession :exec
+UPDATE sessions SET revoked_at = $3, revoked_reason = $2
+WHERE id = $1 AND revoked_at IS NULL
+`
+
+type RevokeSessionParams struct {
+	ID            pgtype.UUID
+	RevokedReason pgtype.Text
+	RevokedAt     pgtype.Timestamptz
+}
+
+func (q *Queries) RevokeSession(ctx context.Context, arg RevokeSessionParams) error {
+	_, err := q.db.Exec(ctx, revokeSession, arg.ID, arg.RevokedReason, arg.RevokedAt)
+	return err
+}
+
+const revokeUserSessions = `-- name: RevokeUserSessions :exec
+UPDATE sessions SET revoked_at = $3, revoked_reason = $2
+WHERE user_id = $1 AND revoked_at IS NULL
+  AND ($4::uuid IS NULL OR id <> $4::uuid)
+`
+
+type RevokeUserSessionsParams struct {
+	UserID        pgtype.UUID
+	RevokedReason pgtype.Text
+	RevokedAt     pgtype.Timestamptz
+	Column4       pgtype.UUID
+}
+
+func (q *Queries) RevokeUserSessions(ctx context.Context, arg RevokeUserSessionsParams) error {
+	_, err := q.db.Exec(ctx, revokeUserSessions,
+		arg.UserID,
+		arg.RevokedReason,
+		arg.RevokedAt,
+		arg.Column4,
+	)
+	return err
+}
+
+const touchSession = `-- name: TouchSession :exec
+UPDATE sessions SET last_seen_at = $2, idle_expires_at = $3
+WHERE id = $1 AND revoked_at IS NULL
+`
+
+type TouchSessionParams struct {
+	ID            pgtype.UUID
+	LastSeenAt    pgtype.Timestamptz
+	IdleExpiresAt pgtype.Timestamptz
+}
+
+func (q *Queries) TouchSession(ctx context.Context, arg TouchSessionParams) error {
+	_, err := q.db.Exec(ctx, touchSession, arg.ID, arg.LastSeenAt, arg.IdleExpiresAt)
+	return err
+}
+
+const verifyEmail = `-- name: VerifyEmail :one
+WITH c AS (
+  UPDATE email_verifications SET consumed_at = $2
+  WHERE email_verifications.token_hash = $1 AND consumed_at IS NULL AND expires_at > $2
+  RETURNING user_id
+), u AS (
+  UPDATE users SET email_verified_at = $2, updated_at = $2
+  FROM c WHERE users.id = c.user_id AND users.email_verified_at IS NULL
+)
+SELECT user_id FROM c
+`
+
+type VerifyEmailParams struct {
+	TokenHash  []byte
+	ConsumedAt pgtype.Timestamptz
+}
+
+// VerifyEmail consumes the token and marks the account verified in one
+// statement: a single statement is its own transaction, so a failure cannot
+// burn the token while leaving the account unverified.
+func (q *Queries) VerifyEmail(ctx context.Context, arg VerifyEmailParams) (pgtype.UUID, error) {
+	row := q.db.QueryRow(ctx, verifyEmail, arg.TokenHash, arg.ConsumedAt)
+	var user_id pgtype.UUID
+	err := row.Scan(&user_id)
+	return user_id, err
 }

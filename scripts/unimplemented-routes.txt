@@ -8,14 +8,6 @@
 # The 4 P1 operations stay here for the whole P0 (ROADMAP O3, closed by B1).
 PATCH /api/v1/applications/{applicationId}   # decideApplication
 POST /api/v1/assistant/answers   # askAssistant
-GET /api/v1/auth/csrf   # getCsrfToken
-POST /api/v1/auth/password-reset/confirm   # confirmPasswordReset
-POST /api/v1/auth/password-reset/request   # requestPasswordReset
-GET /api/v1/auth/session   # getSession
-POST /api/v1/auth/sign-in   # signIn
-POST /api/v1/auth/sign-out   # signOut
-POST /api/v1/auth/sign-up   # signUp
-POST /api/v1/auth/verify-email   # verifyEmail
 POST /api/v1/contribution-needs/{needId}/applications   # createApplication
 GET /api/v1/learn/articles   # listLearnArticles
 POST /api/v1/learn/articles   # createLearnArticle
