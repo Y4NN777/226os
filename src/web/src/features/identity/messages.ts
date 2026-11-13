@@ -83,7 +83,8 @@ export const fr = {
 
   'identity.welcome.title': 'Bienvenue, {name}',
   'identity.welcome.anonymous.title': 'Bienvenue sur 226os',
-  'identity.welcome.anonymous.body': 'Connectez-vous pour poser, répondre et suivre vos projets.',
+  'identity.welcome.anonymous.body':
+    'Connectez-vous pour poser vos questions, répondre et suivre vos projets.',
   'identity.welcome.intro': 'Voici par où commencer.',
   'identity.welcome.discover': 'Découvrir le catalogue',
   'identity.welcome.search': 'Rechercher',
@@ -172,7 +173,7 @@ export const en: Record<keyof typeof fr, string> = {
 
   'identity.welcome.title': 'Welcome, {name}',
   'identity.welcome.anonymous.title': 'Welcome to 226os',
-  'identity.welcome.anonymous.body': 'Sign in to ask, answer and follow your projects.',
+  'identity.welcome.anonymous.body': 'Sign in to ask questions, answer and follow your projects.',
   'identity.welcome.intro': 'Here is where to start.',
   'identity.welcome.discover': 'Browse the catalogue',
   'identity.welcome.search': 'Search',
