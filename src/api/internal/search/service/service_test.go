@@ -128,8 +128,8 @@ func TestSearchOnlyRequestedTypesAreQueriedAndReturned(t *testing.T) {
 	}
 }
 
-// C4 PROPOSED option 1, ADR-0005 point 6.
-func TestSearchTruncatesTheTextButEchoesTheOriginalC4ProposedOption1(t *testing.T) {
+// C4 DECIDED option 1, ADR-0005 point 6.
+func TestSearchTruncatesTheTextButEchoesTheOriginalC4Option1(t *testing.T) {
 	original := strings.Repeat("mot ", 40) // 160 runes
 	r := &fakeReader{}
 	got, err := New(r, allow, nil).Search(t.Context(), Request{Q: original, Types: []string{"learn"}})

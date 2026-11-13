@@ -95,7 +95,7 @@ func (s *Service) allow(ctx context.Context, req Request) error {
 }
 
 // Search runs one query per requested group (all four by default), each fetching per_group+1 rows.
-// The text sent to the reader is truncated by C4 PROPOSED option 1 (ADR-0005 point 6); the
+// The text sent to the reader is truncated by C4 DECIDED option 1 (ADR-0005 point 6); the
 // response still echoes the original q.
 func (s *Service) Search(ctx context.Context, req Request) (Results, error) {
 	if err := s.allow(ctx, req); err != nil {

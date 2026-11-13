@@ -310,9 +310,9 @@ func TestSearchFiltersApplyWhereTheTableHasTheColumn(t *testing.T) {
 	}
 }
 
-// C4 PROPOSED option 1, ADR-0005 point 6: q is cut to 100 runes at a word boundary before parsing,
+// C4 DECIDED option 1, ADR-0005 point 6: q is cut to 100 runes at a word boundary before parsing,
 // the response echoes the original q. Without the cut the trailing term would be ANDed and match nothing.
-func TestSearchTruncatesLongQueriesC4ProposedOption1(t *testing.T) {
+func TestSearchTruncatesLongQueriesC4Option1(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 60*time.Second)
 	defer cancel()
 	e := newSearchEnv(ctx, t)
