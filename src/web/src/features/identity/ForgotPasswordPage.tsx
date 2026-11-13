@@ -66,6 +66,7 @@ export function ForgotPasswordPage() {
         )
       ) : null}
       <form
+        method="post"
         ref={formRef}
         noValidate
         onSubmit={(event) => {

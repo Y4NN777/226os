@@ -131,6 +131,7 @@ export function SignUpPage() {
         )
       ) : null}
       <form
+        method="post"
         ref={formRef}
         noValidate
         onSubmit={(event) => {

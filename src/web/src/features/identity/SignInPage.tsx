@@ -34,23 +34,6 @@ function SignInNotice({ error }: { error: unknown }) {
         </FocusRegion>
       );
     }
-    if (error.code === 'EMAIL_NOT_VERIFIED') {
-      return (
-        <FocusRegion role="alert">
-          <Banner
-            status="warning"
-            title={t('identity.signIn.unverified.title')}
-            description={
-              <>
-                <Text as="p">{t('identity.signIn.unverified.body')}</Text>
-                <Link href="/verifier-email">{t('identity.signIn.unverified.link')}</Link>
-              </>
-            }
-            collapsible={false}
-          />
-        </FocusRegion>
-      );
-    }
     if (error.code === 'RATE_LIMITED') return <RateLimitNotice />;
   }
   return <FailureNotice error={error} />;
@@ -96,6 +79,7 @@ export function SignInPage() {
       <Heading level={1}>{t('identity.signIn.title')}</Heading>
       {failure ? <SignInNotice key={failure.n} error={failure.error} /> : null}
       <form
+        method="post"
         ref={formRef}
         noValidate
         onSubmit={(event) => {

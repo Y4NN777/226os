@@ -1,3 +1,5 @@
+import { isSafeInternalPath } from '../../components/safePath';
+
 export interface SignInSearch {
   /** Same-origin path to return to after sign-in. */
   next?: string;
@@ -5,9 +7,7 @@ export interface SignInSearch {
 
 /** Only a same-origin path is kept, so `next` can never become an open redirect. */
 export function safeNext(value: unknown): string | undefined {
-  if (typeof value !== 'string') return undefined;
-  if (!value.startsWith('/') || value.startsWith('//') || value.includes('\\')) return undefined;
-  return value;
+  return typeof value === 'string' && isSafeInternalPath(value) ? value : undefined;
 }
 
 export function validateSignInSearch(raw: Record<string, unknown>): SignInSearch {

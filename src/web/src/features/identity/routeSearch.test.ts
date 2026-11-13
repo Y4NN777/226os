@@ -10,6 +10,12 @@ describe('safeNext', () => {
     ['/\\evil.example', undefined],
     ['javascript:alert(1)', undefined],
     [42, undefined],
+    ['/\t/evil.example', undefined],
+    ['/\n/evil.example', undefined],
+    ['/\r/x', undefined],
+    ['/\u0001/x', undefined],
+    ['/ /x', undefined],
+    ['/%5Cevil.example', undefined],
   ])('%s -> %s', (input, expected) => {
     expect(safeNext(input)).toBe(expected);
   });

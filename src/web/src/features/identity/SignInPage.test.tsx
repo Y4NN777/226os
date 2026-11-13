@@ -119,19 +119,19 @@ describe('SignInPage', () => {
     },
   );
 
-  it('asks to confirm the address and links to the verification page', async () => {
+  it.each([
+    '/connexion',
+    '/inscription',
+    '/mot-de-passe-oublie',
+    '/reinitialiser',
+    '/verifier-email',
+  ])('never lets a native submit put credentials in the URL (%s)', async (path) => {
     setLanguages(['fr-FR']);
-    mockApi({ [SIGN_IN]: () => problemResponse(403, 'EMAIL_NOT_VERIFIED') });
-    const user = userEvent.setup();
-    await renderApp('/connexion');
+    mockApi();
+    await renderApp(path);
     await screen.findByRole('heading', { level: 1 });
-    await fill(user, 'awa@example.org', 'a long passphrase');
-    await user.click(screen.getByRole('button', { name: 'Se connecter' }));
-    expect(await findAlert(/Confirmez votre adresse e-mail/)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Confirmer mon adresse' })).toHaveAttribute(
-      'href',
-      '/verifier-email',
-    );
+    const form = document.querySelector('main form');
+    expect(form).toHaveAttribute('method', 'post');
   });
 
   it('counts down after a 429 and keeps submit disabled until it reaches 0', async () => {
