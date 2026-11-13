@@ -49,17 +49,12 @@ type MeView struct {
 	Profile domain.Profile
 }
 
-// GetMe returns the caller's account and own profile. It requires an
-// authenticated user id; the transport rejects anonymous callers first.
-func (s *Service) GetMe(ctx context.Context, userID string) (MeView, error) {
-	acct, err := s.store.AccountByID(ctx, userID)
-	if err != nil {
-		if errors.Is(err, domain.ErrNotFound) {
-			return MeView{}, unauthenticated()
-		}
-		return MeView{}, apperr.Wrap(apperr.CodeInternal, err)
-	}
-	prof, err := s.store.ProfileByUserID(ctx, userID)
+// GetMe returns the caller's account and own profile. The account comes from
+// the live session the middleware already resolved (acct), so it is read once
+// per request; only the profile is loaded here. The transport rejects
+// anonymous callers first.
+func (s *Service) GetMe(ctx context.Context, acct domain.Account) (MeView, error) {
+	prof, err := s.store.ProfileByUserID(ctx, acct.ID)
 	if err != nil {
 		return MeView{}, apperr.Wrap(apperr.CodeInternal, err)
 	}
@@ -77,7 +72,7 @@ func (s *Service) UpdateMyProfile(ctx context.Context, userID string, w domain.P
 	if err := validateProfileWrite(&w); err != nil {
 		return domain.Profile{}, err
 	}
-	if w.SkillTagIDs.Present {
+	if w.SkillSlugs.Present {
 		if err := s.resolveSkills(ctx, &w); err != nil {
 			return domain.Profile{}, err
 		}
@@ -151,7 +146,7 @@ func validateProfileWrite(w *domain.ProfileWrite) error {
 		!w.Languages.Present && !w.GitHub.Present && !w.Bio.Present &&
 		!w.OpenToCollab.Present && !w.VisCountry.Present && !w.VisLanguages.Present &&
 		!w.VisSkills.Present && !w.VisGitHub.Present && !w.VisBio.Present &&
-		!w.Visibility.Present && !w.SkillTagIDs.Present {
+		!w.Visibility.Present && !w.SkillSlugs.Present {
 		return apperr.New(apperr.CodeValidation, "The patch must change at least one field.")
 	}
 	violations := []apperr.Violation{}
@@ -205,7 +200,7 @@ func validateProfileWrite(w *domain.ProfileWrite) error {
 			add(f.name, "invalid_value")
 		}
 	}
-	if w.SkillTagIDs.Present && w.SkillTagIDs.Value != nil && len(*w.SkillTagIDs.Value) > maxSkills {
+	if w.SkillSlugs.Present && w.SkillSlugs.Value != nil && len(*w.SkillSlugs.Value) > maxSkills {
 		add("skills", "too_many")
 	}
 	if len(violations) > 0 {
@@ -218,12 +213,12 @@ func validateProfileWrite(w *domain.ProfileWrite) error {
 // does not resolve rejects the whole patch: a partial skill set would silently
 // drop the owner's choice.
 func (s *Service) resolveSkills(ctx context.Context, w *domain.ProfileWrite) error {
-	if w.SkillTagIDs.Value == nil || *w.SkillTagIDs.Value == nil {
+	if w.SkillSlugs.Value == nil || *w.SkillSlugs.Value == nil {
 		empty := []string{}
-		w.SkillTagIDs.Value = &empty // present + nil: clear every skill
+		w.SkillTagIDs = domain.PatchField[[]string]{Present: true, Value: &empty} // present + nil: clear every skill
 		return nil
 	}
-	slugs := *w.SkillTagIDs.Value
+	slugs := *w.SkillSlugs.Value
 	ids, err := s.store.ResolveSkillSlugs(ctx, slugs)
 	if err != nil {
 		return apperr.Wrap(apperr.CodeInternal, err)
@@ -232,7 +227,7 @@ func (s *Service) resolveSkills(ctx context.Context, w *domain.ProfileWrite) err
 		return apperr.New(apperr.CodeValidation, "One or more skills are unknown.").
 			WithViolations(apperr.Violation{Field: "skills", Code: "unknown_value"})
 	}
-	w.SkillTagIDs.Value = &ids
+	w.SkillTagIDs = domain.PatchField[[]string]{Present: true, Value: &ids}
 	return nil
 }
 

@@ -33,39 +33,31 @@ func strp(s string) *string { return &s }
 func TestGetMeReturnsAccountAndProfile(t *testing.T) {
 	svc, st, _ := testSvc(t)
 	acct := domain.Account{ID: "u1", Email: "a@b.c", Username: "ann", DisplayName: "Ann", Status: "active"}
-	st.accounts["u1"] = acct
 	seedProfile(st, "ann", "u1", domain.VisibilityPublic)
-	view, err := svc.GetMe(context.Background(), "u1")
+	view, err := svc.GetMe(context.Background(), acct)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if view.Account.ID != "u1" || view.Profile.Username != "ann" {
+	if view.Account.ID != "u1" || view.Account.Email != "a@b.c" || view.Profile.Username != "ann" {
 		t.Fatalf("unexpected view %+v", view)
 	}
 }
 
-func TestGetMeAccountNotFoundIsUnauthenticated(t *testing.T) {
-	svc, _, _ := testSvc(t)
-	_, err := svc.GetMe(context.Background(), "ghost")
-	if apperrCode(t, err) != apperr.CodeUnauthenticated {
-		t.Fatalf("expected %v, got %v", apperr.CodeUnauthenticated, err)
-	}
-}
-
-func TestGetMeAccountStoreErrorIsInternal(t *testing.T) {
+// The account is the one the session resolution already loaded: GetMe never
+// reads it again (its not-found and store-error cases are ResolveSession's).
+func TestGetMeDoesNotReadTheAccountAgain(t *testing.T) {
 	svc, st, _ := testSvc(t)
-	st.errs = map[string]error{"AccountByID": errors.New("db down")}
-	_, err := svc.GetMe(context.Background(), "u1")
-	if apperrCode(t, err) != apperr.CodeInternal {
-		t.Fatalf("expected %v, got %v", apperr.CodeInternal, err)
+	seedProfile(st, "ann", "u1", domain.VisibilityPublic)
+	st.errs = map[string]error{"AccountByID": errors.New("must not be called")}
+	if _, err := svc.GetMe(context.Background(), domain.Account{ID: "u1", Status: "active"}); err != nil {
+		t.Fatalf("GetMe read the account again: %v", err)
 	}
 }
 
 func TestGetMeProfileErrorIsInternal(t *testing.T) {
 	svc, st, _ := testSvc(t)
-	st.accounts["u1"] = domain.Account{ID: "u1", Status: "active"}
 	st.errs = map[string]error{"ProfileByUserID": errors.New("db down")}
-	_, err := svc.GetMe(context.Background(), "u1")
+	_, err := svc.GetMe(context.Background(), domain.Account{ID: "u1", Status: "active"})
 	if apperrCode(t, err) != apperr.CodeInternal {
 		t.Fatalf("expected %v, got %v", apperr.CodeInternal, err)
 	}
@@ -223,7 +215,7 @@ func TestUpdateMyProfileSkillsResolveAndRejectUnknown(t *testing.T) {
 	st.tagIDs["rust"] = "tag-2"
 
 	slugs := []string{"go", "rust"}
-	w := domain.ProfileWrite{SkillTagIDs: domain.PatchField[[]string]{Present: true, Value: &slugs}}
+	w := domain.ProfileWrite{SkillSlugs: domain.PatchField[[]string]{Present: true, Value: &slugs}}
 	prof, err := svc.UpdateMyProfile(context.Background(), "u1", w)
 	if err != nil {
 		t.Fatal(err)
@@ -234,7 +226,7 @@ func TestUpdateMyProfileSkillsResolveAndRejectUnknown(t *testing.T) {
 
 	// unknown slug rejects the whole patch
 	slugs = []string{"go", "nope"}
-	w = domain.ProfileWrite{SkillTagIDs: domain.PatchField[[]string]{Present: true, Value: &slugs}}
+	w = domain.ProfileWrite{SkillSlugs: domain.PatchField[[]string]{Present: true, Value: &slugs}}
 	_, err = svc.UpdateMyProfile(context.Background(), "u1", w)
 	if apperrCode(t, err) != apperr.CodeValidation {
 		t.Fatalf("expected %v, got %v", apperr.CodeValidation, err)
@@ -249,7 +241,7 @@ func TestUpdateMyProfileSkillsClearAndTooMany(t *testing.T) {
 	st.tagIDs["go"] = "tag-1"
 
 	// present + nil clears
-	w := domain.ProfileWrite{SkillTagIDs: domain.PatchField[[]string]{Present: true, Value: nil}}
+	w := domain.ProfileWrite{SkillSlugs: domain.PatchField[[]string]{Present: true, Value: nil}}
 	prof, err := svc.UpdateMyProfile(context.Background(), "u1", w)
 	if err != nil {
 		t.Fatal(err)
@@ -263,7 +255,7 @@ func TestUpdateMyProfileSkillsClearAndTooMany(t *testing.T) {
 	for i := range many {
 		many[i] = "go"
 	}
-	w = domain.ProfileWrite{SkillTagIDs: domain.PatchField[[]string]{Present: true, Value: &many}}
+	w = domain.ProfileWrite{SkillSlugs: domain.PatchField[[]string]{Present: true, Value: &many}}
 	_, err = svc.UpdateMyProfile(context.Background(), "u1", w)
 	if apperrCode(t, err) != apperr.CodeValidation {
 		t.Fatalf("expected %v, got %v", apperr.CodeValidation, err)
@@ -319,7 +311,7 @@ func TestUpdateMyProfileStoreErrors(t *testing.T) {
 
 	st.errs = map[string]error{"ResolveSkillSlugs": errors.New("db down")}
 	slugs := []string{"go"}
-	w2 := domain.ProfileWrite{SkillTagIDs: domain.PatchField[[]string]{Present: true, Value: &slugs}}
+	w2 := domain.ProfileWrite{SkillSlugs: domain.PatchField[[]string]{Present: true, Value: &slugs}}
 	_, err = svc.UpdateMyProfile(context.Background(), "u1", w2)
 	if apperrCode(t, err) != apperr.CodeInternal {
 		t.Fatalf("expected %v, got %v", apperr.CodeInternal, err)
@@ -478,5 +470,25 @@ func TestGetProfileVisibleNilSlicesBecomeEmpty(t *testing.T) {
 	}
 	if pub.Languages == nil || pub.Skills == nil {
 		t.Fatalf("expected empty non-nil slices, got %+v", pub)
+	}
+}
+
+// SkillSlugs is the client's input and SkillTagIDs the resolved ids: a field
+// never holds both (review of PR #94).
+func TestUpdateMyProfileKeepsSlugsAndIDsInSeparateFields(t *testing.T) {
+	svc, st, _ := testSvc(t)
+	seedProfile(st, "ann", "u1", domain.VisibilityPublic)
+	st.tagIDs["go"] = "tag-1"
+	slugs := []string{"go"}
+	w := domain.ProfileWrite{SkillSlugs: domain.PatchField[[]string]{Present: true, Value: &slugs}}
+	if _, err := svc.UpdateMyProfile(context.Background(), "u1", w); err != nil {
+		t.Fatal(err)
+	}
+	got := st.lastWrite
+	if !got.SkillTagIDs.Present || got.SkillTagIDs.Value == nil || len(*got.SkillTagIDs.Value) != 1 || (*got.SkillTagIDs.Value)[0] != "tag-1" {
+		t.Fatalf("the store must receive the resolved ids: %+v", got.SkillTagIDs)
+	}
+	if !got.SkillSlugs.Present || (*got.SkillSlugs.Value)[0] != "go" {
+		t.Fatalf("the slugs must stay as the client sent them: %+v", got.SkillSlugs)
 	}
 }
