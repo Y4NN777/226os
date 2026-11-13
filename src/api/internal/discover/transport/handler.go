@@ -34,7 +34,7 @@ func New(svc *service.Service, reports *service.Reports, logger *slog.Logger) *H
 // ListResources serves GET /resources.
 func (h *Handler) ListResources(w http.ResponseWriter, r *http.Request, params apigen.ListResourcesParams) {
 	page, err := h.svc.List(r.Context(), service.ListRequest{
-		Q: params.Q, Country: params.Country, Category: params.Category, Type: defined(params.Type),
+		Q: params.Q, Countries: derefList(params.Country), Category: params.Category, Type: defined(params.Type),
 		SDK: params.Sdk, Provider: params.Provider, Doclang: lang(params.Doclang),
 		Cursor: deref(params.Cursor), Limit: params.Limit,
 	})
@@ -138,7 +138,7 @@ func resourceJSON(item domain.Resource) (apigen.Resource, error) {
 	out := apigen.Resource{
 		Category: item.Category, Countries: item.Countries, DocLanguages: langs, DocsUrl: item.DocsURL,
 		Id: id, LastVerifiedAt: item.LastVerifiedAt, Name: item.Name, Related: related, SdkLanguages: sdks,
-		Slug: item.Slug, SourceCount: item.SourceCount, Summary: item.Summary, Type: apigen.ResourceType(item.Type),
+		Provenance: apigen.ResourceProvenance(item.Provenance), Slug: item.Slug, SourceCount: item.SourceCount, Summary: item.Summary, Type: apigen.ResourceType(item.Type),
 		UpdatedAt: item.UpdatedAt, VerificationStatus: apigen.VerificationStatus(item.VerificationStatus),
 	}
 	out.Provider.Name = item.Provider.Name
@@ -190,6 +190,13 @@ func writeErr(logger *slog.Logger, w http.ResponseWriter, r *http.Request, err e
 		return
 	}
 	httpx.WriteError(logger)(w, r, apperr.Wrap(apperr.CodeInternal, err))
+}
+
+func derefList(v *[]string) []string {
+	if v == nil {
+		return nil
+	}
+	return *v
 }
 
 func deref(v *string) string {
