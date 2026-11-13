@@ -43,6 +43,7 @@ def log(entry):
 path = endpoint.split("?")[0]
 if method == "GET":
     if path.endswith("/comments"): print(json.dumps(load("comments.json")))
+    elif "/compare/" in path: print(json.dumps(load("compare.json")))
     elif "/pulls/" in path: print(json.dumps(load("pull.json")))
     elif path.endswith("/issues"):
         print(json.dumps([x for x in load("issues.json") if "finding" in [l if isinstance(l, str) else l["name"] for l in x["labels"]]]))
@@ -83,7 +84,8 @@ EOF
 reset() {
   printf '[]' >"$tmp/st/comments.json"
   printf '[]' >"$tmp/st/issues.json"
-  printf '{"number":94,"title":"S1 profiles","merged":true,"user":{"login":"NICE-DEV226"},"head":{"ref":"feature/identity/profiles"}}' >"$tmp/st/pull.json"
+  printf '{"number":94,"title":"S1 profiles","merged":true,"user":{"login":"NICE-DEV226"},"head":{"ref":"feature/identity/profiles","sha":"fedcba9876543"}}' >"$tmp/st/pull.json"
+  printf '{"files":[]}' >"$tmp/st/compare.json"
   : >"$tmp/st/log.jsonl"
 }
 
@@ -162,9 +164,31 @@ run harvest
 # title of the issue is checked too.
 reset
 ledger_comments "[$F_HIGH,$F_MED1]" >"$tmp/st/comments.json"
-printf '[{"number":100,"title":"skills-upsert: double submit returns 500","body":"edited by a human, marker gone","state":"open","state_reason":null,"labels":["finding"],"created_at":"2026-11-13T09:00:00Z"},{"number":101,"title":"PR94 follow-ups","body":"edited by a human","state":"open","state_reason":null,"labels":["finding"],"created_at":"2026-11-13T09:00:00Z"}]' >"$tmp/st/issues.json"
+printf '[{"number":100,"title":"PR94 skills-upsert: double submit returns 500","body":"edited by a human, marker gone","state":"open","state_reason":null,"labels":["finding"],"created_at":"2026-11-13T09:00:00Z"},{"number":101,"title":"PR94 follow-ups","body":"edited by a human","state":"open","state_reason":null,"labels":["finding"],"created_at":"2026-11-13T09:00:00Z"}]' >"$tmp/st/issues.json"
 run harvest
 [ "$(count_issues)" -eq 2 ] && ok "an issue whose marker was edited away is recognised by its title: no duplicate" || ko "title dedupe (n=$(count_issues) out=$out)"
+
+# The title carries the pull request number, so the title check is per pull request: the same finding id and wording on
+# another pull request is a different issue (review note on #115).
+reset
+ledger_comments "[$F_HIGH]" >"$tmp/st/comments.json"
+printf '[{"number":100,"title":"PR90 skills-upsert: double submit returns 500","body":"<!-- finding:PR90#skills-upsert -->","state":"open","state_reason":null,"labels":["finding"],"created_at":"2026-11-13T09:00:00Z"}]' >"$tmp/st/issues.json"
+run harvest
+[ "$(count_issues)" -eq 2 ] && grep -q '^PR94 skills-upsert' <<<"$(field 1 title)" && ok "the same finding on another pull request is filed (titles are per pull request)" || ko "per-PR title (n=$(count_issues) t=$(field 1 title))"
+
+# A finding whose file changed after the commit the review looked at may already be fixed: it is still filed (nobody
+# loses a finding), but the issue says so, and the first thing to do is to verify it (review note on #115).
+reset
+ledger_comments "[$F_HIGH,$F_MED1]" >"$tmp/st/comments.json"
+printf '{"files":[{"filename":"db/queries/identity.sql"}]}' >"$tmp/st/compare.json"
+run harvest
+grep -q 'changed after the review' <<<"$(field 0 body)" && ok "a HIGH whose file changed after the review says so in its issue" || ko "stale high ($(field 0 body))"
+grep -q -- '- \[ \].*a.go:3' <<<"$(field 1 body)" && ! grep -q 'a.go:3.*changed after the review' <<<"$(field 1 body)" && ok "a follow-up whose file did not change carries no stale note" || ko "stale followup ($(field 1 body))"
+reset
+ledger_comments "[$F_HIGH]" >"$tmp/st/comments.json"
+printf '{"files":[{"filename":"other.go"}]}' >"$tmp/st/compare.json"
+run harvest
+! grep -q 'changed after the review' <<<"$(field 0 body)" && ok "a finding whose file did not change carries no stale note" || ko "not stale ($(field 0 body))"
 
 # ---------- dashboard: what to fix next, from issue state only ----------
 mkissue() { # NUMBER STATE REASON "label,label" CREATED TITLE

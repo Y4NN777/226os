@@ -260,6 +260,11 @@ reset; files src/api/internal/app/app.go
 GATE_NEW=enforce run report dev
 [ "$rc" -eq 0 ] && ok "GATE_NEW=enforce with nothing to report passes in report mode" || ko "independent clean (rc=$rc out=$out)"
 
+# When GATE_NEW=enforce blocks, the findings of the other checks are still printed (review note on #115).
+reset; files .devin/skills/x scripts/x.sh
+GATE_NEW=enforce run report dev
+[ "$rc" -eq 1 ] && grep -q 'FAIL (GATE_NEW=enforce)' <<<"$out" && grep -q 'WOULD FAIL: sensitive paths touched' <<<"$out" && ok "a blocking new check still prints what the other checks found" || ko "print all (rc=$rc out=$out)"
+
 # A negation is not a closing keyword (review note on #114).
 reset; set_pull "This does not close #12, it only prepares it." "[]" "fix/identity/x"; files src/api/internal/app/app.go
 GATE_NEW=enforce run enforce dev

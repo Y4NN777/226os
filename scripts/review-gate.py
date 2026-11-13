@@ -277,6 +277,8 @@ def main():
 
     # GATE_NEW=enforce blocks on its own: promoting it does not depend on GATE_MODE (review note on #114).
     if new_failures:
+        for f in failures:  # what the main checks found is still shown, with the verdict their own mode gives
+            print("review-gate: %s: %s" % ("FAIL" if mode == "enforce" else "WOULD FAIL", f))
         for f in new_failures:
             print("review-gate: FAIL (GATE_NEW=enforce): " + f)
         print("review-gate: FAIL")

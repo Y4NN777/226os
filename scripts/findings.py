@@ -95,7 +95,7 @@ def create_issue(binary, repo, title, body, labels, author):
 def neutral(text):
     """Text that came from the ledger (model output): an @mention would notify the person, so a zero-width space is
     put after the @. The name stays readable."""
-    return re.sub(r"@(?=[A-Za-z0-9_-])", "@​", text or "")
+    return re.sub(r"@(?=[A-Za-z0-9_-])", "@" + chr(0x200B), text or "")
 
 
 def slug(identifier):
@@ -103,30 +103,49 @@ def slug(identifier):
     return re.sub(r"[^\w-]+", "-", identifier)
 
 
-def single_title(f):
-    return neutral("%s: %s" % (f["id"], f["title"][:90]))
+def single_title(pr, f):
+    """The title carries the pull request number: the title check against a human-edited issue is then per pull request."""
+    return neutral("PR%s %s: %s" % (pr, f["id"], f["title"][:90]))
 
 
-def single_body(pr, pr_title, f):
-    return "\n".join([
+STALE = "its file changed after the review (a later push may have fixed it): verify that it still applies before working on it"
+
+
+def changed_since(ctx, binary, repo, reviewed_sha, head_sha):
+    """The files changed between the commit the review looked at and the head of the merged pull request (the GitHub
+    compare API); an empty set when that cannot be read (then no finding is flagged)."""
+    if not reviewed_sha or not head_sha or head_sha.startswith(reviewed_sha):
+        return set()
+    try:
+        items = ctx.gh_api(binary, "repos/%s/compare/%s...%s" % (repo, reviewed_sha, head_sha))
+    except ctx.Unavailable:
+        return set()
+    return {f.get("filename", "") for item in items for f in item.get("files", [])}
+
+
+def single_body(pr, pr_title, f, stale=False):
+    lines = [
         marker_of(pr, slug(f["id"])),
         "Found by the AI review of PR #%s (%s)." % (pr, neutral(pr_title)),
         "",
         "- Where: `%s:%s`" % (neutral(f["file"]) or "?", f["line"] or "?"),
         "- Severity: %s" % f["sev"],
         "- Scenario: %s" % neutral(f["title"]),
-        "",
-        "Close as **completed** when it is fixed (with a test), or as **not planned** when it is accepted or not a defect "
-        "(say why in the closing comment).",
-    ])
+    ]
+    if stale:
+        lines.append("- Note: " + STALE + ".")
+    lines += ["", "Close as **completed** when it is fixed (with a test), or as **not planned** when it is accepted or not a "
+              "defect (say why in the closing comment)."]
+    return "\n".join(lines)
 
 
-def followups_body(pr, pr_title, findings):
+def followups_body(pr, pr_title, findings, changed=frozenset()):
     lines = [marker_of(pr, "followups"), "Open findings of the AI review of PR #%s (%s) that do not get their own issue. "
              "Tick a box when it is fixed; close the issue when none is left." % (pr, neutral(pr_title)), ""]
     for f in findings:
-        lines.append("- [ ] `%s` [%s] `%s:%s` %s" % (neutral(f["id"]), f["sev"], neutral(f["file"]) or "?", f["line"] or "?",
-                                                      neutral(f["title"])))
+        note = " (%s)" % STALE if f["file"] in changed else ""
+        lines.append("- [ ] `%s` [%s] `%s:%s` %s%s" % (neutral(f["id"]), f["sev"], neutral(f["file"]) or "?", f["line"] or "?",
+                                                        neutral(f["title"]), note))
     return "\n".join(lines)
 
 
@@ -156,16 +175,21 @@ def harvest(ctx, binary, repo, pr, author_env):
         # A human may edit an issue body and drop the marker: the title is checked too, so a re-run files no duplicate.
         existing_titles.add(issue.get("title", ""))
 
+    # A later push may have fixed a finding without a new review: the finding is still filed (nobody loses one), but
+    # its issue says that the file changed after the review, so the first step is to verify it.
+    changed = changed_since(ctx, binary, repo, ledger["sha"], (info.get("head") or {}).get("sha", ""))
+
     serious = [f for f in open_findings if f["sev"] in SERIOUS]
     singles, overflow = serious[:MAX_SINGLE], serious[MAX_SINGLE:]
     rest = overflow + [f for f in open_findings if f["sev"] not in SERIOUS]
     filed = 0
     for f in singles:
         key = "PR%s#%s" % (pr, slug(f["id"]))
-        issue_title = single_title(f)
+        issue_title = single_title(pr, f)
         if key in existing or issue_title in existing_titles:
             continue
-        if create_issue(binary, repo, issue_title, single_body(pr, title, f), finding_labels(f["sev"], area), author):
+        body = single_body(pr, title, f, stale=f["file"] in changed)
+        if create_issue(binary, repo, issue_title, body, finding_labels(f["sev"], area), author):
             filed += 1
             print("findings: filed %s" % key)
         else:
@@ -174,7 +198,7 @@ def harvest(ctx, binary, repo, pr, author_env):
         worst = min((f["sev"] for f in rest), key=lambda s: SEV_RANK[s])
         labels = finding_labels(worst, area)
         labels[-1] = "due:after-freeze"
-        if create_issue(binary, repo, "PR%s follow-ups" % pr, followups_body(pr, title, rest), labels, author):
+        if create_issue(binary, repo, "PR%s follow-ups" % pr, followups_body(pr, title, rest, changed), labels, author):
             filed += 1
             print("findings: filed PR%s#followups (%d findings)" % (pr, len(rest)))
         else:
