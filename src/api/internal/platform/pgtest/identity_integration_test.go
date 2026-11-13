@@ -109,32 +109,39 @@ func (s *identityStack) signUp(t *testing.T, email, username string) {
 	}
 }
 
-// mailToken extracts the single-use token from the last captured mail body
-// whose subject contains subjectSub. Sends are asynchronous, so verification
-// and reset mails for the same address can land in either order: matching on
-// the subject is the only reliable discriminator.
-func (s *identityStack) mailToken(t *testing.T, to, subjectSub string) string {
+// mailTokens returns the single-use tokens of every mail captured for to, in
+// send order. The token is the only bare base64url line in a body.
+func (s *identityStack) mailTokens(to string) []string {
+	var tokens []string
+	for _, m := range s.mail.Sent() {
+		if len(m.To) != 1 || m.To[0] != to {
+			continue
+		}
+		for _, line := range strings.Split(m.Text, "\n") {
+			line = strings.TrimSpace(line)
+			if len(line) >= 40 && !strings.ContainsAny(line, " :") {
+				tokens = append(tokens, line)
+			}
+		}
+	}
+	return tokens
+}
+
+// mailToken waits for the mail that follows the first `after` mails captured
+// for to, and returns its token. Mails are sent off the request path (a
+// goroutine), so the caller passes len(s.mailTokens(to)) taken BEFORE the
+// action: returning the latest token instead races the send and can hand back
+// an older mail's token (#91).
+func (s *identityStack) mailToken(t *testing.T, to string, after int) string {
 	t.Helper()
 	deadline := time.Now().Add(2 * time.Second)
 	for time.Now().Before(deadline) {
-		var token string
-		for _, m := range s.mail.Sent() {
-			if len(m.To) == 1 && m.To[0] == to && strings.Contains(m.Subject, subjectSub) {
-				// The token is the only bare base64url line in the body.
-				for _, line := range strings.Split(m.Text, "\n") {
-					line = strings.TrimSpace(line)
-					if len(line) >= 40 && !strings.ContainsAny(line, " :") {
-						token = line
-					}
-				}
-			}
-		}
-		if token != "" {
-			return token
+		if tokens := s.mailTokens(to); len(tokens) > after {
+			return tokens[after]
 		}
 		time.Sleep(20 * time.Millisecond)
 	}
-	t.Fatalf("no mail token for %s", to)
+	t.Fatalf("no new mail token for %s after %d", to, after)
 	return ""
 }
 
@@ -164,7 +171,7 @@ func TestIdentityEndToEnd(t *testing.T) {
 
 	// Sign-up -> verification mail -> verify -> sign-in -> session -> sign-out.
 	s.signUp(t, "e2e@example.com", "e2euser")
-	vtok := s.mailToken(t, "e2e@example.com", "Verify")
+	vtok := s.mailToken(t, "e2e@example.com", 0)
 	cookie, csrf := s.csrfToken(t)
 	rec = s.do(t, http.MethodPost, "/api/v1/auth/verify-email",
 		`{"token":"`+vtok+`"}`, map[string]string{"X-CSRF-Token": csrf}, cookie)
@@ -240,6 +247,7 @@ func TestIdentitySignInRotationAndReset(t *testing.T) {
 	defer cancel()
 	s := newIdentityStack(ctx, t)
 	s.signUp(t, "rot@example.com", "rotuser")
+	_ = s.mailToken(t, "rot@example.com", 0) // wait for the verification mail so the reset mail is the 2nd
 
 	// Sign in twice: second sign-in must not kill the first session.
 	cookie, csrf := s.csrfToken(t)
@@ -289,7 +297,7 @@ func TestIdentitySignInRotationAndReset(t *testing.T) {
 	if rec.Code != http.StatusAccepted {
 		t.Fatalf("reset request %d", rec.Code)
 	}
-	rtok := s.mailToken(t, "rot@example.com", "Reset")
+	rtok := s.mailToken(t, "rot@example.com", 1)
 	cookie, csrf = s.csrfToken(t)
 	rec = s.do(t, http.MethodPost, "/api/v1/auth/password-reset/confirm",
 		`{"token":"`+rtok+`","new_password":"brand-new-password-1"}`,
@@ -325,7 +333,7 @@ func TestIdentityResetBurnsSiblingTokens(t *testing.T) {
 	s := newIdentityStack(ctx, t)
 
 	s.signUp(t, "sib@example.com", "sibuser")
-	vtok := s.mailToken(t, "sib@example.com", "Verify")
+	vtok := s.mailToken(t, "sib@example.com", 0)
 	cookie, csrf := s.csrfToken(t)
 	rec := s.do(t, http.MethodPost, "/api/v1/auth/verify-email",
 		`{"token":"`+vtok+`"}`, map[string]string{"X-CSRF-Token": csrf}, cookie)
@@ -342,28 +350,13 @@ func TestIdentityResetBurnsSiblingTokens(t *testing.T) {
 			t.Fatalf("reset request %d", rec.Code)
 		}
 	}
-	newest := s.mailToken(t, "sib@example.com", "Reset")
-	// The older token is the previous mail's: extract it by counting mails.
-	var tokens []string
-	deadline := time.Now().Add(2 * time.Second)
-	for time.Now().Before(deadline) && len(tokens) < 3 {
-		tokens = nil
-		for _, m := range s.mail.Sent() {
-			if len(m.To) == 1 && m.To[0] == "sib@example.com" {
-				for _, line := range strings.Split(m.Text, "\n") {
-					line = strings.TrimSpace(line)
-					if len(line) >= 40 && !strings.ContainsAny(line, " :") {
-						tokens = append(tokens, line)
-					}
-				}
-			}
-		}
-		time.Sleep(20 * time.Millisecond)
+	// Wait for both reset mails (after the verification mail); the two sends
+	// race each other, so which is "older" does not matter: both are live.
+	oldest := s.mailToken(t, "sib@example.com", 1)
+	newest := s.mailToken(t, "sib@example.com", 2)
+	if oldest == newest {
+		t.Fatal("the two reset mails carry the same token")
 	}
-	if len(tokens) < 3 {
-		t.Fatalf("expected verification + 2 reset tokens, got %d", len(tokens))
-	}
-	oldest := tokens[len(tokens)-2] // first reset token (before newest)
 
 	// Confirm with the OLDER token: it must still work once...
 	cookie, csrf = s.csrfToken(t)
