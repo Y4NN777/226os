@@ -724,7 +724,7 @@ files_or_sections_affected: ["src/web/src/features/discover/**", "src/web/src/fe
 third_party_sources_consulted: ["installed @astryxdesign/cli 0.7.14 component docs"]
 license_review: "NOT APPLICABLE: original code and text, no new dependency"
 closure: "open"
-human_reviewers: ["mibienpanjoe (pending)"]
+human_reviewers: ["PANK4SS (pending)"]
 tests_or_evidence: ["RED then GREEN per file (region.test.ts, DiscoverPage.test.tsx, ResourcePage.test.tsx, SearchPage.test.tsx, searchQuery.test.ts)", "pnpm --filter web run coverage exit 0"]
 open_risks: ["The assistant answer is a labelled sample until S9 is live.", "West Africa default filters on the client until the API accepts several countries."]
 ```
