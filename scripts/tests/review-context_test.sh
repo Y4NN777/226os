@@ -217,6 +217,14 @@ REPO_DIR="$(scenario slog 'src/api/internal/x/x.go|log.base.go.txt|log.head.go.t
 run
 grep -q 'error text' <<<"$(read_first)" && ok "err.Error() in a log attribute is pointed at" || ko "slog ($out)"
 
+# An empty answer for the pull request itself (not an error, just nothing) must not crash the pack: it fails open.
+reset
+printf '[]' >"$tmp/fx/pull.json"
+REPO_DIR="$tmp/repo"
+run
+[ "$rc" -eq 0 ] && grep -q '^REVIEW_DECISION: first$' <<<"$out" && ok "an empty pull request answer fails open (no crash)" || ko "empty pull answer (rc=$rc out=$out)"
+reset
+
 # ---------- the decision: first | incremental | skip ----------
 reset
 REPO_DIR="$tmp/repo"

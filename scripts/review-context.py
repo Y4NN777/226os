@@ -306,7 +306,7 @@ def main():
         reviews = gh_api(gh, "repos/%s/pulls/%s/reviews" % (repo, pr))
         inline = gh_api(gh, "repos/%s/pulls/%s/comments" % (repo, pr))
         files = [f.get("filename", "") for f in gh_api(gh, "repos/%s/pulls/%s/files" % (repo, pr))]
-        info = gh_api(gh, "repos/%s/pulls/%s" % (repo, pr))[0]
+        info = (gh_api(gh, "repos/%s/pulls/%s" % (repo, pr)) or [{}])[0]
     except Unavailable as exc:
         out += ["## Previous review and conversation", "",
                 "NOT AVAILABLE (%s): treat this as a first review of the whole diff." % exc, ""]
