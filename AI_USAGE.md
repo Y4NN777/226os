@@ -367,3 +367,20 @@ human_reviewers: []
 tests_or_evidence: ["documentation only; consistency checks by search; no quality gate run for this record"]
 open_risks: ["status: executed on branch chore/docs/cleanup-and-coherence, not yet merged", "owner review of the plan outcomes pending"]
 ```
+
+## Catalogue reads (S2, not yet a pull request)
+
+```yaml
+date: "2026-11-13"
+contributor: "mibienpanjoe"
+tool_or_model: "Cursor, Grok 4.7"
+purpose: "Published catalogue reads: listResources, getResource, listResourceSources. Search and error reports are not in this change."
+repository_or_source_context: "branch feature/discover/catalogue-read from origin/develop"
+files_or_sections_affected: ["db/queries/discover.sql", "src/api/internal/platform/dbgen/discover.sql.go", "src/api/internal/discover/**", "src/api/internal/app/server.go", "src/api/internal/app/app.go", "scripts/public-routes.txt", "scripts/unimplemented-routes.txt", "src/api/internal/platform/pgtest/catalogue_read_integration_test.go", "TODO.md", "AI_USAGE.md"]
+third_party_sources_consulted: []
+license_review: PENDING
+closure: open
+human_reviewers: []
+tests_or_evidence: ["go test -race -count=1 ./src/api/... exit 0", "go test -race -count=1 -tags integration -run TestCatalogueReadsPublishedRowsOnly ./src/api/internal/platform/pgtest/ exit 0", "scripts/check-authz-routes.sh exit 0", "go tool sqlc vet -f db/sqlc.yaml exit 0", "make test-integration, make lint and make coverage were NOT RUN"]
+open_risks: ["no freshness window is defined, so a source is never labelled stale", "content_relations cannot express a series link", "a resource with no published provider is absent from the catalogue", "pull request not opened"]
+```

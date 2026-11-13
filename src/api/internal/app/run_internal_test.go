@@ -44,7 +44,17 @@ func (f *fakePool) Exec(_ context.Context, sql string, _ ...any) (pgconn.Command
 	return pgconn.NewCommandTag("DELETE 0"), nil
 }
 
-func (f *fakePool) QueryRow(context.Context, string, ...any) pgx.Row { return nil }
+func (f *fakePool) QueryRow(context.Context, string, ...any) pgx.Row {
+	return errRow{errors.New("no row")}
+}
+
+type errRow struct{ err error }
+
+func (e errRow) Scan(...any) error { return e.err }
+
+func (f *fakePool) Query(context.Context, string, ...any) (pgx.Rows, error) {
+	return nil, errors.New("query not used")
+}
 
 func (f *fakePool) Ping(context.Context) error { return f.pingErr }
 func (f *fakePool) Close()                     { f.closed = true }
@@ -136,6 +146,25 @@ func TestRunWiresTheStoreToThePoolAndStopsThePurgeJob(t *testing.T) {
 	defer pool.mu.Unlock()
 	if len(pool.execed) == 0 || !strings.Contains(pool.execed[0], "DELETE FROM idempotency_keys") || !pool.closed {
 		t.Fatalf("execed = %v closed = %v", pool.execed, pool.closed)
+	}
+}
+
+func TestRunRejectsARepeatedCursorKey(t *testing.T) {
+	var out bytes.Buffer
+	pool := &fakePool{}
+	base := validEnv(t)
+	key := base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{'a'}, 32))
+	code := run(context.Background(), func(k string) string {
+		if k == "CURSOR_KEY" {
+			return key
+		}
+		return base(k)
+	}, &out, func(context.Context, net.Listener, http.Handler, time.Duration) error {
+		t.Fatal("serve should not be called")
+		return nil
+	}, fakeOpener(pool))
+	if code != 1 || !pool.closed || !strings.Contains(out.String(), "invalid cursor configuration") {
+		t.Fatalf("code = %d closed = %v log = %s", code, pool.closed, out.String())
 	}
 }
 

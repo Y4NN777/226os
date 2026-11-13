@@ -12,7 +12,10 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/Y4NN777/226os/src/api/internal/discover"
 	"github.com/Y4NN777/226os/src/api/internal/platform/config"
+	"github.com/Y4NN777/226os/src/api/internal/platform/cursor"
+	"github.com/Y4NN777/226os/src/api/internal/platform/dbgen"
 	"github.com/Y4NN777/226os/src/api/internal/platform/httpx"
 	"github.com/Y4NN777/226os/src/api/internal/platform/idempotency"
 )
@@ -35,6 +38,7 @@ type serveFunc func(context.Context, net.Listener, http.Handler, time.Duration) 
 type dbPool interface {
 	httpx.Pinger
 	idempotency.DB
+	dbgen.DBTX
 	Close()
 }
 
@@ -69,7 +73,12 @@ func run(ctx context.Context, getenv func(string) string, out io.Writer, serve s
 		return 1
 	}
 	defer pool.Close()
-	deps := newDeps(pool, WithMailer(newMailer(cfg, logger)))
+	codec, err := cursor.New(cfg.CursorKey)
+	if err != nil {
+		logger.Error("invalid cursor configuration")
+		return 1
+	}
+	deps := newDeps(pool, WithMailer(newMailer(cfg, logger)), WithCatalogue(discover.NewHandler(pool, codec, logger)))
 	// Deferred after pool.Close, so it runs first: the purge job stops before the pool closes.
 	stopPurge := startPurge(ctx, deps.Idempotency, logger)
 	defer stopPurge()

@@ -8,3 +8,6 @@
 # Changing this file is a security review item: every addition needs a reviewer and a reason.
 GET /healthz   # liveness probe, no data, no session (docs/SHIP.md)
 GET /readyz    # readiness probe: pings the database, no data, no session (docs/SHIP.md, B2)
+GET /api/v1/resources   # listResources: published catalogue only, anonymous (US-DISCOVER-001)
+GET /api/v1/resources/{resourceId}   # getResource: published resource or 404, no private fields
+GET /api/v1/resources/{resourceId}/sources   # listResourceSources: provenance of a published resource; a source is verified only when it is the current verified source
