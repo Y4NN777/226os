@@ -104,9 +104,9 @@ Open owner items outside CADEV (IDs and decisions in ROADMAP section 8, 10 and 1
   - [x] `verifyEmail` (single use, 24 h, 422 `INVALID_TOKEN`) — PR #89, 2026-11-13
   - [x] `requestPasswordReset` (always 202; 3/account and 10/IP per hour) — PR #89, 2026-11-13
   - [x] `confirmPasswordReset` (30 min; revokes all the user's sessions) — PR #89, 2026-11-13
-  - [x] `getMe` (the only place the email is returned) — PR #94 pending
-  - [x] `updateMyProfile` (own profile; JSON Merge Patch; accepts `profile_visibility`, default `public`) — PR #94 pending
-  - [x] `getProfile` (C14b: `members` gives anonymous 404, `private` owner only, the 404 body identical to unknown or deleted; moderators no special access; suspended users out of scope for P0) — PR #94 pending
+  - [x] `getMe` (the only place the email is returned) — PR #94, 2026-11-13
+  - [x] `updateMyProfile` (own profile; JSON Merge Patch; accepts `profile_visibility`, default `public`) — PR #94, 2026-11-13
+  - [x] `getProfile` (C14b: `members` gives anonymous 404, `private` owner only, the 404 body identical to unknown or deleted; moderators no special access; suspended users out of scope for P0) — PR #94, 2026-11-13
   - Known deviation: `languages` accepts only 2-3 letter codes; widen the DB check and the contract after the freeze (owner owns the contract follow-up).
 - [ ] Bylines on published content keep showing username and display name whatever `profile_visibility` says; deleted accounts show "membre supprimé" (ADR-0005 point 15).
 - [x] Argon2id m=64 MiB, t=3, p=1 with a semaphore (implemented; the target-host benchmark stays with S8, K6 check pending there).

@@ -26,7 +26,14 @@ func (h *Handler) GetMe(w http.ResponseWriter, r *http.Request) {
 		writeErr(h.logger, w, r, apperr.New(apperr.CodeUnauthenticated, "Authentication required."))
 		return
 	}
-	view, err := h.svc.GetMe(r.Context(), caller.UserID)
+	// The subject middleware already resolved this session; the memo returns
+	// the same account without another store read.
+	session, err := resolveSession(r, h.svc, h.sessionPlain(r))
+	if err != nil {
+		writeErr(h.logger, w, r, err)
+		return
+	}
+	view, err := h.svc.GetMe(r.Context(), session.Account)
 	if err != nil {
 		writeErr(h.logger, w, r, err)
 		return
@@ -135,7 +142,7 @@ func profileWriteFrom(b apigen.ProfileUpdate, present map[string]json.RawMessage
 		for i, s := range *b.Skills {
 			slugs[i] = string(s)
 		}
-		w.SkillTagIDs = domain.PatchField[[]string]{Present: true, Value: &slugs}
+		w.SkillSlugs = domain.PatchField[[]string]{Present: true, Value: &slugs}
 	}
 	if b.OpenToCollab != nil {
 		w.OpenToCollab = domain.PatchField[bool]{Present: true, Value: b.OpenToCollab}

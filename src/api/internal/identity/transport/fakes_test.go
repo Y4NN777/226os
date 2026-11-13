@@ -20,6 +20,7 @@ import (
 // semantics the sqlc repository implements (ErrNotFound, ErrTokenInvalid,
 // fixed-window buckets).
 type fakeStore struct {
+	accountLookups    int
 	sessionLookups    int
 	accounts          map[string]domain.Account // by id
 	byEmail           map[string]string         // email -> id
@@ -80,6 +81,7 @@ func (f *fakeStore) AccountByEmail(_ context.Context, email string) (domain.Acco
 }
 
 func (f *fakeStore) AccountByID(_ context.Context, id string) (domain.Account, error) {
+	f.accountLookups++
 	a, ok := f.accounts[id]
 	if !ok {
 		return domain.Account{}, domain.ErrNotFound
