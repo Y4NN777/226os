@@ -40,7 +40,7 @@ type Service interface {
 	VerifyEmail(ctx context.Context, plain string) error
 	RequestPasswordReset(ctx context.Context, email, ip string) error
 	ConfirmPasswordReset(ctx context.Context, plain, newPassword, ip string) error
-	GetMe(ctx context.Context, userID string) (service.MeView, error)
+	GetMe(ctx context.Context, acct domain.Account) (service.MeView, error)
 	UpdateMyProfile(ctx context.Context, userID string, w domain.ProfileWrite) (domain.Profile, error)
 	GetProfile(ctx context.Context, username, callerUserID string) (domain.PublicProfile, error)
 }
