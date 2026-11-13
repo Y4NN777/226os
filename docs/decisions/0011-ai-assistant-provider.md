@@ -18,14 +18,14 @@ The PRD amendment 3.2 (approved by the owner on 2026-11-12) makes a sourced cont
 4. **Switch.** The assistant is off unless `AI_ENABLED=true` (default `false`, set per environment), and `AI_MODEL` has no default.
 5. **Measured so far** (`aicheck` on the real key, 2026-11-12): V1 done, the model list includes `gemma-4-26b-a4b-it` and `gemma-4-31b-it`; V2 probes and V4: about 6 s per answer, 3 of 3 probes ok for `gemma-4-26b-a4b-it`, while `gemma-4-31b-it` was slower and 2 of 3 probes were unavailable.
 6. **Caveats, not hidden.** The model returns reasoning text in its answer: it must be dropped and one answer format applied. The real project quotas (V2) are still open: the probes do not measure them. 429, 500, 503 and timeouts must be tracked.
-7. **EEA, Switzerland and UK (K21), OPEN.** Under the AI Studio terms only paid services may be offered to users in those regions, and the free tier lets the provider use and review submitted content. The owner must decide between restricting the assistant for those users or linking a billing account. Until then the assistant stays switchable off per environment.
+7. **EEA, Switzerland and UK (K21), DECIDED 2026-11-13 (owner): restrict by profile country.** Under the AI Studio terms only paid services may be offered to users in those regions, and the free tier lets the provider use and review submitted content. The assistant answers "not available in your region" for members whose profile country is in the EEA, Switzerland or the UK, and serves everyone else; the country list lives in one place in the backend. The country is self-declared, so this reduces the risk and does not remove it. The response shape for a restricted member (a new error code in a contract PR, R7, or an `askAssistant` outcome) is decided in the S9 backend work. The assistant stays switchable off per environment; a billing-linked project remains an option.
 
 ## Consequences
 
 - Development and the golden evaluation set run against the fake adapter; the real provider is exercised separately and recorded as such.
 - Only the question text and retrieved public content are sent, after redaction of obvious secrets and emails, with a visible notice (PRD amendment 3.2).
 - Free-tier limits and terms may change; the port keeps the exit cheap.
-- Open work: K21, V2, the cost cap or quota guard, timeouts and anonymous access are tracked in `ROADMAP.md` and `TODO.md`.
+- Open work: the K21 restriction (implementation), V2, the cost cap or quota guard, timeouts and anonymous access are tracked in `ROADMAP.md` and `TODO.md`.
 
 ## Alternatives considered
 
