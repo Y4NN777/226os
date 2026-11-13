@@ -19,6 +19,9 @@ type Config struct {
 	CursorKey   []byte // HMAC key for pagination cursors, at least 32 bytes (secret)
 	SMTP        *SMTP  // nil when no SMTP_* variable is set; Username and Password are secrets
 	AI          *AI    // nil unless AI_ENABLED is true; APIKey is a secret
+	// AppBaseURL is the public origin used to build links in verification and reset mails (APP_BASE_URL, optional).
+	// Empty means the mails carry the bare code only. Not a secret.
+	AppBaseURL string
 }
 
 const (
@@ -60,7 +63,11 @@ func Load(getenv func(string) string) (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
-	return Config{AppEnv: env, Addr: addr, DatabaseURL: dbURL, CursorKey: key, SMTP: smtp, AI: ai}, nil
+	baseURL, err := LoadBaseURL(getenv, env)
+	if err != nil {
+		return Config{}, err
+	}
+	return Config{AppEnv: env, Addr: addr, DatabaseURL: dbURL, CursorKey: key, SMTP: smtp, AI: ai, AppBaseURL: baseURL}, nil
 }
 
 func checkDatabaseURL(raw string) error {
@@ -90,7 +97,8 @@ func decodeCursorKey(raw string) ([]byte, error) {
 // LogValue keeps slog.Any("config", cfg) from printing the secrets.
 func (c Config) LogValue() slog.Value {
 	return slog.GroupValue(slog.String("AppEnv", c.AppEnv), slog.String("Addr", c.Addr),
-		slog.String("DatabaseURL", "[redacted]"), slog.String("CursorKey", "[redacted]"), c.smtpAttr(), c.aiAttr())
+		slog.String("DatabaseURL", "[redacted]"), slog.String("CursorKey", "[redacted]"), c.smtpAttr(), c.aiAttr(),
+		slog.String("AppBaseURL", c.AppBaseURL))
 }
 
 func (c Config) smtpAttr() slog.Attr {
@@ -118,6 +126,9 @@ func (c Config) String() string {
 	}
 	if c.AI != nil {
 		out += " AI:" + c.AI.String()
+	}
+	if c.AppBaseURL != "" {
+		out += " AppBaseURL:" + c.AppBaseURL
 	}
 	return out + "}"
 }

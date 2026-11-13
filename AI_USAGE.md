@@ -748,6 +748,23 @@ tests_or_evidence: ["scripts/tests/findings_test.sh 23 passed and scripts/tests/
 open_risks: ["Notes of the AI review on #114 and #115 were all addressed in this branch (the AI review said INFERRED, the owner wants them fixed): GATE_NEW=enforce now blocks on its own whatever GATE_MODE says; a negation (does not close #N) is not a closing keyword and Fixes: #N is one; the AI_USAGE date check uses the last non-merge commit (CI checks out a merge commit); an @mention in ledger text is neutralised; an issue whose marker was edited away is recognised by its title, and titles now carry the PR number so that check is per pull request; a finding whose file changed after the review is still filed but says so (GitHub compare API); a blocking GATE_NEW check still prints what the other checks found; the skipped gate job on closed is explained in the workflow. Tests added for each.", "GITHUB_TOKEN cannot write to a user project: until the Auto-add workflow of board 4 is enabled, the issues exist but are not on the board.", "Labels are created by the issue API on first use with default colours.", "The register trusts the model's ledger only through a strict schema; a malformed ledger is skipped and logged."]
 ```
 
+## S7 API gaps: provenance, country lists, mail links
+
+```yaml
+date: "2026-11-13"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code, Claude Opus 5.5 (integrator) and Claude Sonnet 5.5 (go-implementer in a separate worktree)"
+purpose: "Close three gaps found while building S7: Resource.provenance in the contract and responses, a comma-separated country list on listResources (union, max 20), and verify/reset mails carrying a #token= link built from an optional APP_BASE_URL."
+repository_or_source_context: "branch fix/platform/s7-api-gaps, owner decision 2026-11-13 (one backend PR), based on PR #96"
+files_or_sections_affected: ["api/openapi.yaml", "generated outputs (apigen, apispec, dbgen, src/web/src/api/schema.d.ts)", "db/queries/discover.sql", "src/api/internal/discover/**", "src/api/internal/identity/service/**", "src/api/internal/platform/config/**", "src/api/internal/app/**", "src/api/internal/platform/pgtest/**", "compose.yaml", ".env.example", "TODO.md", "AI_USAGE.md"]
+third_party_sources_consulted: []
+license_review: "NOT APPLICABLE: original code, no new dependency"
+closure: "open"
+human_reviewers: ["PANK4SS (pending)"]
+tests_or_evidence: ["RED then GREEN: TestListResourcesEncodesAPage, TestListPassesTheCountryListAsAnArray, TestLoadAppBaseURL, TestVerificationMailCarriesALinkWhenABaseURLIsSet, TestResetMailCarriesALinkWhenABaseURLIsSet", "integration on real PostgreSQL: TestResourceProvenanceIsServed, TestResourceCountryListIsAUnion, TestResourceCountryListPaginatesStably, TestResourceCountryListRefusesBadInput", "make generate twice, no drift; make test-unit, make coverage (Go 100.0%), make test-integration-go exit 0"]
+open_risks: ["No test fails if app.go stops passing WithBaseURL (wiring line only).", "Two filter-hash collision tests now use category instead of country (country is validated)."]
+```
+
 <!-- ai-usage:generated:start (do not edit by hand: `make ai-usage` rewrites everything between the two markers from docs/ai-usage/*.md) -->
 
 ## AI-use records: one file per record, AI_USAGE.md generated

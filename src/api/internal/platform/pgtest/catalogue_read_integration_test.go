@@ -81,7 +81,7 @@ func TestCatalogueReadsPublishedRowsOnly(t *testing.T) {
 	if err := json.Unmarshal(second.Body.Bytes(), &rest); err != nil || len(rest.Items) != 1 || rest.Items[0].Name != "Beta Pay" || rest.NextCursor != nil {
 		t.Fatalf("second page %s", second.Body.String())
 	}
-	country := "BF"
+	country := []string{"BF"}
 	filtered := callList(ctx, h, apigen.ListResourcesParams{Country: &country})
 	var only apigen.ResourcePage
 	if err := json.Unmarshal(filtered.Body.Bytes(), &only); err != nil || len(only.Items) != 1 || only.Items[0].Name != "Alpha Pay" {
@@ -149,12 +149,14 @@ func TestCatalogueReadsPublishedRowsOnly(t *testing.T) {
 	probe := discover.NewHandler(recorder, codec, nil, nil)
 	sdk := "go"
 	text := "paiement"
+	twoCountries := []string{"BF", "GH"}
 	for _, path := range []struct {
 		name   string
 		params apigen.ListResourcesParams
 	}{
 		{"q filter", apigen.ListResourcesParams{Q: &text}},
 		{"sdk filter", apigen.ListResourcesParams{Sdk: &sdk}},
+		{"country list filter", apigen.ListResourcesParams{Country: &twoCountries}},
 	} {
 		recorder.reset()
 		if rec := callList(ctx, probe, path.params); rec.Code != http.StatusOK {
