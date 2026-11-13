@@ -20,6 +20,11 @@
       "rule": "Forward-only goose migrations (ADR-0005). Flag: any change to an already merged migration (they are immutable); a Down section; a missing header (purpose, lock risk, data volume, restore plan, Owner); an ACCESS EXCLUSIVE lock or full table rewrite on a populated table; an index built without CONCURRENTLY on existing data; a destructive change without expand/contract; a constraint without a name."
     },
     {
+      "path": "db/queries/**",
+      "merge_system_rule": true,
+      "rule": "sqlc queries. Flag only with a concrete failing scenario: an INSERT into a table with a unique key and no ON CONFLICT (a double-clicked request returns 500); a check-then-write that two concurrent requests can both pass under READ COMMITTED (snapshot is per statement); a delete-then-insert replacement that two requests can interleave into a merged set; a limit (for example 30 skills) enforced only in code; a multi-table write that is not one statement or one transaction; a list without LIMIT or a stable tie-breaker; a status filter (published, active, removed_at) missing on one side of a read/write pair. Parameters are always $n, never concatenated. Read the whole query, the table constraints in db/migrations and the caller in the repository before flagging."
+    },
+    {
       "path": "api/openapi.yaml",
       "merge_system_rule": true,
       "rule": "OpenAPI contract (ADR-0004, source of truth). Flag: an operation without operationId, tag, x-priority, x-spec and x-authz; an unsafe method without cookieAuth and csrfToken; a list without cursor and limit (max 50); missing 401/403/422/429 responses where they apply; a breaking change to a released shape; counts in tests, scripts/unimplemented-routes.txt and docs/quality/COVERAGE_SCOPE.md not updated."
