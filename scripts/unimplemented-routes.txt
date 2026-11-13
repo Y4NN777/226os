@@ -9,11 +9,6 @@
 PATCH /api/v1/applications/{applicationId}   # decideApplication
 POST /api/v1/assistant/answers   # askAssistant
 POST /api/v1/contribution-needs/{needId}/applications   # createApplication
-GET /api/v1/learn/articles   # listLearnArticles
-POST /api/v1/learn/articles   # createLearnArticle
-GET /api/v1/learn/articles/{articleId}   # getLearnArticle
-GET /api/v1/learn/series   # listTrainingSeries
-GET /api/v1/learn/series/{seriesId}   # getTrainingSeries
 GET /api/v1/learn/series/{seriesId}/lessons/{lessonId}/progress   # getLessonProgress (P1)
 PUT /api/v1/learn/series/{seriesId}/lessons/{lessonId}/progress   # putLessonProgress (P1)
 POST /api/v1/moderation/error-reports/{reportId}/resolve   # resolveErrorReport
