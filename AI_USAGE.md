@@ -10,6 +10,8 @@ Do not submit secrets, credentials, private user data, unpublished tokens, or co
 
 ## Required record for each material AI-assisted contribution
 
+**Where to write it (since 2026-11-13):** one file per record in `docs/ai-usage/` (see its README), never an edit of this file: every pull request used to append at the end here, so every merge conflicted with every other open pull request. The block at the end of this file is generated from those files by `make ai-usage` (the owner runs it before the submission). The records above the block are the historical ones and stay as written.
+
 ```yaml
 date: "YYYY-MM-DD"
 contributor: ""
@@ -745,3 +747,24 @@ human_reviewers: ["pending PR review"]
 tests_or_evidence: ["scripts/tests/findings_test.sh 23 passed and scripts/tests/review-context_test.sh 44 passed, RED first (no script, no sections, no key names)", "make lint-scripts and python3 -I scripts/check-docs.py: see the pull request", "NOT RUN until the first merge after this PR: the harvest job on a real merged pull request, board 4 Auto-add for issues created by GITHUB_TOKEN (the owner enables the Auto-add workflow with filter label:finding in the project settings), the dashboard issue creation (make findings or scripts/findings.py dashboard once, then pin it)"]
 open_risks: ["Notes of the AI review on #114 and #115 were all addressed in this branch (the AI review said INFERRED, the owner wants them fixed): GATE_NEW=enforce now blocks on its own whatever GATE_MODE says; a negation (does not close #N) is not a closing keyword and Fixes: #N is one; the AI_USAGE date check uses the last non-merge commit (CI checks out a merge commit); an @mention in ledger text is neutralised; an issue whose marker was edited away is recognised by its title, and titles now carry the PR number so that check is per pull request; a finding whose file changed after the review is still filed but says so (GitHub compare API); a blocking GATE_NEW check still prints what the other checks found; the skipped gate job on closed is explained in the workflow. Tests added for each.", "GITHUB_TOKEN cannot write to a user project: until the Auto-add workflow of board 4 is enabled, the issues exist but are not on the board.", "Labels are created by the issue API on first use with default colours.", "The register trusts the model's ledger only through a strict schema; a malformed ledger is skipped and logged."]
 ```
+
+<!-- ai-usage:generated:start (do not edit by hand: `make ai-usage` rewrites everything between the two markers from docs/ai-usage/*.md) -->
+
+## AI-use records: one file per record, AI_USAGE.md generated
+
+```yaml
+date: "2026-11-13"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code, Sonnet 5.5"
+purpose: "Remove the conflict every pull request had on AI_USAGE.md (all of them appended at the end, so after any merge every other open pull request conflicted: five at once on 2026-11-13). A record is now one file in docs/ai-usage/; scripts/ai-usage.py rewrites a generated block at the end of AI_USAGE.md from those files (make ai-usage, make ai-usage-check); the date check of scripts/check-docs.py reads the record files too. The five conflicting pull requests (#99 to #102, #111) were brought up to date by a mechanical merge that kept develop's AI_USAGE.md and each branch's own new records."
+repository_or_source_context: "pull requests #99, #100, #101, #102, #111 (conflicts only in AI_USAGE.md)"
+files_or_sections_affected: ["scripts/ai-usage.py", "scripts/tests/ai-usage_test.sh", "scripts/check-docs.py", "scripts/tests/check-docs_test.sh", "docs/ai-usage/**", "AI_USAGE.md", "mk/60-review.mk", ".github/PULL_REQUEST_TEMPLATE.md", "AGENTS.md", "CLAUDE.md", "CONTRIBUTING.md", "docs/GIT_WORKFLOW.md", "docs/SHIP.md", "TODO.md"]
+third_party_sources_consulted: []
+license_review: "NOT APPLICABLE: original code, no new dependency"
+closure: "open"
+human_reviewers: ["pending PR review"]
+tests_or_evidence: ["scripts/tests/ai-usage_test.sh 16 passed and scripts/tests/check-docs_test.sh 20 passed, RED first (no script; the date check ignored the record files)", "make lint-scripts and python3 -I scripts/check-docs.py: see the pull request"]
+open_risks: ["AI_USAGE.md is only as complete as its last build: the owner must run make ai-usage before the submission (SHIP.md says so); make docs-check runs the stale check on a pull request into main (not before, by design).", "Records already appended to AI_USAGE.md stay where they are; only new records use the files."]
+```
+
+<!-- ai-usage:generated:end -->

@@ -43,7 +43,7 @@ A critical production fix uses `hotfix/<domain>/<short-name>` from `main`, goes 
 ## Commit and PR rules
 
 - Each human contributor uses their own approved project identity; the Day one steps are in [`CONTRIBUTING.md`](../CONTRIBUTING.md#day-one). The repository owner's Git identity is `Y4NN77 <approved Git email>` (GitHub login Y4NN777). Verify with `git config --local --get user.name`.
-- Never add `Co-authored-by` trailers for AI systems or agents; record AI assistance in `AI_USAGE.md`. This repository rule overrides any default attribution suggested by a tool.
+- Never add `Co-authored-by` trailers for AI systems or agents; record AI assistance as one file in `docs/ai-usage/` (`AI_USAGE.md` is generated from those files). This repository rule overrides any default attribution suggested by a tool.
 - Keep commits focused, with imperative subjects such as `docs: clarify branch promotion`.
 - Do not force-push shared branches; never rewrite `develop` or `main`.
 - Promotion PRs and back-merges use **Create a merge commit**; never squash or rebase them (it breaks SHA-based release evidence). Work-branch PRs into `develop` may squash, except a branch that contains a back-merge.
