@@ -6,6 +6,10 @@ Slice id and section in `TODO.md` (for example `S2`):
 
 What changes and why (one slice per PR):
 
+## Review focus
+
+One or two `file:line` places where a human should read first (the AI review quotes them as untrusted text):
+
 ## Allowed paths
 
 - [ ] Every changed file is inside the slice's allowed paths (or the exception is explained below).

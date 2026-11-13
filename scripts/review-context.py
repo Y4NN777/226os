@@ -227,7 +227,34 @@ def strip_sql(text):
     return re.sub(r"--[^\n]*", "", text)
 
 
-def sql_pointers(git, path, touched):
+def unique_keys(git):
+    """{table: ["PRIMARY KEY (a, b)", "UNIQUE (email)", ...]} from db/migrations at HEAD: composite primary keys, UNIQUE
+    constraints and unique indexes. A table with only a single surrogate id has no entry."""
+    try:
+        files = [f for f in run([git, "ls-tree", "-r", "--name-only", "HEAD", "db/migrations"]).split() if f.endswith(".sql")]
+    except Unavailable:
+        return None
+    if not files:
+        return None  # no migrations to read: the pointers fall back to the generic wording
+    keys = {}
+    for path in files:
+        try:
+            text = strip_sql(run([git, "show", "HEAD:%s" % path]))
+        except Unavailable:
+            continue
+        for m in re.finditer(r"CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(\w+)\s*\((.*?)\n\)\s*;", text, re.S | re.I):
+            table, body = m.group(1).lower(), m.group(2)
+            for pk in re.finditer(r"PRIMARY\s+KEY\s*\(([^)]*)\)", body, re.I):
+                if "," in pk.group(1):
+                    keys.setdefault(table, []).append("PRIMARY KEY (%s)" % re.sub(r"\s+", " ", pk.group(1).strip()))
+            for uq in re.finditer(r"UNIQUE\s*\(([^)]*)\)", body, re.I):
+                keys.setdefault(table, []).append("UNIQUE (%s)" % re.sub(r"\s+", " ", uq.group(1).strip()))
+        for ix in re.finditer(r"CREATE\s+UNIQUE\s+INDEX\s+(?:IF\s+NOT\s+EXISTS\s+)?\w+\s+ON\s+(\w+)\s*\(([^)]*)\)", text, re.I):
+            keys.setdefault(ix.group(1).lower(), []).append("UNIQUE INDEX (%s)" % re.sub(r"\s+", " ", ix.group(2).strip()))
+    return keys
+
+
+def sql_pointers(git, path, touched, keys=None):
     """Pointers for the changed named queries of one sql file (HEAD version). Only blocks that contain a changed
     line are looked at, so an old INSERT nobody touched is never pointed at."""
     try:
@@ -249,8 +276,14 @@ def sql_pointers(git, path, touched):
         where = "%s:%d (%s)" % (path, hits[0], name)
         if inserts and not re.search(r"\bON\s+CONFLICT\b", body, re.I):
             for t in sorted(inserts):
-                out.append((path, hits[0], len(hits), "%s: INSERT INTO %s without ON CONFLICT. If the table has a unique key, "
-                            "a double-clicked request returns 500 (23505). Check the unique keys of %s." % (where, t, t)))
+                known = (keys or {}).get(t)
+                if keys is None:
+                    why = "If the table has a unique key, a double-clicked request returns 500 (23505). Check the unique keys of %s." % t
+                elif known:
+                    why = "%s has %s, so a double-clicked request returns 500 (23505)." % (t, "; ".join(known))
+                else:
+                    why = "Low risk: no unique key found for %s in db/migrations (only a surrogate id); check anyway." % t
+                out.append((path, hits[0], len(hits), "%s: INSERT INTO %s without ON CONFLICT. %s" % (where, t, why)))
         if inserts & deletes and not re.search(r"\bFOR\s+UPDATE\b", body, re.I):
             for t in sorted(inserts & deletes):
                 out.append((path, hits[0], len(hits), "%s: DELETE and INSERT on %s in one statement. Both read the same "
@@ -327,9 +360,12 @@ def read_first(git, rng):
         return "Read first: NOT AVAILABLE (git could not diff %s)" % rng, []
     found = []
     patterns = None
+    keys = None
     for path in sorted(touched):
         if path.startswith("db/queries/") and path.endswith(".sql"):
-            found += sql_pointers(git, path, touched[path])
+            if keys is None:
+                keys = unique_keys(git)
+            found += sql_pointers(git, path, touched[path], keys)
         elif path.endswith(".go") and not path.endswith("_test.go"):
             if patterns is None and any("regexp.MustCompile" in t for _, t in added.get(path, [])):
                 patterns = openapi_patterns(git)
@@ -337,6 +373,27 @@ def read_first(git, rng):
     total = sum(len(v) for p, v in added.items() if p.endswith(REVIEWABLE) and not p.endswith(("_test.go", ".test.ts", ".test.tsx")))
     pointed = sum(n for _, _, n, _ in found)
     return "Read first: %d hunks, %d of %d changed lines" % (len(found), pointed, total), [t for _, _, _, t in found]
+
+
+def register_lines(gh, repo, limit=15):
+    """([open finding lines], [closed-as-not-planned lines]) from the `finding` issues (the register); fails open to
+    two empty lists. The dashboard issue and pull requests are skipped."""
+    try:
+        issues = gh_api(gh, "repos/%s/issues?labels=finding&state=all&per_page=100" % repo)
+    except Unavailable:
+        return [], []
+    tracked, dismissed = [], []
+    for i in issues:
+        if "pull_request" in i or "findings-dashboard" in (i.get("body") or ""):
+            continue
+        labels = [x if isinstance(x, str) else x.get("name", "") for x in i.get("labels") or []]
+        sev = next((l[4:] for l in labels if l.startswith("sev:")), "?")
+        line = "- #%s [%s] %s" % (i.get("number"), sev.upper(), clip(i.get("title", ""), 140))
+        if i.get("state") == "open":
+            tracked.append(line)
+        elif i.get("state_reason") == "not_planned":
+            dismissed.append(line)
+    return tracked[:limit], dismissed[-limit:]
 
 
 def main():
@@ -419,6 +476,13 @@ def main():
     refs = pointers(context_map, files)
     out += ["## Decisions and documents for the touched paths", ""]
     out += ["- %s" % r for r in refs] if refs else ["(none mapped)"]
+    out.append("")
+
+    tracked, dismissed = register_lines(gh, repo)
+    out += ["## Findings already tracked (open `finding` issues: do not raise them again)", ""]
+    out += tracked if tracked else ["(none)"]
+    out += ["", "## Closed as not planned (accepted or not a defect: do not raise them again)", ""]
+    out += dismissed if dismissed else ["(none)"]
     out.append("")
     print("\n".join(out))
     return 0

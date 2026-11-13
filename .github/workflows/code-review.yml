@@ -30,7 +30,7 @@ name: Code review
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review, labeled, unlabeled]
+    types: [opened, synchronize, reopened, ready_for_review, labeled, unlabeled, closed]
     branches: [develop]
   pull_request_review:
     types: [submitted, dismissed]
@@ -43,6 +43,7 @@ permissions:
 concurrency:
   group: >-
     code-review-${{ github.event.pull_request.number }}-${{
+      (github.event_name == 'pull_request' && github.event.action == 'closed') && 'harvest' ||
       (github.event_name == 'pull_request' && (contains('opened reopened ready_for_review synchronize', github.event.action) || (github.event.action == 'labeled' && github.event.label.name == 'ai-review'))) && 'review' || 'gate' }}
   cancel-in-progress: true
 
@@ -162,9 +163,49 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: gh api -X DELETE "repos/$REPO/issues/$PR_NUMBER/labels/ai-review" >/dev/null || echo "the label was already removed"
 
+  # When a pull request is merged, the findings the review left open become issues (scripts/findings.py, run from the
+  # BASE branch after the merge): CRITICAL and HIGH one issue each, the rest one follow-ups checklist, once (idempotent
+  # by marker). Labels and issues created with GITHUB_TOKEN trigger no workflow, and GITHUB_TOKEN cannot write to a user
+  # project: board 4 picks the issues up through its built-in "Auto-add to project" workflow (filter `label:finding`).
+  harvest:
+    name: File the open findings
+    if: >-
+      github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true
+      && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # The register must never turn a merged pull request red.
+    continue-on-error: true
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: read
+    steps:
+      - name: Checkout the base branch (scripts, after the merge)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.base.ref }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: File the open findings and refresh the dashboard
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+        run: |
+          if [ ! -f scripts/findings.py ]; then
+            echo "findings: NOT RUN (scripts/findings.py is not on the base branch)"
+            exit 0
+          fi
+          python3 -I scripts/findings.py harvest | tee -a "$GITHUB_STEP_SUMMARY"
+
   gate:
     name: Review gate
     # No `needs: review`: the gate fails open when there is no verdict, so a merge never waits for the AI review.
+    # A closed pull request has nothing left to gate.
+    if: github.event.action != 'closed'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:

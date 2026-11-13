@@ -711,3 +711,20 @@ human_reviewers: ["pending PR review"]
 tests_or_evidence: ["scripts/tests/review-context_test.sh and scripts/tests/review-ping_test.sh: RED first (no pointers, no decision line, no script), then GREEN; the fixtures are the real #94 heads, #96 and #110", "make lint-scripts and python3 -I scripts/check-docs.py: see the pull request", "NOT RUN until the first live pull request after the merge: the BASE-read script path, first|incremental|skip on real events, gh pr comment --edit-last --create-if-none on the runner, the needs-owner label and the review request"]
 open_risks: ["The pointers are regular expressions on changed lines: they will miss cases and add some noise; they point, they never judge.", "The review job now also runs on synchronize (it decides in seconds whether to skip), so a skipped run still costs a runner start.", "REVIEW_CONTEXT.md only helps if the owner adds a line when a decision is made."]
 ```
+
+## AI review: findings register, dashboard and memory loop (2026-11-13)
+
+```yaml
+date: "2026-11-13"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code, Sonnet 5.5"
+purpose: "PR 2 of the review plan: when a pull request is merged, the findings the review left open become GitHub issues (CRITICAL and HIGH one each, at most 5; everything else one follow-ups checklist per pull request), once, by marker; one Findings dashboard ranks what to fix next (due, severity, area, age) from issue state only; the context pack lists the tracked and the not-planned findings so the reviewer does not raise them again; the INSERT pointer names the unique key found in db/migrations; the PR template gets a Review focus section."
+repository_or_source_context: "plan revision 4 (owner), PR #112 (PR 1); the fake gh of scripts/tests/findings_test.sh is stateful so idempotency is really tested"
+files_or_sections_affected: ["scripts/findings.py", "scripts/tests/findings_test.sh", "scripts/review-context.py", "scripts/tests/review-context_test.sh", "scripts/tests/fixtures/review-context/**", ".github/workflows/code-review.yml", ".github/PULL_REQUEST_TEMPLATE.md", "mk/60-review.mk", "TODO.md", "AI_USAGE.md"]
+third_party_sources_consulted: []
+license_review: "NOT APPLICABLE: original code, no new dependency"
+closure: "open"
+human_reviewers: ["pending PR review"]
+tests_or_evidence: ["scripts/tests/findings_test.sh 23 passed and scripts/tests/review-context_test.sh 44 passed, RED first (no script, no sections, no key names)", "make lint-scripts and python3 -I scripts/check-docs.py: see the pull request", "NOT RUN until the first merge after this PR: the harvest job on a real merged pull request, board 4 Auto-add for issues created by GITHUB_TOKEN (the owner enables the Auto-add workflow with filter label:finding in the project settings), the dashboard issue creation (make findings or scripts/findings.py dashboard once, then pin it)"]
+open_risks: ["GITHUB_TOKEN cannot write to a user project: until the Auto-add workflow of board 4 is enabled, the issues exist but are not on the board.", "Labels are created by the issue API on first use with default colours.", "The register trusts the model's ledger only through a strict schema; a malformed ledger is skipped and logged."]
+```
