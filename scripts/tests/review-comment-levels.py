@@ -61,18 +61,27 @@ DEEP_RUNS = {
 }
 
 
+# The level each entry of the grid supports, written by hand for every (id, sev, status) the grid uses: no copy of the
+# script's logic (the script is the spec: `blocking` and `effective_level`). A missing key is a KeyError, never a guess.
+LITERAL_WORTH = {
+    ("s-note", "LOW", "open"): "NONE",
+    ("s-med", "MEDIUM", "open"): "MEDIUM",
+    ("s-high", "HIGH", "open"): "HIGH",
+    ("s-crit-inf", "CRITICAL", "open"): "HIGH",       # a CRITICAL without OBSERVED evidence counts as HIGH (I2)
+    ("s-crit-obs", "CRITICAL", "open"): "CRITICAL",
+    ("dh", "HIGH", "open"): "HIGH",
+    ("dh", "CRITICAL", "open"): "CRITICAL",
+    ("dh", "HIGH", "fixed"): "NONE",
+    ("newh", "HIGH", "open"): "HIGH",
+}
+
+
 def worth(e):
-    """Oracle: the level one entry supports (I2: a CRITICAL needs OBSERVED, a file and a line > 0, else HIGH)."""
-    if e.get("kind") == "note" or str(e.get("status")).lower() != "open":
-        return "NONE"
-    sev = e.get("sev")
-    if sev == "CRITICAL":
-        return "CRITICAL" if e.get("evidence") == "OBSERVED" and e.get("file") and e.get("line", 0) > 0 else "HIGH"
-    return sev if sev in LEVELS else "MEDIUM"
+    return LITERAL_WORTH[(e["id"], e["sev"], e["status"])]
 
 
 def level_of(declared, entries):
-    """Oracle for I1 + I2: max(declared, every open entry); a declared CRITICAL without an OBSERVED CRITICAL entry is HIGH."""
+    """I1 + I2 as the literal table reads them: a declared CRITICAL with no CRITICAL entry is HIGH, then the maximum."""
     if declared == "CRITICAL" and not any(worth(e) == "CRITICAL" for e in entries):
         declared = "HIGH"
     return max([declared] + [worth(e) for e in entries], key=LEVELS.index)
@@ -344,6 +353,30 @@ def explicit_rows(bad):
     for name, findings in (("an object", {}), ("a string", "none")):
         body = "Triage: NONE | blast radius: x\n%s\nTool: PASS (1 files)\n\n%s\n" % (rc.MARKER, rc.ledger_section({"sha": HEAD, "findings": findings}))
         a(("H7 a comment whose only ledger has findings as %s has no ledger" % name, body, {"level": "NONE", "no_ledger": True}))
+
+    # #212 group 4: the dimensions the table lacked, with literal expectations.
+    a(("an open LOW finding is blocking for auto-merge but supports no level", run_stage1("NONE", ledger_raw([bare(id="lo", sev="LOW", status="open")])),
+       {"level": "NONE", "blocks": 1, "entries": {"lo": {"status": "open", "sev": "LOW"}}}))
+    HR = entry("hr", "finding", "OBSERVED", "HIGH", line=10, source="review", first_sha=PREV_SHA, location="verified")
+    a(("a re-listed HIGH whose line moved gets this head as first_sha", run_stage1("NONE", ledger_raw([bare(id="hr", sev="HIGH", line=20, status="open")]), [HR]),
+       {"level": "HIGH", "blocks": 1, "entries": {"hr": {"sev": "HIGH", "status": "open", "first_sha": HEAD}}}))
+    a(("a re-listed HIGH at the same file and line keeps its first_sha", run_stage1("NONE", ledger_raw([bare(id="hr", sev="HIGH", line=10, status="open")]), [HR]),
+       {"level": "HIGH", "blocks": 1, "entries": {"hr": {"sev": "HIGH", "status": "open", "first_sha": PREV_SHA}}}))
+    # M12: no verdict line but a ledger with an OBSERVED CRITICAL: the verdict is rebuilt from the ledger.
+    raw_nov = "Review of the pull request\n\n<details><summary>Review ledger</summary>\n\n```json\n%s\n```\n\n</details>" % ledger_raw([bare(id="k", sev="CRITICAL", status="open")])
+    a(("M12 a review without a verdict line keeps its CRITICAL", rc.compose(rc.readable_verdict(raw_nov), "Tool: PASS (1 files)", HEAD, None, "Reviewed: aaaaaaa (x..y) at 10:00 UTC", None),
+       {"level": "CRITICAL", "blocks": 1, "entries": {"k": {"status": "open", "sev": "CRITICAL"}}}))
+    # not_run after a CRITICAL keeps the verdict and its ledger (a review that did not run never lifts it).
+    crit_prev = {"body": "Triage: CRITICAL | blast radius: x\n" + previous_body([PC]).split("\n", 1)[1]}
+    a(("a NOT RUN run after a CRITICAL keeps the CRITICAL line and its ledger", rc.not_run("timed out", "Tool: PASS (1 files)", crit_prev),
+       {"level": "CRITICAL", "blocks": 1, "entries": {"pc": {"status": "open", "sev": "CRITICAL"}}}))
+    # more than 8 deep entries: NOT RUN "too many findings", the most severe 8 are kept.
+    nine = [bare(id="m%d" % i, sev="MEDIUM", status="open") for i in range(9)] + [bare(id="top", sev="HIGH", status="open")]
+    over = run_deep(clean, {"level": "HIGH", "blast_radius": "x", "summary": "s", "findings": nine})
+    a(("a deep run with 10 entries is NOT RUN (too many findings) and keeps the HIGH", over,
+       {"level": "HIGH", "blocks": 1, "deep_line": "Deep: NOT RUN (too many findings)", "deep_status": "NOT RUN", "entries": {"top": {"status": "open", "sev": "HIGH"}}}))
+    if len((rc.ledger_of(over) or {}).get("findings", [])) != 8:
+        bad("deep cap", "%d entries kept, expected 8" % len((rc.ledger_of(over) or {}).get("findings", [])))
 
     for name, body, want in rows:
         if body is None:
