@@ -465,16 +465,16 @@ EOF
 expect_red "route and denial status split across two declarations" 'TestAuthzCreateResourceReviewAnonymous' 'same test' -- --lists-dir "$d" --scan-extra "$tmp/c-split"
 
 # A parent path is not the route.
-d2="$(newlists accept)"
-grep -v 'POST /api/v1/questions/{questionId}/accept ' "$d2/unimplemented-routes.txt" >"$d2/u.tmp" && mv "$d2/u.tmp" "$d2/unimplemented-routes.txt"
-echo 'POST /api/v1/questions/{questionId}/accept TestAuthzAcceptAnswerNonOwner' >>"$d2/authz-tests.txt"
+d2="$(newlists reviews-list)"
+grep -v 'GET /api/v1/resources/{resourceId}/reviews ' "$d2/unimplemented-routes.txt" >"$d2/u.tmp" && mv "$d2/u.tmp" "$d2/unimplemented-routes.txt"
+echo 'GET /api/v1/resources/{resourceId}/reviews TestAuthzListResourceReviewsNonOwner' >>"$d2/authz-tests.txt"
 mkdir -p "$tmp/c-parent" "$tmp/c-full"
 cat >"$tmp/c-parent/p_test.go" <<'EOF'
 package p
 
 import "testing"
 
-func TestAuthzAcceptAnswerNonOwner(t *testing.T) { _ = "/api/v1/questions"; _ = 403 }
+func TestAuthzListResourceReviewsNonOwner(t *testing.T) { _ = "/api/v1/resources"; _ = 403 }
 EOF
 cat >"$tmp/c-full/f_test.go" <<'EOF'
 package f
@@ -484,9 +484,9 @@ import (
 	"testing"
 )
 
-func TestAuthzAcceptAnswerNonOwner(t *testing.T) { _ = fmt.Sprintf("/api/v1/questions/%s/accept", "id"); _ = 403 }
+func TestAuthzListResourceReviewsNonOwner(t *testing.T) { _ = fmt.Sprintf("/api/v1/resources/%s/reviews", "id"); _ = 403 }
 EOF
-expect_red "a parent path does not reference the route" 'TestAuthzAcceptAnswerNonOwner' 'does not reference' -- --lists-dir "$d2" --scan-extra "$tmp/c-parent"
+expect_red "a parent path does not reference the route" 'TestAuthzListResourceReviewsNonOwner' 'does not reference' -- --lists-dir "$d2" --scan-extra "$tmp/c-parent"
 rc=0
 out="$("$gate" --lists-dir "$d2" --scan-extra "$tmp/c-full" 2>&1)" || rc=$?
 if [ "$rc" -eq 0 ]; then ok "GREEN: the full route path with a parameter placeholder"; else ko "GREEN full path (rc=$rc, out=$out)"; fi

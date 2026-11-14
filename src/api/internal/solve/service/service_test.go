@@ -45,6 +45,10 @@ type fakeStore struct {
 	newAns   domain.NewAnswer
 	guardErr error
 	writes   int
+
+	vote      domain.VoteState
+	gotVote   domain.Vote
+	gotChange domain.AcceptChange
 }
 
 func (f *fakeStore) ListQuestions(_ context.Context, q domain.QuestionQuery) ([]domain.Question, error) {

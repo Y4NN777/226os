@@ -281,6 +281,114 @@ func (r *Repository) CreateAnswer(ctx context.Context, in domain.NewAnswer) (dom
 	return out[0], nil
 }
 
+// SetVote writes a vote (value 0 retracts it) and moves the target's vote_score in one transaction. The
+// target row is locked first, which serialises the votes of one target and decides visibility (no row:
+// unknown, unpublished or removed). The author comes back with the lock for the self-vote rule, which
+// applies to casting only: retracting a vote you cannot have is a success.
+func (r *Repository) SetVote(ctx context.Context, v domain.Vote) (domain.VoteState, error) {
+	ctx, cancel := context.WithTimeout(ctx, writeTimeout)
+	defer cancel()
+	userID, err := requiredID(v.UserID)
+	if err != nil {
+		return domain.VoteState{}, err
+	}
+	targetID, err := requiredID(v.TargetID)
+	if err != nil || (v.TargetType != domain.TargetQuestion && v.TargetType != domain.TargetAnswer) {
+		return domain.VoteState{}, domain.ErrNotFound
+	}
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return domain.VoteState{}, fmt.Errorf("solve vote begin: %w", err)
+	}
+	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
+	q := dbgen.New(tx)
+	var author pgtype.UUID
+	if v.TargetType == domain.TargetQuestion {
+		author, err = q.LockSolveQuestionForVote(ctx, targetID)
+	} else {
+		author, err = q.LockSolveAnswerForVote(ctx, targetID)
+	}
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.VoteState{}, domain.ErrNotFound
+	}
+	if err != nil {
+		return domain.VoteState{}, fmt.Errorf("solve lock vote target: %w", err)
+	}
+	if v.Value != 0 && author == userID {
+		return domain.VoteState{}, domain.ErrSelfVote
+	}
+	value := int16(v.Value) //nolint:gosec // the service allows -1, 0 and 1
+	var score int32
+	if v.TargetType == domain.TargetQuestion {
+		score, err = q.SetSolveQuestionVote(ctx, dbgen.SetSolveQuestionVoteParams{UserID: userID, QuestionID: targetID, Value: value})
+	} else {
+		score, err = q.SetSolveAnswerVote(ctx, dbgen.SetSolveAnswerVoteParams{UserID: userID, AnswerID: targetID, Value: value})
+	}
+	if err != nil {
+		return domain.VoteState{}, fmt.Errorf("solve set vote: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return domain.VoteState{}, fmt.Errorf("solve vote commit: %w", err)
+	}
+	return domain.VoteState{TargetType: v.TargetType, TargetID: v.TargetID, Value: v.Value, Score: int(score)}, nil
+}
+
+// SetAcceptedAnswer replaces or clears (empty AnswerID) the accepted answer under the question's row lock:
+// the author decision, the answer check and the write see one locked row, so two concurrent accepts end
+// with exactly one accepted answer and a non-author changes nothing.
+func (r *Repository) SetAcceptedAnswer(ctx context.Context, c domain.AcceptChange) (domain.Question, error) {
+	ctx, cancel := context.WithTimeout(ctx, writeTimeout)
+	defer cancel()
+	qid, err := requiredID(c.QuestionID)
+	if err != nil {
+		return domain.Question{}, domain.ErrNotFound
+	}
+	actor, err := requiredID(c.ActorID)
+	if err != nil {
+		return domain.Question{}, err
+	}
+	var answer pgtype.UUID // NULL clears
+	if c.AnswerID != "" {
+		if answer, err = requiredID(c.AnswerID); err != nil {
+			return domain.Question{}, domain.ErrAnswerNotInQuestion
+		}
+	}
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return domain.Question{}, fmt.Errorf("solve accept begin: %w", err)
+	}
+	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
+	q := dbgen.New(tx)
+	locked, err := q.LockSolveQuestion(ctx, qid)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.Question{}, domain.ErrNotFound
+	}
+	if err != nil {
+		return domain.Question{}, fmt.Errorf("solve lock question: %w", err)
+	}
+	if locked.AuthorID != actor {
+		return domain.Question{}, domain.ErrForbidden
+	}
+	if answer.Valid {
+		if _, err := q.LockSolveAnswerForAccept(ctx, dbgen.LockSolveAnswerForAcceptParams{ID: answer, QuestionID: qid}); errors.Is(err, pgx.ErrNoRows) {
+			return domain.Question{}, domain.ErrAnswerNotInQuestion
+		} else if err != nil {
+			return domain.Question{}, fmt.Errorf("solve lock answer: %w", err)
+		}
+	}
+	if err := q.SetSolveAcceptedAnswer(ctx, dbgen.SetSolveAcceptedAnswerParams{ID: qid, AnswerID: answer}); err != nil {
+		return domain.Question{}, fmt.Errorf("solve set accepted answer: %w", err)
+	}
+	out, err := r.load(ctx, q, qid)
+	if err != nil {
+		return domain.Question{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return domain.Question{}, fmt.Errorf("solve accept commit: %w", err)
+	}
+	return out, nil
+}
+
 // load reads one published question with its tags and links through q (the pool or a transaction).
 func (r *Repository) load(ctx context.Context, q *dbgen.Queries, id pgtype.UUID) (domain.Question, error) {
 	row, err := q.GetSolveQuestion(ctx, id)

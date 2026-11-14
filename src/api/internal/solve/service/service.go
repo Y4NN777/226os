@@ -1,6 +1,5 @@
 // Package service is the Solve use case (US-SOLVE-001): public reads of published questions and their
-// answers, and member publishing with the original language kept. Votes and acceptance arrive in the
-// second Solve slice.
+// answers, member publishing with the original language kept, votes and the accepted answer.
 package service
 
 import (
@@ -56,7 +55,17 @@ type Store interface {
 	UpdateQuestion(ctx context.Context, id string, patch domain.QuestionPatch, guard func(domain.Question) error) (domain.Question, error)
 	ListAnswers(ctx context.Context, q domain.AnswerQuery) ([]domain.Answer, error)
 	CreateAnswer(ctx context.Context, in domain.NewAnswer) (domain.Answer, error)
+	SetVote(ctx context.Context, v domain.Vote) (domain.VoteState, error)
+	SetAcceptedAnswer(ctx context.Context, c domain.AcceptChange) (domain.Question, error)
 }
+
+// SetVote writes the vote (value 0 deletes it) and moves the target's vote_score by the difference, in one
+// transaction under the target's row lock. It returns domain.ErrNotFound when the target is missing, not
+// published or in a removed question, and domain.ErrSelfVote when the voter wrote the target.
+//
+// SetAcceptedAnswer locks the question, then returns domain.ErrNotFound (missing or removed question),
+// domain.ErrForbidden (the actor is not its author) or domain.ErrAnswerNotInQuestion, and otherwise
+// replaces or clears the accepted answer in that one transaction.
 
 // Cursors signs page cursors and rejects a cursor used with different filters.
 type Cursors interface {
@@ -106,6 +115,12 @@ type CreateAnswerRequest struct {
 	QuestionID, BodyMD, Lang string
 	Snippets                 []domain.Snippet
 	Sources                  []string
+}
+
+// VoteRequest is the castVote body.
+type VoteRequest struct {
+	TargetType, TargetID string
+	Value                int
 }
 
 // QuestionPage is one question page. NextCursor is empty on the last page.
@@ -251,6 +266,14 @@ func (s *Service) UpdateQuestion(ctx context.Context, sub subject.Subject, id st
 
 // ListAnswers returns one page of a published question's answers: the accepted answer first, then by
 // vote score, then oldest first, then id.
+//
+// The cursor is a keyset on that live order, so it holds the last row's position, not a snapshot. A vote
+// or an acceptance between two pages never breaks the walk: the cursor stays valid and the next page
+// continues after the cut position. It can move an answer across that position: one whose score fell
+// below the cut shows again on a later page (a duplicate), one whose score rose above it is missed by
+// this walk and shows first in the next. Every answer that did not change position is returned exactly
+// once, in order. A client walking the pages de-duplicates by id and refreshes from the first page to
+// see the current order.
 func (s *Service) ListAnswers(ctx context.Context, req AnswerListRequest) (AnswerPage, error) {
 	size, err := pageSize(req.Limit)
 	if err != nil {
@@ -312,6 +335,94 @@ func (s *Service) CreateAnswer(ctx context.Context, sub subject.Subject, req Cre
 		return domain.Answer{}, readErr(err)
 	}
 	return a, nil
+}
+
+// CastVote records the subject's vote on a published question or answer: verified email, one vote per
+// target (the same value again changes nothing, another value replaces it), never on one's own content.
+// The score moves by the difference in the store's transaction; it is never computed here.
+func (s *Service) CastVote(ctx context.Context, sub subject.Subject, req VoteRequest) (domain.VoteState, error) {
+	if err := requireVerified(sub, "vote"); err != nil {
+		return domain.VoteState{}, err
+	}
+	if req.Value != 1 && req.Value != -1 {
+		return domain.VoteState{}, invalid("/value", "invalid_value", "value must be 1 or -1.")
+	}
+	if err := validateTarget("/target_type", "/target_id", req.TargetType, req.TargetID); err != nil {
+		return domain.VoteState{}, err
+	}
+	return s.vote(ctx, sub, domain.Vote{UserID: sub.UserID, TargetType: req.TargetType, TargetID: req.TargetID, Value: req.Value})
+}
+
+// RetractVote removes the subject's vote on a published question or answer; having none is a success
+// (value 0).
+func (s *Service) RetractVote(ctx context.Context, sub subject.Subject, targetType, targetID string) (domain.VoteState, error) {
+	if err := requireVerified(sub, "vote"); err != nil {
+		return domain.VoteState{}, err
+	}
+	if err := validateTarget("target_type", "target_id", targetType, targetID); err != nil {
+		return domain.VoteState{}, err
+	}
+	return s.vote(ctx, sub, domain.Vote{UserID: sub.UserID, TargetType: targetType, TargetID: targetID})
+}
+
+func (s *Service) vote(ctx context.Context, sub subject.Subject, v domain.Vote) (domain.VoteState, error) {
+	if err := s.hit(ctx, sub); err != nil {
+		return domain.VoteState{}, err
+	}
+	state, err := s.store.SetVote(ctx, v)
+	if errors.Is(err, domain.ErrSelfVote) {
+		return domain.VoteState{}, apperr.New(apperr.CodeSelfVoteForbidden, "You cannot vote on your own content.")
+	}
+	if err != nil {
+		return domain.VoteState{}, readErr(err)
+	}
+	return state, nil
+}
+
+// AcceptAnswer makes one answer of the question the accepted answer, replacing the previous one. Only the
+// question's author may; an answer of another question, unknown or removed is a 422.
+func (s *Service) AcceptAnswer(ctx context.Context, sub subject.Subject, questionID, answerID string) (domain.Question, error) {
+	if err := requireVerified(sub, "accept an answer"); err != nil {
+		return domain.Question{}, err
+	}
+	if !validID(answerID) {
+		return domain.Question{}, invalid("/answer_id", "invalid_value", "answer_id must be a UUID.")
+	}
+	return s.setAccepted(ctx, sub, domain.AcceptChange{QuestionID: questionID, ActorID: sub.UserID, AnswerID: answerID})
+}
+
+// UnacceptAnswer clears the accepted answer; nothing accepted is a success. Only the question's author may.
+func (s *Service) UnacceptAnswer(ctx context.Context, sub subject.Subject, questionID string) (domain.Question, error) {
+	if err := requireVerified(sub, "change the accepted answer"); err != nil {
+		return domain.Question{}, err
+	}
+	return s.setAccepted(ctx, sub, domain.AcceptChange{QuestionID: questionID, ActorID: sub.UserID})
+}
+
+func (s *Service) setAccepted(ctx context.Context, sub subject.Subject, c domain.AcceptChange) (domain.Question, error) {
+	if err := s.hit(ctx, sub); err != nil {
+		return domain.Question{}, err
+	}
+	q, err := s.store.SetAcceptedAnswer(ctx, c)
+	switch {
+	case errors.Is(err, domain.ErrForbidden):
+		return domain.Question{}, apperr.New(apperr.CodeForbidden, "Only the author can accept an answer.")
+	case errors.Is(err, domain.ErrAnswerNotInQuestion):
+		return domain.Question{}, invalid("/answer_id", "invalid_value", "answer_id must be a published answer of this question.")
+	case err != nil:
+		return domain.Question{}, readErr(err)
+	}
+	return q, nil
+}
+
+func validateTarget(typeField, idField, targetType, targetID string) error {
+	if targetType != domain.TargetQuestion && targetType != domain.TargetAnswer {
+		return invalid(typeField, "invalid_value", "target_type must be question or answer.")
+	}
+	if !validID(targetID) {
+		return invalid(idField, "invalid_value", "target_id must be a UUID.")
+	}
+	return nil
 }
 
 func requireVerified(sub subject.Subject, action string) error {

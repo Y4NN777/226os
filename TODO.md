@@ -166,10 +166,10 @@ Open owner items outside CADEV (IDs and decisions in ROADMAP section 8, 10 and 1
   - [x] `updateQuestion` (owner only, non-owner 403; `If-Match` required: 428 missing, 412 stale; authz and 404 run BEFORE the ETag check) — `feature/solve/questions-answers`, 2026-11-14
   - [x] `listAnswers` (accepted first, then by score) — `feature/solve/questions-answers`, 2026-11-14
   - [x] `createAnswer` (verified email; Idempotency-Key) — `feature/solve/questions-answers`, 2026-11-14
-  - [ ] `castVote` (one vote per target; own content 403 `SELF_VOTE_FORBIDDEN`; server-side score)
-  - [ ] `retractVote` (idempotent)
-  - [ ] `acceptAnswer` (question author only; atomically replaces the previous accepted answer)
-  - [ ] `unacceptAnswer` (idempotent)
+  - [x] `castVote` (one vote per target; own content 403 `SELF_VOTE_FORBIDDEN`; server-side score) — `feature/solve/votes-accept`, 2026-11-14
+  - [x] `retractVote` (idempotent) — `feature/solve/votes-accept`, 2026-11-14
+  - [x] `acceptAnswer` (question author only; atomically replaces the previous accepted answer) — `feature/solve/votes-accept`, 2026-11-14
+  - [x] `unacceptAnswer` (idempotent) — `feature/solve/votes-accept`, 2026-11-14
 - **Tables:** `questions`, `answers`, `votes`, `question_tags`, `question_sources`, `answer_sources`, `content_relations`, `tags`, `idempotency_keys`.
 - **Acceptance:** `US-SOLVE-001/1`, `/2`, `US-IDENTITY-001/1`. Negative authz: writes 401 anonymous, 403 `EMAIL_NOT_VERIFIED`, 403 CSRF; non-owner PATCH 403; Bob's accept 403 with no change; self-vote 403; duplicate vote creates no row; closed or removed question rejects answers; links to private targets or by non-authors rejected.
 - **Prototype pages:** `solve`, `question`, part of `accueil`. **Allowed paths:** `src/api/internal/solve/**`, `db/queries/**` (solve files), generated `dbgen`, `scripts/public-routes.txt` (3 public reads). **DoD:** DoD-common plus a vote-score reconciliation test and a concurrent-accept test on real PostgreSQL. **Stop:** any change to `api/openapi.yaml` (R7).
@@ -180,8 +180,10 @@ Open owner items outside CADEV (IDs and decisions in ROADMAP section 8, 10 and 1
   - A missing `If-Match` is 428 from the generated parameter binding, before the authorization check; it leaks nothing (same answer for every id). A stale one gets 403 or 404 first.
   - No "closed" question state exists: a removed or unknown question is 404 for reads, edits and answers.
   - `updateQuestion` draws on the `write:user` budget like the creates; it does not require a verified email (owner only, and verification cannot revert at P0).
-  - The answer cursor assumes a stable `vote_score`; PR 2 (votes) must make paging stable.
-- **Status:** IN PROGRESS. PR 1 (`feature/solve/questions-answers`, six operations) built by the owner's session on 2026-11-14 with `NICE-DEV226` as slice owner (owner decision on #67); PR 2 (`feature/solve/votes-accept`) not started.
+  - Answer paging under moving votes (owner decision 2026-11-14, accepted): `listAnswers` keeps the SPEC order (accepted first, then score); while votes move, a client paging through can miss an answer that rose above the cut or see one twice. Nothing errors and a reload fixes it.
+  - Votes and accept need a verified email (as the content they act on, ADR-0003). An unknown, removed or other-question `answer_id` on accept is 422 on `/answer_id` (the question is visible to its author, so nothing leaks); a vote on an unknown or removed target is 404.
+  - Allowed paths extended as S4 and S5 (owner approval 2026-11-14): `src/api/internal/app/**` (wiring), `src/api/internal/platform/pgtest/**` and `dbgen/*_test.go` (tests), the route lists `scripts/unimplemented-routes.txt`, `scripts/public-routes.txt`, `scripts/authz-tests.txt`, and `scripts/tests/authz-routes_test.sh` (its fixture routes moved to still-unimplemented P1 operations).
+- **Status:** IN REVIEW. PR 1 merged (#147, 2026-11-14); PR 2 (`feature/solve/votes-accept`, four operations) built by the owner's session with `NICE-DEV226` as slice owner (owner decision on #67).
 
 ---
 
