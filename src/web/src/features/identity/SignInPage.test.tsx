@@ -47,7 +47,7 @@ describe('SignInPage', () => {
   it('validates on submit, announces the errors and focuses the first invalid field', async () => {
     setLanguages(['fr-FR']);
     const fetchMock = mockApi();
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp('/connexion');
     await user.click(await screen.findByRole('button', { name: 'Se connecter' }));
     expect(await screen.findAllByText('Saisissez votre adresse e-mail.')).not.toHaveLength(0);
@@ -60,7 +60,7 @@ describe('SignInPage', () => {
   it('rejects an implausible address', async () => {
     setLanguages(['fr-FR']);
     const fetchMock = mockApi();
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp('/connexion');
     await screen.findByRole('heading', { level: 1 });
     await fill(user, 'awa', 'x');
@@ -74,7 +74,7 @@ describe('SignInPage', () => {
   it('signs in with the CSRF header, stores the session and goes to next', async () => {
     setLanguages(['fr-FR']);
     const fetchMock = mockApi({ [SIGN_IN]: () => jsonResponse(memberSession) });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     const { router } = await renderApp('/connexion?next=/recherche');
     await screen.findByRole('heading', { level: 1 });
     await fill(user, ' awa@example.org ', 'a long passphrase');
@@ -93,7 +93,7 @@ describe('SignInPage', () => {
   it('goes home when there is no next', async () => {
     setLanguages(['fr-FR']);
     mockApi({ [SIGN_IN]: () => jsonResponse(memberSession) });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     const { router } = await renderApp('/connexion');
     await screen.findByRole('heading', { level: 1 });
     await fill(user, 'awa@example.org', 'a long passphrase');
@@ -108,7 +108,7 @@ describe('SignInPage', () => {
     async (code) => {
       setLanguages(['fr-FR']);
       mockApi({ [SIGN_IN]: () => problemResponse(401, code) });
-      const user = userEvent.setup();
+      const user = userEvent.setup({ delay: null });
       await renderApp('/connexion');
       await screen.findByRole('heading', { level: 1 });
       await fill(user, 'awa@example.org', 'wrong password!');
@@ -168,7 +168,7 @@ describe('SignInPage', () => {
   it('is calm on a 429 without Retry-After', async () => {
     setLanguages(['fr-FR']);
     mockApi({ [SIGN_IN]: () => problemResponse(429, 'RATE_LIMITED') });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp('/connexion');
     await screen.findByRole('heading', { level: 1 });
     await fill(user, 'awa@example.org', 'a long passphrase');
@@ -180,7 +180,7 @@ describe('SignInPage', () => {
   it('shows a generic error with its reference on a server failure', async () => {
     setLanguages(['fr-FR']);
     mockApi({ [SIGN_IN]: () => problemResponse(500, 'INTERNAL_ERROR') });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp('/connexion');
     await screen.findByRole('heading', { level: 1 });
     await fill(user, 'awa@example.org', 'a long passphrase');
@@ -196,7 +196,7 @@ describe('SignInPage', () => {
         throw new TypeError('failed to fetch');
       },
     });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp('/connexion');
     await screen.findByRole('heading', { level: 1 });
     await fill(user, 'awa@example.org', 'a long passphrase');
@@ -214,7 +214,7 @@ describe('SignInPage', () => {
           }, 50);
         }),
     });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp('/connexion');
     await screen.findByRole('heading', { level: 1 });
     await fill(user, 'awa@example.org', 'a long passphrase');
@@ -230,7 +230,7 @@ describe('SignInPage', () => {
   it('toggles the password visibility with an accessible button', async () => {
     setLanguages(['fr-FR']);
     mockApi();
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp('/connexion');
     await screen.findByRole('heading', { level: 1 });
     const toggle = screen.getByRole('button', { name: 'Afficher le mot de passe' });
@@ -246,7 +246,7 @@ describe('SignInPage', () => {
   it('allows pasting a password', async () => {
     setLanguages(['fr-FR']);
     mockApi();
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp('/connexion');
     await screen.findByRole('heading', { level: 1 });
     await user.click(screen.getByLabelText('Mot de passe'));
@@ -257,7 +257,7 @@ describe('SignInPage', () => {
   it('is available in English', async () => {
     setLanguages(['en-US']);
     mockApi({ [SIGN_IN]: () => problemResponse(401, 'INVALID_CREDENTIALS') });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp('/connexion');
     expect(await screen.findByRole('heading', { level: 1, name: 'Sign in' })).toBeInTheDocument();
     await user.type(screen.getByLabelText('Email address'), 'awa@example.org');

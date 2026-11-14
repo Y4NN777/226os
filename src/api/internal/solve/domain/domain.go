@@ -18,6 +18,8 @@ var (
 	ErrLinkTarget = errors.New("solve link target not linkable")
 	// ErrUnknownCountry means the country code is not a countries row.
 	ErrUnknownCountry = errors.New("solve country unknown")
+	// ErrTagUnavailable means a tag slug names a tag a moderator hid: it cannot be linked.
+	ErrTagUnavailable = errors.New("solve tag unavailable")
 	// ErrSelfVote means the voter wrote the question or answer.
 	ErrSelfVote = errors.New("solve vote on own content")
 	// ErrAnswerNotInQuestion means the answer is unknown, removed, or belongs to another question: one
@@ -71,8 +73,10 @@ type Question struct {
 	Snippets                                           []Snippet
 	Author                                             Author
 	AnswerCount, VoteScore                             int
-	Related                                            []Link
-	CreatedAt, UpdatedAt                               time.Time
+	// ViewerVote is the caller's own vote (-1, 0, 1); 0 for an anonymous caller.
+	ViewerVote           int
+	Related              []Link
+	CreatedAt, UpdatedAt time.Time
 	// Rank is the search relevance of a listed question (0 without a query); it only feeds the cursor.
 	Rank float32
 }
@@ -112,7 +116,9 @@ type QuestionQuery struct {
 	AfterCreated                 *time.Time
 	AfterRank                    float32
 	AfterID                      string
-	Limit                        int
+	// ViewerID is the session subject whose vote ViewerVote reads; empty means anonymous.
+	ViewerID string
+	Limit    int
 }
 
 // Answer is a published answer. Snippets are always empty at P0 (no column, migration 00005).
@@ -122,6 +128,7 @@ type Answer struct {
 	Sources                      []string
 	Author                       Author
 	VoteScore                    int
+	ViewerVote                   int
 	Accepted                     bool
 	CreatedAt, UpdatedAt         time.Time
 }
@@ -144,6 +151,7 @@ type AnswerKey struct {
 // look-ahead row.
 type AnswerQuery struct {
 	QuestionID string
+	ViewerID   string // the session subject whose vote ViewerVote reads; empty means anonymous
 	After      *AnswerKey
 	Limit      int
 }

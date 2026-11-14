@@ -267,47 +267,55 @@ var (
 	htmlTag    = regexp.MustCompile(`<[^>]*>`)
 	mdLink     = regexp.MustCompile(`\[([^\]]*)\]\([^)]*\)`)
 	foreignURL = regexp.MustCompile(`(?i)(?:\b(?:https?|ftp)://|\bwww\.|\b(?:javascript|data|vbscript):)\S*`)
-	heading    = regexp.MustCompile(`(?im)^[ \t]*(?:[#>*_-]+[ \t]*)*(?:comment v[ée]rifier|how to verify)[ \t]*[*_]*[ \t]*:?[ \t]*[*_]*[ \t]*`)
+	heading    = regexp.MustCompile(`(?im)^[ \t]*(?:[#>*_-]+[ \t]*)*(?:comment v[ée]rifier|how to verify)[ \t]*[*_]*[ \t]*:?[ \t]*[*_]*[ \t]*$`)
 )
 
 // Parse validates the cleaned text of a model answer against the passages that were retrieved:
 // every [Sn] must name one of them (ErrInvalidCitation otherwise) and at least one must be cited
 // (ErrNoCitation). Markers are renumbered in order of first use and the sources follow that order.
-// The "Comment vérifier" section is split off; lang selects the default when the model wrote none.
+// The "Comment vérifier" section is split off at the last line that is only that heading; lang selects the default when the model wrote none.
 // A fixed notice about the dates of the cited sources ends the verification (AI-5): it says the
 // dates are shown when every cited source has one, and that some are undated otherwise.
 func Parse(text string, passages []Passage, lang string) (Answer, error) {
 	text = foreignURL.ReplaceAllString(mdLink.ReplaceAllString(htmlTag.ReplaceAllString(text, ""), "$1"), "")
+	// The sections are split and cut on the raw text, before the markers are renumbered, so a cut
+	// can never leave half a marker behind and only the sources the kept text cites are returned.
+	body, verify := text, ""
+	if locs := heading.FindAllStringIndex(text, -1); len(locs) > 0 {
+		last := locs[len(locs)-1]
+		body, verify = text[:last[0]], text[last[1]:]
+	}
+	body = cutSafe(body, MaxAnswerRunes)
+	verify = cutSafe(verify, MaxVerifyRunes-noticeRunes)
 	order := map[int]int{}
 	var sources []Passage
 	var bad bool
-	rewritten := anyMarker.ReplaceAllStringFunc(text, func(m string) string {
-		exact := exactMarker.FindStringSubmatch(m)
-		if exact == nil {
-			bad = true
-			return m
-		}
-		n, err := strconv.Atoi(exact[1])
-		if err != nil || n < 1 || n > len(passages) {
-			bad = true
-			return m
-		}
-		if _, ok := order[n]; !ok {
-			order[n] = len(sources) + 1
-			sources = append(sources, passages[n-1])
-		}
-		return "[" + strconv.Itoa(order[n]) + "]"
-	})
+	renumber := func(s string) string {
+		return anyMarker.ReplaceAllStringFunc(s, func(m string) string {
+			exact := exactMarker.FindStringSubmatch(m)
+			if exact == nil {
+				bad = true
+				return m
+			}
+			n, err := strconv.Atoi(exact[1])
+			if err != nil || n < 1 || n > len(passages) {
+				bad = true
+				return m
+			}
+			if _, ok := order[n]; !ok {
+				order[n] = len(sources) + 1
+				sources = append(sources, passages[n-1])
+			}
+			return "[" + strconv.Itoa(order[n]) + "]"
+		})
+	}
+	body = renumber(body)
+	verify = renumber(verify)
 	switch {
 	case bad:
 		return Answer{}, ErrInvalidCitation
 	case len(sources) == 0:
 		return Answer{}, ErrNoCitation
-	}
-	body, verify := rewritten, ""
-	if locs := heading.FindAllStringIndex(rewritten, -1); len(locs) > 0 {
-		last := locs[len(locs)-1]
-		body, verify = rewritten[:last[0]], rewritten[last[1]:]
 	}
 	body, verify = strings.TrimSpace(body), strings.TrimSpace(verify)
 	if body == "" {
@@ -321,9 +329,19 @@ func Parse(text string, passages []Passage, lang string) (Answer, error) {
 	}
 	return Answer{
 		Answered: true, Lang: lang, Sources: sources,
-		Text:        Cut(body, MaxAnswerRunes),
-		HowToVerify: Cut(verify, MaxVerifyRunes-noticeRunes) + "\n\n" + datesNotice(lang, sources),
+		Text:        body,
+		HowToVerify: verify + "\n\n" + datesNotice(lang, sources),
 	}, nil
+}
+
+// cutSafe cuts s to n runes and drops a trailing unclosed "[" fragment, so a citation marker is
+// either whole or absent.
+func cutSafe(s string, n int) string {
+	s = Cut(s, n)
+	if i := strings.LastIndex(s, "["); i >= 0 && !strings.Contains(s[i:], "]") {
+		s = strings.TrimSpace(s[:i])
+	}
+	return s
 }
 
 func defaultVerify(lang string) string {

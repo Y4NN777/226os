@@ -33,7 +33,7 @@ func New(svc *service.Service, logger *slog.Logger) *Handler {
 // ListQuestions serves GET /questions.
 func (h *Handler) ListQuestions(w http.ResponseWriter, r *http.Request, params apigen.ListQuestionsParams) {
 	sub := subject.From(r.Context())
-	page, err := h.svc.ListQuestions(r.Context(), service.QuestionListRequest{
+	page, err := h.svc.ListQuestions(r.Context(), sub, service.QuestionListRequest{
 		Q: params.Q, Tag: params.Tag, State: str(params.State), Country: params.Country, Lang: str(params.Lang),
 		Cursor: deref(params.Cursor), Limit: params.Limit, Anonymous: sub.Anonymous(), ClientIP: httpx.ClientIPKey(r),
 	})
@@ -45,6 +45,7 @@ func (h *Handler) ListQuestions(w http.ResponseWriter, r *http.Request, params a
 	for i, q := range page.Items {
 		items[i] = questionJSON(q)
 	}
+	httpx.ViewerScoped(w)
 	writeJSON(w, http.StatusOK, apigen.QuestionPage{Items: items, NextCursor: next(page.NextCursor)})
 }
 
@@ -70,12 +71,14 @@ func (h *Handler) CreateQuestion(w http.ResponseWriter, r *http.Request, _ apige
 
 // GetQuestion serves GET /questions/{questionId} with its ETag.
 func (h *Handler) GetQuestion(w http.ResponseWriter, r *http.Request, questionID apigen.QuestionId) {
-	q, err := h.svc.GetQuestion(r.Context(), questionID.String())
+	sub := subject.From(r.Context())
+	q, err := h.svc.GetQuestion(r.Context(), sub, questionID.String())
 	if err != nil {
 		h.fail(w, r, err)
 		return
 	}
-	etag.Set(w, service.ETag(q))
+	httpx.ViewerScoped(w)
+	etag.Set(w, service.ETag(q, sub.UserID))
 	writeJSON(w, http.StatusOK, questionJSON(q))
 }
 
@@ -126,19 +129,21 @@ func (h *Handler) UpdateQuestion(w http.ResponseWriter, r *http.Request, questio
 		l := links(body.Links)
 		req.Links = &l
 	}
-	q, err := h.svc.UpdateQuestion(r.Context(), subject.From(r.Context()), questionID.String(), req,
+	sub := subject.From(r.Context())
+	q, err := h.svc.UpdateQuestion(r.Context(), sub, questionID.String(), req,
 		func(tag string) error { return etag.Check(r, tag) })
 	if err != nil {
 		h.fail(w, r, err)
 		return
 	}
-	etag.Set(w, service.ETag(q))
+	httpx.ViewerScoped(w)
+	etag.Set(w, service.ETag(q, sub.UserID))
 	writeJSON(w, http.StatusOK, questionJSON(q))
 }
 
 // ListAnswers serves GET /questions/{questionId}/answers.
 func (h *Handler) ListAnswers(w http.ResponseWriter, r *http.Request, questionID apigen.QuestionId, params apigen.ListAnswersParams) {
-	page, err := h.svc.ListAnswers(r.Context(), service.AnswerListRequest{
+	page, err := h.svc.ListAnswers(r.Context(), subject.From(r.Context()), service.AnswerListRequest{
 		QuestionID: questionID.String(), Cursor: deref(params.Cursor), Limit: params.Limit,
 	})
 	if err != nil {
@@ -149,6 +154,7 @@ func (h *Handler) ListAnswers(w http.ResponseWriter, r *http.Request, questionID
 	for i, a := range page.Items {
 		items[i] = answerJSON(a)
 	}
+	httpx.ViewerScoped(w)
 	writeJSON(w, http.StatusOK, apigen.AnswerPage{Items: items, NextCursor: next(page.NextCursor)})
 }
 
@@ -242,7 +248,7 @@ func questionJSON(q domain.Question) apigen.Question {
 	out := apigen.Question{
 		Id: &id, Title: q.Title, BodyMd: q.BodyMD, Lang: apigen.Lang(q.Lang), Tags: q.Tags,
 		Snippets: snippetsJSON(q.Snippets), State: apigen.QuestionState(q.State()), Author: authorJSON(q.Author),
-		AnswerCount: q.AnswerCount, VoteScore: q.VoteScore, Related: related,
+		AnswerCount: q.AnswerCount, VoteScore: q.VoteScore, ViewerVote: apigen.ViewerVote(q.ViewerVote), Related: related,
 		CreatedAt: q.CreatedAt.UTC(), UpdatedAt: q.UpdatedAt.UTC(),
 	}
 	if q.Country != "" {
@@ -261,7 +267,7 @@ func answerJSON(a domain.Answer) apigen.Answer {
 	return apigen.Answer{
 		Id: &id, QuestionId: mustID(a.QuestionID), BodyMd: a.BodyMD, Lang: apigen.Lang(a.Lang),
 		Snippets: snippetsJSON(a.Snippets), Sources: a.Sources, Author: authorJSON(a.Author),
-		VoteScore: a.VoteScore, IsAccepted: a.Accepted, CreatedAt: a.CreatedAt.UTC(), UpdatedAt: a.UpdatedAt.UTC(),
+		VoteScore: a.VoteScore, ViewerVote: apigen.ViewerVote(a.ViewerVote), IsAccepted: a.Accepted, CreatedAt: a.CreatedAt.UTC(), UpdatedAt: a.UpdatedAt.UTC(),
 	}
 }
 

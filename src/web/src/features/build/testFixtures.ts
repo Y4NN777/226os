@@ -39,6 +39,7 @@ export function need(overrides: Partial<Need> = {}): Need {
     lang: 'fr',
     skills: ['go', 'tests'],
     status: 'open',
+    viewer_application: null,
     created_at: '2026-11-10T10:00:00Z',
     ...overrides,
   };

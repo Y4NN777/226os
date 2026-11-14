@@ -28,7 +28,13 @@ candidates AS (
     AND (i.tsq IS NULL OR (querytree(i.tsq) NOT IN ('', 'T') AND q.search_document @@ i.tsq))
     AND (sqlc.narg('tag')::text IS NULL OR EXISTS (
           SELECT 1 FROM question_tags qt JOIN tags t ON t.id = qt.tag_id AND t.status = 'active'
-          WHERE qt.question_id = q.id AND t.slug = sqlc.narg('tag')::text))
+          WHERE qt.question_id = q.id AND t.slug = sqlc.narg('tag')::text
+            -- only a tag the question displays (SolveQuestionTags: the first 5 active by slug): fewer than
+            -- 5 active tags sort before it
+            AND (SELECT count(*) FROM (
+                   SELECT 1 FROM question_tags qt2
+                   JOIN tags t2 ON t2.id = qt2.tag_id AND t2.status = 'active'
+                   WHERE qt2.question_id = q.id AND t2.slug < t.slug LIMIT 5) lower_slugs) < 5))
     AND (sqlc.narg('state')::text IS NULL
          OR (CASE WHEN q.accepted_answer_id IS NOT NULL THEN 'resolved'
                   WHEN q.answer_count > 0 THEN 'answered' ELSE 'open' END) = sqlc.narg('state')::text)
@@ -43,7 +49,8 @@ SELECT c.id, c.title, c.body_md, c.language, COALESCE(c.snippet, '')::text AS sn
        c.author_id, pr.username AS author_username, pr.display_name AS author_display_name,
        COALESCE(CASE WHEN pr.profile_visibility = 'public' AND pr.country_visibility = 'public'
              THEN pr.country_code END, '')::text AS author_country,
-       c.rank
+       c.rank,
+       COALESCE((SELECT v.value FROM votes v WHERE v.user_id = sqlc.narg('viewer_id')::uuid AND v.target_type = 'question' AND v.target_id = c.id), 0)::int AS viewer_vote
 FROM candidates c
 JOIN profiles pr ON pr.user_id = c.author_id
 WHERE (sqlc.narg('after_created')::timestamptz IS NULL
@@ -53,23 +60,34 @@ ORDER BY c.rank DESC, c.created_at DESC, c.id DESC
 LIMIT sqlc.arg('row_limit');
 
 -- name: GetSolveQuestion :one
+-- viewer_vote is the caller's own vote (0 without a vote or without a caller): one primary-key probe of
+-- votes_pk, scoped to the viewer id the service takes from the session.
 SELECT q.id, q.title, q.body_md, q.language, COALESCE(q.snippet, '')::text AS snippet,
        COALESCE(q.snippet_language, '')::text AS snippet_language, COALESCE(q.country_code, '')::text AS country_code,
        q.answer_count, q.vote_score, q.accepted_answer_id, q.created_at, q.updated_at,
        q.author_id, pr.username AS author_username, pr.display_name AS author_display_name,
        COALESCE(CASE WHEN pr.profile_visibility = 'public' AND pr.country_visibility = 'public'
-             THEN pr.country_code END, '')::text AS author_country
+             THEN pr.country_code END, '')::text AS author_country,
+       COALESCE((SELECT v.value FROM votes v WHERE v.user_id = sqlc.narg('viewer_id')::uuid AND v.target_type = 'question' AND v.target_id = q.id), 0)::int AS viewer_vote
 FROM questions q
 JOIN profiles pr ON pr.user_id = q.author_id
 WHERE q.id = sqlc.arg('id')::uuid AND q.status = 'published';
 
 -- name: SolveQuestionTags :many
--- Active tags only: a hidden tag is the moderator tool (DATABASE_DESIGN tags).
-SELECT qt.question_id, t.slug
-FROM question_tags qt
-JOIN tags t ON t.id = qt.tag_id AND t.status = 'active'
-WHERE qt.question_id = ANY (sqlc.arg('ids')::uuid[])
-ORDER BY qt.question_id, t.slug
+-- Active tags only: a hidden tag is the moderator tool (DATABASE_DESIGN tags). At most 5 per question,
+-- the first 5 by slug (Question.tags maxItems 5, issue #167): an edit keeps links to hidden tags, so a
+-- restored tag can make a sixth active link, and no constraint caps the rows. The author's 422 counts
+-- only the tags they can see (service validateTags); the bound lives on the read.
+SELECT question_id, slug
+FROM (
+  SELECT qt.question_id, t.slug,
+         row_number() OVER (PARTITION BY qt.question_id ORDER BY t.slug) AS rn
+  FROM question_tags qt
+  JOIN tags t ON t.id = qt.tag_id AND t.status = 'active'
+  WHERE qt.question_id = ANY (sqlc.arg('ids')::uuid[])
+) ranked
+WHERE rn <= 5
+ORDER BY question_id, slug
 LIMIT 300;
 
 -- name: SolveQuestionRelated :many
@@ -136,10 +154,17 @@ DELETE FROM question_tags qt
 USING tags t
 WHERE qt.question_id = sqlc.arg('question_id')::uuid AND qt.tag_id = t.id AND t.status = 'active';
 
--- name: InsertSolveQuestionTags :exec
-INSERT INTO question_tags (question_id, tag_id)
-SELECT sqlc.arg('question_id')::uuid, t.id FROM tags t WHERE t.slug = ANY (sqlc.arg('slugs')::text[])
-ON CONFLICT DO NOTHING;
+-- name: InsertSolveQuestionTags :one
+-- Links the ACTIVE tags among the slugs and returns how many slugs name a tag that is not active: a
+-- moderator-hidden tag can be neither created nor shown, so the author sending it is refused (the caller
+-- rolls the transaction back) and no invisible link is written (issue #167).
+WITH ins AS (
+  INSERT INTO question_tags (question_id, tag_id)
+  SELECT sqlc.arg('question_id')::uuid, t.id FROM tags t
+  WHERE t.slug = ANY (sqlc.arg('slugs')::text[]) AND t.status = 'active'
+  ON CONFLICT DO NOTHING
+)
+SELECT count(*)::int FROM tags t WHERE t.slug = ANY (sqlc.arg('slugs')::text[]) AND t.status <> 'active';
 
 -- name: DeleteSolveQuestionLinks :exec
 -- An edit replaces the active links the author wrote (created_by); a link someone else created stays, and
@@ -211,7 +236,8 @@ SELECT a.id, a.question_id, a.body_md, a.language, a.vote_score, a.created_at, a
        (q.accepted_answer_id IS NOT DISTINCT FROM a.id)::boolean AS is_accepted,
        a.author_id, pr.username AS author_username, pr.display_name AS author_display_name,
        COALESCE(CASE WHEN pr.profile_visibility = 'public' AND pr.country_visibility = 'public'
-             THEN pr.country_code END, '')::text AS author_country
+             THEN pr.country_code END, '')::text AS author_country,
+       COALESCE((SELECT v.value FROM votes v WHERE v.user_id = sqlc.narg('viewer_id')::uuid AND v.target_type = 'answer' AND v.target_id = a.id), 0)::int AS viewer_vote
 FROM answers a
 JOIN questions q ON q.id = a.question_id
 JOIN profiles pr ON pr.user_id = a.author_id
@@ -224,7 +250,8 @@ SELECT a.id, a.question_id, a.body_md, a.language, a.vote_score, a.created_at, a
        (q.accepted_answer_id IS NOT DISTINCT FROM a.id)::boolean AS is_accepted,
        a.author_id, pr.username AS author_username, pr.display_name AS author_display_name,
        COALESCE(CASE WHEN pr.profile_visibility = 'public' AND pr.country_visibility = 'public'
-             THEN pr.country_code END, '')::text AS author_country
+             THEN pr.country_code END, '')::text AS author_country,
+       COALESCE((SELECT v.value FROM votes v WHERE v.user_id = sqlc.narg('viewer_id')::uuid AND v.target_type = 'answer' AND v.target_id = a.id), 0)::int AS viewer_vote
 FROM answers a
 JOIN questions q ON q.id = a.question_id
 JOIN profiles pr ON pr.user_id = a.author_id

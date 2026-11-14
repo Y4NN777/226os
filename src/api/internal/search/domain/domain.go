@@ -87,15 +87,57 @@ func TruncateQuery(q string) string {
 	return out
 }
 
-var markdownLink = regexp.MustCompile(`\[([^\]]*)\]\([^)]*\)`)
+var (
+	markdownLink = regexp.MustCompile(`\[([^\]]*)\]\([^)]*\)`)
+	// htmlTag matches a closed <...> tag, and an unterminated one that starts like a tag (so a cut
+	// excerpt cannot leave "<img src=x onerror=..." behind). "a < b" and "x -> y" are not tags.
+	htmlTag = regexp.MustCompile(`<>|<[A-Za-z/!?][^<>]*>?`)
+	// lineMarker is the markdown structure at the start of a line: fences, headings, quotes, bullets.
+	lineMarker = regexp.MustCompile("(?m)^[ \t]{0,3}(?:```|~~~|#{1,6}[ \t]+|(?:>[ \t]?)+|[-*+][ \t]+)")
+	// Inline pairs: the marker must hug the text, so "5 * 3" and "a*b*c" are left alone.
+	boldOrStrike = regexp.MustCompile(`\*\*([^*\n]+)\*\*|~~([^~\n]+)~~`)
+	emphasis     = regexp.MustCompile(`(^|[^\w*])\*([^*\s](?:[^*\n]*[^*\s])?)\*`)
+	inlineCode   = regexp.MustCompile("`([^`\n]*)`")
+)
 
-// markupRemover drops the characters that make markdown or HTML: a snippet is plain text, so
-// no tag can survive (angle brackets go) and emphasis, heading and code markers go too.
-var markupRemover = strings.NewReplacer("<", "", ">", "", "`", "", "*", "", "#", "", "~", "")
+// PlainText returns s with control characters and invisible direction controls (bidi marks and
+// overrides, zero-width space, word joiner, BOM) removed and whitespace collapsed. It keeps every
+// other character, markdown included: it is for titles. ZWNJ and ZWJ stay, as Persian and emoji need them.
+func PlainText(s string) string { return strings.Join(strings.Fields(stripInvisible(s)), " ") }
 
-// Snippet turns a markdown excerpt into at most MaxSnippetRunes runes of plain text.
+func stripInvisible(s string) string {
+	return strings.Map(func(r rune) rune {
+		switch {
+		case unicode.IsSpace(r):
+			return r
+		case unicode.IsControl(r), r == '\u061c', r == '\u200b', r == '\u200e', r == '\u200f',
+			r >= '\u202a' && r <= '\u202e', r == '\u2060', r >= '\u2066' && r <= '\u2069', r == '\ufeff':
+			return -1
+		}
+		return r
+	}, s)
+}
+
+// Snippet turns a markdown excerpt into at most MaxSnippetRunes runes of plain text. It removes
+// links' targets, HTML tags, the markdown structure of line starts and inline emphasis or code
+// pairs, and keeps the characters that are content ("C#", "~/.config", "5 * 3").
 func Snippet(markdown string) string {
-	plain := markupRemover.Replace(markdownLink.ReplaceAllString(markdown, "$1"))
+	plain := stripInvisible(markdown)
+	// Removing a tag or a marker can join the text around it into a new tag ("<<b>script>",
+	// "<`script`>"), so repeat the whole pipeline until nothing changes. Each pass that matches
+	// strictly shortens the string, so the loop ends.
+	for {
+		stripped := markdownLink.ReplaceAllString(plain, "$1")
+		stripped = htmlTag.ReplaceAllString(stripped, "")
+		stripped = lineMarker.ReplaceAllString(stripped, "")
+		stripped = boldOrStrike.ReplaceAllString(stripped, "$1$2")
+		stripped = emphasis.ReplaceAllString(stripped, "$1$2")
+		stripped = inlineCode.ReplaceAllString(stripped, "$1")
+		if stripped == plain {
+			break
+		}
+		plain = stripped
+	}
 	plain = strings.Join(strings.Fields(plain), " ")
 	runes := []rune(plain)
 	if len(runes) > MaxSnippetRunes {

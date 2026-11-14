@@ -46,9 +46,13 @@ func (r *Repository) ListQuestions(ctx context.Context, q domain.QuestionQuery) 
 	if err != nil {
 		return nil, err
 	}
+	viewer, err := optionalID(q.ViewerID)
+	if err != nil {
+		return nil, err
+	}
 	rows, err := r.q.ListSolveQuestions(ctx, dbgen.ListSolveQuestionsParams{
 		Tag: text(q.Tag), State: text(q.State), Country: text(q.Country), Lang: text(q.Lang), Q: text(q.Q),
-		AfterCreated: timestamp(q.AfterCreated), AfterRank: q.AfterRank, AfterID: after,
+		AfterCreated: timestamp(q.AfterCreated), AfterRank: q.AfterRank, AfterID: after, ViewerID: viewer,
 		RowLimit: int32(q.Limit), //nolint:gosec // page size is at most 51
 	})
 	if err != nil {
@@ -63,7 +67,7 @@ func (r *Repository) ListQuestions(ctx context.Context, q domain.QuestionQuery) 
 			SnippetLanguage: row.SnippetLanguage, CountryCode: row.CountryCode, AnswerCount: row.AnswerCount,
 			VoteScore: row.VoteScore, AcceptedAnswerID: row.AcceptedAnswerID, CreatedAt: row.CreatedAt,
 			UpdatedAt: row.UpdatedAt, AuthorID: row.AuthorID, AuthorUsername: row.AuthorUsername,
-			AuthorDisplayName: row.AuthorDisplayName, AuthorCountry: row.AuthorCountry,
+			AuthorDisplayName: row.AuthorDisplayName, AuthorCountry: row.AuthorCountry, ViewerVote: row.ViewerVote,
 		})
 		out[i].Rank = row.Rank
 	}
@@ -74,14 +78,18 @@ func (r *Repository) ListQuestions(ctx context.Context, q domain.QuestionQuery) 
 }
 
 // GetQuestion returns a published question.
-func (r *Repository) GetQuestion(ctx context.Context, id string) (domain.Question, error) {
+func (r *Repository) GetQuestion(ctx context.Context, id, viewerID string) (domain.Question, error) {
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 	qid, err := requiredID(id)
 	if err != nil {
 		return domain.Question{}, domain.ErrNotFound
 	}
-	return r.load(ctx, r.q, qid)
+	viewer, err := optionalID(viewerID)
+	if err != nil {
+		return domain.Question{}, err
+	}
+	return r.load(ctx, r.q, qid, viewer)
 }
 
 // CreateQuestion inserts the question, its tags (creating missing ones) and its links in one
@@ -113,7 +121,7 @@ func (r *Repository) CreateQuestion(ctx context.Context, in domain.NewQuestion) 
 	if err := writeLinks(ctx, q, id, authorID, in.Links); err != nil {
 		return domain.Question{}, err
 	}
-	out, err := r.load(ctx, q, id)
+	out, err := r.load(ctx, q, id, authorID)
 	if err != nil {
 		return domain.Question{}, err
 	}
@@ -157,7 +165,7 @@ func (r *Repository) UpdateQuestion(ctx context.Context, id string, patch domain
 	if err := apply(ctx, q, locked, patch); err != nil {
 		return domain.Question{}, err
 	}
-	out, err := r.load(ctx, q, qid)
+	out, err := r.load(ctx, q, qid, locked.AuthorID)
 	if err != nil {
 		return domain.Question{}, err
 	}
@@ -212,7 +220,11 @@ func (r *Repository) ListAnswers(ctx context.Context, q domain.AnswerQuery) ([]d
 	if !exists {
 		return nil, domain.ErrNotFound
 	}
-	args := dbgen.ListSolveAnswersParams{QuestionID: qid, RowLimit: int32(q.Limit)} //nolint:gosec // page size is at most 51
+	viewer, err := optionalID(q.ViewerID)
+	if err != nil {
+		return nil, err
+	}
+	args := dbgen.ListSolveAnswersParams{QuestionID: qid, ViewerID: viewer, RowLimit: int32(q.Limit)} //nolint:gosec // page size is at most 51
 	if k := q.After; k != nil {
 		args.AfterID = pgtype.UUID{Bytes: uuid.MustParse(k.ID), Valid: true}
 		args.AfterRank, args.AfterNegScore = int32(k.Rank), int32(k.NegScore) //nolint:gosec // rank is 0 or 1, a score is a column int4
@@ -267,7 +279,7 @@ func (r *Repository) CreateAnswer(ctx context.Context, in domain.NewAnswer) (dom
 			return domain.Answer{}, fmt.Errorf("solve answer sources: %w", err)
 		}
 	}
-	row, err := q.GetSolveAnswer(ctx, id)
+	row, err := q.GetSolveAnswer(ctx, dbgen.GetSolveAnswerParams{ID: id, ViewerID: authorID})
 	if err != nil {
 		return domain.Answer{}, fmt.Errorf("solve get answer: %w", err)
 	}
@@ -379,7 +391,7 @@ func (r *Repository) SetAcceptedAnswer(ctx context.Context, c domain.AcceptChang
 	if err := q.SetSolveAcceptedAnswer(ctx, dbgen.SetSolveAcceptedAnswerParams{ID: qid, AnswerID: answer}); err != nil {
 		return domain.Question{}, fmt.Errorf("solve set accepted answer: %w", err)
 	}
-	out, err := r.load(ctx, q, qid)
+	out, err := r.load(ctx, q, qid, actor)
 	if err != nil {
 		return domain.Question{}, err
 	}
@@ -389,9 +401,10 @@ func (r *Repository) SetAcceptedAnswer(ctx context.Context, c domain.AcceptChang
 	return out, nil
 }
 
-// load reads one published question with its tags and links through q (the pool or a transaction).
-func (r *Repository) load(ctx context.Context, q *dbgen.Queries, id pgtype.UUID) (domain.Question, error) {
-	row, err := q.GetSolveQuestion(ctx, id)
+// load reads one published question with its tags and links through q (the pool or a transaction); viewer
+// is the caller whose own vote comes back (the author after a write, who cannot vote on it).
+func (r *Repository) load(ctx context.Context, q *dbgen.Queries, id, viewer pgtype.UUID) (domain.Question, error) {
+	row, err := q.GetSolveQuestion(ctx, dbgen.GetSolveQuestionParams{ID: id, ViewerID: viewer})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Question{}, domain.ErrNotFound
 	}
@@ -459,8 +472,12 @@ func writeTags(ctx context.Context, q *dbgen.Queries, questionID, by pgtype.UUID
 	if err := q.EnsureTags(ctx, dbgen.EnsureTagsParams{Slugs: slugs, CreatedBy: by}); err != nil {
 		return fmt.Errorf("solve ensure tags: %w", err)
 	}
-	if err := q.InsertSolveQuestionTags(ctx, dbgen.InsertSolveQuestionTagsParams{QuestionID: questionID, Slugs: slugs}); err != nil {
+	unavailable, err := q.InsertSolveQuestionTags(ctx, dbgen.InsertSolveQuestionTagsParams{QuestionID: questionID, Slugs: slugs})
+	if err != nil {
 		return fmt.Errorf("solve question tags: %w", err)
+	}
+	if unavailable > 0 {
+		return domain.ErrTagUnavailable
 	}
 	return nil
 }
@@ -506,7 +523,7 @@ func question(row dbgen.GetSolveQuestionRow) domain.Question {
 		ID: idString(row.ID), Title: row.Title, BodyMD: row.BodyMd, Lang: row.Language, Country: row.CountryCode,
 		AcceptedAnswerID: optionalString(row.AcceptedAnswerID), Snippets: []domain.Snippet{},
 		Author:      author(row.AuthorID, row.AuthorUsername, row.AuthorDisplayName, row.AuthorCountry),
-		AnswerCount: int(row.AnswerCount), VoteScore: int(row.VoteScore),
+		AnswerCount: int(row.AnswerCount), VoteScore: int(row.VoteScore), ViewerVote: int(row.ViewerVote),
 		CreatedAt: row.CreatedAt.Time, UpdatedAt: row.UpdatedAt.Time,
 	}
 	if row.Snippet != "" {
@@ -519,7 +536,7 @@ func answer(row dbgen.GetSolveAnswerRow) domain.Answer {
 	return domain.Answer{
 		ID: idString(row.ID), QuestionID: idString(row.QuestionID), BodyMD: row.BodyMd, Lang: row.Language,
 		Snippets: []domain.Snippet{}, Author: author(row.AuthorID, row.AuthorUsername, row.AuthorDisplayName, row.AuthorCountry),
-		VoteScore: int(row.VoteScore), Accepted: row.IsAccepted, CreatedAt: row.CreatedAt.Time, UpdatedAt: row.UpdatedAt.Time,
+		VoteScore: int(row.VoteScore), ViewerVote: int(row.ViewerVote), Accepted: row.IsAccepted, CreatedAt: row.CreatedAt.Time, UpdatedAt: row.UpdatedAt.Time,
 	}
 }
 

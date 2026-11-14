@@ -223,3 +223,57 @@ func TestBuildConcurrentDecisions(t *testing.T) {
 		t.Fatalf("codes %v, final %s", codes, final)
 	}
 }
+
+// Issue #181 (note-apply-state-lost): the needs of a project carry the caller's own application (id and
+// status), so a reload still knows who applied. It comes from the session only: another applicant's id or
+// status never appears, anonymous and non-applicants get null, and the answer varies by cookie.
+func TestBuildNeedsCarryTheCallersOwnApplicationOnly(t *testing.T) {
+	s := newBuildStack(t, &fakeGitHub{})
+	alice := s.signIn(t, "viewer-app-alice", true, 75)
+	bob := s.signIn(t, "viewer-app-bob", true, 76)
+	carol := s.signIn(t, "viewer-app-carol", true, 77)
+	dave := s.signIn(t, "viewer-app-dave", true, 78)
+	p := s.createProject(t, &alice, "https://github.com/alice/viewer-app", "public")
+	n := s.need(t, &alice, p)
+	if n.ViewerApplication != nil {
+		t.Fatalf("a created need carries %+v, want null", n.ViewerApplication)
+	}
+	path := "/api/v1/projects/" + p.Id.String() + "/contribution-needs"
+
+	bobApp := decodeAs[apigen.Application](t, s.apply(t, &bob, n, nil))
+	carolApp := decodeAs[apigen.Application](t, s.apply(t, &carol, n, nil))
+	if rec := s.decide(t, &carol, carolApp.Id.String(), "withdrawn"); rec.Code != http.StatusOK {
+		t.Fatalf("withdraw %d %s", rec.Code, rec.Body.String())
+	}
+
+	check := func(who string, m *member, want *apigen.ViewerApplication) {
+		t.Helper()
+		rec := s.read(t, m, path)
+		page := decodeAs[apigen.NeedPage](t, rec)
+		if len(page.Items) != 1 {
+			t.Fatalf("%s: %d needs", who, len(page.Items))
+		}
+		got := page.Items[0].ViewerApplication
+		if (got == nil) != (want == nil) || (got != nil && *got != *want) {
+			t.Errorf("%s: viewer_application = %+v, want %+v", who, got, want)
+		}
+		if !strings.Contains(rec.Header().Get("Vary"), "Cookie") {
+			t.Errorf("%s: Vary = %q", who, rec.Header().Get("Vary"))
+		}
+		if strings.Contains(rec.Body.String(), bobApp.Id.String()) && who != "bob" || strings.Contains(rec.Body.String(), carolApp.Id.String()) && who != "carol" {
+			t.Errorf("%s: another applicant's application id is in the response", who)
+		}
+	}
+	check("bob", &bob, &apigen.ViewerApplication{Id: bobApp.Id, Status: "pending"})
+	check("carol", &carol, &apigen.ViewerApplication{Id: carolApp.Id, Status: "withdrawn"})
+	check("dave", &dave, nil)
+	check("owner", &alice, nil)
+	check("anonymous", nil, nil)
+
+	// The owner's decision shows in the applicant's own state, and only there.
+	if rec := s.decide(t, &alice, bobApp.Id.String(), "accepted"); rec.Code != http.StatusOK {
+		t.Fatalf("accept %d %s", rec.Code, rec.Body.String())
+	}
+	check("bob", &bob, &apigen.ViewerApplication{Id: bobApp.Id, Status: "accepted"})
+	check("dave", &dave, nil)
+}

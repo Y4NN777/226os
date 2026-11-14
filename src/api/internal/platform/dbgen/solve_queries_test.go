@@ -21,27 +21,27 @@ func TestSolveQueries(t *testing.T) {
 	ts := pgtype.Timestamptz{Time: time.Unix(10, 0).UTC(), Valid: true}
 	text := pgtype.Text{String: "go", Valid: true}
 
-	questionRow := []any{id, "Titre", "Corps", "fr", "code", "go", "BF", int32(2), int32(3), other, ts, ts, id, "alice", "Alice", "BF"}
-	listRow := append(append([]any(nil), questionRow...), float32(0.5))
-	answerRow := []any{id, other, "Corps", "fr", int32(4), ts, ts, true, id, "alice", "Alice", ""}
+	questionRow := []any{id, "Titre", "Corps", "fr", "code", "go", "BF", int32(2), int32(3), other, ts, ts, id, "alice", "Alice", "BF", int32(-1)}
+	listRow := append(append([]any(nil), questionRow[:len(questionRow)-1]...), float32(0.5), int32(-1))
+	answerRow := []any{id, other, "Corps", "fr", int32(4), ts, ts, true, id, "alice", "Alice", "", int32(1)}
 
 	db := &fakeDB{many: [][]any{listRow}}
-	list, err := dbgen.New(db).ListSolveQuestions(ctx, dbgen.ListSolveQuestionsParams{Tag: text, AfterCreated: ts, AfterID: id, RowLimit: 21})
-	if err != nil || len(list) != 1 || list[0].AnswerCount != 2 || list[0].AuthorCountry != "BF" || list[0].Rank != 0.5 {
+	list, err := dbgen.New(db).ListSolveQuestions(ctx, dbgen.ListSolveQuestionsParams{Tag: text, AfterCreated: ts, AfterID: id, ViewerID: other, RowLimit: 21})
+	if err != nil || len(list) != 1 || list[0].AnswerCount != 2 || list[0].AuthorCountry != "BF" || list[0].Rank != 0.5 || list[0].ViewerVote != -1 {
 		t.Fatalf("ListSolveQuestions = %+v, %v", list, err)
 	}
-	assertCall(t, db, "ORDER BY c.rank DESC, c.created_at DESC, c.id DESC", []any{ts, float32(0), id, int32(21), pgtype.Text{}, text, pgtype.Text{}, pgtype.Text{}, pgtype.Text{}})
+	assertCall(t, db, "ORDER BY c.rank DESC, c.created_at DESC, c.id DESC", []any{other, ts, float32(0), id, int32(21), pgtype.Text{}, text, pgtype.Text{}, pgtype.Text{}, pgtype.Text{}})
 
 	if sql := db.calls[0].sql; !strings.Contains(sql, "THEN NULL ELSE 500 END") {
 		t.Errorf("ListSolveQuestions does not cap the ranked candidates at 500: %s", sql)
 	}
 
 	db = &fakeDB{rowVals: questionRow}
-	q, err := dbgen.New(db).GetSolveQuestion(ctx, id)
-	if err != nil || q.Title != "Titre" || q.VoteScore != 3 || q.AcceptedAnswerID != other {
+	q, err := dbgen.New(db).GetSolveQuestion(ctx, dbgen.GetSolveQuestionParams{ID: id, ViewerID: other})
+	if err != nil || q.Title != "Titre" || q.VoteScore != 3 || q.AcceptedAnswerID != other || q.ViewerVote != -1 {
 		t.Fatalf("GetSolveQuestion = %+v, %v", q, err)
 	}
-	assertCall(t, db, "q.status = 'published'", []any{id})
+	assertCall(t, db, "q.status = 'published'", []any{other, id})
 
 	db = &fakeDB{rowVals: []any{id, other, int32(1), int32(2), other, ts, ts}}
 	locked, err := dbgen.New(db).LockSolveQuestion(ctx, id)
@@ -71,11 +71,11 @@ func TestSolveQueries(t *testing.T) {
 		t.Fatal(err)
 	}
 	assertCall(t, db, "DELETE FROM question_tags", []any{id})
-	db = &fakeDB{}
-	if err := dbgen.New(db).InsertSolveQuestionTags(ctx, dbgen.InsertSolveQuestionTagsParams{QuestionID: id, Slugs: []string{"go"}}); err != nil {
-		t.Fatal(err)
+	db = &fakeDB{rowVals: []any{int32(1)}}
+	if n, err := dbgen.New(db).InsertSolveQuestionTags(ctx, dbgen.InsertSolveQuestionTagsParams{QuestionID: id, Slugs: []string{"go"}}); err != nil || n != 1 {
+		t.Fatalf("hidden count %d, %v", n, err)
 	}
-	assertCall(t, db, "INSERT INTO question_tags", []any{id, []string{"go"}})
+	assertCall(t, db, "INSERT INTO question_tags", []any{[]string{"go"}, id})
 	db = &fakeDB{}
 	if err := dbgen.New(db).DeleteSolveQuestionLinks(ctx, dbgen.DeleteSolveQuestionLinksParams{QuestionID: id, CreatedBy: other}); err != nil {
 		t.Fatal(err)
@@ -127,18 +127,18 @@ func TestSolveQueries(t *testing.T) {
 	assertCall(t, db, "INSERT INTO answer_sources", []any{id, []string{"https://x"}})
 
 	db = &fakeDB{rowVals: answerRow}
-	ans, err := dbgen.New(db).GetSolveAnswer(ctx, id)
-	if err != nil || !ans.IsAccepted || ans.VoteScore != 4 {
+	ans, err := dbgen.New(db).GetSolveAnswer(ctx, dbgen.GetSolveAnswerParams{ID: id, ViewerID: other})
+	if err != nil || !ans.IsAccepted || ans.VoteScore != 4 || ans.ViewerVote != 1 {
 		t.Fatalf("GetSolveAnswer = %+v, %v", ans, err)
 	}
-	assertCall(t, db, "a.status = 'published' AND q.status = 'published'", []any{id})
+	assertCall(t, db, "a.status = 'published' AND q.status = 'published'", []any{other, id})
 
 	db = &fakeDB{many: [][]any{answerRow}}
-	answers, err := dbgen.New(db).ListSolveAnswers(ctx, dbgen.ListSolveAnswersParams{QuestionID: id, AfterID: other, AfterRank: 1, AfterNegScore: -2, AfterCreated: ts, RowLimit: 21})
+	answers, err := dbgen.New(db).ListSolveAnswers(ctx, dbgen.ListSolveAnswersParams{QuestionID: id, ViewerID: other, AfterID: other, AfterRank: 1, AfterNegScore: -2, AfterCreated: ts, RowLimit: 21})
 	if err != nil || len(answers) != 1 || answers[0].Language != "fr" {
 		t.Fatalf("ListSolveAnswers = %+v, %v", answers, err)
 	}
-	assertCall(t, db, "a.created_at, a.id", []any{id, other, int32(1), int32(-2), ts, int32(21)})
+	assertCall(t, db, "a.created_at, a.id", []any{other, id, other, int32(1), int32(-2), ts, int32(21)})
 	// A question removed after the existence check leaks no answer: the list itself filters on it.
 	if sql := db.calls[0].sql; !strings.Contains(sql, "a.status = 'published' AND q.status = 'published'") {
 		t.Errorf("ListSolveAnswers does not filter on the question status: %s", sql)
@@ -188,8 +188,14 @@ func TestSolveQueries(t *testing.T) {
 		}
 	}
 	one := []func(*fakeDB) error{
-		func(db *fakeDB) error { _, err := dbgen.New(db).GetSolveQuestion(ctx, id); return err },
-		func(db *fakeDB) error { _, err := dbgen.New(db).GetSolveAnswer(ctx, id); return err },
+		func(db *fakeDB) error {
+			_, err := dbgen.New(db).GetSolveQuestion(ctx, dbgen.GetSolveQuestionParams{ID: id})
+			return err
+		},
+		func(db *fakeDB) error {
+			_, err := dbgen.New(db).GetSolveAnswer(ctx, dbgen.GetSolveAnswerParams{ID: id})
+			return err
+		},
 		func(db *fakeDB) error { _, err := dbgen.New(db).LockSolveQuestion(ctx, id); return err },
 		func(db *fakeDB) error {
 			_, err := dbgen.New(db).InsertSolveQuestion(ctx, dbgen.InsertSolveQuestionParams{})
@@ -197,6 +203,10 @@ func TestSolveQueries(t *testing.T) {
 		},
 		func(db *fakeDB) error {
 			_, err := dbgen.New(db).InsertSolveAnswer(ctx, dbgen.InsertSolveAnswerParams{})
+			return err
+		},
+		func(db *fakeDB) error {
+			_, err := dbgen.New(db).InsertSolveQuestionTags(ctx, dbgen.InsertSolveQuestionTagsParams{})
 			return err
 		},
 		func(db *fakeDB) error { _, err := dbgen.New(db).SolveQuestionExists(ctx, id); return err },
@@ -212,9 +222,6 @@ func TestSolveQueries(t *testing.T) {
 			return dbgen.New(db).UpdateSolveQuestion(ctx, dbgen.UpdateSolveQuestionParams{})
 		},
 		func(db *fakeDB) error { return dbgen.New(db).DeleteSolveQuestionTags(ctx, id) },
-		func(db *fakeDB) error {
-			return dbgen.New(db).InsertSolveQuestionTags(ctx, dbgen.InsertSolveQuestionTagsParams{})
-		},
 		func(db *fakeDB) error {
 			return dbgen.New(db).DeleteSolveQuestionLinks(ctx, dbgen.DeleteSolveQuestionLinksParams{})
 		},

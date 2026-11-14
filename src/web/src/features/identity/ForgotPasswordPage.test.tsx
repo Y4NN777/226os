@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { callsTo, mockApi, problemResponse } from '../../test/api';
 import { jsonResponse, renderApp, setLanguages } from '../../test/render';
+import { findVisibleText, getVisibleText } from '../../test/visibleText';
 
 const REQUEST = 'POST /auth/password-reset/request';
 const accepted = () => jsonResponse({ status: 'accepted' }, { status: 202 });
@@ -10,7 +11,7 @@ const accepted = () => jsonResponse({ status: 'accepted' }, { status: 202 });
 async function open(language = 'fr-FR', routes: Parameters<typeof mockApi>[0] = {}) {
   setLanguages([language]);
   const fetchMock = mockApi(routes);
-  const user = userEvent.setup();
+  const user = userEvent.setup({ delay: null });
   const app = await renderApp('/mot-de-passe-oublie');
   await screen.findByRole('heading', { level: 1 });
   return { fetchMock, user, ...app };
@@ -70,7 +71,7 @@ describe('ForgotPasswordPage', () => {
     await user.type(screen.getByLabelText('Adresse e-mail'), 'awa@example.org');
     await user.click(screen.getByRole('button', { name: 'Envoyer le code' }));
     expect(await screen.findByRole('button', { name: 'Réessayer dans 45 s' })).toBeInTheDocument();
-    expect(screen.getByText('Trop de tentatives')).toBeInTheDocument();
+    expect(getVisibleText('Trop de tentatives')).toBeInTheDocument();
   });
 
   it('shows a generic error with a reference on a server failure', async () => {
@@ -79,8 +80,8 @@ describe('ForgotPasswordPage', () => {
     });
     await user.type(screen.getByLabelText('Adresse e-mail'), 'awa@example.org');
     await user.click(screen.getByRole('button', { name: 'Envoyer le code' }));
-    expect(await screen.findByText(/Une erreur est survenue/)).toBeInTheDocument();
-    expect(screen.getByText(/req-test-1/)).toBeInTheDocument();
+    expect(await findVisibleText(/Une erreur est survenue/)).toBeInTheDocument();
+    expect(getVisibleText(/req-test-1/)).toBeInTheDocument();
   });
 
   it('sends one request on a double click', async () => {

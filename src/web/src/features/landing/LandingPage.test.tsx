@@ -87,7 +87,7 @@ describe('LandingPage', () => {
   it('searches the catalogue with a trimmed, capped query and ignores an empty one', async () => {
     setLanguages(['fr-FR']);
     mockApi({ 'GET /resources': () => page([resource(1)]) });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     const { main, router } = await open();
     const field = await main.findByRole('searchbox', { name: 'Rechercher dans le catalogue' });
     await user.type(field, '   {Enter}');
@@ -104,7 +104,7 @@ describe('LandingPage', () => {
   it('caps the query at 100 characters', async () => {
     setLanguages(['fr-FR']);
     mockApi({ 'GET /resources': () => page([resource(1)]) });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     const { main, router } = await open();
     const field = await main.findByRole('searchbox', { name: 'Rechercher dans le catalogue' });
     await user.click(field);
@@ -144,7 +144,7 @@ describe('LandingPage', () => {
         return calls === 1 ? problemResponse(503, 'SERVICE_UNAVAILABLE') : page([resource(1)]);
       },
     });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     const { main } = await open();
     await main.findByRole('alert');
     await user.click(main.getByRole('button', { name: 'Réessayer' }));

@@ -96,7 +96,7 @@ func TestSearchMapsEveryGroupToPlainTextHits(t *testing.T) {
 			if !got[1].PublishedAt.IsZero() {
 				t.Fatalf("a NULL published_at must map to the zero time, got %v", got[1].PublishedAt)
 			}
-			if got[0].Snippet != "Gras bhtml/b lien" {
+			if got[0].Snippet != "Gras html lien" {
 				t.Fatalf("snippet = %q", got[0].Snippet)
 			}
 			if n := len([]rune(got[1].Snippet)); n > domain.MaxSnippetRunes || got[1].Lang != "en" {

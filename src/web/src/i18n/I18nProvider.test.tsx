@@ -61,7 +61,7 @@ describe('I18nProvider', () => {
   it('switches locale at runtime and persists the choice', async () => {
     setLanguages(['fr-FR']);
     renderProbe();
-    await userEvent.click(screen.getByRole('button', { name: 'en' }));
+    await userEvent.setup({ delay: null }).click(screen.getByRole('button', { name: 'en' }));
     expect(screen.getByText('en|Settings')).toBeInTheDocument();
     expect(document.documentElement.lang).toBe('en');
     expect(localStorage.getItem('226os.locale')).toBe('en');

@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { callsTo, mockApi, problemResponse } from '../../test/api';
 import { jsonResponse, renderApp, setLanguages } from '../../test/render';
 import { member, page, question, questionId } from './testFixtures';
+import { findVisibleText } from '../../test/visibleText';
 
 const second = question({
   id: 'b0000000-0000-4000-8000-000000000002',
@@ -50,7 +51,7 @@ describe('SolvePage list', () => {
       'GET /questions': (request) =>
         params(request).get('cursor') === 'cur-2' ? page([second]) : page([question()], 'cur-2'),
     });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp('/solve');
     await screen.findByRole('link', { name: 'Webhook non reçu après un paiement' });
     await user.click(screen.getByRole('button', { name: 'Afficher plus' }));
@@ -65,7 +66,7 @@ describe('SolvePage list', () => {
   it('sends the search text and the tag to the server, which ranks the results', async () => {
     setLanguages(['fr-FR']);
     const fetchMock = mockApi({ 'GET /questions': () => page([question()]) });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp('/solve');
     await screen.findByRole('link', { name: 'Webhook non reçu après un paiement' });
 
@@ -84,7 +85,7 @@ describe('SolvePage list', () => {
     setLanguages(['fr-FR']);
     mockApi({ 'GET /questions': () => page([]) });
     await renderApp('/solve?q=zzz');
-    expect(await screen.findByText('Aucune question ne correspond')).toBeInTheDocument();
+    expect(await findVisibleText('Aucune question ne correspond')).toBeInTheDocument();
   });
 
   it('shows a retryable error when the list cannot be loaded', async () => {
@@ -94,7 +95,7 @@ describe('SolvePage list', () => {
       'GET /questions': () =>
         ++calls === 1 ? problemResponse(500, 'INTERNAL_ERROR') : page([question()]),
     });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp('/solve');
     await expectAlert('Une erreur est survenue');
     await user.click(screen.getByRole('button', { name: 'Réessayer' }));
@@ -113,7 +114,7 @@ describe('SolvePage pre-filled link', () => {
       'GET /questions': () => page([]),
       'POST /questions': () => jsonResponse(question(), { status: 201 }),
     });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp(`/solve?link=article:${linkedId}`);
     // The form opens by itself: the visitor came from a lesson to ask about it.
     await user.type(await screen.findByRole('textbox', { name: 'Titre' }), 'Une question de cours');
@@ -139,7 +140,7 @@ describe('SolvePage pre-filled link', () => {
       'GET /questions': () => page([]),
       'POST /questions': () => jsonResponse(question(), { status: 201 }),
     });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp(`/solve?link=resource:${linkedId}`);
     await user.type(await screen.findByRole('textbox', { name: 'Titre' }), 'Une question de fiche');
     await user.type(screen.getByRole('textbox', { name: 'Votre question' }), 'Contexte.');
@@ -160,7 +161,7 @@ describe('SolvePage pre-filled link', () => {
   it('ignores a malformed or unsupported link, and offers no free identifier field', async () => {
     setLanguages(['fr-FR']);
     member({ 'GET /questions': () => page([]) });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp('/solve?link=question:not-a-uuid');
     await user.click(await screen.findByRole('button', { name: 'Poser une question' }));
     expect(screen.queryByRole('textbox', { name: /Identifiant/ })).not.toBeInTheDocument();
@@ -207,7 +208,7 @@ describe('SolvePage ask flow', () => {
       'GET /questions/b0000000-0000-4000-8000-000000000001': () => jsonResponse(question()),
       'GET /questions/b0000000-0000-4000-8000-000000000001/answers': () => page([]),
     });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     const { router } = await renderApp('/solve');
     await fillAndOpen(user);
     await user.click(screen.getByRole('button', { name: 'Publier la question' }));
@@ -233,7 +234,7 @@ describe('SolvePage ask flow', () => {
       'GET /questions': () => page([]),
       'POST /questions': () => jsonResponse(question(), { status: 201 }),
     });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp('/solve');
     await fillAndOpen(user);
     await user.type(screen.getByRole('textbox', { name: /Langage de l’extrait/ }), 'go');
@@ -261,7 +262,7 @@ describe('SolvePage ask flow', () => {
           ? problemResponse(503, 'SERVICE_UNAVAILABLE')
           : jsonResponse(question(), { status: 201 }),
     });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp('/solve');
     await fillAndOpen(user);
     const submit = screen.getByRole('button', { name: 'Publier la question' });
@@ -293,7 +294,7 @@ describe('SolvePage ask flow', () => {
           ],
         }),
     });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp('/solve');
     await fillAndOpen(user);
     await user.click(screen.getByRole('button', { name: 'Publier la question' }));
@@ -307,7 +308,7 @@ describe('SolvePage ask flow', () => {
   it('refuses more than five tags before calling the server', async () => {
     setLanguages(['fr-FR']);
     const fetchMock = member({ 'GET /questions': () => page([]) });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp('/solve');
     await user.click(await screen.findByRole('button', { name: 'Poser une question' }));
     await user.type(screen.getByRole('textbox', { name: 'Titre' }), 'Un titre valable');
@@ -325,7 +326,7 @@ describe('SolvePage ask flow', () => {
       'GET /questions': () => page([]),
       'POST /questions': () => problemResponse(403, 'EMAIL_NOT_VERIFIED'),
     });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp('/solve');
     await fillAndOpen(user);
     await user.click(screen.getByRole('button', { name: 'Publier la question' }));
@@ -363,7 +364,7 @@ describe('SolvePage assistant panel', () => {
   it('shows the Google notice, sends nothing, and stays disabled under 3 characters', async () => {
     setLanguages(['fr-FR']);
     const fetchMock = member({ 'GET /questions': () => page([]) });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp('/solve');
     await open(user);
     const inPanel = await panel();
@@ -387,7 +388,7 @@ describe('SolvePage assistant panel', () => {
       'GET /questions': () => page([]),
       'POST /assistant/answers': () => jsonResponse(answered),
     });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp('/solve');
     await open(user);
     await user.type(screen.getByRole('textbox', { name: 'Titre' }), 'Comment signer un webhook ?');
@@ -410,6 +411,27 @@ describe('SolvePage assistant panel', () => {
     expect(callsTo(fetchMock, 'POST /questions')).toHaveLength(0);
   });
 
+  it('drops the answer once the draft changes, so it never answers an older draft', async () => {
+    setLanguages(['fr-FR']);
+    member({
+      'GET /questions': () => page([]),
+      'POST /assistant/answers': () => jsonResponse(answered),
+    });
+    const user = userEvent.setup({ delay: null });
+    await renderApp('/solve');
+    await open(user);
+    await user.type(screen.getByRole('textbox', { name: 'Titre' }), 'Comment signer un webhook ?');
+    const inPanel = await panel();
+    await user.click(inPanel.getByRole('button', { name: 'Demander à l’assistant' }));
+    expect(await inPanel.findByText(/Vérifiez la signature/)).toBeInTheDocument();
+
+    await user.type(screen.getByRole('textbox', { name: 'Titre' }), ' (HMAC)');
+    await waitFor(() => {
+      expect(inPanel.queryByText(/Vérifiez la signature/)).toBeNull();
+    });
+    expect(inPanel.getByRole('button', { name: 'Demander à l’assistant' })).toBeInTheDocument();
+  });
+
   it('refuses with no_source', async () => {
     setLanguages(['fr-FR']);
     member({
@@ -417,7 +439,7 @@ describe('SolvePage assistant panel', () => {
       'POST /assistant/answers': () =>
         jsonResponse({ ...answered, outcome: 'no_source', search_url: '/recherche?q=abc' }),
     });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp('/solve');
     await open(user);
     await user.type(screen.getByRole('textbox', { name: 'Titre' }), 'Un titre valable');
@@ -435,7 +457,7 @@ describe('SolvePage assistant panel', () => {
       'GET /questions/b0000000-0000-4000-8000-000000000001': () => jsonResponse(question()),
       'GET /questions/b0000000-0000-4000-8000-000000000001/answers': () => page([]),
     });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     const { router } = await renderApp('/solve');
     await open(user);
     await user.type(screen.getByRole('textbox', { name: 'Titre' }), 'Comment signer un webhook ?');
@@ -460,7 +482,7 @@ describe('SolvePage assistant panel', () => {
       'GET /questions/b0000000-0000-4000-8000-000000000001': () => jsonResponse(question()),
       'GET /questions/b0000000-0000-4000-8000-000000000001/answers': () => page([]),
     });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     const { router } = await renderApp('/solve');
     await open(user);
     await user.type(screen.getByRole('textbox', { name: 'Titre' }), 'Comment signer un webhook ?');
@@ -476,7 +498,7 @@ describe('SolvePage assistant panel', () => {
   it('speaks English', async () => {
     setLanguages(['en-US']);
     member({ 'GET /questions': () => page([]) });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp('/solve');
     await user.click(await screen.findByRole('button', { name: 'Ask a question' }));
     const inPanel = await panel();

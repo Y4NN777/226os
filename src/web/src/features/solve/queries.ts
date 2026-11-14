@@ -15,6 +15,7 @@ export type QuestionCreate = components['schemas']['QuestionCreate'];
 export type QuestionUpdate = components['schemas']['QuestionUpdate'];
 export type AnswerCreate = components['schemas']['AnswerCreate'];
 export type VoteState = components['schemas']['VoteState'];
+export type ViewerVote = components['schemas']['ViewerVote'];
 export type VoteTarget = components['schemas']['VoteTargetType'];
 
 /** One key factory; every variable a query function reads is in its key. */
@@ -145,17 +146,21 @@ function refresh(queryClient: QueryClient, questionId: string) {
   ]);
 }
 
-export function useCastVote() {
+export function useCastVote(questionId: string) {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (vote: { target_type: VoteTarget; target_id: string; value: 1 | -1 }) =>
       api.call(() => api.client.POST('/votes', { body: vote })),
+    onSuccess: () => refresh(queryClient, questionId),
   });
 }
 
-export function useRetractVote() {
+export function useRetractVote(questionId: string) {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (target: { target_type: VoteTarget; target_id: string }) =>
       api.call(() => api.client.DELETE('/votes', { params: { query: target } })),
+    onSuccess: () => refresh(queryClient, questionId),
   });
 }
 

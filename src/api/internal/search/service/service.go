@@ -98,9 +98,6 @@ func (s *Service) allow(ctx context.Context, req Request) error {
 // The text sent to the reader is truncated by C4 DECIDED option 1 (ADR-0005 point 6); the
 // response still echoes the original q.
 func (s *Service) Search(ctx context.Context, req Request) (Results, error) {
-	if err := s.allow(ctx, req); err != nil {
-		return Results{}, err
-	}
 	// The minimum counts the trimmed text, so a blank q is a 422 rather than an empty result (#95);
 	// the maximum counts the raw q, as the contract's maxLength does.
 	if n := utf8.RuneCountInString(req.Q); utf8.RuneCountInString(strings.TrimSpace(req.Q)) < minQuery || n > maxQuery {
@@ -121,12 +118,19 @@ func (s *Service) Search(ctx context.Context, req Request) (Results, error) {
 	if err != nil {
 		return Results{}, err
 	}
+	// Only a well-formed request spends anonymous budget: a refusal above costs the caller nothing.
+	if err := s.allow(ctx, req); err != nil {
+		return Results{}, err
+	}
 	query := domain.Query{Text: domain.TruncateQuery(req.Q), Country: deref(req.Country), Lang: deref(req.Lang), Limit: size + 1}
 	out := Results{Query: req.Q, Groups: make(map[domain.Group]GroupResult, len(groups))}
 	for _, g := range groups {
 		hits, err := s.store.Search(ctx, g, query)
 		if err != nil {
 			return Results{}, err
+		}
+		for i := range hits {
+			hits[i].Title = domain.PlainText(hits[i].Title)
 		}
 		result := GroupResult{Items: hits, HasMore: len(hits) > size}
 		if result.HasMore {

@@ -186,7 +186,7 @@ describe('SearchPage', () => {
     await renderApp('/recherche?q=momo');
     expect(await screen.findByText(/Réessayez dans 12 s\./)).toBeInTheDocument();
     expect(screen.getByText(/Référence.*req-test-1/)).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Réessayer' }));
+    await userEvent.setup({ delay: null }).click(screen.getByRole('button', { name: 'Réessayer' }));
     expect(await screen.findByRole('link', { name: 'API Mobile Money' })).toBeInTheDocument();
   });
 
@@ -201,7 +201,7 @@ describe('SearchPage', () => {
     });
     await renderApp('/recherche?q=momo');
     expect(await screen.findByText('Search failed')).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    await userEvent.setup({ delay: null }).click(screen.getByRole('button', { name: 'Try again' }));
     expect(await screen.findByRole('link', { name: 'API Mobile Money' })).toBeInTheDocument();
     expect(calls).toBe(2);
   });
@@ -214,8 +214,10 @@ describe('SearchPage', () => {
     });
     const { router } = await renderApp('/recherche');
     const box = await screen.findByRole('searchbox', { name: 'Votre recherche' });
-    await userEvent.type(box, '  orange money  ');
-    await userEvent.click(screen.getByRole('button', { name: 'Rechercher' }));
+    await userEvent.setup({ delay: null }).type(box, '  orange money  ');
+    await userEvent
+      .setup({ delay: null })
+      .click(screen.getByRole('button', { name: 'Rechercher' }));
     await waitFor(() => {
       expect(router.state.location.search).toEqual({ q: 'orange money' });
     });

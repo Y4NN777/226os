@@ -6,6 +6,11 @@ import { afterEach, beforeEach, vi } from 'vitest';
 // CI runner; findBy* waits longer instead of failing on load. Assertions are unchanged.
 configure({ asyncUtilTimeout: 4000 });
 
+// Load the whole app once, before the first test starts. renderApp() imports it lazily, and on a
+// loaded machine that transform and evaluation used to land inside the first test of a file and
+// eat its 15 s budget. Top-level await in a setup file is not counted against any test.
+await Promise.all([import('../app/App'), import('../app/router')]);
+
 beforeEach(() => {
   // jsdom does not implement scrolling; the router restores scroll on navigation.
   vi.stubGlobal('scrollTo', vi.fn());
