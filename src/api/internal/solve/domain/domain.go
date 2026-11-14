@@ -62,6 +62,8 @@ type Question struct {
 	AnswerCount, VoteScore                             int
 	Related                                            []Link
 	CreatedAt, UpdatedAt                               time.Time
+	// Rank is the search relevance of a listed question (0 without a query); it only feeds the cursor.
+	Rank float32
 }
 
 // State is open without answers, answered with answers and none accepted, resolved with an accepted one.
@@ -97,6 +99,7 @@ type QuestionPatch struct {
 type QuestionQuery struct {
 	Q, Tag, State, Country, Lang string
 	AfterCreated                 *time.Time
+	AfterRank                    float32
 	AfterID                      string
 	Limit                        int
 }

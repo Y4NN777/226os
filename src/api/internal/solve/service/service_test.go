@@ -227,29 +227,42 @@ func TestGetQuestion(t *testing.T) {
 	wantCode(t, err, apperr.CodeInternal)
 }
 
-func TestETagCoversTheRepresentation(t *testing.T) {
+func TestETagCoversTheEditedFieldsOnly(t *testing.T) {
 	base := question(qID, when)
 	tag := service.ETag(base)
 	if tag == "" || tag != service.ETag(base) {
 		t.Fatalf("tag %q is not stable", tag)
 	}
-	changed := []domain.Question{
-		{ID: aID, UpdatedAt: when},
-		{ID: qID, UpdatedAt: when.Add(time.Microsecond)},
-		{ID: qID, UpdatedAt: when, AnswerCount: 1},
-		{ID: qID, UpdatedAt: when, VoteScore: 1},
-		{ID: qID, UpdatedAt: when, AcceptedAnswerID: aID},
-	}
-	for i, q := range changed {
+	for i, q := range []domain.Question{{ID: aID, UpdatedAt: when}, {ID: qID, UpdatedAt: when.Add(time.Microsecond)}} {
 		if service.ETag(q) == tag {
 			t.Errorf("variant %d keeps the tag", i)
 		}
+	}
+	// Answers, votes and acceptance do not touch updated_at and do not change the tag.
+	same := base
+	same.AnswerCount, same.VoteScore, same.AcceptedAnswerID = 3, 2, aID
+	if service.ETag(same) != tag {
+		t.Error("counters changed the tag")
 	}
 	if service.ETag(domain.Question{ID: qID, UpdatedAt: when.In(time.FixedZone("x", 3600))}) != service.ETag(domain.Question{ID: qID, UpdatedAt: when}) {
 		t.Error("the tag depends on the time zone of the instant")
 	}
 }
 
+func TestListQuestionsCursorCarriesTheRank(t *testing.T) {
+	rows := []domain.Question{question(qID, when), question(aID, when.Add(-time.Hour))}
+	rows[0].Rank = 0.0607927
+	st := &fakeStore{questions: rows}
+	svc, _ := newSvc(t, st)
+	limit := 1
+	page, err := svc.ListQuestions(t.Context(), service.QuestionListRequest{Q: ptr("paiement"), Limit: &limit})
+	if err != nil || page.NextCursor == "" {
+		t.Fatalf("page %+v, %v", page, err)
+	}
+	if _, err := svc.ListQuestions(t.Context(), service.QuestionListRequest{Q: ptr("paiement"), Limit: &limit, Cursor: page.NextCursor}); err != nil || st.listQ.AfterRank != 0.0607927 || st.listQ.AfterID != qID {
+		t.Fatalf("after rank %v id %s, %v", st.listQ.AfterRank, st.listQ.AfterID, err)
+	}
+}
 func createReq() service.CreateQuestionRequest {
 	return service.CreateQuestionRequest{
 		Title: "  Comment encaisser ?  ", BodyMD: "Corps\r\n", Lang: "fr", Country: ptr("BF"), Tags: []string{"go", "go", "api"},

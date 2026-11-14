@@ -170,6 +170,11 @@ func questionRow(snippet, country string, accepted pgtype.UUID) []any {
 	return []any{uid(qID), "Titre", "Corps", "fr", snippet, "go", country, int32(2), int32(3), accepted, ts(), ts(), uid(userID), "alice", "Alice", "BF"}
 }
 
+// listRow is questionRow plus the relevance rank the list query adds.
+func listRow(snippet, country string, accepted pgtype.UUID, rank float32) []any {
+	return append(questionRow(snippet, country, accepted), rank)
+}
+
 func lockRow() []any {
 	return []any{uid(qID), uid(userID), int32(2), int32(3), pgtype.UUID{}, ts(), ts()}
 }
@@ -191,12 +196,15 @@ func fkErr(constraint string) error {
 
 func TestListQuestionsAttachesTagsAndLinks(t *testing.T) {
 	at := ts().Time
-	d := db(t, rows(questionRow("code", "BF", uid(aID)), questionRow("", "", pgtype.UUID{})), tagRows(), relatedRows())
+	d := db(t, rows(listRow("code", "BF", uid(aID), 0.25), listRow("", "", pgtype.UUID{}, 0)), tagRows(), relatedRows())
 	got, err := New(d).ListQuestions(t.Context(), domain.QuestionQuery{Q: "paiement", Tag: "go", State: "open", Country: "BF", Lang: "fr", AfterCreated: &at, AfterID: qID, Limit: 21})
 	if err != nil || len(got) != 2 {
 		t.Fatalf("got %+v, %v", got, err)
 	}
 	q := got[0]
+	if q.Rank != 0.25 || got[1].Rank != 0 {
+		t.Fatalf("ranks %v %v", q.Rank, got[1].Rank)
+	}
 	if q.ID != qID || q.Author.Username != "alice" || q.Author.Country != "BF" || q.Country != "BF" || q.AcceptedAnswerID != aID || q.AnswerCount != 2 ||
 		q.VoteScore != 3 || len(q.Snippets) != 1 || q.Snippets[0].Code != "code" || q.Snippets[0].Language != "go" ||
 		len(q.Tags) != 2 || q.Tags[0] != "api" || len(q.Related) != 1 || q.Related[0].Title != "Alpha" || q.Related[0].Type != "resource" || q.State() != "resolved" {
@@ -217,8 +225,8 @@ func TestListQuestionsEmptyAndErrors(t *testing.T) {
 	}
 	for name, steps := range map[string][]step{
 		"list":    {fail(errDB)},
-		"tags":    {rows(questionRow("", "", pgtype.UUID{})), fail(errDB)},
-		"related": {rows(questionRow("", "", pgtype.UUID{})), tagRows(), fail(errDB)},
+		"tags":    {rows(listRow("", "", pgtype.UUID{}, 0)), fail(errDB)},
+		"related": {rows(listRow("", "", pgtype.UUID{}, 0)), tagRows(), fail(errDB)},
 	} {
 		if _, err := New(db(t, steps...)).ListQuestions(t.Context(), domain.QuestionQuery{}); !errors.Is(err, errDB) {
 			t.Fatalf("%s err %v", name, err)

@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"slices"
 	"strconv"
 	"strings"
@@ -131,15 +132,15 @@ func New(store Store, cursors Cursors, limiter Limiter) *Service {
 	return &Service{store: store, cursors: cursors, limiter: limiter}
 }
 
-// ETag is the strong entity tag of a question. It covers the edited fields (UpdatedAt) and the
-// counters and the accepted answer that other members change, so it changes whenever the
-// representation does.
+// ETag is the strong entity tag of a question: its id and updated_at, which only an edit of the
+// question changes. Answers, votes and acceptance (answer_count, vote_score, accepted_answer_id) do not
+// touch updated_at, so they do not make an author's tag stale.
 func ETag(q domain.Question) string {
-	return etag.Tag(q.ID, q.UpdatedAt.UTC().Format(time.RFC3339Nano),
-		strconv.Itoa(q.AnswerCount), strconv.Itoa(q.VoteScore), q.AcceptedAnswerID)
+	return etag.Tag(q.ID, q.UpdatedAt.UTC().Format(time.RFC3339Nano))
 }
 
-// ListQuestions returns one page of published questions, newest first.
+// ListQuestions returns one page of published questions: newest first, or with q the most relevant
+// first, then newest.
 func (s *Service) ListQuestions(ctx context.Context, req QuestionListRequest) (QuestionPage, error) {
 	q, err := textFilter(req.Q)
 	if err != nil {
@@ -159,11 +160,11 @@ func (s *Service) ListQuestions(ctx context.Context, req QuestionListRequest) (Q
 		if err != nil {
 			return QuestionPage{}, err
 		}
-		at, err := time.Parse(time.RFC3339Nano, p.Sort)
-		if err != nil || !validID(p.ID) {
+		rank, at, ok := decodeQuestionSort(p.Sort)
+		if !ok || !validID(p.ID) {
 			return QuestionPage{}, invalidCursor()
 		}
-		query.AfterCreated, query.AfterID = &at, p.ID
+		query.AfterRank, query.AfterCreated, query.AfterID = rank, &at, p.ID
 	}
 	rows, err := s.store.ListQuestions(ctx, query)
 	if err != nil {
@@ -173,7 +174,7 @@ func (s *Service) ListQuestions(ctx context.Context, req QuestionListRequest) (Q
 	if len(rows) > size {
 		page.Items = rows[:size]
 		last := page.Items[size-1]
-		page.NextCursor = s.cursors.Encode(cursor.Payload{Sort: last.CreatedAt.UTC().Format(time.RFC3339Nano), ID: last.ID, FilterHash: hash})
+		page.NextCursor = s.cursors.Encode(cursor.Payload{Sort: encodeQuestionSort(last), ID: last.ID, FilterHash: hash})
 	}
 	if page.Items == nil {
 		page.Items = []domain.Question{}
@@ -465,6 +466,21 @@ func dedupe[T comparable](in []T) []T {
 		}
 	}
 	return out
+}
+
+// encodeQuestionSort packs the relevance rank (a float32, printed exactly) and the creation time.
+func encodeQuestionSort(q domain.Question) string {
+	return strconv.FormatFloat(float64(q.Rank), 'g', -1, 32) + ":" + q.CreatedAt.UTC().Format(time.RFC3339Nano)
+}
+
+func decodeQuestionSort(sort string) (float32, time.Time, bool) {
+	rank, rest, found := strings.Cut(sort, ":")
+	r, errRank := strconv.ParseFloat(rank, 32)
+	at, errAt := time.Parse(time.RFC3339Nano, rest)
+	if !found || errRank != nil || errAt != nil || math.IsNaN(r) || math.IsInf(r, 0) {
+		return 0, time.Time{}, false
+	}
+	return float32(r), at, true
 }
 
 func encodeAnswerKey(a domain.Answer, hash string) cursor.Payload {

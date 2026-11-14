@@ -22,14 +22,15 @@ func TestSolveQueries(t *testing.T) {
 	text := pgtype.Text{String: "go", Valid: true}
 
 	questionRow := []any{id, "Titre", "Corps", "fr", "code", "go", "BF", int32(2), int32(3), other, ts, ts, id, "alice", "Alice", "BF"}
+	listRow := append(append([]any(nil), questionRow...), float32(0.5))
 	answerRow := []any{id, other, "Corps", "fr", int32(4), ts, ts, true, id, "alice", "Alice", ""}
 
-	db := &fakeDB{many: [][]any{questionRow}}
+	db := &fakeDB{many: [][]any{listRow}}
 	list, err := dbgen.New(db).ListSolveQuestions(ctx, dbgen.ListSolveQuestionsParams{Tag: text, AfterCreated: ts, AfterID: id, RowLimit: 21})
-	if err != nil || len(list) != 1 || list[0].AnswerCount != 2 || list[0].AuthorCountry != "BF" {
+	if err != nil || len(list) != 1 || list[0].AnswerCount != 2 || list[0].AuthorCountry != "BF" || list[0].Rank != 0.5 {
 		t.Fatalf("ListSolveQuestions = %+v, %v", list, err)
 	}
-	assertCall(t, db, "ORDER BY q.created_at DESC, q.id DESC", []any{text, pgtype.Text{}, pgtype.Text{}, pgtype.Text{}, pgtype.Text{}, ts, id, int32(21)})
+	assertCall(t, db, "ORDER BY rank DESC, q.created_at DESC, q.id DESC", []any{text, pgtype.Text{}, pgtype.Text{}, pgtype.Text{}, ts, float32(0), id, int32(21), pgtype.Text{}})
 
 	db = &fakeDB{rowVals: questionRow}
 	q, err := dbgen.New(db).GetSolveQuestion(ctx, id)

@@ -335,8 +335,16 @@ func TestSolveUpdateQuestionPreconditions(t *testing.T) {
 	if got := decodeAs[apigen.Question](t, s.read(t, nil, path)); got.Title != "Nouveau titre" || len(got.Related) != 1 {
 		t.Fatalf("a rejected edit left %+v", got)
 	}
-	// A new answer changes the representation, so the tag taken before it is stale.
+	// A new answer does not touch updated_at, so the tag taken before it still edits; the edit itself
+	// then makes that tag stale.
 	s.answer(t, &bob, q.Id.String(), "Une réponse.")
+	if got := s.read(t, nil, path).Header().Get("ETag"); got != newTag {
+		t.Fatalf("an answer changed the ETag: %q -> %q", newTag, got)
+	}
+	edit := s.write(t, &alice, http.MethodPatch, path, `{"title":"Encore"}`, map[string]string{"If-Match": newTag})
+	if edit.Code != http.StatusOK || edit.Header().Get("ETag") == newTag {
+		t.Fatalf("edit after an answer: %d %q", edit.Code, edit.Header().Get("ETag"))
+	}
 	assertProblem(t, s.write(t, &alice, http.MethodPatch, path, `{"title":"Encore"}`, map[string]string{"If-Match": newTag}), http.StatusPreconditionFailed, "PRECONDITION_FAILED")
 
 	// Two edits with the same tag at once: exactly one wins.
@@ -619,5 +627,68 @@ func TestSolveEditKeepsAHiddenLinkHidden(t *testing.T) {
 	}
 	if got := decodeAs[apigen.Question](t, s.read(t, nil, "/api/v1/questions/"+qid)); len(got.Related) != 0 {
 		t.Fatalf("hidden link shown: %+v", got.Related)
+	}
+}
+
+func TestSolveSearchRanksByRelevanceThenNewest(t *testing.T) {
+	s := newSolveStack(t)
+	alice := s.signIn(t, "solve-rank-alice", true, 89)
+	ask := func(title, body string) string {
+		rec := s.write(t, &alice, http.MethodPost, "/api/v1/questions", `{"title":`+jsonString(title)+`,"body_md":`+jsonString(body)+`,"lang":"fr","tags":["go"]}`, nil)
+		if rec.Code != http.StatusCreated {
+			t.Fatalf("ask: %d %s", rec.Code, rec.Body.String())
+		}
+		return decodeAs[apigen.Question](t, rec).Id.String()
+	}
+	strong := ask("Paiement mobile et paiement", "Le paiement passe par un paiement.")
+	weakOld := ask("Autre sujet un", "On parle de paiement une fois.")
+	weakNew := ask("Autre sujet deux", "On parle de paiement une fois.")
+	ask("Rien à voir", "Sans rapport.")
+	// Equal rank: newest first, then id; the stronger match comes first although it is the oldest.
+	walk := func(query string) (seen []string) {
+		cursorValue := ""
+		for range 10 {
+			path := "/api/v1/questions?limit=1&q=" + query
+			if cursorValue != "" {
+				path += "&cursor=" + cursorValue
+			}
+			rec := s.read(t, nil, path)
+			if rec.Code != http.StatusOK {
+				t.Fatalf("list %s: %d %s", path, rec.Code, rec.Body.String())
+			}
+			page := decodeAs[apigen.QuestionPage](t, rec)
+			for _, q := range page.Items {
+				seen = append(seen, q.Id.String())
+			}
+			if page.NextCursor == nil {
+				return seen
+			}
+			cursorValue = *page.NextCursor
+		}
+		t.Fatal("cursor never ended")
+		return nil
+	}
+	got := walk("paiement")
+	if want := []string{strong, weakNew, weakOld}; strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Fatalf("order %v, want %v (relevance, then newest)", got, want)
+	}
+	// Without q the order is newest first.
+	rec := s.read(t, nil, "/api/v1/questions?limit=4")
+	page := decodeAs[apigen.QuestionPage](t, rec)
+	if len(page.Items) != 4 || page.Items[3].Id.String() != strong {
+		t.Fatalf("no-q order: %+v", page.Items)
+	}
+	// A cursor is bound to q and cannot be tampered with.
+	first := decodeAs[apigen.QuestionPage](t, s.read(t, nil, "/api/v1/questions?limit=1&q=paiement"))
+	c := *first.NextCursor
+	assertProblem(t, s.read(t, nil, "/api/v1/questions?limit=1&q=autre&cursor="+c), http.StatusBadRequest, "INVALID_CURSOR")
+	tampered := c[:len(c)-2] + "AA"
+	if tampered == c {
+		tampered = c[:len(c)-2] + "BB"
+	}
+	assertProblem(t, s.read(t, nil, "/api/v1/questions?limit=1&q=paiement&cursor="+tampered), http.StatusBadRequest, "INVALID_CURSOR")
+	// A query with only a negation matches nothing, as in search.
+	if none := decodeAs[apigen.QuestionPage](t, s.read(t, nil, "/api/v1/questions?q=-paiement")); len(none.Items) != 0 {
+		t.Fatalf("negation-only query matched %d", len(none.Items))
 	}
 }

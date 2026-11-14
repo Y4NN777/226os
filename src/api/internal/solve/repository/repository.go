@@ -48,7 +48,7 @@ func (r *Repository) ListQuestions(ctx context.Context, q domain.QuestionQuery) 
 	}
 	rows, err := r.q.ListSolveQuestions(ctx, dbgen.ListSolveQuestionsParams{
 		Tag: text(q.Tag), State: text(q.State), Country: text(q.Country), Lang: text(q.Lang), Q: text(q.Q),
-		AfterCreated: timestamp(q.AfterCreated), AfterID: after,
+		AfterCreated: timestamp(q.AfterCreated), AfterRank: q.AfterRank, AfterID: after,
 		RowLimit: int32(q.Limit), //nolint:gosec // page size is at most 51
 	})
 	if err != nil {
@@ -58,7 +58,14 @@ func (r *Repository) ListQuestions(ctx context.Context, q domain.QuestionQuery) 
 	ids := make([]pgtype.UUID, len(rows))
 	for i, row := range rows {
 		ids[i] = row.ID
-		out[i] = question(dbgen.GetSolveQuestionRow(row))
+		out[i] = question(dbgen.GetSolveQuestionRow{
+			ID: row.ID, Title: row.Title, BodyMd: row.BodyMd, Language: row.Language, Snippet: row.Snippet,
+			SnippetLanguage: row.SnippetLanguage, CountryCode: row.CountryCode, AnswerCount: row.AnswerCount,
+			VoteScore: row.VoteScore, AcceptedAnswerID: row.AcceptedAnswerID, CreatedAt: row.CreatedAt,
+			UpdatedAt: row.UpdatedAt, AuthorID: row.AuthorID, AuthorUsername: row.AuthorUsername,
+			AuthorDisplayName: row.AuthorDisplayName, AuthorCountry: row.AuthorCountry,
+		})
+		out[i].Rank = row.Rank
 	}
 	if err := r.attach(ctx, r.q, out, ids); err != nil {
 		return nil, err

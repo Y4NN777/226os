@@ -8,15 +8,26 @@
 -- more with a 422 instead of dropping data.
 
 -- name: ListSolveQuestions :many
+-- With q: most relevant first (ts_rank over the stored search_document, the S2 search tsquery:
+-- websearch_to_tsquery('simple', f_unaccent(q)), a query with no positive term reads none), then newest,
+-- then id. Without q the rank is 0 and the order is newest first. The keyset is (rank, created_at, id),
+-- all descending; rank is the same real the cursor carried, so the comparison is exact.
+WITH i AS NOT MATERIALIZED (
+  SELECT CASE WHEN sqlc.narg('q')::text IS NULL THEN NULL
+         ELSE websearch_to_tsquery('simple', f_unaccent(sqlc.narg('q')::text)) END AS tsq
+)
 SELECT q.id, q.title, q.body_md, q.language, COALESCE(q.snippet, '')::text AS snippet,
        COALESCE(q.snippet_language, '')::text AS snippet_language, COALESCE(q.country_code, '')::text AS country_code,
        q.answer_count, q.vote_score, q.accepted_answer_id, q.created_at, q.updated_at,
        q.author_id, pr.username AS author_username, pr.display_name AS author_display_name,
        COALESCE(CASE WHEN pr.profile_visibility = 'public' AND pr.country_visibility = 'public'
-             THEN pr.country_code END, '')::text AS author_country
+             THEN pr.country_code END, '')::text AS author_country,
+       (CASE WHEN i.tsq IS NULL THEN 0 ELSE ts_rank(q.search_document, i.tsq) END)::real AS rank
 FROM questions q
 JOIN profiles pr ON pr.user_id = q.author_id
+CROSS JOIN i
 WHERE q.status = 'published'
+  AND (i.tsq IS NULL OR (querytree(i.tsq) NOT IN ('', 'T') AND q.search_document @@ i.tsq))
   AND (sqlc.narg('tag')::text IS NULL OR EXISTS (
         SELECT 1 FROM question_tags qt JOIN tags t ON t.id = qt.tag_id AND t.status = 'active'
         WHERE qt.question_id = q.id AND t.slug = sqlc.narg('tag')::text))
@@ -25,10 +36,10 @@ WHERE q.status = 'published'
                 WHEN q.answer_count > 0 THEN 'answered' ELSE 'open' END) = sqlc.narg('state')::text)
   AND (sqlc.narg('country')::text IS NULL OR q.country_code = sqlc.narg('country')::text)
   AND (sqlc.narg('lang')::text IS NULL OR q.language = sqlc.narg('lang')::text)
-  AND (sqlc.narg('q')::text IS NULL OR q.search_document @@ websearch_to_tsquery('simple', f_unaccent(sqlc.narg('q')::text)))
   AND (sqlc.narg('after_created')::timestamptz IS NULL
-       OR (q.created_at, q.id) < (sqlc.narg('after_created')::timestamptz, sqlc.narg('after_id')::uuid))
-ORDER BY q.created_at DESC, q.id DESC
+       OR ((CASE WHEN i.tsq IS NULL THEN 0 ELSE ts_rank(q.search_document, i.tsq) END)::real, q.created_at, q.id)
+          < (sqlc.arg('after_rank')::real, sqlc.narg('after_created')::timestamptz, sqlc.narg('after_id')::uuid))
+ORDER BY rank DESC, q.created_at DESC, q.id DESC
 LIMIT sqlc.arg('row_limit');
 
 -- name: GetSolveQuestion :one
