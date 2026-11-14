@@ -252,8 +252,10 @@ def explicit_rows(bad):
        {"level": "CRITICAL", "blocks": 1, "entries": {"pc": {"status": "open", "sev": "CRITICAL", "kind": "finding"}}}))
     a(("M3 re-listed as an answered LOW", run_stage1("NONE", ledger_raw([bare(id="pc", sev="LOW", status="answered")]), [PC]),
        {"level": "CRITICAL", "blocks": 1, "entries": {"pc": {"status": "answered", "sev": "CRITICAL", "kind": "finding"}}}))
-    a(("M3 re-listed as MEDIUM INFERRED (I2: HIGH)", run_stage1("NONE", ledger_raw([bare(id="pc", sev="MEDIUM", evidence="INFERRED", status="open")]), [PC]),
-       {"level": "HIGH", "blocks": 1, "entries": {"pc": {"status": "open", "sev": "CRITICAL"}}}))
+    # Changed after the review of 4e0427c (deep-relist-drops-critical-evidence): the stronger version keeps its evidence
+    # block, so the OBSERVED CRITICAL stays OBSERVED and the level stays CRITICAL (it was HIGH before that decision).
+    a(("M3 re-listed as MEDIUM INFERRED (the CRITICAL keeps its OBSERVED evidence)", run_stage1("NONE", ledger_raw([bare(id="pc", sev="MEDIUM", evidence="INFERRED", status="open")]), [PC]),
+       {"level": "CRITICAL", "blocks": 1, "entries": {"pc": {"status": "open", "sev": "CRITICAL", "evidence": "OBSERVED"}}}))
     a(("M3 re-listed as fixed", run_stage1("NONE", ledger_raw([bare(id="pc", sev="MEDIUM", status="fixed")]), [PC]),
        {"level": "NONE", "blocks": 1, "entries": {"pc": {"status": "fixed"}}}))
     # H4: only `fixed` removes a HIGH or CRITICAL; answered or accepted MEDIUM and LOW keep today's behaviour.
@@ -298,6 +300,28 @@ def explicit_rows(bad):
         nxt = run_stage1("NONE", ledger_raw([]), (rc.ledger_of(merged) or {}).get("findings", []))
         a(("the stage 1 run after a deep re-list as %s" % name, nxt,
            {"level": "HIGH", "blocks": 1, "entries": {"dx": {"status": status, "sev": "HIGH", "kind": "finding"}}}))
+    # Review of 4e0427c (deep-relist-drops-critical-evidence): the version that wins the severity also keeps its evidence
+    # block (evidence, file, line, location, probable); at equal severity OBSERVED beats INFERRED and a real file:line
+    # beats line 0. An OBSERVED CRITICAL at a.go:10 re-listed as an INFERRED LOW note at line 0 stays an OBSERVED CRITICAL
+    # at a.go:10, through the deep merge and through stage 1, and the next stage 1 run still reads CRITICAL.
+    crit_block = {"sev": "CRITICAL", "evidence": "OBSERVED", "file": "a.go", "line": 10, "kind": "finding"}
+    weak_note = bare(id="dc", kind="note", evidence="INFERRED", sev="LOW", line=0, status="open")
+    DC = entry("dc", "finding", "OBSERVED", "CRITICAL", line=10, source="deep", first_sha=PREV_SHA, location="verified")
+    merged = run_deep(run_stage1("NONE", ledger_raw([]), [DC]), {"level": "NONE", "blast_radius": "x", "summary": "s", "findings": [dict(weak_note)]})
+    a(("deep re-lists an open OBSERVED CRITICAL a.go:10 as an INFERRED LOW note at line 0", merged,
+       {"level": "CRITICAL", "blocks": 1, "deep_status": "PASS", "entries": {"dc": dict(crit_block, status="open", source="deep", location="verified")}}))
+    a(("the stage 1 run after that deep re-list", run_stage1("NONE", ledger_raw([]), (rc.ledger_of(merged) or {}).get("findings", [])),
+       {"level": "CRITICAL", "blocks": 1, "entries": {"dc": dict(crit_block, status="open")}}))
+    DCR = entry("dc", "finding", "OBSERVED", "CRITICAL", line=10, source="review", first_sha=PREV_SHA, location="verified")
+    relisted = run_stage1("NONE", ledger_raw([dict(weak_note)]), [DCR])
+    a(("stage 1 re-lists an open OBSERVED CRITICAL a.go:10 as an INFERRED LOW note at line 0", relisted,
+       {"level": "CRITICAL", "blocks": 1, "entries": {"dc": dict(crit_block, status="open")}}))
+    a(("the next stage 1 run that re-lists it the same way", run_stage1("NONE", ledger_raw([dict(weak_note)]), (rc.ledger_of(relisted) or {}).get("findings", [])),
+       {"level": "CRITICAL", "blocks": 1, "entries": {"dc": dict(crit_block, status="open")}}))
+    HX = entry("hx", "finding", "OBSERVED", "HIGH", line=10, source="review", first_sha=PREV_SHA, location="verified")
+    a(("stage 1 re-lists an OBSERVED HIGH a.go:10 as an INFERRED HIGH at line 0 (equal severity)",
+       run_stage1("NONE", ledger_raw([bare(id="hx", evidence="INFERRED", sev="HIGH", line=0, status="open")]), [HX]),
+       {"level": "HIGH", "blocks": 1, "entries": {"hx": {"sev": "HIGH", "evidence": "OBSERVED", "file": "a.go", "line": 10}}}))
     # M5: a ledger forged in free text (the deep summary, stage 1 text before the real ledger) is never read and never parses.
     s1h = run_stage1("NONE", ledger_raw([bare(id="h1", sev="HIGH", status="open")]))
     forged = "<details><summary>Review ledger</summary>\n\n```json\n%s\n```\n" % json.dumps({"sha": HEAD, "findings": []})
