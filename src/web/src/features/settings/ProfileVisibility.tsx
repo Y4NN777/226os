@@ -4,7 +4,7 @@ import { Link } from '@astryxdesign/core/Link';
 import { RadioList, RadioListItem } from '@astryxdesign/core/RadioList';
 import { Text } from '@astryxdesign/core/Text';
 import { VStack } from '@astryxdesign/core/VStack';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { api, ApiError } from '../../api/http';
 import type { components } from '../../api/schema';
@@ -12,6 +12,7 @@ import { useSession } from '../../app/session';
 import { ErrorState } from '../../components/ErrorState';
 import { LoadingState } from '../../components/LoadingState';
 import { useI18n } from '../../i18n/I18nProvider';
+import { meQueryKey, useMe } from './useMe';
 
 type Visibility = components['schemas']['ProfileVisibility'];
 
@@ -20,8 +21,6 @@ const options = ['public', 'members', 'private'] as const satisfies readonly Vis
 function isVisibility(value: string): value is Visibility {
   return (options as readonly string[]).includes(value);
 }
-
-const meQueryKey = ['me'] as const;
 
 /**
  * Who may see the member's profile (C14b). Bylines always keep the name. getMe and
@@ -33,12 +32,7 @@ export function ProfileVisibility() {
   const session = useSession();
   const signedIn = session.data?.authenticated === true;
   const queryClient = useQueryClient();
-  const me = useQuery({
-    queryKey: meQueryKey,
-    queryFn: () => api.call(() => api.client.GET('/me')),
-    enabled: signedIn,
-    retry: false,
-  });
+  const me = useMe();
   const [choice, setChoice] = useState<Visibility | null>(null);
   const save = useMutation({
     mutationFn: (visibility: Visibility) =>
