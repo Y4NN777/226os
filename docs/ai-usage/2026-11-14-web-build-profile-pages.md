@@ -11,6 +11,6 @@ third_party_sources_consulted: []
 license_review: "NOT APPLICABLE: original code, no new dependency"
 closure: "open"
 human_reviewers: ["PANK4SS (S7 reviewer, pending)"]
-tests_or_evidence: ["RED: BuildPage 13/13, ProjectPage 21/21, ProfilePage 15/15 failing before the routes existed", "GREEN: lint, format:check, typecheck, coverage exit 0 (387 tests; 95.67/87.95/95.48/96.8)"]
+tests_or_evidence: ["RED: BuildPage 13/13, ProjectPage 21/21, ProfilePage 15/15 failing before the routes existed", "GREEN: lint, format:check, typecheck, coverage exit 0 (424 tests; 96.07/88.82/95.45/97.06)", "skeptic review: no security finding; test gaps F1-F3 and the application replay guard F4 fixed in 61ade18"]
 open_risks: ["updateProject has no If-Match in the contract, so concurrent owner edits are last-write-wins", "an applicant can withdraw only right after applying: no operation lists a member's own applications", "axe, visual and responsive checks NOT RUN"]
 ```
