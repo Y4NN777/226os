@@ -32,7 +32,7 @@ import {
 
 type Lang = components['schemas']['Lang'];
 type Snippet = components['schemas']['Snippet'];
-type LinkRef = components['schemas']['LinkRef'];
+type LinkRef = components['schemas']['QuestionLinkRef'];
 
 /** What the form hands to the page: ready for createQuestion (or the diff for updateQuestion). */
 export interface QuestionDraft {
