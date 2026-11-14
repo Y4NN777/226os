@@ -1,5 +1,6 @@
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery } from '@tanstack/react-query';
 import { api, ApiError } from '../../api/http';
+import type { components } from '../../api/schema';
 import { listQuery } from './region';
 import type { DiscoverSearch } from './routeSearch';
 
@@ -54,6 +55,21 @@ export function useResourceSources(id: string) {
     queryFn: () =>
       api.call(() =>
         api.client.GET('/resources/{resourceId}/sources', { params: { path: { resourceId: id } } }),
+      ),
+  });
+}
+
+export type ErrorReportCreate = components['schemas']['ErrorReportCreate'];
+
+/** Members only; the CSRF header comes from the shared client. Nothing cached changes. */
+export function useCreateErrorReport(resourceId: string) {
+  return useMutation({
+    mutationFn: (body: ErrorReportCreate) =>
+      api.call(() =>
+        api.client.POST('/resources/{resourceId}/error-reports', {
+          params: { path: { resourceId } },
+          body,
+        }),
       ),
   });
 }
