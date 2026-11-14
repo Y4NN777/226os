@@ -187,11 +187,43 @@ def pr_files(gh, repo, pr, pull):
     return items, None
 
 
+PIPELINE_BRANCH = "fix/review/"
+PIPELINE_TRAILER = re.compile(r"^Review-Pipeline:", re.M | re.I)
+
+
+def owner_authored(gh, repo, number, pull, owner):
+    """True only when the owner opened the pull request AND authored every commit on it, each one VERIFIED (a signature
+    GitHub checks: an author email is only a claim, anyone can forge it). The review pipeline commits and pushes with the
+    owner's identity and token: a pull request it made (a `fix/review/` branch, an autofix label or any commit with the
+    `Review-Pipeline:` trailer) is never owner-authored. More than 250 commits cannot be listed: not owner-authored. A
+    forged trailer, branch or label only makes this stricter."""
+    if (pull.get("user") or {}).get("login") != owner:
+        return False
+    if str((pull.get("head") or {}).get("ref") or "").startswith(PIPELINE_BRANCH) or any(n.startswith("autofix-") for n in label_names(pull)):
+        return False
+    try:
+        if int(pull.get("commits") or 0) > MAX_COMMITS:
+            return False
+    except (TypeError, ValueError):
+        return False
+    commits = gh_api(gh, "repos/%s/pulls/%s/commits" % (repo, number))
+    if not commits or len(commits) > MAX_COMMITS:
+        return False
+    for c in commits:
+        info = c.get("commit") or {}
+        if PIPELINE_TRAILER.search(str(info.get("message") or "")):
+            return False
+        if (info.get("verification") or {}).get("verified") is not True or (c.get("author") or {}).get("login") != owner:
+            return False
+    return True
+
+
 def check_sensitive(gh, repo, pr, author, owner, base):
     patterns = sensitive_patterns(gh, repo, base)
     if patterns is None:
         return None, "sensitive paths: NOT RUN (no sensitive-paths list on %s)" % base
-    items, problem = pr_files(gh, repo, pr, fetch_pull(gh, repo, pr))
+    pull = fetch_pull(gh, repo, pr)
+    items, problem = pr_files(gh, repo, pr, pull)
     if problem:
         return "sensitive paths: " + problem, ""
     files = comment.changed_paths(items)  # a rename out of a sensitive path touches it
@@ -199,8 +231,8 @@ def check_sensitive(gh, repo, pr, author, owner, base):
     if not hits:
         return None, "sensitive paths: no sensitive path touched"
     shown = ", ".join(hits[:6]) + (" ..." if len(hits) > 6 else "")
-    if author == owner:
-        return None, "sensitive paths touched (%s): owner-authored" % shown
+    if owner_authored(gh, repo, pr, pull, owner):
+        return None, "sensitive paths touched (%s): owner-authored (every commit verified)" % shown
     if owner_state(gh_api(gh, "repos/%s/pulls/%s/reviews" % (repo, pr)), owner) == "APPROVED":
         return None, "sensitive paths touched (%s): approved by the owner" % shown
     return "sensitive paths touched (%s) without the owner's approval" % shown, ""

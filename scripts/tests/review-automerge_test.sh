@@ -30,7 +30,12 @@ case "$*" in
   "api repos/o/r/commits/$H/check-runs?per_page=100 --paginate") cat "$FX/checks.json" ;;
   "api repos/o/r/issues/7/comments --paginate") cat "$FX/comments.json" ;;
   "api repos/o/r/pulls/7/reviews --paginate") cat "$FX/reviews.json" ;;
-  "api repos/o/r/pulls/7/commits --paginate") cat "$FX/commits.json" ;;
+  "api repos/o/r/pulls/7/commits --paginate") python3 -I -c '
+import json, sys
+d = json.load(open(sys.argv[1]))
+for c in d:
+    c.setdefault("commit", {}).setdefault("verification", {"verified": True})
+print(json.dumps(d))' "$FX/commits.json" ;;
   "api repos/o/r/contents/.github/sensitive-paths.txt?ref=develop --paginate") cat "$FX/contents.json" ;;
   "api repos/o/r/contents/.github/deep-review-paths.txt?ref=develop --paginate") cat "$FX/deep-paths.json" ;;
   "api repos/o/r/contents/.github/pipeline-paths.txt?ref=develop --paginate") cat "$FX/pipeline-paths.json" ;;
@@ -145,6 +150,19 @@ grep -q 'pr merge 7' <<<"$calls" && ok "an owner-authored sensitive change whose
 reset; files scripts/x.sh; review_comment "Triage: NONE | blast radius: x" "$SENS_OK"; pull open develop o/r false '[]' Y4NN777
 printf '[{"sha":"%s","author":{"login":"Y4NN777"}},{"sha":"%s","author":{"login":"someone"}}]' "$OLD" "$H" >"$tmp/fx/commits.json"
 refused 'owner' "an owner-authored PR with a commit by someone else is not owner-authored"
+# --- #212 M8 + L3: verified commits only, 250 cap, the owner's standing CHANGES_REQUESTED ---
+reset; files scripts/x.sh; review_comment "Triage: NONE | blast radius: x" "$SENS_OK"; pull open develop o/r false '[]' Y4NN777
+printf '[{"sha":"%s","author":{"login":"Y4NN777"},"commit":{"message":"x","verification":{"verified":false}}}]' "$H" >"$tmp/fx/commits.json"
+refused 'owner' "M8: an owner commit that is not verified (a forged author email) is not owner-authored"
+reset; files scripts/x.sh; review_comment "Triage: NONE | blast radius: x" "$SENS_OK"; pull open develop o/r false '[]' Y4NN777
+python3 -I -c 'import json,sys; d=json.load(open(sys.argv[1])); d["commits"]=251; json.dump(d, open(sys.argv[1],"w"))' "$tmp/fx/pull.json"
+refused 'owner' "M8: more than 250 commits cannot be verified, so the owner needs to approve the head"
+reset; printf '[{"user":{"login":"Y4NN777"},"state":"CHANGES_REQUESTED","commit_id":"%s","submitted_at":"2026-11-14T10:00:00Z"}]' "$H" >"$tmp/fx/reviews.json"
+refused "requests changes" "L3: the owner's latest review CHANGES_REQUESTED refuses even a non-sensitive pull request"
+reset; printf '[{"user":{"login":"Y4NN777"},"state":"CHANGES_REQUESTED","commit_id":"%s","submitted_at":"2026-11-14T10:00:00Z"},{"user":{"login":"Y4NN777"},"state":"APPROVED","commit_id":"%s","submitted_at":"2026-11-14T11:00:00Z"}]' "$H" "$H" >"$tmp/fx/reviews.json"
+run on
+grep -q 'pr merge 7' <<<"$calls" && ok "L3: a later owner approval lifts the CHANGES_REQUESTED refusal" || ko "L3 lifted ($out)"
+
 # --- review of PR 185: pipeline commits carry the owner's identity and token, so they are never "owner authored" ---
 TRAILER_MSG='fix(review): x\n\nReview-Pipeline: review-batch/123'
 reset; files scripts/x.sh; review_comment "Triage: NONE | blast radius: x" "$SENS_OK"; pull open develop o/r false '[]' Y4NN777

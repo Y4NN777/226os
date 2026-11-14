@@ -19,7 +19,7 @@ It decides MERGE only if ALL of these hold for the pull request (any other case 
     no header line of the comment (line 5 when present, after Triage, the marker, Tool and Reviewed) is `Deep: PENDING`
     or `Deep: NOT RUN` (the review job's own signal, whatever the lists);
   - when a sensitive path is touched, the owner's latest review APPROVED exactly the head commit, or the owner opened
-    the pull request and authored every commit on it (stricter than the Review gate, applied whatever the gate mode).
+    the pull request and authored every commit on it, each one verified (review-gate.py owner_authored) (stricter than the Review gate, applied whatever the gate mode).
     No exemption: a review batch pull request (`fix/review/batch-*`) and any other pipeline-made commit need the owner's
     approval of the head too (the no-click batch exemption was withdrawn after the independent review of #187);
   - a HIGH or MEDIUM verdict always has an open finding that explains it (otherwise it is refused, never merged);
@@ -46,8 +46,6 @@ import subprocess
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-PIPELINE_BRANCH = "fix/review/"
-PIPELINE_TRAILER = re.compile(r"^Review-Pipeline:", re.M | re.I)
 BLOCKING_LABELS = ("needs-owner", "do-not-merge", "owner-override-pending")
 DEFAULT_CHECKS = "Validate branch promotion,quality,Review gate"
 PIPELINE_LIST = ".github/pipeline-paths.txt"
@@ -94,21 +92,6 @@ def label_names(pull):
     return [x if isinstance(x, str) else (x or {}).get("name", "") for x in pull.get("labels") or []]
 
 
-def owner_authored(gh, repo, number, pull, owner):
-    """True only when the owner opened the pull request AND authored every commit on it. The review pipeline commits and
-    pushes with the owner's identity and token: a pull request it made (a `fix/review/` branch, an autofix label or any
-    commit with the `Review-Pipeline:` trailer its trusted step writes) is never owner-authored, so a sensitive path needs
-    the owner's approval of the head. A forged trailer, branch or label only makes this stricter."""
-    if (pull.get("user") or {}).get("login") != owner:
-        return False
-    if str((pull.get("head") or {}).get("ref") or "").startswith(PIPELINE_BRANCH) or any(n.startswith("autofix-") for n in label_names(pull)):
-        return False
-    commits = gate.gh_api(gh, "repos/%s/pulls/%s/commits" % (repo, number))
-    if any(PIPELINE_TRAILER.search(str((c.get("commit") or {}).get("message") or "")) for c in commits):
-        return False
-    return bool(commits) and all(((c.get("author") or {}).get("login")) == owner for c in commits)
-
-
 def owner_approved_head(gh, repo, number, owner, head):
     """True when the owner's latest decisive review is APPROVED on exactly the head commit."""
     last = None
@@ -125,7 +108,7 @@ def sensitive_refusal(gh, repo, number, pull, owner, files, patterns, head):
     hits = comment.p0_hits(files, patterns)
     if not hits:
         return None
-    if owner_authored(gh, repo, number, pull, owner) or owner_approved_head(gh, repo, number, owner, head):
+    if gate.owner_authored(gh, repo, number, pull, owner) or owner_approved_head(gh, repo, number, owner, head):
         return None
     return "sensitive paths touched (%s) without the owner's approval of the head" % ", ".join(hits[:3])
 
@@ -169,6 +152,10 @@ def refusals(gh, repo, number, base, owner, required):
             why.append("required check %s has not reported on the head" % name)
         elif run.get("status") != "completed" or run.get("conclusion") != "success":
             why.append("required check %s is %s" % (name, run.get("conclusion") or run.get("status")))
+
+    # The owner's standing CHANGES_REQUESTED refuses everything, sensitive path or not.
+    if gate.owner_state(gate.gh_api(gh, "repos/%s/pulls/%s/reviews" % (repo, number)), owner) == "CHANGES_REQUESTED":
+        why.append("the owner's latest review requests changes")
 
     target = comment.review_comment(gate.gh_api(gh, "repos/%s/issues/%s/comments" % (repo, number)))
     body = (target or {}).get("body") or ""

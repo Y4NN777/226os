@@ -24,6 +24,7 @@ case "$ep" in
   *"/contents/.github/sensitive-paths.txt"*) [ -z "${FAKE_NO_LIST:-}" ] || { echo "404" >&2; exit 1; }; cat "$FX/contents.json" ;;
   *"/contents/.github/stray-paths.txt"*) [ -z "${FAKE_NO_STRAY:-}" ] || { echo "404" >&2; exit 1; }; cat "$FX/stray.json" ;;
   *"/pulls/7") cat "$FX/pull.json" ;;
+  *"/pulls/7/commits"*) cat "$FX/commits.json" ;;
   *"/issues/12") cat "$FX/issue12.json" ;;
   *"/comments"*) cat "$FX/comments.json" ;;
   *"/events"*) cat "$FX/events.json" ;;
@@ -43,6 +44,7 @@ printf '{"content":"%s","encoding":"base64"}' "$stray_b64" >"$tmp/fx/stray.json"
 reset() {
   printf '{"body":"","labels":[],"head":{"ref":"feature/identity/profiles"},"user":{"login":"dev"},"changed_files":1,"commits":1}' >"$tmp/fx/pull.json"
   printf '{"number":12,"labels":[{"name":"finding"}]}' >"$tmp/fx/issue12.json"
+  printf '[{"sha":"c1","author":{"login":"Y4NN777"},"commit":{"message":"own work","verification":{"verified":true}}}]' >"$tmp/fx/commits.json"
   printf '[]' >"$tmp/fx/comments.json"
   printf '[]' >"$tmp/fx/events.json"
   printf '[]' >"$tmp/fx/reviews.json"
@@ -94,6 +96,8 @@ pull_field() { python3 -I -c 'import json,sys; d = json.load(open(sys.argv[1]));
 # run MODE [author]: runs the gate; sets rc and out.
 run() {
   rc=0
+  # An owner-authored run: the pull request is the owner's (the gate reads the pull request, not PR_AUTHOR).
+  if [ "${2:-dev}" = Y4NN777 ]; then pull_field user '{"login":"Y4NN777"}'; fi
   out="$(PATH="$tmp/bin:$PATH" FX="$tmp/fx" GATE_MODE="$1" REPO=o/r PR_NUMBER=7 PR_AUTHOR="${2:-dev}" PR_HEAD_SHA="${HEAD_SHA:-$head}" OWNER=Y4NN777 BASE_REF=develop python3 -I "$gate" 2>&1)" || rc=$?
 }
 
@@ -356,6 +360,30 @@ run enforce dev
 reset; files docs/a.md; pull_field changed_files 3000
 run enforce dev
 [ "$rc" -eq 1 ] && grep -q 'incomplete' <<<"$out" && ok "L4: 3000 files (GitHub's cap) fails closed" || ko "3000 files (rc=$rc out=$out)"
+
+# --- #212 M8 + L3: owner trust is a verified commit by the owner, never a claimed login ---
+reset; files scripts/x.sh
+printf '[{"sha":"c1","author":{"login":"Y4NN777"},"commit":{"message":"own work","verification":{"verified":false}}}]' >"$tmp/fx/commits.json"
+run enforce Y4NN777
+[ "$rc" -eq 1 ] && ok "M8: an owner PR whose commit is not verified (a forged author email) is not owner-authored" || ko "unverified (rc=$rc out=$out)"
+reset; files scripts/x.sh
+printf '[{"sha":"c1","author":{"login":"Y4NN777"},"commit":{"message":"own work"}}]' >"$tmp/fx/commits.json"
+run enforce Y4NN777
+[ "$rc" -eq 1 ] && ok "M8: a commit with no verification answer is not verified" || ko "no verification (rc=$rc out=$out)"
+reset; files scripts/x.sh
+printf '[{"sha":"c1","author":{"login":"Y4NN777"},"commit":{"message":"x\\n\\nReview-Pipeline: autofix/1","verification":{"verified":true}}}]' >"$tmp/fx/commits.json"
+run enforce Y4NN777
+[ "$rc" -eq 1 ] && ok "M8: a pipeline commit (Review-Pipeline trailer) is never owner-authored" || ko "trailer (rc=$rc out=$out)"
+reset; files scripts/x.sh; pull_field user '{"login":"Y4NN777"}'
+printf '[{"sha":"c1","author":{"login":"Y4NN777"},"commit":{"message":"a","verification":{"verified":true}}},{"sha":"c2","author":{"login":"dev"},"commit":{"message":"b","verification":{"verified":true}}}]' >"$tmp/fx/commits.json"
+run enforce dev
+[ "$rc" -eq 1 ] && ok "M8: the owner opened it but another author has a commit: not owner-authored" || ko "mixed authors (rc=$rc out=$out)"
+reset; files scripts/x.sh; pull_field commits 251
+run enforce Y4NN777
+[ "$rc" -eq 1 ] && ok "M8: more than 250 commits cannot be verified (fails closed)" || ko "251 owner commits (rc=$rc out=$out)"
+reset; files scripts/x.sh
+run enforce Y4NN777
+[ "$rc" -eq 0 ] && grep -q 'owner-authored' <<<"$out" && ok "M8: every commit verified and by the owner on the owner's PR passes" || ko "verified owner (rc=$rc out=$out)"
 
 # --- #212 workflow wiring (static): the gate waits for the review and gets the head; a skip repins the ledger ---
 wf="$root/.github/workflows/code-review.yml"
