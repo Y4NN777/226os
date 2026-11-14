@@ -273,22 +273,18 @@ func (r *Repository) ResetPassword(ctx context.Context, hash [32]byte, phc strin
 
 // ---------- rate limits ----------
 
-// Count reports the hits already recorded in the window that contains now,
-// without recording one. A window with no row has zero hits.
-func (r *Repository) Count(ctx context.Context, scope string, key [32]byte, window time.Duration, now time.Time) (int, time.Duration, error) {
+// GiveBack releases one hit from the fixed window that contains now (the
+// window the matching Hit used). It is a single atomic statement and never
+// takes the bucket below zero: the last hit removes the row.
+func (r *Repository) GiveBack(ctx context.Context, scope string, key [32]byte, window time.Duration, now time.Time) error {
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
-	windowStart := now.Truncate(window)
-	hits, err := r.q.CountRateLimit(ctx, dbgen.CountRateLimitParams{
-		Scope: scope, KeyHash: key[:], WindowStart: ts(windowStart),
-	})
-	if errors.Is(err, pgx.ErrNoRows) {
-		return 0, windowStart.Add(window).Sub(now), nil
+	if err := r.q.GiveBackRateLimit(ctx, dbgen.GiveBackRateLimitParams{
+		Scope: scope, KeyHash: key[:], WindowStart: ts(now.Truncate(window)),
+	}); err != nil {
+		return fmt.Errorf("identity rate limit give back: %w", err)
 	}
-	if err != nil {
-		return 0, 0, fmt.Errorf("identity rate limit count: %w", err)
-	}
-	return int(hits), windowStart.Add(window).Sub(now), nil
+	return nil
 }
 
 // purgeAfter is how long a finished window is kept before it is purged.

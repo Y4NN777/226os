@@ -108,6 +108,20 @@ ON CONFLICT (scope, key_hash, window_start)
 DO UPDATE SET hits = rate_limit_buckets.hits + 1
 RETURNING hits;
 
+-- name: GiveBackRateLimit :exec
+-- Releases one hit from a fixed-window bucket in a single statement (a sign-in
+-- that succeeded gives back its up-front hit, so only failures stay counted).
+-- rate_limit_buckets_hits_ck requires hits > 0, so the last hit deletes the row.
+-- The two branches touch disjoint rows. Under a concurrent change a give-back
+-- can be skipped, never doubled: a stale count only ever errs on the strict side.
+WITH dec AS (
+  UPDATE rate_limit_buckets SET hits = hits - 1
+  WHERE scope = $1 AND key_hash = $2 AND window_start = $3 AND hits > 1
+  RETURNING 1
+)
+DELETE FROM rate_limit_buckets AS b
+WHERE b.scope = $1 AND b.key_hash = $2 AND b.window_start = $3 AND b.hits = 1;
+
 -- ---------- profiles (S1 profiles slice) ----------
 
 -- ProfileColumns is the shared projection: every profiles column plus the
@@ -201,6 +215,3 @@ WHERE ctid IN (
   SELECT b.ctid FROM rate_limit_buckets b WHERE b.window_start < $1 LIMIT 500 FOR UPDATE SKIP LOCKED
 );
 
--- name: CountRateLimit :one
-SELECT hits FROM rate_limit_buckets
-WHERE scope = $1 AND key_hash = $2 AND window_start = $3;
