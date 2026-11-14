@@ -289,7 +289,7 @@ reset
 mkgroup 601 90 shared a.go 2026-11-10T10:00:00Z
 mkgroup 602 95 shared a.go 2026-11-12T10:00:00Z
 mkgroup 603 96 shared other.go 2026-11-12T10:00:00Z
-mknote 604 open 2026-11-13T10:00:00Z '<!-- finding:PR98#notes -->\n- [ ] `shared` [OBSERVED] `a.go:3` shared: same defect'
+mknote 604 open 2026-11-13T10:00:00Z '<!-- finding:PR98#notes -->\n- [ ] `shared` [OBSERVED] `a.go:3` the same remark'
 run batch
 body="$(get 904 body)"
 [ "$(grep -c 'batch-item:' <<<"$body")" -eq 2 ] && ok "the same id and file on three sources (two findings, one note) is ONE row; the same id in another file is its own row" || ko "grouped rows ($body)"
@@ -315,29 +315,13 @@ reset
 mkgroup 611 91 missing-test a.go 2026-11-10T10:00:00Z open 3
 mkgroup 612 92 missing-test a.go 2026-11-11T10:00:00Z open 9
 mkgroup 613 93 missing-test a.go 2026-11-12T10:00:00Z open '?'
-mknote 614 open 2026-11-13T10:00:00Z '<!-- finding:PR94#notes -->\n- [ ] `missing-test` [OBSERVED] `a.go:3` missing-test: same defect\n- [ ] `missing-test` [OBSERVED] `a.go:20` another remark'
+mknote 614 open 2026-11-13T10:00:00Z '<!-- finding:PR94#notes -->\n- [ ] `missing-test` [OBSERVED] `a.go:3` the same remark as 611\n- [ ] `missing-test` [OBSERVED] `a.go:20` another remark'
 run batch
 body="$(get 904 body)"
 [ "$(grep -c 'batch-item:' <<<"$body")" -eq 4 ] && ok "same id and file at another line, or with no line, are separate rows (4 rows: 611 with note, 612, 613, the note at line 20)" || ko "line ignored ($body)"
 line="$(grep 'batch-item:#611' <<<"$body")"
 grep -q 'batch-also:#614/missing-test' <<<"$line" && ! grep -q '#612\|#613' <<<"$line" && ok "only the source at the same id, file and line joins the row" || ko "same line row ($line)"
 ! grep -q 'batch-also' <<<"$(grep 'batch-item:#612\|batch-item:#613' <<<"$body")" && ok "the other lines have no also-marker: settling one row cannot close their sources" || ko "also on other line ($body)"
-
-# #212 L8: the same id, file and line with ANOTHER title is a coincidence, never one row.
-reset
-mkgroup 621 91 shared a.go 2026-11-10T10:00:00Z open 3
-python3 -I - "$tmp/st/issues.json" <<'EOF'
-import json, sys
-p = sys.argv[1]
-d = json.load(open(p))
-d.append({"number": 622, "state": "open", "state_reason": None, "labels": ["finding", "sev:high", "due:before-freeze", "area:web"], "created_at": "2026-11-11T10:00:00Z",
-          "title": "PR92 shared: an unrelated defect", "body": "<!-- finding:PR92#shared -->\nFound by the AI review of PR #92 (t).\n\n- Where: `a.go:3`\n- Severity: HIGH\n"})
-json.dump(d, open(p, "w"))
-EOF
-run batch
-read -r -a bs <<<"$(batches)"
-body="$(get "${bs[0]}" body)"
-[ "$(grep -c 'batch-item:' <<<"$body")" -eq 2 ] && ! grep -q 'batch-also' <<<"$body" && ok "L8: the same id, file and line with another title are two rows (a coincidence never merges)" || ko "L8 ($body)"
 
 # ---------- rank keeps the due component (review note n-batch-rank-due, #152) ----------
 reset

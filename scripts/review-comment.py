@@ -544,9 +544,25 @@ def defang(text):
     return re.sub(r"(?i)```(\s*)json", r"```\1text", text)
 
 
+PEM_BEGIN = re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----")
+PEM_END = re.compile(r"-----END [A-Z ]*PRIVATE KEY-----")
+
+
 def redact_lines(text):
-    """Every line of free text that looks like a secret is replaced by REDACTED (the other lines stay)."""
-    return "\n".join(REDACTED if looks_secret(l) else l for l in (text or "").split("\n"))
+    """Every line of free text that looks like a secret is replaced by REDACTED (the other lines stay); a private key block is
+    replaced whole, from its BEGIN line to its END line (or to the end of the text when it never ends)."""
+    out, in_pem = [], False
+    for l in (text or "").split("\n"):
+        if in_pem:
+            if PEM_END.search(l):
+                in_pem = False
+            continue
+        if PEM_BEGIN.search(l):
+            out.append(REDACTED)
+            in_pem = not PEM_END.search(l)
+        else:
+            out.append(REDACTED if looks_secret(l) else l)
+    return "\n".join(out)
 
 
 def neutralise_free(text):
@@ -666,7 +682,11 @@ def compose(text, tool_line, head="", deep_line=None, reviewed=None, previous_le
     rest = [l for l in lines[1:] if l.strip() != MARKER and not l.startswith(("Tool:", "Deep:", "Reviewed:"))]
     while rest and not rest[0].strip():
         rest.pop(0)
-    top = [lines[0].strip(), MARKER, tool_or_default(tool_line)] + ([reviewed] if reviewed else []) + ([deep_line] if deep_line else [])
+    first = lines[0].strip()
+    if looks_secret(first):
+        # The verdict line stays a valid verdict; only its blast radius text (the free part) is replaced.
+        first = VERDICT.match(first) and re.sub(r"(blast radius:).*$", r"\1 " + REDACTED, first)
+    top = [first, MARKER, tool_or_default(tool_line)] + ([reviewed] if reviewed else []) + ([deep_line] if deep_line else [])
     # Only the last fenced ledger block is a ledger: any other one in the free text is defanged (never parsed, never read).
     rest = neutralise_free(HIDDEN.sub("", "\n".join(rest))).split("\n")
     text = pin_ledger("\n".join(top + [""] + rest), head, previous_ledger)

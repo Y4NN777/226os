@@ -134,7 +134,7 @@ def check_verdict(gh, repo, pr, owner, head=""):
     """(failure message or None, note). The level is the one the head's LEDGER supports (comment.effective_level: a
     CRITICAL needs a blocking OBSERVED CRITICAL entry with a file and a line), never the prose of the comment. A ledger
     that does not cover the head is stale: NOT RUN, except that a stale CRITICAL keeps blocking (a push never lifts it)."""
-    comments = gh_api(gh, "repos/%s/issues/%s/comments" % (repo, pr))
+    comments = gh_api(gh, "repos/%s/issues/%s/comments?per_page=100" % (repo, pr))
     found = latest_verdict(comments)
     if found is None:
         return None, "triage verdict: NOT RUN (no review verdict on this pull request)"
@@ -148,7 +148,7 @@ def check_verdict(gh, repo, pr, owner, head=""):
         if declared == "CRITICAL":
             return None, "triage verdict CRITICAL downgraded: no OBSERVED CRITICAL entry with file:line in the ledger, treated as HIGH"
         return None, "triage verdict %s: never blocks" % level
-    if owner_override(gh_api(gh, "repos/%s/issues/%s/events" % (repo, pr)), owner):
+    if owner_override(gh_api(gh, "repos/%s/issues/%s/events?per_page=100" % (repo, pr)), owner):
         return None, "triage verdict CRITICAL cancelled by an owner override (label %s added by %s)" % (OVERRIDE_LABEL, owner)
     why = " (stale ledger: it still blocks until a review of the head lifts it)" if stale else ""
     return "CRITICAL review verdict with OBSERVED evidence%s (add the label %s to override, owner only)" % (why, OVERRIDE_LABEL), ""
@@ -175,7 +175,7 @@ def owner_state(reviews, owner):
 def pr_files(gh, repo, pr, pull):
     """(items, problem): the pull request's file list, or a reason it cannot be trusted (fail CLOSED: a list that does not
     match the pull request's own count, 3000 files, or more than 250 commits hides paths from every path rule)."""
-    items = gh_api(gh, "repos/%s/pulls/%s/files" % (repo, pr))
+    items = gh_api(gh, "repos/%s/pulls/%s/files?per_page=100" % (repo, pr))
     try:
         count, commits = int(pull.get("changed_files")), int(pull.get("commits") or 0)
     except (TypeError, ValueError):
@@ -206,14 +206,19 @@ def owner_authored(gh, repo, number, pull, owner):
             return False
     except (TypeError, ValueError):
         return False
-    commits = gh_api(gh, "repos/%s/pulls/%s/commits" % (repo, number))
+    commits = gh_api(gh, "repos/%s/pulls/%s/commits?per_page=100" % (repo, number))
     if not commits or len(commits) > MAX_COMMITS:
         return False
     for c in commits:
         info = c.get("commit") or {}
         if PIPELINE_TRAILER.search(str(info.get("message") or "")):
             return False
+        # `verified` is the COMMITTER's signature: the author must be the owner and so must the committer (or GitHub's web-flow,
+        # the committer of an edit made in the web interface), else a verified commit by someone else with the owner's author
+        # field would pass.
         if (info.get("verification") or {}).get("verified") is not True or (c.get("author") or {}).get("login") != owner:
+            return False
+        if (c.get("committer") or {}).get("login") not in (owner, "web-flow"):
             return False
     return True
 
@@ -222,8 +227,12 @@ def check_sensitive(gh, repo, pr, author, owner, base):
     patterns = sensitive_patterns(gh, repo, base)
     if patterns is None:
         return None, "sensitive paths: NOT RUN (no sensitive-paths list on %s)" % base
-    pull = fetch_pull(gh, repo, pr)
-    items, problem = pr_files(gh, repo, pr, pull)
+    try:
+        pull = fetch_pull(gh, repo, pr)
+        items, problem = pr_files(gh, repo, pr, pull)
+    except GitHubError as exc:
+        # A path rule that cannot be evaluated is a failure, never a pass (fail closed), unlike the review verdict.
+        return "sensitive paths: the file list could not be read (%s): its path rules cannot be checked" % exc, ""
     if problem:
         return "sensitive paths: " + problem, ""
     files = comment.changed_paths(items)  # a rename out of a sensitive path touches it
@@ -233,7 +242,7 @@ def check_sensitive(gh, repo, pr, author, owner, base):
     shown = ", ".join(hits[:6]) + (" ..." if len(hits) > 6 else "")
     if owner_authored(gh, repo, pr, pull, owner):
         return None, "sensitive paths touched (%s): owner-authored (every commit verified)" % shown
-    if owner_state(gh_api(gh, "repos/%s/pulls/%s/reviews" % (repo, pr)), owner) == "APPROVED":
+    if owner_state(gh_api(gh, "repos/%s/pulls/%s/reviews?per_page=100" % (repo, pr)), owner) == "APPROVED":
         return None, "sensitive paths touched (%s): approved by the owner" % shown
     return "sensitive paths touched (%s) without the owner's approval" % shown, ""
 

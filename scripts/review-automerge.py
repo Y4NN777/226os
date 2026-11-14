@@ -23,8 +23,10 @@ It decides MERGE only if ALL of these hold for the pull request (any other case 
     with no CRITICAL ever recorded; without the key, or with one bad signature, it needs the owner like any other;
   - when a sensitive path is touched, the owner's latest review APPROVED exactly the head commit, or the owner opened
     the pull request and authored every commit on it, each one verified (review-gate.py owner_authored) (stricter than the Review gate, applied whatever the gate mode).
-    No exemption: a review batch pull request (`fix/review/batch-*`) and any other pipeline-made commit need the owner's
-    approval of the head too (the no-click batch exemption was withdrawn after the independent review of #187);
+    The only exemption is the HMAC one above (a review batch pull request whose every commit the trusted publish job
+    signed, one parent each, at most 250, no owner path, a deep PASS of the head, no CRITICAL ever recorded on it, the
+    key REVIEW_PIPELINE_HMAC_KEY present). Any other pipeline-made commit (a stage 3 autofix, an unsigned or forged
+    one, a batch without the key) needs the owner's approval of the head too; the Review gate never exempts a batch;
   - a HIGH or MEDIUM verdict always has an open finding that explains it (otherwise it is refused, never merged);
   - every path list (sensitive, deep-review, pipeline) is read at the current tip of develop, and a renamed file counts
     with its old path too.
@@ -154,7 +156,7 @@ def pipeline_batch(gh, repo, number, pull, owner, files, key):
     forbidden`). A branch name or a trailer alone is never enough, and without the key there is no exemption."""
     if not key or not str((pull.get("head") or {}).get("ref") or "").startswith(BATCH_BRANCH) or (pull.get("user") or {}).get("login") != owner:
         return False
-    commits = gate.gh_api(gh, "repos/%s/pulls/%s/commits" % (repo, number))
+    commits = gate.gh_api(gh, "repos/%s/pulls/%s/commits?per_page=100" % (repo, number))
     if not commits or len(commits) > gate.MAX_COMMITS or not all(signed_by_pipeline(c, key) for c in commits):
         return False
     return bool(files) and not any(autofix.forbidden(f) for f in files)

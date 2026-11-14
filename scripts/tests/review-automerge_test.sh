@@ -31,11 +31,12 @@ case "$*" in
   "api repos/o/r/actions/runs?head_sha=$H&per_page=100 --paginate") cat "$FX/runs.json" ;;
   "api repos/o/r/issues/7/comments --paginate") cat "$FX/comments.json" ;;
   "api repos/o/r/pulls/7/reviews --paginate") cat "$FX/reviews.json" ;;
-  "api repos/o/r/pulls/7/commits --paginate") python3 -I -c '
+  "api repos/o/r/pulls/7/commits?per_page=100 --paginate") python3 -I -c '
 import json, sys
 d = json.load(open(sys.argv[1]))
 for c in d:
     c.setdefault("commit", {}).setdefault("verification", {"verified": True})
+    c.setdefault("committer", {"login": "Y4NN777"})
 print(json.dumps(d))' "$FX/commits.json" ;;
   "api repos/o/r/contents/.github/sensitive-paths.txt?ref=develop --paginate") cat "$FX/contents.json" ;;
   "api repos/o/r/contents/.github/deep-review-paths.txt?ref=develop --paginate") cat "$FX/deep-paths.json" ;;
@@ -311,6 +312,40 @@ HMAC_KEY=right-key refused 'owner' "HMAC: a signed commit on a pull request that
 reset; files scripts/review-x.sh; review_comment "Triage: NONE | blast radius: x" "$SENS_OK"; pull open develop o/r false '[]' Y4NN777 $BATCH; signed_commits right-key
 HMAC_KEY=right-key run on
 grep -q 'REFUSE #7' <<<"$out" && grep -q 'review pipeline' <<<"$out" && ! grep -q 'pr merge' <<<"$calls" && ok "HMAC: a signed batch touching a pipeline path is still refused (the owner merges it)" || ko "hmac pipeline path (out=$out)"
+
+# Behavioural cases that must REFUSE (skeptic follow-up): the exemption holds only when every condition does.
+# batch_commits KEY N [unsigned-index] [merge-index]: N commits, each signed over its own tree and parent.
+batch_commits() {
+  python3 -I -c '
+import hashlib, hmac, json, sys
+key, n, bad, merge = sys.argv[1], int(sys.argv[2]), int(sys.argv[3]), int(sys.argv[4])
+out = []
+for i in range(n):
+    tree, parent = "%040x" % (i + 1000), "%040x" % (i + 5000)
+    sig = hmac.new(key.encode(), "\n".join(["226os-review-pipeline", tree, parent, "review-batch", "77"]).encode(), hashlib.sha256).hexdigest()
+    msg = "fix(review): x\n\nReview-Pipeline: review-batch/77" + ("" if i == bad else "\nReview-Pipeline-Sig: " + sig)
+    parents = [{"sha": parent}] + ([{"sha": "%040x" % 9999}] if i == merge else [])
+    out.append({"sha": sys.argv[5] if i == n - 1 else "%040x" % i, "author": {"login": "Y4NN777"}, "parents": parents, "commit": {"message": msg, "tree": {"sha": tree}}})
+json.dump(out, open(sys.argv[6], "w"))' "$1" "$2" "${3:--1}" "${4:--1}" "$H" "$tmp/fx/commits.json"
+}
+hmac_case; batch_commits right-key 3
+HMAC_KEY=right-key run on
+grep -q 'pr merge 7' <<<"$calls" && ok "HMAC: three signed commits merge (control for the refusals below)" || ko "hmac control ($out)"
+hmac_case; batch_commits right-key 3 1
+HMAC_KEY=right-key refused 'owner' "HMAC: one unsigned commit among signed ones is refused"
+hmac_case; batch_commits right-key 3 -1 2
+HMAC_KEY=right-key refused 'owner' "HMAC: a two-parent (merge) commit is refused even when signed"
+hmac_case; batch_commits right-key 2; files db/migrations/00001_x.sql
+HMAC_KEY=right-key refused 'owner' "HMAC: a signed batch touching db/migrations (the owner's path) is refused"
+hmac_case; batch_commits right-key 2; review_comment "Triage: NONE | blast radius: x" "{\"sha\":\"$H\",\"findings\":[],\"deep\":{\"status\":\"NOT RUN\",\"sha\":\"$H\"}}"
+HMAC_KEY=right-key refused 'deep review' "HMAC: a deep review that is not PASS is refused"
+hmac_case; batch_commits right-key 2; review_comment "Triage: NONE | blast radius: x" "{\"sha\":\"$H\",\"findings\":[],\"deep\":{\"status\":\"PASS\",\"sha\":\"$OLD\"}}"
+HMAC_KEY=right-key refused 'deep review' "HMAC: a deep PASS of another sha than the head is refused"
+hmac_case; batch_commits right-key 2; review_comment "Triage: NONE | blast radius: x" "{\"sha\":\"$H\",\"findings\":[{\"id\":\"c1\",\"kind\":\"finding\",\"evidence\":\"OBSERVED\",\"sev\":\"CRITICAL\",\"file\":\"a.go\",\"line\":1,\"scenario\":\"s\",\"status\":\"fixed\"}],\"deep\":{\"status\":\"PASS\",\"sha\":\"$H\"}}"
+HMAC_KEY=right-key refused 'CRITICAL|owner' "HMAC: a CRITICAL recorded on the head, even marked fixed, is refused (the code's rule: it was ever recorded)"
+hmac_case; batch_commits right-key 251
+python3 -I -c 'import json,sys; d=json.load(open(sys.argv[1])); d["commits"]=251; json.dump(d, open(sys.argv[1],"w"))' "$tmp/fx/pull.json"
+HMAC_KEY=right-key refused 'owner' "HMAC: 251 commits are refused"
 
 # The three jobs that sign or verify get the secret (environment review-agent); the signer only passes it to `apply`.
 for wf in review-batch review-autofix review-automerge; do

@@ -29,7 +29,7 @@ case "$ep" in
   *"/comments"*) cat "$FX/comments.json" ;;
   *"/events"*) cat "$FX/events.json" ;;
   *"/reviews"*) cat "$FX/reviews.json" ;;
-  *"/files"*) cat "$FX/files.json" ;;
+  *"/files"*) [ -z "${FAKE_FILES_FAIL:-}" ] || { echo "boom" >&2; exit 1; }; cat "$FX/files.json" ;;
   *) echo "unexpected endpoint $ep" >&2; exit 2 ;;
 esac
 EOF
@@ -44,7 +44,7 @@ printf '{"content":"%s","encoding":"base64"}' "$stray_b64" >"$tmp/fx/stray.json"
 reset() {
   printf '{"body":"","labels":[],"head":{"ref":"feature/identity/profiles"},"user":{"login":"dev"},"changed_files":1,"commits":1}' >"$tmp/fx/pull.json"
   printf '{"number":12,"labels":[{"name":"finding"}]}' >"$tmp/fx/issue12.json"
-  printf '[{"sha":"c1","author":{"login":"Y4NN777"},"commit":{"message":"own work","verification":{"verified":true}}}]' >"$tmp/fx/commits.json"
+  printf '[{"sha":"c1","author":{"login":"Y4NN777"},"committer":{"login":"Y4NN777"},"commit":{"message":"own work","verification":{"verified":true}}}]' >"$tmp/fx/commits.json"
   printf '[]' >"$tmp/fx/comments.json"
   printf '[]' >"$tmp/fx/events.json"
   printf '[]' >"$tmp/fx/reviews.json"
@@ -384,6 +384,20 @@ run enforce Y4NN777
 reset; files scripts/x.sh
 run enforce Y4NN777
 [ "$rc" -eq 0 ] && grep -q 'owner-authored' <<<"$out" && ok "M8: every commit verified and by the owner on the owner's PR passes" || ko "verified owner (rc=$rc out=$out)"
+
+# --- skeptic follow-ups: the committer, a failing file list, paged listings ---
+reset; files scripts/x.sh
+printf '[{"sha":"c1","author":{"login":"Y4NN777"},"committer":{"login":"someone"},"commit":{"message":"own work","verification":{"verified":true}}}]' >"$tmp/fx/commits.json"
+run enforce Y4NN777
+[ "$rc" -eq 1 ] && ok "owner trust: author is the owner but the committer is someone else (verified is the committer's signature): not owner-authored" || ko "committer (rc=$rc out=$out)"
+reset; files scripts/x.sh
+printf '[{"sha":"c1","author":{"login":"Y4NN777"},"committer":{"login":"web-flow"},"commit":{"message":"own work","verification":{"verified":true}}}]' >"$tmp/fx/commits.json"
+run enforce Y4NN777
+[ "$rc" -eq 0 ] && ok "owner trust: a web-flow committer (a GitHub web edit by the owner) is accepted" || ko "web-flow (rc=$rc out=$out)"
+reset; files scripts/x.sh
+FAKE_FILES_FAIL=1 run enforce dev
+[ "$rc" -eq 1 ] && grep -q 'sensitive paths' <<<"$out" && ok "a GitHub error on the file list fails the sensitive-path check closed (never NOT RUN)" || ko "files fail (rc=$rc out=$out)"
+grep -q 'per_page=100' "$gate" && ok "paged listings ask for per_page=100" || ko "per_page"
 
 # --- #212 workflow wiring (static): the gate waits for the review and gets the head; a skip repins the ledger ---
 wf="$root/.github/workflows/code-review.yml"

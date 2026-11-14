@@ -691,4 +691,46 @@ DJSON='{"level":"NONE","blast_radius":"x","summary":"fine line\nkey ghp_a1B2a1B2
 b="$(posted)"
 ! grep -q 'ghp_a1B2' <<<"$b" && grep -q 'fine line' <<<"$b" && grep -q 'last line' <<<"$b" && ok "L5: a deep summary line that looks like a secret is redacted, the others stay" || ko "L5 deep ($b rc=$rc out=$out)"
 
+# Skeptic follow-up: a merge commit that changes something ITSELF (a conflict resolution, an added file, an added P0 path) is
+# an own change: no repin. Real git repositories; removing `--cc` from own_change makes these pass the repin, so they fail.
+for kind in edit add p0; do
+  mr="$tmp/repin-$kind"
+  git init -q "$mr"
+  gm() { git -C "$mr" -c user.name=t -c user.email=t@example.com "$@"; }
+  gm checkout -q -b work
+  mkdir -p "$mr/scripts"; echo 0 >"$mr/a.txt"; gm add -A; gm commit -q -m base
+  gm update-ref refs/remotes/origin/develop HEAD
+  echo 1 >"$mr/own.txt"; gm add -A; gm commit -q -m own
+  rev="$(gm rev-parse HEAD)"
+  gm checkout -q -b side refs/remotes/origin/develop
+  echo 2 >"$mr/other.txt"; gm add -A; gm commit -q -m other
+  gm update-ref refs/remotes/origin/develop HEAD
+  gm checkout -q work
+  gm merge -q --no-commit --no-ff side
+  case "$kind" in
+    edit) echo changed >"$mr/a.txt" ;;
+    add) echo n >"$mr/new.txt" ;;
+    p0) echo '#!/bin/sh' >"$mr/scripts/evil.sh" ;;
+  esac
+  gm add -A; gm commit -q -m "merge with its own change ($kind)"
+  mhead="$(gm rev-parse HEAD)"
+  repin_comments "$rev"
+  rc=0; : >"$tmp/calls.log"
+  out="$(PATH="$tmp/bin:$PATH" FX="$tmp" REPO=o/r PR_NUMBER=7 PR_HEAD_SHA="$mhead" BASE_REF=develop LOCATION_REPO="$mr" REVIEW_NOW=11:11 GITHUB_OUTPUT="$tmp/gh-output" python3 -I "$tool" repin 2>&1)" || rc=$?
+  calls="$(cat "$tmp/calls.log")"
+  [ "$rc" -eq 0 ] && ! grep -q 'POST' <<<"$calls" && grep -q 'repin: not repinned' <<<"$out" && ok "L2: a merge commit that itself changes ($kind) is an own change: no repin" || ko "repin merge $kind (rc=$rc out=$out calls=$calls)"
+done
+
+# Skeptic follow-up: a secret on the verdict line, and a whole PEM block, are redacted.
+comments '[]'
+HEAD_SHA="$head_sha" JSON="$(rawreview "Triage: HIGH | blast radius: leaks $tok to everyone" "[]" "before
+-----BEGIN RSA PRIVATE KEY-----
+MIIEowIBAAKCAQEAsecretkeymaterialline1
+secretkeymaterialline2
+-----END RSA PRIVATE KEY-----
+after")" run
+b="$(posted_body)"
+! grep -q "$tok" <<<"$b" && [ "$(sed -n 1p <<<"$b" | cut -c1-14)" = "Triage: HIGH |" ] && ok "L5: a secret on the verdict line is redacted, the line stays a valid verdict" || ko "L5 first line ($(sed -n 1p <<<"$b"))"
+! grep -q 'secretkeymaterial' <<<"$b" && ! grep -q 'END RSA PRIVATE KEY' <<<"$b" && grep -q '^before$' <<<"$b" && grep -q '^after$' <<<"$b" && ok "L5: a whole PEM block (BEGIN to END) is redacted, the text around it stays" || ko "L5 PEM ($b)"
+
 finish

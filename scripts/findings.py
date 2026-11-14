@@ -447,19 +447,14 @@ def one_line(text, width=120):
     return text if len(text) <= width else text[:width - 1] + "..."
 
 
-def norm_title(title):
-    """A title as it is compared for grouping: the `PR<n> ` prefix removed, case and spacing folded."""
-    return " ".join(re.sub(r"^PR\d+\s+", "", str(title or "").strip()).lower().split())
-
-
-def defect_id(ident, where, title=""):
-    """The key under which items are one defect: the id, the file, the line AND the normalised title, all four. A generic id on
-    the same file at another line, with no known line, or with another title (a coincidence, #212 L8) is another defect and
-    stays its own row (settling one must never close the other). The same finding raised on several pull requests keeps the
-    same title, so it still groups."""
+def defect_id(ident, where):
+    """The key under which items are one defect: the id, the file AND the line, all three. A generic id on the same file at
+    another line, or with no known line, is another defect and stays its own row (settling one must never close the other).
+    The title is deliberately NOT part of the key (#212 L8, accepted trade-off): a note's text has no `<id>: ` prefix and a
+    finding's title is cut, so a title key would split the same defect raised on several pull requests."""
     if not ident or not where or where.group(1) in ("", "?") or not re.fullmatch(r"\d+", where.group(2) or ""):
         return None
-    return (ident, where.group(1), int(where.group(2)), norm_title(title))
+    return (ident, where.group(1), int(where.group(2)))
 
 
 def batch_items(finding_issues, note_issues):
@@ -473,7 +468,7 @@ def batch_items(finding_issues, note_issues):
         sev = label_value(labels, "sev:").upper() or "?"
         mark, where = MARK.search(i.get("body") or ""), WHERE.search(i.get("body") or "")
         ident = mark.group(1).partition("#")[2] if mark else ""
-        gid = defect_id(ident, where, i.get("title")) if ident and ident not in ("followups", "notes") else None
+        gid = defect_id(ident, where) if ident and ident not in ("followups", "notes") else None
         items.append({"key": "#%s" % i.get("number"), "rank": sort_key(i), "number": i.get("number") or 0, "gid": gid,
                       "pr": mark.group(1).partition("#")[0][2:] if mark else "?",
                       "text": "#%s [%s] %s (area:%s)" % (i.get("number"), sev, one_line(i.get("title", "")),
@@ -492,7 +487,7 @@ def batch_items(finding_issues, note_issues):
             where = NOTE_WHERE.match(m.group(4))
             title = MARK.search(i.get("body") or "") or NOTES_TITLE.match(i.get("title") or "")
             items.append({"key": "#%s/%s" % (i.get("number"), slug(m.group(2))), "number": i.get("number") or 0,
-                          "gid": defect_id(slug(m.group(2)), where, m.group(4)[where.end():] if where else ""),
+                          "gid": defect_id(slug(m.group(2)), where),
                           "pr": (title.group(1).partition("#")[0][2:] if title.group(1).startswith("PR") else title.group(1)) if title else "?",
                           "rank": (1, NOTE_RANK + (0 if stale else 1), 0 if area in AREA_FIRST else 1, i.get("created_at", "")),
                           "text": "#%s [NOTE %s%s] `%s` %s" % (i.get("number"), m.group(3), ", %d+ days" % STALE_NOTE_DAYS if stale else "",
