@@ -70,6 +70,17 @@ describe('ProfilePage view', () => {
     );
   });
 
+  it('renders no GitHub link for a malformed github value', async () => {
+    setLanguages(['fr-FR']);
+    mockApi({
+      'GET /profiles/awa': () => jsonResponse(publicProfile({ github: '../evil?x=1' })),
+    });
+    await renderApp('/profils/awa');
+    expect(await screen.findByRole('heading', { level: 1, name: 'Awa Traoré' })).toBeVisible();
+    expect(screen.queryByRole('link', { name: /evil/ })).not.toBeInTheDocument();
+    expect(screen.queryByText(/evil/)).not.toBeInTheDocument();
+  });
+
   it('omits fields the server hid, without placeholders', async () => {
     setLanguages(['fr-FR']);
     mockApi({

@@ -15,6 +15,7 @@ import { useI18n } from '../../i18n/I18nProvider';
 import type { Locale } from '../../i18n/messages';
 import { USERNAME_RE } from '../identity/validation';
 import { Checklist } from './Checklist';
+import { githubProfileUrl } from './github';
 import { isProfileMissing, useProfile, type PublicProfile } from './queries';
 
 function displayName(type: 'region' | 'language', code: string, locale: Locale): string {
@@ -38,10 +39,11 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
 
 function Details({ profile, isOwn }: { profile: PublicProfile; isOwn: boolean }) {
   const { t, locale } = useI18n();
+  const githubUrl = profile.github ? githubProfileUrl(profile.github) : null;
   const isEmpty =
     !profile.bio &&
     !profile.country &&
-    !profile.github &&
+    !githubUrl &&
     !(profile.languages && profile.languages.length > 0) &&
     !(profile.skills && profile.skills.length > 0);
   const joined = new Intl.DateTimeFormat(locale, { year: 'numeric', month: 'long' }).format(
@@ -85,13 +87,9 @@ function Details({ profile, isOwn }: { profile: PublicProfile; isOwn: boolean })
           </HStack>
         </Row>
       ) : null}
-      {profile.github ? (
+      {githubUrl ? (
         <Row label={t('profile.github')}>
-          <Link
-            href={`https://github.com/${profile.github}`}
-            isExternalLink
-            newTabLabel={t('discover.newTab')}
-          >
+          <Link href={githubUrl} isExternalLink newTabLabel={t('discover.newTab')}>
             {profile.github}
           </Link>
         </Row>
