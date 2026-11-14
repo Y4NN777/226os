@@ -407,6 +407,7 @@ Open owner items outside CADEV (IDs and decisions in ROADMAP section 8, 10 and 1
 - **Allowed paths:** `src/web/**`; backend only in `src/api/internal/solve/**` if the link handling needs a fix. **DoD:** DoD-common plus an e2e step once S8 delivers the harness.
 - 2026-11-14 (`Y4NN777`, `chore/docs/state-sync`): kept at the 12:00 checkpoint. Already merged: « Poser une question sur cette leçon » on `article` opens `/solve?link=article:<id>` (PR #173), and the `solve` form pre-fills the link from the route (PR #149); `apprendre` filters articles by topic code (PR #173). Open: the button on `formation`, the questions-by-tag side of the topic feeds, and the E4 tests listed above.
 - 2026-11-14 (`Y4NN777`, `feature/web/live-home-and-e4`): the button on `formation`: the series page is an overview (the lessons are the article pages, where the button already exists) and a question link can only point at an article, so the overview offers « Poser une question sur la première leçon » (lowest position) to `/solve?link=article:<id>`, hidden when the series has no lesson. Not yet merged.
+- 2026-11-14 (`Y4NN777`, `feature/web/live-home-and-e4`): read-only topic feed on `apprendre`: with a topic chosen, « Questions sur ce sujet » lists up to 5 questions from `listQuestions?tag=<topic code>` next to the articles (loading, empty and error states, link to `/solve?tag=<code>`); no request without a topic. Not yet merged.
 - **Status:** PLANNED
 
 ---
