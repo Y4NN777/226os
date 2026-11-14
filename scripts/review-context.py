@@ -171,13 +171,15 @@ def parse_finding(f):
         "fix": " ".join(str(f.get("fix") or "").split())[:300],
         "source": "deep" if f.get("source") == "deep" else "review",
         "first_sha": first_sha if FULL_SHA.match(first_sha) else "",
-        "location": "verified" if f.get("location") == "verified" else ("unverified" if f.get("location") == "unverified" else ""),
+        "location": f.get("location") if f.get("location") in ("verified", "unverified", "mismatch") else "",
+        "probable": str(f.get("probable") or "")[:320],
         "redacted": f.get("redacted") is True,
         "deep": None if deep is None else {
             "detail": " ".join(str(deep.get("detail") or "").split())[:600], "fix": " ".join(str(deep.get("fix") or "").split())[:300],
             "sev": str(deep.get("sev", "")).upper() if str(deep.get("sev", "")).upper() in SEVERITIES else "",
             "file": str(deep.get("file", ""))[:300], "line": deep.get("line") if isinstance(deep.get("line"), int) else 0,
-            "location": "verified" if deep.get("location") == "verified" else "unverified", "redacted": deep.get("redacted") is True},
+            "location": deep.get("location") if deep.get("location") in ("verified", "unverified", "mismatch") else "unverified",
+            "probable": str(deep.get("probable") or "")[:320], "redacted": deep.get("redacted") is True},
     }
 
 

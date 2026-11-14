@@ -23,7 +23,7 @@ Ledger entries (the register detail): every entry the model writes carries `deta
 blank one makes the comment `Triage: NOT RUN | ledger entry <id> lacks detail or fix` (the deep review: `Deep: NOT RUN`
 with the same reason): never a silent loss, never a pass. The script, never the model, sets `source` (review or deep),
 `first_sha` (the head the entry was first raised at, kept when the entry is listed again with the same file and line or
-carried forward), `location` (verified or unverified: the file exists at that commit and the line is inside it, read as
+carried forward), `location` (verified, mismatch or unverified: the file exists at that commit, the line is inside it and an identifier the text names in backticks is within 40 lines of it; `mismatch` when none is but one is elsewhere, `probable` then gives that file:line; read as
 git objects from LOCATION_REPO, else the current directory, else `pr/`) and `redacted`. `detail`, `fix` and the
 scenario are cut, neutralised (no @mention, `#N` disarmed with a zero-width space, no HTML, one line) and replaced by
 "[redacted: looked like a secret]" when they match a secret shape.
@@ -92,7 +92,7 @@ ZWSP = chr(0x200B)
 DETAIL_MAX = 600
 FIX_MAX = 300
 LOCATE_MAX_BYTES = 5000000
-SCRIPT_OWNED = ("source", "first_sha", "location", "redacted", "deep")
+SCRIPT_OWNED = ("source", "first_sha", "location", "probable", "redacted", "deep")
 MINIMIZE = "mutation($id: ID!) { minimizeComment(input: {subjectId: $id, classifier: OUTDATED}) { minimizedComment { isMinimized } } }"
 
 
@@ -217,13 +217,47 @@ def location_dirs():
     return [env] if env else [".", "pr"]
 
 
-def locate(head, path, line):
-    """`verified` when `path` exists at the commit `head` and `line` is inside it (no line: the file only), else
-    `unverified`. The commit is read as git objects (cat-file, an argument list, a size cap): nothing of the pull
-    request is executed or checked out."""
+BACKTICKED = re.compile(r"`([^`\n]{3,80})`")
+WINDOW = 40  # lines each side of the cited line: a function or step the text names is within about a screen of it
+
+
+def named_identifiers(text, path):
+    """The identifiers a text names in backticks (function, variable, step, file names): no spaces (a command is not an
+    identifier), a trailing `()` or `:line` removed, never the cited file itself."""
+    out = []
+    for token in BACKTICKED.findall(text or ""):
+        token = re.sub(r"(\(\)|:\d+(-\d+)?)$", "", token.strip())
+        if len(token) >= 3 and not re.search(r"\s", token) and token != path and token != os.path.basename(path) and token not in out:
+            out.append(token)
+    return out[:8]
+
+
+def probable_location(head, path, idents):
+    """`file:line` of the first identifier found in the commit (outside the window, since none was inside it) `head` (git grep, fixed strings), or ''."""
+    for folder in location_dirs():
+        for ident in idents:
+            try:
+                done = subprocess.run(["git", "-C", folder, "grep", "-n", "-F", "-I", "-m", "1", "-e", ident, head, "--"],
+                                      capture_output=True, text=True, timeout=20, check=False)
+            except (OSError, subprocess.SubprocessError):
+                return ""
+            for hit in done.stdout.splitlines():
+                m = re.match(r"^[0-9a-f]{40}:(.+?):(\d+):", hit)
+                if m and not re.search(r"[\x00-\x1f]", m.group(1)):
+                    return "%s:%s" % (m.group(1), m.group(2))
+    return ""
+
+
+def locate(head, path, line, text=""):
+    """(location, probable). `verified`: `path` exists at the commit `head`, `line` is inside it (no line: the file only)
+    and, when `text` names identifiers in backticks, at least one appears within WINDOW lines of the cited line (anywhere
+    in the file when there is no line). `mismatch`: the file and line exist but none of the named identifiers is near
+    them and one is elsewhere (`probable` is that file:line). `unverified`: no file, no line, no repository to
+    read, or the identifiers are nowhere. The commit is read as git objects (cat-file, an argument list, a size cap):
+    nothing of the pull request is executed or checked out."""
     if (not FULL_SHA.match(head or "") or not isinstance(path, str) or not path or len(path) > 300 or path.startswith(("/", "-"))
             or ".." in path.split("/") or re.search(r"[\x00-\x1f]", path)):
-        return "unverified"
+        return "unverified", ""
     line = line if isinstance(line, int) and not isinstance(line, bool) else 0
     spec = "%s:%s" % (head, path)
     for folder in location_dirs():
@@ -232,15 +266,27 @@ def locate(head, path, line):
             if size.returncode != 0:
                 continue
             if int(size.stdout.strip() or "0") > LOCATE_MAX_BYTES:
-                return "unverified"
+                return "unverified", ""
             blob = subprocess.run(["git", "-C", folder, "cat-file", "blob", spec], capture_output=True, timeout=20, check=False)
         except (OSError, subprocess.SubprocessError, ValueError):
-            return "unverified"
+            return "unverified", ""
         if blob.returncode != 0:
             continue
-        count = blob.stdout.count(b"\n") + (0 if not blob.stdout or blob.stdout.endswith(b"\n") else 1)
-        return "verified" if 0 <= line <= count else "unverified"
-    return "unverified"
+        lines = blob.stdout.decode("utf-8", "replace").split("\n")
+        if lines and lines[-1] == "":
+            lines.pop()
+        if not 0 <= line <= len(lines):
+            return "unverified", ""
+        idents = named_identifiers(text, path)
+        if not idents:
+            return "verified", ""
+        lo, hi = (max(0, line - 1 - WINDOW), line + WINDOW) if line else (0, len(lines))
+        near = "\n".join(lines[lo:hi])
+        if any(i in near for i in idents):
+            return "verified", ""
+        elsewhere = probable_location(head, path, idents)
+        return ("mismatch", elsewhere) if elsewhere else ("unverified", "")
+    return "unverified", ""
 
 
 def refine_entry(f, previous, head):
@@ -260,12 +306,18 @@ def refine_entry(f, previous, head):
     f["source"] = previous.get("source") if previous.get("source") in ("review", "deep") else "review"
     if isinstance(previous.get("deep"), dict):
         f["deep"] = previous["deep"]
+    text = "%s %s" % (f.get("scenario") or "", f.get("detail") or "")
     if FULL_SHA.match(str(previous.get("first_sha") or "")) and previous.get("file") == f.get("file") and previous.get("line") == f.get("line"):
         f["first_sha"] = previous["first_sha"]
-        f["location"] = previous["location"] if previous.get("location") in ("verified", "unverified") else locate(f["first_sha"], f.get("file"), f.get("line"))
     else:
         f["first_sha"] = head
-        f["location"] = locate(head, f.get("file"), f.get("line"))
+        previous = {}
+    f["location"], probable = locate(f["first_sha"], f.get("file"), f.get("line"), text)
+    if f["location"] == "unverified" and previous.get("location") in ("verified", "mismatch"):
+        # The reviewed commit may no longer be in this checkout (a force push): keep what was established before.
+        f["location"], probable = previous["location"], previous.get("probable", "")
+    if probable:
+        f["probable"] = probable
     return f
 
 
@@ -531,7 +583,9 @@ def deep_entry(f, head=""):
         entry["redacted"] = True
     if FULL_SHA.match(head or ""):
         entry["first_sha"] = head
-        entry["location"] = locate(head, path, line)
+        entry["location"], probable = locate(head, path, line, "%s %s" % (scenario, detail))
+        if probable:
+            entry["probable"] = probable
     return entry
 
 
@@ -607,7 +661,7 @@ def merge_deep(base, data, why, head):
                 continue
             if STATUS_RANK[e["status"]] > STATUS_RANK.get(s1.get("status"), 0):
                 continue
-            sub = {k: e.get(k) for k in ("detail", "fix", "sev", "file", "line", "location") if e.get(k) is not None}
+            sub = {k: e.get(k) for k in ("detail", "fix", "sev", "file", "line", "location", "probable") if e.get(k) is not None}
             if e.get("redacted"):
                 sub["redacted"] = True
             s1["source"] = s1.get("source") if s1.get("source") in ("review", "deep") else "review"

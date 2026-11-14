@@ -362,7 +362,15 @@ nb="$(field 0 body)"
 # location. A small repository stands for the reviewed commit.
 glr="$tmp/golden-repo"
 mkdir -p "$glr/scripts" "$glr/.github/workflows"
-seq 1 600 >"$glr/scripts/review-comment.py"; seq 1 600 >"$glr/.github/workflows/code-review.yml"
+seq 1 600 >"$glr/.github/workflows/code-review.yml"
+python3 -I - "$glr/scripts/review-comment.py" <<'PY'
+import sys
+py = ["x%d = %d" % (i, i) for i in range(1, 601)]
+py[290] = "    return 0  # main() create_and_collapse target"
+py[237] = "def carry_forward(text, previous_ledger):"
+py[467] = "def deep_main():"
+open(sys.argv[1], "w").write("\n".join(py) + "\n")
+PY
 git -C "$glr" init -q; git -C "$glr" add -A
 git -C "$glr" -c user.name=t -c user.email=t@example.invalid commit -q -m golden
 gsha="$(git -C "$glr" rev-parse HEAD)"
@@ -394,6 +402,7 @@ grep -q "https://github.com/o/r/blob/$gsha/scripts/review-comment.py#L291" <<<"$
 grep -q 'source: review' <<<"$nb" && ! grep -q 'source: deep' <<<"$nb" && ok "golden (augmented): source review" || ko "golden source ($nb)"
 grep -q 'issuecomment-6876196226' <<<"$nb" && ok "golden (augmented): the exact review comment is linked" || ko "golden comment link ($nb)"
 python3 -I -c 'import re,sys; t=sys.stdin.read(); assert not re.search(r"(?<!PR )#\d", t) and "#\u200b172" in t' <<<"$nb" && ok "golden (augmented): no live #N (the #172 in the detail is disarmed; only the PR #168 header is a link)" || ko "golden #N ($nb)"
+grep -q 'MISMATCH' <<<"$nb" && grep -q 'probable location: `scripts/review-comment.py:468`' <<<"$nb" && grep -q "blob/$gsha/scripts/review-comment.py#L468" <<<"$nb" && ok "golden (augmented): the #172 case, code-review.yml:423 cited for deep_main, says MISMATCH and points at scripts/review-comment.py:468" || ko "golden mismatch ($nb)"
 [ "$(count_issues)" -eq 1 ] && ok "golden: still one notes issue per pull request" || ko "golden count"
 
 finish

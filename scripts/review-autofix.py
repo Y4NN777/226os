@@ -336,7 +336,7 @@ def context_pr(ctx, findings, gh, repo, number, ids, head_sha):
                           "scenario": findings.defuse(f["title"]), "detail": findings.field_text(f, "detail"),
                           "fix": findings.field_text(f, "fix"), "deep": f["deep"] and {"detail": findings.field_text(f["deep"], "detail"),
                                                                                        "fix": findings.field_text(f["deep"], "fix")},
-                          "source": findings.source_text(f), "location": f["location"] or "not recorded",
+                          "source": findings.source_text(f), "location": f["location"] or "not recorded", "probable": f["probable"],
                           "permalink": findings.permalink(repo, f), "comment": ledger.get("url", "")})
     return items, ""
 

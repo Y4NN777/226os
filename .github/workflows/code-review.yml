@@ -282,6 +282,8 @@ jobs:
           REVIEW_OUTCOME: ${{ steps.review.outcome }}
           TOOL_LINE: ${{ steps.preview.outputs.tool_line }}
           DEEP_PENDING: ${{ steps.deep.outputs.deep }}
+          # The location check reads the reviewed commit as git objects from this checkout.
+          LOCATION_REPO: ${{ github.workspace }}
         run: |
           from="$(sed -n 's/^PREVIEW_FROM: //p' .review-context.md | head -1)"
           to="$(sed -n 's/^PREVIEW_TO: //p' .review-context.md | head -1)"
@@ -420,7 +422,7 @@ jobs:
           claude_args: |
             --model claude-opus-5-5
             --max-turns 40
-            --json-schema '{"type":"object","properties":{"level":{"type":"string","enum":["CRITICAL","HIGH","MEDIUM","NONE"]},"blast_radius":{"type":"string"},"summary":{"type":"string"},"findings":{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"},"kind":{"type":"string","enum":["finding","note"]},"evidence":{"type":"string","enum":["OBSERVED","INFERRED"]},"sev":{"type":"string","enum":["CRITICAL","HIGH","MEDIUM","LOW"]},"file":{"type":"string"},"line":{"type":"integer"},"scenario":{"type":"string"},"status":{"type":"string","enum":["open","answered","accepted","fixed"]}},"required":["id","kind","evidence","sev","file","line","scenario","status"],"additionalProperties":false}}},"required":["level","blast_radius","summary","findings"],"additionalProperties":false}'
+            --json-schema '{"type":"object","properties":{"level":{"type":"string","enum":["CRITICAL","HIGH","MEDIUM","NONE"]},"blast_radius":{"type":"string"},"summary":{"type":"string"},"findings":{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"},"kind":{"type":"string","enum":["finding","note"]},"evidence":{"type":"string","enum":["OBSERVED","INFERRED"]},"sev":{"type":"string","enum":["CRITICAL","HIGH","MEDIUM","LOW"]},"file":{"type":"string"},"line":{"type":"integer"},"scenario":{"type":"string"},"detail":{"type":"string","maxLength":600},"fix":{"type":"string"},"status":{"type":"string","enum":["open","answered","accepted","fixed"]}},"required":["id","kind","evidence","sev","file","line","scenario","detail","fix","status"],"additionalProperties":false}}},"required":["level","blast_radius","summary","findings"],"additionalProperties":false}'
             --allowedTools "Bash(gh pr diff:*),Bash(gh pr view:*),Read,Grep,Glob,Skill,Agent"
 
       # Merge into this run's review comment and its ledger (entries tagged "source":"deep", the Deep line after the
@@ -436,6 +438,8 @@ jobs:
           DEEP_JSON: ${{ steps.deep.outputs.structured_output }}
           # The comment this run's review created: the deep merge edits only it (a newer one means stale: skipped).
           REVIEW_COMMENT_ID: ${{ needs.review.outputs.comment_id }}
+          # The head is checked out under pr/ (the workspace root is the base commit).
+          LOCATION_REPO: ${{ github.workspace }}/pr
         run: python3 -I "$RUNNER_TEMP/base-scripts/review-comment.py" deep
 
       - name: Ping the owner when a CRITICAL or HIGH is open

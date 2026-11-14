@@ -178,6 +178,12 @@ def detail_block(f, repo, url, bullet, labels):
     link = permalink(repo, f)
     if link:
         out.append(bullet + "%s: %s" % (cap("permalink"), link))
+    elif f.get("location") == "mismatch":
+        probable = defuse(f.get("probable") or "")
+        out.append(bullet + "%s: MISMATCH: what the text names is not near the cited `%s:%s`; probable location: `%s`%s" % (
+            cap("location"), neutral(f.get("file")) or "?", f.get("line") or "?", probable or "?",
+            " (%s)" % "https://github.com/%s/blob/%s/%s" % (repo, f["first_sha"], urllib.parse.quote(probable.rsplit(":", 1)[0], safe="/")
+                                                            + "#L" + probable.rsplit(":", 1)[1]) if repo and f.get("first_sha") and ":" in probable else ""))
     elif f.get("location") == "unverified":
         out.append(bullet + "%s: unverified (the file or the line was not found at the reviewed commit)" % cap("location"))
     if url:
@@ -520,7 +526,7 @@ def batch_write(binary, method, endpoint, fields):
 
 def merged_fix(ctx, binary, repo, issue):
     """The first pull request merged into develop after the batch was created whose body names the batch issue
-    (`#N` or its URL), or None. `Closes #N` does not close an issue on a merge into develop, so this is checked here."""
+    (`#N` or its URL), or None. Since ADR-0013 `develop` is the default branch, so `Closes #N` closes an issue natively on a merge into develop (needs-owner ones included); `close-merged-issues.py` stays as the idempotent backstop, and this check settles the batch whichever way the issue closed."""
     number = issue.get("number")
     ref = re.compile(r"(?<![\w/])#%s(?!\d)|/issues/%s(?!\d)" % (number, number))
     created = issue.get("created_at", "")

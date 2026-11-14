@@ -398,4 +398,48 @@ DJSON='{"level":"NONE","blast_radius":"x","summary":"s","findings":[{"id":"nofix
 LOCATION_REPO="$repo" DJSON='{"level":"NONE","blast_radius":"x","summary":"s","findings":[{"id":"new-deep","kind":"note","evidence":"INFERRED","sev":"LOW","file":"a.go","line":1,"scenario":"s","status":"open","detail":"mail me at @Y4NN777 #44","fix":"none: accept"}]}' deep
 pyassert 'import json,sys; f=json.loads(sys.argv[1]); assert f["source"]=="deep" and f["first_sha"]=="'"$locsha"'" and "@​Y4NN777" in f["detail"] and "#​44" in f["detail"]' "$(posted_entry new-deep)" 2>/dev/null && ok "a new deep entry is tagged source deep with first_sha, and its detail goes through the same neutraliser" || ko "deep new ($(posted_entry new-deep))"
 
+
+# The deep job forces its output with --json-schema: the schema must let detail and fix through (and require them),
+# or every deep entry would lack them and the deep review would always be NOT RUN.
+python3 -I - "$root/.github/workflows/code-review.yml" <<'EOF' && ok "code-review.yml: the deep --json-schema has detail and fix in the finding properties and in required" || ko "deep schema lacks detail or fix"
+import json, re, sys
+text = open(sys.argv[1], encoding="utf-8").read()
+schemas = [json.loads(m) for m in re.findall(r"--json-schema '(\{.*?\})'\s*$", text, re.M)]
+deep = [s for s in schemas if "findings" in s.get("properties", {})]
+assert len(deep) == 1, "one deep schema expected"
+item = deep[0]["properties"]["findings"]["items"]
+assert "detail" in item["properties"] and "fix" in item["properties"], "properties"
+assert item["properties"]["detail"].get("maxLength") == 600
+assert "detail" in item["required"] and "fix" in item["required"], "required"
+EOF
+grep -q 'LOCATION_REPO' "$root/.github/workflows/code-review.yml" && ok "code-review.yml sets LOCATION_REPO for the location check" || ko "LOCATION_REPO not set in code-review.yml"
+
+
+# --- location: the file and line exist, but is it what the text talks about? (the #172 case) ---
+# #172 cited .github/workflows/code-review.yml:423 for `deep_main`, which lives in scripts/review-comment.py.
+mm="$tmp/mmrepo"
+mkdir -p "$mm/.github/workflows" "$mm/scripts"
+python3 -I - "$mm" <<'PY'
+import sys
+root = sys.argv[1]
+wf = ["step %d" % i for i in range(1, 601)]
+wf[422] = "        run: python3 -I review-comment.py deep   # the merge step"
+open(root + "/.github/workflows/code-review.yml", "w").write("\n".join(wf) + "\n")
+py = ["x%d = %d" % (i, i) for i in range(1, 601)]
+py[467] = "def deep_main():"
+py[290] = "    return 0  # create_and_collapse"
+open(root + "/scripts/review-comment.py", "w").write("\n".join(py) + "\n")
+PY
+git -C "$mm" init -q
+git -C "$mm" add -A
+git -C "$mm" -c user.name=t -c user.email=t@example.invalid commit -q -m mm
+mmsha="$(git -C "$mm" rev-parse HEAD)"
+mkt() { python3 -I -c 'import json,sys; print(json.dumps({"id":sys.argv[1],"kind":"note","evidence":"INFERRED","sev":"LOW","file":sys.argv[2],"line":int(sys.argv[3]),"scenario":"s","status":"open","detail":sys.argv[4],"fix":"none: accept"}))' "$@"; }
+comments '[]'
+HEAD_SHA="$mmsha" LOCATION_REPO="$mm" JSON="$(mkreview "[$(mkt n172 .github/workflows/code-review.yml 423 'the stale check in `deep_main` skips the edit'),$(mkt near scripts/review-comment.py 291 'the loop after `create_and_collapse` returns'),$(mkt nowhere scripts/review-comment.py 100 'the helper `no_such_function` is wrong'),$(mkt plain scripts/review-comment.py 100 'a plain sentence without identifiers'),$(mkt farwindow scripts/review-comment.py 100 'see `deep_main` below')]")" run
+[ "$(loc n172)" = mismatch ] && pyassert 'import json,sys; assert json.loads(sys.argv[1])["probable"]=="scripts/review-comment.py:468"' "$(entry_of n172)" 2>/dev/null && ok "the #172 case: code-review.yml:423 cited for deep_main is a mismatch, the probable location is scripts/review-comment.py:468" || ko "172 ($(entry_of n172))"
+[ "$(loc near)" = verified ] && [ "$(loc plain)" = verified ] && ok "an identifier within 40 lines of the cited line, or none named, stays verified" || ko "near/plain ($(loc near) $(loc plain))"
+[ "$(loc nowhere)" = unverified ] && ok "an identifier found nowhere is unverified" || ko "nowhere ($(loc nowhere))"
+[ "$(loc farwindow)" = mismatch ] && ok "an identifier 368 lines from the cited line is outside the window: mismatch" || ko "window ($(loc farwindow))"
+
 finish

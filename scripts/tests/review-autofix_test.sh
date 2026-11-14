@@ -482,4 +482,9 @@ ctx_py 'assert "'"$tok"'" not in str(d) and "<!--" not in str(d)' && ok "context
 run context MODE=batch ISSUE=40 ITEMS='#12' FAKE_GH_FAIL=1
 [ "$rc" -eq 0 ] && ctx_py 'assert d["items"]==[] and "NOT RUN" in d["note"]' && ok "context (batch): a GitHub error is NOT RUN, exit 0" || ko "context batch fail ($out)"
 
+# The fixer jobs check the context file against the hash written by the trusted step before the model starts.
+for wf in review-autofix review-batch; do
+  grep -q 'steps.ctx.outputs.sha' "$root/.github/workflows/$wf.yml" && grep -q 'sha256sum' "$root/.github/workflows/$wf.yml" && ok "$wf.yml: the finding context is hash-checked before the model" || ko "$wf.yml context hash"
+done
+
 finish
