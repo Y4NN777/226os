@@ -4,15 +4,18 @@
 Prints one markdown document with:
   1. the project context (docs/quality/REVIEW_CONTEXT.md, read from the BASE branch so a pull request cannot edit it),
   2. the review ledger of the previous run (the hidden `<!-- review-ledger {...} -->` line of the bot's summary
-     comment), and the commit range to review (only the new commits when the last reviewed commit is an ancestor),
+     comment), the head commit of the pull request (`Head commit:`, the sha the next ledger must record), and the
+     commit range to review (only the new commits when the last reviewed commit is an ancestor of that head),
   3. the pull request conversation: the human comments, reviews and inline comments, as UNTRUSTED DATA,
   4. the decisions and ADRs that apply to the touched paths (.opencodereview/context-map.json, read from BASE too).
 
 Fail OPEN: a GitHub or git error becomes a visible NOT AVAILABLE line, never a failure, so an outage degrades the
 review to what it was before and never blocks anyone.
 
-Environment: REPO (owner/name), PR_NUMBER, BASE_REF (default develop), GH_BIN (default gh, authenticated through
-GH_TOKEN), GIT_BIN (default git), MAX_COMMENT (default 700), MAX_ITEMS (default 40).
+Environment: REPO (owner/name), PR_NUMBER, BASE_REF (default develop), PR_HEAD_SHA (the pull request's head commit, 40
+hex characters; default HEAD, right for a local run but not in a pull_request checkout, whose HEAD is GitHub's temporary
+merge commit), GH_BIN (default gh, authenticated through GH_TOKEN), GIT_BIN (default git), MAX_COMMENT (default 700),
+MAX_ITEMS (default 40).
 """
 import base64
 import fnmatch
@@ -34,6 +37,7 @@ REVIEWABLE = (".go", ".sql", ".ts", ".tsx", ".sh", ".py", ".yml", ".yaml")
 CONTEXT_PATH = "docs/quality/REVIEW_CONTEXT.md"
 MAP_PATH = ".opencodereview/context-map.json"
 HEX = re.compile(r"^[0-9a-f]{7,40}$")
+FULL_SHA = re.compile(r"^[0-9a-f]{40}$")
 
 
 class Unavailable(Exception):
@@ -140,33 +144,62 @@ def parse_ledger(comments):
     return None if best is None else best[1]
 
 
-def decide(git, ledger, incremental):
-    """first | incremental | skip: whether this push needs a review.
+def commit_of(git, ref):
+    """The full sha of ref when it names a commit in the repository, else None."""
+    try:
+        sha = run([git, "rev-parse", "--verify", "--quiet", "%s^{commit}" % ref]).strip()
+    except Unavailable:
+        return None
+    return sha if FULL_SHA.match(sha) else None
 
-    first: there is no usable previous review (none yet, or its commit is no longer an ancestor of HEAD).
-    incremental: a CRITICAL or HIGH finding is still open and its file changed since the last review.
-    skip: everything else; a push alone never starts a review."""
-    if not ledger or not incremental:
+
+def head_commit(git, env_sha):
+    """(head ref, full sha or None, reason): the pull request's head commit. PR_HEAD_SHA when it is set (CI), else HEAD
+    (a local run). A value that is not 40 hex characters or not a commit here gives (None, None, why)."""
+    if not env_sha:
+        return "HEAD", commit_of(git, "HEAD"), ""
+    if not FULL_SHA.match(env_sha):
+        return None, None, "PR_HEAD_SHA is not a full commit hash"
+    sha = commit_of(git, env_sha)
+    if sha is None:
+        return None, None, "the head commit %s is not in this checkout" % env_sha
+    return env_sha, sha, ""
+
+
+def decide(git, ledger, incremental, head="HEAD"):
+    """first | incremental | skip: whether this run needs a review, and of what.
+
+    first: there is no usable previous review (none yet, its commit is unknown or no longer an ancestor of the head,
+    or the head itself is unknown): review the whole pull request.
+    incremental: the last reviewed commit is an ancestor of the head and there are new commits: review only those.
+    Every push that adds commits is reviewed, whatever the open findings say.
+    skip: no new commit since the last review (a re-run, a label or a review event)."""
+    if not ledger or not incremental or not head:
         return "first"
     try:
-        changed = set(run([git, "diff", "--name-only", "%s..HEAD" % ledger["sha"]]).split())
-    except Unavailable:
+        count = int(run([git, "rev-list", "--count", "%s..%s" % (ledger["sha"], head)]).strip() or "0")
+    except (Unavailable, ValueError):
         return "first"
-    for f in ledger["findings"]:
-        if f["kind"] == "finding" and f["status"] == "open" and f["sev"] in ("CRITICAL", "HIGH") and f["file"] in changed:
-            return "incremental"
-    return "skip"
+    return "incremental" if count > 0 else "skip"
 
 
-def review_range(git, base, ledger):
-    """(range, incremental): only the new commits when the last reviewed commit is still an ancestor of HEAD."""
-    if ledger:
-        try:
-            run([git, "merge-base", "--is-ancestor", ledger["sha"], "HEAD"])
-            return "%s..HEAD" % ledger["sha"], True
-        except Unavailable:
-            pass
-    return "origin/%s...HEAD" % base, False
+def review_range(git, base, ledger, head="HEAD"):
+    """(range, incremental, reason): only the new commits when the last reviewed commit is still an ancestor of the
+    head; else the whole pull request, with the reason in one line (empty when there is no ledger)."""
+    if ledger and head:
+        if commit_of(git, ledger["sha"]) is None:
+            reason = "the last reviewed commit %s is not in the repository (it was a temporary merge commit?)" % ledger["sha"]
+        else:
+            try:
+                run([git, "merge-base", "--is-ancestor", ledger["sha"], head])
+                return "%s..%s" % (ledger["sha"], head), True, ""
+            except Unavailable:
+                reason = "the last reviewed commit %s is not an ancestor of the head (rebase or force push)" % ledger["sha"]
+    elif ledger:
+        reason = "the head commit is unknown"
+    else:
+        reason = ""
+    return "origin/%s...HEAD" % base, False, reason
 
 
 def clip(text, limit):
@@ -234,11 +267,11 @@ def strip_sql(text):
     return re.sub(r"--[^\n]*", "", text)
 
 
-def unique_keys(git):
+def unique_keys(git, head="HEAD"):
     """{table: ["PRIMARY KEY (a, b)", "UNIQUE (email)", ...]} from db/migrations at HEAD: composite primary keys, UNIQUE
     constraints and unique indexes. A table with only a single surrogate id has no entry."""
     try:
-        files = [f for f in run([git, "ls-tree", "-r", "--name-only", "HEAD", "db/migrations"]).split() if f.endswith(".sql")]
+        files = [f for f in run([git, "ls-tree", "-r", "--name-only", head, "db/migrations"]).split() if f.endswith(".sql")]
     except Unavailable:
         return None
     if not files:
@@ -246,7 +279,7 @@ def unique_keys(git):
     keys = {}
     for path in files:
         try:
-            text = strip_sql(run([git, "show", "HEAD:%s" % path]))
+            text = strip_sql(run([git, "show", "%s:%s" % (head, path)]))
         except Unavailable:
             continue
         for m in re.finditer(r"CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(\w+)\s*\((.*?)\n\)\s*;", text, re.S | re.I):
@@ -261,11 +294,11 @@ def unique_keys(git):
     return keys
 
 
-def sql_pointers(git, path, touched, keys=None):
+def sql_pointers(git, path, touched, keys=None, head="HEAD"):
     """Pointers for the changed named queries of one sql file (HEAD version). Only blocks that contain a changed
     line are looked at, so an old INSERT nobody touched is never pointed at."""
     try:
-        content = run([git, "show", "HEAD:%s" % path])
+        content = run([git, "show", "%s:%s" % (head, path)])
     except Unavailable:
         return []
     marks = [(m.start(), m.group(1)) for m in BLOCK.finditer(content)]
@@ -299,11 +332,11 @@ def sql_pointers(git, path, touched, keys=None):
     return out
 
 
-def openapi_patterns(git):
+def openapi_patterns(git, head="HEAD"):
     """[(property name, pattern)] from api/openapi.yaml at HEAD: each `pattern:` with the nearest enclosing property
     name (`items:` and `properties:` are skipped, so a pattern under languages/items belongs to `languages`)."""
     try:
-        lines = run([git, "show", "HEAD:api/openapi.yaml"]).splitlines()
+        lines = run([git, "show", "%s:api/openapi.yaml" % head]).splitlines()
     except Unavailable:
         return []
     out = []
@@ -359,8 +392,9 @@ def go_pointers(path, lines, patterns=()):
     return out
 
 
-def read_first(git, rng):
-    """(summary line, pointer lines) for the changed lines of rng; the pack's \"Read first\" section."""
+def read_first(git, rng, head="HEAD"):
+    """(summary line, pointer lines) for the changed lines of rng; the pack's \"Read first\" section. File contents
+    are read at head, the end of rng, so the line numbers of the diff match them."""
     try:
         added, touched = added_lines(git, rng)
     except Unavailable:
@@ -371,11 +405,11 @@ def read_first(git, rng):
     for path in sorted(touched):
         if path.startswith("db/queries/") and path.endswith(".sql"):
             if keys is None:
-                keys = unique_keys(git)
-            found += sql_pointers(git, path, touched[path], keys)
+                keys = unique_keys(git, head)
+            found += sql_pointers(git, path, touched[path], keys, head)
         elif path.endswith(".go") and not path.endswith("_test.go"):
             if patterns is None and any("regexp.MustCompile" in t for _, t in added.get(path, [])):
-                patterns = openapi_patterns(git)
+                patterns = openapi_patterns(git, head)
             found += go_pointers(path, added.get(path, []), patterns or ())
     total = sum(len(v) for p, v in added.items() if p.endswith(REVIEWABLE) and not p.endswith(("_test.go", ".test.ts", ".test.tsx")))
     pointed = sum(n for _, _, n, _ in found)
@@ -454,15 +488,20 @@ def main():
         info = {}
 
     ledger = parse_ledger(issue_comments)
-    rng, incremental = review_range(git, base, ledger)
-    decision = decide(git, ledger, incremental)
-    out[1:1] = ["", "REVIEW_DECISION: %s" % decision]
+    head, head_sha, head_why = head_commit(git, os.environ.get("PR_HEAD_SHA", ""))
+    rng, incremental, why = review_range(git, base, ledger, head)
+    decision = decide(git, ledger, incremental, head)
+    out[1:1] = ["", "REVIEW_DECISION: %s" % decision,
+                "Head commit: %s" % (head_sha or "NOT AVAILABLE (%s)" % (head_why or "git could not read HEAD"))]
     out += ["## What to review", "",
             "- Pull request: %s (author %s, base %s)" % (clip(info.get("title", "?"), 160), (info.get("user") or {}).get("login", "?"), base),
             "- Range: `%s` (%s)" % (rng, "only commits since the last review" if incremental else "the whole pull request, no usable previous review"),
-            "- Touched files: %d" % len(files), ""]
+            "- Touched files: %d" % len(files)]
+    if why or head_why:
+        out.append("- Why the whole pull request: %s" % (why or head_why))
+    out.append("")
 
-    summary, pointer_lines = read_first(git, rng)
+    summary, pointer_lines = read_first(git, rng, head if incremental else "HEAD")
     section = ["## Read first (changed lines only, found by pattern: pointers, not verdicts)", "", summary, ""]
     section += ["- %s" % t for t in pointer_lines] if pointer_lines else ["(nothing to point at: read the diff as usual)"]
     section.append("")

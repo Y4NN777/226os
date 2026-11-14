@@ -17,9 +17,11 @@
 # pull requests without a false positive.
 #
 # WHEN THE REVIEW RUNS: scripts/review-context.py (from the BASE branch) prints REVIEW_DECISION:
-#   first        no usable previous review: review now, in parallel with the Quality workflow;
-#   incremental  a CRITICAL or HIGH finding of the last review is still open and its file changed in the new commits;
-#   skip         anything else: a push alone never starts a review.
+#   first        no usable previous review (none, or its commit is unknown or not an ancestor): review the whole PR;
+#   incremental  the last reviewed commit is an ancestor of the PR head and new commits exist: review only those;
+#   skip         no new commit since the last review (a re-run, a label or a review event).
+# The ledger records the PR head (PR_HEAD_SHA, the pack's `Head commit:` line), never the checkout's HEAD: on a
+# pull_request event that is GitHub's temporary merge commit, which disappears and would force a full review each time.
 # Adding the label `ai-review` always reviews (the job removes the label when it is done). When the script is not on
 # the BASE branch yet, the review runs as before, without the pack.
 #
@@ -93,6 +95,7 @@ jobs:
           REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           BASE_REF: ${{ github.event.pull_request.base.ref }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           ACTION: ${{ github.event.action }}
         run: |
           gh --version | head -1

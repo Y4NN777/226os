@@ -10,6 +10,7 @@ root="$(cd "$here/../.." && pwd)"
 # shellcheck source=scripts/tests/lib.sh
 source "$here/lib.sh"
 tool="$root/scripts/review-context.py"
+unset PR_HEAD_SHA
 
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
@@ -286,17 +287,17 @@ grep -q 'f1.*\[open\]' <<<"$out" && ok "the fenced JSON ledger is read (id and s
 reset
 add issue "$(ledger_comment "$first" '[{"id":"f1","sev":"HIGH","file":"zzz.txt","line":1,"scenario":"x","status":"open"}]')"
 run
-grep -q '^REVIEW_DECISION: skip$' <<<"$out" && ok "an open HIGH on a file NOT changed since the last review: skip" || ko "decision skip file ($out)"
+grep -q '^REVIEW_DECISION: incremental$' <<<"$out" && ok "new commits, open HIGH on an unchanged file: incremental (every push with commits is reviewed)" || ko "decision incremental file ($out)"
 
 reset
 add issue "$(ledger_comment "$first" '[{"id":"f1","sev":"MEDIUM","file":"b.txt","line":1,"scenario":"x","status":"open"}]')"
 run
-grep -q '^REVIEW_DECISION: skip$' <<<"$out" && ok "only a MEDIUM open on a changed file: skip (a push does not re-review)" || ko "decision skip medium ($out)"
+grep -q '^REVIEW_DECISION: incremental$' <<<"$out" && ok "new commits, only a MEDIUM open: incremental (every push with commits is reviewed)" || ko "decision incremental medium ($out)"
 
 reset
 add issue "$(ledger_comment "$first" '[{"id":"f1","sev":"CRITICAL","file":"b.txt","line":1,"scenario":"x","status":"fixed"}]')"
 run
-grep -q '^REVIEW_DECISION: skip$' <<<"$out" && ok "a fixed CRITICAL does not trigger a new review" || ko "decision skip fixed ($out)"
+grep -q '^REVIEW_DECISION: incremental$' <<<"$out" && ok "new commits, a fixed CRITICAL: incremental (the decision follows the commits, not the findings)" || ko "decision incremental fixed ($out)"
 
 reset
 add issue '{"user":{"login":"github-actions[bot]"},"created_at":"2026-11-13T10:00:00Z","body":"<details><summary>Review ledger</summary>\n\n```json\n{not json\n```\n\n</details>"}'
@@ -307,7 +308,7 @@ run
 reset
 add issue "$(ledger_comment "$first" '[{"id":"n1","kind":"note","evidence":"INFERRED","sev":"HIGH","file":"b.txt","line":1,"scenario":"a guess about timing","status":"open"}]')"
 run
-grep -q '^REVIEW_DECISION: skip$' <<<"$out" && ok "an open note never triggers a new review, even with a HIGH sev written by the model" || ko "note decision ($out)"
+grep -q '^REVIEW_DECISION: incremental$' <<<"$out" && ok "new commits, an open note (HIGH sev written by the model): incremental, the note changes nothing" || ko "note decision ($out)"
 grep -q 'n1.*\[open\].*note.*INFERRED.*a guess about timing' <<<"$out" && ok "the ledger lists a note with its kind and evidence" || ko "note in ledger ($out)"
 
 reset
@@ -327,5 +328,67 @@ reset
 run
 grep -q '^## Notes already decided' <<<"$out" && grep -q '(none)' <<<"$(sed -n '/^## Notes already decided/,/^## [^N]/p' <<<"$out")" && ok "no notes issue yet: the section says none" || ko "no notes ($out)"
 
+# ---------- the head commit: the ledger records the pull request head, never the temporary merge commit ----------
+# A repository shaped like the pull_request checkout of CI: develop moved on (base-only file), the work branch has two
+# commits, and HEAD is a detached merge of both (refs/pull/N/merge). PR_HEAD_SHA is the work head. The base-only Go
+# file carries a pointer pattern and an open HIGH, so a range or a decision that ends at the merge commit is caught.
+mc="$tmp/merge-checkout"
+(
+  mkdir -p "$mc" && cd "$mc"
+  git init -q -b develop
+  git config user.email t@example.invalid
+  git config user.name t
+  echo base >base.txt
+  git add -A && git -c commit.gpgsign=false commit -q -m base
+  git checkout -q -b work
+  echo a >a.txt && git add -A && git -c commit.gpgsign=false commit -q -m first
+  git rev-parse HEAD >"$tmp/mc-first.sha"
+  echo b >b.txt && git add -A && git -c commit.gpgsign=false commit -q -m second
+  git rev-parse HEAD >"$tmp/mc-head.sha"
+  git checkout -q develop
+  printf 'package x\n\nvar ip = r.Header.Get("X-Forwarded-For")\n' >base_only.go && git add -A && git -c commit.gpgsign=false commit -q -m develop-moved
+  git update-ref refs/remotes/origin/develop HEAD
+  git checkout -q --detach HEAD
+  git -c commit.gpgsign=false merge -q --no-ff -m merge work
+)
+mc_first="$(cat "$tmp/mc-first.sha")"
+mc_head="$(cat "$tmp/mc-head.sha")"
+REPO_DIR="$mc"
+
+reset
+add issue "$(ledger_comment "$mc_head" '[{"id":"f1","sev":"HIGH","file":"base_only.go","line":1,"scenario":"x","status":"open"}]')"
+PR_HEAD_SHA="$mc_head" run
+grep -q "^Head commit: $mc_head$" <<<"$out" && ok "the pack prints the Head commit from PR_HEAD_SHA, not the merge commit" || ko "head line ($out)"
+grep -q '^REVIEW_DECISION: skip$' <<<"$out" && ok "the ledger sha is the head and no commit is new: skip (a re-run or a label)" || ko "decision skip at head ($out)"
+
+reset
+add issue "$(ledger_comment "$mc_first" '[{"id":"f1","sev":"HIGH","file":"b.txt","line":1,"scenario":"x","status":"open"}]')"
+PR_HEAD_SHA="$mc_head" run
+grep -q '^REVIEW_DECISION: incremental$' <<<"$out" && grep -qF "Range: \`$mc_first..$mc_head\`" <<<"$out" && ok "new commits after the ledger sha, open HIGH: incremental, range <ledger sha>..<head>" || ko "incremental to head ($out)"
+! grep -q 'base_only' <<<"$out" && ok "the incremental range leaves out what develop merged in" || ko "base noise ($out)"
+
+reset
+add issue "$(ledger_comment "$mc_first" '[]')"
+PR_HEAD_SHA="$mc_head" run
+grep -q '^REVIEW_DECISION: incremental$' <<<"$out" && ok "new commits and no open finding: incremental, not skip" || ko "incremental no findings ($out)"
+
+reset
+add issue "$(ledger_comment "0123456789abcdef0123456789abcdef01234567" '[{"id":"f1","sev":"HIGH","file":"b.txt","line":1,"scenario":"x","status":"open"}]')"
+PR_HEAD_SHA="$mc_head" run
+grep -q '^REVIEW_DECISION: first$' <<<"$out" && grep -q 'Why the whole pull request: the last reviewed commit 0123456789abcdef0123456789abcdef01234567 is not in the repository' <<<"$out" && ok "a ledger sha unknown to git: first, and the pack says why" || ko "unknown ledger sha ($out)"
+
+reset
+add issue "$(ledger_comment "$mc_first" '[]')"
+PR_HEAD_SHA="fedcba9876543210fedcba9876543210fedcba98" run
+[ "$rc" -eq 0 ] && grep -q '^REVIEW_DECISION: first$' <<<"$out" && grep -q '^Head commit: NOT AVAILABLE' <<<"$out" && ok "a head commit missing from the checkout fails open: first" || ko "unknown head (rc=$rc out=$out)"
+
+reset
+PR_HEAD_SHA='HEAD; rm -rf /' run
+[ "$rc" -eq 0 ] && grep -q '^REVIEW_DECISION: first$' <<<"$out" && grep -q 'not a full commit hash' <<<"$out" && ok "a PR_HEAD_SHA that is not 40 hex characters is refused: first" || ko "bad head value (rc=$rc out=$out)"
+
+reset
+REPO_DIR="$tmp/repo"
+run
+grep -q "^Head commit: $(git -C "$tmp/repo" rev-parse HEAD)$" <<<"$out" && ok "without PR_HEAD_SHA (a local run) the Head commit is HEAD" || ko "local head ($out)"
 
 finish
