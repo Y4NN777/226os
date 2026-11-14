@@ -62,6 +62,7 @@ def load(name, filename):
 
 comment = load("review_comment", "review-comment.py")
 gate = load("review_gate", "review-gate.py")
+autofix = load("review_autofix", "review-autofix.py")
 
 
 def latest_runs(items):
@@ -116,15 +117,28 @@ def owner_approved_head(gh, repo, number, owner, head):
     return last is not None and last.get("state") == "APPROVED" and last.get("commit_id") == head
 
 
+def pipeline_batch(gh, repo, number, pull, owner, files):
+    """True only for a pull request the batch publish job made: head branch `fix/review/batch-*` (of this repository, which
+    `refusals` checks), opened by the owner's account (the token the job pushes with), EVERY commit carrying the
+    `Review-Pipeline:` trailer its trusted `apply` step writes, and no changed path that is the owner's (the very list the
+    publish job's guard refuses: `review-autofix.py forbidden`). A branch name alone is never enough."""
+    if not str((pull.get("head") or {}).get("ref") or "").startswith(BATCH_BRANCH) or (pull.get("user") or {}).get("login") != owner:
+        return False
+    commits = gate.gh_api(gh, "repos/%s/pulls/%s/commits" % (repo, number))
+    if not commits or not all(PIPELINE_TRAILER.search(str((c.get("commit") or {}).get("message") or "")) for c in commits):
+        return False
+    return bool(files) and not any(autofix.forbidden(f) for f in files)
+
+
 def sensitive_refusal(gh, repo, number, pull, owner, files, patterns, head, ledger=None):
     """The refusal for a sensitive path, or None: the owner authored every commit, or approved exactly the head. A review
-    batch pull request (head branch `fix/review/batch-*` of this repository; the pipeline paths are refused elsewhere) needs
-    no owner click instead: the deep review PASSED on exactly this head and no CRITICAL was ever recorded on it (open
-    findings and the other checks are refused by `refusals` for every pull request)."""
+    batch pull request made by the pipeline (`pipeline_batch`) needs no owner click instead: the deep review PASSED on exactly
+    this head and no CRITICAL was ever recorded on it (open findings and the other checks are refused by `refusals` for
+    every pull request). Any other pull request, a look-alike branch name included, follows the normal rule."""
     hits = comment.p0_hits(files, patterns)
     if not hits:
         return None
-    if str((pull.get("head") or {}).get("ref") or "").startswith(BATCH_BRANCH):
+    if pipeline_batch(gh, repo, number, pull, owner, files):
         ledger = ledger if isinstance(ledger, dict) else {}
         deep = ledger.get("deep") if isinstance(ledger.get("deep"), dict) else {}
         if not (deep.get("status") == "PASS" and deep.get("sha") == head):

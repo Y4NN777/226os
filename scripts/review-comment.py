@@ -1,6 +1,18 @@
 #!/usr/bin/env python3
 """Write the AI review comment of ONE RUN on a pull request (stdlib only), deterministically.
 
+LEVEL SPEC (invariants; scripts/tests/review-comment_test.sh checks every combination in a table):
+  I1. Final Triage level = max(the level stage 1 declared this run, the level of ALL open findings in the final ledger,
+      carried and deep-sourced ones included). Nothing else lowers or raises it.
+  I2. CRITICAL only with an open OBSERVED CRITICAL entry with a file and a line > 0; any other CRITICAL counts as HIGH (a
+      declared CRITICAL without that evidence becomes HIGH).
+  I3. An entry's status changes only by an explicit status from a COMPLETED run (stage 1, or a deep run that is PASS); a
+      NOT RUN, crashed or empty run changes no status; an entry a run omits is carried OPEN, `carried` +1 exactly once per
+      run (stage 1 counts it; the deep merge does not count again).
+  I4. A crashed or empty deep job leaves the stage 1 comment, which already satisfies I1.
+  Accepted consequence: if stage 1 declared a level only because of a carried entry that the deep run then marks fixed, the
+  line stays at that level until the next push (the safe failure: auto-merge refuses).
+
 The review returns its text; this script, run by the workflow from the BASE branch, posts it:
   - line 1 stays the `Triage:` verdict (the Review gate reads it), line 2 is the hidden marker MARKER, line 3 the fixed
     `Tool:` line of the preview step (a `Tool:` line written by the model is dropped), line 4
@@ -380,7 +392,7 @@ def reviewed_line(head, rng, done=True):
     return "Reviewed: none, NOT RUN on %s (%s) at %s UTC" % (sha7, rng, now)
 
 
-def carry_forward(text, previous_ledger, deep_pending=False):
+def carry_forward(text, previous_ledger):
     """The previous comment's ledger entries the model left out are carried into the new ledger with their id and
     status (fixed ones are dropped: they were reported fixed already). Nothing is added when the text has no usable
     ledger (no ledger is ever invented)."""
@@ -400,8 +412,7 @@ def carry_forward(text, previous_ledger, deep_pending=False):
     for f in previous_ledger.get("findings", []):
         if isinstance(f, dict) and f.get("id") and f.get("id") not in ids and status_of(f) != "fixed":
             f = dict(f)
-            if status_of(f) == "open" and not (deep_pending and f.get("source") == "deep"):
-                # (A carried deep entry is counted and named by the deep merge when the deep stage runs in this run.)
+            if status_of(f) == "open":
                 # Still open and not mentioned by this review: the model made no new decision. Counted and named in the
                 # comment, so a stale entry that keeps blocking auto-merge is visible and a person can settle it.
                 f["carried"] = int(f.get("carried") or 0) + 1 if isinstance(f.get("carried"), int) else 1
@@ -442,10 +453,9 @@ def effective_level(declared, entries):
     return max(level, LEVELS[top], key=LEVELS.index)
 
 
-def pin_level(text, deep_pending=False):
-    """The text with its first line's level set to the one its own ledger supports (blast radius text kept). When the deep
-    review runs in this same run, carried `source: deep` entries are left out: the deep stage decides them (it can only
-    raise the line afterwards, never lower it). Without a deep stage they count."""
+def pin_level(text):
+    """The text with its first line's level set to the one its own ledger supports (blast radius text kept): invariant I1,
+    every open finding counts, the carried ones and the deep-sourced ones included."""
     m = FENCED.search(text or "")
     first = (text or "").split("\n", 1)[0]
     v = VERDICT.match(first.strip())
@@ -457,8 +467,7 @@ def pin_level(text, deep_pending=False):
         return text
     if not isinstance(data, dict) or not isinstance(data.get("findings"), list):
         return text
-    mine = [f for f in data["findings"] if not (deep_pending and isinstance(f, dict) and f.get("source") == "deep")]
-    level = effective_level(v.group(1), mine)
+    level = effective_level(v.group(1), data["findings"])
     if level == v.group(1):
         return text
     return first.replace(v.group(1), level, 1) + text[len(first):]
@@ -476,8 +485,8 @@ def compose(text, tool_line, head="", deep_line=None, reviewed=None, previous_le
     top = [lines[0].strip(), MARKER, tool_or_default(tool_line)] + ([reviewed] if reviewed else []) + ([deep_line] if deep_line else [])
     text = pin_ledger("\n".join(top + [""] + rest), head, previous_ledger)
     if FULL_SHA.match(head or ""):
-        text = carry_forward(text, previous_ledger, deep_pending=deep_line is not None)
-    return pin_level(text, deep_pending=deep_line is not None) + "\n"
+        text = carry_forward(text, previous_ledger)
+    return pin_level(text) + "\n"
 
 
 def not_run(reason, tool_line, previous, reviewed=None):
@@ -762,17 +771,12 @@ def merge_deep(base, data, why, head):
                 s1["evidence"] = "OBSERVED"
             if not why:
                 s1["status"] = e["status"]
-        # An earlier deep entry the new output leaves out is CARRIED forward (named, counted), never erased: only an explicit
-        # `fixed` from this deep run closes it. A fixed one is dropped, as before.
+        # An earlier deep entry the new output leaves out stays open (I3): only an explicit `fixed` from a COMPLETED deep run
+        # closes it. Stage 1 already counted it (`carried` +1 once per run). A fixed one is dropped, as before.
         listed = {e["id"] for e in data["entries"]}
-        carried = []
         for f in ledger["findings"]:
             if isinstance(f, dict) and f.get("source") == "deep" and f.get("id") not in listed and status_of(f) != "fixed":
-                f = dict(f)
-                if status_of(f) == "open":
-                    f["carried"] = f["carried"] + 1 if isinstance(f.get("carried"), int) and not isinstance(f.get("carried"), bool) else 1
-                    carried.append(slug_id(f["id"]))
-                standalone.append(f)
+                standalone.append(dict(f))
         old_findings = ledger["findings"]
         ledger["findings"] = [f for f in old_findings if not (isinstance(f, dict) and f.get("source") == "deep")] + standalone
         ledger["deep"] = {"status": "NOT RUN" if why else "PASS", "sha": head}
@@ -781,8 +785,9 @@ def merge_deep(base, data, why, head):
             deep_line = "Deep: NOT RUN (%s)" % one_line(why)
         else:
             deep_line = "Deep: PASS (%s, %s)" % (plural(found, "finding"), plural(len(data["entries"]) - found, "note"))
-        # The deep merge NEVER lowers the Triage line: final = max(the stage 1 line as written this run, the level the merged
-        # ledger supports). Stage 1 already left the carried deep entries out of its own level when this deep stage runs.
+        # Invariant I1: final = max(the stage 1 line as written this run, the level every open finding of the merged ledger
+        # supports). The deep merge never lowers the line (a deep run that marks a carried entry fixed leaves the line where
+        # stage 1 put it until the next push: the safe failure).
         m = VERDICT.match(first)
         if m:
             current = m.group(1)
@@ -793,9 +798,6 @@ def merge_deep(base, data, why, head):
         summary = clean_summary(data["summary"]) or "(no text)"
         if data.get("filled"):
             summary = missing_notice(data["filled"]) + "\n\n" + summary
-        if carried:
-            summary = ("Carried forward without a new decision (the deep review did not mention them: fix, answer or accept them): %s.\n\n"
-                       % ", ".join("`%s`" % c for c in carried)) + summary
     else:
         ledger["deep"] = {"status": "NOT RUN", "sha": head}
         deep_line = "Deep: NOT RUN (%s)" % one_line(why)

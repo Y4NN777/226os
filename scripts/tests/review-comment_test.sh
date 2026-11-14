@@ -437,12 +437,13 @@ stage1_then_deep() { # PENDING DJSON
 }
 # Replacement design (review of bb0abb0): deep never lowers; stage 1 leaves carried deep entries out while the deep stage runs.
 FIXED_DH='{"level":"NONE","blast_radius":"x","summary":"s","findings":[{"id":"dh","kind":"finding","evidence":"OBSERVED","sev":"HIGH","file":"a.go","line":3,"scenario":"s","status":"fixed","detail":"d","fix":"f"}]}'
-stage1_then_deep true "$FIXED_DH"
-[ "$s1_line" = "Triage: NONE | blast radius: x" ] && [ "$(posted | sed -n 1p)" = "Triage: NONE | blast radius: x" ] && ok "stuck case: deep pending, a carried deep HIGH does not inflate stage 1, the deep run marks it fixed: final NONE" || ko "stuck case ($s1_line / $(posted | sed -n 1,4p))"
 stage1_then_deep "" "$FIXED_DH"
 [ "$s1_line" = "Triage: HIGH | blast radius: x" ] && ok "no deep stage in this run: a carried open deep HIGH keeps stage 1 at HIGH" || ko "deep not pending ($s1_line)"
-stage1_then_deep true '{"level":"NONE","blast_radius":"x","summary":"s","findings":[]}'
-[ "$s1_line" = "Triage: NONE | blast radius: x" ] && [ "$(posted | sed -n 1p)" = "Triage: HIGH | blast radius: x" ] && pyassert 'import json,sys; f=json.loads(sys.argv[1]); assert f["status"]=="open" and f["carried"]==1 and f["source"]=="deep"' "$(posted_entry dh)" 2>/dev/null && posted | grep -q 'Carried forward without a new decision.*`dh`' && ok "deep pending, the deep output leaves the carried HIGH out: it is carried open (named, counted) and the deep merge raises the line to HIGH" || ko "omitted erased ($s1_line / $(posted | sed -n 1,8p))"
+# Exhaustive table of the level invariants I1-I4 (scripts/review-comment.py, LEVEL SPEC): every declared level x stage 1
+# ledger x carried deep entry x deep run, with the gate's reading of each comment; it replaces the one-off level cases.
+tbl="$(python3 -I "$here/review-comment-levels.py" 2>&1)" || true
+tail_line="$(tail -1 <<<"$tbl")"
+[ "$tail_line" = "cases=504 failures=0" ] && ok "level table: $tail_line (declared x stage 1 ledger x carried x deep run: I1-I4 and the gate's reading)" || ko "level table ($(head -5 <<<"$tbl"))"
 # The carried counter rises by exactly 1 per review run: a deep entry is counted by the deep merge when the deep stage runs
 # in that run, by stage 1 only when none runs.
 carried_n() { python3 -I -c 'import json,sys; print(json.loads(sys.argv[1]).get("carried"))' "$(posted_entry dh)"; }
