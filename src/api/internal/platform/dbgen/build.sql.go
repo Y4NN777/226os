@@ -357,16 +357,19 @@ func (q *Queries) LinkResourceToProject(ctx context.Context, arg LinkResourceToP
 const listNeeds = `-- name: ListNeeds :many
 SELECT n.id, n.project_id, n.title, n.description_md, n.language, n.status, n.created_at,
        ARRAY(SELECT t.slug FROM need_skills ns JOIN tags t ON t.id = ns.tag_id
-             WHERE ns.need_id = n.id AND t.status = 'active' ORDER BY t.slug)::text[] AS skills
+             WHERE ns.need_id = n.id AND t.status = 'active' ORDER BY t.slug)::text[] AS skills,
+       va.id AS viewer_application_id, va.status AS viewer_application_status
 FROM contribution_needs n
-WHERE n.project_id = $1::uuid
-  AND ($2::timestamptz IS NULL
-       OR (n.created_at, n.id) < ($2::timestamptz, $3::uuid))
+LEFT JOIN applications va ON va.contribution_need_id = n.id AND va.user_id = $1::uuid
+WHERE n.project_id = $2::uuid
+  AND ($3::timestamptz IS NULL
+       OR (n.created_at, n.id) < ($3::timestamptz, $4::uuid))
 ORDER BY n.created_at DESC, n.id DESC
-LIMIT $4
+LIMIT $5
 `
 
 type ListNeedsParams struct {
+	ViewerID     pgtype.UUID
 	ProjectID    pgtype.UUID
 	AfterCreated pgtype.Timestamptz
 	AfterID      pgtype.UUID
@@ -374,19 +377,25 @@ type ListNeedsParams struct {
 }
 
 type ListNeedsRow struct {
-	ID            pgtype.UUID
-	ProjectID     pgtype.UUID
-	Title         string
-	DescriptionMd string
-	Language      string
-	Status        string
-	CreatedAt     pgtype.Timestamptz
-	Skills        []string
+	ID                      pgtype.UUID
+	ProjectID               pgtype.UUID
+	Title                   string
+	DescriptionMd           string
+	Language                string
+	Status                  string
+	CreatedAt               pgtype.Timestamptz
+	Skills                  []string
+	ViewerApplicationID     pgtype.UUID
+	ViewerApplicationStatus pgtype.Text
 }
 
 // Newest first with a UUID tie-breaker (contribution_needs_project_idx covers the project filter).
+// viewer_application_* is the caller's OWN application to the need (applications_user_need_uq: at most one
+// row, so the join never multiplies a need); no caller or no application gives NULLs, and no other
+// applicant's row can match.
 func (q *Queries) ListNeeds(ctx context.Context, arg ListNeedsParams) ([]ListNeedsRow, error) {
 	rows, err := q.db.Query(ctx, listNeeds,
+		arg.ViewerID,
 		arg.ProjectID,
 		arg.AfterCreated,
 		arg.AfterID,
@@ -408,6 +417,8 @@ func (q *Queries) ListNeeds(ctx context.Context, arg ListNeedsParams) ([]ListNee
 			&i.Status,
 			&i.CreatedAt,
 			&i.Skills,
+			&i.ViewerApplicationID,
+			&i.ViewerApplicationStatus,
 		); err != nil {
 			return nil, err
 		}

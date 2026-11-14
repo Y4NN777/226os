@@ -122,12 +122,12 @@ func TestBuildQueries(t *testing.T) {
 	}
 	assertCall(t, db, "INSERT INTO need_skills", []any{id, []string{"go"}})
 
-	db = &fakeDB{many: [][]any{{id, other, "T", "D", "en", "open", ts, []string{"go"}}}}
-	needs, err := dbgen.New(db).ListNeeds(ctx, dbgen.ListNeedsParams{ProjectID: other, AfterCreated: ts, AfterID: id, RowLimit: 21})
-	if err != nil || needs[0].Skills[0] != "go" {
+	db = &fakeDB{many: [][]any{{id, other, "T", "D", "en", "open", ts, []string{"go"}, other, pgtype.Text{String: "pending", Valid: true}}}}
+	needs, err := dbgen.New(db).ListNeeds(ctx, dbgen.ListNeedsParams{ProjectID: other, AfterCreated: ts, AfterID: id, ViewerID: id, RowLimit: 21})
+	if err != nil || needs[0].Skills[0] != "go" || needs[0].ViewerApplicationID != other || needs[0].ViewerApplicationStatus.String != "pending" {
 		t.Fatalf("ListNeeds = %+v, %v", needs, err)
 	}
-	assertCall(t, db, "ORDER BY n.created_at DESC, n.id DESC", []any{other, ts, id, int32(21)})
+	assertCall(t, db, "ORDER BY n.created_at DESC, n.id DESC", []any{id, other, ts, id, int32(21)})
 
 	many := []func(*fakeDB) error{
 		func(db *fakeDB) error {

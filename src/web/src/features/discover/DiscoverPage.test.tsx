@@ -3,7 +3,9 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { callsTo, mockApi, problemResponse } from '../../test/api';
 import { jsonResponse, renderApp, setLanguages } from '../../test/render';
+import { selectSegment } from '../../test/segmented';
 import { listParams, resource, rowOf } from './testFixtures';
+import { findVisibleText } from '../../test/visibleText';
 
 const senegal = resource({ id: 'a0000000-0000-4000-8000-000000000001', name: 'Wave Pay' });
 const kenya = resource({
@@ -128,7 +130,9 @@ describe('DiscoverPage', () => {
     await renderApp('/discover');
     await screen.findByRole('link', { name: 'Wave Pay' });
 
-    await userEvent.click(screen.getByRole('button', { name: 'Afficher plus' }));
+    await userEvent
+      .setup({ delay: null })
+      .click(screen.getByRole('button', { name: 'Afficher plus' }));
     expect(await screen.findByRole('link', { name: 'Accra Gate' })).toBeInTheDocument();
     const calls = callsTo(fetchMock, 'GET /resources');
     expect(calls).toHaveLength(2);
@@ -143,7 +147,7 @@ describe('DiscoverPage', () => {
     const { router } = await renderApp('/discover');
     await screen.findByRole('link', { name: 'Wave Pay' });
 
-    await userEvent.click(screen.getByRole('radio', { name: 'Toute l’Afrique' }));
+    await selectSegment(screen.getByRole('radio', { name: 'Toute l’Afrique' }));
     expect(await screen.findByRole('link', { name: 'Safari Hub' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Sans Pays' })).toBeInTheDocument();
     expect(router.state.location.search).toMatchObject({ region: 'all' });
@@ -160,8 +164,10 @@ describe('DiscoverPage', () => {
     const { router } = await renderApp('/discover');
     await screen.findByRole('link', { name: 'Wave Pay' });
 
-    await userEvent.click(screen.getByRole('button', { name: /^Pays/ }));
-    await userEvent.click(await screen.findByRole('option', { name: 'Ghana' }));
+    await userEvent.setup({ delay: null }).click(screen.getByRole('button', { name: /^Pays/ }));
+    await userEvent
+      .setup({ delay: null })
+      .click(await screen.findByRole('option', { name: 'Ghana' }));
     expect(await screen.findByRole('link', { name: 'Safari Hub' })).toBeInTheDocument();
     expect(router.state.location.search).toMatchObject({ country: 'GH' });
     expect(listParams(fetchMock, 'last').get('country')).toBe('GH');
@@ -172,7 +178,7 @@ describe('DiscoverPage', () => {
     mockApi({ 'GET /resources': () => page([senegal]) });
     await renderApp('/discover');
     await screen.findByRole('link', { name: 'Wave Pay' });
-    await userEvent.click(screen.getByRole('button', { name: /^Country/ }));
+    await userEvent.setup({ delay: null }).click(screen.getByRole('button', { name: /^Country/ }));
     expect(await screen.findByRole('option', { name: 'Senegal' })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: 'Côte d’Ivoire' })).toBeInTheDocument();
   });
@@ -186,20 +192,21 @@ describe('DiscoverPage', () => {
       screen.queryByRole('button', { name: 'Réinitialiser les filtres' }),
     ).not.toBeInTheDocument();
 
-    await userEvent.type(
-      screen.getByRole('searchbox', { name: /Rechercher une API/ }),
-      'momo{Enter}',
-    );
+    await userEvent
+      .setup({ delay: null })
+      .type(screen.getByRole('searchbox', { name: /Rechercher une API/ }), 'momo{Enter}');
     await waitFor(() => {
       expect(listParams(fetchMock, 'last').get('q')).toBe('momo');
     });
-    await userEvent.click(screen.getByRole('radio', { name: 'SDK' }));
+    await selectSegment(screen.getByRole('radio', { name: 'SDK' }));
     await waitFor(() => {
       expect(listParams(fetchMock, 'last').get('type')).toBe('sdk');
     });
     expect(router.state.location.search).toMatchObject({ q: 'momo', type: 'sdk' });
 
-    await userEvent.click(screen.getByRole('button', { name: 'Réinitialiser les filtres' }));
+    await userEvent
+      .setup({ delay: null })
+      .click(screen.getByRole('button', { name: 'Réinitialiser les filtres' }));
     await waitFor(() => {
       expect(router.state.location.search).toEqual({});
     });
@@ -211,8 +218,12 @@ describe('DiscoverPage', () => {
     const fetchMock = mockApi({ 'GET /resources': () => page([senegal]) });
     await renderApp('/discover');
     await screen.findByRole('link', { name: 'Wave Pay' });
-    await userEvent.type(screen.getByRole('searchbox', { name: /Rechercher une API/ }), 'ussd');
-    await userEvent.click(screen.getByRole('button', { name: 'Lancer la recherche' }));
+    await userEvent
+      .setup({ delay: null })
+      .type(screen.getByRole('searchbox', { name: /Rechercher une API/ }), 'ussd');
+    await userEvent
+      .setup({ delay: null })
+      .click(screen.getByRole('button', { name: 'Lancer la recherche' }));
     await waitFor(() => {
       expect(listParams(fetchMock, 'last').get('q')).toBe('ussd');
     });
@@ -225,7 +236,9 @@ describe('DiscoverPage', () => {
     await screen.findByRole('link', { name: 'Wave Pay' });
     expect(listParams(fetchMock, 'first').get('category')).toBe('payments');
     expect(screen.getByText('Catégorie : payments')).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Retirer le filtre de catégorie' }));
+    await userEvent
+      .setup({ delay: null })
+      .click(screen.getByRole('button', { name: 'Retirer le filtre de catégorie' }));
     await waitFor(() => {
       expect(router.state.location.search).toEqual({});
     });
@@ -238,8 +251,10 @@ describe('DiscoverPage', () => {
       'GET /resources': (request) => (searchOf(request).has('country') ? page([]) : page([kenya])),
     });
     const { router } = await renderApp('/discover');
-    expect(await screen.findByText('Aucune fiche ne correspond')).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Voir toute l’Afrique' }));
+    expect(await findVisibleText('Aucune fiche ne correspond')).toBeInTheDocument();
+    await userEvent
+      .setup({ delay: null })
+      .click(screen.getByRole('button', { name: 'Voir toute l’Afrique' }));
     await waitFor(() => {
       expect(router.state.location.search).toMatchObject({ region: 'all' });
     });
@@ -250,8 +265,12 @@ describe('DiscoverPage', () => {
     setLanguages(['fr-FR']);
     mockApi({ 'GET /resources': () => page([]) });
     await renderApp('/discover?region=all&q=zzz');
-    expect(await screen.findByText('Aucune fiche ne correspond')).toBeInTheDocument();
-    expect(screen.getByText(/Retirez un filtre/)).toBeInTheDocument();
+    expect(await findVisibleText('Aucune fiche ne correspond')).toBeInTheDocument();
+    // Astryx may also announce the message in its aria-live status region, so match the visible copy only.
+    const visible = screen
+      .getAllByText(/Retirez un filtre/)
+      .filter((el) => !el.closest('[data-astryx-live-region]'));
+    expect(visible).toHaveLength(1);
     expect(screen.queryByRole('button', { name: 'Voir toute l’Afrique' })).not.toBeInTheDocument();
   });
 
@@ -263,8 +282,8 @@ describe('DiscoverPage', () => {
         calls++ === 0 ? problemResponse(500, 'INTERNAL_ERROR') : page([senegal]),
     });
     await renderApp('/discover');
-    expect(await screen.findByText('Référence : req-test-1')).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Réessayer' }));
+    expect(await findVisibleText('Référence : req-test-1')).toBeInTheDocument();
+    await userEvent.setup({ delay: null }).click(screen.getByRole('button', { name: 'Réessayer' }));
     expect(await screen.findByRole('link', { name: 'Wave Pay' })).toBeInTheDocument();
   });
 
@@ -288,7 +307,7 @@ describe('DiscoverPage', () => {
     setLanguages(['fr-FR']);
     mockApi({ 'GET /resources': () => problemResponse(429, 'RATE_LIMITED', { retryAfter: 12 }) });
     await renderApp('/discover');
-    expect(await screen.findByText(/Réessayez dans 12 s/)).toBeInTheDocument();
+    expect(await findVisibleText(/Réessayez dans 12 s/)).toBeInTheDocument();
   });
 
   it('keeps the list and reports an error when loading more fails', async () => {
@@ -300,7 +319,9 @@ describe('DiscoverPage', () => {
           : problemResponse(500, 'INTERNAL_ERROR'),
     });
     await renderApp('/discover');
-    await userEvent.click(await screen.findByRole('button', { name: 'Afficher plus' }));
+    await userEvent
+      .setup({ delay: null })
+      .click(await screen.findByRole('button', { name: 'Afficher plus' }));
     expect((await screen.findAllByRole('alert')).length).toBeGreaterThan(0);
     expect(screen.getByRole('link', { name: 'Wave Pay' })).toBeInTheDocument();
   });

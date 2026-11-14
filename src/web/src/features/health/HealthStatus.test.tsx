@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { jsonResponse, renderWithProviders, setLanguages } from '../../test/render';
 import { HealthStatus } from './HealthStatus';
+import { findVisibleText } from '../../test/visibleText';
 
 describe('HealthStatus', () => {
   it('announces loading, then success, with a text label and the raw status', async () => {
@@ -28,7 +29,7 @@ describe('HealthStatus', () => {
       vi.fn(() => Promise.reject(new TypeError('offline'))),
     );
     renderWithProviders(<HealthStatus />);
-    expect(await screen.findByText('The API is not responding.')).toBeInTheDocument();
+    expect(await findVisibleText('The API is not responding.')).toBeInTheDocument();
     expect(screen.getByText(/check that the server is running/i)).toBeInTheDocument();
   });
 
@@ -39,7 +40,7 @@ describe('HealthStatus', () => {
       vi.fn(() => Promise.resolve(jsonResponse({ status: 'ok' }, { status: 503 }))),
     );
     renderWithProviders(<HealthStatus />);
-    expect(await screen.findByText('L’API ne répond pas.')).toBeInTheDocument();
+    expect(await findVisibleText('L’API ne répond pas.')).toBeInTheDocument();
   });
 
   it('recovers when the user retries after a failure', async () => {
@@ -50,8 +51,10 @@ describe('HealthStatus', () => {
       .mockResolvedValue(jsonResponse({ status: 'ok' }));
     vi.stubGlobal('fetch', fetchMock);
     renderWithProviders(<HealthStatus />);
-    await screen.findByText('The API is not responding.');
-    await userEvent.click(screen.getByRole('button', { name: 'Check again' }));
+    await findVisibleText('The API is not responding.');
+    await userEvent
+      .setup({ delay: null })
+      .click(screen.getByRole('button', { name: 'Check again' }));
     expect(await screen.findByText('API is up')).toBeInTheDocument();
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(2);

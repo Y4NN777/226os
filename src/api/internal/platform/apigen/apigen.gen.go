@@ -291,6 +291,13 @@ const (
 	Verified   VerificationStatus = "verified"
 )
 
+// Defines values for ViewerVote.
+const (
+	ViewerVoteMinus1 ViewerVote = -1
+	ViewerVoteN0     ViewerVote = 0
+	ViewerVoteN1     ViewerVote = 1
+)
+
 // Defines values for ViolationCode.
 const (
 	Duplicate     ViolationCode = "duplicate"
@@ -384,7 +391,10 @@ type Answer struct {
 	//
 	// Examples: 2026-11-11T09:30:00Z
 	UpdatedAt Timestamp `json:"updated_at"`
-	VoteScore int       `json:"vote_score"`
+
+	// ViewerVote The authenticated caller's own current vote on this item (1 up, -1 down, 0 none). Always 0 for an anonymous caller. It is derived from the session only and never reveals another member's vote, so a response that carries it varies by caller (Vary Cookie, Cache-Control private).
+	ViewerVote ViewerVote `json:"viewer_vote"`
+	VoteScore  int        `json:"vote_score"`
 }
 
 // AnswerCreate defines model for AnswerCreate.
@@ -619,6 +629,9 @@ type ContributionNeed struct {
 	Skills    []TagSlug  `json:"skills"`
 	Status    NeedStatus `json:"status"`
 	Title     string     `json:"title"`
+
+	// ViewerApplication The authenticated caller's own application to this need, or null (no application, or anonymous). Other applicants are never exposed here.
+	ViewerApplication *ViewerApplication `json:"viewer_application"`
 }
 
 // CountryCode ISO 3166-1 alpha-2.
@@ -1003,7 +1016,10 @@ type Question struct {
 	//
 	// Examples: 2026-11-11T09:30:00Z
 	UpdatedAt Timestamp `json:"updated_at"`
-	VoteScore int       `json:"vote_score"`
+
+	// ViewerVote The authenticated caller's own current vote on this item (1 up, -1 down, 0 none). Always 0 for an anonymous caller. It is derived from the session only and never reveals another member's vote, so a response that carries it varies by caller (Vary Cookie, Cache-Control private).
+	ViewerVote ViewerVote `json:"viewer_vote"`
+	VoteScore  int        `json:"vote_score"`
 }
 
 // QuestionCreate defines model for QuestionCreate.
@@ -1322,6 +1338,16 @@ type Uuid = openapi_types.UUID
 
 // VerificationStatus defines model for VerificationStatus.
 type VerificationStatus string
+
+// ViewerApplication The caller's own application to a need (id and status only).
+type ViewerApplication struct {
+	// Id Opaque identifier; never an authorization control.
+	Id     Uuid              `json:"id"`
+	Status ApplicationStatus `json:"status"`
+}
+
+// ViewerVote The authenticated caller's own current vote on this item (1 up, -1 down, 0 none). Always 0 for an anonymous caller. It is derived from the session only and never reveals another member's vote, so a response that carries it varies by caller (Vary Cookie, Cache-Control private).
+type ViewerVote int
 
 // Violation defines model for Violation.
 type Violation struct {

@@ -86,7 +86,12 @@ function serverFieldErrors(error: ApiError): ServerErrors {
   const result: ServerErrors = {};
   for (const violation of error.violations) {
     const field = fieldOfViolation(violation.field);
-    if (field && !result[field]) result[field] = keyOfField[field];
+    // A tag a moderator has hidden since the question was written comes back as invalid_value.
+    const key =
+      field === 'tags' && violation.code === 'invalid_value'
+        ? 'solve.err.tags.unavailable'
+        : field && keyOfField[field];
+    if (field && key && !result[field]) result[field] = key;
   }
   return result;
 }
@@ -109,6 +114,7 @@ export function QuestionForm({
   onCancel,
   failureNotice,
   initialLink,
+  isUnchanged,
   assistant,
 }: {
   mode: 'create' | 'edit';
@@ -119,6 +125,8 @@ export function QuestionForm({
   failureNotice?: (error: unknown) => ReactNode;
   /** A link pre-filled by the page that sent the visitor here (E4); shown as a removable chip. */
   initialLink?: LinkDraft | undefined;
+  /** When it says the draft equals the saved question, Save stays disabled (edit only). */
+  isUnchanged?: (draft: Pick<QuestionDraft, 'title' | 'body_md' | 'tags'>) => boolean;
   /** Rendered under the form with the current draft title and body (S9 assistant panel). */
   assistant?: (draft: { title: string; body: string }) => ReactNode;
 }) {
@@ -361,14 +369,23 @@ export function QuestionForm({
               ) : null}
             </>
           ) : null}
-          <form.Subscribe selector={(state) => state.isSubmitting}>
-            {(isSubmitting) => (
+          <form.Subscribe
+            selector={(state) => ({ submitting: state.isSubmitting, values: state.values })}
+          >
+            {({ submitting: isSubmitting, values }) => (
               <HStack gap={2}>
                 <Button
                   type="submit"
                   variant="primary"
                   label={submitLabel}
                   isLoading={isSubmitting}
+                  isDisabled={
+                    isUnchanged?.({
+                      title: values.title.trim(),
+                      body_md: values.body.trim(),
+                      tags: parseTags(values.tags),
+                    }) ?? false
+                  }
                 />
                 <Button variant="ghost" label={t('solve.form.cancel')} onClick={onCancel} />
               </HStack>

@@ -111,6 +111,7 @@ func (h *Handler) ListContributionNeeds(w http.ResponseWriter, r *http.Request, 
 	for i, n := range page.Items {
 		items[i] = needJSON(n)
 	}
+	httpx.ViewerScoped(w)
 	writeJSON(w, http.StatusOK, apigen.NeedPage{Items: items, NextCursor: next(page.NextCursor)})
 }
 
@@ -150,10 +151,16 @@ func projectJSON(p domain.Project) apigen.Project {
 }
 
 func needJSON(n domain.Need) apigen.ContributionNeed {
-	return apigen.ContributionNeed{
+	out := apigen.ContributionNeed{
 		Id: mustID(n.ID), ProjectId: mustID(n.ProjectID), Title: n.Title, Description: n.Description,
 		Lang: apigen.Lang(n.Lang), Skills: n.Skills, Status: apigen.NeedStatus(n.Status), CreatedAt: n.CreatedAt.UTC(),
 	}
+	if n.ViewerApplication != nil {
+		out.ViewerApplication = &apigen.ViewerApplication{
+			Id: mustID(n.ViewerApplication.ID), Status: apigen.ApplicationStatus(n.ViewerApplication.Status),
+		}
+	}
+	return out
 }
 
 func links(in *[]apigen.LinkRef) []domain.LinkRef {

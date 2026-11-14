@@ -42,6 +42,8 @@ export const fr = {
   'solve.form.cancel': 'Annuler',
   'solve.err.title': 'Le titre doit faire entre 5 et 200 caractères.',
   'solve.err.body': 'Écrivez votre question (20 000 caractères au maximum).',
+  'solve.err.tags.unavailable':
+    'Une des étiquettes n’est plus disponible. Retirez-la ou remplacez-la.',
   'solve.err.tags': 'Indiquez de 1 à 5 étiquettes (minuscules, chiffres, - + . #).',
   'solve.err.snippet.language': 'Indiquez le langage de l’extrait (minuscules, ex. go).',
   'solve.err.snippet.code': 'L’extrait ne peut pas dépasser 10 000 caractères.',
@@ -115,6 +117,7 @@ export const en: Record<keyof typeof fr, string> = {
   'solve.form.cancel': 'Cancel',
   'solve.err.title': 'The title must be 5 to 200 characters long.',
   'solve.err.body': 'Write your question (20,000 characters at most).',
+  'solve.err.tags.unavailable': 'One of the tags is no longer available. Remove or replace it.',
   'solve.err.tags': 'Give 1 to 5 tags (lowercase, digits, - + . #).',
   'solve.err.snippet.language': 'Give the snippet language (lowercase, e.g. go).',
   'solve.err.snippet.code': 'The snippet cannot exceed 10,000 characters.',

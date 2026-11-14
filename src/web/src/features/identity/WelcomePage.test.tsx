@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { memberAccount, memberSession, mockApi, problemResponse } from '../../test/api';
 import { jsonResponse, renderApp, setLanguages } from '../../test/render';
+import { findVisibleText } from '../../test/visibleText';
 
 describe('WelcomePage', () => {
   it('greets a signed-in member by display name with next actions and no profile form', async () => {
@@ -58,9 +59,9 @@ describe('WelcomePage', () => {
       'GET /auth/session': () =>
         healthy ? jsonResponse(memberSession) : problemResponse(500, 'INTERNAL_ERROR'),
     });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp('/bienvenue');
-    expect(await screen.findByText(/Une erreur est survenue/)).toBeInTheDocument();
+    expect(await findVisibleText(/Une erreur est survenue/)).toBeInTheDocument();
     healthy = true;
     await user.click(screen.getByRole('button', { name: 'Réessayer' }));
     expect(

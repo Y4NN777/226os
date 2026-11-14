@@ -9,9 +9,7 @@ describe('translate', () => {
   });
 
   it('interpolates named parameters', () => {
-    expect(translate('en', 'form.name.tooShort', { min: 2 })).toBe(
-      'The name must be at least 2 characters long.',
-    );
+    expect(translate('en', 'account.menu', { name: 'Awa' })).toBe('Awa’s account');
   });
 
   it('falls back to French when the locale lacks the key, then to the key itself', () => {
