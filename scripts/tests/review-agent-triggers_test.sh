@@ -211,33 +211,88 @@ def needs_of(block):
 
 
 def strip_comment(ln):
-    """Cut the YAML comment (` #` outside quotes). A quote opens only at the start of a scalar (after start, space, [ { , : -),
-    so an apostrophe inside a word does not; a ` #` inside an open quote is kept (never hides text from the reader)."""
-    quote, prev = None, " "
-    for i, c in enumerate(ln):
-        if quote:
-            if c == "\\" and quote == '"':
-                prev = c
+    """Cut the YAML comment (` #`, or a `#` at the start of the line) following the YAML 1.2 scalar rules. A quote opens a
+    quoted scalar only where a scalar STARTS (line start, after `- `, `key: `, `[`, `{`, `,`); inside a quoted scalar a ` #`
+    is text. In a plain scalar (one that starts with anything else) a quote is just a character and ` #` always starts the
+    comment, so a quote in the comment can never hide the comment's text from the reader as value."""
+    state, quote, depth, prev, i = "start", None, 0, " ", 0
+    while i < len(ln):
+        c = ln[i]
+        nxt = ln[i + 1] if i + 1 < len(ln) else " "
+        if state == "quoted":
+            if quote == '"' and c == "\\":
+                i += 2
+                prev = "x"
                 continue
-            if c == quote and not (quote == '"' and prev == "\\"):
-                quote = None
-        elif c in "'\"" and (prev.isspace() or prev in "[{,:-"):
-            quote = c
-        elif c == "#" and (i == 0 or prev.isspace()):
+            if c == quote:
+                if quote == "'" and nxt == "'":
+                    i += 2
+                    prev = "x"
+                    continue
+                state = "after"
+            prev = c
+            i += 1
+            continue
+        if c == "#" and (i == 0 or prev.isspace()):
             return ln[:i]
+        if state == "start":
+            if c in "'\"":
+                state, quote = "quoted", c
+            elif c in "[{":
+                depth += 1
+            elif c in "]}":
+                depth = max(depth - 1, 0)
+            elif c.isspace() or c == ",":
+                pass
+            elif c == "-" and nxt.isspace():
+                pass
+            else:
+                state = "plain"
+        else:  # plain, or after the closing quote of a quoted scalar
+            if c == ":" and nxt.isspace():
+                state = "start"
+            elif depth and c == ",":
+                state = "start"
+            elif depth and c in "]}":
+                depth -= 1
+                state = "start" if depth else "after"
+            elif depth and c in "[{" and state == "after":
+                state = "start"
+                depth += 1
         prev = c
+        i += 1
     return ln
+
+
+def quoted_whole(value):
+    """True when `value` (comment already cut) is exactly one quoted scalar closed on this line, or does not start with a quote."""
+    v = value.strip()
+    if not v or v[0] not in "'\"":
+        return True
+    q, i = v[0], 1
+    while i < len(v):
+        if q == '"' and v[i] == "\\":
+            i += 2
+            continue
+        if v[i] == q:
+            if q == "'" and v[i + 1:i + 2] == "'":
+                i += 2
+                continue
+            return not v[i + 1:].strip()
+        i += 1
+    return False
 
 
 def own_if(block):
     """The job's if: value, or None. A value that continues on a following deeper-indented line (plain multi-line scalar,
-    block scalar, quoted string over several lines) is not read: it comes back poisoned with a leading `|`, which
-    conjuncts() refuses, so it is never a guard (fail closed)."""
+    block scalar) is not read: it comes back poisoned with a leading `|`, which conjuncts() refuses, so it is never a guard
+    (fail closed). A quoted value whose closing quote is not on the same line, or that has text after the closing quote, is
+    poisoned the same way whatever the next line's indent."""
     for i, ln in enumerate(block):
         m = re.match(r"^    if\s*:\s*(.*)$", ln)
         if m:
             nxt = next((x for x in block[i + 1:] if x.strip()), None)
-            if nxt is not None and indent(nxt) > 4:
+            if (nxt is not None and indent(nxt) > 4) or not quoted_whole(m.group(1)):
                 return "|" + m.group(1)
             return m.group(1)
     return None
@@ -746,7 +801,7 @@ jobs:
     steps:
       - run: echo ok
 Y
-expect_bad cmt_single "a ' #' inside a single-quoted string is not a comment (the || after it is seen)"
+expect_good cmt_single "in a plain scalar a ' #' starts the comment even after an opening quote (YAML 1.2): the value ends before it, so the || after it is not part of it"
 put cmt_double <<'Y'
 on:
   pull_request:
@@ -773,6 +828,60 @@ jobs:
       - run: echo ok
 Y
 expect_good cmt_after_quote "a real comment after a closed quoted string is still stripped"
+
+put cmt_plain_quote <<'Y'
+on:
+  pull_request:
+jobs:
+  j:
+    if: github.event_name == 'pull_request' && x == 'y #' && github.event_name == 'schedule'
+    environment: review-agent
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo ok
+Y
+expect_bad cmt_plain_quote "in a plain scalar a ' #' always starts a comment, even before a quote (the guard text after it is not part of the value)"
+put cmt_plain_quote_ok <<'Y'
+on:
+  pull_request:
+  schedule:
+    - cron: "0 * * * *"
+jobs:
+  j:
+    if: github.event_name == 'schedule' # it's #fine 'x'
+    environment: review-agent
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo ok
+Y
+expect_good cmt_plain_quote_ok "a plain scalar followed by a comment that holds quotes is still read"
+put quoted_open <<'Y'
+on:
+  pull_request:
+jobs:
+  j:
+    if: "github.event_name == 'schedule' &&
+    github.ref == 'refs/heads/develop'"
+    environment: review-agent
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo ok
+Y
+expect_bad quoted_open "a quoted if: whose closing quote is on another line is unreadable, whatever the next indent"
+put quoted_trailing <<'Y'
+on:
+  pull_request:
+  schedule:
+    - cron: "0 * * * *"
+jobs:
+  j:
+    if: "github.event_name == 'schedule'" || github.event_name == 'pull_request'
+    environment: review-agent
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo ok
+Y
+expect_bad quoted_trailing "text after the closing quote of a quoted if: is unreadable"
 
 dir="${WORKFLOWS_DIR:-$root/.github/workflows}"
 rc=0; out="$(check_dir "$dir" 2>&1)" || rc=$?
