@@ -81,12 +81,12 @@ func (h *Handler) GetQuestion(w http.ResponseWriter, r *http.Request, questionID
 // updateBody is QuestionUpdate with the one thing the generated type cannot say: "country": null (clear
 // it) is not the same as an absent country (keep it).
 type updateBody struct {
-	Title    *string           `json:"title"`
-	BodyMd   *string           `json:"body_md"`
-	Tags     *[]string         `json:"tags"`
-	Snippets *[]apigen.Snippet `json:"snippets"`
-	Country  nullableString    `json:"country"`
-	Links    *[]apigen.LinkRef `json:"links"`
+	Title    *string                   `json:"title"`
+	BodyMd   *string                   `json:"body_md"`
+	Tags     *[]string                 `json:"tags"`
+	Snippets *[]apigen.Snippet         `json:"snippets"`
+	Country  nullableString            `json:"country"`
+	Links    *[]apigen.QuestionLinkRef `json:"links"`
 }
 
 // nullableString records whether a JSON member was present, and its value (nil for null).
@@ -232,7 +232,7 @@ func snippets(in *[]apigen.Snippet) []domain.Snippet {
 	return out
 }
 
-func links(in *[]apigen.LinkRef) []domain.LinkRef {
+func links(in *[]apigen.QuestionLinkRef) []domain.LinkRef {
 	if in == nil {
 		return nil
 	}
