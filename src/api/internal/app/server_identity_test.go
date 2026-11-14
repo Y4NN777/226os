@@ -68,6 +68,9 @@ func (stubStore) ProfileByUserID(context.Context, string) (domain.Profile, error
 func (stubStore) ProfileByUsername(context.Context, string) (domain.ProfileRecord, error) {
 	return domain.ProfileRecord{}, errUnused
 }
+func (stubStore) ListProfiles(context.Context, domain.DirectoryQuery) ([]domain.DirectoryEntry, error) {
+	return nil, errUnused
+}
 func (stubStore) ResolveSkillSlugs(context.Context, []string) ([]string, error) {
 	return nil, errUnused
 }
@@ -117,6 +120,11 @@ func TestServerIdentityUnimplementedWithoutOption(t *testing.T) {
 	s.GetProfile(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil), "user")
 	if rec.Code != http.StatusNotImplemented {
 		t.Fatalf("GetProfile: status = %d", rec.Code)
+	}
+	rec = httptest.NewRecorder()
+	s.ListProfiles(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil), apigen.ListProfilesParams{})
+	if rec.Code != http.StatusNotImplemented {
+		t.Fatalf("ListProfiles: status = %d", rec.Code)
 	}
 }
 
@@ -197,6 +205,11 @@ func TestServerIdentityDelegates(t *testing.T) {
 	s.GetProfile(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil), "user")
 	if rec.Code == http.StatusNotImplemented {
 		t.Fatal("getProfile stayed unimplemented")
+	}
+	rec = httptest.NewRecorder()
+	s.ListProfiles(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil), apigen.ListProfilesParams{})
+	if rec.Code == http.StatusNotImplemented {
+		t.Fatal("listProfiles stayed unimplemented")
 	}
 }
 

@@ -89,6 +89,11 @@ type Store interface {
 	// UpdateProfile applies a resolved merge patch atomically: profile columns
 	// and the skill set commit or roll back together in one transaction.
 	UpdateProfile(ctx context.Context, userID string, w domain.ProfileWrite) error
+	// ListProfiles returns one keyset page of the people directory (E5),
+	// already filtered by visibility for the audience in q: only listable
+	// profiles, only the fields the audience may see, filters matching
+	// visible fields only. q.Limit rows at most.
+	ListProfiles(ctx context.Context, q domain.DirectoryQuery) ([]domain.DirectoryEntry, error)
 }
 
 // NewAccount is the sign-up write model. Password is the PHC hash.
@@ -118,7 +123,8 @@ type Service struct {
 	bucketKeyKey []byte // HMAC key for rate-limit bucket keys
 	csrfKey      []byte // HMAC key for CSRF tokens
 	now          func() time.Time
-	baseURL      string // public origin for mail links; empty means bare codes only
+	cursors      Cursors // signs the people-directory cursors (WithCursors)
+	baseURL      string  // public origin for mail links; empty means bare codes only
 	// spawn runs work off the request path (a goroutine in production; tests
 	// run it inline to stay deterministic).
 	spawn func(func())
@@ -146,6 +152,11 @@ type Option func(*Service)
 // tokens) is run. The default starts a goroutine; a test over a single
 // database connection passes an inline runner.
 func WithBackground(run func(func())) Option { return func(s *Service) { s.spawn = run } }
+
+// WithCursors sets the codec that signs and verifies the people-directory
+// page cursors. ListProfiles needs it; the composition root passes the shared
+// platform codec.
+func WithCursors(c Cursors) Option { return func(s *Service) { s.cursors = c } }
 
 // WithBaseURL sets the public origin (no trailing slash) that verification and reset mails link to. Empty
 // keeps the mails to the bare code. config.Load validates the value; nothing here logs it.

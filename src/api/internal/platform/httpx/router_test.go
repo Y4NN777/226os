@@ -219,8 +219,8 @@ func loadOps(t *testing.T) (specDoc, []specOp) {
 
 func TestEveryOperationIsMountedUnderAPIv1(t *testing.T) {
 	s, ops := loadOps(t)
-	if len(ops) != 48 {
-		t.Fatalf("spec has %d operations, want 48", len(ops))
+	if len(ops) != 49 {
+		t.Fatalf("spec has %d operations, want 49", len(ops))
 	}
 	var logs bytes.Buffer
 	h := newRouter(&logs)

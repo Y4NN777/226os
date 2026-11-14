@@ -33,6 +33,8 @@ type fakeStore struct {
 	errs       map[string]error                // method name -> forced error
 	profiles   map[string]domain.ProfileRecord // by username
 	tagIDs     map[string]string               // skill slug -> tag id (active only)
+	directory  []domain.DirectoryEntry         // rows ListProfiles serves, in order
+	lastDir    domain.DirectoryQuery           // the last ListProfiles query
 }
 
 type verifRow struct {
@@ -227,6 +229,24 @@ func (f *fakeStore) Hit(_ context.Context, scope string, key [32]byte, limit int
 }
 
 // ---------- profiles ----------
+
+func (f *fakeStore) ListProfiles(_ context.Context, q domain.DirectoryQuery) ([]domain.DirectoryEntry, error) {
+	f.lastDir = q
+	if err := f.errs["ListProfiles"]; err != nil {
+		return nil, err
+	}
+	var out []domain.DirectoryEntry
+	for _, e := range f.directory {
+		if q.AfterUsername != "" && e.Username <= q.AfterUsername {
+			continue
+		}
+		if len(out) == q.Limit {
+			break
+		}
+		out = append(out, e)
+	}
+	return out, nil
+}
 
 func (f *fakeStore) ProfileByUserID(_ context.Context, userID string) (domain.Profile, error) {
 	if err := f.errs["ProfileByUserID"]; err != nil {

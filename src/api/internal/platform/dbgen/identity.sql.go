@@ -468,6 +468,111 @@ func (q *Queries) InsertUserSkills(ctx context.Context, arg InsertUserSkillsPara
 	return err
 }
 
+const listDirectoryProfiles = `-- name: ListDirectoryProfiles :many
+SELECT p.user_id, p.username, p.display_name,
+       COALESCE(CASE WHEN p.country_visibility = 'public' OR ($1::boolean AND p.country_visibility = 'members')
+                     THEN p.country_code END, '')::text AS country_code,
+       (p.languages_visibility = 'public' OR ($1::boolean AND p.languages_visibility = 'members'))::boolean AS languages_visible,
+       CASE WHEN p.languages_visibility = 'public' OR ($1::boolean AND p.languages_visibility = 'members')
+            THEN p.languages ELSE '{}'::text[] END::text[] AS languages,
+       (p.skills_visibility = 'public' OR ($1::boolean AND p.skills_visibility = 'members'))::boolean AS skills_visible,
+       CASE WHEN p.skills_visibility = 'public' OR ($1::boolean AND p.skills_visibility = 'members')
+            THEN COALESCE((SELECT array_agg(t.slug ORDER BY t.slug)
+                           FROM user_skills us JOIN tags t ON t.id = us.tag_id
+                           WHERE us.user_id = p.user_id AND t.status = 'active'), '{}'::text[])
+            ELSE '{}'::text[] END::text[] AS skills,
+       COALESCE(CASE WHEN p.github_visibility = 'public' OR ($1::boolean AND p.github_visibility = 'members')
+                     THEN p.github_username END, '')::text AS github_username
+FROM profiles p
+JOIN users u ON u.id = p.user_id
+WHERE u.status = 'active'
+  AND (p.profile_visibility = 'public' OR ($1::boolean AND p.profile_visibility = 'members'))
+  AND p.open_to_collab
+  AND (p.open_to_collab_visibility = 'public' OR ($1::boolean AND p.open_to_collab_visibility = 'members'))
+  AND ($2::text IS NULL
+       OR (p.country_code = $2::text
+           AND (p.country_visibility = 'public' OR ($1::boolean AND p.country_visibility = 'members'))))
+  AND ($3::text IS NULL
+       OR ($3::text = ANY(p.languages)
+           AND (p.languages_visibility = 'public' OR ($1::boolean AND p.languages_visibility = 'members'))))
+  AND ($4::text IS NULL
+       OR (EXISTS (SELECT 1 FROM user_skills us JOIN tags t ON t.id = us.tag_id
+                   WHERE us.user_id = p.user_id AND t.slug = $4::text AND t.status = 'active')
+           AND (p.skills_visibility = 'public' OR ($1::boolean AND p.skills_visibility = 'members'))))
+  AND ($5::text IS NULL
+       OR (p.username, p.user_id) > ($5::text, $6::uuid))
+ORDER BY p.username, p.user_id
+LIMIT $7
+`
+
+type ListDirectoryProfilesParams struct {
+	Member        bool
+	Country       pgtype.Text
+	Language      pgtype.Text
+	Skill         pgtype.Text
+	AfterUsername pgtype.Text
+	AfterID       pgtype.UUID
+	RowLimit      int32
+}
+
+type ListDirectoryProfilesRow struct {
+	UserID           pgtype.UUID
+	Username         string
+	DisplayName      string
+	CountryCode      string
+	LanguagesVisible bool
+	Languages        []string
+	SkillsVisible    bool
+	Skills           []string
+	GithubUsername   string
+}
+
+// ListDirectoryProfiles is the E5 people directory (GET /profiles, C14b, ADR-0005 point 15). The caller is
+// anonymous (member = false) or a member (member = true); the owner has no branch of its own, so a profile
+// the caller may not see is not listed even to its owner. A profile is listed only when its account is
+// active, profile_visibility passes, open_to_collab is true and open_to_collab_visibility passes. A field is
+// selected only when its own *_visibility passes, and a filter on a field matches only when that field is
+// visible, so a hidden value never leaks through the projection or the filters. Email is never selected.
+// A visibility passes when it is 'public', or 'members' for a member; 'private' never passes.
+// A hidden or unset country and github come back as ” (neither value can be empty). Order and keyset: (username, user_id), served by profiles_username_uq.
+func (q *Queries) ListDirectoryProfiles(ctx context.Context, arg ListDirectoryProfilesParams) ([]ListDirectoryProfilesRow, error) {
+	rows, err := q.db.Query(ctx, listDirectoryProfiles,
+		arg.Member,
+		arg.Country,
+		arg.Language,
+		arg.Skill,
+		arg.AfterUsername,
+		arg.AfterID,
+		arg.RowLimit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListDirectoryProfilesRow{}
+	for rows.Next() {
+		var i ListDirectoryProfilesRow
+		if err := rows.Scan(
+			&i.UserID,
+			&i.Username,
+			&i.DisplayName,
+			&i.CountryCode,
+			&i.LanguagesVisible,
+			&i.Languages,
+			&i.SkillsVisible,
+			&i.Skills,
+			&i.GithubUsername,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const purgeRateLimitBuckets = `-- name: PurgeRateLimitBuckets :exec
 DELETE FROM rate_limit_buckets
 WHERE ctid IN (
