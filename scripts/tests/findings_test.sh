@@ -46,7 +46,9 @@ if method == "GET":
     elif "/compare/" in path: print(json.dumps(load("compare.json")))
     elif "/pulls/" in path: print(json.dumps(load("pull.json")))
     elif path.endswith("/issues"):
-        print(json.dumps([x for x in load("issues.json") if "finding" in [l if isinstance(l, str) else l["name"] for l in x["labels"]]]))
+        query = endpoint.split("?", 1)[1] if "?" in endpoint else ""
+        want = next((p[7:] for p in query.split("&") if p.startswith("labels=")), "finding")
+        print(json.dumps([x for x in load("issues.json") if want in [l if isinstance(l, str) else l["name"] for l in x["labels"]]]))
     else: sys.stderr.write("unexpected GET " + endpoint + "\n"); sys.exit(2)
 elif method == "POST" and path.endswith("/issues"):
     if fields.get("assignees[]") and os.environ.get("FAKE_ASSIGN_FAIL"):
@@ -230,5 +232,60 @@ run dashboard
 run dashboard
 [ "$(count_issues)" -eq 2 ] && grep -q '"patch"' "$tmp/st/log.jsonl" && ok "dashboard updates the same issue the second time" || ko "dashboard update (n=$(count_issues))"
 ! grep -q 'Findings dashboard' <<<"$(sed -n '/^## Fix next/,/^## [^F]/p' <<<"$out")" && ok "the dashboard issue is not listed in its own Fix next" || ko "self listed"
+
+# ---------- notes: OBSERVED / INFERRED remarks are kept in one checklist per pull request ----------
+N_OBS='{"id":"n-obs","kind":"note","evidence":"OBSERVED","sev":"LOW","file":"a.go","line":4,"scenario":"the cap is documented","status":"open"}'
+N_INF='{"id":"n-inf","kind":"note","evidence":"INFERRED","sev":"LOW","file":"b.go","line":8,"scenario":"a pin in a config file would be missed","status":"open"}'
+N_DONE='{"id":"n-done","kind":"note","evidence":"INFERRED","sev":"LOW","file":"c.go","line":1,"scenario":"already answered","status":"accepted"}'
+reset
+ledger_comments "[$N_OBS,$N_INF,$N_DONE]" >"$tmp/st/comments.json"
+run harvest
+[ "$(count_issues)" -eq 1 ] && grep -q 'PR94 notes' <<<"$(field 0 title)" && grep -q 'finding:PR94#notes' <<<"$(field 0 body)" && ok "open notes make one 'PR94 notes' issue (an accepted note is not filed)" || ko "notes issue (n=$(count_issues) t=$(field 0 title) out=$out)"
+b="$(field 0 body)"
+grep -q -- '- \[ \].*n-obs.*OBSERVED.*a.go:4' <<<"$b" && grep -q -- '- \[ \].*n-inf.*INFERRED.*b.go:8' <<<"$b" && ! grep -q 'n-done' <<<"$b" && ok "each note is a checklist line with its evidence tag and place" || ko "notes body ($b)"
+l="$(field 0 labels)"
+grep -q '"kind:note"' <<<"$l" && grep -q '"due:after-freeze"' <<<"$l" && grep -q '"area:identity"' <<<"$l" && grep -q '"src:ai"' <<<"$l" && ! grep -q '"finding"' <<<"$l" && ok "notes are labelled kind:note and due:after-freeze, never finding" || ko "notes labels ($l)"
+run harvest
+[ "$(count_issues)" -eq 1 ] && ok "harvesting twice files the notes issue once" || ko "notes idempotent (n=$(count_issues))"
+
+reset
+ledger_comments "[$F_HIGH,$F_MED1,$N_INF]" >"$tmp/st/comments.json"
+run harvest
+[ "$(count_issues)" -eq 3 ] && grep -q 'PR94 notes' <<<"$(field 2 title)" && ! grep -q 'n-inf' <<<"$(field 0 body) $(field 1 body)" && ok "findings and notes are filed apart: a note never lands in a finding or follow-ups issue" || ko "mixed (n=$(count_issues) out=$out)"
+
+reset
+five="$(python3 -I -c 'import json; print(",".join(json.dumps({"id":"h%d"%i,"sev":"HIGH","file":"x.go","line":i,"scenario":"s%d"%i,"status":"open"}) for i in range(1,6)))')"
+ledger_comments "[$five,$N_OBS]" >"$tmp/st/comments.json"
+run harvest
+[ "$(count_issues)" -eq 6 ] && ok "a note does not use up the cap of 5 single finding issues" || ko "cap with note (n=$(count_issues))"
+
+reset
+ledger_comments '[{"id":"old","sev":"MEDIUM","file":"a.go","line":3,"scenario":"no kind field","status":"open"}]' >"$tmp/st/comments.json"
+run harvest
+grep -q 'follow-ups' <<<"$(field 0 title)" && ok "an entry without kind is still a finding (older ledgers keep working)" || ko "default kind ($(field 0 title))"
+
+# ---------- dashboard: notes apart from findings; undecided INFERRED notes go stale after 7 days ----------
+reset
+mkissue 201 open "" "finding,sev:high,due:before-freeze,area:web" 2026-11-12T10:00:00Z "high web"
+mknote() { # NUMBER STATE REASON CREATED BODY (a literal \n in BODY is a newline)
+  python3 -I - "$tmp/st/issues.json" "$@" <<'EOF'
+import json, sys
+p, n, state, reason, created, body = sys.argv[1:7]
+d = json.load(open(p))
+d.append({"number": int(n), "state": state, "state_reason": reason or None, "labels": ["kind:note", "src:ai", "due:after-freeze"],
+          "created_at": created, "title": "PR%s notes" % n, "body": body.replace("\\n", "\n"), "html_url": "https://example.invalid/issues/" + n})
+json.dump(d, open(p, "w"))
+EOF
+}
+mknote 301 open "" 2026-11-01T10:00:00Z '<!-- finding:PR301#notes -->\n- [ ] `a` [INFERRED] `a.go:1` old guess\n- [x] `b` [INFERRED] `b.go:2` decided: fine\n- [ ] `c` [OBSERVED] `c.go:3` seen'
+mknote 302 open "" 2026-11-13T10:00:00Z '<!-- finding:PR302#notes -->\n- [ ] `d` [INFERRED] `d.go:1` fresh guess'
+mknote 303 closed not_planned 2026-10-30T10:00:00Z '<!-- finding:PR303#notes -->\n- [ ] `e` [INFERRED] `e.go:1` dismissed'
+FINDINGS_NOW=2026-11-14T00:00:00Z run dashboard --print
+notes="$(sed -n '/^## Notes/,/^## [^N]/p' <<<"$out")"
+grep -q '^## Notes' <<<"$out" && ok "the dashboard has a separate Notes section" || ko "notes section ($out)"
+fix_next="$(sed -n '/^## Fix next/,/^## [^F]/p' <<<"$out")"
+! grep -q '#30[0-9]' <<<"$fix_next" && grep -q '#201' <<<"$fix_next" && ok "notes never appear in Fix next" || ko "notes in fix next ($fix_next)"
+grep -q 'undecided: 3' <<<"$notes" && ok "undecided notes are the unticked boxes of open notes issues (3: a, c, d)" || ko "undecided ($notes)"
+grep -q 'INFERRED undecided for 7 days or more: 1' <<<"$notes" && grep -q '#301' <<<"$notes" && ! grep -q '#302' <<<"$(grep 'INFERRED undecided' <<<"$notes")" && ok "an INFERRED note undecided for 7 days or more is flagged (its issue is named, the fresh one is not)" || ko "stale inferred ($notes)"
 
 finish

@@ -7,14 +7,18 @@ dashboard says what to fix next. Nobody files a finding by hand: classifying one
              overflow) one "PR<N> follow-ups" checklist issue. Idempotent: every issue carries a marker
              `<!-- finding:PR<N>#<id> -->` and a second run files nothing twice. A malformed ledger is skipped and
              logged, never guessed.
+             Entries of kind `note` (remarks, evidence OBSERVED or INFERRED) are not findings: the open ones become one
+             "PR<N> notes" checklist issue (marker `PR<N>#notes`, labels kind:note, due:after-freeze, no `finding` label).
   dashboard  rank the open `finding` issues (due, severity, area, age) and print the result (`--print`) or write it to
              the one "Findings dashboard" issue (created if missing). Closed issues feed the rates:
              "completed" = fixed, "not planned" = accepted or not a defect; the rates appear after 20 closed findings.
+             A separate Notes section counts the undecided notes and flags INFERRED ones undecided for 7 days or more.
 
 Labels (created on first use by the issue API): finding, sev:*, src:ai, area:*, due:before-freeze|due:after-freeze.
 Fail OPEN: a GitHub error is printed as NOT RUN and the exit code stays 0, so the register never fails a workflow.
 Environment: REPO (owner/name), PR_NUMBER (harvest), PR_AUTHOR, GH_BIN (default gh, GH_TOKEN auth).
 """
+import datetime
 import importlib.util
 import os
 import re
@@ -25,6 +29,8 @@ SERIOUS = ("CRITICAL", "HIGH")
 SEV_RANK = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}
 AREA_FIRST = ("identity", "db", "data", "contract", "platform")
 MAX_SINGLE = 5
+STALE_NOTE_DAYS = 7
+NOTE_LINE = re.compile(r"^\s*- \[( |x|X)\]\s*`[^`]*`\s*\[(OBSERVED|INFERRED)\]")
 MIN_CLOSED_FOR_RATES = 20
 DASHBOARD_MARK = "<!-- findings-dashboard -->"
 MARK = re.compile(r"<!--\s*finding:(PR\d+#[\w-]+)\s*-->")
@@ -69,15 +75,20 @@ def marker_of(pr, key):
     return "<!-- finding:PR%s#%s -->" % (pr, key)
 
 
-def list_issues(ctx, binary, repo):
-    """Every `finding` issue (open and closed), without pull requests."""
-    items = ctx.gh_api(binary, "repos/%s/issues?labels=finding&state=all&per_page=100" % repo)
+def list_issues(ctx, binary, repo, label="finding"):
+    """Every issue with the label (open and closed), without pull requests: `finding` (default) or `kind:note`."""
+    items = ctx.gh_api(binary, "repos/%s/issues?labels=%s&state=all&per_page=100" % (repo, label))
     return [i for i in items if "pull_request" not in i]
 
 
 def finding_labels(sev, area):
     due = "due:before-freeze" if sev in SERIOUS else "due:after-freeze"
     return ["finding", "sev:%s" % sev.lower(), "src:ai", "area:%s" % area, due]
+
+
+def note_labels(area):
+    """Notes are remarks, not defects: no `finding` label (they stay out of the findings counts), always after the freeze."""
+    return ["kind:note", "src:ai", "area:%s" % area, "due:after-freeze"]
 
 
 def create_issue(binary, repo, title, body, labels, author):
@@ -149,6 +160,17 @@ def followups_body(pr, pr_title, findings, changed=frozenset()):
     return "\n".join(lines)
 
 
+def notes_body(pr, pr_title, notes, changed=frozenset()):
+    lines = [marker_of(pr, "notes"), "Notes of the AI review of PR #%s (%s): remarks that are not defects. Tick a box when you decided "
+             "(fine as is, or fixed) and say why in a comment; close the issue as **not planned** when none needs action. "
+             "OBSERVED means the reviewer read it in the code; INFERRED means it is a guess to check." % (pr, neutral(pr_title)), ""]
+    for n in notes:
+        note = " (%s)" % STALE if n["file"] in changed else ""
+        lines.append("- [ ] `%s` [%s] `%s:%s` %s%s" % (neutral(n["id"]), n["evidence"], neutral(n["file"]) or "?", n["line"] or "?",
+                                                      neutral(n["title"]), note))
+    return "\n".join(lines)
+
+
 def harvest(ctx, binary, repo, pr, author_env):
     pulls = ctx.gh_api(binary, "repos/%s/pulls/%s" % (repo, pr))
     info = pulls[0] if pulls else {}
@@ -162,15 +184,17 @@ def harvest(ctx, binary, repo, pr, author_env):
                       and re.search(r"review[ -]ledger", c.get("body") or "", re.I) is not None for c in comments)
         print("findings: ledger skipped (malformed)" if problem else "findings: no ledger on pull request #%s" % pr)
         return 0
-    open_findings = [f for f in ledger["findings"] if f["status"] == "open"]
-    if not open_findings:
+    open_entries = [f for f in ledger["findings"] if f["status"] == "open"]
+    open_findings = [f for f in open_entries if f["kind"] == "finding"]
+    open_notes = [f for f in open_entries if f["kind"] == "note"]
+    if not open_entries:
         print("findings: no open finding on pull request #%s" % pr)
         return 0
     author = author_env or (info.get("user") or {}).get("login", "")
     area = area_from_branch((info.get("head") or {}).get("ref", ""))
     title = info.get("title", "")
     existing, existing_titles = set(), set()
-    for issue in list_issues(ctx, binary, repo):
+    for issue in list_issues(ctx, binary, repo) + list_issues(ctx, binary, repo, "kind:note"):
         existing.update(MARK.findall(issue.get("body") or ""))
         # A human may edit an issue body and drop the marker: the title is checked too, so a re-run files no duplicate.
         existing_titles.add(issue.get("title", ""))
@@ -203,6 +227,12 @@ def harvest(ctx, binary, repo, pr, author_env):
             print("findings: filed PR%s#followups (%d findings)" % (pr, len(rest)))
         else:
             print("findings: NOT RUN for PR%s#followups (the issue could not be created)" % pr)
+    if open_notes and "PR%s#notes" % pr not in existing and "PR%s notes" % pr not in existing_titles:
+        if create_issue(binary, repo, "PR%s notes" % pr, notes_body(pr, title, open_notes, changed), note_labels(area), author):
+            filed += 1
+            print("findings: filed PR%s#notes (%d notes)" % (pr, len(open_notes)))
+        else:
+            print("findings: NOT RUN for PR%s#notes (the issue could not be created)" % pr)
     print("findings: %d issue(s) filed" % filed)
     if filed:
         write_dashboard(ctx, binary, repo, create=False)
@@ -221,7 +251,41 @@ def sort_key(issue):
     )
 
 
-def render_dashboard(issues):
+def parse_time(text):
+    try:
+        return datetime.datetime.strptime(text, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=datetime.timezone.utc)
+    except (TypeError, ValueError):
+        return None
+
+
+def now():
+    """FINDINGS_NOW (an ISO UTC time) pins the clock in tests."""
+    return parse_time(os.environ.get("FINDINGS_NOW", "")) or datetime.datetime.now(datetime.timezone.utc)
+
+
+def render_notes(notes_issues):
+    """The Notes section: open notes issues, the undecided lines (unticked boxes), and the INFERRED ones that stayed
+    undecided for STALE_NOTE_DAYS days or more (a guess nobody checked is the one to look at first)."""
+    open_issues = [i for i in notes_issues if i.get("state") == "open" and DASHBOARD_MARK not in (i.get("body") or "")]
+    undecided, stale, stale_issues = 0, 0, []
+    for i in open_issues:
+        created = parse_time(i.get("created_at"))
+        old = created is not None and (now() - created).days >= STALE_NOTE_DAYS
+        for line in (i.get("body") or "").splitlines():
+            m = NOTE_LINE.match(line)
+            if m and m.group(1) == " ":
+                undecided += 1
+                if old and m.group(2) == "INFERRED":
+                    stale += 1
+                    if "#%s" % i.get("number") not in stale_issues:
+                        stale_issues.append("#%s" % i.get("number"))
+    out = ["", "## Notes", "", "Remarks of the AI review that are not defects (one checklist issue per pull request, label `kind:note`).", "",
+           "- open notes issues: %d" % len(open_issues), "- undecided: %d" % undecided,
+           "- INFERRED undecided for %d days or more: %d%s" % (STALE_NOTE_DAYS, stale, " (%s)" % ", ".join(stale_issues) if stale_issues else "")]
+    return out
+
+
+def render_dashboard(issues, notes_issues=()):
     real = [i for i in issues if DASHBOARD_MARK not in (i.get("body") or "")]
     open_issues = sorted((i for i in real if i.get("state") == "open"), key=sort_key)
     closed = [i for i in real if i.get("state") == "closed"]
@@ -238,7 +302,8 @@ def render_dashboard(issues):
     out += ["", "## Counts", "", "- open: %d" % len(open_issues),
             "- before-freeze: %d | after-freeze: %d" % (count("due:", "before-freeze"), count("due:", "after-freeze")),
             "- critical: %d | high: %d | medium: %d | low: %d" % tuple(count("sev:", s) for s in ("critical", "high", "medium", "low")), ""]
-    out += ["## Self-measurement", ""]
+    out += render_notes(notes_issues)
+    out += ["", "## Self-measurement", ""]
     if len(closed) < MIN_CLOSED_FOR_RATES:
         out.append("- not enough closed findings yet (%d/%d): rates would mislead." % (len(closed), MIN_CLOSED_FOR_RATES))
     else:
@@ -251,7 +316,7 @@ def render_dashboard(issues):
 def write_dashboard(ctx, binary, repo, create):
     """Rewrite the dashboard issue; create it only when asked (harvest never creates it)."""
     issues = list_issues(ctx, binary, repo)
-    body = render_dashboard(issues)
+    body = render_dashboard(issues, list_issues(ctx, binary, repo, "kind:note"))
     for i in issues:
         if DASHBOARD_MARK in (i.get("body") or ""):
             gh_write(binary, "PATCH", "repos/%s/issues/%s" % (repo, i["number"]), [("body", body)])
@@ -279,7 +344,7 @@ def main():
                 return 0
             return harvest(ctx, binary, repo, pr, os.environ.get("PR_AUTHOR", ""))
         if "--print" in args:
-            print(render_dashboard(list_issues(ctx, binary, repo)))
+            print(render_dashboard(list_issues(ctx, binary, repo), list_issues(ctx, binary, repo, "kind:note")))
         else:
             write_dashboard(ctx, binary, repo, create=True)
     except Exception as exc:  # fail open: the register must never fail a workflow
