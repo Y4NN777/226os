@@ -65,14 +65,36 @@ comment = load("review_comment", "review-comment.py")
 gate = load("review_gate", "review-gate.py")
 
 
-def latest_runs(items):
-    """{check name: its latest check run} from the paginated check-runs answer."""
+# The workflow file that defines each required check: a check run counts only when its workflow run has this path, so a new
+# workflow of a pull request that names a job `quality` or `Review gate` is never the check (#212 L9).
+CHECK_WORKFLOWS = {
+    "Validate branch promotion": ".github/workflows/branch-policy.yml",
+    "quality": ".github/workflows/quality.yml",
+    "Review gate": ".github/workflows/code-review.yml",
+}
+
+
+def suite_paths(items):
+    """{check suite id: workflow file path} from the paginated actions/runs answer."""
+    out = {}
+    for page in items:
+        for run in (page.get("workflow_runs", []) if isinstance(page, dict) else []):
+            if isinstance(run, dict) and run.get("check_suite_id") is not None:
+                out[run["check_suite_id"]] = run.get("path") or ""
+    return out
+
+
+def latest_runs(items, suites=None):
+    """{check name: its latest check run} from the paginated check-runs answer. With `suites` (suite_paths), a check named in
+    CHECK_WORKFLOWS counts only when its check suite belongs to that workflow file."""
     runs = []
     for page in items:
         runs += page.get("check_runs", []) if isinstance(page, dict) else []
     latest = {}
     for r in runs:
         name = r.get("name", "")
+        if suites is not None and name in CHECK_WORKFLOWS and suites.get((r.get("check_suite") or {}).get("id")) != CHECK_WORKFLOWS[name]:
+            continue
         if name not in latest or (r.get("id") or 0) >= (latest[name].get("id") or 0):
             latest[name] = r
     return latest
@@ -145,7 +167,8 @@ def refusals(gh, repo, number, base, owner, required):
         pipeline_why = "it touches the review pipeline (%s): the owner merges it" % ", ".join(pipeline[:3])
         why.append(pipeline_why)
 
-    latest = latest_runs(gate.gh_api(gh, "repos/%s/commits/%s/check-runs?per_page=100" % (repo, head)))
+    suites = suite_paths(gate.gh_api(gh, "repos/%s/actions/runs?head_sha=%s&per_page=100" % (repo, head)))
+    latest = latest_runs(gate.gh_api(gh, "repos/%s/commits/%s/check-runs?per_page=100" % (repo, head)), suites)
     for name in required:
         run = latest.get(name)
         if run is None:

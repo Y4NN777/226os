@@ -447,12 +447,19 @@ def one_line(text, width=120):
     return text if len(text) <= width else text[:width - 1] + "..."
 
 
-def defect_id(ident, where):
-    """The key under which items are one defect: the id, the file AND the line, all three. A generic id on the same file at
-    another line, or with no known line, is another defect and stays its own row (settling one must never close the other)."""
+def norm_title(title):
+    """A title as it is compared for grouping: the `PR<n> ` prefix removed, case and spacing folded."""
+    return " ".join(re.sub(r"^PR\d+\s+", "", str(title or "").strip()).lower().split())
+
+
+def defect_id(ident, where, title=""):
+    """The key under which items are one defect: the id, the file, the line AND the normalised title, all four. A generic id on
+    the same file at another line, with no known line, or with another title (a coincidence, #212 L8) is another defect and
+    stays its own row (settling one must never close the other). The same finding raised on several pull requests keeps the
+    same title, so it still groups."""
     if not ident or not where or where.group(1) in ("", "?") or not re.fullmatch(r"\d+", where.group(2) or ""):
         return None
-    return (ident, where.group(1), int(where.group(2)))
+    return (ident, where.group(1), int(where.group(2)), norm_title(title))
 
 
 def batch_items(finding_issues, note_issues):
@@ -466,7 +473,7 @@ def batch_items(finding_issues, note_issues):
         sev = label_value(labels, "sev:").upper() or "?"
         mark, where = MARK.search(i.get("body") or ""), WHERE.search(i.get("body") or "")
         ident = mark.group(1).partition("#")[2] if mark else ""
-        gid = defect_id(ident, where) if ident and ident not in ("followups", "notes") else None
+        gid = defect_id(ident, where, i.get("title")) if ident and ident not in ("followups", "notes") else None
         items.append({"key": "#%s" % i.get("number"), "rank": sort_key(i), "number": i.get("number") or 0, "gid": gid,
                       "pr": mark.group(1).partition("#")[0][2:] if mark else "?",
                       "text": "#%s [%s] %s (area:%s)" % (i.get("number"), sev, one_line(i.get("title", "")),
@@ -485,7 +492,7 @@ def batch_items(finding_issues, note_issues):
             where = NOTE_WHERE.match(m.group(4))
             title = MARK.search(i.get("body") or "") or NOTES_TITLE.match(i.get("title") or "")
             items.append({"key": "#%s/%s" % (i.get("number"), slug(m.group(2))), "number": i.get("number") or 0,
-                          "gid": defect_id(slug(m.group(2)), where),
+                          "gid": defect_id(slug(m.group(2)), where, m.group(4)[where.end():] if where else ""),
                           "pr": (title.group(1).partition("#")[0][2:] if title.group(1).startswith("PR") else title.group(1)) if title else "?",
                           "rank": (1, NOTE_RANK + (0 if stale else 1), 0 if area in AREA_FIRST else 1, i.get("created_at", "")),
                           "text": "#%s [NOTE %s%s] `%s` %s" % (i.get("number"), m.group(3), ", %d+ days" % STALE_NOTE_DAYS if stale else "",
@@ -539,14 +546,15 @@ def merged_fix(ctx, binary, repo, issue):
     (`#N` or its URL), or None. Since ADR-0013 `develop` is the default branch, so `Closes #N` closes an issue natively on a merge into develop (needs-owner ones included); `close-merged-issues.py` stays as the idempotent backstop, and this check settles the batch whichever way the issue closed."""
     number = issue.get("number")
     # Only a pull request that says it IS the batch's fix counts: a `Batch: #N` line (the body written for the batch fix
-    # pull request), a closing keyword before the reference, or the words "review batch". A bare mention does not.
+    # pull request), a closing keyword before the reference, A bare mention does not, and the pull request's head branch must be a `fix/review/batch-` one.
     ref_n = r"(?:#%s(?!\d)|https://github\.com/[\w.-]+/[\w.-]+/issues/%s(?!\d))" % (number, number)
-    ref = re.compile(r"^Batch:\s*%s|\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\b:?\s+(?:the\s+)?(?:review\s+)?(?:batch\s+)?%s|\breview\s+batch\s+%s" % (ref_n, ref_n, ref_n), re.I | re.M)
+    # (No bare "review batch #N" match: anyone can write those words; and the head must be the batch branch, #212 L7.)
+    ref = re.compile(r"^Batch:\s*%s|\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\b:?\s+(?:the\s+)?(?:review\s+)?(?:batch\s+)?%s" % (ref_n, ref_n), re.I | re.M)
     created = issue.get("created_at", "")
     pulls = ctx.gh_api(binary, "repos/%s/pulls?state=closed&base=develop&sort=updated&direction=desc&per_page=100" % repo)
     for pr in pulls:
         merged = pr.get("merged_at") or ""
-        if merged and merged >= created and ref.search(pr.get("body") or ""):
+        if merged and merged >= created and str((pr.get("head") or {}).get("ref") or "").startswith(BATCH_PREFIX) and ref.search(pr.get("body") or ""):
             return pr
     return None
 

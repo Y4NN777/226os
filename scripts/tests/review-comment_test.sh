@@ -443,7 +443,7 @@ stage1_then_deep "" "$FIXED_DH"
 # ledger x carried deep entry x deep run, with the gate's reading of each comment; it replaces the one-off level cases.
 tbl="$(python3 -I "$here/review-comment-levels.py" 2>&1)" || true
 tail_line="$(tail -1 <<<"$tbl")"
-[ "$tail_line" = "cases=504 rows=39 failures=0" ] && ok "level table: $tail_line (declared x stage 1 ledger x carried x deep run: I1-I4 and the gate's reading)" || ko "level table ($(head -5 <<<"$tbl"))"
+[ "$tail_line" = "cases=504 rows=45 failures=0" ] && ok "level table: $tail_line (declared x stage 1 ledger x carried x deep run: I1-I4 and the gate's reading)" || ko "level table ($(head -5 <<<"$tbl"))"
 # The carried counter rises by exactly 1 per review run: a deep entry is counted by the deep merge when the deep stage runs
 # in that run, by stage 1 only when none runs.
 carried_n() { python3 -I -c 'import json,sys; print(json.loads(sys.argv[1]).get("carried"))' "$(posted_entry dh)"; }

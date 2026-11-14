@@ -28,6 +28,7 @@ case "$*" in
   "api repos/o/r/pulls/7 --paginate") cat "$FX/pull.json" ;;
   "api repos/o/r/pulls/7/files --paginate") cat "$FX/files.json" ;;
   "api repos/o/r/commits/$H/check-runs?per_page=100 --paginate") cat "$FX/checks.json" ;;
+  "api repos/o/r/actions/runs?head_sha=$H&per_page=100 --paginate") cat "$FX/runs.json" ;;
   "api repos/o/r/issues/7/comments --paginate") cat "$FX/comments.json" ;;
   "api repos/o/r/pulls/7/reviews --paginate") cat "$FX/reviews.json" ;;
   "api repos/o/r/pulls/7/commits --paginate") python3 -I -c '
@@ -59,7 +60,21 @@ pull() {
 }
 files() { python3 -I -c 'import json,sys; json.dump([{"filename": f} for f in sys.argv[2:]], open(sys.argv[1], "w"))' "$tmp/fx/files.json" "$@"; }
 # checks NAME:STATUS:CONCLUSION ...
-checks() { python3 -I -c 'import json,sys; json.dump({"total_count":len(sys.argv)-2,"check_runs":[dict(zip(("name","status","conclusion"),c.split(":")), id=i) for i,c in enumerate(sys.argv[2:])]}, open(sys.argv[1],"w"))' "$tmp/fx/checks.json" "$@"; }
+# checks NAME:STATUS:CONCLUSION ...: the check runs, each in its own check suite; the workflow run of the suite has the path
+# of the workflow that defines the check (the expected one, unless FORGE names a check that comes from another file).
+checks() {
+  python3 -I -c '
+import json, os, sys
+paths = {"Validate branch promotion": ".github/workflows/branch-policy.yml", "quality": ".github/workflows/quality.yml", "Review gate": ".github/workflows/code-review.yml"}
+forge = os.environ.get("FORGE", "")
+runs, suites = [], []
+for i, c in enumerate(sys.argv[3:]):
+    name, status, conclusion = c.split(":")
+    runs.append({"name": name, "status": status, "conclusion": conclusion, "id": i, "check_suite": {"id": 100 + i}})
+    suites.append({"check_suite_id": 100 + i, "path": ".github/workflows/evil.yml" if name == forge else paths.get(name, ".github/workflows/code-review.yml")})
+json.dump({"total_count": len(runs), "check_runs": runs}, open(sys.argv[1], "w"))
+json.dump({"total_count": len(suites), "workflow_runs": suites}, open(sys.argv[2], "w"))' "$tmp/fx/checks.json" "$tmp/fx/runs.json" "$@"
+}
 # review_comment TRIAGE LEDGER-JSON [DEEP-LINE]: the real layout (review-comment.py): line 1 Triage, 2 the marker, 3 Tool,
 # 4 Reviewed, 5 Deep (when the run has a deep stage), then a blank line.
 review_comment() {
@@ -150,6 +165,15 @@ grep -q 'pr merge 7' <<<"$calls" && ok "an owner-authored sensitive change whose
 reset; files scripts/x.sh; review_comment "Triage: NONE | blast radius: x" "$SENS_OK"; pull open develop o/r false '[]' Y4NN777
 printf '[{"sha":"%s","author":{"login":"Y4NN777"}},{"sha":"%s","author":{"login":"someone"}}]' "$OLD" "$H" >"$tmp/fx/commits.json"
 refused 'owner' "an owner-authored PR with a commit by someone else is not owner-authored"
+# --- #212 L9: a check counts only when its workflow file is the expected one ---
+reset; FORGE=quality checks "${GOOD_CHECKS[@]}"
+refused "required check quality has not reported" "L9: a check named quality that comes from another workflow file is ignored"
+reset; FORGE="Review gate" checks "${GOOD_CHECKS[@]}"
+refused "required check Review gate has not reported" "L9: a Review gate check from another workflow file is ignored"
+reset; printf '' >"$tmp/fx/runs.json"
+FAKE_GH_FAIL=1 run on
+[ "$rc" -eq 0 ] && ! grep -q 'pr merge' <<<"$calls" && ok "L9: unreadable workflow runs never merge" || ko "L9 unreadable ($out)"
+
 # --- #212 M8 + L3: verified commits only, 250 cap, the owner's standing CHANGES_REQUESTED ---
 reset; files scripts/x.sh; review_comment "Triage: NONE | blast radius: x" "$SENS_OK"; pull open develop o/r false '[]' Y4NN777
 printf '[{"sha":"%s","author":{"login":"Y4NN777"},"commit":{"message":"x","verification":{"verified":false}}}]' "$H" >"$tmp/fx/commits.json"
