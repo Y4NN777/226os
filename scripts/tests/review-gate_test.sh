@@ -148,6 +148,12 @@ reset; comment "$BOT" 2026-11-13T01:00:00Z "$crit_ok" 2026-11-13T03:00:00Z; comm
 run enforce
 [ "$rc" -ne 0 ] && ok "no marker (an older pull request): the most recently updated verdict wins" || ko "updated wins (rc=$rc out=$out)"
 
+# A marker comment whose verdict is NOT RUN (the review failed on the latest push) is NOT RUN: an older bot verdict
+# (a minimized duplicate) is never used instead.
+reset; comment "$BOT" 2026-11-13T01:00:00Z "$crit_ok" 2026-11-13T05:00:00Z; comment "$BOT" 2026-11-13T02:00:00Z "$(printf 'Triage: NOT RUN | the review returned no structured output\n%s' "$marker")" 2026-11-13T03:00:00Z
+run enforce
+[ "$rc" -eq 0 ] && grep -q 'triage verdict: NOT RUN (the review did not run on the latest push' <<<"$out" && ok "a NOT RUN marker comment is NOT RUN, an older verdict is not used instead" || ko "not run marker (rc=$rc out=$out)"
+
 reset; comment "$BOT" 2026-11-13T01:00:00Z "not a verdict at all"
 run enforce
 [ "$rc" -eq 0 ] && grep -q 'NOT RUN' <<<"$out" && ok "a bot comment without the verdict line is not a verdict" || ko "no verdict line (rc=$rc out=$out)"

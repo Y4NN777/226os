@@ -1,0 +1,79 @@
+# Stage 4 of the AI review pipeline (docs/quality/REVIEW_CONTEXT.md, "Pipeline"): merge a pull request into develop
+# when CI and the review agree that nothing is left for a human. scripts/review-automerge.py decides; its docstring lists
+# every condition (required checks SUCCESS on the head, the review ledger sha is the head, Triage neither NOT RUN nor
+# CRITICAL, no open finding, a deep review PASS of the head on a P0 path, the owner's approval on a sensitive path, no
+# needs-owner / do-not-merge / owner-override-pending label, not a draft, not a fork, no .github/workflows change, base
+# develop, never main). It merges with a MERGE COMMIT of exactly the evaluated head (never squash or rebase: a gitleaks
+# fingerprint depends on the merge commit), then calls update-branch for the other open pull requests into develop.
+#
+# TRIGGER: `workflow_run` when Quality, Code review or Branch policy completes on a pull request. GitHub runs it from
+# the DEFAULT branch's copy of this file (main), with the default branch's scripts: it does nothing before it is
+# promoted to main. Manual run: workflow_dispatch with a pull request number.
+# MODE: repository variable AUTO_MERGE = off | report (default: prints WOULD MERGE, writes nothing) | on.
+# TOKEN: the secret REVIEW_BOT_TOKEN (fine-grained, this repository only: Contents read and write, Pull requests read
+# and write; no Workflows permission). A merge with GITHUB_TOKEN would trigger no workflow, so the notes harvest would
+# never run. GITHUB_TOKEN (read-only below) does every read; the bot token only merges and updates branches. Without
+# the secret the job prints "auto-merge: NOT RUN (REVIEW_BOT_TOKEN missing)" and exits 0.
+# SAFETY: the pull request's code is never checked out nor run; event fields reach the script through env only.
+name: Review auto-merge
+
+on:
+  workflow_run:
+    workflows: [Quality, Code review, Branch policy]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: Pull request number to evaluate
+        required: true
+        type: string
+
+permissions: {}
+
+# One decision per head commit at a time; never cancel a decision half way (a merge must not be interrupted).
+concurrency:
+  group: review-automerge-${{ github.event.workflow_run.head_sha || inputs.pr_number }}
+  cancel-in-progress: false
+
+jobs:
+  automerge:
+    name: Auto-merge (review pipeline)
+    if: >-
+      github.event_name == 'workflow_dispatch'
+      || (github.event.workflow_run.event == 'pull_request'
+          && github.event.workflow_run.head_repository.full_name == github.repository)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
+      checks: read
+    steps:
+      # The workflow's own commit (the default branch), never the pull request head.
+      - name: Checkout the scripts and the path lists
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Decide and merge
+        env:
+          BOT_TOKEN: ${{ secrets.REVIEW_BOT_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+          AUTO_MERGE: ${{ vars.AUTO_MERGE || 'report' }}
+          REPO: ${{ github.repository }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+          BASE: develop
+        run: |
+          set -o pipefail
+          if [ -z "$BOT_TOKEN" ]; then
+            echo "auto-merge: NOT RUN (REVIEW_BOT_TOKEN missing)" | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          if [ ! -f scripts/review-automerge.py ]; then
+            echo "auto-merge: NOT RUN (scripts/review-automerge.py is not on this branch yet)" | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          python3 -I scripts/review-automerge.py | tee -a "$GITHUB_STEP_SUMMARY"

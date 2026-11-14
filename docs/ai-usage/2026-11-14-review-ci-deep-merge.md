@@ -1,0 +1,16 @@
+## AI review: deep review (stage 2), auto-merge (stage 4), NOT RUN fallback
+
+```yaml
+date: "2026-11-14"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code, Claude Opus 5.5 (subagent of the lead session)"
+purpose: "Run the review and merge process in CI with little owner time. An empty or invalid review output now writes the marker comment with `Triage: NOT RUN | <reason>` and the previous ledger carried forward (NOT RUN is never a pass; the gate reads it as NOT RUN instead of an older verdict). Stage 2: a read-only adversarial deep review (Opus, .claude/commands/deep-review.md, skeptic mandate) runs after the review when a P0 path is touched and merges its findings into the same comment and ledger (source deep). Stage 4: scripts/review-automerge.py and .github/workflows/review-automerge.yml merge a pull request into develop with a merge commit only when every required check, the review, the deep review and the owner rules agree, then update the other open pull requests."
+repository_or_source_context: "branch chore/review/ci-deep-review-merge, stacked on fix/review/ledger-head-sha (PR 159); branch protection of develop read through the API (required checks Validate branch promotion, quality, Review gate; strict false; conversation resolution required)"
+files_or_sections_affected: ["scripts/review-comment.py", "scripts/review-gate.py", "scripts/review-automerge.py", "scripts/tests/review-comment_test.sh", "scripts/tests/review-gate_test.sh", "scripts/tests/review-automerge_test.sh", ".github/workflows/code-review.yml", ".github/workflows/review-automerge.yml", ".github/deep-review-paths.txt", ".claude/commands/deep-review.md", "docs/quality/REVIEW_CONTEXT.md", "TODO.md"]
+third_party_sources_consulted: []
+license_review: "NOT APPLICABLE: original code, no new dependency"
+closure: "open"
+human_reviewers: ["Y4NN777 (owner, pending)"]
+tests_or_evidence: ["RED: review-comment 16 of 28 fail, review-gate 1 of 49, review-automerge 34 of 38 (no script)", "GREEN: review-comment 28, review-gate 49, review-automerge 38 passed"]
+open_risks: ["auto-merge runs from main (workflow_run uses the default branch): NOT RUN end to end before the promotion", "the deep job and the NOT RUN fallback run only once their scripts are on develop (they are read from the base commit)", "a CRITICAL replaced by a later NOT RUN no longer fails the gate (the gate fails open on NOT RUN); auto-merge still refuses", "update-branch after each merge costs one CI run and one review per open pull request"]
+```

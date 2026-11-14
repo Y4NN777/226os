@@ -1,0 +1,141 @@
+#!/usr/bin/env bash
+# Tests for scripts/review-automerge.py with a fake `gh`: it merges (a merge commit, the evaluated head only) only when
+# every condition holds, refuses with a reason otherwise, updates the other open pull requests into develop after a
+# merge, writes only with the bot token, and writes nothing when the mode is off or report or the token is missing.
+# Usage: scripts/tests/review-automerge_test.sh
+set -euo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+root="$(cd "$here/../.." && pwd)"
+# shellcheck source=scripts/tests/lib.sh
+source "$here/lib.sh"
+tool="$root/scripts/review-automerge.py"
+
+tmp="$(mktemp -d)"
+trap 'rm -rf "$tmp"' EXIT
+mkdir -p "$tmp/bin" "$tmp/fx" "$tmp/root/.github"
+export H=1111111111111111111111111111111111111111
+OLD=2222222222222222222222222222222222222222
+
+# Fake gh: reads answer from fixtures by endpoint; every call is logged with the token it used.
+cat >"$tmp/bin/gh" <<'GH'
+#!/usr/bin/env bash
+printf 'TOKEN=%s %s\n' "${GH_TOKEN:-}" "$*" >>"$FX/calls.log"
+[ -z "${FAKE_GH_FAIL:-}" ] || { echo "gh: boom" >&2; exit 1; }
+case "$*" in
+  "api repos/o/r/commits/$H/pulls --paginate") cat "$FX/assoc.json" ;;
+  "api repos/o/r/pulls/7 --paginate") cat "$FX/pull.json" ;;
+  "api repos/o/r/pulls/7/files --paginate") cat "$FX/files.json" ;;
+  "api repos/o/r/commits/$H/check-runs?per_page=100 --paginate") cat "$FX/checks.json" ;;
+  "api repos/o/r/issues/7/comments --paginate") cat "$FX/comments.json" ;;
+  "api repos/o/r/pulls/7/reviews --paginate") cat "$FX/reviews.json" ;;
+  "api repos/o/r/contents/.github/sensitive-paths.txt?ref=develop --paginate") cat "$FX/contents.json" ;;
+  "api repos/o/r/pulls?state=open&base=develop&per_page=100 --paginate") cat "$FX/open.json" ;;
+  "pr merge 7 --repo o/r --merge --match-head-commit $H") [ -z "${FAKE_MERGE_FAIL:-}" ] || { echo "405 not mergeable" >&2; exit 1; } ;;
+  "api -X PUT repos/o/r/pulls/"*"/update-branch") echo '{}' ;;
+  *) echo "unexpected: $*" >&2; exit 2 ;;
+esac
+GH
+chmod +x "$tmp/bin/gh"
+
+printf 'scripts/*\n.github/*\n' >"$tmp/root/.github/sensitive-paths.txt"
+printf 'src/api/internal/identity/*\ndb/queries/*\n' >"$tmp/root/.github/deep-review-paths.txt"
+printf '{"content":"%s"}' "$(printf 'scripts/*\n.github/*\n' | base64 -w0)" >"$tmp/fx/contents.json"
+
+# pull [state base headrepo draft labels-json author]
+pull() {
+  python3 -I -c 'import json,sys; a=sys.argv; json.dump({"number":7,"state":a[2],"draft":a[5]=="true","base":{"ref":a[3]},"head":{"sha":a[7],"repo":{"full_name":a[4]}},"labels":json.loads(a[6]),"user":{"login":a[8]}}, open(a[1],"w"))' \
+    "$tmp/fx/pull.json" "${1:-open}" "${2:-develop}" "${3:-o/r}" "${4:-false}" "${5:-[]}" "$H" "${6:-dev}"
+}
+files() { python3 -I -c 'import json,sys; json.dump([{"filename": f} for f in sys.argv[2:]], open(sys.argv[1], "w"))' "$tmp/fx/files.json" "$@"; }
+# checks NAME:STATUS:CONCLUSION ...
+checks() { python3 -I -c 'import json,sys; json.dump({"total_count":len(sys.argv)-2,"check_runs":[dict(zip(("name","status","conclusion"),c.split(":")), id=i) for i,c in enumerate(sys.argv[2:])]}, open(sys.argv[1],"w"))' "$tmp/fx/checks.json" "$@"; }
+# review_comment TRIAGE LEDGER-JSON
+review_comment() {
+  python3 -I -c 'import json,sys; body="%s\n<!-- 226os-ai-review -->\nTool: PASS (2 files)\n\n<details><summary>Review ledger</summary>\n\n```json\n%s\n```\n\n</details>" % (sys.argv[2], sys.argv[3]); json.dump([{"id":1,"user":{"login":"github-actions[bot]"},"body":body,"updated_at":"2026-11-14T10:00:00Z"}], open(sys.argv[1],"w"))' "$tmp/fx/comments.json" "$1" "$2"
+}
+GOOD_CHECKS=("Validate branch promotion:completed:success" "quality:completed:success" "Review gate:completed:success" "Code review (advisory):completed:failure")
+NOTE='{"id":"n1","kind":"note","evidence":"INFERRED","sev":"LOW","file":"a.go","line":1,"scenario":"s","status":"open"}'
+
+reset() {
+  pull
+  files src/web/src/main.tsx
+  checks "${GOOD_CHECKS[@]}"
+  review_comment "Triage: NONE | blast radius: this PR only" "{\"sha\":\"$H\",\"findings\":[$NOTE]}"
+  printf '[]' >"$tmp/fx/reviews.json"
+  printf '[{"number":7,"state":"open","base":{"ref":"develop"}}]' >"$tmp/fx/assoc.json"
+  printf '[{"number":7,"head":{"sha":"%s","repo":{"full_name":"o/r"}}},{"number":8,"head":{"sha":"%s","repo":{"full_name":"o/r"}}},{"number":9,"head":{"sha":"%s","repo":{"full_name":"fork/r"}}}]' "$H" "$OLD" "$OLD" >"$tmp/fx/open.json"
+}
+
+# run [MODE]: sets rc, out, calls, writes (the calls that write).
+run() {
+  rc=0
+  : >"$tmp/fx/calls.log"
+  out="$(PATH="$tmp/bin:$PATH" FX="$tmp/fx" REPO=o/r HEAD_SHA="$H" PR_NUMBER="${PRN:-}" AUTO_MERGE="${1-on}" BOT_TOKEN="${TOKEN-bot-secret}" GH_TOKEN=read-token OWNER=Y4NN777 ROOT="$tmp/root" python3 -I "$tool" 2>&1)" || rc=$?
+  calls="$(cat "$tmp/fx/calls.log")"
+  writes="$(grep -E 'pr merge|-X PUT|-X POST|-X PATCH|-X DELETE' <<<"$calls" || true)"
+}
+
+refused() { # REASON-REGEX DESCRIPTION
+  run on
+  if [ "$rc" -eq 0 ] && grep -q 'REFUSE #7' <<<"$out" && grep -Eq "$1" <<<"$out" && [ -z "$writes" ]; then ok "refused: $2"; else ko "refused: $2 (rc=$rc out=$out writes=$writes)"; fi
+}
+
+# --- the happy path ---
+reset; run on
+[ "$rc" -eq 0 ] && grep -q "^TOKEN=bot-secret pr merge 7 --repo o/r --merge --match-head-commit $H$" <<<"$calls" && ok "every condition holds: a merge commit of exactly the evaluated head, with the bot token" || ko "merge (rc=$rc out=$out calls=$calls)"
+! grep -q -- '--squash\|--rebase' <<<"$calls" && ok "never squash or rebase" || ko "merge method ($calls)"
+grep -q '^TOKEN=bot-secret api -X PUT repos/o/r/pulls/8/update-branch' <<<"$calls" && ! grep -q 'pulls/7/update-branch\|pulls/9/update-branch' <<<"$calls" && ok "update-branch is called for the other open pull requests into develop (not the merged one, not a fork)" || ko "update-branch ($calls)"
+! grep -v 'pr merge\|update-branch' <<<"$calls" | grep -q 'bot-secret' && ok "reads use the workflow token, only writes use the bot token" || ko "token split ($calls)"
+! grep -q 'bot-secret' <<<"$out" && ok "the token never appears in the output" || ko "token leak ($out)"
+grep -q 'pr merge 7' <<<"$calls" && grep -q 'kind[^,]*note' "$tmp/fx/comments.json" && ok "an open note alone does not block (the happy-path ledger has one)" || ko "note ($out)"
+
+# --- refusals ---
+reset; pull closed; refused 'not open' "the pull request is not open"
+reset; pull open main; refused 'base is main' "the base is not develop (never main)"
+reset; pull open develop fork/r; refused 'head repository' "a fork"
+reset; pull open develop o/r true; refused 'draft' "a draft"
+for l in needs-owner do-not-merge owner-override-pending; do reset; pull open develop o/r false "[{\"name\":\"$l\"}]"; refused "label $l" "the label $l"; done
+reset; files .github/workflows/x.yml; pull open develop o/r false '[]' Y4NN777; refused 'workflow' "a change to .github/workflows (the bot never merges one)"
+reset; checks "Validate branch promotion:completed:success" "quality:completed:failure" "Review gate:completed:success"; refused 'quality' "a required check failed"
+reset; checks "Validate branch promotion:completed:success" "quality:in_progress:" "Review gate:completed:success"; refused 'quality' "a required check is still running"
+reset; checks "Validate branch promotion:completed:success" "Review gate:completed:success"; refused 'quality' "a required check is missing"
+reset; checks "Validate branch promotion:completed:success" "quality:completed:skipped" "Review gate:completed:success"; refused 'quality' "a skipped required check is not SUCCESS"
+reset; printf '[]' >"$tmp/fx/comments.json"; refused 'no review comment' "no review comment"
+reset; review_comment "Triage: NONE | blast radius: x" "{\"sha\":\"$OLD\",\"findings\":[]}"; refused 'ledger sha' "the ledger sha is not the head (the review did not cover the latest commit)"
+reset; review_comment "Triage: NOT RUN | the review returned no structured output" "{\"sha\":\"$H\",\"findings\":[]}"; refused 'NOT RUN' "the review is NOT RUN"
+reset; review_comment "Triage: CRITICAL | blast radius: x" "{\"sha\":\"$H\",\"findings\":[]}"; refused 'CRITICAL' "a CRITICAL verdict"
+reset; review_comment "Triage: MEDIUM | blast radius: x" "{\"sha\":\"$H\",\"findings\":[{\"id\":\"m1\",\"kind\":\"finding\",\"sev\":\"MEDIUM\",\"status\":\"open\"}]}"; refused 'open finding' "an open finding (any level)"
+reset; review_comment "Triage: MEDIUM | blast radius: x" "{\"sha\":\"$H\",\"findings\":[{\"id\":\"m1\",\"kind\":\"finding\",\"sev\":\"MEDIUM\",\"status\":\"fixed\"},$NOTE]}"
+run on
+grep -q 'pr merge 7' <<<"$calls" && ok "a fixed finding and an open note do not block" || ko "fixed and note ($out)"
+reset; files src/api/internal/identity/service/x.go; refused 'deep review' "a P0 path without a deep review"
+reset; files src/api/internal/identity/service/x.go; review_comment "Triage: NONE | blast radius: x" "{\"sha\":\"$H\",\"findings\":[],\"deep\":{\"status\":\"PASS\",\"sha\":\"$OLD\"}}"; refused 'deep review' "a deep review of an older commit"
+reset; files src/api/internal/identity/service/x.go; review_comment "Triage: NONE | blast radius: x" "{\"sha\":\"$H\",\"findings\":[],\"deep\":{\"status\":\"NOT RUN\",\"sha\":\"$H\"}}"; refused 'deep review' "a deep review NOT RUN"
+reset; files src/api/internal/identity/service/x.go; review_comment "Triage: NONE | blast radius: x" "{\"sha\":\"$H\",\"findings\":[],\"deep\":{\"status\":\"PASS\",\"sha\":\"$H\"}}"
+run on
+grep -q 'pr merge 7' <<<"$calls" && ok "a P0 path with a deep review PASS of the head merges" || ko "deep pass ($out)"
+reset; files scripts/x.sh; review_comment "Triage: NONE | blast radius: x" "{\"sha\":\"$H\",\"findings\":[],\"deep\":{\"status\":\"PASS\",\"sha\":\"$H\"}}"; refused 'owner' "a sensitive path without the owner's approval"
+reset; files scripts/x.sh; review_comment "Triage: NONE | blast radius: x" "{\"sha\":\"$H\",\"findings\":[],\"deep\":{\"status\":\"PASS\",\"sha\":\"$H\"}}"; printf '[{"user":{"login":"Y4NN777"},"state":"APPROVED","submitted_at":"2026-11-14T10:00:00Z"}]' >"$tmp/fx/reviews.json"
+run on
+grep -q 'pr merge 7' <<<"$calls" && ok "a sensitive path approved by the owner merges" || ko "sensitive approved ($out)"
+reset; FAKE_GH_FAIL=1 run on
+[ "$rc" -eq 0 ] && grep -q 'NOT RUN' <<<"$out" && ! grep -q 'pr merge' <<<"$calls" && ok "a GitHub read error is NOT RUN: no merge, exit 0" || ko "gh fail (rc=$rc $out)"
+reset; FAKE_MERGE_FAIL=1 run on
+[ "$rc" -eq 0 ] && grep -q 'GitHub refused the merge' <<<"$out" && ! grep -q 'update-branch' <<<"$calls" && ok "a merge GitHub refuses (conflict, unresolved thread) is reported, exit 0, no update-branch" || ko "merge fail (rc=$rc $out)"
+
+# --- modes and token ---
+reset; run off
+[ "$rc" -eq 0 ] && [ -z "$calls" ] && grep -q 'off' <<<"$out" && ok "mode off: nothing is read nor written" || ko "off (rc=$rc $out $calls)"
+reset; run report
+[ "$rc" -eq 0 ] && [ -z "$writes" ] && grep -q 'WOULD MERGE #7' <<<"$out" && grep -q 'WOULD UPDATE #8' <<<"$out" && ok "mode report: prints what it would do, writes nothing" || ko "report (rc=$rc $out $writes)"
+reset; run ""
+[ -z "$writes" ] && grep -q 'WOULD MERGE' <<<"$out" && ok "the default mode is report" || ko "default ($out $writes)"
+reset; TOKEN='' run on
+[ "$rc" -eq 0 ] && [ "$out" = "auto-merge: NOT RUN (REVIEW_BOT_TOKEN missing)" ] && [ -z "$calls" ] && ok "a missing token: NOT RUN, exit 0, no call at all" || ko "no token (rc=$rc $out $calls)"
+reset; PRN=7 run report
+grep -q 'WOULD MERGE #7' <<<"$out" && ! grep -q "commits/$H/pulls" <<<"$calls" && ok "PR_NUMBER (manual run) evaluates that pull request" || ko "pr number ($out)"
+reset; PRN='7;x' run report
+grep -q 'NOT RUN' <<<"$out" && [ -z "$calls" ] && ok "a malformed PR_NUMBER is NOT RUN" || ko "bad pr number ($out)"
+
+finish
