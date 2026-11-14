@@ -44,7 +44,7 @@ REVIEW='{"body":"Triage: MEDIUM | blast radius: this PR only\n\nTool: PASS (99 f
 run() {
   rc=0
   : >"$tmp/calls.log"
-  out="$(PATH="$tmp/bin:$PATH" FX="$tmp" REPO=o/r PR_NUMBER=7 TOOL_LINE="${TOOL:-Tool: PASS (3 files)}" REVIEW_JSON="${JSON-$REVIEW}" DEEP_PENDING="${DEEP_PENDING:-}" python3 -I "$tool" 2>&1)" || rc=$?
+  out="$(PATH="$tmp/bin:$PATH" FX="$tmp" REPO=o/r PR_NUMBER=7 PR_HEAD_SHA="${HEAD_SHA:-}" REVIEW_OUTCOME="${OUTCOME:-success}" TOOL_LINE="${TOOL:-Tool: PASS (3 files)}" REVIEW_JSON="${JSON:-$REVIEW}" DEEP_PENDING="${DEEP_PENDING:-}" python3 -I "$tool" 2>&1)" || rc=$?
   calls="$(cat "$tmp/calls.log")"
 }
 
@@ -72,32 +72,47 @@ comments "[{\"id\":1,\"node_id\":\"N1\",\"user\":{\"login\":\"$BOT\"},\"body\":\
 run
 grep -q '^api -X PATCH repos/o/r/issues/comments/2$' <<<"$calls" && grep -q 'graphql.*id=N1' <<<"$calls" && ok "no marker: the latest updated Triage comment is edited, the other minimized" || ko "adopt ($calls)"
 
+# posted_body: the body of the last write in the call log.
+posted_body() { sed -n 's/^BODY //p' <<<"$calls" | tail -1 | python3 -I -c 'import json,sys; print(json.load(sys.stdin)["body"])'; }
+# ledger_sha: the sha of the fenced ledger of the posted body (empty when there is none).
+ledger_sha() { posted_body | python3 -I -c 'import json,re,sys; m=re.search(r"```json\s*(\{.*?\})\s*```", sys.stdin.read(), re.S); print(json.loads(m.group(1))["sha"] if m else "")'; }
+head_sha=0123456789abcdef0123456789abcdef01234567
+
+# The ledger sha is never the model's: it is always the validated PR head.
+comments '[]'
+HEAD_SHA="$head_sha" JSON='{"body":"Triage: NONE | blast radius: x\n\nok\n\n<details><summary>Review ledger</summary>\n\n```json\n{\"sha\":\"fedcba9876543210fedcba9876543210fedcba98\",\"findings\":[{\"id\":\"f1\",\"status\":\"open\"}]}\n```\n\n</details>"}' run
+[ "$(ledger_sha)" = "$head_sha" ] && grep -q '"f1"' <<<"$(posted_body)" && ok "the model's ledger sha is overwritten with PR_HEAD_SHA, its findings kept" || ko "ledger sha ($(posted_body))"
+HEAD_SHA="$head_sha" JSON='{"body":"Triage: NONE | blast radius: x\n\nno ledger written"}' run
+[ "$(ledger_sha)" = "$head_sha" ] && ok "a review without a ledger gets one at the head, with no findings" || ko "added ledger ($(posted_body))"
+
+# No usable review (empty, invalid, timed out): a NOT RUN marker comment, so nothing looks reviewed. The previous
+# ledger (last reviewed commit and findings) is carried unchanged, so the commits not reviewed are reviewed next time.
+python3 -I - "$tmp/comments.json" <<'PY'
+import json, sys
+body = "Triage: HIGH | blast radius: x\n<!-- 226os-ai-review -->\nTool: PASS (1 files)\n\n<details><summary>Review ledger</summary>\n\n```json\n" + json.dumps({"sha": "a" * 40, "findings": [{"id": "keep", "status": "open"}]}) + "\n```\n</details>"
+json.dump([{"id": 2, "node_id": "N2", "user": {"login": "github-actions[bot]"}, "body": body, "updated_at": "2026-11-14T09:00:00Z"}], open(sys.argv[1], "w"))
+PY
+HEAD_SHA="$head_sha" OUTCOME=failure JSON='{}' run
+pb="$(posted_body)"
+[ "$rc" -eq 0 ] && grep -q '^api -X PATCH repos/o/r/issues/comments/2$' <<<"$calls" && [ "$(sed -n 1p <<<"$pb")" = "Triage: NOT RUN | the review step ended with failure and returned no text" ] && [ "$(sed -n 2p <<<"$pb")" = "<!-- 226os-ai-review -->" ] && ok "no review text (timeout or failure): the marker comment says Triage: NOT RUN with the reason" || ko "not run comment (rc=$rc $calls $pb)"
+[ "$(ledger_sha)" = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" ] && grep -q '"keep"' <<<"$pb" && ok "a NOT RUN comment carries the previous ledger, never the head" || ko "not run ledger ($pb)"
+comments '[]'
+HEAD_SHA="$head_sha" JSON='{"body":"no verdict here"}' run
+pb="$(posted_body)"
+[ "$rc" -eq 0 ] && grep -q '^Triage: NOT RUN | the review text has no Triage first line$' <<<"$pb" && [ -z "$(ledger_sha)" ] && ok "a text without a Triage line: NOT RUN comment, no ledger when there was none" || ko "no verdict (rc=$rc $pb)"
+FAKE_GH_FAIL=1 run
+[ "$rc" -eq 0 ] && grep -q 'NOT RUN' <<<"$out" && ok "a GitHub error is NOT RUN, exit 0" || ko "gh fail (rc=$rc $out)"
+TOOL='Tool: anything the model wants' run
+body="$(sed -n 's/^BODY //p' <<<"$calls" | python3 -I -c 'import json,sys; print(json.load(sys.stdin)["body"])')"
+[ "$(sed -n 3p <<<"$body")" = "Tool: NOT RUN (the preview step gave no result)" ] && ok "a malformed Tool line is replaced by NOT RUN" || ko "bad tool ($body)"
+
+posted() { sed -n 's/^BODY //p' <<<"$calls" | tail -1 | python3 -I -c 'import json,sys; print(json.load(sys.stdin)["body"])' 2>/dev/null || true; }
+ledger_of() { python3 -I -c 'import json,re,sys; m=re.search(r"```json\s*(\{.*?\})\s*```", sys.stdin.read(), re.S); print(json.dumps(json.loads(m.group(1)), sort_keys=True) if m else "NONE")' 2>/dev/null || true; }
+
 # DEEP_PENDING: line 4 says the deep review runs next (auto-merge refuses until the deep job replaces it).
 comments '[]'
 DEEP_PENDING=true run
 [ "$(sed -n 's/^BODY //p' <<<"$calls" | python3 -I -c 'import json,sys; print(json.load(sys.stdin)["body"])' | sed -n 4p)" = "Deep: PENDING (a P0 path is touched: the deep review runs next)" ] && ok "DEEP_PENDING=true writes the Deep: PENDING line 4" || ko "deep pending ($calls)"
-
-# Fallback: an empty or invalid review still writes the marker comment, with the verdict NOT RUN (never a pass).
-posted() { sed -n 's/^BODY //p' <<<"$calls" | tail -1 | python3 -I -c 'import json,sys; print(json.load(sys.stdin)["body"])' 2>/dev/null || true; }
-ledger_of() { python3 -I -c 'import json,re,sys; m=re.search(r"```json\s*(\{.*?\})\s*```", sys.stdin.read(), re.S); print(json.dumps(json.loads(m.group(1)), sort_keys=True) if m else "NONE")' 2>/dev/null || true; }
-comments '[]'
-JSON='{"body":"no verdict here"}' run
-body="$(posted)"
-[ "$rc" -eq 0 ] && grep -q '^api -X POST repos/o/r/issues/7/comments$' <<<"$calls" && [ "$(sed -n 1p <<<"$body")" = "Triage: NOT RUN | the review text has no Triage first line" ] && [ "$(sed -n 2p <<<"$body")" = "<!-- 226os-ai-review -->" ] && ok "a text without a Triage first line writes the marker comment with Triage: NOT RUN" || ko "no verdict (rc=$rc $out $body)"
-[ "$(ledger_of <<<"$body")" = '{"findings": [], "sha": ""}' ] && ok "NOT RUN without a previous ledger writes an empty ledger" || ko "empty ledger ($body)"
-JSON='' run
-[ "$rc" -eq 0 ] && [ "$(posted | sed -n 1p)" = "Triage: NOT RUN | the review returned no structured output" ] && ok "an empty REVIEW_JSON is NOT RUN with its reason" || ko "empty json (rc=$rc $out)"
-JSON='{not json' run
-[ "$rc" -eq 0 ] && [ "$(posted | sed -n 1p)" = "Triage: NOT RUN | the review output is not valid JSON" ] && ok "an invalid REVIEW_JSON is NOT RUN with its reason" || ko "bad json (rc=$rc $out)"
-JSON='{}' run
-[ "$rc" -eq 0 ] && posted | head -1 | grep -q '^Triage: NOT RUN | ' && ok "a structured output without a body is NOT RUN, exit 0" || ko "no json (rc=$rc $out)"
-
-# NOT RUN on a later push keeps the previous ledger (an open HIGH must not vanish); its sha stays the old one.
-prev='Triage: HIGH | blast radius: one slice\n<!-- 226os-ai-review -->\nTool: PASS (2 files)\n\n<details><summary>Review ledger</summary>\n\n```json\n{\"sha\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"findings\":[{\"id\":\"h1\",\"kind\":\"finding\",\"evidence\":\"OBSERVED\",\"sev\":\"HIGH\",\"file\":\"a.go\",\"line\":3,\"scenario\":\"x\",\"status\":\"open\"}]}\n```\n\n</details>'
-comments "[{\"id\":2,\"node_id\":\"N2\",\"user\":{\"login\":\"$BOT\"},\"body\":\"$prev\",\"updated_at\":\"2026-11-14T09:00:00Z\"}]"
-JSON='' run
-body="$(posted)"
-grep -q '^api -X PATCH repos/o/r/issues/comments/2$' <<<"$calls" && [ "$(sed -n 1p <<<"$body")" = "Triage: NOT RUN | the review returned no structured output" ] && grep -q '"id": "h1"' <<<"$(ledger_of <<<"$body")" && grep -q '"sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"' <<<"$(ledger_of <<<"$body")" && ok "NOT RUN carries the previous ledger forward, with its old sha" || ko "carry forward ($body)"
 
 # --- deep review: merged into the same comment and ledger (subcommand deep) ---
 HEAD_SHA=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb

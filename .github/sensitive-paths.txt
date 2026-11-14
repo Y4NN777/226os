@@ -23,6 +23,8 @@ src/api/internal/platform/*
 
 # Secrets, dependencies and CADEV records
 secrets/*
+.npmrc
+*/.npmrc
 go.mod
 go.sum
 package.json
@@ -35,3 +37,4 @@ docs/decisions/*
 docs/quality/*
 AGENTS.md
 CLAUDE.md
+docs/team/OWNER_PREFERENCES.md

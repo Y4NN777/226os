@@ -147,12 +147,15 @@ run enforce
 reset; comment "$BOT" 2026-11-13T01:00:00Z "$crit_ok" 2026-11-13T03:00:00Z; comment "$BOT" 2026-11-13T02:00:00Z "Triage: NONE | blast radius: this PR only"
 run enforce
 [ "$rc" -ne 0 ] && ok "no marker (an older pull request): the most recently updated verdict wins" || ko "updated wins (rc=$rc out=$out)"
+reset; comment "$BOT" 2026-11-13T01:00:00Z "$crit_ok"; comment "$BOT" 2026-11-13T02:00:00Z "$(printf 'Triage: NOT RUN | the review returned no text\n%s' "$marker")"
+run enforce
+[ "$rc" -eq 0 ] && grep -q 'NOT RUN' <<<"$out" && ok "a NOT RUN marker comment is no verdict: a stale CRITICAL duplicate is never used instead" || ko "not run marker (rc=$rc out=$out)"
 
 # A marker comment whose verdict is NOT RUN (the review failed on the latest push) is NOT RUN: an older bot verdict
 # (a minimized duplicate) is never used instead.
 reset; comment "$BOT" 2026-11-13T01:00:00Z "$crit_ok" 2026-11-13T05:00:00Z; comment "$BOT" 2026-11-13T02:00:00Z "$(printf 'Triage: NOT RUN | the review returned no structured output\n%s' "$marker")" 2026-11-13T03:00:00Z
 run enforce
-[ "$rc" -eq 0 ] && grep -q 'triage verdict: NOT RUN (the review did not run on the latest push' <<<"$out" && ok "a NOT RUN marker comment is NOT RUN, an older verdict is not used instead" || ko "not run marker (rc=$rc out=$out)"
+[ "$rc" -eq 0 ] && grep -q 'triage verdict: NOT RUN' <<<"$out" && ok "a NOT RUN marker comment is NOT RUN even when a CRITICAL duplicate was updated later" || ko "not run marker (rc=$rc out=$out)"
 
 reset; comment "$BOT" 2026-11-13T01:00:00Z "not a verdict at all"
 run enforce

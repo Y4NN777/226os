@@ -31,7 +31,6 @@ import sys
 BOT_LOGINS = {"github-actions[bot]", "github-actions"}
 MARKER = "<!-- 226os-ai-review -->"
 VERDICT = re.compile(r"^Triage:\s*(CRITICAL|HIGH|MEDIUM|NONE)\s*\|\s*blast radius:\s*\S.*$")
-NOT_RUN = re.compile(r"^Triage:\s*NOT RUN\b")
 EVIDENCE = re.compile(r"[\w./-]+\.\w+:\d+")
 OVERRIDE_LABEL = "owner-override"
 LIST_PATH = ".github/sensitive-paths.txt"
@@ -79,18 +78,12 @@ def gh_api(gh, endpoint):
 def latest_verdict(comments):
     """(level, body) of the review comment's verdict, or None. The bot comment with the marker MARKER (the one review
     comment, scripts/review-comment.py) wins; without one (an older pull request), the most recently UPDATED bot
-    verdict, so a stale duplicate created later never wins. When the newest marker comment says `Triage: NOT RUN` (the
-    review failed on the latest push), the answer is ("NOT RUN", body): an older verdict is never used instead."""
-    stamp = lambda c: c.get("updated_at") or c.get("created_at") or ""
-    marked = [c for c in comments if (c.get("user") or {}).get("login") in BOT_LOGINS and MARKER in (c.get("body") or "")]
-    if marked:
-        newest = max(marked, key=stamp)
-        if NOT_RUN.match((newest.get("body") or "").strip()):
-            return "NOT RUN", newest.get("body") or ""
+    verdict, so a stale duplicate created later never wins. When a marker comment exists it is the only candidate: its
+    `Triage: NOT RUN` (the review gave no result) is no verdict, and an older duplicate is never used instead."""
+    bots = [c for c in comments if (c.get("user") or {}).get("login") in BOT_LOGINS]
+    marked = [c for c in bots if MARKER in (c.get("body") or "")]
     best = None
-    for c in comments:
-        if (c.get("user") or {}).get("login") not in BOT_LOGINS:
-            continue
+    for c in marked or bots:
         body = c.get("body") or ""
         first = body.strip().splitlines()[0] if body.strip() else ""
         m = VERDICT.match(first)
@@ -117,8 +110,6 @@ def check_verdict(gh, repo, pr, owner):
     if found is None:
         return None, "triage verdict: NOT RUN (no review verdict on this pull request)"
     level, body = found
-    if level == "NOT RUN":
-        return None, "triage verdict: NOT RUN (the review did not run on the latest push; not a pass, the gate fails open)"
     if level != "CRITICAL":
         return None, "triage verdict %s: never blocks" % level
     if not ("OBSERVED" in body and EVIDENCE.search(body)):

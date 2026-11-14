@@ -19,7 +19,7 @@ You may hand a bounded read-only question to the project agents `skeptic` or `sc
 
 ## Step 1: What to read
 
-Your tools are Read, Grep, Glob, `gh pr diff`, `gh pr view`, Skill and Agent: no git command (`git diff` and `git show` accept `--output=<file>` and could write files). `gh pr diff` gives the whole pull request; focus on the files and hunks of the pack's Range (the "Read first" pointers, the files the tool selected) and on what changed since the last reviewed commit in the ledger. Read every changed file on a P0 path in full at the head (under `pr/` in CI), and the callers and callees the change relies on (handler, service, repository, SQL query, migration, contract). `open-code-review` does not read `.sql`: read every changed `db/queries/*.sql` and migration yourself.
+Your tools are Read, Grep, Glob, `gh pr diff`, `gh pr view`, Skill and Agent: no git command (`git diff` and `git show` accept `--output=<file>` and could write files). In CI the diff of the Range is in `.review-diff.patch` at the workspace root (written by the pack; Read it in chunks); otherwise `gh pr diff` gives the whole pull request. Focus on the files and hunks of the pack's Range (the "Read first" pointers, the files the tool selected) and on what changed since the last reviewed commit in the ledger. Read every changed file on a P0 path in full at the head (under `pr/` in CI), and the callers and callees the change relies on (handler, service, repository, SQL query, migration, contract). `open-code-review` does not read `.sql`: read every changed `db/queries/*.sql` and migration yourself.
 
 ## Step 2: The adversarial lenses
 
