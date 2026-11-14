@@ -11,6 +11,7 @@ import (
 	"github.com/Y4NN777/226os/src/api/internal/platform/apigen"
 	"github.com/Y4NN777/226os/src/api/internal/platform/mailer"
 	searchtransport "github.com/Y4NN777/226os/src/api/internal/search/transport"
+	solvetransport "github.com/Y4NN777/226os/src/api/internal/solve/transport"
 )
 
 // Server is the ONLY production apigen.ServerInterface. Every operation answers
@@ -27,6 +28,7 @@ type Server struct {
 	learn     *learntransport.Handler
 	build     *buildtransport.Handler
 	assistant *assistanttransport.Handler
+	solve     *solvetransport.Handler
 }
 
 // Option configures NewServer.
@@ -55,6 +57,9 @@ func WithBuild(h *buildtransport.Handler) Option { return func(s *Server) { s.bu
 
 // WithAssistant sets the S9 assistant operation. Without it POST /assistant/answers stays 501.
 func WithAssistant(h *assistanttransport.Handler) Option { return func(s *Server) { s.assistant = h } }
+
+// WithSolve sets the S3 question and answer operations. Without it those routes stay 501.
+func WithSolve(h *solvetransport.Handler) Option { return func(s *Server) { s.solve = h } }
 
 // NewServer returns the production server with all operations unimplemented.
 // Without WithMailer its mailer is mailer.Disabled.
@@ -346,4 +351,58 @@ func (s *Server) AskAssistant(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.assistant.AskAssistant(w, r)
+}
+
+// ListQuestions serves GET /questions. A server built without WithSolve stays unimplemented.
+func (s *Server) ListQuestions(w http.ResponseWriter, r *http.Request, params apigen.ListQuestionsParams) {
+	if s.solve == nil {
+		s.Unimplemented.ListQuestions(w, r, params)
+		return
+	}
+	s.solve.ListQuestions(w, r, params)
+}
+
+// CreateQuestion serves POST /questions. A server built without WithSolve stays unimplemented.
+func (s *Server) CreateQuestion(w http.ResponseWriter, r *http.Request, params apigen.CreateQuestionParams) {
+	if s.solve == nil {
+		s.Unimplemented.CreateQuestion(w, r, params)
+		return
+	}
+	s.solve.CreateQuestion(w, r, params)
+}
+
+// GetQuestion serves GET /questions/{questionId}. A server built without WithSolve stays unimplemented.
+func (s *Server) GetQuestion(w http.ResponseWriter, r *http.Request, questionID apigen.QuestionId) {
+	if s.solve == nil {
+		s.Unimplemented.GetQuestion(w, r, questionID)
+		return
+	}
+	s.solve.GetQuestion(w, r, questionID)
+}
+
+// UpdateQuestion serves PATCH /questions/{questionId}. A server built without WithSolve stays unimplemented.
+func (s *Server) UpdateQuestion(w http.ResponseWriter, r *http.Request, questionID apigen.QuestionId, params apigen.UpdateQuestionParams) {
+	if s.solve == nil {
+		s.Unimplemented.UpdateQuestion(w, r, questionID, params)
+		return
+	}
+	s.solve.UpdateQuestion(w, r, questionID, params)
+}
+
+// ListAnswers serves GET /questions/{questionId}/answers. A server built without WithSolve stays unimplemented.
+func (s *Server) ListAnswers(w http.ResponseWriter, r *http.Request, questionID apigen.QuestionId, params apigen.ListAnswersParams) {
+	if s.solve == nil {
+		s.Unimplemented.ListAnswers(w, r, questionID, params)
+		return
+	}
+	s.solve.ListAnswers(w, r, questionID, params)
+}
+
+// CreateAnswer serves POST /questions/{questionId}/answers. A server built without WithSolve stays unimplemented.
+func (s *Server) CreateAnswer(w http.ResponseWriter, r *http.Request, questionID apigen.QuestionId, params apigen.CreateAnswerParams) {
+	if s.solve == nil {
+		s.Unimplemented.CreateAnswer(w, r, questionID, params)
+		return
+	}
+	s.solve.CreateAnswer(w, r, questionID, params)
 }

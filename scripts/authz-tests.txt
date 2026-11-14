@@ -23,3 +23,6 @@ POST /api/v1/contribution-needs/{needId}/applications TestAuthzCreateApplication
 GET /api/v1/projects/{projectId}/applications TestAuthzListProjectApplicationsNonOwner   # owner only (C1): anonymous 401, third party and applicant 403 on a public project, 404 on a private one; no item, no count
 PATCH /api/v1/applications/{applicationId} TestAuthzDecideApplicationNonParty   # owner accepts/declines, applicant withdraws: anonymous 401, third party 404 (IDOR), applicant accepting 403, owner withdrawing 403
 POST /api/v1/assistant/answers TestAuthzAskAssistantAnonymous   # verified member + CSRF: anonymous 401, unverified 403, provider never called, 429 on call 11, 503 when off or down
+POST /api/v1/questions TestAuthzCreateQuestionAnonymous   # verified member + CSRF: anonymous 401, unverified 403, nothing created
+PATCH /api/v1/questions/{questionId} TestAuthzUpdateQuestionNonOwner   # owner only: anonymous 401, non-owner 403 on a visible question whatever the If-Match, unknown or removed 404, nothing written
+POST /api/v1/questions/{questionId}/answers TestAuthzCreateAnswerAnonymous   # verified member + CSRF: anonymous 401, unverified 403, unknown or removed question 404, nothing created

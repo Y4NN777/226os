@@ -21,6 +21,9 @@ import { WelcomePage } from '../features/identity/WelcomePage';
 import { NotFound } from '../features/NotFound';
 import { validateSearchSearch } from '../features/search/routeSearch';
 import { SearchPage } from '../features/search/SearchPage';
+import { validateSolveSearch } from '../features/solve/routeSearch';
+import { QuestionPage } from '../features/solve/QuestionPage';
+import { SolvePage } from '../features/solve/SolvePage';
 import { SettingsPage } from '../features/settings/SettingsPage';
 import { AuthLayout } from './AuthLayout';
 import { IndexPage } from './IndexPage';
@@ -72,6 +75,17 @@ const searchRoute = createRoute({
   component: SearchPage,
   validateSearch: validateSearchSearch,
 });
+const solveRoute = createRoute({
+  getParentRoute: () => appLayout,
+  path: '/solve',
+  component: SolvePage,
+  validateSearch: validateSolveSearch,
+});
+const questionRoute = createRoute({
+  getParentRoute: () => appLayout,
+  path: '/questions/$questionId',
+  component: QuestionPage,
+});
 
 // Standalone account pages (no app chrome).
 const authLayout = createRoute({
@@ -119,6 +133,8 @@ const routeTree = rootRoute.addChildren([
     discoverRoute,
     resourceRoute,
     searchRoute,
+    solveRoute,
+    questionRoute,
   ]),
   authLayout.addChildren([
     signInRoute,

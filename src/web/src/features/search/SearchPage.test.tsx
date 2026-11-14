@@ -161,7 +161,11 @@ describe('SearchPage', () => {
     mockApi(searchRoute(empty));
     await renderApp('/recherche?q=zzzz');
     expect((await screen.findAllByText(/Aucun résultat pour .*zzzz/)).length).toBeGreaterThan(0);
-    expect(screen.getByText(/Essayez d’autres mots/)).toBeInTheDocument();
+    // Astryx may also announce the message in its aria-live status region, so match the visible copy only.
+    const visible = screen
+      .getAllByText(/Essayez d’autres mots/)
+      .filter((el) => !el.closest('[data-astryx-live-region]'));
+    expect(visible).toHaveLength(1);
     expect(screen.queryByRole('heading', { level: 2, name: 'Catalogue' })).not.toBeInTheDocument();
   });
 
