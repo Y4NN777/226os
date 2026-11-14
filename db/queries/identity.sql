@@ -154,6 +154,50 @@ FROM profiles p
 JOIN users u ON u.id = p.user_id
 WHERE p.username = $1;
 
+-- ListDirectoryProfiles is the E5 people directory (GET /profiles, C14b, ADR-0005 point 15). The caller is
+-- anonymous (member = false) or a member (member = true); the owner has no branch of its own, so a profile
+-- the caller may not see is not listed even to its owner. A profile is listed only when its account is
+-- active, profile_visibility passes, open_to_collab is true and open_to_collab_visibility passes. A field is
+-- selected only when its own *_visibility passes, and a filter on a field matches only when that field is
+-- visible, so a hidden value never leaks through the projection or the filters. Email is never selected.
+-- A visibility passes when it is 'public', or 'members' for a member; 'private' never passes.
+-- A hidden or unset country and github come back as '' (neither value can be empty). Order and keyset: (username, user_id), served by profiles_username_uq.
+-- name: ListDirectoryProfiles :many
+SELECT p.user_id, p.username, p.display_name,
+       COALESCE(CASE WHEN p.country_visibility = 'public' OR (sqlc.arg('member')::boolean AND p.country_visibility = 'members')
+                     THEN p.country_code END, '')::text AS country_code,
+       (p.languages_visibility = 'public' OR (sqlc.arg('member')::boolean AND p.languages_visibility = 'members'))::boolean AS languages_visible,
+       CASE WHEN p.languages_visibility = 'public' OR (sqlc.arg('member')::boolean AND p.languages_visibility = 'members')
+            THEN p.languages ELSE '{}'::text[] END::text[] AS languages,
+       (p.skills_visibility = 'public' OR (sqlc.arg('member')::boolean AND p.skills_visibility = 'members'))::boolean AS skills_visible,
+       CASE WHEN p.skills_visibility = 'public' OR (sqlc.arg('member')::boolean AND p.skills_visibility = 'members')
+            THEN COALESCE((SELECT array_agg(t.slug ORDER BY t.slug)
+                           FROM user_skills us JOIN tags t ON t.id = us.tag_id
+                           WHERE us.user_id = p.user_id AND t.status = 'active'), '{}'::text[])
+            ELSE '{}'::text[] END::text[] AS skills,
+       COALESCE(CASE WHEN p.github_visibility = 'public' OR (sqlc.arg('member')::boolean AND p.github_visibility = 'members')
+                     THEN p.github_username END, '')::text AS github_username
+FROM profiles p
+JOIN users u ON u.id = p.user_id
+WHERE u.status = 'active'
+  AND (p.profile_visibility = 'public' OR (sqlc.arg('member')::boolean AND p.profile_visibility = 'members'))
+  AND p.open_to_collab
+  AND (p.open_to_collab_visibility = 'public' OR (sqlc.arg('member')::boolean AND p.open_to_collab_visibility = 'members'))
+  AND (sqlc.narg('country')::text IS NULL
+       OR (p.country_code = sqlc.narg('country')::text
+           AND (p.country_visibility = 'public' OR (sqlc.arg('member')::boolean AND p.country_visibility = 'members'))))
+  AND (sqlc.narg('language')::text IS NULL
+       OR (sqlc.narg('language')::text = ANY(p.languages)
+           AND (p.languages_visibility = 'public' OR (sqlc.arg('member')::boolean AND p.languages_visibility = 'members'))))
+  AND (sqlc.narg('skill')::text IS NULL
+       OR (EXISTS (SELECT 1 FROM user_skills us JOIN tags t ON t.id = us.tag_id
+                   WHERE us.user_id = p.user_id AND t.slug = sqlc.narg('skill')::text AND t.status = 'active')
+           AND (p.skills_visibility = 'public' OR (sqlc.arg('member')::boolean AND p.skills_visibility = 'members'))))
+  AND (sqlc.narg('after_username')::text IS NULL
+       OR (p.username, p.user_id) > (sqlc.narg('after_username')::text, sqlc.narg('after_id')::uuid))
+ORDER BY p.username, p.user_id
+LIMIT sqlc.arg('row_limit');
+
 -- ResolveSkillSlugs maps contract skill slugs to tag ids. Only active tags
 -- resolve; the service rejects the patch when the count differs.
 -- name: ResolveSkillSlugs :many
