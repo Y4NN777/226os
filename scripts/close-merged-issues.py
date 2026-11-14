@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Close the issues a merged pull request names (stdlib only). GitHub honours `Closes #N` on a merge into the default
-branch, which is develop since ADR-0013, `needs-owner` issues included. This stays as the idempotent backstop: it closes
-what GitHub may not (another keyword case or form), with one comment, and keeps `needs-owner` issues open.
+branch, which is develop since ADR-0013, `needs-owner` issues included (ADR-0013 decision 5): in practice a `Closes #N`
+closes a `needs-owner` issue natively. This script is the idempotent backstop for other forms: it closes what GitHub may
+not (another keyword case or form), with one comment. It skips `needs-owner` issues itself (comment, left open), so it
+never closes one; only GitHub's native keyword does.
 
 Reads the BODY of pull request PR_NUMBER (never its commits or comments). When it is merged into develop from this
 repository, every `close|closes|closed|fix|fixes|fixed|resolve|resolves|resolved #N` (any case, an optional colon) names
@@ -9,7 +11,7 @@ an issue of this repository. For each one that is open: one comment "Fixed in #<
 then close it as completed. Left alone: pull requests, issues already closed, missing issues, another repository's
 `owner/repo#N`, issues labelled `review-batch`, and every issue named by a batch fix pull request (fix/review/batch-*:
 `findings.py settle` settles its sources from trusted keys and closes the batch after them). An issue
-labelled `needs-owner` gets a comment and stays open. Idempotent: the comment carries a marker and is written once; a
+labelled `needs-owner` gets a comment and is left open by this script. Idempotent: the comment carries a marker and is written once; a
 closed issue is never touched again. No mention.
 
 Fails CLOSED: a GitHub error is "close-merged: FAILED" with exit 1 (the job is not a required check).

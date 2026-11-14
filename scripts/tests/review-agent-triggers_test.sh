@@ -210,10 +210,35 @@ def needs_of(block):
     return out
 
 
+def strip_comment(ln):
+    """Cut the YAML comment (` #` outside quotes). A quote opens only at the start of a scalar (after start, space, [ { , : -),
+    so an apostrophe inside a word does not; a ` #` inside an open quote is kept (never hides text from the reader)."""
+    quote, prev = None, " "
+    for i, c in enumerate(ln):
+        if quote:
+            if c == "\\" and quote == '"':
+                prev = c
+                continue
+            if c == quote and not (quote == '"' and prev == "\\"):
+                quote = None
+        elif c in "'\"" and (prev.isspace() or prev in "[{,:-"):
+            quote = c
+        elif c == "#" and (i == 0 or prev.isspace()):
+            return ln[:i]
+        prev = c
+    return ln
+
+
 def own_if(block):
-    for ln in block:
+    """The job's if: value, or None. A value that continues on a following deeper-indented line (plain multi-line scalar,
+    block scalar, quoted string over several lines) is not read: it comes back poisoned with a leading `|`, which
+    conjuncts() refuses, so it is never a guard (fail closed)."""
+    for i, ln in enumerate(block):
         m = re.match(r"^    if\s*:\s*(.*)$", ln)
         if m:
+            nxt = next((x for x in block[i + 1:] if x.strip()), None)
+            if nxt is not None and indent(nxt) > 4:
+                return "|" + m.group(1)
             return m.group(1)
     return None
 
@@ -245,7 +270,7 @@ for path in files:
     base = os.path.basename(path)
     with open(path, encoding="utf-8") as fh:
         raw = [ln.rstrip("\n") for ln in fh]
-    lines = [re.sub(r"(^|\s)#.*$", "", ln) for ln in raw]
+    lines = [strip_comment(ln) for ln in raw]
     mentions = any(re.search(r"\benvironment\b|review-agent", ln) for ln in lines)
     if not mentions:
         continue
@@ -614,6 +639,140 @@ jobs:
       - run: echo ok
 Y
 expect_good good_quoted_env "plain quoted environment names other than review-agent are allowed"
+
+put ml_if <<'Y'
+on:
+  pull_request:
+  schedule:
+    - cron: "0 * * * *"
+jobs:
+  j:
+    if: github.event_name == 'schedule'
+      || github.event_name == 'pull_request_target'
+    environment: review-agent
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo ok
+Y
+expect_bad ml_if "an if: continued on a deeper-indented line (plain multi-line scalar) is unguarded"
+put ml_if_and <<'Y'
+on:
+  pull_request:
+jobs:
+  j:
+    if: github.event_name == 'schedule' &&
+      github.ref == 'refs/heads/develop'
+    environment: review-agent
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo ok
+Y
+expect_bad ml_if_and "even a multi-line && guard is refused (continuation lines are not read)"
+put ml_if_block <<'Y'
+on:
+  pull_request:
+jobs:
+  j:
+    if: >
+      github.event_name == 'schedule'
+    environment: review-agent
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo ok
+Y
+expect_bad ml_if_block "an if: written as a block scalar is unguarded"
+put ml_if_quoted <<'Y'
+on:
+  pull_request:
+jobs:
+  j:
+    if: "github.event_name == 'schedule' &&
+      github.ref == 'x'"
+    environment: review-agent
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo ok
+Y
+expect_bad ml_if_quoted "an if: in a quoted string spanning lines is unguarded"
+put ml_needs <<'Y'
+on:
+  pull_request:
+  schedule:
+    - cron: "0 * * * *"
+jobs:
+  plan:
+    if: github.event_name == 'schedule'
+      || github.event_name == 'pull_request_target'
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo ok
+  j:
+    needs: [plan]
+    environment: review-agent
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo ok
+Y
+expect_bad ml_needs "a needed job whose if: is multi-line is not a proven guard"
+put ml_needs_own <<'Y'
+on:
+  pull_request:
+  schedule:
+    - cron: "0 * * * *"
+jobs:
+  plan:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo ok
+  j:
+    needs: [plan]
+    if: always() &&
+      needs.plan.outputs.run == 'true'
+    environment: review-agent
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo ok
+Y
+expect_bad ml_needs_own "a multi-line if: on the job itself is not read, even beside a guarded need"
+put cmt_single <<'Y'
+on:
+  pull_request:
+jobs:
+  j:
+    if: github.event_name == 'push' && vars.A == 'a #b' || github.event_name == 'pull_request'
+    environment: review-agent
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo ok
+Y
+expect_bad cmt_single "a ' #' inside a single-quoted string is not a comment (the || after it is seen)"
+put cmt_double <<'Y'
+on:
+  pull_request:
+jobs:
+  j:
+    if: ${{ github.event_name == 'push' && vars.A == "a #b" || github.event_name == 'pull_request' }}
+    environment: review-agent
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo ok
+Y
+expect_bad cmt_double "a ' #' inside a double-quoted string is not a comment (the || after it is seen)"
+put cmt_after_quote <<'Y'
+on:
+  pull_request:
+  schedule:
+    - cron: "0 * * * *"
+jobs:
+  j:
+    if: github.event_name == 'schedule' && vars.A == 'a #b' # pull_request is not run here
+    environment: review-agent
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo ok
+Y
+expect_good cmt_after_quote "a real comment after a closed quoted string is still stripped"
 
 dir="${WORKFLOWS_DIR:-$root/.github/workflows}"
 rc=0; out="$(check_dir "$dir" 2>&1)" || rc=$?
