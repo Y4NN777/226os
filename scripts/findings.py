@@ -589,7 +589,7 @@ def settle_text(decision, reason, pr):
 PR_REF = re.compile(r"#(\d+)")
 
 
-def unverified(ctx, binary, repo, pr, files, decision, reason, cited):
+def unverified(ctx, binary, repo, pr, files, decision, reason, cited, created=""):
     """None when a FIXED or FIXED ELSEWHERE row is backed by the facts, else the one-line comment that leaves the source open
     (the fixer's verdict is its own opinion): FIXED needs the merged batch pull request's diff (`files`) to touch the file
     the finding cites; FIXED ELSEWHERE needs the pull request named in the reason (#N) to be merged and to have touched the cited file too."""
@@ -609,6 +609,9 @@ def unverified(ctx, binary, repo, pr, files, decision, reason, cited):
             info = {}
         if not info.get("merged_at"):
             return "named PR #%s is not merged: a human checks" % m.group(1)
+        # The PR the finding was raised on (merged before the source existed) fixes nothing "elsewhere".
+        if not created or info["merged_at"] <= created:
+            return "named PR #%s was merged before this source was created (or its creation time is unknown): a human checks" % m.group(1)
         try:
             named = set()
             for f in ctx.gh_api(binary, "repos/%s/pulls/%s/files?per_page=100" % (repo, m.group(1))):
@@ -649,7 +652,7 @@ def settle_issue(ctx, binary, repo, pr, batch_no, number, entries, files=None):
                 w = NOTE_WHERE.match(mm.group(4))
                 cited_by[slug(mm.group(2))] = w.group(1) if w else ""
         for key, (d, r) in list(notes.items()):
-            bad = unverified(ctx, binary, repo, pr, files, d, r, cited_by.get(key, ""))
+            bad = unverified(ctx, binary, repo, pr, files, d, r, cited_by.get(key, ""), issue.get("created_at") or "")
             if bad:
                 notes[key] = ("NOT VERIFIED", bad)
         entries = [(n, *notes.get(slug(n), (d, r))) if n else (n, d, r) for n, d, r in entries]
@@ -674,7 +677,7 @@ def settle_issue(ctx, binary, repo, pr, batch_no, number, entries, files=None):
     else:
         _, decision, reason = entries[0]
         w = WHERE.search(issue.get("body") or "")
-        bad = unverified(ctx, binary, repo, pr, files, decision, reason, w.group(1) if w else "")
+        bad = unverified(ctx, binary, repo, pr, files, decision, reason, w.group(1) if w else "", issue.get("created_at") or "")
         if bad:
             decision, reason = "NOT VERIFIED", bad
         if decision in CLOSE_AS and issue.get("state") == "open":

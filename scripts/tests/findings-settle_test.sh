@@ -72,7 +72,7 @@ setup() {
 import json, os, sys
 st = sys.argv[1]
 def finding(n, title):
-    return {"number": n, "state": "open", "state_reason": None, "title": title, "labels": [{"name": "finding"}],
+    return {"number": n, "state": "open", "state_reason": None, "title": title, "created_at": "2026-11-13T00:00:00Z", "labels": [{"name": "finding"}],
             "body": "<!-- finding:PR90#f%d -->\n\n- Where: `src/f%d.go:1`\n" % (n, n), "comments": [{"user": {"login": "dev"}, "body": "human note @someone"}]}
 notes20 = ("<!-- finding:PR91#notes -->\nNotes of PR #91.\n\n"
            "- [ ] `n1` [INFERRED] `src/a.go:1` guess one\n- [ ] `n2` [OBSERVED] `src/b.go:2` remark two")
@@ -80,7 +80,7 @@ notes21 = ("<!-- finding:PR92#notes -->\nNotes of PR #92.\n\n"
            "- [ ] `n3` [INFERRED] `src/c.go:3` later\n- [ ] `n4` [OBSERVED] `src/d.go:4` not in the batch")
 held = finding(16, "e"); held["labels"].append({"name": "needs-owner"})
 issues = [finding(7, "not in the batch"), finding(12, "a"), finding(13, "b"), finding(14, "c"), finding(15, "d"), held,
-          {"number": 20, "state": "open", "state_reason": None, "title": "PR91 notes", "labels": [{"name": "kind:note"}], "body": notes20, "comments": []},
+          {"number": 20, "state": "open", "state_reason": None, "title": "PR91 notes", "created_at": "2026-11-13T00:00:00Z", "labels": [{"name": "kind:note"}], "body": notes20, "comments": []},
           {"number": 21, "state": "open", "state_reason": None, "title": "PR92 notes", "labels": [{"name": "kind:note"}], "body": notes21, "comments": []},
           {"number": 40, "state": "open", "state_reason": None, "title": "Review batch 2026-11-14", "labels": [{"name": "review-batch"}],
            "body": "<!-- review-batch -->\n# Review batch 2026-11-14\n\n" + "\n".join(
@@ -272,5 +272,22 @@ d = json.load(open(sys.argv[1])); d["body"] = d["body"].replace("fixed by #150",
 EOF
 run 163
 [ "$(field 15 'x["state"], x["state_reason"]')" = "('closed', 'completed')" ] && ok "FIXED ELSEWHERE with a disarmed reference (#<zero-width space>150), merged and touching the cited file, closes" || ko "disarmed ref ($(field 15 'x["state"], x["comments"][-1]["body"]'))"
+
+# deep-fixed-elsewhere-origin-pr: the named PR must be merged AFTER the source was created (the PR the finding was raised on
+# fixes nothing "elsewhere").
+setup
+printf '{"number":150,"merged_at":"2026-11-12T12:00:00Z"}' >"$tmp/st/pr150.json"
+run 163
+[ "$(field 15 'x["state"]')" = "open" ] && field 15 'x["comments"][-1]["body"]' | grep -q 'merged before this source was created' && ok "FIXED ELSEWHERE naming a PR merged BEFORE the source was created (the origin PR) stays open" || ko "origin pr ($(field 15 'x["state"], x["comments"][-1]["body"]'))"
+setup
+python3 -I - "$tmp/st/issues.json" <<'EOF'
+import json, sys
+d = json.load(open(sys.argv[1]))
+for x in d:
+    if x["number"] == 15: x.pop("created_at")
+json.dump(d, open(sys.argv[1], "w"))
+EOF
+run 163
+[ "$(field 15 'x["state"]')" = "open" ] && ok "FIXED ELSEWHERE with a source whose creation time is unknown stays open" || ko "no created_at"
 
 finish
