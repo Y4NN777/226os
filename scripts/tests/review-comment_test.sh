@@ -423,13 +423,27 @@ led = {"sha": sys.argv[3], "findings": [{"id": "dh", "kind": "finding", "evidenc
 body = "Triage: %s | blast radius: x\n<!-- 226os-ai-review -->\nTool: PASS (1 files)\n\n<details><summary>Review ledger</summary>\n\n```json\n%s\n```\n\n</details>" % (sys.argv[1], json.dumps(led))
 print(json.dumps([{"id": 2, "node_id": "N2", "user": {"login": "github-actions[bot]"}, "body": body, "created_at": "2026-11-14T09:00:00Z"}]))' "$1" "$2" "$locsha"
 }
-comments "$(carried_base HIGH open)"
-DJSON='{"level":"NONE","blast_radius":"x","summary":"s","findings":[{"id":"dh","kind":"finding","evidence":"OBSERVED","sev":"HIGH","file":"a.go","line":3,"scenario":"s","status":"fixed","detail":"d","fix":"f"}]}' deep
-[ "$(posted | sed -n 1p)" = "Triage: NONE | blast radius: x" ] && ok "deep: a carried open deep HIGH that the deep stage marks fixed drops the Triage line to NONE (no stale HIGH)" || ko "stale high ($(posted | sed -n 1,4p))"
+# stage1_then_deep PENDING: stage 1 (a model that declares NONE, no entry) over a previous comment carrying an open deep HIGH,
+# then that posted comment becomes the base the deep stage merges into (same head).
+stage1_posted_as_comment() {
+  posted_body | python3 -I -c 'import json,sys; print(json.dumps([{"id":2,"node_id":"N2","user":{"login":"github-actions[bot]"},"body":sys.stdin.read(),"created_at":"2026-11-14T10:00:00Z"}]))'
+}
+stage1_then_deep() { # PENDING DJSON
+  comments "$(carried_base HIGH open)"
+  HEAD_SHA="$locsha" DEEP_PENDING="$1" JSON="$(mkreview '[]' | sed 's/Triage: MEDIUM/Triage: NONE/')" run
+  s1_line="$(posted_body | sed -n 1p)"
+  comments "$(stage1_posted_as_comment)"
+  HEAD_SHA="$locsha" DJSON="$2" deep
+}
+# Replacement design (review of bb0abb0): deep never lowers; stage 1 leaves carried deep entries out while the deep stage runs.
+FIXED_DH='{"level":"NONE","blast_radius":"x","summary":"s","findings":[{"id":"dh","kind":"finding","evidence":"OBSERVED","sev":"HIGH","file":"a.go","line":3,"scenario":"s","status":"fixed","detail":"d","fix":"f"}]}'
+stage1_then_deep true "$FIXED_DH"
+[ "$s1_line" = "Triage: NONE | blast radius: x" ] && [ "$(posted | sed -n 1p)" = "Triage: NONE | blast radius: x" ] && ok "stuck case: deep pending, a carried deep HIGH does not inflate stage 1, the deep run marks it fixed: final NONE" || ko "stuck case ($s1_line / $(posted | sed -n 1,4p))"
+stage1_then_deep "" "$FIXED_DH"
+[ "$s1_line" = "Triage: HIGH | blast radius: x" ] && ok "no deep stage in this run: a carried open deep HIGH keeps stage 1 at HIGH" || ko "deep not pending ($s1_line)"
+stage1_then_deep true '{"level":"NONE","blast_radius":"x","summary":"s","findings":[]}'
+[ "$s1_line" = "Triage: NONE | blast radius: x" ] && [ "$(posted | sed -n 1p)" = "Triage: HIGH | blast radius: x" ] && pyassert 'import json,sys; f=json.loads(sys.argv[1]); assert f["status"]=="open" and f["carried"]>=1 and f["source"]=="deep"' "$(posted_entry dh)" 2>/dev/null && posted | grep -q 'Carried forward without a new decision.*`dh`' && ok "deep pending, the deep output leaves the carried HIGH out: it is carried open (named, counted) and the deep merge raises the line to HIGH" || ko "omitted erased ($s1_line / $(posted | sed -n 1,8p))"
 # Review of 21a8a5e: the level goes DOWN only when a review explicitly marks an entry fixed.
-comments "$(carried_base HIGH open)"
-DJSON='{"level":"NONE","blast_radius":"x","summary":"s","findings":[]}' deep
-[ "$(posted | sed -n 1p)" = "Triage: HIGH | blast radius: x" ] && pyassert 'import json,sys; f=json.loads(sys.argv[1]); assert f["status"]=="open" and f["carried"]==1 and f["source"]=="deep"' "$(posted_entry dh)" 2>/dev/null && posted | grep -q 'Carried forward without a new decision.*`dh`' && ok "deep: an open deep HIGH the next deep output leaves out is carried open (named, counted), the Triage stays HIGH" || ko "omitted erased ($(posted | sed -n 1,8p))"
 mkbase() { # LEVEL FINDINGS_JSON: a stage 1 comment
   python3 -I -c '
 import json, sys
@@ -447,9 +461,19 @@ DJSON="$CLEAN" deep
 comments '[{"id":2,"node_id":"N2","user":{"login":"github-actions[bot]"},"body":"Triage: HIGH | blast radius: x\n<!-- 226os-ai-review -->\nTool: PASS (1 files)\n\nno ledger at all","created_at":"2026-11-14T09:00:00Z"}]'
 CID=2 DJSON="$CLEAN" deep
 [ "$(posted | sed -n 1p)" = "Triage: HIGH | blast radius: x" ] && ok "deep: a stage 1 HIGH with no ledger at all stays HIGH after a clean deep review" || ko "no ledger lowered ($(posted | sed -n 1,3p))"
+NOTRUN_FIXED='{"level":"NONE","blast_radius":"x","summary":"s","findings":[{"id":"dh","kind":"finding","evidence":"OBSERVED","sev":"HIGH","file":"a.go","line":3,"scenario":"s","status":"fixed","detail":"d","fix":"f"},{"kind":"note","detail":"no id"}]}'
+stage1_then_deep true "$NOTRUN_FIXED"
+[ "$(posted | sed -n 1p)" = "Triage: HIGH | blast radius: x" ] && posted | grep -q '^Deep: NOT RUN' && pyassert 'import json,sys; assert json.loads(sys.argv[1])["status"]=="open"' "$(posted_entry dh)" 2>/dev/null && ok "deep NOT RUN with a fixed entry: the ledger keeps it open and the line goes up to HIGH, never down" || ko "not run fixed ($(posted | sed -n 1,5p))"
+# next run (no deep stage): the open entry is still carried and stage 1 stays HIGH
+comments "$(python3 -I -c 'import json,sys; print(json.dumps([{"id":2,"node_id":"N2","user":{"login":"github-actions[bot]"},"body":sys.argv[1],"created_at":"2026-11-14T11:00:00Z"}]))' "$(posted)")"
+HEAD_SHA=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb JSON="$(mkreview '[]' | sed 's/Triage: MEDIUM/Triage: NONE/')" run
+[ "$(posted_body | sed -n 1p)" = "Triage: HIGH | blast radius: x" ] && ok "the next run still carries it open: HIGH (the NOT RUN did not lower the level one run late)" || ko "next run ($(posted_body | sed -n 1,3p))"
+# a stage 1 level that nothing explains survives a deep fixed entry (no floor arithmetic to fool)
 comments "$(carried_base HIGH open)"
-DJSON='{"level":"NONE","blast_radius":"x","summary":"s","findings":[{"id":"dh","kind":"finding","evidence":"OBSERVED","sev":"HIGH","file":"a.go","line":3,"scenario":"s","status":"fixed","detail":"d","fix":"f"},{"kind":"note","detail":"no id"}]}' deep
-[ "$(posted | sed -n 1p)" = "Triage: HIGH | blast radius: x" ] && posted | grep -q '^Deep: NOT RUN' && ok "deep: a partial NOT RUN deep (an invalid entry dropped) never lowers the level, even with a fixed entry" || ko "not run lowered ($(posted | sed -n 1,5p))"
+HEAD_SHA="$locsha" DEEP_PENDING=true JSON="$(mkreview '[]' | sed 's/Triage: MEDIUM/Triage: HIGH/')" run
+comments "$(stage1_posted_as_comment)"
+HEAD_SHA="$locsha" DJSON="$FIXED_DH" deep
+[ "$(posted | sed -n 1p)" = "Triage: HIGH | blast radius: x" ] && ok "an unexplained stage 1 HIGH written this run stays HIGH after the deep run fixes a carried entry" || ko "unexplained high ($(posted | sed -n 1,3p))"
 comments "$(carried_base NONE fixed)"
 DJSON='{"level":"NONE","blast_radius":"deep blast","summary":"s","findings":[{"id":"dn","kind":"finding","evidence":"OBSERVED","sev":"HIGH","file":"a.go","line":2,"scenario":"s","status":"open","detail":"d","fix":"f"}]}' deep
 [ "$(posted | sed -n 1p)" = "Triage: HIGH | blast radius: deep blast" ] && ok "deep: a new open OBSERVED HIGH still raises the Triage line" || ko "deep raise again ($(posted | sed -n 1,4p))"

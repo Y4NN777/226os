@@ -441,8 +441,10 @@ def effective_level(declared, entries):
     return max(level, LEVELS[top], key=LEVELS.index)
 
 
-def pin_level(text):
-    """The text with its first line's level set to the one its own ledger supports (blast radius text kept)."""
+def pin_level(text, deep_pending=False):
+    """The text with its first line's level set to the one its own ledger supports (blast radius text kept). When the deep
+    review runs in this same run, carried `source: deep` entries are left out: the deep stage decides them (it can only
+    raise the line afterwards, never lower it). Without a deep stage they count."""
     m = FENCED.search(text or "")
     first = (text or "").split("\n", 1)[0]
     v = VERDICT.match(first.strip())
@@ -454,7 +456,8 @@ def pin_level(text):
         return text
     if not isinstance(data, dict) or not isinstance(data.get("findings"), list):
         return text
-    level = effective_level(v.group(1), data["findings"])
+    mine = [f for f in data["findings"] if not (deep_pending and isinstance(f, dict) and f.get("source") == "deep")]
+    level = effective_level(v.group(1), mine)
     if level == v.group(1):
         return text
     return first.replace(v.group(1), level, 1) + text[len(first):]
@@ -473,7 +476,7 @@ def compose(text, tool_line, head="", deep_line=None, reviewed=None, previous_le
     text = pin_ledger("\n".join(top + [""] + rest), head, previous_ledger)
     if FULL_SHA.match(head or ""):
         text = carry_forward(text, previous_ledger)
-    return pin_level(text) + "\n"
+    return pin_level(text, deep_pending=deep_line is not None) + "\n"
 
 
 def not_run(reason, tool_line, previous, reviewed=None):
@@ -728,6 +731,16 @@ def merge_deep(base, data, why, head):
         standalone = []
         for e in data["entries"]:
             s1 = stage1.get(e["id"])
+            if s1 is None and why:
+                # A NOT RUN deep output changes no status of an existing entry: the old entry stays as it was, a new
+                # valid OPEN entry is added.
+                old = before.get(e["id"])
+                if old is not None:
+                    if status_of(old) != "fixed":
+                        standalone.append(old)
+                elif e["status"] == "open":
+                    standalone.append(e)
+                continue
             if s1 is None:
                 old = before.get(e["id"]) or {}
                 if FULL_SHA.match(str(old.get("first_sha") or "")) and old.get("file") == e["file"] and old.get("line") == e["line"]:
@@ -746,7 +759,8 @@ def merge_deep(base, data, why, head):
             s1["sev"] = "LOW" if s1["kind"] == "note" else worst
             if s1["sev"] == "CRITICAL" and e["sev"] == "CRITICAL":
                 s1["evidence"] = "OBSERVED"
-            s1["status"] = e["status"]
+            if not why:
+                s1["status"] = e["status"]
         # An earlier deep entry the new output leaves out is CARRIED forward (named, counted), never erased: only an explicit
         # `fixed` from this deep run closes it. A fixed one is dropped, as before.
         listed = {e["id"] for e in data["entries"]}
@@ -766,20 +780,12 @@ def merge_deep(base, data, why, head):
             deep_line = "Deep: NOT RUN (%s)" % one_line(why)
         else:
             deep_line = "Deep: PASS (%s, %s)" % (plural(found, "finding"), plural(len(data["entries"]) - found, "note"))
-        # The level may go DOWN only when a review explicitly marks an entry fixed, never by omission, missing data or a
-        # NOT RUN deep. The stage 1 level as written is a floor; the only part of it that may go is the part that came
-        # solely from carried deep entries (the merged ledger keeps every one this run did not mark fixed).
+        # The deep merge NEVER lowers the Triage line: final = max(the stage 1 line as written this run, the level the merged
+        # ledger supports). Stage 1 already left the carried deep entries out of its own level when this deep stage runs.
         m = VERDICT.match(first)
         if m:
             current = m.group(1)
-            merged = effective_level("NONE", ledger["findings"])
-            if why:
-                level = max(current, merged, key=LEVELS.index)
-            else:
-                from_deep = effective_level("NONE", [f for f in old_findings if isinstance(f, dict) and f.get("source") == "deep"])
-                from_rest = effective_level("NONE", [f for f in old_findings if isinstance(f, dict) and f.get("source") != "deep"])
-                floor = from_rest if LEVELS.index(current) <= max(LEVELS.index(from_deep), LEVELS.index(from_rest)) else current
-                level = max(floor, merged, key=LEVELS.index)
+            level = max(current, effective_level("NONE", ledger["findings"]), key=LEVELS.index)
             if level != current:
                 blast = data["blast"] if LEVELS.index(level) > LEVELS.index(current) else (re.search(r"blast radius:\s*(.*)$", first) or [None, data["blast"]])[1]
                 first = "Triage: %s | blast radius: %s" % (level, blast)
