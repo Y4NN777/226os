@@ -3,6 +3,7 @@ import * as home from '../features/home/messages';
 import * as identity from '../features/identity/messages';
 import * as landing from '../features/landing/messages';
 import * as search from '../features/search/messages';
+import * as solve from '../features/solve/messages';
 
 export type Locale = 'fr' | 'en';
 
@@ -196,6 +197,7 @@ const fr = {
   ...search.fr,
   ...landing.fr,
   ...home.fr,
+  ...solve.fr,
 };
 
 export type MessageKey = keyof typeof fr;
@@ -207,6 +209,7 @@ const en: Record<MessageKey, string> = {
   ...search.en,
   ...landing.en,
   ...home.en,
+  ...solve.en,
 };
 
 export type Catalogs = Record<Locale, Partial<Record<MessageKey, string>>>;
@@ -219,6 +222,7 @@ export const frenchParts: readonly Record<string, string>[] = [
   search.fr,
   landing.fr,
   home.fr,
+  solve.fr,
 ];
 
 export const catalogs: Catalogs = { fr, en };
