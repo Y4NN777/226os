@@ -23,7 +23,7 @@ function signInHref(path: string) {
   return isSafeInternalPath(path) ? `/connexion?next=${encodeURIComponent(path)}` : '/connexion';
 }
 
-function Published({ title, onAnother }: { title: string; onAnother: () => void }) {
+function Published({ id, title, onAnother }: { id: string; title: string; onAnother: () => void }) {
   const { t } = useI18n();
   return (
     <FocusRegion role="status">
@@ -31,8 +31,8 @@ function Published({ title, onAnother }: { title: string; onAnother: () => void 
         <Heading level={1}>{t('learn.done.title')}</Heading>
         <Text as="p">{t('learn.done.body', { title })}</Text>
         <Button variant="primary" label={t('learn.done.another')} onClick={onAnother} />
-        <Link href="/" isStandalone>
-          {t('learn.done.home')}
+        <Link href={`/apprendre/articles/${id}`} isStandalone>
+          {t('learn.done.view')}
         </Link>
       </VStack>
     </FocusRegion>
@@ -49,7 +49,7 @@ export function WritePage() {
   const search: { link?: string } = useSearch({ strict: false });
   const location = useLocation();
   const create = useCreateArticle();
-  const [published, setPublished] = useState<string | null>(null);
+  const [published, setPublished] = useState<{ id: string; title: string } | null>(null);
   // A new key per "write another": changing it remounts the form with empty fields.
   const [round, setRound] = useState(0);
 
@@ -75,7 +75,8 @@ export function WritePage() {
     return (
       <VStack gap={3} hAlign="start" maxWidth={560}>
         <Published
-          title={published}
+          id={published.id}
+          title={published.title}
           onAnother={() => {
             setPublished(null);
             setRound((n) => n + 1);
@@ -86,8 +87,8 @@ export function WritePage() {
   }
 
   const submit = async (draft: ArticleCreate) => {
-    await create(draft);
-    setPublished(draft.title);
+    const { id } = await create(draft);
+    setPublished({ id, title: draft.title });
   };
 
   return (
