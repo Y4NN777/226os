@@ -64,6 +64,11 @@ declared level is never discarded silently). A NOT RUN verdict stays NOT RUN; th
 (it can never carry a ledger); the merge is idempotent.
 Subcommand `deep-needed`: prints `true` when the pull request touches a P0 path (.github/sensitive-paths.txt plus
 .github/deep-review-paths.txt under ROOT, default the repository of this script), else `false` (also on any error).
+Subcommand `repin` (the review decided `skip`: the base branch was merged and the branch has no own change): when the
+previous review comment is a completed review whose ledger sha is an ancestor of PR_HEAD_SHA and no commit of the branch
+itself changed a file since (git, BASE_REF, LOCATION_REPO), a new marker comment carries the same verdict and ledger with
+the ledger sha and the deep sha moved to the head and line 4 `Reviewed: <sha7> (base merged, no own change) at <time>`.
+This is a policy choice: the own diff the deep review read is unchanged. Anything else repins nothing.
 Fails OPEN: a GitHub error prints NOT RUN and exits 0, so it never turns the pull request red.
 
 Environment: REPO (owner/name), PR_NUMBER, REVIEW_JSON (the review's structured output, {"body": "..."}) or
@@ -984,6 +989,96 @@ def deep_main():
     return 0
 
 
+def own_change(folder, since, head, base):
+    """True when the branch's OWN commits changed a file in since..head (commits reachable from origin/<base> are left out,
+    a merge commit counts only for what it changed itself), or when git cannot tell (the safe answer: no repin)."""
+    argv = ["git", "-C", folder, "log", "--format=", "--name-only", "--cc", "%s..%s" % (since, head), "--not", "origin/%s" % base]
+    try:
+        done = subprocess.run(argv, capture_output=True, text=True, timeout=30, check=False)
+    except (OSError, subprocess.SubprocessError):
+        return True
+    return done.returncode != 0 or bool(done.stdout.strip())
+
+
+def is_ancestor(folder, old, head):
+    try:
+        done = subprocess.run(["git", "-C", folder, "merge-base", "--is-ancestor", old, head], capture_output=True, timeout=30, check=False)
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return done.returncode == 0
+
+
+def repin_body(body, head, rng="base merged, no own change"):
+    """The review comment body with its ledger sha (and the deep sha when it was the ledger's) moved to head and line 4
+    rewritten; None when the body has no usable ledger. Findings, statuses and every other line are untouched."""
+    m, data = usable_ledger(body)
+    if not m:
+        return None
+    old = data.get("sha")
+    data["sha"] = head
+    if isinstance(data.get("deep"), dict) and data["deep"].get("sha") == old:
+        data["deep"]["sha"] = head
+    body = body[:m.start(2)] + json.dumps(data) + body[m.end(2):]
+    lines = body.split("\n")
+    line4 = reviewed_line(head, rng)
+    if len(lines) > 3 and lines[3].startswith("Reviewed:"):
+        lines[3] = line4
+    else:
+        lines.insert(3, line4)
+    return "\n".join(lines)
+
+
+def repin_main():
+    """The base branch was merged into the pull request and nothing of its own changed (the review decided `skip`): the
+    previous review still covers the head, so a new marker comment carries the same verdict and ledger pinned to the head
+    (auto-merge and the Review gate need the ledger sha to be the head). Fails OPEN to NOT RUN: nothing is repinned when
+    the previous comment is no completed review, the ledger is not an ancestor of the head, or an own change exists."""
+    env = target_env()
+    head = os.environ.get("PR_HEAD_SHA", "")
+    if env is None or not FULL_SHA.match(head):
+        print("repin: not repinned (REPO, PR_NUMBER and a full PR_HEAD_SHA are required)")
+        return 0
+    repo, pr, binary = env
+    base = re.sub(r"[^\w./-]", "", os.environ.get("BASE_REF", "develop")) or "develop"
+    try:
+        comments = fetch_comments(binary, repo, pr)
+    except (GitHubError, ValueError) as exc:
+        print("repin: not repinned (NOT RUN: %s)" % exc)
+        return 0
+    previous = review_comment(comments)
+    body = (previous or {}).get("body") or ""
+    ledger = ledger_of(body)
+    if previous is None or not VERDICT.match(first_line(body)) or not ledger:
+        print("repin: not repinned (no completed review with a ledger to carry)")
+        return 0
+    old = ledger.get("sha")
+    folder = location_dirs()[0]
+    if not isinstance(old, str) or not FULL_SHA.match(old) or old == head:
+        print("repin: not repinned (the ledger sha is already the head, or is unusable)")
+        return 0
+    if not is_ancestor(folder, old, head) or own_change(folder, old, head, base):
+        print("repin: not repinned (the reviewed commit is not an ancestor of the head, or the branch has its own change)")
+        return 0
+    new = repin_body(body, head)
+    if new is None:
+        print("repin: not repinned (no usable ledger)")
+        return 0
+    try:
+        created = create_and_collapse(binary, repo, pr, comments, new)
+    except (GitHubError, ValueError, KeyError, TypeError) as exc:
+        print("repin: not repinned (NOT RUN: %s)" % exc)
+        return 0
+    out = os.environ.get("GITHUB_OUTPUT")
+    if out and created.get("id"):
+        try:
+            with open(out, "a", encoding="utf-8") as fh:
+                fh.write("comment_id=%s\n" % int(created["id"]))
+        except (OSError, ValueError, TypeError):
+            pass
+    print("repin: ledger and deep sha moved from %s to %s (base merged, no own change)" % (old[:7], head[:7]))
+    return 0
+
+
 def p0_patterns(root):
     """The P0 path patterns: the sensitive paths plus the deep-review paths under root (missing files are empty)."""
     out = []
@@ -1033,6 +1128,8 @@ def deep_needed_main():
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "deep":
         sys.exit(deep_main())
+    if len(sys.argv) > 1 and sys.argv[1] == "repin":
+        sys.exit(repin_main())
     if len(sys.argv) > 1 and sys.argv[1] == "deep-needed":
         sys.exit(deep_needed_main())
     sys.exit(main())

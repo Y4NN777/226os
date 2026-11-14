@@ -589,4 +589,49 @@ HEAD_SHA="$locsha" LOCATION_REPO="$repo" JSON="$(mkreview "[$E_GOOD]")" run
 pyassert 'import json,sys; f=json.loads(sys.argv[1]); assert f["status"]=="open" and f["carried"]==2' "$(entry_of gone-quiet)" 2>/dev/null && grep -q 'Carried forward without a new decision.*gone-quiet' <<<"$(posted_body)" && ok "an open entry the model omits is carried with a count and named in the comment (fix, answer or accept it)" || ko "carried ($(entry_of gone-quiet) $(posted_body | head -12))"
 pyassert 'import json,sys; assert "carried" not in json.loads(sys.argv[1])' "$(entry_of g1)" 2>/dev/null && ok "an entry the model lists itself carries no count (the model cannot write it)" || ko "carried on listed"
 
+# --- #212 L2: repin. A base merged into the branch with no own change moves the ledger and deep sha to the head ---
+rp="$tmp/repin-repo"
+git init -q "$rp"
+git_rp() { git -C "$rp" -c user.name=t -c user.email=t@example.com "$@"; }
+git_rp checkout -q -b work
+echo 0 >"$rp/a.txt"; git_rp add a.txt; git_rp commit -q -m base
+git_rp update-ref refs/remotes/origin/develop HEAD
+echo 1 >"$rp/own.txt"; git_rp add own.txt; git_rp commit -q -m own
+reviewed="$(git_rp rev-parse HEAD)"
+git_rp checkout -q -b dev-side refs/remotes/origin/develop
+echo 2 >"$rp/other.txt"; git_rp add other.txt; git_rp commit -q -m other
+git_rp update-ref refs/remotes/origin/develop HEAD
+git_rp checkout -q work
+git_rp merge -q --no-edit dev-side
+merged="$(git_rp rev-parse HEAD)"
+echo 3 >"$rp/own2.txt"; git_rp add own2.txt; git_rp commit -q -m own2
+own_head="$(git_rp rev-parse HEAD)"
+git_rp reset -q --hard "$merged"
+repin_comments() { # SHA [FIRST_LINE]
+  python3 -I - "$tmp/comments.json" "$1" "${2:-Triage: HIGH | blast radius: x}" <<'PY3'
+import json, sys
+led = {"sha": sys.argv[2], "findings": [{"id": "h1", "kind": "finding", "sev": "HIGH", "status": "open", "detail": "d", "fix": "f"}], "deep": {"status": "PASS", "sha": sys.argv[2]}}
+body = sys.argv[3] + "\n<!-- 226os-ai-review -->\nTool: PASS (1 files)\nReviewed: " + sys.argv[2][:7] + " (a..b) at 10:00 UTC\nDeep: PASS (1 finding, 0 notes)\n\nfree text\n\n<details><summary>Review ledger</summary>\n\n```json\n" + json.dumps(led) + "\n```\n\n</details>"
+json.dump([{"id": 2, "node_id": "N2", "user": {"login": "github-actions[bot]"}, "body": body, "created_at": "2026-11-14T09:00:00Z"}], open(sys.argv[1], "w"))
+PY3
+}
+repin_run() { # HEAD
+  rc=0; : >"$tmp/calls.log"
+  out="$(PATH="$tmp/bin:$PATH" FX="$tmp" REPO=o/r PR_NUMBER=7 PR_HEAD_SHA="$1" BASE_REF=develop LOCATION_REPO="$rp" REVIEW_NOW=11:11 GITHUB_OUTPUT="$tmp/gh-output" python3 -I "$tool" repin 2>&1)" || rc=$?
+  calls="$(cat "$tmp/calls.log")"
+}
+repin_comments "$reviewed"
+repin_run "$merged"
+[ "$rc" -eq 0 ] && [ "$(ledger_sha)" = "$merged" ] && ok "L2: a base merged with no own change repins the ledger sha to the head" || ko "repin sha (rc=$rc out=$out calls=$calls)"
+python3 -I -c 'import sys,re,json; b=sys.argv[1]; d=json.loads(re.search(r"```json\s*(\{.*?\})\s*```", b, re.S).group(1)); assert d["deep"]=={"status":"PASS","sha":sys.argv[2]}; assert d["findings"][0]["id"]=="h1" and d["findings"][0]["status"]=="open"' "$(posted_body)" "$merged" 2>/dev/null && ok "L2: deep.sha moves too, the findings are untouched" || ko "repin deep ($(posted_body))"
+[ "$(posted_body | sed -n 1p)" = "Triage: HIGH | blast radius: x" ] && [ "$(posted_body | sed -n 2p)" = "<!-- 226os-ai-review -->" ] && [ "$(posted_body | sed -n 4p)" = "Reviewed: ${merged:0:7} (base merged, no own change) at 11:11 UTC" ] && grep -q 'graphql.*id=N2' <<<"$calls" && ok "L2: the new comment keeps the verdict, line 4 says base merged, the old one is minimized" || ko "repin layout ($(posted_body))"
+
+for case in "own change after the review|$reviewed|$own_head" "ledger already at the head|$merged|$merged" "ledger sha unknown|$(printf 'c%.0s' {1..40})|$merged" "head is not a sha|$reviewed|nothere"; do
+  IFS='|' read -r label led hd <<<"$case"
+  repin_comments "$led"; repin_run "$hd"
+  [ "$rc" -eq 0 ] && ! grep -q 'POST' <<<"$calls" && grep -q 'repin: not repinned' <<<"$out" && ok "L2: no repin when $label" || ko "no repin: $label (rc=$rc out=$out calls=$calls)"
+done
+repin_comments "$reviewed" "Triage: NOT RUN | the review returned no text"; repin_run "$merged"
+! grep -q 'POST' <<<"$calls" && ok "L2: a NOT RUN review comment is never repinned (nothing was reviewed)" || ko "repin not run ($calls)"
+
 finish

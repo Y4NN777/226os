@@ -41,7 +41,7 @@ stray_b64="$(printf '# one pattern per line, prefixed by when it applies\nalways
 printf '{"content":"%s","encoding":"base64"}' "$stray_b64" >"$tmp/fx/stray.json"
 
 reset() {
-  printf '{"body":"","labels":[],"head":{"ref":"feature/identity/profiles"},"user":{"login":"dev"}}' >"$tmp/fx/pull.json"
+  printf '{"body":"","labels":[],"head":{"ref":"feature/identity/profiles"},"user":{"login":"dev"},"changed_files":1,"commits":1}' >"$tmp/fx/pull.json"
   printf '{"number":12,"labels":[{"name":"finding"}]}' >"$tmp/fx/issue12.json"
   printf '[]' >"$tmp/fx/comments.json"
   printf '[]' >"$tmp/fx/events.json"
@@ -82,16 +82,29 @@ json.dump(d, open(p, "w"))
 EOF
 }
 
-files() { python3 -I -c 'import json,sys; json.dump([{"filename": f} for f in sys.argv[2:]], open(sys.argv[1], "w"))' "$tmp/fx/files.json" "$@"; }
+# files PATH...: the pull request's files, and the pull request's own count of them.
+files() {
+  python3 -I -c 'import json,sys
+json.dump([{"filename": f} for f in sys.argv[3:]], open(sys.argv[1], "w"))
+d = json.load(open(sys.argv[2])); d["changed_files"] = len(sys.argv[3:]); json.dump(d, open(sys.argv[2], "w"))' "$tmp/fx/files.json" "$tmp/fx/pull.json" "$@"
+}
+# pull_field NAME VALUE_JSON: sets one field of the pull request answer.
+pull_field() { python3 -I -c 'import json,sys; d = json.load(open(sys.argv[1])); d[sys.argv[2]] = json.loads(sys.argv[3]); json.dump(d, open(sys.argv[1], "w"))' "$tmp/fx/pull.json" "$1" "$2"; }
 
 # run MODE [author]: runs the gate; sets rc and out.
 run() {
   rc=0
-  out="$(PATH="$tmp/bin:$PATH" FX="$tmp/fx" GATE_MODE="$1" REPO=o/r PR_NUMBER=7 PR_AUTHOR="${2:-dev}" OWNER=Y4NN777 BASE_REF=develop python3 -I "$gate" 2>&1)" || rc=$?
+  out="$(PATH="$tmp/bin:$PATH" FX="$tmp/fx" GATE_MODE="$1" REPO=o/r PR_NUMBER=7 PR_AUTHOR="${2:-dev}" PR_HEAD_SHA="${HEAD_SHA:-$head}" OWNER=Y4NN777 BASE_REF=develop python3 -I "$gate" 2>&1)" || rc=$?
 }
 
 BOT='github-actions[bot]'
-crit_ok='Triage: CRITICAL | blast radius: the whole team
+head=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+old_head=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+# ledger SHA FINDINGS_JSON: the ledger block of a review comment (the gate decides from it, never from the prose).
+ledger() { printf '<details><summary>Review ledger</summary>\n\n```json\n{"sha":"%s","findings":%s}\n```\n\n</details>' "$1" "$2"; }
+crit_entry='[{"id":"k","kind":"finding","evidence":"OBSERVED","sev":"CRITICAL","file":"src/api/config.go","line":12,"status":"open"}]'
+infer_entry='[{"id":"k","kind":"finding","evidence":"INFERRED","sev":"CRITICAL","file":"src/api/config.go","line":12,"status":"open"}]'
+crit_prose='Triage: CRITICAL | blast radius: the whole team
 
 | Dimension | Level | Note |
 |---|---|---|
@@ -99,9 +112,14 @@ crit_ok='Triage: CRITICAL | blast radius: the whole team
 
 OBSERVED: src/api/config.go:12 holds a literal API key.
 Fix: remove it and rotate the key.'
-crit_inferred='Triage: CRITICAL | blast radius: production and users
+crit_ok="$crit_prose
 
-INFERRED: this could leak data if the handler is reached.'
+$(ledger "$head" "$crit_entry")"
+crit_inferred="Triage: CRITICAL | blast radius: production and users
+
+INFERRED: this could leak data if the handler is reached.
+
+$(ledger "$head" "$infer_entry")"
 
 reset
 run enforce
@@ -223,7 +241,7 @@ run enforce dev
 
 # --- stray paths and finding-to-test: report only until GATE_NEW=enforce (the promotion switch) ---
 set_pull() { # BODY LABELS_JSON HEAD_REF
-  python3 -I -c 'import json,sys; json.dump({"body": sys.argv[2], "labels": json.loads(sys.argv[3]), "head": {"ref": sys.argv[4]}, "user": {"login": "dev"}}, open(sys.argv[1], "w"))' "$tmp/fx/pull.json" "$1" "$2" "$3"
+  python3 -I -c 'import json,sys; old = json.load(open(sys.argv[1])); json.dump({"body": sys.argv[2], "labels": json.loads(sys.argv[3]), "head": {"ref": sys.argv[4]}, "user": {"login": "dev"}, "changed_files": old.get("changed_files"), "commits": 1}, open(sys.argv[1], "w"))' "$tmp/fx/pull.json" "$1" "$2" "$3"
 }
 
 reset; files .gitignore src/api/internal/app/app.go
@@ -299,5 +317,51 @@ GATE_NEW=enforce run enforce dev
 reset; set_pull "Fixes: #12" "[]" "fix/identity/x"; files src/api/internal/app/app.go
 GATE_NEW=enforce run enforce dev
 [ "$rc" -eq 1 ] && ok "\"Fixes: #12\" (with a colon, as GitHub reads it) is a closing keyword" || ko "colon (rc=$rc out=$out)"
+
+# --- #212 M7: the gate decides from the head's LEDGER, not from the prose ---
+reset; comment "$BOT" 2026-11-13T01:00:00Z "$crit_prose"
+run enforce
+[ "$rc" -eq 0 ] && grep -q 'downgraded' <<<"$out" && ok "M7: a prose CRITICAL with OBSERVED text but no ledger entry is HIGH and never blocks" || ko "prose critical (rc=$rc out=$out)"
+
+reset; comment "$BOT" 2026-11-13T01:00:00Z "Triage: HIGH | blast radius: x
+OBSERVED: src/a.go:1
+
+$(ledger "$head" "$crit_entry")"
+run enforce
+[ "$rc" -eq 1 ] && ok "M7: a HIGH first line with a blocking OBSERVED CRITICAL entry in the ledger blocks" || ko "ledger critical (rc=$rc out=$out)"
+
+reset; comment "$BOT" 2026-11-13T01:00:00Z "$(printf 'Triage: NONE | blast radius: x\n\n%s' "$(ledger "$old_head" '[]')")"
+run enforce
+[ "$rc" -eq 0 ] && grep -q 'NOT RUN (stale' <<<"$out" && ok "M7: a ledger of another head is NOT RUN (stale), not a pass" || ko "stale none (rc=$rc out=$out)"
+
+reset; comment "$BOT" 2026-11-13T01:00:00Z "$(printf 'Triage: CRITICAL | blast radius: x\n\n%s' "$(ledger "$old_head" "$crit_entry")")"
+run enforce
+[ "$rc" -eq 1 ] && grep -q 'stale' <<<"$out" && ok "M7: a stale CRITICAL keeps blocking" || ko "stale critical (rc=$rc out=$out)"
+HEAD_SHA="" run enforce
+[ "$rc" -eq 1 ] && ok "M7: no PR_HEAD_SHA never lifts a CRITICAL" || ko "no head critical (rc=$rc out=$out)"
+
+# --- #212 L2 (rename) / L4 (caps): the file list is complete or the gate fails closed ---
+reset; printf '[{"filename":"docs/new.md","previous_filename":"scripts/old.sh","status":"renamed"}]' >"$tmp/fx/files.json"
+run enforce dev
+[ "$rc" -eq 1 ] && grep -q 'scripts/old.sh' <<<"$out" && ok "L2: a rename out of a sensitive path touches it (the old path counts)" || ko "rename (rc=$rc out=$out)"
+
+reset; files docs/a.md docs/b.md; pull_field changed_files 3
+run enforce dev
+[ "$rc" -eq 1 ] && grep -q 'incomplete' <<<"$out" && ok "L4: a file list shorter than changed_files fails closed" || ko "short list (rc=$rc out=$out)"
+
+reset; files docs/a.md; pull_field commits 251
+run enforce dev
+[ "$rc" -eq 1 ] && grep -q '251 commits' <<<"$out" && ok "L4: more than 250 commits fails closed" || ko "251 commits (rc=$rc out=$out)"
+
+reset; files docs/a.md; pull_field changed_files 3000
+run enforce dev
+[ "$rc" -eq 1 ] && grep -q 'incomplete' <<<"$out" && ok "L4: 3000 files (GitHub's cap) fails closed" || ko "3000 files (rc=$rc out=$out)"
+
+# --- #212 workflow wiring (static): the gate waits for the review and gets the head; a skip repins the ledger ---
+wf="$root/.github/workflows/code-review.yml"
+gate_job="$(sed -n '/^  gate:/,$p' "$wf")"
+grep -q 'needs: \[review, deep\]' <<<"$gate_job" && grep -q "if: always() && !cancelled() && github.event.action != 'closed'" <<<"$gate_job" && ok "code-review.yml: the Review gate runs after review and deep, even when they fail or are skipped" || ko "gate needs"
+grep -q 'PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}' <<<"$gate_job" && ok "code-review.yml: the gate gets PR_HEAD_SHA" || ko "gate head"
+grep -q "steps.pack.outputs.decision == 'skip'" "$wf" && grep -q 'review-comment.py" repin' "$wf" && ok "code-review.yml: a skip decision runs the repin step from the base script" || ko "repin step"
 
 finish
