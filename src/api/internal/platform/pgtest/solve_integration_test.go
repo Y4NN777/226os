@@ -665,6 +665,41 @@ func TestSolveEditKeepsAHiddenTagLink(t *testing.T) {
 	}
 }
 
+// The 5-tag cap is the product rule on the tags an author can see and send (service validateTags);
+// links to moderator-hidden tags are kept by an edit and do not count. DECIDED, pinned here: the
+// question ends with 5 visible tags and 6 rows, and no DB constraint caps the row count.
+func TestSolveTagCapCountsVisibleTagsNotHiddenLinks(t *testing.T) {
+	s := newSolveStack(t)
+	alice := s.signIn(t, "solve-tagcap-alice", true, 93)
+	q := s.ask(t, &alice, "Titre pour le plafond", `"tags":["go","cap-hidden"]`)
+	qid := q.Id.String()
+	path := "/api/v1/questions/" + qid
+	if _, err := s.conn.Exec(t.Context(), `UPDATE tags SET status = 'hidden' WHERE slug = 'cap-hidden'`); err != nil {
+		t.Fatal(err)
+	}
+	tag := s.read(t, nil, path).Header().Get("ETag")
+	rec := s.write(t, &alice, http.MethodPatch, path, `{"tags":["go","python","cap-a","cap-b","cap-c"]}`, map[string]string{"If-Match": tag})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("patch %d %s", rec.Code, rec.Body.String())
+	}
+	if got := decodeAs[apigen.Question](t, rec); len(got.Tags) != 5 {
+		t.Fatalf("visible tags = %+v, want 5", got.Tags)
+	}
+	var n int
+	if err := s.conn.QueryRow(t.Context(), `SELECT count(*) FROM question_tags WHERE question_id = $1`, qid).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	if n != 6 {
+		t.Fatalf("%d tag rows, want 5 visible + 1 hidden", n)
+	}
+	// Six visible tags are still refused.
+	tag = s.read(t, nil, path).Header().Get("ETag")
+	rec = s.write(t, &alice, http.MethodPatch, path, `{"tags":["go","python","cap-a","cap-b","cap-c","cap-d"]}`, map[string]string{"If-Match": tag})
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("six tags: %d %s", rec.Code, rec.Body.String())
+	}
+}
+
 func TestSolveSearchRanksByRelevanceThenNewest(t *testing.T) {
 	s := newSolveStack(t)
 	alice := s.signIn(t, "solve-rank-alice", true, 89)

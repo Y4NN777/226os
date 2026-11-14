@@ -279,3 +279,37 @@ func TestParseRejectsMalformedMarkers(t *testing.T) {
 		t.Fatalf("an unrelated bracket must pass: %v", err)
 	}
 }
+
+func TestParseCutNeverSplitsAMarkerOrKeepsADanglingSource(t *testing.T) {
+	// "[S2]" starts at rune 3998 of the raw body: the cut falls inside it. Source 2 must not survive.
+	text := "[S1] " + strings.Repeat("a", domain.MaxAnswerRunes-7) + " [S2] tail\nComment vérifier\nOpen it."
+	a, err := domain.Parse(text, passages, "en")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.HasSuffix(a.Text, "[") || strings.Contains(a.Text[len(a.Text)-4:], "[") {
+		t.Fatalf("partial marker left: %q", a.Text[len(a.Text)-6:])
+	}
+	if len(a.Sources) != 1 || a.Sources[0].ID != passages[0].ID {
+		t.Fatalf("sources = %+v, want only the first", a.Sources)
+	}
+}
+
+func TestParseOnlySplitsOnAHeadingLine(t *testing.T) {
+	// A body line that merely starts with the words is not a heading.
+	a, err := domain.Parse("How to verify a webhook signature [S1] takes three steps.\nStep two.", passages, "en")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(a.Text, "How to verify a webhook") || !strings.Contains(a.Text, "Step two.") {
+		t.Fatalf("answer was split: %q", a.Text)
+	}
+	// With a real heading after it, the last heading line wins.
+	a, err = domain.Parse("How to verify a webhook [S1].\nBody.\n## How to verify\nCheck [S1].", passages, "en")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(a.Text, "Body.") || !strings.HasPrefix(a.HowToVerify, "Check [1].") {
+		t.Fatalf("text %q verify %q", a.Text, a.HowToVerify)
+	}
+}
