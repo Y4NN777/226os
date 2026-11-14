@@ -27,3 +27,6 @@ GET /api/v1/learn/series/{seriesId}   # getTrainingSeries: published series and 
 GET /api/v1/projects   # listProjects: published public projects, plus the caller's own private ones (US-BUILD-001)
 GET /api/v1/projects/{projectId}   # getProject: published project; a private one only to its owner, 404 to everyone else with the unknown-project body
 GET /api/v1/projects/{projectId}/contribution-needs   # listContributionNeeds: follows the project's visibility (private: 404 to all but the owner)
+GET /api/v1/questions   # listQuestions: published questions only, anonymous (US-SOLVE-001); a removed question is never listed
+GET /api/v1/questions/{questionId}   # getQuestion: published question or 404 (unknown and removed are the same body); sends the ETag
+GET /api/v1/questions/{questionId}/answers   # listAnswers: answers of a published question or 404; accepted first, then score
