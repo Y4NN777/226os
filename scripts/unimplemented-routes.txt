@@ -6,7 +6,6 @@
 # scripts/public-routes.txt (public by design, with a reason) or to scripts/authz-tests.txt
 # (mapped to an existing negative authz test). A route listed here must answer 501.
 # The 4 P1 operations stay here for the whole P0 (ROADMAP O3, closed by B1).
-POST /api/v1/assistant/answers   # askAssistant
 GET /api/v1/learn/series/{seriesId}/lessons/{lessonId}/progress   # getLessonProgress (P1)
 PUT /api/v1/learn/series/{seriesId}/lessons/{lessonId}/progress   # putLessonProgress (P1)
 POST /api/v1/moderation/error-reports/{reportId}/resolve   # resolveErrorReport
