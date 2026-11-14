@@ -83,6 +83,10 @@ const core = {
   'settings.visibility.soon':
     'Bientôt disponible : ce réglage s’activera dès que les profils seront en ligne.',
   'settings.visibility.signIn': 'Connectez-vous pour choisir qui voit votre profil',
+  'settings.directory.label': 'Visible dans l’annuaire',
+  'settings.directory.description':
+    'Votre profil peut apparaître dans Connect selon vos réglages de visibilité.',
+  'settings.directory.failed': 'La visibilité dans l’annuaire n’a pas été enregistrée.',
   'form.name.label': 'Nom d’affichage',
   'form.name.description': 'Affiché dans l’en-tête et à côté de ce que vous publiez.',
   'form.name.required': 'Saisissez un nom d’affichage.',
@@ -172,6 +176,10 @@ const coreEn: Record<keyof typeof core, string> = {
   'settings.visibility.failed': 'The visibility was not saved',
   'settings.visibility.soon': 'Coming soon: this setting turns on as soon as profiles are live.',
   'settings.visibility.signIn': 'Sign in to choose who sees your profile',
+  'settings.directory.label': 'Visible in the directory',
+  'settings.directory.description':
+    'Your profile may appear in Connect according to your visibility settings.',
+  'settings.directory.failed': 'Directory visibility was not saved.',
   'form.name.label': 'Display name',
   'form.name.description': 'Shown in the header and next to what you publish.',
   'form.name.required': 'Enter a display name.',

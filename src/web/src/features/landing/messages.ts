@@ -18,6 +18,7 @@ export const fr = {
   'landing.pillar.connect.title': 'Connect',
   'landing.pillar.connect.text':
     'Un annuaire de développeurs pour retrouver les personnes qui construisent près de chez vous.',
+  'landing.pillar.connect.link': 'Trouver des développeurs',
   'landing.pillar.solve.title': 'Résoudre',
   'landing.pillar.solve.text':
     'Posez une question technique avec votre contexte et obtenez des réponses utiles.',
@@ -54,6 +55,7 @@ export const en: Record<keyof typeof fr, string> = {
     'Tutorials and learning paths written by developers, about problems from here.',
   'landing.pillar.connect.title': 'Connect',
   'landing.pillar.connect.text': 'A developer directory to find the people building near you.',
+  'landing.pillar.connect.link': 'Find developers',
   'landing.pillar.solve.title': 'Solve',
   'landing.pillar.solve.text': 'Ask a technical question with your context and get useful answers.',
   'landing.pillar.discover.title': 'Discover',

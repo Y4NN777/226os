@@ -14,6 +14,7 @@ import (
 	"github.com/Y4NN777/226os/src/api/internal/platform/apigen"
 	"github.com/Y4NN777/226os/src/api/internal/platform/apperr"
 	"github.com/Y4NN777/226os/src/api/internal/platform/httpx"
+	"github.com/Y4NN777/226os/src/api/internal/platform/subject"
 )
 
 // Handler serves the three public catalogue reads and the member error report.
@@ -33,10 +34,11 @@ func New(svc *service.Service, reports *service.Reports, logger *slog.Logger) *H
 
 // ListResources serves GET /resources.
 func (h *Handler) ListResources(w http.ResponseWriter, r *http.Request, params apigen.ListResourcesParams) {
+	sub := subject.From(r.Context())
 	page, err := h.svc.List(r.Context(), service.ListRequest{
 		Q: params.Q, Countries: derefList(params.Country), Category: params.Category, Type: defined(params.Type),
 		SDK: params.Sdk, Provider: params.Provider, Doclang: lang(params.Doclang),
-		Cursor: deref(params.Cursor), Limit: params.Limit,
+		Cursor: deref(params.Cursor), Limit: params.Limit, Anonymous: sub.Anonymous(), ClientIP: httpx.ClientIPKey(r),
 	})
 	if err != nil {
 		writeErr(h.logger, w, r, err)

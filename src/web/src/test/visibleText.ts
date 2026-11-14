@@ -21,6 +21,16 @@ export async function findVisibleText(matcher: Matcher): Promise<HTMLElement> {
 }
 
 /**
+ * Every visible alert, without the Astryx aria-live mirror: an announcement from an earlier test can
+ * outlive its cleanup in that region, so queryAllByRole('alert') alone would count it.
+ */
+export function queryVisibleAlerts(): HTMLElement[] {
+  return screen
+    .queryAllByRole('alert')
+    .filter((element) => !element.closest('[data-astryx-live-region]'));
+}
+
+/**
  * The visible alert. Astryx may mirror a banner into its aria-live region, which also has
  * role="alert" depending on timing, so findByRole('alert') can find two elements.
  */

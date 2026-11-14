@@ -32,9 +32,10 @@ func New(svc *service.Service, logger *slog.Logger) *Handler {
 
 // ListQuestions serves GET /questions.
 func (h *Handler) ListQuestions(w http.ResponseWriter, r *http.Request, params apigen.ListQuestionsParams) {
-	page, err := h.svc.ListQuestions(r.Context(), subject.From(r.Context()), service.QuestionListRequest{
+	sub := subject.From(r.Context())
+	page, err := h.svc.ListQuestions(r.Context(), sub, service.QuestionListRequest{
 		Q: params.Q, Tag: params.Tag, State: str(params.State), Country: params.Country, Lang: str(params.Lang),
-		Cursor: deref(params.Cursor), Limit: params.Limit,
+		Cursor: deref(params.Cursor), Limit: params.Limit, Anonymous: sub.Anonymous(), ClientIP: httpx.ClientIPKey(r),
 	})
 	if err != nil {
 		h.fail(w, r, err)

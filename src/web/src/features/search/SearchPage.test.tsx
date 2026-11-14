@@ -94,7 +94,7 @@ describe('SearchPage', () => {
     expect(callsTo(fetchMock, 'GET /search')).toHaveLength(0);
   });
 
-  it('groups results in a fixed order and links only resources', async () => {
+  it('groups results in a fixed order and links every hit to its page', async () => {
     setLanguages(['fr-FR']);
     const fetchMock = mockApi({
       'GET /search': (request) => {
@@ -114,14 +114,17 @@ describe('SearchPage', () => {
       'href',
       `/discover/${RESOURCE_ID}`,
     );
-    for (const name of [
-      'Webhook reçu deux fois',
-      'Premiers pas avec les paiements mobiles',
-      'Passerelle de paiement',
-    ]) {
-      expect(screen.getByText(name)).toBeInTheDocument();
-      expect(screen.queryByRole('link', { name })).not.toBeInTheDocument();
-    }
+    expect(screen.getByRole('link', { name: 'Webhook reçu deux fois' })).toHaveAttribute(
+      'href',
+      '/questions/7a1c2a34-0000-4000-8000-0000000000b1',
+    );
+    expect(
+      screen.getByRole('link', { name: 'Premiers pas avec les paiements mobiles' }),
+    ).toHaveAttribute('href', '/apprendre/articles/7a1c2a34-0000-4000-8000-0000000000c1');
+    expect(screen.getByRole('link', { name: 'Passerelle de paiement' })).toHaveAttribute(
+      'href',
+      '/build/7a1c2a34-0000-4000-8000-0000000000d1',
+    );
     expect(callsTo(fetchMock, 'GET /search')).toHaveLength(1);
   });
 

@@ -15,6 +15,7 @@ import { ErrorState } from '../../components/ErrorState';
 import { LoadingState } from '../../components/LoadingState';
 import { useI18n } from '../../i18n/I18nProvider';
 import type { MessageKey } from '../../i18n/messages';
+import { relatedPath } from '../related';
 import {
   countryName,
   formatDate,
@@ -187,11 +188,7 @@ function Detail({ resource }: { resource: Resource }) {
               <li key={`${link.type}-${link.id}`}>
                 <HStack gap={2} wrap="wrap">
                   <Text type="supporting">{t(relatedKey[link.type])}</Text>
-                  {link.type === 'resource' ? (
-                    <Link href={`/discover/${link.id}`}>{link.title}</Link>
-                  ) : (
-                    <Text>{link.title}</Text>
-                  )}
+                  <Link href={relatedPath(link)}>{link.title}</Link>
                 </HStack>
               </li>
             ))}

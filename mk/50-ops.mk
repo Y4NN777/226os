@@ -51,7 +51,7 @@ migrate-status: doctor ## Show goose migration status for DATABASE_URL (read-onl
 migrate-new: ## Create the next sequential forward-only migration: make migrate-new NAME=<slug>
 	scripts/migrate-new.sh "$(NAME)"
 
-seed: ## Demo seeds, local-dev and staging-test only (NOT IMPLEMENTED: db/seeds does not exist yet)
+seed: ## Demo seeds, local-dev only (NOT IMPLEMENTED: db/seeds does not exist yet)
 	$(call NOT_IMPLEMENTED,seed,db/seeds does not exist yet; when it does it may only run with APP_ENV=local-dev or staging-test)
 
 # db-reset drops and recreates the database. The target checks APP_ENV itself and scripts/db-reset.sh repeats

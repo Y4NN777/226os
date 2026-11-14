@@ -100,7 +100,7 @@ describe('ResourcePage', () => {
     }
   });
 
-  it('links only related listings and shows other related items as plain text', async () => {
+  it('links every related content type to its page', async () => {
     setLanguages(['fr-FR']);
     routes();
     await renderApp(`/discover/${id}`);
@@ -108,8 +108,10 @@ describe('ResourcePage', () => {
       'href',
       '/discover/c0000000-0000-4000-8000-000000000002',
     );
-    expect(screen.getByText(/Webhook non reçu/)).toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: /Webhook non reçu/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Webhook non reçu/ })).toHaveAttribute(
+      'href',
+      '/questions/c0000000-0000-4000-8000-000000000003',
+    );
   });
 
   it('lists sources as evidence, never presenting a claim as verified', async () => {

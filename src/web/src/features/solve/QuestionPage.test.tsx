@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { anonymousSession, callsTo, memberSession, mockApi, problemResponse } from '../../test/api';
 import { jsonResponse, renderApp, setLanguages } from '../../test/render';
 import { answer, member, memberId, page, question, questionId, withEtag } from './testFixtures';
-import { findVisibleText } from '../../test/visibleText';
+import { findVisibleText, queryVisibleAlerts } from '../../test/visibleText';
 
 const base = `/questions/${questionId}`;
 const key = (suffix = '') => `${base}${suffix}`;
@@ -47,6 +47,7 @@ describe('QuestionPage reading', () => {
               snippets: [{ language: 'go', code: 'http.ListenAndServe(":80", nil)' }],
               related: [
                 { type: 'resource', id: 'd0000000-0000-4000-8000-000000000001', title: 'Wave Pay' },
+                { type: 'project', id: 'd0000000-0000-4000-8000-000000000002', title: 'Kora SDK' },
               ],
             }),
             '"v1"',
@@ -65,6 +66,10 @@ describe('QuestionPage reading', () => {
     expect(screen.getByRole('link', { name: 'Wave Pay' })).toHaveAttribute(
       'href',
       '/discover/d0000000-0000-4000-8000-000000000001',
+    );
+    expect(screen.getByRole('link', { name: 'Kora SDK' })).toHaveAttribute(
+      'href',
+      '/build/d0000000-0000-4000-8000-000000000002',
     );
 
     const list = await screen.findByRole('list', { name: 'Réponses' });
@@ -468,8 +473,7 @@ describe('QuestionPage votes and acceptance', () => {
     ).not.toBeInTheDocument();
     // Empty live regions may exist; what matters is that no message is shown.
     expect(
-      screen
-        .queryAllByRole('alert')
+      queryVisibleAlerts()
         .map((alert) => alert.textContent.trim())
         .filter(Boolean),
     ).toEqual([]);
@@ -491,8 +495,7 @@ describe('QuestionPage votes and acceptance', () => {
     ).not.toBeInTheDocument();
     // Empty live regions may exist; what matters is that no message is shown.
     expect(
-      screen
-        .queryAllByRole('alert')
+      queryVisibleAlerts()
         .map((alert) => alert.textContent.trim())
         .filter(Boolean),
     ).toEqual([]);
