@@ -1,0 +1,77 @@
+package config_test
+
+import (
+	"fmt"
+	"github.com/Y4NN777/226os/src/api/internal/platform/config"
+	"log/slog"
+	"strings"
+	"testing"
+)
+
+const secretGitHubToken = "ghp_0123456789abcdefSECRET"
+
+func TestLoadGitHubTokenValues(t *testing.T) {
+	tests := []struct {
+		name, value string
+		wantErr     bool
+	}{
+		{"unset or empty", "", false},
+		{"classic token", secretGitHubToken, false},
+		{"fine grained token", "github_pat_11AAAA_bbbbCCCC", false},
+		{"255 characters", strings.Repeat("a", 255), false},
+		{"256 characters", strings.Repeat("a", 256), true},
+		{"with a space", "ghp_abc def", true},
+		{"with a newline", "ghp_abc\n", true},
+		{"non ASCII", "ghp_é", true},
+		{"control character", "ghp_\x7f", true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := config.LoadGitHubToken(func(k string) string {
+				if k != "GITHUB_TOKEN" {
+					t.Errorf("read %s", k)
+				}
+				return tc.value
+			})
+			if tc.wantErr {
+				if err == nil || !strings.Contains(err.Error(), "GITHUB_TOKEN") || strings.Contains(err.Error(), tc.value) {
+					t.Fatalf("err %v", err)
+				}
+				return
+			}
+			if err != nil || got != tc.value {
+				t.Fatalf("got %q, %v", got, err)
+			}
+		})
+	}
+}
+
+func TestLoadCarriesAndRedactsTheGitHubToken(t *testing.T) {
+	env := base(nil)
+	env["GITHUB_TOKEN"] = secretGitHubToken
+	cfg, err := config.Load(func(k string) string { return env[k] })
+	if err != nil || cfg.GitHubToken != secretGitHubToken {
+		t.Fatalf("cfg %v, err %v", cfg, err)
+	}
+	var buf strings.Builder
+	slog.New(slog.NewTextHandler(&buf, nil)).Info("cfg", "config", cfg)
+	for name, out := range map[string]string{"String": cfg.String(), "%v": fmt.Sprintf("%v", cfg),
+		"%+v": fmt.Sprintf("%+v", cfg), "%#v": fmt.Sprintf("%#v", cfg), "slog": buf.String()} {
+		if strings.Contains(out, secretGitHubToken) {
+			t.Errorf("%s leaks the token: %s", name, out)
+		}
+		if !strings.Contains(out, "GitHubToken") {
+			t.Errorf("%s does not say a token is set: %s", name, out)
+		}
+	}
+	env["GITHUB_TOKEN"] = "bad token"
+	if _, err := config.Load(func(k string) string { return env[k] }); err == nil || !strings.Contains(err.Error(), "GITHUB_TOKEN") ||
+		strings.Contains(err.Error(), "bad token") {
+		t.Fatalf("err %v", err)
+	}
+	delete(env, "GITHUB_TOKEN")
+	cfg, err = config.Load(func(k string) string { return env[k] })
+	if err != nil || cfg.GitHubToken != "" || strings.Contains(cfg.String(), "GitHubToken") {
+		t.Fatalf("cfg %v, err %v", cfg, err)
+	}
+}
