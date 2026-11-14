@@ -203,8 +203,57 @@ func TestUpdateMyProfileLanguagesTooManyAndBadFormat(t *testing.T) {
 		t.Fatalf("fr-BF: expected %v, got %v", apperr.CodeValidation, err)
 	}
 	var pe *apperr.Error
-	if errors.As(err, &pe) && (len(pe.Violations) != 1 || pe.Violations[0].Field != "languages") {
+	if errors.As(err, &pe) && (len(pe.Violations) != 1 || pe.Violations[0].Field != "/languages") {
 		t.Fatalf("fr-BF violations %+v", pe.Violations)
+	}
+}
+
+// Violation fields are JSON pointers and codes come from the contract enum
+// (api/openapi.yaml Violation): the S7 form maps them, issue #116.
+func TestUpdateMyProfileViolationsUseContractCodesAndPointers(t *testing.T) {
+	svc, st, _ := testSvc(t)
+	seedProfile(st, "ann", "u1", domain.VisibilityPublic)
+	st.tagIDs["go"] = "tag-1"
+
+	cases := []struct {
+		name  string
+		write domain.ProfileWrite
+		want  apperr.Violation
+	}{
+		{"display_name nil", domain.ProfileWrite{DisplayName: domain.PatchField[string]{Present: true, Value: nil}}, apperr.Violation{Field: "/display_name", Code: "too_short"}},
+		{"display_name empty", domain.ProfileWrite{DisplayName: domain.PatchField[string]{Present: true, Value: strp("")}}, apperr.Violation{Field: "/display_name", Code: "too_short"}},
+		{"display_name too long", domain.ProfileWrite{DisplayName: domain.PatchField[string]{Present: true, Value: strp(longString(81))}}, apperr.Violation{Field: "/display_name", Code: "too_long"}},
+		{"display_name NUL", domain.ProfileWrite{DisplayName: domain.PatchField[string]{Present: true, Value: strp("a\x00b")}}, apperr.Violation{Field: "/display_name", Code: "invalid_value"}},
+		{"bio NUL", domain.ProfileWrite{Bio: domain.PatchField[string]{Present: true, Value: strp("a\x00b")}}, apperr.Violation{Field: "/bio", Code: "invalid_value"}},
+		{"bio too long", domain.ProfileWrite{Bio: domain.PatchField[string]{Present: true, Value: strp(longString(501))}}, apperr.Violation{Field: "/bio", Code: "too_long"}},
+		{"intent", domain.ProfileWrite{Intent: domain.PatchField[string]{Present: true, Value: strp("bogus")}}, apperr.Violation{Field: "/intent", Code: "invalid_value"}},
+		{"country format", domain.ProfileWrite{CountryCode: domain.PatchField[string]{Present: true, Value: strp("zz")}}, apperr.Violation{Field: "/country", Code: "invalid_format"}},
+		{"languages too many", domain.ProfileWrite{Languages: domain.PatchField[[]string]{Present: true, Value: &[]string{"en", "fr", "en", "fr", "en", "fr", "en", "fr", "en", "fr", "en"}}}, apperr.Violation{Field: "/languages", Code: "too_many_items"}},
+		{"languages format", domain.ProfileWrite{Languages: domain.PatchField[[]string]{Present: true, Value: &[]string{"english!!"}}}, apperr.Violation{Field: "/languages", Code: "invalid_format"}},
+		{"languages duplicate", domain.ProfileWrite{Languages: domain.PatchField[[]string]{Present: true, Value: &[]string{"en", "en"}}}, apperr.Violation{Field: "/languages", Code: "duplicate"}},
+		{"github", domain.ProfileWrite{GitHub: domain.PatchField[string]{Present: true, Value: strp("bad name!")}}, apperr.Violation{Field: "/github", Code: "invalid_format"}},
+		{"visibility", domain.ProfileWrite{Visibility: domain.PatchField[domain.Visibility]{Present: true, Value: func() *domain.Visibility { v := domain.Visibility("bogus"); return &v }()}}, apperr.Violation{Field: "/profile_visibility", Code: "invalid_value"}},
+		{"field visibility", domain.ProfileWrite{VisBio: domain.PatchField[domain.Visibility]{Present: true, Value: func() *domain.Visibility { v := domain.Visibility("bogus"); return &v }()}}, apperr.Violation{Field: "/field_visibility/bio", Code: "invalid_value"}},
+		{"skills too many", domain.ProfileWrite{SkillSlugs: domain.PatchField[[]string]{Present: true, Value: &[]string{"go", "go", "go", "go", "go", "go", "go", "go", "go", "go", "go", "go", "go", "go", "go", "go", "go", "go", "go", "go", "go", "go", "go", "go", "go", "go", "go", "go", "go", "go", "go"}}}, apperr.Violation{Field: "/skills", Code: "too_many_items"}},
+		{"skills unknown", domain.ProfileWrite{SkillSlugs: domain.PatchField[[]string]{Present: true, Value: &[]string{"go", "nope"}}}, apperr.Violation{Field: "/skills", Code: "invalid_value"}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := svc.UpdateMyProfile(context.Background(), "u1", tc.write)
+			var pe *apperr.Error
+			if !errors.As(err, &pe) || pe.Code != apperr.CodeValidation {
+				t.Fatalf("expected validation error, got %v", err)
+			}
+			found := false
+			for _, v := range pe.Violations {
+				if v.Field == tc.want.Field && v.Code == tc.want.Code {
+					found = true
+				}
+			}
+			if !found {
+				t.Fatalf("want violation %+v in %+v", tc.want, pe.Violations)
+			}
+		})
 	}
 }
 

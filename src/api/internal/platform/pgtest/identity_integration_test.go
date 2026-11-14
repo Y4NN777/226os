@@ -558,6 +558,7 @@ func TestIdentityProfilesEndToEnd(t *testing.T) {
 	if rec.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("unknown skill %d %s", rec.Code, rec.Body.String())
 	}
+	assertProblemViolations(t, rec, "/skills", "invalid_value")
 	rec = s.do(t, http.MethodGet, "/api/v1/me", "", nil, sess)
 	var after struct {
 		Profile struct {
@@ -575,6 +576,15 @@ func TestIdentityProfilesEndToEnd(t *testing.T) {
 	if rec.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("unknown country %d %s", rec.Code, rec.Body.String())
 	}
+	assertProblemViolations(t, rec, "/country", "invalid_value")
+
+	// NUL in a free-text field is a 422, not a Postgres 22021 -> 500 (issue #116).
+	rec = s.do(t, http.MethodPatch, "/api/v1/me/profile", `{"bio":"a\u0000b"}`,
+		map[string]string{"X-CSRF-Token": csrf}, sess)
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("NUL bio %d %s", rec.Code, rec.Body.String())
+	}
+	assertProblemViolations(t, rec, "/bio", "invalid_value")
 
 	// Empty patch -> 422.
 	rec = s.do(t, http.MethodPatch, "/api/v1/me/profile", `{}`,
@@ -863,6 +873,46 @@ func TestIdentityProfileConcurrentSkillReplace(t *testing.T) {
 		if got := finalSkills(); !slices.Equal(got, []string{"go"}) {
 			t.Fatalf("identical round %d skills %v", i, got)
 		}
+	}
+}
+
+// assertProblemViolations checks a 422 problem body against the contract:
+// every violation code is in the Violation.code enum and its field is the
+// JSON pointer of the offending request member (issue #116, S7 form mapping).
+func assertProblemViolations(t *testing.T, rec *httptest.ResponseRecorder, wantField, wantCode string) {
+	t.Helper()
+	var problem struct {
+		Code       string `json:"code"`
+		Violations []struct {
+			Field string `json:"field"`
+			Code  string `json:"code"`
+		} `json:"violations"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &problem); err != nil {
+		t.Fatalf("problem body is not JSON: %v (%s)", err, rec.Body.String())
+	}
+	if problem.Code != "VALIDATION_ERROR" {
+		t.Fatalf("problem code %q, want VALIDATION_ERROR (%s)", problem.Code, rec.Body.String())
+	}
+	enum := map[string]bool{
+		"required": true, "too_short": true, "too_long": true, "invalid_format": true,
+		"invalid_value": true, "out_of_range": true, "too_many_items": true,
+		"duplicate": true, "unknown_field": true,
+	}
+	found := false
+	for _, v := range problem.Violations {
+		if !enum[v.Code] {
+			t.Fatalf("violation code %q outside the contract enum (%s)", v.Code, rec.Body.String())
+		}
+		if !strings.HasPrefix(v.Field, "/") {
+			t.Fatalf("violation field %q is not a JSON pointer (%s)", v.Field, rec.Body.String())
+		}
+		if v.Field == wantField && v.Code == wantCode {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("want violation %s/%s in %+v (%s)", wantField, wantCode, problem.Violations, rec.Body.String())
 	}
 }
 

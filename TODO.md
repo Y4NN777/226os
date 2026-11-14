@@ -113,6 +113,7 @@ Open owner items outside CADEV (IDs and decisions in ROADMAP section 8, 10 and 1
   - [x] `updateMyProfile` (own profile; JSON Merge Patch; accepts `profile_visibility`, default `public`) — PR #94, 2026-11-13
   - [x] `getProfile` (C14b: `members` gives anonymous 404, `private` owner only, the 404 body identical to unknown or deleted; moderators no special access; suspended users out of scope for P0) — PR #94, 2026-11-13
   - Known deviation: `languages` accepts only 2-3 letter codes; widen the DB check and the contract after the freeze (owner owns the contract follow-up).
+  - [x] Issue #116 before-freeze follow-ups: NUL/invalid UTF-8 in `display_name`/`bio` answers 422 `invalid_value` instead of a Postgres 22021 -> 500; every `updateMyProfile` violation now uses a `Violation.code` enum value and a JSON-pointer field (`/skills`, `/field_visibility/bio`…) for the S7 form; pgtest asserts the problem body against the enum.
   - [x] Issue #116 after-freeze follow-ups: `DeleteUserSkills` only rewrites links to active tags so a hidden tag's link survives and returns on restore; the C14b matrix is proven on the real router (unknown, deleted, suspended, members-only for anonymous, private for member and moderator — identical 404 status, headers and body minus `request_id`/`instance`); `GET /me` and `GET /profiles/{username}` send `Cache-Control: no-store`. Still open (owner): declaring the validator's 422 on `getProfile` in the contract, and the `resolveSkills`-outside-transaction note (a tag hidden in between is linked but filtered on read — accepted, documented).
 - [ ] Bylines on published content keep showing username and display name whatever `profile_visibility` says; deleted accounts show "membre supprimé" (ADR-0005 point 15).
 - [x] Argon2id m=64 MiB, t=3, p=1 with a semaphore (implemented; the target-host benchmark stays with S8, K6 check pending there).
@@ -142,7 +143,7 @@ Open owner items outside CADEV (IDs and decisions in ROADMAP section 8, 10 and 1
     - 2026-11-13: anonymous 60/IP/min limit (429 with `Retry-After`, fails open) on `feature/discover/error-reports`.
     - 2026-11-13 (#95): a blank `q` is trimmed before the 2-character minimum and gets 422. Also in S2: related links on `getResource` now alternate outgoing links and discussions before the cap of 20 (order changed for every resource; the contract fixes none), and the catalogue `q` rejects NUL and invalid UTF-8 with 422.
     - 2026-11-13: merged (PR #92). C4 DECIDED by the owner 2026-11-13 (option 1, PR #92): the contract keeps `maxLength: 200`; the server searches on the first 100 characters at a word boundary (ADR-0005 point 6) and echoes the original `q`. The anonymous 60/IP/min limit waits for the S1 rate limiter (#89).
-- [ ] Bounded sqlc queries with `EXPLAIN (ANALYZE, BUFFERS)` evidence and a bilingual relevance dataset (ADR-0005 point 6). 2026-11-13: the catalogue list plan is logged by `TestCatalogueReadsPublishedRowsOnly`. The relevance dataset stays with search.
+- [ ] Bounded sqlc queries with `EXPLAIN (ANALYZE, BUFFERS)` evidence and a bilingual relevance dataset (ADR-0005 point 6). 2026-11-13: the catalogue list plan is logged by `TestCatalogueReadsPublishedRowsOnly`. The relevance dataset stays with search. 2026-11-13 (`mibienpanjoe`, `fix/discover/search-bounds`, issue #118 before-freeze items): each search group builds its tsquery once, reads nothing for a query with no positive term (`-zz`), and ranks at most 500 candidates; the worst-case test now bounds the rows any scan returns (EXPLAIN ANALYZE), a query timeout is a redacted 500, and a cursor carries a 16-byte digest of its filters so it stays within 512 characters.
 - [ ] Resolved-links reader (Shared pieces). 2026-11-13: the reader is in `getResource` on this branch. The writer stays in S4. Demo fixtures are in SEED.
 - **Tables:** `resource_categories`, `providers`, `resources`, `resource_countries`, `resource_sdk_languages`, `resource_sources`, `resource_tags`, `error_reports`, `countries`, `tags`; search reads questions, answers, projects, learn articles.
 - **Acceptance:** `US-DISCOVER-001/1`, search steps of `US-SOLVE-001/1` and `US-LEARN-001/2`. Negative authz: no private or removed content through lists or search; anonymous error report 401; CSRF 403; reporter identity never exposed; rate limit.
@@ -194,7 +195,7 @@ Open owner items outside CADEV (IDs and decisions in ROADMAP section 8, 10 and 1
   - An article body above about 16 KiB replays an idempotent retry with `Idempotency-Body-Omitted: true` (idempotency column limit); the web client then follows `Location` (`PANK4SS`).
   - Bylines of deleted accounts are not "membre supprimé" yet; P0 has no account deletion, and the fix is the four author columns of `db/queries/learn.sql` (S1 bylines item).
   - The four lessons of `scripts/content/free-series.sql` were drafted with AI: the team reviews and owns the text in PR #111 before the staging rehearsal.
-- **Status:** IN PROGRESS on `feature/learn/articles-series` (2026-11-13): the five P0 operations, the `links[]` writer and the content script are written with unit, real-PostgreSQL and route-gate tests; `DONE` waits for the review and the merge.
+- **Status:** DONE (PR #111, 2026-11-13; issue #68 closed). Still open: the known deviations above, the team's review of the four lessons before the staging rehearsal, and the script runs (S8, H19). 2026-11-13 (`fix/platform/violation-codes`): Learn and discover error-report violations use JSON-pointer fields and `Violation.code` enum values, as identity does since #127 (issue #116 rule).
 
 ---
 
@@ -394,6 +395,7 @@ Open owner items outside CADEV (IDs and decisions in ROADMAP section 8, 10 and 1
 - [ ] `develop` SHA frozen at Sat 18:00. `make quality-full` run on it, with its result (G1 to G6).
 - [ ] `staging-test` deployed from that SHA by digest (`make build`, then `make up-staging-test`); DNS resolves for `226os.tech` and the staging subdomain first (H7).
 - [ ] Staging smoke per `docs/SHIP.md` section 4: HTTPS, `/healthz` at the edge, `/readyz` inside the container (B2), auth, Q&A, vote, search, resource, project, application, anonymous reads, denied mutations, FR/EN, mobile, no secrets in logs.
+- [ ] Spoofed `X-Forwarded-For` through the real Traefik on `staging-test` (#117, `Y4NN777`): an anonymous search with a forged leading entry must still be keyed on the real client network (`httpx.ClientIPKey`). Traefik pins `forwardedHeaders.insecure=false` on every entrypoint and trusts no upstream proxy (`scripts/verify-containers.sh` enforces it, 2026-11-13, `chore/ops/traefik-forwarded-headers`); a CDN in front would need a reviewed `trustedIPs`.
 - [ ] Staging rehearsal: the team's real accounts create real `live` content through the app, and the S4 content script runs on staging with the production procedure; record the date in the Done log.
 - [ ] Backup taken and restore verified on a scratch database; rollback drill (previous image redeployed by digest).
 - [ ] Zero `provenance='demo'` rows on **both** `staging-test` and `production-live` (see SEED).
@@ -425,3 +427,4 @@ Full log and the checked items: [archive](docs/archive/tracker/TODO-archive-2026
 | 2026-11-12 | Parallel CI gate groups (ADR-0010); promotions `develop` to `main` and back-merges | #57, #54, #55, #58, #59 | `Y4NN777` |
 | 2026-11-13 | S2 catalogue reads: `listResources`, `getResource`, `listResourceSources` | #83 | `mibienpanjoe` |
 | 2026-11-13 | S2 search core: `search` over four groups, C4 option 1 decided by the owner | #92 | `mibienpanjoe` |
+| 2026-11-13 | S4 Learn: the five P0 operations, the article `links[]` writer, the free-series content script and its gate | #111 | `mibienpanjoe` |

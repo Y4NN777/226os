@@ -464,7 +464,7 @@ func TestErrorReportValidation(t *testing.T) {
 		rec := s.report(t, &alice, catAlpha, `{"kind":"other","body":"x","source_id":"`+catSrcBeta+`"}`)
 		p := assertProblem(t, rec, http.StatusUnprocessableEntity, "VALIDATION_ERROR")
 		v, _ := json.Marshal(p["violations"])
-		if !strings.Contains(string(v), `"source_id"`) {
+		if !strings.Contains(string(v), `"/source_id"`) || !strings.Contains(string(v), `"invalid_value"`) {
 			t.Fatalf("violations %s", v)
 		}
 		for _, leak := range []string{catSrcBeta, catBeta, "Beta"} {
