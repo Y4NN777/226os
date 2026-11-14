@@ -43,6 +43,7 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PIPELINE_BRANCH = "fix/review/"
+BATCH_BRANCH = "fix/review/batch-"
 PIPELINE_TRAILER = re.compile(r"^Review-Pipeline:", re.M | re.I)
 BLOCKING_LABELS = ("needs-owner", "do-not-merge", "owner-override-pending")
 DEFAULT_CHECKS = "Validate branch promotion,quality,Review gate"
@@ -115,10 +116,21 @@ def owner_approved_head(gh, repo, number, owner, head):
     return last is not None and last.get("state") == "APPROVED" and last.get("commit_id") == head
 
 
-def sensitive_refusal(gh, repo, number, pull, owner, files, patterns, head):
-    """The refusal for a sensitive path, or None: the owner authored every commit, or approved exactly the head."""
+def sensitive_refusal(gh, repo, number, pull, owner, files, patterns, head, ledger=None):
+    """The refusal for a sensitive path, or None: the owner authored every commit, or approved exactly the head. A review
+    batch pull request (head branch `fix/review/batch-*` of this repository; the pipeline paths are refused elsewhere) needs
+    no owner click instead: the deep review PASSED on exactly this head and no CRITICAL was ever recorded on it (open
+    findings and the other checks are refused by `refusals` for every pull request)."""
     hits = comment.p0_hits(files, patterns)
     if not hits:
+        return None
+    if str((pull.get("head") or {}).get("ref") or "").startswith(BATCH_BRANCH):
+        ledger = ledger if isinstance(ledger, dict) else {}
+        deep = ledger.get("deep") if isinstance(ledger.get("deep"), dict) else {}
+        if not (deep.get("status") == "PASS" and deep.get("sha") == head):
+            return "sensitive paths touched (%s): the batch pull request waits for the deep review of the head" % ", ".join(hits[:3])
+        if any(isinstance(f, dict) and str(f.get("sev", "")).upper() == "CRITICAL" for f in ledger.get("findings", [])):
+            return "sensitive paths touched (%s): a CRITICAL was recorded on this head" % ", ".join(hits[:3])
         return None
     if owner_authored(gh, repo, number, pull, owner) or owner_approved_head(gh, repo, number, owner, head):
         return None
@@ -197,7 +209,7 @@ def refusals(gh, repo, number, base, owner, required):
     if hits and not (deep.get("status") == "PASS" and deep.get("sha") == head):
         why.append("a P0 path is touched (%s) without a deep review PASS of the head" % ", ".join(hits[:3]))
 
-    failure = sensitive_refusal(gh, repo, number, pull, owner, files, base_list(gh, repo, SENSITIVE_LIST, base_ref), head)
+    failure = sensitive_refusal(gh, repo, number, pull, owner, files, base_list(gh, repo, SENSITIVE_LIST, base_ref), head, ledger)
     if failure:
         why.append(failure)
     return head, why, pipeline_why

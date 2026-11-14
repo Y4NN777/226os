@@ -109,7 +109,7 @@ grep -qx 'run=false' <<<"$outputs" && [ "$(writes)" -eq 0 ] && ok "notes only (a
 
 ledger "f1:finding:LOW:open"
 run pr
-grep -qx 'run=false' <<<"$outputs" && ok "a LOW finding does not trigger the fixer" || ko "low ($outputs)"
+[ "$rc" -eq 0 ] && grep -qx 'run=true' <<<"$outputs" && grep -qx 'findings=f1' <<<"$outputs" && ok "a PR whose only open finding is LOW is fixed (auto-merge refuses any open finding): verdict fix with that id" || ko "low ($outputs)"
 
 ledger "c1:finding:CRITICAL:open f1:finding:MEDIUM:open"
 run pr

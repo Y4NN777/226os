@@ -1,5 +1,5 @@
 # Review auto-fix (stage 3): after the "Code review" workflow, when the review comment of a pull request into develop
-# has an OPEN finding of MEDIUM or HIGH (not a note; an open CRITICAL goes to the owner instead), Claude Code fixes
+# has an OPEN finding of any severity but CRITICAL (LOW too; not a note; an open CRITICAL goes to the owner instead), Claude Code fixes
 # those findings on the pull request's head branch with .claude/commands/review-fix.md, as a normal project session
 # (CLAUDE.md, .claude/settings.json hooks, .claude/agents and .claude/skills load: the action's setting sources are user,
 # project and local). The fix is pushed back, which re-triggers CI and the review.

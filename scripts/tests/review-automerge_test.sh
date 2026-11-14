@@ -154,10 +154,30 @@ printf '[{"sha":"%s","author":{"login":"Y4NN777"},"commit":{"message":"%s"}}]' "
 printf '[{"user":{"login":"Y4NN777"},"state":"APPROVED","commit_id":"%s","submitted_at":"2026-11-14T10:00:00Z"}]' "$H" >"$tmp/fx/reviews.json"
 run on
 grep -q 'pr merge 7' <<<"$calls" && ok "the same pipeline commit merges once the owner approved exactly the head" || ko "pipeline approved ($out)"
-reset; files scripts/x.sh; review_comment "Triage: NONE | blast radius: x" "$SENS_OK"; pull open develop o/r false '[]' Y4NN777 fix/review/batch-2026-11-14
+reset; files scripts/x.sh; review_comment "Triage: NONE | blast radius: x" "$SENS_OK"; pull open develop o/r false '[]' Y4NN777 fix/review/other
 refused 'owner' "a fix/review/ head branch is never owner-authored, even without the trailer"
 reset; files scripts/x.sh; review_comment "Triage: NONE | blast radius: x" "$SENS_OK"; pull open develop o/r false '["autofix-1"]' Y4NN777
 refused 'owner' "an autofix label means the pull request is never owner-authored"
+
+# --- owner decision 2026-11-14: a review batch pull request merges without the owner's click, sensitive paths included ---
+BATCH=fix/review/batch-2026-11-14
+reset; files scripts/x.sh; review_comment "Triage: NONE | blast radius: x" "$SENS_OK"; pull open develop o/r false '[]' Y4NN777 $BATCH
+run on
+grep -q 'pr merge 7' <<<"$calls" && ok "batch PR + sensitive path + deep PASS on the head + clean: merges without the owner" || ko "batch merge ($out)"
+reset; files scripts/x.sh; review_comment "Triage: NONE | blast radius: x" "{\"sha\":\"$H\",\"findings\":[],\"deep\":{\"status\":\"PASS\",\"sha\":\"$OLD\"}}"; pull open develop o/r false '[]' Y4NN777 $BATCH
+refused 'deep review' "batch PR + sensitive path + the deep review on an older sha: refused (waits for the deep review)"
+reset; files scripts/x.sh; review_comment "Triage: NONE | blast radius: x" "{\"sha\":\"$H\",\"findings\":[]}"; pull open develop o/r false '[]' Y4NN777 $BATCH
+refused 'deep review' "batch PR + sensitive path + no deep review on the head: refused"
+reset; files scripts/x.sh; review_comment "Triage: MEDIUM | blast radius: x" "{\"sha\":\"$H\",\"findings\":[{\"id\":\"m1\",\"kind\":\"finding\",\"evidence\":\"OBSERVED\",\"sev\":\"MEDIUM\",\"file\":\"a.go\",\"line\":1,\"scenario\":\"s\",\"status\":\"open\"}],\"deep\":{\"status\":\"PASS\",\"sha\":\"$H\"}}"; pull open develop o/r false '[]' Y4NN777 $BATCH
+refused 'open finding' "batch PR + sensitive path + an open MEDIUM: refused"
+reset; files scripts/x.sh; review_comment "Triage: NONE | blast radius: x" "{\"sha\":\"$H\",\"findings\":[{\"id\":\"c1\",\"kind\":\"finding\",\"evidence\":\"OBSERVED\",\"sev\":\"CRITICAL\",\"file\":\"a.go\",\"line\":1,\"scenario\":\"s\",\"status\":\"fixed\"}],\"deep\":{\"status\":\"PASS\",\"sha\":\"$H\"}}"; pull open develop o/r false '[]' Y4NN777 $BATCH
+refused 'CRITICAL' "batch PR + a CRITICAL recorded on the head (even fixed): refused"
+reset; files scripts/review-x.sh; review_comment "Triage: NONE | blast radius: x" "$SENS_OK"; pull open develop o/r false '[]' Y4NN777 $BATCH
+run on
+[ "$rc" -eq 0 ] && grep -q 'REFUSE #7' <<<"$out" && grep -q 'review pipeline' <<<"$out" && ! grep -q 'pr merge' <<<"$calls" && ok "batch PR touching a pipeline path: still refused (the owner merges it)" || ko "batch pipeline path (rc=$rc out=$out)"
+reset; files scripts/x.sh; review_comment "Triage: NONE | blast radius: x" "$SENS_OK"; pull open develop o/r false '["autofix-1"]' Y4NN777 feature/x
+printf '[{"sha":"%s","author":{"login":"Y4NN777"},"commit":{"message":"fix\n\nReview-Pipeline: autofix/9"}}]' "$H" >"$tmp/fx/commits.json"
+refused 'owner' "an autofix commit on a normal PR + sensitive path still needs the owner's approval of the head"
 
 reset; review_comment "Triage: HIGH | blast radius: x" "{\"sha\":\"$H\",\"findings\":[]}"; refused 'no open finding explains' "a HIGH verdict with no open finding"
 reset; review_comment "Triage: MEDIUM | blast radius: x" "{\"sha\":\"$H\",\"findings\":[$NOTE]}"; refused 'no open finding explains' "a MEDIUM verdict with only a note"

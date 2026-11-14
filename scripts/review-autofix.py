@@ -3,7 +3,7 @@
 whether its commits may be pushed. The workflows only call this script; the model never decides any of it.
 
   pr     stage 3 (.github/workflows/review-autofix.yml, after the "Code review" workflow). Runs the fixer when the
-         ledger of the review comment has an OPEN finding (kind `finding`, not a note) of MEDIUM or HIGH, for the
+         ledger of the review comment has an OPEN finding (kind `finding`, not a note) of any severity but CRITICAL (a LOW one too: auto-merge refuses any open finding), for the
          pull request head the review looked at. Refused: a fork, a base other than develop, a head branch main or
          develop, a closed or draft pull request, a Code review run whose review job did not run (a label or review
          event), a ledger or run for an older head. An open CRITICAL sends the whole pull request to the owner (label
@@ -65,7 +65,6 @@ import re
 import subprocess
 import sys
 
-FIXABLE = ("HIGH", "MEDIUM")
 MAX_ATTEMPTS = 2
 OWNER_LABEL = "needs-owner"
 REVIEW_JOB = "Code review (advisory)"
@@ -199,10 +198,10 @@ def decide_pr(ctx, gh, repo, number, mode):
     open_findings = [f for f in ledger["findings"] if f["kind"] == "finding" and f["status"] == "open"]
     if any(f["sev"] == "CRITICAL" for f in open_findings):
         return "owner", "an open CRITICAL goes to the owner, the pull request is not fixed"
-    ids = [safe_id(f["id"]) for f in open_findings if f["sev"] in FIXABLE]
+    ids = [safe_id(f["id"]) for f in open_findings]  # every open finding but a CRITICAL (returned above): LOW too
     ids = [i for i in ids if i]
     if not ids:
-        return "nothing", "no open MEDIUM or HIGH finding (notes are never fixed)"
+        return "nothing", "no open finding (notes are never fixed)"
     labels = label_names(info.get("labels"))
     done = sum(1 for n in range(1, MAX_ATTEMPTS + 1) if "autofix-%d" % n in labels)
     if done >= MAX_ATTEMPTS:
