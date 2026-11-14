@@ -16,6 +16,7 @@ import { ApiError } from '../../api/http';
 import { ErrorState } from '../../components/ErrorState';
 import { LoadingState } from '../../components/LoadingState';
 import { useI18n } from '../../i18n/I18nProvider';
+import { relatedPath } from '../related';
 import { AnswerForm } from './AnswerForm';
 import { AcceptButton, VoteControls } from './Interactions';
 import { Byline, StateBadge, TagList } from './present';
@@ -203,11 +204,7 @@ function Related({ links }: { links: Question['related'] }) {
       <VStack as="ul" gap={1}>
         {links.map((link) => (
           <li key={`${link.type}-${link.id}`}>
-            {link.type === 'resource' ? (
-              <Link href={`/discover/${link.id}`}>{link.title}</Link>
-            ) : (
-              <Text>{link.title}</Text>
-            )}
+            <Link href={relatedPath(link)}>{link.title}</Link>
           </li>
         ))}
       </VStack>

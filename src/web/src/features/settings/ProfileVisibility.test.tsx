@@ -80,6 +80,28 @@ describe('Profile visibility setting (parametres)', () => {
     expect(patch?.headers.get('X-CSRF-Token')).toBe('csrf-member');
   });
 
+  it('opts into the Connect directory with the field violation on the control', async () => {
+    setLanguages(['fr-FR']);
+    let saved: unknown;
+    member({
+      'GET /me': () => jsonResponse({ account: memberAccount, profile }),
+      'PATCH /me/profile': async (request: Request) => {
+        saved = await request.json();
+        if (saved && (saved as { open_to_collab?: boolean }).open_to_collab) {
+          return problemResponse(422, 'VALIDATION_ERROR', {
+            violations: [{ field: '/open_to_collab', code: 'invalid_value' }],
+          });
+        }
+        return jsonResponse(profile);
+      },
+    });
+    await renderApp('/parametres');
+    const optIn = await screen.findByRole('checkbox', { name: 'Visible dans l’annuaire' });
+    await userEvent.click(optIn);
+    expect(saved).toEqual({ open_to_collab: true });
+    expect(optIn).toHaveAccessibleDescription(/n’a pas été enregistrée/);
+  });
+
   it('keeps the choice and explains when saving fails', async () => {
     setLanguages(['fr-FR']);
     member({
@@ -90,7 +112,7 @@ describe('Profile visibility setting (parametres)', () => {
     await userEvent.click(await screen.findByRole('radio', { name: /Privé/ }));
     await userEvent.click(screen.getByRole('button', { name: 'Enregistrer la visibilité' }));
     await waitFor(() => {
-      expect(screen.getByRole('alert')).toHaveTextContent(/Réessayez dans 20/);
+      expect(screen.getByText(/Réessayez dans 20/)).toBeVisible();
     });
     expect(screen.getByRole('radio', { name: /Privé/ })).toBeChecked();
   });

@@ -82,9 +82,9 @@ export const fr = {
   'identity.welcome.anonymous.body':
     'Connectez-vous pour poser vos questions, répondre et suivre vos projets.',
   'identity.welcome.intro': 'Voici par où commencer.',
-  'identity.welcome.discover': 'Découvrir le catalogue',
-  'identity.welcome.search': 'Rechercher',
-  'identity.welcome.settings': 'Réglages',
+  'identity.welcome.learn': 'Apprendre',
+  'identity.welcome.connect': 'Connect',
+  'identity.welcome.profile': 'Mon profil',
 } as const;
 
 export const en: Record<keyof typeof fr, string> = {
@@ -167,7 +167,7 @@ export const en: Record<keyof typeof fr, string> = {
   'identity.welcome.anonymous.title': 'Welcome to 226os',
   'identity.welcome.anonymous.body': 'Sign in to ask questions, answer and follow your projects.',
   'identity.welcome.intro': 'Here is where to start.',
-  'identity.welcome.discover': 'Browse the catalogue',
-  'identity.welcome.search': 'Search',
-  'identity.welcome.settings': 'Settings',
+  'identity.welcome.learn': 'Learn',
+  'identity.welcome.connect': 'Connect',
+  'identity.welcome.profile': 'My profile',
 };

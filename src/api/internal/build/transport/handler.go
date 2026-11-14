@@ -35,7 +35,7 @@ func New(svc *service.Service, logger *slog.Logger) *Handler {
 func (h *Handler) ListProjects(w http.ResponseWriter, r *http.Request, params apigen.ListProjectsParams) {
 	page, err := h.svc.ListProjects(r.Context(), subject.From(r.Context()), service.ProjectListRequest{
 		Q: params.Q, Technology: params.Technology, Skill: params.Skill, OpenNeeds: params.OpenNeeds,
-		Cursor: deref(params.Cursor), Limit: params.Limit,
+		Cursor: deref(params.Cursor), Limit: params.Limit, ClientIP: httpx.ClientIPKey(r),
 	})
 	if err != nil {
 		h.fail(w, r, err)

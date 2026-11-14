@@ -291,7 +291,7 @@ func TestUpdateQuestionHandsTheIfMatchCheckToTheService(t *testing.T) {
 }
 
 // Negative authz for PATCH /api/v1/questions/{questionId} (AUTHORIZATION_MATRIX, allow: owner): anonymous
-// callers get 401, a member who is not the author gets 403 on a visible question whatever the tag says,
+// callers get 401, a member or moderator who is not the author gets 403 on a visible question whatever the tag says,
 // an unknown or removed question is 404, and nothing is written.
 func TestAuthzUpdateQuestionNonOwner(t *testing.T) {
 	locked := domain.Question{ID: qID, Author: alice, UpdatedAt: when}
@@ -305,6 +305,7 @@ func TestAuthzUpdateQuestionNonOwner(t *testing.T) {
 		{"anonymous", subject.Subject{}, &fakeStore{guardAs: locked}, service.ETag(locked), http.StatusUnauthorized},
 		{"other member, right tag", subject.Subject{UserID: otherU, EmailVerified: true}, &fakeStore{guardAs: locked}, service.ETag(locked), http.StatusForbidden},
 		{"other member, stale tag", subject.Subject{UserID: otherU, EmailVerified: true}, &fakeStore{guardAs: locked}, `"stale"`, http.StatusForbidden},
+		{"moderator is not the owner", subject.Subject{UserID: otherU, EmailVerified: true, Roles: []string{"moderator"}}, &fakeStore{guardAs: locked}, service.ETag(locked), http.StatusForbidden},
 		{"unknown or removed question, stale tag", member, &fakeStore{guardAs: locked, err: domain.ErrNotFound}, `"stale"`, http.StatusNotFound},
 	}
 	for _, tc := range cases {

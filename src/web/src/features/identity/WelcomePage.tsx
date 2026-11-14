@@ -48,9 +48,9 @@ export function WelcomePage() {
       </Heading>
       <Text as="p">{t('identity.welcome.intro')}</Text>
       <HStack gap={3} wrap="wrap">
-        <Button variant="primary" href="/discover" label={t('identity.welcome.discover')} />
-        <Button href="/recherche" label={t('identity.welcome.search')} />
-        <Button href="/parametres" label={t('identity.welcome.settings')} />
+        <Button variant="primary" href="/apprendre" label={t('identity.welcome.learn')} />
+        <Button href="/connect" label={t('identity.welcome.connect')} />
+        <Button href={`/profils/${user.username}`} label={t('identity.welcome.profile')} />
       </HStack>
     </VStack>
   );

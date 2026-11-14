@@ -18,6 +18,13 @@ function renderAt(path: string) {
 }
 
 describe('App routing', () => {
+  it('sets a localized title for the current page', async () => {
+    setLanguages(['fr-FR']);
+    renderAt('/recherche');
+    await screen.findByRole('heading', { level: 1, name: 'Recherche' });
+    expect(document.title).toBe('Recherche · 226os');
+  });
+
   it('renders the shell and the public landing page at /', async () => {
     setLanguages(['fr-FR']);
     renderAt('/');

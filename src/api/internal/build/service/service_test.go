@@ -114,14 +114,18 @@ func (g *fakeGitHub) Repo(context.Context, string, string) (domain.Repo, error) 
 
 // fakeLimiter denies or fails one scope; every other scope is allowed.
 type fakeLimiter struct {
-	scope string
-	deny  bool
-	err   error
-	hits  []string
+	scope  string
+	deny   bool
+	err    error
+	hits   []string
+	value  string
+	limit  int
+	window time.Duration
 }
 
-func (l *fakeLimiter) Hit(_ context.Context, scope, _ string, _ int, _ time.Duration) (bool, time.Duration, error) {
+func (l *fakeLimiter) Hit(_ context.Context, scope, value string, limit int, window time.Duration) (bool, time.Duration, error) {
 	l.hits = append(l.hits, scope)
+	l.value, l.limit, l.window = value, limit, window
 	if scope != l.scope {
 		return true, 0, nil
 	}
@@ -209,6 +213,20 @@ func TestListProjectsPagesAndBindsTheCursor(t *testing.T) {
 	empty, err := svc.ListProjects(t.Context(), anon, ProjectListRequest{})
 	if err != nil || empty.Items == nil || st.query.Limit != defaultLimit+1 || st.query.OpenNeeds {
 		t.Fatalf("empty %+v %v", empty, err)
+	}
+}
+
+func TestListProjectsAnonymousQueryUsesSearchBudget(t *testing.T) {
+	lim := &fakeLimiter{scope: "search:ip", deny: true}
+	_, err := newSvc(t, &fakeStore{}, nil, lim).ListProjects(t.Context(), anon, ProjectListRequest{
+		Q: ptr("paiement"), ClientIP: "198.51.100.0/24",
+	})
+	p := problemOf(t, err, apperr.CodeRateLimited)
+	if p.RetryAfter != 7*time.Second {
+		t.Fatalf("retry_after = %s", p.RetryAfter)
+	}
+	if len(lim.hits) != 1 || lim.hits[0] != "search:ip" || lim.value != "198.51.100.0/24" || lim.limit != 60 || lim.window != time.Minute {
+		t.Fatalf("limiter = %+v", lim)
 	}
 }
 

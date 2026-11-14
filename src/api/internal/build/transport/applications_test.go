@@ -20,6 +20,7 @@ const (
 )
 
 var charlie = subject.Subject{UserID: charlieID, EmailVerified: true}
+var moderator = subject.Subject{UserID: charlieID, EmailVerified: true, Roles: []string{"moderator"}}
 
 type appFake struct {
 	need    domain.NeedAccess
@@ -124,7 +125,7 @@ func TestListProjectApplicationsForTheOwner(t *testing.T) {
 }
 
 // Negative authz for GET /api/v1/projects/{projectId}/applications (listProjectApplications, allow:
-// owner, C1): anonymous 401; a third party 403 on a public project and 404 on a private one, with a
+// owner, C1): anonymous 401; a third party or moderator gets 403 on a public project and 404 on a private one, with a
 // problem body that carries no item and no count.
 func TestAuthzListProjectApplicationsNonOwner(t *testing.T) {
 	cases := []struct {
@@ -137,6 +138,8 @@ func TestAuthzListProjectApplicationsNonOwner(t *testing.T) {
 		{"third party on a public project", charlie, "public", http.StatusForbidden},
 		{"third party on a private project", charlie, "private", http.StatusNotFound},
 		{"applicant on a public project", bob, "public", http.StatusForbidden},
+		{"moderator on a public project", moderator, "public", http.StatusForbidden},
+		{"moderator on a private project", moderator, "private", http.StatusNotFound},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -168,7 +171,7 @@ func TestDecideApplicationByTheOwner(t *testing.T) {
 
 // Negative authz for PATCH /api/v1/applications/{applicationId} (decideApplication, allow: project
 // owner accepts or declines, applicant withdraws): anonymous 401; a third party 404 (cross-project
-// IDOR); the applicant accepting 403; the owner withdrawing 403; nothing changes.
+// IDOR); a moderator who is not a party gets the same 404; the applicant accepting 403; the owner withdrawing 403; nothing changes.
 func TestAuthzDecideApplicationNonParty(t *testing.T) {
 	cases := []struct {
 		name, decision string
@@ -178,6 +181,7 @@ func TestAuthzDecideApplicationNonParty(t *testing.T) {
 		{"anonymous", "accepted", subject.Subject{}, http.StatusUnauthorized},
 		{"third party accepts", "accepted", charlie, http.StatusNotFound},
 		{"third party withdraws", "withdrawn", charlie, http.StatusNotFound},
+		{"moderator accepts", "accepted", moderator, http.StatusNotFound},
 		{"applicant accepts their own", "accepted", bob, http.StatusForbidden},
 		{"owner withdraws", "withdrawn", alice, http.StatusForbidden},
 	}

@@ -18,6 +18,7 @@ import { useSession } from '../../app/session';
 import { ErrorState } from '../../components/ErrorState';
 import { LoadingState } from '../../components/LoadingState';
 import { useI18n } from '../../i18n/I18nProvider';
+import { relatedPath } from '../related';
 import type { MessageKey } from '../../i18n/messages';
 import { FailureNotice } from '../identity/notices';
 import { useFailure } from '../identity/useFailure';
@@ -176,14 +177,6 @@ function EditProject({ project, onDone }: { project: Project; onDone: () => void
 function Related({ links }: { links: Project['related'] }) {
   const { t } = useI18n();
   if (links.length === 0) return null;
-  const hrefOf = (link: Project['related'][number]) =>
-    link.type === 'resource'
-      ? `/discover/${link.id}`
-      : link.type === 'question'
-        ? `/questions/${link.id}`
-        : link.type === 'project'
-          ? `/build/${link.id}`
-          : undefined;
   return (
     <VStack gap={1}>
       <Text type="label" color="secondary">
@@ -191,10 +184,9 @@ function Related({ links }: { links: Project['related'] }) {
       </Text>
       <VStack as="ul" gap={1}>
         {links.map((link) => {
-          const href = hrefOf(link);
           return (
             <li key={`${link.type}-${link.id}`}>
-              {href ? <Link href={href}>{link.title}</Link> : <Text>{link.title}</Text>}
+              <Link href={relatedPath(link)}>{link.title}</Link>
             </li>
           );
         })}

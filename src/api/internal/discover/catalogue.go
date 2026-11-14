@@ -15,5 +15,5 @@ import (
 // reports (60 per user per minute). A nil logger discards logs.
 func NewHandler(db dbgen.DBTX, codec *cursor.Codec, limiter service.Limiter, logger *slog.Logger) *transport.Handler {
 	repo := repository.New(db)
-	return transport.New(service.New(repo, codec), service.NewReports(repo, limiter), logger)
+	return transport.New(service.New(repo, codec, limiter), service.NewReports(repo, limiter), logger)
 }

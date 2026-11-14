@@ -151,6 +151,11 @@ func requestID(ctx context.Context) string {
 	return capRunes(middleware.GetReqID(ctx), maxRequestIDLen)
 }
 
+// RequestID returns the request id capped to the contract and audit-log limit.
+func RequestID(ctx context.Context) string {
+	return requestID(ctx)
+}
+
 // capRunes truncates s to at most n runes.
 func capRunes(s string, n int) string {
 	if utf8.RuneCountInString(s) <= n {
