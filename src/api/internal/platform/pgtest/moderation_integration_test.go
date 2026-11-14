@@ -126,6 +126,36 @@ func TestModerationAuditFailureRollsBackContentChange(t *testing.T) {
 	}
 }
 
+func TestModerationHiddenAnswerUpdatesQuestionStateAndRestoreCount(t *testing.T) {
+	repo, conn := moderationDB(t)
+	ctx := t.Context()
+	if _, err := conn.Exec(ctx, `UPDATE questions SET answer_count = 1, accepted_answer_id = $1 WHERE id = $2`, aBob, qAlice); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := repo.Hide(ctx, "answer", aBob, uMod, "spam", "req-answer-state"); err != nil {
+		t.Fatal(err)
+	}
+	var count int
+	var accepted *string
+	if err := conn.QueryRow(ctx, `SELECT answer_count, accepted_answer_id::text FROM questions WHERE id = $1`, qAlice).Scan(&count, &accepted); err != nil {
+		t.Fatal(err)
+	}
+	if count != 0 || accepted != nil {
+		t.Fatalf("hidden answer left question state count=%d accepted=%v", count, accepted)
+	}
+
+	if err := repo.Restore(ctx, "answer", aBob, uMod, "appel", "req-answer-state-restore"); err != nil {
+		t.Fatal(err)
+	}
+	if err := conn.QueryRow(ctx, `SELECT answer_count, accepted_answer_id::text FROM questions WHERE id = $1`, qAlice).Scan(&count, &accepted); err != nil {
+		t.Fatal(err)
+	}
+	if count != 1 || accepted != nil {
+		t.Fatalf("restored answer question state count=%d accepted=%v", count, accepted)
+	}
+}
+
 func TestModerationHiddenContentLeavesReadsAndSearchThenReturns(t *testing.T) {
 	repo, conn := moderationDB(t)
 	ctx := t.Context()

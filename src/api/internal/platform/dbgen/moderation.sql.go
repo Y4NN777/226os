@@ -12,11 +12,21 @@ import (
 )
 
 const hideModerationAnswer = `-- name: HideModerationAnswer :exec
-UPDATE answers SET status = 'removed', removed_at = now(), updated_at = now() WHERE id = $1
+WITH hidden AS (
+  UPDATE answers SET status = 'removed', removed_at = now(), updated_at = now()
+  WHERE answers.id = $1
+  RETURNING question_id
+)
+UPDATE questions AS q
+SET answer_count = GREATEST(q.answer_count - 1, 0),
+    accepted_answer_id = CASE WHEN q.accepted_answer_id = $1 THEN NULL ELSE q.accepted_answer_id END,
+    updated_at = now()
+FROM hidden
+WHERE q.id = hidden.question_id
 `
 
-func (q *Queries) HideModerationAnswer(ctx context.Context, id pgtype.UUID) error {
-	_, err := q.db.Exec(ctx, hideModerationAnswer, id)
+func (q *Queries) HideModerationAnswer(ctx context.Context, acceptedAnswerID pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, hideModerationAnswer, acceptedAnswerID)
 	return err
 }
 
@@ -220,7 +230,15 @@ func (q *Queries) ResolveModerationErrorReport(ctx context.Context, arg ResolveM
 }
 
 const restoreModerationAnswer = `-- name: RestoreModerationAnswer :exec
-UPDATE answers SET status = 'published', removed_at = NULL, updated_at = now() WHERE id = $1
+WITH restored AS (
+  UPDATE answers SET status = 'published', removed_at = NULL, updated_at = now()
+  WHERE answers.id = $1
+  RETURNING question_id
+)
+UPDATE questions AS q
+SET answer_count = q.answer_count + 1, updated_at = now()
+FROM restored
+WHERE q.id = restored.question_id
 `
 
 func (q *Queries) RestoreModerationAnswer(ctx context.Context, id pgtype.UUID) error {

@@ -7,7 +7,6 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/go-chi/chi/v5/middleware"
 	"github.com/google/uuid"
 
 	"github.com/Y4NN777/226os/src/api/internal/moderation/domain"
@@ -36,7 +35,7 @@ func (h *Handler) HideContent(w http.ResponseWriter, r *http.Request, targetType
 		h.fail(w, r, err)
 		return
 	}
-	if err := h.svc.Hide(r.Context(), subject.From(r.Context()), string(targetType), targetID.String(), body.Reason, middleware.GetReqID(r.Context())); err != nil {
+	if err := h.svc.Hide(r.Context(), subject.From(r.Context()), string(targetType), targetID.String(), body.Reason, httpx.RequestID(r.Context())); err != nil {
 		h.fail(w, r, err)
 		return
 	}
@@ -49,7 +48,7 @@ func (h *Handler) RestoreContent(w http.ResponseWriter, r *http.Request, targetT
 		h.fail(w, r, err)
 		return
 	}
-	if err := h.svc.Restore(r.Context(), subject.From(r.Context()), string(targetType), targetID.String(), body.Reason, middleware.GetReqID(r.Context())); err != nil {
+	if err := h.svc.Restore(r.Context(), subject.From(r.Context()), string(targetType), targetID.String(), body.Reason, httpx.RequestID(r.Context())); err != nil {
 		h.fail(w, r, err)
 		return
 	}
@@ -66,7 +65,7 @@ func (h *Handler) ResolveErrorReport(w http.ResponseWriter, r *http.Request, rep
 	if body.Note != nil {
 		note = *body.Note
 	}
-	report, err := h.svc.ResolveReport(r.Context(), subject.From(r.Context()), reportID.String(), string(body.Status), note, middleware.GetReqID(r.Context()))
+	report, err := h.svc.ResolveReport(r.Context(), subject.From(r.Context()), reportID.String(), string(body.Status), note, httpx.RequestID(r.Context()))
 	if err != nil {
 		h.fail(w, r, err)
 		return

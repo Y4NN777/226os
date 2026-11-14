@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/google/uuid"
 
 	"github.com/Y4NN777/226os/src/api/internal/moderation/domain"
@@ -25,18 +26,22 @@ const (
 type storeFake struct {
 	hides, restores, resolves int
 	report                    domain.ErrorReport
+	requestID                 string
 }
 
-func (f *storeFake) Hide(context.Context, string, string, string, string, string) error {
+func (f *storeFake) Hide(_ context.Context, _, _, _, _, requestID string) error {
 	f.hides++
+	f.requestID = requestID
 	return nil
 }
-func (f *storeFake) Restore(context.Context, string, string, string, string, string) error {
+func (f *storeFake) Restore(_ context.Context, _, _, _, _, requestID string) error {
 	f.restores++
+	f.requestID = requestID
 	return nil
 }
-func (f *storeFake) ResolveReport(context.Context, string, string, string, string, string) (domain.ErrorReport, error) {
+func (f *storeFake) ResolveReport(_ context.Context, _, _, _, _, requestID string) (domain.ErrorReport, error) {
 	f.resolves++
+	f.requestID = requestID
 	return f.report, nil
 }
 
@@ -139,6 +144,26 @@ func TestModeratorActionsAndReporterSafeResolution(t *testing.T) {
 	}
 	if st.hides != 1 || st.restores != 1 || st.resolves != 1 {
 		t.Fatalf("store %+v", st)
+	}
+}
+
+func TestModerationAuditRequestIDIsCapped(t *testing.T) {
+	mod := subject.Subject{UserID: modID, Roles: []string{"moderator"}}
+	st := &storeFake{}
+	h := New(service.New(st, allow{}), nil)
+	r := request(t, mod, `{"reason":"spam"}`)
+	r.Header.Set(middleware.RequestIDHeader, strings.Repeat("x", 65))
+	rec := httptest.NewRecorder()
+
+	middleware.RequestID(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h.HideContent(w, r, apigen.ModerationTargetTypeQuestion, uuid.MustParse(objID))
+	})).ServeHTTP(rec, r)
+
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+	}
+	if st.requestID != strings.Repeat("x", 64) {
+		t.Fatalf("audit request id length = %d, want 64", len(st.requestID))
 	}
 }
 
