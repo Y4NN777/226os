@@ -10,6 +10,7 @@ import { TextArea } from '@astryxdesign/core/TextArea';
 import { TextInput } from '@astryxdesign/core/TextInput';
 import { VStack } from '@astryxdesign/core/VStack';
 import { useForm } from '@tanstack/react-form';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { ApiError } from '../../api/http';
 import type { components } from '../../api/schema';
@@ -56,6 +57,33 @@ function MessageNotice({ message }: { message: string }) {
   );
 }
 
+/** What this visitor did on a need: applied (with the id to withdraw by, if known) or withdrawn. */
+type Sent = { id: string | null; withdrawn: boolean };
+
+/**
+ * Kept in the query cache, not in component state: leaving the project page and coming back must
+ * not offer the apply button again. Sign-out clears the cache (app/session.ts), so it never leaks
+ * to another account; after a reload the server answers DUPLICATE_APPLICATION, which is explained.
+ */
+function useSent(needId: string) {
+  const queryClient = useQueryClient();
+  const key = ['applications', 'sent', needId] as const;
+  const { data } = useQuery<Sent | null>({
+    queryKey: key,
+    queryFn: () => null,
+    staleTime: Infinity,
+    gcTime: Infinity,
+    enabled: false,
+    initialData: null,
+  });
+  return [
+    data,
+    (next: Sent) => {
+      queryClient.setQueryData(key, next);
+    },
+  ] as const;
+}
+
 function ApplyForm({ need, projectId }: { need: Need; projectId: string }) {
   const { t } = useI18n();
   const create = useCreateApplication(need.id);
@@ -63,8 +91,7 @@ function ApplyForm({ need, projectId }: { need: Need; projectId: string }) {
   const { failure, report, clear } = useFailure();
   const { formRef, focusFirstInvalid } = useInvalidFocus();
   const [serverInvalid, setServerInvalid] = useState(false);
-  const [sent, setSent] = useState<{ id: string | null } | null>(null);
-  const [withdrawn, setWithdrawn] = useState(false);
+  const [sent, setSent] = useSent(need.id);
 
   const form = useForm({
     defaultValues: { message: '' },
@@ -74,7 +101,7 @@ function ApplyForm({ need, projectId }: { need: Need; projectId: string }) {
       setServerInvalid(false);
       try {
         const created = await create.mutateAsync(value.message.trim());
-        setSent(created);
+        setSent({ id: created.id, withdrawn: false });
       } catch (error) {
         if (
           error instanceof ApiError &&
@@ -89,13 +116,13 @@ function ApplyForm({ need, projectId }: { need: Need; projectId: string }) {
     },
   });
 
-  if (withdrawn)
+  if (sent?.withdrawn)
     return (
       <Text as="p" role="status">
         {t('project.apply.withdrawn')}
       </Text>
     );
-  if (sent !== null) {
+  if (sent) {
     return (
       <VStack gap={2} hAlign="start">
         <Text as="p" role="status">
@@ -111,14 +138,20 @@ function ApplyForm({ need, projectId }: { need: Need; projectId: string }) {
                 { id: sent.id ?? '', status: 'withdrawn' },
                 {
                   onSuccess: () => {
-                    setWithdrawn(true);
+                    setSent({ id: sent.id, withdrawn: true });
                   },
                 },
               );
             }}
           />
         ) : null}
-        {decide.isError ? <ErrorState error={decide.error} /> : null}
+        {decide.isError ? (
+          decide.error instanceof ApiError && decide.error.code === 'STATE_CONFLICT' ? (
+            <MessageNotice message={t('project.err.decided')} />
+          ) : (
+            <ErrorState error={decide.error} />
+          )
+        ) : null}
       </VStack>
     );
   }
@@ -200,6 +233,7 @@ function NeedItem({
 }) {
   const { t } = useI18n();
   const [applying, setApplying] = useState(false);
+  const [sent] = useSent(need.id);
   return (
     <Card variant="muted">
       <VStack gap={2}>
@@ -213,7 +247,7 @@ function NeedItem({
         <Text as="p">{need.description}</Text>
         <Technologies items={need.skills} />
         {need.status === 'open' && viewer === 'member' ? (
-          applying ? (
+          applying || sent ? (
             <ApplyForm need={need} projectId={projectId} />
           ) : (
             <HStack>

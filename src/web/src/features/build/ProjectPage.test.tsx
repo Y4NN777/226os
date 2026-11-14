@@ -268,6 +268,42 @@ describe('ProjectPage apply', () => {
     expect(callsTo(fetchMock, `PATCH /applications/${applicationId}`)).toHaveLength(1);
   });
 
+  it('says the application was already handled when the owner decided before the withdrawal', async () => {
+    setLanguages(['fr-FR']);
+    member({
+      ...routes,
+      [`POST /contribution-needs/${needId}/applications`]: () =>
+        jsonResponse(application(), { status: 201 }),
+      [`PATCH /applications/${applicationId}`]: () => problemResponse(409, 'STATE_CONFLICT'),
+    });
+    const user = await apply();
+    await user.type(screen.getByRole('textbox', { name: /Votre message/ }), 'Bonjour');
+    await user.click(screen.getByRole('button', { name: 'Envoyer ma candidature' }));
+    await user.click(await screen.findByRole('button', { name: 'Retirer ma candidature' }));
+    await expectAlert('Cette candidature a déjà été traitée.');
+  });
+
+  it('keeps the sent state when the project page is left and opened again', async () => {
+    setLanguages(['fr-FR']);
+    const fetchMock = member({
+      ...routes,
+      [`POST /contribution-needs/${needId}/applications`]: () =>
+        jsonResponse(application(), { status: 201 }),
+    });
+    const user = userEvent.setup();
+    const { router } = await renderApp(`/build/${projectId}`);
+    await user.click(await screen.findByRole('button', { name: 'Postuler' }));
+    await user.type(screen.getByRole('textbox', { name: /Votre message/ }), 'Bonjour');
+    await user.click(screen.getByRole('button', { name: 'Envoyer ma candidature' }));
+    await screen.findByText(/Candidature envoyée/);
+
+    await router.navigate({ to: '/' });
+    await router.navigate({ to: '/build/$projectId', params: { projectId } });
+    expect(await screen.findByText(/Candidature envoyée/)).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Postuler' })).not.toBeInTheDocument();
+    expect(callsTo(fetchMock, `POST /contribution-needs/${needId}/applications`)).toHaveLength(1);
+  });
+
   it.each([
     ['no Location', undefined],
     ['a cross-origin Location', `https://evil.test/api/v1/applications/${applicationId}`],
