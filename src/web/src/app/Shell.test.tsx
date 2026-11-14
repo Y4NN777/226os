@@ -25,13 +25,11 @@ describe('Shell', () => {
     mockApi();
     await renderApp('/');
     const nav = await screen.findByRole('navigation', { name: 'Navigation principale' });
-    const labels = within(nav)
-      .getAllByRole('link')
-      .concat(within(nav).queryAllByRole('button'))
+    const pillars = ['Apprendre', 'Connect', 'Résoudre', 'Découvrir', 'Construire'];
+    const inDocumentOrder = within(nav)
+      .getAllByText(new RegExp(`^(${pillars.join('|')})$`))
       .map((el) => el.textContent);
-    const order = ['Apprendre', 'Connect', 'Résoudre', 'Découvrir', 'Construire'].map((name) =>
-      labels.findIndex((label) => label.startsWith(name)),
-    );
+    const order = pillars.map((name) => inDocumentOrder.indexOf(name));
     expect(order.every((index) => index >= 0)).toBe(true);
     expect([...order].sort((a, b) => a - b)).toEqual(order);
   });
@@ -44,6 +42,18 @@ describe('Shell', () => {
     const solve = within(primaryNav()).getByText('Résoudre').closest('a, button, [aria-disabled]');
     expect(solve).toHaveAttribute('aria-disabled', 'true');
     expect(within(primaryNav()).getAllByText('Bientôt').length).toBeGreaterThan(0);
+  });
+
+  it('links Discover as a live pillar and offers search from the top bar', async () => {
+    setLanguages(['fr-FR']);
+    mockApi();
+    await renderApp('/');
+    await screen.findByRole('link', { name: 'Se connecter' });
+    expect(within(primaryNav()).getByRole('link', { name: 'Découvrir' })).toHaveAttribute(
+      'href',
+      '/discover',
+    );
+    expect(screen.getByRole('link', { name: 'Rechercher' })).toHaveAttribute('href', '/recherche');
   });
 
   it('shows the signed-in member and signs out with the session CSRF token', async () => {
