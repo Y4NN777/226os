@@ -184,6 +184,7 @@ Open owner items outside CADEV (IDs and decisions in ROADMAP section 8, 10 and 1
   - Votes and accept need a verified email (as the content they act on, ADR-0003). An unknown, removed or other-question `answer_id` on accept is 422 on `/answer_id` (the question is visible to its author, so nothing leaks); a vote on an unknown or removed target is 404.
   - Allowed paths extended as S4 and S5 (owner approval 2026-11-14): `src/api/internal/app/**` (wiring), `src/api/internal/platform/pgtest/**` and `dbgen/*_test.go` (tests), the route lists `scripts/unimplemented-routes.txt`, `scripts/public-routes.txt`, `scripts/authz-tests.txt`, and `scripts/tests/authz-routes_test.sh` (its fixture routes moved to still-unimplemented P1 operations).
 - **Status:** IN REVIEW. PR 1 merged (#147, 2026-11-14); PR 2 (`feature/solve/votes-accept`, four operations) built by the owner's session with `NICE-DEV226` as slice owner (owner decision on #67).
+- **Follow-up fix:** issue #156 — `DeleteSolveQuestionTags` now scopes its delete to `tags.status='active'` so an edit keeps links to moderator-hidden tags (same rule as `DeleteProjectTags`, #131); pgtest `TestSolveEditKeepsAHiddenTagLink` proves hide → edit → restore → link returns. Branch `fix/solve/hidden-tag-links`.
 
 ---
 
