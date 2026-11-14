@@ -19,8 +19,8 @@
 **Scope**
 
 - **The full P0.** These are the 44 operations with `x-priority: P0` in `api/openapi.yaml` (48 in total with the four P1), moderation and the assistant included, and 45 once the E5 contract PR is accepted. No cut line is agreed in advance.
-- **S9, grounded AI assistant.** It is P0 by an owner decision taken 2026-11-12 ("AI first"). It amends `docs/PRD.md` 5.8, where the sourced assistant is P2. Its operations are **not yet** in `api/openapi.yaml`. It may not be claimed until the owner applies PRD amendment 3.2 and a SPEC story exists (`docs/PRD.md`, "Traçabilité produit"; `docs/SPEC.md` section 1).
-- **S10, live channels.** Conditional ("channels if on track"). It is built only if the Sat 12:00 checkpoint shows S0 to S5 on track. Otherwise it stays P2 and is reported as not built.
+- **S9, grounded AI assistant.** It is P0 by an owner decision taken 2026-11-12 ("AI first"). It amends `docs/PRD.md` 5.8, where the sourced assistant is P2. Its operations are **not yet** in `api/openapi.yaml`. It may not be claimed until the owner applies PRD amendment 3.2 and a SPEC story exists (`docs/PRD.md`, "Traçabilité produit"; `docs/SPEC.md` section 1). 2026-11-14: these conditions are met: `askAssistant` is in the contract (PR #81), amendment 3.2 is applied, and US-INTEL-001 is in SPEC.md (PR #176); ADR-0012 is accepted.
+- **S10, live channels.** Conditional ("channels if on track"). It is built only if the Sat 12:00 checkpoint shows S0 to S5 on track. Otherwise it stays P2 and is reported as not built. 2026-11-14: **NOT BUILT (P2)**, decided at the 12:00 checkpoint (section 14).
 - **Product-review additions** (accepted by the owner on 2026-11-12):
   - **E1:** S9 teaching rules AI-1 to AI-5, AI-9 and AI-10 become acceptance tests plus the golden set.
   - **E2:** taxonomy additions and relabels through one new migration.
@@ -95,20 +95,20 @@ The slices were assigned by owner decisions on 2026-11-12. The review rules come
 | Slice | Content | Owner | Ops | Starts after |
 |---|---|---|---:|---|
 | S0 | API core: DB pool, `/readyz`, apigen mount, validation, cursors, ETag, Idempotency-Key, transactions, mailer. **DONE (PRs #31 to #36, 2026-11-12)** | `Y4NN777` | 0 | - |
-| S1 | Identity: auth (8), me (2), profiles (1) | `NICE-DEV226` | 11 | S0 |
-| S2 | Discover and search (demo fixtures moved to SEED) | `mibienpanjoe` (accountable); helpers `Y4NN777`, `NICE-DEV226` | 5 | S0 (the error report also needs S1) |
-| S3 | Solve | `NICE-DEV226` | 10 | S1 |
-| S4 | Learn, including the one-time production content script for the free series (B5) | `mibienpanjoe` (accountable); helpers `Y4NN777` (S4 and content script), `NICE-DEV226`; script run by `Y4NN777` | 5 | S0 (publishing also needs S1) |
-| S5 | Build | `mibienpanjoe` (accountable); helpers `NICE-DEV226` (first, after Solve), `Y4NN777` | 9 | S1 |
+| S1 | Identity: auth (8), me (2), profiles (1). **Operations DONE (PRs #89, #90, #94, 2026-11-13)** | `NICE-DEV226` | 11 | S0 |
+| S2 | Discover and search (demo fixtures moved to SEED). **Operations DONE (PRs #83, #92, #96, 2026-11-13)** | `mibienpanjoe` (accountable); helpers `Y4NN777`, `NICE-DEV226` | 5 | S0 (the error report also needs S1) |
+| S3 | Solve. **DONE (PRs #147, #153, 2026-11-14)** | `NICE-DEV226` | 10 | S1 |
+| S4 | Learn, including the one-time production content script for the free series (B5). **DONE (PR #111, 2026-11-13)** | `mibienpanjoe` (accountable); helpers `Y4NN777` (S4 and content script), `NICE-DEV226`; script run by `Y4NN777` | 5 | S0 (publishing also needs S1) |
+| S5 | Build. **DONE (PRs #131, #132, 2026-11-14)** | `mibienpanjoe` (accountable); helpers `NICE-DEV226` (first, after Solve), `Y4NN777` | 9 | S1 |
 | S6 | Moderation, built last | `Y4NN777` | 3 | S0, S1; targets from S2 to S5 |
 | S7 | Frontend: the prototypes become React pages | `PANK4SS` | - | typed fixtures first, then each merged endpoint |
 | S8 | Ops, release and CADEV submission | `Y4NN777` | - | Datacloud, DNS, SMTP |
-| S9 | Grounded AI assistant (P0 by owner decision) | `Y4NN777` (contract PR, LLM port, backend); second developer `NICE-DEV226` after Solve; UI `PANK4SS` | new, TBD | S1, S2; owner verification V1 to V4 (H12) |
-| S10 | Live channels (**CONDITIONAL**) | **unassigned**, conditional on Sat 14 Nov 12:00; migrations `mibienpanjoe` | new, TBD | Sat 12:00 GO, S1, S4, S5 |
+| S9 | Grounded AI assistant (P0 by owner decision). **DONE (PRs #81, #161, #169, #176, 2026-11-14); V2 and V4 open** | `Y4NN777` (contract PR, LLM port, backend); second developer `NICE-DEV226` after Solve; UI `PANK4SS` | 1 (`askAssistant`) | S1, S2; owner verification V1 to V4 (H12) |
+| S10 | Live channels (**CONDITIONAL**). **NOT BUILT (P2)**, 12:00 checkpoint | **unassigned**, conditional on Sat 14 Nov 12:00; migrations `mibienpanjoe` | new, TBD | Sat 12:00 GO, S1, S4, S5 |
 | E2 | Taxonomy: +5 learn topics, +3 resource categories, 4 relabels, no deletions, one new migration | `mibienpanjoe`, the only migration writer; helpers `Y4NN777` and `NICE-DEV226` on the pgtest updates only, never on the migration | 0 | none (migration only) |
 | SEED | Demo fixtures for **`local-dev` only**, for local development and e2e: `db/seeds` and `make seed` (NOT IMPLEMENTED today; refuses everywhere except `local-dev`), demo accounts as decided in C15, and a local copy of the 3 to 4 lesson series | `PANK4SS` (reviewed by `mibienpanjoe`; the `mk/50-ops.mk` change also by `Y4NN777`, area owner) | 0 | migrations 00001 to 00010 and E2; C15 DECIDED |
 | E4 | "Ask about this lesson" button, read-only topic feeds | `PANK4SS` with `NICE-DEV226` (Solve owner) | 0 | S3 `createQuestion`; any article (S4, the content script, or SEED in `local-dev`); the C2 contract PR before the feeds (C2 DECIDED) |
-| E5 | Connect people directory (new operation, suggested `GET /profiles`), `connect` page, office-hours process note | backend `NICE-DEV226` after Solve, if time allows (it slips early); UI `PANK4SS` | +1 (44 total once accepted) | contract PR; S1 (profiles); the `profile_visibility` migration (C14 DECIDED) |
+| E5 | Connect people directory (new operation, suggested `GET /profiles`), `connect` page, office-hours process note | backend `NICE-DEV226` after Solve, if time allows (it slips early); UI `PANK4SS` | +1 (45 P0 once accepted) | contract PR; S1 (profiles); the `profile_visibility` migration (C14 DECIDED) |
 | IA | Pillar emphasis: navigation, home and FR/EN copy promote Learn & Grow and Connect | `PANK4SS` | 0 | none (no new endpoints) |
 
 **Reviewer pairs (owner instruction 2026-11-12).** A reviewer is never the author.
@@ -208,7 +208,7 @@ Owner personal tasks still open (owner instruction 2026-11-12): **H6 and H7** (D
 | H8 | Gmail SMTP app password in the staging and production env files only. **DONE 2026-11-12:** `mailcheck` sent a real mail through `smtp.gmail.com:587` (STARTTLS); the settings are in the staging secrets file. **Alias verified (owner statement, 2026-11-12):** the Gmail "Send mail as" alias for the branded sender `noreply@226os.tech` is set up, so Gmail does not rewrite `From`. Remaining: repeat the test on the staging host once it exists | `Y4NN777` | Fri morning | an app password needs 2-step verification (GUESS; verify) |
 | H10 | Vote reminders to all four members, plus a named follow-up person (SHIP section 6) | `Y4NN777` | Sun 17:00 | - |
 | H12 | S9: AI Studio key (DONE, in `secrets/staging-test.enc.env`); V1 DONE, V3 DECIDED; **V2 OPEN** (console quotas) | `Y4NN777` | Fri 13 evening | - |
-| H13 | Apply PRD amendment 3.2 and add a SPEC story for S9 (and S10 if GO); the owner applies these | `Y4NN777` | Fri evening | - |
+| H13 | Apply PRD amendment 3.2 and add a SPEC story for S9 (and S10 if GO); the owner applies these. **DONE 2026-11-14:** US-INTEL-001 and its matrix row merged (PR #176); S10 is not built, so it needs no story | `Y4NN777` | done | - |
 | H16 | The PRD amendment for the pillars (O7): amendment 3.2. **DONE 2026-11-12:** approved by the owner | `Y4NN777` | done | - |
 | H19 | Run the one-time S4 content script on `production-live` after its PR is reviewed, with confirmation and a backup first; record the run date in the TODO Done log | `Y4NN777` (runner) | Sun morning, after the production deploy | - |
 
@@ -248,7 +248,7 @@ The original analysis blocks, rejected options and long reasoning are in the [ar
 - **C7. Stale `db/` status. RESOLVED.** `docs/spec-kit/DATABASE_DESIGN.md` is already correct (B0 created the migrations).
 - **C8. Branch domains.** `docs/GIT_WORKFLOW.md` lists allowed domains without `learn`; the CI regex accepts any lowercase domain (`branch-policy.yml`). OPEN (owner ruling for `learn`).
 - **C9. Stale x-authz `matrix:` labels** in `api/openapi.yaml` (for example `POST /sessions`, `GET /users/me`, `PATCH /profiles/me`). OPEN.
-- **C10. S9 priority.** PRD 5.8 puts the sourced assistant at P2; the owner made it P0 (H13). OPEN until amendment 3.2 is approved.
+- **C10. S9 priority.** PRD 5.8 puts the sourced assistant at P2; the owner made it P0 (H13). OPEN until amendment 3.2 is approved. **RESOLVED 2026-11-12:** amendment 3.2 approved (H16, `docs/PRD.md` header).
 - **C12. Article-to-question link.** The database allows only the canonical pair `('question','article')` (`00009_content_relations.sql`), while ADR-0005 point 13 lets only the source author create a relation and `ArticleCreate.links[]` accepts questions. OPEN.
 - **C13. `LinkRef` accepts `series`, but `content_relations` has no series column.** This is why each lesson of the demo series is a tutorial `learn_article` referenced by `training_lessons.article_id`. OPEN.
 - **C14. Profile visibility and listing. DECIDED 2026-11-12 (owner approved; residual points jointly with the main session).**
@@ -263,11 +263,11 @@ The original analysis blocks, rejected options and long reasoning are in the [ar
 - **O2. Where the shared pieces live.** Listed in TODO.md "Shared pieces": rate limiter, session resolver, `links[]` writer and reader, audit-log writer, `EMAIL_NOT_VERIFIED` check. The backend lead decides at kickoff.
 - **O3. The P1 routes. CLOSED by B1** (mounted, 501, listed in `scripts/unimplemented-routes.txt`).
 - **O4. Resending the verification email.** ADR-0003 sets a resend rate limit but no P0 operation resends. OPEN.
-- **O5. S9 questions the PROPOSED ADR must decide.** The provider is decided (Google AI Studio, Gemma 4, section 14). Open: exactly what is sent (question text and retrieved public content only; no emails, private data or secrets), the cost cap or quota guard and where its counter lives, timeouts (B3), the fallback ("assistant unavailable"; the page never fails), FR/EN behaviour, the evaluation set and pass criteria, anonymous access and the per-subject rate limit. The second developer is `NICE-DEV226` (after Solve). Design rules proposed for the ADR: a visible notice that the question is sent to Google, redaction of secrets and emails with tests, a per-environment switch, a provider switch through the LLM port if the free tier is unsuitable.
+- **O5. S9 questions the PROPOSED ADR must decide. DECIDED 2026-11-14 by ADR-0012 (accepted at the 12:00 checkpoint; values in TODO S9).** The provider is decided (Google AI Studio, Gemma 4, section 14). Open: exactly what is sent (question text and retrieved public content only; no emails, private data or secrets), the cost cap or quota guard and where its counter lives, timeouts (B3), the fallback ("assistant unavailable"; the page never fails), FR/EN behaviour, the evaluation set and pass criteria, anonymous access and the per-subject rate limit. The second developer is `NICE-DEV226` (after Solve). Design rules proposed for the ADR: a visible notice that the question is sent to Google, redaction of secrets and emails with tests, a per-environment switch, a provider switch through the LLM port if the free tier is unsuitable.
   - **Facts from the AI Studio terms** (OFFICIAL, `https://aistudio.google.com/docs/terms`, "Effective March 23, 2026", re-fetched 2026-11-12; the S9 ADR is their long-term home): on the free tier (Unpaid Services) content is used to improve Google products, human reviewers may read input and output, and personal information must not be submitted; Paid Services do not use content for improvement and log it for a limited period; a project counts as paid only with an active Cloud Billing account.
   - **NOT CONFIRMED:** Gemma free-tier rate limits (shown per project in the console; third-party figures conflict); further sources `https://ai.google.dev/gemini-api/docs/logs-policy` and `https://ai.google.dev/gemini-api/docs/rate-limits` were not re-fetched.
   - **Verification items (owner `Y4NN777`):** **V1 DONE 2026-11-12:** `aicheck models` lists `gemma-4-26b-a4b-it` and `gemma-4-31b-it` (both `generateContent`, 262144 input, 32768 output tokens); staging uses `gemma-4-26b-a4b-it`. **V2 OPEN:** the project's real limits are read in the console; the 3 probes of `aicheck limits` do not measure them (`gemma-4-26b-a4b-it` 3 of 3 ok, `gemma-4-31b-it` 2 of 3 unavailable). **V3 DECIDED 2026-11-12: free tier.** **V4:** both models answer in French and English but put their reasoning in the answer text (the adapter must drop it); FR/EN latency and quality on the golden set are still to be measured before the demo.
-- **O6. S10 builder and displacement.** Nobody owns S10. If built it takes Saturday capacity from S6 and S7 integration, the G5 and G6 harnesses, the backup drill, the bug-fix buffer and E4-type work (GUESS; not quantified).
+- **O6. S10 builder and displacement. CLOSED 2026-11-14: S10 NOT BUILT (P2), 12:00 checkpoint.** Nobody owns S10. If built it takes Saturday capacity from S6 and S7 integration, the G5 and G6 harnesses, the backup drill, the bug-fix buffer and E4-type work (GUESS; not quantified).
 - **O7. Prominent pillars.** Learn & Grow and Connect are made prominent in navigation, home and wording only; no PRD pillar is erased or demoted (nine domains, four differentiators stay; one ecosystem, section 12.4). PRD amendment 3.2 is **approved** (owner, 2026-11-12, H16). The amendment wording is unchanged here.
 - **O9. E5 backend owner. Assigned:** `NICE-DEV226`, after Solve, if time allows (slips early, section 12.1).
 - **O10. SEED owner. Assigned:** `PANK4SS` (original fixtures, `db/seeds`, `make seed`); reviewed by `mibienpanjoe`, and `Y4NN777` for `mk/50-ops.mk`. The production series is the S4 content script (B5).
@@ -302,7 +302,7 @@ Closed or merged out of this table (see archive): K3 (B1 implemented in S0), K36
 | K19 | S10 live delivery: a `LISTEN` holds a dedicated DB connection; the 30 s router timeout (B3); Traefik streaming behaviour unverified | medium (INFERRED) | S10 ADR covers the transport, connection budget and timeouts |
 | K23 | E1, E2, E4, E5, SEED and the pillar change raise the total scope with no added people | high (GUESS; not quantified) | The slip order in section 12.1, decided at the Sat 12:00 checkpoint |
 | K28 | E5 privacy: a hidden field or a non-listable profile leaks through the list or the filters; scraping of the directory | high | Visibility-filtered projection and filters; email never selected; bounded `limit` (max 50, ADR-0004); a rate limit per IP and per user (window to be set by the owner, ADR-0003 has none for this route); privacy tests |
-| K29 | E5 adds an operation, so `apigen` regenerates and the 47-operation count in `contract_test.go` and `docs/quality/COVERAGE_SCOPE.md:17` changes; B1 applies to the new route | medium | Handled in the E5 contract PR, with owner approval for `COVERAGE_SCOPE.md` |
+| K29 | E5 adds an operation, so `apigen` regenerates and the operation count in `contract_test.go` (48 since `askAssistant`) and `docs/quality/COVERAGE_SCOPE.md` changes; B1 applies to the new route | medium | Handled in the E5 contract PR, with owner approval for `COVERAGE_SCOPE.md` |
 | K24 | B5: no content path into production | medium (B5 DECIDED for CADEV: the content script) | Script reviewed in a PR, rehearsed on staging, run by the owner (H19) |
 | K25 | The relabel of learn topic `ai` changes its meaning, from "IA appliquée et langues africaines" (`db/migrations/00002_reference_taxonomy.sql`) to "Comprendre les LLM". Content already tagged `ai` (seeds, fixtures) may need re-tagging to `african-languages`. | low (INFERRED) | Check seeds and fixtures in the E2 PR |
 | K26 | E2 changes the reference lists, so `migrate_integration_test.go` (exact lists and counts at `:140-150`, `:180`, `:219`) fails unless it is updated in the same PR | medium | Same PR; owner review, because pgtest is in the platform area |
@@ -367,6 +367,8 @@ All pillars share the same spine. That is why making two of them prominent remov
 - **Provenance labels.** A demo badge on `provenance='demo'` fixtures, across every pillar. Discover entries show their documentary sources as links.
 
 ## 13. NOT RUN (as of 2026-11-12)
+
+> 2026-11-14: this list is a dated snapshot. Since then E2 merged (PR #80) and the S9 golden set runs on the fake adapter in the integration suite (PR #161); the live NOT RUN state is in [TODO.md](TODO.md).
 
 - **Gates.** G5 e2e, G6 perf and G7 release. `make test-e2e`, `make perf` and `make seed` are NOT IMPLEMENTED. There is no deploy or release workflow (B4). Nothing is deployed.
 - **Frontend evidence.** The ADR-0007 visual, axe and responsive evidence, and frontend coverage of the new pages.

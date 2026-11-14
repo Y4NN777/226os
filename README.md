@@ -16,7 +16,7 @@ Positionnement : **Burkina Faso et Afrique de l'Ouest d'abord, puis toute l'Afri
 | Sujet | État |
 | --- | --- |
 | Produit | Implémentation P0 en cours, suivie dans [ROADMAP.md](ROADMAP.md) et [TODO.md](TODO.md) |
-| API et socle | Socle Go, contrat OpenAPI, migrations, secrets chiffrés et squelette web fusionnés ; les opérations métier répondent 501 tant que leur tranche n'est pas livrée |
+| API et socle | Socle Go, contrat OpenAPI, migrations et secrets chiffrés fusionnés ; les comptes, la recherche, les piliers Apprendre, Solve, Discover et Build et l'assistant sourcé (désactivé par configuration) sont servis par l'API et branchés dans les pages web. La modération et les quatre opérations P1 répondent encore 501 |
 | Gates G1 à G4 | Exécutées par la CI en groupes parallèles ; `make quality` en est la définition locale |
 | Gates G5 (e2e) et G6 (performance) | NOT IMPLEMENTED |
 | Gate G7 (livraison) | NOT RUN |
@@ -79,7 +79,7 @@ Définition de « fini » : `make quality` passe, avec des gates déterministes 
 
 ## Contribuer
 
-Lisez d'abord [CONTRIBUTING.md](CONTRIBUTING.md) et la [page d'accueil de l'équipe](docs/team/KICKOFF.md). Les branches partent de `develop` ([GIT_WORKFLOW](docs/GIT_WORKFLOW.md)), et chaque PR met à jour [TODO.md](TODO.md) dans le même changement. Chaque contribution est signée par la personne qui en répond ; aucun agent IA n'apparaît comme auteur, et l'aide d'une IA se déclare dans [AI_USAGE.md](AI_USAGE.md).
+Lisez d'abord [CONTRIBUTING.md](CONTRIBUTING.md) et la [page d'accueil de l'équipe](docs/team/KICKOFF.md). Les branches partent de `develop` ([GIT_WORKFLOW](docs/GIT_WORKFLOW.md)), et chaque PR met à jour [TODO.md](TODO.md) dans le même changement. Chaque contribution est signée par la personne qui en répond ; aucun agent IA n'apparaît comme auteur, et l'aide d'une IA se déclare dans un fichier de [docs/ai-usage/](docs/ai-usage/README.md), repris dans [AI_USAGE.md](AI_USAGE.md).
 
 ## Documentation
 
