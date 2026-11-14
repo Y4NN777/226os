@@ -22,7 +22,7 @@ import { Byline, StateBadge, TagList } from './present';
 import { QuestionForm, type QuestionDraft } from './QuestionForm';
 import {
   useAnswers,
-  useInteractionsLive,
+  useInteractions,
   useQuestion,
   useUpdateQuestion,
   type Answer,
@@ -222,8 +222,8 @@ export function QuestionPage() {
   const query = useQuestion(questionId);
   const [editing, setEditing] = useState(false);
   const user = session.data?.authenticated ? session.data.user : null;
-  const live = useInteractionsLive(user !== null);
-  const interactive = user !== null && live.data === true;
+  const { available } = useInteractions();
+  const interactive = user !== null && available;
 
   if (query.isPending) return <LoadingState />;
   if (query.isError) {

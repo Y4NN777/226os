@@ -1,3 +1,4 @@
+import { Badge } from '@astryxdesign/core/Badge';
 import { Button } from '@astryxdesign/core/Button';
 import { HStack } from '@astryxdesign/core/HStack';
 import { Icon } from '@astryxdesign/core/Icon';
@@ -24,8 +25,6 @@ import {
   checkSnippetLanguage,
   checkTags,
   checkTitle,
-  isValidLinkId,
-  linkTypes,
   parseTags,
   snippetsOf,
   type LinkType,
@@ -92,7 +91,7 @@ function serverFieldErrors(error: ApiError): ServerErrors {
   return result;
 }
 
-interface LinkDraft {
+export interface LinkDraft {
   type: LinkType;
   id: string;
 }
@@ -109,6 +108,7 @@ export function QuestionForm({
   onSubmit,
   onCancel,
   failureNotice,
+  initialLink,
 }: {
   mode: 'create' | 'edit';
   initial: QuestionInitial;
@@ -116,15 +116,14 @@ export function QuestionForm({
   onSubmit: (draft: QuestionDraft) => Promise<void>;
   onCancel: () => void;
   failureNotice?: (error: unknown) => ReactNode;
+  /** A link pre-filled by the page that sent the visitor here (E4); shown as a removable chip. */
+  initialLink?: LinkDraft | undefined;
 }) {
   const { t } = useI18n();
   const { failure, report, clear } = useFailure();
   const { formRef, focusFirstInvalid } = useInvalidFocus();
   const [serverErrors, setServerErrors] = useState<ServerErrors>({});
-  const [links, setLinks] = useState<LinkDraft[]>([]);
-  const [linkType, setLinkType] = useState<LinkType>('resource');
-  const [linkId, setLinkId] = useState('');
-  const [linkInvalid, setLinkInvalid] = useState(false);
+  const [links, setLinks] = useState<LinkDraft[]>(initialLink ? [initialLink] : []);
 
   const form = useForm({
     defaultValues: {
@@ -162,19 +161,6 @@ export function QuestionForm({
 
   const forget = (field: Field) => {
     setServerErrors((current) => ({ ...current, [field]: undefined }));
-  };
-
-  const addLink = () => {
-    if (!isValidLinkId(linkId)) {
-      setLinkInvalid(true);
-      return;
-    }
-    const id = linkId.trim().toLowerCase();
-    setLinks((current) =>
-      current.some((link) => link.id === id) ? current : [...current, { type: linkType, id }],
-    );
-    setLinkId('');
-    setLinkInvalid(false);
   };
 
   const notice = failure ? (failureNotice?.(failure.error) ?? null) : null;
@@ -344,58 +330,32 @@ export function QuestionForm({
                   }}
                 </form.Field>
               </VStack>
-              <VStack gap={2}>
-                <SegmentedControl
-                  label={t('solve.form.links.type')}
-                  value={linkType}
-                  onChange={(value) => {
-                    setLinkType(value as LinkType);
-                  }}
-                >
-                  {linkTypes.map((type) => (
-                    <SegmentedControlItem key={type} value={type} label={t(`solve.link.${type}`)} />
-                  ))}
-                </SegmentedControl>
-                <HStack gap={2} vAlign="end" wrap="nowrap">
-                  <TextInput
-                    label={t('solve.form.links.id')}
-                    isOptional
-                    value={linkId}
-                    autoCapitalize="none"
-                    hasAutoCorrect={false}
-                    hasSpellCheck={false}
-                    width="100%"
-                    onChange={(value) => {
-                      setLinkInvalid(false);
-                      setLinkId(value);
-                    }}
-                    {...errorStatus(
-                      linkInvalid || serverErrors.link ? t('solve.err.link') : undefined,
-                    )}
-                  />
-                  <Button label={t('solve.form.links.add')} onClick={addLink} />
-                </HStack>
-                {links.length > 0 ? (
-                  <VStack as="ul" gap={1}>
+              {links.length > 0 ? (
+                <VStack gap={1}>
+                  <Text type="label" color="secondary">
+                    {t('solve.form.links.label')}
+                  </Text>
+                  <HStack gap={1} wrap="wrap">
                     {links.map((link) => (
-                      <li key={link.id}>
-                        <HStack gap={2} vAlign="center">
-                          <Text>{`${t(`solve.link.${link.type}`)} ${link.id}`}</Text>
-                          <IconButton
-                            size="sm"
-                            variant="ghost"
-                            label={t('solve.form.links.remove', { name: link.id })}
-                            icon={<Icon icon="close" />}
-                            onClick={() => {
-                              setLinks((current) => current.filter((item) => item.id !== link.id));
-                            }}
-                          />
-                        </HStack>
-                      </li>
+                      <HStack key={link.id} gap={0.5} vAlign="center">
+                        <Badge variant="neutral" label={t(`solve.link.${link.type}`)} />
+                        <IconButton
+                          size="sm"
+                          variant="ghost"
+                          label={t('solve.form.links.remove', {
+                            name: t(`solve.link.${link.type}`),
+                          })}
+                          icon={<Icon icon="close" />}
+                          onClick={() => {
+                            setLinks((current) => current.filter((item) => item.id !== link.id));
+                          }}
+                        />
+                      </HStack>
                     ))}
-                  </VStack>
-                ) : null}
-              </VStack>
+                  </HStack>
+                  {serverErrors.link ? <Text type="supporting">{t('solve.err.link')}</Text> : null}
+                </VStack>
+              ) : null}
             </>
           ) : null}
           <form.Subscribe selector={(state) => state.isSubmitting}>

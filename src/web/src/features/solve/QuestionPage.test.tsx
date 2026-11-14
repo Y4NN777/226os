@@ -311,37 +311,74 @@ describe('QuestionPage editing', () => {
 });
 
 describe('QuestionPage votes and acceptance', () => {
-  const probe = 'DELETE /votes';
+  const owner = { id: memberId, username: 'awa', display_name: 'Awa Traoré' };
+  const ownedRoutes = (extra: Record<string, () => Response> = {}) =>
+    readRoutes({ [`GET ${key()}`]: () => withEtag(question({ author: owner }), '"v1"'), ...extra });
 
-  it('hides vote and accept controls while the operations answer 501', async () => {
+  it('sends no probe: controls are shown to a member without any vote call', async () => {
     setLanguages(['fr-FR']);
-    const fetchMock = member(
-      readRoutes({
-        [`GET ${key()}`]: () =>
-          withEtag(
-            question({ author: { id: memberId, username: 'awa', display_name: 'Awa Traoré' } }),
-            '"v1"',
-          ),
-        [probe]: () => new Response(null, { status: 501 }),
-      }),
-    );
+    const fetchMock = member(readRoutes());
     await renderApp(base);
-    await screen.findByText('Une autre piste.');
+    expect(
+      (await screen.findAllByRole('button', { name: 'Vote positif sur cette réponse' })).length,
+    ).toBeGreaterThan(0);
+    expect(callsTo(fetchMock, 'DELETE /votes')).toHaveLength(0);
+    expect(callsTo(fetchMock, 'POST /votes')).toHaveLength(0);
+  });
+
+  it('hides vote and accept controls after a 501, with no error shown', async () => {
+    setLanguages(['fr-FR']);
+    member(ownedRoutes({ 'POST /votes': () => new Response(null, { status: 501 }) }));
+    const user = userEvent.setup();
+    await renderApp(base);
+    const up = await screen.findAllByRole('button', { name: 'Vote positif sur cette réponse' });
+    expect(
+      screen.getAllByRole('button', { name: 'Accepter cette réponse' }).length,
+    ).toBeGreaterThan(0);
+    await user.click(up[0] as HTMLElement);
+
     await waitFor(() => {
-      expect(callsTo(fetchMock, probe)).toHaveLength(1);
+      expect(screen.queryByRole('button', { name: /Vote positif/ })).not.toBeInTheDocument();
     });
-    expect(screen.queryByRole('button', { name: /Vote positif/ })).not.toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: /Accepter cette réponse/ }),
     ).not.toBeInTheDocument();
+    // Empty live regions may exist; what matters is that no message is shown.
+    expect(
+      screen
+        .queryAllByRole('alert')
+        .map((alert) => alert.textContent.trim())
+        .filter(Boolean),
+    ).toEqual([]);
     expect(screen.getAllByText(/Score :/).length).toBeGreaterThan(0);
   });
 
-  it('casts a vote, shows the server score, and retracts on a second click', async () => {
+  it('hides the controls when accepting answers 501', async () => {
+    setLanguages(['fr-FR']);
+    member(ownedRoutes({ [`POST ${key('/accept')}`]: () => new Response(null, { status: 501 }) }));
+    const user = userEvent.setup();
+    await renderApp(base);
+    const buttons = await screen.findAllByRole('button', { name: 'Accepter cette réponse' });
+    await user.click(buttons[0] as HTMLElement);
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: /Vote positif/ })).not.toBeInTheDocument();
+    });
+    expect(
+      screen.queryByRole('button', { name: /Accepter cette réponse/ }),
+    ).not.toBeInTheDocument();
+    // Empty live regions may exist; what matters is that no message is shown.
+    expect(
+      screen
+        .queryAllByRole('alert')
+        .map((alert) => alert.textContent.trim())
+        .filter(Boolean),
+    ).toEqual([]);
+  });
+
+  it('casts a vote and shows the score the server returned', async () => {
     setLanguages(['fr-FR']);
     const fetchMock = member(
       readRoutes({
-        [probe]: () => problemResponse(404, 'NOT_FOUND'),
         'POST /votes': () =>
           jsonResponse({ target_type: 'answer', target_id: plain.id, value: 1, score: 5 }),
       }),
@@ -364,11 +401,8 @@ describe('QuestionPage votes and acceptance', () => {
 
   it('lets the question author accept an answer and refreshes', async () => {
     setLanguages(['fr-FR']);
-    const owner = { id: memberId, username: 'awa', display_name: 'Awa Traoré' };
     const fetchMock = member(
-      readRoutes({
-        [`GET ${key()}`]: () => withEtag(question({ author: owner }), '"v1"'),
-        [probe]: () => problemResponse(404, 'NOT_FOUND'),
+      ownedRoutes({
         [`POST ${key('/accept')}`]: () =>
           jsonResponse(question({ author: owner, accepted_answer_id: plain.id })),
       }),
@@ -384,16 +418,13 @@ describe('QuestionPage votes and acceptance', () => {
       await callsTo(fetchMock, `POST ${key('/accept')}`)[0]
         ?.clone()
         .json(),
-    ).toEqual({
-      answer_id: expect.any(String) as string,
-    });
-    // The accepted answer offers to withdraw the acceptance instead.
+    ).toEqual({ answer_id: expect.any(String) as string });
     expect(screen.getByRole('button', { name: 'Retirer l’acceptation' })).toBeInTheDocument();
   });
 
   it('does not offer accept to someone who is not the author', async () => {
     setLanguages(['fr-FR']);
-    member(readRoutes({ [probe]: () => problemResponse(404, 'NOT_FOUND') }));
+    member(readRoutes());
     await renderApp(base);
     await screen.findAllByRole('button', { name: 'Vote positif sur cette réponse' });
     expect(
@@ -403,12 +434,7 @@ describe('QuestionPage votes and acceptance', () => {
 
   it('explains a refused vote on one’s own content', async () => {
     setLanguages(['fr-FR']);
-    member(
-      readRoutes({
-        [probe]: () => problemResponse(404, 'NOT_FOUND'),
-        'POST /votes': () => problemResponse(403, 'SELF_VOTE_FORBIDDEN'),
-      }),
-    );
+    member(readRoutes({ 'POST /votes': () => problemResponse(403, 'SELF_VOTE_FORBIDDEN') }));
     const user = userEvent.setup();
     await renderApp(base);
     const up = await screen.findAllByRole('button', { name: 'Vote positif sur cette réponse' });

@@ -101,6 +101,84 @@ describe('SolvePage list', () => {
   });
 });
 
+const linkedId = 'd0000000-0000-4000-8000-000000000009';
+
+describe('SolvePage pre-filled link', () => {
+  it('shows the link from the route as a removable chip and sends it', async () => {
+    setLanguages(['fr-FR']);
+    const fetchMock = member({
+      'GET /questions': () => page([]),
+      'POST /questions': () => jsonResponse(question(), { status: 201 }),
+    });
+    const user = userEvent.setup();
+    await renderApp(`/solve?link=article:${linkedId}`);
+    // The form opens by itself: the visitor came from a lesson to ask about it.
+    await user.type(await screen.findByRole('textbox', { name: 'Titre' }), 'Une question de cours');
+    await user.type(screen.getByRole('textbox', { name: 'Votre question' }), 'Contexte.');
+    await user.type(screen.getByRole('textbox', { name: /Étiquettes/ }), 'go');
+    expect(screen.getByText('Article')).toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: /Identifiant/ })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Publier la question' }));
+
+    await waitFor(() => {
+      expect(callsTo(fetchMock, 'POST /questions')).toHaveLength(1);
+    });
+    const body = (await callsTo(fetchMock, 'POST /questions')[0]?.clone().json()) as Record<
+      string,
+      unknown
+    >;
+    expect(body.links).toEqual([{ type: 'article', id: linkedId }]);
+  });
+
+  it('drops the link when the chip is removed', async () => {
+    setLanguages(['fr-FR']);
+    const fetchMock = member({
+      'GET /questions': () => page([]),
+      'POST /questions': () => jsonResponse(question(), { status: 201 }),
+    });
+    const user = userEvent.setup();
+    await renderApp(`/solve?link=resource:${linkedId}`);
+    await user.type(await screen.findByRole('textbox', { name: 'Titre' }), 'Une question de fiche');
+    await user.type(screen.getByRole('textbox', { name: 'Votre question' }), 'Contexte.');
+    await user.type(screen.getByRole('textbox', { name: /Étiquettes/ }), 'go');
+    await user.click(screen.getByRole('button', { name: 'Retirer le lien Fiche' }));
+    expect(screen.queryByText('Fiche')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Publier la question' }));
+    await waitFor(() => {
+      expect(callsTo(fetchMock, 'POST /questions')).toHaveLength(1);
+    });
+    const body = (await callsTo(fetchMock, 'POST /questions')[0]?.clone().json()) as Record<
+      string,
+      unknown
+    >;
+    expect(body.links).toBeUndefined();
+  });
+
+  it('ignores a malformed or unsupported link, and offers no free identifier field', async () => {
+    setLanguages(['fr-FR']);
+    member({ 'GET /questions': () => page([]) });
+    const user = userEvent.setup();
+    await renderApp('/solve?link=question:not-a-uuid');
+    await user.click(await screen.findByRole('button', { name: 'Poser une question' }));
+    expect(screen.queryByRole('textbox', { name: /Identifiant/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Ajouter le lien/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Retirer le lien/ })).not.toBeInTheDocument();
+  });
+
+  it('keeps the link through the sign-in invitation', async () => {
+    setLanguages(['fr-FR']);
+    mockApi({ 'GET /questions': () => page([]) });
+    await renderApp(`/solve?link=article:${linkedId}`);
+    const invite = await screen.findByRole('link', {
+      name: 'Se connecter pour poser une question',
+    });
+    expect(invite).toHaveAttribute(
+      'href',
+      `/connexion?next=${encodeURIComponent(`/solve?link=article:${linkedId}`)}`,
+    );
+  });
+});
+
 describe('SolvePage ask flow', () => {
   it('invites an anonymous visitor to sign in, coming back to /solve', async () => {
     setLanguages(['fr-FR']);
@@ -146,7 +224,7 @@ describe('SolvePage ask flow', () => {
     });
   });
 
-  it('sends one snippet with its language and the typed links', async () => {
+  it('sends one snippet with its language', async () => {
     setLanguages(['fr-FR']);
     const fetchMock = member({
       'GET /questions': () => page([]),
@@ -157,12 +235,6 @@ describe('SolvePage ask flow', () => {
     await fillAndOpen(user);
     await user.type(screen.getByRole('textbox', { name: /Langage de l’extrait/ }), 'go');
     await user.type(screen.getByRole('textbox', { name: /Code de l’extrait/ }), 'fmt.Println(1)');
-    await user.click(screen.getByRole('radio', { name: 'Projet' }));
-    await user.type(
-      screen.getByRole('textbox', { name: /Identifiant du contenu lié/ }),
-      'd0000000-0000-4000-8000-000000000009',
-    );
-    await user.click(screen.getByRole('button', { name: 'Ajouter le lien' }));
     await user.click(screen.getByRole('button', { name: 'Publier la question' }));
 
     await waitFor(() => {
@@ -173,7 +245,7 @@ describe('SolvePage ask flow', () => {
       unknown
     >;
     expect(body.snippets).toEqual([{ language: 'go', code: 'fmt.Println(1)' }]);
-    expect(body.links).toEqual([{ type: 'project', id: 'd0000000-0000-4000-8000-000000000009' }]);
+    expect(body.links).toBeUndefined();
   });
 
   it('keeps the same Idempotency-Key on a retry, and renews it once the content changes', async () => {

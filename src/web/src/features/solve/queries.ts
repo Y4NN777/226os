@@ -179,31 +179,25 @@ export function useAccept(questionId: string) {
   });
 }
 
-/** Never matches a real target: the probe must not touch anybody's vote. */
-const NIL_UUID = '00000000-0000-0000-0000-000000000000';
-
 /**
- * Votes and acceptance answer 501 until they are live. There is no read-only way to ask, so a
- * signed-in member's first visit sends one retractVote for a target that cannot exist (the
- * call is idempotent and changes nothing): 501 hides the controls, any other answer shows them.
+ * Votes and acceptance answer 501 until they are live. Nothing is sent to find out: the controls
+ * show for members, and the first 501 hides them for the rest of the session (no error shown).
  */
-export function useInteractionsLive(enabled: boolean) {
-  return useQuery({
+export function useInteractions() {
+  const queryClient = useQueryClient();
+  const { data } = useQuery({
     queryKey: solveKeys.interactions,
-    enabled,
+    queryFn: () => true,
+    initialData: true,
     staleTime: Infinity,
-    retry: false,
-    queryFn: async () => {
-      try {
-        await api.call(() =>
-          api.client.DELETE('/votes', {
-            params: { query: { target_type: 'answer', target_id: NIL_UUID } },
-          }),
-        );
-        return true;
-      } catch (error) {
-        return !(error instanceof ApiError && error.status === 501);
-      }
-    },
   });
+  return {
+    available: data,
+    /** True (and the controls go away) when the failure is a 501; false for any other error. */
+    absorbNotLive: (error: unknown) => {
+      const notLive = error instanceof ApiError && error.status === 501;
+      if (notLive) queryClient.setQueryData(solveKeys.interactions, false);
+      return notLive;
+    },
+  };
 }

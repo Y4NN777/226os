@@ -8,7 +8,14 @@ import { useState } from 'react';
 import { ApiError } from '../../api/http';
 import { ErrorState } from '../../components/ErrorState';
 import { useI18n } from '../../i18n/I18nProvider';
-import { useAccept, useCastVote, useRetractVote, type VoteState, type VoteTarget } from './queries';
+import {
+  useAccept,
+  useCastVote,
+  useInteractions,
+  useRetractVote,
+  type VoteState,
+  type VoteTarget,
+} from './queries';
 
 /**
  * Score with up and down buttons (when votes are live and the visitor is a member). The score
@@ -28,6 +35,7 @@ export function VoteControls({
   const { t } = useI18n();
   const cast = useCastVote();
   const retract = useRetractVote();
+  const { absorbNotLive } = useInteractions();
   const [state, setState] = useState<VoteState | null>(null);
   const [error, setError] = useState<unknown>(null);
   const value = state?.value ?? 0;
@@ -41,7 +49,7 @@ export function VoteControls({
           : await cast.mutateAsync({ target_type: target, target_id: id, value: next }),
       );
     } catch (failure) {
-      setError(failure);
+      if (!absorbNotLive(failure)) setError(failure);
     }
   };
 
@@ -98,6 +106,7 @@ export function AcceptButton({
 }) {
   const { t } = useI18n();
   const accept = useAccept(questionId);
+  const { absorbNotLive } = useInteractions();
   return (
     <VStack gap={1} hAlign="start">
       <Button
@@ -105,10 +114,12 @@ export function AcceptButton({
         label={t(isAccepted ? 'solve.unaccept' : 'solve.accept')}
         isLoading={accept.isPending}
         onClick={() => {
-          accept.mutate(isAccepted ? null : answerId);
+          accept.mutate(isAccepted ? null : answerId, { onError: absorbNotLive });
         }}
       />
-      {accept.isError ? <ErrorState error={accept.error} /> : null}
+      {accept.isError && !(accept.error instanceof ApiError && accept.error.status === 501) ? (
+        <ErrorState error={accept.error} />
+      ) : null}
     </VStack>
   );
 }

@@ -17,9 +17,9 @@ import { useI18n } from '../../i18n/I18nProvider';
 import { useSession } from '../../app/session';
 import { useIdempotencyKey } from './idempotency';
 import { Byline, StateBadge, TagList } from './present';
-import { QuestionForm, type QuestionDraft } from './QuestionForm';
+import { QuestionForm, type LinkDraft, type QuestionDraft } from './QuestionForm';
 import { useCreateQuestion, useQuestionList, type Question } from './queries';
-import type { SolveSearch } from './routeSearch';
+import { parseLink, type SolveSearch } from './routeSearch';
 import { signInHref } from './signIn';
 
 function Filters({ search }: { search: SolveSearch }) {
@@ -84,7 +84,7 @@ function QuestionCard({ question }: { question: Question }) {
   );
 }
 
-function AskForm({ onClose }: { onClose: () => void }) {
+function AskForm({ onClose, link }: { onClose: () => void; link: LinkDraft | undefined }) {
   const { t, locale } = useI18n();
   const navigate = useNavigate();
   const create = useCreateQuestion();
@@ -111,6 +111,7 @@ function AskForm({ onClose }: { onClose: () => void }) {
       submitLabel={t('solve.form.submit')}
       onSubmit={submit}
       onCancel={onClose}
+      initialLink={link}
     />
   );
 }
@@ -120,7 +121,8 @@ export function SolvePage() {
   const search = useSearch({ from: '/app/solve' });
   const navigate = useNavigate();
   const session = useSession();
-  const [asking, setAsking] = useState(false);
+  const prefilled = parseLink(search.link);
+  const [asking, setAsking] = useState(prefilled !== undefined);
   const list = useQuestionList(search);
   const items = list.data?.pages.flatMap((page) => page.items) ?? [];
   const signedIn = session.data?.authenticated === true;
@@ -134,6 +136,7 @@ export function SolvePage() {
       </VStack>
       {asking && signedIn ? (
         <AskForm
+          link={prefilled}
           onClose={() => {
             setAsking(false);
           }}
@@ -149,7 +152,11 @@ export function SolvePage() {
               }}
             />
           ) : session.isPending ? null : (
-            <Button variant="primary" label={t('solve.ask.signIn')} href={signInHref('/solve')} />
+            <Button
+              variant="primary"
+              label={t('solve.ask.signIn')}
+              href={signInHref(search.link ? `/solve?link=${search.link}` : '/solve')}
+            />
           )}
         </HStack>
       )}
