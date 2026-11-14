@@ -16,9 +16,9 @@ Story-level traceability (every `US-*`, its API/module, minimum BDD cases and ga
 | DOM-CONNECT | Connect | roadmap contract; no false CADEV promise; APPROVED (amendment 3.2, 2026-11-12): read-only member directory | US-CONNECT-001 (APPROVED, PRD 3.2); PRD 5.5, 8 | TASK-SPEC-001 | G0 |
 | DOM-LANGUAGE | Language | FR/EN UI, original content preserved; translation/search later | US-IDENTITY-001; PRD 5.6 | TASK-WEB-001, TASK-SPEC-001 | G0, G5 |
 | DOM-ACCESS | Access | responsive, low-bandwidth P0; offline drafts later | US-ACCESS-001 | TASK-WEB-001, TASK-OPS-001 | G0, G5, G6 |
-| DOM-INTELLIGENCE | Intelligence | deterministic PostgreSQL search and context links; sourced assistant is P0 per the PRD (APPROVED, amendment 3.2, 2026-11-12; disabled by configuration until integrated); semantic search and summaries later (P2) | US-DISCOVER-001, US-IDENTITY-001; US-INTEL-001 (APPROVED, PRD 3.2); PRD 5.8 | TASK-DATA-001, TASK-API-001 | G0-G6 |
+| DOM-INTELLIGENCE | Intelligence | deterministic PostgreSQL search and context links; sourced assistant is P0 per the PRD (APPROVED, amendment 3.2, 2026-11-12; integrated in PR #161 and disabled by configuration, `AI_ENABLED`, until the owner enables it); semantic search and summaries later (P2) | US-DISCOVER-001, US-IDENTITY-001; US-INTEL-001 (APPROVED, PRD 3.2); PRD 5.8 | TASK-DATA-001, TASK-API-001 | G0-G6 |
 
-LEARN P1/P2 (structured series with progress, author highlights, richer formats; certificates, interactive exercises) and the other P1/P2 domains remain in the product vision. They are roadmap scope, not hidden deletions, and must not be represented by fake UI. Rows marked APPROVED come from PRD amendment 3.2 (approved 2026-11-12); their contract PRs are still pending.
+LEARN P1/P2 (structured series with progress, author highlights, richer formats; certificates, interactive exercises) and the other P1/P2 domains remain in the product vision. They are roadmap scope, not hidden deletions, and must not be represented by fake UI. Rows marked APPROVED come from PRD amendment 3.2 (approved 2026-11-12). Their contract changes for Learn (topic code, PR #79) and the assistant (`askAssistant`, PR #81) are merged; the Connect directory contract PR is still pending (2026-11-14).
 
 ## Differentiating experiences
 

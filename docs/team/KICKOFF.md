@@ -8,7 +8,7 @@
 
 **226os** relie l'entraide technique, les API et outils utiles aux développeurs africains, les projets open source, l'apprentissage et les personnes. L'état du dépôt (ce qui existe, ce qui est construit, ce qui est déployé) est dans le [README](../../README.md) et dans [TODO](../../TODO.md#now) : on ne le recopie pas ici. Les décisions sont dans le [registre des ADR](../decisions/README.md) et le [journal des décisions](../../ROADMAP.md#14-decisions-log) de la ROADMAP.
 
-Règles d'honnêteté : G5 et G6 ne sont pas implémentés, G7 est `NOT RUN`, rien n'est déployé tant que la checklist de déploiement de TODO ne le dit pas.
+Règles d'honnêteté : G5 et G6 ne sont pas implémentés, G7 est `NOT RUN`, rien n'est déployé tant que la checklist de déploiement de TODO ne le dit pas. S10 (canaux en direct) n'est pas construit : il reste P2, décision du point d'étape du 14 novembre à 12:00 ([ROADMAP, section 14](../../ROADMAP.md#14-decisions-log)).
 
 **Jour 1 :** identité Git, `make doctor`, `make setup`, clé age pour les secrets, `make up-local-dev` : tout est dans [CONTRIBUTING, « Day one »](../../CONTRIBUTING.md#day-one).
 
@@ -65,6 +65,7 @@ Les relecteurs viennent de [ADR-0008](../decisions/0008-team-work-areas-and-owne
 - **Premier test RED (S7) :** changer de langue modifie les libellés, jamais le contenu d'origine. Pour SEED : `make seed` refuse hors `local-dev` ([TODO S7](../../TODO.md#s7--frontend-prototypes-become-react-pages), [TODO SEED](../../TODO.md#seed--original-demo-fixtures-and-make-seed)).
 - **Chemins autorisés :** S7 : `src/web/**` et `DESIGN.md`. SEED : `db/seeds/**` et la cible `seed` de `mk/50-ops.mk`. `prototypes/html/**` est hors périmètre tant que le propriétaire ne l'a pas confirmé.
 - **Relecteur :** `Y4NN777` pour S7, E4 et l'interface E5 ; `mibienpanjoe` pour SEED (et `Y4NN777` pour `mk/50-ops.mk`).
+- **Depuis le 2026-11-13 (décision du propriétaire, TODO S7) :** `Y4NN777` porte S7 et en a construit les pages ; `PANK4SS` relit les PR S7 et suit l'issue #109.
 
 ## 4. Règles de travail
 
@@ -80,7 +81,7 @@ Texte complet : [ROADMAP, section 5](../../ROADMAP.md#5-rules-for-every-slice-r1
 | R6 Migrations | Seul `mibienpanjoe` en écrit, une à la fois, en avant uniquement, immuables après fusion |
 | R7 Fichiers partagés | `api/openapi.yaml`, `go.mod`/`go.sum`, `pnpm-lock.yaml`, `mk/**` : un seul éditeur à la fois, un changement par PR. Le contrat fusionne d'abord, relu par `Y4NN777` et `PANK4SS` |
 | R8 Branches | Une tranche, une branche depuis `develop`, PR vers `develop` ([GIT_WORKFLOW](../GIT_WORKFLOW.md#work-branch-naming)). Personne ne relit sa propre PR |
-| R9 Commits | Ton identité Git confirmée. Aucune attribution IA (pas de `Co-authored-by` d'agent, pas de pied « Generated with ») ; l'aide d'une IA se déclare dans [AI_USAGE.md](../../AI_USAGE.md) |
+| R9 Commits | Ton identité Git confirmée. Aucune attribution IA (pas de `Co-authored-by` d'agent, pas de pied « Generated with ») ; l'aide d'une IA se déclare dans un fichier de [docs/ai-usage/](../ai-usage/README.md), jamais en modifiant [AI_USAGE.md](../../AI_USAGE.md) |
 | R10 Données et secrets | Aucun secret dans Git, les logs, les fixtures, les prompts ou les captures. Les données de démo ne tournent jamais hors `local-dev` |
 | R11 Statut honnête | Jamais de P1 ou P2 présenté comme fait. Un contrôle non lancé est `NOT RUN`, jamais `PASS` |
 
@@ -98,6 +99,6 @@ Le [modèle de PR](../../.github/PULL_REQUEST_TEMPLATE.md) s'ouvre tout seul ; l
 - [ ] Code généré jamais modifié à la main ; `make generate` relancé après un rebase si besoin.
 - [ ] Description : story, relecteur, aides éventuelles, commandes lancées avec leur résultat (`PASS` / `FAIL` / `NOT RUN`).
 - [ ] `TODO.md` mis à jour dans la même PR.
-- [ ] Aucun secret, aucun `Co-authored-by` d'agent, aide IA déclarée dans `AI_USAGE.md`.
+- [ ] Aucun secret, aucun `Co-authored-by` d'agent, aide IA déclarée dans un fichier de `docs/ai-usage/`.
 - [ ] Fichiers CADEV (`THIRD_PARTY_NOTICES.md`, `AI_USAGE.md`) : intacts ou seulement complétés.
 - [ ] Le bon relecteur est demandé (voir ta page en section 3).

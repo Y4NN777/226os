@@ -88,7 +88,7 @@ Feature: Apprendre
 
 ### US-LEARN-002 — Poser une question sur une leçon et suivre un thème (VALIDÉ le 2026-11-12, PRD amendement 3.2)
 
-Aucune nouvelle table : la question réutilise `links[]` de la création de question, et la paire question vers article est déjà autorisée. Les fils par thème attendent une PR de contrat en attente, qui type le filtre `topic` comme code de thème ; les questions n'ont pas de thème et sont filtrées par le tag qui porte le même nom que le code du thème.
+Aucune nouvelle table : la question réutilise `links[]` de la création de question, et la paire question vers article est déjà autorisée. Les fils par thème s'appuient sur le filtre `topic` typé comme code de thème (première PR de contrat, #79, fusionnée le 2026-11-13) ; les questions n'ont pas de thème et sont filtrées par le tag qui porte le même nom que le code du thème.
 
 ```gherkin
 Feature: Relier les discussions aux leçons
@@ -234,7 +234,7 @@ Feature: Annuaire des membres
 
 **Story :** en tant que membre dont l'adresse e-mail est vérifiée, je pose une question technique à l'assistant et j'obtiens une réponse tirée des contenus publiés de 226os, avec ses sources, ou un refus clair quand aucun contenu ne permet de répondre.
 
-**Critères d'acceptation** (règles d'intégration : [ADR-0012](decisions/0012-ai-assistant-integration.md), PROPOSÉ à cette date ; fournisseur : [ADR-0011](decisions/0011-ai-assistant-provider.md)) :
+**Critères d'acceptation** (règles d'intégration : [ADR-0012](decisions/0012-ai-assistant-integration.md), ACCEPTÉ le 2026-11-14 ; fournisseur : [ADR-0011](decisions/0011-ai-assistant-provider.md)) :
 - **Accès.** `askAssistant` (`POST /assistant/answers`) est réservé aux membres dont l'adresse e-mail est vérifiée (401 `UNAUTHENTICATED` sans session, 403 `EMAIL_NOT_VERIFIED`), avec le jeton CSRF. Le sujet vient de la session. Pas d'accès anonyme au P0.
 - **Requête.** Corps JSON strict : `question` de 3 à 1 000 caractères, `lang` facultatif. JSON illisible : 400. Question hors bornes ou champ inconnu : 422 `VALIDATION_ERROR`. Corps trop gros : 413.
 - **Recherche.** Les passages viennent de la recherche PostgreSQL de la plateforme (S2), limitée aux contenus publiés, visibles et publics : questions, fiches, projets, articles Learn. Les séries Learn ne sont pas cherchées. Au plus 5 passages, chacun l'extrait de recherche (300 caractères au plus). Aucun contenu privé, retiré, brouillon ou archivé n'est retrouvé ni cité.
@@ -456,4 +456,4 @@ Ce tableau est la seule carte de traçabilité au niveau des user stories ; [TRA
 `api/openapi.yaml` compte aujourd'hui 44 opérations `x-priority: P0`, dont `askAssistant`. Le total passe à 45 une fois la PR de contrat de l'annuaire acceptée. Le calendrier de ces PR est suivi dans [ROADMAP.md](../ROADMAP.md).
 
 ## 9. Références normatives
-`api/openapi.yaml` (accepté), `docs/spec-kit/DATABASE_DESIGN.md` (modèle accepté) et les ADR acceptés (voir l'[index des ADR](decisions/README.md)) sont normatifs. Les migrations `00001` à `00010` de `db/migrations` et le code généré depuis `api/openapi.yaml` existent depuis le bootstrap B0 (PR #24) ; les migrations suivantes, le code applicatif et les seeds sont à produire sous revue. Ce document ne présume aucun statut d'exécution des gates G1 à G7.
+`api/openapi.yaml` (accepté), `docs/spec-kit/DATABASE_DESIGN.md` (modèle accepté) et les ADR acceptés (voir l'[index des ADR](decisions/README.md)) sont normatifs. Les migrations `00001` à `00010` de `db/migrations` et le code généré depuis `api/openapi.yaml` existent depuis le bootstrap B0 (PR #24) ; les migrations `00011` à `00013` et le code applicatif des tranches livrées ont depuis été fusionnés sous revue (suivi dans [TODO.md](../TODO.md)), et les seeds restent à produire. Ce document ne présume aucun statut d'exécution des gates G1 à G7.
