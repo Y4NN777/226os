@@ -148,7 +148,12 @@ def check_verdict(gh, repo, pr, owner, head=""):
         if declared == "CRITICAL":
             return None, "triage verdict CRITICAL downgraded: no OBSERVED CRITICAL entry with file:line in the ledger, treated as HIGH"
         return None, "triage verdict %s: never blocks" % level
-    if owner_override(gh_api(gh, "repos/%s/issues/%s/events?per_page=100" % (repo, pr)), owner):
+    try:
+        overridden = owner_override(gh_api(gh, "repos/%s/issues/%s/events?per_page=100" % (repo, pr)), owner)
+    except GitHubError:
+        # An override that cannot be read is no override: the CRITICAL keeps blocking (never NOT RUN).
+        return "CRITICAL review verdict with OBSERVED evidence (the owner override could not be read: GitHub error)", ""
+    if overridden:
         return None, "triage verdict CRITICAL cancelled by an owner override (label %s added by %s)" % (OVERRIDE_LABEL, owner)
     why = " (stale ledger: it still blocks until a review of the head lifts it)" if stale else ""
     return "CRITICAL review verdict with OBSERVED evidence%s (add the label %s to override, owner only)" % (why, OVERRIDE_LABEL), ""

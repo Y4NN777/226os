@@ -412,6 +412,11 @@ reset; files scripts/x.sh; FAKE_EVENTS_FAIL=1 run enforce dev
 reset; files scripts/x.sh; FAKE_REVIEWS_FAIL=1 run enforce dev
 [ "$rc" -eq 1 ] && ok "a GitHub error on the reviews read fails a sensitive-path check closed" || ko "reviews read (rc=$rc out=$out)"
 
+# --- gate-critical-events-read-fails-open: an unreadable override list never lifts a CRITICAL ---
+reset; comment "$BOT" 2026-11-13T01:00:00Z "$crit_ok"
+FAKE_EVENTS_FAIL=1 run enforce
+[ "$rc" -eq 1 ] && grep -q 'override could not be read' <<<"$out" && ok "an OBSERVED CRITICAL blocks when the events (override) read fails" || ko "critical events error (rc=$rc out=$out)"
+
 # --- #212 workflow wiring (static): the gate waits for the review and gets the head; a skip repins the ledger ---
 wf="$root/.github/workflows/code-review.yml"
 gate_job="$(sed -n '/^  gate:/,$p' "$wf")"
