@@ -365,6 +365,8 @@ func (s *Service) RetractVote(ctx context.Context, sub subject.Subject, targetTy
 	return s.vote(ctx, sub, domain.Vote{UserID: sub.UserID, TargetType: targetType, TargetID: targetID})
 }
 
+// vote spends one write before the store looks the target up, on purpose: the budget bounds every attempt
+// that reaches the database, so an unknown id costs the caller a write like any other (#155).
 func (s *Service) vote(ctx context.Context, sub subject.Subject, v domain.Vote) (domain.VoteState, error) {
 	if err := s.hit(ctx, sub); err != nil {
 		return domain.VoteState{}, err
