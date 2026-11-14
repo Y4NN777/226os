@@ -63,6 +63,32 @@ func TestNormalizeEmail(t *testing.T) {
 
 // ---------- SignUp error paths ----------
 
+// A 422 violation names its field as a JSON pointer and its code from the contract enum (api/openapi.yaml, Violation.code):
+// the S7 forms map errors to fields by that pointer (review note on #127, same class as the profile patch).
+func TestAuthViolationsFollowTheContract(t *testing.T) {
+	ctx := context.Background()
+	violation := func(err error) apperr.Violation {
+		t.Helper()
+		var ae *apperr.Error
+		if !errors.As(err, &ae) || len(ae.Violations) != 1 {
+			t.Fatalf("expected one violation, got %v", err)
+		}
+		return ae.Violations[0]
+	}
+	svc, _, _ := testSvc(t)
+	if v := violation(svc.SignUp(ctx, SignUpInput{Email: "a@b.co", Password: "short", Username: "aa", IP: "10.0.2.1"})); v.Field != "/password" || v.Code != "invalid_value" {
+		t.Fatalf("sign-up weak password: %+v", v)
+	}
+	svc, _, _ = testSvc(t)
+	if v := violation(svc.SignUp(ctx, SignUpInput{Email: "a@b.co", Password: testPassword, Username: "aa", DisplayName: "a\x00b", IP: "10.0.2.2"})); v.Field != "/display_name" || v.Code != "invalid_value" {
+		t.Fatalf("sign-up display name: %+v", v)
+	}
+	svc, _, _ = testSvc(t)
+	if v := violation(svc.ConfirmPasswordReset(ctx, token32(), "short", "10.0.2.3")); v.Field != "/new_password" || v.Code != "invalid_value" {
+		t.Fatalf("reset weak password: %+v", v)
+	}
+}
+
 // PostgreSQL text holds neither NUL nor invalid UTF-8: a display name with one used to reach CreateAccount and come
 // back as a 500 (22021), after paying for the password hash (review note on #127). It is a 422 before anything is
 // written, and the same 422 for a registered e-mail, so it leaks nothing about existence.
