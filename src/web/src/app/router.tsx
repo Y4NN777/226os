@@ -10,6 +10,8 @@ import {
 import { RouterAnchor } from '../components/RouterAnchor';
 import { BuildPage } from '../features/build/BuildPage';
 import { ProjectPage } from '../features/build/ProjectPage';
+import { ConnectPage } from '../features/connect/ConnectPage';
+import { validateConnectSearch } from '../features/connect/routeSearch';
 import { DiscoverPage } from '../features/discover/DiscoverPage';
 import { ResourcePage } from '../features/discover/ResourcePage';
 import { validateDiscoverSearch } from '../features/discover/routeSearch';
@@ -99,6 +101,12 @@ const seriesRoute = createRoute({
   path: '/apprendre/formations/$seriesId',
   component: SeriesPage,
 });
+const connectRoute = createRoute({
+  getParentRoute: () => appLayout,
+  path: '/connect',
+  component: ConnectPage,
+  validateSearch: validateConnectSearch,
+});
 const searchRoute = createRoute({
   getParentRoute: () => appLayout,
   path: '/recherche',
@@ -185,6 +193,7 @@ const routeTree = rootRoute.addChildren([
     learnRoute,
     articleRoute,
     seriesRoute,
+    connectRoute,
     searchRoute,
     solveRoute,
     questionRoute,

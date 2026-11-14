@@ -18,7 +18,10 @@ export interface NavSection {
 export const navSections: NavSection[] = [
   {
     title: 'nav.section.grow',
-    items: [{ label: 'nav.learn', to: '/apprendre' }, { label: 'nav.connect' }],
+    items: [
+      { label: 'nav.learn', to: '/apprendre' },
+      { label: 'nav.connect', to: '/connect' },
+    ],
   },
   {
     title: 'nav.section.pillars',
