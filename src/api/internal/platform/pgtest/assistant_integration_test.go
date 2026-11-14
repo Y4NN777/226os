@@ -16,6 +16,7 @@ import (
 
 	"github.com/Y4NN777/226os/src/api/internal/app"
 	"github.com/Y4NN777/226os/src/api/internal/assistant"
+	assistantservice "github.com/Y4NN777/226os/src/api/internal/assistant/service"
 	"github.com/Y4NN777/226os/src/api/internal/identity/repository"
 	"github.com/Y4NN777/226os/src/api/internal/identity/service"
 	identitytransport "github.com/Y4NN777/226os/src/api/internal/identity/transport"
@@ -45,9 +46,12 @@ const (
 	gsArchived = "019a0000-0000-7000-8000-00000000a515" // archived article about secretplum
 )
 
+// gsQuestionDate is the publication date of the golden question (AI-5, G16).
+const gsQuestionDate = "2026-11-02T10:00:00Z"
+
 const goldenFixture = `
-INSERT INTO questions (id, author_id, title, body_md, language, provenance) VALUES
-  ('` + gsQuestion + `', '` + catUser + `', 'Webhook zorbaflux signature fails', 'Verify the HMAC of the raw body against the zorbaflux header.', 'en', 'demo');
+INSERT INTO questions (id, author_id, title, body_md, language, provenance, published_at) VALUES
+  ('` + gsQuestion + `', '` + catUser + `', 'Webhook zorbaflux signature fails', 'Verify the HMAC of the raw body against the zorbaflux header.', 'en', 'demo', '` + gsQuestionDate + `');
 INSERT INTO questions (id, author_id, title, body_md, language, provenance, status, removed_at) VALUES
   ('` + gsRemoved + `', '` + catUser + `', 'Removed secretplum question', 'secretplum REMOVED-BODY', 'en', 'demo', 'removed', now());
 INSERT INTO learn_articles (id, author_id, kind, title, summary, body_md, language, level, status, published_at, provenance) VALUES
@@ -69,6 +73,12 @@ INSERT INTO projects (id, owner_id, name, summary, language, status, removed_at)
 // real search and limiter and the fake provider.
 func newAssistantStack(t *testing.T, fake *llm.Fake, enabled bool) *s2Stack {
 	t.Helper()
+	return newAssistantStackWith(t, fake, enabled, nil)
+}
+
+// newAssistantStackWith replaces the assistant's own limiter (not the search one) when limiter is set.
+func newAssistantStackWith(t *testing.T, fake *llm.Fake, enabled bool, limiter assistantservice.Limiter) *s2Stack {
+	t.Helper()
 	s := newS2Stack(t.Context(), t, nil)
 	if _, err := s.conn.Exec(t.Context(), goldenFixture); err != nil {
 		t.Fatalf("golden fixture: %v", err)
@@ -76,10 +86,14 @@ func newAssistantStack(t *testing.T, fake *llm.Fake, enabled bool) *s2Stack {
 	svc := service.New(repository.New(s.pool), s.mail, s2Secret)
 	lim := ratelimit.New(s.pool, s2Secret, nil)
 	searcher := searchservice.New(searchrepository.New(s.pool), lim, nil)
+	var assistantLimiter assistantservice.Limiter = lim
+	if limiter != nil {
+		assistantLimiter = limiter
+	}
 	deps := httpx.Deps{
 		Server: app.NewServer(
 			app.WithIdentity(identitytransport.New(svc, false, nil)),
-			app.WithAssistant(assistant.NewHandler(enabled, 0, searcher, fake, lim, nil)),
+			app.WithAssistant(assistant.NewHandler(enabled, 0, searcher, fake, assistantLimiter, nil)),
 		),
 		Ready:       s.pool,
 		Idempotency: idempotency.NewPgStore(s.pool),
@@ -108,6 +122,18 @@ func citing(title string) func(llm.Request) (llm.Response, error) {
 		for _, m := range passageLine.FindAllStringSubmatch(r.User, -1) {
 			if strings.Contains(m[2], title) {
 				return llm.Response{Text: "The answer is in the source [S" + m[1] + "].\n\nComment vérifier\n- Compare with the provider docs."}, nil
+			}
+		}
+		return llm.Response{Text: "No such passage in the prompt: " + title}, nil
+	}
+}
+
+// answering is like citing, but the reply text is built from the marker of the matching passage.
+func answering(text func(marker string) string, title string) func(llm.Request) (llm.Response, error) {
+	return func(r llm.Request) (llm.Response, error) {
+		for _, m := range passageLine.FindAllStringSubmatch(r.User, -1) {
+			if strings.Contains(m[2], title) {
+				return llm.Response{Text: text("[S" + m[1] + "]")}, nil
 			}
 		}
 		return llm.Response{Text: "No such passage in the prompt: " + title}, nil
@@ -155,7 +181,7 @@ func TestAssistantGoldenSet(t *testing.T) {
 		if got := sourceIDs(a); len(got) != 1 || got[0] != gsQuestion || a.Sources[0].Type != apigen.AssistantSourceTypeQuestion {
 			t.Fatalf("sources %v, want only %s", got, gsQuestion)
 		}
-		if !strings.Contains(a.Answer, "[1]") || !strings.HasPrefix(a.HowToVerify, "- Compare with the provider docs.") || !strings.Contains(a.HowToVerify, "carry no date") {
+		if !strings.Contains(a.Answer, "[1]") || !strings.HasPrefix(a.HowToVerify, "- Compare with the provider docs.") || !strings.Contains(a.HowToVerify, "Publication dates are shown") {
 			t.Fatalf("AI-2 / AI-4 / AI-5: %q / %q", a.Answer, a.HowToVerify)
 		}
 	})
@@ -165,7 +191,7 @@ func TestAssistantGoldenSet(t *testing.T) {
 		a := decodeAnswer(t, s.askAssistant(t, &m, "Comment gérer les rejeux zorbaflux ?"))
 		calls++
 		if a.Lang != apigen.Fr || a.Outcome != apigen.AssistantAnswerOutcomeAnswered || len(a.Sources) != 1 || a.Sources[0].Id.String() != gsArticle ||
-			a.Sources[0].Type != apigen.AssistantSourceTypeArticle || !strings.Contains(a.HowToVerify, "ne portent pas de date") {
+			a.Sources[0].Type != apigen.AssistantSourceTypeArticle || !strings.Contains(a.HowToVerify, "Les dates de publication") {
 			t.Fatalf("answer: %+v", a)
 		}
 		if !strings.Contains(fake.Requests()[calls-1].System, "Write in French") {
@@ -254,6 +280,45 @@ func TestAssistantGoldenSet(t *testing.T) {
 		}
 	})
 
+	// G14 to G16 ask as another member: the first one is close to its budget of 10 an hour.
+	m2 := s.signIn(t, "golden-ai", true, 14)
+	t.Run("G14 AI-3: a guarantee sentence is removed, the cited sentence stays", func(t *testing.T) {
+		fake.Respond = answering(func(m string) string {
+			return "This call is guaranteed to work " + m + ". The signature is checked on the raw body " + m + ".\n\nComment vérifier\n- Compare with the provider docs."
+		}, "Webhook zorbaflux signature fails")
+		a := decodeAnswer(t, s.askAssistant(t, &m2, "How do I verify the zorbaflux webhook signature, is it safe?"))
+		calls++
+		if a.Outcome != apigen.AssistantAnswerOutcomeAnswered || strings.Contains(a.Answer, "guaranteed") || a.Answer != "The signature is checked on the raw body [1]." ||
+			len(a.Sources) != 1 || a.Sources[0].Id.String() != gsQuestion {
+			t.Fatalf("answer: %+v", a)
+		}
+	})
+
+	t.Run("G15 AI-3: when the only cited sentence is a guarantee the answer is no_source", func(t *testing.T) {
+		fake.Respond = answering(func(m string) string { return "I guarantee it works " + m + "." }, "Webhook zorbaflux signature fails")
+		a := decodeAnswer(t, s.askAssistant(t, &m2, "How do I verify the zorbaflux webhook signature, for sure?"))
+		calls++
+		if a.Outcome != apigen.AssistantAnswerOutcomeNoSource || len(a.Sources) != 0 || a.SearchUrl == nil || strings.Contains(a.Answer, "guarantee") {
+			t.Fatalf("answer: %+v", a)
+		}
+	})
+
+	t.Run("G16 AI-5: sources carry published_at, the prompt carries each date, how_to_verify says so", func(t *testing.T) {
+		fake.Respond = citing("Webhook zorbaflux signature fails")
+		rec := s.askAssistant(t, &m2, "How do I verify the zorbaflux webhook signature today?")
+		a := decodeAnswer(t, rec)
+		calls++
+		if len(a.Sources) != 1 || a.Sources[0].PublishedAt == nil || !a.Sources[0].PublishedAt.Equal(time.Date(2026, 11, 2, 10, 0, 0, 0, time.UTC)) {
+			t.Fatalf("sources: %s", rec.Body.String())
+		}
+		if prompt := fake.Requests()[calls-1].User; !strings.Contains(prompt, "| published 2026-11-02\n") || strings.Contains(prompt, "0001-01-01") {
+			t.Fatalf("the prompt must give each passage its date: %s", prompt)
+		}
+		if !strings.Contains(a.HowToVerify, "Publication dates are shown next to each source") || strings.Contains(a.HowToVerify, "carry no date") {
+			t.Fatalf("how_to_verify: %q", a.HowToVerify)
+		}
+	})
+
 	t.Run("G8 AI-9: an answer is never an answers, votes or questions row", func(t *testing.T) {
 		if a, v, q := s.contentRows(t); a != answers0 || v != votes0 || q != questions0 {
 			t.Fatalf("rows changed: answers %d->%d votes %d->%d questions %d->%d", answers0, a, votes0, v, questions0, q)
@@ -289,6 +354,13 @@ func TestAssistantMemberBudget(t *testing.T) {
 	}
 }
 
+// downLimiter is a limiter whose store is down.
+type downLimiter struct{}
+
+func (downLimiter) Hit(context.Context, string, string, int, time.Duration) (bool, time.Duration, error) {
+	return false, 0, io.ErrClosedPipe
+}
+
 func TestAssistantFailsClosedWith503(t *testing.T) {
 	problem := func(t *testing.T, rec *httptest.ResponseRecorder) {
 		t.Helper()
@@ -311,6 +383,22 @@ func TestAssistantFailsClosedWith503(t *testing.T) {
 		problem(t, s.askAssistant(t, &m, q))
 		if len(fake.Requests()) != 0 {
 			t.Fatal("a disabled assistant must not call the provider")
+		}
+	})
+
+	t.Run("G17 the disabled and the limiter-failure 503 carry Retry-After", func(t *testing.T) {
+		off := newAssistantStack(t, llm.NewFake(), false)
+		mo := off.signIn(t, "off17", true, 25)
+		if rec := off.askAssistant(t, &mo, q); rec.Code != http.StatusServiceUnavailable || rec.Header().Get("Retry-After") != "30" {
+			t.Fatalf("disabled: %d Retry-After %q", rec.Code, rec.Header().Get("Retry-After"))
+		}
+		fake := llm.NewFake()
+		down := newAssistantStackWith(t, fake, true, downLimiter{})
+		md := down.signIn(t, "limiter17", true, 26)
+		rec := down.askAssistant(t, &md, q)
+		problem(t, rec)
+		if rec.Header().Get("Retry-After") != "30" || len(fake.Requests()) != 0 {
+			t.Fatalf("limiter failure: Retry-After %q, provider calls %d", rec.Header().Get("Retry-After"), len(fake.Requests()))
 		}
 	})
 

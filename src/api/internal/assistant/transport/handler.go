@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -50,11 +51,24 @@ func (h *Handler) AskAssistant(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(answerJSON(a))
 }
 
-func answerJSON(a domain.Answer) apigen.AssistantAnswer {
+// answerBody and sourceBody shadow the generated fields that cannot say null: an undated source
+// is "published_at": null (the generated pointer would omit it).
+type answerBody struct {
+	apigen.AssistantAnswer
+	Sources []sourceBody `json:"sources"`
+}
+
+type sourceBody struct {
+	apigen.AssistantSource
+	PublishedAt *time.Time `json:"published_at"`
+}
+
+func answerJSON(a domain.Answer) answerBody {
 	out := apigen.AssistantAnswer{
 		Outcome: apigen.AssistantAnswerOutcomeNoSource, GeneratedBy: apigen.Ai, Answer: a.Text,
-		HowToVerify: a.HowToVerify, Lang: apigen.Lang(a.Lang), Sources: []apigen.AssistantSource{},
+		HowToVerify: a.HowToVerify, Lang: apigen.Lang(a.Lang),
 	}
+	sources := []sourceBody{}
 	if a.Answered {
 		out.Outcome = apigen.AssistantAnswerOutcomeAnswered
 	} else {
@@ -62,11 +76,16 @@ func answerJSON(a domain.Answer) apigen.AssistantAnswer {
 		out.SearchUrl = &search
 	}
 	for _, p := range a.Sources {
-		out.Sources = append(out.Sources, apigen.AssistantSource{
+		src := sourceBody{AssistantSource: apigen.AssistantSource{
 			Id: uuid.MustParse(p.ID), Type: apigen.AssistantSourceType(p.Type), Title: p.Title, Url: p.URL,
-		})
+		}}
+		if !p.PublishedAt.IsZero() {
+			published := p.PublishedAt.UTC()
+			src.PublishedAt = &published
+		}
+		sources = append(sources, src)
 	}
-	return out
+	return answerBody{AssistantAnswer: out, Sources: sources}
 }
 
 // fail writes any error as problem+json; an error that is not an *apperr.Error becomes a 500.

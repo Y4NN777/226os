@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 	"unicode"
 	"unicode/utf8"
 )
@@ -18,7 +19,7 @@ const (
 	MaxAnswerRunes  = 4000
 	MaxVerifyRunes  = 1000
 	MaxTitleRunes   = 200
-	noticeRunes     = 120 // room kept for the undated-sources notice in how_to_verify
+	noticeRunes     = 160 // room kept for the source-dates notice in how_to_verify
 	maxQueryRunes   = 200 // the search service refuses a longer q
 	maxKeywords     = 8
 	minKeywordRunes = 3
@@ -46,6 +47,8 @@ type Passage struct {
 	Title string
 	Text  string
 	URL   string
+	// PublishedAt is the publication date of the item; the zero value means undated.
+	PublishedAt time.Time
 }
 
 // Answer is the reply: a sourced answer or a refusal for lack of sources. It is never stored.
@@ -221,7 +224,7 @@ func SystemPrompt(lang string) string {
 		"2. Support every claim with the marker of its passage, written exactly [S1], [S2] and so on. Use only markers that exist. Never invent a source, a link or a marker.\n" +
 		"3. If the passages do not answer the question, say so in one sentence and cite nothing. Do not guess.\n" +
 		"4. Never promise or guarantee that an API, an endpoint, a price or a solution works, is current or is verified.\n" +
-		"5. Source dates are not provided: say that the information may be outdated, and say so when passages disagree.\n" +
+		"5. Each passage header gives its publication date or \"undated\". Say that the information may be outdated when a passage is old or undated, and say so when passages disagree.\n" +
 		"6. Write in " + language + ", plain text or short Markdown, at most 250 words.\n" +
 		"7. End with a last section titled \"" + heading + "\" that lists one to three concrete checks (official documentation, a test call in a sandbox)."
 }
@@ -235,10 +238,19 @@ func UserPrompt(question string, passages []Passage) string {
 	b.WriteString(Redact(question))
 	b.WriteString("\n\n<sources>\n")
 	for i, p := range passages {
-		b.WriteString("[S" + strconv.Itoa(i+1) + "] " + p.Type + " | " + clean(p.Title) + "\n" + clean(p.Text) + "\n\n")
+		b.WriteString("[S" + strconv.Itoa(i+1) + "] " + p.Type + " | " + clean(p.Title) + " | " + dateLabel(p) + "\n" + clean(p.Text) + "\n\n")
 	}
 	b.WriteString("</sources>")
 	return b.String()
+}
+
+// dateLabel is the neutral, language-free date of a passage in the prompt: "published 2026-11-02"
+// (UTC day) or "undated".
+func dateLabel(p Passage) string {
+	if p.PublishedAt.IsZero() {
+		return "undated"
+	}
+	return "published " + p.PublishedAt.UTC().Format(time.DateOnly)
 }
 
 var angleBrackets = strings.NewReplacer("<", "", ">", "")
@@ -262,7 +274,8 @@ var (
 // every [Sn] must name one of them (ErrInvalidCitation otherwise) and at least one must be cited
 // (ErrNoCitation). Markers are renumbered in order of first use and the sources follow that order.
 // The "Comment vérifier" section is split off; lang selects the default when the model wrote none.
-// A fixed notice that the sources carry no date ends the verification (AI-5).
+// A fixed notice about the dates of the cited sources ends the verification (AI-5): it says the
+// dates are shown when every cited source has one, and that some are undated otherwise.
 func Parse(text string, passages []Passage, lang string) (Answer, error) {
 	text = foreignURL.ReplaceAllString(mdLink.ReplaceAllString(htmlTag.ReplaceAllString(text, ""), "$1"), "")
 	order := map[int]int{}
@@ -309,7 +322,7 @@ func Parse(text string, passages []Passage, lang string) (Answer, error) {
 	return Answer{
 		Answered: true, Lang: lang, Sources: sources,
 		Text:        Cut(body, MaxAnswerRunes),
-		HowToVerify: Cut(verify, MaxVerifyRunes-noticeRunes) + "\n\n" + undatedNotice(lang),
+		HowToVerify: Cut(verify, MaxVerifyRunes-noticeRunes) + "\n\n" + datesNotice(lang, sources),
 	}, nil
 }
 
@@ -320,9 +333,67 @@ func defaultVerify(lang string) string {
 	return "Ouvrez les sources citées et comparez-les avec la documentation officielle avant de vous y fier."
 }
 
-func undatedNotice(lang string) string {
-	if lang == EN {
-		return "The sources carry no date: check that they are still current."
+// datesNotice is true of the answer: it only claims dates when every cited source has one. The
+// French sentences keep a no-break space before the colon.
+func datesNotice(lang string, sources []Passage) string {
+	allDated := true
+	for _, p := range sources {
+		allDated = allDated && !p.PublishedAt.IsZero()
 	}
-	return "Les sources ne portent pas de date : vérifiez qu'elles sont toujours à jour."
+	switch {
+	case lang == EN && allDated:
+		return "Publication dates are shown next to each source: check that the content is still current."
+	case lang == EN:
+		return "Some sources carry no date: check that they are still current."
+	case allDated:
+		return "Les dates de publication sont indiquées à côté de chaque source\u00a0: vérifiez que le contenu est toujours à jour."
+	}
+	return "Certaines sources ne portent pas de date\u00a0: vérifiez qu'elles sont toujours à jour."
+}
+
+// A guarantee is a sentence that promises an API or a solution works, or presents it as verified
+// (AI-3). Negated wording ("no guarantee", "not guaranteed") is honest and is kept: the negations are
+// blanked first, then the promises are looked for in what is left.
+var (
+	negatedGuarantee = regexp.MustCompile(`(?i)(?:\b(?:` +
+		`aucune?s?\s+garanties?|sans\s+garanties?|pas\s+(?:de\s+|d')?garantie|pas\s+garanti\w*|` +
+		`ne\s+(?:vous\s+)?garanti\w*\s+pas|ne\s+(?:peux|peut|pouvons)\s+pas\s+(?:vous\s+)?garantir|` +
+		`ne\s+fonctionne\s+pas\s+toujours|pas\s+(?:une\s+)?solutions?\s+vérifiée?s?|` +
+		`no\s+(?:\w+\s+)?guarantees?|not\s+guaranteed|without\s+(?:any\s+)?guarantees?|` +
+		`(?:can't|cannot|can\s+not|don't|do\s+not|doesn't|does\s+not|won't|will\s+not|never|not)\s+(?:\w+\s+)?guarantee|` +
+		`not\s+always\s+works?|not\s+(?:a\s+)?verified\s+solutions?)|n't\s+always\s+works?)\b`)
+	promisedGuarantee = regexp.MustCompile(`(?i)(?:` +
+		`\bgaranti(?:e|s|es)?\s+de\s+fonctionner|\b(?:je|nous)\s+(?:vous\s+)?garantis(?:sons)?\b|\bgarantit\b|` +
+		`à\s+coup\s+sûr|\bsolutions?\s+vérifiée?s?|\bfonctionne\s+toujours|\b100\s*%\s*(?:fiable|sûre?|garanti)|` +
+		`\bguaranteed\s+to\s+(?:work|function)|\b(?:i|we)\s+(?:can\s+)?guarantee|\bguarantees\s+that|` +
+		`\bwill\s+(?:definitely|certainly|surely)\s+work|\bverified\s+solutions?|\b100\s*%\s*(?:reliable|safe|guaranteed)|\balways\s+works?\b)`)
+	// a sentence ends at . ! or ? followed by a space or the end of the line
+	sentence = regexp.MustCompile(`.*?(?:[.!?]+(?:\s+|$)|$)`)
+)
+
+// RemoveGuarantees drops every sentence of text that affirms a guarantee and reports whether it
+// dropped one. Lines are kept, so a heading such as "Comment vérifier" survives.
+func RemoveGuarantees(text string) (string, bool) {
+	removed := false
+	lines := strings.Split(text, "\n")
+	for i, line := range lines {
+		var kept strings.Builder
+		for _, s := range sentence.FindAllString(line, -1) {
+			if affirmsGuarantee(s) {
+				removed = true
+				continue
+			}
+			kept.WriteString(s)
+		}
+		lines[i] = kept.String()
+	}
+	if !removed {
+		return text, false
+	}
+	return strings.Join(lines, "\n"), true
+}
+
+func affirmsGuarantee(s string) bool {
+	s = negatedGuarantee.ReplaceAllString(strings.ReplaceAll(s, "’", "'"), " ")
+	return promisedGuarantee.MatchString(s)
 }

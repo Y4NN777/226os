@@ -36,7 +36,7 @@ func (r *Repository) Search(ctx context.Context, group domain.Group, q domain.Qu
 			return nil, fmt.Errorf("search %s: %w", group, err)
 		}
 		for _, row := range rows {
-			hits = append(hits, hit(group, row.ID, row.Title, row.Excerpt, row.Language))
+			hits = append(hits, hit(group, row.ID, row.Title, row.Excerpt, row.Language, row.PublishedAt))
 		}
 	case domain.Resources:
 		rows, err := r.q.SearchResources(ctx, dbgen.SearchResourcesParams{Q: q.Text, Country: country, Lang: lang, RowLimit: limit})
@@ -44,7 +44,7 @@ func (r *Repository) Search(ctx context.Context, group domain.Group, q domain.Qu
 			return nil, fmt.Errorf("search %s: %w", group, err)
 		}
 		for _, row := range rows {
-			hits = append(hits, hit(group, row.ID, row.Title, row.Excerpt, row.Language))
+			hits = append(hits, hit(group, row.ID, row.Title, row.Excerpt, row.Language, row.PublishedAt))
 		}
 	case domain.Projects:
 		rows, err := r.q.SearchProjects(ctx, dbgen.SearchProjectsParams{Q: q.Text, Country: country, Lang: lang, RowLimit: limit})
@@ -52,7 +52,7 @@ func (r *Repository) Search(ctx context.Context, group domain.Group, q domain.Qu
 			return nil, fmt.Errorf("search %s: %w", group, err)
 		}
 		for _, row := range rows {
-			hits = append(hits, hit(group, row.ID, row.Title, row.Excerpt, row.Language))
+			hits = append(hits, hit(group, row.ID, row.Title, row.Excerpt, row.Language, row.PublishedAt))
 		}
 	case domain.Learn:
 		rows, err := r.q.SearchLearn(ctx, dbgen.SearchLearnParams{Q: q.Text, Lang: lang, RowLimit: limit})
@@ -60,7 +60,7 @@ func (r *Repository) Search(ctx context.Context, group domain.Group, q domain.Qu
 			return nil, fmt.Errorf("search %s: %w", group, err)
 		}
 		for _, row := range rows {
-			hits = append(hits, hit(group, row.ID, row.Title, row.Excerpt, row.Language))
+			hits = append(hits, hit(group, row.ID, row.Title, row.Excerpt, row.Language, row.PublishedAt))
 		}
 	default:
 		return nil, fmt.Errorf("search: unknown group %q", group)
@@ -71,8 +71,10 @@ func (r *Repository) Search(ctx context.Context, group domain.Group, q domain.Qu
 	return hits, nil
 }
 
-func hit(group domain.Group, id pgtype.UUID, title, excerpt, lang string) domain.Hit {
-	return domain.Hit{Type: group, ID: uuid.UUID(id.Bytes).String(), Title: title, Snippet: domain.Snippet(excerpt), Lang: lang}
+// hit maps one row. A NULL published_at (a learn article that was never published cannot match, but the
+// column is nullable) is the zero Timestamptz, whose Time is already the zero time.
+func hit(group domain.Group, id pgtype.UUID, title, excerpt, lang string, publishedAt pgtype.Timestamptz) domain.Hit {
+	return domain.Hit{Type: group, ID: uuid.UUID(id.Bytes).String(), Title: title, Snippet: domain.Snippet(excerpt), Lang: lang, PublishedAt: publishedAt.Time.UTC()}
 }
 
 func text(s string) pgtype.Text {
