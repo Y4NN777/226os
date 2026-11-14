@@ -20,7 +20,7 @@ export const navSections: NavSection[] = [
   {
     title: 'nav.section.pillars',
     items: [
-      { label: 'nav.solve' },
+      { label: 'nav.solve', to: '/solve' },
       { label: 'nav.discover', to: '/discover' },
       { label: 'nav.build' },
     ],
