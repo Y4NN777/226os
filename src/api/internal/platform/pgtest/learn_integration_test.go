@@ -218,7 +218,13 @@ func TestLearnRejectsUnusableLinksAndTopicsAtomically(t *testing.T) {
 		"unknown topic":          articleJSON("published", "not-a-topic"),
 	} {
 		t.Run(name, func(t *testing.T) {
-			assertProblem(t, s.publish(t, &alice, body, nil), http.StatusUnprocessableEntity, "VALIDATION_ERROR")
+			p := assertProblem(t, s.publish(t, &alice, body, nil), http.StatusUnprocessableEntity, "VALIDATION_ERROR")
+			// The violation names the body member as a JSON pointer with a contract code (issue #116 rule).
+			v, _ := json.Marshal(p["violations"])
+			pointer := strings.Contains(string(v), `"/links"`) || strings.Contains(string(v), `"/topic"`)
+			if !strings.Contains(string(v), `"invalid_value"`) || !pointer {
+				t.Fatalf("violations %s", v)
+			}
 		})
 	}
 	var articles, relations, tags int

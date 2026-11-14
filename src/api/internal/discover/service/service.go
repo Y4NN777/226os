@@ -129,7 +129,7 @@ func textFilter(q *string) (string, error) {
 	// PostgreSQL text holds neither NUL nor invalid UTF-8: refuse them here rather than answer 500.
 	if !utf8.ValidString(*q) || strings.ContainsRune(*q, 0) {
 		return "", apperr.New(apperr.CodeValidation, "q must be valid UTF-8 text.").
-			WithViolations(apperr.Violation{Field: "q", Code: "invalid"})
+			WithViolations(apperr.Violation{Field: "q", Code: "invalid_value"})
 	}
 	return *q, nil
 }

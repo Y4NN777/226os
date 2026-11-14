@@ -194,7 +194,7 @@ Open owner items outside CADEV (IDs and decisions in ROADMAP section 8, 10 and 1
   - An article body above about 16 KiB replays an idempotent retry with `Idempotency-Body-Omitted: true` (idempotency column limit); the web client then follows `Location` (`PANK4SS`).
   - Bylines of deleted accounts are not "membre supprimé" yet; P0 has no account deletion, and the fix is the four author columns of `db/queries/learn.sql` (S1 bylines item).
   - The four lessons of `scripts/content/free-series.sql` were drafted with AI: the team reviews and owns the text in PR #111 before the staging rehearsal.
-- **Status:** IN PROGRESS on `feature/learn/articles-series` (2026-11-13): the five P0 operations, the `links[]` writer and the content script are written with unit, real-PostgreSQL and route-gate tests; `DONE` waits for the review and the merge.
+- **Status:** DONE (PR #111, 2026-11-13; issue #68 closed). Still open: the known deviations above, the team's review of the four lessons before the staging rehearsal, and the script runs (S8, H19). 2026-11-13 (`fix/platform/violation-codes`): Learn and discover error-report violations use JSON-pointer fields and `Violation.code` enum values, as identity does since #127 (issue #116 rule).
 
 ---
 
@@ -426,3 +426,4 @@ Full log and the checked items: [archive](docs/archive/tracker/TODO-archive-2026
 | 2026-11-12 | Parallel CI gate groups (ADR-0010); promotions `develop` to `main` and back-merges | #57, #54, #55, #58, #59 | `Y4NN777` |
 | 2026-11-13 | S2 catalogue reads: `listResources`, `getResource`, `listResourceSources` | #83 | `mibienpanjoe` |
 | 2026-11-13 | S2 search core: `search` over four groups, C4 option 1 decided by the owner | #92 | `mibienpanjoe` |
+| 2026-11-13 | S4 Learn: the five P0 operations, the article `links[]` writer, the free-series content script and its gate | #111 | `mibienpanjoe` |

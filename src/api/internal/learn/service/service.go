@@ -179,9 +179,9 @@ func (s *Service) CreateArticle(ctx context.Context, sub subject.Subject, req Cr
 	id, err := s.store.CreateArticle(ctx, in)
 	switch {
 	case errors.Is(err, domain.ErrUnknownTopic):
-		return domain.Article{}, invalid("topic", "invalid", "topic must be a known topic code.")
+		return domain.Article{}, invalid("/topic", "invalid_value", "topic must be a known topic code.")
 	case errors.Is(err, domain.ErrLinkTarget):
-		return domain.Article{}, invalid("links", "invalid", "each link must point to a published, public item.")
+		return domain.Article{}, invalid("/links", "invalid_value", "each link must point to a published, public item.")
 	case err != nil:
 		return domain.Article{}, apperr.Wrap(apperr.CodeInternal, err)
 	}
@@ -235,29 +235,29 @@ func (s *Service) GetSeries(ctx context.Context, id string) (domain.Series, erro
 
 func validate(req CreateRequest, status string) (domain.NewArticle, error) {
 	if status != domain.StatusDraft && status != domain.StatusPublished {
-		return domain.NewArticle{}, invalid("status", "invalid", "status must be draft or published.")
+		return domain.NewArticle{}, invalid("/status", "invalid_value", "status must be draft or published.")
 	}
 	if !usableText(req.Title) {
-		return domain.NewArticle{}, invalid("title", "invalid", "title must be non-blank valid text.")
+		return domain.NewArticle{}, invalid("/title", "invalid_value", "title must be non-blank valid text.")
 	}
 	if !usableText(req.BodyMD) {
-		return domain.NewArticle{}, invalid("body_md", "invalid", "body_md must be non-blank valid text.")
+		return domain.NewArticle{}, invalid("/body_md", "invalid_value", "body_md must be non-blank valid text.")
 	}
 	summary := deref(req.Summary)
 	if !validText(summary) {
-		return domain.NewArticle{}, invalid("summary", "invalid", "summary must be valid text.")
+		return domain.NewArticle{}, invalid("/summary", "invalid_value", "summary must be valid text.")
 	}
 	tags := dedupe(req.Tags)
 	if len(tags) < 1 || len(tags) > maxTags {
-		return domain.NewArticle{}, invalid("tags", "out_of_range", "tags must hold 1 to 5 distinct slugs.")
+		return domain.NewArticle{}, invalid("/tags", "out_of_range", "tags must hold 1 to 5 distinct slugs.")
 	}
 	links := make([]domain.LinkRef, 0, len(req.Links))
 	for _, l := range req.Links {
 		if !slices.Contains(domain.LinkTypes, l.Type) {
-			return domain.NewArticle{}, invalid("links", "invalid", "an article can link to a question, a resource or a project.")
+			return domain.NewArticle{}, invalid("/links", "invalid_value", "an article can link to a question, a resource or a project.")
 		}
 		if _, err := uuid.Parse(l.ID); err != nil {
-			return domain.NewArticle{}, invalid("links", "invalid", "link id must be a UUID.")
+			return domain.NewArticle{}, invalid("/links", "invalid_value", "link id must be a UUID.")
 		}
 		if !slices.Contains(links, l) {
 			links = append(links, l)
@@ -313,7 +313,7 @@ func textFilter(q *string) (string, error) {
 		return "", invalid("q", "out_of_range", "q must be between 1 and 200 characters.")
 	}
 	if !validText(*q) {
-		return "", invalid("q", "invalid", "q must be valid UTF-8 text.")
+		return "", invalid("q", "invalid_value", "q must be valid UTF-8 text.")
 	}
 	return *q, nil
 }
@@ -363,6 +363,8 @@ func deref(v *string) string {
 	return *v
 }
 
+// invalid is a 422 with one violation: field is the JSON pointer of a body member or the name of a query
+// parameter, and code is one of the Violation.code enum values of api/openapi.yaml.
 func invalid(field, code, detail string) error {
 	return apperr.New(apperr.CodeValidation, detail).WithViolations(apperr.Violation{Field: field, Code: code})
 }
