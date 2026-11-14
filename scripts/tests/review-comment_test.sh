@@ -442,7 +442,23 @@ stage1_then_deep true "$FIXED_DH"
 stage1_then_deep "" "$FIXED_DH"
 [ "$s1_line" = "Triage: HIGH | blast radius: x" ] && ok "no deep stage in this run: a carried open deep HIGH keeps stage 1 at HIGH" || ko "deep not pending ($s1_line)"
 stage1_then_deep true '{"level":"NONE","blast_radius":"x","summary":"s","findings":[]}'
-[ "$s1_line" = "Triage: NONE | blast radius: x" ] && [ "$(posted | sed -n 1p)" = "Triage: HIGH | blast radius: x" ] && pyassert 'import json,sys; f=json.loads(sys.argv[1]); assert f["status"]=="open" and f["carried"]>=1 and f["source"]=="deep"' "$(posted_entry dh)" 2>/dev/null && posted | grep -q 'Carried forward without a new decision.*`dh`' && ok "deep pending, the deep output leaves the carried HIGH out: it is carried open (named, counted) and the deep merge raises the line to HIGH" || ko "omitted erased ($s1_line / $(posted | sed -n 1,8p))"
+[ "$s1_line" = "Triage: NONE | blast radius: x" ] && [ "$(posted | sed -n 1p)" = "Triage: HIGH | blast radius: x" ] && pyassert 'import json,sys; f=json.loads(sys.argv[1]); assert f["status"]=="open" and f["carried"]==1 and f["source"]=="deep"' "$(posted_entry dh)" 2>/dev/null && posted | grep -q 'Carried forward without a new decision.*`dh`' && ok "deep pending, the deep output leaves the carried HIGH out: it is carried open (named, counted) and the deep merge raises the line to HIGH" || ko "omitted erased ($s1_line / $(posted | sed -n 1,8p))"
+# The carried counter rises by exactly 1 per review run: a deep entry is counted by the deep merge when the deep stage runs
+# in that run, by stage 1 only when none runs.
+carried_n() { python3 -I -c 'import json,sys; print(json.loads(sys.argv[1]).get("carried"))' "$(posted_entry dh)"; }
+as_previous() { comments "$(python3 -I -c 'import json,sys; print(json.dumps([{"id":2,"node_id":"N2","user":{"login":"github-actions[bot]"},"body":sys.argv[1],"created_at":"2026-11-14T11:00:00Z"}]))' "$(posted)")"; }
+OMIT='{"level":"NONE","blast_radius":"x","summary":"s","findings":[]}'
+stage1_then_deep true "$OMIT"; n1="$(carried_n)"
+as_previous
+HEAD_SHA="$locsha" DEEP_PENDING=true JSON="$(mkreview '[]' | sed 's/Triage: MEDIUM/Triage: NONE/')" run
+comments "$(stage1_posted_as_comment)"
+HEAD_SHA="$locsha" DJSON="$OMIT" deep; n2="$(carried_n)"
+[ "$n1" = "1" ] && [ "$n2" = "2" ] && ok "carried counter, deep stage runs: 1 after one run, 2 after two (the deep merge counts it, stage 1 does not)" || ko "carried pending ($n1, $n2)"
+comments "$(carried_base HIGH open)"
+HEAD_SHA="$locsha" JSON="$(mkreview '[]' | sed 's/Triage: MEDIUM/Triage: NONE/')" run; m1="$(carried_n)"
+as_previous
+HEAD_SHA="$locsha" JSON="$(mkreview '[]' | sed 's/Triage: MEDIUM/Triage: NONE/')" run; m2="$(carried_n)"
+[ "$m1" = "1" ] && [ "$m2" = "2" ] && ok "carried counter, no deep stage: 1 after one run, 2 after two (stage 1 counts it)" || ko "carried no deep ($m1, $m2)"
 # Review of 21a8a5e: the level goes DOWN only when a review explicitly marks an entry fixed.
 mkbase() { # LEVEL FINDINGS_JSON: a stage 1 comment
   python3 -I -c '

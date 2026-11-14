@@ -380,7 +380,7 @@ def reviewed_line(head, rng, done=True):
     return "Reviewed: none, NOT RUN on %s (%s) at %s UTC" % (sha7, rng, now)
 
 
-def carry_forward(text, previous_ledger):
+def carry_forward(text, previous_ledger, deep_pending=False):
     """The previous comment's ledger entries the model left out are carried into the new ledger with their id and
     status (fixed ones are dropped: they were reported fixed already). Nothing is added when the text has no usable
     ledger (no ledger is ever invented)."""
@@ -400,7 +400,8 @@ def carry_forward(text, previous_ledger):
     for f in previous_ledger.get("findings", []):
         if isinstance(f, dict) and f.get("id") and f.get("id") not in ids and status_of(f) != "fixed":
             f = dict(f)
-            if status_of(f) == "open":
+            if status_of(f) == "open" and not (deep_pending and f.get("source") == "deep"):
+                # (A carried deep entry is counted and named by the deep merge when the deep stage runs in this run.)
                 # Still open and not mentioned by this review: the model made no new decision. Counted and named in the
                 # comment, so a stale entry that keeps blocking auto-merge is visible and a person can settle it.
                 f["carried"] = int(f.get("carried") or 0) + 1 if isinstance(f.get("carried"), int) else 1
@@ -475,7 +476,7 @@ def compose(text, tool_line, head="", deep_line=None, reviewed=None, previous_le
     top = [lines[0].strip(), MARKER, tool_or_default(tool_line)] + ([reviewed] if reviewed else []) + ([deep_line] if deep_line else [])
     text = pin_ledger("\n".join(top + [""] + rest), head, previous_ledger)
     if FULL_SHA.match(head or ""):
-        text = carry_forward(text, previous_ledger)
+        text = carry_forward(text, previous_ledger, deep_pending=deep_line is not None)
     return pin_level(text, deep_pending=deep_line is not None) + "\n"
 
 
