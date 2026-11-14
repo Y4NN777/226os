@@ -198,17 +198,17 @@ func TestCatalogueQueriesScanAndReject(t *testing.T) {
 	id := pgtype.UUID{Bytes: [16]byte{1}, Valid: true}
 	ts := pgtype.Timestamptz{Time: time.Unix(10, 0).UTC(), Valid: true}
 	text := pgtype.Text{String: "https://example.test", Valid: true}
-	listRow := []any{id, "alpha", "Alpha", "api", "mobile-money", "Paiement", []string{"fr"}, text, "verified", ts, ts, id, "acme", "Acme", text, int32(1)}
+	listRow := []any{id, "alpha", "Alpha", "api", "mobile-money", "Paiement", []string{"fr"}, text, "verified", ts, ts, id, "demo", "acme", "Acme", text, int32(1)}
 	db := &fakeDB{many: [][]any{listRow}}
 	rows, err := dbgen.New(db).ListCatalogue(t.Context(), dbgen.ListCatalogueParams{RowLimit: 21, Q: text})
-	if err != nil || len(rows) != 1 || rows[0].Slug != "alpha" {
+	if err != nil || len(rows) != 1 || rows[0].Slug != "alpha" || rows[0].Provenance != "demo" {
 		t.Fatalf("rows %+v err %v", rows, err)
 	}
 	if !strings.Contains(db.calls[0].sql, "LIMIT") {
 		t.Fatal("list query is not bounded")
 	}
 	got, err := dbgen.New(&fakeDB{rowVals: listRow}).GetCatalogueEntry(t.Context(), id)
-	if err != nil || got.Slug != "alpha" {
+	if err != nil || got.Slug != "alpha" || got.Provenance != "demo" {
 		t.Fatalf("%+v %v", got, err)
 	}
 	countries, err := dbgen.New(&fakeDB{many: [][]any{{id, "BF"}}}).CatalogueCountries(t.Context(), []pgtype.UUID{id})
