@@ -78,6 +78,7 @@ func TestSignUpRefusesUnstorableDisplayName(t *testing.T) {
 		if apperrCode(t, err) != apperr.CodeValidation {
 			t.Fatalf("%s: expected 422 validation, got %v", name, err)
 		}
+		wantViolation(t, err, "/display_name", "invalid_value")
 		if hashed != 0 || len(st.accounts) != 0 {
 			t.Fatalf("%s: nothing may be hashed or written (hashed=%d accounts=%d)", name, hashed, len(st.accounts))
 		}

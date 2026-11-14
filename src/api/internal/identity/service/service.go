@@ -304,7 +304,7 @@ func (s *Service) SignUp(ctx context.Context, in SignUpInput) error {
 	// is registered, before any hash or write) instead of a 22021 constraint failure mapped to 500.
 	if !validText(in.DisplayName) {
 		return apperr.New(apperr.CodeValidation, "display_name must be valid text.").
-			WithViolations(apperr.Violation{Field: "display_name", Code: "invalid_value"})
+			WithViolations(apperr.Violation{Field: "/display_name", Code: "invalid_value"})
 	}
 	if _, err := s.store.AccountByEmail(ctx, email); err == nil {
 		// Pay the same Argon2id cost as a new account so the response time
