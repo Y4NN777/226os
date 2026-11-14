@@ -64,12 +64,20 @@ JOIN profiles pr ON pr.user_id = q.author_id
 WHERE q.id = sqlc.arg('id')::uuid AND q.status = 'published';
 
 -- name: SolveQuestionTags :many
--- Active tags only: a hidden tag is the moderator tool (DATABASE_DESIGN tags).
-SELECT qt.question_id, t.slug
-FROM question_tags qt
-JOIN tags t ON t.id = qt.tag_id AND t.status = 'active'
-WHERE qt.question_id = ANY (sqlc.arg('ids')::uuid[])
-ORDER BY qt.question_id, t.slug
+-- Active tags only: a hidden tag is the moderator tool (DATABASE_DESIGN tags). At most 5 per question,
+-- the first 5 by slug (Question.tags maxItems 5, issue #167): an edit keeps links to hidden tags, so a
+-- restored tag can make a sixth active link, and no constraint caps the rows. The author's 422 counts
+-- only the tags they can see (service validateTags); the bound lives on the read.
+SELECT question_id, slug
+FROM (
+  SELECT qt.question_id, t.slug,
+         row_number() OVER (PARTITION BY qt.question_id ORDER BY t.slug) AS rn
+  FROM question_tags qt
+  JOIN tags t ON t.id = qt.tag_id AND t.status = 'active'
+  WHERE qt.question_id = ANY (sqlc.arg('ids')::uuid[])
+) ranked
+WHERE rn <= 5
+ORDER BY question_id, slug
 LIMIT 300;
 
 -- name: SolveQuestionRelated :many

@@ -3,15 +3,19 @@
 package pgtest
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/jackc/pgx/v5"
 
 	"github.com/Y4NN777/226os/src/api/internal/app"
 	"github.com/Y4NN777/226os/src/api/internal/identity/repository"
@@ -23,6 +27,7 @@ import (
 	"github.com/Y4NN777/226os/src/api/internal/platform/idempotency"
 	"github.com/Y4NN777/226os/src/api/internal/platform/ratelimit"
 	"github.com/Y4NN777/226os/src/api/internal/solve"
+	solverepo "github.com/Y4NN777/226os/src/api/internal/solve/repository"
 )
 
 // US-SOLVE-001 (questions and answers) on the production router over a migrated database: public
@@ -699,6 +704,60 @@ func TestSolveTagCapCountsVisibleTagsNotHiddenLinks(t *testing.T) {
 		t.Fatalf("six tags: %d %s", rec.Code, rec.Body.String())
 	}
 }
+
+// Issue #167 (note-hidden-tag-cap): a moderator restores a hidden tag that an edit kept linked while the
+// author filled the 5 visible slots. No constraint caps question_tags rows, and the author never saw the
+// hidden link, so the read is where "at most 5 tags per item" (Question.tags maxItems 5) must hold: the
+// detail and the list return 5 tags, the first 5 by slug, and the sixth row stays stored.
+func TestSolveRestoredHiddenTagNeverExceedsTheCap(t *testing.T) {
+	s := newSolveStack(t)
+	alice := s.signIn(t, "solve-tagrestore-alice", true, 94)
+	q := s.ask(t, &alice, "Titre pour la restauration", `"tags":["go","zz-hidden"]`)
+	qid := q.Id.String()
+	path := "/api/v1/questions/" + qid
+	if _, err := s.conn.Exec(t.Context(), `UPDATE tags SET status = 'hidden' WHERE slug = 'zz-hidden'`); err != nil {
+		t.Fatal(err)
+	}
+	tag := s.read(t, nil, path).Header().Get("ETag")
+	rec := s.write(t, &alice, http.MethodPatch, path, `{"tags":["go","python","cap-a","cap-b","cap-c"]}`, map[string]string{"If-Match": tag})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("patch %d %s", rec.Code, rec.Body.String())
+	}
+	if _, err := s.conn.Exec(t.Context(), `UPDATE tags SET status = 'active' WHERE slug = 'zz-hidden'`); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"cap-a", "cap-b", "cap-c", "go", "python"}
+	if got := decodeAs[apigen.Question](t, s.read(t, nil, path)); !slices.Equal(got.Tags, want) {
+		t.Fatalf("detail tags = %v, want the first 5 by slug %v", got.Tags, want)
+	}
+	page := decodeAs[apigen.QuestionPage](t, s.read(t, nil, "/api/v1/questions?limit=1"))
+	if len(page.Items) != 1 || !slices.Equal(page.Items[0].Tags, want) {
+		t.Fatalf("list tags = %+v, want %v", page.Items, want)
+	}
+	var n int
+	if err := s.conn.QueryRow(t.Context(), `SELECT count(*) FROM question_tags WHERE question_id = $1`, qid).Scan(&n); err != nil || n != 6 {
+		t.Fatalf("%d tag rows, %v; the read bounds the answer and deletes nothing, want 6", n, err)
+	}
+
+	// The plan of the bounded read, on the exact SQL and arguments the repository sends (-v to read it).
+	rec2 := &recordingDB{db: s.conn}
+	if _, err := solverepo.New(connTx{recordingDB: rec2, conn: s.conn}).GetQuestion(t.Context(), qid); err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range rec2.calls {
+		if strings.Contains(c.sql, "FROM question_tags qt") {
+			t.Logf("EXPLAIN (ANALYZE, BUFFERS), SolveQuestionTags:\n%s", explainPlan(t.Context(), t, s.conn, c.sql, c.args...))
+		}
+	}
+}
+
+// connTx lets the recording wrapper open the transactions the solve repository wants.
+type connTx struct {
+	*recordingDB
+	conn *pgx.Conn
+}
+
+func (c connTx) Begin(ctx context.Context) (pgx.Tx, error) { return c.conn.Begin(ctx) }
 
 func TestSolveSearchRanksByRelevanceThenNewest(t *testing.T) {
 	s := newSolveStack(t)
