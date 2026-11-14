@@ -109,6 +109,7 @@ export function QuestionForm({
   onCancel,
   failureNotice,
   initialLink,
+  assistant,
 }: {
   mode: 'create' | 'edit';
   initial: QuestionInitial;
@@ -118,6 +119,8 @@ export function QuestionForm({
   failureNotice?: (error: unknown) => ReactNode;
   /** A link pre-filled by the page that sent the visitor here (E4); shown as a removable chip. */
   initialLink?: LinkDraft | undefined;
+  /** Rendered under the form with the current draft title and body (S9 assistant panel). */
+  assistant?: (draft: { title: string; body: string }) => ReactNode;
 }) {
   const { t } = useI18n();
   const { failure, report, clear } = useFailure();
@@ -373,6 +376,13 @@ export function QuestionForm({
           </form.Subscribe>
         </VStack>
       </form>
+      {assistant ? (
+        <form.Subscribe
+          selector={(state) => ({ title: state.values.title, body: state.values.body })}
+        >
+          {(draft) => assistant(draft)}
+        </form.Subscribe>
+      ) : null}
     </VStack>
   );
 }

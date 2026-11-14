@@ -25,7 +25,7 @@ export const navSections: NavSection[] = [
     items: [
       { label: 'nav.solve', to: '/solve' },
       { label: 'nav.discover', to: '/discover' },
-      { label: 'nav.build' },
+      { label: 'nav.build', to: '/build' },
     ],
   },
 ];

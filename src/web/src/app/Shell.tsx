@@ -43,6 +43,7 @@ function AccountArea({ onSignOut }: { onSignOut: () => void }) {
         button={{ label: user.display_name, variant: 'ghost' }}
         alignment="end"
         items={[
+          { label: t('account.profile'), href: `/profils/${user.username}` },
           { label: t('account.write'), href: '/ecrire' },
           { label: t('account.settings'), href: '/parametres' },
           { type: 'divider' },
