@@ -110,6 +110,14 @@ type Need struct {
 	ID, ProjectID, Title, Description, Lang, Status string
 	Skills                                          []string
 	CreatedAt                                       time.Time
+	// ViewerApplication is the caller's own application to the need, nil when there is none or the
+	// caller is anonymous. Another applicant's application is never carried.
+	ViewerApplication *ViewerApplication
+}
+
+// ViewerApplication is the id and status of the caller's own application to a need.
+type ViewerApplication struct {
+	ID, Status string
 }
 
 // NeedQuery is one listContributionNeeds page request. Limit is the page size plus one.
@@ -117,7 +125,9 @@ type NeedQuery struct {
 	ProjectID    string
 	AfterCreated *time.Time
 	AfterID      string
-	Limit        int
+	// ViewerID is the session subject whose own application each need carries; empty means anonymous.
+	ViewerID string
+	Limit    int
 }
 
 // NewNeed is a validated createContributionNeed.

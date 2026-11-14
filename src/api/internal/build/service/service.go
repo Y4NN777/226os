@@ -273,7 +273,7 @@ func (s *Service) ListNeeds(ctx context.Context, sub subject.Subject, projectID 
 	if access.Visibility != domain.VisibilityPublic && access.OwnerID != sub.UserID {
 		return NeedPage{}, notFound()
 	}
-	query := domain.NeedQuery{ProjectID: projectID, Limit: size + 1}
+	query := domain.NeedQuery{ProjectID: projectID, ViewerID: sub.UserID, Limit: size + 1}
 	hash := lengthPrefixed("need", projectID)
 	if req.Cursor != "" {
 		at, id, err := s.decode(req.Cursor, hash)

@@ -172,10 +172,15 @@ ON CONFLICT DO NOTHING;
 
 -- name: ListNeeds :many
 -- Newest first with a UUID tie-breaker (contribution_needs_project_idx covers the project filter).
+-- viewer_application_* is the caller's OWN application to the need (applications_user_need_uq: at most one
+-- row, so the join never multiplies a need); no caller or no application gives NULLs, and no other
+-- applicant's row can match.
 SELECT n.id, n.project_id, n.title, n.description_md, n.language, n.status, n.created_at,
        ARRAY(SELECT t.slug FROM need_skills ns JOIN tags t ON t.id = ns.tag_id
-             WHERE ns.need_id = n.id AND t.status = 'active' ORDER BY t.slug)::text[] AS skills
+             WHERE ns.need_id = n.id AND t.status = 'active' ORDER BY t.slug)::text[] AS skills,
+       va.id AS viewer_application_id, va.status AS viewer_application_status
 FROM contribution_needs n
+LEFT JOIN applications va ON va.contribution_need_id = n.id AND va.user_id = sqlc.narg('viewer_id')::uuid
 WHERE n.project_id = sqlc.arg('project_id')::uuid
   AND (sqlc.narg('after_created')::timestamptz IS NULL
        OR (n.created_at, n.id) < (sqlc.narg('after_created')::timestamptz, sqlc.narg('after_id')::uuid))

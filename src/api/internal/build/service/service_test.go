@@ -411,7 +411,7 @@ func TestListNeedsFollowsProjectVisibility(t *testing.T) {
 	st := &fakeStore{access: domain.Access{OwnerID: aliceID, Visibility: "public"}, needs: needs(3)}
 	svc := newSvc(t, st, nil, nil)
 	page, err := svc.ListNeeds(t.Context(), anon, projID, NeedListRequest{Limit: ptr(2)})
-	if err != nil || len(page.Items) != 2 || page.NextCursor == "" || st.needQuery.Limit != 3 {
+	if err != nil || len(page.Items) != 2 || page.NextCursor == "" || st.needQuery.Limit != 3 || st.needQuery.ViewerID != "" {
 		t.Fatalf("page %+v %v", page, err)
 	}
 	st.needs = nil
@@ -420,8 +420,8 @@ func TestListNeedsFollowsProjectVisibility(t *testing.T) {
 		t.Fatalf("page2 %+v %v", page, err)
 	}
 	st.access.Visibility = "private"
-	if _, err := svc.ListNeeds(t.Context(), alice, projID, NeedListRequest{}); err != nil {
-		t.Fatalf("owner on private %v", err)
+	if _, err := svc.ListNeeds(t.Context(), alice, projID, NeedListRequest{}); err != nil || st.needQuery.ViewerID != aliceID {
+		t.Fatalf("owner on private %v, viewer %q", err, st.needQuery.ViewerID)
 	}
 	for _, sub := range []subject.Subject{anon, bob} {
 		_, err := svc.ListNeeds(t.Context(), sub, projID, NeedListRequest{})

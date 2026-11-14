@@ -423,10 +423,17 @@ func TestCreateNeed(t *testing.T) {
 
 func TestListNeeds(t *testing.T) {
 	at := ts().Time
-	row := []any{uid(needID), uid(projID), "T", "D", "fr", "open", ts(), []string(nil)}
-	needs, err := New(db(t, rows(row))).ListNeeds(t.Context(), domain.NeedQuery{ProjectID: projID, AfterCreated: &at, AfterID: needID, Limit: 21})
-	if err != nil || len(needs) != 1 || needs[0].Skills == nil || needs[0].ProjectID != projID {
+	row := []any{uid(needID), uid(projID), "T", "D", "fr", "open", ts(), []string(nil), pgtype.UUID{}, pgtype.Text{}}
+	applied := []any{uid(projID), uid(projID), "T", "D", "fr", "open", ts(), []string{"go"}, uid(needID), pgtype.Text{String: "pending", Valid: true}}
+	needs, err := New(db(t, rows(row, applied))).ListNeeds(t.Context(), domain.NeedQuery{ProjectID: projID, AfterCreated: &at, AfterID: needID, ViewerID: needID, Limit: 21})
+	if err != nil || len(needs) != 2 || needs[0].Skills == nil || needs[0].ProjectID != projID || needs[0].ViewerApplication != nil {
 		t.Fatalf("needs %+v %v", needs, err)
+	}
+	if got := needs[1].ViewerApplication; got == nil || got.ID != needID || got.Status != "pending" {
+		t.Fatalf("viewer application %+v, want the caller's own (%s, pending)", got, needID)
+	}
+	if _, err := New(db(t)).ListNeeds(t.Context(), domain.NeedQuery{ProjectID: projID, ViewerID: "x"}); err == nil {
+		t.Fatal("bad viewer id accepted")
 	}
 	if _, err := New(db(t)).ListNeeds(t.Context(), domain.NeedQuery{ProjectID: "x"}); err == nil {
 		t.Fatal("bad project accepted")
