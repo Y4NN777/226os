@@ -55,7 +55,7 @@ type fakeStore struct {
 func (f *fakeStore) ListQuestions(context.Context, domain.QuestionQuery) ([]domain.Question, error) {
 	return f.questions, f.err
 }
-func (f *fakeStore) GetQuestion(context.Context, string) (domain.Question, error) {
+func (f *fakeStore) GetQuestion(context.Context, string, string) (domain.Question, error) {
 	return f.question, f.err
 }
 func (f *fakeStore) CreateQuestion(_ context.Context, in domain.NewQuestion) (domain.Question, error) {
@@ -155,6 +155,9 @@ func TestListQuestionsEncodesThePage(t *testing.T) {
 		got.Snippets[0].Code != "x" || got.AnswerCount != 2 || got.VoteScore != 3 {
 		t.Fatalf("question %+v", got)
 	}
+	if rec.Header().Get("Vary") != "Cookie" {
+		t.Fatalf("list Vary = %q, want Cookie", rec.Header().Get("Vary"))
+	}
 
 	rec = httptest.NewRecorder()
 	st.questions = []domain.Question{plainQuestion()}
@@ -183,9 +186,23 @@ func TestGetQuestionSendsTheETagAndHidesWhatIsNotPublished(t *testing.T) {
 	st := &fakeStore{question: fullQuestion()}
 	rec := httptest.NewRecorder()
 	handler(t, st).GetQuestion(rec, req(t, subject.Subject{}, http.MethodGet, "/", ""), uuid.MustParse(qID))
-	if rec.Code != http.StatusOK || rec.Header().Get("ETag") != service.ETag(fullQuestion()) {
+	if rec.Code != http.StatusOK || rec.Header().Get("ETag") != service.ETag(fullQuestion(), "") {
 		t.Fatalf("%d etag %q", rec.Code, rec.Header().Get("ETag"))
 	}
+	if rec.Header().Get("Vary") != "Cookie" || rec.Header().Get("Cache-Control") != "private, no-cache" {
+		t.Fatalf("a viewer-scoped answer: Vary %q, Cache-Control %q", rec.Header().Get("Vary"), rec.Header().Get("Cache-Control"))
+	}
+	// The tag and the vote are the caller's: a member gets her own tag and the vote the store read for her.
+	st.question.ViewerVote = -1
+	rec = httptest.NewRecorder()
+	handler(t, st).GetQuestion(rec, req(t, member, http.MethodGet, "/", ""), uuid.MustParse(qID))
+	if rec.Header().Get("ETag") != service.ETag(fullQuestion(), member.UserID) || rec.Header().Get("ETag") == service.ETag(fullQuestion(), "") {
+		t.Fatalf("etag %q does not cover the viewer", rec.Header().Get("ETag"))
+	}
+	if got := decode[apigen.Question](t, rec); got.ViewerVote != apigen.ViewerVoteMinus1 {
+		t.Fatalf("viewer_vote = %d, want -1", got.ViewerVote)
+	}
+	st.question.ViewerVote = 0
 	st.err = domain.ErrNotFound
 	rec = httptest.NewRecorder()
 	handler(t, st).GetQuestion(rec, req(t, subject.Subject{}, http.MethodGet, "/", ""), uuid.MustParse(qID))
@@ -235,7 +252,7 @@ func TestCreateQuestionMapsTheBodyAndLocatesTheQuestion(t *testing.T) {
 
 func TestUpdateQuestionHandsTheIfMatchCheckToTheService(t *testing.T) {
 	locked := domain.Question{ID: qID, Author: alice, UpdatedAt: when}
-	tag := service.ETag(locked)
+	tag := service.ETag(locked, member.UserID)
 	patch := func(st *fakeStore, sub subject.Subject, body string, headers ...string) *httptest.ResponseRecorder {
 		rec := httptest.NewRecorder()
 		handler(t, st).UpdateQuestion(rec, req(t, sub, http.MethodPatch, "/api/v1/questions/"+qID, body, headers...), uuid.MustParse(qID), apigen.UpdateQuestionParams{})
@@ -244,7 +261,7 @@ func TestUpdateQuestionHandsTheIfMatchCheckToTheService(t *testing.T) {
 
 	st := &fakeStore{question: fullQuestion(), guardAs: locked}
 	rec := patch(st, member, `{"title":"Nouveau titre","body_md":"Nouveau","tags":["go"],"snippets":[{"language":"go","code":"x"}],"links":[{"type":"project","id":"`+aID+`"}]}`, "If-Match", tag)
-	if rec.Code != http.StatusOK || rec.Header().Get("ETag") != service.ETag(fullQuestion()) {
+	if rec.Code != http.StatusOK || rec.Header().Get("ETag") != service.ETag(fullQuestion(), member.UserID) {
 		t.Fatalf("%d %s", rec.Code, rec.Body.String())
 	}
 	p := st.patch
@@ -302,8 +319,8 @@ func TestAuthzUpdateQuestionNonOwner(t *testing.T) {
 		ifMatch string
 		status  int
 	}{
-		{"anonymous", subject.Subject{}, &fakeStore{guardAs: locked}, service.ETag(locked), http.StatusUnauthorized},
-		{"other member, right tag", subject.Subject{UserID: otherU, EmailVerified: true}, &fakeStore{guardAs: locked}, service.ETag(locked), http.StatusForbidden},
+		{"anonymous", subject.Subject{}, &fakeStore{guardAs: locked}, service.ETag(locked, otherU), http.StatusUnauthorized},
+		{"other member, right tag", subject.Subject{UserID: otherU, EmailVerified: true}, &fakeStore{guardAs: locked}, service.ETag(locked, otherU), http.StatusForbidden},
 		{"other member, stale tag", subject.Subject{UserID: otherU, EmailVerified: true}, &fakeStore{guardAs: locked}, `"stale"`, http.StatusForbidden},
 		{"unknown or removed question, stale tag", member, &fakeStore{guardAs: locked, err: domain.ErrNotFound}, `"stale"`, http.StatusNotFound},
 	}
@@ -394,15 +411,18 @@ func TestCreateAnswerMapsTheBodyAndLocatesTheAnswers(t *testing.T) {
 
 func TestListAnswersEncodesThePage(t *testing.T) {
 	st := &fakeStore{answers: []domain.Answer{
-		{ID: aID, QuestionID: qID, BodyMD: "A", Lang: "fr", Snippets: []domain.Snippet{}, Sources: []string{}, Author: alice, Accepted: true, VoteScore: 4, CreatedAt: when, UpdatedAt: when},
+		{ID: aID, QuestionID: qID, BodyMD: "A", Lang: "fr", Snippets: []domain.Snippet{}, Sources: []string{}, Author: alice, Accepted: true, VoteScore: 4, ViewerVote: 1, CreatedAt: when, UpdatedAt: when},
 		{ID: userID, QuestionID: qID, BodyMD: "B", Lang: "fr", Snippets: []domain.Snippet{}, Sources: []string{}, Author: bob, CreatedAt: when, UpdatedAt: when},
 	}}
 	limit := 1
 	rec := httptest.NewRecorder()
 	handler(t, st).ListAnswers(rec, req(t, subject.Subject{}, http.MethodGet, "/", ""), uuid.MustParse(qID), apigen.ListAnswersParams{Limit: &limit})
 	page := decode[apigen.AnswerPage](t, rec)
-	if rec.Code != http.StatusOK || len(page.Items) != 1 || !page.Items[0].IsAccepted || page.Items[0].VoteScore != 4 || page.NextCursor == nil {
+	if rec.Code != http.StatusOK || len(page.Items) != 1 || !page.Items[0].IsAccepted || page.Items[0].VoteScore != 4 || page.Items[0].ViewerVote != apigen.ViewerVoteN1 || page.NextCursor == nil {
 		t.Fatalf("%d %s", rec.Code, rec.Body.String())
+	}
+	if rec.Header().Get("Vary") != "Cookie" {
+		t.Fatalf("answers Vary = %q, want Cookie", rec.Header().Get("Vary"))
 	}
 	st.err = domain.ErrNotFound
 	rec = httptest.NewRecorder()

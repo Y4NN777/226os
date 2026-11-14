@@ -167,12 +167,13 @@ func fail(err error) step { return step{err: err} }
 // questionRow is a published question: id, title, body, language, snippet, snippet language, country,
 // answer_count, vote_score, accepted answer, created, updated, author id, username, display name, author country.
 func questionRow(snippet, country string, accepted pgtype.UUID) []any {
-	return []any{uid(qID), "Titre", "Corps", "fr", snippet, "go", country, int32(2), int32(3), accepted, ts(), ts(), uid(userID), "alice", "Alice", "BF"}
+	return []any{uid(qID), "Titre", "Corps", "fr", snippet, "go", country, int32(2), int32(3), accepted, ts(), ts(), uid(userID), "alice", "Alice", "BF", int32(-1)}
 }
 
 // listRow is questionRow plus the relevance rank the list query adds.
 func listRow(snippet, country string, accepted pgtype.UUID, rank float32) []any {
-	return append(questionRow(snippet, country, accepted), rank)
+	row := questionRow(snippet, country, accepted)
+	return append(row[:len(row)-1], rank, row[len(row)-1])
 }
 
 func lockRow() []any {
@@ -180,7 +181,7 @@ func lockRow() []any {
 }
 
 func answerRow(accepted bool) []any {
-	return []any{uid(aID), uid(qID), "Réponse", "fr", int32(4), ts(), ts(), accepted, uid(userID), "alice", "Alice", ""}
+	return []any{uid(aID), uid(qID), "Réponse", "fr", int32(4), ts(), ts(), accepted, uid(userID), "alice", "Alice", "", int32(1)}
 }
 
 func tagRows() step { return rows([]any{uid(qID), "api"}, []any{uid(qID), "go"}) }
@@ -198,11 +199,14 @@ func fkErr(constraint string) error {
 func TestListQuestionsAttachesTagsAndLinks(t *testing.T) {
 	at := ts().Time
 	d := db(t, rows(listRow("code", "BF", uid(aID), 0.25), listRow("", "", pgtype.UUID{}, 0)), tagRows(), relatedRows())
-	got, err := New(d).ListQuestions(t.Context(), domain.QuestionQuery{Q: "paiement", Tag: "go", State: "open", Country: "BF", Lang: "fr", AfterCreated: &at, AfterID: qID, Limit: 21})
+	got, err := New(d).ListQuestions(t.Context(), domain.QuestionQuery{Q: "paiement", Tag: "go", State: "open", Country: "BF", Lang: "fr", AfterCreated: &at, AfterID: qID, ViewerID: otherU, Limit: 21})
 	if err != nil || len(got) != 2 {
 		t.Fatalf("got %+v, %v", got, err)
 	}
 	q := got[0]
+	if q.ViewerVote != -1 {
+		t.Fatalf("viewer vote %d, want the -1 the row carries", q.ViewerVote)
+	}
 	if q.Rank != 0.25 || got[1].Rank != 0 {
 		t.Fatalf("ranks %v %v", q.Rank, got[1].Rank)
 	}
@@ -236,14 +240,14 @@ func TestListQuestionsEmptyAndErrors(t *testing.T) {
 }
 
 func TestGetQuestion(t *testing.T) {
-	got, err := New(db(t, rows(questionRow("code", "", pgtype.UUID{})), tagRows(), rows())).GetQuestion(t.Context(), qID)
+	got, err := New(db(t, rows(questionRow("code", "", pgtype.UUID{})), tagRows(), rows())).GetQuestion(t.Context(), qID, userID)
 	if err != nil || got.ID != qID || len(got.Related) != 0 || got.Related == nil || len(got.Tags) != 2 {
 		t.Fatalf("got %+v, %v", got, err)
 	}
-	if _, err := New(db(t)).GetQuestion(t.Context(), "bad"); !errors.Is(err, domain.ErrNotFound) {
+	if _, err := New(db(t)).GetQuestion(t.Context(), "bad", ""); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("bad id %v", err)
 	}
-	if _, err := New(db(t, rows())).GetQuestion(t.Context(), qID); !errors.Is(err, domain.ErrNotFound) {
+	if _, err := New(db(t, rows())).GetQuestion(t.Context(), qID, userID); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("missing %v", err)
 	}
 	for name, steps := range map[string][]step{
@@ -251,7 +255,7 @@ func TestGetQuestion(t *testing.T) {
 		"tags":    {rows(questionRow("", "", pgtype.UUID{})), fail(errDB)},
 		"related": {rows(questionRow("", "", pgtype.UUID{})), tagRows(), fail(errDB)},
 	} {
-		if _, err := New(db(t, steps...)).GetQuestion(t.Context(), qID); !errors.Is(err, errDB) {
+		if _, err := New(db(t, steps...)).GetQuestion(t.Context(), qID, userID); !errors.Is(err, errDB) {
 			t.Fatalf("%s err %v", name, err)
 		}
 	}
@@ -435,12 +439,12 @@ func TestUpdateQuestionErrors(t *testing.T) {
 func TestListAnswersAttachesSources(t *testing.T) {
 	key := &domain.AnswerKey{Rank: 1, NegScore: -2, CreatedAt: ts().Time, ID: aID}
 	d := db(t, yes(), rows(answerRow(true), answerRow(false)), rows([]any{uid(aID), "https://a.example"}))
-	got, err := New(d).ListAnswers(t.Context(), domain.AnswerQuery{QuestionID: qID, After: key, Limit: 21})
+	got, err := New(d).ListAnswers(t.Context(), domain.AnswerQuery{QuestionID: qID, ViewerID: otherU, After: key, Limit: 21})
 	if err != nil || len(got) != 2 {
 		t.Fatalf("got %+v, %v", got, err)
 	}
 	a := got[0]
-	if a.ID != aID || a.QuestionID != qID || !a.Accepted || a.VoteScore != 4 || a.Author.Username != "alice" || a.Snippets == nil || len(a.Snippets) != 0 ||
+	if a.ViewerVote != 1 || a.ID != aID || a.QuestionID != qID || !a.Accepted || a.VoteScore != 4 || a.Author.Username != "alice" || a.Snippets == nil || len(a.Snippets) != 0 ||
 		len(a.Sources) != 1 || got[1].Sources == nil || len(got[1].Sources) != 1 {
 		// both rows share the id, so both get the one source
 		t.Fatalf("answer %+v", a)
@@ -530,5 +534,18 @@ func TestCreateAnswerErrors(t *testing.T) {
 	}
 	if _, err := New(db(t)).CreateAnswer(t.Context(), domain.NewAnswer{QuestionID: qID, AuthorID: "bad"}); err == nil {
 		t.Fatal("bad author id accepted")
+	}
+}
+
+// The viewer id comes from the session, but a malformed one is refused before any query runs.
+func TestAReadWithAMalformedViewerIDRunsNoQuery(t *testing.T) {
+	if _, err := New(db(t)).ListQuestions(t.Context(), domain.QuestionQuery{ViewerID: "bad", Limit: 21}); err == nil {
+		t.Error("list accepted a bad viewer id")
+	}
+	if _, err := New(db(t, yes())).ListAnswers(t.Context(), domain.AnswerQuery{QuestionID: qID, ViewerID: "bad", Limit: 21}); err == nil {
+		t.Error("answers accepted a bad viewer id")
+	}
+	if _, err := New(db(t)).GetQuestion(t.Context(), qID, "bad"); err == nil {
+		t.Error("detail accepted a bad viewer id")
 	}
 }

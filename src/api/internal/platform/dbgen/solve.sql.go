@@ -61,12 +61,18 @@ SELECT a.id, a.question_id, a.body_md, a.language, a.vote_score, a.created_at, a
        (q.accepted_answer_id IS NOT DISTINCT FROM a.id)::boolean AS is_accepted,
        a.author_id, pr.username AS author_username, pr.display_name AS author_display_name,
        COALESCE(CASE WHEN pr.profile_visibility = 'public' AND pr.country_visibility = 'public'
-             THEN pr.country_code END, '')::text AS author_country
+             THEN pr.country_code END, '')::text AS author_country,
+       COALESCE((SELECT v.value FROM votes v WHERE v.user_id = $1::uuid AND v.target_type = 'answer' AND v.target_id = a.id), 0)::int AS viewer_vote
 FROM answers a
 JOIN questions q ON q.id = a.question_id
 JOIN profiles pr ON pr.user_id = a.author_id
-WHERE a.id = $1::uuid AND a.status = 'published' AND q.status = 'published'
+WHERE a.id = $2::uuid AND a.status = 'published' AND q.status = 'published'
 `
+
+type GetSolveAnswerParams struct {
+	ViewerID pgtype.UUID
+	ID       pgtype.UUID
+}
 
 type GetSolveAnswerRow struct {
 	ID                pgtype.UUID
@@ -81,10 +87,11 @@ type GetSolveAnswerRow struct {
 	AuthorUsername    string
 	AuthorDisplayName string
 	AuthorCountry     string
+	ViewerVote        int32
 }
 
-func (q *Queries) GetSolveAnswer(ctx context.Context, id pgtype.UUID) (GetSolveAnswerRow, error) {
-	row := q.db.QueryRow(ctx, getSolveAnswer, id)
+func (q *Queries) GetSolveAnswer(ctx context.Context, arg GetSolveAnswerParams) (GetSolveAnswerRow, error) {
+	row := q.db.QueryRow(ctx, getSolveAnswer, arg.ViewerID, arg.ID)
 	var i GetSolveAnswerRow
 	err := row.Scan(
 		&i.ID,
@@ -99,6 +106,7 @@ func (q *Queries) GetSolveAnswer(ctx context.Context, id pgtype.UUID) (GetSolveA
 		&i.AuthorUsername,
 		&i.AuthorDisplayName,
 		&i.AuthorCountry,
+		&i.ViewerVote,
 	)
 	return i, err
 }
@@ -109,11 +117,17 @@ SELECT q.id, q.title, q.body_md, q.language, COALESCE(q.snippet, '')::text AS sn
        q.answer_count, q.vote_score, q.accepted_answer_id, q.created_at, q.updated_at,
        q.author_id, pr.username AS author_username, pr.display_name AS author_display_name,
        COALESCE(CASE WHEN pr.profile_visibility = 'public' AND pr.country_visibility = 'public'
-             THEN pr.country_code END, '')::text AS author_country
+             THEN pr.country_code END, '')::text AS author_country,
+       COALESCE((SELECT v.value FROM votes v WHERE v.user_id = $1::uuid AND v.target_type = 'question' AND v.target_id = q.id), 0)::int AS viewer_vote
 FROM questions q
 JOIN profiles pr ON pr.user_id = q.author_id
-WHERE q.id = $1::uuid AND q.status = 'published'
+WHERE q.id = $2::uuid AND q.status = 'published'
 `
+
+type GetSolveQuestionParams struct {
+	ViewerID pgtype.UUID
+	ID       pgtype.UUID
+}
 
 type GetSolveQuestionRow struct {
 	ID                pgtype.UUID
@@ -132,10 +146,13 @@ type GetSolveQuestionRow struct {
 	AuthorUsername    string
 	AuthorDisplayName string
 	AuthorCountry     string
+	ViewerVote        int32
 }
 
-func (q *Queries) GetSolveQuestion(ctx context.Context, id pgtype.UUID) (GetSolveQuestionRow, error) {
-	row := q.db.QueryRow(ctx, getSolveQuestion, id)
+// viewer_vote is the caller's own vote (0 without a vote or without a caller): one primary-key probe of
+// votes_pk, scoped to the viewer id the service takes from the session.
+func (q *Queries) GetSolveQuestion(ctx context.Context, arg GetSolveQuestionParams) (GetSolveQuestionRow, error) {
+	row := q.db.QueryRow(ctx, getSolveQuestion, arg.ViewerID, arg.ID)
 	var i GetSolveQuestionRow
 	err := row.Scan(
 		&i.ID,
@@ -154,6 +171,7 @@ func (q *Queries) GetSolveQuestion(ctx context.Context, id pgtype.UUID) (GetSolv
 		&i.AuthorUsername,
 		&i.AuthorDisplayName,
 		&i.AuthorCountry,
+		&i.ViewerVote,
 	)
 	return i, err
 }
@@ -263,19 +281,21 @@ SELECT a.id, a.question_id, a.body_md, a.language, a.vote_score, a.created_at, a
        (q.accepted_answer_id IS NOT DISTINCT FROM a.id)::boolean AS is_accepted,
        a.author_id, pr.username AS author_username, pr.display_name AS author_display_name,
        COALESCE(CASE WHEN pr.profile_visibility = 'public' AND pr.country_visibility = 'public'
-             THEN pr.country_code END, '')::text AS author_country
+             THEN pr.country_code END, '')::text AS author_country,
+       COALESCE((SELECT v.value FROM votes v WHERE v.user_id = $1::uuid AND v.target_type = 'answer' AND v.target_id = a.id), 0)::int AS viewer_vote
 FROM answers a
 JOIN questions q ON q.id = a.question_id
 JOIN profiles pr ON pr.user_id = a.author_id
-WHERE a.question_id = $1::uuid AND a.status = 'published' AND q.status = 'published'
-  AND ($2::uuid IS NULL
+WHERE a.question_id = $2::uuid AND a.status = 'published' AND q.status = 'published'
+  AND ($3::uuid IS NULL
        OR ((CASE WHEN q.accepted_answer_id IS NOT DISTINCT FROM a.id THEN 0 ELSE 1 END), -a.vote_score, a.created_at, a.id)
-          > ($3::int, $4::int, $5::timestamptz, $2::uuid))
+          > ($4::int, $5::int, $6::timestamptz, $3::uuid))
 ORDER BY (CASE WHEN q.accepted_answer_id IS NOT DISTINCT FROM a.id THEN 0 ELSE 1 END), a.vote_score DESC, a.created_at, a.id
-LIMIT $6
+LIMIT $7
 `
 
 type ListSolveAnswersParams struct {
+	ViewerID      pgtype.UUID
 	QuestionID    pgtype.UUID
 	AfterID       pgtype.UUID
 	AfterRank     int32
@@ -297,12 +317,14 @@ type ListSolveAnswersRow struct {
 	AuthorUsername    string
 	AuthorDisplayName string
 	AuthorCountry     string
+	ViewerVote        int32
 }
 
 // Accepted first, then vote_score descending, then oldest first, then id. The keyset is the same
 // order written all-ascending: (rank, -vote_score, created_at, id) with rank 0 for the accepted answer.
 func (q *Queries) ListSolveAnswers(ctx context.Context, arg ListSolveAnswersParams) ([]ListSolveAnswersRow, error) {
 	rows, err := q.db.Query(ctx, listSolveAnswers,
+		arg.ViewerID,
 		arg.QuestionID,
 		arg.AfterID,
 		arg.AfterRank,
@@ -330,6 +352,7 @@ func (q *Queries) ListSolveAnswers(ctx context.Context, arg ListSolveAnswersPara
 			&i.AuthorUsername,
 			&i.AuthorDisplayName,
 			&i.AuthorCountry,
+			&i.ViewerVote,
 		); err != nil {
 			return nil, err
 		}
@@ -344,8 +367,8 @@ func (q *Queries) ListSolveAnswers(ctx context.Context, arg ListSolveAnswersPara
 const listSolveQuestions = `-- name: ListSolveQuestions :many
 
 WITH i AS NOT MATERIALIZED (
-  SELECT CASE WHEN $5::text IS NULL THEN NULL
-         ELSE websearch_to_tsquery('simple', f_unaccent($5::text)) END AS tsq
+  SELECT CASE WHEN $6::text IS NULL THEN NULL
+         ELSE websearch_to_tsquery('simple', f_unaccent($6::text)) END AS tsq
 ),
 candidates AS (
   SELECT q.id, q.title, q.body_md, q.language, q.snippet, q.snippet_language, q.country_code,
@@ -355,20 +378,20 @@ candidates AS (
   CROSS JOIN i
   WHERE q.status = 'published'
     AND (i.tsq IS NULL OR (querytree(i.tsq) NOT IN ('', 'T') AND q.search_document @@ i.tsq))
-    AND ($6::text IS NULL OR EXISTS (
+    AND ($7::text IS NULL OR EXISTS (
           SELECT 1 FROM question_tags qt JOIN tags t ON t.id = qt.tag_id AND t.status = 'active'
-          WHERE qt.question_id = q.id AND t.slug = $6::text
+          WHERE qt.question_id = q.id AND t.slug = $7::text
             -- only a tag the question displays (SolveQuestionTags: the first 5 active by slug): fewer than
             -- 5 active tags sort before it
             AND (SELECT count(*) FROM (
                    SELECT 1 FROM question_tags qt2
                    JOIN tags t2 ON t2.id = qt2.tag_id AND t2.status = 'active'
                    WHERE qt2.question_id = q.id AND t2.slug < t.slug LIMIT 5) lower_slugs) < 5))
-    AND ($7::text IS NULL
+    AND ($8::text IS NULL
          OR (CASE WHEN q.accepted_answer_id IS NOT NULL THEN 'resolved'
-                  WHEN q.answer_count > 0 THEN 'answered' ELSE 'open' END) = $7::text)
-    AND ($8::text IS NULL OR q.country_code = $8::text)
-    AND ($9::text IS NULL OR q.language = $9::text)
+                  WHEN q.answer_count > 0 THEN 'answered' ELSE 'open' END) = $8::text)
+    AND ($9::text IS NULL OR q.country_code = $9::text)
+    AND ($10::text IS NULL OR q.language = $10::text)
   ORDER BY q.created_at DESC, q.id DESC
   LIMIT (SELECT CASE WHEN tsq IS NULL THEN NULL ELSE 500 END FROM i)
 )
@@ -378,17 +401,19 @@ SELECT c.id, c.title, c.body_md, c.language, COALESCE(c.snippet, '')::text AS sn
        c.author_id, pr.username AS author_username, pr.display_name AS author_display_name,
        COALESCE(CASE WHEN pr.profile_visibility = 'public' AND pr.country_visibility = 'public'
              THEN pr.country_code END, '')::text AS author_country,
-       c.rank
+       c.rank,
+       COALESCE((SELECT v.value FROM votes v WHERE v.user_id = $1::uuid AND v.target_type = 'question' AND v.target_id = c.id), 0)::int AS viewer_vote
 FROM candidates c
 JOIN profiles pr ON pr.user_id = c.author_id
-WHERE ($1::timestamptz IS NULL
+WHERE ($2::timestamptz IS NULL
        OR (c.rank, c.created_at, c.id)
-          < ($2::real, $1::timestamptz, $3::uuid))
+          < ($3::real, $2::timestamptz, $4::uuid))
 ORDER BY c.rank DESC, c.created_at DESC, c.id DESC
-LIMIT $4
+LIMIT $5
 `
 
 type ListSolveQuestionsParams struct {
+	ViewerID     pgtype.UUID
 	AfterCreated pgtype.Timestamptz
 	AfterRank    float32
 	AfterID      pgtype.UUID
@@ -418,6 +443,7 @@ type ListSolveQuestionsRow struct {
 	AuthorDisplayName string
 	AuthorCountry     string
 	Rank              float32
+	ViewerVote        int32
 }
 
 // Solve questions and answers (S3, US-SOLVE-001). Only published questions are public; a removed
@@ -436,6 +462,7 @@ type ListSolveQuestionsRow struct {
 // descending; rank is the same real the cursor carried, so the comparison is exact.
 func (q *Queries) ListSolveQuestions(ctx context.Context, arg ListSolveQuestionsParams) ([]ListSolveQuestionsRow, error) {
 	rows, err := q.db.Query(ctx, listSolveQuestions,
+		arg.ViewerID,
 		arg.AfterCreated,
 		arg.AfterRank,
 		arg.AfterID,
@@ -471,6 +498,7 @@ func (q *Queries) ListSolveQuestions(ctx context.Context, arg ListSolveQuestions
 			&i.AuthorDisplayName,
 			&i.AuthorCountry,
 			&i.Rank,
+			&i.ViewerVote,
 		); err != nil {
 			return nil, err
 		}

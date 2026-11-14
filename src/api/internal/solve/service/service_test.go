@@ -46,9 +46,11 @@ type fakeStore struct {
 	guardErr error
 	writes   int
 
-	vote      domain.VoteState
-	gotVote   domain.Vote
-	gotChange domain.AcceptChange
+	vote    domain.VoteState
+	gotVote domain.Vote
+	// viewerSeen is the viewer id GetQuestion was called with.
+	viewerSeen string
+	gotChange  domain.AcceptChange
 }
 
 func (f *fakeStore) ListQuestions(_ context.Context, q domain.QuestionQuery) ([]domain.Question, error) {
@@ -56,7 +58,8 @@ func (f *fakeStore) ListQuestions(_ context.Context, q domain.QuestionQuery) ([]
 	return f.questions, f.err
 }
 
-func (f *fakeStore) GetQuestion(context.Context, string) (domain.Question, error) {
+func (f *fakeStore) GetQuestion(_ context.Context, _, viewer string) (domain.Question, error) {
+	f.viewerSeen = viewer
 	return f.question, f.err
 }
 
@@ -152,7 +155,7 @@ func TestListQuestionsPagesAndBindsTheCursorToTheFilters(t *testing.T) {
 	svc, _ := newSvc(t, st)
 	limit := 2
 
-	page, err := svc.ListQuestions(t.Context(), service.QuestionListRequest{Limit: &limit, Tag: ptr("go"), State: ptr("open"), Country: ptr("BF"), Lang: ptr("fr"), Q: ptr("paiement")})
+	page, err := svc.ListQuestions(t.Context(), subject.Subject{}, service.QuestionListRequest{Limit: &limit, Tag: ptr("go"), State: ptr("open"), Country: ptr("BF"), Lang: ptr("fr"), Q: ptr("paiement")})
 	if err != nil || len(page.Items) != 2 || page.NextCursor == "" {
 		t.Fatalf("page = %+v, %v", page, err)
 	}
@@ -161,17 +164,17 @@ func TestListQuestionsPagesAndBindsTheCursorToTheFilters(t *testing.T) {
 	}
 
 	// The next page resumes after the last row, with the same filters.
-	_, err = svc.ListQuestions(t.Context(), service.QuestionListRequest{Limit: &limit, Tag: ptr("go"), State: ptr("open"), Country: ptr("BF"), Lang: ptr("fr"), Q: ptr("paiement"), Cursor: page.NextCursor})
+	_, err = svc.ListQuestions(t.Context(), subject.Subject{}, service.QuestionListRequest{Limit: &limit, Tag: ptr("go"), State: ptr("open"), Country: ptr("BF"), Lang: ptr("fr"), Q: ptr("paiement"), Cursor: page.NextCursor})
 	if err != nil || st.listQ.AfterID != aID || st.listQ.AfterCreated == nil || !st.listQ.AfterCreated.Equal(when.Add(-time.Hour)) {
 		t.Fatalf("after = %v %v, %v", st.listQ.AfterCreated, st.listQ.AfterID, err)
 	}
 	// The same cursor with another filter is refused.
-	_, err = svc.ListQuestions(t.Context(), service.QuestionListRequest{Limit: &limit, Cursor: page.NextCursor})
+	_, err = svc.ListQuestions(t.Context(), subject.Subject{}, service.QuestionListRequest{Limit: &limit, Cursor: page.NextCursor})
 	wantCode(t, err, apperr.CodeInvalidCursor)
 
 	// A short page has no cursor; an empty result is an empty list, never nil.
 	st.questions = nil
-	page, err = svc.ListQuestions(t.Context(), service.QuestionListRequest{})
+	page, err = svc.ListQuestions(t.Context(), subject.Subject{}, service.QuestionListRequest{})
 	if err != nil || page.Items == nil || len(page.Items) != 0 || page.NextCursor != "" || st.listQ.Limit != 21 {
 		t.Fatalf("empty page = %+v, %v (limit %d)", page, err, st.listQ.Limit)
 	}
@@ -194,61 +197,65 @@ func TestListQuestionsRejectsBadInput(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			svc, _ := newSvc(t, &fakeStore{})
-			_, err := svc.ListQuestions(t.Context(), tc.req)
+			_, err := svc.ListQuestions(t.Context(), subject.Subject{}, tc.req)
 			wantViolation(t, err, tc.field, tc.code)
 		})
 	}
 	svc, _ := newSvc(t, &fakeStore{})
-	_, err := svc.ListQuestions(t.Context(), service.QuestionListRequest{Cursor: "garbage"})
+	_, err := svc.ListQuestions(t.Context(), subject.Subject{}, service.QuestionListRequest{Cursor: "garbage"})
 	wantCode(t, err, apperr.CodeInvalidCursor)
 
 	// A validly signed cursor with a bad sort key or id is as invalid as a forged one.
 	for _, p := range []cursor.Payload{{Sort: "yesterday", ID: qID}, {Sort: when.Format(time.RFC3339Nano), ID: "nope"}} {
 		hash := "8:question0:0:0:0:0:"
 		p.FilterHash = hash
-		_, err = svc.ListQuestions(t.Context(), service.QuestionListRequest{Cursor: c.Encode(p)})
+		_, err = svc.ListQuestions(t.Context(), subject.Subject{}, service.QuestionListRequest{Cursor: c.Encode(p)})
 		wantCode(t, err, apperr.CodeInvalidCursor)
 	}
 
 	st := &fakeStore{err: errDB}
 	svc, _ = newSvc(t, st)
-	_, err = svc.ListQuestions(t.Context(), service.QuestionListRequest{})
+	_, err = svc.ListQuestions(t.Context(), subject.Subject{}, service.QuestionListRequest{})
 	wantCode(t, err, apperr.CodeInternal)
 }
 
 func TestGetQuestion(t *testing.T) {
 	st := &fakeStore{question: question(qID, when)}
 	svc, _ := newSvc(t, st)
-	got, err := svc.GetQuestion(t.Context(), qID)
+	got, err := svc.GetQuestion(t.Context(), subject.Subject{}, qID)
 	if err != nil || got.ID != qID {
 		t.Fatalf("got %+v, %v", got, err)
 	}
 	st.err = domain.ErrNotFound
-	_, err = svc.GetQuestion(t.Context(), qID)
+	_, err = svc.GetQuestion(t.Context(), subject.Subject{}, qID)
 	wantCode(t, err, apperr.CodeNotFound)
 	st.err = errDB
-	_, err = svc.GetQuestion(t.Context(), qID)
+	_, err = svc.GetQuestion(t.Context(), subject.Subject{}, qID)
 	wantCode(t, err, apperr.CodeInternal)
 }
 
 func TestETagCoversTheEditedFieldsOnly(t *testing.T) {
 	base := question(qID, when)
-	tag := service.ETag(base)
-	if tag == "" || tag != service.ETag(base) {
+	tag := service.ETag(base, "")
+	if tag == "" || tag != service.ETag(base, "") {
 		t.Fatalf("tag %q is not stable", tag)
 	}
 	for i, q := range []domain.Question{{ID: aID, UpdatedAt: when}, {ID: qID, UpdatedAt: when.Add(time.Microsecond)}} {
-		if service.ETag(q) == tag {
+		if service.ETag(q, "") == tag {
 			t.Errorf("variant %d keeps the tag", i)
 		}
+	}
+	// The tag is the version as one viewer sees it: another viewer, or none, gets another tag.
+	if service.ETag(base, userID) == tag || service.ETag(base, userID) == service.ETag(base, otherU) {
+		t.Error("the tag does not cover the viewer")
 	}
 	// Answers, votes and acceptance do not touch updated_at and do not change the tag.
 	same := base
 	same.AnswerCount, same.VoteScore, same.AcceptedAnswerID = 3, 2, aID
-	if service.ETag(same) != tag {
+	if service.ETag(same, "") != tag {
 		t.Error("counters changed the tag")
 	}
-	if service.ETag(domain.Question{ID: qID, UpdatedAt: when.In(time.FixedZone("x", 3600))}) != service.ETag(domain.Question{ID: qID, UpdatedAt: when}) {
+	if service.ETag(domain.Question{ID: qID, UpdatedAt: when.In(time.FixedZone("x", 3600))}, "") != service.ETag(domain.Question{ID: qID, UpdatedAt: when}, "") {
 		t.Error("the tag depends on the time zone of the instant")
 	}
 }
@@ -259,11 +266,11 @@ func TestListQuestionsCursorCarriesTheRank(t *testing.T) {
 	st := &fakeStore{questions: rows}
 	svc, _ := newSvc(t, st)
 	limit := 1
-	page, err := svc.ListQuestions(t.Context(), service.QuestionListRequest{Q: ptr("paiement"), Limit: &limit})
+	page, err := svc.ListQuestions(t.Context(), subject.Subject{}, service.QuestionListRequest{Q: ptr("paiement"), Limit: &limit})
 	if err != nil || page.NextCursor == "" {
 		t.Fatalf("page %+v, %v", page, err)
 	}
-	if _, err := svc.ListQuestions(t.Context(), service.QuestionListRequest{Q: ptr("paiement"), Limit: &limit, Cursor: page.NextCursor}); err != nil || st.listQ.AfterRank != 0.0607927 || st.listQ.AfterID != qID {
+	if _, err := svc.ListQuestions(t.Context(), subject.Subject{}, service.QuestionListRequest{Q: ptr("paiement"), Limit: &limit, Cursor: page.NextCursor}); err != nil || st.listQ.AfterRank != 0.0607927 || st.listQ.AfterID != qID {
 		t.Fatalf("after rank %v id %s, %v", st.listQ.AfterRank, st.listQ.AfterID, err)
 	}
 }
@@ -395,7 +402,7 @@ func TestUpdateQuestionDecidesOwnershipBeforeThePrecondition(t *testing.T) {
 		st := &fakeStore{question: question(qID, when), guardAs: locked}
 		svc, _ := newSvc(t, st)
 		got, err := svc.UpdateQuestion(t.Context(), member, qID, service.UpdateQuestionRequest{Title: ptr("Nouveau titre")}, check)
-		if err != nil || got.ID != qID || *st.patched.Title != "Nouveau titre" || tagSeen != service.ETag(locked) {
+		if err != nil || got.ID != qID || *st.patched.Title != "Nouveau titre" || tagSeen != service.ETag(locked, userID) {
 			t.Fatalf("got %+v, %v, tag %q", got, err, tagSeen)
 		}
 	})
@@ -510,11 +517,11 @@ func TestListAnswersKeysTheCursorOnRankScoreTimeAndID(t *testing.T) {
 	svc, _ := newSvc(t, st)
 	limit := 1
 
-	page, err := svc.ListAnswers(t.Context(), service.AnswerListRequest{QuestionID: qID, Limit: &limit})
+	page, err := svc.ListAnswers(t.Context(), subject.Subject{}, service.AnswerListRequest{QuestionID: qID, Limit: &limit})
 	if err != nil || len(page.Items) != 1 || page.NextCursor == "" || st.listA.Limit != 2 || st.listA.After != nil || st.listA.QuestionID != qID {
 		t.Fatalf("page %+v, %v, query %+v", page, err, st.listA)
 	}
-	if _, err := svc.ListAnswers(t.Context(), service.AnswerListRequest{QuestionID: qID, Limit: &limit, Cursor: page.NextCursor}); err != nil {
+	if _, err := svc.ListAnswers(t.Context(), subject.Subject{}, service.AnswerListRequest{QuestionID: qID, Limit: &limit, Cursor: page.NextCursor}); err != nil {
 		t.Fatal(err)
 	}
 	k := st.listA.After
@@ -524,16 +531,16 @@ func TestListAnswersKeysTheCursorOnRankScoreTimeAndID(t *testing.T) {
 
 	// A non-accepted answer is rank 1.
 	st.answers = []domain.Answer{answerAt(otherU, false, 7, when), answerAt(userID, false, 0, when)}
-	page, _ = svc.ListAnswers(t.Context(), service.AnswerListRequest{QuestionID: qID, Limit: &limit})
-	if _, err := svc.ListAnswers(t.Context(), service.AnswerListRequest{QuestionID: qID, Limit: &limit, Cursor: page.NextCursor}); err != nil || st.listA.After.Rank != 1 || st.listA.After.NegScore != -7 {
+	page, _ = svc.ListAnswers(t.Context(), subject.Subject{}, service.AnswerListRequest{QuestionID: qID, Limit: &limit})
+	if _, err := svc.ListAnswers(t.Context(), subject.Subject{}, service.AnswerListRequest{QuestionID: qID, Limit: &limit, Cursor: page.NextCursor}); err != nil || st.listA.After.Rank != 1 || st.listA.After.NegScore != -7 {
 		t.Fatalf("after %+v, %v", st.listA.After, err)
 	}
 	// The cursor belongs to its question.
-	_, err = svc.ListAnswers(t.Context(), service.AnswerListRequest{QuestionID: aID, Limit: &limit, Cursor: page.NextCursor})
+	_, err = svc.ListAnswers(t.Context(), subject.Subject{}, service.AnswerListRequest{QuestionID: aID, Limit: &limit, Cursor: page.NextCursor})
 	wantCode(t, err, apperr.CodeInvalidCursor)
 
 	st.answers = nil
-	page, err = svc.ListAnswers(t.Context(), service.AnswerListRequest{QuestionID: qID})
+	page, err = svc.ListAnswers(t.Context(), subject.Subject{}, service.AnswerListRequest{QuestionID: qID})
 	if err != nil || page.Items == nil || page.NextCursor != "" {
 		t.Fatalf("empty page %+v, %v", page, err)
 	}
@@ -542,17 +549,17 @@ func TestListAnswersKeysTheCursorOnRankScoreTimeAndID(t *testing.T) {
 func TestListAnswersRejectsBadInputAndMapsStoreErrors(t *testing.T) {
 	c := codec(t)
 	svc, _ := newSvc(t, &fakeStore{})
-	_, err := svc.ListAnswers(t.Context(), service.AnswerListRequest{QuestionID: qID, Limit: ptr(0)})
+	_, err := svc.ListAnswers(t.Context(), subject.Subject{}, service.AnswerListRequest{QuestionID: qID, Limit: ptr(0)})
 	wantViolation(t, err, "limit", "out_of_range")
-	_, err = svc.ListAnswers(t.Context(), service.AnswerListRequest{QuestionID: qID, Cursor: "garbage"})
+	_, err = svc.ListAnswers(t.Context(), subject.Subject{}, service.AnswerListRequest{QuestionID: qID, Cursor: "garbage"})
 	wantCode(t, err, apperr.CodeInvalidCursor)
 
 	hash := "7:answers36:" + qID
 	for _, sort := range []string{"", "0:0", "x:0:" + when.Format(time.RFC3339Nano), "0:x:" + when.Format(time.RFC3339Nano), "0:0:never", "2:0:" + when.Format(time.RFC3339Nano)} {
-		_, err = svc.ListAnswers(t.Context(), service.AnswerListRequest{QuestionID: qID, Cursor: c.Encode(cursor.Payload{Sort: sort, ID: aID, FilterHash: hash})})
+		_, err = svc.ListAnswers(t.Context(), subject.Subject{}, service.AnswerListRequest{QuestionID: qID, Cursor: c.Encode(cursor.Payload{Sort: sort, ID: aID, FilterHash: hash})})
 		wantCode(t, err, apperr.CodeInvalidCursor)
 	}
-	_, err = svc.ListAnswers(t.Context(), service.AnswerListRequest{QuestionID: qID, Cursor: c.Encode(cursor.Payload{Sort: "0:0:" + when.Format(time.RFC3339Nano), ID: "nope", FilterHash: hash})})
+	_, err = svc.ListAnswers(t.Context(), subject.Subject{}, service.AnswerListRequest{QuestionID: qID, Cursor: c.Encode(cursor.Payload{Sort: "0:0:" + when.Format(time.RFC3339Nano), ID: "nope", FilterHash: hash})})
 	wantCode(t, err, apperr.CodeInvalidCursor)
 
 	for _, tc := range []struct {
@@ -560,7 +567,7 @@ func TestListAnswersRejectsBadInputAndMapsStoreErrors(t *testing.T) {
 		code apperr.Code
 	}{{domain.ErrNotFound, apperr.CodeNotFound}, {errDB, apperr.CodeInternal}} {
 		svc, _ := newSvc(t, &fakeStore{err: tc.err})
-		_, err = svc.ListAnswers(t.Context(), service.AnswerListRequest{QuestionID: qID})
+		_, err = svc.ListAnswers(t.Context(), subject.Subject{}, service.AnswerListRequest{QuestionID: qID})
 		wantCode(t, err, tc.code)
 	}
 }
@@ -671,5 +678,25 @@ func TestTagsAreSortedAndDistinctBeforeTheyReachTheStore(t *testing.T) {
 	}
 	if _, err := svc.UpdateQuestion(t.Context(), member, qID, service.UpdateQuestionRequest{Tags: &[]string{"b", "a", "b"}}, func(string) error { return nil }); err != nil || strings.Join(*st.patched.Tags, ",") != "a,b" {
 		t.Fatalf("patched tags %v, %v", st.patched.Tags, err)
+	}
+}
+
+// The viewer of a read is the session subject, never anything the request carries: it reaches the store
+// as the subject's id, and empty for an anonymous caller (issue #151).
+func TestReadsPassTheSessionSubjectAsTheViewer(t *testing.T) {
+	for name, sub := range map[string]subject.Subject{"member": member, "anonymous": {}} {
+		t.Run(name, func(t *testing.T) {
+			st := &fakeStore{question: question(qID, when)}
+			svc, _ := newSvc(t, st)
+			if _, err := svc.GetQuestion(t.Context(), sub, qID); err != nil || st.viewerSeen != sub.UserID {
+				t.Fatalf("detail viewer %q, %v, want %q", st.viewerSeen, err, sub.UserID)
+			}
+			if _, err := svc.ListQuestions(t.Context(), sub, service.QuestionListRequest{}); err != nil || st.listQ.ViewerID != sub.UserID {
+				t.Fatalf("list viewer %q, %v, want %q", st.listQ.ViewerID, err, sub.UserID)
+			}
+			if _, err := svc.ListAnswers(t.Context(), sub, service.AnswerListRequest{QuestionID: qID}); err != nil || st.listA.ViewerID != sub.UserID {
+				t.Fatalf("answers viewer %q, %v, want %q", st.listA.ViewerID, err, sub.UserID)
+			}
+		})
 	}
 }

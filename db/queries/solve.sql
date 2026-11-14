@@ -49,7 +49,8 @@ SELECT c.id, c.title, c.body_md, c.language, COALESCE(c.snippet, '')::text AS sn
        c.author_id, pr.username AS author_username, pr.display_name AS author_display_name,
        COALESCE(CASE WHEN pr.profile_visibility = 'public' AND pr.country_visibility = 'public'
              THEN pr.country_code END, '')::text AS author_country,
-       c.rank
+       c.rank,
+       COALESCE((SELECT v.value FROM votes v WHERE v.user_id = sqlc.narg('viewer_id')::uuid AND v.target_type = 'question' AND v.target_id = c.id), 0)::int AS viewer_vote
 FROM candidates c
 JOIN profiles pr ON pr.user_id = c.author_id
 WHERE (sqlc.narg('after_created')::timestamptz IS NULL
@@ -59,12 +60,15 @@ ORDER BY c.rank DESC, c.created_at DESC, c.id DESC
 LIMIT sqlc.arg('row_limit');
 
 -- name: GetSolveQuestion :one
+-- viewer_vote is the caller's own vote (0 without a vote or without a caller): one primary-key probe of
+-- votes_pk, scoped to the viewer id the service takes from the session.
 SELECT q.id, q.title, q.body_md, q.language, COALESCE(q.snippet, '')::text AS snippet,
        COALESCE(q.snippet_language, '')::text AS snippet_language, COALESCE(q.country_code, '')::text AS country_code,
        q.answer_count, q.vote_score, q.accepted_answer_id, q.created_at, q.updated_at,
        q.author_id, pr.username AS author_username, pr.display_name AS author_display_name,
        COALESCE(CASE WHEN pr.profile_visibility = 'public' AND pr.country_visibility = 'public'
-             THEN pr.country_code END, '')::text AS author_country
+             THEN pr.country_code END, '')::text AS author_country,
+       COALESCE((SELECT v.value FROM votes v WHERE v.user_id = sqlc.narg('viewer_id')::uuid AND v.target_type = 'question' AND v.target_id = q.id), 0)::int AS viewer_vote
 FROM questions q
 JOIN profiles pr ON pr.user_id = q.author_id
 WHERE q.id = sqlc.arg('id')::uuid AND q.status = 'published';
@@ -232,7 +236,8 @@ SELECT a.id, a.question_id, a.body_md, a.language, a.vote_score, a.created_at, a
        (q.accepted_answer_id IS NOT DISTINCT FROM a.id)::boolean AS is_accepted,
        a.author_id, pr.username AS author_username, pr.display_name AS author_display_name,
        COALESCE(CASE WHEN pr.profile_visibility = 'public' AND pr.country_visibility = 'public'
-             THEN pr.country_code END, '')::text AS author_country
+             THEN pr.country_code END, '')::text AS author_country,
+       COALESCE((SELECT v.value FROM votes v WHERE v.user_id = sqlc.narg('viewer_id')::uuid AND v.target_type = 'answer' AND v.target_id = a.id), 0)::int AS viewer_vote
 FROM answers a
 JOIN questions q ON q.id = a.question_id
 JOIN profiles pr ON pr.user_id = a.author_id
@@ -245,7 +250,8 @@ SELECT a.id, a.question_id, a.body_md, a.language, a.vote_score, a.created_at, a
        (q.accepted_answer_id IS NOT DISTINCT FROM a.id)::boolean AS is_accepted,
        a.author_id, pr.username AS author_username, pr.display_name AS author_display_name,
        COALESCE(CASE WHEN pr.profile_visibility = 'public' AND pr.country_visibility = 'public'
-             THEN pr.country_code END, '')::text AS author_country
+             THEN pr.country_code END, '')::text AS author_country,
+       COALESCE((SELECT v.value FROM votes v WHERE v.user_id = sqlc.narg('viewer_id')::uuid AND v.target_type = 'answer' AND v.target_id = a.id), 0)::int AS viewer_vote
 FROM answers a
 JOIN questions q ON q.id = a.question_id
 JOIN profiles pr ON pr.user_id = a.author_id

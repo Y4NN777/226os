@@ -27,6 +27,7 @@ import (
 	"github.com/Y4NN777/226os/src/api/internal/platform/idempotency"
 	"github.com/Y4NN777/226os/src/api/internal/platform/ratelimit"
 	"github.com/Y4NN777/226os/src/api/internal/solve"
+	"github.com/Y4NN777/226os/src/api/internal/solve/domain"
 	solverepo "github.com/Y4NN777/226os/src/api/internal/solve/repository"
 )
 
@@ -308,12 +309,12 @@ func TestSolveUpdateQuestionPreconditions(t *testing.T) {
 	bob := s.signIn(t, "solve-edit-bob", true, 79)
 	q := s.ask(t, &alice, "Titre de départ", `"country":"BF"`, `"links":[{"type":"resource","id":"`+catAlpha+`"}]`)
 	path := "/api/v1/questions/" + q.Id.String()
-	tag := s.read(t, nil, path).Header().Get("ETag")
+	tag := s.read(t, &alice, path).Header().Get("ETag")
 
 	// Missing If-Match 428, stale 412: nothing written.
 	assertProblem(t, s.write(t, &alice, http.MethodPatch, path, `{"title":"Nouveau titre"}`, nil), http.StatusPreconditionRequired, "PRECONDITION_REQUIRED")
 	assertProblem(t, s.write(t, &alice, http.MethodPatch, path, `{"title":"Nouveau titre"}`, map[string]string{"If-Match": `"stale"`}), http.StatusPreconditionFailed, "PRECONDITION_FAILED")
-	if s.read(t, nil, path).Header().Get("ETag") != tag {
+	if s.read(t, &alice, path).Header().Get("ETag") != tag {
 		t.Fatal("a refused edit changed the question")
 	}
 	// lang is immutable and unknown fields are refused.
@@ -343,7 +344,7 @@ func TestSolveUpdateQuestionPreconditions(t *testing.T) {
 	// A new answer does not touch updated_at, so the tag taken before it still edits; the edit itself
 	// then makes that tag stale.
 	s.answer(t, &bob, q.Id.String(), "Une réponse.")
-	if got := s.read(t, nil, path).Header().Get("ETag"); got != newTag {
+	if got := s.read(t, &alice, path).Header().Get("ETag"); got != newTag {
 		t.Fatalf("an answer changed the ETag: %q -> %q", newTag, got)
 	}
 	edit := s.write(t, &alice, http.MethodPatch, path, `{"title":"Encore"}`, map[string]string{"If-Match": newTag})
@@ -353,7 +354,7 @@ func TestSolveUpdateQuestionPreconditions(t *testing.T) {
 	assertProblem(t, s.write(t, &alice, http.MethodPatch, path, `{"title":"Encore"}`, map[string]string{"If-Match": newTag}), http.StatusPreconditionFailed, "PRECONDITION_FAILED")
 
 	// Two edits with the same tag at once: exactly one wins.
-	cur := s.read(t, nil, path).Header().Get("ETag")
+	cur := s.read(t, &alice, path).Header().Get("ETag")
 	var wg sync.WaitGroup
 	codes := make([]int, 6)
 	for i := range codes {
@@ -617,7 +618,7 @@ func TestSolveEditKeepsAHiddenLinkHidden(t *testing.T) {
 	if _, err := s.conn.Exec(t.Context(), `UPDATE content_relations SET status = 'hidden' WHERE src_question_id = $1`, qid); err != nil {
 		t.Fatal(err)
 	}
-	tag := s.read(t, nil, "/api/v1/questions/"+qid).Header().Get("ETag")
+	tag := s.read(t, &alice, "/api/v1/questions/"+qid).Header().Get("ETag")
 	rec := s.write(t, &alice, http.MethodPatch, "/api/v1/questions/"+qid, `{"title":"Nouveau titre","links":[{"type":"resource","id":"`+catAlpha+`"}]}`, map[string]string{"If-Match": tag})
 	if rec.Code != http.StatusOK {
 		t.Fatalf("patch %d %s", rec.Code, rec.Body.String())
@@ -644,7 +645,7 @@ func TestSolveEditKeepsAHiddenTagLink(t *testing.T) {
 	if _, err := s.conn.Exec(t.Context(), `UPDATE tags SET status = 'hidden' WHERE slug = 'mobile-money'`); err != nil {
 		t.Fatal(err)
 	}
-	tag := s.read(t, nil, path).Header().Get("ETag")
+	tag := s.read(t, &alice, path).Header().Get("ETag")
 	// The author cannot see the hidden tag and does not re-send its slug; the edit replaces the active set.
 	rec := s.write(t, &alice, http.MethodPatch, path, `{"tags":["go","python"]}`, map[string]string{"If-Match": tag})
 	if rec.Code != http.StatusOK {
@@ -682,7 +683,7 @@ func TestSolveTagCapCountsVisibleTagsNotHiddenLinks(t *testing.T) {
 	if _, err := s.conn.Exec(t.Context(), `UPDATE tags SET status = 'hidden' WHERE slug = 'cap-hidden'`); err != nil {
 		t.Fatal(err)
 	}
-	tag := s.read(t, nil, path).Header().Get("ETag")
+	tag := s.read(t, &alice, path).Header().Get("ETag")
 	rec := s.write(t, &alice, http.MethodPatch, path, `{"tags":["go","python","cap-a","cap-b","cap-c"]}`, map[string]string{"If-Match": tag})
 	if rec.Code != http.StatusOK {
 		t.Fatalf("patch %d %s", rec.Code, rec.Body.String())
@@ -698,7 +699,7 @@ func TestSolveTagCapCountsVisibleTagsNotHiddenLinks(t *testing.T) {
 		t.Fatalf("%d tag rows, want 5 visible + 1 hidden", n)
 	}
 	// Six visible tags are still refused.
-	tag = s.read(t, nil, path).Header().Get("ETag")
+	tag = s.read(t, &alice, path).Header().Get("ETag")
 	rec = s.write(t, &alice, http.MethodPatch, path, `{"tags":["go","python","cap-a","cap-b","cap-c","cap-d"]}`, map[string]string{"If-Match": tag})
 	if rec.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("six tags: %d %s", rec.Code, rec.Body.String())
@@ -718,7 +719,7 @@ func TestSolveRestoredHiddenTagNeverExceedsTheCap(t *testing.T) {
 	if _, err := s.conn.Exec(t.Context(), `UPDATE tags SET status = 'hidden' WHERE slug = 'zz-hidden'`); err != nil {
 		t.Fatal(err)
 	}
-	tag := s.read(t, nil, path).Header().Get("ETag")
+	tag := s.read(t, &alice, path).Header().Get("ETag")
 	rec := s.write(t, &alice, http.MethodPatch, path, `{"tags":["go","python","cap-a","cap-b","cap-c"]}`, map[string]string{"If-Match": tag})
 	if rec.Code != http.StatusOK {
 		t.Fatalf("patch %d %s", rec.Code, rec.Body.String())
@@ -741,7 +742,7 @@ func TestSolveRestoredHiddenTagNeverExceedsTheCap(t *testing.T) {
 
 	// The plan of the bounded read, on the exact SQL and arguments the repository sends (-v to read it).
 	rec2 := &recordingDB{db: s.conn}
-	if _, err := solverepo.New(connTx{recordingDB: rec2, conn: s.conn}).GetQuestion(t.Context(), qid); err != nil {
+	if _, err := solverepo.New(connTx{recordingDB: rec2, conn: s.conn}).GetQuestion(t.Context(), qid, ""); err != nil {
 		t.Fatal(err)
 	}
 	for _, c := range rec2.calls {
@@ -761,7 +762,7 @@ func TestSolveTagFilterMatchesOnlyDisplayedTags(t *testing.T) {
 	if _, err := s.conn.Exec(t.Context(), `UPDATE tags SET status = 'hidden' WHERE slug = 'zz-hidden'`); err != nil {
 		t.Fatal(err)
 	}
-	tag := s.read(t, nil, path).Header().Get("ETag")
+	tag := s.read(t, &alice, path).Header().Get("ETag")
 	rec := s.write(t, &alice, http.MethodPatch, path, `{"tags":["go","python","cap-a","cap-b","cap-c"]}`, map[string]string{"If-Match": tag})
 	if rec.Code != http.StatusOK {
 		t.Fatalf("patch %d %s", rec.Code, rec.Body.String())
@@ -773,6 +774,17 @@ func TestSolveTagFilterMatchesOnlyDisplayedTags(t *testing.T) {
 		page := decodeAs[apigen.QuestionPage](t, s.read(t, nil, "/api/v1/questions?tag="+slug))
 		if len(page.Items) != want {
 			t.Errorf("tag=%s returned %d questions, want %d", slug, len(page.Items), want)
+		}
+	}
+
+	// The plan of the filtered list, on the exact SQL and arguments the repository sends (-v to read it).
+	rec2 := &recordingDB{db: s.conn}
+	if _, err := solverepo.New(connTx{recordingDB: rec2, conn: s.conn}).ListQuestions(t.Context(), domain.QuestionQuery{Tag: "zz-hidden", Limit: 21}); err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range rec2.calls {
+		if strings.Contains(c.sql, "FROM questions q") && strings.Contains(c.sql, "lower_slugs") {
+			t.Logf("EXPLAIN (ANALYZE, BUFFERS), ListSolveQuestions with tag=:\n%s", explainPlan(t.Context(), t, s.conn, c.sql, c.args...))
 		}
 	}
 }
@@ -809,13 +821,91 @@ func TestSolveHiddenTagSlugIsRefusedAndNeverLinked(t *testing.T) {
 	}
 	q := s.ask(t, &bob, "Titre à éditer", `"tags":["go"]`)
 	path := "/api/v1/questions/" + q.Id.String()
-	tag := s.read(t, nil, path).Header().Get("ETag")
+	tag := s.read(t, &bob, path).Header().Get("ETag")
 	assertRefused(s.write(t, &bob, http.MethodPatch, path, `{"tags":["python","zz-moderated"]}`, map[string]string{"If-Match": tag}))
 	if got := decodeAs[apigen.Question](t, s.read(t, nil, path)); !slices.Equal(got.Tags, []string{"go"}) {
 		t.Fatalf("tags after the refused edit = %v, want [go]", got.Tags)
 	}
 	if after := linked(); after != before {
 		t.Fatalf("%d links to the hidden tag, want the %d it had", after, before)
+	}
+}
+
+// Issue #151 (n-vote-initial-state): the caller's own vote comes back on the question (detail, list) and on
+// each answer, computed from the session only. Another member's vote never shows in someone else's read,
+// anonymous gets 0, and the ETag covers the caller while If-Match keeps validating the question version.
+func TestSolveViewerVoteIsTheCallersOwnAndNeverLeaks(t *testing.T) {
+	s := newSolveStack(t)
+	alice := s.signIn(t, "solve-viewer-alice", true, 98)
+	bob := s.signIn(t, "solve-viewer-bob", true, 99)
+	carol := s.signIn(t, "solve-viewer-carol", true, 100)
+	q := s.ask(t, &alice, "Titre pour le vote du lecteur")
+	qid := q.Id.String()
+	a := s.answer(t, &bob, qid, "Une réponse de Bob")
+	vote := func(m *member, targetType, id string, value int) {
+		t.Helper()
+		rec := s.write(t, m, http.MethodPost, "/api/v1/votes", fmt.Sprintf(`{"target_type":%q,"target_id":%q,"value":%d}`, targetType, id, value), nil)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("vote %d: %d %s", value, rec.Code, rec.Body.String())
+		}
+	}
+	vote(&bob, "question", qid, 1)
+	vote(&carol, "question", qid, -1)
+	vote(&alice, "answer", a.Id.String(), 1)
+
+	path := "/api/v1/questions/" + qid
+	for who, want := range map[string]struct {
+		m        *member
+		question apigen.ViewerVote
+		answer   apigen.ViewerVote
+	}{
+		"alice": {&alice, 0, 1}, "bob": {&bob, 1, 0}, "carol": {&carol, -1, 0}, "anonymous": {nil, 0, 0},
+	} {
+		detail := s.read(t, want.m, path)
+		if got := decodeAs[apigen.Question](t, detail); got.ViewerVote != want.question {
+			t.Errorf("%s: detail viewer_vote = %d, want %d", who, got.ViewerVote, want.question)
+		}
+		if !strings.Contains(detail.Header().Get("Vary"), "Cookie") || !strings.Contains(detail.Header().Get("Cache-Control"), "private") {
+			t.Errorf("%s: Vary %q, Cache-Control %q; a viewer-scoped answer must vary by cookie and stay private", who, detail.Header().Get("Vary"), detail.Header().Get("Cache-Control"))
+		}
+		list := decodeAs[apigen.QuestionPage](t, s.read(t, want.m, "/api/v1/questions"))
+		if len(list.Items) != 1 || list.Items[0].ViewerVote != want.question {
+			t.Errorf("%s: list = %+v, want viewer_vote %d", who, list.Items, want.question)
+		}
+		answers := s.read(t, want.m, path+"/answers")
+		if page := decodeAs[apigen.AnswerPage](t, answers); len(page.Items) != 1 || page.Items[0].ViewerVote != want.answer {
+			t.Errorf("%s: answers = %+v, want viewer_vote %d", who, page.Items, want.answer)
+		}
+		if !strings.Contains(answers.Header().Get("Vary"), "Cookie") {
+			t.Errorf("%s: answers Vary = %q", who, answers.Header().Get("Vary"))
+		}
+	}
+
+	// The ETag covers the caller; a vote changes viewer_vote but not the question version, and no
+	// conditional GET exists, so a replayed If-None-Match still gets the fresh 200 body.
+	bobTag := s.read(t, &bob, path).Header().Get("ETag")
+	aliceTag := s.read(t, &alice, path).Header().Get("ETag")
+	if bobTag == aliceTag || bobTag == s.read(t, nil, path).Header().Get("ETag") {
+		t.Fatalf("ETag is the same for different viewers: %s %s", bobTag, aliceTag)
+	}
+	if rec := s.write(t, &bob, http.MethodDelete, "/api/v1/votes?target_type=question&target_id="+qid, "", nil); rec.Code != http.StatusOK {
+		t.Fatalf("retract: %d %s", rec.Code, rec.Body.String())
+	}
+	rec := s.do(t, http.MethodGet, path, "", map[string]string{"If-None-Match": bobTag}, bob.session)
+	if rec.Code != http.StatusOK || decodeAs[apigen.Question](t, rec).ViewerVote != 0 {
+		t.Fatalf("revalidation after a retraction: %d %s, want 200 with viewer_vote 0", rec.Code, rec.Body.String())
+	}
+	if again := s.read(t, &bob, path).Header().Get("ETag"); again != bobTag {
+		t.Fatalf("a vote changed the caller's ETag: %s -> %s; the tag is the question version for this caller", bobTag, again)
+	}
+	// If-Match still validates the question version: Alice's tag survives the votes, a tag read as
+	// another viewer is stale for her.
+	if rec := s.write(t, &alice, http.MethodPatch, path, `{"title":"Nouveau titre pour le lecteur"}`, map[string]string{"If-Match": bobTag}); rec.Code != http.StatusPreconditionFailed {
+		t.Fatalf("patch with another viewer's tag: %d %s, want 412", rec.Code, rec.Body.String())
+	}
+	patched := s.write(t, &alice, http.MethodPatch, path, `{"title":"Nouveau titre pour le lecteur"}`, map[string]string{"If-Match": aliceTag})
+	if patched.Code != http.StatusOK || decodeAs[apigen.Question](t, patched).ViewerVote != 0 {
+		t.Fatalf("patch with her own tag: %d %s", patched.Code, patched.Body.String())
 	}
 }
 
