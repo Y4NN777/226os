@@ -186,6 +186,7 @@ Open owner items outside CADEV (IDs and decisions in ROADMAP section 8, 10 and 1
   - 2026-11-14 (`Y4NN777`, `fix/review/batch-2026-11-14`, review batch #157): a resource's related links show public projects only (#118, `CatalogueRelated`, integration test); the display name follows the contract minimum of 1 (#146, owner decision); #156 is fixed by `NICE-DEV226` in #160, so this batch does not touch it.
   - Allowed paths extended as S4 and S5 (owner approval 2026-11-14): `src/api/internal/app/**` (wiring), `src/api/internal/platform/pgtest/**` and `dbgen/*_test.go` (tests), the route lists `scripts/unimplemented-routes.txt`, `scripts/public-routes.txt`, `scripts/authz-tests.txt`, and `scripts/tests/authz-routes_test.sh` (its fixture routes moved to still-unimplemented P1 operations).
 - **Status:** IN REVIEW. PR 1 merged (#147, 2026-11-14); PR 2 (`feature/solve/votes-accept`, four operations) built by the owner's session with `NICE-DEV226` as slice owner (owner decision on #67).
+- **Follow-up fix:** issue #156 — `DeleteSolveQuestionTags` now scopes its delete to `tags.status='active'` so an edit keeps links to moderator-hidden tags (same rule as `DeleteProjectTags`, #131); pgtest `TestSolveEditKeepsAHiddenTagLink` proves hide → edit → restore → link returns. Branch `fix/solve/hidden-tag-links`.
 
 ---
 
