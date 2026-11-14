@@ -13,9 +13,19 @@ dashboard says what to fix next. Nobody files a finding by hand: classifying one
              the one "Findings dashboard" issue (created if missing). Closed issues feed the rates:
              "completed" = fixed, "not planned" = accepted or not a defect; the rates appear after 20 closed findings.
              A separate Notes section counts the undecided notes and flags INFERRED ones undecided for 7 days or more.
+  batch      triage in batches: the open `finding` issues and the undecided boxes of the open notes issues, ranked by
+             severity (notes after LOW, stale INFERRED notes first), then area, then age, become ONE open
+             "Review batch YYYY-MM-DD" checklist issue (marker `<!-- review-batch -->`, label review-batch): the top 15,
+             frozen when the batch is created (a new CRITICAL or HIGH joins it), with a count of the rest. A batch is the
+             scope of ONE fix pull request (branch fix/review/batch-YYYY-MM-DD, its body names the batch issue). An
+             update never unticks a box; when that pull request is merged into develop, or every source is closed or
+             decided, the batch is closed as completed and the next run starts a new one. It never writes to a source issue and never mentions anyone. `--print` writes nothing.
 
-Labels (created on first use by the issue API): finding, sev:*, src:ai, area:*, due:before-freeze|due:after-freeze.
-Fail OPEN: a GitHub error is printed as NOT RUN and the exit code stays 0, so the register never fails a workflow.
+Labels (created on first use by the issue API): finding, sev:*, src:ai, area:*, due:before-freeze|due:after-freeze,
+review-batch.
+Fail OPEN (harvest, dashboard): a GitHub error is printed as NOT RUN and the exit code stays 0, so the register never
+fails a workflow. Fail CLOSED (batch): a GitHub error is printed as FAILED and the exit code is 1, because a batch built
+from a partial read would lie about what is left.
 Environment: REPO (owner/name), PR_NUMBER (harvest), PR_AUTHOR, GH_BIN (default gh, GH_TOKEN auth).
 """
 import datetime
@@ -328,12 +338,178 @@ def write_dashboard(ctx, binary, repo, create):
         print("findings: dashboard created" if ok else "findings: NOT RUN (the dashboard issue could not be created)")
 
 
+BATCH_MARK = "<!-- review-batch -->"
+BATCH_LABEL = "review-batch"
+BATCH_SIZE = 15
+NOTE_ITEM = re.compile(r"^\s*- \[( |x|X)\]\s*`([^`]*)`\s*\[(OBSERVED|INFERRED)\]\s*(.*)$")
+BATCH_LINE = re.compile(r"^- \[( |x|X)\] (.*?) <!-- batch-item:(#\d+(?:/[\w-]+)?) -->$")
+NOTE_RANK = len(SEV_RANK)  # notes come after every finding severity; a stale INFERRED note first
+
+
+class BatchError(Exception):
+    """A write GitHub refused: the batch fails closed."""
+
+
+def one_line(text, width=120):
+    text = " ".join(neutral(text).split())
+    return text if len(text) <= width else text[:width - 1] + "..."
+
+
+def batch_items(finding_issues, note_issues):
+    """The open work: each open finding issue is one item (a follow-ups issue too), each unticked box of an open notes
+    issue is one item. rank = (severity, area, age); notes rank after LOW, INFERRED undecided for 7 days first."""
+    items = []
+    for i in finding_issues:
+        if i.get("state") != "open" or DASHBOARD_MARK in (i.get("body") or ""):
+            continue
+        labels = names(i.get("labels"))
+        sev = label_value(labels, "sev:").upper() or "?"
+        items.append({"key": "#%s" % i.get("number"), "rank": sort_key(i)[1:],
+                      "text": "#%s [%s] %s (area:%s)" % (i.get("number"), sev, one_line(i.get("title", "")),
+                                                         label_value(labels, "area:") or "?")})
+    for i in note_issues:
+        if i.get("state") != "open" or DASHBOARD_MARK in (i.get("body") or ""):
+            continue
+        created = parse_time(i.get("created_at"))
+        old = created is not None and (now() - created).days >= STALE_NOTE_DAYS
+        area = label_value(names(i.get("labels")), "area:")
+        for line in (i.get("body") or "").splitlines():
+            m = NOTE_ITEM.match(line)
+            if not m or m.group(1) != " ":
+                continue
+            stale = old and m.group(3) == "INFERRED"
+            items.append({"key": "#%s/%s" % (i.get("number"), slug(m.group(2))),
+                          "rank": (NOTE_RANK + (0 if stale else 1), 0 if area in AREA_FIRST else 1, i.get("created_at", "")),
+                          "text": "#%s [NOTE %s%s] `%s` %s" % (i.get("number"), m.group(3), ", %d+ days" % STALE_NOTE_DAYS if stale else "",
+                                                             one_line(m.group(2), 40), one_line(m.group(4)))})
+    return sorted(items, key=lambda it: (it["rank"], it["key"]))
+
+
+def render_batch(title, lines, rest):
+    day = title.rsplit(" ", 1)[-1]
+    out = [BATCH_MARK, "# " + title, "",
+           "Ranked by severity, then area, then age: work from the top. This batch is the scope of exactly ONE fix pull "
+           "request into `develop`: branch `fix/review/batch-%s`, and its pull request body names this issue (#number). "
+           "A human ticks or closes each source finding or note with the reason (a finding: close its issue as "
+           "**completed** or **not planned**; a note: tick its box in its notes issue and say why). Ticking a box here "
+           "only tracks progress: the sources decide. This issue closes itself when its fix pull request is merged into "
+           "`develop` or when every source is closed or decided; the next run then starts a new batch from what is "
+           "still open." % day, ""]
+    out += ["- [%s] %s <!-- batch-item:%s -->" % ("x" if ticked else " ", text, key) for key, ticked, text in lines]
+    out += ["", "%d more open items wait for the next batch." % rest if rest else "Nothing else is waiting."]
+    return "\n".join(out) + "\n"
+
+
+def batch_write(binary, method, endpoint, fields):
+    ok, _ = gh_write(binary, method, endpoint, fields)
+    if not ok:
+        raise BatchError("GitHub refused %s %s" % (method, endpoint.split("?")[0]))
+
+
+def merged_fix(ctx, binary, repo, issue):
+    """The first pull request merged into develop after the batch was created whose body names the batch issue
+    (`#N` or its URL), or None. `Closes #N` does not close an issue on a merge into develop, so this is checked here."""
+    number = issue.get("number")
+    ref = re.compile(r"(?<![\w/])#%s(?!\d)|/issues/%s(?!\d)" % (number, number))
+    created = issue.get("created_at", "")
+    pulls = ctx.gh_api(binary, "repos/%s/pulls?state=closed&base=develop&sort=updated&direction=desc&per_page=100" % repo)
+    for pr in pulls:
+        merged = pr.get("merged_at") or ""
+        if merged and merged >= created and ref.search(pr.get("body") or ""):
+            return pr.get("number")
+    return None
+
+
+def batch(ctx, binary, repo, write):
+    """Create, update or close the one open review batch. Returns the exit code."""
+    findings = list_issues(ctx, binary, repo)
+    notes = list_issues(ctx, binary, repo, "kind:note")
+    batches = sorted((i for i in list_issues(ctx, binary, repo, BATCH_LABEL)
+                      if i.get("state") == "open" and BATCH_MARK in (i.get("body") or "")), key=lambda i: i.get("number", 0))
+    ranked = batch_items(findings, notes)
+    current = {it["key"]: it for it in ranked}
+    if len(batches) > 1:
+        print("findings batch: %d open batch issues, the oldest (#%s) is kept up to date" % (len(batches), batches[0].get("number")))
+    if not batches:
+        if not ranked:
+            print("findings batch: nothing open, no batch")
+            return 0
+        title = "Review batch %s" % now().strftime("%Y-%m-%d")
+        members = ranked[:BATCH_SIZE]
+        body = render_batch(title, [(it["key"], False, it["text"]) for it in members], len(ranked) - len(members))
+        if not write:
+            print("findings batch: would create \"%s\" (%d items, %d more)\n\n%s" % (title, len(members), len(ranked) - len(members), body))
+            return 0
+        batch_write(binary, "POST", "repos/%s/issues" % repo, [("title", title), ("body", body), ("labels[]", BATCH_LABEL)])
+        print("findings batch: created \"%s\" (%d items, %d more)" % (title, len(members), len(ranked) - len(members)))
+        return 0
+
+    issue = batches[0]
+    number, title = issue.get("number"), issue.get("title", "")
+    previous = []
+    for line in (issue.get("body") or "").splitlines():
+        m = BATCH_LINE.match(line)
+        if m:
+            previous.append((m.group(3), m.group(1) != " ", m.group(2)))
+    known = {key for key, _, _ in previous}
+    # Membership is frozen when the batch is created, so a batch can finish; only an urgent item joins it later.
+    joined = [it for it in ranked if it["key"] not in known and it["rank"][0] <= SEV_RANK["HIGH"]]
+    open_lines, done_lines = [], []
+    for key, ticked, text in previous:
+        if key in current:
+            open_lines.append((current[key]["rank"], key, ticked, current[key]["text"]))
+        else:
+            done_lines.append((key, True, text if text.endswith("(done)") else text + " (done)"))
+    open_lines += [(it["rank"], it["key"], False, it["text"]) for it in joined]
+    open_lines.sort()
+    lines = [(key, ticked, text) for _, key, ticked, text in open_lines] + done_lines
+    members = {key for key, _, _ in lines}
+    rest = sum(1 for key in current if key not in members)
+    body = render_batch(title, lines, rest)
+    endpoint = "repos/%s/issues/%s" % (repo, number)
+    fix = merged_fix(ctx, binary, repo, issue) if open_lines else None
+    if not open_lines or fix:
+        why = "its fix pull request #%s is merged into develop" % fix if fix else "every source is closed or decided"
+        body += "\nClosed: %s.\n" % why
+        if not write:
+            print("findings batch: would close #%s as completed (%s)\n\n%s" % (number, why, body))
+            return 0
+        batch_write(binary, "PATCH", endpoint, [("body", body), ("state", "closed"), ("state_reason", "completed")])
+        print("findings batch: closed #%s as completed (%s); the next run starts a new batch" % (number, why))
+        return 0
+    if body == issue.get("body"):
+        print("findings batch: #%s unchanged (%d open, %d done, %d more)" % (number, len(open_lines), len(done_lines), rest))
+        return 0
+    if not write:
+        print("findings batch: would update #%s (%d open, %d done, %d more)\n\n%s" % (number, len(open_lines), len(done_lines), rest, body))
+        return 0
+    batch_write(binary, "PATCH", endpoint, [("body", body)])
+    print("findings batch: updated #%s (%d open, %d done, %d more)" % (number, len(open_lines), len(done_lines), rest))
+    return 0
+
+
+def run_batch(binary, repo, write):
+    """Fail CLOSED: an unreadable or refused GitHub call is FAILED with exit 1, never a partial batch."""
+    if not repo:
+        print("findings batch: FAILED (REPO is required: owner/name)")
+        return 2
+    try:
+        ctx = load_context_module()
+        return batch(ctx, binary, repo, write)
+    except Exception as exc:  # fail closed: any failure is reported, never a silent partial batch
+        reason = str(exc) if isinstance(exc, BatchError) or type(exc).__name__ == "Unavailable" else type(exc).__name__
+        print("findings batch: FAILED (gh could not be read or written: %s); nothing was changed after the failure" % reason)
+        return 1
+
+
 def main():
     args = sys.argv[1:]
     repo = os.environ.get("REPO", "")
     binary = os.environ.get("GH_BIN", "gh")
+    if args and args[0] == "batch":
+        return run_batch(binary, repo, write="--print" not in args)
     if not args or args[0] not in ("harvest", "dashboard") or not repo:
-        print("usage: findings.py harvest|dashboard [--print]   (REPO required; PR_NUMBER for harvest)")
+        print("usage: findings.py harvest|dashboard|batch [--print]   (REPO required; PR_NUMBER for harvest)")
         return 0 if repo else 0
     try:
         ctx = load_context_module()

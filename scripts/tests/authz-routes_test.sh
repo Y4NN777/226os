@@ -123,15 +123,15 @@ if '"net/http"' not in src:
 open(sys.argv[2], "w").write(src + "\n" + sys.argv[3] + "\n")
 PY
 }
-# GetMe is implemented now, so the probes use ListQuestions, still answered by
+# GetMe is implemented now, so the probes use ListResourceReviews (P1, unimplemented for the whole P0), still answered by
 # the generated stub (it lives in unimplemented-routes.txt).
-with_method "$tmp/srv/implemented.go" 'func (*Server) ListQuestions(w http.ResponseWriter, _ *http.Request, _ apigen.ListQuestionsParams) { w.WriteHeader(http.StatusOK) }'
-expect_red "an implemented operation still listed as unimplemented" 'GET /api/v1/questions' 'declares its own' -- --server-override "$tmp/srv/implemented.go"
-with_method "$tmp/srv/panics.go" 'func (*Server) ListQuestions(http.ResponseWriter, *http.Request, apigen.ListQuestionsParams) { var m map[string]int; m["x"] = 1 }'
-expect_red "an implemented operation that panics on zero dependencies" 'GET /api/v1/questions' 'declares its own' -- --server-override "$tmp/srv/panics.go"
+with_method "$tmp/srv/implemented.go" 'func (*Server) ListResourceReviews(w http.ResponseWriter, _ *http.Request, _ apigen.ResourceId, _ apigen.ListResourceReviewsParams) { w.WriteHeader(http.StatusOK) }'
+expect_red "an implemented operation still listed as unimplemented" 'GET /api/v1/resources/{resourceId}/reviews' 'declares its own' -- --server-override "$tmp/srv/implemented.go"
+with_method "$tmp/srv/panics.go" 'func (*Server) ListResourceReviews(http.ResponseWriter, *http.Request, apigen.ResourceId, apigen.ListResourceReviewsParams) { var m map[string]int; m["x"] = 1 }'
+expect_red "an implemented operation that panics on zero dependencies" 'GET /api/v1/resources/{resourceId}/reviews' 'declares its own' -- --server-override "$tmp/srv/panics.go"
 # Real code that happens to answer 501 on a zero-value call: still not the generated stub.
-with_method "$tmp/srv/declared501.go" 'func (*Server) ListQuestions(w http.ResponseWriter, _ *http.Request, _ apigen.ListQuestionsParams) { w.WriteHeader(http.StatusNotImplemented) }'
-expect_red "an operation declared on the server that answers 501" 'GET /api/v1/questions' 'declares its own' -- --server-override "$tmp/srv/declared501.go"
+with_method "$tmp/srv/declared501.go" 'func (*Server) ListResourceReviews(w http.ResponseWriter, _ *http.Request, _ apigen.ResourceId, _ apigen.ListResourceReviewsParams) { w.WriteHeader(http.StatusNotImplemented) }'
+expect_red "an operation declared on the server that answers 501" 'GET /api/v1/resources/{resourceId}/reviews' 'declares its own' -- --server-override "$tmp/srv/declared501.go"
 d="$(newlists unmounted)"
 echo 'GET /api/v1/nowhere' >>"$d/unimplemented-routes.txt"
 expect_red "an unimplemented entry that is not mounted" 'GET /api/v1/nowhere' 'not' -- --lists-dir "$d"
@@ -337,9 +337,9 @@ expect_red "a listed middleware that NewRouter does not install" 'neverInstalled
 
 # RED: a mapped test for a contract operation must be named TestAuthz<OperationID>.
 d="$(newlists opid)"
-grep -v 'POST /api/v1/questions ' "$d/unimplemented-routes.txt" >"$d/u.tmp" && mv "$d/u.tmp" "$d/unimplemented-routes.txt"
-echo 'POST /api/v1/questions TestAuthzHealthzNeedsNoSession' >>"$d/authz-tests.txt"
-expect_red "a mapped test not named after the operationId" 'TestAuthzCreateQuestion' 'must start with' -- --lists-dir "$d"
+grep -v 'POST /api/v1/resources/{resourceId}/reviews ' "$d/unimplemented-routes.txt" >"$d/u.tmp" && mv "$d/u.tmp" "$d/unimplemented-routes.txt"
+echo 'POST /api/v1/resources/{resourceId}/reviews TestAuthzHealthzNeedsNoSession' >>"$d/authz-tests.txt"
+expect_red "a mapped test not named after the operationId" 'TestAuthzCreateResourceReview' 'must start with' -- --lists-dir "$d"
 
 # RED: the gate must not need Docker (test names come from the Go AST, not from `go test -list`, which
 # runs the pgtest TestMain and starts a PostgreSQL container).
@@ -350,13 +350,13 @@ rc=0
 out="$(PATH="$tmp/bin:$PATH" "$gate" 2>&1)" || rc=$?
 if [ "$rc" -eq 0 ] && [ ! -e "$tmp/docker-called" ]; then ok "GREEN: the gate does not call docker"; else ko "the gate called docker or failed (rc=$rc, out=$out)"; fi
 
-# Mapped test content. POST /api/v1/questions is mounted by a scratch router, moved out of the
-# unimplemented list and mapped to a TestAuthzCreateQuestion* test declared in a scratch directory.
+# Mapped test content. POST /api/v1/resources/{resourceId}/reviews is mounted by a scratch router, moved out of the
+# unimplemented list and mapped to a TestAuthzCreateResourceReview* test declared in a scratch directory.
 content_lists() { # NAME TESTNAME
   local d
   d="$(newlists "$1")"
-  grep -v 'POST /api/v1/questions ' "$d/unimplemented-routes.txt" >"$d/u.tmp" && mv "$d/u.tmp" "$d/unimplemented-routes.txt"
-  echo "POST /api/v1/questions $2" >>"$d/authz-tests.txt"
+  grep -v 'POST /api/v1/resources/{resourceId}/reviews ' "$d/unimplemented-routes.txt" >"$d/u.tmp" && mv "$d/u.tmp" "$d/unimplemented-routes.txt"
+  echo "POST /api/v1/resources/{resourceId}/reviews $2" >>"$d/authz-tests.txt"
   printf '%s' "$d"
 }
 mkdir -p "$tmp/c-good" "$tmp/c-noref" "$tmp/c-nodeny" "$tmp/c-helper"
@@ -368,8 +368,8 @@ import (
 	"testing"
 )
 
-func TestAuthzCreateQuestionAnonymous(t *testing.T) {
-	path := "/api/v1/questions"
+func TestAuthzCreateResourceReviewAnonymous(t *testing.T) {
+	path := "/api/v1/resources/r1/reviews"
 	if got := http.StatusUnauthorized; got != 401 || path == "" {
 		t.Fatal(got)
 	}
@@ -383,7 +383,7 @@ import (
 	"testing"
 )
 
-func TestAuthzCreateQuestionAnonymous(t *testing.T) {
+func TestAuthzCreateResourceReviewAnonymous(t *testing.T) {
 	if http.StatusUnauthorized != 401 {
 		t.Fatal("x")
 	}
@@ -394,8 +394,8 @@ package stray
 
 import "testing"
 
-func TestAuthzCreateQuestionAnonymous(t *testing.T) {
-	if "/api/v1/questions" == "" {
+func TestAuthzCreateResourceReviewAnonymous(t *testing.T) {
+	if "/api/v1/resources/r1/reviews" == "" {
 		t.Fatal("x")
 	}
 }
@@ -407,21 +407,21 @@ import "testing"
 
 func skipUnlessReady(t *testing.T) { t.Skip("later") }
 
-func TestAuthzCreateQuestionAnonymous(t *testing.T) { skipUnlessReady(t) }
+func TestAuthzCreateResourceReviewAnonymous(t *testing.T) { skipUnlessReady(t) }
 EOF
-d="$(content_lists content TestAuthzCreateQuestionAnonymous)"
+d="$(content_lists content TestAuthzCreateResourceReviewAnonymous)"
 rc=0
 out="$("$gate" --lists-dir "$d" --scan-extra "$tmp/c-good" 2>&1)" || rc=$?
 if [ "$rc" -eq 0 ]; then ok "GREEN: a TestAuthz<OperationID> test that names the route and a denial status"; else ko "GREEN content (rc=$rc, out=$out)"; fi
-expect_red "a mapped test that does not reference the route" 'TestAuthzCreateQuestionAnonymous' 'does not reference' -- --lists-dir "$d" --scan-extra "$tmp/c-noref"
-expect_red "a mapped test that asserts no denial status" 'TestAuthzCreateQuestionAnonymous' 'denial status' -- --lists-dir "$d" --scan-extra "$tmp/c-nodeny"
-expect_red "a mapped test that only skips through a helper" 'TestAuthzCreateQuestionAnonymous' 'does not reference' -- --lists-dir "$d" --scan-extra "$tmp/c-helper"
+expect_red "a mapped test that does not reference the route" 'TestAuthzCreateResourceReviewAnonymous' 'does not reference' -- --lists-dir "$d" --scan-extra "$tmp/c-noref"
+expect_red "a mapped test that asserts no denial status" 'TestAuthzCreateResourceReviewAnonymous' 'denial status' -- --lists-dir "$d" --scan-extra "$tmp/c-nodeny"
+expect_red "a mapped test that only skips through a helper" 'TestAuthzCreateResourceReviewAnonymous' 'does not reference' -- --lists-dir "$d" --scan-extra "$tmp/c-helper"
 
 # RED: silent-pass guard. A go test run that matches no test exits 0; the gate must refuse it.
 expect_red "go test run that matches no test is not a pass" 'did not run' -- --test-run-pattern '^TestNoSuchTestAnywhere$'
 
 # Test files the Go toolchain does not build must not make a name "exist" (scratch Go module + go list).
-GOOD_BODY='	path := "/api/v1/questions"
+GOOD_BODY='	path := "/api/v1/resources/r1/reviews"
 	if got := http.StatusUnauthorized; got != 401 || path == "" {
 		t.Fatal(got)
 	}'
@@ -432,14 +432,14 @@ mod_case() { # NAME FILE_RELATIVE_PATH HEADER SIGNATURE_PARAM
   printf 'package scratch\n' >"$m/doc.go"
   local header=""
   [ -n "$3" ] && header="$3"$'\n\n'
-  printf '%spackage scratch\n\nimport (\n\t"net/http"\n\t"testing"\n)\n\nfunc TestAuthzCreateQuestionAnonymous(t %s) {\n%s\n}\n' "$header" "${4:-*testing.T}" "$GOOD_BODY" >"$m/$2"
+  printf '%spackage scratch\n\nimport (\n\t"net/http"\n\t"testing"\n)\n\nfunc TestAuthzCreateResourceReviewAnonymous(t %s) {\n%s\n}\n' "$header" "${4:-*testing.T}" "$GOOD_BODY" >"$m/$2"
   printf '%s' "$m"
 }
-d="$(content_lists modcase TestAuthzCreateQuestionAnonymous)"
+d="$(content_lists modcase TestAuthzCreateResourceReviewAnonymous)"
 for c in "hidden-dir|_hidden/x_test.go||" "underscore-file|_c_test.go||" "build-ignore|ign_test.go|//go:build ignore|" "windows-suffix|d_windows_test.go||" "wrong-signature|sig_test.go||*testing.B"; do
   IFS='|' read -r name file header param <<<"$c"
   m="$(mod_case "$name" "$file" "$header" "$param")"
-  expect_red "a test only in a file the toolchain ignores ($name)" 'TestAuthzCreateQuestionAnonymous' 'does not exist' -- --lists-dir "$d" --scan-extra-module "$m"
+  expect_red "a test only in a file the toolchain ignores ($name)" 'TestAuthzCreateResourceReviewAnonymous' 'does not exist' -- --lists-dir "$d" --scan-extra-module "$m"
 done
 m="$(mod_case built ok_test.go "" "")"
 rc=0
@@ -453,16 +453,16 @@ package a
 
 import "testing"
 
-func TestAuthzCreateQuestionAnonymous(t *testing.T) { _ = "/api/v1/questions" }
+func TestAuthzCreateResourceReviewAnonymous(t *testing.T) { _ = "/api/v1/resources/r1/reviews" }
 EOF
 cat >"$tmp/c-split/b_test.go" <<'EOF'
 package b
 
 import "testing"
 
-func TestAuthzCreateQuestionAnonymous(t *testing.T) { _ = 403 }
+func TestAuthzCreateResourceReviewAnonymous(t *testing.T) { _ = 403 }
 EOF
-expect_red "route and denial status split across two declarations" 'TestAuthzCreateQuestionAnonymous' 'same test' -- --lists-dir "$d" --scan-extra "$tmp/c-split"
+expect_red "route and denial status split across two declarations" 'TestAuthzCreateResourceReviewAnonymous' 'same test' -- --lists-dir "$d" --scan-extra "$tmp/c-split"
 
 # A parent path is not the route.
 d2="$(newlists accept)"
@@ -507,12 +507,12 @@ import (
 	"testing"
 )
 
-func TestAuthzCreateQuestionAnonymous(t *testing.T) {
+func TestAuthzCreateResourceReviewAnonymous(t *testing.T) {
 	t.Run("anonymous", func(t *testing.T) {
 		if testing.Short() {
 			t.Skip("needs PostgreSQL")
 		}
-		_ = "/api/v1/questions"
+		_ = "/api/v1/resources/r1/reviews"
 		_ = http.StatusUnauthorized
 	})
 }
@@ -526,9 +526,9 @@ type scanner struct{}
 
 func (scanner) SkipWhitespace() {}
 
-func TestAuthzCreateQuestionAnonymous(t *testing.T) {
+func TestAuthzCreateResourceReviewAnonymous(t *testing.T) {
 	scanner{}.SkipWhitespace()
-	_ = "/api/v1/questions"
+	_ = "/api/v1/resources/r1/reviews"
 	_ = 401
 }
 EOF
@@ -540,22 +540,22 @@ import (
 	"testing"
 )
 
-const questionsPath = "/api/v1/questions"
+const questionsPath = "/api/v1/resources/r1/reviews"
 const denied = http.StatusForbidden
 
 func runMatrix(t *testing.T, path string, status int) {}
 
-func TestAuthzCreateQuestionAnonymous(t *testing.T) { runMatrix(t, questionsPath, denied) }
+func TestAuthzCreateResourceReviewAnonymous(t *testing.T) { runMatrix(t, questionsPath, denied) }
 EOF
 green_test "a generated client method (operation name with a suffix)" <<'EOF'
 package g
 
 import "testing"
 
-func CreateQuestionWithResponse() int { return 403 }
+func CreateResourceReviewWithResponse() int { return 403 }
 
-func TestAuthzCreateQuestionAnonymous(t *testing.T) {
-	if CreateQuestionWithResponse() != 403 {
+func TestAuthzCreateResourceReviewAnonymous(t *testing.T) {
+	if CreateResourceReviewWithResponse() != 403 {
 		t.Fatal("x")
 	}
 }
