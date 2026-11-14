@@ -331,6 +331,44 @@ run batch --print
 order="$(grep -o 'batch-item:#[0-9/a-z]*' <<<"$out" | sed 's/batch-item://' | tr '\n' ' ' || true)"
 [ "$order" = "#802 #801 " ] && ok "before-freeze items are ranked first, whatever their severity: $order" || ko "due rank ($order)"
 
+# ---------- a batch closed by the no-commit path (marker batch-handled, run 43633446506 on #226) ----------
+# Its ticked items got a verdict and stay open for the owner: they stay out of new batches until they change (their row
+# text: title, severity, area). Its unticked items had no verdict and come back. The next run moves on to waiting items.
+handled_close() { # BATCH KEY...: ticks the keys, then closes the batch the way `review-autofix.py nothing` does (WITH_MARK=0: without the marker)
+  local n="$1" body; shift; body="$(get "$n" body)"
+  for k in "$@"; do body="$(sed "s|^- \[ \] \(.*<!-- batch-item:$k -->\)$|- [x] \1|" <<<"$body")"; done
+  if [ "${WITH_MARK:-1}" = 1 ]; then body="$body
+<!-- batch-handled -->
+Closed: every item with a verdict is settled."; fi
+  set_issue "$n" body "$body"
+  set_issue "$n" state closed
+}
+reset
+seed
+for n in $(seq 401 410); do mkissue "$n" open "finding,sev:low,due:after-freeze,area:web" 2026-11-13T10:00:00Z "PR$n w$n: waiting $n"; done
+run batch
+[ "$(grep -c 'batch-item:' <<<"$(get 920 body)")" -eq 15 ] && grep -q '4 more open items' <<<"$(get 920 body)" && ok "setup: a full batch (15) with 4 items waiting" || ko "setup ($(get 920 body))"
+handled_close 920 '#204' '#203' '#206' '#401'
+run batch
+read -r -a bs <<<"$(batches)"
+nb="${bs[-1]}"
+body="$(get "$nb" body)"
+[ "${#bs[@]}" -eq 2 ] && [ "$(get "$nb" state)" = "open" ] && ok "after a batch-handled close, the next run starts a new batch" || ko "new batch ($(batches) out=$out)"
+! grep -qE 'batch-item:#(204|203|206|401) -->' <<<"$body" \
+  && ok "the items with a verdict (ticked, still open, unchanged) stay out of the new batch" || ko "held items back ($body)"
+grep -q 'batch-item:#202 ' <<<"$body" && grep -q 'batch-item:#410 ' <<<"$body" && ok "the new batch takes the items without a verdict and the waiting ones" || ko "moves on ($body)"
+grep -q '4 items with a verdict wait for the owner' <<<"$body" && ok "the new batch counts the held items" || ko "held count ($body)"
+set_issue 203 title "PR92 high-id: identity high, reworded by the owner"
+run batch
+grep -q 'batch-item:#203 ' <<<"$(get "$nb" body)" && ok "a held item that changed (its title) comes back (here as an urgent HIGH joining the open batch)" || ko "changed item ($(get "$nb" body))"
+reset
+seed
+run batch
+WITH_MARK=0 handled_close 910 '#204'
+run batch
+read -r -a bs <<<"$(batches)"
+grep -q 'batch-item:#204 ' <<<"$(get "${bs[-1]}" body)" && ok "a ticked item of a batch closed another way (no batch-handled marker) is not held" || ko "no marker ($(get "${bs[-1]}" body))"
+
 # Owner decision (2026-11-14): the review batch runs every 2 hours.
 grep -qE '^\s*- cron: "0 \*/2 \* \* \*"$' "$root/.github/workflows/review-batch.yml" && ! grep -qE 'cron: "[^"]*\*/5' "$root/.github/workflows/review-batch.yml" && ok "review-batch.yml: the schedule is every 2 hours (0 */2 * * *)" || ko "batch cron is not every 2 hours"
 

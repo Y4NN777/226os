@@ -50,6 +50,13 @@ whether its commits may be pushed. The workflows only call this script; the mode
          FIXED and FIXED ELSEWHERE close or tick a source; the others get a comment and stay open for a human. Model
          text is data: @-mentions and every issue reference form (#N, owner/repo#N, GH-N, issue and pull URLs, so
          closing keywords) are neutralised, pipes escaped.
+  nothing  the trusted publish job when the fixer made no commit: its verdicts (RESULT_JSON) for the planned ITEMS that are
+         items of the batch issue ISSUE (its batch-item markers) are applied with `findings.settle_issue`, the rules of
+         `settle`: FIXED ELSEWHERE closes or ticks only when the named pull request is merged; NOT A DEFECT, DECIDED, OWNER
+         and AFTER FREEZE only comment; FIXED without a commit is OWNER. ONE comment on the batch issue holds the verdict
+         table (neutralised like the body cells); the items with a verdict are ticked and the batch closes with the marker
+         batch-handled, so `findings.py batch` starts a new batch without them (until they change). Idempotent per RUN_ID.
+         Fails CLOSED on a GitHub error; an unreadable result writes nothing.
 
 Mode: AUTO_FIX = off | report (default: says what it would do, writes nothing) | on. HAS_TOKEN must be `true` (the
 publish jobs alone hold secrets.REVIEW_AGENT_TOKEN, in the environment review-agent, so the decide and plan jobs pass
@@ -654,6 +661,115 @@ def cmd_body():
     return 0
 
 
+def comment_text(findings, text, width=300):
+    """Model text for an issue comment: no HTML or forged marker, no mention, no issue reference (#N, GH-N, issue and pull
+    URLs: a zero-width space, so `unverified` still reads a FIXED ELSEWHERE reference)."""
+    return disarm_refs(findings.defuse(text, width))
+
+
+def nothing_verdicts(findings, items, data):
+    """[(key, verdict, reason)] of the fixer's result for the planned ITEMS: the first result per key, a known verdict only
+    (anything else is no verdict). FIXED without a commit cannot be: it becomes OWNER, with the reason."""
+    out, seen = [], set()
+    for r in data.get("results") or []:
+        key = str(r.get("item", "")).strip() if isinstance(r, dict) else ""
+        verdict = " ".join(str(r.get("verdict", "")).upper().split()) if isinstance(r, dict) else ""
+        if key not in items or key in seen or verdict not in VERDICTS:
+            continue
+        seen.add(key)
+        reason = comment_text(findings, r.get("reason"))
+        if verdict == "FIXED":
+            verdict, reason = "OWNER", "marked FIXED but the fixer made no commit: " + reason
+        out.append((key, verdict, reason))
+    return out
+
+
+def nothing_settle(ctx, findings, gh, repo, number, run_id, verdicts):
+    """Apply the verdicts of a batch fix that made no commit, like `findings.py settle` on a merged batch pull request:
+    each source of an item of the batch issue (its batch-item markers, never the model's list) is settled with
+    `findings.settle_issue`; then ONE comment on the batch issue holds the verdict table; then the items with a verdict
+    are ticked and the batch issue closes (marker batch-handled), so the next batch run starts a new batch without them."""
+    endpoint = "repos/%s/issues/%s" % (repo, number)
+    issue = (ctx.gh_api(gh, endpoint) or [{}])[0]
+    body = issue.get("body") or ""
+    if "pull_request" in issue or findings.BATCH_LABEL not in findings.names(issue.get("labels")) or findings.BATCH_MARK not in body:
+        print("autofix nothing: #%s is not a review batch issue: nothing settled" % number)
+        return
+    if issue.get("state") != "open":
+        print("autofix nothing: batch #%s is closed: nothing settled" % number)
+        return
+    rows = {}
+    for line in body.splitlines():
+        m = findings.BATCH_LINE.match(line)
+        if m:
+            also = findings.ALSO.search(line)
+            rows[m.group(3)] = [k for k in (also.group(1).split(",") if also else []) if ITEM_KEY.match(k)]
+    accepted = []
+    for key, verdict, reason in verdicts:
+        if key in rows:
+            accepted.append((key, verdict, reason))
+        else:
+            print("autofix nothing: %s is not an item of batch #%s: refused" % (key, number))
+    if not accepted:
+        print("autofix nothing: no verdict for an item of batch #%s: nothing settled" % number)
+        return
+    mark, by = "<!-- settled-by:batch%s-run%s -->" % (number, run_id), "the review batch run %s (no fix pull request)" % run_id
+    groups = {}
+    for key, verdict, reason in accepted:
+        for source in [key] + rows[key]:
+            n, _, note = source[1:].partition("/")
+            groups.setdefault(n, []).append((note or None, verdict, reason))
+    for n, entries in groups.items():
+        findings.settle_issue(ctx, gh, repo, None, number, n, entries, None, mark=mark, by=by)
+    cmark = "<!-- batch-verdicts:run%s -->" % run_id
+    if not any(cmark in (c.get("body") or "") for c in ctx.gh_api(gh, endpoint + "/comments")):
+        table = [cmark, "Verdicts of the review batch run %s: the fixer made no commit, so there is no fix pull request; each "
+                 "source got the verdict below as a comment." % run_id, "", "| Item | Verdict | Reason |", "|---|---|---|"]
+        table += ["| %s | %s | %s |" % (key, verdict, cell(reason)) for key, verdict, reason in accepted]
+        table += ["", "FIXED ELSEWHERE closed or ticked its source only when the named pull request is merged, touched the cited "
+                  "file and is not the source's own; every other verdict is only a comment and the source stays open for a "
+                  "human. The items above are ticked and this batch is closed: the next run starts a new batch without them "
+                  "until they change. An unticked item had no verdict and goes back to the next batch."]
+        findings.batch_write(gh, "POST", endpoint + "/comments", [("body", "\n".join(table))])
+    done = {key for key, _, _ in accepted}
+    lines = []
+    for line in body.split("\n"):
+        m = findings.BATCH_LINE.match(line)
+        if m and m.group(1) == " " and m.group(3) in done:
+            line = line.replace("- [ ]", "- [x]", 1)
+        lines.append(line)
+    new = "\n".join(lines).rstrip("\n") + "\n%s\nClosed: the review batch run %s gave a verdict for %d item(s) without a commit; the next run starts a new batch.\n" % (
+        findings.BATCH_HANDLED, run_id, len(accepted))
+    findings.batch_write(gh, "PATCH", endpoint, [("body", new), ("state", "closed"), ("state_reason", "completed")])
+    print("autofix nothing: batch #%s: %d verdict(s) applied to %d source issue(s); the batch is closed" % (number, len(accepted), len(groups)))
+
+
+def cmd_nothing():
+    """The trusted publish job, when the fixer made no commit: apply its verdicts (nothing_settle). Fails CLOSED on a
+    GitHub error (FAILED, exit 1); an unreadable result writes nothing (NOT RUN, exit 0)."""
+    repo, gh = os.environ.get("REPO", ""), os.environ.get("GH_BIN", "gh")
+    number, run_id = re.sub(r"\D", "", os.environ.get("ISSUE", "")), re.sub(r"\D", "", os.environ.get("RUN_ID", ""))[:20]
+    items = [k for k in os.environ.get("ITEMS", "").split(",") if ITEM_KEY.match(k)]
+    if not repo or not number or not run_id:
+        print("autofix nothing: FAILED (REPO, ISSUE and RUN_ID are required)")
+        return 2
+    try:
+        data = json.loads(os.environ.get("RESULT_JSON", ""))
+        if not isinstance(data, dict) or not isinstance(data.get("results"), list):
+            raise ValueError("no results")
+    except ValueError:
+        print("autofix nothing: NOT RUN (no result from the fixer could be read): nothing settled, the batch stays as it is")
+        return 0
+    try:
+        findings = load_findings_module()
+        nothing_settle(load_context_module(), findings, gh, repo, number, run_id, nothing_verdicts(findings, items, data))
+    except Exception as exc:  # fail closed: a partial settle is reported, the next run of the publish job finishes it
+        reason = str(exc) if type(exc).__name__ in ("BatchError", "Unavailable") else type(exc).__name__
+        print("autofix nothing: FAILED (%s)" % reason)
+        return 1
+    return 0
+
+
 def git_args_ok(sub, args):
     allowed = GIT_OPTIONS[sub]
     return all((a in allowed or GIT_NUMERIC.match(a)) if a.startswith("-") else True for a in args)
@@ -717,9 +833,10 @@ def main():
     sub = sys.argv[1] if len(sys.argv) > 1 else ""
     if sub == "run":
         return cmd_run(sys.argv[2:])
-    commands = {"pr": cmd_pr, "batch": cmd_batch, "check": cmd_check, "body": cmd_body, "apply": cmd_apply, "prepare": cmd_prepare, "context": cmd_context}
+    commands = {"pr": cmd_pr, "batch": cmd_batch, "check": cmd_check, "body": cmd_body, "apply": cmd_apply, "prepare": cmd_prepare,
+                "context": cmd_context, "nothing": cmd_nothing}
     if sub not in commands:
-        print("usage: review-autofix.py pr|batch|context|prepare|apply|check|body|run")
+        print("usage: review-autofix.py pr|batch|context|prepare|apply|check|body|nothing|run")
         return 2
     return commands[sub]()
 

@@ -290,4 +290,22 @@ EOF
 run 163
 [ "$(field 15 'x["state"]')" = "open" ] && ok "FIXED ELSEWHERE with a source whose creation time is unknown stays open" || ko "no created_at"
 
+# The source's own pull request (PR<N> of its marker or title) is refused by number too, whatever its merge time says
+# (a finding issue filed by hand before its pull request merged, a clock skew).
+setup
+python3 -I - "$tmp/st" <<'EOF'
+import json, os, sys
+st = sys.argv[1]
+for n in (90, 91):
+    json.dump({"number": n, "merged_at": "2026-11-13T12:00:00Z"}, open(os.path.join(st, "pr%d.json" % n), "w"))
+json.dump([{"filename": "src/f15.go"}], open(os.path.join(st, "files90.json"), "w"))
+json.dump([{"filename": "src/b.go"}], open(os.path.join(st, "files91.json"), "w"))
+d = json.load(open(os.path.join(st, "pr.json")))
+d["body"] = d["body"].replace("fixed by #150", "fixed by #90").replace("| #20/n2 | #20 | FIXED | test added |", "| #20/n2 | #20 | FIXED ELSEWHERE | done in #91 |")
+json.dump(d, open(os.path.join(st, "pr.json"), "w"))
+EOF
+run 163
+[ "$(field 15 'x["state"]')" = "open" ] && field 15 'x["comments"][-1]["body"]' | grep -q 'names its own source PR #90: a human checks' && ok "FIXED ELSEWHERE naming the finding's own source PR (#90, merged after the issue was created) stays open" || ko "own source pr ($(field 15 'x["state"], x["comments"][-1]["body"]'))"
+field 20 'x["body"]' | grep -q -- '- \[ \] `n2`' && field 20 'x["comments"][-1]["body"]' | grep -q 'names its own source PR #91' && ok "a note FIXED ELSEWHERE naming its notes issue's own PR (#91) keeps its box unticked" || ko "note own source pr ($(field 20 'x["body"]') $(field 20 'x["comments"]'))"
+
 finish
