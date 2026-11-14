@@ -426,9 +426,30 @@ print(json.dumps([{"id": 2, "node_id": "N2", "user": {"login": "github-actions[b
 comments "$(carried_base HIGH open)"
 DJSON='{"level":"NONE","blast_radius":"x","summary":"s","findings":[{"id":"dh","kind":"finding","evidence":"OBSERVED","sev":"HIGH","file":"a.go","line":3,"scenario":"s","status":"fixed","detail":"d","fix":"f"}]}' deep
 [ "$(posted | sed -n 1p)" = "Triage: NONE | blast radius: x" ] && ok "deep: a carried open deep HIGH that the deep stage marks fixed drops the Triage line to NONE (no stale HIGH)" || ko "stale high ($(posted | sed -n 1,4p))"
+# Review of 21a8a5e: the level goes DOWN only when a review explicitly marks an entry fixed.
 comments "$(carried_base HIGH open)"
 DJSON='{"level":"NONE","blast_radius":"x","summary":"s","findings":[]}' deep
-[ "$(posted | sed -n 1p)" = "Triage: NONE | blast radius: x" ] && ok "deep: a carried open deep entry the deep stage no longer lists leaves no open finding: Triage NONE" || ko "stale left out ($(posted | sed -n 1,4p))"
+[ "$(posted | sed -n 1p)" = "Triage: HIGH | blast radius: x" ] && pyassert 'import json,sys; f=json.loads(sys.argv[1]); assert f["status"]=="open" and f["carried"]==1 and f["source"]=="deep"' "$(posted_entry dh)" 2>/dev/null && posted | grep -q 'Carried forward without a new decision.*`dh`' && ok "deep: an open deep HIGH the next deep output leaves out is carried open (named, counted), the Triage stays HIGH" || ko "omitted erased ($(posted | sed -n 1,8p))"
+mkbase() { # LEVEL FINDINGS_JSON: a stage 1 comment
+  python3 -I -c '
+import json, sys
+led = {"sha": sys.argv[3], "findings": json.loads(sys.argv[2])}
+body = "Triage: %s | blast radius: x\n<!-- 226os-ai-review -->\nTool: PASS (1 files)\n\n<details><summary>Review ledger</summary>\n\n```json\n%s\n```\n\n</details>" % (sys.argv[1], json.dumps(led))
+print(json.dumps([{"id": 2, "node_id": "N2", "user": {"login": "github-actions[bot]"}, "body": body, "created_at": "2026-11-14T09:00:00Z"}]))' "$1" "$2" "$locsha"
+}
+CLEAN='{"level":"NONE","blast_radius":"x","summary":"s","findings":[]}'
+comments "$(mkbase MEDIUM '[]')"
+DJSON="$CLEAN" deep
+[ "$(posted | sed -n 1p)" = "Triage: MEDIUM | blast radius: x" ] && ok "deep: a stage 1 MEDIUM with an empty ledger stays MEDIUM after a clean deep review (unexplained level kept)" || ko "empty ledger lowered ($(posted | sed -n 1,3p))"
+comments "$(mkbase HIGH '[{"id":"nt","kind":"note","evidence":"INFERRED","sev":"LOW","file":"a.go","line":1,"scenario":"s","status":"open","detail":"d","fix":"f","source":"review"}]')"
+DJSON="$CLEAN" deep
+[ "$(posted | sed -n 1p)" = "Triage: HIGH | blast radius: x" ] && ok "deep: a stage 1 HIGH backed only by a note stays HIGH after a clean deep review" || ko "note-only lowered ($(posted | sed -n 1,3p))"
+comments '[{"id":2,"node_id":"N2","user":{"login":"github-actions[bot]"},"body":"Triage: HIGH | blast radius: x\n<!-- 226os-ai-review -->\nTool: PASS (1 files)\n\nno ledger at all","created_at":"2026-11-14T09:00:00Z"}]'
+CID=2 DJSON="$CLEAN" deep
+[ "$(posted | sed -n 1p)" = "Triage: HIGH | blast radius: x" ] && ok "deep: a stage 1 HIGH with no ledger at all stays HIGH after a clean deep review" || ko "no ledger lowered ($(posted | sed -n 1,3p))"
+comments "$(carried_base HIGH open)"
+DJSON='{"level":"NONE","blast_radius":"x","summary":"s","findings":[{"id":"dh","kind":"finding","evidence":"OBSERVED","sev":"HIGH","file":"a.go","line":3,"scenario":"s","status":"fixed","detail":"d","fix":"f"},{"kind":"note","detail":"no id"}]}' deep
+[ "$(posted | sed -n 1p)" = "Triage: HIGH | blast radius: x" ] && posted | grep -q '^Deep: NOT RUN' && ok "deep: a partial NOT RUN deep (an invalid entry dropped) never lowers the level, even with a fixed entry" || ko "not run lowered ($(posted | sed -n 1,5p))"
 comments "$(carried_base NONE fixed)"
 DJSON='{"level":"NONE","blast_radius":"deep blast","summary":"s","findings":[{"id":"dn","kind":"finding","evidence":"OBSERVED","sev":"HIGH","file":"a.go","line":2,"scenario":"s","status":"open","detail":"d","fix":"f"}]}' deep
 [ "$(posted | sed -n 1p)" = "Triage: HIGH | blast radius: deep blast" ] && ok "deep: a new open OBSERVED HIGH still raises the Triage line" || ko "deep raise again ($(posted | sed -n 1,4p))"

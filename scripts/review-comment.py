@@ -747,24 +747,48 @@ def merge_deep(base, data, why, head):
             if s1["sev"] == "CRITICAL" and e["sev"] == "CRITICAL":
                 s1["evidence"] = "OBSERVED"
             s1["status"] = e["status"]
-        ledger["findings"] = [f for f in ledger["findings"] if not (isinstance(f, dict) and f.get("source") == "deep")] + standalone
+        # An earlier deep entry the new output leaves out is CARRIED forward (named, counted), never erased: only an explicit
+        # `fixed` from this deep run closes it. A fixed one is dropped, as before.
+        listed = {e["id"] for e in data["entries"]}
+        carried = []
+        for f in ledger["findings"]:
+            if isinstance(f, dict) and f.get("source") == "deep" and f.get("id") not in listed and status_of(f) != "fixed":
+                f = dict(f)
+                if status_of(f) == "open":
+                    f["carried"] = f["carried"] + 1 if isinstance(f.get("carried"), int) and not isinstance(f.get("carried"), bool) else 1
+                    carried.append(slug_id(f["id"]))
+                standalone.append(f)
+        old_findings = ledger["findings"]
+        ledger["findings"] = [f for f in old_findings if not (isinstance(f, dict) and f.get("source") == "deep")] + standalone
         ledger["deep"] = {"status": "NOT RUN" if why else "PASS", "sha": head}
         found = sum(1 for e in data["entries"] if e["kind"] == "finding")
         if why:
             deep_line = "Deep: NOT RUN (%s)" % one_line(why)
         else:
             deep_line = "Deep: PASS (%s, %s)" % (plural(found, "finding"), plural(len(data["entries"]) - found, "note"))
-        # The level is worked out again from the FINAL merged ledger (it goes down as well as up): a carried open deep entry
-        # the deep stage marks fixed must not hold the Triage line up. A NOT RUN Triage stays as it is.
+        # The level may go DOWN only when a review explicitly marks an entry fixed, never by omission, missing data or a
+        # NOT RUN deep. The stage 1 level as written is a floor; the only part of it that may go is the part that came
+        # solely from carried deep entries (the merged ledger keeps every one this run did not mark fixed).
         m = VERDICT.match(first)
         if m:
-            level = effective_level("NONE", ledger["findings"])
-            if level != m.group(1):
-                blast = data["blast"] if LEVELS.index(level) > LEVELS.index(m.group(1)) else (re.search(r"blast radius:\s*(.*)$", first) or [None, data["blast"]])[1]
+            current = m.group(1)
+            merged = effective_level("NONE", ledger["findings"])
+            if why:
+                level = max(current, merged, key=LEVELS.index)
+            else:
+                from_deep = effective_level("NONE", [f for f in old_findings if isinstance(f, dict) and f.get("source") == "deep"])
+                from_rest = effective_level("NONE", [f for f in old_findings if isinstance(f, dict) and f.get("source") != "deep"])
+                floor = from_rest if LEVELS.index(current) <= max(LEVELS.index(from_deep), LEVELS.index(from_rest)) else current
+                level = max(floor, merged, key=LEVELS.index)
+            if level != current:
+                blast = data["blast"] if LEVELS.index(level) > LEVELS.index(current) else (re.search(r"blast radius:\s*(.*)$", first) or [None, data["blast"]])[1]
                 first = "Triage: %s | blast radius: %s" % (level, blast)
         summary = clean_summary(data["summary"]) or "(no text)"
         if data.get("filled"):
             summary = missing_notice(data["filled"]) + "\n\n" + summary
+        if carried:
+            summary = ("Carried forward without a new decision (the deep review did not mention them: fix, answer or accept them): %s.\n\n"
+                       % ", ".join("`%s`" % c for c in carried)) + summary
     else:
         ledger["deep"] = {"status": "NOT RUN", "sha": head}
         deep_line = "Deep: NOT RUN (%s)" % one_line(why)
