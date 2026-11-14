@@ -408,6 +408,27 @@ describe('SolvePage assistant panel', () => {
     expect(callsTo(fetchMock, 'POST /questions')).toHaveLength(0);
   });
 
+  it('drops the answer once the draft changes, so it never answers an older draft', async () => {
+    setLanguages(['fr-FR']);
+    member({
+      'GET /questions': () => page([]),
+      'POST /assistant/answers': () => jsonResponse(answered),
+    });
+    const user = userEvent.setup();
+    await renderApp('/solve');
+    await open(user);
+    await user.type(screen.getByRole('textbox', { name: 'Titre' }), 'Comment signer un webhook ?');
+    const inPanel = await panel();
+    await user.click(inPanel.getByRole('button', { name: 'Demander à l’assistant' }));
+    expect(await inPanel.findByText(/Vérifiez la signature/)).toBeInTheDocument();
+
+    await user.type(screen.getByRole('textbox', { name: 'Titre' }), ' (HMAC)');
+    await waitFor(() => {
+      expect(inPanel.queryByText(/Vérifiez la signature/)).toBeNull();
+    });
+    expect(inPanel.getByRole('button', { name: 'Demander à l’assistant' })).toBeInTheDocument();
+  });
+
   it('refuses with no_source', async () => {
     setLanguages(['fr-FR']);
     member({

@@ -224,7 +224,8 @@ export function AssistantPanel({
             <Text as="p" type="supporting">
               {t('search.assistant.notice')}
             </Text>
-            <AskForm q={q} free={free} />
+            {/* New text to ask about: the previous answer belonged to an older draft. */}
+            <AskForm key={q} q={q} free={free} />
           </>
         ) : (
           <>
