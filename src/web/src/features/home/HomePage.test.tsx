@@ -131,7 +131,7 @@ describe('HomePage', () => {
     expect(names).toEqual([
       'Apprendre',
       'Connect',
-      'Questions à résoudre',
+      'Dernières questions',
       'API du catalogue',
       'Projets',
     ]);
@@ -144,7 +144,7 @@ describe('HomePage', () => {
     expect(
       await screen.findByRole('heading', { level: 1, name: 'Hello, Awa Traoré' }),
     ).toBeInTheDocument();
-    expect(screen.getByRole('heading', { level: 2, name: 'Questions to solve' })).toBeVisible();
+    expect(screen.getByRole('heading', { level: 2, name: 'Latest questions' })).toBeVisible();
     expect(screen.getByRole('searchbox', { name: 'Search 226os' })).toBeVisible();
   });
 
@@ -159,7 +159,7 @@ describe('HomePage', () => {
       }),
     ).toHaveAttribute('href', '/apprendre/articles/a1000000-0000-4000-8000-000000000001');
     expect(
-      await within(section('Questions à résoudre')).findByRole('link', {
+      await within(section('Dernières questions')).findByRole('link', {
         name: 'Webhook non reçu après un paiement',
       }),
     ).toHaveAttribute('href', '/questions/b1000000-0000-4000-8000-000000000001');
@@ -178,7 +178,7 @@ describe('HomePage', () => {
 
   it.each([
     ['Apprendre', 'articles', 'Aucun article pour l’instant.'],
-    ['Questions à résoudre', 'questions', 'Aucune question pour l’instant.'],
+    ['Dernières questions', 'questions', 'Aucune question pour l’instant.'],
     ['Projets', 'projects', 'Aucun projet pour l’instant.'],
   ] as const)('says so when %s is empty', async (name, key, text) => {
     setLanguages(['fr-FR']);
@@ -200,7 +200,7 @@ describe('HomePage', () => {
       },
     });
     await renderApp('/');
-    const region = await screen.findByRole('region', { name: 'Questions à résoudre' });
+    const region = await screen.findByRole('region', { name: 'Dernières questions' });
     const alert = await within(region).findByRole('alert');
     expect(alert).toHaveTextContent('Impossible de charger le contenu');
     expect(await within(section('Projets')).findByRole('link', { name: 'momo-sdk' })).toBeVisible();
