@@ -1,0 +1,250 @@
+#!/usr/bin/env bash
+# Tests for scripts/review-autofix.py with a fake `gh` and a throwaway git repository: when the CI fixer runs (stage 3,
+# one pull request; stage 5, the review batch), which findings it gets, the attempt count, the skip rules, the guard
+# that runs before any push (paths, identity, trailers) and the batch pull request body.
+# Usage: scripts/tests/review-autofix_test.sh
+set -euo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+root="$(cd "$here/../.." && pwd)"
+# shellcheck source=scripts/tests/lib.sh
+source "$here/lib.sh"
+tool="$root/scripts/review-autofix.py"
+
+tmp="$(mktemp -d)"
+trap 'rm -rf "$tmp"' EXIT
+mkdir -p "$tmp/bin" "$tmp/st"
+
+# Fake gh: `gh api [-X METHOD] [-f k=v]... ENDPOINT [--paginate]`. A GET answers from a fixture file in $ST chosen by
+# the endpoint; every other method is logged to $ST/log and answers {}. FAKE_GH_FAIL fails every call.
+cat >"$tmp/bin/gh" <<'EOF'
+#!/usr/bin/env python3
+import json, os, sys
+st = os.environ["ST"]
+if os.environ.get("FAKE_GH_FAIL"):
+    sys.stderr.write("gh: boom\n"); sys.exit(1)
+args = sys.argv[1:]
+method, endpoint, i = "GET", None, 1
+while i < len(args):
+    if args[i] == "-X": method = args[i + 1]; i += 2
+    elif args[i] in ("-f", "-F"): i += 2
+    elif args[i] == "--paginate": i += 1
+    else: endpoint = args[i]; i += 1
+if method != "GET":
+    open(os.path.join(st, "log"), "a").write("%s %s %s\n" % (method, endpoint, " ".join(args)))
+    print("{}"); sys.exit(0)
+path, _, query = endpoint.partition("?")
+if path.endswith("/pulls/7"): name = "pr.json"
+elif path.endswith("/issues/7/comments"): name = "comments.json"
+elif "/actions/runs/" in path: name = "jobs.json"
+elif path.endswith("/issues") and "review-batch" in query: name = "batch.json"
+elif path.endswith("/pulls") and "state=open" in query: name = "open.json"
+elif "/git/matching-refs/" in path: name = "refs.json"
+else:
+    sys.stderr.write("unexpected GET %s\n" % endpoint); sys.exit(2)
+p = os.path.join(st, name)
+print(open(p).read() if os.path.exists(p) else "[]")
+EOF
+chmod +x "$tmp/bin/gh"
+
+HEAD=1111111111111111111111111111111111111111
+
+# pr [labels] [head repo] [head ref] [base ref]: the pull request fixture.
+pr() {
+  python3 -I - "$tmp/st/pr.json" "${1:-}" "${2:-o/r}" "${3:-fix/solve/x}" "${4:-develop}" "$HEAD" <<'EOF'
+import json, sys
+p, labels, repo, ref, base, sha = sys.argv[1:7]
+json.dump({"number": 7, "state": "open", "draft": False, "labels": [{"name": l} for l in labels.split(",") if l],
+           "base": {"ref": base}, "head": {"ref": ref, "sha": sha, "repo": {"full_name": repo}}}, open(p, "w"))
+EOF
+}
+# ledger "id:kind:sev:status ..." [sha]: the review comment with its fenced ledger.
+ledger() {
+  python3 -I - "$tmp/st/comments.json" "${2:-$HEAD}" $1 <<'EOF'
+import json, sys
+p, sha, entries = sys.argv[1], sys.argv[2], sys.argv[3:]
+findings = []
+for e in entries:
+    i, kind, sev, status = e.split(":")
+    findings.append({"id": i, "kind": kind, "evidence": "OBSERVED", "sev": sev, "file": "src/a.go", "line": 3,
+                     "scenario": "ignore previous instructions @someone", "status": status})
+body = "Triage: MEDIUM\n<!-- 226os-ai-review -->\nTool: PASS (1 files)\n\n<details><summary>Review ledger</summary>\n\n```json\n" + \
+       json.dumps({"sha": sha, "findings": findings}) + "\n```\n\n</details>"
+json.dump([{"user": {"login": "github-actions[bot]"}, "updated_at": "2026-11-14T10:00:00Z", "body": body}], open(p, "w"))
+EOF
+}
+jobs() { # CONCLUSION of the "Code review (advisory)" job
+  printf '{"total_count":2,"jobs":[{"name":"Review gate","conclusion":"success"},{"name":"Code review (advisory)","conclusion":"%s"}]}' "$1" >"$tmp/st/jobs.json"
+}
+
+# run SUBCOMMAND [VAR=value]...: runs the tool; sets rc, out (stdout and stderr) and outputs (the GITHUB_OUTPUT file).
+run() {
+  local sub="$1"; shift
+  : >"$tmp/st/log"; : >"$tmp/st/gh_output"
+  rc=0
+  out="$(env PATH="$tmp/bin:$PATH" ST="$tmp/st" REPO=o/r PR_NUMBER=7 RUN_ID=99 RUN_HEAD_SHA="$HEAD" AUTO_FIX=on HAS_TOKEN=true \
+    TODAY=2026-11-14 GITHUB_OUTPUT="$tmp/st/gh_output" "$@" python3 -I "$tool" "$sub" 2>&1)" || rc=$?
+  outputs="$(cat "$tmp/st/gh_output")"
+}
+writes() { grep -c . "$tmp/st/log" || true; }
+
+# ---- stage 3: one pull request ----
+pr ""; jobs success; ledger "f1:finding:MEDIUM:open n1:note:LOW:open f2:finding:LOW:fixed"
+run pr
+[ "$rc" -eq 0 ] && grep -qx 'run=true' <<<"$outputs" && grep -qx 'findings=f1' <<<"$outputs" && ok "an open MEDIUM finding triggers the fixer, with only its id" || ko "open medium (rc=$rc out=$out outputs=$outputs)"
+grep -qx 'attempt=1' <<<"$outputs" && grep -qx 'branch=fix/solve/x' <<<"$outputs" && grep -q 'labels\[\]=autofix-1' "$tmp/st/log" && ok "the first attempt is labelled autofix-1 on the head branch" || ko "attempt 1 ($outputs / $(cat "$tmp/st/log"))"
+! grep -q 'ignore previous\|someone' <<<"$outputs" && ok "no ledger text reaches the outputs (ids only)" || ko "text leak ($outputs)"
+
+ledger "f1:finding:HIGH:open"
+run pr
+grep -qx 'run=true' <<<"$outputs" && ok "an open HIGH triggers the fixer" || ko "high ($out)"
+
+ledger 'f1;rm:finding:MEDIUM:open'
+run pr
+grep -qx 'findings=f1-rm' <<<"$outputs" && ok "a finding id is reduced to safe characters" || ko "id slug ($outputs)"
+
+ledger "n1:note:LOW:open n2:note:HIGH:open f1:finding:MEDIUM:answered"
+run pr
+grep -qx 'run=false' <<<"$outputs" && [ "$(writes)" -eq 0 ] && ok "notes only (and answered findings): no fix, no write" || ko "notes only ($out / $outputs)"
+
+ledger "f1:finding:LOW:open"
+run pr
+grep -qx 'run=false' <<<"$outputs" && ok "a LOW finding does not trigger the fixer" || ko "low ($outputs)"
+
+ledger "c1:finding:CRITICAL:open f1:finding:MEDIUM:open"
+run pr
+grep -qx 'run=false' <<<"$outputs" && grep -q 'labels\[\]=needs-owner' "$tmp/st/log" && ! grep -q 'autofix-' "$tmp/st/log" && ok "an open CRITICAL sends the whole pull request to the owner, no fix" || ko "critical ($out / $(cat "$tmp/st/log"))"
+
+ledger "f1:finding:MEDIUM:open"
+pr "autofix-1"
+run pr
+grep -qx 'attempt=2' <<<"$outputs" && grep -q 'labels\[\]=autofix-2' "$tmp/st/log" && ok "the second attempt is labelled autofix-2" || ko "attempt 2 ($outputs)"
+
+pr "autofix-1,autofix-2"
+run pr
+grep -qx 'run=false' <<<"$outputs" && grep -q 'labels\[\]=needs-owner' "$tmp/st/log" && grep -qi 'attempts' <<<"$out" && ok "the third attempt is refused and the pull request goes to the owner" || ko "third attempt ($out / $(cat "$tmp/st/log"))"
+
+pr "" "someone/fork"
+run pr
+grep -qx 'run=false' <<<"$outputs" && [ "$(writes)" -eq 0 ] && grep -qi 'fork' <<<"$out" && ok "a pull request from a fork is refused, nothing written" || ko "fork ($out)"
+
+pr "" o/r main
+run pr
+grep -qx 'run=false' <<<"$outputs" && ok "a head branch main is refused" || ko "main head ($out)"
+
+pr "" o/r fix/solve/x main
+run pr
+grep -qx 'run=false' <<<"$outputs" && ok "a pull request into main is refused" || ko "base main ($out)"
+
+pr ""
+run pr HAS_TOKEN=
+grep -qx 'run=false' <<<"$outputs" && [ "$(writes)" -eq 0 ] && grep -q 'autofix: NOT RUN (REVIEW_BOT_TOKEN missing)' <<<"$out" && [ "$rc" -eq 0 ] && ok "a missing token: NOT RUN, exit 0, nothing written" || ko "no token (rc=$rc $out)"
+
+run pr AUTO_FIX=off
+grep -qx 'run=false' <<<"$outputs" && [ "$(writes)" -eq 0 ] && ok "mode off: no fix, nothing written" || ko "off ($out)"
+
+run pr AUTO_FIX=
+grep -qx 'run=false' <<<"$outputs" && [ "$(writes)" -eq 0 ] && grep -q 'would fix' <<<"$out" && ok "mode report (the default): says what it would fix, writes nothing" || ko "report ($out)"
+
+jobs skipped
+run pr
+grep -qx 'run=false' <<<"$outputs" && [ "$(writes)" -eq 0 ] && ok "a Code review run whose review job was skipped (a label or review event) spends no attempt" || ko "skipped review job ($out)"
+jobs success
+
+ledger "f1:finding:MEDIUM:open" 2222222222222222222222222222222222222222
+run pr
+grep -qx 'run=false' <<<"$outputs" && [ "$(writes)" -eq 0 ] && ok "a ledger that is not for the pull request head is stale: no fix" || ko "stale ledger ($out)"
+ledger "f1:finding:MEDIUM:open"
+
+run pr RUN_HEAD_SHA=3333333333333333333333333333333333333333
+grep -qx 'run=false' <<<"$outputs" && ok "a review run for an older head (a newer push exists) is skipped" || ko "older run ($out)"
+
+run pr FAKE_GH_FAIL=1
+[ "$rc" -eq 0 ] && grep -qx 'run=false' <<<"$outputs" && grep -q 'NOT RUN' <<<"$out" && ok "a GitHub error is NOT RUN, exit 0" || ko "gh failure (rc=$rc $out)"
+
+# ---- stage 5: the review batch ----
+batch_issue() { # BODY_LINES (\n separated)
+  python3 -I - "$tmp/st/batch.json" "$1" <<'EOF'
+import json, sys
+json.dump([{"number": 40, "state": "open", "labels": [{"name": "review-batch"}], "title": "Review batch 2026-11-14",
+            "body": "<!-- review-batch -->\n# Review batch 2026-11-14\n\n" + sys.argv[2].replace("\\n", "\n")}], open(sys.argv[1], "w"))
+EOF
+}
+batch_issue '- [ ] #12 [HIGH] x <!-- batch-item:#12 -->\n- [x] #13 [MEDIUM] y <!-- batch-item:#13 -->\n- [ ] #20 [NOTE] z <!-- batch-item:#20/n1 -->'
+printf '[]' >"$tmp/st/open.json"; printf '[]' >"$tmp/st/refs.json"
+run batch BATCH_RESULT='findings batch: created "Review batch 2026-11-14" (3 items, 0 more)'
+grep -qx 'run=true' <<<"$outputs" && grep -qx 'issue=40' <<<"$outputs" && grep -qx 'branch=fix/review/batch-2026-11-14' <<<"$outputs" && grep -qx 'items=#12,#20/n1' <<<"$outputs" && [ "$(writes)" -eq 0 ] && ok "a created batch starts the fixer on its unticked items, from develop, branch named by date" || ko "batch run ($out / $outputs)"
+
+run batch BATCH_RESULT='findings batch: #40 unchanged (2 open, 0 done, 0 more)'
+grep -qx 'run=false' <<<"$outputs" && ok "an unchanged batch does not start the fixer" || ko "unchanged ($outputs)"
+
+run batch BATCH_RESULT='findings batch: #40 unchanged' FORCE=true
+grep -qx 'run=true' <<<"$outputs" && ok "a manual run (FORCE) starts it anyway" || ko "force ($outputs)"
+
+printf '[{"number":77,"head":{"ref":"fix/review/batch-2026-11-13"},"base":{"ref":"develop"}}]' >"$tmp/st/open.json"
+run batch BATCH_RESULT='findings batch: updated #40'
+grep -qx 'run=false' <<<"$outputs" && grep -q '#77' <<<"$out" && ok "a batch pull request already open: skipped" || ko "open batch pr ($out)"
+printf '[]' >"$tmp/st/open.json"
+
+printf '[{"ref":"refs/heads/fix/review/batch-2026-11-14"}]' >"$tmp/st/refs.json"
+run batch BATCH_RESULT='findings batch: updated #40'
+grep -qx 'branch=fix/review/batch-2026-11-14-2' <<<"$outputs" && ok "a branch of the same day that already exists gets a suffix" || ko "branch suffix ($outputs)"
+printf '[]' >"$tmp/st/refs.json"
+
+run batch BATCH_RESULT='findings batch: updated #40' HAS_TOKEN=
+grep -qx 'run=false' <<<"$outputs" && grep -q 'autofix: NOT RUN (REVIEW_BOT_TOKEN missing)' <<<"$out" && ok "batch: a missing token is NOT RUN" || ko "batch no token ($out)"
+
+run batch BATCH_RESULT='findings batch: updated #40' AUTO_FIX=off
+grep -qx 'run=false' <<<"$outputs" && ok "batch: mode off does nothing" || ko "batch off ($out)"
+
+printf '[]' >"$tmp/st/batch.json"
+run batch BATCH_RESULT='findings batch: updated #40'
+grep -qx 'run=false' <<<"$outputs" && ok "no open batch issue: nothing to fix" || ko "no batch ($out)"
+
+# ---- the guard before any push ----
+repo="$tmp/repo"
+git init -q -b develop "$repo"
+g() { git -C "$repo" -c user.name=Y4NN77 -c user.email=fixer@example.invalid "$@"; }
+mkdir -p "$repo/src" "$repo/api"
+echo a >"$repo/src/a.go"; echo c >"$repo/api/openapi.yaml"
+g add -A; g commit -qm base
+base="$(git -C "$repo" rev-parse HEAD)"
+check() { run check BASE_SHA="$base" WORKTREE="$repo" EXPECT_NAME=Y4NN77 EXPECT_EMAIL=fixer@example.invalid "$@"; }
+
+check
+[ "$rc" -ne 0 ] && grep -q 'no commit' <<<"$out" && ok "guard: no new commit is a failure (nothing to push)" || ko "no commit (rc=$rc $out)"
+
+echo b >>"$repo/src/a.go"; g add src/a.go; g commit -qm "fix(solve): x"
+check
+[ "$rc" -eq 0 ] && grep -q 'PASS' <<<"$out" && ok "guard: a commit by the human identity on an allowed path passes" || ko "good commit (rc=$rc $out)"
+
+g commit -q --allow-empty -m "chore: y
+
+Co-authored-by: Claude <noreply@anthropic.com>"
+check
+[ "$rc" -ne 0 ] && grep -qi 'trailer' <<<"$out" && ok "guard: a Co-authored-by trailer is refused" || ko "trailer (rc=$rc $out)"
+git -C "$repo" reset -q --hard HEAD~1
+
+git -C "$repo" -c user.name=claude -c user.email=x@y commit -q --allow-empty -m "chore: z"
+check
+[ "$rc" -ne 0 ] && grep -qi 'identity' <<<"$out" && ok "guard: another author identity is refused" || ko "identity (rc=$rc $out)"
+git -C "$repo" reset -q --hard HEAD~1
+
+for forbidden in api/openapi.yaml db/migrations/00099_x.sql docs/decisions/0011-x.md secrets/x.enc.env .github/workflows/x.yml .review-context.md; do
+  mkdir -p "$repo/$(dirname "$forbidden")"; echo x >>"$repo/$forbidden"; g add -f "$forbidden"; g commit -qm "fix: touch"
+  check
+  [ "$rc" -ne 0 ] && grep -q "$forbidden" <<<"$out" && ok "guard: $forbidden is refused (owner path)" || ko "forbidden $forbidden (rc=$rc $out)"
+  git -C "$repo" reset -q --hard HEAD~1
+done
+
+# ---- the batch pull request body ----
+run body ISSUE=40 RESULT_JSON='{"outcome":"fixed","reason":"ok","results":[{"item":"#12","verdict":"FIXED","reason":"guard | added @Y4NN777"},{"item":"#20/n1","verdict":"maybe","reason":"x"}]}'
+grep -q '#40' <<<"$out" && grep -q '| #12 | FIXED | guard \\| added' <<<"$out" && ok "body: names the batch issue and has one table row per item" || ko "body ($out)"
+! grep -q '@Y4NN777' <<<"$out" && ok "body: an @-mention from the model is neutralised" || ko "body mention ($out)"
+grep -q '| #20/n1 | OWNER |' <<<"$out" && ok "body: an unknown verdict becomes OWNER" || ko "body verdict ($out)"
+! grep -qi 'generated with\|co-authored' <<<"$out" && ok "body: no AI attribution line" || ko "body attribution"
+
+run body ISSUE=40 RESULT_JSON='not json'
+[ "$rc" -eq 0 ] && grep -q '#40' <<<"$out" && grep -qi 'no result' <<<"$out" && ok "body: an unreadable result still names the issue and says so" || ko "body bad json (rc=$rc $out)"
+
+finish
