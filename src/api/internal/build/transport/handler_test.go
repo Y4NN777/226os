@@ -41,6 +41,7 @@ type fakeStore struct {
 	patched  []domain.ProjectPatch
 	needs    []domain.Need
 	newNeeds []domain.NewNeed
+	apps     appFake
 }
 
 func (f *fakeStore) URLTaken(context.Context, string) (bool, error) { return false, nil }
