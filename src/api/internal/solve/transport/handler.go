@@ -16,7 +16,7 @@ import (
 	"github.com/Y4NN777/226os/src/api/internal/solve/service"
 )
 
-// Handler serves the six P0 question and answer operations.
+// Handler serves the ten P0 Solve operations: questions, answers, votes and the accepted answer.
 type Handler struct {
 	svc    *service.Service
 	logger *slog.Logger
@@ -169,6 +169,66 @@ func (h *Handler) CreateAnswer(w http.ResponseWriter, r *http.Request, questionI
 	}
 	w.Header().Set("Location", "/api/v1/questions/"+a.QuestionID+"/answers")
 	writeJSON(w, http.StatusCreated, answerJSON(a))
+}
+
+// CastVote serves POST /votes. The voter is the session subject; the contract does not bind an
+// Idempotency-Key, repeating a vote is idempotent by construction.
+func (h *Handler) CastVote(w http.ResponseWriter, r *http.Request) {
+	var body apigen.VoteRequest
+	if err := httpx.DecodeJSON(w, r, &body); err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	state, err := h.svc.CastVote(r.Context(), subject.From(r.Context()), service.VoteRequest{
+		TargetType: string(body.TargetType), TargetID: body.TargetId.String(), Value: int(body.Value),
+	})
+	if err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, voteStateJSON(state))
+}
+
+// RetractVote serves DELETE /votes.
+func (h *Handler) RetractVote(w http.ResponseWriter, r *http.Request, params apigen.RetractVoteParams) {
+	state, err := h.svc.RetractVote(r.Context(), subject.From(r.Context()), string(params.TargetType), params.TargetId.String())
+	if err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, voteStateJSON(state))
+}
+
+// AcceptAnswer serves POST /questions/{questionId}/accept.
+func (h *Handler) AcceptAnswer(w http.ResponseWriter, r *http.Request, questionID apigen.QuestionId) {
+	var body apigen.AcceptRequest
+	if err := httpx.DecodeJSON(w, r, &body); err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	q, err := h.svc.AcceptAnswer(r.Context(), subject.From(r.Context()), questionID.String(), body.AnswerId.String())
+	if err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, questionJSON(q))
+}
+
+// UnacceptAnswer serves POST /questions/{questionId}/unaccept.
+func (h *Handler) UnacceptAnswer(w http.ResponseWriter, r *http.Request, questionID apigen.QuestionId) {
+	q, err := h.svc.UnacceptAnswer(r.Context(), subject.From(r.Context()), questionID.String())
+	if err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, questionJSON(q))
+}
+
+func voteStateJSON(v domain.VoteState) apigen.VoteState {
+	return apigen.VoteState{
+		TargetType: apigen.VoteTargetType(v.TargetType), TargetId: mustID(v.TargetID),
+		Value: apigen.VoteStateValue(v.Value), Score: v.Score,
+	}
 }
 
 func questionJSON(q domain.Question) apigen.Question {

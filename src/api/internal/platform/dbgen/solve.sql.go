@@ -464,6 +464,44 @@ func (q *Queries) ListSolveQuestions(ctx context.Context, arg ListSolveQuestions
 	return items, nil
 }
 
+const lockSolveAnswerForAccept = `-- name: LockSolveAnswerForAccept :one
+SELECT a.id
+FROM answers a
+WHERE a.id = $1::uuid AND a.question_id = $2::uuid AND a.status = 'published'
+FOR SHARE
+`
+
+type LockSolveAnswerForAcceptParams struct {
+	ID         pgtype.UUID
+	QuestionID pgtype.UUID
+}
+
+// The answer must be a published answer of THIS question (an id of another question, an unknown or a
+// removed answer is no row: one answer for all three). FOR SHARE keeps a moderator from removing it
+// between this check and the write.
+func (q *Queries) LockSolveAnswerForAccept(ctx context.Context, arg LockSolveAnswerForAcceptParams) (pgtype.UUID, error) {
+	row := q.db.QueryRow(ctx, lockSolveAnswerForAccept, arg.ID, arg.QuestionID)
+	var id pgtype.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
+const lockSolveAnswerForVote = `-- name: LockSolveAnswerForVote :one
+SELECT a.author_id
+FROM answers a
+JOIN questions q ON q.id = a.question_id
+WHERE a.id = $1::uuid AND a.status = 'published' AND q.status = 'published'
+FOR NO KEY UPDATE OF a
+`
+
+// A removed or unknown answer, or an answer of a removed question, is no row.
+func (q *Queries) LockSolveAnswerForVote(ctx context.Context, id pgtype.UUID) (pgtype.UUID, error) {
+	row := q.db.QueryRow(ctx, lockSolveAnswerForVote, id)
+	var author_id pgtype.UUID
+	err := row.Scan(&author_id)
+	return author_id, err
+}
+
 const lockSolveQuestion = `-- name: LockSolveQuestion :one
 SELECT id, author_id, answer_count, vote_score, accepted_answer_id, created_at, updated_at
 FROM questions
@@ -496,6 +534,118 @@ func (q *Queries) LockSolveQuestion(ctx context.Context, id pgtype.UUID) (LockSo
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const lockSolveQuestionForVote = `-- name: LockSolveQuestionForVote :one
+
+SELECT author_id
+FROM questions
+WHERE id = $1::uuid AND status = 'published'
+FOR NO KEY UPDATE
+`
+
+// Votes (US-SOLVE-001). A vote is two statements in one transaction: the lock of the target row, then the
+// vote write together with the score delta. The lock serialises every vote and every retraction of one
+// target, so the second statement (which starts after the lock is held, with a fresh snapshot) reads the
+// caller's previous vote exactly; two concurrent first votes of one user cannot both add their value.
+// vote_score is never read into Go and written back: the UPDATE adds new value minus previous value.
+// NO KEY UPDATE is the lock an ordinary UPDATE takes: it blocks other voters but not the foreign-key
+// checks of inserts that point at the row.
+// A removed or unknown question is no row. The author comes back for the self-vote rule.
+func (q *Queries) LockSolveQuestionForVote(ctx context.Context, id pgtype.UUID) (pgtype.UUID, error) {
+	row := q.db.QueryRow(ctx, lockSolveQuestionForVote, id)
+	var author_id pgtype.UUID
+	err := row.Scan(&author_id)
+	return author_id, err
+}
+
+const setSolveAcceptedAnswer = `-- name: SetSolveAcceptedAnswer :exec
+UPDATE questions
+SET accepted_answer_id = $1::uuid
+WHERE id = $2::uuid
+`
+
+type SetSolveAcceptedAnswerParams struct {
+	AnswerID pgtype.UUID
+	ID       pgtype.UUID
+}
+
+// One UPDATE replaces the previous accepted answer or, with a NULL answer_id, clears it. It runs under the
+// question's row lock (LockSolveQuestion), so two concurrent accepts end with exactly one accepted answer;
+// the composite foreign key (accepted_answer_id, id) -> answers (id, question_id) is the backstop for the
+// answer belonging to the question. updated_at is not touched: acceptance does not change the ETag.
+func (q *Queries) SetSolveAcceptedAnswer(ctx context.Context, arg SetSolveAcceptedAnswerParams) error {
+	_, err := q.db.Exec(ctx, setSolveAcceptedAnswer, arg.AnswerID, arg.ID)
+	return err
+}
+
+const setSolveAnswerVote = `-- name: SetSolveAnswerVote :one
+WITH old AS (
+  SELECT v.value FROM votes v
+  WHERE v.user_id = $3::uuid AND v.target_type = 'answer' AND v.target_id = $2::uuid
+), del AS (
+  DELETE FROM votes
+  WHERE $1::smallint = 0
+    AND user_id = $3::uuid AND target_type = 'answer' AND target_id = $2::uuid
+), up AS (
+  INSERT INTO votes (user_id, target_type, answer_id, value)
+  SELECT $3::uuid, 'answer', $2::uuid, $1::smallint
+  WHERE $1::smallint <> 0
+  ON CONFLICT ON CONSTRAINT votes_pk DO UPDATE SET value = EXCLUDED.value
+)
+UPDATE answers
+SET vote_score = vote_score + $1::smallint - COALESCE((SELECT value FROM old), 0)::smallint
+WHERE id = $2::uuid
+RETURNING vote_score
+`
+
+type SetSolveAnswerVoteParams struct {
+	Value    int16
+	AnswerID pgtype.UUID
+	UserID   pgtype.UUID
+}
+
+// As SetSolveQuestionVote, for an answer. Run only after LockSolveAnswerForVote.
+func (q *Queries) SetSolveAnswerVote(ctx context.Context, arg SetSolveAnswerVoteParams) (int32, error) {
+	row := q.db.QueryRow(ctx, setSolveAnswerVote, arg.Value, arg.AnswerID, arg.UserID)
+	var vote_score int32
+	err := row.Scan(&vote_score)
+	return vote_score, err
+}
+
+const setSolveQuestionVote = `-- name: SetSolveQuestionVote :one
+WITH old AS (
+  SELECT v.value FROM votes v
+  WHERE v.user_id = $3::uuid AND v.target_type = 'question' AND v.target_id = $2::uuid
+), del AS (
+  DELETE FROM votes
+  WHERE $1::smallint = 0
+    AND user_id = $3::uuid AND target_type = 'question' AND target_id = $2::uuid
+), up AS (
+  INSERT INTO votes (user_id, target_type, question_id, value)
+  SELECT $3::uuid, 'question', $2::uuid, $1::smallint
+  WHERE $1::smallint <> 0
+  ON CONFLICT ON CONSTRAINT votes_pk DO UPDATE SET value = EXCLUDED.value
+)
+UPDATE questions
+SET vote_score = vote_score + $1::smallint - COALESCE((SELECT value FROM old), 0)::smallint
+WHERE id = $2::uuid
+RETURNING vote_score
+`
+
+type SetSolveQuestionVoteParams struct {
+	Value      int16
+	QuestionID pgtype.UUID
+	UserID     pgtype.UUID
+}
+
+// value 1 or -1 inserts or replaces the vote (ON CONFLICT: a repeat creates no row), value 0 deletes it.
+// Returns the new vote_score. Run only after LockSolveQuestionForVote.
+func (q *Queries) SetSolveQuestionVote(ctx context.Context, arg SetSolveQuestionVoteParams) (int32, error) {
+	row := q.db.QueryRow(ctx, setSolveQuestionVote, arg.Value, arg.QuestionID, arg.UserID)
+	var vote_score int32
+	err := row.Scan(&vote_score)
+	return vote_score, err
 }
 
 const solveAnswerSources = `-- name: SolveAnswerSources :many

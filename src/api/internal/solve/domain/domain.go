@@ -18,6 +18,17 @@ var (
 	ErrLinkTarget = errors.New("solve link target not linkable")
 	// ErrUnknownCountry means the country code is not a countries row.
 	ErrUnknownCountry = errors.New("solve country unknown")
+	// ErrSelfVote means the voter wrote the question or answer.
+	ErrSelfVote = errors.New("solve vote on own content")
+	// ErrAnswerNotInQuestion means the answer is unknown, removed, or belongs to another question: one
+	// answer for all three, so an answer id says nothing about other questions.
+	ErrAnswerNotInQuestion = errors.New("solve answer is not an answer of the question")
+)
+
+// Vote targets.
+const (
+	TargetQuestion = "question"
+	TargetAnswer   = "answer"
 )
 
 // Derived solve states of a question (never stored, never client-set).
@@ -135,4 +146,22 @@ type AnswerQuery struct {
 	QuestionID string
 	After      *AnswerKey
 	Limit      int
+}
+
+// Vote is one user's vote on a question or an answer. Value is +1 or -1; 0 retracts the vote.
+type Vote struct {
+	UserID, TargetType, TargetID string
+	Value                        int
+}
+
+// VoteState is the caller's vote (0 = none) and the target's server-derived score after a vote change.
+type VoteState struct {
+	TargetType, TargetID string
+	Value, Score         int
+}
+
+// AcceptChange sets (AnswerID) or clears (AnswerID empty) the accepted answer of a question for ActorID,
+// who must be the question's author.
+type AcceptChange struct {
+	QuestionID, ActorID, AnswerID string
 }
