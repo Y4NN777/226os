@@ -348,7 +348,13 @@ candidates AS (
     AND (i.tsq IS NULL OR (querytree(i.tsq) NOT IN ('', 'T') AND q.search_document @@ i.tsq))
     AND ($6::text IS NULL OR EXISTS (
           SELECT 1 FROM question_tags qt JOIN tags t ON t.id = qt.tag_id AND t.status = 'active'
-          WHERE qt.question_id = q.id AND t.slug = $6::text))
+          WHERE qt.question_id = q.id AND t.slug = $6::text
+            -- only a tag the question displays (SolveQuestionTags: the first 5 active by slug): fewer than
+            -- 5 active tags sort before it
+            AND (SELECT count(*) FROM (
+                   SELECT 1 FROM question_tags qt2
+                   JOIN tags t2 ON t2.id = qt2.tag_id AND t2.status = 'active'
+                   WHERE qt2.question_id = q.id AND t2.slug < t.slug LIMIT 5) lower_slugs) < 5))
     AND ($7::text IS NULL
          OR (CASE WHEN q.accepted_answer_id IS NOT NULL THEN 'resolved'
                   WHEN q.answer_count > 0 THEN 'answered' ELSE 'open' END) = $7::text)

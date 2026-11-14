@@ -751,6 +751,32 @@ func TestSolveRestoredHiddenTagNeverExceedsTheCap(t *testing.T) {
 	}
 }
 
+// The tag filter agrees with the display: after a restore makes a sixth active link, a question matches
+// tag=X only when X is one of the (at most 5) tags it shows. The sixth stored link matches nothing.
+func TestSolveTagFilterMatchesOnlyDisplayedTags(t *testing.T) {
+	s := newSolveStack(t)
+	alice := s.signIn(t, "solve-tagfilter-alice", true, 95)
+	q := s.ask(t, &alice, "Titre pour le filtre de tag", `"tags":["go","zz-hidden"]`)
+	path := "/api/v1/questions/" + q.Id.String()
+	if _, err := s.conn.Exec(t.Context(), `UPDATE tags SET status = 'hidden' WHERE slug = 'zz-hidden'`); err != nil {
+		t.Fatal(err)
+	}
+	tag := s.read(t, nil, path).Header().Get("ETag")
+	rec := s.write(t, &alice, http.MethodPatch, path, `{"tags":["go","python","cap-a","cap-b","cap-c"]}`, map[string]string{"If-Match": tag})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("patch %d %s", rec.Code, rec.Body.String())
+	}
+	if _, err := s.conn.Exec(t.Context(), `UPDATE tags SET status = 'active' WHERE slug = 'zz-hidden'`); err != nil {
+		t.Fatal(err)
+	}
+	for slug, want := range map[string]int{"zz-hidden": 0, "go": 1, "python": 1, "cap-a": 1} {
+		page := decodeAs[apigen.QuestionPage](t, s.read(t, nil, "/api/v1/questions?tag="+slug))
+		if len(page.Items) != want {
+			t.Errorf("tag=%s returned %d questions, want %d", slug, len(page.Items), want)
+		}
+	}
+}
+
 // connTx lets the recording wrapper open the transactions the solve repository wants.
 type connTx struct {
 	*recordingDB
