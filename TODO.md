@@ -81,6 +81,7 @@ Open owner items outside CADEV (IDs and decisions in ROADMAP section 8, 10 and 1
   - C1: `decideApplication` x-authz corrected to owner-only (cited by operationId, not by line);
   - C14b: `profile_visibility` (`public|members|private`, default `public`) in the profile read and update schemas, so `PATCH /me/profile` accepts it, and `deny_status 404` kept on `getProfile`.
   - S4 handlers, E4 topic feeds and E5 wait for it. Docs follow-ups: `AUTHORIZATION_MATRIX.md` and `DATABASE_DESIGN.md` "owner or maintainer" to "owner only" (see S5).
+- [x] **Contract PR: link types narrowed to the stored pairs (owner decision 2026-11-14, R7; reviewers `Y4NN777` and `PANK4SS`).** `QuestionCreate` and `QuestionUpdate` take a new `QuestionLinkRef` (`resource`, `project`, `article`); `LinkRef` drops `series` (no `content_relations` pair has one). Settles the S3 question-link deviation and half of the S4 one; an article linking to an article stays 422 (S4 known deviations). Branch `fix/solve/question-link-types`.
 - [ ] **SHIP 4.2 smoke text:** `/healthz` is checked at the edge and `/readyz` inside the container (B2); confirm `docs/SHIP.md` 4.2 says exactly that (S8).
 
 ---
