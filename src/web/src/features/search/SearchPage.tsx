@@ -146,7 +146,7 @@ export function SearchPage() {
       ) : (
         <>
           <Outcome q={q} />
-          <AssistantPanel />
+          <AssistantPanel key={q} q={q} />
         </>
       )}
     </VStack>
