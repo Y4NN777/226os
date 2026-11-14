@@ -34,7 +34,8 @@ func (s *Service) CreateApplication(ctx context.Context, sub subject.Subject, ne
 	if err := publisher(sub); err != nil {
 		return domain.Application{}, err
 	}
-	// The contract allows an empty message, but applications_message_ck requires 1 to 2000 characters.
+	// The contract and applications_message_ck require 1 to 2000 characters; a blank message (spaces only)
+	// passes the schema's minLength, so it is refused here.
 	if strings.TrimSpace(req.Message) == "" {
 		return domain.Application{}, invalid("/message", "too_short", "message must not be empty.")
 	}

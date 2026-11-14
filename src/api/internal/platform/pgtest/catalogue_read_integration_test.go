@@ -171,6 +171,59 @@ func TestCatalogueReadsPublishedRowsOnly(t *testing.T) {
 	}
 }
 
+// Issue #118: a project links to a resource (LinkResourceToProject stores resource -> project), so the
+// resource's related links must show only public projects, as the project read does: a private project,
+// or one made private after the link, never appears on the public resource page.
+func TestCatalogueRelatedShowsPublicProjectsOnly(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
+	defer cancel()
+	conn := migratedDB(ctx, t)
+	seedCatalogue(ctx, t, conn)
+	const private = "019a0000-0000-7000-8000-0000000000d4"
+	for _, stmt := range []string{
+		`INSERT INTO projects (id, owner_id, name, summary, language, visibility) VALUES
+		  ('` + private + `', '` + catUser + `', 'Projet privé', 'Privé.', 'fr', 'private')`,
+		`INSERT INTO content_relations (source_type, src_resource_id, target_type, tgt_project_id, created_by) VALUES
+		  ('resource', '` + catAlpha + `', 'project', '` + private + `', '` + catUser + `')`,
+	} {
+		if _, err := conn.Exec(ctx, stmt); err != nil {
+			t.Fatal(err)
+		}
+	}
+	codec, err := cursor.New([]byte("0123456789abcdef0123456789abcdef"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := discover.NewHandler(conn, codec, nil, nil)
+	related := func() []apigen.RelatedLink {
+		t.Helper()
+		rec := callGet(ctx, h, uuid.MustParse(catAlpha))
+		var r apigen.Resource
+		if rec.Code != http.StatusOK || json.Unmarshal(rec.Body.Bytes(), &r) != nil {
+			t.Fatalf("get %d %s", rec.Code, rec.Body.String())
+		}
+		return r.Related
+	}
+	public := false
+	for _, link := range related() {
+		if link.Id.String() == private || link.Title == "Projet privé" {
+			t.Fatalf("private project shown on the public resource: %+v", link)
+		}
+		public = public || link.Id.String() == catProject
+	}
+	if !public {
+		t.Fatal("the public project is missing from the related links")
+	}
+	if _, err := conn.Exec(ctx, `UPDATE projects SET visibility = 'private' WHERE id = '`+catProject+`'`); err != nil {
+		t.Fatal(err)
+	}
+	for _, link := range related() {
+		if link.Type == apigen.RelatedLinkTypeProject {
+			t.Fatalf("project made private still shown: %+v", link)
+		}
+	}
+}
+
 func callList(ctx context.Context, h interface {
 	ListResources(http.ResponseWriter, *http.Request, apigen.ListResourcesParams)
 }, params apigen.ListResourcesParams) *httptest.ResponseRecorder {

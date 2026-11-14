@@ -7,11 +7,12 @@ The review returns its text; this script, run by the workflow from the BASE bran
   - the bot comment that carries the marker is edited by id; without one, the newest updated bot `Triage:` comment of an
     older run is adopted; otherwise a new comment is created. Another bot comment is never edited;
   - every other bot `Triage:` comment (a duplicate of an older run) is minimized as OUTDATED, never deleted;
-  - the ledger `sha` is always PR_HEAD_SHA (validated), never what the model wrote; a review without a ledger gets one
-    at the head with no findings.
+  - the ledger `sha` is always PR_HEAD_SHA (validated), never what the model wrote. A missing, bare (no <details>),
+    hidden-comment or broken ledger is dropped, never replaced by an empty one at the head: the next run is `first`.
 No usable review text (empty, invalid, timed out, no `Triage:` first line): the marker comment becomes
 `Triage: NOT RUN | <reason>` and carries the PREVIOUS ledger unchanged (or none), so nothing looks reviewed and the
-commits not reviewed are reviewed on the next run. The Review gate reads no verdict from it.
+commits not reviewed are reviewed on the next run. The Review gate reads no verdict from it, except after a CRITICAL:
+then line 1 stays the CRITICAL verdict and its evidence is kept, so a push that exhausts the review never lifts a block.
 Line 4 is `Deep: PENDING (...)` when DEEP_PENDING is true (a P0 path is touched; the deep job replaces it).
 
 Subcommand `deep` (stage 2): merges the deep review's structured output (DEEP_JSON: level, blast_radius, summary,
@@ -42,6 +43,7 @@ VERDICT = re.compile(r"^Triage:\s*(CRITICAL|HIGH|MEDIUM|NONE)\s*\|\s*blast radiu
 TOOL = re.compile(r"^Tool: (PASS \(\d+ files?\)|NOT RUN \([^()\n]{1,200}\))$")
 FULL_SHA = re.compile(r"^[0-9a-f]{40}$")
 FENCED = re.compile(r"(<details>\s*<summary>[^<]*ledger[^<]*</summary>.*?```json\s*)(\{.*?\})(\s*```)", re.S | re.I)
+HIDDEN = re.compile(r"<!--\s*review-ledger\s+\{.*?\}\s*-->", re.S)
 LEDGER_BLOCK = re.compile(r"<details>\s*<summary>[^<]*ledger[^<]*</summary>.*?```json\s*\{.*?\}\s*```\s*</details>", re.S | re.I)
 NOT_RUN = re.compile(r"^Triage:\s*NOT RUN\b")
 DEEP_START = "<!-- 226os-deep-review -->"
@@ -115,16 +117,13 @@ def review_comment(comments):
     return max(triage, key=stamp) if triage else None
 
 
-def ledger_block(sha, findings=None):
-    return "<details><summary>Review ledger</summary>\n\n```json\n%s\n```\n\n</details>" % json.dumps(
-        {"sha": sha, "findings": findings or []})
-
-
 def pin_ledger(text, head):
-    """The text with its ledger sha set to head (findings kept); a ledger at head with no findings is added when the
-    text has none. Unchanged when head is not a full sha (a local run without PR_HEAD_SHA)."""
+    """The text with its fenced ledger's sha set to head (findings kept). Anything else is no usable ledger and nothing
+    is invented: a hidden-comment ledger (it would carry the model's sha) is removed, a bare or broken one is left as
+    text the parser ignores, and none is added. Unchanged when head is not a full sha (a local run)."""
     if not FULL_SHA.match(head or ""):
         return text
+    text = HIDDEN.sub("", text)
     m = FENCED.search(text)
     if m:
         try:
@@ -136,8 +135,7 @@ def pin_ledger(text, head):
             data.pop("commit", None)
             data["sha"] = head
             return text[:m.start(2)] + json.dumps(data) + text[m.end(2):]
-        return text[:m.start()] + ledger_block(head) + text[m.end():]
-    return text.rstrip("\n") + "\n\n" + ledger_block(head)
+    return text
 
 
 def tool_or_default(tool_line):
@@ -160,10 +158,19 @@ def compose(text, tool_line, head="", deep_line=None):
 def not_run(reason, tool_line, previous):
     """The NOT RUN marker comment: no verdict the gate reads, and the previous review comment's ledger block unchanged
     (none when it had none), so the unreviewed commits stay unreviewed in the ledger."""
+    note = ("The AI review produced no result on this run (%s): nothing in the new commits was reviewed. Push again or "
+            "add the label `ai-review` to retry." % reason)
+    old = ((previous or {}).get("body") or "").strip().splitlines()
+    m = VERDICT.match(old[0].strip()) if old else None
+    if m and m.group(1) == "CRITICAL":
+        # A CRITICAL is never lifted by a review that did not run: keep the verdict and its evidence, add the reason.
+        rest = [l for l in old[1:] if MARKER not in l and not l.startswith("Tool:")]
+        while rest and not rest[0].strip():
+            rest.pop(0)
+        return "\n".join([old[0].strip(), MARKER, tool_or_default(tool_line), "", "NOT RUN on the latest push. " + note,
+                          ""] + rest) + "\n"
     m = LEDGER_BLOCK.search((previous or {}).get("body") or "")
-    body = ["Triage: NOT RUN | %s" % reason, MARKER, tool_or_default(tool_line), "",
-            "The AI review produced no result on this run: nothing in the new commits was reviewed. Push again or "
-            "add the label `ai-review` to retry."]
+    body = ["Triage: NOT RUN | %s" % reason, MARKER, tool_or_default(tool_line), "", note]
     if m:
         body += ["", m.group(0)]
     return "\n".join(body) + "\n"

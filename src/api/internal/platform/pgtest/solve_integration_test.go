@@ -630,6 +630,41 @@ func TestSolveEditKeepsAHiddenLinkHidden(t *testing.T) {
 	}
 }
 
+func TestSolveEditKeepsAHiddenTagLink(t *testing.T) {
+	s := newSolveStack(t)
+	alice := s.signIn(t, "solve-hidden-tag-alice", true, 91)
+	q := s.ask(t, &alice, "Titre pour le tag caché")
+	qid := q.Id.String()
+	path := "/api/v1/questions/" + qid
+	if _, err := s.conn.Exec(t.Context(), `UPDATE tags SET status = 'hidden' WHERE slug = 'mobile-money'`); err != nil {
+		t.Fatal(err)
+	}
+	tag := s.read(t, nil, path).Header().Get("ETag")
+	// The author cannot see the hidden tag and does not re-send its slug; the edit replaces the active set.
+	rec := s.write(t, &alice, http.MethodPatch, path, `{"tags":["go","python"]}`, map[string]string{"If-Match": tag})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("patch %d %s", rec.Code, rec.Body.String())
+	}
+	got := decodeAs[apigen.Question](t, rec)
+	if len(got.Tags) != 2 || got.Tags[0] != "go" || got.Tags[1] != "python" {
+		t.Fatalf("hidden tag leaked or active set wrong: %+v", got.Tags)
+	}
+	var n int
+	if err := s.conn.QueryRow(t.Context(), `SELECT count(*) FROM question_tags qt JOIN tags tg ON tg.id = qt.tag_id WHERE qt.question_id = $1 AND tg.slug = 'mobile-money'`, qid).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	if n != 1 {
+		t.Fatalf("hidden tag link deleted by the edit (%d rows left)", n)
+	}
+	// Restoring the tag brings the link back into reads.
+	if _, err := s.conn.Exec(t.Context(), `UPDATE tags SET status = 'active' WHERE slug = 'mobile-money'`); err != nil {
+		t.Fatal(err)
+	}
+	if restored := decodeAs[apigen.Question](t, s.read(t, nil, path)); len(restored.Tags) != 3 {
+		t.Fatalf("restored tag did not return: %+v", restored.Tags)
+	}
+}
+
 func TestSolveSearchRanksByRelevanceThenNewest(t *testing.T) {
 	s := newSolveStack(t)
 	alice := s.signIn(t, "solve-rank-alice", true, 89)

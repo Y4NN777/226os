@@ -13,7 +13,7 @@ import (
 	"github.com/Y4NN777/226os/src/api/internal/solve"
 )
 
-// The six Solve routes answer 501 without a handler and reach the handler when it is set.
+// The ten Solve routes answer 501 without a handler and reach the handler when it is set.
 func TestSolveRoutesDelegateOnlyWhenWired(t *testing.T) {
 	c, err := cursor.New([]byte("0123456789abcdef0123456789abcdef"))
 	if err != nil {
@@ -37,6 +37,12 @@ func TestSolveRoutesDelegateOnlyWhenWired(t *testing.T) {
 		"createAnswer": func(s *Server, w http.ResponseWriter, r *http.Request) {
 			s.CreateAnswer(w, r, id, apigen.CreateAnswerParams{})
 		},
+		"castVote": func(s *Server, w http.ResponseWriter, r *http.Request) { s.CastVote(w, r) },
+		"retractVote": func(s *Server, w http.ResponseWriter, r *http.Request) {
+			s.RetractVote(w, r, apigen.RetractVoteParams{})
+		},
+		"acceptAnswer":   func(s *Server, w http.ResponseWriter, r *http.Request) { s.AcceptAnswer(w, r, id) },
+		"unacceptAnswer": func(s *Server, w http.ResponseWriter, r *http.Request) { s.UnacceptAnswer(w, r, id) },
 	}
 	wired := NewServer(WithSolve(solve.NewHandler(&fakePool{}, c, allowLimiter{}, nil)))
 	for name, call := range calls {
