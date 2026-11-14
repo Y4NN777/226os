@@ -268,7 +268,7 @@ func TestSolveIdempotentReplay(t *testing.T) {
 	s := newSolveStack(t)
 	alice := s.signIn(t, "solve-idem-alice", true, 76)
 	bob := s.signIn(t, "solve-idem-bob", true, 77)
-	key := map[string]string{"Idempotency-Key": "solve-question-key-0123456789"}
+	key := map[string]string{"Idempotency-Key": "solve-question-retry-1"}
 
 	first := s.write(t, &alice, http.MethodPost, "/api/v1/questions", questionBody("Titre valide"), key)
 	second := s.write(t, &alice, http.MethodPost, "/api/v1/questions", questionBody("Titre valide"), key)
@@ -284,7 +284,7 @@ func TestSolveIdempotentReplay(t *testing.T) {
 	assertProblem(t, s.write(t, &alice, http.MethodPost, "/api/v1/questions", questionBody("Autre titre valide"), key), http.StatusUnprocessableEntity, "IDEMPOTENCY_KEY_REUSED")
 
 	qid := decodeAs[apigen.Question](t, first).Id.String()
-	akey := map[string]string{"Idempotency-Key": "solve-answer-key-0123456789"}
+	akey := map[string]string{"Idempotency-Key": "solve-answer-retry-1"}
 	path := "/api/v1/questions/" + qid + "/answers"
 	body := `{"body_md":"Une réponse.","lang":"fr"}`
 	a1 := s.write(t, &bob, http.MethodPost, path, body, akey)
