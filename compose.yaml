@@ -131,6 +131,8 @@ services:
       AI_API_KEY: ${AI_API_KEY:-}
       AI_MODEL: ${AI_MODEL:-}
       AI_TIMEOUT: ${AI_TIMEOUT:-}
+      # Optional GitHub API token for project registration (a secret, from the profile's env file); empty keeps the unauthenticated quota.
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
     networks: [edge, backend]
     healthcheck:
       # Distroless has no shell: the image ships its own /healthcheck command (src/api/cmd/healthcheck).

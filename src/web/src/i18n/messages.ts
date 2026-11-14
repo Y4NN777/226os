@@ -1,4 +1,5 @@
 import * as build from '../features/build/messages';
+import * as connect from '../features/connect/messages';
 import * as discover from '../features/discover/messages';
 import * as home from '../features/home/messages';
 import * as identity from '../features/identity/messages';
@@ -212,6 +213,7 @@ const fr = {
   ...solve.fr,
   ...build.fr,
   ...profile.fr,
+  ...connect.fr,
 };
 
 export type MessageKey = keyof typeof fr;
@@ -227,6 +229,7 @@ const en: Record<MessageKey, string> = {
   ...solve.en,
   ...build.en,
   ...profile.en,
+  ...connect.en,
 };
 
 export type Catalogs = Record<Locale, Partial<Record<MessageKey, string>>>;
@@ -243,6 +246,7 @@ export const frenchParts: readonly Record<string, string>[] = [
   solve.fr,
   build.fr,
   profile.fr,
+  connect.fr,
 ];
 
 export const catalogs: Catalogs = { fr, en };

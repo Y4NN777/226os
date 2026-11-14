@@ -49,6 +49,47 @@ PREVIEW_HEADER = re.compile(r"^# Files \((\d+) reviewable / (\d+) total\)", re.M
 PREVIEW_MAX_LINES = 200
 
 
+# --- text that came from the ledger (model output) and is written to issues or prompts ---
+REDACTED = "[redacted: looked like a secret]"
+# Secret shapes (private key blocks, AWS, GitHub and Slack tokens, sk- keys, JWT, an Authorization header WITH a value).
+# The same list is in scripts/review-comment.py (it must stay one standalone file): tests/review-comment_test.sh and
+# findings_test.sh feed both the same samples.
+SECRET_SHAPES = [re.compile(p) for p in (
+    r"-----BEGIN [A-Z ]*PRIVATE KEY-----",
+    r"\b(?:AKIA|ASIA|AGPA|AIDA|AROA|ANPA)[0-9A-Z]{16}\b",
+    r"\bgh[pousr]_[A-Za-z0-9]{30,}",
+    r"\bgithub_pat_[A-Za-z0-9_]{20,}",
+    r"\bxox[abposr]-[A-Za-z0-9-]{10,}",
+    r"\bsk-[A-Za-z0-9_-]{20,}",
+    r"\beyJ[A-Za-z0-9_-]{8,}\.eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}",
+    r"(?i)\bauthorization\s*[:=]\s*[\"']?(?:(?:bearer|basic|token)\s+)?[A-Za-z0-9._~+/=-]{16,}",
+)]
+NOT_RECORDED = "not recorded (older review)"
+ZWSP = chr(0x200B)
+
+
+def looks_secret(text):
+    return any(p.search(text or "") for p in SECRET_SHAPES)
+
+
+def redact(text):
+    """(text, flagged): the whole text is replaced when it matches a secret shape (a partial mask could leak the rest)."""
+    return (REDACTED, True) if looks_secret(text) else (text, False)
+
+
+def defuse(text, limit=None):
+    """One line of text that cannot act when written to an issue or a prompt: no HTML tag or comment (a forged marker
+    must not parse), `<` escaped, an @mention and a #N reference broken with a zero-width space (no notification, no
+    closing keyword), whitespace collapsed."""
+    text = " ".join(str(text or "").split())
+    text = re.sub(r"<!--.*?-->|</?[A-Za-z!][^>]*>", "", text)
+    text = text.replace("<!--", "").replace("<", "&lt;")
+    text = re.sub(r"@(?=[A-Za-z0-9_-])", "@" + ZWSP, text)
+    text = re.sub(r"#(?=\d)", "#" + ZWSP, text)
+    text = " ".join(text.split())
+    return text if limit is None or len(text) <= limit else text[:limit - 3] + "..."
+
+
 class Unavailable(Exception):
     """A source could not be read: the section says so and the run goes on."""
 
@@ -97,32 +138,62 @@ def base_file(gh, git, repo, base, path):
         return None
 
 
+def last_match(pattern, text):
+    found = None
+    for found in pattern.finditer(text or ""):
+        pass
+    return found
+
+
 def ledger_json(body):
-    """The ledger JSON text of a bot comment: the fenced block inside <details> (current format), else the hidden
-    comment line (previous format), else None."""
-    m = FENCED.search(body) or LEDGER.search(body)
+    """The ledger JSON text of a bot comment: the LAST fenced block inside <details> (current format; the same block
+    scripts/review-comment.py reads and writes), else the last hidden comment line (previous format), else None."""
+    m = last_match(FENCED, body) or last_match(LEDGER, body)
     return m.group(1) if m else None
 
 
+def norm_status(value):
+    """Trimmed and lower-case; anything but answered, accepted or fixed (unknown or missing) is open (review-comment.py
+    norm_status: a status the script cannot read never hides an entry)."""
+    value = str(value or "").strip().lower()
+    return value if value in ("answered", "accepted", "fixed") else "open"
+
+
 def parse_finding(f):
-    """One ledger entry, normalised and bounded, or None when it is not valid."""
-    if not isinstance(f, dict) or str(f.get("status")) not in STATUSES or not f.get("id"):
+    """One ledger entry, normalised and bounded, or None when it is not valid (not an object, or no id)."""
+    if not isinstance(f, dict) or not f.get("id"):
         return None
-    sev = str(f.get("sev", "MEDIUM")).upper()
+    sev = str(f.get("sev") or "MEDIUM").upper()
     line = f.get("line")
     # kind: a defect (`finding`, the default so older ledgers keep working) or a remark (`note`). A note is never a
     # reason for a new review or a ping, whatever severity the model wrote: its severity is pinned to LOW.
     kind = "note" if str(f.get("kind", "finding")).lower() == "note" else "finding"
     evidence = str(f.get("evidence", "")).upper()
+    first_sha = str(f.get("first_sha") or "")
+    deep = f.get("deep") if isinstance(f.get("deep"), dict) else None
     return {
         "kind": kind,
         "evidence": evidence if evidence in EVIDENCE else "INFERRED",
         "id": str(f["id"])[:40],
         "title": str(f.get("title") or f.get("scenario") or f["id"])[:200],
-        "status": str(f["status"]),
+        "status": norm_status(f.get("status")),
         "sev": "LOW" if kind == "note" else (sev if sev in SEVERITIES else "MEDIUM"),
         "file": str(f.get("file", ""))[:300],
         "line": line if isinstance(line, int) else 0,
+        # The register detail (absent from older ledgers: empty means "not recorded").
+        "detail": " ".join(str(f.get("detail") or "").split())[:600],
+        "fix": " ".join(str(f.get("fix") or "").split())[:300],
+        "source": "deep" if f.get("source") == "deep" else "review",
+        "first_sha": first_sha if FULL_SHA.match(first_sha) else "",
+        "location": f.get("location") if f.get("location") in ("verified", "unverified", "mismatch") else "",
+        "probable": str(f.get("probable") or "")[:320],
+        "redacted": f.get("redacted") is True,
+        "deep": None if deep is None else {
+            "detail": " ".join(str(deep.get("detail") or "").split())[:600], "fix": " ".join(str(deep.get("fix") or "").split())[:300],
+            "sev": str(deep.get("sev", "")).upper() if str(deep.get("sev", "")).upper() in SEVERITIES else "",
+            "file": str(deep.get("file", ""))[:300], "line": deep.get("line") if isinstance(deep.get("line"), int) else 0,
+            "location": deep.get("location") if deep.get("location") in ("verified", "unverified", "mismatch") else "unverified",
+            "probable": str(deep.get("probable") or "")[:320], "redacted": deep.get("redacted") is True},
     }
 
 
@@ -158,11 +229,14 @@ def parse_ledger(comments):
         data["sha"] = next((str(data[k]) for k in ("sha", "last_reviewed_commit", "commit") if data.get(k)), "")
         if not HEX.match(data["sha"]):
             continue
-        entries = data.get("findings") if isinstance(data.get("findings"), list) else []
-        findings = [x for x in (parse_finding(f) for f in entries) if x]
+        if not isinstance(data.get("findings"), list):
+            continue  # findings that are not a list: an unusable ledger, never an empty one
+        findings = [x for x in (parse_finding(f) for f in data["findings"]) if x]
+        deep = data.get("deep") if isinstance(data.get("deep"), dict) else {}
+        deep = {"status": str(deep.get("status") or ""), "sha": str(deep.get("sha") or "")}
         stamp = c.get("updated_at") or c.get("created_at") or ""
         if best is None or stamp >= best[0]:
-            best = (stamp, {"sha": data["sha"], "findings": findings[:50]})
+            best = (stamp, {"sha": data["sha"], "findings": findings[:50], "url": str(c.get("html_url") or ""), "deep": deep})
     return None if best is None else best[1]
 
 
@@ -240,6 +314,25 @@ def review_range(git, base, ledger, head="HEAD"):
     else:
         reason = ""
     return "origin/%s...%s" % (base, head or "HEAD"), False, reason, None
+
+
+def deep_range(base, ledger, rng, incremental, head="HEAD"):
+    """(range, reason) of the deep review: the stage 1 range when the previous ledger records a deep review PASS of its
+    own sha (the deep review already covered everything up to it), else the whole pull request with the reason: a deep
+    run that was cancelled, NOT RUN or never ran must not leave commits that no deep review read."""
+    full = "origin/%s...%s" % (base, head or "HEAD")
+    if not incremental or not ledger:
+        return full, ""
+    deep = ledger.get("deep") or {}
+    if deep.get("status") == "PASS" and deep.get("sha") == ledger["sha"]:
+        return rng, ""
+    if not deep.get("status"):
+        why = "the previous review has no deep review"
+    elif deep.get("status") != "PASS":
+        why = "the previous deep review was %s" % clip(deep["status"], 20)
+    else:
+        why = "the previous deep review PASS is not of the last reviewed commit"
+    return full, why
 
 
 def diff_argv(git, rng, paths=None, extra=()):
@@ -581,15 +674,19 @@ def main():
     rng, incremental, why, paths = review_range(git, base, ledger, head)
     decision = decide(git, ledger, incremental, head, paths)
     preview_from = ledger["sha"] if incremental else "origin/%s" % base
+    drng, dwhy = deep_range(base, ledger, rng, incremental, head)
     out[1:1] = ["", "REVIEW_DECISION: %s" % decision,
                 "Head commit: %s" % (head_sha or "NOT AVAILABLE (%s)" % (head_why or "git could not read HEAD")),
-                "PREVIEW_FROM: %s" % preview_from, "PREVIEW_TO: %s" % (head or "HEAD")]
+                "PREVIEW_FROM: %s" % preview_from, "PREVIEW_TO: %s" % (head or "HEAD"), "DEEP_RANGE: %s" % drng]
     out += ["## What to review", "",
             "- Pull request: %s (author %s, base %s)" % (clip(info.get("title", "?"), 160), (info.get("user") or {}).get("login", "?"), base),
             "- Range: `%s` (%s)" % (rng, "only commits since the last review" if incremental else "the whole pull request, no usable previous review"),
             "- Touched files: %d" % len(files)]
     if why or head_why:
         out.append("- Why the whole pull request: %s" % (why or head_why))
+    if drng != rng:
+        out.append("- Deep range: `%s` (stage 2, the deep review, only: %s, so it reviews the whole pull request; stage 1 "
+                   "reviews the Range above)" % (drng, dwhy))
     out.append("")
 
     if paths is not None:
@@ -603,6 +700,21 @@ def main():
             text = "NOT AVAILABLE (%s)\n" % exc
         try:
             with open(diff_file, "w", encoding="utf-8") as fh:
+                fh.write(text)
+        except OSError:
+            pass
+    deep_file = os.environ.get("DEEP_DIFF_FILE")
+    if deep_file:
+        # The diff the deep review reads: the whole pull request when its range is wider than stage 1's.
+        try:
+            if drng == rng:
+                text = run(diff_argv(git, rng, paths)) if paths is None or paths else ""
+            else:
+                text = run(diff_argv(git, drng))
+        except Unavailable as exc:
+            text = "NOT AVAILABLE (%s)\n" % exc
+        try:
+            with open(deep_file, "w", encoding="utf-8") as fh:
                 fh.write(text)
         except OSError:
             pass

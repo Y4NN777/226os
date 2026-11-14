@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Owner ping (stdlib only): after the AI review, label the pull request `needs-owner` and ask the owner for a review
-when a CRITICAL or HIGH finding is still open in the review's ledger. It replaces an @-mention in the model's text: the
+when a CRITICAL or HIGH finding is still open in the review's ledger (not marked `fixed`: an answered or accepted HIGH
+or CRITICAL still pings, the owner settles it; an unknown status is open). It replaces an @-mention in the model's text: the
 decision is read from the ledger, not guessed, and it works the same whatever the model wrote.
 
 - Reads the newest bot comment that carries a valid ledger (the parser of scripts/review-context.py).
-- An open CRITICAL or HIGH: POST the label `needs-owner`; request the owner's review unless the owner wrote the pull
+- A CRITICAL or HIGH finding not marked fixed: POST the label `needs-owner`; request the owner's review unless the owner wrote the pull
   request (GitHub refuses a review request to the author).
 - Nothing serious open: remove the label (it reflects the current state).
 - Uses `gh api` only: `gh pr edit` fails on the Projects classic GraphQL API.
@@ -50,7 +51,8 @@ def main():
     except Exception as exc:  # fail open: a broken read must never fail the pull request
         print("review-ping: NOT RUN (%s)" % type(exc).__name__)
         return 0
-    open_serious = [f for f in (ledger or {}).get("findings", []) if f["kind"] == "finding" and f["status"] == "open" and f["sev"] in SERIOUS]
+    # Only an explicit `fixed` clears a CRITICAL or HIGH (parse_finding normalises the status: unknown is open).
+    open_serious = [f for f in (ledger or {}).get("findings", []) if f["kind"] == "finding" and f["status"] != "fixed" and f["sev"] in SERIOUS]
     try:
         if open_serious:
             gh(binary, "api", "-X", "POST", "repos/%s/issues/%s/labels" % (repo, pr), "-f", "labels[]=%s" % LABEL)

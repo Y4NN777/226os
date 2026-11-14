@@ -1,5 +1,5 @@
-// Package github is the read-only GitHub API adapter of Build (K10): one unauthenticated GET per
-// project registration, with timeouts, a body cap, no redirects, no proxy, and a dial check that only
+// Package github is the read-only GitHub API adapter of Build (K10): one GET per project
+// registration (authenticated only when a token is configured), with timeouts, a body cap, no redirects, no proxy, and a dial check that only
 // lets public unicast addresses on port 443 through.
 package github
 
@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/netip"
@@ -50,12 +51,41 @@ var blocked = []netip.Prefix{
 
 // Client reads public repositories.
 type Client struct {
-	http *http.Client
-	base string
+	http   *http.Client
+	base   string
+	token  string // optional secret; sent as a bearer token to base only
+	logger *slog.Logger
 }
 
-// New returns the production client for https://api.github.com.
-func New() *Client { return &Client{http: newHTTPClient(control), base: apiBase} }
+// New returns the production client for https://api.github.com. A non-empty token is sent as a bearer
+// token on the repository GET; it never goes to another host because base is fixed here.
+// A nil logger discards logs.
+func New(token string, logger *slog.Logger) *Client {
+	if logger == nil {
+		logger = slog.New(slog.DiscardHandler)
+	}
+	return &Client{http: newHTTPClient(control), base: apiBase, token: token, logger: logger}
+}
+
+// String and GoString keep the token out of %v, %+v, %#v and logs.
+func (c Client) String() string {
+	return "github.Client{base:" + c.base + " token:" + c.tokenState() + "}"
+}
+
+// GoString is the redacted form used by %#v.
+func (c Client) GoString() string { return c.String() }
+
+// LogValue keeps slog from printing the token.
+func (c Client) LogValue() slog.Value {
+	return slog.GroupValue(slog.String("base", c.base), slog.String("token", c.tokenState()))
+}
+
+func (c Client) tokenState() string {
+	if c.token == "" {
+		return "none"
+	}
+	return "[redacted]"
+}
 
 func newHTTPClient(check func(network, address string, c syscall.RawConn) error) *http.Client {
 	dialer := &net.Dialer{Timeout: dialTimeout, Control: check}
@@ -111,17 +141,18 @@ type repoBody struct {
 func (c *Client) Repo(ctx context.Context, owner, name string) (domain.Repo, error) {
 	ctx, cancel := context.WithTimeout(ctx, requestTimeout)
 	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
-		c.base+"/repos/"+url.PathEscape(owner)+"/"+url.PathEscape(name), nil)
+	target := c.base + "/repos/" + url.PathEscape(owner) + "/" + url.PathEscape(name)
+	resp, err := c.get(ctx, target, c.token)
 	if err != nil {
-		return domain.Repo{}, fmt.Errorf("%w: %w", domain.ErrUpstream, err)
+		return domain.Repo{}, err
 	}
-	req.Header.Set("Accept", "application/vnd.github+json")
-	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
-	req.Header.Set("User-Agent", userAgent)
-	resp, err := c.http.Do(req)
-	if err != nil {
-		return domain.Repo{}, fmt.Errorf("%w: %w", domain.ErrUpstream, err)
+	if resp.StatusCode == http.StatusUnauthorized && c.token != "" {
+		// An expired or revoked token degrades to the unauthenticated quota instead of failing registration.
+		_ = resp.Body.Close()
+		c.logger.WarnContext(ctx, "github token rejected", "class", "github_token_rejected")
+		if resp, err = c.get(ctx, target, ""); err != nil {
+			return domain.Repo{}, err
+		}
 	}
 	defer func() { _ = resp.Body.Close() }()
 	switch resp.StatusCode {
@@ -130,6 +161,7 @@ func (c *Client) Repo(ctx context.Context, owner, name string) (domain.Repo, err
 		http.StatusNotFound, http.StatusGone, http.StatusUnavailableForLegalReasons:
 		return domain.Repo{}, domain.ErrRepoNotFound
 	default:
+		// 401 (after the unauthenticated retry), 403 and 429 (rate limit) and 5xx: upstream, never not-found.
 		return domain.Repo{}, fmt.Errorf("%w: status %d", domain.ErrUpstream, resp.StatusCode)
 	}
 	var body repoBody
@@ -146,6 +178,25 @@ func (c *Client) Repo(ctx context.Context, owner, name string) (domain.Repo, err
 		repo.Description = clean(*body.Description)
 	}
 	return repo, nil
+}
+
+// get sends one GET, with a bearer token only when token is not empty.
+func (c *Client) get(ctx context.Context, target, token string) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, target, nil)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %w", domain.ErrUpstream, err)
+	}
+	req.Header.Set("Accept", "application/vnd.github+json")
+	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
+	req.Header.Set("User-Agent", userAgent)
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %w", domain.ErrUpstream, err)
+	}
+	return resp, nil
 }
 
 // clean drops what PostgreSQL text cannot hold: NUL and invalid UTF-8.

@@ -70,6 +70,17 @@ describe('ProfilePage view', () => {
     );
   });
 
+  it('renders no GitHub link for a malformed github value', async () => {
+    setLanguages(['fr-FR']);
+    mockApi({
+      'GET /profiles/awa': () => jsonResponse(publicProfile({ github: '../evil?x=1' })),
+    });
+    await renderApp('/profils/awa');
+    expect(await screen.findByRole('heading', { level: 1, name: 'Awa Traoré' })).toBeVisible();
+    expect(screen.queryByRole('link', { name: /evil/ })).not.toBeInTheDocument();
+    expect(screen.queryByText(/evil/)).not.toBeInTheDocument();
+  });
+
   it('omits fields the server hid, without placeholders', async () => {
     setLanguages(['fr-FR']);
     mockApi({
@@ -85,6 +96,39 @@ describe('ProfilePage view', () => {
     await screen.findByRole('heading', { level: 1, name: 'Awa Traoré' });
     expect(screen.queryByText('Pays')).not.toBeInTheDocument();
     expect(screen.queryByText('Compétences')).not.toBeInTheDocument();
+    expect(screen.getByText('Awa Traoré n’a pas encore complété son profil.')).toBeVisible();
+  });
+
+  it('says nothing about an empty profile when something is filled in', async () => {
+    setLanguages(['fr-FR']);
+    mockApi({ 'GET /profiles/awa': () => jsonResponse(publicProfile()) });
+    await renderApp('/profils/awa');
+    await screen.findByRole('heading', { level: 1, name: 'Awa Traoré' });
+    expect(screen.queryByText(/pas encore complété son profil/)).not.toBeInTheDocument();
+  });
+
+  it('shows the member their checklist, not the empty-profile line, on their own bare profile', async () => {
+    setLanguages(['fr-FR']);
+    member({
+      'GET /profiles/awa': () =>
+        jsonResponse({
+          username: 'awa',
+          display_name: 'Awa Traoré',
+          profile_visibility: 'public',
+          joined_at: '2026-11-01T10:00:00Z',
+        }),
+      'GET /me': () =>
+        jsonResponse({
+          account: memberAccount,
+          profile: myProfile(['bio', 'github', 'country', 'languages', 'skills', 'intent']),
+        }),
+    });
+    await renderApp('/profils/awa');
+    const heading = await screen.findByRole('heading', { level: 1, name: 'Awa Traoré' });
+    const card = await screen.findByRole('region', { name: 'Complétez votre profil' });
+    // Who the page is about comes first, the checklist after.
+    expect(heading.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.queryByText(/pas encore complété son profil/)).not.toBeInTheDocument();
   });
 
   it('shows the same not-found state for a hidden profile, an unknown one and a malformed name', async () => {

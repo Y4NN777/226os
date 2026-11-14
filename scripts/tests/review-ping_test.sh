@@ -68,6 +68,21 @@ ledger CRITICAL fixed >"$tmp/fx.json"
 run dev
 ! grep -q 'POST' "$tmp/log" && ok "a fixed CRITICAL does not ping the owner" || ko "fixed ($(cat "$tmp/log"))"
 
+# H4 (independent review of #187): only `fixed` removes a HIGH or CRITICAL; an answered or accepted one still pings.
+# M1: an unknown status is open.
+ledger HIGH answered >"$tmp/fx.json"
+run dev
+grep -q 'POST.*issues/7/labels' "$tmp/log" && grep -q 'requested_reviewers' "$tmp/log" && ok "an answered HIGH still labels needs-owner and asks the owner (only fixed clears it)" || ko "answered high ($(cat "$tmp/log"))"
+ledger CRITICAL accepted >"$tmp/fx.json"
+run dev
+grep -q 'POST.*issues/7/labels' "$tmp/log" && ok "an accepted CRITICAL still labels needs-owner" || ko "accepted critical ($(cat "$tmp/log"))"
+ledger MEDIUM answered >"$tmp/fx.json"
+run dev
+! grep -q 'POST' "$tmp/log" && ok "an answered MEDIUM does not ping (unchanged)" || ko "answered medium ($(cat "$tmp/log"))"
+ledger HIGH pending >"$tmp/fx.json"
+run dev
+grep -q 'POST.*issues/7/labels' "$tmp/log" && ok "a HIGH with an unknown status counts as open and pings (M1)" || ko "unknown status ($(cat "$tmp/log"))"
+
 printf '[]' >"$tmp/fx.json"
 run dev
 [ "$rc" -eq 0 ] && ! grep -q 'POST' "$tmp/log" && ok "no ledger yet: nothing is posted" || ko "no ledger (rc=$rc)"

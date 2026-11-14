@@ -169,8 +169,8 @@ describe('HomePage', () => {
     ).toHaveAttribute('href', '/build/c1000000-0000-4000-8000-000000000001');
     expect(screen.queryByText('Démo')).not.toBeInTheDocument();
     expect(
-      within(section('Connect')).getByText('Bientôt : l’annuaire des développeurs.'),
-    ).toBeVisible();
+      within(section('Connect')).getByRole('link', { name: 'Parcourir l’annuaire' }),
+    ).toHaveAttribute('href', '/connect');
     for (const key of ['GET /learn/articles', 'GET /questions', 'GET /projects']) {
       const [request] = callsTo(fetchMock, key);
       expect(new URL(request?.url ?? '').searchParams.get('limit')).toBe('4');

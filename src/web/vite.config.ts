@@ -7,9 +7,11 @@ const apiTarget = 'http://127.0.0.1:8080';
 export default defineConfig({
   plugins: [react()],
   server: {
+    // The API's CSRF check compares Origin with Host (ADR-0003), so the proxy must pass the
+    // browser's Host through unchanged; otherwise every sign-in from the dev server is a 403.
     proxy: {
-      '/api': apiTarget,
-      '/healthz': apiTarget,
+      '/api': { target: apiTarget, changeOrigin: false },
+      '/healthz': { target: apiTarget, changeOrigin: false },
     },
   },
   test: {

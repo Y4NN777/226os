@@ -3,6 +3,8 @@ package github
 import (
 	"context"
 	"errors"
+	"fmt"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -49,7 +51,7 @@ func TestControlRefusesNonPublicAddresses(t *testing.T) {
 }
 
 func TestNewUsesTheHardenedTransport(t *testing.T) {
-	c := New()
+	c := New("", nil)
 	if c.base != "https://api.github.com" || c.http.Timeout != requestTimeout || c.http.CheckRedirect == nil {
 		t.Fatalf("client %+v", c)
 	}
@@ -150,5 +152,140 @@ func TestRepoBadBaseURL(t *testing.T) {
 	c := &Client{http: newHTTPClient(allowAll), base: "http://bad\x7f"}
 	if _, err := c.Repo(t.Context(), "org", "repo"); !errors.Is(err, domain.ErrUpstream) {
 		t.Fatalf("err %v", err)
+	}
+}
+
+// testToken is built at run time so no token-shaped literal sits in the source.
+var testToken = "gh" + "p_" + strings.Repeat("a1", 10) + "TOKEN"
+
+func tokenClient(srv *httptest.Server, token string) *Client {
+	return &Client{http: newHTTPClient(allowAll), base: srv.URL, token: token, logger: slog.New(slog.DiscardHandler)}
+}
+
+func TestRepoSendsTheTokenOnlyWhenSet(t *testing.T) {
+	tests := []struct {
+		name, token, want string
+	}{
+		{"with a token", testToken, "Bearer " + testToken},
+		{"without a token", "", ""},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			var got []string
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				got = r.Header.Values("Authorization")
+				_, _ = w.Write([]byte(`{"name":"repo","full_name":"org/repo"}`))
+			}))
+			defer srv.Close()
+			if _, err := tokenClient(srv, tc.token).Repo(t.Context(), "org", "repo"); err != nil {
+				t.Fatal(err)
+			}
+			if tc.want == "" && len(got) != 0 || tc.want != "" && (len(got) != 1 || got[0] != tc.want) {
+				t.Fatalf("Authorization %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+// A rejected token (expired, revoked) degrades to one unauthenticated retry; its result is the answer.
+func TestRepoRetriesOnceWithoutTheTokenOn401(t *testing.T) {
+	tests := []struct {
+		name   string
+		second int
+		want   error
+	}{
+		{"unauthenticated retry succeeds", 200, nil},
+		{"retry unauthorized", 401, domain.ErrUpstream},
+		{"retry server error", 503, domain.ErrUpstream},
+		{"retry rate limited", 403, domain.ErrUpstream},
+		{"retry not found", 404, domain.ErrRepoNotFound},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			var auths []string
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				auths = append(auths, r.Header.Get("Authorization"))
+				if len(auths) == 1 {
+					w.WriteHeader(http.StatusUnauthorized)
+					return
+				}
+				w.WriteHeader(tc.second)
+				_, _ = w.Write([]byte(`{"name":"repo","full_name":"org/repo"}`))
+			}))
+			defer srv.Close()
+			var logs strings.Builder
+			c := tokenClient(srv, testToken)
+			c.logger = slog.New(slog.NewTextHandler(&logs, nil))
+			got, err := c.Repo(t.Context(), "org", "repo")
+			if !errors.Is(err, tc.want) || (tc.want == nil && (err != nil || got.Name != "repo")) {
+				t.Fatalf("got %+v, %v; want %v", got, err, tc.want)
+			}
+			if len(auths) != 2 || auths[0] != "Bearer "+testToken || auths[1] != "" {
+				t.Fatalf("Authorization headers %q", auths)
+			}
+			if !strings.Contains(logs.String(), "github_token_rejected") || strings.Contains(logs.String(), testToken) ||
+				(err != nil && strings.Contains(err.Error(), testToken)) {
+				t.Fatalf("logs %q err %v", logs.String(), err)
+			}
+		})
+	}
+}
+
+func TestRepoDoesNotRetryAn401WithoutAToken(t *testing.T) {
+	var hits atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		hits.Add(1)
+		w.WriteHeader(http.StatusUnauthorized)
+	}))
+	defer srv.Close()
+	if _, err := tokenClient(srv, "").Repo(t.Context(), "org", "repo"); !errors.Is(err, domain.ErrUpstream) || hits.Load() != 1 {
+		t.Fatalf("err %v hits %d", err, hits.Load())
+	}
+}
+
+func TestRepoRetryTransportFailureIsUpstream(t *testing.T) {
+	var hits atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if hits.Add(1) == 1 {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		panic(http.ErrAbortHandler) // the connection drops on the retry
+	}))
+	defer srv.Close()
+	if _, err := tokenClient(srv, testToken).Repo(t.Context(), "org", "repo"); !errors.Is(err, domain.ErrUpstream) {
+		t.Fatalf("err %v", err)
+	}
+}
+
+// The production client always targets api.github.com; only the unexported test seam changes the host.
+func TestNewKeepsTheFixedBaseWhateverTheToken(t *testing.T) {
+	for _, token := range []string{"", testToken} {
+		if c := New(token, nil); c.base != "https://api.github.com" {
+			t.Fatalf("base %q", c.base)
+		}
+	}
+}
+
+func TestClientFormattingHidesTheToken(t *testing.T) {
+	c := New(testToken, nil)
+	for name, out := range map[string]string{"%v": fmt.Sprintf("%v", c), "%+v": fmt.Sprintf("%+v", c),
+		"%#v": fmt.Sprintf("%#v", c), "%s": fmt.Sprint(c), "value %v": fmt.Sprintf("%v", *c),
+		"String": c.String(), "slog": slogText(c)} {
+		if strings.Contains(out, testToken) {
+			t.Errorf("%s leaks the token: %s", name, out)
+		}
+	}
+}
+
+func slogText(c *Client) string {
+	var buf strings.Builder
+	slog.New(slog.NewTextHandler(&buf, nil)).Info("client", "client", c)
+	return buf.String()
+}
+
+func TestClientFormattingWithoutAToken(t *testing.T) {
+	if out := New("", nil).String(); !strings.Contains(out, "token:none") {
+		t.Fatalf("String %q", out)
 	}
 }

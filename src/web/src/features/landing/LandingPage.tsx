@@ -27,29 +27,41 @@ interface Pillar {
 }
 
 const featured: Pillar[] = [
-  { id: 'learn', title: 'landing.pillar.learn.title', text: 'landing.pillar.learn.text' },
+  {
+    id: 'learn',
+    title: 'landing.pillar.learn.title',
+    text: 'landing.pillar.learn.text',
+    live: { to: '/apprendre', label: 'landing.pillar.learn.link' },
+  },
   { id: 'connect', title: 'landing.pillar.connect.title', text: 'landing.pillar.connect.text' },
 ];
 
 const others: Pillar[] = [
-  { id: 'solve', title: 'landing.pillar.solve.title', text: 'landing.pillar.solve.text' },
+  {
+    id: 'solve',
+    title: 'landing.pillar.solve.title',
+    text: 'landing.pillar.solve.text',
+    live: { to: '/solve', label: 'landing.pillar.solve.link' },
+  },
   {
     id: 'discover',
     title: 'landing.pillar.discover.title',
     text: 'landing.pillar.discover.text',
     live: { to: '/discover', label: 'landing.pillar.discover.link' },
   },
-  { id: 'build', title: 'landing.pillar.build.title', text: 'landing.pillar.build.text' },
+  {
+    id: 'build',
+    title: 'landing.pillar.build.title',
+    text: 'landing.pillar.build.text',
+    live: { to: '/build', label: 'landing.pillar.build.link' },
+  },
 ];
 
 function PillarCard({ pillar, prominent }: { pillar: Pillar; prominent: boolean }) {
   const { t } = useI18n();
   return (
-    <Card
-      variant={prominent ? 'default' : 'muted'}
-      padding={prominent ? 6 : 4}
-      elevation={prominent ? 'low' : 'none'}
-    >
+    // One card style for the five pillars; the two featured ones only get more room.
+    <Card variant="muted" padding={prominent ? 6 : 4}>
       <VStack gap={3} hAlign="start">
         <HStack gap={2} wrap="wrap" vAlign="center">
           <Heading level={3}>{t(pillar.title)}</Heading>

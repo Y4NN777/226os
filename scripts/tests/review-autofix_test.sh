@@ -109,7 +109,7 @@ grep -qx 'run=false' <<<"$outputs" && [ "$(writes)" -eq 0 ] && ok "notes only (a
 
 ledger "f1:finding:LOW:open"
 run pr
-grep -qx 'run=false' <<<"$outputs" && ok "a LOW finding does not trigger the fixer" || ko "low ($outputs)"
+[ "$rc" -eq 0 ] && grep -qx 'run=true' <<<"$outputs" && grep -qx 'findings=f1' <<<"$outputs" && ok "a PR whose only open finding is LOW is fixed (auto-merge refuses any open finding): verdict fix with that id" || ko "low ($outputs)"
 
 ledger "c1:finding:CRITICAL:open f1:finding:MEDIUM:open"
 run pr
@@ -233,7 +233,9 @@ git -C "$repo" reset -q --hard HEAD~1
 for forbidden in api/openapi.yaml db/migrations/00099_x.sql docs/decisions/0011-x.md secrets/x.enc.env .github/workflows/x.yml .review-context.md .npmrc src/web/.npmrc docs/team/OWNER_PREFERENCES.md \
     docs/quality/COVERAGE_SCOPE.md docs/quality/REVIEW_CONTEXT.md scripts/review-gate.py scripts/findings.py scripts/close-merged-issues.py \
     scripts/coverage-go.sh scripts/check-docs.py Makefile mk/20-gates.mk .github/pipeline-paths.txt .github/sensitive-paths.txt \
-    .github/deep-review-paths.txt scripts/gitleaks-ignore.txt scripts/public-routes.txt scripts/unimplemented-routes.txt scripts/authz-tests.txt; do
+    .github/deep-review-paths.txt scripts/gitleaks-ignore.txt scripts/public-routes.txt scripts/unimplemented-routes.txt scripts/authz-tests.txt \
+    scripts/tests/review-comment_test.sh scripts/tests/review-comment-levels.py scripts/tests/review-automerge_test.sh scripts/tests/findings_test.sh \
+    scripts/tests/findings-settle_test.sh scripts/tests/lib.sh scripts/tests/review-agent-triggers_test.sh; do
   mkdir -p "$repo/$(dirname "$forbidden")"; echo x >>"$repo/$forbidden"; g add -f "$forbidden"; g commit -qm "fix: touch"
   check
   [ "$rc" -ne 0 ] && grep -q "$forbidden" <<<"$out" && ok "guard: $forbidden is refused (owner path)" || ko "forbidden $forbidden (rc=$rc $out)"
@@ -426,5 +428,154 @@ run body ISSUE=40 ITEMS="$items" RESULT_JSON='not json'
 
 run body ISSUE=40 ITEMS='#12' RESULT_JSON='{"outcome":"fixed","reason":"closes #7","results":[{"item":"#12","verdict":"FIXED","reason":"fixes #5 and resolves #6, see owner/repo#8"}]}'
 ! grep -qiE '(close|fix|resolve)[a-z]*:? +#[0-9]' <<<"$out" && ! grep -qE '#[5678]' <<<"$out" && ok "body: closing keywords and references written by the model are neutralised" || ko "body keywords ($out)"
+# H6 (independent review of #187): every issue reference form is neutralised, not only #N: GH-N and issue or pull URLs.
+run body ISSUE=40 ITEMS='#12' RESULT_JSON='{"outcome":"fixed","reason":"closes gh-3","results":[{"item":"#12","verdict":"FIXED","reason":"fixes GH-6 and resolves https://github.com/o/r/issues/9, closes https://github.com/o/r/pull/10"}]}'
+! grep -qiE 'gh-[0-9]' <<<"$out" && ! grep -qE 'github\.com/[^ ]*/(issues|pull)/' <<<"$out" && ok "body: GH-N and issue or pull request URLs written by the model are neutralised" || ko "body GH-N and URLs ($out)"
+# Review of 8541e46 (note-disarm-github-com): only issue and pull request URLs are disarmed; any other github.com link
+# (a file, a commit, an action) stays a working link.
+run body ISSUE=40 ITEMS='#12' RESULT_JSON='{"outcome":"fixed","reason":"ok","results":[{"item":"#12","verdict":"FIXED","reason":"see https://github.com/o/r/blob/develop/src/a.go and https://github.com/o/r/commit/abc1234, closes https://github.com/o/r/issues/9"}]}'
+grep -q 'https://github.com/o/r/blob/develop/src/a.go' <<<"$out" && grep -q 'https://github.com/o/r/commit/abc1234' <<<"$out" && ! grep -qE 'github\.com/[^ ]*/issues/' <<<"$out" && ok "body: a github.com link that is not an issue or pull request URL is kept intact" || ko "body plain link ($out)"
+
+
+# ---- the context the fixer gets (detail, fix, permalink), written to a file by the trusted script ----
+# Single issues are routed by number: $ST/issue-N.json (the fake above knows only the fixed fixtures, so this
+# section replaces it with a router that also serves them).
+python3 -I - "$tmp/bin/gh" <<'EOF'
+import sys
+p = sys.argv[1]
+s = open(p).read()
+s = s.replace('elif "/actions/runs/" in path: name = "jobs.json"',
+              'elif "/actions/runs/" in path: name = "jobs.json"\nelif __import__("re").search(r"/issues/\\d+$", path): name = "issue-%s.json" % path.rsplit("/", 1)[1]')
+open(p, "w").write(s)
+EOF
+sha_a=3333333333333333333333333333333333333333
+tok="gh""p_$(printf 'a1B2%.0s' 1 2 3 4 5 6 7 8 9)"
+python3 -I - "$tmp/st/comments.json" "$HEAD" "$sha_a" "$tok" <<'EOF'
+import json, sys
+p, head, first, tok = sys.argv[1:5]
+findings = [
+  {"id": "f1", "kind": "finding", "evidence": "OBSERVED", "sev": "MEDIUM", "file": "src/a.go", "line": 3, "scenario": "s1", "status": "open",
+   "detail": "proof one @someone <!-- x -->", "fix": "fix one", "source": "review", "first_sha": first, "location": "verified"},
+  {"id": "f2", "kind": "finding", "evidence": "OBSERVED", "sev": "MEDIUM", "file": "src/b.go", "line": 4, "scenario": "s2", "status": "open",
+   "detail": "proof two", "fix": "rotate " + tok, "source": "review", "first_sha": first, "location": "verified"},
+  {"id": "f3", "kind": "finding", "evidence": "OBSERVED", "sev": "MEDIUM", "file": "src/c.go", "line": 5, "scenario": "s3", "status": "open"}]
+body = "Triage: MEDIUM\n<!-- 226os-ai-review -->\nTool: PASS (1 files)\n\n<details><summary>Review ledger</summary>\n\n```json\n" + \
+       json.dumps({"sha": head, "findings": findings}) + "\n```\n\n</details>"
+json.dump([{"user": {"login": "github-actions[bot]"}, "updated_at": "2026-11-14T10:00:00Z", "html_url": "https://github.com/o/r/pull/7#issuecomment-5", "body": body}], open(p, "w"))
+EOF
+run context MODE=pr FINDINGS=f1,f2,f3 HEAD_SHA="$HEAD"
+ctx_py() { python3 -I -c "import json,sys; d=json.loads(sys.stdin.read()); $1" <<<"$out"; }
+[ "$rc" -eq 0 ] && ctx_py 'it={i["id"]:i for i in d["items"]}; assert sorted(it)==["f1","f2","f3"]; f=it["f1"]; assert f["fix"]=="fix one" and "proof one" in f["detail"] and f["permalink"]=="https://github.com/o/r/blob/'$sha_a'/src/a.go#L3" and f["comment"]=="https://github.com/o/r/pull/7#issuecomment-5" and f["source"]=="review"' && ok "context (pr): the planned ids, each with detail, fix, permalink, source and the review comment" || ko "context pr (rc=$rc $out)"
+ctx_py 'it={i["id"]:i for i in d["items"]}; assert "@someone" not in it["f1"]["detail"] and "<!--" not in it["f1"]["detail"] and "'"$tok"'" not in str(d) and "redacted" in it["f2"]["fix"]' && ok "context (pr): neutralised and redacted like the issues" || ko "context safety ($out)"
+ctx_py 'f={i["id"]:i for i in d["items"]}["f3"]; assert f["detail"]=="not recorded (older review)" and f["fix"]=="not recorded (older review)" and not f.get("permalink")' && ok "context (pr): an older entry says not recorded (older review)" || ko "context old ($out)"
+run context MODE=pr FINDINGS=f1 HEAD_SHA=9999999999999999999999999999999999999999
+ctx_py 'assert d["items"]==[] and "head" in d["note"]' && ok "context (pr): a ledger for another head gives no items (the stale ledger is not passed)" || ko "context stale ($out)"
+run context MODE=pr FINDINGS=f1 HEAD_SHA="$HEAD" FAKE_GH_FAIL=1
+[ "$rc" -eq 0 ] && ctx_py 'assert d["items"]==[] and "NOT RUN" in d["note"]' && ok "context: a GitHub error is NOT RUN with exit 0 and no items (the fixer still has the ids)" || ko "context fail (rc=$rc $out)"
+
+# batch: the sources of the row (also-sources included) come from the issues, boxes from their notes issue.
+python3 -I - "$tmp/st" "$tok" <<'EOF'
+import json, os, sys
+st, tok = sys.argv[1:3]
+def put(n, body, title="t", labels=()):
+    json.dump({"number": n, "state": "open", "title": title, "body": body, "labels": list(labels)}, open(os.path.join(st, "issue-%d.json" % n), "w"))
+put(40, "<!-- review-batch -->\n# Review batch\n\n- [ ] #12 x <!-- batch-also:#13,#20/n1 --> <!-- batch-item:#12 -->\n- [ ] #31 y <!-- batch-item:#31 -->\n", labels=["review-batch"])
+put(12, "<!-- finding:PR90#f12 -->\n- Where: `a.go:3`\n- Detail: the proof for twelve\n- Leak: " + tok + "\n- Fix: fix twelve <!-- evil -->\n")
+put(13, "<!-- finding:PR95#f12 -->\n- Where: `a.go:3`\n- Detail: the proof for thirteen\n")
+put(20, "<!-- finding:PR91#notes -->\n- [ ] `n1` [OBSERVED] `a.go:3` remark one\n  - detail: note proof\n  - fix: none: accept\n- [ ] `n2` [OBSERVED] `b.go:2` other\n  - detail: other proof\n")
+put(31, "<!-- finding:PR93#f31 -->\n- Detail: not in this row\n")
+EOF
+run context MODE=batch ISSUE=40 ITEMS='#12'
+ctx_py 'it={i["key"]:i for i in d["items"]}; assert sorted(it)==["#12","#13","#20/n1"], sorted(it); assert "proof for twelve" in it["#12"]["text"] and "proof for thirteen" in it["#13"]["text"] and "note proof" in it["#20/n1"]["text"] and "other proof" not in it["#20/n1"]["text"] and "not in this row" not in str(d)' && ok "context (batch): each planned item and the other sources of its row, a note by its box only" || ko "context batch (rc=$rc $out)"
+ctx_py 'assert "'"$tok"'" not in str(d) and "<!--" not in str(d)' && ok "context (batch): redacted and neutralised" || ko "context batch safety ($out)"
+run context MODE=batch ISSUE=40 ITEMS='#12' FAKE_GH_FAIL=1
+[ "$rc" -eq 0 ] && ctx_py 'assert d["items"]==[] and "NOT RUN" in d["note"]' && ok "context (batch): a GitHub error is NOT RUN, exit 0" || ko "context batch fail ($out)"
+
+# The fixer jobs check the context file against the hash written by the trusted step before the model starts.
+for wf in review-autofix review-batch; do
+  grep -q 'steps.ctx.outputs.sha' "$root/.github/workflows/$wf.yml" && grep -q 'sha256sum' "$root/.github/workflows/$wf.yml" && ok "$wf.yml: the finding context is hash-checked before the model" || ko "$wf.yml context hash"
+done
+
+# Review of PR 187: the workflows run the TRUSTED copy of the script in a directory of its own ($RUNNER_TEMP/bin). It loads
+# findings.py and review-context.py from that directory, so each workflow must put them there from the same commit.
+for wf in review-autofix review-batch; do
+  python3 -I - "$root/.github/workflows/$wf.yml" <<'EOF2' && ok "$wf.yml: the context step's directory gets review-autofix, findings and review-context from git objects of the trusted ref" || ko "$wf.yml modules beside the script"
+import re, sys
+s = open(sys.argv[1]).read()
+m = re.search(r"for module in ([\w. -]+); do\n\s*git cat-file blob \"[^\"]+:scripts/\$module\.py\" >\"\$RUNNER_TEMP/bin/\$module\.py\"\n\s*done", s)
+assert m and set(m.group(1).split()) == {"review-autofix", "findings", "review-context"}, "modules not extracted beside the script"
+EOF2
+done
+# The layout of the step: the script alone in a directory finds no module (the fixer's context is empty); with the two modules
+# beside it, the same command gives the items.
+lay="$tmp/layout-alone"; mkdir -p "$lay"; cp "$root/scripts/review-autofix.py" "$lay/"
+run_in_layout() {
+  env PATH="$tmp/bin:$PATH" ST="$tmp/st" REPO=o/r PR_NUMBER=7 AUTO_FIX=on HAS_TOKEN=true MODE=pr FINDINGS=f1 HEAD_SHA="$HEAD" python3 -I "$1/review-autofix.py" context 2>&1 || true
+}
+alone="$(run_in_layout "$lay")"
+python3 -I -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["items"]==[] and "NOT RUN" in d["note"]' "$alone" && ok "context: the script alone in its directory gives an empty context (why the modules must sit beside it)" || ko "alone layout ($alone)"
+lay2="$tmp/layout-full"; mkdir -p "$lay2"; cp "$root/scripts/review-autofix.py" "$root/scripts/findings.py" "$root/scripts/review-context.py" "$lay2/"
+full="$(run_in_layout "$lay2")"
+python3 -I -c 'import json,sys; d=json.loads(sys.argv[1]); assert [i["id"] for i in d["items"]]==["f1"] and d["items"][0]["fix"]=="fix one"' "$full" && ok "context: with findings.py and review-context.py beside the script, the fixer gets its items" || ko "full layout ($full)"
+
+
+# ---- review notes of #178 (PR170): a trailer in a patch, hand-edited sqlc output ----
+r3="$tmp/r3"
+git init -q -b develop "$r3"
+g3() { git -C "$r3" -c user.name=Y4NN77 -c user.email=fixer@example.invalid "$@"; }
+mkdir -p "$r3/src/api/internal/platform/dbgen" "$r3/db/queries"
+echo a >"$r3/src/a.go"; echo q >"$r3/db/queries/x.sql"; echo g >"$r3/src/api/internal/platform/dbgen/build.sql.go"; echo t >"$r3/src/api/internal/platform/dbgen/build_queries_test.go"
+g3 add -A; g3 commit -qm base
+base3="$(git -C "$r3" rev-parse HEAD)"
+check3() { run check BASE_SHA="$base3" WORKTREE="$r3" EXPECT_NAME=Y4NN77 EXPECT_EMAIL=fixer@example.invalid; }
+echo hand >>"$r3/src/api/internal/platform/dbgen/build.sql.go"; g3 add -A; g3 commit -qm "fix(build): edit generated"
+check3
+[ "$rc" -ne 0 ] && grep -qi 'generated' <<<"$out" && ok "guard (note-dbgen-not-owner): sqlc output changed without a db/queries change is refused" || ko "dbgen alone (rc=$rc $out)"
+echo q2 >>"$r3/db/queries/x.sql"; g3 add -A; g3 commit -qm "fix(build): query"
+check3
+[ "$rc" -eq 0 ] && ok "guard: sqlc output regenerated together with db/queries is allowed" || ko "dbgen with queries (rc=$rc $out)"
+g3 reset -q --hard "$base3"
+echo more >>"$r3/src/api/internal/platform/dbgen/build_queries_test.go"; g3 add -A; g3 commit -qm "test: dbgen test"
+check3
+[ "$rc" -eq 0 ] && ok "guard: a hand-written test in the dbgen directory is still allowed" || ko "dbgen test (rc=$rc $out)"
+
+# A trailer the action adds (settings not passed through) is dropped by the trusted apply step: the fix is not lost.
+w3="$tmp/w3"
+git clone -q "$r3" "$w3"
+wb3="$(git -C "$w3" rev-parse HEAD)"
+echo fix >>"$r3/src/a.go"
+git -C "$r3" -c user.name=claude -c user.email=x@y commit -qam "fix(solve): trailer
+
+Real body line.
+
+Generated with Claude Code
+
+Co-Authored-By: Claude <noreply@anthropic.com>"
+pd3="$tmp/pd3"; git -C "$r3" format-patch -q -o "$pd3" "$wb3..HEAD"
+run apply GITHUB_WORKFLOW="autofix-test" GITHUB_RUN_ID=4242 PATCH_DIR="$pd3" WORKTREE="$w3" EXPECT_NAME=Y4NN77 EXPECT_EMAIL=fixer@example.invalid
+msg="$(git -C "$w3" log -1 --format=%B)"
+[ "$rc" -eq 0 ] && grep -q 'Real body line' <<<"$msg" && ! grep -qi 'co-authored\|generated with' <<<"$msg" && ok "apply (note settings-flag-passthrough): an AI trailer or Generated with line in a patch message is dropped, the body is kept" || ko "apply trailer (rc=$rc $out $msg)"
+# Review of PR 185: every commit the trusted apply step makes carries a provenance trailer (never an AI attribution), so
+# review-automerge.py never treats it as owner-authored; it is set from the runner's workflow and run, never by the model.
+tr="$(git -C "$w3" log -1 --format=%B | grep '^Review-Pipeline: ' || true)"
+[ "$tr" = "Review-Pipeline: autofix-test/4242" ] && ok "apply: the commit carries Review-Pipeline: <workflow>/<run_id> from GITHUB_WORKFLOW and GITHUB_RUN_ID" || ko "pipeline trailer ($tr)"
+run check BASE_SHA="$wb3" WORKTREE="$w3" EXPECT_NAME=Y4NN77 EXPECT_EMAIL=fixer@example.invalid
+[ "$rc" -eq 0 ] && ok "apply: the commit with the dropped trailer and the Review-Pipeline trailer passes the guard (the fix is not lost)" || ko "apply then check trailer (rc=$rc $out)"
+
+
+# H6 (independent review of #187): a commit message from the fixer lands on develop, the default branch, where GitHub acts
+# on closing keywords: every issue reference form in the subject and body is neutralised by the trusted apply step.
+w4="$tmp/w4"
+git clone -q "$r3" "$w4"
+echo refs >>"$r3/src/a.go"
+git -C "$r3" -c user.name=claude -c user.email=x@y commit -qam "fix(solve): closes #5 and gh-6
+
+Resolves owner/repo#7, fixes https://github.com/o/r/issues/8 and closes https://github.com/o/r/pull/9.
+Context: https://github.com/o/r/blob/develop/src/a.go"
+pd4="$tmp/pd4"; git -C "$r3" format-patch -q -o "$pd4" HEAD~1..HEAD
+run apply GITHUB_WORKFLOW="autofix-test" GITHUB_RUN_ID=4243 PATCH_DIR="$pd4" WORKTREE="$w4" EXPECT_NAME=Y4NN77 EXPECT_EMAIL=fixer@example.invalid
+msg="$(git -C "$w4" log -1 --format=%B)"
+[ "$rc" -eq 0 ] && ! grep -qE '#[0-9]' <<<"$msg" && ! grep -qiE 'gh-[0-9]' <<<"$msg" && ! grep -qE 'github\.com/[^ ]*/(issues|pull)/' <<<"$msg" && grep -q '^Review-Pipeline: autofix-test/4243$' <<<"$msg" && ok "apply: issue references (#N, GH-N, owner/repo#N, issue and pull URLs) in a fixer commit message are neutralised, the trailer kept" || ko "apply refs (rc=$rc $out $msg)"
+grep -q '^Context: https://github.com/o/r/blob/develop/src/a.go$' <<<"$msg" && ok "apply: a github.com link that is not an issue or pull request URL is kept intact in the commit message" || ko "apply plain link ($msg)"
 
 finish

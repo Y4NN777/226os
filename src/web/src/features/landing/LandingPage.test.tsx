@@ -72,10 +72,16 @@ describe('LandingPage', () => {
     ]);
     const link = main.getByRole('link', { name: 'Ouvrir le catalogue' });
     expect(link).toHaveAttribute('href', '/discover');
-    expect(main.getAllByText('Bientôt')).toHaveLength(4);
-    for (const name of ['Apprendre', 'Connect', 'Résoudre', 'Construire']) {
-      expect(main.queryByRole('link', { name: new RegExp(name) })).not.toBeInTheDocument();
+    // Every built pillar links to its page; only Connect is still announced.
+    for (const [name, href] of [
+      ['Lire les articles et les formations', '/apprendre'],
+      ['Voir les questions', '/solve'],
+      ['Voir les projets', '/build'],
+    ] as const) {
+      expect(main.getByRole('link', { name })).toHaveAttribute('href', href);
     }
+    expect(main.getAllByText('Bientôt')).toHaveLength(1);
+    expect(main.queryByRole('link', { name: /Connect/ })).not.toBeInTheDocument();
   });
 
   it('searches the catalogue with a trimmed, capped query and ignores an empty one', async () => {
@@ -169,6 +175,6 @@ describe('LandingPage', () => {
       'href',
       '/inscription',
     );
-    expect(main.getAllByText('Soon')).toHaveLength(4);
+    expect(main.getAllByText('Soon')).toHaveLength(1);
   });
 });
