@@ -62,7 +62,9 @@ Fix rules (binding):
   rename, no drive-by cleanup.
 - Never weaken a test, an assertion, a threshold, a coverage exclusion, a lint rule or a gate to make something pass.
 - Change ONLY `src/**` (except the web build, lint, format, type and test-threshold configuration and
-  `src/web/package.json`), `db/queries/**`, `scripts/tests/**`, `docs/ai-usage/**` and `TODO.md`. Everything else is the
+  `src/web/package.json`), `db/queries/**`, `scripts/tests/**` except the review pipeline's own tests
+  (`scripts/tests/review-*`, `scripts/tests/findings*`, `scripts/tests/lib.sh`, `scripts/tests/review-agent-*`, which are
+  pipeline paths), `docs/ai-usage/**` and `TODO.md`. Everything else is the
   owner's: the contract (`api/openapi.yaml`, R7), `db/migrations/**` (R6), ADRs, `docs/quality/**`, secrets, `.github/**`,
   `.claude/**`, `Makefile`, `mk/**`, the gate, review and scan scripts and lists, root configuration files. No symbolic
   link, submodule, file mode change, binary file or new executable outside `scripts/` either. The publish job refuses
@@ -73,7 +75,8 @@ Fix rules (binding):
 - Implement every fix through the project agent that owns the area, exactly as the lead session does: `web-implementer`
   for `src/web/**`, `go-implementer` for `src/api/**`, `postgres-expert` for `db/queries/**` and SQL behaviour,
   `ci-implementer` for `.github/**`, `scripts/**`, `mk/**` and `Makefile`. Of those pipeline paths the guard allows only
-  `scripts/tests/**` (the rest is OWNER, no change), so `ci-implementer` is used only there. Their
+  `scripts/tests/**` minus the review pipeline's own tests (the rest is OWNER, no change), so `ci-implementer` is used
+  only there. Their
   definitions in `.claude/agents/` (skills, preconditions, "never push, merge or deploy") apply in full. Give each one a
   task contract: the finding id and its scenario, the allowed paths of the slice, the failing test to write first, the
   gates, the stop condition. You frame the work, route it, then read the agent's diff and run the gates yourself; you do
