@@ -58,6 +58,10 @@ docs-check: doctor ## G1: documentation checks (relative links, no private paths
 	python3 -I scripts/check-docs.py
 	python3 -I scripts/ai-usage.py check --only-on-promotion
 
+.PHONY: test-harness
+test-harness: doctor ## G1: the Claude Code harness tests (.claude/hooks/tests: skill hooks, agent inventory)
+	python3 -I -m unittest discover -s .claude/hooks/tests
+
 typecheck: doctor ## G1: tsc --noEmit (strict) for web, go build ./...
 	pnpm --filter web run typecheck
 	go build ./...

@@ -5,9 +5,9 @@
 #
 # QUALITY_STEPS is a plain variable so a test can inject steps on the command line in a scratch copy;
 # CI never overrides it. The default list is G1 to G4: doctor generate lint typecheck test-unit coverage
-# test-integration security licenses docs-check.
+# test-integration security licenses docs-check test-harness.
 
-QUALITY_STEPS := doctor generate lint typecheck test-unit coverage test-integration security licenses docs-check
+QUALITY_STEPS := doctor generate lint typecheck test-unit coverage test-integration security licenses docs-check test-harness
 
 quality: ## G1 to G4 aggregate: every step runs, per-step PASS/FAIL summary, non-zero if any step failed
 	@scripts/quality.sh $(MAKE_BIN) quality $(QUALITY_STEPS)
@@ -22,7 +22,7 @@ quality-full: ## quality plus test-e2e and perf (G5, G6); fails by design while 
 # forgotten in the other fails the test. `make quality` stays the sequential local definition of done.
 # The `repo` group is the only one that also runs for a documentation-only change (scripts/ci-scope.sh); a gate that
 # starts reading a documentation path must be added to the `full` cases there.
-CI_GROUPS := static lint-go lint-contract lint-web lint-scripts unit integration-go integration-containers security images repo
+CI_GROUPS := static lint-go lint-contract lint-web lint-scripts unit integration-go integration-containers security images repo harness
 CI_STEPS_static := doctor generate typecheck
 CI_STEPS_lint-go := doctor lint-go
 CI_STEPS_lint-contract := doctor lint-contract
@@ -34,6 +34,7 @@ CI_STEPS_integration-containers := doctor test-integration-containers
 CI_STEPS_security := doctor security-authz security-govulncheck security-sast security-js-audit security-sast-js
 CI_STEPS_images := doctor security-images
 CI_STEPS_repo := doctor security-secrets-encrypted security-secrets licenses docs-check
+CI_STEPS_harness := doctor test-harness
 
 QUALITY_LEAF_STEPS = $(foreach s,$(QUALITY_STEPS),$(if $(filter $(s),lint),$(LINT_STEPS),$(if $(filter $(s),test-integration),$(TEST_INTEGRATION_STEPS),$(if $(filter $(s),security),$(SECURITY_STEPS),$(s)))))
 
