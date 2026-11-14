@@ -2,6 +2,7 @@ import * as discover from '../features/discover/messages';
 import * as home from '../features/home/messages';
 import * as identity from '../features/identity/messages';
 import * as landing from '../features/landing/messages';
+import * as learn from '../features/learn/messages';
 import * as search from '../features/search/messages';
 import * as solve from '../features/solve/messages';
 
@@ -38,6 +39,7 @@ const core = {
   'account.signIn': 'Se connecter',
   'account.signUp': 'Créer un compte',
   'account.signOut': 'Se déconnecter',
+  'account.write': 'Écrire un article',
   'account.settings': 'Réglages',
   'account.menu': 'Compte de {name}',
   'account.more': 'Plus d’options',
@@ -127,6 +129,7 @@ const coreEn: Record<keyof typeof core, string> = {
   'account.signIn': 'Sign in',
   'account.signUp': 'Create an account',
   'account.signOut': 'Sign out',
+  'account.write': 'Write an article',
   'account.settings': 'Settings',
   'account.menu': '{name}’s account',
   'account.more': 'More options',
@@ -200,6 +203,7 @@ const fr = {
   ...core,
   ...identity.fr,
   ...discover.fr,
+  ...learn.fr,
   ...search.fr,
   ...landing.fr,
   ...home.fr,
@@ -212,6 +216,7 @@ const en: Record<MessageKey, string> = {
   ...coreEn,
   ...identity.en,
   ...discover.en,
+  ...learn.en,
   ...search.en,
   ...landing.en,
   ...home.en,
@@ -225,6 +230,7 @@ export const frenchParts: readonly Record<string, string>[] = [
   core,
   identity.fr,
   discover.fr,
+  learn.fr,
   search.fr,
   landing.fr,
   home.fr,
