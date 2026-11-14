@@ -3,14 +3,12 @@ package transport
 
 import (
 	"encoding/json"
-	"errors"
 	"log/slog"
 	"net/http"
 
 	"github.com/google/uuid"
 
 	"github.com/Y4NN777/226os/src/api/internal/platform/apigen"
-	"github.com/Y4NN777/226os/src/api/internal/platform/apperr"
 	"github.com/Y4NN777/226os/src/api/internal/platform/etag"
 	"github.com/Y4NN777/226os/src/api/internal/platform/httpx"
 	"github.com/Y4NN777/226os/src/api/internal/platform/subject"
@@ -283,10 +281,8 @@ func writeJSON(w http.ResponseWriter, status int, body any) {
 	_ = json.NewEncoder(w).Encode(body)
 }
 
+// fail writes the problem+json of err; httpx.WriteError turns anything that is not an *apperr.Error
+// into a generic 500 and logs the cause.
 func (h *Handler) fail(w http.ResponseWriter, r *http.Request, err error) {
-	var ae *apperr.Error
-	if !errors.As(err, &ae) {
-		ae = apperr.Wrap(apperr.CodeInternal, err)
-	}
-	httpx.WriteError(h.logger)(w, r, ae)
+	httpx.WriteError(h.logger)(w, r, err)
 }
