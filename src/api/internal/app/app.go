@@ -12,6 +12,8 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/Y4NN777/226os/src/api/internal/build"
+	"github.com/Y4NN777/226os/src/api/internal/build/github"
 	"github.com/Y4NN777/226os/src/api/internal/discover"
 	"github.com/Y4NN777/226os/src/api/internal/identity/repository"
 	"github.com/Y4NN777/226os/src/api/internal/identity/service"
@@ -96,6 +98,7 @@ func run(ctx context.Context, getenv func(string) string, out io.Writer, serve s
 		WithIdentity(authHandler),
 		WithSearch(search.NewHandler(pool, limiter, logger)),
 		WithLearn(learn.NewHandler(pool, codec, limiter, logger)),
+		WithBuild(build.NewHandler(pool, github.New(), codec, limiter, logger)),
 	)
 	deps.Subjects = identitytransport.NewResolver(identSvc, secureCookies)
 	deps.CSRF = identitytransport.CSRFMiddleware(identSvc, secureCookies, logger)

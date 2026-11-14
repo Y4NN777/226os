@@ -1,0 +1,16 @@
+## S5 Build PR 1: projects and contribution needs
+
+```yaml
+date: "2026-11-14"
+contributor: "mibienpanjoe"
+tool_or_model: "Claude Code, Claude Opus 5.5 (main session, no subagents)"
+purpose: "S5 Build, first PR: listProjects (public plus the caller's own private projects, q/technology/skill/open_needs filters, keyset cursor bound to viewer and filters), createProject (verified email, GitHub URL normaliser and allowlist, duplicate URL 409 checked before any GitHub call, write:user and 10-per-hour import budgets failing closed, read-only GitHub adapter with a post-DNS dial check refusing non-public addresses and non-443 ports, no redirects, no proxy, timeouts and a 1 MiB body cap), getProject (private 404 to everyone but the owner), updateProject (owner only on the locked row: 403 public, 404 private; github_url immutable; technologies replaced, links added), listContributionNeeds (follows project visibility), createContributionNeed (owner only, verified email); C1 owner-only corrections in AUTHORIZATION_MATRIX.md and DATABASE_DESIGN.md."
+repository_or_source_context: "branch feature/build/projects-needs"
+files_or_sections_affected: ["db/queries/build.sql", "src/api/internal/platform/dbgen/build.sql.go", "src/api/internal/platform/dbgen/build_queries_test.go", "src/api/internal/build/**", "src/api/internal/app/server.go", "src/api/internal/app/app.go", "src/api/internal/app/build_internal_test.go", "src/api/internal/platform/pgtest/build_integration_test.go", "src/api/internal/platform/pgtest/build_stack_integration_test.go", "scripts/public-routes.txt", "scripts/unimplemented-routes.txt", "scripts/authz-tests.txt", "docs/spec-kit/AUTHORIZATION_MATRIX.md", "docs/spec-kit/DATABASE_DESIGN.md", "TODO.md", "docs/ai-usage/2026-11-14-s5-projects-needs.md"]
+third_party_sources_consulted: ["GitHub REST API repository endpoint shape (name, full_name, description, private), from general knowledge; no code copied"]
+license_review: "NOT APPLICABLE: original code, no new dependency"
+closure: "open"
+human_reviewers: ["NICE-DEV226 (pending)"]
+tests_or_evidence: ["RED: domain normaliser tests failed on behaviour against a stub; GitHub adapter tests failed against a stub; the Build pgtest tests answered 501 before the handler was wired", "GREEN: go test -race on internal/build/... and the dbgen contract test", "pgtest on real PostgreSQL: registration, idempotent replay, duplicate 409 without GitHub call, 422/503 mapping, link rollback, concurrent registration (one 201, one 409, one row), visibility matrix, maintainer row grants nothing, needs, filters, 10/hour import limit, pagination, EXPLAIN plans", "make generate, lint-go, lint-contract, security-authz, security-sast, docs-check, coverage (Go first-party 100.0%)"]
+open_risks: ["GitHub is called without a token: 60 requests per hour per server IP, shared by every user; a token is an owner secret and decision", "repository renames are refused (redirects are not followed); the owner re-submits the new URL", "a private project's GitHub URL still blocks the same URL for others (existence oracle accepted at P0, DATABASE_DESIGN section 10)", "the composition root, pgtest, dbgen tests and route lists are outside the S5 allowed paths as written (same as S4; owner agreement asked on the PR)"]
+```

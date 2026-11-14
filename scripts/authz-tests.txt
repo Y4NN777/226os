@@ -16,3 +16,6 @@ GET /api/v1/me TestAuthzGetMeAnonymous   # member only: anonymous callers get 40
 PATCH /api/v1/me/profile TestAuthzUpdateMyProfileAnonymous   # member only + CSRF: anonymous callers get 401
 POST /api/v1/resources/{resourceId}/error-reports TestAuthzCreateResourceErrorReportAnonymous   # member with a verified email: anonymous 401, unverified 403
 POST /api/v1/learn/articles TestAuthzCreateLearnArticleAnonymous   # member + CSRF: anonymous 401 (also for a draft), unverified member publishing 403, nothing created
+POST /api/v1/projects TestAuthzCreateProjectAnonymous   # member with a verified email + CSRF: anonymous 401, unverified 403, nothing created, GitHub never called
+PATCH /api/v1/projects/{projectId} TestAuthzUpdateProjectNonOwner   # owner only (C1): anonymous 401, non-owner and moderator 403 on a public project and 404 on a private one, nothing written
+POST /api/v1/projects/{projectId}/contribution-needs TestAuthzCreateContributionNeedNonOwner   # owner only (C1): anonymous 401, unverified 403, non-owner 403 public / 404 private, nothing created
