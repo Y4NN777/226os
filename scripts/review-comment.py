@@ -48,7 +48,7 @@ carried forward), `location` (verified, mismatch or unverified: the file exists 
 git objects from LOCATION_REPO, else the current directory, else `pr/`) and `redacted`. `detail`, `fix` and the
 scenario are cut, neutralised (no @mention, `#N` disarmed with a zero-width space, no HTML, one line) and replaced by
 "[redacted: looked like a secret]" when they match a secret shape; the `id` is neutralised the same way (at most 40
-characters) and `file` is kept only as a plain path (`^[\w./@+-]{1,300}$`, else empty). The status and sev are stored
+characters) and `file` is kept only as a plain path (FILE_OK: letters, digits and `_./@+-`, at most 300, else empty). The status and sev are stored
 normalised (norm_status, norm_sev).
 
 Subcommand `deep` (stage 2): merges the deep review's structured output (DEEP_JSON: level, blast_radius, summary,
@@ -880,6 +880,11 @@ def merge_deep(base, data, why, head):
                 old = before.get(e["id"]) or {}
                 if FULL_SHA.match(str(old.get("first_sha") or "")) and old.get("file") == e["file"] and old.get("line") == e["line"]:
                     e["first_sha"], e["location"] = old["first_sha"], old.get("location", e.get("location", "unverified"))
+                if old and str(old.get("kind", "finding")).lower() != "note" and status_of(old) != "fixed" and e["status"] != "fixed":
+                    # I3, as in refine_entry: while a deep finding is not fixed, a re-list (an open note, an answered or
+                    # accepted LOW) never lowers its severity nor turns it into a note.
+                    e["kind"] = "finding"
+                    e["sev"] = max(e["sev"], norm_sev(old.get("sev")), key=lambda v: SEV_RANK[v])
                 standalone.append(e)
                 continue
             if STATUS_RANK[e["status"]] > STATUS_RANK.get(s1.get("status"), 0):

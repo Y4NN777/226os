@@ -582,10 +582,11 @@ def cmd_prepare():
 def disarm_refs(text):
     """Every issue reference form GitHub acts on, broken with a zero-width space, so no closing keyword can close or link
     anything: `#5` and `owner/repo#5` (`#\u200b5`), `GH-5` (`GH-\u200b5`), and issue or pull request URLs
-    (`github\u200b.com`)."""
+    (`github.com/<owner>/<repo>/issues/<n>` or `/pull/<n>` become `github\u200b.com/...`). Any other github.com link (a
+    file, a commit) is left working."""
     text = re.sub(r"#(?=\d)", "#" + ZWSP, str(text or ""))
     text = re.sub(r"(?i)\b(gh)-(?=\d)", lambda m: m.group(1) + "-" + ZWSP, text)
-    return re.sub(r"(?i)\bgithub\.com", lambda m: m.group(0)[:6] + ZWSP + m.group(0)[6:], text)
+    return re.sub(r"(?i)\bgithub\.com(?=/[\w.-]+/[\w.-]+/(?:issues|pull)/\d)", lambda m: m.group(0)[:6] + ZWSP + m.group(0)[6:], text)
 
 
 def cell(text, width=300):

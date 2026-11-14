@@ -431,6 +431,10 @@ run body ISSUE=40 ITEMS='#12' RESULT_JSON='{"outcome":"fixed","reason":"closes #
 # H6 (independent review of #187): every issue reference form is neutralised, not only #N: GH-N and issue or pull URLs.
 run body ISSUE=40 ITEMS='#12' RESULT_JSON='{"outcome":"fixed","reason":"closes gh-3","results":[{"item":"#12","verdict":"FIXED","reason":"fixes GH-6 and resolves https://github.com/o/r/issues/9, closes https://github.com/o/r/pull/10"}]}'
 ! grep -qiE 'gh-[0-9]' <<<"$out" && ! grep -qE 'github\.com/[^ ]*/(issues|pull)/' <<<"$out" && ok "body: GH-N and issue or pull request URLs written by the model are neutralised" || ko "body GH-N and URLs ($out)"
+# Review of 8541e46 (note-disarm-github-com): only issue and pull request URLs are disarmed; any other github.com link
+# (a file, a commit, an action) stays a working link.
+run body ISSUE=40 ITEMS='#12' RESULT_JSON='{"outcome":"fixed","reason":"ok","results":[{"item":"#12","verdict":"FIXED","reason":"see https://github.com/o/r/blob/develop/src/a.go and https://github.com/o/r/commit/abc1234, closes https://github.com/o/r/issues/9"}]}'
+grep -q 'https://github.com/o/r/blob/develop/src/a.go' <<<"$out" && grep -q 'https://github.com/o/r/commit/abc1234' <<<"$out" && ! grep -qE 'github\.com/[^ ]*/issues/' <<<"$out" && ok "body: a github.com link that is not an issue or pull request URL is kept intact" || ko "body plain link ($out)"
 
 
 # ---- the context the fixer gets (detail, fix, permalink), written to a file by the trusted script ----
@@ -566,10 +570,12 @@ git clone -q "$r3" "$w4"
 echo refs >>"$r3/src/a.go"
 git -C "$r3" -c user.name=claude -c user.email=x@y commit -qam "fix(solve): closes #5 and gh-6
 
-Resolves owner/repo#7, fixes https://github.com/o/r/issues/8 and closes https://github.com/o/r/pull/9."
+Resolves owner/repo#7, fixes https://github.com/o/r/issues/8 and closes https://github.com/o/r/pull/9.
+Context: https://github.com/o/r/blob/develop/src/a.go"
 pd4="$tmp/pd4"; git -C "$r3" format-patch -q -o "$pd4" HEAD~1..HEAD
 run apply GITHUB_WORKFLOW="autofix-test" GITHUB_RUN_ID=4243 PATCH_DIR="$pd4" WORKTREE="$w4" EXPECT_NAME=Y4NN77 EXPECT_EMAIL=fixer@example.invalid
 msg="$(git -C "$w4" log -1 --format=%B)"
 [ "$rc" -eq 0 ] && ! grep -qE '#[0-9]' <<<"$msg" && ! grep -qiE 'gh-[0-9]' <<<"$msg" && ! grep -qE 'github\.com/[^ ]*/(issues|pull)/' <<<"$msg" && grep -q '^Review-Pipeline: autofix-test/4243$' <<<"$msg" && ok "apply: issue references (#N, GH-N, owner/repo#N, issue and pull URLs) in a fixer commit message are neutralised, the trailer kept" || ko "apply refs (rc=$rc $out $msg)"
+grep -q '^Context: https://github.com/o/r/blob/develop/src/a.go$' <<<"$msg" && ok "apply: a github.com link that is not an issue or pull request URL is kept intact in the commit message" || ko "apply plain link ($msg)"
 
 finish
