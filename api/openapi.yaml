@@ -431,6 +431,8 @@ paths:
                 $ref: '#/components/schemas/PublicProfile'
         '404':
           $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
         '429':
           $ref: '#/components/responses/TooManyRequests'
         '500':
