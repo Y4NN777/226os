@@ -18,9 +18,9 @@ One line per person. Each person edits only their own line.
 | Login | Next action | Updated |
 |---|---|---|
 | `Y4NN777` | Merged: S3 (#147, #153), S9 (#161, #169, #176; ADR-0012 accepted), the S7 pages (#99 to #102, #144, #149, #154, #173, #177). Next, per the 12:00 checkpoint (ROADMAP section 14): S6 moderation after the web lanes, the `connect` page if the E5 backend merges by 16:30, the 18:00 freeze, then the release (S8, B4). Owner tasks: H6 and H7, H12 (V2), H10, issue #46, `APP_BASE_URL` per environment (#109). | 2026-11-14 |
-| `NICE-DEV226` | Identity confirmed (H1 done). S0 is merged: start S1 (RED tests for the domain and service with fakes, then the handlers on the merged S0 base). Then S3; then help on S5 (default), the S9 second developer, and the E5 backend if time allows. | 2026-11-12 |
-| `mibienpanjoe` | S2, S4 and S5 merged (S5: #131, #132). Now: reviews for the team before the freeze, then the after-freeze items (#135, #116 C14b follow-ups, the S4 article-link deviation). | 2026-11-14 |
-| `PANK4SS` | Identity confirmed (H1 done). **Accept the repository invitation (H2) before pushing.** S7 shell, i18n, shared components and pillar navigation on typed fixtures from `src/web/src/api/schema.d.ts`; SEED fixtures (`local-dev` only, C15). Later E4, the E5 UI, on-demand support. | 2026-11-12 |
+| `NICE-DEV226` | S1 merged (#89, #90, #94); S3 finished (#147, #153, fix #160). Now (owner sync, 12:00 checkpoint): E5 Connect is offered on #77 (contract by 13:30, backend by 16:30), then reviews before the freeze. | 2026-11-14 |
+| `mibienpanjoe` | S2, S4 and S5 merged (S5: #131, #132; #135 closed by #164). Now: reviews for the team before the freeze, then the after-freeze items (#116 C14b follow-ups, the S4 article-link deviation). | 2026-11-14 |
+| `PANK4SS` | Repository access active (H2 done). S7 pages are built by `Y4NN777` since 2026-11-13; `PANK4SS` reviews them. Now (owner sync, 12:00 checkpoint): SEED (#75) and #109 (APP_BASE_URL is the owner's), then E4 support. | 2026-11-14 |
 
 ## Open CADEV checklist and owner decisions
 

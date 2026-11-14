@@ -19,7 +19,7 @@
 **Scope**
 
 - **The full P0.** These are the 44 operations with `x-priority: P0` in `api/openapi.yaml` (48 in total with the four P1), moderation and the assistant included, and 45 once the E5 contract PR is accepted. No cut line is agreed in advance.
-- **S9, grounded AI assistant.** It is P0 by an owner decision taken 2026-11-12 ("AI first"). It amends `docs/PRD.md` 5.8, where the sourced assistant is P2. Its operations are **not yet** in `api/openapi.yaml`. It may not be claimed until the owner applies PRD amendment 3.2 and a SPEC story exists (`docs/PRD.md`, "Traçabilité produit"; `docs/SPEC.md` section 1). 2026-11-14: these conditions are met: `askAssistant` is in the contract (PR #81), amendment 3.2 is applied, and US-INTEL-001 is in SPEC.md (PR #176); ADR-0012 is accepted.
+- **S9, grounded AI assistant.** It is P0 by an owner decision taken 2026-11-12 ("AI first"). It amends `docs/PRD.md` 5.8, where the sourced assistant is P2. It could be claimed only once PRD amendment 3.2 was applied and a SPEC story existed (`docs/PRD.md`, "Traçabilité produit"; `docs/SPEC.md` section 1). 2026-11-14: these conditions are met: `askAssistant` is in the contract (PR #81), amendment 3.2 is applied, and US-INTEL-001 is in SPEC.md (PR #176); ADR-0012 is accepted.
 - **S10, live channels.** Conditional ("channels if on track"). It is built only if the Sat 12:00 checkpoint shows S0 to S5 on track. Otherwise it stays P2 and is reported as not built. 2026-11-14: **NOT BUILT (P2)**, decided at the 12:00 checkpoint (section 14).
 - **Product-review additions** (accepted by the owner on 2026-11-12):
   - **E1:** S9 teaching rules AI-1 to AI-5, AI-9 and AI-10 become acceptance tests plus the golden set.
