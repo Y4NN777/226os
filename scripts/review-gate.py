@@ -78,12 +78,18 @@ def gh_api(gh, endpoint):
 def latest_verdict(comments):
     """(level, body) of the review comment's verdict, or None. The bot comment with the marker MARKER (the one review
     comment, scripts/review-comment.py) wins; without one (an older pull request), the most recently UPDATED bot
-    verdict, so a stale duplicate created later never wins. When a marker comment exists it is the only candidate: its
+    verdict, so a stale duplicate created later never wins. When marker comments exist (one per run), the newest
+    created one is the only candidate: its
     `Triage: NOT RUN` (the review gave no result) is no verdict, and an older duplicate is never used instead."""
     bots = [c for c in comments if (c.get("user") or {}).get("login") in BOT_LOGINS]
     marked = [c for c in bots if MARKER in (c.get("body") or "")]
+    if marked:
+        # One comment per run: the newest CREATED marker comment is the only candidate (older runs are minimized).
+        newest = max(marked, key=lambda c: (c.get("created_at") or c.get("updated_at") or "", c.get("id") or 0))
+        m = VERDICT.match((newest.get("body") or "").strip().splitlines()[0] if (newest.get("body") or "").strip() else "")
+        return (m.group(1), newest.get("body") or "") if m else None
     best = None
-    for c in marked or bots:
+    for c in bots:
         body = c.get("body") or ""
         first = body.strip().splitlines()[0] if body.strip() else ""
         m = VERDICT.match(first)
