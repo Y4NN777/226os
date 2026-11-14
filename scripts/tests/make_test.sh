@@ -172,10 +172,10 @@ else ko "quality-full (rc=$rc, out=$out)"; fi
 # Default step list covers G1-G4 (dry run: the driver is not executed).
 dry="$(mk "$root" env -i PATH="$PATH" HOME="$HOME" make -n quality 2>&1)" || true
 miss=""
-for s in doctor generate lint typecheck test-unit coverage test-integration security licenses docs-check; do
+for s in doctor generate lint typecheck test-unit coverage test-integration security licenses docs-check test-harness; do
   grep -qE "(^|[[:space:]])$s([[:space:]]|$)" <<<"$dry" || miss+=" $s"
 done
-[ -z "$miss" ] && ok "default quality steps cover G1-G4 (doctor generate lint typecheck test-unit coverage test-integration security licenses docs-check)" || ko "quality default steps missing:$miss"
+[ -z "$miss" ] && ok "default quality steps cover G1-G4 (doctor generate lint typecheck test-unit coverage test-integration security licenses docs-check test-harness)" || ko "quality default steps missing:$miss"
 dry="$(mk "$root" env -i PATH="$PATH" HOME="$HOME" make -n quality-full 2>&1)" || true
 grep -qE '(^|[[:space:]])test-e2e([[:space:]]|$)' <<<"$dry" && grep -qE '(^|[[:space:]])perf([[:space:]]|$)' <<<"$dry" && ok "quality-full adds test-e2e and perf" || ko "quality-full default steps"
 
@@ -238,6 +238,12 @@ done
 ok "every CI group runs through the fail-closed driver, doctor first"
 docs_steps="$({ mk "$root" env -i PATH="$PATH" HOME="$HOME" make -s ci-steps SCOPE_GROUPS=repo 2>/dev/null || true; } | tr ' ' '\n' | sed '/^$/d' | sort -u | tr '\n' ' ')"
 [ "$docs_steps" = "docs-check doctor licenses security-secrets security-secrets-encrypted " ] && ok "SCOPE_GROUPS=repo narrows the expected steps to the repository group" || ko "docs-scope steps: [$docs_steps]"
+# The harness tests (.claude/hooks/tests) are a gate: removing `test-harness` from QUALITY_STEPS or the `harness` group
+# from CI_GROUPS must not pass silently (the leaf-steps comparison above stays consistent when both are removed).
+case " $groups " in *" harness "*) ok "the harness CI group is listed";; *) ko "the harness CI group is not in CI_GROUPS ($groups)";; esac
+harness_steps="$({ mk "$root" env -i PATH="$PATH" HOME="$HOME" make -s ci-steps SCOPE_GROUPS=harness 2>/dev/null || true; } | tr ' ' '\n' | sed '/^$/d' | sort -u | tr '\n' ' ')"
+[ "$harness_steps" = "doctor test-harness " ] && ok "the harness CI group runs doctor and test-harness" || ko "harness group steps: [$harness_steps]"
+case " $(steps_of quality-leaf-steps)" in *" test-harness "*) ok "make quality runs test-harness";; *) ko "test-harness is not a leaf step of make quality";; esac
 run_make make ci-no-such-group
 [ "$rc" -ne 0 ] && ok "an unknown CI group fails (no steps is not a pass)" || ko "unknown CI group passed (rc=$rc, out=$out)"
 

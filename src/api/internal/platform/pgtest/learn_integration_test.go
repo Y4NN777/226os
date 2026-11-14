@@ -400,6 +400,16 @@ func TestFreeSeriesContentScript(t *testing.T) {
 	if series, articles := count(); series != 1 || articles != 4 {
 		t.Fatalf("second run changed data: %d series, %d articles", series, articles)
 	}
+	// A series loaded by an earlier version of the script, under another title, still blocks a new run.
+	if _, err := s.conn.Exec(ctx, `UPDATE training_series SET title = 'Bien démarrer avec l''IA générative'`); err != nil {
+		t.Fatal(err)
+	}
+	if err := run("learn-owner"); err == nil || !strings.Contains(err.Error(), "already exists") {
+		t.Fatalf("run after a retitled series: %v", err)
+	}
+	if series, articles := count(); series != 1 || articles != 4 {
+		t.Fatalf("run after a retitled series changed data: %d series, %d articles", series, articles)
+	}
 	var demo int
 	if err := s.conn.QueryRow(ctx, `SELECT (SELECT count(*) FROM training_series WHERE provenance <> 'live') + (SELECT count(*) FROM learn_articles WHERE provenance <> 'live')`).Scan(&demo); err != nil || demo != 0 {
 		t.Fatalf("non-live rows %d, %v", demo, err)

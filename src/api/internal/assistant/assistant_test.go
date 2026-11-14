@@ -26,7 +26,11 @@ func (s *searcher) Search(_ context.Context, req searchservice.Request) (searchs
 }
 
 func hit(g searchdomain.Group, id, snippet string) searchdomain.Hit {
-	return searchdomain.Hit{Type: g, ID: id, Title: "T " + id, Snippet: snippet}
+	h := searchdomain.Hit{Type: g, ID: id, Title: "T " + id, Snippet: snippet}
+	if id == "q1" {
+		h.PublishedAt = time.Date(2026, 11, 2, 9, 0, 0, 0, time.UTC)
+	}
+	return h
 }
 
 func TestRetrieveSearchesAsAMemberWithAnOrQuery(t *testing.T) {
@@ -77,7 +81,10 @@ func TestRetrieveTakesOneHitPerGroupInTurnAndCapsText(t *testing.T) {
 	if n := len([]rune(got[0].Text)); n > 1500 {
 		t.Fatalf("passage has %d runes", n)
 	}
-	want := map[string][2]string{"q1": {"question", "/questions/q1"}, "r1": {"resource", "/discover/r1"}, "p1": {"project", "/recherche?q=T+p1"}, "a1": {"article", "/recherche?q=T+a1"}}
+	want := map[string][2]string{"q1": {"question", "/questions/q1"}, "r1": {"resource", "/discover/r1"}, "p1": {"project", "/build/p1"}, "a1": {"article", "/apprendre/articles/a1"}}
+	if !got[0].PublishedAt.Equal(time.Date(2026, 11, 2, 9, 0, 0, 0, time.UTC)) || !got[1].PublishedAt.IsZero() {
+		t.Fatalf("dates must follow the hits (zero = undated): %v %v", got[0].PublishedAt, got[1].PublishedAt)
+	}
 	for _, p := range got[:4] {
 		if w := want[p.ID]; p.Type != w[0] || p.URL != w[1] {
 			t.Errorf("%s: %+v", p.ID, p)

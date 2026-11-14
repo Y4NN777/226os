@@ -75,3 +75,13 @@ export function useSeries(id: string) {
       ),
   });
 }
+
+/** Read-only: the questions tagged with a topic code (E4, no new table). */
+export function useTopicQuestions(topic: string) {
+  return useQuery({
+    queryKey: ['questions', 'list', 'topic', topic] as const,
+    retry: retryOnce,
+    queryFn: () =>
+      api.call(() => api.client.GET('/questions', { params: { query: { tag: topic, limit: 5 } } })),
+  });
+}

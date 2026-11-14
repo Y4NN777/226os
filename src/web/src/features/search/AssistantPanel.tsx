@@ -68,6 +68,32 @@ function SourceLink({ source }: { source: AssistantSource }) {
   return <Text>{source.title}</Text>;
 }
 
+/** Quiet secondary line under a cited source: its publication date, or that it has none. */
+function SourceDate({ publishedAt }: { publishedAt: string | null | undefined }) {
+  const { t, locale } = useI18n();
+  const time = publishedAt ? new Date(publishedAt) : null;
+  if (!publishedAt || !time || Number.isNaN(time.getTime())) {
+    return (
+      <Text as="p" type="supporting">
+        {t('search.assistant.undated')}
+      </Text>
+    );
+  }
+  // day-month order in both languages: plain `en` would print "November 2, 2026"
+  const date = new Intl.DateTimeFormat(locale === 'en' ? 'en-GB' : locale, {
+    dateStyle: 'long',
+    timeZone: 'UTC',
+  }).format(time);
+  const [before = '', after = ''] = t('search.assistant.published').split('{date}');
+  return (
+    <Text as="p" type="supporting">
+      {before}
+      <time dateTime={publishedAt}>{date}</time>
+      {after}
+    </Text>
+  );
+}
+
 function Answer({ answer }: { answer: AssistantAnswer }) {
   const { t, locale } = useI18n();
   const lang = answer.lang === locale ? undefined : answer.lang;
@@ -91,6 +117,7 @@ function Answer({ answer }: { answer: AssistantAnswer }) {
               {answer.sources.map((source) => (
                 <li key={source.id}>
                   <SourceLink source={source} />
+                  <SourceDate publishedAt={source.published_at} />
                 </li>
               ))}
             </VStack>

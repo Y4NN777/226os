@@ -66,11 +66,11 @@ func newS2Stack(ctx context.Context, t *testing.T, override limiter) *s2Stack {
 	t.Cleanup(pool.Close)
 
 	mail := mailer.NewFake()
-	svc := service.New(repository.New(pool), mail, s2Secret)
 	codec, err := cursor.New(s2Secret)
 	if err != nil {
 		t.Fatal(err)
 	}
+	svc := service.New(repository.New(pool), mail, s2Secret, service.WithCursors(codec))
 	var lim limiter = ratelimit.New(pool, s2Secret, nil)
 	if override != nil {
 		lim = override

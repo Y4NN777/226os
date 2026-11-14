@@ -293,7 +293,7 @@ func TestSearchQueriesBindArgumentsScanAndReject(t *testing.T) {
 	id := pgtype.UUID{Bytes: [16]byte{1}, Valid: true}
 	country := pgtype.Text{String: "BF", Valid: true}
 	lang := pgtype.Text{String: "fr", Valid: true}
-	row := []any{id, "Titre", "Extrait", "fr"}
+	row := []any{id, "Titre", "Extrait", "fr", pgtype.Timestamptz{Time: time.Date(2026, 11, 3, 9, 30, 0, 0, time.UTC), Valid: true}}
 	type searchCall func(*fakeDB) ([]string, error)
 	calls := map[string]searchCall{
 		"questions": func(db *fakeDB) ([]string, error) {

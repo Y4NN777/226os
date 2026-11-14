@@ -5,6 +5,7 @@ package domain
 import (
 	"regexp"
 	"strings"
+	"time"
 	"unicode"
 )
 
@@ -49,13 +50,16 @@ type Query struct {
 	Limit   int
 }
 
-// Hit is one search result. Lang is empty when the content has no language.
+// Hit is one search result. Lang is empty when the content has no language. PublishedAt is the
+// publication date of the content (UTC), the zero time when the row has none; it is read for the
+// assistant to date its sources and is not part of the search HTTP response.
 type Hit struct {
-	Type    Group
-	ID      string
-	Title   string
-	Snippet string
-	Lang    string
+	Type        Group
+	ID          string
+	Title       string
+	Snippet     string
+	Lang        string
+	PublishedAt time.Time
 }
 
 // TruncateQuery applies C4 DECIDED option 1 (ADR-0005 point 6): keep at most MaxTextRunes

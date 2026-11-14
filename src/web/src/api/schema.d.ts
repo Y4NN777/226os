@@ -177,6 +177,23 @@ export interface paths {
         patch: operations["updateMyProfile"];
         trace?: never;
     };
+    "/profiles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** People directory (Connect) */
+        get: operations["listProfiles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/profiles/{username}": {
         parameters: {
             query?: never;
@@ -940,6 +957,21 @@ export interface components {
             open_to_collab?: boolean;
             profile_visibility: components["schemas"]["ProfileVisibility"];
             joined_at: components["schemas"]["Timestamp"];
+        };
+        /** @description Directory entry, visibility-filtered for this caller: fields hidden by field_visibility are omitted. Never contains email. */
+        ProfileSummary: {
+            username: components["schemas"]["Username"];
+            display_name: string;
+            country?: components["schemas"]["CountryCode"];
+            languages?: string[];
+            skills?: components["schemas"]["TagSlug"][];
+            /** @description GitHub username. */
+            github?: string;
+        };
+        ProfilePage: {
+            items: components["schemas"]["ProfileSummary"][];
+            /** @description Opaque, integrity-protected; null on the last page. */
+            next_cursor: string | null;
         };
         AuthorRef: {
             id: components["schemas"]["Uuid"];
@@ -1901,6 +1933,41 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             413: components["responses"]["PayloadTooLarge"];
+            422: components["responses"]["Unprocessable"];
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listProfiles: {
+        parameters: {
+            query?: {
+                /** @description Opaque pagination cursor from a previous next_cursor. Tampered/expired -> 400 INVALID_CURSOR. */
+                cursor?: components["parameters"]["Cursor"];
+                /** @description Page size, 1..50 (above 50 -> 422). */
+                limit?: components["parameters"]["Limit"];
+                /** @description Keep profiles whose visible country matches. */
+                country?: components["schemas"]["CountryCode"];
+                /** @description Keep profiles whose visible spoken languages contain this tag. */
+                language?: string;
+                /** @description Keep profiles whose visible skills contain this tag slug. */
+                skill?: components["schemas"]["TagSlug"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Page of listable profiles (visibility-filtered summaries) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfilePage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
             422: components["responses"]["Unprocessable"];
             429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalError"];

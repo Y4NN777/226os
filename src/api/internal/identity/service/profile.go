@@ -29,9 +29,10 @@ const (
 var (
 	// The contract also accepts region subtags (fr-BF); the server rejects
 	// them with 422 on purpose until profiles_languages_ck is widened.
-	languagePattern = regexp.MustCompile(`^[a-z]{2,3}$`)
-	githubPattern   = regexp.MustCompile(`^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$`)
-	countryPattern  = regexp.MustCompile(`^[A-Z]{2}$`)
+	languagePattern  = regexp.MustCompile(`^[a-z]{2,3}$`)
+	githubPattern    = regexp.MustCompile(`^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$`)
+	countryPattern   = regexp.MustCompile(`^[A-Z]{2}$`)
+	skillSlugPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9.+#-]*$`)
 )
 
 var validIntents = map[string]bool{

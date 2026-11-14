@@ -61,6 +61,28 @@ func TestAskAssistantAnswered(t *testing.T) {
 	}
 }
 
+func TestAskAssistantSourceDates(t *testing.T) {
+	dated := passage
+	dated.PublishedAt = time.Date(2026, 11, 2, 23, 30, 0, 0, time.FixedZone("x", -2*3600))
+	undated := passage
+	undated.ID = "22222222-2222-2222-2222-222222222222"
+	fake := llm.NewFake()
+	fake.Enqueue(llm.Response{Text: "Sign it [S1] and sign it again [S2]."})
+	rec := serve(t, true, []domain.Passage{dated, undated}, fake, verified, `{"question":"how do webhooks work","lang":"en"}`)
+	var raw struct {
+		Sources []map[string]any `json:"sources"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &raw); err != nil || len(raw.Sources) != 2 {
+		t.Fatalf("%v %s", err, rec.Body.String())
+	}
+	if raw.Sources[0]["published_at"] != "2026-11-03T01:30:00Z" {
+		t.Fatalf("dated source: %v", raw.Sources[0])
+	}
+	if v, ok := raw.Sources[1]["published_at"]; !ok || v != nil || strings.Contains(rec.Body.String(), "0001-01-01") {
+		t.Fatalf("an undated source must carry published_at null, never the zero date: %s", rec.Body.String())
+	}
+}
+
 func TestAskAssistantNoSource(t *testing.T) {
 	rec := serve(t, true, nil, llm.NewFake(), verified, `{"question":"comment faire un paiement"}`)
 	var got apigen.AssistantAnswer
@@ -91,6 +113,7 @@ func TestAskAssistantProblems(t *testing.T) {
 		{"short question", true, verified, `{"question":"ab"}`, 422, "VALIDATION_ERROR"},
 		{"disabled", false, verified, `{"question":"how do webhooks work"}`, 503, "SERVICE_UNAVAILABLE"},
 	}
+	retryAfter := map[string]string{"disabled": "30"}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			fake := llm.NewFake()
@@ -104,6 +127,54 @@ func TestAskAssistantProblems(t *testing.T) {
 			}
 			if len(fake.Requests()) != 0 {
 				t.Fatal("the provider must not be called")
+			}
+			if got := rec.Header().Get("Retry-After"); got != retryAfter[tc.name] {
+				t.Fatalf("Retry-After %q, want %q", got, retryAfter[tc.name])
+			}
+		})
+	}
+}
+
+type brokenLimiter struct{}
+
+func (brokenLimiter) Hit(context.Context, string, string, int, time.Duration) (bool, time.Duration, error) {
+	return false, 0, context.DeadlineExceeded
+}
+
+type spentGlobal struct{}
+
+func (spentGlobal) Hit(_ context.Context, scope string, _ string, _ int, _ time.Duration) (bool, time.Duration, error) {
+	if scope == "assistant:global" {
+		return false, 90 * time.Second, nil
+	}
+	return true, 0, nil
+}
+
+func TestAskAssistant503sCarryRetryAfter(t *testing.T) {
+	down := llm.NewFake()
+	down.FailWith(llm.ErrUnavailable)
+	quota := llm.NewFake()
+	quota.FailWith(&llm.StatusError{Kind: llm.ErrQuotaExhausted, Status: 429})
+	tests := []struct {
+		name  string
+		lim   service.Limiter
+		model *llm.Fake
+		want  string
+	}{
+		{"limiter failure", brokenLimiter{}, llm.NewFake(), "30"},
+		{"provider down", allow{}, down, "30"},
+		{"provider 429", allow{}, quota, "30"},
+		{"global guard spent keeps the limiter retry", spentGlobal{}, llm.NewFake(), "90"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			h := transport.New(service.New(service.Config{Enabled: true}, retriever{[]domain.Passage{passage}}, tc.model, tc.lim, nil), nil)
+			req := httptest.NewRequestWithContext(subject.With(t.Context(), verified), http.MethodPost, "/", strings.NewReader(`{"question":"how do webhooks work"}`))
+			req.Header.Set("Content-Type", "application/json")
+			rec := httptest.NewRecorder()
+			h.AskAssistant(rec, req)
+			if rec.Code != http.StatusServiceUnavailable || rec.Header().Get("Retry-After") != tc.want {
+				t.Fatalf("%d Retry-After %q, want 503 and %q", rec.Code, rec.Header().Get("Retry-After"), tc.want)
 			}
 		})
 	}

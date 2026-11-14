@@ -7,11 +7,10 @@
 # fingerprint depends on the merge commit), then calls update-branch for the other open pull requests into develop.
 #
 # TRIGGER: `workflow_run` when Quality, Code review or Branch policy completes on a pull request. GitHub runs it from
-# the DEFAULT branch's copy of this file (main), with the default branch's scripts: it does nothing before it is
-# promoted to main. Manual run: workflow_dispatch with a pull request number.
+# the DEFAULT branch's copy of this file (develop, ADR-0013), with the default branch's scripts: it does nothing
+# before the owner switches the default branch to develop. Manual run: workflow_dispatch with a pull request number.
 # MODE: repository variable AUTO_MERGE = off | report (default: prints WOULD MERGE, writes nothing) | on.
-# TOKEN: the secret REVIEW_AGENT_TOKEN of the GitHub environment `review-agent` (deployment branches main and
-# develop; only this job declares the environment, no other job can read it). Fine-grained, this repository only: Contents read and write, Pull requests read
+# TOKEN: the secret REVIEW_AGENT_TOKEN of the GitHub environment `review-agent` (deployment branch develop only; in this workflow only this job declares the environment; the `publish` jobs of review-autofix.yml and review-batch.yml also declare it, ADR-0013). Fine-grained, this repository only: Contents read and write, Pull requests read
 # and write; no Workflows permission). A merge with GITHUB_TOKEN would trigger no workflow, so the notes harvest would
 # never run. GITHUB_TOKEN (read-only below) does every read; the bot token only merges and updates branches. Without
 # the secret the job prints "auto-merge: NOT RUN (REVIEW_AGENT_TOKEN missing)" and exits 0.
@@ -45,7 +44,7 @@ jobs:
           && github.event.workflow_run.head_repository.full_name == github.repository)
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    # The only job that can read REVIEW_AGENT_TOKEN.
+    # The only job of this workflow that can read REVIEW_AGENT_TOKEN (see ADR-0013 for the other two).
     environment: review-agent
     permissions:
       contents: read

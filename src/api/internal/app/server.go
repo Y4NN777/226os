@@ -218,6 +218,15 @@ func (s *Server) GetProfile(w http.ResponseWriter, r *http.Request, username api
 	s.auth.GetProfile(w, r, username)
 }
 
+// ListProfiles serves the people directory. A server built without WithIdentity stays unimplemented.
+func (s *Server) ListProfiles(w http.ResponseWriter, r *http.Request, params apigen.ListProfilesParams) {
+	if s.auth == nil {
+		s.Unimplemented.ListProfiles(w, r, params)
+		return
+	}
+	s.auth.ListProfiles(w, r, params)
+}
+
 // ListLearnArticles serves published articles. A server built without WithLearn stays unimplemented.
 func (s *Server) ListLearnArticles(w http.ResponseWriter, r *http.Request, params apigen.ListLearnArticlesParams) {
 	if s.learn == nil {

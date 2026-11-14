@@ -843,6 +843,29 @@ type Problem struct {
 // ProfileField defines model for ProfileField.
 type ProfileField string
 
+// ProfilePage defines model for ProfilePage.
+type ProfilePage struct {
+	Items []ProfileSummary `json:"items"`
+
+	// NextCursor Opaque, integrity-protected; null on the last page.
+	NextCursor *string `json:"next_cursor"`
+}
+
+// ProfileSummary Directory entry, visibility-filtered for this caller: fields hidden by field_visibility are omitted. Never contains email.
+type ProfileSummary struct {
+	// Country ISO 3166-1 alpha-2.
+	//
+	// Examples: BF
+	Country     *CountryCode `json:"country,omitempty"`
+	DisplayName string       `json:"display_name"`
+
+	// Github GitHub username.
+	Github    *string    `json:"github,omitempty"`
+	Languages *[]string  `json:"languages,omitempty"`
+	Skills    *[]TagSlug `json:"skills,omitempty"`
+	Username  Username   `json:"username"`
+}
+
 // ProfileUpdate JSON Merge Patch body.
 type ProfileUpdate struct {
 	Bio         *string      `json:"bio,omitempty"`
@@ -1466,6 +1489,24 @@ type ListTrainingSeriesParams struct {
 	Level *Level     `form:"level,omitempty" json:"level,omitempty"`
 }
 
+// ListProfilesParams defines parameters for ListProfiles.
+type ListProfilesParams struct {
+	// Cursor Opaque pagination cursor from a previous next_cursor. Tampered/expired -> 400 INVALID_CURSOR.
+	Cursor *Cursor `form:"cursor,omitempty" json:"cursor,omitempty"`
+
+	// Limit Page size, 1..50 (above 50 -> 422).
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Country Keep profiles whose visible country matches.
+	Country *CountryCode `form:"country,omitempty" json:"country,omitempty"`
+
+	// Language Keep profiles whose visible spoken languages contain this tag.
+	Language *string `form:"language,omitempty" json:"language,omitempty"`
+
+	// Skill Keep profiles whose visible skills contain this tag slug.
+	Skill *TagSlug `form:"skill,omitempty" json:"skill,omitempty"`
+}
+
 // ListProjectsParams defines parameters for ListProjects.
 type ListProjectsParams struct {
 	// Cursor Opaque pagination cursor from a previous next_cursor. Tampered/expired -> 400 INVALID_CURSOR.
@@ -1918,6 +1959,9 @@ type ServerInterface interface {
 	// RestoreContent Restore hidden content (back to published; audited)
 	// (POST /moderation/{targetType}/{targetId}/restore)
 	RestoreContent(w http.ResponseWriter, r *http.Request, targetType ModerationTargetType, targetId Uuid)
+	// ListProfiles People directory (Connect)
+	// (GET /profiles)
+	ListProfiles(w http.ResponseWriter, r *http.Request, params ListProfilesParams)
 	// GetProfile Public profile by username
 	// (GET /profiles/{username})
 	GetProfile(w http.ResponseWriter, r *http.Request, username Username)
@@ -2134,6 +2178,12 @@ func (_ Unimplemented) HideContent(w http.ResponseWriter, r *http.Request, targe
 // RestoreContent Restore hidden content (back to published; audited)
 // (POST /moderation/{targetType}/{targetId}/restore)
 func (_ Unimplemented) RestoreContent(w http.ResponseWriter, r *http.Request, targetType ModerationTargetType, targetId Uuid) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListProfiles People directory (Connect)
+// (GET /profiles)
+func (_ Unimplemented) ListProfiles(w http.ResponseWriter, r *http.Request, params ListProfilesParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -2972,6 +3022,91 @@ func (siw *ServerInterfaceWrapper) RestoreContent(w http.ResponseWriter, r *http
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.RestoreContent(w, r, targetType, targetId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListProfiles operation middleware
+func (siw *ServerInterfaceWrapper) ListProfiles(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListProfilesParams
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", r.URL.Query(), &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "cursor"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "cursor", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "country" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "country", r.URL.Query(), &params.Country, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "country"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "country", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "language" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "language", r.URL.Query(), &params.Language, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "language"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "language", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "skill" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "skill", r.URL.Query(), &params.Skill, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "skill"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "skill", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListProfiles(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -4343,6 +4478,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Patch(options.BaseURL+"/me/profile", wrapper.UpdateMyProfile)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/profiles", wrapper.ListProfiles)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/profiles/{username}", wrapper.GetProfile)

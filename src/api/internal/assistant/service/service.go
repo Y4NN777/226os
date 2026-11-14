@@ -100,7 +100,7 @@ func (s *Service) Ask(ctx context.Context, sub subject.Subject, req Request) (do
 		return domain.Answer{}, err
 	}
 	if !s.cfg.Enabled {
-		return domain.Answer{}, unavailable(nil, 0)
+		return domain.Answer{}, unavailable(nil, providerRetryAfter)
 	}
 	if err := s.allow(ctx, userScope, sub.UserID, userLimit, userWindow, apperr.CodeRateLimited); err != nil {
 		return domain.Answer{}, err
@@ -118,13 +118,13 @@ func (s *Service) Ask(ctx context.Context, sub subject.Subject, req Request) (do
 	return s.generate(ctx, question, lang, passages)
 }
 
-// allow takes one hit. A limiter failure fails closed with 503; a spent budget is 429 for the member
+// allow takes one hit. A limiter failure fails closed with 503 and the provider Retry-After; a spent budget is 429 for the member
 // bucket and 503 for the global guard, both with Retry-After.
 func (s *Service) allow(ctx context.Context, scope, key string, limit int, window time.Duration, spent apperr.Code) error {
 	ok, retry, err := s.limiter.Hit(ctx, scope, key, limit, window)
 	switch {
 	case err != nil:
-		return unavailable(err, 0)
+		return unavailable(err, providerRetryAfter)
 	case !ok && spent == apperr.CodeRateLimited:
 		return apperr.New(spent, "Too many requests.").WithRetryAfter(retry)
 	case !ok:
@@ -146,7 +146,10 @@ func (s *Service) generate(ctx context.Context, question, lang string, passages 
 		}
 		return domain.Answer{}, unavailable(err, providerRetryAfter)
 	}
-	text := llm.CleanAnswer(resp.Text)
+	text, removed := domain.RemoveGuarantees(llm.CleanAnswer(resp.Text)) // AI-3
+	if removed {
+		s.logger.Info("assistant sentence removed", "class", "guarantee_removed")
+	}
 	answer, err := domain.Parse(text, passages, lang)
 	switch {
 	case errors.Is(err, domain.ErrNoCitation), errors.Is(err, domain.ErrInvalidCitation): // AI-2: refuse

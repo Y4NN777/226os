@@ -28,10 +28,11 @@
 # Switch: repository variable AUTO_FIX = off | report (default: the decision goes to the job summary, nothing is
 # written) | on. Without the secret REVIEW_AGENT_TOKEN the publish job prints "autofix: NOT RUN (REVIEW_AGENT_TOKEN
 # missing)" and gives the attempt back (the decide job cannot see an environment secret).
-# Owner setup: the environment `review-agent` (deployment branches main and develop) with the secret REVIEW_AGENT_TOKEN
+# Owner setup: the environment `review-agent` (deployment branch develop only, ADR-0013) with the secret REVIEW_AGENT_TOKEN
 # (fine-grained token on this repository: contents and pull requests read and write), CLAUDE_CODE_OAUTH_TOKEN (already
 # used by code-review.yml), then AUTO_FIX=on.
-# workflow_run runs the copy of this file on the DEFAULT branch: nothing happens until it is on main.
+# workflow_run runs the copy of this file on the DEFAULT branch: develop (ADR-0013). Nothing happens until the owner
+# has switched the default branch to develop.
 name: Review auto-fix
 
 on:
