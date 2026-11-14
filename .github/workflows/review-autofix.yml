@@ -64,7 +64,7 @@ jobs:
     permissions:
       contents: read
       actions: read
-      pull-requests: read
+      pull-requests: write
       issues: write
     outputs:
       run: ${{ steps.decide.outputs.run }}
@@ -112,6 +112,11 @@ jobs:
     outputs:
       outcome: ${{ steps.patch.outputs.outcome }}
     steps:
+      # First step, before any pull request code exists on the runner: a later step (make setup, lockfile installs)
+      # could otherwise change the apt configuration before this root install.
+      - name: Install the Claude Code sandbox dependencies (bubblewrap, socat)
+        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends bubblewrap socat
+
       - name: Checkout the pull request branch (full history, every branch fetched)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -250,6 +255,8 @@ jobs:
             echo "autofix: finding context NOT RUN (changed after it was written)" | tee -a "$GITHUB_STEP_SUMMARY"
           fi
 
+      # Claude Code's Bash sandbox on Linux needs bubblewrap and socat: without them the fixer cannot run a test or
+      # commit (first live run, PR #199). Distro packages only; a failed install fails the job, never a silent skip.
       - name: Fix (Claude Code, review-fix command)
         id: claude
         uses: anthropics/claude-code-action@4d75e5f390ee76b2e09c1980ecc99ff3a2e088c8 # v1.0.275
@@ -330,7 +337,8 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: read
-      issues: write
+    outputs:
+      push: ${{ steps.push.outputs.outcome }}
     steps:
       - name: Download the patch
         if: needs.fix.outputs.outcome == 'fixed'
@@ -396,9 +404,20 @@ jobs:
           echo "autofix: pushed to $BRANCH (the review and CI run again)" | tee -a "$GITHUB_STEP_SUMMARY"
           echo "outcome=pushed" >>"$GITHUB_OUTPUT"
 
+  # Labels only: no checkout, no pull request code, no secret. Labelling a pull request needs pull-requests: write
+  # (issues: write alone answers HTTP 403), which the job that checks the pull request branch out must not hold.
+  label:
+    name: Label (no checkout)
+    needs: [decide, fix, publish]
+    if: always() && needs.decide.outputs.run == 'true' && (needs.fix.outputs.outcome == 'fixed' || needs.fix.outputs.outcome == 'owner')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      pull-requests: write
+    steps:
       # The decide job cannot see the environment secret, so it counted an attempt: give it back.
       - name: Give the attempt back (token missing)
-        if: steps.push.outputs.outcome == 'notoken'
+        if: needs.publish.outputs.push == 'notoken'
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
@@ -409,7 +428,7 @@ jobs:
           echo "autofix: attempt $ATTEMPT given back (no token)" | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Label needs-owner
-        if: needs.fix.outputs.outcome == 'owner' || steps.push.outputs.outcome == 'owner'
+        if: needs.fix.outputs.outcome == 'owner' || needs.publish.outputs.push == 'owner'
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
