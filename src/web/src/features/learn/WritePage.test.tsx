@@ -110,6 +110,24 @@ describe('ecrire page', () => {
     expect(keys[0]).toBe(keys[1]);
   });
 
+  it('sends one request on a double click of Publier', async () => {
+    setLanguages(['fr-FR']);
+    const fetchMock = mockApi({
+      ...member,
+      'POST /learn/articles': () =>
+        new Promise<Response>((resolve) => {
+          setTimeout(() => {
+            resolve(ok());
+          }, 50);
+        }),
+    });
+    await renderApp('/ecrire');
+    await fillRequired();
+    await userEvent.dblClick(screen.getByRole('button', { name: 'Publier' }));
+    await screen.findByRole('heading', { name: 'Votre article est publié' });
+    expect(callsTo(fetchMock, 'POST /learn/articles')).toHaveLength(1);
+  });
+
   it('uses a different key once the content changed, since the server refuses a reused key', async () => {
     setLanguages(['fr-FR']);
     let attempts = 0;

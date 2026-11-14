@@ -26,32 +26,41 @@ const MIN_QUESTION = 3;
 const length = (text: string) => Array.from(text).length;
 const unavailableKey = ['assistant', 'unavailable'] as const;
 
-/** True once the assistant answered 503 in this session: the panel then stays hidden. */
-function useUnavailable() {
+/** Without a Retry-After, how long (in seconds) a 503 keeps the panel hidden. */
+const DEFAULT_COOLDOWN = 60;
+
+/**
+ * The time (ms since epoch) until which the panel stays hidden after a 503, or 0. A 503 hides the
+ * panel only for the server's Retry-After, so one transient outage does not hide it until reload.
+ */
+function useUnavailableUntil() {
   const queryClient = useQueryClient();
   const flag = useQuery({
     queryKey: unavailableKey,
-    queryFn: () => false,
+    queryFn: () => 0,
     staleTime: Infinity,
     gcTime: Infinity,
     enabled: false,
-    initialData: false,
+    initialData: 0,
   });
   return [
     flag.data,
-    () => {
-      queryClient.setQueryData(unavailableKey, true);
+    (retryAfter: number | undefined) => {
+      queryClient.setQueryData(
+        unavailableKey,
+        Date.now() + (retryAfter ?? DEFAULT_COOLDOWN) * 1000,
+      );
     },
   ] as const;
 }
 
-function useAsk(onUnavailable: () => void) {
+function useAsk(onUnavailable: (retryAfter: number | undefined) => void) {
   return useMutation({
     mutationFn: (body: components['schemas']['AssistantQuestion']) =>
       api.call(() => api.client.POST('/assistant/answers', { body })),
     retry: false,
     onError: (error) => {
-      if (error instanceof ApiError && error.status === 503) onUnavailable();
+      if (error instanceof ApiError && error.status === 503) onUnavailable(error.retryAfter);
     },
   });
 }
@@ -119,7 +128,7 @@ function Refusal({ answer, q }: { answer: AssistantAnswer; q: string }) {
 function AskForm({ q, free: allowFree }: { q: string; free: boolean }) {
   const { t, locale } = useI18n();
   const [free, setFree] = useState('');
-  const [, markUnavailable] = useUnavailable();
+  const [, markUnavailable] = useUnavailableUntil();
   const ask = useAsk(markUnavailable);
   const question = (allowFree && free.trim()) || q.trim();
   const ready = length(question) >= MIN_QUESTION;
@@ -196,9 +205,9 @@ export function AssistantPanel({
 }) {
   const { t } = useI18n();
   const session = useSession();
-  const [unavailable] = useUnavailable();
+  const [unavailableUntil] = useUnavailableUntil();
   const signedIn = session.data?.authenticated === true;
-  const [seen] = useState(unavailable);
+  const [seen] = useState(unavailableUntil > Date.now());
   if (seen || session.isPending) return null;
 
   return (

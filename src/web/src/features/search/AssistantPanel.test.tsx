@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { components } from '../../api/schema';
 import { callsTo, memberSession, mockApi, problemResponse } from '../../test/api';
 import { jsonResponse, renderApp, setLanguages } from '../../test/render';
@@ -192,6 +192,23 @@ describe('AssistantPanel', () => {
       expect(screen.queryByRole('heading', { level: 2, name: /^Assistant/ })).toBeNull();
     });
     expect(screen.queryByText(/indisponible/)).toBeNull();
+  });
+
+  it('brings the panel back once the Retry-After delay of a 503 has passed', async () => {
+    setLanguages(['fr-FR']);
+    member({
+      'POST /assistant/answers': () =>
+        problemResponse(503, 'SERVICE_UNAVAILABLE', { retryAfter: 30 }),
+    });
+    const { router } = await renderApp('/recherche?q=momo');
+    const inPanel = await panel();
+    await userEvent.click(await inPanel.findByRole('button', { name: 'Demander à l’assistant' }));
+    await inPanel.findByText(/L’assistant est indisponible/);
+
+    const now = Date.now();
+    vi.spyOn(Date, 'now').mockReturnValue(now + 31_000);
+    await router.navigate({ to: '/recherche', search: { q: 'webhook' } });
+    expect(await screen.findByRole('heading', { level: 2, name: /^Assistant/ })).toBeInTheDocument();
   });
 
   it('invites an anonymous visitor to sign in and returns to the search', async () => {
