@@ -8,7 +8,9 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -501,23 +503,50 @@ func TestSearchQueriesUseTheGINIndexes(t *testing.T) {
 			t.Errorf("%s plan has no Limit", group)
 		}
 	}
-	// Worst cases (skeptic review): a term every bulk row carries ("bruit") and a negation-only
-	// query ("-zebra") make ts_rank score nearly every published row before the top-N sort. Only
-	// LIMIT and the per-query timeout bound them; the plans and timings are logged as evidence.
-	for _, q := range []string{"bruit", "-zebra"} {
+	// Worst cases (#118): a term every bulk row carries ("bruit") must rank a bounded candidate set,
+	// never every matching row; a query with no positive term ("-zebra", "-bruit -zebra") matches
+	// every row and must read none. The bound is measured on EXPLAIN (ANALYZE): the most rows any
+	// scan node returned, not the presence of a Limit node.
+	for _, tc := range []struct {
+		q       string
+		maxRows int
+		hits    bool
+	}{{"bruit", searchCandidates, true}, {"-zebra", 0, false}, {"-bruit -zebra", 0, false}} {
 		for _, group := range []apigen.SearchGroup{apigen.SearchGroupQuestions, apigen.SearchGroupResources, apigen.SearchGroupProjects, apigen.SearchGroupLearn} {
 			e.recorder.reset()
-			if _, rec := e.search(ctx, t, apigen.SearchParams{Q: q, Types: only(group)}); rec.Code != http.StatusOK {
-				t.Fatalf("%q %s: %d", q, group, rec.Code)
+			res, rec := e.search(ctx, t, apigen.SearchParams{Q: tc.q, Types: only(group)})
+			if rec.Code != http.StatusOK {
+				t.Fatalf("%q %s: %d", tc.q, group, rec.Code)
+			}
+			if got := countHits(res, group) > 0; got != tc.hits {
+				t.Errorf("%q %s: hits %v, want %v", tc.q, group, got, tc.hits)
 			}
 			stmt := e.recorder.first(t)
 			plan := explainPlan(ctx, t, e.conn, stmt.sql, stmt.args...)
-			t.Logf("worst-case search plan, q=%q, group %s (6001 rows):\n%s", q, group, plan)
-			if !strings.Contains(plan, "Limit") {
-				t.Errorf("%q %s plan has no Limit", q, group)
+			t.Logf("worst-case search plan, q=%q, group %s (6001 rows):\n%s", tc.q, group, plan)
+			if n := maxScanRows(plan); n > tc.maxRows {
+				t.Errorf("%q %s: a scan returned %d rows, want at most %d:\n%s", tc.q, group, n, tc.maxRows, plan)
 			}
 		}
 	}
+}
+
+// searchCandidates is the candidate cap of db/queries/search.sql (rows ranked per group).
+const searchCandidates = 500
+
+var scanRows = regexp.MustCompile(`Scan .*\(actual time=[0-9.]+\.\.[0-9.]+ rows=([0-9.]+) loops=([0-9]+)\)`)
+
+// maxScanRows is the largest rows x loops of any scan node of an EXPLAIN (ANALYZE) plan.
+func maxScanRows(plan string) int {
+	most := 0
+	for _, m := range scanRows.FindAllStringSubmatch(plan, -1) {
+		rows, _ := strconv.ParseFloat(m[1], 64)
+		loops, _ := strconv.Atoi(m[2])
+		if n := int(rows) * loops; n > most {
+			most = n
+		}
+	}
+	return most
 }
 
 func countHits(res apigen.SearchResults, g apigen.SearchGroup) int {

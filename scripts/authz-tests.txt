@@ -15,3 +15,10 @@ POST /api/v1/auth/sign-out TestAuthzSignOutAnonymous   # member only: anonymous 
 GET /api/v1/me TestAuthzGetMeAnonymous   # member only: anonymous callers get 401
 PATCH /api/v1/me/profile TestAuthzUpdateMyProfileAnonymous   # member only + CSRF: anonymous callers get 401
 POST /api/v1/resources/{resourceId}/error-reports TestAuthzCreateResourceErrorReportAnonymous   # member with a verified email: anonymous 401, unverified 403
+POST /api/v1/learn/articles TestAuthzCreateLearnArticleAnonymous   # member + CSRF: anonymous 401 (also for a draft), unverified member publishing 403, nothing created
+POST /api/v1/projects TestAuthzCreateProjectAnonymous   # member with a verified email + CSRF: anonymous 401, unverified 403, nothing created, GitHub never called
+PATCH /api/v1/projects/{projectId} TestAuthzUpdateProjectNonOwner   # owner only (C1): anonymous 401, non-owner and moderator 403 on a public project and 404 on a private one, nothing written
+POST /api/v1/projects/{projectId}/contribution-needs TestAuthzCreateContributionNeedNonOwner   # owner only (C1): anonymous 401, unverified 403, non-owner 403 public / 404 private, nothing created
+POST /api/v1/contribution-needs/{needId}/applications TestAuthzCreateApplicationAnonymous   # verified member, not the project owner: anonymous 401, unverified 403, someone else's private project 404, own project 409, nothing created
+GET /api/v1/projects/{projectId}/applications TestAuthzListProjectApplicationsNonOwner   # owner only (C1): anonymous 401, third party and applicant 403 on a public project, 404 on a private one; no item, no count
+PATCH /api/v1/applications/{applicationId} TestAuthzDecideApplicationNonParty   # owner accepts/declines, applicant withdraws: anonymous 401, third party 404 (IDOR), applicant accepting 403, owner withdrawing 403

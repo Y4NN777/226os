@@ -10,6 +10,8 @@ Do not submit secrets, credentials, private user data, unpublished tokens, or co
 
 ## Required record for each material AI-assisted contribution
 
+**Where to write it (since 2026-11-13):** one file per record in `docs/ai-usage/` (see its README), never an edit of this file: every pull request used to append at the end here, so every merge conflicted with every other open pull request. The block at the end of this file is generated from those files by `make ai-usage` (the owner runs it before the submission). The records above the block are the historical ones and stay as written.
+
 ```yaml
 date: "YYYY-MM-DD"
 contributor: ""
@@ -647,16 +649,16 @@ open_risks: ["ui_lang has no column and csrf_token_hash is never read: both need
 ## S1 identity profiles: getMe, updateMyProfile, getProfile
 
 ```yaml
-date: "2026-11-14"
+date: "2026-11-13"
 contributor: "NICE-DEV226"
 tool_or_model: "Devin (SWE-2 Flash)"
 purpose: "S1 Identity profiles slice, feature/identity/profiles branch: profile read models (own + public with account status join), JSON Merge Patch update with tri-state PatchField (absent vs explicit null), per-field CASE WHEN guarded UPDATE plus transactional skill replacement (row lock then separate DELETE/INSERT on fresh snapshots, ON CONFLICT DO NOTHING), C14b visibility matrix (page + per-field, anonymous/member/owner), skill slug resolution against active tags with active-only reads, bio_language derivation to satisfy profiles_bio_language_ck, rate limit profile:write 60/user/min, transport merge-patch decoding with key-presence detection relying on the embedded OpenAPI validator for non-nullable nulls, unit tests on fakes, repository scripted-DBTX tests, real-PostgreSQL pgtest end-to-end including concurrent PATCH serialization and hidden-tag filtering."
 repository_or_source_context: "branch feature/identity/profiles, TODO.md S1"
 files_or_sections_affected: ["src/api/internal/identity/**", "src/api/internal/app/server.go", "src/api/internal/app/server_identity_test.go", "src/api/internal/platform/dbgen/identity.sql.go", "src/api/internal/platform/dbgen/queries_test.go", "src/api/internal/platform/pgtest/identity_integration_test.go", "db/queries/identity.sql", "scripts/public-routes.txt", "scripts/authz-tests.txt", "scripts/unimplemented-routes.txt", "scripts/tests/authz-routes_test.sh", "TODO.md", "AI_USAGE.md"]
 third_party_sources_consulted: []
-license_review: "PENDING"
-closure: "open"
-human_reviewers: ["mibienpanjoe (assigned reviewer, pending PR)"]
+license_review: "NOT APPLICABLE: original code, no new dependency (no go.mod, go.sum, package.json or lockfile change in PR #94; third_party_sources_consulted is empty)"
+closure: "closed by the owner, 2026-11-13"
+human_reviewers: ["mibienpanjoe (reviewed, changes requested 2026-11-13; his points verified in the code by the owner, no second round)", "Y4NN777 (owner closure, 2026-11-13; merged without a second review round, leftovers fixed in the follow-up PR)"]
 tests_or_evidence: ["go test -race -count=1 ./src/api/internal/identity/... ./src/api/internal/app/ exit 0", "go test -race -count=1 -tags integration ./src/api/internal/platform/pgtest/ exit 0 (TestIdentityProfilesEndToEnd, TestIdentityProfileHiddenTagFiltered, TestIdentityProfileConcurrentSkillReplace: 10 conflicting + 5 identical concurrent rounds on two real connections, final set always exact)", "scripts/coverage-go.sh coverage: go first-party statement coverage 100.0%", "go tool golangci-lint run (default and --build-tags integration): 0 issues", "make lint-contract exit 0 (sqlc vet LIMIT on ResolveSkillSlugs)", "make lint-scripts exit 0 (authz-routes self-test probes moved to ListQuestions)", "scripts/check-authz-routes.sh PASS", "gofmt clean", "go vet clean", "review round: go test -count=1 -run 'TestUpdateMyProfileLanguages' ./internal/identity/service/ exit 0 (fr-BF -> 422 languages), go test -count=1 -run 'TestUpdateMyProfile' ./internal/identity/transport/ exit 0 (null-non-nullable pinned)"]
 open_risks: ["bio_language is always derived as 'en' when bio is set: the contract exposes no bio language field (owner decision recorded in PR)", "open_to_collab_visibility column exists but the contract field_visibility has no member for it: stays 'public', flagged for owner decision", "languages: server rejects region subtags (fr-BF) with 422 on purpose while the contract still accepts them; owner owns the contract+DB widening after the freeze (TODO.md known deviation)", "checklist_missing no longer lists open_to_collab: false is a deliberate answer and no answered flag exists", "make quality full rerun pending on the PR head SHA"]
 ```
@@ -746,57 +748,6 @@ tests_or_evidence: ["scripts/tests/findings_test.sh 23 passed and scripts/tests/
 open_risks: ["Notes of the AI review on #114 and #115 were all addressed in this branch (the AI review said INFERRED, the owner wants them fixed): GATE_NEW=enforce now blocks on its own whatever GATE_MODE says; a negation (does not close #N) is not a closing keyword and Fixes: #N is one; the AI_USAGE date check uses the last non-merge commit (CI checks out a merge commit); an @mention in ledger text is neutralised; an issue whose marker was edited away is recognised by its title, and titles now carry the PR number so that check is per pull request; a finding whose file changed after the review is still filed but says so (GitHub compare API); a blocking GATE_NEW check still prints what the other checks found; the skipped gate job on closed is explained in the workflow. Tests added for each.", "GITHUB_TOKEN cannot write to a user project: until the Auto-add workflow of board 4 is enabled, the issues exist but are not on the board.", "Labels are created by the issue API on first use with default colours.", "The register trusts the model's ledger only through a strict schema; a malformed ledger is skipped and logged."]
 ```
 
-## S7 frontend PR 1: shell and identity pages
-
-```yaml
-date: "2026-11-13"
-contributor: "Y4NN777"
-tool_or_model: "Claude Code, Claude Opus 5.5 (integrator) and Claude Sonnet 5.5 (web-implementer lanes in separate worktrees)"
-purpose: "S7 PR 1: CSRF-aware API helper (X-CSRF-Token on every unsafe call, token in memory only, one retry after CSRF_FAILED), problem+json mapping, session hooks, Astryx AppShell with pillar emphasis and coming-soon areas, shared states, and the six identity pages wired to the live S1 operations."
-repository_or_source_context: "branch feature/platform/web-shell-identity; lane branch feature/identity/web-account-pages; prototypes/html for layout and copy"
-files_or_sections_affected: ["src/web/src/**", "TODO.md", "AI_USAGE.md"]
-third_party_sources_consulted: ["installed @astryxdesign/cli 0.7.14 component docs", "openapi-fetch 0.17 type declarations"]
-license_review: "NOT APPLICABLE: original code, no new dependency"
-closure: "open"
-human_reviewers: ["PANK4SS (pending)"]
-tests_or_evidence: ["RED then GREEN per file with Vitest (api/http.test.ts, app/Shell.test.tsx, features/identity/*.test.tsx)", "pnpm --filter web run lint/format:check/typecheck/test/coverage exit 0; coverage 96.94/87.29/98.75/98.38"]
-open_risks: ["Visual, axe and responsive evidence (ADR-0007) not produced in jsdom.", "Mails carry a bare token until APP_BASE_URL links land (fix/platform/s7-api-gaps)."]
-```
-
-## S7 frontend PR 2: public reads (Découvrir, resource, recherche)
-
-```yaml
-date: "2026-11-13"
-contributor: "Y4NN777"
-tool_or_model: "Claude Code, Claude Opus 5.5 (integrator) and Claude Sonnet 5.5 (web-implementer lanes in separate worktrees)"
-purpose: "S7 PR 2: Découvrir with the West Africa default and one-click whole-continent view, resource detail with dated sources and verification status, grouped search with a marked assistant mock; Découvrir becomes a live pillar."
-repository_or_source_context: "branch feature/discover/web-public-reads; lane branches feature/discover/web-catalogue and feature/discover/web-search; prototypes/html for layout and copy"
-files_or_sections_affected: ["src/web/src/features/discover/**", "src/web/src/features/search/**", "src/web/src/app/{navigation,Shell}.tsx", "TODO.md", "AI_USAGE.md"]
-third_party_sources_consulted: ["installed @astryxdesign/cli 0.7.14 component docs"]
-license_review: "NOT APPLICABLE: original code and text, no new dependency"
-closure: "open"
-human_reviewers: ["PANK4SS (pending)"]
-tests_or_evidence: ["RED then GREEN per file (region.test.ts, DiscoverPage.test.tsx, ResourcePage.test.tsx, SearchPage.test.tsx, searchQuery.test.ts)", "pnpm --filter web run coverage exit 0"]
-open_risks: ["The assistant answer is a labelled sample until S9 is live.", "West Africa default filters on the client until the API accepts several countries."]
-```
-
-## S7 frontend PR 3: landing, member home and parametres
-
-```yaml
-date: "2026-11-13"
-contributor: "Y4NN777"
-tool_or_model: "Claude Code, Claude Opus 5.5 (integrator, parametres) and Claude Sonnet 5.5 (landing and home lanes in separate worktrees)"
-purpose: "S7 PR 3: public landing page and member home on a session-aware index route, profile visibility setting on parametres (C14b), settings moved to /parametres."
-repository_or_source_context: "branch feature/platform/web-home-settings; lane branches feature/platform/web-landing and feature/platform/web-home-feed; prototypes/html for copy"
-files_or_sections_affected: ["src/web/src/features/{landing,home,settings}/**", "src/web/src/app/**", "src/web/src/i18n/**", "TODO.md", "AI_USAGE.md"]
-third_party_sources_consulted: ["installed @astryxdesign/cli 0.7.14 component docs"]
-license_review: "NOT APPLICABLE: original code and text, no new dependency"
-closure: "open"
-human_reviewers: ["PANK4SS (pending)"]
-tests_or_evidence: ["RED then GREEN (ProfileVisibility.test.tsx, LandingPage.test.tsx, HomePage.test.tsx, translate.test.ts key-collision check)", "Real-browser journeys on make up-local-dev with Mailpit: sign-up, verify, sign-in, sign-out, wrong password, reset, sign-in with the new password; axe on 13 pages; no horizontal scroll at 360/768/1024/1440 and 200% zoom (56/56)"]
-open_risks: ["Demo examples on the member home stay until listLearnArticles, listQuestions and listProjects are live.", "The local display-name field on parametres is a prototype leftover kept for now (owner decision)."]
-```
-
 ## S7 API gaps: provenance, country lists, mail links
 
 ```yaml
@@ -813,3 +764,58 @@ human_reviewers: ["PANK4SS (pending)"]
 tests_or_evidence: ["RED then GREEN: TestListResourcesEncodesAPage, TestListPassesTheCountryListAsAnArray, TestLoadAppBaseURL, TestVerificationMailCarriesALinkWhenABaseURLIsSet, TestResetMailCarriesALinkWhenABaseURLIsSet", "integration on real PostgreSQL: TestResourceProvenanceIsServed, TestResourceCountryListIsAUnion, TestResourceCountryListPaginatesStably, TestResourceCountryListRefusesBadInput", "make generate twice, no drift; make test-unit, make coverage (Go 100.0%), make test-integration-go exit 0"]
 open_risks: ["No test fails if app.go stops passing WithBaseURL (wiring line only).", "Two filter-hash collision tests now use category instead of country (country is validated)."]
 ```
+
+<!-- ai-usage:generated:start (do not edit by hand: `make ai-usage` rewrites everything between the two markers from docs/ai-usage/*.md) -->
+
+## AI-use records: one file per record, AI_USAGE.md generated
+
+```yaml
+date: "2026-11-13"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code, Sonnet 5.5"
+purpose: "Remove the conflict every pull request had on AI_USAGE.md (all of them appended at the end, so after any merge every other open pull request conflicted: five at once on 2026-11-13). A record is now one file in docs/ai-usage/; scripts/ai-usage.py rewrites a generated block at the end of AI_USAGE.md from those files (make ai-usage, make ai-usage-check); the date check of scripts/check-docs.py reads the record files too. The five conflicting pull requests (#99 to #102, #111) were brought up to date by a mechanical merge that kept develop's AI_USAGE.md and each branch's own new records."
+repository_or_source_context: "pull requests #99, #100, #101, #102, #111 (conflicts only in AI_USAGE.md)"
+files_or_sections_affected: ["scripts/ai-usage.py", "scripts/tests/ai-usage_test.sh", "scripts/check-docs.py", "scripts/tests/check-docs_test.sh", "docs/ai-usage/**", "AI_USAGE.md", "mk/60-review.mk", ".github/PULL_REQUEST_TEMPLATE.md", "AGENTS.md", "CLAUDE.md", "CONTRIBUTING.md", "docs/GIT_WORKFLOW.md", "docs/SHIP.md", "TODO.md"]
+third_party_sources_consulted: []
+license_review: "NOT APPLICABLE: original code, no new dependency"
+closure: "open"
+human_reviewers: ["pending PR review"]
+tests_or_evidence: ["scripts/tests/ai-usage_test.sh 16 passed and scripts/tests/check-docs_test.sh 20 passed, RED first (no script; the date check ignored the record files)", "make lint-scripts and python3 -I scripts/check-docs.py: see the pull request"]
+open_risks: ["AI_USAGE.md is only as complete as its last build: the owner must run make ai-usage before the submission (SHIP.md says so); make docs-check runs the stale check on a pull request into main (not before, by design).", "Records already appended to AI_USAGE.md stay where they are; only new records use the files."]
+```
+
+## Issue #116 before-freeze follow-ups: profile patch validation and violation contract
+
+```yaml
+date: "2026-11-13"
+contributor: "NICE-DEV226"
+tool_or_model: "Devin (SWE-2 Flash)"
+purpose: "The two before-freeze items of issue #116 (PR #94 audit): (1) NUL or invalid UTF-8 in display_name/bio passed the schema and died on the Postgres 22021 text check as a 500 that also burnt one of the 60 profile:write hits per minute — validateProfileWrite now rejects !utf8.ValidString or a NUL rune with 422 invalid_value on /display_name and /bio; (2) the service emitted violation codes outside the OpenAPI Violation.code enum (invalid_length, too_many, unknown_value) and bare field names — every violation now uses an enum code (too_short, too_long, too_many_items, invalid_format, invalid_value, duplicate) and the JSON pointer of the request member (/skills, /field_visibility/bio, /country…) so the S7 form can map them. pgtest asserts the problem body's violations against the enum and pointer shape on the real router."
+repository_or_source_context: "issue #116 (PR #94 audit follow-ups), branch fix/identity/profile-audit-116"
+files_or_sections_affected: ["src/api/internal/identity/service/profile.go", "src/api/internal/identity/service/profile_test.go", "src/api/internal/platform/pgtest/identity_integration_test.go", "TODO.md", "docs/ai-usage/2026-11-13-issue-116-profile-validation.md"]
+third_party_sources_consulted: []
+license_review: "NOT APPLICABLE: original code, no new dependency"
+closure: "open"
+human_reviewers: ["pending PR review"]
+tests_or_evidence: ["go test -race -count=1 ./internal/identity/... PASS (new TestUpdateMyProfileViolationsUseContractCodesAndPointers: 16 cases)", "go test -race -count=1 -tags integration -run 'TestIdentityProfiles|TestIdentityProfile' ./internal/platform/pgtest/ PASS on real PostgreSQL (NUL bio -> 422, assertProblemViolations on unknown skill/country)", "go vet clean, gofmt clean"]
+open_risks: ["the three after-freeze items of issue #116 stay open: skills DELETE removes hidden-tag links, the C14b matrix lacks a moderator row and a byte-for-byte 404 body comparison, and the Cache-Control/Vary + resolveSkills-outside-transaction notes", "invalid UTF-8 cannot arrive through encoding/json (it coerces to U+FFFD); the utf8.ValidString half of validText is defence in depth for non-HTTP callers"]
+```
+
+## S4 Learn: articles, series, links writer and the free-series content script
+
+```yaml
+date: "2026-11-13"
+contributor: "mibienpanjoe"
+tool_or_model: "Claude Code, Claude Opus 5.5 (main session, no subagents)"
+purpose: "S4 Learn: listLearnArticles, createLearnArticle (401 anonymous, 403 publishing without a verified email, drafts allowed, shared write:user budget failing closed, Idempotency-Key, original text stored unchanged), getLearnArticle (draft or archived only to its author), listTrainingSeries, getTrainingSeries (no my_progress, C3); the article links[] writer (canonical question/resource/project -> article, target locked FOR SHARE in the creating transaction); the one-time free series content script and its gated wrapper; the S1/S2 tracker ticks."
+repository_or_source_context: "branch feature/learn/articles-series"
+files_or_sections_affected: ["db/queries/learn.sql", "src/api/internal/platform/dbgen/learn.sql.go", "src/api/internal/platform/dbgen/learn_queries_test.go", "src/api/internal/learn/**", "src/api/internal/app/server.go", "src/api/internal/app/app.go", "src/api/internal/app/learn_internal_test.go", "src/api/internal/platform/pgtest/learn_integration_test.go", "src/api/internal/platform/pgtest/errorreport_integration_test.go", "scripts/content/**", "scripts/tests/free-series_test.sh", "scripts/public-routes.txt", "scripts/unimplemented-routes.txt", "scripts/authz-tests.txt", "TODO.md", "docs/ai-usage/2026-11-13-s4-learn.md"]
+third_party_sources_consulted: []
+license_review: "PENDING: owner review (the four French lessons in scripts/content/free-series.sql were drafted with AI for the team to review and own)"
+closure: "open"
+human_reviewers: ["NICE-DEV226 (pending)", "Y4NN777 (content script co-review, pending)"]
+tests_or_evidence: ["RED: service tests failed to compile before the service existed; pgtest Learn tests answered 501 with the handler unwired", "make generate, lint-go, lint-contract, lint-web, lint-scripts, typecheck, docs-check PASS", "make test-unit PASS; make coverage PASS: Go first-party 100.0% (4061/4061)", "make test-integration-go PASS (TestLearn*, TestFreeSeriesContentScript, EXPLAIN plans logged by TestLearnListPlansAreBounded)", "make security-authz, security-sast, security-govulncheck, security-secrets, licenses PASS", "scripts/tests/free-series_test.sh 13/13"]
+open_risks: ["the composition root (src/api/internal/app), pgtest, dbgen tests and scripts/tests are outside the S4 allowed paths as written; S2 used the same files", "series have no tags and no relations at P0 (no tables): the API returns empty arrays", "links to a series or an article are refused with 422 (content_relations has no such pair)", "article bodies above about 16 KiB replay with Idempotency-Body-Omitted (idempotency column limit)", "deleted authors are not shown as 'membre supprimé' yet (S1 bylines item)", "the content script has not run on staging-test or production-live"]
+```
+
+<!-- ai-usage:generated:end -->

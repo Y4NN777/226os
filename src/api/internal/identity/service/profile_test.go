@@ -33,39 +33,31 @@ func strp(s string) *string { return &s }
 func TestGetMeReturnsAccountAndProfile(t *testing.T) {
 	svc, st, _ := testSvc(t)
 	acct := domain.Account{ID: "u1", Email: "a@b.c", Username: "ann", DisplayName: "Ann", Status: "active"}
-	st.accounts["u1"] = acct
 	seedProfile(st, "ann", "u1", domain.VisibilityPublic)
-	view, err := svc.GetMe(context.Background(), "u1")
+	view, err := svc.GetMe(context.Background(), acct)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if view.Account.ID != "u1" || view.Profile.Username != "ann" {
+	if view.Account.ID != "u1" || view.Account.Email != "a@b.c" || view.Profile.Username != "ann" {
 		t.Fatalf("unexpected view %+v", view)
 	}
 }
 
-func TestGetMeAccountNotFoundIsUnauthenticated(t *testing.T) {
-	svc, _, _ := testSvc(t)
-	_, err := svc.GetMe(context.Background(), "ghost")
-	if apperrCode(t, err) != apperr.CodeUnauthenticated {
-		t.Fatalf("expected %v, got %v", apperr.CodeUnauthenticated, err)
-	}
-}
-
-func TestGetMeAccountStoreErrorIsInternal(t *testing.T) {
+// The account is the one the session resolution already loaded: GetMe never
+// reads it again (its not-found and store-error cases are ResolveSession's).
+func TestGetMeDoesNotReadTheAccountAgain(t *testing.T) {
 	svc, st, _ := testSvc(t)
-	st.errs = map[string]error{"AccountByID": errors.New("db down")}
-	_, err := svc.GetMe(context.Background(), "u1")
-	if apperrCode(t, err) != apperr.CodeInternal {
-		t.Fatalf("expected %v, got %v", apperr.CodeInternal, err)
+	seedProfile(st, "ann", "u1", domain.VisibilityPublic)
+	st.errs = map[string]error{"AccountByID": errors.New("must not be called")}
+	if _, err := svc.GetMe(context.Background(), domain.Account{ID: "u1", Status: "active"}); err != nil {
+		t.Fatalf("GetMe read the account again: %v", err)
 	}
 }
 
 func TestGetMeProfileErrorIsInternal(t *testing.T) {
 	svc, st, _ := testSvc(t)
-	st.accounts["u1"] = domain.Account{ID: "u1", Status: "active"}
 	st.errs = map[string]error{"ProfileByUserID": errors.New("db down")}
-	_, err := svc.GetMe(context.Background(), "u1")
+	_, err := svc.GetMe(context.Background(), domain.Account{ID: "u1", Status: "active"})
 	if apperrCode(t, err) != apperr.CodeInternal {
 		t.Fatalf("expected %v, got %v", apperr.CodeInternal, err)
 	}
@@ -211,8 +203,57 @@ func TestUpdateMyProfileLanguagesTooManyAndBadFormat(t *testing.T) {
 		t.Fatalf("fr-BF: expected %v, got %v", apperr.CodeValidation, err)
 	}
 	var pe *apperr.Error
-	if errors.As(err, &pe) && (len(pe.Violations) != 1 || pe.Violations[0].Field != "languages") {
+	if errors.As(err, &pe) && (len(pe.Violations) != 1 || pe.Violations[0].Field != "/languages") {
 		t.Fatalf("fr-BF violations %+v", pe.Violations)
+	}
+}
+
+// Violation fields are JSON pointers and codes come from the contract enum
+// (api/openapi.yaml Violation): the S7 form maps them, issue #116.
+func TestUpdateMyProfileViolationsUseContractCodesAndPointers(t *testing.T) {
+	svc, st, _ := testSvc(t)
+	seedProfile(st, "ann", "u1", domain.VisibilityPublic)
+	st.tagIDs["go"] = "tag-1"
+
+	cases := []struct {
+		name  string
+		write domain.ProfileWrite
+		want  apperr.Violation
+	}{
+		{"display_name nil", domain.ProfileWrite{DisplayName: domain.PatchField[string]{Present: true, Value: nil}}, apperr.Violation{Field: "/display_name", Code: "too_short"}},
+		{"display_name empty", domain.ProfileWrite{DisplayName: domain.PatchField[string]{Present: true, Value: strp("")}}, apperr.Violation{Field: "/display_name", Code: "too_short"}},
+		{"display_name too long", domain.ProfileWrite{DisplayName: domain.PatchField[string]{Present: true, Value: strp(longString(81))}}, apperr.Violation{Field: "/display_name", Code: "too_long"}},
+		{"display_name NUL", domain.ProfileWrite{DisplayName: domain.PatchField[string]{Present: true, Value: strp("a\x00b")}}, apperr.Violation{Field: "/display_name", Code: "invalid_value"}},
+		{"bio NUL", domain.ProfileWrite{Bio: domain.PatchField[string]{Present: true, Value: strp("a\x00b")}}, apperr.Violation{Field: "/bio", Code: "invalid_value"}},
+		{"bio too long", domain.ProfileWrite{Bio: domain.PatchField[string]{Present: true, Value: strp(longString(501))}}, apperr.Violation{Field: "/bio", Code: "too_long"}},
+		{"intent", domain.ProfileWrite{Intent: domain.PatchField[string]{Present: true, Value: strp("bogus")}}, apperr.Violation{Field: "/intent", Code: "invalid_value"}},
+		{"country format", domain.ProfileWrite{CountryCode: domain.PatchField[string]{Present: true, Value: strp("zz")}}, apperr.Violation{Field: "/country", Code: "invalid_format"}},
+		{"languages too many", domain.ProfileWrite{Languages: domain.PatchField[[]string]{Present: true, Value: &[]string{"en", "fr", "en", "fr", "en", "fr", "en", "fr", "en", "fr", "en"}}}, apperr.Violation{Field: "/languages", Code: "too_many_items"}},
+		{"languages format", domain.ProfileWrite{Languages: domain.PatchField[[]string]{Present: true, Value: &[]string{"english!!"}}}, apperr.Violation{Field: "/languages", Code: "invalid_format"}},
+		{"languages duplicate", domain.ProfileWrite{Languages: domain.PatchField[[]string]{Present: true, Value: &[]string{"en", "en"}}}, apperr.Violation{Field: "/languages", Code: "duplicate"}},
+		{"github", domain.ProfileWrite{GitHub: domain.PatchField[string]{Present: true, Value: strp("bad name!")}}, apperr.Violation{Field: "/github", Code: "invalid_format"}},
+		{"visibility", domain.ProfileWrite{Visibility: domain.PatchField[domain.Visibility]{Present: true, Value: func() *domain.Visibility { v := domain.Visibility("bogus"); return &v }()}}, apperr.Violation{Field: "/profile_visibility", Code: "invalid_value"}},
+		{"field visibility", domain.ProfileWrite{VisBio: domain.PatchField[domain.Visibility]{Present: true, Value: func() *domain.Visibility { v := domain.Visibility("bogus"); return &v }()}}, apperr.Violation{Field: "/field_visibility/bio", Code: "invalid_value"}},
+		{"skills too many", domain.ProfileWrite{SkillSlugs: domain.PatchField[[]string]{Present: true, Value: &[]string{"go", "go", "go", "go", "go", "go", "go", "go", "go", "go", "go", "go", "go", "go", "go", "go", "go", "go", "go", "go", "go", "go", "go", "go", "go", "go", "go", "go", "go", "go", "go"}}}, apperr.Violation{Field: "/skills", Code: "too_many_items"}},
+		{"skills unknown", domain.ProfileWrite{SkillSlugs: domain.PatchField[[]string]{Present: true, Value: &[]string{"go", "nope"}}}, apperr.Violation{Field: "/skills", Code: "invalid_value"}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := svc.UpdateMyProfile(context.Background(), "u1", tc.write)
+			var pe *apperr.Error
+			if !errors.As(err, &pe) || pe.Code != apperr.CodeValidation {
+				t.Fatalf("expected validation error, got %v", err)
+			}
+			found := false
+			for _, v := range pe.Violations {
+				if v.Field == tc.want.Field && v.Code == tc.want.Code {
+					found = true
+				}
+			}
+			if !found {
+				t.Fatalf("want violation %+v in %+v", tc.want, pe.Violations)
+			}
+		})
 	}
 }
 
@@ -223,7 +264,7 @@ func TestUpdateMyProfileSkillsResolveAndRejectUnknown(t *testing.T) {
 	st.tagIDs["rust"] = "tag-2"
 
 	slugs := []string{"go", "rust"}
-	w := domain.ProfileWrite{SkillTagIDs: domain.PatchField[[]string]{Present: true, Value: &slugs}}
+	w := domain.ProfileWrite{SkillSlugs: domain.PatchField[[]string]{Present: true, Value: &slugs}}
 	prof, err := svc.UpdateMyProfile(context.Background(), "u1", w)
 	if err != nil {
 		t.Fatal(err)
@@ -234,7 +275,7 @@ func TestUpdateMyProfileSkillsResolveAndRejectUnknown(t *testing.T) {
 
 	// unknown slug rejects the whole patch
 	slugs = []string{"go", "nope"}
-	w = domain.ProfileWrite{SkillTagIDs: domain.PatchField[[]string]{Present: true, Value: &slugs}}
+	w = domain.ProfileWrite{SkillSlugs: domain.PatchField[[]string]{Present: true, Value: &slugs}}
 	_, err = svc.UpdateMyProfile(context.Background(), "u1", w)
 	if apperrCode(t, err) != apperr.CodeValidation {
 		t.Fatalf("expected %v, got %v", apperr.CodeValidation, err)
@@ -249,7 +290,7 @@ func TestUpdateMyProfileSkillsClearAndTooMany(t *testing.T) {
 	st.tagIDs["go"] = "tag-1"
 
 	// present + nil clears
-	w := domain.ProfileWrite{SkillTagIDs: domain.PatchField[[]string]{Present: true, Value: nil}}
+	w := domain.ProfileWrite{SkillSlugs: domain.PatchField[[]string]{Present: true, Value: nil}}
 	prof, err := svc.UpdateMyProfile(context.Background(), "u1", w)
 	if err != nil {
 		t.Fatal(err)
@@ -263,7 +304,7 @@ func TestUpdateMyProfileSkillsClearAndTooMany(t *testing.T) {
 	for i := range many {
 		many[i] = "go"
 	}
-	w = domain.ProfileWrite{SkillTagIDs: domain.PatchField[[]string]{Present: true, Value: &many}}
+	w = domain.ProfileWrite{SkillSlugs: domain.PatchField[[]string]{Present: true, Value: &many}}
 	_, err = svc.UpdateMyProfile(context.Background(), "u1", w)
 	if apperrCode(t, err) != apperr.CodeValidation {
 		t.Fatalf("expected %v, got %v", apperr.CodeValidation, err)
@@ -319,7 +360,7 @@ func TestUpdateMyProfileStoreErrors(t *testing.T) {
 
 	st.errs = map[string]error{"ResolveSkillSlugs": errors.New("db down")}
 	slugs := []string{"go"}
-	w2 := domain.ProfileWrite{SkillTagIDs: domain.PatchField[[]string]{Present: true, Value: &slugs}}
+	w2 := domain.ProfileWrite{SkillSlugs: domain.PatchField[[]string]{Present: true, Value: &slugs}}
 	_, err = svc.UpdateMyProfile(context.Background(), "u1", w2)
 	if apperrCode(t, err) != apperr.CodeInternal {
 		t.Fatalf("expected %v, got %v", apperr.CodeInternal, err)
@@ -478,5 +519,25 @@ func TestGetProfileVisibleNilSlicesBecomeEmpty(t *testing.T) {
 	}
 	if pub.Languages == nil || pub.Skills == nil {
 		t.Fatalf("expected empty non-nil slices, got %+v", pub)
+	}
+}
+
+// SkillSlugs is the client's input and SkillTagIDs the resolved ids: a field
+// never holds both (review of PR #94).
+func TestUpdateMyProfileKeepsSlugsAndIDsInSeparateFields(t *testing.T) {
+	svc, st, _ := testSvc(t)
+	seedProfile(st, "ann", "u1", domain.VisibilityPublic)
+	st.tagIDs["go"] = "tag-1"
+	slugs := []string{"go"}
+	w := domain.ProfileWrite{SkillSlugs: domain.PatchField[[]string]{Present: true, Value: &slugs}}
+	if _, err := svc.UpdateMyProfile(context.Background(), "u1", w); err != nil {
+		t.Fatal(err)
+	}
+	got := st.lastWrite
+	if !got.SkillTagIDs.Present || got.SkillTagIDs.Value == nil || len(*got.SkillTagIDs.Value) != 1 || (*got.SkillTagIDs.Value)[0] != "tag-1" {
+		t.Fatalf("the store must receive the resolved ids: %+v", got.SkillTagIDs)
+	}
+	if !got.SkillSlugs.Present || (*got.SkillSlugs.Value)[0] != "go" {
+		t.Fatalf("the slugs must stay as the client sent them: %+v", got.SkillSlugs)
 	}
 }

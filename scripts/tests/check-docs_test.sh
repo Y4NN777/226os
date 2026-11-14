@@ -137,4 +137,21 @@ printf '# AI use\n\n```yaml\ndate: "2030-01-01"\n```\n' >"$tmp/t/AI_USAGE.md"
 dates_run --strict-dates
 [ "$rc" -eq 0 ] && grep -q 'NOT RUN' <<<"$out" && ok "outside a git repository the date check is NOT RUN, not a failure" || ko "no git (rc=$rc out=$out)"
 
+# One record per file (docs/ai-usage/): the date check reads those files too, before AI_USAGE.md is rebuilt from them.
+dated_tree 2026-11-13 2026-11-10
+mkdir -p "$tmp/t/docs/ai-usage"
+printf '## Future record\n\n```yaml\ndate: "2026-11-17"\ncontributor: "x"\n```\n' >"$tmp/t/docs/ai-usage/2026-11-17-future.md"
+printf '## Fine record\n\n```yaml\ndate: "2026-11-13"\ncontributor: "x"\n```\n' >"$tmp/t/docs/ai-usage/2026-11-13-fine.md"
+dates_run
+[ "$rc" -eq 0 ] && grep -q 'WARN: ai-usage: docs/ai-usage/2026-11-17-future.md:4 date 2026-11-17 is after the HEAD commit date 2026-11-13' <<<"$out" && ok "a future-dated record FILE is reported with its own path" || ko "record file (rc=$rc out=$out)"
+! grep -q '2026-11-13-fine' <<<"$out" && ok "a correctly dated record file is quiet" || ko "fine record file ($out)"
+dates_run --strict-dates
+[ "$rc" -eq 1 ] && ok "and --strict-dates fails on it" || ko "record file strict (rc=$rc out=$out)"
+
+# After `make ai-usage` the same record also sits in the generated block of AI_USAGE.md: it must warn once, from its file
+# (review note on #120), not twice.
+python3 -I "$root/scripts/ai-usage.py" build --root "$tmp/t" >/dev/null
+dates_run
+[ "$(grep -c 'WARN' <<<"$out")" -eq 1 ] && grep -q 'docs/ai-usage/2026-11-17-future.md' <<<"$out" && ok "a bad record date warns once after a rebuild (the generated block is not scanned twice)" || ko "double warning ($out)"
+
 finish

@@ -54,8 +54,9 @@ lint-scripts: doctor ## G1: ShellCheck (pinned image), script tests (no Docker f
 	@echo "== lint: tracker moves with the slice"
 	scripts/check-todo-updated.sh
 
-docs-check: doctor ## G1: documentation checks (relative links, no private paths, operation count, ADR index)
+docs-check: doctor ## G1: documentation checks (relative links, no private paths, operation count, ADR index; on a pull request into main also: AI_USAGE.md is not stale)
 	python3 -I scripts/check-docs.py
+	python3 -I scripts/ai-usage.py check --only-on-promotion
 
 typecheck: doctor ## G1: tsc --noEmit (strict) for web, go build ./...
 	pnpm --filter web run typecheck

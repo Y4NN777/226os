@@ -147,14 +147,14 @@ func TestUpdateProfile(t *testing.T) {
 	bio := "hello"
 	langs := []string{"fr"}
 	vis := domain.VisibilityMembers
-	slugs := []string{testUUID.String(), "01932f8e-7b1a-7c2d-9e3f-4a5b6c7d8e9f"}
+	tagIDs := []string{testUUID.String(), "01932f8e-7b1a-7c2d-9e3f-4a5b6c7d8e9f"}
 
 	w := domain.ProfileWrite{
 		DisplayName: domain.PatchField[string]{Present: true, Value: &name},
 		Bio:         domain.PatchField[string]{Present: true, Value: &bio},
 		Languages:   domain.PatchField[[]string]{Present: true, Value: &langs},
 		Visibility:  domain.PatchField[domain.Visibility]{Present: true, Value: &vis},
-		SkillTagIDs: domain.PatchField[[]string]{Present: true, Value: &slugs},
+		SkillTagIDs: domain.PatchField[[]string]{Present: true, Value: &tagIDs},
 	}
 	// skills present -> transaction: update row, delete skills, insert skills
 	db := &fakeDB{steps: []dbStep{{vals: []any{pguuid()}}, {}, {}}}

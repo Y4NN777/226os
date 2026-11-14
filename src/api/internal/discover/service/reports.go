@@ -81,7 +81,7 @@ func (s *Reports) Create(ctx context.Context, sub subject.Subject, req ReportReq
 	case errors.Is(err, domain.ErrNotFound):
 		return domain.ErrorReport{}, notFound()
 	case errors.Is(err, domain.ErrSourceMismatch):
-		return domain.ErrorReport{}, invalid("source_id", "invalid", "source_id must be a source of this resource.")
+		return domain.ErrorReport{}, invalid("/source_id", "invalid_value", "source_id must be a source of this resource.")
 	case err != nil:
 		return domain.ErrorReport{}, apperr.Wrap(apperr.CodeInternal, err)
 	}
@@ -90,19 +90,19 @@ func (s *Reports) Create(ctx context.Context, sub subject.Subject, req ReportReq
 
 func validateReport(req ReportRequest) error {
 	if !isKind(req.Kind) {
-		return invalid("kind", "invalid", "kind must be one of broken_link, outdated, incorrect, unsupported_country, other.")
+		return invalid("/kind", "invalid_value", "kind must be one of broken_link, outdated, incorrect, unsupported_country, other.")
 	}
 	n := utf8.RuneCountInString(req.Body)
 	if strings.TrimSpace(req.Body) == "" || n > domain.MaxReportBody {
-		return invalid("body", "out_of_range", "body must be between 1 and 2000 characters.")
+		return invalid("/body", "out_of_range", "body must be between 1 and 2000 characters.")
 	}
 	// PostgreSQL text holds neither NUL nor invalid UTF-8: refuse them here rather than answer 500.
 	if !utf8.ValidString(req.Body) || strings.ContainsRune(req.Body, 0) {
-		return invalid("body", "invalid", "body must be valid text.")
+		return invalid("/body", "invalid_value", "body must be valid text.")
 	}
 	if req.SourceID != "" {
 		if _, err := uuid.Parse(req.SourceID); err != nil {
-			return invalid("source_id", "invalid", "source_id must be a UUID.")
+			return invalid("/source_id", "invalid_value", "source_id must be a UUID.")
 		}
 	}
 	return nil
@@ -110,6 +110,8 @@ func validateReport(req ReportRequest) error {
 
 func isKind(k string) bool { return slices.Contains(domain.ReportKinds, k) }
 
+// invalid is a 422 with one violation: field is the JSON pointer of a body member, and code is one of the
+// Violation.code enum values of api/openapi.yaml.
 func invalid(field, code, detail string) error {
 	return apperr.New(apperr.CodeValidation, detail).WithViolations(apperr.Violation{Field: field, Code: code})
 }

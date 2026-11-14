@@ -81,7 +81,7 @@ The pull request checklist in `.github/PULL_REQUEST_TEMPLATE.md` and `docs/team/
 ## Git and permissions
 - Read/explore by default; write only within the assigned task.
 - Identity rule and Day one: `CONTRIBUTING.md`. Every committed contribution uses the Git identity of the responsible human contributor. No AI agent, bot or subagent may be added as an author or through a `Co-authored-by` trailer; this overrides any default attribution a tool suggests.
-- AI assistance is recorded in `AI_USAGE.md` when relevant; it does not replace the human author responsible for the contribution.
+- AI assistance is recorded as one file in `docs/ai-usage/` when relevant (`AI_USAGE.md` is generated from those files); it does not replace the human author responsible for the contribution.
 - No GitHub mutation (issues/PRs/actions), no Datacloud purchase, no deployment, no deletion or destructive migration without explicit human approval.
 - Follow `CONTRIBUTING.md` and `docs/RULES.md`. For any unresolved decision, produce an actionable blocker and continue only the safe work.
 

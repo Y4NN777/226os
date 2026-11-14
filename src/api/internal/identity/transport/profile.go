@@ -19,14 +19,23 @@ import (
 const maxPatchBodyBytes = 1 << 20
 
 // GetMe serves GET /me: member only, the single place the account email is
-// returned (contract x-authz note).
+// returned (contract x-authz note). The body depends on the session, so no
+// shared cache may store it (issue #116).
 func (h *Handler) GetMe(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
 	caller := subject.From(r.Context())
 	if caller.Anonymous() {
 		writeErr(h.logger, w, r, apperr.New(apperr.CodeUnauthenticated, "Authentication required."))
 		return
 	}
-	view, err := h.svc.GetMe(r.Context(), caller.UserID)
+	// The subject middleware already resolved this session; the memo returns
+	// the same account without another store read.
+	session, err := resolveSession(r, h.svc, h.sessionPlain(r))
+	if err != nil {
+		writeErr(h.logger, w, r, err)
+		return
+	}
+	view, err := h.svc.GetMe(r.Context(), session.Account)
 	if err != nil {
 		writeErr(h.logger, w, r, err)
 		return
@@ -64,8 +73,10 @@ func (h *Handler) UpdateMyProfile(w http.ResponseWriter, r *http.Request) {
 
 // GetProfile serves GET /profiles/{username}: anonymous and members allowed;
 // the service applies the C14b visibility matrix and answers an identical 404
-// for hidden, unknown and non-active profiles.
+// for hidden, unknown and non-active profiles. The body depends on the caller,
+// so no shared cache may store it (issue #116).
 func (h *Handler) GetProfile(w http.ResponseWriter, r *http.Request, username apigen.Username) {
+	w.Header().Set("Cache-Control", "no-store")
 	caller := subject.From(r.Context())
 	pub, err := h.svc.GetProfile(r.Context(), string(username), caller.UserID)
 	if err != nil {
@@ -135,7 +146,7 @@ func profileWriteFrom(b apigen.ProfileUpdate, present map[string]json.RawMessage
 		for i, s := range *b.Skills {
 			slugs[i] = string(s)
 		}
-		w.SkillTagIDs = domain.PatchField[[]string]{Present: true, Value: &slugs}
+		w.SkillSlugs = domain.PatchField[[]string]{Present: true, Value: &slugs}
 	}
 	if b.OpenToCollab != nil {
 		w.OpenToCollab = domain.PatchField[bool]{Present: true, Value: b.OpenToCollab}

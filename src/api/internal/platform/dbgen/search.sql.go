@@ -12,19 +12,27 @@ import (
 )
 
 const searchLearn = `-- name: SearchLearn :many
-SELECT a.id, a.title, left(COALESCE(NULLIF(a.summary, ''), a.body_md), 600)::text AS excerpt, a.language
-FROM learn_articles a
-WHERE a.status = 'published'
-  AND a.search_document @@ websearch_to_tsquery('simple', f_unaccent($1::text))
-  AND ($2::text IS NULL OR a.language = $2)
-ORDER BY ts_rank(a.search_document, websearch_to_tsquery('simple', f_unaccent($1::text))) DESC, a.id
-LIMIT $3
+WITH i AS NOT MATERIALIZED (SELECT websearch_to_tsquery('simple', f_unaccent($2::text)) AS tsq),
+candidates AS (
+  SELECT a.id, a.title, COALESCE(NULLIF(a.summary, ''), a.body_md) AS excerpt_src, a.language, a.search_document
+  FROM learn_articles a
+  CROSS JOIN i
+  WHERE querytree(i.tsq) NOT IN ('', 'T')
+    AND a.status = 'published'
+    AND a.search_document @@ i.tsq
+    AND ($3::text IS NULL OR a.language = $3)
+  LIMIT 500
+)
+SELECT c.id, c.title, left(c.excerpt_src, 600)::text AS excerpt, c.language
+FROM candidates c CROSS JOIN i
+ORDER BY ts_rank(c.search_document, i.tsq) DESC, c.id
+LIMIT $1
 `
 
 type SearchLearnParams struct {
+	RowLimit int32
 	Q        string
 	Lang     pgtype.Text
-	RowLimit int32
 }
 
 type SearchLearnRow struct {
@@ -37,7 +45,7 @@ type SearchLearnRow struct {
 // Learn articles have no country column, so the country filter does not apply to this group.
 // Only published articles appear (draft, archived and removed never do).
 func (q *Queries) SearchLearn(ctx context.Context, arg SearchLearnParams) ([]SearchLearnRow, error) {
-	rows, err := q.db.Query(ctx, searchLearn, arg.Q, arg.Lang, arg.RowLimit)
+	rows, err := q.db.Query(ctx, searchLearn, arg.RowLimit, arg.Q, arg.Lang)
 	if err != nil {
 		return nil, err
 	}
@@ -62,21 +70,29 @@ func (q *Queries) SearchLearn(ctx context.Context, arg SearchLearnParams) ([]Sea
 }
 
 const searchProjects = `-- name: SearchProjects :many
-SELECT p.id, p.name AS title, left(p.summary, 600)::text AS excerpt, p.language
-FROM projects p
-WHERE p.status = 'published' AND p.visibility = 'public'
-  AND p.search_document @@ websearch_to_tsquery('simple', f_unaccent($1::text))
-  AND ($2::text IS NULL OR p.country_code = $2)
-  AND ($3::text IS NULL OR p.language = $3)
-ORDER BY ts_rank(p.search_document, websearch_to_tsquery('simple', f_unaccent($1::text))) DESC, p.id
-LIMIT $4
+WITH i AS NOT MATERIALIZED (SELECT websearch_to_tsquery('simple', f_unaccent($2::text)) AS tsq),
+candidates AS (
+  SELECT p.id, p.name AS title, p.summary AS excerpt_src, p.language, p.search_document
+  FROM projects p
+  CROSS JOIN i
+  WHERE querytree(i.tsq) NOT IN ('', 'T')
+    AND p.status = 'published' AND p.visibility = 'public'
+    AND p.search_document @@ i.tsq
+    AND ($3::text IS NULL OR p.country_code = $3)
+    AND ($4::text IS NULL OR p.language = $4)
+  LIMIT 500
+)
+SELECT c.id, c.title, left(c.excerpt_src, 600)::text AS excerpt, c.language
+FROM candidates c CROSS JOIN i
+ORDER BY ts_rank(c.search_document, i.tsq) DESC, c.id
+LIMIT $1
 `
 
 type SearchProjectsParams struct {
+	RowLimit int32
 	Q        string
 	Country  pgtype.Text
 	Lang     pgtype.Text
-	RowLimit int32
 }
 
 type SearchProjectsRow struct {
@@ -89,10 +105,10 @@ type SearchProjectsRow struct {
 // Private projects never appear, even for their owner.
 func (q *Queries) SearchProjects(ctx context.Context, arg SearchProjectsParams) ([]SearchProjectsRow, error) {
 	rows, err := q.db.Query(ctx, searchProjects,
+		arg.RowLimit,
 		arg.Q,
 		arg.Country,
 		arg.Lang,
-		arg.RowLimit,
 	)
 	if err != nil {
 		return nil, err
@@ -119,21 +135,29 @@ func (q *Queries) SearchProjects(ctx context.Context, arg SearchProjectsParams) 
 
 const searchQuestions = `-- name: SearchQuestions :many
 
-SELECT q.id, q.title, left(q.body_md, 600)::text AS excerpt, q.language
-FROM questions q
-WHERE q.status = 'published'
-  AND q.search_document @@ websearch_to_tsquery('simple', f_unaccent($1::text))
-  AND ($2::text IS NULL OR q.country_code = $2)
-  AND ($3::text IS NULL OR q.language = $3)
-ORDER BY ts_rank(q.search_document, websearch_to_tsquery('simple', f_unaccent($1::text))) DESC, q.id
-LIMIT $4
+WITH i AS NOT MATERIALIZED (SELECT websearch_to_tsquery('simple', f_unaccent($2::text)) AS tsq),
+candidates AS (
+  SELECT q.id, q.title, q.body_md AS excerpt_src, q.language, q.search_document
+  FROM questions q
+  CROSS JOIN i
+  WHERE querytree(i.tsq) NOT IN ('', 'T')
+    AND q.status = 'published'
+    AND q.search_document @@ i.tsq
+    AND ($3::text IS NULL OR q.country_code = $3)
+    AND ($4::text IS NULL OR q.language = $4)
+  LIMIT 500
+)
+SELECT c.id, c.title, left(c.excerpt_src, 600)::text AS excerpt, c.language
+FROM candidates c CROSS JOIN i
+ORDER BY ts_rank(c.search_document, i.tsq) DESC, c.id
+LIMIT $1
 `
 
 type SearchQuestionsParams struct {
+	RowLimit int32
 	Q        string
 	Country  pgtype.Text
 	Lang     pgtype.Text
-	RowLimit int32
 }
 
 type SearchQuestionsRow struct {
@@ -150,12 +174,16 @@ type SearchQuestionsRow struct {
 // user input; the service caps its length first (C4 DECIDED option 1, ADR-0005 point 6).
 // The excerpt is the first 600 characters of the summary or body; the Go side turns it into a plain
 // 300-rune snippet. Answers have no search group, so their GIN index is not queried here.
+// Bounded ranking (#118): the tsquery is built once (input); a query with no positive term (only
+// negations, or nothing left after parsing: querytree is 'T' or empty) would match every row, so it
+// reads none; at most 500 matching rows (candidates) are ranked, so ts_rank never scores every row of
+// a very common term. Above 500 matches the ranked set is the first 500 the index returns.
 func (q *Queries) SearchQuestions(ctx context.Context, arg SearchQuestionsParams) ([]SearchQuestionsRow, error) {
 	rows, err := q.db.Query(ctx, searchQuestions,
+		arg.RowLimit,
 		arg.Q,
 		arg.Country,
 		arg.Lang,
-		arg.RowLimit,
 	)
 	if err != nil {
 		return nil, err
@@ -181,24 +209,32 @@ func (q *Queries) SearchQuestions(ctx context.Context, arg SearchQuestionsParams
 }
 
 const searchResources = `-- name: SearchResources :many
-SELECT r.id, r.name AS title, left(r.summary, 600)::text AS excerpt, r.summary_language AS language
-FROM resources r
-JOIN providers p ON p.id = r.provider_id AND p.status = 'published' AND p.removed_at IS NULL
-WHERE r.status = 'published'
-  AND r.search_document @@ websearch_to_tsquery('simple', f_unaccent($1::text))
-  AND ($2::text IS NULL OR EXISTS (
-        SELECT 1 FROM resource_countries c
-        WHERE c.resource_id = r.id AND c.country_code = $2))
-  AND ($3::text IS NULL OR r.summary_language = $3)
-ORDER BY ts_rank(r.search_document, websearch_to_tsquery('simple', f_unaccent($1::text))) DESC, r.id
-LIMIT $4
+WITH i AS NOT MATERIALIZED (SELECT websearch_to_tsquery('simple', f_unaccent($2::text)) AS tsq),
+candidates AS (
+  SELECT r.id, r.name AS title, r.summary AS excerpt_src, r.summary_language AS language, r.search_document
+  FROM resources r
+  JOIN providers p ON p.id = r.provider_id AND p.status = 'published' AND p.removed_at IS NULL
+  CROSS JOIN i
+  WHERE querytree(i.tsq) NOT IN ('', 'T')
+    AND r.status = 'published'
+    AND r.search_document @@ i.tsq
+    AND ($3::text IS NULL OR EXISTS (
+          SELECT 1 FROM resource_countries c
+          WHERE c.resource_id = r.id AND c.country_code = $3))
+    AND ($4::text IS NULL OR r.summary_language = $4)
+  LIMIT 500
+)
+SELECT c.id, c.title, left(c.excerpt_src, 600)::text AS excerpt, c.language
+FROM candidates c CROSS JOIN i
+ORDER BY ts_rank(c.search_document, i.tsq) DESC, c.id
+LIMIT $1
 `
 
 type SearchResourcesParams struct {
+	RowLimit int32
 	Q        string
 	Country  pgtype.Text
 	Lang     pgtype.Text
-	RowLimit int32
 }
 
 type SearchResourcesRow struct {
@@ -212,10 +248,10 @@ type SearchResourcesRow struct {
 // Country is the resource_countries membership; lang is the language of the summary.
 func (q *Queries) SearchResources(ctx context.Context, arg SearchResourcesParams) ([]SearchResourcesRow, error) {
 	rows, err := q.db.Query(ctx, searchResources,
+		arg.RowLimit,
 		arg.Q,
 		arg.Country,
 		arg.Lang,
-		arg.RowLimit,
 	)
 	if err != nil {
 		return nil, err

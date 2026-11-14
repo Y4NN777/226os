@@ -63,6 +63,63 @@ func TestNormalizeEmail(t *testing.T) {
 
 // ---------- SignUp error paths ----------
 
+// A 422 violation names its field as a JSON pointer and its code from the contract enum (api/openapi.yaml, Violation.code):
+// the S7 forms map errors to fields by that pointer (review note on #127, same class as the profile patch).
+func TestAuthViolationsFollowTheContract(t *testing.T) {
+	ctx := context.Background()
+	violation := func(err error) apperr.Violation {
+		t.Helper()
+		var ae *apperr.Error
+		if !errors.As(err, &ae) || len(ae.Violations) != 1 {
+			t.Fatalf("expected one violation, got %v", err)
+		}
+		return ae.Violations[0]
+	}
+	svc, _, _ := testSvc(t)
+	if v := violation(svc.SignUp(ctx, SignUpInput{Email: "a@b.co", Password: "short", Username: "aa", IP: "10.0.2.1"})); v.Field != "/password" || v.Code != "invalid_value" {
+		t.Fatalf("sign-up weak password: %+v", v)
+	}
+	svc, _, _ = testSvc(t)
+	if v := violation(svc.SignUp(ctx, SignUpInput{Email: "a@b.co", Password: testPassword, Username: "aa", DisplayName: "a\x00b", IP: "10.0.2.2"})); v.Field != "/display_name" || v.Code != "invalid_value" {
+		t.Fatalf("sign-up display name: %+v", v)
+	}
+	svc, _, _ = testSvc(t)
+	if v := violation(svc.ConfirmPasswordReset(ctx, token32(), "short", "10.0.2.3")); v.Field != "/new_password" || v.Code != "invalid_value" {
+		t.Fatalf("reset weak password: %+v", v)
+	}
+}
+
+// PostgreSQL text holds neither NUL nor invalid UTF-8: a display name with one used to reach CreateAccount and come
+// back as a 500 (22021), after paying for the password hash (review note on #127). It is a 422 before anything is
+// written, and the same 422 for a registered e-mail, so it leaks nothing about existence.
+func TestSignUpRefusesUnstorableDisplayName(t *testing.T) {
+	ctx := context.Background()
+	for name, display := range map[string]string{"NUL": "a\x00b", "invalid UTF-8": "a\xffb"} {
+		svc, st, _ := testSvc(t)
+		hashed := 0
+		origHash := hashPassword
+		hashPassword = func(p string) (string, error) { hashed++; return origHash(p) }
+		t.Cleanup(func() { hashPassword = origHash })
+		err := svc.SignUp(ctx, SignUpInput{Email: "nul@b.co", Password: testPassword, Username: "nul", DisplayName: display, IP: "10.0.1.1"})
+		if apperrCode(t, err) != apperr.CodeValidation {
+			t.Fatalf("%s: expected 422 validation, got %v", name, err)
+		}
+		wantViolation(t, err, "/display_name", "invalid_value")
+		if hashed != 0 || len(st.accounts) != 0 {
+			t.Fatalf("%s: nothing may be hashed or written (hashed=%d accounts=%d)", name, hashed, len(st.accounts))
+		}
+		hashPassword = origHash
+
+		// A registered e-mail answers the same 422 (no enumeration through the policy check).
+		svc, st, _ = testSvc(t)
+		seedAccount(t, st, "taken-nul@example.com")
+		if err := svc.SignUp(ctx, SignUpInput{Email: "taken-nul@example.com", Password: testPassword, Username: "tn",
+			DisplayName: display, IP: "10.0.1.2"}); apperrCode(t, err) != apperr.CodeValidation {
+			t.Fatalf("%s on a registered e-mail: %v", name, err)
+		}
+	}
+}
+
 func TestSignUpStoreAndValidationErrors(t *testing.T) {
 	ctx := context.Background()
 
@@ -75,9 +132,11 @@ func TestSignUpStoreAndValidationErrors(t *testing.T) {
 
 	// Weak password -> 422 validation, before any write.
 	svc, _, _ = testSvc(t)
-	if err := svc.SignUp(ctx, SignUpInput{Email: "a@b.co", Password: "short", Username: "aa", IP: "10.0.0.2"}); apperrCode(t, err) != apperr.CodeValidation {
+	err := svc.SignUp(ctx, SignUpInput{Email: "a@b.co", Password: "short", Username: "aa", IP: "10.0.0.2"})
+	if apperrCode(t, err) != apperr.CodeValidation {
 		t.Fatalf("weak password: %v", err)
 	}
+	wantViolation(t, err, "/password", "invalid_value")
 
 	// Weak password on a *registered* e-mail must also be 422: answering 202
 	// there would leak account existence through the policy check.
