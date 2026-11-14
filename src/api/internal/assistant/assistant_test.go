@@ -77,7 +77,7 @@ func TestRetrieveTakesOneHitPerGroupInTurnAndCapsText(t *testing.T) {
 	if n := len([]rune(got[0].Text)); n > 1500 {
 		t.Fatalf("passage has %d runes", n)
 	}
-	want := map[string][2]string{"q1": {"question", "/question/q1"}, "r1": {"resource", "/discover/r1"}, "p1": {"project", "/project/p1"}, "a1": {"article", "/article/a1"}}
+	want := map[string][2]string{"q1": {"question", "/questions/q1"}, "r1": {"resource", "/discover/r1"}, "p1": {"project", "/recherche?q=T+p1"}, "a1": {"article", "/recherche?q=T+a1"}}
 	for _, p := range got[:4] {
 		if w := want[p.ID]; p.Type != w[0] || p.URL != w[1] {
 			t.Errorf("%s: %+v", p.ID, p)

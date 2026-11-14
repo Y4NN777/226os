@@ -31,7 +31,8 @@ The PRD amendment 3.2 makes a sourced assistant part of P0: it answers only from
 
 - The free tier (V2 quotas, V3) is protected twice: 10 per member per hour and 12 per hour overall. A demo with several simultaneous users shares the 12 calls an hour.
 - Retrieval quality is bounded by the search snippet (300 characters) and the keyword OR query. A richer passage (the full body, 1,500 characters) needs a new query in `db/queries` and is a follow-up.
-- Source URLs are in-app paths (`/question/{id}`, `/discover/{id}`, `/project/{id}`, `/article/{id}`) and the refusal links to `/recherche?q=`. They are a convention until the web routes exist (GUESS, UI owner to confirm).
+- Source URLs follow the web routes: `/questions/{id}`, `/discover/{id}`; projects and articles have no page yet and link to `/recherche?q=<url-encoded title>`; a refusal links to `/recherche?q=`.
+- **Owner decisions of 2026-11-14, ACCEPTED:** the global guard stays at 12 calls per hour (point 8, in place of 300 a day); passages stay the 300-character search snippets (point 3); the 20 s cap stays in the app wiring (point 9).
 - Learn series are not retrieved (the search has no series group).
 
 ## Alternatives considered

@@ -172,10 +172,15 @@ func SearchQuery(q string) string {
 	return strings.Join(kept, " or ")
 }
 
+// SearchURL is the in-app search page for text (cut to 100 runes, URL-encoded).
+func SearchURL(text string) string {
+	return "/recherche?q=" + url.QueryEscape(Cut(text, searchURLRunes))
+}
+
 // NoSourceAnswer is the refusal served when nothing usable backs an answer. The provider was not
 // asked for it, or its answer was not trustworthy.
 func NoSourceAnswer(lang, question string) Answer {
-	a := Answer{Lang: lang, SearchURL: "/recherche?q=" + url.QueryEscape(Cut(question, searchURLRunes))}
+	a := Answer{Lang: lang, SearchURL: SearchURL(question)}
 	if lang == EN {
 		a.Text = "I found no published content that answers this question, so I cannot answer it without guessing. Try the search."
 		a.HowToVerify = "Search the platform for related words, then check the official documentation of the provider."
