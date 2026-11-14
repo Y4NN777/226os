@@ -34,7 +34,10 @@ import { RichText } from './RichText';
 import { signInHref } from './signIn';
 
 /** The merge patch holds only what changed, so an untouched field never overwrites a newer one. */
-function diffOf(question: Question, draft: QuestionDraft): QuestionUpdate {
+function diffOf(
+  question: Question,
+  draft: Pick<QuestionDraft, 'title' | 'body_md' | 'tags'>,
+): QuestionUpdate {
   const patch: QuestionUpdate = {};
   if (draft.title !== question.title) patch.title = draft.title;
   if (draft.body_md !== question.body_md) patch.body_md = draft.body_md;
@@ -57,9 +60,9 @@ function EditQuestion({
 
   const submit = async (draft: QuestionDraft) => {
     const body = diffOf(question, draft);
-    if (Object.keys(body).length > 0 && etag) {
-      await update.mutateAsync({ body, etag });
-    }
+    // Without an ETag the edit cannot be sent safely: answer like a stale version (reload prompt).
+    if (!etag) throw new ApiError({ status: 412, code: 'PRECONDITION_FAILED' });
+    await update.mutateAsync({ body, etag });
     onDone();
   };
 
@@ -75,6 +78,7 @@ function EditQuestion({
       submitLabel={t('solve.question.save')}
       onSubmit={submit}
       onCancel={onDone}
+      isUnchanged={(draft) => Object.keys(diffOf(question, draft)).length === 0}
       failureNotice={(error) =>
         error instanceof ApiError && error.code === 'PRECONDITION_FAILED' ? (
           <div role="alert">

@@ -109,6 +109,7 @@ export function QuestionForm({
   onCancel,
   failureNotice,
   initialLink,
+  isUnchanged,
 }: {
   mode: 'create' | 'edit';
   initial: QuestionInitial;
@@ -118,6 +119,8 @@ export function QuestionForm({
   failureNotice?: (error: unknown) => ReactNode;
   /** A link pre-filled by the page that sent the visitor here (E4); shown as a removable chip. */
   initialLink?: LinkDraft | undefined;
+  /** When it says the draft equals the saved question, Save stays disabled (edit only). */
+  isUnchanged?: (draft: Pick<QuestionDraft, 'title' | 'body_md' | 'tags'>) => boolean;
 }) {
   const { t } = useI18n();
   const { failure, report, clear } = useFailure();
@@ -358,14 +361,23 @@ export function QuestionForm({
               ) : null}
             </>
           ) : null}
-          <form.Subscribe selector={(state) => state.isSubmitting}>
-            {(isSubmitting) => (
+          <form.Subscribe
+            selector={(state) => ({ submitting: state.isSubmitting, values: state.values })}
+          >
+            {({ submitting: isSubmitting, values }) => (
               <HStack gap={2}>
                 <Button
                   type="submit"
                   variant="primary"
                   label={submitLabel}
                   isLoading={isSubmitting}
+                  isDisabled={
+                    isUnchanged?.({
+                      title: values.title.trim(),
+                      body_md: values.body.trim(),
+                      tags: parseTags(values.tags),
+                    }) ?? false
+                  }
                 />
                 <Button variant="ghost" label={t('solve.form.cancel')} onClick={onCancel} />
               </HStack>

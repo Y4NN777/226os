@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { callsTo, mockApi, problemResponse } from '../../test/api';
 import { jsonResponse, renderApp, setLanguages } from '../../test/render';
 import { answer, member, memberId, page, question, questionId, withEtag } from './testFixtures';
+import { findVisibleText } from '../../test/visibleText';
 
 const base = `/questions/${questionId}`;
 const key = (suffix = '') => `${base}${suffix}`;
@@ -97,7 +98,7 @@ describe('QuestionPage reading', () => {
     setLanguages(['fr-FR']);
     mockApi({ [`GET ${key()}`]: () => problemResponse(404, 'NOT_FOUND') });
     await renderApp(base);
-    expect(await screen.findByText('Question introuvable')).toBeInTheDocument();
+    expect(await findVisibleText('Question introuvable')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Retour aux questions' })).toHaveAttribute(
       'href',
       '/solve',
@@ -108,7 +109,7 @@ describe('QuestionPage reading', () => {
     setLanguages(['fr-FR']);
     mockApi(readRoutes({ [`GET ${key('/answers')}`]: () => page([]) }));
     await renderApp(base);
-    expect(await screen.findByText(/Aucune réponse pour le moment/)).toBeInTheDocument();
+    expect(await findVisibleText(/Aucune réponse pour le moment/)).toBeInTheDocument();
   });
 
   it('is written in English when the browser asks for it', async () => {
@@ -294,7 +295,7 @@ describe('QuestionPage editing', () => {
     await user.type(field, 'Titre corrigé');
     await user.click(screen.getByRole('button', { name: 'Enregistrer' }));
 
-    expect(await screen.findByText('Question modifiée entre-temps')).toBeInTheDocument();
+    expect(await findVisibleText('Question modifiée entre-temps')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Recharger' }));
     await waitFor(() => {
       expect(callsTo(fetchMock, `GET ${key()}`)).toHaveLength(2);
@@ -307,6 +308,60 @@ describe('QuestionPage editing', () => {
     });
     expect(callsTo(fetchMock, `PATCH ${key()}`)[1]?.headers.get('If-Match')).toBe('"v2"');
     expect(owned).toBeDefined();
+  });
+
+  it('keeps Save disabled until something changes, so an empty edit never closes silently', async () => {
+    setLanguages(['fr-FR']);
+    member(
+      readRoutes({
+        [`GET ${key()}`]: () =>
+          withEtag(
+            question({ author: { id: memberId, username: 'awa', display_name: 'Awa Traoré' } }),
+            '"v1"',
+          ),
+      }),
+    );
+    const user = userEvent.setup();
+    await renderApp(base);
+    await user.click(await screen.findByRole('button', { name: 'Modifier la question' }));
+    expect(screen.getByRole('button', { name: 'Enregistrer' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+    await user.type(screen.getByRole('textbox', { name: 'Titre' }), ' !');
+    expect(screen.getByRole('button', { name: 'Enregistrer' })).not.toHaveAttribute(
+      'aria-disabled',
+    );
+  });
+
+  it('offers the reload prompt, and sends nothing, when a reload came back without an ETag', async () => {
+    setLanguages(['fr-FR']);
+    const author = { id: memberId, username: 'awa', display_name: 'Awa Traoré' };
+    let reads = 0;
+    const fetchMock = member(
+      readRoutes({
+        [`GET ${key()}`]: () => {
+          reads += 1;
+          return reads === 1
+            ? withEtag(question({ author }), '"v1"')
+            : jsonResponse(question({ author }));
+        },
+        [`PATCH ${key()}`]: () => problemResponse(412, 'PRECONDITION_FAILED'),
+      }),
+    );
+    const user = userEvent.setup();
+    await renderApp(base);
+    await user.click(await screen.findByRole('button', { name: 'Modifier la question' }));
+    await user.type(screen.getByRole('textbox', { name: 'Titre' }), ' !');
+    await user.click(screen.getByRole('button', { name: 'Enregistrer' }));
+    await user.click(await screen.findByRole('button', { name: 'Recharger' }));
+    await waitFor(() => {
+      expect(reads).toBe(2);
+    });
+    await user.click(screen.getByRole('button', { name: 'Enregistrer' }));
+    expect(await findVisibleText('Question modifiée entre-temps')).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'Titre' })).toBeInTheDocument();
+    expect(callsTo(fetchMock, `PATCH ${key()}`)).toHaveLength(1);
   });
 });
 
