@@ -568,7 +568,10 @@ paths:
           description: Question
           headers:
             ETag:
-              description: Entity tag; send it back in If-Match when editing.
+              description: Entity tag of this question as seen by the caller (it covers the caller, because viewer_vote is
+                part of the representation); send it back in If-Match when editing. The response varies by
+                cookie (Vary Cookie, Cache-Control private), and a tag read while signed out does not match once
+                signed in, so read the question again after signing in.
               schema:
                 type: string
                 maxLength: 128
@@ -614,7 +617,7 @@ paths:
           description: Updated
           headers:
             ETag:
-              description: Entity tag of the updated question.
+              description: Entity tag of the updated question as seen by the caller.
               schema:
                 type: string
                 maxLength: 128
@@ -3453,6 +3456,7 @@ components:
       - author
       - answer_count
       - vote_score
+      - viewer_vote
       - accepted_answer_id
       - related
       - created_at
@@ -3493,6 +3497,8 @@ components:
           minimum: 0
         vote_score:
           type: integer
+        viewer_vote:
+          $ref: '#/components/schemas/ViewerVote'
         accepted_answer_id:
           anyOf:
           - $ref: '#/components/schemas/Uuid'
@@ -3606,6 +3612,7 @@ components:
       - sources
       - author
       - vote_score
+      - viewer_vote
       - is_accepted
       - created_at
       - updated_at
@@ -3636,6 +3643,8 @@ components:
           $ref: '#/components/schemas/AuthorRef'
         vote_score:
           type: integer
+        viewer_vote:
+          $ref: '#/components/schemas/ViewerVote'
         is_accepted:
           type: boolean
         created_at:
@@ -3710,6 +3719,15 @@ components:
           - -1
           - 1
       additionalProperties: false
+    ViewerVote:
+      type: integer
+      enum:
+      - -1
+      - 0
+      - 1
+      description: The authenticated caller's own current vote on this item (1 up, -1 down, 0 none). Always 0 for
+        an anonymous caller. It is derived from the session only and never reveals another member's vote, so
+        a response that carries it varies by caller (Vary Cookie, Cache-Control private).
     VoteState:
       type: object
       required:
@@ -4177,6 +4195,7 @@ components:
       - lang
       - skills
       - status
+      - viewer_application
       - created_at
       properties:
         id:
@@ -4201,8 +4220,26 @@ components:
           uniqueItems: true
         status:
           $ref: '#/components/schemas/NeedStatus'
+        viewer_application:
+          description: The authenticated caller's own application to this need, or null (no application, or
+            anonymous). Other applicants are never exposed here.
+          anyOf:
+          - $ref: '#/components/schemas/ViewerApplication'
+          - type: 'null'
         created_at:
           $ref: '#/components/schemas/Timestamp'
+      additionalProperties: false
+    ViewerApplication:
+      type: object
+      description: The caller's own application to a need (id and status only).
+      required:
+      - id
+      - status
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        status:
+          $ref: '#/components/schemas/ApplicationStatus'
       additionalProperties: false
     NeedCreate:
       type: object
