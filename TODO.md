@@ -17,7 +17,7 @@ One line per person. Each person edits only their own line.
 
 | Login | Next action | Updated |
 |---|---|---|
-| `Y4NN777` | Merged: S3 (#147, #153), S9 (#161, #169, #176; ADR-0012 accepted), the S7 pages (#99 to #102, #144, #149, #154, #173, #177). Next, per the 12:00 checkpoint (ROADMAP section 14): S6 moderation after the web lanes, the `connect` page if the E5 backend merges by 16:30, the 18:00 freeze, then the release (S8, B4). Owner tasks: H6 and H7, H12 (V2), H10, issue #46, `APP_BASE_URL` per environment (#109). | 2026-11-14 |
+| `Y4NN777` | Merged: S3 (#147, #153), S9 (#161, #169, #176; ADR-0012 accepted), the S7 pages (#99 to #102, #144, #149, #154, #173, #177). Next, per the 12:00 checkpoint (ROADMAP section 14): S6 moderation after the web lanes, review of the `connect` page (`PANK4SS`) if the E5 backend merges by 16:30, the 18:00 freeze, then the release (S8, B4). Owner tasks: H6 and H7, H12 (V2), H10, issue #46, `APP_BASE_URL` per environment (#109). | 2026-11-14 |
 | `NICE-DEV226` | S1 merged (#89, #90, #94); S3 finished (#147, #153, fix #160). Now (owner sync, 12:00 checkpoint): E5 Connect is offered on #77 (contract by 13:30, backend by 16:30), then reviews before the freeze. | 2026-11-14 |
 | `mibienpanjoe` | S2, S4 and S5 merged (S5: #131, #132; #135 closed by #164). Now: reviews for the team before the freeze, then the after-freeze items (#116 C14b follow-ups, the S4 article-link deviation). | 2026-11-14 |
 | `PANK4SS` | Repository access active (H2 done). S7 pages are built by `Y4NN777` since 2026-11-13; `PANK4SS` reviews them. Now (owner sync, 12:00 checkpoint): SEED (#75) and #109 (APP_BASE_URL is the owner's), then E4 support. | 2026-11-14 |
@@ -420,7 +420,7 @@ Open owner items outside CADEV (IDs and decisions in ROADMAP section 8, 10 and 1
 - **Not in scope** (coming soon, PRD 5.5): mentoring and matchmaking, CV review, interview preparation, study groups, opportunities.
 - **Privacy tests (required):** hidden fields never appear for callers who may not see them; filtering on a hidden field never matches; no `email` key; one test per `profile_visibility` x caller and per `open_to_collab_visibility` x caller; `limit=51` 422; tampered cursor 400; N+1 past the rate limit 429.
 - **Allowed paths:** `api/openapi.yaml` (contract PR), generated outputs, `src/api/internal/identity/**` or a new profiles package (the lead decides), `db/queries/**` (profiles), `scripts/public-routes.txt`, `src/web/**`. E5 adds no migration. **DoD:** DoD-common plus the privacy tests on real PostgreSQL and the failure modes in ROADMAP section 12.2.
-- 2026-11-14 (12:00 checkpoint, ROADMAP section 14): both dependencies are merged (first contract PR #79, `profile_visibility` migration #80). E5 is offered to `NICE-DEV226` on #77: contract PR by 13:30, backend by 16:30, the `connect` page on the lead side; it slips after the freeze if the backend is not merged by 16:30.
+- 2026-11-14 (12:00 checkpoint, ROADMAP section 14): both dependencies are merged (first contract PR #79, `profile_visibility` migration #80). E5 is offered to `NICE-DEV226` on #77: contract PR by 13:30, backend by 16:30, the `connect` page by `PANK4SS` (owner, 2026-11-14: the UI stays with `PANK4SS` as planned); it slips after the freeze if the backend is not merged by 16:30.
 - **Status:** PLANNED (C14 fully DECIDED; waits for the `profile_visibility` migration and the first contract PR)
 
 ---
