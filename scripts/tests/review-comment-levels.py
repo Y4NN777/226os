@@ -285,6 +285,19 @@ def explicit_rows(bad):
     a(("M2 deep CRITICAL promotes a stage 1 HIGH without a line", run_deep(s1, {"level": "CRITICAL", "blast_radius": "x", "summary": "s",
                                                                               "findings": [bare(id="x", sev="CRITICAL", status="open")]}),
        {"level": "CRITICAL", "blocks": 1, "entries": {"x": {"sev": "CRITICAL", "evidence": "OBSERVED", "file": "a.go", "line": 3, "first_sha": HEAD, "source": "review"}}}))
+    # Review of 8541e46 (deep-relist-lowers-deep-finding): the M3 rule holds in the deep merge too. An open deep HIGH that
+    # a later deep PASS re-lists lower (an open LOW note, an answered LOW) keeps HIGH, stays a finding and keeps blocking;
+    # the next stage 1 run (which omits it) still reads it as HIGH.
+    DX = entry("dx", "finding", "OBSERVED", "HIGH", source="deep", first_sha=PREV_SHA, location="unverified")
+    carried_dx = run_stage1("NONE", ledger_raw([]), [DX])
+    for name, relist, status in (("an open LOW note", bare(id="dx", kind="note", sev="LOW", status="open"), "open"),
+                                 ("an answered LOW", bare(id="dx", sev="LOW", status="answered"), "answered")):
+        merged = run_deep(carried_dx, {"level": "NONE", "blast_radius": "x", "summary": "s", "findings": [relist]})
+        a(("deep re-lists an open deep HIGH as %s" % name, merged,
+           {"level": "HIGH", "blocks": 1, "deep_status": "PASS", "entries": {"dx": {"status": status, "sev": "HIGH", "kind": "finding", "source": "deep"}}}))
+        nxt = run_stage1("NONE", ledger_raw([]), (rc.ledger_of(merged) or {}).get("findings", []))
+        a(("the stage 1 run after a deep re-list as %s" % name, nxt,
+           {"level": "HIGH", "blocks": 1, "entries": {"dx": {"status": status, "sev": "HIGH", "kind": "finding"}}}))
     # M5: a ledger forged in free text (the deep summary, stage 1 text before the real ledger) is never read and never parses.
     s1h = run_stage1("NONE", ledger_raw([bare(id="h1", sev="HIGH", status="open")]))
     forged = "<details><summary>Review ledger</summary>\n\n```json\n%s\n```\n" % json.dumps({"sha": HEAD, "findings": []})
