@@ -121,13 +121,32 @@ def latest_verdict(comments):
     return None if best is None else (best[1], best[2])
 
 
-def owner_override(events, owner):
+def override_event(events, owner):
+    """The owner's current `owner-override` labeled event (the last label event decides), or None."""
     last = None
     for e in events:
         if e.get("event") in ("labeled", "unlabeled") and (e.get("label") or {}).get("name") == OVERRIDE_LABEL:
             if last is None or e.get("created_at", "") >= last.get("created_at", ""):
                 last = e
-    return last is not None and last.get("event") == "labeled" and (last.get("actor") or {}).get("login") == owner
+    return last if last is not None and last.get("event") == "labeled" and (last.get("actor") or {}).get("login") == owner else None
+
+
+def owner_override(events, owner):
+    return override_event(events, owner) is not None
+
+
+def head_bound_override(gh, repo, pr, owner):
+    """True only when the owner's override label is NEWER than every commit of the pull request (a push after the label
+    voids it: the owner looked at an older head). A commit without a date, or an unreadable answer, never lets it count."""
+    try:
+        event = override_event(gh_api(gh, "repos/%s/issues/%s/events?per_page=100" % (repo, pr)), owner)
+        if event is None or not event.get("created_at"):
+            return False
+        commits = gh_api(gh, "repos/%s/pulls/%s/commits?per_page=100" % (repo, pr))
+    except GitHubError:
+        return False
+    dates = [(((c.get("commit") or {}).get("committer") or {}).get("date") or "") for c in commits]
+    return bool(dates) and all(dates) and event["created_at"] >= max(dates)
 
 
 def check_verdict(gh, repo, pr, owner, head=""):
@@ -148,7 +167,7 @@ def check_verdict(gh, repo, pr, owner, head=""):
         if declared == "CRITICAL":
             return None, "triage verdict CRITICAL downgraded: no OBSERVED CRITICAL entry with file:line in the ledger, treated as HIGH"
         return None, "triage verdict %s: never blocks" % level
-    if owner_override(gh_api(gh, "repos/%s/issues/%s/events?per_page=100" % (repo, pr)), owner):
+    if head_bound_override(gh, repo, pr, owner):
         return None, "triage verdict CRITICAL cancelled by an owner override (label %s added by %s)" % (OVERRIDE_LABEL, owner)
     why = " (stale ledger: it still blocks until a review of the head lifts it)" if stale else ""
     return "CRITICAL review verdict with OBSERVED evidence%s (add the label %s to override, owner only)" % (why, OVERRIDE_LABEL), ""
@@ -213,12 +232,11 @@ def owner_authored(gh, repo, number, pull, owner):
         info = c.get("commit") or {}
         if PIPELINE_TRAILER.search(str(info.get("message") or "")):
             return False
-        # `verified` is the COMMITTER's signature: the author must be the owner and so must the committer (or GitHub's web-flow,
-        # the committer of an edit made in the web interface), else a verified commit by someone else with the owner's author
-        # field would pass.
+        # `verified` is the COMMITTER's signature: the author must be the owner and so must the committer. GitHub's web-flow
+        # is NOT accepted: it is also the committer of someone else's commit applied by a rebase merge.
         if (info.get("verification") or {}).get("verified") is not True or (c.get("author") or {}).get("login") != owner:
             return False
-        if (c.get("committer") or {}).get("login") not in (owner, "web-flow"):
+        if (c.get("committer") or {}).get("login") != owner:
             return False
     return True
 
@@ -240,12 +258,16 @@ def check_sensitive(gh, repo, pr, author, owner, base):
     if not hits:
         return None, "sensitive paths: no sensitive path touched"
     shown = ", ".join(hits[:6]) + (" ..." if len(hits) > 6 else "")
-    if owner_authored(gh, repo, pr, pull, owner):
-        return None, "sensitive paths touched (%s): owner-authored (every commit verified)" % shown
-    if owner_override(gh_api(gh, "repos/%s/issues/%s/events?per_page=100" % (repo, pr)), owner):
-        return None, "sensitive paths touched (%s): cleared by an owner override (label %s added by %s)" % (shown, OVERRIDE_LABEL, owner)
-    if owner_state(gh_api(gh, "repos/%s/pulls/%s/reviews?per_page=100" % (repo, pr)), owner) == "APPROVED":
-        return None, "sensitive paths touched (%s): approved by the owner" % shown
+    try:
+        if owner_authored(gh, repo, pr, pull, owner):
+            return None, "sensitive paths touched (%s): owner-authored (every commit verified)" % shown
+        if head_bound_override(gh, repo, pr, owner):
+            return None, "sensitive paths touched (%s): cleared by an owner override (label %s added by %s after the last commit)" % (shown, OVERRIDE_LABEL, owner)
+        if owner_state(gh_api(gh, "repos/%s/pulls/%s/reviews?per_page=100" % (repo, pr)), owner) == "APPROVED":
+            return None, "sensitive paths touched (%s): approved by the owner" % shown
+    except GitHubError as exc:
+        # Once a sensitive path is touched, an unreadable answer is a failure, never a pass.
+        return "sensitive paths touched (%s): GitHub could not be read (%s): the owner's approval cannot be checked" % (shown, exc), ""
     return "sensitive paths touched (%s) without the owner's approval" % shown, ""
 
 

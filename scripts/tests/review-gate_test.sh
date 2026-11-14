@@ -24,11 +24,11 @@ case "$ep" in
   *"/contents/.github/sensitive-paths.txt"*) [ -z "${FAKE_NO_LIST:-}" ] || { echo "404" >&2; exit 1; }; cat "$FX/contents.json" ;;
   *"/contents/.github/stray-paths.txt"*) [ -z "${FAKE_NO_STRAY:-}" ] || { echo "404" >&2; exit 1; }; cat "$FX/stray.json" ;;
   *"/pulls/7") cat "$FX/pull.json" ;;
-  *"/pulls/7/commits"*) cat "$FX/commits.json" ;;
+  *"/pulls/7/commits"*) [ -z "${FAKE_COMMITS_FAIL:-}" ] || { echo boom >&2; exit 1; }; cat "$FX/commits.json" ;;
   *"/issues/12") cat "$FX/issue12.json" ;;
   *"/comments"*) cat "$FX/comments.json" ;;
-  *"/events"*) cat "$FX/events.json" ;;
-  *"/reviews"*) cat "$FX/reviews.json" ;;
+  *"/events"*) [ -z "${FAKE_EVENTS_FAIL:-}" ] || { echo boom >&2; exit 1; }; cat "$FX/events.json" ;;
+  *"/reviews"*) [ -z "${FAKE_REVIEWS_FAIL:-}" ] || { echo boom >&2; exit 1; }; cat "$FX/reviews.json" ;;
   *"/files"*) [ -z "${FAKE_FILES_FAIL:-}" ] || { echo "boom" >&2; exit 1; }; cat "$FX/files.json" ;;
   *) echo "unexpected endpoint $ep" >&2; exit 2 ;;
 esac
@@ -44,7 +44,7 @@ printf '{"content":"%s","encoding":"base64"}' "$stray_b64" >"$tmp/fx/stray.json"
 reset() {
   printf '{"body":"","labels":[],"head":{"ref":"feature/identity/profiles"},"user":{"login":"dev"},"changed_files":1,"commits":1}' >"$tmp/fx/pull.json"
   printf '{"number":12,"labels":[{"name":"finding"}]}' >"$tmp/fx/issue12.json"
-  printf '[{"sha":"c1","author":{"login":"Y4NN777"},"committer":{"login":"Y4NN777"},"commit":{"message":"own work","verification":{"verified":true}}}]' >"$tmp/fx/commits.json"
+  printf '[{"sha":"c1","author":{"login":"Y4NN777"},"committer":{"login":"Y4NN777"},"commit":{"message":"own work","committer":{"date":"2026-11-12T00:00:00Z"},"verification":{"verified":true}}}]' >"$tmp/fx/commits.json"
   printf '[]' >"$tmp/fx/comments.json"
   printf '[]' >"$tmp/fx/events.json"
   printf '[]' >"$tmp/fx/reviews.json"
@@ -393,14 +393,14 @@ run enforce Y4NN777
 reset; files scripts/x.sh
 printf '[{"sha":"c1","author":{"login":"Y4NN777"},"committer":{"login":"web-flow"},"commit":{"message":"own work","verification":{"verified":true}}}]' >"$tmp/fx/commits.json"
 run enforce Y4NN777
-[ "$rc" -eq 0 ] && ok "owner trust: a web-flow committer (a GitHub web edit by the owner) is accepted" || ko "web-flow (rc=$rc out=$out)"
+[ "$rc" -eq 1 ] && ok "owner trust: a web-flow committer is NOT accepted (it cannot be told from someone else's commit applied by a rebase merge): the owner must be the committer" || ko "web-flow (rc=$rc out=$out)"
 reset; files scripts/x.sh
 FAKE_FILES_FAIL=1 run enforce dev
 [ "$rc" -eq 1 ] && grep -q 'sensitive paths' <<<"$out" && ok "a GitHub error on the file list fails the sensitive-path check closed (never NOT RUN)" || ko "files fail (rc=$rc out=$out)"
 grep -q 'per_page=100' "$gate" && ok "paged listings ask for per_page=100" || ko "per_page"
 
 # --- owner override also clears a sensitive-path failure (an owner PR with unverified commits must not lock the owner out) ---
-unv() { reset; files scripts/x.sh; printf '[{"sha":"c1","author":{"login":"Y4NN777"},"committer":{"login":"Y4NN777"},"commit":{"message":"own work","verification":{"verified":false}}}]' >"$tmp/fx/commits.json"; }
+unv() { reset; files scripts/x.sh; printf '[{"sha":"c1","author":{"login":"Y4NN777"},"committer":{"login":"Y4NN777"},"commit":{"message":"own work","committer":{"date":"2026-11-12T00:00:00Z"},"verification":{"verified":false}}}]' >"$tmp/fx/commits.json"; }
 unv; run enforce Y4NN777
 [ "$rc" -eq 1 ] && ok "override: an owner PR with unverified commits on a sensitive path fails" || ko "unverified lockout (rc=$rc out=$out)"
 unv; event labeled Y4NN777 2026-11-13T02:00:00Z owner-override; run enforce Y4NN777
@@ -409,6 +409,29 @@ unv; event labeled dev-user 2026-11-13T02:00:00Z owner-override; run enforce Y4N
 [ "$rc" -eq 1 ] && ok "override: the label added by someone else does not clear it" || ko "foreign override (rc=$rc out=$out)"
 reset; files scripts/x.sh; event labeled Y4NN777 2026-11-13T02:00:00Z owner-override; event unlabeled Y4NN777 2026-11-13T03:00:00Z owner-override; run enforce dev
 [ "$rc" -eq 1 ] && ok "override: a removed label no longer clears it" || ko "removed override (rc=$rc out=$out)"
+
+# --- last review round: the override is bound to the head; unreadable reads fail closed once a sensitive path is touched ---
+unv; event labeled Y4NN777 2026-11-14T10:00:00Z owner-override
+python3 -I -c 'import json,sys; d=json.load(open(sys.argv[1])); d[0]["commit"]["committer"]["date"]="2026-11-14T11:00:00Z"; json.dump(d, open(sys.argv[1],"w"))' "$tmp/fx/commits.json"
+run enforce Y4NN777
+[ "$rc" -eq 1 ] && ok "override bound to the head: the label, then a LATER push, fails again" || ko "label then push (rc=$rc out=$out)"
+unv; event labeled Y4NN777 2026-11-14T12:00:00Z owner-override
+python3 -I -c 'import json,sys; d=json.load(open(sys.argv[1])); d[0]["commit"]["committer"]["date"]="2026-11-14T11:00:00Z"; json.dump(d, open(sys.argv[1],"w"))' "$tmp/fx/commits.json"
+run enforce Y4NN777
+[ "$rc" -eq 0 ] && ok "override bound to the head: the label after the last commit passes" || ko "label after push (rc=$rc out=$out)"
+unv; python3 -I -c 'import json,sys; d=json.load(open(sys.argv[1])); del d[0]["commit"]["committer"]["date"]; json.dump(d, open(sys.argv[1],"w"))' "$tmp/fx/commits.json"; event labeled Y4NN777 2026-11-14T12:00:00Z owner-override
+run enforce Y4NN777
+[ "$rc" -eq 1 ] && ok "override bound to the head: a commit with no date never lets the label count" || ko "no commit date (rc=$rc out=$out)"
+reset; files scripts/x.sh; event labeled Y4NN777 2026-11-14T12:00:00Z owner-override; printf '[{"sha":"c1","commit":{"committer":{"date":"2026-11-14T13:00:00Z"}}}]' >"$tmp/fx/commits.json"
+comment "$BOT" 2026-11-14T09:00:00Z "$crit_ok"
+run enforce dev
+[ "$rc" -eq 1 ] && ok "override bound to the head: a CRITICAL is not cleared by a label older than the last commit either" || ko "critical label then push (rc=$rc out=$out)"
+unv; FAKE_COMMITS_FAIL=1 run enforce Y4NN777
+[ "$rc" -eq 1 ] && grep -q 'sensitive' <<<"$out" && ok "a GitHub error on the commits read fails a sensitive-path check closed" || ko "commits read (rc=$rc out=$out)"
+reset; files scripts/x.sh; FAKE_EVENTS_FAIL=1 run enforce dev
+[ "$rc" -eq 1 ] && ok "a GitHub error on the events read fails a sensitive-path check closed" || ko "events read (rc=$rc out=$out)"
+reset; files scripts/x.sh; FAKE_REVIEWS_FAIL=1 run enforce dev
+[ "$rc" -eq 1 ] && ok "a GitHub error on the reviews read fails a sensitive-path check closed" || ko "reviews read (rc=$rc out=$out)"
 
 # --- #212 workflow wiring (static): the gate waits for the review and gets the head; a skip repins the ledger ---
 wf="$root/.github/workflows/code-review.yml"

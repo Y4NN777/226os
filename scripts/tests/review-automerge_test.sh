@@ -317,9 +317,11 @@ grep -q 'REFUSE #7' <<<"$out" && grep -q 'review pipeline' <<<"$out" && ! grep -
 hmac_case; files docs/decisions/0099-x.md; signed_commits right-key
 HMAC_KEY=right-key run on
 grep -q 'pr merge 7' <<<"$calls" && ok "HMAC: a signed batch touching only docs/decisions is exempt from the owner click" || ko "docs exempt ($out)"
-hmac_case; files docs/decisions/0099-x.md THIRD_PARTY_NOTICES.md docs/quality/COVERAGE_SCOPE.md; signed_commits right-key
+hmac_case; files docs/decisions/0099-x.md THIRD_PARTY_NOTICES.md; signed_commits right-key
 HMAC_KEY=right-key run on
-grep -q 'pr merge 7' <<<"$calls" && ok "HMAC: docs/decisions, docs/quality and THIRD_PARTY_NOTICES.md are all documentation paths" || ko "docs exempt 2 ($out)"
+grep -q 'pr merge 7' <<<"$calls" && ok "HMAC: docs/decisions and THIRD_PARTY_NOTICES.md are the documentation paths" || ko "docs exempt 2 ($out)"
+hmac_case; files docs/quality/COVERAGE_SCOPE.md; signed_commits right-key
+HMAC_KEY=right-key refused 'owner' "HMAC: docs/quality (COVERAGE_SCOPE.md is gate configuration) is not exempt"
 for f in src/api/internal/platform/x.go api/openapi.yaml scripts/x.sh docs/quality/REVIEW_CONTEXT.md docs/ai-usage/x.md; do
   hmac_case; files docs/decisions/0099-x.md "$f"; signed_commits right-key
   HMAC_KEY=right-key refused 'owner' "HMAC: a signed batch that also touches $f is not exempt (owner approval of the head)"

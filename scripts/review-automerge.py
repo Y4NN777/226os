@@ -20,7 +20,7 @@ It decides MERGE only if ALL of these hold for the pull request (any other case 
     or `Deep: NOT RUN` (the review job's own signal, whatever the lists);
   - (HMAC, #212) a review batch pull request (`fix/review/batch-*`, opened by the owner's account, every commit signed with
     REVIEW_PIPELINE_HMAC_KEY by the trusted publish job, no owner path) whose sensitive paths are ALL documentation
-    (`docs/decisions/*`, `docs/quality/*` except REVIEW_CONTEXT.md, `THIRD_PARTY_NOTICES.md`) needs no owner click after a
+    (`docs/decisions/*`, `THIRD_PARTY_NOTICES.md`; docs/quality holds gate configuration, so it is the owner's) needs no owner click after a
     deep PASS of the head and with no CRITICAL ever recorded; any other sensitive path, no key, or one bad signature needs the
     owner like any other;
   - when a sensitive path is touched, the owner's latest review APPROVED exactly the head commit, or the owner opened
@@ -140,8 +140,8 @@ def owner_approved_head(gh, repo, number, owner, head):
 
 # The only sensitive paths a signed batch pull request may touch without the owner's click: documentation. Everything else
 # sensitive (platform code, migrations, the contract, deploy, dependency files, scripts, .github, mk) needs the owner.
-DOC_PATTERNS = ("docs/decisions/*", "docs/quality/*", "THIRD_PARTY_NOTICES.md")
-DOC_EXCLUDED = ("docs/quality/REVIEW_CONTEXT.md",)
+DOC_PATTERNS = ("docs/decisions/*", "THIRD_PARTY_NOTICES.md")
+DOC_EXCLUDED = ()
 
 
 def docs_only(hits):
