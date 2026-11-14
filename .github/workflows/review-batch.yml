@@ -268,6 +268,11 @@ jobs:
             echo "autofix: finding context NOT RUN (changed after it was written)" | tee -a "$GITHUB_STEP_SUMMARY"
           fi
 
+      # Claude Code's Bash sandbox on Linux needs bubblewrap and socat: without them the fixer cannot run a test or
+      # commit (first live run, PR #199). Distro packages only; a failed install fails the job, never a silent skip.
+      - name: Install the Claude Code sandbox dependencies (bubblewrap, socat)
+        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends bubblewrap socat
+
       - name: Fix the batch (Claude Code, review-fix command)
         id: claude
         uses: anthropics/claude-code-action@4d75e5f390ee76b2e09c1980ecc99ff3a2e088c8 # v1.0.275
