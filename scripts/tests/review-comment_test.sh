@@ -237,7 +237,7 @@ python3 -I -c 'import json,sys; d=json.loads(sys.argv[1]); assert "deep" not in 
 HEAD_SHA=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
 comments "[{\"id\":2,\"node_id\":\"N2\",\"user\":{\"login\":\"$BOT\"},\"body\":\"$base_review\",\"updated_at\":\"2026-11-14T09:00:00Z\"}]"
 DJSON='{"level":"NONE","blast_radius":"x","summary":"s","findings":[{"id":"ok1","kind":"note","evidence":"INFERRED","sev":"LOW","file":"a","line":1,"scenario":"s","status":"open","detail":"d","fix":"f"},{"kind":"finding"}]}' deep
-[ "$(posted | sed -n 4p)" = "Deep: NOT RUN (the deep review output has an invalid entry)" ] && ok "deep: an invalid entry makes the deep review NOT RUN (never silently dropped)" || ko "deep invalid ($(posted | sed -n 4p))"
+[ "$(posted | sed -n 4p)" = "Deep: NOT RUN (the deep review output had an invalid entry (dropped))" ] && ok "deep: an invalid entry is dropped and named: the deep review is NOT RUN, its level still applies" || ko "deep invalid ($(posted | sed -n 4p))"
 many="$(python3 -I -c 'import json; print(json.dumps({"level":"NONE","blast_radius":"x","summary":"s","findings":[{"id":"n%d"%i,"kind":"note","evidence":"INFERRED","sev":"LOW","file":"a","line":1,"scenario":"s","status":"open","detail":"d","fix":"f"} for i in range(9)]}))')"
 DJSON="$many" deep
 [ "$(posted | sed -n 4p)" = "Deep: NOT RUN (too many findings)" ] && ok "deep: more than 8 entries is NOT RUN (too many findings)" || ko "deep too many ($(posted | sed -n 4p))"
@@ -286,25 +286,45 @@ comments '[]'
 HEAD_SHA="$locsha" LOCATION_REPO="$repo" JSON="$(mkreview "[$E_GOOD]")" run
 [ "$rc" -eq 0 ] && pyassert 'import json,sys; f=json.loads(sys.argv[1]); assert f["detail"]=="proof of it" and f["fix"]=="do this" and f["source"]=="review" and f["first_sha"]=="'"$locsha"'" and f["location"]=="verified"' "$(entry_of g1)" 2>/dev/null && ok "an entry with detail and fix is kept; the script sets source review, first_sha (the head) and location verified" || ko "good entry ($(entry_of g1))"
 
-# A missing or empty detail or fix is NOT RUN with the id, never a silent loss, never a pass.
+# A missing or empty detail or fix NEVER lowers or hides the verdict: it is filled with a marker and the comment names the id.
 comments '[]'
 E_NOFIX='{"id":"nofix","kind":"finding","evidence":"OBSERVED","sev":"HIGH","file":"a.go","line":3,"scenario":"s","status":"open","detail":"proof"}'
 HEAD_SHA="$locsha" JSON="$(mkreview "[$E_GOOD,$E_NOFIX]")" run
 pb="$(posted_body)"
-[ "$(sed -n 1p <<<"$pb")" = "Triage: NOT RUN | ledger entry nofix lacks detail or fix" ] && [ "$(sed -n 2p <<<"$pb")" = "<!-- 226os-ai-review -->" ] && ok "a missing fix gives Triage: NOT RUN | ledger entry <id> lacks detail or fix" || ko "missing fix ($pb)"
+[ "$(sed -n 1p <<<"$pb")" = "Triage: MEDIUM | blast radius: x" ] && [ "$(sed -n 2p <<<"$pb")" = "<!-- 226os-ai-review -->" ] && grep -q 'Detail or fix not recorded by the review (the verdict is unchanged): `nofix`\.' <<<"$pb" && ok "a missing fix keeps the verdict and every entry, and the comment names the id" || ko "missing fix ($pb)"
+pyassert 'import json,sys; f=json.loads(sys.argv[1]); assert f["detail"]=="proof" and f["fix"]=="not recorded by the review" and f["sev"]=="HIGH"' "$(entry_of nofix)" 2>/dev/null && pyassert 'import json,sys; f=json.loads(sys.argv[1]); assert f["fix"]=="do this"' "$(entry_of g1)" 2>/dev/null && ok "the missing field is filled with the not-recorded marker, the complete entry is untouched" || ko "marker ($(entry_of nofix))"
 HEAD_SHA="$locsha" JSON="$(mkreview '[{"id":"nodetail","kind":"note","evidence":"OBSERVED","sev":"LOW","file":"a.go","line":3,"scenario":"s","status":"open","detail":"   ","fix":"none: accept"}]')" run
-[ "$(posted_body | sed -n 1p)" = "Triage: NOT RUN | ledger entry nodetail lacks detail or fix" ] && ok "a blank detail is a missing detail" || ko "blank detail ($(posted_body))"
+pyassert 'import json,sys; f=json.loads(sys.argv[1]); assert f["detail"]=="not recorded by the review" and f["fix"]=="none: accept"' "$(entry_of nodetail)" 2>/dev/null && ok "a blank detail is a missing detail, filled" || ko "blank detail ($(posted_body))"
 HEAD_SHA="$locsha" JSON="$(mkreview '[{"id":"bad|id","kind":"note","evidence":"OBSERVED","sev":"LOW","scenario":"s","status":"open"}]')" run
 pb="$(posted_body)"
-[ "$(sed -n 1p <<<"$pb")" = "Triage: NOT RUN | ledger entry bad-id lacks detail or fix" ] && ok "the id in the NOT RUN line is a slug: no pipe, newline or marker can ride on it" || ko "id slug ($pb)"
+[ "$(sed -n 1p <<<"$pb")" = "Triage: MEDIUM | blast radius: x" ] && grep -q '`bad-id`' <<<"$pb" && ok "the id in the notice is a slug: no pipe, newline or marker can ride on it" || ko "id slug ($pb)"
+# RED of the review of PR 187: a first CRITICAL with one entry lacking fix was posted NOT RUN and the gate failed open.
+mkcrit() {
+  python3 -I - <<'EOF2'
+import json
+body = "Triage: CRITICAL | blast radius: x\n\nOBSERVED: a.go:3 literal key.\n\n<details><summary>Review ledger</summary>\n\n```json\n" + \
+       json.dumps({"sha": "x", "findings": [{"id": "key", "kind": "finding", "evidence": "OBSERVED", "sev": "CRITICAL", "file": "a.go", "line": 3, "scenario": "s", "status": "open", "detail": "proof"}]}) + "\n```\n\n</details>"
+print(json.dumps({"body": body}))
+EOF2
+}
+comments '[]'
+HEAD_SHA="$locsha" JSON="$(mkcrit)" run
+pb="$(posted_body)"
+[ "$(sed -n 1p <<<"$pb")" = "Triage: CRITICAL | blast radius: x" ] && ! grep -q 'NOT RUN' <<<"$pb" && ok "a first CRITICAL with an entry lacking fix stays Triage: CRITICAL" || ko "critical kept ($pb)"
+posted_body | python3 -I -c '
+import importlib.util, json, sys
+spec = importlib.util.spec_from_file_location("g", sys.argv[1]); g = importlib.util.module_from_spec(spec); spec.loader.exec_module(g)
+body = sys.stdin.read()
+level, b = g.latest_verdict([{"user": {"login": g.BOT_LOGINS[0] if isinstance(g.BOT_LOGINS, (list, tuple)) else sorted(g.BOT_LOGINS)[0]}, "body": body, "id": 1, "created_at": "2026-11-14T10:00:00Z"}])
+assert level == "CRITICAL" and "OBSERVED" in b and g.EVIDENCE.search(b)' "$root/scripts/review-gate.py" 2>/dev/null && ok "the review gate reads that comment as an OBSERVED CRITICAL with file:line: it blocks" || ko "gate does not block ($pb)"
 python3 -I - "$tmp/comments.json" <<'PY'
 import json, sys
 body = "Triage: CRITICAL | blast radius: x\n<!-- 226os-ai-review -->\nTool: PASS (1 files)\n\nOBSERVED: a.go:3 literal key.\n\n<details><summary>Review ledger</summary>\n\n```json\n" + json.dumps({"sha": "b" * 40, "findings": [{"id": "key", "sev": "CRITICAL", "status": "open"}]}) + "\n```\n</details>"
 json.dump([{"id": 2, "node_id": "N2", "user": {"login": "github-actions[bot]"}, "body": body, "created_at": "2026-11-14T09:00:00Z"}], open(sys.argv[1], "w"))
 PY
-HEAD_SHA="$locsha" JSON="$(mkreview "[$E_NOFIX]")" run
+HEAD_SHA="$locsha" JSON='{"body":"no verdict line here\n\ntext"}' run
 pb="$(posted_body)"
-sed -n 1p <<<"$pb" | grep -q '^Triage: CRITICAL' && grep -q 'NOT RUN on the latest push' <<<"$pb" && [ "$(ledger_sha)" = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" ] && ok "an invalid ledger never lifts a standing CRITICAL (the previous ledger stays)" || ko "critical kept ($pb)"
+sed -n 1p <<<"$pb" | grep -q '^Triage: CRITICAL' && grep -q 'NOT RUN on the latest push' <<<"$pb" && [ "$(ledger_sha)" = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" ] && ok "a review without a verdict never lifts a standing CRITICAL (the previous ledger stays)" || ko "critical kept ($pb)"
 
 # The fields the script owns are dropped when the model writes them.
 comments '[]'
@@ -394,7 +414,9 @@ LOCATION_REPO="$repo" DJSON="$DEEP180" deep
 [ "$(posted)" = "$first" ] && ok "the merge with a repeated id is idempotent" || ko "idempotent sub-field ($(posted | ledger_of))"
 comments "[{\"id\":2,\"node_id\":\"N2\",\"user\":{\"login\":\"$BOT\"},\"body\":\"$note_base\",\"created_at\":\"2026-11-14T09:00:00Z\"}]"
 DJSON='{"level":"NONE","blast_radius":"x","summary":"s","findings":[{"id":"nofix","kind":"note","evidence":"INFERRED","sev":"LOW","file":"a.go","line":1,"scenario":"s","status":"open","detail":"only a detail"}]}' deep
-[ "$(posted | sed -n 4p)" = "Deep: NOT RUN (ledger entry nofix lacks detail or fix)" ] && ok "a deep entry without fix is Deep: NOT RUN (ledger entry <id> lacks detail or fix), never dropped silently" || ko "deep missing ($(posted | sed -n 4p))"
+[ "$(posted | sed -n 4p)" = "Deep: PASS (0 findings, 1 note)" ] && posted | grep -q 'Detail or fix not recorded by the review (the verdict is unchanged): `nofix`\.' && pyassert 'import json,sys; f=json.loads(sys.argv[1]); assert f["fix"]=="not recorded by the review" and f["detail"]=="only a detail"' "$(posted_entry nofix)" 2>/dev/null && ok "a deep entry without fix is filled and named, the Deep line is not NOT RUN" || ko "deep missing ($(posted | sed -n 1,6p))"
+DJSON='{"level":"CRITICAL","blast_radius":"x","summary":"s","findings":[{"id":"nofix","kind":"finding","evidence":"OBSERVED","sev":"CRITICAL","file":"a.go","line":1,"scenario":"s","status":"open","detail":"d"},{"kind":"note","detail":"no id"}]}' deep
+[ "$(posted | sed -n 1p)" = "Triage: CRITICAL | blast radius: x" ] && posted | grep -q '^Deep: NOT RUN (the deep review output had an invalid entry (dropped))$' && ok "a deep CRITICAL with a missing field and an invalid entry still raises the Triage line to CRITICAL" || ko "deep critical ($(posted | sed -n 1,6p))"
 LOCATION_REPO="$repo" DJSON='{"level":"NONE","blast_radius":"x","summary":"s","findings":[{"id":"new-deep","kind":"note","evidence":"INFERRED","sev":"LOW","file":"a.go","line":1,"scenario":"s","status":"open","detail":"mail me at @Y4NN777 #44","fix":"none: accept"}]}' deep
 pyassert 'import json,sys; f=json.loads(sys.argv[1]); assert f["source"]=="deep" and f["first_sha"]=="'"$locsha"'" and "@​Y4NN777" in f["detail"] and "#​44" in f["detail"]' "$(posted_entry new-deep)" 2>/dev/null && ok "a new deep entry is tagged source deep with first_sha, and its detail goes through the same neutraliser" || ko "deep new ($(posted_entry new-deep))"
 

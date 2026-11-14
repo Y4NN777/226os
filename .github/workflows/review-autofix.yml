@@ -18,8 +18,8 @@
 #                permissions and a planted user configuration never apply; CLAUDE_CODE_SUBPROCESS_ENV_SCRUB=1 scrubs
 #                secrets from the model's subprocesses; go test and pnpm run without network when the runner allows
 #                `unshare -rn`. REVIEW_CONTEXT.md and OWNER_PREFERENCES.md are given from develop.
-#   job publish  TRUSTED, environment `review-agent`, the ONLY job that reads REVIEW_AGENT_TOKEN: never runs pull
-#                request code. `apply` validates the patch files and commits them itself as Y4NN77 (hooks off), `check`
+#   job publish  TRUSTED, environment `review-agent`, the only job of this workflow that reads REVIEW_AGENT_TOKEN (ADR-0013 lists the three): never runs pull
+#                request code. `apply` validates the patch files and commits them itself as Y4NN77 (hooks off, with a `Review-Pipeline: <workflow>/<run_id>` trailer so auto-merge never treats them as owner-authored), `check`
 #                refuses another identity, an AI trailer, links, submodules, mode or binary changes and owner paths on
 #                both sides of every change; then a normal push (never force): a push with GITHUB_TOKEN would trigger no
 #                workflow, so the fix would never be checked. It labels needs-owner when the fixer or the guard says so.
@@ -130,7 +130,11 @@ jobs:
             exit 1
           fi
           mkdir -p "$RUNNER_TEMP/bin" "$RUNNER_TEMP/base-docs"
-          git cat-file blob "origin/$DEFAULT_BRANCH:scripts/review-autofix.py" >"$RUNNER_TEMP/bin/review-autofix.py"
+          # The script loads findings.py and review-context.py from its own directory: they come from the same trusted
+          # commit, as git objects, beside it (alone it finds nothing and the fixer gets an empty context).
+          for module in review-autofix findings review-context; do
+            git cat-file blob "origin/$DEFAULT_BRANCH:scripts/$module.py" >"$RUNNER_TEMP/bin/$module.py"
+          done
           printf '#!/bin/sh\nexec python3 -I "%s/bin/review-autofix.py" run "$@"\n' "$RUNNER_TEMP" >"$RUNNER_TEMP/bin/fixer-run"
           chmod +x "$RUNNER_TEMP/bin/fixer-run"
           echo "$RUNNER_TEMP/bin" >>"$GITHUB_PATH"

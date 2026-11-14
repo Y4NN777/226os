@@ -49,8 +49,8 @@ printf '{"content":"%s"}' "$(printf 'scripts/*\n.github/*\n' | base64 -w0)" >"$t
 
 # pull [state base headrepo draft labels-json author]
 pull() {
-  python3 -I -c 'import json,sys; a=sys.argv; json.dump({"number":7,"state":a[2],"draft":a[5]=="true","base":{"ref":a[3],"sha":a[9]},"head":{"sha":a[7],"repo":{"full_name":a[4]}},"labels":json.loads(a[6]),"user":{"login":a[8]}}, open(a[1],"w"))' \
-    "$tmp/fx/pull.json" "${1:-open}" "${2:-develop}" "${3:-o/r}" "${4:-false}" "${5:-[]}" "$H" "${6:-dev}" "$BS"
+  python3 -I -c 'import json,sys; a=sys.argv; json.dump({"number":7,"state":a[2],"draft":a[5]=="true","base":{"ref":a[3],"sha":a[9]},"head":{"sha":a[7],"ref":a[10],"repo":{"full_name":a[4]}},"labels":json.loads(a[6]),"user":{"login":a[8]}}, open(a[1],"w"))' \
+    "$tmp/fx/pull.json" "${1:-open}" "${2:-develop}" "${3:-o/r}" "${4:-false}" "${5:-[]}" "$H" "${6:-dev}" "$BS" "${7:-feature/x}"
 }
 files() { python3 -I -c 'import json,sys; json.dump([{"filename": f} for f in sys.argv[2:]], open(sys.argv[1], "w"))' "$tmp/fx/files.json" "$@"; }
 # checks NAME:STATUS:CONCLUSION ...
@@ -144,6 +144,21 @@ grep -q 'pr merge 7' <<<"$calls" && ok "an owner-authored sensitive change whose
 reset; files scripts/x.sh; review_comment "Triage: NONE | blast radius: x" "$SENS_OK"; pull open develop o/r false '[]' Y4NN777
 printf '[{"sha":"%s","author":{"login":"Y4NN777"}},{"sha":"%s","author":{"login":"someone"}}]' "$OLD" "$H" >"$tmp/fx/commits.json"
 refused 'owner' "an owner-authored PR with a commit by someone else is not owner-authored"
+# --- review of PR 185: pipeline commits carry the owner's identity and token, so they are never "owner authored" ---
+TRAILER_MSG='fix(review): x\n\nReview-Pipeline: review-batch/123'
+reset; files scripts/x.sh; review_comment "Triage: NONE | blast radius: x" "$SENS_OK"; pull open develop o/r false '[]' Y4NN777
+printf '[{"sha":"%s","author":{"login":"Y4NN777"},"commit":{"message":"own work"}},{"sha":"%s","author":{"login":"Y4NN777"},"commit":{"message":"%s"}}]' "$OLD" "$H" "$TRAILER_MSG" >"$tmp/fx/commits.json"
+refused 'owner' "an owner PR with one pipeline commit (Review-Pipeline trailer) on a sensitive path needs the owner's approval of the head"
+reset; files scripts/x.sh; review_comment "Triage: NONE | blast radius: x" "$SENS_OK"; pull open develop o/r false '[]' Y4NN777
+printf '[{"sha":"%s","author":{"login":"Y4NN777"},"commit":{"message":"%s"}}]' "$H" "$TRAILER_MSG" >"$tmp/fx/commits.json"
+printf '[{"user":{"login":"Y4NN777"},"state":"APPROVED","commit_id":"%s","submitted_at":"2026-11-14T10:00:00Z"}]' "$H" >"$tmp/fx/reviews.json"
+run on
+grep -q 'pr merge 7' <<<"$calls" && ok "the same pipeline commit merges once the owner approved exactly the head" || ko "pipeline approved ($out)"
+reset; files scripts/x.sh; review_comment "Triage: NONE | blast radius: x" "$SENS_OK"; pull open develop o/r false '[]' Y4NN777 fix/review/batch-2026-11-14
+refused 'owner' "a fix/review/ head branch is never owner-authored, even without the trailer"
+reset; files scripts/x.sh; review_comment "Triage: NONE | blast radius: x" "$SENS_OK"; pull open develop o/r false '["autofix-1"]' Y4NN777
+refused 'owner' "an autofix label means the pull request is never owner-authored"
+
 reset; review_comment "Triage: HIGH | blast radius: x" "{\"sha\":\"$H\",\"findings\":[]}"; refused 'no open finding explains' "a HIGH verdict with no open finding"
 reset; review_comment "Triage: MEDIUM | blast radius: x" "{\"sha\":\"$H\",\"findings\":[$NOTE]}"; refused 'no open finding explains' "a MEDIUM verdict with only a note"
 reset; run on

@@ -42,6 +42,8 @@ import subprocess
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+PIPELINE_BRANCH = "fix/review/"
+PIPELINE_TRAILER = re.compile(r"^Review-Pipeline:", re.M | re.I)
 BLOCKING_LABELS = ("needs-owner", "do-not-merge", "owner-override-pending")
 DEFAULT_CHECKS = "Validate branch promotion,quality,Review gate"
 PIPELINE_LIST = ".github/pipeline-paths.txt"
@@ -89,10 +91,17 @@ def label_names(pull):
 
 
 def owner_authored(gh, repo, number, pull, owner):
-    """True only when the owner opened the pull request AND authored every commit on it."""
+    """True only when the owner opened the pull request AND authored every commit on it. The review pipeline commits and
+    pushes with the owner's identity and token: a pull request it made (a `fix/review/` branch, an autofix label or any
+    commit with the `Review-Pipeline:` trailer its trusted step writes) is never owner-authored, so a sensitive path needs
+    the owner's approval of the head. A forged trailer, branch or label only makes this stricter."""
     if (pull.get("user") or {}).get("login") != owner:
         return False
+    if str((pull.get("head") or {}).get("ref") or "").startswith(PIPELINE_BRANCH) or any(n.startswith("autofix-") for n in label_names(pull)):
+        return False
     commits = gate.gh_api(gh, "repos/%s/pulls/%s/commits" % (repo, number))
+    if any(PIPELINE_TRAILER.search(str((c.get("commit") or {}).get("message") or "")) for c in commits):
+        return False
     return bool(commits) and all(((c.get("author") or {}).get("login")) == owner for c in commits)
 
 

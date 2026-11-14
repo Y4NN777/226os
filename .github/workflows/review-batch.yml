@@ -5,7 +5,7 @@
 # issue); the batch closes as completed when that pull request is merged or when every source is closed or decided,
 # and the next run opens a new one (docs/quality/REVIEW_CONTEXT.md).
 #
-# Job `batch` (schedule every 5 hours, manual dispatch): writes the batch issue (issues: write, GITHUB_TOKEN only) and
+# Job `batch` (schedule every 2 hours, manual dispatch): writes the batch issue (issues: write, GITHUB_TOKEN only) and
 #   reads the merged pull requests into develop (pull-requests: read).
 #   A scheduled run uses the workflow and the script of the DEFAULT branch.
 # Job `report` (pull requests into main, promotions): writes the ranked batch to the job summary only, from the BASE
@@ -19,7 +19,7 @@
 #   `fix` (UNTRUSTED: the model and make on the code it wrote, NO write token, git reads through `fixer-run`; its
 #   commits leave as a patch artifact) and `publish` (TRUSTED: never runs repository code; `git am` with hooks off,
 #   `check`, then the push and the pull request with REVIEW_AGENT_TOKEN from the environment `review-agent`, the only
-#   job that reads it; with GITHUB_TOKEN no CI would run on the pull request).
+#   job of this workflow that reads it (ADR-0013 lists the three); every commit carries a `Review-Pipeline:` trailer; with GITHUB_TOKEN no CI would run on the pull request).
 #   The pull request then goes through review, deep review and auto-merge like any other.
 #   Same switch as stage 3: AUTO_FIX = off | report (default) | on; without the token, "autofix: NOT RUN
 #   (REVIEW_AGENT_TOKEN missing)". The prompt carries the repository, the issue number and the item keys only.
@@ -29,7 +29,7 @@ name: Review batch
 
 on:
   schedule:
-    - cron: "0 */5 * * *"
+    - cron: "0 */2 * * *"
   workflow_dispatch:
   pull_request:
     branches: [main]
@@ -152,7 +152,11 @@ jobs:
           BASE_SHA: ${{ needs.plan.outputs.base_sha }}
         run: |
           mkdir -p "$RUNNER_TEMP/bin" "$RUNNER_TEMP/base-docs"
-          git cat-file blob "$BASE_SHA:scripts/review-autofix.py" >"$RUNNER_TEMP/bin/review-autofix.py"
+          # The script loads findings.py and review-context.py from its own directory: they come from the same trusted
+          # commit, as git objects, beside it (alone it finds nothing and the fixer gets an empty context).
+          for module in review-autofix findings review-context; do
+            git cat-file blob "$BASE_SHA:scripts/$module.py" >"$RUNNER_TEMP/bin/$module.py"
+          done
           printf '#!/bin/sh\nexec python3 -I "%s/bin/review-autofix.py" run "$@"\n' "$RUNNER_TEMP" >"$RUNNER_TEMP/bin/fixer-run"
           chmod +x "$RUNNER_TEMP/bin/fixer-run"
           echo "$RUNNER_TEMP/bin" >>"$GITHUB_PATH"

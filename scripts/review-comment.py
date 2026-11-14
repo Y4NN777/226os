@@ -20,8 +20,9 @@ Line 4 is `Deep: PENDING (...)` when DEEP_PENDING is true (a P0 path is touched;
 
 Ledger entries (the register detail): every entry the model writes carries `detail` (the proof and reasoning, at most
 600 characters) and `fix` (one line, at most 300; for a note it may be "none: accept" with a reason). A missing or
-blank one makes the comment `Triage: NOT RUN | ledger entry <id> lacks detail or fix` (the deep review: `Deep: NOT RUN`
-with the same reason): never a silent loss, never a pass. The script, never the model, sets `source` (review or deep),
+blank one is filled with "not recorded by the review" and the comment names the ids on line 2 of the text: the Triage
+level and every entry stay (a missing field never lowers or hides a verdict; the deep review does the same and keeps
+its level, an invalid deep entry is dropped and named, the level stays). The script, never the model, sets `source` (review or deep),
 `first_sha` (the head the entry was first raised at, kept when the entry is listed again with the same file and line or
 carried forward), `location` (verified, mismatch or unverified: the file exists at that commit, the line is inside it and an identifier the text names in backticks is within 40 lines of it; `mismatch` when none is but one is elsewhere, `probable` then gives that file:line; read as
 git objects from LOCATION_REPO, else the current directory, else `pr/`) and `redacted`. `detail`, `fix` and the
@@ -196,20 +197,34 @@ def is_blank(value):
     return not isinstance(value, str) or not value.strip()
 
 
-def ledger_problem(text):
-    """The reason (for a `Triage: NOT RUN` line) when an entry of the model's fenced ledger lacks `detail` or `fix`, else
-    None (also when there is no usable ledger: that case is handled as before)."""
+MISSING_FIELD = "not recorded by the review"
+
+
+def fill_missing(text):
+    """(text, ids): the review text with every blank `detail` or `fix` of its fenced ledger entries set to MISSING_FIELD,
+    and the slug ids that were filled. A missing field never lowers or hides the verdict: the Triage line and every entry
+    stay, the comment says which ids lack text. No usable ledger: the text is returned as it is."""
     m = FENCED.search(text or "")
     if not m:
-        return None
+        return text, []
     try:
         data = json.loads(m.group(2))
     except ValueError:
-        return None
+        return text, []
+    ids = []
     for f in data.get("findings") if isinstance(data, dict) and isinstance(data.get("findings"), list) else []:
         if isinstance(f, dict) and (is_blank(f.get("detail")) or is_blank(f.get("fix"))):
-            return "ledger entry %s lacks detail or fix" % slug_id(f.get("id"))
-    return None
+            ids.append(slug_id(f.get("id")))
+            for key in ("detail", "fix"):
+                if is_blank(f.get(key)):
+                    f[key] = MISSING_FIELD
+    if not ids:
+        return text, []
+    return text[:m.start(2)] + json.dumps(data) + text[m.end(2):], ids
+
+
+def missing_notice(ids):
+    return "Detail or fix not recorded by the review (the verdict is unchanged): %s." % ", ".join("`%s`" % i for i in ids)
 
 
 def location_dirs():
@@ -467,13 +482,16 @@ def main():
         return 0
     previous = review_comment(comments)
     first = (text or "").strip().splitlines()[:1]
-    problem = ledger_problem(text) if first and VERDICT.match(first[0].strip()) else None
-    body = None if problem else compose(text, tool_line, head, deep_line, reviewed_line(head, rng), ledger_of((previous or {}).get("body")))
+    filled = []
+    if first and VERDICT.match(first[0].strip()):
+        text, filled = fill_missing(text)
+        if filled:
+            lines = text.strip().splitlines()
+            text = "\n".join(lines[:1] + [missing_notice(filled), ""] + lines[1:])
+    body = compose(text, tool_line, head, deep_line, reviewed_line(head, rng), ledger_of((previous or {}).get("body")))
     if body is None:
         outcome = re.sub(r"[^a-z_]", "", os.environ.get("REVIEW_OUTCOME", "").lower())[:20]
-        if problem:
-            reason = problem
-        elif text is None or not text.strip():
+        if text is None or not text.strip():
             reason = "the review step ended with %s and returned no text" % (outcome or "an unknown outcome")
         else:
             reason = "the review text has no Triage first line"
@@ -600,22 +618,29 @@ def deep_output(head=""):
         return None, "the deep review output is not valid JSON"
     if not isinstance(data, dict) or str(data.get("level", "")).upper() not in LEVELS or not isinstance(data.get("findings"), list):
         return None, "the deep review output has no level or findings"
+    filled = []
     for f in data["findings"]:
         if deep_entry(f, "") is not None and (is_blank(f.get("detail")) or is_blank(f.get("fix"))):
-            return None, "ledger entry %s lacks detail or fix" % slug_id(f.get("id"))
+            filled.append(slug_id(f.get("id")))
+            for key in ("detail", "fix"):
+                if is_blank(f.get(key)):
+                    f[key] = MISSING_FIELD
     entries = [deep_entry(f, head) for f in data["findings"]]
+    why, dropped = None, False
     if not all(entries):
-        return None, "the deep review output has an invalid entry"
-    why = None
+        # An invalid entry is dropped and named, never the reason to lose the level: the worse level still applies.
+        entries = [e for e in entries if e]
+        dropped = True
+        why = "the deep review output had an invalid entry (dropped)"
     if len(entries) > DEEP_MAX_ENTRIES:
         # Keep the most severe (findings before notes), list them, and say NOT RUN: the review did not respect its cap.
         entries = sorted(entries, key=lambda e: (e["kind"] != "finding", -SEV_RANK.get(e["sev"], 0)))[:DEEP_MAX_ENTRIES]
         why = "too many findings"
     level = str(data["level"]).upper()
-    if level == "CRITICAL" and not any(e["sev"] == "CRITICAL" and e["kind"] == "finding" for e in entries):
+    if level == "CRITICAL" and not dropped and not any(e["sev"] == "CRITICAL" and e["kind"] == "finding" for e in entries):
         level = "HIGH"
     return {"level": level, "blast": one_line(data.get("blast_radius")) or "unknown",
-            "summary": str(data.get("summary") or ""), "entries": entries}, why
+            "summary": str(data.get("summary") or ""), "entries": entries, "filled": filled}, why
 
 
 def plural(n, word):
@@ -683,6 +708,8 @@ def merge_deep(base, data, why, head):
         if m and LEVELS.index(data["level"]) > LEVELS.index(m.group(1)):
             first = "Triage: %s | blast radius: %s" % (data["level"], data["blast"])
         summary = clean_summary(data["summary"]) or "(no text)"
+        if data.get("filled"):
+            summary = missing_notice(data["filled"]) + "\n\n" + summary
     else:
         ledger["deep"] = {"status": "NOT RUN", "sha": head}
         deep_line = "Deep: NOT RUN (%s)" % one_line(why)

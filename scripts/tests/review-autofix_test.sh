@@ -487,6 +487,28 @@ for wf in review-autofix review-batch; do
   grep -q 'steps.ctx.outputs.sha' "$root/.github/workflows/$wf.yml" && grep -q 'sha256sum' "$root/.github/workflows/$wf.yml" && ok "$wf.yml: the finding context is hash-checked before the model" || ko "$wf.yml context hash"
 done
 
+# Review of PR 187: the workflows run the TRUSTED copy of the script in a directory of its own ($RUNNER_TEMP/bin). It loads
+# findings.py and review-context.py from that directory, so each workflow must put them there from the same commit.
+for wf in review-autofix review-batch; do
+  python3 -I - "$root/.github/workflows/$wf.yml" <<'EOF2' && ok "$wf.yml: the context step's directory gets review-autofix, findings and review-context from git objects of the trusted ref" || ko "$wf.yml modules beside the script"
+import re, sys
+s = open(sys.argv[1]).read()
+m = re.search(r"for module in ([\w. -]+); do\n\s*git cat-file blob \"[^\"]+:scripts/\$module\.py\" >\"\$RUNNER_TEMP/bin/\$module\.py\"\n\s*done", s)
+assert m and set(m.group(1).split()) == {"review-autofix", "findings", "review-context"}, "modules not extracted beside the script"
+EOF2
+done
+# The layout of the step: the script alone in a directory finds no module (the fixer's context is empty); with the two modules
+# beside it, the same command gives the items.
+lay="$tmp/layout-alone"; mkdir -p "$lay"; cp "$root/scripts/review-autofix.py" "$lay/"
+run_in_layout() {
+  env PATH="$tmp/bin:$PATH" ST="$tmp/st" REPO=o/r PR_NUMBER=7 AUTO_FIX=on HAS_TOKEN=true MODE=pr FINDINGS=f1 HEAD_SHA="$HEAD" python3 -I "$1/review-autofix.py" context 2>&1 || true
+}
+alone="$(run_in_layout "$lay")"
+python3 -I -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["items"]==[] and "NOT RUN" in d["note"]' "$alone" && ok "context: the script alone in its directory gives an empty context (why the modules must sit beside it)" || ko "alone layout ($alone)"
+lay2="$tmp/layout-full"; mkdir -p "$lay2"; cp "$root/scripts/review-autofix.py" "$root/scripts/findings.py" "$root/scripts/review-context.py" "$lay2/"
+full="$(run_in_layout "$lay2")"
+python3 -I -c 'import json,sys; d=json.loads(sys.argv[1]); assert [i["id"] for i in d["items"]]==["f1"] and d["items"][0]["fix"]=="fix one"' "$full" && ok "context: with findings.py and review-context.py beside the script, the fixer gets its items" || ko "full layout ($full)"
+
 
 # ---- review notes of #178 (PR170): a trailer in a patch, hand-edited sqlc output ----
 r3="$tmp/r3"
@@ -521,10 +543,14 @@ Generated with Claude Code
 
 Co-Authored-By: Claude <noreply@anthropic.com>"
 pd3="$tmp/pd3"; git -C "$r3" format-patch -q -o "$pd3" "$wb3..HEAD"
-run apply PATCH_DIR="$pd3" WORKTREE="$w3" EXPECT_NAME=Y4NN77 EXPECT_EMAIL=fixer@example.invalid
+run apply GITHUB_WORKFLOW="autofix-test" GITHUB_RUN_ID=4242 PATCH_DIR="$pd3" WORKTREE="$w3" EXPECT_NAME=Y4NN77 EXPECT_EMAIL=fixer@example.invalid
 msg="$(git -C "$w3" log -1 --format=%B)"
 [ "$rc" -eq 0 ] && grep -q 'Real body line' <<<"$msg" && ! grep -qi 'co-authored\|generated with' <<<"$msg" && ok "apply (note settings-flag-passthrough): an AI trailer or Generated with line in a patch message is dropped, the body is kept" || ko "apply trailer (rc=$rc $out $msg)"
+# Review of PR 185: every commit the trusted apply step makes carries a provenance trailer (never an AI attribution), so
+# review-automerge.py never treats it as owner-authored; it is set from the runner's workflow and run, never by the model.
+tr="$(git -C "$w3" log -1 --format=%B | grep '^Review-Pipeline: ' || true)"
+[ "$tr" = "Review-Pipeline: autofix-test/4242" ] && ok "apply: the commit carries Review-Pipeline: <workflow>/<run_id> from GITHUB_WORKFLOW and GITHUB_RUN_ID" || ko "pipeline trailer ($tr)"
 run check BASE_SHA="$wb3" WORKTREE="$w3" EXPECT_NAME=Y4NN77 EXPECT_EMAIL=fixer@example.invalid
-[ "$rc" -eq 0 ] && ok "apply: the commit with the dropped trailer passes the guard (the fix is not lost)" || ko "apply then check trailer (rc=$rc $out)"
+[ "$rc" -eq 0 ] && ok "apply: the commit with the dropped trailer and the Review-Pipeline trailer passes the guard (the fix is not lost)" || ko "apply then check trailer (rc=$rc $out)"
 
 finish

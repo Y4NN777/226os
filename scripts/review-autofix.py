@@ -471,6 +471,14 @@ def cmd_check():
     return 0
 
 
+def pipeline_trailer():
+    """`Review-Pipeline: <workflow>/<run_id>` (letters, digits, dot, dash, underscore, space and slash only), written by this
+    trusted step on every commit it makes. It is provenance, not an AI attribution: review-automerge.py reads it so a
+    pipeline commit made with the owner's identity is never treated as owner-authored."""
+    clean = lambda v, d: re.sub(r"[^\w. /-]+", "", os.environ.get(v, "") or d)[:60].strip() or d
+    return "Review-Pipeline: %s/%s" % (clean("GITHUB_WORKFLOW", "pipeline"), re.sub(r"\D", "", os.environ.get("GITHUB_RUN_ID", ""))[:20] or "0")
+
+
 def cmd_apply():
     """Validate the patch files, then apply and commit each one here, as the human identity (never the patch's From:)."""
     git, worktree = os.environ.get("GIT_BIN", "git"), os.environ.get("WORKTREE", ".")
@@ -509,7 +517,7 @@ def cmd_apply():
             if not subject:
                 raise RuntimeError("%s has no subject" % f)
             subprocess.run([git, "-C", worktree, *quiet, "apply", "--index", diff], capture_output=True, timeout=60, check=True)
-            subprocess.run([git, "-C", worktree, *quiet, "commit", "-q", "--no-verify", "-m", subject + ("\n\n" + body if body else "")],
+            subprocess.run([git, "-C", worktree, *quiet, "commit", "-q", "--no-verify", "-m", subject + ("\n\n" + body if body else "") + "\n\n" + pipeline_trailer()],
                            env=env, capture_output=True, timeout=60, check=True)
             for tmp in (msg, diff):
                 os.remove(tmp)

@@ -263,15 +263,16 @@ out="$(PATH="$tmp/bin:$PATH" ST="$tmp/st" python3 -I "$tool" batch 2>&1)" || rc=
 [ "$rc" -ne 0 ] && grep -q 'REPO' <<<"$out" && ok "batch without REPO fails closed" || ko "no repo (rc=$rc out=$out)"
 
 # ---------- duplicates: the same id and file on several pull requests are one row ----------
-mkgroup() { # NUMBER PR ID FILE CREATED [STATE]
+mkgroup() { # NUMBER PR ID FILE CREATED [STATE] [LINE]
   python3 -I - "$tmp/st/issues.json" "$@" <<'EOF'
 import json, sys
 p, n, pr, fid, f, created = sys.argv[1:7]
 state = sys.argv[7] if len(sys.argv) > 7 else "open"
+line = sys.argv[8] if len(sys.argv) > 8 else "3"
 d = json.load(open(p))
 d.append({"number": int(n), "state": state, "state_reason": "completed" if state == "closed" else None,
           "labels": ["finding", "sev:high", "due:before-freeze", "area:web"], "created_at": created, "title": "PR%s %s: same defect" % (pr, fid),
-          "body": "<!-- finding:PR%s#%s -->\nFound by the AI review of PR #%s (t).\n\n- Where: `%s:3`\n- Severity: HIGH\n" % (pr, fid, pr, f)})
+          "body": "<!-- finding:PR%s#%s -->\nFound by the AI review of PR #%s (t).\n\n- Where: `%s:%s`\n- Severity: HIGH\n" % (pr, fid, pr, f, line)})
 json.dump(d, open(p, "w"))
 EOF
 }
@@ -300,6 +301,19 @@ run batch
 body="$(get 904 body)"
 grep -q '(done)' <<<"$(grep 'batch-item:#602' <<<"$body")" && ok "every source of the row closed: the row is done" || ko "row done ($body)"
 
+# Review of PR 187: the same generic id on the same file at ANOTHER line (or with no line) is another defect: never one row.
+reset
+mkgroup 611 91 missing-test a.go 2026-11-10T10:00:00Z open 3
+mkgroup 612 92 missing-test a.go 2026-11-11T10:00:00Z open 9
+mkgroup 613 93 missing-test a.go 2026-11-12T10:00:00Z open '?'
+mknote 614 open 2026-11-13T10:00:00Z '<!-- finding:PR94#notes -->\n- [ ] `missing-test` [OBSERVED] `a.go:3` the same remark as 611\n- [ ] `missing-test` [OBSERVED] `a.go:20` another remark'
+run batch
+body="$(get 904 body)"
+[ "$(grep -c 'batch-item:' <<<"$body")" -eq 4 ] && ok "same id and file at another line, or with no line, are separate rows (4 rows: 611 with note, 612, 613, the note at line 20)" || ko "line ignored ($body)"
+line="$(grep 'batch-item:#611' <<<"$body")"
+grep -q 'batch-also:#614/missing-test' <<<"$line" && ! grep -q '#612\|#613' <<<"$line" && ok "only the source at the same id, file and line joins the row" || ko "same line row ($line)"
+! grep -q 'batch-also' <<<"$(grep 'batch-item:#612\|batch-item:#613' <<<"$body")" && ok "the other lines have no also-marker: settling one row cannot close their sources" || ko "also on other line ($body)"
+
 # ---------- rank keeps the due component (review note n-batch-rank-due, #152) ----------
 reset
 mkissue 801 open "finding,sev:high,due:after-freeze,area:web" 2026-11-01T10:00:00Z "PR80 overflow-high: a HIGH filed in a follow-ups issue (after freeze)"
@@ -307,5 +321,8 @@ mkissue 802 open "finding,sev:medium,due:before-freeze,area:web" 2026-11-13T10:0
 run batch --print
 order="$(grep -o 'batch-item:#[0-9/a-z]*' <<<"$out" | sed 's/batch-item://' | tr '\n' ' ' || true)"
 [ "$order" = "#802 #801 " ] && ok "before-freeze items are ranked first, whatever their severity: $order" || ko "due rank ($order)"
+
+# Owner decision (2026-11-14): the review batch runs every 2 hours.
+grep -qE '^\s*- cron: "0 \*/2 \* \* \*"$' "$root/.github/workflows/review-batch.yml" && ! grep -qE 'cron: "[^"]*\*/5' "$root/.github/workflows/review-batch.yml" && ok "review-batch.yml: the schedule is every 2 hours (0 */2 * * *)" || ko "batch cron is not every 2 hours"
 
 finish

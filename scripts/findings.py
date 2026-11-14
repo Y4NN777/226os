@@ -430,8 +430,8 @@ NOTE_ITEM = re.compile(r"^\s*- \[( |x|X)\]\s*`([^`]*)`\s*\[(OBSERVED|INFERRED)\]
 BATCH_LINE = re.compile(r"^- \[( |x|X)\] (.*?) <!-- batch-item:(#\d+(?:/[\w-]+)?) -->$")
 ALSO = re.compile(r"\s*<!-- batch-also:([^>]*?) -->")
 ITEM_KEY_RE = re.compile(r"^#\d+(?:/[\w-]+)?$")
-WHERE = re.compile(r"^- Where: `([^`]*):[^:`]*`", re.M)
-NOTE_WHERE = re.compile(r"^`([^`]*):[^:`]*`")
+WHERE = re.compile(r"^- Where: `([^`]*):([^:`]*)`", re.M)
+NOTE_WHERE = re.compile(r"^`([^`]*):([^:`]*)`")
 NOTES_TITLE = re.compile(r"^PR(\d+) notes")
 NOTE_RANK = len(SEV_RANK)  # notes come after every finding severity; a stale INFERRED note first
 
@@ -445,6 +445,14 @@ def one_line(text, width=120):
     return text if len(text) <= width else text[:width - 1] + "..."
 
 
+def defect_id(ident, where):
+    """The key under which items are one defect: the id, the file AND the line, all three. A generic id on the same file at
+    another line, or with no known line, is another defect and stays its own row (settling one must never close the other)."""
+    if not ident or not where or where.group(1) in ("", "?") or not re.fullmatch(r"\d+", where.group(2) or ""):
+        return None
+    return (ident, where.group(1), int(where.group(2)))
+
+
 def batch_items(finding_issues, note_issues):
     """The open work: each open finding issue is one item (a follow-ups issue too), each unticked box of an open notes
     issue is one item. rank = (due, severity, area, age); notes rank after LOW, INFERRED undecided for 7 days first."""
@@ -456,7 +464,7 @@ def batch_items(finding_issues, note_issues):
         sev = label_value(labels, "sev:").upper() or "?"
         mark, where = MARK.search(i.get("body") or ""), WHERE.search(i.get("body") or "")
         ident = mark.group(1).partition("#")[2] if mark else ""
-        gid = (ident, where.group(1)) if ident and ident not in ("followups", "notes") and where and where.group(1) not in ("", "?") else None
+        gid = defect_id(ident, where) if ident and ident not in ("followups", "notes") else None
         items.append({"key": "#%s" % i.get("number"), "rank": sort_key(i), "number": i.get("number") or 0, "gid": gid,
                       "pr": mark.group(1).partition("#")[0][2:] if mark else "?",
                       "text": "#%s [%s] %s (area:%s)" % (i.get("number"), sev, one_line(i.get("title", "")),
@@ -475,7 +483,7 @@ def batch_items(finding_issues, note_issues):
             where = NOTE_WHERE.match(m.group(4))
             title = MARK.search(i.get("body") or "") or NOTES_TITLE.match(i.get("title") or "")
             items.append({"key": "#%s/%s" % (i.get("number"), slug(m.group(2))), "number": i.get("number") or 0,
-                          "gid": (slug(m.group(2)), where.group(1)) if where and where.group(1) not in ("", "?") else None,
+                          "gid": defect_id(slug(m.group(2)), where),
                           "pr": (title.group(1).partition("#")[0][2:] if title.group(1).startswith("PR") else title.group(1)) if title else "?",
                           "rank": (1, NOTE_RANK + (0 if stale else 1), 0 if area in AREA_FIRST else 1, i.get("created_at", "")),
                           "text": "#%s [NOTE %s%s] `%s` %s" % (i.get("number"), m.group(3), ", %d+ days" % STALE_NOTE_DAYS if stale else "",
@@ -484,9 +492,9 @@ def batch_items(finding_issues, note_issues):
 
 
 def group_items(items):
-    """One row per defect: the items that share an id and a file (the same finding raised on several pull requests, or a
+    """One row per defect: the items that share an id, a file and a line (the same finding raised on several pull requests, or a
     finding and a note) are ONE row, keyed by the oldest source, that lists every source. Rows are ranked by their worst
-    member. An item without an id and a file stays alone."""
+    member. An item without an id, a file and a line stays alone."""
     groups = {}
     for it in items:
         groups.setdefault(it["gid"] or ("alone", it["key"]), []).append(it)
