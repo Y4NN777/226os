@@ -18,6 +18,8 @@ import { SignInPage } from '../features/identity/SignInPage';
 import { SignUpPage } from '../features/identity/SignUpPage';
 import { VerifyEmailPage } from '../features/identity/VerifyEmailPage';
 import { WelcomePage } from '../features/identity/WelcomePage';
+import { validateWriteSearch } from '../features/learn/routeSearch';
+import { WritePage } from '../features/learn/WritePage';
 import { NotFound } from '../features/NotFound';
 import { validateSearchSearch } from '../features/search/routeSearch';
 import { SearchPage } from '../features/search/SearchPage';
@@ -65,6 +67,12 @@ const resourceRoute = createRoute({
   getParentRoute: () => appLayout,
   path: '/discover/$resourceId',
   component: ResourcePage,
+});
+const writeRoute = createRoute({
+  getParentRoute: () => appLayout,
+  path: '/ecrire',
+  component: WritePage,
+  validateSearch: validateWriteSearch,
 });
 const searchRoute = createRoute({
   getParentRoute: () => appLayout,
@@ -118,6 +126,7 @@ const routeTree = rootRoute.addChildren([
     legacySettingsRoute,
     discoverRoute,
     resourceRoute,
+    writeRoute,
     searchRoute,
   ]),
   authLayout.addChildren([
