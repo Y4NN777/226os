@@ -318,6 +318,10 @@ jobs:
   deep:
     name: Deep review (P0 paths)
     needs: review
+    # One deep review per pull request at a time: a newer push cancels the older one.
+    concurrency:
+      group: code-review-deep-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
     if: >-
       !cancelled()
       && needs.review.outputs.deep == 'true'
@@ -351,6 +355,17 @@ jobs:
           path: pr
           fetch-depth: 1
           persist-credentials: false
+
+      # actions/checkout cannot put the pull request outside the workspace, so every file Claude Code would load from
+      # pr/ as instructions or settings (CLAUDE.md, CLAUDE.local.md, AGENTS.md, .mcp.json, .claude/, at any depth) is
+      # removed before the model step, by the BASE copy of scripts/review-strip-pr.sh (tested in
+      # scripts/tests/review-strip-pr_test.sh). Without it the job stops here and the comment says Deep: NOT RUN.
+      - name: Strip instruction and settings files from the pull request tree
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          git cat-file blob "$BASE_SHA:scripts/review-strip-pr.sh" > "$RUNNER_TEMP/review-strip-pr.sh"
+          bash "$RUNNER_TEMP/review-strip-pr.sh" pr
 
       - name: Download the context pack of the review
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2

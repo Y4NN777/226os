@@ -6,18 +6,20 @@ It decides MERGE only if ALL of these hold for the pull request (any other case 
   - it is open, not a draft, its base is develop (never main) and its head repository is this repository;
   - it has none of the labels needs-owner, do-not-merge, owner-override-pending;
   - it changes nothing under .github/workflows/ (the bot never merges a workflow change: the owner does);
-  - it touches no review pipeline path (.github/pipeline-paths.txt, read from the BASE branch). With AUTO_MERGE=on
+  - it touches no review pipeline path (.github/pipeline-paths.txt, read at the base sha). With AUTO_MERGE=on
     such a pull request is labelled `needs-owner` with a one-line comment giving the reason (once: the label then
     refuses it before anything else), and the owner merges it;
   - every required check (REQUIRED_CHECKS) has a latest check run on the head that is completed with SUCCESS;
   - the review comment (marker `<!-- 226os-ai-review -->`, scripts/review-comment.py) exists, its Triage is neither
     NOT RUN nor CRITICAL, its ledger sha is the head (the review covered the latest commit) and no `finding` is open
     (notes never block);
-  - when a P0 path is touched (.github/sensitive-paths.txt plus .github/deep-review-paths.txt, both read from the BASE
-    branch through the API, like the gate and the review job), the ledger records a deep review PASS of the head; and
+  - when a P0 path is touched (.github/sensitive-paths.txt plus .github/deep-review-paths.txt, both read at the
+    pull request's base sha through the API, like the review job), the ledger records a deep review PASS of the head; and
     line 4 of the comment is never `Deep: PENDING` or `Deep: NOT RUN` (the review job's own signal, whatever the lists);
-  - when a sensitive path is touched, the owner approved it or wrote it (the Review gate's rule, applied whatever the
-    gate mode is: the gate in report mode passes such a pull request).
+  - when a sensitive path is touched, the owner's latest review APPROVED exactly the head commit, or the owner opened
+    the pull request and authored every commit on it (stricter than the Review gate, applied whatever the gate mode);
+  - a HIGH or MEDIUM verdict always has an open finding that explains it (otherwise it is refused, never merged);
+  - every path list (sensitive, deep-review, pipeline) is read at the pull request's base sha.
 MERGE is a merge commit of exactly the evaluated head (`gh pr merge --merge --match-head-commit`), never squash or
 rebase; GitHub's own branch protection still applies (a 405 is reported, exit 0). Then the update-branch API is called
 for every other open pull request into develop from this repository (failures are printed, never fatal).
@@ -42,6 +44,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 BLOCKING_LABELS = ("needs-owner", "do-not-merge", "owner-override-pending")
 DEFAULT_CHECKS = "Validate branch promotion,quality,Review gate"
 PIPELINE_LIST = ".github/pipeline-paths.txt"
+SENSITIVE_LIST = ".github/sensitive-paths.txt"
 OWNER_LABEL = "needs-owner"
 FULL_SHA = re.compile(r"^[0-9a-f]{40}$")
 
@@ -71,7 +74,7 @@ def latest_runs(items):
 
 
 def base_list(gh, repo, path, base):
-    """The patterns of a path list on the BASE branch (empty when it is missing)."""
+    """The patterns of a path list at the base commit ref (empty when it is missing)."""
     try:
         items = gate.gh_api(gh, "repos/%s/contents/%s?ref=%s" % (repo, path, base))
         raw = base64.b64decode(items[0]["content"]).decode("utf-8")
@@ -82,6 +85,34 @@ def base_list(gh, repo, path, base):
 
 def label_names(pull):
     return [x if isinstance(x, str) else (x or {}).get("name", "") for x in pull.get("labels") or []]
+
+
+def owner_authored(gh, repo, number, pull, owner):
+    """True only when the owner opened the pull request AND authored every commit on it."""
+    if (pull.get("user") or {}).get("login") != owner:
+        return False
+    commits = gate.gh_api(gh, "repos/%s/pulls/%s/commits" % (repo, number))
+    return bool(commits) and all(((c.get("author") or {}).get("login")) == owner for c in commits)
+
+
+def owner_approved_head(gh, repo, number, owner, head):
+    """True when the owner's latest decisive review is APPROVED on exactly the head commit."""
+    last = None
+    for r in gate.gh_api(gh, "repos/%s/pulls/%s/reviews" % (repo, number)):
+        if (r.get("user") or {}).get("login") == owner and r.get("state") in ("APPROVED", "CHANGES_REQUESTED", "DISMISSED"):
+            if last is None or r.get("submitted_at", "") >= last.get("submitted_at", ""):
+                last = r
+    return last is not None and last.get("state") == "APPROVED" and last.get("commit_id") == head
+
+
+def sensitive_refusal(gh, repo, number, pull, owner, files, patterns, head):
+    """The refusal for a sensitive path, or None: the owner authored every commit, or approved exactly the head."""
+    hits = comment.p0_hits(files, patterns)
+    if not hits:
+        return None
+    if owner_authored(gh, repo, number, pull, owner) or owner_approved_head(gh, repo, number, owner, head):
+        return None
+    return "sensitive paths touched (%s) without the owner's approval of the head" % ", ".join(hits[:3])
 
 
 def refusals(gh, repo, number, base, owner, required):
@@ -104,10 +135,14 @@ def refusals(gh, repo, number, base, owner, required):
     if why or not FULL_SHA.match(head):
         return head, why or ["no head commit"], None
 
+    # Every path list is read at the pull request's base sha, the same commit the review workflow reads them from.
+    base_sha = (pull.get("base") or {}).get("sha", "")
+    if not FULL_SHA.match(base_sha):
+        return head, ["no base commit"], None
     files = [f.get("filename", "") for f in gate.gh_api(gh, "repos/%s/pulls/%s/files" % (repo, number))]
     if any(f.startswith(".github/workflows/") for f in files):
         why.append("it changes a workflow under .github/workflows (the owner merges it)")
-    pipeline = comment.p0_hits(files, base_list(gh, repo, PIPELINE_LIST, base))
+    pipeline = comment.p0_hits(files, base_list(gh, repo, PIPELINE_LIST, base_sha))
     pipeline_why = None
     if pipeline:
         pipeline_why = "it touches the review pipeline (%s): the owner merges it" % ", ".join(pipeline[:3])
@@ -133,24 +168,27 @@ def refusals(gh, repo, number, base, owner, required):
         why.append("the review comment has no Triage verdict")
     elif comment.VERDICT.match(first).group(1) == "CRITICAL":
         why.append("the review verdict is CRITICAL")
+    level = comment.VERDICT.match(first).group(1) if target is not None and comment.VERDICT.match(first) else None
     if target is not None and ledger.get("sha") != head:
         why.append("the ledger sha %s is not the head %s (the review did not cover the latest commit)" % (str(ledger.get("sha"))[:12] or "(none)", head[:12]))
     open_ids = [str(f.get("id")) for f in ledger.get("findings", []) if isinstance(f, dict)
                 and str(f.get("kind", "finding")).lower() != "note" and f.get("status") == "open"]
     if open_ids:
         why.append("open finding(s): %s" % ", ".join(open_ids[:6]))
+    elif level in ("HIGH", "MEDIUM"):
+        why.append("the verdict is %s but no open finding explains it" % level)
 
     lines = body.strip().splitlines()
     deep_line = lines[3].strip() if len(lines) > 3 else ""
     if deep_line.startswith(("Deep: PENDING", "Deep: NOT RUN")):
         why.append("the deep review is not done (%s)" % deep_line)
-    patterns = [p for rel in comment.P0_LISTS for p in base_list(gh, repo, rel, base)]
+    patterns = [p for rel in comment.P0_LISTS for p in base_list(gh, repo, rel, base_sha)]
     hits = comment.p0_hits(files, patterns)
     deep = ledger.get("deep") if isinstance(ledger.get("deep"), dict) else {}
     if hits and not (deep.get("status") == "PASS" and deep.get("sha") == head):
         why.append("a P0 path is touched (%s) without a deep review PASS of the head" % ", ".join(hits[:3]))
 
-    failure, _ = gate.check_sensitive(gh, repo, number, (pull.get("user") or {}).get("login", ""), owner, base)
+    failure = sensitive_refusal(gh, repo, number, pull, owner, files, base_list(gh, repo, SENSITIVE_LIST, base_sha), head)
     if failure:
         why.append(failure)
     return head, why, pipeline_why

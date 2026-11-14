@@ -7,4 +7,6 @@ scripts/findings.py
 .claude/*
 docs/team/OWNER_PREFERENCES.md
 docs/quality/REVIEW_CONTEXT.md
-.github/sensitive-paths.txt
+Makefile
+mk/*
+docs/decisions/*

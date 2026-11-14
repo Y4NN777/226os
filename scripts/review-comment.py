@@ -57,6 +57,7 @@ SEVERITIES = {"CRITICAL", "HIGH", "MEDIUM", "LOW"}
 STATUSES = {"open", "answered", "accepted", "fixed"}
 P0_LISTS = (".github/sensitive-paths.txt", ".github/deep-review-paths.txt")
 DEEP_MAX_ENTRIES = 8
+STATUS_RANK = {"open": 0, "answered": 1, "accepted": 1, "fixed": 2}
 MINIMIZE = "mutation($id: ID!) { minimizeComment(input: {subjectId: $id, classifier: OUTDATED}) { minimizedComment { isMinimized } } }"
 
 
@@ -133,6 +134,11 @@ def pin_ledger(text, head):
         if isinstance(data, dict):
             data.pop("last_reviewed_commit", None)
             data.pop("commit", None)
+            # Only the deep merge writes `deep` and `source`: a model-written one would forge a deep review PASS.
+            data.pop("deep", None)
+            for f in data.get("findings") if isinstance(data.get("findings"), list) else []:
+                if isinstance(f, dict):
+                    f.pop("source", None)
             data["sha"] = head
             return text[:m.start(2)] + json.dumps(data) + text[m.end(2):]
     return text
@@ -330,7 +336,11 @@ def deep_output():
         return None, "the deep review output is not valid JSON"
     if not isinstance(data, dict) or str(data.get("level", "")).upper() not in LEVELS or not isinstance(data.get("findings"), list):
         return None, "the deep review output has no level or findings"
-    entries = [e for e in (deep_entry(f) for f in data["findings"]) if e][:DEEP_MAX_ENTRIES]
+    if len(data["findings"]) > DEEP_MAX_ENTRIES:
+        return None, "the deep review returned more than %d entries" % DEEP_MAX_ENTRIES
+    entries = [deep_entry(f) for f in data["findings"]]
+    if not all(entries):
+        return None, "the deep review output has an invalid entry"
     level = str(data["level"]).upper()
     if level == "CRITICAL" and not any(e["sev"] == "CRITICAL" and e["kind"] == "finding" for e in entries):
         level = "HIGH"
@@ -364,9 +374,14 @@ def merge_deep(base, data, why, head):
     tool = lines[2].strip() if len(lines) > 2 and TOOL.match(lines[2].strip()) else tool_or_default("")
     ledger = ledger_of(base) or {"sha": "", "findings": []}
     if data is not None:
-        ids = {e["id"] for e in data["entries"]}
+        # A deep entry may replace a stage 1 entry of the same id only when its status is not better: the deep review
+        # can never mark a stage 1 finding fixed, answered or accepted.
+        stage1 = {f.get("id"): f for f in ledger["findings"] if isinstance(f, dict) and f.get("source") != "deep"}
+        merged = [e for e in data["entries"]
+                  if e["id"] not in stage1 or STATUS_RANK[e["status"]] <= STATUS_RANK.get(stage1[e["id"]].get("status"), 0)]
+        ids = {e["id"] for e in merged}
         kept = [f for f in ledger["findings"] if not (isinstance(f, dict) and (f.get("source") == "deep" or f.get("id") in ids))]
-        ledger["findings"] = kept + data["entries"]
+        ledger["findings"] = kept + merged
         ledger["deep"] = {"status": "PASS", "sha": head}
         found = sum(1 for e in data["entries"] if e["kind"] == "finding")
         deep_line = "Deep: PASS (%s, %s)" % (plural(found, "finding"), plural(len(data["entries"]) - found, "note"))

@@ -16,6 +16,7 @@ trap 'rm -rf "$tmp"' EXIT
 mkdir -p "$tmp/bin" "$tmp/fx"
 export H=1111111111111111111111111111111111111111
 OLD=2222222222222222222222222222222222222222
+export BS=3333333333333333333333333333333333333333
 
 # Fake gh: reads answer from fixtures by endpoint; every call is logged with the token it used.
 cat >"$tmp/bin/gh" <<'GH'
@@ -29,9 +30,10 @@ case "$*" in
   "api repos/o/r/commits/$H/check-runs?per_page=100 --paginate") cat "$FX/checks.json" ;;
   "api repos/o/r/issues/7/comments --paginate") cat "$FX/comments.json" ;;
   "api repos/o/r/pulls/7/reviews --paginate") cat "$FX/reviews.json" ;;
-  "api repos/o/r/contents/.github/sensitive-paths.txt?ref=develop --paginate") cat "$FX/contents.json" ;;
-  "api repos/o/r/contents/.github/deep-review-paths.txt?ref=develop --paginate") cat "$FX/deep-paths.json" ;;
-  "api repos/o/r/contents/.github/pipeline-paths.txt?ref=develop --paginate") cat "$FX/pipeline-paths.json" ;;
+  "api repos/o/r/pulls/7/commits --paginate") cat "$FX/commits.json" ;;
+  "api repos/o/r/contents/.github/sensitive-paths.txt?ref=$BS --paginate") cat "$FX/contents.json" ;;
+  "api repos/o/r/contents/.github/deep-review-paths.txt?ref=$BS --paginate") cat "$FX/deep-paths.json" ;;
+  "api repos/o/r/contents/.github/pipeline-paths.txt?ref=$BS --paginate") cat "$FX/pipeline-paths.json" ;;
   "api -X POST repos/o/r/issues/7/labels "*|"api -X POST repos/o/r/issues/7/comments "*) echo '{}' ;;
   "api repos/o/r/pulls?state=open&base=develop&per_page=100 --paginate") cat "$FX/open.json" ;;
   "pr merge 7 --repo o/r --merge --match-head-commit $H") [ -z "${FAKE_MERGE_FAIL:-}" ] || { echo "405 not mergeable" >&2; exit 1; } ;;
@@ -47,8 +49,8 @@ printf '{"content":"%s"}' "$(printf 'scripts/*\n.github/*\n' | base64 -w0)" >"$t
 
 # pull [state base headrepo draft labels-json author]
 pull() {
-  python3 -I -c 'import json,sys; a=sys.argv; json.dump({"number":7,"state":a[2],"draft":a[5]=="true","base":{"ref":a[3]},"head":{"sha":a[7],"repo":{"full_name":a[4]}},"labels":json.loads(a[6]),"user":{"login":a[8]}}, open(a[1],"w"))' \
-    "$tmp/fx/pull.json" "${1:-open}" "${2:-develop}" "${3:-o/r}" "${4:-false}" "${5:-[]}" "$H" "${6:-dev}"
+  python3 -I -c 'import json,sys; a=sys.argv; json.dump({"number":7,"state":a[2],"draft":a[5]=="true","base":{"ref":a[3],"sha":a[9]},"head":{"sha":a[7],"repo":{"full_name":a[4]}},"labels":json.loads(a[6]),"user":{"login":a[8]}}, open(a[1],"w"))' \
+    "$tmp/fx/pull.json" "${1:-open}" "${2:-develop}" "${3:-o/r}" "${4:-false}" "${5:-[]}" "$H" "${6:-dev}" "$BS"
 }
 files() { python3 -I -c 'import json,sys; json.dump([{"filename": f} for f in sys.argv[2:]], open(sys.argv[1], "w"))' "$tmp/fx/files.json" "$@"; }
 # checks NAME:STATUS:CONCLUSION ...
@@ -66,6 +68,7 @@ reset() {
   checks "${GOOD_CHECKS[@]}"
   review_comment "Triage: NONE | blast radius: this PR only" "{\"sha\":\"$H\",\"findings\":[$NOTE]}"
   printf '[]' >"$tmp/fx/reviews.json"
+  printf '[{"sha":"%s","author":{"login":"Y4NN777"}}]' "$H" >"$tmp/fx/commits.json"
   printf '[{"number":7,"state":"open","base":{"ref":"develop"}}]' >"$tmp/fx/assoc.json"
   printf '[{"number":7,"head":{"sha":"%s","repo":{"full_name":"o/r"}}},{"number":8,"head":{"sha":"%s","repo":{"full_name":"o/r"}}},{"number":9,"head":{"sha":"%s","repo":{"full_name":"fork/r"}}}]' "$H" "$OLD" "$OLD" >"$tmp/fx/open.json"
 }
@@ -110,7 +113,7 @@ reset; review_comment "Triage: NONE | blast radius: x" "{\"sha\":\"$OLD\",\"find
 reset; review_comment "Triage: NOT RUN | the review returned no structured output" "{\"sha\":\"$H\",\"findings\":[]}"; refused 'NOT RUN' "the review is NOT RUN"
 reset; review_comment "Triage: CRITICAL | blast radius: x" "{\"sha\":\"$H\",\"findings\":[]}"; refused 'CRITICAL' "a CRITICAL verdict"
 reset; review_comment "Triage: MEDIUM | blast radius: x" "{\"sha\":\"$H\",\"findings\":[{\"id\":\"m1\",\"kind\":\"finding\",\"sev\":\"MEDIUM\",\"status\":\"open\"}]}"; refused 'open finding' "an open finding (any level)"
-reset; review_comment "Triage: MEDIUM | blast radius: x" "{\"sha\":\"$H\",\"findings\":[{\"id\":\"m1\",\"kind\":\"finding\",\"sev\":\"MEDIUM\",\"status\":\"fixed\"},$NOTE]}"
+reset; review_comment "Triage: NONE | blast radius: x" "{\"sha\":\"$H\",\"findings\":[{\"id\":\"m1\",\"kind\":\"finding\",\"sev\":\"MEDIUM\",\"status\":\"fixed\"},$NOTE]}"
 run on
 grep -q 'pr merge 7' <<<"$calls" && ok "a fixed finding and an open note do not block" || ko "fixed and note ($out)"
 reset; files src/api/internal/identity/service/x.go; refused 'deep review' "a P0 path without a deep review"
@@ -123,13 +126,28 @@ reset; review_comment "Triage: NONE | blast radius: x" "{\"sha\":\"$H\",\"findin
 reset; review_comment "Triage: NONE | blast radius: x" "{\"sha\":\"$H\",\"findings\":[]}" "Deep: NOT RUN (the deep review returned no structured output)"; refused 'deep review is not done' "Deep: NOT RUN on line 4"
 reset; files db/queries/solve.sql; refused 'P0 path' "the deep-review list is read from the base branch (db/queries)"
 reset; files scripts/x.sh; review_comment "Triage: NONE | blast radius: x" "{\"sha\":\"$H\",\"findings\":[],\"deep\":{\"status\":\"PASS\",\"sha\":\"$H\"}}"; refused 'owner' "a sensitive path without the owner's approval"
-reset; files scripts/x.sh; review_comment "Triage: NONE | blast radius: x" "{\"sha\":\"$H\",\"findings\":[],\"deep\":{\"status\":\"PASS\",\"sha\":\"$H\"}}"; printf '[{"user":{"login":"Y4NN777"},"state":"APPROVED","submitted_at":"2026-11-14T10:00:00Z"}]' >"$tmp/fx/reviews.json"
+reset; files scripts/x.sh; review_comment "Triage: NONE | blast radius: x" "{\"sha\":\"$H\",\"findings\":[],\"deep\":{\"status\":\"PASS\",\"sha\":\"$H\"}}"; printf '[{"user":{"login":"Y4NN777"},"state":"APPROVED","commit_id":"%s","submitted_at":"2026-11-14T10:00:00Z"}]' "$H" >"$tmp/fx/reviews.json"
 run on
 grep -q 'pr merge 7' <<<"$calls" && ok "a sensitive path approved by the owner merges" || ko "sensitive approved ($out)"
 reset; FAKE_GH_FAIL=1 run on
 [ "$rc" -eq 0 ] && grep -q 'NOT RUN' <<<"$out" && ! grep -q 'pr merge' <<<"$calls" && ok "a GitHub read error is NOT RUN: no merge, exit 0" || ko "gh fail (rc=$rc $out)"
 reset; FAKE_MERGE_FAIL=1 run on
 [ "$rc" -eq 0 ] && grep -q 'GitHub refused the merge' <<<"$out" && ! grep -q 'update-branch' <<<"$calls" && ok "a merge GitHub refuses (conflict, unresolved thread) is reported, exit 0, no update-branch" || ko "merge fail (rc=$rc $out)"
+
+# --- review of PR 168: stale owner approval, owner identity, level without a finding ---
+SENS_OK="{\"sha\":\"$H\",\"findings\":[],\"deep\":{\"status\":\"PASS\",\"sha\":\"$H\"}}"
+reset; files scripts/x.sh; review_comment "Triage: NONE | blast radius: x" "$SENS_OK"; printf '[{"user":{"login":"Y4NN777"},"state":"APPROVED","commit_id":"%s","submitted_at":"2026-11-14T10:00:00Z"}]' "$OLD" >"$tmp/fx/reviews.json"
+refused 'owner' "an owner approval of an older commit does not cover the head"
+reset; files scripts/x.sh; review_comment "Triage: NONE | blast radius: x" "$SENS_OK"; pull open develop o/r false '[]' Y4NN777
+run on
+grep -q 'pr merge 7' <<<"$calls" && ok "an owner-authored sensitive change whose commits are all the owner's merges" || ko "owner authored ($out)"
+reset; files scripts/x.sh; review_comment "Triage: NONE | blast radius: x" "$SENS_OK"; pull open develop o/r false '[]' Y4NN777
+printf '[{"sha":"%s","author":{"login":"Y4NN777"}},{"sha":"%s","author":{"login":"someone"}}]' "$OLD" "$H" >"$tmp/fx/commits.json"
+refused 'owner' "an owner-authored PR with a commit by someone else is not owner-authored"
+reset; review_comment "Triage: HIGH | blast radius: x" "{\"sha\":\"$H\",\"findings\":[]}"; refused 'no open finding explains' "a HIGH verdict with no open finding"
+reset; review_comment "Triage: MEDIUM | blast radius: x" "{\"sha\":\"$H\",\"findings\":[$NOTE]}"; refused 'no open finding explains' "a MEDIUM verdict with only a note"
+reset; run on
+grep -q "contents/.github/pipeline-paths.txt?ref=$BS" <<<"$calls" && grep -q "contents/.github/deep-review-paths.txt?ref=$BS" <<<"$calls" && ! grep -q 'ref=develop' <<<"$calls" && ok "the path lists are read at the pull request's base sha" || ko "lists ref ($calls)"
 
 # --- review pipeline paths: never auto-merged; with AUTO_MERGE=on labelled needs-owner with a one-line reason ---
 pipeline_ok() { review_comment "Triage: NONE | blast radius: x" "{\"sha\":\"$H\",\"findings\":[],\"deep\":{\"status\":\"PASS\",\"sha\":\"$H\"}}"; pull open develop o/r false '[]' Y4NN777; }
