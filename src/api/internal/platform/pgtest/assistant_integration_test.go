@@ -319,7 +319,11 @@ func TestAssistantFailsClosedWith503(t *testing.T) {
 		fake.FailWith(llm.ErrUnavailable)
 		s := newAssistantStack(t, fake, true)
 		m := s.signIn(t, "down", true, 22)
-		problem(t, s.askAssistant(t, &m, q))
+		rec := s.askAssistant(t, &m, q)
+		problem(t, rec)
+		if rec.Header().Get("Retry-After") != "30" {
+			t.Fatalf("Retry-After %q, want 30", rec.Header().Get("Retry-After"))
+		}
 		if n := len(fake.Requests()); n != 1 {
 			t.Fatalf("provider calls %d, want 1", n)
 		}

@@ -33,6 +33,8 @@ const (
 
 	// DefaultTimeout is the deadline of the provider call, inside the 30 s route budget (B3).
 	DefaultTimeout = 20 * time.Second
+	// providerRetryAfter is the Retry-After of a 503 caused by the provider (API_CONTRACT).
+	providerRetryAfter = 30 * time.Second
 	// PassageLimit is how many passages are retrieved and sent.
 	PassageLimit = 5
 
@@ -142,7 +144,7 @@ func (s *Service) generate(ctx context.Context, question, lang string, passages 
 		if errors.Is(err, llm.ErrInvalidRequest) {
 			return domain.Answer{}, apperr.Wrap(apperr.CodeInternal, err)
 		}
-		return domain.Answer{}, unavailable(err, 0)
+		return domain.Answer{}, unavailable(err, providerRetryAfter)
 	}
 	text := llm.CleanAnswer(resp.Text)
 	answer, err := domain.Parse(text, passages, lang)
@@ -151,7 +153,7 @@ func (s *Service) generate(ctx context.Context, question, lang string, passages 
 		s.logger.Info("assistant refused", "class", refusalClass(err), "duration_ms", s.now().Sub(start).Milliseconds())
 		return domain.NoSourceAnswer(lang, question), nil
 	case err != nil:
-		return domain.Answer{}, unavailable(err, 0)
+		return domain.Answer{}, unavailable(err, providerRetryAfter)
 	}
 	s.logger.Info("assistant answered", "sources", len(answer.Sources), "duration_ms", s.now().Sub(start).Milliseconds())
 	return answer, nil

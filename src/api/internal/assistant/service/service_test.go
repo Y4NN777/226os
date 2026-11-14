@@ -283,6 +283,10 @@ func TestAskProviderFailuresAre503AndNeverRetried(t *testing.T) {
 		if n := len(r.fake.Requests()); n != 1 {
 			t.Fatalf("%v: provider calls = %d, want 1 (never retried)", e, n)
 		}
+		var ae *apperr.Error
+		if !errors.As(err, &ae) || ae.RetryAfter != 30*time.Second {
+			t.Fatalf("%v: a provider failure must carry Retry-After 30 s, got %+v", e, ae)
+		}
 	}
 }
 
@@ -291,7 +295,8 @@ func TestAskTimeoutEndsTheProviderCall(t *testing.T) {
 	slow := &blocking{}
 	svc := service.New(service.Config{Enabled: true, Timeout: 10 * time.Millisecond}, r.ret, slow, r.lim, nil)
 	_, err := svc.Ask(context.Background(), member, service.Request{Question: "how do webhooks work"})
-	if code(t, err) != apperr.CodeServiceUnavailable || !errors.Is(err, context.DeadlineExceeded) {
+	var ae *apperr.Error
+	if code(t, err) != apperr.CodeServiceUnavailable || !errors.Is(err, context.DeadlineExceeded) || !errors.As(err, &ae) || ae.RetryAfter != 30*time.Second {
 		t.Fatalf("err = %v", err)
 	}
 }

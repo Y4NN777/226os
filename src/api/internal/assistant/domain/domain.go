@@ -67,25 +67,38 @@ var (
 )
 
 var (
-	// The patterns run in order: a URL password goes before the e-mail rule, which would otherwise
-	// take "pass@host" for an address.
+	// The patterns run in order: whole header lines first, then a URL password before the e-mail
+	// rule, which would otherwise take "pass@host" for an address.
+	authHeader   = regexp.MustCompile(`(?i)\bauthorization\s*:[^\n]*`)
+	cookieHeader = regexp.MustCompile(`(?i)\b(set-cookie|cookie)\s*:[^\n]*`)
+	sessionToken = regexp.MustCompile(`(?i)\b(?:__host-)?226os_(?:session|csrf)=[^\s;]+`)
 	urlUserinfo  = regexp.MustCompile(`(?i)([a-z][a-z0-9+.-]*://)[^/\s:@]+:[^/\s@]+@`)
 	email        = regexp.MustCompile(`[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}`)
 	privateKey   = regexp.MustCompile(`(?s)-----BEGIN [A-Z ]*PRIVATE KEY-----.*?(?:-----END [A-Z ]*PRIVATE KEY-----|$)`)
-	namedSecret  = regexp.MustCompile(`(?i)\b(password|passwd|pwd|secret|token|api[_-]?key|authorization)(\s*[:=]\s*)(?:bearer\s+)?\S+`)
+	namedSecret  = regexp.MustCompile(`(?i)\b(password|passwd|pwd|mot de passe|mdp|secret|token|api[ _-]?key)(\s*[:=]\s*|\s+(?:is|est)\s+)(?:bearer\s+)?\S+`)
+	spacedAPIKey = regexp.MustCompile(`(?i)\b(api[ _-]?key)\s+\S+`)
 	bearer       = regexp.MustCompile(`(?i)\bbearer\s+[A-Za-z0-9._~+/=-]{16,}`)
-	knownSecrets = regexp.MustCompile(`\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]*|\bAIza[0-9A-Za-z_-]{30,}|\bgh[pousr]_[A-Za-z0-9]{20,}|\bgithub_pat_[A-Za-z0-9_]{20,}|\bAKIA[0-9A-Z]{16}\b|\bxox[baprs]-[A-Za-z0-9-]{10,}|\b[sp]k_(?:live|test)_[A-Za-z0-9]{16,}`)
+	knownSecrets = regexp.MustCompile(`\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]*|\bAIza[0-9A-Za-z_-]{30,}|\bgh[pousr]_[A-Za-z0-9]{20,}|\bgithub_pat_[A-Za-z0-9_]{20,}|\bAKIA[0-9A-Z]{16}\b|\bxox[baprs]-[A-Za-z0-9-]{10,}|\b[sp]k_(?:live|test)_[A-Za-z0-9]{16,}|\bsk-[A-Za-z0-9_-]{16,}`)
 	longToken    = regexp.MustCompile(`\b[A-Za-z0-9]{32,}\b`)
+	// invisible characters that split an address or a keyword without changing what a reader sees
+	invisible = strings.NewReplacer("\u200b", "", "\u200c", "", "\u200d", "", "\u2060", "", "\ufeff", "", "\u00ad", "", "\uff20", "@", "%40", "@")
 )
 
-// Redact removes what must never leave the platform: e-mail addresses, private keys, bearer and
-// JWT tokens, well-known API key shapes, "password=..." style assignments, URL credentials and any
-// 32+ character alphanumeric run. It is conservative on purpose: a lost word costs less than a leak.
+// Redact removes what must never leave the platform: e-mail addresses (also written with %40, a
+// full-width at sign or invisible characters), whole Authorization, Cookie and Set-Cookie lines,
+// session cookies, private keys, bearer and JWT tokens, well-known API key shapes, "password is X",
+// "mot de passe : X" and "api key X" style assignments, URL credentials and any 32+ character
+// alphanumeric run. It is conservative on purpose: a lost word costs less than a leak.
 func Redact(s string) string {
+	s = invisible.Replace(s)
+	s = authHeader.ReplaceAllString(s, "Authorization: [secret]")
+	s = cookieHeader.ReplaceAllString(s, "${1}: [secret]")
+	s = sessionToken.ReplaceAllString(s, "[secret]")
 	s = urlUserinfo.ReplaceAllString(s, "${1}[secret]@")
 	s = email.ReplaceAllString(s, "[email]")
 	s = privateKey.ReplaceAllString(s, "[secret]")
 	s = namedSecret.ReplaceAllString(s, "${1}${2}[secret]")
+	s = spacedAPIKey.ReplaceAllString(s, "${1} [secret]")
 	s = bearer.ReplaceAllString(s, "Bearer [secret]")
 	s = knownSecrets.ReplaceAllString(s, "[secret]")
 	return longToken.ReplaceAllString(s, "[secret]")
@@ -213,10 +226,9 @@ func SystemPrompt(lang string) string {
 		"7. End with a last section titled \"" + heading + "\" that lists one to three concrete checks (official documentation, a test call in a sandbox)."
 }
 
-var sourcesTag = regexp.MustCompile(`(?i)</?\s*sources[^>]*>`)
-
 // UserPrompt puts the redacted question first, then the passages in a delimited data section. A
-// passage cannot close the section: the delimiter tags are removed from its text and title.
+// passage cannot close the section: every angle bracket is removed from its text and title, so no
+// tag, however it is split or spaced, can be rebuilt.
 func UserPrompt(question string, passages []Passage) string {
 	var b strings.Builder
 	b.WriteString("Question:\n")
@@ -229,11 +241,21 @@ func UserPrompt(question string, passages []Passage) string {
 	return b.String()
 }
 
-func clean(s string) string { return sourcesTag.ReplaceAllString(Redact(s), "") }
+var angleBrackets = strings.NewReplacer("<", "", ">", "")
+
+func clean(s string) string { return angleBrackets.Replace(Redact(s)) }
 
 var (
-	marker  = regexp.MustCompile(`\[S(\d+)\]`)
-	heading = regexp.MustCompile(`(?im)^[ \t]*(?:[#>*_-]+[ \t]*)*(?:comment v[ée]rifier|how to verify)[ \t]*[*_]*[ \t]*:?[ \t]*[*_]*[ \t]*`)
+	// anyMarker finds every bracket group that looks like a citation marker; only the exact form
+	// [Sn] is accepted. "[S1, S2]", "[ S1 ]" and "[s1]" are refused as invalid citations.
+	anyMarker   = regexp.MustCompile(`(?i)\[[^\[\]]*\bS\s*\d[^\[\]]*\]`)
+	exactMarker = regexp.MustCompile(`^\[S(\d+)\]$`)
+	// Model output is plain text: raw HTML, Markdown links and absolute URLs never reach the client
+	// (a passage can induce them). Our own source URLs are in-app paths and are not touched.
+	htmlTag    = regexp.MustCompile(`<[^>]*>`)
+	mdLink     = regexp.MustCompile(`\[([^\]]*)\]\([^)]*\)`)
+	foreignURL = regexp.MustCompile(`(?i)(?:\b(?:https?|ftp)://|\bwww\.|\b(?:javascript|data|vbscript):)\S*`)
+	heading    = regexp.MustCompile(`(?im)^[ \t]*(?:[#>*_-]+[ \t]*)*(?:comment v[ée]rifier|how to verify)[ \t]*[*_]*[ \t]*:?[ \t]*[*_]*[ \t]*`)
 )
 
 // Parse validates the cleaned text of a model answer against the passages that were retrieved:
@@ -242,11 +264,17 @@ var (
 // The "Comment vérifier" section is split off; lang selects the default when the model wrote none.
 // A fixed notice that the sources carry no date ends the verification (AI-5).
 func Parse(text string, passages []Passage, lang string) (Answer, error) {
+	text = foreignURL.ReplaceAllString(mdLink.ReplaceAllString(htmlTag.ReplaceAllString(text, ""), "$1"), "")
 	order := map[int]int{}
 	var sources []Passage
 	var bad bool
-	rewritten := marker.ReplaceAllStringFunc(text, func(m string) string {
-		n, err := strconv.Atoi(m[2 : len(m)-1])
+	rewritten := anyMarker.ReplaceAllStringFunc(text, func(m string) string {
+		exact := exactMarker.FindStringSubmatch(m)
+		if exact == nil {
+			bad = true
+			return m
+		}
+		n, err := strconv.Atoi(exact[1])
 		if err != nil || n < 1 || n > len(passages) {
 			bad = true
 			return m
