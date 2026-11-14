@@ -81,6 +81,7 @@ Open owner items outside CADEV (IDs and decisions in ROADMAP section 8, 10 and 1
   - C1: `decideApplication` x-authz corrected to owner-only (cited by operationId, not by line);
   - C14b: `profile_visibility` (`public|members|private`, default `public`) in the profile read and update schemas, so `PATCH /me/profile` accepts it, and `deny_status 404` kept on `getProfile`.
   - S4 handlers, E4 topic feeds and E5 wait for it. Docs follow-ups: `AUTHORIZATION_MATRIX.md` and `DATABASE_DESIGN.md` "owner or maintainer" to "owner only" (see S5).
+- [x] **Contract PR: link types narrowed to the stored pairs (owner decision 2026-11-14, R7; reviewers `Y4NN777` and `PANK4SS`).** `QuestionCreate` and `QuestionUpdate` take a new `QuestionLinkRef` (`resource`, `project`, `article`); `LinkRef` drops `series` (no `content_relations` pair has one). Settles the S3 question-link deviation and half of the S4 one; an article linking to an article stays 422 (S4 known deviations). Branch `fix/solve/question-link-types`.
 - [ ] **SHIP 4.2 smoke text:** `/healthz` is checked at the edge and `/readyz` inside the container (B2); confirm `docs/SHIP.md` 4.2 says exactly that (S8).
 
 ---
@@ -158,12 +159,12 @@ Open owner items outside CADEV (IDs and decisions in ROADMAP section 8, 10 and 1
 
 - **Owner:** `NICE-DEV226`. **Reviewer:** `mibienpanjoe`. **Helpers:** `PANK4SS` on demand. **Branches:** `feature/solve/questions-answers`, `feature/solve/votes-accept`. **Depends on:** S1 (Idempotency-Key from S0 is merged).
 - **Operations:**
-  - [ ] `listQuestions` (published only; newest first with a UUID tie-breaker)
-  - [ ] `createQuestion` (verified email, Idempotency-Key, at most 5 tags, `links[]`, snippets never executed)
-  - [ ] `getQuestion` (`ETag`; 404 if not published)
-  - [ ] `updateQuestion` (owner only, non-owner 403; `If-Match` required: 428 missing, 412 stale; authz and 404 run BEFORE the ETag check)
-  - [ ] `listAnswers` (accepted first, then by score)
-  - [ ] `createAnswer` (verified email; Idempotency-Key)
+  - [x] `listQuestions` (published only; newest first with a UUID tie-breaker; with `q`, relevance first over at most 500 candidates, owner decision 2026-11-14) — `feature/solve/questions-answers`, 2026-11-14
+  - [x] `createQuestion` (verified email, Idempotency-Key, at most 5 tags, `links[]`, snippets never executed) — `feature/solve/questions-answers`, 2026-11-14
+  - [x] `getQuestion` (`ETag`; 404 if not published) — `feature/solve/questions-answers`, 2026-11-14
+  - [x] `updateQuestion` (owner only, non-owner 403; `If-Match` required: 428 missing, 412 stale; authz and 404 run BEFORE the ETag check) — `feature/solve/questions-answers`, 2026-11-14
+  - [x] `listAnswers` (accepted first, then by score) — `feature/solve/questions-answers`, 2026-11-14
+  - [x] `createAnswer` (verified email; Idempotency-Key) — `feature/solve/questions-answers`, 2026-11-14
   - [ ] `castVote` (one vote per target; own content 403 `SELF_VOTE_FORBIDDEN`; server-side score)
   - [ ] `retractVote` (idempotent)
   - [ ] `acceptAnswer` (question author only; atomically replaces the previous accepted answer)
@@ -171,7 +172,15 @@ Open owner items outside CADEV (IDs and decisions in ROADMAP section 8, 10 and 1
 - **Tables:** `questions`, `answers`, `votes`, `question_tags`, `question_sources`, `answer_sources`, `content_relations`, `tags`, `idempotency_keys`.
 - **Acceptance:** `US-SOLVE-001/1`, `/2`, `US-IDENTITY-001/1`. Negative authz: writes 401 anonymous, 403 `EMAIL_NOT_VERIFIED`, 403 CSRF; non-owner PATCH 403; Bob's accept 403 with no change; self-vote 403; duplicate vote creates no row; closed or removed question rejects answers; links to private targets or by non-authors rejected.
 - **Prototype pages:** `solve`, `question`, part of `accueil`. **Allowed paths:** `src/api/internal/solve/**`, `db/queries/**` (solve files), generated `dbgen`, `scripts/public-routes.txt` (3 public reads). **DoD:** DoD-common plus a vote-score reconciliation test and a concurrent-accept test on real PostgreSQL. **Stop:** any change to `api/openapi.yaml` (R7).
-- **Status:** PLANNED
+- **Decisions and known deviations (owner, 2026-11-14; no migration or contract change in PR 1):**
+  - Snippets: migration 00005 holds one snippet per question and none per answer, the contract allows five: more than one question snippet, a language over 30 characters, or any answer snippet is 422 (nothing is dropped). After the freeze: a migration (`mibienpanjoe`, R6) or a narrower contract (R7).
+  - Question links accept `resource`, `project` and `article` only (`content_relations` pairs); `question` and `series` targets are 422. The contract is narrowed in its own PR (R7, owner decision).
+  - The question `ETag` covers `id` and `updated_at`, so a new answer does not make the owner's edit fail with 412 (owner decision).
+  - A missing `If-Match` is 428 from the generated parameter binding, before the authorization check; it leaks nothing (same answer for every id). A stale one gets 403 or 404 first.
+  - No "closed" question state exists: a removed or unknown question is 404 for reads, edits and answers.
+  - `updateQuestion` draws on the `write:user` budget like the creates; it does not require a verified email (owner only, and verification cannot revert at P0).
+  - The answer cursor assumes a stable `vote_score`; PR 2 (votes) must make paging stable.
+- **Status:** IN PROGRESS. PR 1 (`feature/solve/questions-answers`, six operations) built by the owner's session on 2026-11-14 with `NICE-DEV226` as slice owner (owner decision on #67); PR 2 (`feature/solve/votes-accept`) not started.
 
 ---
 
@@ -258,6 +267,7 @@ Open owner items outside CADEV (IDs and decisions in ROADMAP section 8, 10 and 1
   - 2026-11-13 (PR 2): public reads wired live: `discover` (`listResources`), `resource` (`getResource`, `listResourceSources`; the error-report form waits), `recherche` (`search`, plus an assistant panel marked as a demo until S9).
   - 2026-11-13 (`fix/platform/s7-api-gaps`, owner-approved): the API now serves `Resource.provenance` (`live`/`demo`) for the demo badge, `listResources` accepts a comma list in `country` (up to 20, union) for the West Africa default, and the verify/reset mails carry `<APP_BASE_URL>/verifier-email#token=…` and `/reinitialiser#token=…` links when the optional `APP_BASE_URL` is set (owner sets it per environment; unset keeps the bare code).
 - [ ] **Profile visibility setting** on `parametres` (C14b) with FR/EN copy saying that bylines still show the name. It slips before the column if the team is behind.
+  - 2026-11-14 (`Y4NN777`, `feature/identity/web-settings-profile`, first #109 item): the `parametres` display name is read with `getMe` and saved with `updateMyProfile` (server violations on the field; header refreshed); the name is no longer kept in browser storage, and the key an earlier build wrote is deleted at start-up.
   - 2026-11-13 (PR 3, `feature/platform/web-home-settings`): `parametres` (old `/settings` redirects) with public / members / private, saved through `updateMyProfile`; the copy says bylines still show the name. Shown disabled with a label while `getMe` answers 501; it turns on by itself when PR #94 merges.
 - [ ] **Page map** (a page is done when its operations are wired to the live endpoint): `accueil` (`listQuestions`, `listResources`, `listProjects`, `listLearnArticles`); `discover` (`listResources`; staging and production show only real `live` entries, K39; `local-dev` shows SEED fixtures with a demo badge); `resource` (`getResource`, `listResourceSources`, `createResourceErrorReport`); `recherche` (`search`, plus the S9 panel); `apprendre` (`listLearnArticles`, `listTrainingSeries`, E4 topic feeds after the first contract PR); `article` (`getLearnArticle`, E4 "Poser une question sur cette leçon" opens `solve` with `links[article]`); `formation` (`getTrainingSeries`, the free series from the S4 content script or SEED); `solve` (`listQuestions`, `createQuestion`, the S9 panel, E4 pre-fill); `question` (`getQuestion`, `listAnswers`, `createAnswer`, `castVote`, `retractVote`, `acceptAnswer`, `unacceptAnswer`, `updateQuestion`); `connexion` (`getCsrfToken`, `signIn`); `inscription` (`signUp`); `verifier-email` (`verifyEmail`); `mot-de-passe-oublie` (`requestPasswordReset`); `reinitialiser` (`confirmPasswordReset`); `bienvenue` (`updateMyProfile`, GUESS); `profile` (`getProfile`); `parametres` (`getMe`, `updateMyProfile`, visibility setting); `ecrire` (`createLearnArticle`); `build` (`listProjects`, `createProject`); `project` (`getProject`, `updateProject`, `listContributionNeeds`, `createContributionNeed`, `createApplication`, `listProjectApplications`, `decideApplication`); `connect` (E5 people list; real registered members only, "later" badge removed only once the endpoint is live, `connect-spaces` stays "bientôt"). `auth` is a legacy redirect and `_template` is not a page.
 - **Acceptance:** `US-IDENTITY-001/2`, `US-LEARN-001/4`, `US-ACCESS-001/1`, plus each slice's journeys. **Negative cases:** the UI never grants authority; no token in `localStorage`; every unsafe call sends `X-CSRF-Token`. **Allowed paths:** `src/web/**`, `DESIGN.md` (ADR-0008); `pnpm-lock.yaml` one change per PR. **DoD:** DoD-common (web above 70%), Vitest and Testing Library by role and label; ADR-0007 visual, axe and responsive evidence is **NOT RUN** until produced. **Stop:** if a page needs a field not in `schema.d.ts` (R7).

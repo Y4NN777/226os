@@ -8,3 +8,10 @@
 # The fingerprint names the commit: merge PR #33 with a merge commit (the repository's convention). If it
 # is ever squash-merged or rebased, this line must be re-pointed at the new commit in the same PR.
 fddf1a3462c72cb0c6bf645daccd143dbc34de5f:scripts/verify-containers.sh:generic-api-key:56
+#
+# 85d403e: src/api/internal/platform/pgtest/solve_integration_test.go carried a synthetic
+# Idempotency-Key header value ("solve-..." test text, never a credential) that the generic-api-key
+# rule matched. 440856d renamed the keys, so the working tree is clean; the commit is pushed on S3
+# PR 1 (#147) and pushed history is not rewritten. Merge #147 with a merge commit so the commit
+# keeps its id. Approved by the owner Y4NN777, 2026-11-14.
+85d403e9f416fcbe384c781ef93c0c153fabb8d2:src/api/internal/platform/pgtest/solve_integration_test.go:generic-api-key:271
