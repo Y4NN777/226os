@@ -79,15 +79,18 @@ function SearchBox() {
   return (
     <form onSubmit={submit} role="search">
       <HStack gap={2} wrap="wrap" vAlign="end">
-        <TextInput
-          type="search"
-          label={t('landing.search.label')}
-          placeholder={t('landing.search.placeholder')}
-          value={value}
-          onChange={setValue}
-          enterKeyHint="search"
-          width={360}
-        />
+        {/* 360 px at most, and never wider than a phone screen. */}
+        <VStack width="100%" maxWidth={360}>
+          <TextInput
+            type="search"
+            label={t('landing.search.label')}
+            placeholder={t('landing.search.placeholder')}
+            value={value}
+            onChange={setValue}
+            enterKeyHint="search"
+            width="100%"
+          />
+        </VStack>
         <Button type="submit" label={t('landing.search.submit')} />
       </HStack>
     </form>

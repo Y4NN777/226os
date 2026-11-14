@@ -34,10 +34,83 @@ const page = {
   next_cursor: null,
 };
 
-function signedIn(resources: () => Response | Promise<Response>) {
+const author = {
+  id: 'a0000000-0000-4000-8000-000000000001',
+  username: 'kofi',
+  display_name: 'Kofi',
+};
+
+const articles = {
+  items: [
+    {
+      id: 'a1000000-0000-4000-8000-000000000001',
+      type: 'tutorial',
+      title: 'Recevoir un webhook sans doublon',
+      summary: 'Vérifier la signature, puis répondre vite.',
+      lang: 'fr',
+      level: 'intermediate',
+      tags: ['webhooks'],
+      author,
+      published_at: '2026-11-01T09:00:00Z',
+    },
+  ],
+  next_cursor: null,
+};
+
+const questions = {
+  items: [
+    {
+      id: 'b1000000-0000-4000-8000-000000000001',
+      title: 'Webhook non reçu après un paiement',
+      body_md: 'Rien ne arrive.',
+      lang: 'fr',
+      tags: ['webhook', 'paiement'],
+      snippets: [],
+      state: 'open',
+      author,
+      answer_count: 0,
+      vote_score: 0,
+      accepted_answer_id: null,
+      related: [],
+      created_at: '2026-11-10T09:00:00Z',
+      updated_at: '2026-11-10T09:00:00Z',
+    },
+  ],
+  next_cursor: null,
+};
+
+const projects = {
+  items: [
+    {
+      id: 'c1000000-0000-4000-8000-000000000001',
+      name: 'momo-sdk',
+      github_url: 'https://github.com/example/momo-sdk',
+      description: 'Un SDK léger pour Mobile Money.',
+      lang: 'fr',
+      technologies: ['go', 'sdk'],
+      visibility: 'public',
+      owner: author,
+      open_needs_count: 1,
+      related: [],
+      created_at: '2026-11-01T09:00:00Z',
+      updated_at: '2026-11-01T09:00:00Z',
+    },
+  ],
+  next_cursor: null,
+};
+
+type Handler = () => Response | Promise<Response>;
+
+function signedIn(
+  resources: Handler,
+  others: { articles?: Handler; questions?: Handler; projects?: Handler } = {},
+) {
   return mockApi({
     'GET /auth/session': () => jsonResponse(memberSession),
     'GET /resources': resources,
+    'GET /learn/articles': others.articles ?? (() => jsonResponse(articles)),
+    'GET /questions': others.questions ?? (() => jsonResponse(questions)),
+    'GET /projects': others.projects ?? (() => jsonResponse(projects)),
   });
 }
 
@@ -59,7 +132,7 @@ describe('HomePage', () => {
     expect(names).toEqual([
       'Apprendre',
       'Connect',
-      'Questions à résoudre',
+      'Dernières questions',
       'API du catalogue',
       'Projets',
     ]);
@@ -72,23 +145,70 @@ describe('HomePage', () => {
     expect(
       await screen.findByRole('heading', { level: 1, name: 'Hello, Awa Traoré' }),
     ).toBeInTheDocument();
-    expect(screen.getByRole('heading', { level: 2, name: 'Questions to solve' })).toBeVisible();
+    expect(screen.getByRole('heading', { level: 2, name: 'Latest questions' })).toBeVisible();
     expect(screen.getByRole('searchbox', { name: 'Search 226os' })).toBeVisible();
   });
 
-  it('marks each fixture section with one demo badge, and none on the live catalogue', async () => {
+  it('shows live articles, questions and projects with links, and no demo content', async () => {
     setLanguages(['fr-FR']);
-    signedIn(() => jsonResponse(page));
+    const fetchMock = signedIn(() => jsonResponse(page));
     await renderApp('/');
-    await screen.findByRole('link', { name: 'Mobile Money Alpha' });
-    for (const name of ['Apprendre', 'Questions à résoudre', 'Projets']) {
-      expect(within(section(name)).getAllByText('Démo')).toHaveLength(1);
-      expect(within(section(name)).queryAllByRole('link')).toHaveLength(0);
-    }
-    expect(within(section('API du catalogue')).queryByText('Démo')).not.toBeInTheDocument();
-    expect(within(section('Connect')).queryByText('Démo')).not.toBeInTheDocument();
+    await screen.findByRole('region', { name: 'Apprendre' });
+    expect(
+      await within(section('Apprendre')).findByRole('link', {
+        name: 'Recevoir un webhook sans doublon',
+      }),
+    ).toHaveAttribute('href', '/apprendre/articles/a1000000-0000-4000-8000-000000000001');
+    expect(
+      await within(section('Dernières questions')).findByRole('link', {
+        name: 'Webhook non reçu après un paiement',
+      }),
+    ).toHaveAttribute('href', '/questions/b1000000-0000-4000-8000-000000000001');
+    expect(
+      await within(section('Projets')).findByRole('link', { name: 'momo-sdk' }),
+    ).toHaveAttribute('href', '/build/c1000000-0000-4000-8000-000000000001');
+    expect(screen.queryByText('Démo')).not.toBeInTheDocument();
     expect(
       within(section('Connect')).getByText('Bientôt : l’annuaire des développeurs.'),
+    ).toBeVisible();
+    for (const key of ['GET /learn/articles', 'GET /questions', 'GET /projects']) {
+      const [request] = callsTo(fetchMock, key);
+      expect(new URL(request?.url ?? '').searchParams.get('limit')).toBe('4');
+    }
+  });
+
+  it.each([
+    ['Apprendre', 'articles', 'Aucun article pour l’instant.'],
+    ['Dernières questions', 'questions', 'Aucune question pour l’instant.'],
+    ['Projets', 'projects', 'Aucun projet pour l’instant.'],
+  ] as const)('says so when %s is empty', async (name, key, text) => {
+    setLanguages(['fr-FR']);
+    signedIn(() => jsonResponse(page), {
+      [key]: () => jsonResponse({ items: [], next_cursor: null }),
+    });
+    await renderApp('/');
+    const region = await screen.findByRole('region', { name });
+    expect(await within(region).findByText(text)).toBeVisible();
+  });
+
+  it('keeps the page alive when one section fails, with a retry for it only', async () => {
+    setLanguages(['fr-FR']);
+    let calls = 0;
+    signedIn(() => jsonResponse(page), {
+      questions: () => {
+        calls += 1;
+        return calls === 1 ? problemResponse(500, 'INTERNAL_ERROR') : jsonResponse(questions);
+      },
+    });
+    await renderApp('/');
+    const region = await screen.findByRole('region', { name: 'Dernières questions' });
+    const alert = await within(region).findByRole('alert');
+    expect(alert).toHaveTextContent('Impossible de charger le contenu');
+    expect(await within(section('Projets')).findByRole('link', { name: 'momo-sdk' })).toBeVisible();
+    expect(screen.getAllByRole('alert')).toHaveLength(1);
+    await userEvent.click(within(alert).getByRole('button', { name: 'Réessayer' }));
+    expect(
+      await within(region).findByRole('link', { name: 'Webhook non reçu après un paiement' }),
     ).toBeVisible();
   });
 

@@ -13,6 +13,7 @@ import (
 
 	"github.com/Y4NN777/226os/src/api/internal/identity/domain"
 	"github.com/Y4NN777/226os/src/api/internal/identity/service"
+	"github.com/Y4NN777/226os/src/api/internal/platform/cursor"
 	"github.com/Y4NN777/226os/src/api/internal/platform/mailer"
 )
 
@@ -31,6 +32,9 @@ type fakeStore struct {
 	buckets           map[string]int
 	hits              []string
 	failHits          bool
+	failList          bool
+	directory         []domain.DirectoryEntry
+	lastDir           domain.DirectoryQuery
 	failSessionLookup bool
 	failRevoke        bool
 	profiles          map[string]domain.ProfileRecord // by username
@@ -219,6 +223,14 @@ func (f *fakeStore) ProfileByUserID(_ context.Context, userID string) (domain.Pr
 	return domain.Profile{}, domain.ErrNotFound
 }
 
+func (f *fakeStore) ListProfiles(_ context.Context, q domain.DirectoryQuery) ([]domain.DirectoryEntry, error) {
+	f.lastDir = q
+	if f.failList {
+		return nil, errors.New("db down")
+	}
+	return f.directory, nil
+}
+
 func (f *fakeStore) ProfileByUsername(_ context.Context, username string) (domain.ProfileRecord, error) {
 	rec, ok := f.profiles[username]
 	if !ok {
@@ -310,7 +322,7 @@ func testStack(t *testing.T, secure bool) (*Handler, *service.Service, *fakeStor
 	t.Helper()
 	st := newFakeStore()
 	mail := mailer.NewFake()
-	svc := service.New(st, mail, []byte("0123456789abcdef0123456789abcdef"))
+	svc := service.New(st, mail, []byte("0123456789abcdef0123456789abcdef"), service.WithCursors(testCodec()))
 	return New(svc, secure, nil), svc, st, mail
 }
 
@@ -338,4 +350,13 @@ func signupAndSignIn(t *testing.T, h *Handler, email string) (sessionPlain, csrf
 		t.Fatal(err)
 	}
 	return sessionPlain, state.CsrfToken
+}
+
+// testCodec is the cursor codec the directory tests sign with.
+func testCodec() *cursor.Codec {
+	c, err := cursor.New([]byte("0123456789abcdef0123456789abcdef"))
+	if err != nil {
+		panic(err)
+	}
+	return c
 }

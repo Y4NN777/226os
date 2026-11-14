@@ -43,6 +43,7 @@ type Service interface {
 	GetMe(ctx context.Context, acct domain.Account) (service.MeView, error)
 	UpdateMyProfile(ctx context.Context, userID string, w domain.ProfileWrite) (domain.Profile, error)
 	GetProfile(ctx context.Context, username, callerUserID string) (domain.PublicProfile, error)
+	ListProfiles(ctx context.Context, req service.DirectoryRequest) (service.DirectoryPage, error)
 }
 
 // Handler serves the eight auth operations of S1.

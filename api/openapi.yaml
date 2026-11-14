@@ -401,6 +401,62 @@ paths:
           $ref: '#/components/responses/TooManyRequests'
         '500':
           $ref: '#/components/responses/InternalError'
+  /profiles:
+    get:
+      operationId: listProfiles
+      tags:
+      - profiles
+      summary: People directory (Connect)
+      x-priority: P0
+      x-spec:
+      - US-IDENTITY-001
+      x-authz:
+        allow: anonymous|member
+        matrix: GET /profiles
+        notes: 'Read-only directory (E5, C14b). Listed only if the account is active, profile_visibility allows the
+          caller, open_to_collab is true and open_to_collab_visibility allows the caller. Each summary field is
+          filtered by the owner''s field_visibility for this caller; a filter on a field the caller cannot see never
+          matches. Email is never returned. Order: username ascending, UUID tie-breaker. Limited to 60 requests
+          per minute per client network (anonymous) or per user (member).'
+      security:
+      - {}
+      - cookieAuth: []
+      parameters:
+      - $ref: '#/components/parameters/Cursor'
+      - $ref: '#/components/parameters/Limit'
+      - name: country
+        in: query
+        description: Keep profiles whose visible country matches.
+        schema:
+          $ref: '#/components/schemas/CountryCode'
+      - name: language
+        in: query
+        description: Keep profiles whose visible spoken languages contain this tag.
+        schema:
+          type: string
+          minLength: 2
+          maxLength: 3
+          pattern: ^[a-z]{2,3}$
+      - name: skill
+        in: query
+        description: Keep profiles whose visible skills contain this tag slug.
+        schema:
+          $ref: '#/components/schemas/TagSlug'
+      responses:
+        '200':
+          description: Page of listable profiles (visibility-filtered summaries)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfilePage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /profiles/{username}:
     get:
       operationId: getProfile
@@ -3348,6 +3404,61 @@ components:
           $ref: '#/components/schemas/ProfileVisibility'
         joined_at:
           $ref: '#/components/schemas/Timestamp'
+      additionalProperties: false
+    ProfileSummary:
+      type: object
+      description: 'Directory entry, visibility-filtered for this caller: fields hidden by field_visibility are
+        omitted. Never contains email.'
+      required:
+      - username
+      - display_name
+      properties:
+        username:
+          $ref: '#/components/schemas/Username'
+        display_name:
+          type: string
+          minLength: 1
+          maxLength: 80
+        country:
+          $ref: '#/components/schemas/CountryCode'
+        languages:
+          type: array
+          items:
+            type: string
+            minLength: 2
+            maxLength: 3
+            pattern: ^[a-z]{2,3}$
+            description: BCP 47 primary language tag of a spoken language.
+          maxItems: 10
+        skills:
+          type: array
+          items:
+            $ref: '#/components/schemas/TagSlug'
+          maxItems: 30
+        github:
+          type: string
+          minLength: 1
+          maxLength: 39
+          pattern: ^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$
+          description: GitHub username.
+      additionalProperties: false
+    ProfilePage:
+      type: object
+      required:
+      - items
+      - next_cursor
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProfileSummary'
+          maxItems: 50
+        next_cursor:
+          type:
+          - string
+          - 'null'
+          maxLength: 512
+          description: Opaque, integrity-protected; null on the last page.
       additionalProperties: false
     AuthorRef:
       type: object

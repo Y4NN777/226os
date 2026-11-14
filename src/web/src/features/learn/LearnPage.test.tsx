@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { callsTo, memberSession, mockApi, problemResponse } from '../../test/api';
 import { jsonResponse, renderApp, setLanguages } from '../../test/render';
+import { question } from '../solve/testFixtures';
 import { articleId, page, secondArticleId, seriesId, seriesSummary, summary } from './testFixtures';
 
 const second = summary({
@@ -192,5 +193,65 @@ describe('LearnPage list', () => {
     await renderApp('/apprendre');
     await screen.findByRole('link', { name: 'Vérifier un webhook signé' });
     expect(screen.queryByRole('link', { name: 'Écrire un article' })).not.toBeInTheDocument();
+  });
+});
+
+describe('LearnPage topic feed of questions', () => {
+  const asked = question({
+    id: 'b0000000-0000-4000-8000-0000000000f1',
+    title: 'Quel SDK pour Wave ?',
+  });
+
+  it('lists the questions tagged with the topic code next to the articles, read-only', async () => {
+    setLanguages(['fr-FR']);
+    const fetchMock = mockApi({ ...base, 'GET /questions': () => page([asked]) });
+    await renderApp('/apprendre?topic=payments');
+    const region = await screen.findByRole('region', { name: 'Questions sur ce sujet' });
+    const link = await within(region).findByRole('link', { name: 'Quel SDK pour Wave ?' });
+    expect(link).toHaveAttribute('href', '/questions/b0000000-0000-4000-8000-0000000000f1');
+    expect(within(region).getByRole('link', { name: 'Voir toutes les questions' })).toHaveAttribute(
+      'href',
+      '/solve?tag=payments',
+    );
+    expect(within(region).queryByRole('button')).not.toBeInTheDocument();
+    expect(params(callsTo(fetchMock, 'GET /questions')[0]).get('tag')).toBe('payments');
+  });
+
+  it('says so when no question carries the topic', async () => {
+    setLanguages(['fr-FR']);
+    mockApi({ ...base, 'GET /questions': () => page([]) });
+    await renderApp('/apprendre?topic=payments');
+    const region = await screen.findByRole('region', { name: 'Questions sur ce sujet' });
+    expect(
+      await within(region).findByText('Aucune question sur ce sujet pour le moment.'),
+    ).toBeVisible();
+  });
+
+  it('keeps the articles when the questions fail, with a retry for the questions', async () => {
+    setLanguages(['fr-FR']);
+    let calls = 0;
+    mockApi({
+      ...base,
+      'GET /questions': () => {
+        calls += 1;
+        return calls === 1 ? problemResponse(500, 'INTERNAL_ERROR') : page([asked]);
+      },
+    });
+    await renderApp('/apprendre?topic=payments');
+    expect(await screen.findByRole('link', { name: 'Vérifier un webhook signé' })).toBeVisible();
+    const region = await screen.findByRole('region', { name: 'Questions sur ce sujet' });
+    await userEvent.click(await within(region).findByRole('button', { name: 'Réessayer' }));
+    expect(await within(region).findByRole('link', { name: 'Quel SDK pour Wave ?' })).toBeVisible();
+  });
+
+  it('asks for no questions without a topic', async () => {
+    setLanguages(['fr-FR']);
+    const fetchMock = mockApi(base);
+    await renderApp('/apprendre');
+    await screen.findByRole('link', { name: 'Vérifier un webhook signé' });
+    expect(callsTo(fetchMock, 'GET /questions')).toHaveLength(0);
+    expect(
+      screen.queryByRole('region', { name: 'Questions sur ce sujet' }),
+    ).not.toBeInTheDocument();
   });
 });

@@ -13,9 +13,15 @@ import { ErrorState } from '../../components/ErrorState';
 import { LoadingState } from '../../components/LoadingState';
 import { useI18n } from '../../i18n/I18nProvider';
 import { Byline, TagList } from './present';
-import { useArticleList, useSeriesList, type ArticleSummary, type SeriesSummary } from './queries';
+import {
+  useArticleList,
+  useSeriesList,
+  useTopicQuestions,
+  type ArticleSummary,
+  type SeriesSummary,
+} from './queries';
 import { validateLearnSearch, type LearnSearch } from './routeSearch';
-import { topicCodes, topicKey } from './topics';
+import { topicCodes, topicKey, type TopicCode } from './topics';
 
 function Filter({ search }: { search: LearnSearch }) {
   const { t } = useI18n();
@@ -83,6 +89,42 @@ function SeriesCard({ series }: { series: SeriesSummary }) {
         </HStack>
       </VStack>
     </Card>
+  );
+}
+
+/** Questions tagged with the topic code, next to its articles: a read-only feed. */
+function TopicQuestions({ topic }: { topic: TopicCode }) {
+  const { t } = useI18n();
+  const questions = useTopicQuestions(topic);
+  return (
+    <section aria-label={t('learn.topic.questions')}>
+      <VStack gap={3}>
+        <Heading level={2}>{t('learn.topic.questions')}</Heading>
+        {questions.isPending ? <LoadingState /> : null}
+        {questions.isError ? (
+          <ErrorState error={questions.error} onRetry={() => void questions.refetch()} />
+        ) : null}
+        {questions.data && questions.data.items.length === 0 ? (
+          <Text as="p" type="supporting">
+            {t('learn.topic.questions.empty')}
+          </Text>
+        ) : null}
+        {questions.data && questions.data.items.length > 0 ? (
+          <VStack as="ul" gap={2}>
+            {questions.data.items.map((item) => (
+              <li key={item.id}>
+                <span lang={item.lang}>
+                  <Link href={`/questions/${item.id}`}>{item.title}</Link>
+                </span>
+              </li>
+            ))}
+          </VStack>
+        ) : null}
+        <HStack>
+          <Link href={`/solve?tag=${topic}`}>{t('learn.topic.questions.all')}</Link>
+        </HStack>
+      </VStack>
+    </section>
   );
 }
 
@@ -172,6 +214,8 @@ export function LearnPage() {
           ) : null}
         </VStack>
       </section>
+
+      {search.topic ? <TopicQuestions topic={search.topic} /> : null}
     </VStack>
   );
 }

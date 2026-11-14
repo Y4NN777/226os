@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { callsTo, memberSession, mockApi, problemResponse } from '../test/api';
 import { jsonResponse, renderApp, setLanguages } from '../test/render';
 
@@ -9,6 +9,32 @@ function primaryNav() {
 }
 
 describe('Shell', () => {
+  it('keeps the navigation in a drawer on a phone, opened by the toggle', async () => {
+    setLanguages(['fr-FR']);
+    mockApi();
+    // Below the breakpoint: every media query matches.
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn((query: string) => ({
+        matches: true,
+        media: query,
+        onchange: null,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      })),
+    );
+    await renderApp('/');
+    const toggle = await screen.findByRole('button', { name: 'Ouvrir la navigation' });
+    // Closed: the pillar links are not laid out in the page under the content.
+    expect(screen.queryByRole('link', { name: 'Résoudre' })).not.toBeInTheDocument();
+    await userEvent.click(toggle);
+    // jsdom has no modal dialog, so the open drawer's content is checked in the browser, not here.
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  });
+
   it('offers sign-in and sign-up to an anonymous visitor', async () => {
     setLanguages(['fr-FR']);
     mockApi();

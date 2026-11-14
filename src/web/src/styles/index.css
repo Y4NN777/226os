@@ -36,3 +36,8 @@ body {
   justify-content: center;
   padding: 32px 0;
 }
+
+/* A flex child that keeps its natural width (a button next to a field that takes the rest). */
+.no-shrink {
+  flex-shrink: 0;
+}

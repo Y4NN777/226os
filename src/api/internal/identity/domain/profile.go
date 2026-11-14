@@ -113,3 +113,26 @@ type PatchField[T any] struct {
 	Present bool
 	Value   *T
 }
+
+// DirectoryQuery is one page request of the people directory (E5). Member is
+// the only caller fact the store needs: anonymous callers pass false, members
+// pass true. Empty filters mean "not given". After* is the keyset position.
+type DirectoryQuery struct {
+	Member                   bool
+	Country, Language, Skill string
+	AfterUsername, AfterID   string
+	Limit                    int
+}
+
+// DirectoryEntry is one listed profile after visibility filtering in the
+// store: Languages and Skills are nil when hidden from the caller, Country and
+// GitHub are nil when hidden or unset. It carries no email by construction.
+type DirectoryEntry struct {
+	UserID      string
+	Username    string
+	DisplayName string
+	Country     *string
+	Languages   []string
+	Skills      []string
+	GitHub      *string
+}

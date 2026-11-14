@@ -147,7 +147,6 @@ export function Shell() {
         />
       }
       sideNav={<PrimaryNav />}
-      mobileNav={{ content: <PrimaryNav /> }}
     >
       <Outlet />
     </AppShell>

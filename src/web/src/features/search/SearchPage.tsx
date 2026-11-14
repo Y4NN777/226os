@@ -55,7 +55,10 @@ function SearchForm({ initial }: { initial: string }) {
           autoComplete="off"
           width="100%"
         />
-        <Button type="submit" variant="primary" label={t('search.submit')} />
+        {/* The field takes the free width; the button keeps its full label. */}
+        <span className="no-shrink">
+          <Button type="submit" variant="primary" label={t('search.submit')} />
+        </span>
       </HStack>
     </form>
   );

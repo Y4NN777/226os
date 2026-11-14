@@ -46,7 +46,9 @@ describe('App routing', () => {
   it('shows a localized not-found page with a way back', async () => {
     setLanguages(['fr-FR']);
     renderAt('/nope');
-    expect(await screen.findByRole('heading', { name: 'Page introuvable' })).toBeInTheDocument();
+    const heading = await screen.findByRole('heading', { name: 'Page introuvable' });
+    // No layout route matches an unknown address: the page frames itself in a main landmark.
+    expect(screen.getByRole('main')).toContainElement(heading);
     await userEvent
       .setup({ delay: null })
       .click(screen.getByRole('link', { name: 'Retour à l’accueil' }));
