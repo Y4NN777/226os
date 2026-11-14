@@ -13,7 +13,8 @@ LEVEL SPEC (invariants; scripts/tests/review-comment_test.sh runs the table of s
       findings not a list) keeps the previous ledger; an entry a run omits is carried OPEN, `carried` +1 exactly once per
       run (stage 1 counts it; the deep merge does not count again). The deep merge never improves a stage 1 entry's
       status (an entry of the same id with a better status is ignored); it can only make it worse. While a finding is not
-      marked fixed, a re-list never lowers its severity nor turns it into a note.
+      marked fixed, a re-list (stage 1 or deep) never lowers its severity nor turns it into a note, and the stronger
+      version (severity, then OBSERVED, then a real file:line) keeps its evidence, file, line and location.
   I4. A crashed or empty deep job leaves the stage 1 comment, which already satisfies I1.
   Accepted consequence: if stage 1 declared a level only because of a carried entry that the deep run then marks fixed, the
   line stays at that level until the next push (the safe failure: auto-merge refuses).
@@ -342,22 +343,56 @@ def clean_file(path):
     return path if isinstance(path, str) and FILE_OK.match(path) else ""
 
 
+EVIDENCE_BLOCK = ("evidence", "file", "line", "location", "probable", "first_sha")
+
+
+def evidence_key(f):
+    """How strong one version of an entry is: its severity first, then OBSERVED over INFERRED, then a real file:line over
+    none (line 0)."""
+    line = f.get("line")
+    located = bool(f.get("file")) and isinstance(line, int) and not isinstance(line, bool) and line > 0
+    return (SEV_RANK[norm_sev(f.get("sev"))], str(f.get("evidence", "")).upper() == "OBSERVED", located)
+
+
+def relist_floor(new, old):
+    """I3 for a re-list of an unfixed finding (stage 1 refine_entry and the deep merge): when `old` is a finding not marked
+    fixed and `new` is not `fixed`, `new` stays a finding at no lower severity, and when the old version is the stronger
+    one (evidence_key) it keeps the old version's whole evidence block (sev, evidence, file, line, location, probable,
+    first_sha), so an OBSERVED CRITICAL at a.go:10 re-listed as an INFERRED note at line 0 stays an OBSERVED CRITICAL at
+    a.go:10. Returns True when the old block was kept."""
+    if not old or str(old.get("kind", "finding")).lower() == "note" or status_of(old) == "fixed" or status_of(new) == "fixed":
+        return False
+    stronger = evidence_key(old) > evidence_key(new)
+    new["kind"] = "finding"
+    new["sev"] = max(norm_sev(new.get("sev")), norm_sev(old.get("sev")), key=lambda v: SEV_RANK[v])
+    if stronger:
+        for key in EVIDENCE_BLOCK:
+            new.pop(key, None)
+            if old.get(key) is not None:
+                new[key] = old[key]
+    return stronger
+
+
 def refine_entry(f, previous, head):
     """The model's entry with the fields the script owns: normalised status and sev (norm_status, norm_sev), cleaned
     detail, fix and scenario, a plain file path; source, first_sha, location and the deep sub-field from the previous
     ledger when it listed the same id (first_sha only while the file and line are the same: the permalink must keep
     pointing at the right place), else the head. A finding the previous ledger had and this run does not mark fixed keeps
-    at least its previous severity and stays a finding (a re-list as a lower severity or a note never drops it)."""
+    at least its previous severity and stays a finding, with the evidence block of the stronger version (relist_floor)."""
     for key in SCRIPT_OWNED:
         f.pop(key, None)
     f["status"] = norm_status(f.get("status"))
     f["sev"] = norm_sev(f.get("sev"))
     previous = previous if isinstance(previous, dict) else {}
-    if previous and str(previous.get("kind", "finding")).lower() != "note" and status_of(previous) != "fixed" and f["status"] != "fixed":
-        f["kind"] = "finding"
-        f["sev"] = max(f["sev"], norm_sev(previous.get("sev")), key=lambda v: SEV_RANK[v])
     if "file" in f:
         f["file"] = clean_file(f["file"])
+    if relist_floor(f, previous):
+        # The previous version is the stronger one: its evidence block (location and permalink included) stands as is.
+        f["first_sha"] = previous["first_sha"] if FULL_SHA.match(str(previous.get("first_sha") or "")) else head
+        f["location"] = previous.get("location") if previous.get("location") in ("verified", "mismatch", "unverified") else "unverified"
+        kept = {k: f.get(k) for k in ("first_sha", "location", "probable") if f.get(k) is not None}
+    else:
+        kept = None
     f["detail"], hit1 = clean_field(f.get("detail"), DETAIL_MAX)
     f["fix"], hit2 = clean_field(f.get("fix"), FIX_MAX)
     hit3 = False
@@ -368,6 +403,9 @@ def refine_entry(f, previous, head):
     f["source"] = previous.get("source") if previous.get("source") in ("review", "deep") else "review"
     if isinstance(previous.get("deep"), dict):
         f["deep"] = previous["deep"]
+    if kept is not None:
+        f.update(kept)
+        return f
     text = "%s %s" % (f.get("scenario") or "", f.get("detail") or "")
     if FULL_SHA.match(str(previous.get("first_sha") or "")) and previous.get("file") == f.get("file") and previous.get("line") == f.get("line"):
         f["first_sha"] = previous["first_sha"]
@@ -885,11 +923,10 @@ def merge_deep(base, data, why, head):
                 old = before.get(e["id"]) or {}
                 if FULL_SHA.match(str(old.get("first_sha") or "")) and old.get("file") == e["file"] and old.get("line") == e["line"]:
                     e["first_sha"], e["location"] = old["first_sha"], old.get("location", e.get("location", "unverified"))
-                if old and str(old.get("kind", "finding")).lower() != "note" and status_of(old) != "fixed" and e["status"] != "fixed":
-                    # I3, as in refine_entry: while a deep finding is not fixed, a re-list (an open note, an answered or
-                    # accepted LOW) never lowers its severity nor turns it into a note.
-                    e["kind"] = "finding"
-                    e["sev"] = max(e["sev"], norm_sev(old.get("sev")), key=lambda v: SEV_RANK[v])
+                # I3, as in refine_entry: while a deep finding is not fixed, a re-list (an open note, an answered or
+                # accepted LOW) never lowers its severity nor turns it into a note, and the stronger version keeps its
+                # evidence block (relist_floor).
+                relist_floor(e, old)
                 standalone.append(e)
                 continue
             if STATUS_RANK[e["status"]] > STATUS_RANK.get(s1.get("status"), 0):
