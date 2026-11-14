@@ -11,9 +11,11 @@
 #   job fix      UNTRUSTED: runs the model and the pull request's code (make setup, make targets, tests). It holds NO
 #                write token: GITHUB_TOKEN is read-only and its only secret is the Claude OAuth token. Its commits leave
 #                the job as a patch artifact (git format-patch). Git reads, single tests and web scripts go through
-#                `fixer-run` (allowlists, defence in depth only: make, go test and pnpm run pull request code). The
-#                Claude configuration (.claude, CLAUDE.md, .mcp.json...) is restored from develop before the model starts,
-#                so the pull request's own hooks and permissions never apply; CLAUDE_CODE_SUBPROCESS_ENV_SCRUB=1 scrubs
+#                `fixer-run` (allowlists, defence in depth only: make, go test and pnpm run pull request code). make
+#                setup gets a throwaway HOME; right before the model, `prepare` wipes ~/.claude, ~/.claude.json and
+#                ~/.config/claude* and restores .claude, CLAUDE.md, .mcp.json... from the DEFAULT branch, the same ref as
+#                fixer-run and the guard; the model loads `--setting-sources project` only, so the pull request's hooks,
+#                permissions and a planted user configuration never apply; CLAUDE_CODE_SUBPROCESS_ENV_SCRUB=1 scrubs
 #                secrets from the model's subprocesses; go test and pnpm run without network when the runner allows
 #                `unshare -rn`. REVIEW_CONTEXT.md and OWNER_PREFERENCES.md are given from develop.
 #   job publish  TRUSTED, environment `review-agent`, the ONLY job that reads REVIEW_AGENT_TOKEN: never runs pull
@@ -25,7 +27,7 @@
 #
 # Switch: repository variable AUTO_FIX = off | report (default: the decision goes to the job summary, nothing is
 # written) | on. Without the secret REVIEW_AGENT_TOKEN the publish job prints "autofix: NOT RUN (REVIEW_AGENT_TOKEN
-# missing)" (the decide job cannot see an environment secret, so the attempt is still counted).
+# missing)" and gives the attempt back (the decide job cannot see an environment secret).
 # Owner setup: the environment `review-agent` (deployment branches main and develop) with the secret REVIEW_AGENT_TOKEN
 # (fine-grained token on this repository: contents and pull requests read and write), CLAUDE_CODE_OAUTH_TOKEN (already
 # used by code-review.yml), then AUTO_FIX=on.
@@ -156,20 +158,15 @@ jobs:
         with:
           node-version-file: .nvmrc
 
-      - name: Install from lockfiles
-        run: make setup
-
-      # The pull request must not bring its own Claude configuration: hooks, permissions, agents, MCP servers. The paths
-      # the action restores on pull request events (not on workflow_run) come from develop, in the working tree only.
-      - name: Restore the Claude configuration from develop
+      # make setup runs code the pull request controls: it gets a throwaway HOME, so it cannot plant a Claude user
+      # configuration (the Go module and build caches keep their real place, so the tests find them later). This is
+      # not a boundary (the code can still write anywhere it can reach); the prepare step below is.
+      - name: Install from lockfiles (throwaway HOME)
         run: |
-          for path in .claude .mcp.json .claude.json .gitmodules .ripgreprc CLAUDE.md CLAUDE.local.md .husky; do
-            rm -rf "$path"
-            if git cat-file -e "origin/develop:$path" 2>/dev/null; then
-              git restore --source=origin/develop --worktree -- "$path"
-            fi
-          done
-          echo "Claude configuration: restored from develop" | tee -a "$GITHUB_STEP_SUMMARY"
+          real_home="$HOME"
+          mkdir -p "$RUNNER_TEMP/setup-home"
+          HOME="$RUNNER_TEMP/setup-home" GOPATH="$real_home/go" GOMODCACHE="$real_home/go/pkg/mod" \
+            GOCACHE="$real_home/.cache/go-build" make setup
 
       # go test and pnpm (through fixer-run) run without network when unprivileged user namespaces are allowed; make
       # targets keep the network (Docker) and the model needs it for the API.
@@ -201,6 +198,17 @@ jobs:
           git config user.email "$email"
           echo "id=$id" >>"$GITHUB_OUTPUT"
 
+      # Immediately before the model, after every step that ran pull request code: the home Claude configuration is
+      # wiped and the project's (.claude, CLAUDE.md, .mcp.json...) restored from the DEFAULT branch, the same ref as
+      # fixer-run and the guard (workflow_run runs the default branch's copy of this workflow). The pull request's own
+      # hooks, permissions, agents and MCP servers never apply; the action restores them only on pull request events.
+      - name: Prepare the Claude session (home config wiped, project config from the default branch)
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          SOURCE_REF="origin/$DEFAULT_BRANCH" WORKTREE="$GITHUB_WORKSPACE" python3 -I "$RUNNER_TEMP/bin/review-autofix.py" prepare \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+
       - name: Fix (Claude Code, review-fix command)
         id: claude
         uses: anthropics/claude-code-action@4d75e5f390ee76b2e09c1980ecc99ff3a2e088c8 # v1.0.275
@@ -214,7 +222,6 @@ jobs:
           bot_name: ${{ vars.REVIEW_FIX_GIT_NAME || 'Y4NN77' }}
           bot_id: ${{ steps.identity.outputs.id }}
           use_sticky_comment: 'false'
-          settings: '{"attribution": {"commit": "", "pr": "", "sessionUrl": false}, "includeCoAuthoredBy": false}'
           prompt: |
             REPO: ${{ github.repository }}
             MODE: pr
@@ -230,7 +237,8 @@ jobs:
           claude_args: |
             --model claude-opus-5-5
             --max-turns 120
-            --setting-sources user,project,local
+            --setting-sources project
+            --settings '{"attribution": {"commit": "", "pr": "", "sessionUrl": false}, "includeCoAuthoredBy": false}'
             --add-dir ${{ runner.temp }}/base-docs
             --json-schema '{"type":"object","properties":{"outcome":{"type":"string","enum":["fixed","nothing","needs-owner"]},"reason":{"type":"string"},"results":{"type":"array","items":{"type":"object","properties":{"item":{"type":"string"},"verdict":{"type":"string"},"reason":{"type":"string"}},"required":["item","verdict","reason"]}}},"required":["outcome","reason","results"],"additionalProperties":false}'
             --allowedTools "Read,Grep,Glob,Edit,Write,Skill,Agent,Bash(make lint),Bash(make lint-go),Bash(make lint-web),Bash(make lint-scripts),Bash(make lint-contract),Bash(make typecheck),Bash(make generate),Bash(make test-unit),Bash(make coverage),Bash(make test-integration-go),Bash(make security),Bash(fixer-run:*),Bash(git add:*),Bash(git commit:*),Bash(git restore:*),Bash(gh pr view:*),Bash(gh issue view:*)"
@@ -342,6 +350,18 @@ jobs:
             push -q "https://github.com/$REPO.git" "HEAD:refs/heads/$BRANCH"
           echo "autofix: pushed to $BRANCH (the review and CI run again)" | tee -a "$GITHUB_STEP_SUMMARY"
           echo "outcome=pushed" >>"$GITHUB_OUTPUT"
+
+      # The decide job cannot see the environment secret, so it counted an attempt: give it back.
+      - name: Give the attempt back (token missing)
+        if: steps.push.outputs.outcome == 'notoken'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ needs.decide.outputs.pr }}
+          ATTEMPT: ${{ needs.decide.outputs.attempt }}
+        run: |
+          gh api -X DELETE "repos/$REPO/issues/$PR_NUMBER/labels/autofix-$ATTEMPT" >/dev/null || echo "the label was already gone"
+          echo "autofix: attempt $ATTEMPT given back (no token)" | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Label needs-owner
         if: needs.fix.outputs.outcome == 'owner' || steps.push.outputs.outcome == 'owner'

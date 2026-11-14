@@ -54,20 +54,19 @@ Fix rules (binding):
 - Stay inside the allowed paths of the slice that owns the file. Change nothing the item does not need: no refactor, no
   rename, no drive-by cleanup.
 - Never weaken a test, an assertion, a threshold, a coverage exclusion, a lint rule or a gate to make something pass.
-- Never touch `api/openapi.yaml` (R7: contract changes have named reviewers), `db/migrations/**` (R6: one migration
-  writer), `docs/decisions/**` (ADRs), `docs/quality/**`, `secrets/**`, `.env*`, any `.npmrc`, `.github/**`,
-  `.claude/**`, `CLAUDE.md`, `AGENTS.md`, `.mcp.json`, `docs/team/OWNER_PREFERENCES.md`, `Makefile`, `mk/**`,
-  `scripts/review-*.py`, `scripts/findings.py`, `scripts/close-merged-issues.py`, `scripts/coverage-*.sh`,
-  `scripts/check-*`, `scripts/gitleaks-ignore.txt`, `scripts/public-routes.txt`, `scripts/unimplemented-routes.txt` or
-  `scripts/authz-tests.txt`. No symbolic link, submodule, file mode change or binary file either. The publish job
-  refuses all of these on both sides of a change (a rename included).
+- Change ONLY `src/**` (except the web build, lint, format, type and test-threshold configuration and
+  `src/web/package.json`), `db/queries/**`, `scripts/tests/**`, `docs/ai-usage/**` and `TODO.md`. Everything else is the
+  owner's: the contract (`api/openapi.yaml`, R7), `db/migrations/**` (R6), ADRs, `docs/quality/**`, secrets, `.github/**`,
+  `.claude/**`, `Makefile`, `mk/**`, the gate, review and scan scripts and lists, root configuration files. No symbolic
+  link, submodule, file mode change, binary file or new executable outside `scripts/` either. The publish job refuses
+  any of these on both sides of a change (a rename included).
   When a fix needs one of them, do not make it: the verdict is OWNER with a one-line reason. The workflow labels the pull
   request `needs-owner` from your result; you never label, comment or @-mention anyone yourself.
 - No new dependency, no generated file edited by hand (run `make generate` only if the slice already needs it).
 - Implement every fix through the project agent that owns the area, exactly as the lead session does: `web-implementer`
   for `src/web/**`, `go-implementer` for `src/api/**`, `postgres-expert` for `db/queries/**` and SQL behaviour,
-  `ci-implementer` for `.github/**`, `scripts/**`, `mk/**` and `Makefile`. Most of those pipeline paths are owner paths
-  (verdict OWNER, no change), so `ci-implementer` is used only for pipeline files the guard allows. Their
+  `ci-implementer` for `.github/**`, `scripts/**`, `mk/**` and `Makefile`. Of those pipeline paths the guard allows only
+  `scripts/tests/**` (the rest is OWNER, no change), so `ci-implementer` is used only there. Their
   definitions in `.claude/agents/` (skills, preconditions, "never push, merge or deploy") apply in full. Give each one a
   task contract: the finding id and its scenario, the allowed paths of the slice, the failing test to write first, the
   gates, the stop condition. You frame the work, route it, then read the agent's diff and run the gates yourself; you do
