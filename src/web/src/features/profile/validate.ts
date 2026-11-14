@@ -16,7 +16,7 @@ export function isIntent(value: string): value is Intent {
   return (intents as readonly string[]).includes(value);
 }
 
-/** The checklist fields a member can complete in place (`open_to_collab` always has a value). */
+/** The checklist fields a member can complete in place. */
 export const checklistItems = [
   'intent',
   'country',
@@ -24,6 +24,7 @@ export const checklistItems = [
   'skills',
   'github',
   'bio',
+  'open_to_collab',
 ] as const;
 export type ChecklistItem = (typeof checklistItems)[number];
 
@@ -49,7 +50,7 @@ interface Rule {
   body: (value: string) => ProfileUpdate;
 }
 
-const rules: Record<Exclude<ChecklistItem, 'intent'>, Rule> = {
+const rules: Record<Exclude<ChecklistItem, 'intent' | 'open_to_collab'>, Rule> = {
   country: {
     check: (value) =>
       COUNTRY_RE.test(value.trim().toUpperCase()) ? undefined : 'profile.err.country',
@@ -86,10 +87,12 @@ const rules: Record<Exclude<ChecklistItem, 'intent'>, Rule> = {
 
 export function checkItem(item: ChecklistItem, value: string): MessageKey | undefined {
   if (item === 'intent') return isIntent(value) ? undefined : 'profile.err.intent';
+  if (item === 'open_to_collab') return undefined;
   return rules[item].check(value);
 }
 
 export function bodyOf(item: ChecklistItem, value: string): ProfileUpdate {
   if (item === 'intent') return { intent: isIntent(value) ? value : null };
+  if (item === 'open_to_collab') return { open_to_collab: value === 'true' };
   return rules[item].body(value);
 }

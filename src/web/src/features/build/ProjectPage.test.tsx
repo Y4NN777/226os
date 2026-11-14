@@ -25,6 +25,30 @@ async function expectAlert(text: string) {
 }
 
 describe('ProjectPage read view', () => {
+  it('links every related content type to its page', async () => {
+    setLanguages(['fr-FR']);
+    mockApi({
+      [`GET ${base}`]: () =>
+        jsonResponse(
+          project({
+            related: [
+              { type: 'article', id: 'a1000000-0000-4000-8000-000000000001', title: 'Signer un webhook' },
+              { type: 'series', id: 'a1000000-0000-4000-8000-000000000002', title: 'Paiements' },
+            ],
+          }),
+        ),
+      [`GET ${base}/contribution-needs`]: () => page([]),
+    });
+    await renderApp(`/build/${projectId}`);
+    expect(await screen.findByRole('link', { name: 'Signer un webhook' })).toHaveAttribute(
+      'href',
+      '/apprendre/articles/a1000000-0000-4000-8000-000000000001',
+    );
+    expect(screen.getByRole('link', { name: 'Paiements' })).toHaveAttribute(
+      'href',
+      '/apprendre/formations/a1000000-0000-4000-8000-000000000002',
+    );
+  });
   it('shows the project, its repository link, owner and open needs, to anyone', async () => {
     setLanguages(['fr-FR']);
     mockApi({

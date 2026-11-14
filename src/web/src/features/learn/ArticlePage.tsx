@@ -14,6 +14,7 @@ import { LoadingState } from '../../components/LoadingState';
 import { useI18n } from '../../i18n/I18nProvider';
 import type { MessageKey } from '../../i18n/messages';
 import { RichText } from '../solve/RichText';
+import { relatedPath } from '../related';
 import { AuthorLine, TagList } from './present';
 import { useArticle, type Article } from './queries';
 
@@ -26,21 +27,6 @@ const relatedKey = {
   article: 'learn.related.article',
   series: 'learn.related.series',
 } as const satisfies Record<Related['type'], MessageKey>;
-
-function pathOf(link: Related): string {
-  switch (link.type) {
-    case 'question':
-      return `/questions/${link.id}`;
-    case 'resource':
-      return `/discover/${link.id}`;
-    case 'project':
-      return `/build/${link.id}`;
-    case 'article':
-      return `/apprendre/articles/${link.id}`;
-    case 'series':
-      return `/apprendre/formations/${link.id}`;
-  }
-}
 
 function Detail({ article }: { article: Article }) {
   const { t } = useI18n();
@@ -89,7 +75,7 @@ function Detail({ article }: { article: Article }) {
                 <HStack gap={2} wrap="wrap">
                   <Text type="supporting">{t(relatedKey[link.type])}</Text>
                   <span lang={link.lang}>
-                    <Link href={pathOf(link)}>{link.title}</Link>
+                    <Link href={relatedPath(link)}>{link.title}</Link>
                   </span>
                 </HStack>
               </li>

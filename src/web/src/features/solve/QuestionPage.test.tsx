@@ -46,6 +46,7 @@ describe('QuestionPage reading', () => {
               snippets: [{ language: 'go', code: 'http.ListenAndServe(":80", nil)' }],
               related: [
                 { type: 'resource', id: 'd0000000-0000-4000-8000-000000000001', title: 'Wave Pay' },
+                { type: 'project', id: 'd0000000-0000-4000-8000-000000000002', title: 'Kora SDK' },
               ],
             }),
             '"v1"',
@@ -64,6 +65,10 @@ describe('QuestionPage reading', () => {
     expect(screen.getByRole('link', { name: 'Wave Pay' })).toHaveAttribute(
       'href',
       '/discover/d0000000-0000-4000-8000-000000000001',
+    );
+    expect(screen.getByRole('link', { name: 'Kora SDK' })).toHaveAttribute(
+      'href',
+      '/build/d0000000-0000-4000-8000-000000000002',
     );
 
     const list = await screen.findByRole('list', { name: 'Réponses' });

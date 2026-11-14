@@ -12,12 +12,12 @@ describe('WelcomePage', () => {
     expect(
       await screen.findByRole('heading', { level: 1, name: 'Bienvenue, Awa Traoré' }),
     ).toBeVisible();
-    expect(screen.getByRole('link', { name: 'Découvrir le catalogue' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Apprendre' })).toHaveAttribute('href', '/apprendre');
+    expect(screen.getByRole('link', { name: 'Connect' })).toHaveAttribute('href', '/connect');
+    expect(screen.getByRole('link', { name: 'Mon profil' })).toHaveAttribute(
       'href',
-      '/discover',
+      '/profils/awa',
     );
-    expect(screen.getByRole('link', { name: 'Rechercher' })).toHaveAttribute('href', '/recherche');
-    expect(screen.getByRole('link', { name: 'Réglages' })).toHaveAttribute('href', '/parametres');
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
   });
 
@@ -75,6 +75,6 @@ describe('WelcomePage', () => {
     expect(
       await screen.findByRole('heading', { level: 1, name: 'Welcome, Awa Traoré' }),
     ).toBeVisible();
-    expect(screen.getByRole('link', { name: 'Browse the catalogue' })).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Learn' })).toBeVisible();
   });
 });
