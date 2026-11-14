@@ -1,3 +1,4 @@
+import * as build from '../features/build/messages';
 import * as discover from '../features/discover/messages';
 import * as home from '../features/home/messages';
 import * as identity from '../features/identity/messages';
@@ -208,6 +209,7 @@ const fr = {
   ...landing.fr,
   ...home.fr,
   ...solve.fr,
+  ...build.fr,
 };
 
 export type MessageKey = keyof typeof fr;
@@ -221,6 +223,7 @@ const en: Record<MessageKey, string> = {
   ...landing.en,
   ...home.en,
   ...solve.en,
+  ...build.en,
 };
 
 export type Catalogs = Record<Locale, Partial<Record<MessageKey, string>>>;
@@ -235,6 +238,7 @@ export const frenchParts: readonly Record<string, string>[] = [
   landing.fr,
   home.fr,
   solve.fr,
+  build.fr,
 ];
 
 export const catalogs: Catalogs = { fr, en };

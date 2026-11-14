@@ -8,6 +8,8 @@ import {
   type RouterHistory,
 } from '@tanstack/react-router';
 import { RouterAnchor } from '../components/RouterAnchor';
+import { BuildPage } from '../features/build/BuildPage';
+import { ProjectPage } from '../features/build/ProjectPage';
 import { DiscoverPage } from '../features/discover/DiscoverPage';
 import { ResourcePage } from '../features/discover/ResourcePage';
 import { validateDiscoverSearch } from '../features/discover/routeSearch';
@@ -95,6 +97,18 @@ const questionRoute = createRoute({
   component: QuestionPage,
 });
 
+// Build: project list and detail.
+const buildRoute = createRoute({
+  getParentRoute: () => appLayout,
+  path: '/build',
+  component: BuildPage,
+});
+const projectRoute = createRoute({
+  getParentRoute: () => appLayout,
+  path: '/build/$projectId',
+  component: ProjectPage,
+});
+
 // Standalone account pages (no app chrome).
 const authLayout = createRoute({
   getParentRoute: () => rootRoute,
@@ -144,6 +158,8 @@ const routeTree = rootRoute.addChildren([
     searchRoute,
     solveRoute,
     questionRoute,
+    buildRoute,
+    projectRoute,
   ]),
   authLayout.addChildren([
     signInRoute,

@@ -39,10 +39,9 @@ describe('Shell', () => {
     mockApi();
     await renderApp('/');
     await screen.findByRole('link', { name: 'Se connecter' });
-    const build = within(primaryNav())
-      .getByText('Construire')
-      .closest('a, button, [aria-disabled]');
-    expect(build).toHaveAttribute('aria-disabled', 'true');
+    // Construire is live since S7 (build pages); Connect is still to come.
+    const connect = within(primaryNav()).getByText('Connect').closest('a, button, [aria-disabled]');
+    expect(connect).toHaveAttribute('aria-disabled', 'true');
     expect(within(primaryNav()).getAllByText('Bientôt').length).toBeGreaterThan(0);
   });
 
