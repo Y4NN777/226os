@@ -137,6 +137,11 @@ jobs:
     outputs:
       outcome: ${{ steps.patch.outputs.outcome }}
     steps:
+      # First step, before any pull request code exists on the runner: a later step (make setup, lockfile installs)
+      # could otherwise change the apt configuration before this root install.
+      - name: Install the Claude Code sandbox dependencies (bubblewrap, socat)
+        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends bubblewrap socat
+
       - name: Checkout develop at the planned commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -270,9 +275,6 @@ jobs:
 
       # Claude Code's Bash sandbox on Linux needs bubblewrap and socat: without them the fixer cannot run a test or
       # commit (first live run, PR #199). Distro packages only; a failed install fails the job, never a silent skip.
-      - name: Install the Claude Code sandbox dependencies (bubblewrap, socat)
-        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends bubblewrap socat
-
       - name: Fix the batch (Claude Code, review-fix command)
         id: claude
         uses: anthropics/claude-code-action@4d75e5f390ee76b2e09c1980ecc99ff3a2e088c8 # v1.0.275
