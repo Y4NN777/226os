@@ -9,6 +9,13 @@ UPDATE questions SET status = 'published', removed_at = NULL, updated_at = now()
 
 -- name: LockModerationAnswer :one
 SELECT status FROM answers WHERE id = $1 FOR UPDATE;
+-- name: LockModerationAnswerQuestion :one
+-- Match the accept path's question-before-answer lock order to prevent a deadlock.
+SELECT q.id
+FROM questions AS q
+JOIN answers AS a ON a.question_id = q.id
+WHERE a.id = $1
+FOR UPDATE OF q;
 -- name: HideModerationAnswer :exec
 WITH hidden AS (
   UPDATE answers SET status = 'removed', removed_at = now(), updated_at = now()

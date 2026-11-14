@@ -156,6 +156,68 @@ func TestModerationHiddenAnswerUpdatesQuestionStateAndRestoreCount(t *testing.T)
 	}
 }
 
+func TestModerationAnswerLocksQuestionBeforeAnswer(t *testing.T) {
+	_, conn := moderationDB(t)
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+	conn2, err := pgx.Connect(ctx, conn.Config().ConnString())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = conn2.Close(context.Background()) }()
+
+	tx, err := conn.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = tx.Rollback(context.Background()) }()
+	if _, err := tx.Exec(ctx, `SET LOCAL deadlock_timeout = '100ms'; SET LOCAL lock_timeout = '2s'`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tx.Exec(ctx, `SELECT id FROM questions WHERE id = $1 FOR UPDATE`, qAlice); err != nil {
+		t.Fatal(err)
+	}
+	var pid int
+	if err := conn2.QueryRow(ctx, `SELECT pg_backend_pid()`).Scan(&pid); err != nil {
+		t.Fatal(err)
+	}
+	hideErr := make(chan error, 1)
+	go func() {
+		hideErr <- moderationrepo.New(conn2).Hide(ctx, "answer", aBob, uMod, "spam", "req-lock-order")
+	}()
+
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		var waiting bool
+		if err := tx.QueryRow(ctx, `SELECT COALESCE(wait_event_type = 'Lock', false) FROM pg_stat_activity WHERE pid = $1`, pid).Scan(&waiting); err != nil {
+			t.Fatal(err)
+		}
+		if waiting {
+			break
+		}
+		select {
+		case err := <-hideErr:
+			t.Fatalf("hide returned before waiting on the locked question: %v", err)
+		default:
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("hide never waited on the locked question")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	var answer string
+	answerLockErr := tx.QueryRow(ctx, `SELECT id::text FROM answers WHERE id = $1 FOR SHARE`, aBob).Scan(&answer)
+	_ = tx.Rollback(ctx)
+	hideResult := <-hideErr
+	if answerLockErr != nil {
+		t.Fatalf("answer lock deadlocked behind moderation: %v", answerLockErr)
+	}
+	if hideResult != nil {
+		t.Fatalf("hide after question lock released: %v", hideResult)
+	}
+}
+
 func TestModerationHiddenContentLeavesReadsAndSearchThenReturns(t *testing.T) {
 	repo, conn := moderationDB(t)
 	ctx := t.Context()

@@ -116,14 +116,22 @@ func pgID(raw string) pgtype.UUID                { return pgtype.UUID{Bytes: uui
 func TestChangeEveryTargetInBothDirections(t *testing.T) {
 	for _, kind := range []string{"question", "answer", "resource", "project", "article", "relation"} {
 		t.Run(kind+" hide", func(t *testing.T) {
-			f := fake(t, row(visibleState(kind)), execOK(), execOK())
-			if err := New(f).Hide(t.Context(), kind, testTarget, testActor, "spam", "req"); err != nil || !f.committed || f.n != 3 {
+			steps := []dbStep{row(visibleState(kind)), execOK(), execOK()}
+			if kind == "answer" {
+				steps = append([]dbStep{row(pgID(testTarget))}, steps...)
+			}
+			f := fake(t, steps...)
+			if err := New(f).Hide(t.Context(), kind, testTarget, testActor, "spam", "req"); err != nil || !f.committed || f.n != len(steps) {
 				t.Fatalf("err=%v committed=%v calls=%d", err, f.committed, f.n)
 			}
 		})
 		t.Run(kind+" restore", func(t *testing.T) {
-			f := fake(t, row(hiddenState(kind)), execOK(), execOK())
-			if err := New(f).Restore(t.Context(), kind, testTarget, testActor, "appel", "req"); err != nil || !f.committed || f.n != 3 {
+			steps := []dbStep{row(hiddenState(kind)), execOK(), execOK()}
+			if kind == "answer" {
+				steps = append([]dbStep{row(pgID(testTarget))}, steps...)
+			}
+			f := fake(t, steps...)
+			if err := New(f).Restore(t.Context(), kind, testTarget, testActor, "appel", "req"); err != nil || !f.committed || f.n != len(steps) {
 				t.Fatalf("err=%v committed=%v calls=%d", err, f.committed, f.n)
 			}
 		})
@@ -142,6 +150,9 @@ func TestChangeFailuresRollback(t *testing.T) {
 		{name: "begin", kind: "question", target: testTarget, actor: testActor, beginErr: errStore, want: errStore},
 		{name: "missing", kind: "question", target: testTarget, actor: testActor, steps: []dbStep{failDB(pgx.ErrNoRows)}, want: domain.ErrNotFound},
 		{name: "lock", kind: "question", target: testTarget, actor: testActor, steps: []dbStep{failDB(errStore)}, want: errStore},
+		{name: "answer parent missing", kind: "answer", target: testTarget, actor: testActor, steps: []dbStep{failDB(pgx.ErrNoRows)}, want: domain.ErrNotFound},
+		{name: "answer parent lock", kind: "answer", target: testTarget, actor: testActor, steps: []dbStep{failDB(errStore)}, want: errStore},
+		{name: "answer lock", kind: "answer", target: testTarget, actor: testActor, steps: []dbStep{row(pgID(testTarget)), failDB(errStore)}, want: errStore},
 		{name: "unknown kind", kind: "planet", target: testTarget, actor: testActor, want: domain.ErrNotFound},
 		{name: "wrong state", kind: "question", target: testTarget, actor: testActor, steps: []dbStep{row("removed")}, want: domain.ErrStateConflict},
 		{name: "update", kind: "question", target: testTarget, actor: testActor, steps: []dbStep{row("published"), failDB(errStore)}, want: errStore},

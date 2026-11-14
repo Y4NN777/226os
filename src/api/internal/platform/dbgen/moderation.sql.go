@@ -113,6 +113,22 @@ func (q *Queries) LockModerationAnswer(ctx context.Context, id pgtype.UUID) (str
 	return status, err
 }
 
+const lockModerationAnswerQuestion = `-- name: LockModerationAnswerQuestion :one
+SELECT q.id
+FROM questions AS q
+JOIN answers AS a ON a.question_id = q.id
+WHERE a.id = $1
+FOR UPDATE OF q
+`
+
+// Match the accept path's question-before-answer lock order to prevent a deadlock.
+func (q *Queries) LockModerationAnswerQuestion(ctx context.Context, id pgtype.UUID) (pgtype.UUID, error) {
+	row := q.db.QueryRow(ctx, lockModerationAnswerQuestion, id)
+	var id_2 pgtype.UUID
+	err := row.Scan(&id_2)
+	return id_2, err
+}
+
 const lockModerationArticle = `-- name: LockModerationArticle :one
 SELECT status FROM learn_articles WHERE id = $1 FOR UPDATE
 `

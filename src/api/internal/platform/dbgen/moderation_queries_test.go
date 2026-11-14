@@ -62,8 +62,13 @@ func TestModerationGeneratedQueries(t *testing.T) {
 		})
 	}
 
+	db := &fakeDB{rowVals: []any{id}}
+	if got, err := dbgen.New(db).LockModerationAnswerQuestion(t.Context(), id); err != nil || got != id || len(db.calls) != 1 {
+		t.Fatalf("answer question lock=%v err=%v calls=%d", got, err, len(db.calls))
+	}
+
 	reportVals := []any{id, actor, "outdated", "received", created}
-	db := &fakeDB{rowVals: reportVals}
+	db = &fakeDB{rowVals: reportVals}
 	locked, err := dbgen.New(db).LockModerationErrorReport(t.Context(), id)
 	if err != nil || locked.ID != id || locked.ResourceID != actor || locked.Kind != "outdated" {
 		t.Fatalf("locked=%+v err=%v", locked, err)

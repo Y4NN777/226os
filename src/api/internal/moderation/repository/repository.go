@@ -133,6 +133,9 @@ func targetOps(ctx context.Context, q *dbgen.Queries, kind string, id pgtype.UUI
 		}
 		return state, func(c context.Context) error { return q.RestoreModerationQuestion(c, id) }, err
 	case "answer":
+		if _, err := q.LockModerationAnswerQuestion(ctx, id); err != nil {
+			return "", nil, err
+		}
 		state, err := q.LockModerationAnswer(ctx, id)
 		if hide {
 			return state, func(c context.Context) error { return q.HideModerationAnswer(c, id) }, err
