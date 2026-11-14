@@ -45,12 +45,9 @@ func (q *Queries) DeleteSolveQuestionLinks(ctx context.Context, arg DeleteSolveQ
 }
 
 const deleteSolveQuestionTags = `-- name: DeleteSolveQuestionTags :exec
-DELETE FROM question_tags qt
-USING tags t
-WHERE qt.question_id = $1::uuid AND qt.tag_id = t.id AND t.status = 'active'
+DELETE FROM question_tags WHERE question_id = $1::uuid
 `
 
-// Tags are replaced as a set; links to hidden tags are kept (moderator state, issue #156).
 func (q *Queries) DeleteSolveQuestionTags(ctx context.Context, questionID pgtype.UUID) error {
 	_, err := q.db.Exec(ctx, deleteSolveQuestionTags, questionID)
 	return err
