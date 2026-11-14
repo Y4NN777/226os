@@ -72,17 +72,32 @@ Fix rules (binding):
   When a fix needs one of them, do not make it: the verdict is OWNER with a one-line reason. The workflow labels the pull
   request `needs-owner` from your result; you never label, comment or @-mention anyone yourself.
 - No new dependency, no generated file edited by hand (run `make generate` only if the slice already needs it).
-- Implement every fix through the project agent that owns the area, exactly as the lead session does: `web-implementer`
-  for `src/web/**`, `go-implementer` for `src/api/**`, `postgres-expert` for `db/queries/**` and SQL behaviour,
+- Implement every fix through the project agent that owns the area (orchestration below): `web-implementer` for
+  `src/web/**`, `go-implementer` for `src/api/**`, `postgres-expert` for `db/queries/**` and SQL behaviour,
   `ci-implementer` for `.github/**`, `scripts/**`, `mk/**` and `Makefile`. Of those pipeline paths the guard allows only
   `scripts/tests/**` minus the review pipeline's own tests (the rest is OWNER, no change), so `ci-implementer` is used
-  only there. Their
-  definitions in `.claude/agents/` (skills, preconditions, "never push, merge or deploy") apply in full. Give each one a
-  task contract: the finding id and its scenario, the allowed paths of the slice, the failing test to write first, the
-  gates, the stop condition. You frame the work, route it, then read the agent's diff and run the gates yourself; you do
-  not implement around an agent. Tell the agent that in CI its git reads and tests go through `fixer-run` (a direct
-  `go test` is denied) and that it never pushes (the trusted publish job does). Network tools other than `gh pr view`
-  and `gh issue view` are not available.
+  only there. Their definitions in `.claude/agents/` (skills, preconditions, "never push, merge or deploy") apply in
+  full. You do not implement around an agent. Tell each agent that in CI its git reads and tests go through `fixer-run`
+  (a direct `go test` is denied) and that it never pushes (the trusted publish job does). Network tools other than
+  `gh pr view` and `gh issue view` are not available.
+
+### Orchestration (you are the orchestrator, the Opus session)
+
+1. Group the items you decided to fix by owning agent (go-implementer, web-implementer, postgres-expert,
+   ci-implementer) AND by files: two items that touch the same file go to the same group, so no file is shared between
+   two groups. A group is one agent with one or more items.
+2. Launch the groups in parallel, at most 3 agents at once (the GitHub runner has 4 vCPU and 16 GB); the others start
+   when one ends. Each agent gets a task contract: its items (id and scenario), its allowed paths, the failing test to
+   write first, only its targeted tests (single tests through `fixer-run`), never `make` gates, never `TODO.md` or
+   `docs/ai-usage/`, never push, and the stop condition. Agents work in the same checkout on disjoint files, and they
+   do not commit: you do.
+3. Read each agent's diff yourself (`fixer-run git diff`), reject anything outside its contract, then run the gates
+   (section 3) ONCE for all the groups together, one at a time. Only the orchestrator writes `TODO.md` and the AI-use
+   record and runs the gates; an agent that did either has its change undone.
+4. A failed group (its test cannot be made to fail then pass, a gate fails because of it, or it left its paths) is undone
+   and its items get the verdict OWNER with a one-line reason; the other groups still go out.
+5. A single-item run (a pull request fix of one finding, stage 3) may skip the parallel step, but the item still goes
+   through its owning agent with the same contract.
 
 Commands in CI: git reads, single tests and web scripts go through `fixer-run`, which takes allowlists only:
 `fixer-run git status|diff|log|show` with `--stat`, `--cached`, `--name-only`, `--name-status`, `--oneline`, `-p`,
@@ -92,7 +107,7 @@ network. `git add`, `git commit` and `git restore` run directly. Locally, run th
 
 ## 3. Gates, one at a time
 
-Run only the Make targets your change needs, one after the other, never in parallel, and read each failure:
+Only you, the orchestrator, run these, after reading the agents' diffs. Run only the Make targets the combined change needs, one after the other, never in parallel, and read each failure:
 `make lint` (also runs the script tests and the tracker check), `make test-unit`, `make coverage` (Go stays at
 100.00 %), `make test-integration-go` (database or repository changes), `make security` (identity, authorization,
 handlers). A gate you could not run is `NOT RUN` with the reason, never PASS. If a gate fails because of your change and
@@ -101,7 +116,7 @@ verdict OWNER.
 
 ## 4. Record and commit
 
-- Add one dated line to `TODO.md` in the slice block that owns the changed files (else in the Done log):
+- You alone write these two (never an agent). Add one dated line to `TODO.md` in the slice block that owns the changed files (else in the Done log):
   `2026-MM-DD (CI fixer, <pr or batch>): <ids> fixed, <what>`. The tracker check fails a code change without it.
 - Add or extend one AI-use record in `docs/ai-usage/` (`YYYY-MM-DD-review-fix-pr<N>.md` or
   `YYYY-MM-DD-review-fix-batch.md`; template in `docs/ai-usage/README.md`): `contributor: "Y4NN777"`,
