@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { callsTo, mockApi, problemResponse } from '../../test/api';
 import { jsonResponse, renderApp, setLanguages } from '../../test/render';
+import { selectSegment } from '../../test/segmented';
 import { listParams, resource, rowOf } from './testFixtures';
 import { findVisibleText } from '../../test/visibleText';
 
@@ -144,7 +145,7 @@ describe('DiscoverPage', () => {
     const { router } = await renderApp('/discover');
     await screen.findByRole('link', { name: 'Wave Pay' });
 
-    await userEvent.click(screen.getByRole('radio', { name: 'Toute l’Afrique' }));
+    await selectSegment(screen.getByRole('radio', { name: 'Toute l’Afrique' }));
     expect(await screen.findByRole('link', { name: 'Safari Hub' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Sans Pays' })).toBeInTheDocument();
     expect(router.state.location.search).toMatchObject({ region: 'all' });
@@ -194,7 +195,7 @@ describe('DiscoverPage', () => {
     await waitFor(() => {
       expect(listParams(fetchMock, 'last').get('q')).toBe('momo');
     });
-    await userEvent.click(screen.getByRole('radio', { name: 'SDK' }));
+    await selectSegment(screen.getByRole('radio', { name: 'SDK' }));
     await waitFor(() => {
       expect(listParams(fetchMock, 'last').get('type')).toBe('sdk');
     });

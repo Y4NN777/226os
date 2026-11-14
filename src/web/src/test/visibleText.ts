@@ -19,3 +19,19 @@ export function getVisibleText(matcher: Matcher): HTMLElement {
 export async function findVisibleText(matcher: Matcher): Promise<HTMLElement> {
   return waitFor(() => getVisibleText(matcher));
 }
+
+/**
+ * The visible alert. Astryx may mirror a banner into its aria-live region, which also has
+ * role="alert" depending on timing, so findByRole('alert') can find two elements.
+ */
+export async function findVisibleAlert(): Promise<HTMLElement> {
+  return waitFor(() => {
+    const visible = screen
+      .getAllByRole('alert')
+      .filter((element) => !element.closest('[data-astryx-live-region]'));
+    if (visible.length !== 1) {
+      throw new Error(`Expected exactly one visible alert, found ${String(visible.length)}`);
+    }
+    return visible[0] as HTMLElement;
+  });
+}

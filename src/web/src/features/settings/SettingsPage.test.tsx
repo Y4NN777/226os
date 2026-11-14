@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import type { components } from '../../api/schema';
 import { callsTo, memberAccount, memberSession, mockApi, problemResponse } from '../../test/api';
 import { jsonResponse, renderApp, setLanguages } from '../../test/render';
+import { selectSegment } from '../../test/segmented';
 import { findVisibleText } from '../../test/visibleText';
 
 type MyProfile = components['schemas']['MyProfile'];
@@ -145,7 +146,7 @@ describe('SettingsPage display-name form (live profile)', () => {
     const input = await screen.findByLabelText(/Nom d’affichage/);
     await userEvent.clear(input);
     await userEvent.type(input, 'Moussa');
-    await userEvent.click(screen.getByRole('radio', { name: 'English' }));
+    await selectSegment(screen.getByRole('radio', { name: 'English' }));
     expect(await screen.findByLabelText(/Display name/)).toHaveValue('Moussa');
     expect(localStorage.getItem('226os.locale')).toBe('en');
   });
@@ -154,13 +155,8 @@ describe('SettingsPage display-name form (live profile)', () => {
     setLanguages(['fr-FR']);
     member();
     await renderApp('/parametres');
-    const system = await screen.findByRole('radio', { name: 'Système' });
-    expect(system).toBeChecked();
-    // Keyboard selection (APG radiogroup, selection follows focus). A pointer click is not
-    // deterministic in jsdom: Astryx commits a press to the segment nearest the pointer, and
-    // without layout that choice races with the click and can pick the first segment.
-    system.focus();
-    await userEvent.keyboard('{ArrowLeft}');
+    expect(await screen.findByRole('radio', { name: 'Système' })).toBeChecked();
+    await selectSegment(screen.getByRole('radio', { name: 'Sombre' }));
     await waitFor(() => {
       expect(screen.getByRole('radio', { name: 'Sombre' })).toBeChecked();
     });

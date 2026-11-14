@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
-import { callsTo, mockApi, problemResponse } from '../../test/api';
+import { anonymousSession, callsTo, memberSession, mockApi, problemResponse } from '../../test/api';
 import { jsonResponse, renderApp, setLanguages } from '../../test/render';
 import { answer, member, memberId, page, question, questionId, withEtag } from './testFixtures';
 import { findVisibleText } from '../../test/visibleText';
@@ -262,6 +262,74 @@ describe('QuestionPage editing', () => {
     expect(patch?.headers.get('If-Match')).toBe('"v1"');
     expect(patch?.headers.get('X-CSRF-Token')).toBe('csrf-member');
     expect(await patch?.clone().json()).toEqual({ title: 'Webhook toujours non reçu' });
+  });
+
+  it('edits with the signed-in caller’s ETag after loading the question anonymously', async () => {
+    setLanguages(['fr-FR']);
+    let signedIn = false;
+    const mine = { id: memberId, username: 'awa', display_name: 'Awa Traoré' };
+    const fetchMock = mockApi({
+      'GET /auth/session': () => jsonResponse(signedIn ? memberSession : anonymousSession),
+      'POST /auth/sign-in': () => {
+        signedIn = true;
+        return jsonResponse(memberSession);
+      },
+      [`GET ${key()}`]: () =>
+        withEtag(question({ author: mine }), signedIn ? '"member-v1"' : '"anon-v1"'),
+      [`GET ${key('/answers')}`]: () => page([]),
+      [`PATCH ${key()}`]: (request) =>
+        request.headers.get('If-Match') === '"member-v1"'
+          ? withEtag(question({ author: mine, title: 'Webhook toujours non reçu' }), '"member-v2"')
+          : problemResponse(412, 'PRECONDITION_FAILED'),
+    });
+    const user = userEvent.setup();
+    const { router } = await renderApp(base);
+    await screen.findByRole('heading', { level: 1, name: 'Webhook non reçu après un paiement' });
+
+    await router.navigate({ to: '/connexion', search: { next: base } });
+    await user.type(await screen.findByLabelText('Adresse e-mail'), 'awa@example.org');
+    await user.type(screen.getByLabelText('Mot de passe'), 'a long passphrase');
+    await user.click(screen.getByRole('button', { name: 'Se connecter' }));
+
+    await user.click(await screen.findByRole('button', { name: 'Modifier la question' }));
+    const field = screen.getByRole('textbox', { name: 'Titre' });
+    await user.clear(field);
+    await user.type(field, 'Webhook toujours non reçu');
+    await user.click(screen.getByRole('button', { name: 'Enregistrer' }));
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Webhook toujours non reçu' }),
+    ).toBeInTheDocument();
+    const patches = callsTo(fetchMock, `PATCH ${key()}`);
+    expect(patches).toHaveLength(1);
+    expect(patches[0]?.headers.get('If-Match')).toBe('"member-v1"');
+  });
+
+  it('shows a tag a moderator has hidden on the tags field, in plain French', async () => {
+    setLanguages(['fr-FR']);
+    const mine = { id: memberId, username: 'awa', display_name: 'Awa Traoré' };
+    member(
+      readRoutes({
+        [`GET ${key()}`]: () => withEtag(question({ author: mine }), '"v1"'),
+        [`PATCH ${key()}`]: () =>
+          problemResponse(422, 'VALIDATION_ERROR', {
+            violations: [{ field: '/tags', code: 'invalid_value' }],
+          }),
+      }),
+    );
+    const user = userEvent.setup();
+    await renderApp(base);
+    await user.click(await screen.findByRole('button', { name: 'Modifier la question' }));
+    const tags = screen.getByRole('textbox', { name: /Étiquettes/ });
+    await user.type(tags, ', ancienne');
+    await user.click(screen.getByRole('button', { name: 'Enregistrer' }));
+
+    expect(
+      await screen.findByText(
+        'Une des étiquettes n’est plus disponible. Retirez-la ou remplacez-la.',
+      ),
+    ).toBeVisible();
+    expect(screen.getByRole('textbox', { name: /Étiquettes/ })).toBeInvalid();
   });
 
   it('offers a reload on 412 and resends the edit with the fresh ETag', async () => {

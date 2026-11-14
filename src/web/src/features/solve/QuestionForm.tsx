@@ -86,7 +86,12 @@ function serverFieldErrors(error: ApiError): ServerErrors {
   const result: ServerErrors = {};
   for (const violation of error.violations) {
     const field = fieldOfViolation(violation.field);
-    if (field && !result[field]) result[field] = keyOfField[field];
+    // A tag a moderator has hidden since the question was written comes back as invalid_value.
+    const key =
+      field === 'tags' && violation.code === 'invalid_value'
+        ? 'solve.err.tags.unavailable'
+        : field && keyOfField[field];
+    if (field && key && !result[field]) result[field] = key;
   }
   return result;
 }

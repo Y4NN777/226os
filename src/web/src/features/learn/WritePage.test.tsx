@@ -4,7 +4,8 @@ import { describe, expect, it } from 'vitest';
 import type { components } from '../../api/schema';
 import { callsTo, memberSession, mockApi, problemResponse } from '../../test/api';
 import { jsonResponse, renderApp, setLanguages } from '../../test/render';
-import { findVisibleText } from '../../test/visibleText';
+import { selectSegment } from '../../test/segmented';
+import { findVisibleAlert, findVisibleText } from '../../test/visibleText';
 
 type Article = components['schemas']['Article'];
 
@@ -99,7 +100,7 @@ describe('ecrire page', () => {
     await renderApp('/ecrire');
     await fillRequired();
     await publish();
-    expect(await screen.findByRole('alert')).toBeVisible();
+    expect(await findVisibleAlert()).toBeVisible();
     await publish();
     await screen.findByRole('heading', { name: 'Votre article est publié' });
 
@@ -139,7 +140,7 @@ describe('ecrire page', () => {
     await renderApp('/ecrire');
     await fillRequired();
     await publish();
-    await screen.findByRole('alert');
+    await findVisibleAlert();
     await fillIn(screen.getByRole('textbox', { name: /^Titre/ }), ' (suite)');
     await publish();
     await screen.findByRole('heading', { name: 'Votre article est publié' });
@@ -193,7 +194,7 @@ describe('ecrire page', () => {
     await fillRequired();
     await publish();
 
-    expect(await screen.findByRole('alert')).toBeVisible();
+    expect(await findVisibleAlert()).toBeVisible();
     expect(
       fetchMock.mock.calls.some(([input]) =>
         String(input instanceof Request ? input.url : input).includes('evil'),
@@ -246,8 +247,8 @@ describe('ecrire page', () => {
     await renderApp('/ecrire');
     await fillRequired();
     await fillIn(screen.getByRole('textbox', { name: /^Résumé/ }), 'Un résumé court.');
-    await userEvent.click(screen.getByRole('radio', { name: 'Tutoriel' }));
-    await userEvent.click(screen.getByRole('radio', { name: 'Avancé' }));
+    await selectSegment(screen.getByRole('radio', { name: 'Tutoriel' }));
+    await selectSegment(screen.getByRole('radio', { name: 'Avancé' }));
     await userEvent.click(screen.getByRole('combobox', { name: /Sujet/ }));
     await userEvent.click(
       await screen.findByRole('option', { name: 'Construire et évaluer des agents' }),

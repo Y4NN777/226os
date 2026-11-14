@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { callsTo, mockApi, problemResponse } from '../../test/api';
 import { jsonResponse, renderApp, setLanguages } from '../../test/render';
+import { selectSegment } from '../../test/segmented';
 import {
   application,
   applicationId,
@@ -448,7 +449,7 @@ describe('ProjectPage owner writes', () => {
     const tech = screen.getByRole('textbox', { name: /Technologies/ });
     await user.clear(tech);
     await user.type(tech, 'Go, Rust');
-    await user.click(screen.getByRole('radio', { name: 'Privé, visible de vous seul' }));
+    await selectSegment(screen.getByRole('radio', { name: 'Privé, visible de vous seul' }));
     await user.click(screen.getByRole('button', { name: 'Enregistrer' }));
     await waitFor(() => {
       expect(callsTo(fetchMock, `PATCH ${base}`)).toHaveLength(1);
