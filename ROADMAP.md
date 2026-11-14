@@ -18,7 +18,7 @@
 
 **Scope**
 
-- **The full P0.** These are the 44 operations with `x-priority: P0` in `api/openapi.yaml` (48 in total with the four P1), moderation and the assistant included, and 45 once the E5 contract PR is accepted. No cut line is agreed in advance.
+- **The full P0.** These are the 45 operations with `x-priority: P0` in `api/openapi.yaml` (49 in total with the four P1), moderation, the assistant and the E5 people directory (`listProfiles`) included. No cut line is agreed in advance.
 - **S9, grounded AI assistant.** It is P0 by an owner decision taken 2026-11-12 ("AI first"). It amends `docs/PRD.md` 5.8, where the sourced assistant is P2. It could be claimed only once PRD amendment 3.2 was applied and a SPEC story existed (`docs/PRD.md`, "Traçabilité produit"; `docs/SPEC.md` section 1). 2026-11-14: these conditions are met: `askAssistant` is in the contract (PR #81), amendment 3.2 is applied, and US-INTEL-001 is in SPEC.md (PR #176); ADR-0012 is accepted.
 - **S10, live channels.** Conditional ("channels if on track"). It is built only if the Sat 12:00 checkpoint shows S0 to S5 on track. Otherwise it stays P2 and is reported as not built. 2026-11-14: **NOT BUILT (P2)**, decided at the 12:00 checkpoint (section 14).
 - **Product-review additions** (accepted by the owner on 2026-11-12):
@@ -31,7 +31,7 @@
     - External material remains only as references (`docs/research/REFERENCES.md` style) and as source links on Discover entries.
     - The Learn free series is a small demo-fixture series of 3 to 4 short original lessons (US-LEARN-001).
   - **E4:** zero-migration interaction modes. An "ask about this lesson" button and read-only topic feeds.
-  - **E5:** Connect as a read-only people directory. This is a **new operation**, suggested `GET /profiles`, so it is a contract change. Once its contract PR is accepted, P0 has **45 operations**. Office hours are a process note only.
+  - **E5:** Connect as a read-only people directory. This is a **new operation**, suggested `GET /profiles`, so it is a contract change. With its contract commit (2026-11-14), P0 has **45 operations**. Office hours are a process note only.
   - **Region:** public positioning is "Afrique de l'Ouest d'abord, puis toute l'Afrique" (owner decision 2026-11-12). The default filter is "Afrique de l'Ouest", with a one-click "Toute l'Afrique". The region is a UI constant in `src/web`, with no migration and no column. See TODO S7.
   - **Pillars:** "Learn & Grow" and "Connect" are made prominent in navigation, home and wording only. No pillar is erased or demoted. The PRD amendment proposal is OPEN (O7).
   - See section 12 for what slips first.
@@ -108,7 +108,7 @@ The slices were assigned by owner decisions on 2026-11-12. The review rules come
 | E2 | Taxonomy: +5 learn topics, +3 resource categories, 4 relabels, no deletions, one new migration | `mibienpanjoe`, the only migration writer; helpers `Y4NN777` and `NICE-DEV226` on the pgtest updates only, never on the migration | 0 | none (migration only) |
 | SEED | Demo fixtures for **`local-dev` only**, for local development and e2e: `db/seeds` and `make seed` (NOT IMPLEMENTED today; refuses everywhere except `local-dev`), demo accounts as decided in C15, and a local copy of the 3 to 4 lesson series | `PANK4SS` (reviewed by `mibienpanjoe`; the `mk/50-ops.mk` change also by `Y4NN777`, area owner) | 0 | migrations 00001 to 00010 and E2; C15 DECIDED |
 | E4 | "Ask about this lesson" button, read-only topic feeds | `PANK4SS` with `NICE-DEV226` (Solve owner) | 0 | S3 `createQuestion`; any article (S4, the content script, or SEED in `local-dev`); the C2 contract PR before the feeds (C2 DECIDED) |
-| E5 | Connect people directory (new operation, suggested `GET /profiles`), `connect` page, office-hours process note | backend `NICE-DEV226` after Solve, if time allows (it slips early); UI `PANK4SS` | +1 (45 P0 once accepted) | contract PR; S1 (profiles); the `profile_visibility` migration (C14 DECIDED) |
+| E5 | Connect people directory (new operation, suggested `GET /profiles`), `connect` page, office-hours process note | backend `NICE-DEV226` after Solve, if time allows (it slips early); UI `PANK4SS` | +1 (45 P0, contract in place 2026-11-14) | contract PR; S1 (profiles); the `profile_visibility` migration (C14 DECIDED) |
 | IA | Pillar emphasis: navigation, home and FR/EN copy promote Learn & Grow and Connect | `PANK4SS` | 0 | none (no new endpoints) |
 
 **Reviewer pairs (owner instruction 2026-11-12).** A reviewer is never the author.
@@ -302,7 +302,7 @@ Closed or merged out of this table (see archive): K3 (B1 implemented in S0), K36
 | K19 | S10 live delivery: a `LISTEN` holds a dedicated DB connection; the 30 s router timeout (B3); Traefik streaming behaviour unverified | medium (INFERRED) | S10 ADR covers the transport, connection budget and timeouts |
 | K23 | E1, E2, E4, E5, SEED and the pillar change raise the total scope with no added people | high (GUESS; not quantified) | The slip order in section 12.1, decided at the Sat 12:00 checkpoint |
 | K28 | E5 privacy: a hidden field or a non-listable profile leaks through the list or the filters; scraping of the directory | high | Visibility-filtered projection and filters; email never selected; bounded `limit` (max 50, ADR-0004); a rate limit per IP and per user (window to be set by the owner, ADR-0003 has none for this route); privacy tests |
-| K29 | E5 adds an operation, so `apigen` regenerates and the operation count in `contract_test.go` (48 since `askAssistant`) and `docs/quality/COVERAGE_SCOPE.md` changes; B1 applies to the new route | medium | Handled in the E5 contract PR, with owner approval for `COVERAGE_SCOPE.md` |
+| K29 | E5 adds an operation, so `apigen` regenerates and the operation count in `contract_test.go` (49 since `listProfiles`, 48 since `askAssistant`) and `docs/quality/COVERAGE_SCOPE.md` changes; B1 applies to the new route | medium | Handled in the E5 contract PR, with owner approval for `COVERAGE_SCOPE.md` |
 | K24 | B5: no content path into production | medium (B5 DECIDED for CADEV: the content script) | Script reviewed in a PR, rehearsed on staging, run by the owner (H19) |
 | K25 | The relabel of learn topic `ai` changes its meaning, from "IA appliquée et langues africaines" (`db/migrations/00002_reference_taxonomy.sql`) to "Comprendre les LLM". Content already tagged `ai` (seeds, fixtures) may need re-tagging to `african-languages`. | low (INFERRED) | Check seeds and fixtures in the E2 PR |
 | K26 | E2 changes the reference lists, so `migrate_integration_test.go` (exact lists and counts at `:140-150`, `:180`, `:219`) fails unless it is updated in the same PR | medium | Same PR; owner review, because pgtest is in the platform area |

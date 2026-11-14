@@ -13,3 +13,4 @@ POST /api/v1/moderation/{targetType}/{targetId}/hide   # hideContent
 POST /api/v1/moderation/{targetType}/{targetId}/restore   # restoreContent
 GET /api/v1/resources/{resourceId}/reviews   # listResourceReviews (P1)
 POST /api/v1/resources/{resourceId}/reviews   # createResourceReview (P1)
+GET /api/v1/profiles   # listProfiles (E5): contract only, the backend follows in the same slice
