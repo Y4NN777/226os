@@ -8,6 +8,7 @@ import { sessionQueryKey } from '../../app/session';
 import { I18nProvider } from '../../i18n/I18nProvider';
 import { renderApp, setLanguages } from '../../test/render';
 import { ResetPasswordPage } from './ResetPasswordPage';
+import { findVisibleText, getVisibleText } from '../../test/visibleText';
 
 const CONFIRM = 'POST /auth/password-reset/confirm';
 const TOKEN = 'abcdefghijklmnopqrstuvwxyz012345';
@@ -16,7 +17,7 @@ const noContent = () => new Response(null, { status: 204 });
 async function open(language = 'fr-FR', routes: Parameters<typeof mockApi>[0] = {}) {
   setLanguages([language]);
   const fetchMock = mockApi(routes);
-  const user = userEvent.setup();
+  const user = userEvent.setup({ delay: null });
   const app = await renderApp('/reinitialiser');
   await screen.findByRole('heading', { level: 1 });
   return { fetchMock, user, ...app };
@@ -99,7 +100,7 @@ describe('ResetPasswordPage', () => {
     const queryClient = new QueryClient();
     queryClient.setQueryData(sessionQueryKey, memberSession);
     api.csrf.set('csrf-member');
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     render(
       <QueryClientProvider client={queryClient}>
         <I18nProvider>
@@ -161,7 +162,7 @@ describe('ResetPasswordPage', () => {
     window.history.replaceState(null, '', `/reinitialiser#token=${TOKEN}`);
     setLanguages(['fr-FR']);
     const fetchMock = mockApi({ [CONFIRM]: noContent });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp('/reinitialiser');
     await screen.findByRole('heading', { level: 1 });
     expect(screen.getByLabelText('Code de confirmation')).toHaveValue(TOKEN);
@@ -181,7 +182,7 @@ describe('ResetPasswordPage', () => {
     });
     await fillAndSubmit(user);
     expect(await screen.findByRole('button', { name: 'Réessayer dans 10 s' })).toBeInTheDocument();
-    expect(screen.getByText('Trop de tentatives')).toBeInTheDocument();
+    expect(getVisibleText('Trop de tentatives')).toBeInTheDocument();
   });
 
   it('shows a generic error with a reference on a server failure', async () => {
@@ -189,8 +190,8 @@ describe('ResetPasswordPage', () => {
       [CONFIRM]: () => problemResponse(500, 'INTERNAL_ERROR'),
     });
     await fillAndSubmit(user);
-    expect(await screen.findByText(/Une erreur est survenue/)).toBeInTheDocument();
-    expect(screen.getByText(/req-test-1/)).toBeInTheDocument();
+    expect(await findVisibleText(/Une erreur est survenue/)).toBeInTheDocument();
+    expect(getVisibleText(/req-test-1/)).toBeInTheDocument();
   });
 
   it('sends one request on a double click', async () => {

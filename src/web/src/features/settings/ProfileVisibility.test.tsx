@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import type { components } from '../../api/schema';
 import { callsTo, memberAccount, memberSession, mockApi, problemResponse } from '../../test/api';
 import { jsonResponse, renderApp, setLanguages } from '../../test/render';
+import { findVisibleText } from '../../test/visibleText';
 
 type MyProfile = components['schemas']['MyProfile'];
 
@@ -72,9 +73,11 @@ describe('Profile visibility setting (parametres)', () => {
     });
     await renderApp('/parametres');
     expect(await screen.findByRole('radio', { name: /Public/ })).toBeChecked();
-    await userEvent.click(screen.getByRole('radio', { name: /Membres/ }));
-    await userEvent.click(screen.getByRole('button', { name: 'Enregistrer la visibilité' }));
-    expect(await screen.findByText('Visibilité enregistrée.')).toBeInTheDocument();
+    await userEvent.setup({ delay: null }).click(screen.getByRole('radio', { name: /Membres/ }));
+    await userEvent
+      .setup({ delay: null })
+      .click(screen.getByRole('button', { name: 'Enregistrer la visibilité' }));
+    expect(await findVisibleText('Visibilité enregistrée.')).toBeInTheDocument();
     expect(saved).toEqual({ profile_visibility: 'members' });
     const [patch] = callsTo(fetchMock, 'PATCH /me/profile');
     expect(patch?.headers.get('X-CSRF-Token')).toBe('csrf-member');
@@ -109,8 +112,12 @@ describe('Profile visibility setting (parametres)', () => {
       'PATCH /me/profile': () => problemResponse(429, 'RATE_LIMITED', { retryAfter: 20 }),
     });
     await renderApp('/parametres');
-    await userEvent.click(await screen.findByRole('radio', { name: /Privé/ }));
-    await userEvent.click(screen.getByRole('button', { name: 'Enregistrer la visibilité' }));
+    await userEvent
+      .setup({ delay: null })
+      .click(await screen.findByRole('radio', { name: /Privé/ }));
+    await userEvent
+      .setup({ delay: null })
+      .click(screen.getByRole('button', { name: 'Enregistrer la visibilité' }));
     await waitFor(() => {
       expect(screen.getByText(/Réessayez dans 20/)).toBeVisible();
     });

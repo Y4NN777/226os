@@ -233,7 +233,7 @@ func TestModerationHiddenContentLeavesReadsAndSearchThenReturns(t *testing.T) {
 		assertVisible func(*testing.T)
 	}{
 		{"question", qAlice, func(t *testing.T) {
-			if _, err := solve.GetQuestion(ctx, qAlice); err == nil {
+			if _, err := solve.GetQuestion(ctx, qAlice, ""); err == nil {
 				t.Fatal("hidden question detail visible")
 			}
 			items, err := solve.ListQuestions(ctx, solvedomain.QuestionQuery{Limit: 20})
@@ -242,7 +242,7 @@ func TestModerationHiddenContentLeavesReadsAndSearchThenReturns(t *testing.T) {
 			}
 			assertNoSearchHit(t, search, searchdomain.Questions, "signature", qAlice)
 		}, func(t *testing.T) {
-			if _, err := solve.GetQuestion(ctx, qAlice); err != nil {
+			if _, err := solve.GetQuestion(ctx, qAlice, ""); err != nil {
 				t.Fatal(err)
 			}
 		}},
@@ -313,14 +313,14 @@ func TestModerationHiddenContentLeavesReadsAndSearchThenReturns(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	before, err := solve.GetQuestion(ctx, qAlice)
+	before, err := solve.GetQuestion(ctx, qAlice, "")
 	if err != nil || len(before.Related) == 0 {
 		t.Fatalf("related before: %v %+v", err, before.Related)
 	}
 	if err := repo.Hide(ctx, "relation", crOne, uMod, "spam", "req-relation"); err != nil {
 		t.Fatal(err)
 	}
-	after, err := solve.GetQuestion(ctx, qAlice)
+	after, err := solve.GetQuestion(ctx, qAlice, "")
 	if err != nil || len(after.Related) != 0 {
 		t.Fatalf("related hidden: %v %+v", err, after.Related)
 	}

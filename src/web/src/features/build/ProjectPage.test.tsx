@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { callsTo, mockApi, problemResponse } from '../../test/api';
 import { jsonResponse, renderApp, setLanguages } from '../../test/render';
+import { selectSegment } from '../../test/segmented';
 import {
   application,
   applicationId,
@@ -116,7 +117,7 @@ describe('ProjectPage read view', () => {
           ? page([need({ id: 'e1000000-0000-4000-8000-000000000003', title: 'Traduction' })])
           : page([need()], 'c2'),
     });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp(`/build/${projectId}`);
     await user.click(await screen.findByRole('button', { name: 'Afficher plus' }));
     expect(await screen.findByText('Traduction')).toBeVisible();
@@ -192,7 +193,7 @@ describe('ProjectPage apply', () => {
     [`GET ${base}/contribution-needs`]: () => page([need()]),
   };
   const apply = async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp(`/build/${projectId}`);
     await user.click(await screen.findByRole('button', { name: 'Postuler' }));
     return user;
@@ -296,6 +297,84 @@ describe('ProjectPage apply', () => {
     expect(callsTo(fetchMock, `PATCH /applications/${applicationId}`)).toHaveLength(1);
   });
 
+  it('says the application was already handled when the owner decided before the withdrawal', async () => {
+    setLanguages(['fr-FR']);
+    member({
+      ...routes,
+      [`POST /contribution-needs/${needId}/applications`]: () =>
+        jsonResponse(application(), { status: 201 }),
+      [`PATCH /applications/${applicationId}`]: () => problemResponse(409, 'STATE_CONFLICT'),
+    });
+    const user = await apply();
+    await user.type(screen.getByRole('textbox', { name: /Votre message/ }), 'Bonjour');
+    await user.click(screen.getByRole('button', { name: 'Envoyer ma candidature' }));
+    await user.click(await screen.findByRole('button', { name: 'Retirer ma candidature' }));
+    await expectAlert('Cette candidature a déjà été traitée.');
+  });
+
+  it('keeps the sent state when the project page is left and opened again', async () => {
+    setLanguages(['fr-FR']);
+    const fetchMock = member({
+      ...routes,
+      [`POST /contribution-needs/${needId}/applications`]: () =>
+        jsonResponse(application(), { status: 201 }),
+    });
+    const user = userEvent.setup({ delay: null });
+    const { router } = await renderApp(`/build/${projectId}`);
+    await user.click(await screen.findByRole('button', { name: 'Postuler' }));
+    await user.type(screen.getByRole('textbox', { name: /Votre message/ }), 'Bonjour');
+    await user.click(screen.getByRole('button', { name: 'Envoyer ma candidature' }));
+    await screen.findByText(/Candidature envoyée/);
+
+    await router.navigate({ to: '/' });
+    await router.navigate({ to: '/build/$projectId', params: { projectId } });
+    expect(await screen.findByText(/Candidature envoyée/)).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Postuler' })).not.toBeInTheDocument();
+    expect(callsTo(fetchMock, `POST /contribution-needs/${needId}/applications`)).toHaveLength(1);
+  });
+
+  it('shows the pending application after a full reload and withdraws it by its id', async () => {
+    setLanguages(['fr-FR']);
+    const fetchMock = member({
+      ...routes,
+      [`GET ${base}/contribution-needs`]: () =>
+        page([need({ viewer_application: { id: applicationId, status: 'pending' } })]),
+      [`PATCH /applications/${applicationId}`]: () =>
+        jsonResponse(application({ status: 'withdrawn' })),
+    });
+    const user = userEvent.setup({ delay: null });
+    await renderApp(`/build/${projectId}`);
+    expect(await screen.findByText(/Candidature envoyée/)).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Postuler' })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Retirer ma candidature' }));
+    expect(await screen.findByText('Candidature retirée.')).toBeVisible();
+    expect(callsTo(fetchMock, `PATCH /applications/${applicationId}`)).toHaveLength(1);
+    expect(callsTo(fetchMock, `POST /contribution-needs/${needId}/applications`)).toHaveLength(0);
+  });
+
+  it.each([
+    ['accepted', 'Votre candidature a été acceptée.'],
+    ['declined', 'Votre candidature n’a pas été retenue.'],
+    ['withdrawn', 'Candidature retirée.'],
+  ] as const)(
+    'shows a %s application after a reload, without apply or withdraw',
+    async (status, text) => {
+      setLanguages(['fr-FR']);
+      member({
+        ...routes,
+        [`GET ${base}/contribution-needs`]: () =>
+          page([need({ viewer_application: { id: applicationId, status } })]),
+      });
+      await renderApp(`/build/${projectId}`);
+      expect(await screen.findByText(text)).toBeVisible();
+      expect(screen.queryByRole('button', { name: 'Postuler' })).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole('button', { name: 'Retirer ma candidature' }),
+      ).not.toBeInTheDocument();
+    },
+  );
+
   it.each([
     ['no Location', undefined],
     ['a cross-origin Location', `https://evil.test/api/v1/applications/${applicationId}`],
@@ -360,7 +439,7 @@ describe('ProjectPage owner writes', () => {
       ...routes,
       [`PATCH ${base}`]: () => jsonResponse(project({ description: 'Nouvelle description' })),
     });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp(`/build/${projectId}`);
     await user.click(await screen.findByRole('button', { name: 'Modifier le projet' }));
     const field = screen.getByRole('textbox', { name: /Description/ });
@@ -377,7 +456,7 @@ describe('ProjectPage owner writes', () => {
   it('saves nothing and calls nothing when the edit changes nothing', async () => {
     setLanguages(['fr-FR']);
     const fetchMock = owner(routes);
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp(`/build/${projectId}`);
     await user.click(await screen.findByRole('button', { name: 'Modifier le projet' }));
     await user.click(screen.getByRole('button', { name: 'Enregistrer' }));
@@ -392,13 +471,13 @@ describe('ProjectPage owner writes', () => {
       [`PATCH ${base}`]: () =>
         jsonResponse(project({ technologies: ['go', 'rust'], visibility: 'private' })),
     });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp(`/build/${projectId}`);
     await user.click(await screen.findByRole('button', { name: 'Modifier le projet' }));
     const tech = screen.getByRole('textbox', { name: /Technologies/ });
     await user.clear(tech);
     await user.type(tech, 'Go, Rust');
-    await user.click(screen.getByRole('radio', { name: 'Privé, visible de vous seul' }));
+    await selectSegment(screen.getByRole('radio', { name: 'Privé, visible de vous seul' }));
     await user.click(screen.getByRole('button', { name: 'Enregistrer' }));
     await waitFor(() => {
       expect(callsTo(fetchMock, `PATCH ${base}`)).toHaveLength(1);
@@ -412,7 +491,7 @@ describe('ProjectPage owner writes', () => {
   it('shows a calm error when a non-owner edit is refused', async () => {
     setLanguages(['fr-FR']);
     owner({ ...routes, [`PATCH ${base}`]: () => problemResponse(403, 'FORBIDDEN') });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp(`/build/${projectId}`);
     await user.click(await screen.findByRole('button', { name: 'Modifier le projet' }));
     const field = screen.getByRole('textbox', { name: /Description/ });
@@ -433,7 +512,7 @@ describe('ProjectPage owner writes', () => {
             })
           : jsonResponse(need(), { status: 201 }),
     });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp(`/build/${projectId}`);
     await user.click(await screen.findByRole('button', { name: 'Ajouter un besoin' }));
     await user.type(screen.getByRole('textbox', { name: 'Titre du besoin' }), 'Traduction');
@@ -461,7 +540,7 @@ describe('ProjectPage owner writes', () => {
       [`PATCH /applications/${applicationId}`]: () =>
         jsonResponse(application({ status: 'accepted' })),
     });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp(`/build/${projectId}`);
     const section = await screen.findByRole('region', { name: 'Candidatures' });
     expect(await within(section).findByText('Je connais bien ce domaine.')).toBeVisible();
@@ -485,7 +564,7 @@ describe('ProjectPage owner writes', () => {
       ...routes,
       [`PATCH /applications/${applicationId}`]: () => problemResponse(409, 'STATE_CONFLICT'),
     });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp(`/build/${projectId}`);
     await user.click(
       await screen.findByRole('button', { name: 'Refuser la candidature de Awa Traoré' }),

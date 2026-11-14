@@ -1015,6 +1015,7 @@ export interface components {
             author: components["schemas"]["AuthorRef"];
             answer_count: number;
             vote_score: number;
+            viewer_vote: components["schemas"]["ViewerVote"];
             accepted_answer_id: components["schemas"]["Uuid"] | null;
             related: components["schemas"]["RelatedLink"][];
             created_at: components["schemas"]["Timestamp"];
@@ -1052,6 +1053,7 @@ export interface components {
             sources: string[];
             author: components["schemas"]["AuthorRef"];
             vote_score: number;
+            viewer_vote: components["schemas"]["ViewerVote"];
             is_accepted: boolean;
             created_at: components["schemas"]["Timestamp"];
             updated_at: components["schemas"]["Timestamp"];
@@ -1076,6 +1078,11 @@ export interface components {
             /** @enum {integer} */
             value: -1 | 1;
         };
+        /**
+         * @description The authenticated caller's own current vote on this item (1 up, -1 down, 0 none). Always 0 for an anonymous caller. It is derived from the session only and never reveals another member's vote, so a response that carries it varies by caller (Vary Cookie, Cache-Control private).
+         * @enum {integer}
+         */
+        ViewerVote: -1 | 0 | 1;
         VoteState: {
             target_type: components["schemas"]["VoteTargetType"];
             target_id: components["schemas"]["Uuid"];
@@ -1218,7 +1225,14 @@ export interface components {
             lang: components["schemas"]["Lang"];
             skills: components["schemas"]["TagSlug"][];
             status: components["schemas"]["NeedStatus"];
+            /** @description The authenticated caller's own application to this need, or null (no application, or anonymous). Other applicants are never exposed here. */
+            viewer_application: components["schemas"]["ViewerApplication"] | null;
             created_at: components["schemas"]["Timestamp"];
+        };
+        /** @description The caller's own application to a need (id and status only). */
+        ViewerApplication: {
+            id: components["schemas"]["Uuid"];
+            status: components["schemas"]["ApplicationStatus"];
         };
         NeedCreate: {
             title: string;
@@ -2092,7 +2106,7 @@ export interface operations {
             /** @description Question */
             200: {
                 headers: {
-                    /** @description Entity tag; send it back in If-Match when editing. */
+                    /** @description Entity tag of this question as seen by the caller (it covers the caller, because viewer_vote is part of the representation); send it back in If-Match when editing. The response varies by cookie (Vary Cookie, Cache-Control private), and a tag read while signed out does not match once signed in, so read the question again after signing in. */
                     ETag?: string;
                     [name: string]: unknown;
                 };
@@ -2128,7 +2142,7 @@ export interface operations {
             /** @description Updated */
             200: {
                 headers: {
-                    /** @description Entity tag of the updated question. */
+                    /** @description Entity tag of the updated question as seen by the caller. */
                     ETag?: string;
                     [name: string]: unknown;
                 };

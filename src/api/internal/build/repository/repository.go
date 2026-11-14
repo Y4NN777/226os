@@ -274,8 +274,12 @@ func (r *Repository) ListNeeds(ctx context.Context, q domain.NeedQuery) ([]domai
 	if err != nil {
 		return nil, err
 	}
+	viewer, err := optionalID(q.ViewerID)
+	if err != nil {
+		return nil, err
+	}
 	rows, err := r.q.ListNeeds(ctx, dbgen.ListNeedsParams{
-		ProjectID: pid, AfterCreated: timestamp(q.AfterCreated), AfterID: after,
+		ProjectID: pid, AfterCreated: timestamp(q.AfterCreated), AfterID: after, ViewerID: viewer,
 		RowLimit: int32(q.Limit), //nolint:gosec // page size is at most 51
 	})
 	if err != nil {
@@ -286,6 +290,9 @@ func (r *Repository) ListNeeds(ctx context.Context, q domain.NeedQuery) ([]domai
 		out[i] = domain.Need{
 			ID: idString(row.ID), ProjectID: idString(row.ProjectID), Title: row.Title, Description: row.DescriptionMd,
 			Lang: row.Language, Status: row.Status, Skills: orEmpty(row.Skills), CreatedAt: row.CreatedAt.Time,
+		}
+		if row.ViewerApplicationID.Valid {
+			out[i].ViewerApplication = &domain.ViewerApplication{ID: idString(row.ViewerApplicationID), Status: row.ViewerApplicationStatus.String}
 		}
 	}
 	return out, nil

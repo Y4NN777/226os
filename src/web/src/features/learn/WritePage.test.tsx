@@ -4,6 +4,8 @@ import { describe, expect, it } from 'vitest';
 import type { components } from '../../api/schema';
 import { callsTo, memberSession, mockApi, problemResponse } from '../../test/api';
 import { jsonResponse, renderApp, setLanguages } from '../../test/render';
+import { selectSegment } from '../../test/segmented';
+import { findVisibleAlert, findVisibleText } from '../../test/visibleText';
 
 type Article = components['schemas']['Article'];
 
@@ -41,8 +43,8 @@ function ok() {
 
 /** Pastes rather than types: one event per field keeps these form tests fast on a loaded machine. */
 async function fillIn(field: HTMLElement, text: string) {
-  await userEvent.click(field);
-  await userEvent.paste(text);
+  await userEvent.setup({ delay: null }).click(field);
+  await userEvent.setup({ delay: null }).paste(text);
 }
 
 async function fillRequired(title = 'Vérifier un webhook signé') {
@@ -55,7 +57,7 @@ async function fillRequired(title = 'Vérifier un webhook signé') {
 }
 
 async function publish() {
-  await userEvent.click(screen.getByRole('button', { name: 'Publier' }));
+  await userEvent.setup({ delay: null }).click(screen.getByRole('button', { name: 'Publier' }));
 }
 
 async function bodyOf(request: Request) {
@@ -98,7 +100,7 @@ describe('ecrire page', () => {
     await renderApp('/ecrire');
     await fillRequired();
     await publish();
-    expect(await screen.findByRole('alert')).toBeVisible();
+    expect(await findVisibleAlert()).toBeVisible();
     await publish();
     await screen.findByRole('heading', { name: 'Votre article est publié' });
 
@@ -107,6 +109,25 @@ describe('ecrire page', () => {
     );
     expect(keys).toHaveLength(2);
     expect(keys[0]).toBe(keys[1]);
+  });
+
+  it('sends one request on a double click of Publier', async () => {
+    setLanguages(['fr-FR']);
+    const fetchMock = mockApi({
+      ...member,
+      'POST /learn/articles': () =>
+        new Promise<Response>((resolve) => {
+          setTimeout(() => {
+            resolve(ok());
+          }, 50);
+        }),
+    });
+    await renderApp('/ecrire');
+    await fillRequired();
+    // Default delay on purpose: the guard is asserted for two clicks a tick apart, as a user makes.
+    await userEvent.dblClick(screen.getByRole('button', { name: 'Publier' }));
+    await screen.findByRole('heading', { name: 'Votre article est publié' });
+    expect(callsTo(fetchMock, 'POST /learn/articles')).toHaveLength(1);
   });
 
   it('uses a different key once the content changed, since the server refuses a reused key', async () => {
@@ -120,7 +141,7 @@ describe('ecrire page', () => {
     await renderApp('/ecrire');
     await fillRequired();
     await publish();
-    await screen.findByRole('alert');
+    await findVisibleAlert();
     await fillIn(screen.getByRole('textbox', { name: /^Titre/ }), ' (suite)');
     await publish();
     await screen.findByRole('heading', { name: 'Votre article est publié' });
@@ -174,7 +195,7 @@ describe('ecrire page', () => {
     await fillRequired();
     await publish();
 
-    expect(await screen.findByRole('alert')).toBeVisible();
+    expect(await findVisibleAlert()).toBeVisible();
     expect(
       fetchMock.mock.calls.some(([input]) =>
         String(input instanceof Request ? input.url : input).includes('evil'),
@@ -227,12 +248,12 @@ describe('ecrire page', () => {
     await renderApp('/ecrire');
     await fillRequired();
     await fillIn(screen.getByRole('textbox', { name: /^Résumé/ }), 'Un résumé court.');
-    await userEvent.click(screen.getByRole('radio', { name: 'Tutoriel' }));
-    await userEvent.click(screen.getByRole('radio', { name: 'Avancé' }));
-    await userEvent.click(screen.getByRole('combobox', { name: /Sujet/ }));
-    await userEvent.click(
-      await screen.findByRole('option', { name: 'Construire et évaluer des agents' }),
-    );
+    await selectSegment(screen.getByRole('radio', { name: 'Tutoriel' }));
+    await selectSegment(screen.getByRole('radio', { name: 'Avancé' }));
+    await userEvent.setup({ delay: null }).click(screen.getByRole('combobox', { name: /Sujet/ }));
+    await userEvent
+      .setup({ delay: null })
+      .click(await screen.findByRole('option', { name: 'Construire et évaluer des agents' }));
     await publish();
     await screen.findByRole('heading', { name: 'Votre article est publié' });
 
@@ -249,7 +270,9 @@ describe('ecrire page', () => {
     setLanguages(['fr-FR']);
     mockApi(member);
     await renderApp('/ecrire');
-    await userEvent.click(await screen.findByRole('combobox', { name: /Sujet/ }));
+    await userEvent
+      .setup({ delay: null })
+      .click(await screen.findByRole('combobox', { name: /Sujet/ }));
     const options = await screen.findAllByRole('option');
     expect(options).toHaveLength(14);
   });
@@ -264,7 +287,7 @@ describe('ecrire page', () => {
     await fillIn(screen.getByRole('textbox', { name: /^Title/ }), 'Verify a signed webhook');
     await fillIn(screen.getByRole('textbox', { name: /^Content/ }), 'Compute the HMAC.');
     await fillIn(screen.getByRole('textbox', { name: /^Keywords/ }), 'go');
-    await userEvent.click(screen.getByRole('button', { name: 'Publish' }));
+    await userEvent.setup({ delay: null }).click(screen.getByRole('button', { name: 'Publish' }));
     await screen.findByRole('heading', { name: 'Your article is published' });
 
     const [request] = callsTo(fetchMock, 'POST /learn/articles');
@@ -317,9 +340,9 @@ describe('ecrire page', () => {
       const fetchMock = mockApi({ ...member, 'POST /learn/articles': ok });
       await renderApp(`/ecrire?link=resource:${questionId}`);
       await fillRequired();
-      await userEvent.click(
-        screen.getByRole('button', { name: 'Retirer le lien « API ou outil »' }),
-      );
+      await userEvent
+        .setup({ delay: null })
+        .click(screen.getByRole('button', { name: 'Retirer le lien « API ou outil »' }));
       expect(screen.queryByText('API ou outil')).not.toBeInTheDocument();
       await publish();
       await screen.findByRole('heading', { name: 'Votre article est publié' });
@@ -359,7 +382,7 @@ describe('ecrire page', () => {
       await publish();
 
       expect(
-        await screen.findByText('Ce lien n’est pas accepté. Retirez-le, puis publiez à nouveau.'),
+        await findVisibleText('Ce lien n’est pas accepté. Retirez-le, puis publiez à nouveau.'),
       ).toBeVisible();
     });
   });
@@ -406,7 +429,9 @@ describe('ecrire page', () => {
     setLanguages(['fr-FR']);
     mockApi(member);
     await renderApp('/');
-    await userEvent.click(await screen.findByRole('button', { name: 'Awa Traoré' }));
+    await userEvent
+      .setup({ delay: null })
+      .click(await screen.findByRole('button', { name: 'Awa Traoré' }));
     expect(await screen.findByRole('menuitem', { name: 'Écrire un article' })).toHaveAttribute(
       'href',
       '/ecrire',
@@ -424,7 +449,9 @@ describe('ecrire page', () => {
       'href',
       `/apprendre/articles/${articleId}`,
     );
-    await userEvent.click(screen.getByRole('button', { name: 'Écrire un autre article' }));
+    await userEvent
+      .setup({ delay: null })
+      .click(screen.getByRole('button', { name: 'Écrire un autre article' }));
     expect(await screen.findByRole('textbox', { name: /^Titre/ })).toHaveValue('');
   });
 });

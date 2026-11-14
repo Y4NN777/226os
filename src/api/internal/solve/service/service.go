@@ -53,7 +53,7 @@ const (
 // and domain.ErrUnknownCountry when a link target or the country is not usable.
 type Store interface {
 	ListQuestions(ctx context.Context, q domain.QuestionQuery) ([]domain.Question, error)
-	GetQuestion(ctx context.Context, id string) (domain.Question, error)
+	GetQuestion(ctx context.Context, id, viewerID string) (domain.Question, error)
 	CreateQuestion(ctx context.Context, in domain.NewQuestion) (domain.Question, error)
 	UpdateQuestion(ctx context.Context, id string, patch domain.QuestionPatch, guard func(domain.Question) error) (domain.Question, error)
 	ListAnswers(ctx context.Context, q domain.AnswerQuery) ([]domain.Answer, error)
@@ -152,16 +152,19 @@ func New(store Store, cursors Cursors, limiter Limiter) *Service {
 	return &Service{store: store, cursors: cursors, limiter: limiter}
 }
 
-// ETag is the strong entity tag of a question: its id and updated_at, which only an edit of the
-// question changes. Answers, votes and acceptance (answer_count, vote_score, accepted_answer_id) do not
-// touch updated_at, so they do not make an author's tag stale.
-func ETag(q domain.Question) string {
-	return etag.Tag(q.ID, q.UpdatedAt.UTC().Format(time.RFC3339Nano))
+// ETag is the strong entity tag of a question as the viewer (the session subject's id, empty when
+// anonymous) sees it: the question's id and updated_at, which only an edit of the question changes, and
+// the viewer, because viewer_vote is part of the representation. Answers, votes and acceptance
+// (answer_count, vote_score, accepted_answer_id, viewer_vote) do not touch updated_at, so they do not make
+// an author's tag stale; the tag never depends on the votes table, so If-Match keeps validating the
+// question version, recomputed on the locked row for the caller.
+func ETag(q domain.Question, viewerID string) string {
+	return etag.Tag(q.ID, q.UpdatedAt.UTC().Format(time.RFC3339Nano), viewerID)
 }
 
 // ListQuestions returns one page of published questions: newest first, or with q the most relevant
 // first, then newest.
-func (s *Service) ListQuestions(ctx context.Context, req QuestionListRequest) (QuestionPage, error) {
+func (s *Service) ListQuestions(ctx context.Context, sub subject.Subject, req QuestionListRequest) (QuestionPage, error) {
 	q, err := textFilter(req.Q)
 	if err != nil {
 		return QuestionPage{}, err
@@ -178,7 +181,7 @@ func (s *Service) ListQuestions(ctx context.Context, req QuestionListRequest) (Q
 	}
 	query := domain.QuestionQuery{
 		Q: q, Tag: deref(req.Tag), State: deref(req.State), Country: deref(req.Country), Lang: deref(req.Lang),
-		Limit: size + 1,
+		ViewerID: sub.UserID, Limit: size + 1,
 	}
 	hash := lengthPrefixed("question", query.Q, query.Tag, query.State, query.Country, query.Lang)
 	if req.Cursor != "" {
@@ -209,8 +212,8 @@ func (s *Service) ListQuestions(ctx context.Context, req QuestionListRequest) (Q
 }
 
 // GetQuestion returns a published question; unknown and removed are the same 404.
-func (s *Service) GetQuestion(ctx context.Context, id string) (domain.Question, error) {
-	q, err := s.store.GetQuestion(ctx, id)
+func (s *Service) GetQuestion(ctx context.Context, sub subject.Subject, id string) (domain.Question, error) {
+	q, err := s.store.GetQuestion(ctx, id, sub.UserID)
 	if err != nil {
 		return domain.Question{}, readErr(err)
 	}
@@ -260,7 +263,7 @@ func (s *Service) UpdateQuestion(ctx context.Context, sub subject.Subject, id st
 		if cur.Author.ID != sub.UserID {
 			return domain.ErrForbidden
 		}
-		return check(ETag(cur))
+		return check(ETag(cur, sub.UserID))
 	}
 	q, err := s.store.UpdateQuestion(ctx, id, patch, guard)
 	var precondition *apperr.Error
@@ -285,12 +288,12 @@ func (s *Service) UpdateQuestion(ctx context.Context, sub subject.Subject, id st
 // this walk and shows first in the next. Every answer that did not change position is returned exactly
 // once, in order. A client walking the pages de-duplicates by id and refreshes from the first page to
 // see the current order.
-func (s *Service) ListAnswers(ctx context.Context, req AnswerListRequest) (AnswerPage, error) {
+func (s *Service) ListAnswers(ctx context.Context, sub subject.Subject, req AnswerListRequest) (AnswerPage, error) {
 	size, err := pageSize(req.Limit)
 	if err != nil {
 		return AnswerPage{}, err
 	}
-	query := domain.AnswerQuery{QuestionID: req.QuestionID, Limit: size + 1}
+	query := domain.AnswerQuery{QuestionID: req.QuestionID, ViewerID: sub.UserID, Limit: size + 1}
 	hash := lengthPrefixed("answers", req.QuestionID)
 	if req.Cursor != "" {
 		p, err := s.cursors.Decode(req.Cursor, hash)
@@ -376,6 +379,8 @@ func (s *Service) RetractVote(ctx context.Context, sub subject.Subject, targetTy
 	return s.vote(ctx, sub, domain.Vote{UserID: sub.UserID, TargetType: targetType, TargetID: targetID})
 }
 
+// vote spends one write before the store looks the target up, on purpose: the budget bounds every attempt
+// that reaches the database, so an unknown id costs the caller a write like any other (#155).
 func (s *Service) vote(ctx context.Context, sub subject.Subject, v domain.Vote) (domain.VoteState, error) {
 	if err := s.hit(ctx, sub); err != nil {
 		return domain.VoteState{}, err
@@ -680,6 +685,8 @@ func writeErr(err error) error {
 	switch {
 	case errors.Is(err, domain.ErrLinkTarget):
 		return invalid("/links", "invalid_value", "each link must point to a published, public item.")
+	case errors.Is(err, domain.ErrTagUnavailable):
+		return invalid("/tags", "invalid_value", "each tag must be a tag you can use.")
 	case errors.Is(err, domain.ErrUnknownCountry):
 		return invalid("/country", "invalid_value", "country must be a known country code.")
 	}
