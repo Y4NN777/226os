@@ -81,8 +81,23 @@ head_sha=0123456789abcdef0123456789abcdef01234567
 comments '[]'
 HEAD_SHA="$head_sha" JSON='{"body":"Triage: NONE | blast radius: x\n\nok\n\n<details><summary>Review ledger</summary>\n\n```json\n{\"sha\":\"fedcba9876543210fedcba9876543210fedcba98\",\"findings\":[{\"id\":\"f1\",\"status\":\"open\"}]}\n```\n\n</details>"}' run
 [ "$(ledger_sha)" = "$head_sha" ] && grep -q '"f1"' <<<"$(posted_body)" && ok "the model's ledger sha is overwritten with PR_HEAD_SHA, its findings kept" || ko "ledger sha ($(posted_body))"
+# read_ledger: the ledger the next run reads from the posted body (scripts/review-context.py), or "none".
+read_ledger() {
+  posted_body | python3 -I -c '
+import importlib.util, json, sys
+spec = importlib.util.spec_from_file_location("rc", sys.argv[1]); m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+led = m.parse_ledger([{"user": {"login": "github-actions[bot]"}, "body": sys.stdin.read()}])
+print(led["sha"] if led else "none")' "$root/scripts/review-context.py"
+}
+# A missing, bare (no <details>) or broken ledger is never replaced by an empty one at the head: the next run is first.
 HEAD_SHA="$head_sha" JSON='{"body":"Triage: NONE | blast radius: x\n\nno ledger written"}' run
-[ "$(ledger_sha)" = "$head_sha" ] && ok "a review without a ledger gets one at the head, with no findings" || ko "added ledger ($(posted_body))"
+[ "$(read_ledger)" = "none" ] && ok "a review without a ledger gets none (no empty ledger at the head): the next run is first" || ko "no ledger ($(posted_body))"
+HEAD_SHA="$head_sha" JSON='{"body":"Triage: NONE | blast radius: x\n\n```json\n{\"sha\":\"fedcba9876543210fedcba9876543210fedcba98\",\"findings\":[]}\n```"}' run
+[ "$(read_ledger)" = "none" ] && ok "a bare ledger (no <details>) is not usable: no ledger at the head" || ko "bare ledger ($(posted_body))"
+HEAD_SHA="$head_sha" JSON='{"body":"Triage: NONE | blast radius: x\n\n<!-- review-ledger {\"sha\":\"fedcba9876543210fedcba9876543210fedcba98\",\"findings\":[]} -->"}' run
+[ "$(read_ledger)" = "none" ] && ok "a hidden-comment ledger with the model's sha is dropped, not trusted" || ko "legacy ledger ($(posted_body))"
+HEAD_SHA="$head_sha" JSON='{"body":"Triage: NONE | blast radius: x\n\n<details><summary>Review ledger</summary>\n\n```json\n{not json\n```\n\n</details>"}' run
+[ "$(read_ledger)" = "none" ] && ok "a broken ledger JSON is not replaced by an empty ledger at the head" || ko "broken ledger ($(posted_body))"
 
 # No usable review (empty, invalid, timed out): a NOT RUN marker comment, so nothing looks reviewed. The previous
 # ledger (last reviewed commit and findings) is carried unchanged, so the commits not reviewed are reviewed next time.
@@ -95,6 +110,23 @@ HEAD_SHA="$head_sha" OUTCOME=failure JSON='{}' run
 pb="$(posted_body)"
 [ "$rc" -eq 0 ] && grep -q '^api -X PATCH repos/o/r/issues/comments/2$' <<<"$calls" && [ "$(sed -n 1p <<<"$pb")" = "Triage: NOT RUN | the review step ended with failure and returned no text" ] && [ "$(sed -n 2p <<<"$pb")" = "<!-- 226os-ai-review -->" ] && ok "no review text (timeout or failure): the marker comment says Triage: NOT RUN with the reason" || ko "not run comment (rc=$rc $calls $pb)"
 [ "$(ledger_sha)" = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" ] && grep -q '"keep"' <<<"$pb" && ok "a NOT RUN comment carries the previous ledger, never the head" || ko "not run ledger ($pb)"
+# A CRITICAL stays a CRITICAL when the next push gives no review (max turns, timeout): the gate still blocks.
+python3 -I - "$tmp/comments.json" <<'PY'
+import json, sys
+body = ("Triage: CRITICAL | blast radius: the whole team\n<!-- 226os-ai-review -->\nTool: PASS (1 files)\n\n"
+        "OBSERVED: src/api/config.go:12 holds a literal API key.\n\n<details><summary>Review ledger</summary>\n\n```json\n"
+        + json.dumps({"sha": "b" * 40, "findings": [{"id": "key", "sev": "CRITICAL", "status": "open"}]}) + "\n```\n</details>")
+json.dump([{"id": 2, "node_id": "N2", "user": {"login": "github-actions[bot]"}, "body": body, "updated_at": "2026-11-14T09:00:00Z"}], open(sys.argv[1], "w"))
+PY
+HEAD_SHA="$head_sha" OUTCOME=failure JSON='{}' run
+pb="$(posted_body)"
+verdict="$(python3 -I -c '
+import importlib.util, sys
+spec = importlib.util.spec_from_file_location("gate", sys.argv[1]); m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+found = m.latest_verdict([{"user": {"login": "github-actions[bot]"}, "body": sys.stdin.read()}])
+print(found[0] if found and "OBSERVED" in found[1] and m.EVIDENCE.search(found[1]) else "none")' "$root/scripts/review-gate.py" <<<"$pb")"
+[ "$verdict" = "CRITICAL" ] && grep -q 'NOT RUN' <<<"$pb" && [ "$(ledger_sha)" = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" ] && ok "CRITICAL, then a push with no review: the CRITICAL and its evidence stay, the gate still blocks" || ko "critical kept (verdict=$verdict $pb)"
+
 comments '[]'
 HEAD_SHA="$head_sha" JSON='{"body":"no verdict here"}' run
 pb="$(posted_body)"
