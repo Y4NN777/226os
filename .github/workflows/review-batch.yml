@@ -182,14 +182,15 @@ jobs:
           node-version-file: .nvmrc
 
       # make setup runs code the pull request controls: it gets a throwaway HOME, so it cannot plant a Claude user
-      # configuration (the Go module and build caches keep their real place, so the tests find them later). This is
+      # configuration (the Go caches, corepack and the pnpm store keep their real place, so later runs find them). This is
       # not a boundary (the code can still write anywhere it can reach); the prepare step below is.
       - name: Install from lockfiles (throwaway HOME)
         run: |
           real_home="$HOME"
           mkdir -p "$RUNNER_TEMP/setup-home"
           HOME="$RUNNER_TEMP/setup-home" GOPATH="$real_home/go" GOMODCACHE="$real_home/go/pkg/mod" \
-            GOCACHE="$real_home/.cache/go-build" make setup
+            GOCACHE="$real_home/.cache/go-build" COREPACK_HOME="$real_home/.cache/node/corepack" \
+            XDG_DATA_HOME="$real_home/.local/share" XDG_CACHE_HOME="$real_home/.cache" make setup
 
       # go test and pnpm (through fixer-run) run without network when unprivileged user namespaces are allowed; make
       # targets keep the network (Docker) and the model needs it for the API.

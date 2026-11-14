@@ -13,8 +13,9 @@ whether its commits may be pushed. The workflows only call this script; the mode
          batch" issue when the batch step created or updated it (BATCH_RESULT; FORCE=true on a manual run), unless a
          pull request from a fix/review/batch-* branch into develop is already open. Branch fix/review/batch-TODAY,
          with a -2, -3... suffix when that branch exists.
-  prepare  right before the model, after `make setup`: wipes ~/.claude, ~/.claude.json and ~/.config/claude* and
-         restores .claude, CLAUDE.md, .mcp.json and the other Claude configuration paths from SOURCE_REF (work tree only).
+  prepare  right before the model, after `make setup`: wipes ~/.claude, ~/.claude.json and claude* in ~/.config,
+         ~/.cache and ~/.local/share, restores .claude, CLAUDE.md, .mcp.json and the other Claude configuration paths
+         from SOURCE_REF (work tree only) and marks them skip-worktree so `git add -A` never stages them.
   apply  the trusted job's way in: validates the patch files of PATCH_DIR (at most 20, at most 1 MB in all, names
          NNNN-slug.patch), then applies each one with `git apply --index` and commits it itself as EXPECT_NAME
          <EXPECT_EMAIL> (author and committer), hooks off: the untrusted job's From: line is never trusted.
@@ -22,7 +23,8 @@ whether its commits may be pushed. The workflows only call this script; the mode
          committer is EXPECT_NAME <EXPECT_EMAIL>; no Co-authored-by trailer and no "Generated with" line; no symbolic
          link, submodule, file mode change, binary change or new executable outside scripts/; and every changed path,
          on BOTH sides of a change (renames split, paths read NUL-separated), is in the ALLOWLIST src/** (minus the web
-         build, lint, format, type and threshold configuration and package.json), db/queries/**, scripts/tests/**,
+         build, lint, format, type and threshold configuration, package.json, Dockerfiles, nginx, index.html,
+         public/, the contract copy and generated code), db/queries/**, scripts/tests/**,
          docs/ai-usage/** and TODO.md. The deny list stays as a second layer: the contract (R7),
          migrations (R6), ADRs, docs/quality, secrets, .env files, any .npmrc, .github, the Claude harness, Make files,
          the review, findings, coverage and check scripts, the route and secret-scan lists, the owner's preferences.
@@ -77,8 +79,13 @@ FORBIDDEN_NAMES = (".npmrc",)
 # format, type and test-threshold configuration and the package manifest stay the owner's too.
 ALLOWED_PREFIX = ("src/", "db/queries/", "scripts/tests/", "docs/ai-usage/")
 ALLOWED_EXACT = ("TODO.md",)
-OWNER_IN_SRC = re.compile(r"^src/web/(package\.json|(vite|vitest|eslint|prettier)\.config\.[cm]?[jt]s|\.eslintrc.*|"
-                          r"\.prettierrc.*|tsconfig.*\.json)$")
+OWNER_IN_SRC = re.compile(
+    r"^src/(api|web)/(Dockerfile[^/]*|\.dockerignore)$"
+    r"|^src/web/(package\.json|(vite|vitest|eslint|prettier)\.config\.[cm]?[jt]s|\.eslintrc[^/]*|\.prettierrc[^/]*"
+    r"|\.prettierignore|tsconfig[^/]*\.json|index\.html)$"
+    r"|^src/web/(nginx|public)/"  # deployment configuration, files served as is
+    r"|^src/api/internal/platform/(apispec|apigen)/|^src/web/src/api/schema\.d\.ts$"  # the contract copy, generated code
+    r"|^.*\.gen\.[^/]+$")
 CLAUDE_CONFIG = (".claude", ".mcp.json", ".claude.json", ".gitmodules", ".ripgreprc", "CLAUDE.md", "CLAUDE.local.md", ".husky")
 HOME_CONFIG = (".claude", ".claude.json")
 # The wrapper of the fixer's commands (`run`): allowlists of subcommands, options and flags (defence in depth).
@@ -438,10 +445,11 @@ def cmd_prepare():
         elif os.path.isdir(path):
             shutil.rmtree(path)
 
-    config = os.path.join(home, ".config")
     targets = [os.path.join(home, n) for n in HOME_CONFIG]
-    if os.path.isdir(config):
-        targets += [os.path.join(config, n) for n in os.listdir(config) if n.startswith("claude")]
+    for sub in (".config", ".cache", os.path.join(".local", "share")):
+        folder = os.path.join(home, sub)
+        if os.path.isdir(folder):
+            targets += [os.path.join(folder, n) for n in os.listdir(folder) if n.startswith("claude")]
     for path in targets:
         remove(path)
     for path in CLAUDE_CONFIG:
@@ -450,6 +458,12 @@ def cmd_prepare():
         if exists:
             subprocess.run([git, "-C", worktree, "restore", "--source=%s" % ref, "--worktree", "--", path],
                            capture_output=True, timeout=60, check=True)
+    # The restore is a working-tree change only: mark the tracked config files skip-worktree so a later `git add -A`
+    # stages neither the restore nor a deletion (the guard refuses those paths anyway).
+    listed = subprocess.run([git, "-C", worktree, "ls-files", "-z", "--", *CLAUDE_CONFIG], capture_output=True, timeout=60, check=True)
+    tracked = [f for f in listed.stdout.decode("utf-8", "surrogateescape").split("\x00") if f]
+    if tracked:
+        subprocess.run([git, "-C", worktree, "update-index", "--skip-worktree", "--", *tracked], capture_output=True, timeout=60, check=True)
     print("autofix prepare: home Claude configuration wiped; project configuration restored from %s" % ref)
     return 0
 

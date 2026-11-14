@@ -279,7 +279,10 @@ for owner in .golangci.yml scripts/semgrep/rules.yml scripts/sast-js.sh scripts/
     scripts/quality.sh scripts/review.sh scripts/router-middleware.txt scripts/authz/matrix.txt .opencodereview/rule.json \
     .semgrep.yml eslint.config.js .prettierrc tsconfig.json src/web/eslint.config.js src/web/.prettierrc \
     src/web/tsconfig.json src/web/tsconfig.app.json src/web/vite.config.ts src/web/vitest.config.ts src/web/package.json \
-    package.json pnpm-lock.yaml go.mod README.md docs/SPEC.md; do
+    package.json pnpm-lock.yaml go.mod README.md docs/SPEC.md src/api/Dockerfile src/web/Dockerfile src/api/.dockerignore \
+    src/web/.dockerignore src/web/nginx/default.conf src/web/index.html src/web/.prettierignore \
+    src/api/internal/platform/apispec/openapi.yaml src/api/internal/platform/apigen/api.go src/web/src/api/schema.d.ts \
+    src/web/src/features/x.gen.ts src/api/internal/x.gen.go src/web/public/robots.txt; do
   mkdir -p "$repo/$(dirname "$owner")"; echo x >>"$repo/$owner"; g add -f "$owner"; g commit -qm "fix: owner"
   check
   [ "$rc" -ne 0 ] && grep -q "$owner" <<<"$out" && ok "allowlist: $owner is the owner's" || ko "allowlist $owner (rc=$rc $out)"
@@ -313,13 +316,17 @@ gp switch -q -c pr
 echo evil >"$prep/.claude/settings.json"; echo hook >"$prep/.claude/hook.py"; echo '{}' >"$prep/.mcp.json"; echo evil >"$prep/CLAUDE.md"
 gp add -A; gp commit -qm pr
 echo b >>"$prep/a.go"; echo local >"$prep/.claude/settings.local.json"
-mkdir -p "$fakehome/.claude" "$fakehome/.config/claude-code" "$fakehome/.config/other"
+mkdir -p "$fakehome/.claude" "$fakehome/.config/claude-code" "$fakehome/.config/other" "$fakehome/.cache/claude-cli" "$fakehome/.local/share/claude"
+echo x >"$fakehome/.cache/claude-cli/x"; echo x >"$fakehome/.local/share/claude/x"
 echo hook >"$fakehome/.claude/settings.json"; echo '{}' >"$fakehome/.claude.json"; echo x >"$fakehome/.config/claude-code/x"; echo keep >"$fakehome/.config/other/k"
 run prepare SOURCE_REF=origin/main WORKTREE="$prep" HOME="$fakehome"
 [ "$rc" -eq 0 ] && [ "$(cat "$prep/.claude/settings.json")" = base ] && [ "$(cat "$prep/CLAUDE.md")" = base ] && ok "prepare: .claude and CLAUDE.md come from the ref" || ko "prepare restore (rc=$rc $out)"
 [ ! -e "$prep/.claude/hook.py" ] && [ ! -e "$prep/.mcp.json" ] && [ ! -e "$prep/.claude/settings.local.json" ] && ok "prepare: files the ref does not have are removed (hook, .mcp.json, settings.local.json)" || ko "prepare remove ($(ls -A "$prep" "$prep/.claude"))"
-[ ! -e "$fakehome/.claude" ] && [ ! -e "$fakehome/.claude.json" ] && [ ! -e "$fakehome/.config/claude-code" ] && [ -e "$fakehome/.config/other/k" ] && ok "prepare: the home Claude config is wiped, nothing else in home" || ko "prepare home ($(ls -A "$fakehome" "$fakehome/.config"))"
+[ ! -e "$fakehome/.claude" ] && [ ! -e "$fakehome/.claude.json" ] && [ ! -e "$fakehome/.config/claude-code" ] && [ ! -e "$fakehome/.cache/claude-cli" ] && [ ! -e "$fakehome/.local/share/claude" ] && [ -e "$fakehome/.config/other/k" ] && ok "prepare: the home Claude config is wiped, nothing else in home" || ko "prepare home ($(ls -A "$fakehome" "$fakehome/.config"))"
 [ "$(git -C "$prep" diff --cached --name-only | wc -l)" -eq 0 ] && grep -q '^b$' "$prep/a.go" && ok "prepare: nothing staged, the fixer's work tree is kept" || ko "prepare index"
+git -C "$prep" add -A
+[ -z "$(git -C "$prep" diff --cached --name-only -- .claude CLAUDE.md .mcp.json)" ] && ok "prepare: a later git add -A does not stage the restored configuration" || ko "prepare add -A ($(git -C "$prep" diff --cached --name-only))"
+git -C "$prep" reset -q
 run prepare SOURCE_REF=origin/main WORKTREE="$prep" HOME=/
 [ "$rc" -ne 0 ] && ok "prepare: refuses a HOME of /" || ko "prepare home root (rc=$rc)"
 
