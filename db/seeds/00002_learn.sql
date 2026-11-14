@@ -165,7 +165,7 @@ ON CONFLICT DO NOTHING;
 -- 6. training_series
 INSERT INTO training_series (id, author_id, origin, title, summary, language, level, topic_code, status, provenance, published_at, removed_at, created_at, updated_at) VALUES
   ('01900000-0000-7000-8000-000000000801', '01900000-0000-7000-8000-000000000003', 'platform', 'Premiers pas avec les webhooks',
-   'Quatre leçons pour intégrer sereinement les webhooks : comprendre l''événement, vérifier la signature, rendre le traitement idempotent, puis tester et rejouer. Un parcours court pour les développeuses et développeurs qui branchent une API de paiement ou de messagerie sur une connexion instable.',
+   'Quatre leçons pour intégrer sereinement les webhooks : comprendre l''événement, vérifier la signature, rendre le traitement idempotent, puis tester et rejouer. Un parcours court pour qui branche une API de paiement ou de messagerie sur une connexion instable.',
    'fr', 'beginner', 'api-integration', 'published', 'demo', '2026-11-13T18:00:00Z', NULL, '2026-11-13T18:00:00Z', '2026-11-13T18:00:00Z')
 ON CONFLICT (id) DO NOTHING;
 

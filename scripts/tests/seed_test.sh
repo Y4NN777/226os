@@ -12,17 +12,16 @@ root="$(cd "$here/../.." && pwd)"
 source "$here/lib.sh"
 
 tmp="$(mktemp -d)"
-seeds_dir="$root/db/seeds"
-seed_file="$seeds_dir/00099_seed_test.sql"
-created_seeds_dir=0
+trap 'rm -rf "$tmp"' EXIT
 
-cleanup() {
-  rm -f "$seed_file"
-  # Only remove db/seeds when this test created it and nothing else was left in it.
-  if [ "$created_seeds_dir" -eq 1 ]; then rmdir "$seeds_dir" 2>/dev/null || true; fi
-  rm -rf "$tmp"
+# scratch_root DIR: a copy of the Makefile, mk/ and the two Compose wrapper scripts, so a run never reads
+# or writes the repository's db/seeds (a hard-killed run would otherwise leave a stray seed file behind).
+scratch_root() {
+  mkdir -p "$1/mk" "$1/scripts"
+  cp "$root/Makefile" "$1/Makefile"
+  cp "$root"/mk/*.mk "$1/mk/"
+  cp "$root/scripts/compose.sh" "$root/scripts/compose-env-guard.sh" "$1/scripts/"
 }
-trap cleanup EXIT
 
 mkdir "$tmp/bin"
 cat >"$tmp/bin/docker" <<'FAKE'
@@ -70,32 +69,47 @@ refused "APP_ENV=LOCAL-DEV (uppercase) is refused"
 run_seed "$root" APP_ENV=local-dev COMPOSE_PROFILES=staging-test --
 refused "COMPOSE_PROFILES=staging-test with APP_ENV=local-dev is refused"
 
-# A scratch copy of the Makefile and mk/ has no db/seeds at all, so the missing-seeds guard is proven even
-# once the repository ships real fixtures. Nothing reaches Docker, so scripts/ is not needed there.
+# The case-sensitivity message is only for a local-dev spelled with other letter cases.
+run_seed "$root" APP_ENV=Local-Dev --
+refused "APP_ENV=Local-Dev (mixed case) is refused"
+grep -q 'case-sensitive' <<<"$out" && ok "a mixed-case local-dev gets the case-sensitive message" \
+  || ko "a mixed-case local-dev gets the case-sensitive message (out=$out)"
+run_seed "$root" APP_ENV=123 --
+refused "APP_ENV=123 is refused"
+if grep -q 'only runs with APP_ENV=local-dev' <<<"$out" && ! grep -q 'case-sensitive' <<<"$out"; then
+  ok "a value with no letters gets the generic message"
+else ko "a value with no letters gets the generic message (out=$out)"; fi
+
+# A scratch root with no db/seeds at all, so the missing-seeds guard is proven even once the repository
+# ships real fixtures.
 scratch="$tmp/no-seeds-root"
-mkdir -p "$scratch/mk"
-cp "$root/Makefile" "$scratch/Makefile"
-cp "$root"/mk/*.mk "$scratch/mk/"
+scratch_root "$scratch"
 run_seed "$scratch" APP_ENV=local-dev COMPOSE_ENV_FILE="$tmp/env.local-dev" --
 refused "a missing db/seeds is refused"
 
-# Positive path: a temporary SQL file, a fake docker that captures argv and stdin.
-if [ ! -d "$seeds_dir" ]; then
-  mkdir "$seeds_dir"
-  created_seeds_dir=1
-fi
-printf 'SELECT 1;\n' >"$seed_file"
+# Positive path, in a scratch root with its own db/seeds: two files written out of order prove the lexical
+# order, and a fake docker captures argv and stdin.
+scratch="$tmp/seeds-root"
+scratch_root "$scratch"
+mkdir "$scratch/db" "$scratch/db/seeds"
+printf 'SELECT 2;\n' >"$scratch/db/seeds/00002_b.sql"
+printf 'SELECT 1;\n' >"$scratch/db/seeds/00001_a.sql"
 
-run_seed "$root" APP_ENV=local-dev COMPOSE_ENV_FILE="$tmp/env.local-dev" --
+run_seed "$scratch" APP_ENV=local-dev COMPOSE_ENV_FILE="$tmp/env.local-dev" --
 if [ "$rc" -eq 0 ] && grep -q 'psql -X -v ON_ERROR_STOP=1 -1' "$tmp/docker.log"; then
   ok "local-dev runs psql in one transaction with ON_ERROR_STOP"
 else
   ko "local-dev run (rc=$rc out=$out docker=$(cat "$tmp/docker.log" 2>/dev/null))"
 fi
-if grep -q 'SELECT 1;' "$tmp/stdin.log"; then
-  ok "the seed SQL is passed to psql on stdin"
+if [ "$(cat "$tmp/stdin.log" 2>/dev/null)" = $'SELECT 1;\nSELECT 2;' ]; then
+  ok "the seed SQL is passed to psql on stdin, in lexical file order"
 else
-  ko "the seed SQL was not passed on stdin (stdin=$(cat "$tmp/stdin.log" 2>/dev/null))"
+  ko "the seed SQL was not passed on stdin in lexical order (stdin=$(cat "$tmp/stdin.log" 2>/dev/null))"
+fi
+if [ -z "$(find "$root/db/seeds" -newer "$tmp/env.local-dev" -name '*.sql' 2>/dev/null)" ] && [ ! -e "$root/db/seeds/00099_seed_test.sql" ]; then
+  ok "the repository db/seeds is never written by this test"
+else
+  ko "the repository db/seeds was written by this test"
 fi
 
 finish

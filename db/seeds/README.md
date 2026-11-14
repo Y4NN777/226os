@@ -469,7 +469,7 @@ Tout écart avec ce contrat doit être signalé au orchestrateur avant écriture
 
 ## 12. Lancer et vérifier les seeds
 
-Sur une base `local-dev` démarrée et migrée (`make up-local-dev`) :
+Sur une base `local-dev` démarrée et migrée (`make up-local-dev`), neuve ou réinitialisée (`make db-reset`, réservé à `local-dev`). L'idempotence ne porte que sur les clés primaires : si la base contient déjà un tag, un nom d'utilisateur ou un email qu'utilisent les fixtures (par exemple le tag `api` ou `go`), une contrainte d'unicité échoue et tout le lot est annulé, sans écriture partielle.
 
 ```sh
 APP_ENV=local-dev make seed   # 107 lignes la première fois

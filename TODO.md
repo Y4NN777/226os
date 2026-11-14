@@ -407,8 +407,8 @@ Open owner items outside CADEV (IDs and decisions in ROADMAP section 8, 10 and 1
 - [x] Tests: seed provenance; demo accounts have no credentials; no votes or applications seeded; refusal tests for `staging-test` and `production-live`. Done: `src/api/internal/platform/pgtest/seed_integration_test.go` (counts, provenance, no credentials, no votes/applications/verification, `example.org` URLs, idempotence by per-table digest, no `now()`/`uuidv7()`) and `scripts/tests/seed_test.sh` (refusal matrix, no Docker before a refusal); `scripts/tests/make_test.sh` no longer lists `seed` as unimplemented.
 - **Allowed paths:** `db/seeds/**`, `mk/50-ops.mk` (the `seed` target, owner review). **Path extension requested from `Y4NN777` (not yet approved):** `scripts/tests/seed_test.sh`, `scripts/tests/make_test.sh` (one line), `src/api/internal/platform/pgtest/seed_integration_test.go`, `docs/ai-usage/2026-11-14-seed-demo-fixtures.md`, needed by the test and DoD items above. **DoD:** DoD-common plus `make seed` evidence on `local-dev`.
 - 2026-11-14 (12:00 checkpoint, ROADMAP section 14): kept for the 18:00 freeze, `local-dev` only, `PANK4SS` (issue #75).
-- 2026-11-14 (local, branch `feature/platform/demo-seeds`, not pushed): fixtures, `make seed`, tests done; `make seed` on `local-dev` inserted 107 rows, the second run 0. Open: the zero-demo G7 check (after deployment) and the path-extension approval.
-- **Status:** IN PROGRESS (built locally; PR pending the path-extension approval)
+- 2026-11-14 (branch `feature/platform/demo-seeds`, draft PR #215; review by `mibienpanjoe` addressed): fixtures, `make seed`, tests done; `make seed` on `local-dev` inserted 107 rows, the second run 0. Open: the zero-demo G7 check (after deployment) and the path-extension approval.
+- **Status:** IN PROGRESS (draft PR #215, CI green; waiting for the path-extension approval on #75)
 
 ---
 

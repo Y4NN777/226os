@@ -65,7 +65,7 @@ seed: ## Demo fixtures (local-dev only)
 	if [ "$$app_env" != local-dev ]; then \
 		if [[ "$$app_env" =~ [[:space:]] ]]; then \
 			echo "REFUSED: APP_ENV must not contain whitespace (got '$$app_env')" >&2; \
-		elif [ "$$app_env" = "$${app_env^^}" ]; then \
+		elif [ "$${app_env,,}" = local-dev ]; then \
 			echo "REFUSED: APP_ENV is case-sensitive and must be exactly local-dev (got '$$app_env')" >&2; \
 		else \
 			echo "REFUSED: seed only runs with APP_ENV=local-dev (got '$$app_env')" >&2; \
