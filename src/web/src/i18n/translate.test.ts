@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { catalogs, locales, type MessageKey } from './messages';
+import { catalogs, frenchParts, locales, type MessageKey } from './messages';
 import { translate } from './translate';
 
 describe('translate', () => {
@@ -25,6 +25,11 @@ describe('catalogs', () => {
   it('expose every locale with exactly the same keys', () => {
     expect(locales).toEqual(['fr', 'en']);
     expect(Object.keys(catalogs.en).sort()).toEqual(Object.keys(catalogs.fr).sort());
+  });
+
+  it('merges feature catalogues without any key overriding another', () => {
+    const total = frenchParts.reduce((sum, part) => sum + Object.keys(part).length, 0);
+    expect(Object.keys(catalogs.fr)).toHaveLength(total);
   });
 
   it('has no empty message', () => {

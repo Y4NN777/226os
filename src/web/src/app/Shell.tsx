@@ -43,7 +43,7 @@ function AccountArea({ onSignOut }: { onSignOut: () => void }) {
         button={{ label: user.display_name, variant: 'ghost' }}
         alignment="end"
         items={[
-          { label: t('account.settings'), href: '/settings' },
+          { label: t('account.settings'), href: '/parametres' },
           { type: 'divider' },
           languages,
           { type: 'divider' },
@@ -68,7 +68,7 @@ function AccountArea({ onSignOut }: { onSignOut: () => void }) {
         )}
         items={[
           { label: t('account.signUp'), href: '/inscription' },
-          { label: t('account.settings'), href: '/settings' },
+          { label: t('account.settings'), href: '/parametres' },
           { type: 'divider' },
           languages,
         ]}

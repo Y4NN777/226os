@@ -17,7 +17,7 @@ describe('WelcomePage', () => {
       '/discover',
     );
     expect(screen.getByRole('link', { name: 'Rechercher' })).toHaveAttribute('href', '/recherche');
-    expect(screen.getByRole('link', { name: 'Réglages' })).toHaveAttribute('href', '/settings');
+    expect(screen.getByRole('link', { name: 'Réglages' })).toHaveAttribute('href', '/parametres');
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
   });
 

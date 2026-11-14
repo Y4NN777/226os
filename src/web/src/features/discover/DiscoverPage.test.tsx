@@ -35,22 +35,39 @@ function searchOf(request: Request) {
 }
 
 describe('DiscoverPage', () => {
-  it('shows the West Africa view by default, hiding other regions and items without countries', async () => {
+  it('asks the server for West Africa in one request and shows what it returns', async () => {
     setLanguages(['fr-FR']);
-    const fetchMock = mockApi({ 'GET /resources': () => page([senegal, kenya, pan]) });
+    const fetchMock = mockApi({ 'GET /resources': () => page([senegal, ghana]) });
     await renderApp('/discover');
 
     expect(await screen.findByRole('link', { name: 'Wave Pay' })).toHaveAttribute(
       'href',
       '/discover/a0000000-0000-4000-8000-000000000001',
     );
-    expect(screen.queryByRole('link', { name: 'Safari Hub' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: 'Sans Pays' })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Accra Gate' })).toBeInTheDocument();
     expect(
       screen.getByText('Afrique de l’Ouest d’abord, puis toute l’Afrique'),
     ).toBeInTheDocument();
-    expect(listParams(fetchMock, 'first').get('limit')).toBe('50');
-    expect(listParams(fetchMock, 'first').has('country')).toBe(false);
+    const params = listParams(fetchMock, 'first');
+    expect(params.get('limit')).toBe('50');
+    // One comma-separated parameter (form, explode false), as the contract requires.
+    expect(params.getAll('country')).toEqual(['BJ,BF,CV,CI,GM,GH,GN,GW,LR,ML,MR,NE,NG,SN,SL,TG']);
+    expect(callsTo(fetchMock, 'GET /resources')).toHaveLength(1);
+  });
+
+  it('marks demo fixtures with a badge and live entries without one', async () => {
+    setLanguages(['fr-FR']);
+    const demo = resource({
+      id: 'a0000000-0000-4000-8000-000000000009',
+      name: 'Exemple Démo',
+      provenance: 'demo',
+    });
+    mockApi({ 'GET /resources': () => page([senegal, demo]) });
+    await renderApp('/discover');
+    const demoRow = rowOf(await screen.findByRole('link', { name: 'Exemple Démo' }));
+    expect(within(demoRow).getByText('Démo')).toBeInTheDocument();
+    const liveRow = rowOf(screen.getByRole('link', { name: 'Wave Pay' }));
+    expect(within(liveRow).queryByText('Démo')).not.toBeInTheDocument();
   });
 
   it('shows provider, countries, verification text, date and source count without invented metrics', async () => {
@@ -102,36 +119,22 @@ describe('DiscoverPage', () => {
     expect(within(claimed).queryByText(/Vérifié le/)).not.toBeInTheDocument();
   });
 
-  it('loads further pages until one more match shows up, then hides the button', async () => {
-    setLanguages(['fr-FR']);
-    const fetchMock = mockApi({
-      'GET /resources': (request) => {
-        const cursor = searchOf(request).get('cursor');
-        if (cursor === null) return page([senegal], 'c1');
-        if (cursor === 'c1') return page([kenya], 'c2');
-        return page([ghana], null);
-      },
-    });
-    await renderApp('/discover');
-    await screen.findByRole('link', { name: 'Wave Pay' });
-    expect(callsTo(fetchMock, 'GET /resources')).toHaveLength(1);
-
-    await userEvent.click(screen.getByRole('button', { name: 'Afficher plus' }));
-    expect(await screen.findByRole('link', { name: 'Accra Gate' })).toBeInTheDocument();
-    expect(callsTo(fetchMock, 'GET /resources')).toHaveLength(3);
-    expect(screen.queryByRole('link', { name: 'Safari Hub' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Afficher plus' })).not.toBeInTheDocument();
-  });
-
-  it('keeps fetching on first load while a page has no West African match', async () => {
+  it('loads the next page with its cursor and the same region, then hides the button', async () => {
     setLanguages(['fr-FR']);
     const fetchMock = mockApi({
       'GET /resources': (request) =>
-        searchOf(request).get('cursor') === null ? page([kenya], 'c1') : page([senegal]),
+        searchOf(request).get('cursor') === null ? page([senegal], 'c1') : page([ghana], null),
     });
     await renderApp('/discover');
-    expect(await screen.findByRole('link', { name: 'Wave Pay' })).toBeInTheDocument();
-    expect(callsTo(fetchMock, 'GET /resources')).toHaveLength(2);
+    await screen.findByRole('link', { name: 'Wave Pay' });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Afficher plus' }));
+    expect(await screen.findByRole('link', { name: 'Accra Gate' })).toBeInTheDocument();
+    const calls = callsTo(fetchMock, 'GET /resources');
+    expect(calls).toHaveLength(2);
+    expect(searchOf(calls[1] as Request).get('cursor')).toBe('c1');
+    expect(searchOf(calls[1] as Request).get('country')).toContain('BF');
+    expect(screen.queryByRole('button', { name: 'Afficher plus' })).not.toBeInTheDocument();
   });
 
   it('shows everything for "Toute l’Afrique" and keeps the filter in the URL', async () => {
@@ -230,7 +233,10 @@ describe('DiscoverPage', () => {
 
   it('offers the whole continent when the West Africa view is empty', async () => {
     setLanguages(['fr-FR']);
-    mockApi({ 'GET /resources': () => page([kenya]) });
+    mockApi({
+      // The server applies the region: nothing for West Africa, Kenya for the whole continent.
+      'GET /resources': (request) => (searchOf(request).has('country') ? page([]) : page([kenya])),
+    });
     const { router } = await renderApp('/discover');
     expect(await screen.findByText('Aucune fiche ne correspond')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Voir toute l’Afrique' }));

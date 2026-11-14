@@ -10,6 +10,7 @@ import { VStack } from '@astryxdesign/core/VStack';
 import { useParams } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 import { ApiError } from '../../api/http';
+import { DemoBadge } from '../../components/DemoBadge';
 import { ErrorState } from '../../components/ErrorState';
 import { LoadingState } from '../../components/LoadingState';
 import { useI18n } from '../../i18n/I18nProvider';
@@ -116,6 +117,7 @@ function Detail({ resource }: { resource: Resource }) {
           <Badge label={t(typeKey[resource.type])} />
           <Badge label={resource.category} />
           <VerificationBadge status={resource.verification_status} />
+          {resource.provenance === 'demo' ? <DemoBadge /> : null}
           {resource.last_verified_at && showsVerifiedDate(resource.verification_status) ? (
             <Text type="supporting">
               {t('discover.verifiedOn', { date: formatDate(resource.last_verified_at, locale) })}

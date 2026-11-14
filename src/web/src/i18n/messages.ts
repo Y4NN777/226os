@@ -1,5 +1,7 @@
 import * as discover from '../features/discover/messages';
+import * as home from '../features/home/messages';
 import * as identity from '../features/identity/messages';
+import * as landing from '../features/landing/messages';
 import * as search from '../features/search/messages';
 
 export type Locale = 'fr' | 'en';
@@ -58,6 +60,22 @@ const core = {
   'settings.language.label': 'Langue',
   'settings.language.fr': 'Français',
   'settings.language.en': 'English',
+  'settings.visibility.title': 'Visibilité du profil',
+  'settings.visibility.label': 'Qui peut voir votre profil ?',
+  'settings.visibility.bylines':
+    'Dans tous les cas, votre nom et votre identifiant restent affichés sur ce que vous publiez.',
+  'settings.visibility.public': 'Public',
+  'settings.visibility.public.hint': 'Tout le monde, même sans compte.',
+  'settings.visibility.members': 'Membres',
+  'settings.visibility.members.hint': 'Uniquement les membres connectés.',
+  'settings.visibility.private': 'Privé',
+  'settings.visibility.private.hint': 'Vous seul.',
+  'settings.visibility.save': 'Enregistrer la visibilité',
+  'settings.visibility.saved': 'Visibilité enregistrée.',
+  'settings.visibility.failed': 'La visibilité n’a pas été enregistrée',
+  'settings.visibility.soon':
+    'Bientôt disponible : ce réglage s’activera dès que les profils seront en ligne.',
+  'settings.visibility.signIn': 'Connectez-vous pour choisir qui voit votre profil',
   'form.name.label': 'Nom d’affichage',
   'form.name.description': 'Enregistré uniquement sur cet appareil, jamais envoyé au serveur.',
   'form.name.required': 'Saisissez un nom d’affichage.',
@@ -128,6 +146,21 @@ const coreEn: Record<keyof typeof core, string> = {
   'settings.language.label': 'Language',
   'settings.language.fr': 'Français',
   'settings.language.en': 'English',
+  'settings.visibility.title': 'Profile visibility',
+  'settings.visibility.label': 'Who can see your profile?',
+  'settings.visibility.bylines':
+    'Either way, your name and username still appear on what you publish.',
+  'settings.visibility.public': 'Public',
+  'settings.visibility.public.hint': 'Everyone, even without an account.',
+  'settings.visibility.members': 'Members',
+  'settings.visibility.members.hint': 'Signed-in members only.',
+  'settings.visibility.private': 'Private',
+  'settings.visibility.private.hint': 'Only you.',
+  'settings.visibility.save': 'Save visibility',
+  'settings.visibility.saved': 'Visibility saved.',
+  'settings.visibility.failed': 'The visibility was not saved',
+  'settings.visibility.soon': 'Coming soon: this setting turns on as soon as profiles are live.',
+  'settings.visibility.signIn': 'Sign in to choose who sees your profile',
   'form.name.label': 'Display name',
   'form.name.description': 'Saved on this device only, never sent to the server.',
   'form.name.required': 'Enter a display name.',
@@ -156,7 +189,14 @@ const coreEn: Record<keyof typeof core, string> = {
   'error.generic': 'Something went wrong. Try again in a moment.',
 };
 
-const fr = { ...core, ...identity.fr, ...discover.fr, ...search.fr };
+const fr = {
+  ...core,
+  ...identity.fr,
+  ...discover.fr,
+  ...search.fr,
+  ...landing.fr,
+  ...home.fr,
+};
 
 export type MessageKey = keyof typeof fr;
 
@@ -165,8 +205,20 @@ const en: Record<MessageKey, string> = {
   ...identity.en,
   ...discover.en,
   ...search.en,
+  ...landing.en,
+  ...home.en,
 };
 
 export type Catalogs = Record<Locale, Partial<Record<MessageKey, string>>>;
+
+/** The French catalogues before merging, so a test can prove no key is overridden. */
+export const frenchParts: readonly Record<string, string>[] = [
+  core,
+  identity.fr,
+  discover.fr,
+  search.fr,
+  landing.fr,
+  home.fr,
+];
 
 export const catalogs: Catalogs = { fr, en };
