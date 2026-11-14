@@ -516,8 +516,20 @@ def settle_pr(ctx, binary, repo, info):
     pr, body = info.get("number"), info.get("body") or ""
     m = re.search(r"^Batch:\s*#(\d+)", body, re.M)
     batch_no = m.group(1) if m else None
+    # Only the items of the linked batch issue (its batch-item markers, written by the batch run) are settled: a row
+    # naming any other issue, added by the model or by an edit of the body, is refused.
+    batch_issue = (ctx.gh_api(binary, "repos/%s/issues/%s" % (repo, batch_no)) or [{}])[0] if batch_no else {}
+    items = set()
+    if BATCH_LABEL in names(batch_issue.get("labels")) and BATCH_MARK in (batch_issue.get("body") or ""):
+        items = {mm.group(3) for mm in (BATCH_LINE.match(l) for l in (batch_issue.get("body") or "").splitlines()) if mm}
+    if not items:
+        print("findings settle: #%s names no batch issue with items: nothing to settle" % pr)
+        return False
     groups = {}
     for key, decision, reason in settle_rows(body):
+        if key not in items:
+            print("findings settle: %s is not an item of batch #%s: refused" % (key, batch_no))
+            continue
         number, _, note = key[1:].partition("/")
         groups.setdefault(number, []).append((note or None, decision, reason))
     for number, entries in groups.items():

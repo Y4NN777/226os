@@ -70,11 +70,13 @@ notes20 = ("<!-- finding:PR91#notes -->\nNotes of PR #91.\n\n"
 notes21 = ("<!-- finding:PR92#notes -->\nNotes of PR #92.\n\n"
            "- [ ] `n3` [INFERRED] `src/c.go:3` later\n- [ ] `n4` [OBSERVED] `src/d.go:4` not in the batch")
 held = finding(16, "e"); held["labels"].append({"name": "needs-owner"})
-issues = [finding(12, "a"), finding(13, "b"), finding(14, "c"), finding(15, "d"), held,
+issues = [finding(7, "not in the batch"), finding(12, "a"), finding(13, "b"), finding(14, "c"), finding(15, "d"), held,
           {"number": 20, "state": "open", "state_reason": None, "title": "PR91 notes", "labels": [{"name": "kind:note"}], "body": notes20, "comments": []},
           {"number": 21, "state": "open", "state_reason": None, "title": "PR92 notes", "labels": [{"name": "kind:note"}], "body": notes21, "comments": []},
           {"number": 40, "state": "open", "state_reason": None, "title": "Review batch 2026-11-14", "labels": [{"name": "review-batch"}],
-           "body": "<!-- review-batch -->\n# Review batch 2026-11-14\n", "comments": []}]
+           "body": "<!-- review-batch -->\n# Review batch 2026-11-14\n\n" + "\n".join(
+               "- [ ] %s x <!-- batch-item:%s -->" % (k, k) for k in ("#12", "#13", "#14", "#15", "#16", "#20/n1", "#20/n2", "#21/n3")),
+           "comments": []}]
 json.dump(issues, open(os.path.join(st, "issues.json"), "w"))
 body = "\n".join([
     "Fix pull request for the review batch #40.", "", "Batch: #40", "Sources: #12 #13 #14 #15 #16 #20 #21", "",
@@ -150,6 +152,26 @@ d = json.load(open(sys.argv[1])); d["head"].pop("repo"); json.dump(d, open(sys.a
 EOF
 run 163
 [ "$rc" -eq 0 ] && [ ! -s "$tmp/st/log" ] && ok "a pull request without a known head repository settles nothing" || ko "no head repo ($(cat "$tmp/st/log"))"
+
+setup
+python3 -I - "$tmp/st/pr.json" <<'EOF'
+import json, sys
+d = json.load(open(sys.argv[1])); d["body"] += "\n| #7 | #7 | FIXED | an edited row |\n| #12/x | #12 | FIXED | y |"; json.dump(d, open(sys.argv[1], "w"))
+EOF
+run 163
+[ "$(field 7 'x["state"]')" = "open" ] && [ "$(bot_comments 7)" -eq 0 ] && ! grep -q 'issues/7' "$tmp/st/log" && ok "a row naming an issue that is not an item of the batch (#7) is refused" || ko "outside the batch ($(field 7 'x["state"]') $(grep 'issues/7' "$tmp/st/log"))"
+[ "$(field 12 'x["state"], x["state_reason"]')" = "('closed', 'completed')" ] && ok "the batch items are still settled" || ko "items with an extra row"
+
+setup
+python3 -I - "$tmp/st/issues.json" <<'EOF'
+import json, sys
+d = json.load(open(sys.argv[1]))
+for x in d:
+    if x["number"] == 40: x["body"] = "<!-- review-batch -->\nno items"
+json.dump(d, open(sys.argv[1], "w"))
+EOF
+run 163
+[ ! -s "$tmp/st/log" ] && ok "a batch issue without items settles nothing" || ko "no items ($(cat "$tmp/st/log"))"
 
 setup
 FAKE_GH_FAIL=1 run 163

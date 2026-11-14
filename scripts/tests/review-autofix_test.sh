@@ -274,6 +274,55 @@ check
 [ "$rc" -ne 0 ] && grep -qi 'binary' <<<"$out" && ok "guard: a binary change is refused" || ko "binary (rc=$rc $out)"
 git -C "$repo" reset -q --hard HEAD~1
 
+# Allowlist: only src/**, db/queries/**, scripts/tests/**, docs/ai-usage/** and TODO.md; everything else is the owner's.
+for owner in .golangci.yml scripts/semgrep/rules.yml scripts/sast-js.sh scripts/secrets-scan.sh scripts/ci-scope.sh \
+    scripts/quality.sh scripts/review.sh scripts/router-middleware.txt scripts/authz/matrix.txt .opencodereview/rule.json \
+    .semgrep.yml eslint.config.js .prettierrc tsconfig.json src/web/eslint.config.js src/web/.prettierrc \
+    src/web/tsconfig.json src/web/tsconfig.app.json src/web/vite.config.ts src/web/vitest.config.ts src/web/package.json \
+    package.json pnpm-lock.yaml go.mod README.md docs/SPEC.md; do
+  mkdir -p "$repo/$(dirname "$owner")"; echo x >>"$repo/$owner"; g add -f "$owner"; g commit -qm "fix: owner"
+  check
+  [ "$rc" -ne 0 ] && grep -q "$owner" <<<"$out" && ok "allowlist: $owner is the owner's" || ko "allowlist $owner (rc=$rc $out)"
+  git -C "$repo" reset -q --hard HEAD~1
+done
+mkdir -p "$repo/db/queries" "$repo/scripts/tests" "$repo/docs/ai-usage" "$repo/src/web/src"
+for mine in db/queries/solve.sql scripts/tests/x_test.sh docs/ai-usage/2026-11-14-review-fix-pr1.md TODO.md src/web/src/x.tsx; do
+  echo x >>"$repo/$mine"; g add -f "$mine"
+done
+g commit -qm "fix: allowed"
+check
+[ "$rc" -eq 0 ] && ok "allowlist: src, db/queries, scripts/tests, docs/ai-usage and TODO.md may change" || ko "allowlist allowed (rc=$rc $out)"
+git -C "$repo" reset -q --hard HEAD~1
+printf '#!/bin/sh\n' >"$repo/src/run.sh"; chmod +x "$repo/src/run.sh"; g add src/run.sh; g commit -qm "fix: exec"
+check
+[ "$rc" -ne 0 ] && grep -qi 'executable' <<<"$out" && ok "guard: a new executable file outside scripts/ is refused" || ko "exec outside scripts (rc=$rc $out)"
+git -C "$repo" reset -q --hard HEAD~1
+mkdir -p "$repo/scripts/tests"; printf '#!/bin/sh\n' >"$repo/scripts/tests/new_test.sh"; chmod +x "$repo/scripts/tests/new_test.sh"
+g add scripts/tests/new_test.sh; g commit -qm "test: new"
+check
+[ "$rc" -eq 0 ] && ok "guard: a new executable test under scripts/tests/ is allowed" || ko "exec test (rc=$rc $out)"
+git -C "$repo" reset -q --hard HEAD~1
+
+# ---- prepare: right before the model, the home Claude config is wiped and the project config restored from a ref ----
+prep="$tmp/prep"; fakehome="$tmp/home"
+git init -q -b develop "$prep"
+gp() { git -C "$prep" -c user.name=t -c user.email=t@example.invalid "$@"; }
+mkdir -p "$prep/.claude"; echo base >"$prep/.claude/settings.json"; echo base >"$prep/CLAUDE.md"; echo a >"$prep/a.go"
+gp add -A; gp commit -qm base; gp update-ref refs/remotes/origin/main HEAD
+gp switch -q -c pr
+echo evil >"$prep/.claude/settings.json"; echo hook >"$prep/.claude/hook.py"; echo '{}' >"$prep/.mcp.json"; echo evil >"$prep/CLAUDE.md"
+gp add -A; gp commit -qm pr
+echo b >>"$prep/a.go"; echo local >"$prep/.claude/settings.local.json"
+mkdir -p "$fakehome/.claude" "$fakehome/.config/claude-code" "$fakehome/.config/other"
+echo hook >"$fakehome/.claude/settings.json"; echo '{}' >"$fakehome/.claude.json"; echo x >"$fakehome/.config/claude-code/x"; echo keep >"$fakehome/.config/other/k"
+run prepare SOURCE_REF=origin/main WORKTREE="$prep" HOME="$fakehome"
+[ "$rc" -eq 0 ] && [ "$(cat "$prep/.claude/settings.json")" = base ] && [ "$(cat "$prep/CLAUDE.md")" = base ] && ok "prepare: .claude and CLAUDE.md come from the ref" || ko "prepare restore (rc=$rc $out)"
+[ ! -e "$prep/.claude/hook.py" ] && [ ! -e "$prep/.mcp.json" ] && [ ! -e "$prep/.claude/settings.local.json" ] && ok "prepare: files the ref does not have are removed (hook, .mcp.json, settings.local.json)" || ko "prepare remove ($(ls -A "$prep" "$prep/.claude"))"
+[ ! -e "$fakehome/.claude" ] && [ ! -e "$fakehome/.claude.json" ] && [ ! -e "$fakehome/.config/claude-code" ] && [ -e "$fakehome/.config/other/k" ] && ok "prepare: the home Claude config is wiped, nothing else in home" || ko "prepare home ($(ls -A "$fakehome" "$fakehome/.config"))"
+[ "$(git -C "$prep" diff --cached --name-only | wc -l)" -eq 0 ] && grep -q '^b$' "$prep/a.go" && ok "prepare: nothing staged, the fixer's work tree is kept" || ko "prepare index"
+run prepare SOURCE_REF=origin/main WORKTREE="$prep" HOME=/
+[ "$rc" -ne 0 ] && ok "prepare: refuses a HOME of /" || ko "prepare home root (rc=$rc)"
+
 # ---- apply: the trusted job validates the patch files and commits them itself, as the human identity ----
 work="$tmp/work"
 git clone -q "$repo" "$work"

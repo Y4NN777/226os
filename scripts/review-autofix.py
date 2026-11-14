@@ -13,13 +13,17 @@ whether its commits may be pushed. The workflows only call this script; the mode
          batch" issue when the batch step created or updated it (BATCH_RESULT; FORCE=true on a manual run), unless a
          pull request from a fix/review/batch-* branch into develop is already open. Branch fix/review/batch-TODAY,
          with a -2, -3... suffix when that branch exists.
+  prepare  right before the model, after `make setup`: wipes ~/.claude, ~/.claude.json and ~/.config/claude* and
+         restores .claude, CLAUDE.md, .mcp.json and the other Claude configuration paths from SOURCE_REF (work tree only).
   apply  the trusted job's way in: validates the patch files of PATCH_DIR (at most 20, at most 1 MB in all, names
          NNNN-slug.patch), then applies each one with `git apply --index` and commits it itself as EXPECT_NAME
          <EXPECT_EMAIL> (author and committer), hooks off: the untrusted job's From: line is never trusted.
   check  the guard before any push, run from a trusted copy: at least one new commit since BASE_SHA; every author and
          committer is EXPECT_NAME <EXPECT_EMAIL>; no Co-authored-by trailer and no "Generated with" line; no symbolic
-         link, submodule, file mode change or binary change; and no changed path, on EITHER side of a change (renames
-         are split, paths read NUL-separated so a quoted name cannot hide), that the owner keeps: the contract (R7),
+         link, submodule, file mode change, binary change or new executable outside scripts/; and every changed path,
+         on BOTH sides of a change (renames split, paths read NUL-separated), is in the ALLOWLIST src/** (minus the web
+         build, lint, format, type and threshold configuration and package.json), db/queries/**, scripts/tests/**,
+         docs/ai-usage/** and TODO.md. The deny list stays as a second layer: the contract (R7),
          migrations (R6), ADRs, docs/quality, secrets, .env files, any .npmrc, .github, the Claude harness, Make files,
          the review, findings, coverage and check scripts, the route and secret-scan lists, the owner's preferences.
          Exit 1 with the reason; the workflow then labels needs-owner.
@@ -69,6 +73,14 @@ FORBIDDEN_PREFIX = ("db/migrations/", "docs/decisions/", "docs/quality/", "secre
                     ".husky/")
 FORBIDDEN_GLOB = ("scripts/review-*.py", "scripts/coverage-*.sh", "scripts/check-*.py", "scripts/check-*.sh")
 FORBIDDEN_NAMES = (".npmrc",)
+# The fixer may change ONLY these (an allowlist); everything else is the owner's. Inside src/, the web build, lint,
+# format, type and test-threshold configuration and the package manifest stay the owner's too.
+ALLOWED_PREFIX = ("src/", "db/queries/", "scripts/tests/", "docs/ai-usage/")
+ALLOWED_EXACT = ("TODO.md",)
+OWNER_IN_SRC = re.compile(r"^src/web/(package\.json|(vite|vitest|eslint|prettier)\.config\.[cm]?[jt]s|\.eslintrc.*|"
+                          r"\.prettierrc.*|tsconfig.*\.json)$")
+CLAUDE_CONFIG = (".claude", ".mcp.json", ".claude.json", ".gitmodules", ".ripgreprc", "CLAUDE.md", "CLAUDE.local.md", ".husky")
+HOME_CONFIG = (".claude", ".claude.json")
 # The wrapper of the fixer's commands (`run`): allowlists of subcommands, options and flags (defence in depth).
 WEB_SCRIPTS = ("test", "lint", "typecheck", "format:check")
 GIT_OPTIONS = {
@@ -294,6 +306,8 @@ def git_out(git, worktree, *args):
 
 def forbidden(path):
     name = path.rsplit("/", 1)[-1]
+    if not (path in ALLOWED_EXACT or path.startswith(ALLOWED_PREFIX)) or OWNER_IN_SRC.match(path):
+        return True
     return (path in FORBIDDEN_EXACT or path.startswith(FORBIDDEN_PREFIX) or name.startswith(".env") or name in FORBIDDEN_NAMES
             or any(fnmatch.fnmatchcase(path, g) for g in FORBIDDEN_GLOB)
             or (("/" not in path) and name.startswith((".review-", ".autofix-"))))
@@ -328,6 +342,8 @@ def check_commits(git, worktree, base, name, email):
             return "a symlink is changed: %s" % path
         if "160000" in (old_mode, new_mode):
             return "a submodule is changed: %s" % path
+        if old_mode == "000000" and new_mode == "100755" and not path.startswith("scripts/"):
+            return "a new executable file outside scripts/: %s" % path
         if "000000" not in (old_mode, new_mode) and old_mode != new_mode:
             return "a file mode change: %s (%s to %s)" % (path, old_mode, new_mode)
     for entry in git_out(git, worktree, "diff", "--numstat", "-z", "--no-renames", base, "HEAD").split("\x00"):
@@ -402,6 +418,39 @@ def cmd_apply():
         print("autofix apply: FAILED (%s does not apply: %s); nothing was kept" % (f, type(exc).__name__))
         return 1
     print("autofix apply: PASS (%d patch(es) committed as %s)" % (len(files), name))
+    return 0
+
+
+def cmd_prepare():
+    """Right before the model starts (after make setup, which runs pull request code): wipe the Claude configuration
+    in HOME (~/.claude, ~/.claude.json, ~/.config/claude*) and restore the project's Claude configuration paths in
+    WORKTREE from SOURCE_REF, in the working tree only (nothing staged). A path the ref does not have is removed."""
+    import shutil
+    git, worktree, ref = os.environ.get("GIT_BIN", "git"), os.environ.get("WORKTREE", "."), os.environ.get("SOURCE_REF", "")
+    home = os.path.abspath(os.environ.get("HOME", "") or "/")
+    if home in ("/", "") or not ref:
+        print("autofix prepare: FAILED (a HOME other than / and SOURCE_REF are required)")
+        return 1
+
+    def remove(path):
+        if os.path.islink(path) or os.path.isfile(path):
+            os.remove(path)
+        elif os.path.isdir(path):
+            shutil.rmtree(path)
+
+    config = os.path.join(home, ".config")
+    targets = [os.path.join(home, n) for n in HOME_CONFIG]
+    if os.path.isdir(config):
+        targets += [os.path.join(config, n) for n in os.listdir(config) if n.startswith("claude")]
+    for path in targets:
+        remove(path)
+    for path in CLAUDE_CONFIG:
+        remove(os.path.join(worktree, path))
+        exists = subprocess.run([git, "-C", worktree, "cat-file", "-e", "%s:%s" % (ref, path)], capture_output=True, timeout=60).returncode == 0
+        if exists:
+            subprocess.run([git, "-C", worktree, "restore", "--source=%s" % ref, "--worktree", "--", path],
+                           capture_output=True, timeout=60, check=True)
+    print("autofix prepare: home Claude configuration wiped; project configuration restored from %s" % ref)
     return 0
 
 
@@ -511,9 +560,9 @@ def main():
     sub = sys.argv[1] if len(sys.argv) > 1 else ""
     if sub == "run":
         return cmd_run(sys.argv[2:])
-    commands = {"pr": cmd_pr, "batch": cmd_batch, "check": cmd_check, "body": cmd_body, "apply": cmd_apply}
+    commands = {"pr": cmd_pr, "batch": cmd_batch, "check": cmd_check, "body": cmd_body, "apply": cmd_apply, "prepare": cmd_prepare}
     if sub not in commands:
-        print("usage: review-autofix.py pr|batch|apply|check|body|run")
+        print("usage: review-autofix.py pr|batch|prepare|apply|check|body|run")
         return 2
     return commands[sub]()
 
