@@ -420,7 +420,10 @@ describe('ecrire page', () => {
     await fillRequired();
     await publish();
     await screen.findByRole('heading', { name: 'Votre article est publié' });
-    expect(screen.getByRole('link', { name: 'Retour à l’accueil' })).toHaveAttribute('href', '/');
+    expect(screen.getByRole('link', { name: 'Lire l’article' })).toHaveAttribute(
+      'href',
+      `/apprendre/articles/${articleId}`,
+    );
     await userEvent.click(screen.getByRole('button', { name: 'Écrire un autre article' }));
     expect(await screen.findByRole('textbox', { name: /^Titre/ })).toHaveValue('');
   });
