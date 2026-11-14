@@ -431,6 +431,8 @@ paths:
                 $ref: '#/components/schemas/PublicProfile'
         '404':
           $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
         '429':
           $ref: '#/components/responses/TooManyRequests'
         '500':
@@ -943,7 +945,17 @@ paths:
           type: string
           minLength: 1
           maxLength: 200
-      - $ref: '#/components/parameters/Country'
+      - name: country
+        in: query
+        style: form
+        explode: false
+        description: One or more ISO 3166-1 alpha-2 codes, comma separated (BF,CI,SN); a resource matches when it supports any of them.
+        schema:
+          type: array
+          items:
+            $ref: '#/components/schemas/CountryCode'
+          minItems: 1
+          maxItems: 20
       - name: category
         in: query
         schema:
@@ -3769,6 +3781,7 @@ components:
       - last_verified_at
       - source_count
       - related
+      - provenance
       - updated_at
       properties:
         id:
@@ -3781,6 +3794,12 @@ components:
           $ref: '#/components/schemas/Slug'
         type:
           $ref: '#/components/schemas/ResourceType'
+        provenance:
+          type: string
+          enum:
+          - live
+          - demo
+          description: live = real content; demo = local-dev SEED fixture, shown with a visible badge (C15).
         category:
           $ref: '#/components/schemas/Slug'
         provider:

@@ -40,7 +40,7 @@ type Service interface {
 	VerifyEmail(ctx context.Context, plain string) error
 	RequestPasswordReset(ctx context.Context, email, ip string) error
 	ConfirmPasswordReset(ctx context.Context, plain, newPassword, ip string) error
-	GetMe(ctx context.Context, userID string) (service.MeView, error)
+	GetMe(ctx context.Context, acct domain.Account) (service.MeView, error)
 	UpdateMyProfile(ctx context.Context, userID string, w domain.ProfileWrite) (domain.Profile, error)
 	GetProfile(ctx context.Context, username, callerUserID string) (domain.PublicProfile, error)
 }
@@ -211,7 +211,7 @@ func (h *Handler) SignUp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if body.Password == nil {
-		writeErr(h.logger, w, r, missingField("password"))
+		writeErr(h.logger, w, r, missingField("/password"))
 		return
 	}
 	err := h.svc.SignUp(r.Context(), service.SignUpInput{
@@ -234,7 +234,7 @@ func (h *Handler) SignIn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if body.Password == nil {
-		writeErr(h.logger, w, r, missingField("password"))
+		writeErr(h.logger, w, r, missingField("/password"))
 		return
 	}
 	res, err := h.svc.SignIn(r.Context(), service.SignInInput{
@@ -351,7 +351,7 @@ func (h *Handler) ConfirmPasswordReset(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if body.NewPassword == nil {
-		writeErr(h.logger, w, r, missingField("new_password"))
+		writeErr(h.logger, w, r, missingField("/new_password"))
 		return
 	}
 	if err := h.svc.ConfirmPasswordReset(r.Context(), body.Token, *body.NewPassword, clientIP(r)); err != nil {

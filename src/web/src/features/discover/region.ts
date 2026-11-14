@@ -33,13 +33,13 @@ export function inWestAfrica(countries: readonly string[]): boolean {
 
 type ListQuery = NonNullable<paths['/resources']['get']['parameters']['query']>;
 
-/** Server-side filters. The API takes one `country`, so the region itself is filtered client-side. */
+/** Server-side filters. A picked country goes to the API as a one-item list; the region is still filtered client-side. */
 export function listQuery(search: DiscoverSearch): ListQuery {
   const query: ListQuery = { limit: 50 };
   if (search.q) query.q = search.q;
   if (search.type) query.type = search.type;
   if (search.category) query.category = search.category;
-  if (search.country) query.country = search.country;
+  if (search.country) query.country = [search.country];
   return query;
 }
 

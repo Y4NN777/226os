@@ -309,7 +309,7 @@ CREATE INDEX resource_reviews_resource_idx ON resource_reviews (resource_id, cre
 
 DDL: see `db/migrations/00007_build.sql`.
 
-**`project_maintainers`** - maintainers added by the project owner, with **explicit rights on that project: edit the project and manage its needs and applications**. The owner stays `projects.owner_id`. A **collaborator** is not a role and not a row here: it is an applicant whose `applications` row is `accepted` on that project (a resource-scoped relationship derived from `applications`).
+**`project_maintainers`** - maintainers added by the project owner. **At P0 a row grants nothing (C1, owner only): only `projects.owner_id` edits the project and manages its needs and applications**; delegation is a later decision. The owner stays `projects.owner_id`. A **collaborator** is not a role and not a row here: it is an applicant whose `applications` row is `accepted` on that project (a resource-scoped relationship derived from `applications`).
 
 DDL: see `db/migrations/00007_build.sql`.
 
@@ -522,7 +522,7 @@ General: no `OFFSET` on public lists; `limit` bounded (default 20, max 50, ADR-0
 | Catalogue (Discover) | category, type, country (`resource_countries`), docs language, SDK language (`resource_sdk_languages`), provider, verification status, tag | `(name, id)`; keyset `(name, id) > ($1, $2)`; staleness derived from `max(resource_sources.checked_at)` | `resources_catalogue_idx (category_code, type, name, id)`, `resource_countries_country_idx`, `resource_sdk_languages_language_idx`, `resources_provider_idx`, `resource_tags_tag_idx` |
 | Project browse (Build) | country, stage, tag/technology, open needs (`EXISTS contribution_needs ... status = 'open'`), licence | `(published_at DESC, id DESC)` | `projects_browse_idx`, `projects_country_idx`, `project_tags_tag_idx`, `contribution_needs_open_idx` |
 | Need discovery by skill | `need_skills.tag_id = ANY(user skills)` | `(contribution_needs.created_at DESC, id DESC)` | `need_skills_tag_idx`, `contribution_needs_open_idx` |
-| Applications (owner) | need, status | `(created_at DESC, id DESC)` | `applications_need_idx`; authorization predicate (owner or delegated maintainer of the need's project) is part of the query, never a post-filter |
+| Applications (owner) | need, status | `(created_at DESC, id DESC)` | `applications_need_idx`; authorization predicate (owner of the need's project; no maintainer delegation at P0, C1) is part of the query, never a post-filter |
 | My applications | user | `(created_at DESC, id DESC)` | `applications_user_idx` |
 | Learn list | kind, level, language, topic, tag | `(published_at DESC, id DESC)` | `learn_articles_browse_idx`, `learn_articles_topic_idx`, `learn_article_tags_tag_idx`; series list via `training_series_browse_idx`; lessons ordered by `(series_id, position)` via `training_lessons_position_uq` |
 | Search (all) | `q` length 1-100 (`websearch_to_tsquery('simple', f_unaccent($q))`), type, country, tag, language | rank is unstable for cursors: P0 returns a bounded top-N per source (N <= 50, no deep paging), merged by `(rank DESC, type, id)`; opaque cursor only if the relevance policy fixes a quantized rank | the GIN/trigram indexes in 3.9; candidate set is bounded before `ts_rank` because ranking reads each matching tsvector |
@@ -554,7 +554,7 @@ Dynamic `ORDER BY` is never built from user input; sort options map to a fixed a
 | # | Topic | Decision |
 |---|---|---|
 | 1 | PostgreSQL version and UUID | PostgreSQL 18, `DEFAULT uuidv7()` |
-| 2 | "Collaborator" | Not a role: an applicant whose application is accepted on a project. `project_maintainers` are owner-added maintainers with explicit rights (edit project, manage needs and applications) |
+| 2 | "Collaborator" | Not a role: an applicant whose application is accepted on a project. `project_maintainers` are owner-added maintainers; at P0 they have no rights (C1, owner only) |
 | 3 | 403 versus 404 | 403 if the object is visible to the caller, 404 if not |
 | 4 | Migration wording | Forward-only plus restore; SPEC amended |
 | 5 | Search scope | Questions, resources, projects and Learn articles; SPEC and CONTRACTS amended |
@@ -565,7 +565,7 @@ Dynamic `ORDER BY` is never built from user input; sort options map to a fixed a
 | 10 | Projects without GitHub URL and private URL uniqueness | Only `stage = 'idea'` may omit the URL; the URL uniqueness is across non-removed projects (the existence oracle for private projects is accepted at P0 and revisited in the post-P0 review) |
 | 11 | Votes | Up and down; self-vote forbidden (403 `SELF_VOTE_FORBIDDEN`) |
 | 12 | Counters | `answer_count` and `vote_score` are denormalized, updated in the same transaction, with a reconcile test |
-| 13 | Application transitions | Service-guarded; re-apply only after the applicant's own withdrawal; none after a decline; owner or maintainer decides |
+| 13 | Application transitions | Service-guarded; re-apply only after the applicant's own withdrawal; none after a decline; the project owner decides (C1) |
 | 14 | French search | `simple` plus `f_unaccent` in P0; answers are indexed; denied attempts go to logs, not to `audit_log` |
 | 15 | `rate_limit_buckets` | `UNLOGGED` accepted (ADR-0003) |
 | 16 | `resource_sdks` overlap | `resources.type` = api/sdk/tool; table renamed `resource_sdk_languages` |

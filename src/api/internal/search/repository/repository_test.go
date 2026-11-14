@@ -104,7 +104,7 @@ func TestSearchBindsTheLimitAndOptionalFilters(t *testing.T) {
 	if _, err := New(db).Search(t.Context(), domain.Questions, domain.Query{Text: "mot", Limit: 21}); err != nil {
 		t.Fatal(err)
 	}
-	want := []any{"mot", pgtype.Text{}, pgtype.Text{}, int32(21)}
+	want := []any{int32(21), "mot", pgtype.Text{}, pgtype.Text{}} // sqlc binds the outer LIMIT first when the query has a CTE
 	if !reflect.DeepEqual(db.args, want) {
 		t.Fatalf("args = %#v, want %#v", db.args, want)
 	}
@@ -112,7 +112,7 @@ func TestSearchBindsTheLimitAndOptionalFilters(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Learn has no country column: the country filter is not bound for that group.
-	want = []any{"mot", pgtype.Text{String: "en", Valid: true}, int32(3)}
+	want = []any{int32(3), "mot", pgtype.Text{String: "en", Valid: true}}
 	if !reflect.DeepEqual(db.args, want) {
 		t.Fatalf("learn args = %#v, want %#v", db.args, want)
 	}
@@ -132,6 +132,10 @@ func TestSearchErrors(t *testing.T) {
 		if !errors.Is(err, boom) || !strings.Contains(err.Error(), "search "+string(g)) {
 			t.Fatalf("%s: err = %v", g, err)
 		}
+	}
+	// A query that outlives its 2 s deadline keeps the cause for errors.Is; the transport redacts it (#118).
+	if _, err := New(&fakeDB{err: context.DeadlineExceeded}).Search(t.Context(), domain.Questions, domain.Query{Text: "mot", Limit: 6}); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("timeout err = %v", err)
 	}
 	if _, err := New(&fakeDB{}).Search(t.Context(), domain.Group("answers"), domain.Query{Limit: 6}); err == nil {
 		t.Fatal("an unknown group must be an error")

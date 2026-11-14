@@ -19,6 +19,7 @@ import (
 // fakeStore is an in-memory Store for unit tests. It is deliberately strict:
 // unknown lookups return domain.ErrNotFound like the sqlc repository does.
 type fakeStore struct {
+	lastWrite  domain.ProfileWrite // the last patch handed to UpdateProfile
 	accounts   map[string]domain.Account
 	sessions   map[string]domain.Session // by session id
 	tokenHash  map[[32]byte]string       // session token hash -> session id
@@ -259,6 +260,7 @@ func (f *fakeStore) ResolveSkillSlugs(_ context.Context, slugs []string) ([]stri
 
 // applyPatch mirrors the SQL CASE WHEN semantics on the fake's Profile copy.
 func (f *fakeStore) UpdateProfile(_ context.Context, userID string, w domain.ProfileWrite) error {
+	f.lastWrite = w
 	if err := f.errs["UpdateProfile"]; err != nil {
 		return err
 	}
@@ -394,6 +396,18 @@ func apperrCode(t *testing.T, err error) apperr.Code {
 		t.Fatalf("not an apperr: %v", err)
 	}
 	return ae.Code
+}
+
+// wantViolation asserts err carries exactly one violation on field with a contract enum code.
+func wantViolation(t *testing.T, err error, field, code string) {
+	t.Helper()
+	var ae *apperr.Error
+	if !errors.As(err, &ae) || len(ae.Violations) != 1 {
+		t.Fatalf("err %v, want one violation", err)
+	}
+	if ae.Violations[0].Field != field || ae.Violations[0].Code != code {
+		t.Fatalf("violation %+v, want %s/%s", ae.Violations[0], field, code)
+	}
 }
 
 func TestSignUpIsGenericAndSendsVerification(t *testing.T) {
@@ -673,9 +687,11 @@ func TestConfirmPasswordResetWeakPasswordKeepsToken(t *testing.T) {
 	plain, hash, _ := randToken()
 	_ = st.CreatePasswordReset(ctx, acct.ID, hash, time.Now().Add(resetTTL))
 	// A weak password is rejected before the token is touched.
-	if err := svc.ConfirmPasswordReset(ctx, plain, "short", "10.20.0.1"); apperrCode(t, err) != apperr.CodeValidation {
+	err := svc.ConfirmPasswordReset(ctx, plain, "short", "10.20.0.1")
+	if apperrCode(t, err) != apperr.CodeValidation {
 		t.Fatalf("weak password: %v", err)
 	}
+	wantViolation(t, err, "/new_password", "invalid_value")
 	// The same token must still work with a compliant password.
 	if err := svc.ConfirmPasswordReset(ctx, plain, "a-brand-new-password-1", "10.20.0.1"); err != nil {
 		t.Fatalf("token burned by the weak-password attempt: %v", err)

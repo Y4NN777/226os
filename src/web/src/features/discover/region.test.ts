@@ -32,7 +32,7 @@ describe('listQuery', () => {
     });
   });
   it('sends one country to the server when picked', () => {
-    expect(listQuery({ country: 'SN' })).toEqual({ limit: 50, country: 'SN' });
+    expect(listQuery({ country: 'SN' })).toEqual({ limit: 50, country: ['SN'] });
   });
   it('sends no country for the whole continent', () => {
     expect(listQuery({ region: 'all' })).toEqual({ limit: 50 });

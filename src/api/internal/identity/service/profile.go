@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"regexp"
+	"strings"
 	"time"
 	"unicode/utf8"
 
@@ -49,17 +50,12 @@ type MeView struct {
 	Profile domain.Profile
 }
 
-// GetMe returns the caller's account and own profile. It requires an
-// authenticated user id; the transport rejects anonymous callers first.
-func (s *Service) GetMe(ctx context.Context, userID string) (MeView, error) {
-	acct, err := s.store.AccountByID(ctx, userID)
-	if err != nil {
-		if errors.Is(err, domain.ErrNotFound) {
-			return MeView{}, unauthenticated()
-		}
-		return MeView{}, apperr.Wrap(apperr.CodeInternal, err)
-	}
-	prof, err := s.store.ProfileByUserID(ctx, userID)
+// GetMe returns the caller's account and own profile. The account comes from
+// the live session the middleware already resolved (acct), so it is read once
+// per request; only the profile is loaded here. The transport rejects
+// anonymous callers first.
+func (s *Service) GetMe(ctx context.Context, acct domain.Account) (MeView, error) {
+	prof, err := s.store.ProfileByUserID(ctx, acct.ID)
 	if err != nil {
 		return MeView{}, apperr.Wrap(apperr.CodeInternal, err)
 	}
@@ -77,7 +73,7 @@ func (s *Service) UpdateMyProfile(ctx context.Context, userID string, w domain.P
 	if err := validateProfileWrite(&w); err != nil {
 		return domain.Profile{}, err
 	}
-	if w.SkillTagIDs.Present {
+	if w.SkillSlugs.Present {
 		if err := s.resolveSkills(ctx, &w); err != nil {
 			return domain.Profile{}, err
 		}
@@ -89,7 +85,7 @@ func (s *Service) UpdateMyProfile(ctx context.Context, userID string, w domain.P
 		}
 		if errors.Is(err, domain.ErrCountryUnknown) {
 			return domain.Profile{}, apperr.New(apperr.CodeValidation, "country is not a known country code.").
-				WithViolations(apperr.Violation{Field: "country", Code: "unknown_value"})
+				WithViolations(apperr.Violation{Field: "/country", Code: "invalid_value"})
 		}
 		return domain.Profile{}, apperr.Wrap(apperr.CodeInternal, err)
 	}
@@ -151,62 +147,73 @@ func validateProfileWrite(w *domain.ProfileWrite) error {
 		!w.Languages.Present && !w.GitHub.Present && !w.Bio.Present &&
 		!w.OpenToCollab.Present && !w.VisCountry.Present && !w.VisLanguages.Present &&
 		!w.VisSkills.Present && !w.VisGitHub.Present && !w.VisBio.Present &&
-		!w.Visibility.Present && !w.SkillTagIDs.Present {
+		!w.Visibility.Present && !w.SkillSlugs.Present {
 		return apperr.New(apperr.CodeValidation, "The patch must change at least one field.")
 	}
 	violations := []apperr.Violation{}
+	// field is the JSON pointer of the request member and code one of the
+	// Violation.code enum values (api/openapi.yaml): the S7 form maps them.
 	add := func(field, code string) { violations = append(violations, apperr.Violation{Field: field, Code: code}) }
 
 	if w.DisplayName.Present {
-		if w.DisplayName.Value == nil || utf8.RuneCountInString(*w.DisplayName.Value) < 1 ||
-			utf8.RuneCountInString(*w.DisplayName.Value) > maxDisplayNameRunes {
-			add("display_name", "invalid_length")
+		if w.DisplayName.Value == nil {
+			add("/display_name", "too_short")
+		} else if !validText(*w.DisplayName.Value) {
+			add("/display_name", "invalid_value")
+		} else if n := utf8.RuneCountInString(*w.DisplayName.Value); n < 1 {
+			add("/display_name", "too_short")
+		} else if n > maxDisplayNameRunes {
+			add("/display_name", "too_long")
 		}
 	}
 	if w.Intent.Present && w.Intent.Value != nil && !validIntents[*w.Intent.Value] {
-		add("intent", "invalid_value")
+		add("/intent", "invalid_value")
 	}
 	if w.CountryCode.Present && w.CountryCode.Value != nil && !countryPattern.MatchString(*w.CountryCode.Value) {
-		add("country", "invalid_format")
+		add("/country", "invalid_format")
 	}
 	if w.Languages.Present && w.Languages.Value != nil {
 		langs := *w.Languages.Value
 		if len(langs) > maxLanguages {
-			add("languages", "too_many")
+			add("/languages", "too_many_items")
 		}
 		seen := map[string]bool{}
 		for _, l := range langs {
 			if !languagePattern.MatchString(l) {
-				add("languages", "invalid_format")
+				add("/languages", "invalid_format")
 				break
 			}
 			if seen[l] {
-				add("languages", "duplicate")
+				add("/languages", "duplicate")
 				break
 			}
 			seen[l] = true
 		}
 	}
 	if w.GitHub.Present && w.GitHub.Value != nil && !githubPattern.MatchString(*w.GitHub.Value) {
-		add("github", "invalid_format")
+		add("/github", "invalid_format")
 	}
-	if w.Bio.Present && w.Bio.Value != nil && utf8.RuneCountInString(*w.Bio.Value) > maxBioRunes {
-		add("bio", "too_long")
+	if w.Bio.Present && w.Bio.Value != nil {
+		if !validText(*w.Bio.Value) {
+			add("/bio", "invalid_value")
+		} else if utf8.RuneCountInString(*w.Bio.Value) > maxBioRunes {
+			add("/bio", "too_long")
+		}
 	}
 	for _, f := range []struct {
 		name string
 		v    domain.PatchField[domain.Visibility]
 	}{
-		{"field_visibility.country", w.VisCountry}, {"field_visibility.languages", w.VisLanguages},
-		{"field_visibility.skills", w.VisSkills}, {"field_visibility.github", w.VisGitHub},
-		{"field_visibility.bio", w.VisBio}, {"profile_visibility", w.Visibility},
+		{"/field_visibility/country", w.VisCountry}, {"/field_visibility/languages", w.VisLanguages},
+		{"/field_visibility/skills", w.VisSkills}, {"/field_visibility/github", w.VisGitHub},
+		{"/field_visibility/bio", w.VisBio}, {"/profile_visibility", w.Visibility},
 	} {
 		if f.v.Present && f.v.Value != nil && !validVisibilities[string(*f.v.Value)] {
 			add(f.name, "invalid_value")
 		}
 	}
-	if w.SkillTagIDs.Present && w.SkillTagIDs.Value != nil && len(*w.SkillTagIDs.Value) > maxSkills {
-		add("skills", "too_many")
+	if w.SkillSlugs.Present && w.SkillSlugs.Value != nil && len(*w.SkillSlugs.Value) > maxSkills {
+		add("/skills", "too_many_items")
 	}
 	if len(violations) > 0 {
 		return apperr.New(apperr.CodeValidation, "The profile patch is invalid.").WithViolations(violations...)
@@ -218,21 +225,21 @@ func validateProfileWrite(w *domain.ProfileWrite) error {
 // does not resolve rejects the whole patch: a partial skill set would silently
 // drop the owner's choice.
 func (s *Service) resolveSkills(ctx context.Context, w *domain.ProfileWrite) error {
-	if w.SkillTagIDs.Value == nil || *w.SkillTagIDs.Value == nil {
+	if w.SkillSlugs.Value == nil || *w.SkillSlugs.Value == nil {
 		empty := []string{}
-		w.SkillTagIDs.Value = &empty // present + nil: clear every skill
+		w.SkillTagIDs = domain.PatchField[[]string]{Present: true, Value: &empty} // present + nil: clear every skill
 		return nil
 	}
-	slugs := *w.SkillTagIDs.Value
+	slugs := *w.SkillSlugs.Value
 	ids, err := s.store.ResolveSkillSlugs(ctx, slugs)
 	if err != nil {
 		return apperr.Wrap(apperr.CodeInternal, err)
 	}
 	if len(ids) != len(uniqueStrings(slugs)) {
 		return apperr.New(apperr.CodeValidation, "One or more skills are unknown.").
-			WithViolations(apperr.Violation{Field: "skills", Code: "unknown_value"})
+			WithViolations(apperr.Violation{Field: "/skills", Code: "invalid_value"})
 	}
-	w.SkillTagIDs.Value = &ids
+	w.SkillTagIDs = domain.PatchField[[]string]{Present: true, Value: &ids}
 	return nil
 }
 
@@ -250,6 +257,10 @@ func deriveBioLanguage(w *domain.ProfileWrite) {
 	lang := "en"
 	w.BioLanguage = domain.PatchField[string]{Present: true, Value: &lang}
 }
+
+// validText refuses what PostgreSQL text cannot hold (NUL, invalid UTF-8):
+// the write answers 422 instead of a 22021 constraint failure mapped to 500.
+func validText(s string) bool { return utf8.ValidString(s) && !strings.ContainsRune(s, 0) }
 
 func nonNil(s []string) []string {
 	if s == nil {

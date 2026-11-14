@@ -118,6 +118,7 @@ type Service struct {
 	bucketKeyKey []byte // HMAC key for rate-limit bucket keys
 	csrfKey      []byte // HMAC key for CSRF tokens
 	now          func() time.Time
+	baseURL      string // public origin for mail links; empty means bare codes only
 	// spawn runs work off the request path (a goroutine in production; tests
 	// run it inline to stay deterministic).
 	spawn func(func())
@@ -145,6 +146,10 @@ type Option func(*Service)
 // tokens) is run. The default starts a goroutine; a test over a single
 // database connection passes an inline runner.
 func WithBackground(run func(func())) Option { return func(s *Service) { s.spawn = run } }
+
+// WithBaseURL sets the public origin (no trailing slash) that verification and reset mails link to. Empty
+// keeps the mails to the bare code. config.Load validates the value; nothing here logs it.
+func WithBaseURL(origin string) Option { return func(s *Service) { s.baseURL = origin } }
 
 // subkey is HKDF-Expand (RFC 5869, SHA-256, one 32-byte block) of the shared
 // secret for one purpose: HMAC(secret, info || 0x01). The secret is already
@@ -293,7 +298,13 @@ func (s *Service) SignUp(ctx context.Context, in SignUpInput) error {
 	// account existence.
 	if !password.Valid(in.Password) {
 		return apperr.New(apperr.CodeValidation, "password does not meet the policy.").
-			WithViolations(apperr.Violation{Field: "password", Code: "invalid"})
+			WithViolations(apperr.Violation{Field: "/password", Code: "invalid_value"})
+	}
+	// PostgreSQL text holds neither NUL nor invalid UTF-8: refuse them here (422, same answer whether or not the e-mail
+	// is registered, before any hash or write) instead of a 22021 constraint failure mapped to 500.
+	if !validText(in.DisplayName) {
+		return apperr.New(apperr.CodeValidation, "display_name must be valid text.").
+			WithViolations(apperr.Violation{Field: "/display_name", Code: "invalid_value"})
 	}
 	if _, err := s.store.AccountByEmail(ctx, email); err == nil {
 		// Pay the same Argon2id cost as a new account so the response time
@@ -341,8 +352,19 @@ func (s *Service) sendVerification(ctx context.Context, acct domain.Account) {
 	}
 	s.sendMail(ctx, mailer.Message{
 		To: []string{acct.Email}, Subject: "Verify your 226os e-mail",
-		Text: "Confirm your e-mail address:\n\n" + plain + "\n\nThis link expires in 24 hours.",
+		Text: s.mailBody("Confirm your e-mail address:", "/verifier-email", plain, "24 hours"),
 	})
+}
+
+// mailBody is the text of a verification or reset mail. Without a base URL it is the intro, the bare code and
+// the lifetime. With one, the code travels in the URL fragment (never sent to a server, so not in an access
+// log or a Referer) and stays on its own line as a fallback. The body is never logged.
+func (s *Service) mailBody(intro, page, code, lifetime string) string {
+	if s.baseURL == "" {
+		return intro + "\n\n" + code + "\n\nThis link expires in " + lifetime + "."
+	}
+	return intro + "\n\n" + s.baseURL + page + "#token=" + code +
+		"\n\nOr paste this code:\n" + code + "\n\nThis link expires in " + lifetime + "."
 }
 
 // mailTimeout bounds a detached send: the request path must not wait on SMTP.
@@ -605,7 +627,7 @@ func (s *Service) RequestPasswordReset(ctx context.Context, email, ip string) er
 	// tells them apart. A failed write simply sends no mail; the person asks again.
 	expires, msg := s.now().Add(resetTTL), mailer.Message{
 		To: []string{acct.Email}, Subject: "Reset your 226os password",
-		Text: "Reset your password:\n\n" + plain + "\n\nThis link expires in 30 minutes.",
+		Text: s.mailBody("Reset your password:", "/reinitialiser", plain, "30 minutes"),
 	}
 	s.spawn(func() {
 		c, cancel := context.WithTimeout(context.WithoutCancel(ctx), mailTimeout)
@@ -635,7 +657,7 @@ func (s *Service) ConfirmPasswordReset(ctx context.Context, plain, newPassword, 
 	}
 	if !password.Valid(newPassword) {
 		return apperr.New(apperr.CodeValidation, "password does not meet the policy.").
-			WithViolations(apperr.Violation{Field: "new_password", Code: "invalid"})
+			WithViolations(apperr.Violation{Field: "/new_password", Code: "invalid_value"})
 	}
 	phc, err := hashPassword(newPassword)
 	if err != nil {

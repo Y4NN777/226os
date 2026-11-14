@@ -122,6 +122,9 @@ services:
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       SMTP_FROM: ${SMTP_FROM:-}
       SMTP_TLS: ${SMTP_TLS:-}
+      # Public origin the verification and reset mails link to (optional; unset keeps the bare code in the mail).
+      # No path, query or fragment; https is required in staging-test and production-live.
+      APP_BASE_URL: ${APP_BASE_URL:-}
       # Assistant (S9, optional): off unless AI_ENABLED=true; then AI_API_KEY and AI_MODEL are required (the API
       # refuses to start without them). The key comes from the profile's env file, never from Git.
       AI_ENABLED: ${AI_ENABLED:-}
@@ -167,6 +170,9 @@ services:
       - --global.checkNewVersion=false
       - --global.sendAnonymousUsage=false
       - --entrypoints.web.address=:8000
+      # Replace client-sent X-Forwarded-* (Traefik's default, pinned): the API keys anonymous limits on the
+      # right-most entry (httpx.ClientIPKey). scripts/verify-containers.sh enforces it.
+      - --entrypoints.web.forwardedHeaders.insecure=false
       - --providers.file.filename=/etc/traefik/dynamic.yml
       - --providers.file.watch=false
       - --ping=true
@@ -222,6 +228,10 @@ services:
       - --entrypoints.web.http.redirections.entryPoint.to=:443
       - --entrypoints.web.http.redirections.entryPoint.scheme=https
       - --entrypoints.websecure.address=:8443
+      # Replace client-sent X-Forwarded-* (Traefik's default, pinned; no upstream proxy is trusted): the API keys
+      # anonymous limits on the right-most entry (httpx.ClientIPKey). scripts/verify-containers.sh enforces it.
+      - --entrypoints.web.forwardedHeaders.insecure=false
+      - --entrypoints.websecure.forwardedHeaders.insecure=false
       - --entrypoints.websecure.http.tls.certResolver=le
       - --entrypoints.websecure.http.tls.domains[0].main=${PUBLIC_HOST:-}
       - --certificatesresolvers.le.acme.email=${ACME_EMAIL:-}

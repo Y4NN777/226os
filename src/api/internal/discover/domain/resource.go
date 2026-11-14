@@ -12,9 +12,12 @@ var ErrNotFound = errors.New("catalogue resource not found")
 // Query is one published-catalogue page. Empty filters are unset. Limit is the
 // number of rows to fetch, including the extra row that detects a next page.
 type Query struct {
-	Q, Country, Category, Type, SDK, Provider, Doclang string
-	AfterName, AfterID                                 string
-	Limit                                              int
+	Q, Category, Type, SDK, Provider, Doclang string
+	// Countries is the canonical country filter (sorted, no duplicates). Nil means unset; a resource matches
+	// when it supports any of them.
+	Countries          []string
+	AfterName, AfterID string
+	Limit              int
 }
 
 // Resource is one published catalogue entry.
@@ -28,6 +31,7 @@ type Resource struct {
 	Related                                 []Link
 	SourceCount                             int
 	VerificationStatus                      string
+	Provenance                              string // live or demo (local-dev seed fixture)
 	LastVerifiedAt                          *time.Time
 	UpdatedAt                               time.Time
 }

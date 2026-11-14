@@ -13,14 +13,28 @@ export type SessionState = components['schemas']['SessionState'];
 
 export const sessionQueryKey = ['session'] as const;
 
+// Bumped whenever this tab changes the session itself (sign-in, sign-out, reset), so a
+// session read that started before cannot bring back the old token or the old user.
+let sessionEpoch = 0;
+
+/** Marks a session change made by this tab: reads already in flight are now stale. */
+export function bumpSessionEpoch() {
+  sessionEpoch += 1;
+}
+
 /**
  * GET /auth/session never answers 401: anonymous callers get a pre-session CSRF token.
  * Every response refreshes the in-memory token used by unsafe calls (ADR-0003).
  */
 export const sessionQuery = queryOptions({
   queryKey: sessionQueryKey,
-  queryFn: async (): Promise<SessionState> => {
+  queryFn: async ({ client }): Promise<SessionState> => {
+    const started = sessionEpoch;
     const state = await api.call(() => api.client.GET('/auth/session'));
+    const current = client.getQueryData<SessionState>(sessionQueryKey);
+    if (started !== sessionEpoch && current !== undefined) return current;
+    // Another tab may have signed in as someone else: never keep their predecessor's data.
+    if (current !== undefined && current.user?.id !== state.user?.id) forgetPrivateData(client);
     api.csrf.set(state.csrf_token);
     return state;
   },
@@ -41,13 +55,18 @@ export function forgetPrivateData(queryClient: QueryClient) {
 }
 
 /** Stores a session returned by sign-in: the token rotates with the session. */
+export function applySession(queryClient: QueryClient, state: SessionState) {
+  bumpSessionEpoch();
+  api.csrf.set(state.csrf_token);
+  forgetPrivateData(queryClient);
+  queryClient.setQueryData(sessionQueryKey, state);
+}
+
 export function useApplySession() {
   const queryClient = useQueryClient();
   return useCallback(
     (state: SessionState) => {
-      api.csrf.set(state.csrf_token);
-      forgetPrivateData(queryClient);
-      queryClient.setQueryData(sessionQueryKey, state);
+      applySession(queryClient, state);
     },
     [queryClient],
   );
@@ -66,6 +85,7 @@ export function useSignOut() {
       }
     },
     onSuccess: async () => {
+      bumpSessionEpoch();
       api.csrf.set(null);
       forgetPrivateData(queryClient);
       await queryClient.invalidateQueries({ queryKey: sessionQueryKey });

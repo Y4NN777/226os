@@ -3,6 +3,7 @@ package service
 
 import (
 	"context"
+	"slices"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -18,6 +19,7 @@ const (
 	defaultLimit = 20
 	maxLimit     = 50
 	maxQuery     = 200
+	maxCountries = 20
 )
 
 // Reader loads published catalogue rows. The service owns this port.
@@ -35,9 +37,11 @@ type Cursors interface {
 
 // ListRequest is the public list. Nil Q means no text filter. Nil Limit means 20.
 type ListRequest struct {
-	Q, Country, Category, Type, SDK, Provider, Doclang *string
-	Cursor                                             string
-	Limit                                              *int
+	Q, Category, Type, SDK, Provider, Doclang *string
+	// Countries is the raw list from the request. Nil means no country filter.
+	Countries []string
+	Cursor    string
+	Limit     *int
 }
 
 // Page is one catalogue page. NextCursor is empty on the last page.
@@ -67,8 +71,12 @@ func (s *Service) List(ctx context.Context, req ListRequest) (Page, error) {
 	if err != nil {
 		return Page{}, err
 	}
+	countries, err := countryFilter(req.Countries)
+	if err != nil {
+		return Page{}, err
+	}
 	filters := domain.Query{
-		Q: q, Country: deref(req.Country), Category: deref(req.Category), Type: deref(req.Type),
+		Q: q, Countries: countries, Category: deref(req.Category), Type: deref(req.Type),
 		SDK: deref(req.SDK), Provider: deref(req.Provider), Doclang: deref(req.Doclang),
 		Limit: size + 1,
 	}
@@ -121,9 +129,39 @@ func textFilter(q *string) (string, error) {
 	// PostgreSQL text holds neither NUL nor invalid UTF-8: refuse them here rather than answer 500.
 	if !utf8.ValidString(*q) || strings.ContainsRune(*q, 0) {
 		return "", apperr.New(apperr.CodeValidation, "q must be valid UTF-8 text.").
-			WithViolations(apperr.Violation{Field: "q", Code: "invalid"})
+			WithViolations(apperr.Violation{Field: "q", Code: "invalid_value"})
 	}
 	return *q, nil
+}
+
+// countryFilter validates the requested country codes (1..20, each two capital letters) and returns them
+// sorted without duplicates, so BF,CI and CI,BF are one filter with one cursor hash. Nil means no filter.
+func countryFilter(in []string) ([]string, error) {
+	if in == nil {
+		return nil, nil
+	}
+	if len(in) < 1 {
+		return nil, countryViolation("too_short", "country needs at least one code.")
+	}
+	if len(in) > maxCountries {
+		return nil, countryViolation("too_many_items", "country accepts at most 20 codes.")
+	}
+	for _, c := range in {
+		if !validCountry(c) {
+			return nil, countryViolation("invalid_format", "country codes are ISO 3166-1 alpha-2, two capital letters.")
+		}
+	}
+	out := slices.Clone(in)
+	slices.Sort(out)
+	return slices.Compact(out), nil
+}
+
+func validCountry(c string) bool {
+	return len(c) == 2 && c[0] >= 'A' && c[0] <= 'Z' && c[1] >= 'A' && c[1] <= 'Z'
+}
+
+func countryViolation(code, detail string) error {
+	return apperr.New(apperr.CodeValidation, detail).WithViolations(apperr.Violation{Field: "country", Code: code})
 }
 
 func pageSize(v *int) (int, error) {
@@ -141,7 +179,7 @@ func pageSize(v *int) (int, error) {
 // imitate a boundary (a plain separator join let two different filter sets share one hash).
 func filterHash(q domain.Query) string {
 	var b strings.Builder
-	for _, f := range []string{q.Q, q.Country, q.Category, q.Type, q.SDK, q.Provider, q.Doclang} {
+	for _, f := range []string{q.Q, strings.Join(q.Countries, ","), q.Category, q.Type, q.SDK, q.Provider, q.Doclang} {
 		b.WriteString(strconv.Itoa(len(f)))
 		b.WriteByte(':')
 		b.WriteString(f)

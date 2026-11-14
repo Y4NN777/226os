@@ -23,6 +23,7 @@ ep="$2"
 case "$ep" in
   *"/contents/"*) echo "404" >&2; exit 1 ;;
   *"/issues?labels=finding"*) cat "$FX/findings.json" ;;
+  *"/issues?labels=kind:note"*) cat "$FX/notes.json" ;;
   *"/issues/"*"/comments"*) cat "$FX/issue.json" ;;
   *"/pulls/"*"/reviews"*) cat "$FX/reviews.json" ;;
   *"/pulls/"*"/comments"*) cat "$FX/inline.json" ;;
@@ -58,6 +59,7 @@ first="$(cat "$tmp/first.sha")"
 
 reset() {
   printf '[]' >"$tmp/fx/findings.json"
+  printf '[]' >"$tmp/fx/notes.json"
   printf '[]' >"$tmp/fx/issue.json"
   printf '[]' >"$tmp/fx/reviews.json"
   printf '[]' >"$tmp/fx/inline.json"
@@ -300,5 +302,30 @@ reset
 add issue '{"user":{"login":"github-actions[bot]"},"created_at":"2026-11-13T10:00:00Z","body":"<details><summary>Review ledger</summary>\n\n```json\n{not json\n```\n\n</details>"}'
 run
 [ "$rc" -eq 0 ] && grep -q '^REVIEW_DECISION: first$' <<<"$out" && ok "a malformed fenced ledger is ignored: first review, not fatal" || ko "malformed fenced ($rc $out)"
+
+# ---------- notes: kind and evidence in the ledger, never a reason for a new review, and a memory of what was decided ----------
+reset
+add issue "$(ledger_comment "$first" '[{"id":"n1","kind":"note","evidence":"INFERRED","sev":"HIGH","file":"b.txt","line":1,"scenario":"a guess about timing","status":"open"}]')"
+run
+grep -q '^REVIEW_DECISION: skip$' <<<"$out" && ok "an open note never triggers a new review, even with a HIGH sev written by the model" || ko "note decision ($out)"
+grep -q 'n1.*\[open\].*note.*INFERRED.*a guess about timing' <<<"$out" && ok "the ledger lists a note with its kind and evidence" || ko "note in ledger ($out)"
+
+reset
+add issue "$(ledger_comment "$first" '[{"id":"f1","sev":"HIGH","file":"b.txt","line":1,"scenario":"x","status":"open"}]')"
+run
+grep -q 'f1.*\[open\] x' <<<"$out" && ! grep -q 'f1.*(note' <<<"$out" && ok "an entry without kind is a finding, not a note" || ko "default kind ($out)"
+
+# What was decided on notes is not raised again: ticked lines of open notes issues, every line of a notes issue closed as
+# not planned. Undecided lines are not in this list (they are still open).
+reset
+printf '[{"number":31,"title":"PR90 notes","state":"open","state_reason":null,"labels":[{"name":"kind:note"}],"created_at":"2026-11-13T10:00:00Z","body":"<!-- finding:PR90#notes -->\\n- [x] `a` [INFERRED] `a.go:1` fine as is\\n- [ ] `b` [INFERRED] `b.go:2` still undecided"},{"number":32,"title":"PR91 notes","state":"closed","state_reason":"not_planned","labels":[{"name":"kind:note"}],"created_at":"2026-11-13T10:00:00Z","body":"<!-- finding:PR91#notes -->\\n- [ ] `c` [OBSERVED] `c.go:3` documented trade-off"},{"number":33,"title":"PR92 notes","state":"closed","state_reason":"completed","labels":[{"name":"kind:note"}],"created_at":"2026-11-13T10:00:00Z","body":"<!-- finding:PR92#notes -->\\n- [ ] `d` [INFERRED] `d.go:4` was fixed"}]' >"$tmp/fx/notes.json"
+run
+decided="$(sed -n '/^## Notes already decided/,/^## [^N]/p' <<<"$out")"
+grep -q 'fine as is' <<<"$decided" && grep -q 'documented trade-off' <<<"$decided" && ok "a ticked note and a note closed as not planned are listed as decided" || ko "decided ($decided)"
+! grep -q 'still undecided' <<<"$decided" && ! grep -q 'was fixed' <<<"$decided" && ok "an undecided note and a note closed as completed are not in the decided list" || ko "decided noise ($decided)"
+reset
+run
+grep -q '^## Notes already decided' <<<"$out" && grep -q '(none)' <<<"$(sed -n '/^## Notes already decided/,/^## [^N]/p' <<<"$out")" && ok "no notes issue yet: the section says none" || ko "no notes ($out)"
+
 
 finish

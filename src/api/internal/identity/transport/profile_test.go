@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/Y4NN777/226os/src/api/internal/identity/domain"
+	"github.com/Y4NN777/226os/src/api/internal/platform/subject"
 )
 
 // seedOwnProfile creates the profile row the sign-up flow would have produced
@@ -64,6 +65,26 @@ func memberCall(t *testing.T, h *Handler, st *fakeStore, op op, method, path, bo
 }
 
 func strptrLocal(s string) *string { return &s }
+
+// Caller-dependent reads must not be stored by a shared cache (issue #116).
+func TestGetMeAndGetProfileSendNoStore(t *testing.T) {
+	h, _, st, _ := testStack(t, false)
+	signupAndSignIn(t, h, "cache@example.com")
+	seedOwnProfile(t, st, "cache@example.com")
+	acct, _ := st.AccountByEmail(t.Context(), "cache@example.com")
+
+	rec := memberCall(t, h, st, h.GetMe, http.MethodGet, "/api/v1/me", "", "me@example.com",
+		func() { seedOwnProfile(t, st, "me@example.com") })
+	if rec.Code != http.StatusOK || rec.Header().Get("Cache-Control") != "no-store" {
+		t.Fatalf("getMe %d cache-control %q", rec.Code, rec.Header().Get("Cache-Control"))
+	}
+	rec = call(t, func(w http.ResponseWriter, r *http.Request) {
+		h.GetProfile(w, r, acct.Username)
+	}, doReq(t, http.MethodGet, "/api/v1/profiles/"+acct.Username, nil))
+	if rec.Code != http.StatusOK || rec.Header().Get("Cache-Control") != "no-store" {
+		t.Fatalf("getProfile %d cache-control %q", rec.Code, rec.Header().Get("Cache-Control"))
+	}
+}
 
 func TestGetMeReturnsAccountAndProfile(t *testing.T) {
 	h, _, st, _ := testStack(t, false)
@@ -276,16 +297,32 @@ func TestGetMeMemberWithoutProfileIs500(t *testing.T) {
 func TestGetMeAccountJSONErrorIs500(t *testing.T) {
 	h, _, st, _ := testStack(t, false)
 	// An account whose id is not a UUID makes accountJSON fail: internal.
-	st.accounts["bad-id"] = domain.Account{ID: "bad-id", Email: "x@y.z", Username: "bad", DisplayName: "B", Status: "active"}
-	st.profiles["bad"] = domain.ProfileRecord{
-		Profile:       domain.Profile{UserID: "bad-id", Username: "bad", DisplayName: "B"},
-		AccountStatus: "active",
-	}
-	req := doReq(t, http.MethodGet, "/api/v1/me", nil)
-	req = req.WithContext(withSubjectID(req, "bad-id", "member"))
-	rec := call(t, h.GetMe, req)
+	rec := memberCall(t, h, st, h.GetMe, http.MethodGet, "/api/v1/me", "", "badid@example.com", func() {
+		for key, a := range st.accounts {
+			if a.Email == "badid@example.com" {
+				a.ID = "not-a-uuid"
+				st.accounts[key] = a
+			}
+		}
+		st.profiles["bad"] = domain.ProfileRecord{
+			Profile:       domain.Profile{UserID: "not-a-uuid", Username: "bad", DisplayName: "B"},
+			AccountStatus: "active",
+		}
+	})
 	if rec.Code != http.StatusInternalServerError {
 		t.Fatalf("expected 500, got %d %s", rec.Code, rec.Body.String())
+	}
+}
+
+// A request whose session cannot be resolved is a 401, whatever the subject
+// in the context says (the account always comes from the session).
+func TestGetMeWithoutALiveSessionIs401(t *testing.T) {
+	h, _, _, _ := testStack(t, false)
+	req := doReq(t, http.MethodGet, "/api/v1/me", nil)
+	req = req.WithContext(withSubjectID(req, "019a0000-0000-7000-8000-0000000000aa", "member"))
+	rec := call(t, h.GetMe, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401, got %d %s", rec.Code, rec.Body.String())
 	}
 }
 
@@ -483,5 +520,26 @@ func TestGetProfileAllFieldsVisible(t *testing.T) {
 	if out.Bio == nil || out.Country == nil || out.Languages == nil || out.Skills == nil ||
 		out.Github == nil || out.OpenToCollab == nil {
 		t.Fatalf("expected all fields, body %s", rec.Body.String())
+	}
+}
+
+// GetMe is on the page-load path: the session middleware already loaded the
+// account, so the request must not read it a second time.
+func TestGetMeLoadsTheAccountOnce(t *testing.T) {
+	h, svc, st, _ := testStack(t, false)
+	plain, _ := signupAndSignIn(t, h, "once-me@example.com")
+	// A profile exists, so the request succeeds: the count below is the success path (review of #110: the test used to
+	// pass on a 500 caused by a missing profile and proved nothing about a successful GET /me).
+	seedOwnProfile(t, st, "once-me@example.com")
+	before := st.accountLookups
+	chain := subject.Middleware(NewResolver(svc, false), nil)(http.HandlerFunc(h.GetMe))
+	req := doReq(t, http.MethodGet, "/api/v1/me", nil, &http.Cookie{Name: sessionCookieName(false), Value: plain})
+	rec := httptest.NewRecorder()
+	chain.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /me: %d %s", rec.Code, rec.Body.String())
+	}
+	if got := st.accountLookups - before; got != 1 {
+		t.Fatalf("account lookups for GET /me = %d, want 1 (the session resolution)", got)
 	}
 }
