@@ -119,9 +119,9 @@ def main():
             continue
         ledger1 = rc.ledger_of(body)
         s1_entries = [dict(e) for e in (ledger or [])]
-        carried_entries = [dict(carried)] if (carried and ledger is not None) else []
+        carried_entries = [dict(carried)] if carried else []  # a missing stage 1 ledger keeps the previous one
         after_stage1 = s1_entries + carried_entries
-        line1 = declared if ledger is None else level_of(declared, after_stage1)
+        line1 = level_of(declared, after_stage1)
         if posted_level(body) != line1:
             bad(label, "stage 1 line is %s, expected %s" % (posted_level(body), line1))
         # ---- the deep run
@@ -144,10 +144,10 @@ def main():
         if gate_level(final_body) != final1:
             bad(label, "the gate reads %s, the comment says %s" % (gate_level(final_body), final1))
         led = rc.ledger_of(final_body)
-        # I2: a CRITICAL line needs an open OBSERVED CRITICAL entry with file and line (a missing ledger is the model's own)
+        # I2: a CRITICAL line needs an open OBSERVED CRITICAL entry with file and line 
         # (the accepted consequence: a carried CRITICAL that the deep run marks fixed leaves the line where stage 1 put it)
         accepted = dname == "PASS marks carried fixed" and cname == "open CRITICAL OBSERVED"
-        if final1 == "CRITICAL" and ledger is not None and not accepted:
+        if final1 == "CRITICAL" and not accepted:
             if not any(f.get("status") == "open" and f.get("sev") == "CRITICAL" and f.get("evidence") == "OBSERVED" and f.get("file") and f.get("line", 0) > 0
                        for f in (led or {}).get("findings", [])):
                 bad(label, "CRITICAL without an open OBSERVED CRITICAL entry")
@@ -173,7 +173,7 @@ def main():
             elif mine2 is None or mine2.get("status") != "open" or mine2.get("carried") != 2:
                 bad(label, "after two runs the carried entry is %s, expected open with carried 2" % (mine2,))
         open_after = [e for e in (final_entries if led else []) if str(e.get("status")) == "open" and e["id"] not in {x["id"] for x in s1_entries}]
-        expected2 = declared if ledger is None else level_of(declared, s1_entries + open_after)
+        expected2 = level_of(declared, s1_entries + open_after)
         if posted_level(body2) != expected2:
             bad(label, "round 2 level %s, expected %s" % (posted_level(body2), expected2))
     for f in failures:

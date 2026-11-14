@@ -453,21 +453,51 @@ def effective_level(declared, entries):
     return max(level, LEVELS[top], key=LEVELS.index)
 
 
-def pin_level(text):
-    """The text with its first line's level set to the one its own ledger supports (blast radius text kept): invariant I1,
-    every open finding counts, the carried ones and the deep-sourced ones included."""
+def usable_ledger(text):
+    """(match, data) of the fenced ledger of `text` when it parses to {"findings": [...]}, else (None, None)."""
     m = FENCED.search(text or "")
-    first = (text or "").split("\n", 1)[0]
-    v = VERDICT.match(first.strip())
-    if not m or not v:
-        return text
+    if not m:
+        return None, None
     try:
         data = json.loads(m.group(2))
     except ValueError:
+        return None, None
+    return (m, data) if isinstance(data, dict) and isinstance(data.get("findings"), list) else (None, None)
+
+
+def keep_previous_ledger(text, previous_ledger, head):
+    """A review with a verdict line but no usable ledger is an INCOMPLETE run: the previous ledger is kept (no status
+    changed, open entries stay open with `carried` +1, fixed ones dropped) and line 2 of the text says so, so a carried
+    CRITICAL is never lost (I3). Unchanged when there is nothing to keep."""
+    m, _ = usable_ledger(text)
+    if m or not isinstance(previous_ledger, dict) or not FULL_SHA.match(head or ""):
         return text
-    if not isinstance(data, dict) or not isinstance(data.get("findings"), list):
+    kept, ids = [], []
+    for f in previous_ledger.get("findings", []):
+        if isinstance(f, dict) and f.get("id") and status_of(f) != "fixed":
+            f = dict(f)
+            if status_of(f) == "open":
+                f["carried"] = int(f.get("carried") or 0) + 1 if isinstance(f.get("carried"), int) and not isinstance(f.get("carried"), bool) else 1
+                ids.append(slug_id(f["id"]))
+            kept.append(f)
+    if not kept:
         return text
-    level = effective_level(v.group(1), data["findings"])
+    lines = text.split("\n")
+    gap = lines.index("") if "" in lines else len(lines)  # after the header lines (verdict, marker, Tool, Reviewed, Deep)
+    notice = "The review wrote no usable ledger: the previous one is kept unchanged (open entries stay open, nothing is marked fixed): %s." % (", ".join("`%s`" % i for i in ids) or "none open")
+    return "\n".join(lines[:gap] + ["", notice] + lines[gap:]) + "\n\n" + ledger_section({"sha": head, "findings": kept})
+
+
+def pin_level(text):
+    """The text with its first line's level set to the one its own ledger supports (blast radius text kept): invariant I1,
+    every open finding counts, the carried ones and the deep-sourced ones included. No usable ledger: no entry, so a declared
+    CRITICAL (which needs an OBSERVED entry) is HIGH; any other declared level stays."""
+    first = (text or "").split("\n", 1)[0]
+    v = VERDICT.match(first.strip())
+    if not v:
+        return text
+    _, data = usable_ledger(text)
+    level = effective_level(v.group(1), data["findings"] if data else [])
     if level == v.group(1):
         return text
     return first.replace(v.group(1), level, 1) + text[len(first):]
@@ -484,6 +514,7 @@ def compose(text, tool_line, head="", deep_line=None, reviewed=None, previous_le
         rest.pop(0)
     top = [lines[0].strip(), MARKER, tool_or_default(tool_line)] + ([reviewed] if reviewed else []) + ([deep_line] if deep_line else [])
     text = pin_ledger("\n".join(top + [""] + rest), head, previous_ledger)
+    text = keep_previous_ledger(text, previous_ledger, head)
     if FULL_SHA.match(head or ""):
         text = carry_forward(text, previous_ledger)
     return pin_level(text) + "\n"
