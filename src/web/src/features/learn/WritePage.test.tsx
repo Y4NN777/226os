@@ -1,12 +1,9 @@
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import type { components } from '../../api/schema';
 import { callsTo, memberSession, mockApi, problemResponse } from '../../test/api';
 import { jsonResponse, renderApp, setLanguages } from '../../test/render';
-
-// Whole-page form flows with a real Selector: slow when the machine is loaded.
-vi.setConfig({ testTimeout: 30_000 });
 
 type Article = components['schemas']['Article'];
 
