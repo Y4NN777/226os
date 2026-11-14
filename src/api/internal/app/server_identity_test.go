@@ -56,8 +56,8 @@ func (stubStore) CreatePasswordReset(context.Context, string, [32]byte, time.Tim
 func (stubStore) ResetPassword(context.Context, [32]byte, string, time.Time) error {
 	return errUnused
 }
-func (stubStore) Count(context.Context, string, [32]byte, time.Duration, time.Time) (int, time.Duration, error) {
-	return 0, 0, nil
+func (stubStore) GiveBack(context.Context, string, [32]byte, time.Duration, time.Time) error {
+	return nil
 }
 func (stubStore) Hit(context.Context, string, [32]byte, int, time.Duration, time.Time) (bool, time.Duration, error) {
 	return true, 0, nil // rate limit allowed; later store calls still fail

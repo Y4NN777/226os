@@ -6,7 +6,7 @@ describe('main bootstrap', () => {
   it('mounts the app into #root', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn(() => Promise.resolve(jsonResponse({ status: 'ok' }))),
+      vi.fn(() => Promise.resolve(jsonResponse({ items: [], next_cursor: null }))),
     );
     document.body.innerHTML = '<div id="root"></div>';
     await import('./main');

@@ -187,8 +187,12 @@ func (f *fakeStore) ResetPassword(_ context.Context, h [32]byte, phc string, now
 	return nil
 }
 
-func (f *fakeStore) Count(_ context.Context, scope string, key [32]byte, _ time.Duration, _ time.Time) (int, time.Duration, error) {
-	return f.buckets[scope+":"+base64.RawURLEncoding.EncodeToString(key[:])], time.Minute, nil
+func (f *fakeStore) GiveBack(_ context.Context, scope string, key [32]byte, _ time.Duration, _ time.Time) error {
+	k := scope + ":" + base64.RawURLEncoding.EncodeToString(key[:])
+	if f.buckets[k] > 0 {
+		f.buckets[k]--
+	}
+	return nil
 }
 
 func (f *fakeStore) Hit(_ context.Context, scope string, key [32]byte, limit int, _ time.Duration, _ time.Time) (bool, time.Duration, error) {

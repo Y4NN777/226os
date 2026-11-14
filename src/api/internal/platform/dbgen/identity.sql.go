@@ -11,24 +11,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const countRateLimit = `-- name: CountRateLimit :one
-SELECT hits FROM rate_limit_buckets
-WHERE scope = $1 AND key_hash = $2 AND window_start = $3
-`
-
-type CountRateLimitParams struct {
-	Scope       string
-	KeyHash     []byte
-	WindowStart pgtype.Timestamptz
-}
-
-func (q *Queries) CountRateLimit(ctx context.Context, arg CountRateLimitParams) (int32, error) {
-	row := q.db.QueryRow(ctx, countRateLimit, arg.Scope, arg.KeyHash, arg.WindowStart)
-	var hits int32
-	err := row.Scan(&hits)
-	return hits, err
-}
-
 const createAccount = `-- name: CreateAccount :one
 
 WITH u AS (
@@ -421,6 +403,32 @@ func (q *Queries) GetSessionByTokenHash(ctx context.Context, tokenHash []byte) (
 		&i.RevokedReason,
 	)
 	return i, err
+}
+
+const giveBackRateLimit = `-- name: GiveBackRateLimit :exec
+WITH dec AS (
+  UPDATE rate_limit_buckets SET hits = hits - 1
+  WHERE scope = $1 AND key_hash = $2 AND window_start = $3 AND hits > 1
+  RETURNING 1
+)
+DELETE FROM rate_limit_buckets AS b
+WHERE b.scope = $1 AND b.key_hash = $2 AND b.window_start = $3 AND b.hits = 1
+`
+
+type GiveBackRateLimitParams struct {
+	Scope       string
+	KeyHash     []byte
+	WindowStart pgtype.Timestamptz
+}
+
+// Releases one hit from a fixed-window bucket in a single statement (a sign-in
+// that succeeded gives back its up-front hit, so only failures stay counted).
+// rate_limit_buckets_hits_ck requires hits > 0, so the last hit deletes the row.
+// The two branches touch disjoint rows. Under a concurrent change a give-back
+// can be skipped, never doubled: a stale count only ever errs on the strict side.
+func (q *Queries) GiveBackRateLimit(ctx context.Context, arg GiveBackRateLimitParams) error {
+	_, err := q.db.Exec(ctx, giveBackRateLimit, arg.Scope, arg.KeyHash, arg.WindowStart)
+	return err
 }
 
 const hitRateLimit = `-- name: HitRateLimit :one
