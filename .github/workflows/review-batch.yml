@@ -142,18 +142,25 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      # Out of the fixer's reach: the wrapper and the base documents are copied outside the workspace before any edit.
+      # Out of the fixer's reach, before any edit: the wrapper and the base documents are read as git objects of the
+      # planned develop commit (`git cat-file blob`, like code-review.yml) into $RUNNER_TEMP.
       - name: Install fixer-run and the base documents, create the batch branch
         env:
           BRANCH: ${{ needs.plan.outputs.branch }}
+          BASE_SHA: ${{ needs.plan.outputs.base_sha }}
         run: |
           mkdir -p "$RUNNER_TEMP/bin" "$RUNNER_TEMP/base-docs"
-          cp scripts/review-autofix.py "$RUNNER_TEMP/bin/review-autofix.py"
+          git cat-file blob "$BASE_SHA:scripts/review-autofix.py" >"$RUNNER_TEMP/bin/review-autofix.py"
           printf '#!/bin/sh\nexec python3 -I "%s/bin/review-autofix.py" run "$@"\n' "$RUNNER_TEMP" >"$RUNNER_TEMP/bin/fixer-run"
           chmod +x "$RUNNER_TEMP/bin/fixer-run"
           echo "$RUNNER_TEMP/bin" >>"$GITHUB_PATH"
-          cp docs/quality/REVIEW_CONTEXT.md "$RUNNER_TEMP/base-docs/"
-          cp docs/team/OWNER_PREFERENCES.md "$RUNNER_TEMP/base-docs/" 2>/dev/null || echo "OWNER_PREFERENCES.md: not on develop yet"
+          for doc in docs/quality/REVIEW_CONTEXT.md docs/team/OWNER_PREFERENCES.md; do
+            if git cat-file -e "$BASE_SHA:$doc" 2>/dev/null; then
+              git cat-file blob "$BASE_SHA:$doc" >"$RUNNER_TEMP/base-docs/$(basename "$doc")"
+            else
+              echo "base-docs: $doc is not on develop"
+            fi
+          done
           git switch -c "$BRANCH"
 
       - name: Set up Go (version from go.mod)
@@ -286,9 +293,10 @@ jobs:
           GIT_NAME: ${{ vars.REVIEW_FIX_GIT_NAME || 'Y4NN77' }}
           BOT_TOKEN: ${{ secrets.REVIEW_BOT_TOKEN }}
         run: |
-          trusted="$RUNNER_TEMP/review-autofix.py"
-          cp work/scripts/review-autofix.py "$trusted"
+          # The guard is read as a git object of the planned develop commit, before the patch is applied.
           base_sha="$(git -C work rev-parse HEAD)"
+          trusted="$RUNNER_TEMP/review-autofix.py"
+          git -C work cat-file blob "$base_sha:scripts/review-autofix.py" >"$trusted"
           dir="$RUNNER_TEMP/batch-fix"
           RESULT_JSON="$(head -c 200000 "$dir/result.json" 2>/dev/null || true)" python3 -I "$trusted" body >"$RUNNER_TEMP/body.md"
           email="$(gh api "users/$GIT_LOGIN" --jq .id)+${GIT_LOGIN}@users.noreply.github.com"

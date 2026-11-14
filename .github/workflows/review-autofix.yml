@@ -103,48 +103,36 @@ jobs:
     outputs:
       outcome: ${{ steps.patch.outputs.outcome }}
     steps:
-      - name: Checkout the default branch (trusted wrapper)
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          path: .trusted
-          fetch-depth: 1
-          persist-credentials: false
-
-      - name: Checkout the base branch (project memory and owner preferences)
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: develop
-          path: .base
-          fetch-depth: 1
-          persist-credentials: false
-
-      # Out of the fixer's reach: the wrapper and the base documents live outside the workspace.
-      - name: Install fixer-run and the base documents
-        run: |
-          mkdir -p "$RUNNER_TEMP/bin" "$RUNNER_TEMP/base-docs"
-          cp .trusted/scripts/review-autofix.py "$RUNNER_TEMP/bin/review-autofix.py"
-          printf '#!/bin/sh\nexec python3 -I "%s/bin/review-autofix.py" run "$@"\n' "$RUNNER_TEMP" >"$RUNNER_TEMP/bin/fixer-run"
-          chmod +x "$RUNNER_TEMP/bin/fixer-run"
-          echo "$RUNNER_TEMP/bin" >>"$GITHUB_PATH"
-          cp .base/docs/quality/REVIEW_CONTEXT.md "$RUNNER_TEMP/base-docs/" 2>/dev/null || echo "REVIEW_CONTEXT.md: not on develop"
-          cp .base/docs/team/OWNER_PREFERENCES.md "$RUNNER_TEMP/base-docs/" 2>/dev/null || echo "OWNER_PREFERENCES.md: not on develop yet"
-          rm -rf .trusted .base
-
-      - name: Checkout the pull request branch
+      - name: Checkout the pull request branch (full history, every branch fetched)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.decide.outputs.branch }}
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Stop if the branch moved since the review
+      # Before any pull request code runs, and out of the fixer's reach: the wrapper comes from the default branch and
+      # the two documents from develop, read as git objects (`git cat-file blob`) into $RUNNER_TEMP, like code-review.yml.
+      - name: Stop if the branch moved, install fixer-run and the base documents
         env:
           HEAD_SHA: ${{ needs.decide.outputs.head_sha }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
           if [ "$(git rev-parse HEAD)" != "$HEAD_SHA" ]; then
             echo "autofix: skip (the branch moved after the review; the next review decides again)" | tee -a "$GITHUB_STEP_SUMMARY"
             exit 1
           fi
+          mkdir -p "$RUNNER_TEMP/bin" "$RUNNER_TEMP/base-docs"
+          git cat-file blob "origin/$DEFAULT_BRANCH:scripts/review-autofix.py" >"$RUNNER_TEMP/bin/review-autofix.py"
+          printf '#!/bin/sh\nexec python3 -I "%s/bin/review-autofix.py" run "$@"\n' "$RUNNER_TEMP" >"$RUNNER_TEMP/bin/fixer-run"
+          chmod +x "$RUNNER_TEMP/bin/fixer-run"
+          echo "$RUNNER_TEMP/bin" >>"$GITHUB_PATH"
+          for doc in docs/quality/REVIEW_CONTEXT.md docs/team/OWNER_PREFERENCES.md; do
+            if git cat-file -e "origin/develop:$doc" 2>/dev/null; then
+              git cat-file blob "origin/develop:$doc" >"$RUNNER_TEMP/base-docs/$(basename "$doc")"
+            else
+              echo "base-docs: $doc is not on develop"
+            fi
+          done
 
       - name: Set up Go (version from go.mod)
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
@@ -255,13 +243,6 @@ jobs:
       contents: read
       issues: write
     steps:
-      - name: Checkout the default branch (trusted guard)
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          path: .trusted
-          fetch-depth: 1
-          persist-credentials: false
-
       - name: Download the patch
         if: needs.fix.outputs.outcome == 'fixed'
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
@@ -290,7 +271,11 @@ jobs:
           GIT_LOGIN: ${{ vars.REVIEW_FIX_GIT_LOGIN || 'Y4NN777' }}
           GIT_NAME: ${{ vars.REVIEW_FIX_GIT_NAME || 'Y4NN77' }}
           BOT_TOKEN: ${{ secrets.REVIEW_BOT_TOKEN }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
+          # The guard comes from the default branch as a git object, read before the patch is applied.
+          guard="$RUNNER_TEMP/review-autofix.py"
+          git -C work cat-file blob "origin/$DEFAULT_BRANCH:scripts/review-autofix.py" >"$guard"
           email="$(gh api "users/$GIT_LOGIN" --jq .id)+${GIT_LOGIN}@users.noreply.github.com"
           export GIT_COMMITTER_NAME="$GIT_NAME" GIT_COMMITTER_EMAIL="$email"
           if [ "$(git -C work rev-parse HEAD)" != "$BASE_SHA" ]; then
@@ -304,7 +289,7 @@ jobs:
             exit 0
           fi
           if ! WORKTREE=work EXPECT_NAME="$GIT_NAME" EXPECT_EMAIL="$email" \
-               python3 -I .trusted/scripts/review-autofix.py check | tee -a "$GITHUB_STEP_SUMMARY"; then
+               python3 -I "$guard" check | tee -a "$GITHUB_STEP_SUMMARY"; then
             echo "outcome=owner" >>"$GITHUB_OUTPUT"
             exit 0
           fi
