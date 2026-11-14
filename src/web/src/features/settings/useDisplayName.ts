@@ -1,12 +1,11 @@
-export const DISPLAY_NAME_MIN_LENGTH = 2;
+// Same bounds as the contract and the server (1 to 80 characters after trimming; owner decision on #146).
 export const DISPLAY_NAME_MAX_LENGTH = 80;
 
-export type DisplayNameError = 'form.name.required' | 'form.name.tooShort' | 'form.name.tooLong';
+export type DisplayNameError = 'form.name.required' | 'form.name.tooLong';
 
 export function validateDisplayName(value: string): DisplayNameError | undefined {
   const length = Array.from(value.trim()).length;
   if (length === 0) return 'form.name.required';
-  if (length < DISPLAY_NAME_MIN_LENGTH) return 'form.name.tooShort';
   if (length > DISPLAY_NAME_MAX_LENGTH) return 'form.name.tooLong';
   return undefined;
 }
@@ -15,9 +14,8 @@ export function validateDisplayName(value: string): DisplayNameError | undefined
 export function displayNameViolation(code: string): DisplayNameError | undefined {
   switch (code) {
     case 'required':
-      return 'form.name.required';
     case 'too_short':
-      return 'form.name.tooShort';
+      return 'form.name.required';
     case 'too_long':
       return 'form.name.tooLong';
     default:

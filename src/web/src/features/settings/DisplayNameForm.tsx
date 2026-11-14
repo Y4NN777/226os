@@ -13,7 +13,6 @@ import { useI18n } from '../../i18n/I18nProvider';
 import { violationsByName } from '../identity/violations';
 import {
   DISPLAY_NAME_MAX_LENGTH,
-  DISPLAY_NAME_MIN_LENGTH,
   displayNameViolation,
   validateDisplayName,
   type DisplayNameError,
@@ -97,10 +96,7 @@ export function DisplayNameForm({ initialName }: { initialName: string }) {
                   ? {
                       status: {
                         type: 'error' as const,
-                        message: t(errorKey, {
-                          min: DISPLAY_NAME_MIN_LENGTH,
-                          max: DISPLAY_NAME_MAX_LENGTH,
-                        }),
+                        message: t(errorKey, { max: DISPLAY_NAME_MAX_LENGTH }),
                       },
                     }
                   : {})}

@@ -61,18 +61,21 @@ describe('SettingsPage display-name form (live profile)', () => {
     expect(callsTo(fetchMock, 'PATCH /me/profile')).toHaveLength(0);
   });
 
-  it('rejects a one-character name on blur with the minimum length', async () => {
+  // Owner decision 2026-11-14 (#146): the client follows the contract and the server, a 1-character name is valid.
+  it('accepts a one-character name, as the contract does', async () => {
     setLanguages(['en-US']);
-    member();
+    const fetchMock = member();
     await renderApp('/parametres');
     const input = await screen.findByLabelText(/Display name/);
     await userEvent.clear(input);
     await userEvent.type(input, 'A');
     await userEvent.tab();
+    // Astryx keeps an aria-live region with role "alert" between tests, so check the field itself.
+    expect(input).toBeValid();
+    expect(screen.queryByText(/at least|Enter a display name/)).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => {
-      expect(screen.getByRole('alert')).toHaveTextContent(
-        'The name must be at least 2 characters long.',
-      );
+      expect(callsTo(fetchMock, 'PATCH /me/profile')).toHaveLength(1);
     });
   });
 
