@@ -138,7 +138,7 @@ grep -qx 'run=false' <<<"$outputs" && ok "a pull request into main is refused" |
 
 pr ""
 run pr HAS_TOKEN=
-grep -qx 'run=false' <<<"$outputs" && [ "$(writes)" -eq 0 ] && grep -q 'autofix: NOT RUN (REVIEW_BOT_TOKEN missing)' <<<"$out" && [ "$rc" -eq 0 ] && ok "a missing token: NOT RUN, exit 0, nothing written" || ko "no token (rc=$rc $out)"
+grep -qx 'run=false' <<<"$outputs" && [ "$(writes)" -eq 0 ] && grep -q 'autofix: NOT RUN (REVIEW_AGENT_TOKEN missing)' <<<"$out" && [ "$rc" -eq 0 ] && ok "a missing token: NOT RUN, exit 0, nothing written" || ko "no token (rc=$rc $out)"
 
 run pr AUTO_FIX=off
 grep -qx 'run=false' <<<"$outputs" && [ "$(writes)" -eq 0 ] && ok "mode off: no fix, nothing written" || ko "off ($out)"
@@ -192,7 +192,7 @@ grep -qx 'branch=fix/review/batch-2026-11-14-2' <<<"$outputs" && ok "a branch of
 printf '[]' >"$tmp/st/refs.json"
 
 run batch BATCH_RESULT='findings batch: updated #40' HAS_TOKEN=
-grep -qx 'run=false' <<<"$outputs" && grep -q 'autofix: NOT RUN (REVIEW_BOT_TOKEN missing)' <<<"$out" && ok "batch: a missing token is NOT RUN" || ko "batch no token ($out)"
+grep -qx 'run=false' <<<"$outputs" && grep -q 'autofix: NOT RUN (REVIEW_AGENT_TOKEN missing)' <<<"$out" && ok "batch: a missing token is NOT RUN" || ko "batch no token ($out)"
 
 run batch BATCH_RESULT='findings batch: updated #40' AUTO_FIX=off
 grep -qx 'run=false' <<<"$outputs" && ok "batch: mode off does nothing" || ko "batch off ($out)"

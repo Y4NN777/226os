@@ -34,7 +34,8 @@ whether its commits may be pushed. The workflows only call this script; the mode
          are neutralised, pipes escaped.
 
 Mode: AUTO_FIX = off | report (default: says what it would do, writes nothing) | on. HAS_TOKEN must be `true` (the
-workflow passes `secrets.REVIEW_BOT_TOKEN != ''`): without it, "autofix: NOT RUN (REVIEW_BOT_TOKEN missing)" and
+publish jobs alone hold secrets.REVIEW_AGENT_TOKEN, in the environment review-agent, so the decide and plan jobs pass
+`true` and the publish job reports a missing token): without it, "autofix: NOT RUN (REVIEW_AGENT_TOKEN missing)" and
 nothing is written. Only `on` with the token writes, and only labels.
 Outputs (`pr`, `batch`) are `key=value` lines appended to GITHUB_OUTPUT: run=true|false, then attempt, findings,
 branch, head_sha (pr) or issue, branch, items (batch). They carry ids and numbers only, never ledger or issue text.
@@ -197,7 +198,7 @@ def cmd_pr():
     if verdict in ("refuse", "nothing"):
         return stop("autofix: skip (%s)" % detail)
     if mode == "on" and not token:
-        return stop("autofix: NOT RUN (REVIEW_BOT_TOKEN missing)")
+        return stop("autofix: NOT RUN (REVIEW_AGENT_TOKEN missing)")
     if verdict in ("owner", "exhausted"):
         print("autofix: owner (%s)" % detail)
         if writes:
@@ -275,7 +276,7 @@ def cmd_batch():
     if verdict != "fix":
         return stop("autofix batch: skip (%s)" % detail)
     if mode == "on" and not token:
-        return stop("autofix: NOT RUN (REVIEW_BOT_TOKEN missing)")
+        return stop("autofix: NOT RUN (REVIEW_AGENT_TOKEN missing)")
     number, branch, items = detail
     if mode != "on":
         return stop("autofix batch: report mode: would fix %d item(s) of #%s on %s" % (len(items), number, branch))

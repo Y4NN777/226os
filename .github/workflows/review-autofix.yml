@@ -11,19 +11,24 @@
 #   job fix      UNTRUSTED: runs the model and the pull request's code (make setup, make targets, tests). It holds NO
 #                write token: GITHUB_TOKEN is read-only and its only secret is the Claude OAuth token. Its commits leave
 #                the job as a patch artifact (git format-patch). Git reads, single tests and web scripts go through
-#                `fixer-run` (scripts/review-autofix.py `run`), which refuses any output file or program argument.
-#                REVIEW_CONTEXT.md and OWNER_PREFERENCES.md are given from the base branch (develop).
-#   job publish  TRUSTED: never runs pull request code (no make, no npm, no script of the pull request). It checks out the
-#                branch, applies the patch with `git am` (hooks off), runs `check` (identity Y4NN77, no AI trailer, no
-#                owner path: contract, migrations, ADRs, secrets, .npmrc, .github, the harness, the owner's preferences)
-#                and pushes normally (never force) with REVIEW_BOT_TOKEN: a push with GITHUB_TOKEN would trigger no
+#                `fixer-run` (allowlists, defence in depth only: make, go test and pnpm run pull request code). The
+#                Claude configuration (.claude, CLAUDE.md, .mcp.json...) is restored from develop before the model starts,
+#                so the pull request's own hooks and permissions never apply; CLAUDE_CODE_SUBPROCESS_ENV_SCRUB=1 scrubs
+#                secrets from the model's subprocesses; go test and pnpm run without network when the runner allows
+#                `unshare -rn`. REVIEW_CONTEXT.md and OWNER_PREFERENCES.md are given from develop.
+#   job publish  TRUSTED, environment `review-agent`, the ONLY job that reads REVIEW_AGENT_TOKEN: never runs pull
+#                request code. `apply` validates the patch files and commits them itself as Y4NN77 (hooks off), `check`
+#                refuses another identity, an AI trailer, links, submodules, mode or binary changes and owner paths on
+#                both sides of every change; then a normal push (never force): a push with GITHUB_TOKEN would trigger no
 #                workflow, so the fix would never be checked. It labels needs-owner when the fixer or the guard says so.
 # The prompt carries the repository, the pull request number and finding ids only, never pull request text.
 #
 # Switch: repository variable AUTO_FIX = off | report (default: the decision goes to the job summary, nothing is
-# written) | on. Without the secret REVIEW_BOT_TOKEN the run prints "autofix: NOT RUN (REVIEW_BOT_TOKEN missing)".
-# Owner setup: the secret REVIEW_BOT_TOKEN (fine-grained token on this repository: contents and pull requests read and
-# write), CLAUDE_CODE_OAUTH_TOKEN (already used by code-review.yml), then AUTO_FIX=on.
+# written) | on. Without the secret REVIEW_AGENT_TOKEN the publish job prints "autofix: NOT RUN (REVIEW_AGENT_TOKEN
+# missing)" (the decide job cannot see an environment secret, so the attempt is still counted).
+# Owner setup: the environment `review-agent` (deployment branches main and develop) with the secret REVIEW_AGENT_TOKEN
+# (fine-grained token on this repository: contents and pull requests read and write), CLAUDE_CODE_OAUTH_TOKEN (already
+# used by code-review.yml), then AUTO_FIX=on.
 # workflow_run runs the copy of this file on the DEFAULT branch: nothing happens until it is on main.
 name: Review auto-fix
 
@@ -81,7 +86,8 @@ jobs:
           RUN_ID: ${{ github.event.workflow_run.id }}
           RUN_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
           AUTO_FIX: ${{ vars.AUTO_FIX || 'report' }}
-          HAS_TOKEN: ${{ secrets.REVIEW_BOT_TOKEN != '' }}
+          # The token lives in the environment review-agent, readable by the publish job only: it checks it.
+          HAS_TOKEN: 'true'
         run: |
           if [ ! -f scripts/review-autofix.py ]; then
             echo "autofix: NOT RUN (scripts/review-autofix.py is not on the default branch)" | tee -a "$GITHUB_STEP_SUMMARY"
@@ -153,6 +159,29 @@ jobs:
       - name: Install from lockfiles
         run: make setup
 
+      # The pull request must not bring its own Claude configuration: hooks, permissions, agents, MCP servers. The paths
+      # the action restores on pull request events (not on workflow_run) come from develop, in the working tree only.
+      - name: Restore the Claude configuration from develop
+        run: |
+          for path in .claude .mcp.json .claude.json .gitmodules .ripgreprc CLAUDE.md CLAUDE.local.md .husky; do
+            rm -rf "$path"
+            if git cat-file -e "origin/develop:$path" 2>/dev/null; then
+              git restore --source=origin/develop --worktree -- "$path"
+            fi
+          done
+          echo "Claude configuration: restored from develop" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      # go test and pnpm (through fixer-run) run without network when unprivileged user namespaces are allowed; make
+      # targets keep the network (Docker) and the model needs it for the API.
+      - name: Probe network isolation for tests
+        run: |
+          if unshare -rn true 2>/dev/null; then
+            echo "FIXER_NETNS=1" >>"$GITHUB_ENV"
+            echo "network isolation for go test and pnpm: ON (unshare -rn)" | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            echo "network isolation for go test and pnpm: NOT AVAILABLE (unshare -rn refused on this runner)" | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
+
       # The commit identity is the owner's (CONTRIBUTING.md: never an agent identity). The noreply address is computed
       # from the public user id, so no e-mail address is written in the repository. The publish job checks it again.
       - name: Set the human commit identity
@@ -175,6 +204,10 @@ jobs:
       - name: Fix (Claude Code, review-fix command)
         id: claude
         uses: anthropics/claude-code-action@4d75e5f390ee76b2e09c1980ecc99ff3a2e088c8 # v1.0.275
+        env:
+          # Best-effort scrub of the Anthropic, cloud and GitHub secrets from the model's subprocesses (the pinned action
+          # passes it through; its bubblewrap PID isolation is only installed with allowed_non_write_users).
+          CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: '1'
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ github.token }}
@@ -217,6 +250,10 @@ jobs:
           except ValueError: print("nothing")')"
           if [ "$outcome" = fixed ] && [ "$(git rev-list --count "$BASE_SHA..HEAD")" -gt 0 ]; then
             git format-patch -q -o "$RUNNER_TEMP/autofix/patches" "$BASE_SHA..HEAD"
+            i=0
+            for f in "$RUNNER_TEMP"/autofix/patches/*.patch; do
+              i=$((i + 1)); mv "$f" "$RUNNER_TEMP/autofix/patches/$(printf '%04d' "$i")-fix.patch"
+            done
           elif [ "$outcome" = fixed ]; then
             outcome=nothing
           fi
@@ -236,6 +273,7 @@ jobs:
   publish:
     name: Check and push (trusted, no pull request code)
     needs: [decide, fix]
+    environment: review-agent
     if: always() && needs.decide.outputs.run == 'true' && (needs.fix.outputs.outcome == 'fixed' || needs.fix.outputs.outcome == 'owner')
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -270,21 +308,26 @@ jobs:
           REPO: ${{ github.repository }}
           GIT_LOGIN: ${{ vars.REVIEW_FIX_GIT_LOGIN || 'Y4NN777' }}
           GIT_NAME: ${{ vars.REVIEW_FIX_GIT_NAME || 'Y4NN77' }}
-          BOT_TOKEN: ${{ secrets.REVIEW_BOT_TOKEN }}
+          BOT_TOKEN: ${{ secrets.REVIEW_AGENT_TOKEN }}
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
           # The guard comes from the default branch as a git object, read before the patch is applied.
           guard="$RUNNER_TEMP/review-autofix.py"
           git -C work cat-file blob "origin/$DEFAULT_BRANCH:scripts/review-autofix.py" >"$guard"
+          if [ -z "$BOT_TOKEN" ]; then
+            echo "autofix: NOT RUN (REVIEW_AGENT_TOKEN missing)" | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "outcome=notoken" >>"$GITHUB_OUTPUT"
+            exit 0
+          fi
           email="$(gh api "users/$GIT_LOGIN" --jq .id)+${GIT_LOGIN}@users.noreply.github.com"
-          export GIT_COMMITTER_NAME="$GIT_NAME" GIT_COMMITTER_EMAIL="$email"
           if [ "$(git -C work rev-parse HEAD)" != "$BASE_SHA" ]; then
             echo "autofix: skip (the branch moved while the fixer ran)" | tee -a "$GITHUB_STEP_SUMMARY"
             echo "outcome=moved" >>"$GITHUB_OUTPUT"
             exit 0
           fi
-          if ! git -C work -c core.hooksPath=/dev/null am -q "$RUNNER_TEMP"/patches/*.patch; then
-            echo "autofix: the patch does not apply" | tee -a "$GITHUB_STEP_SUMMARY"
+          # Validated, applied and committed here as the human identity; the untrusted job's From: is never used.
+          if ! PATCH_DIR="$RUNNER_TEMP/patches" WORKTREE=work EXPECT_NAME="$GIT_NAME" EXPECT_EMAIL="$email" \
+               python3 -I "$guard" apply | tee -a "$GITHUB_STEP_SUMMARY"; then
             echo "outcome=owner" >>"$GITHUB_OUTPUT"
             exit 0
           fi

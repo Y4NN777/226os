@@ -55,13 +55,19 @@ Fix rules (binding):
   rename, no drive-by cleanup.
 - Never weaken a test, an assertion, a threshold, a coverage exclusion, a lint rule or a gate to make something pass.
 - Never touch `api/openapi.yaml` (R7: contract changes have named reviewers), `db/migrations/**` (R6: one migration
-  writer), `docs/decisions/**` (ADRs), `secrets/**`, `.env*`, any `.npmrc`, `.github/**`, `.claude/**`, `CLAUDE.md`,
-  `AGENTS.md` or `docs/team/OWNER_PREFERENCES.md`.
+  writer), `docs/decisions/**` (ADRs), `docs/quality/**`, `secrets/**`, `.env*`, any `.npmrc`, `.github/**`,
+  `.claude/**`, `CLAUDE.md`, `AGENTS.md`, `.mcp.json`, `docs/team/OWNER_PREFERENCES.md`, `Makefile`, `mk/**`,
+  `scripts/review-*.py`, `scripts/findings.py`, `scripts/close-merged-issues.py`, `scripts/coverage-*.sh`,
+  `scripts/check-*`, `scripts/gitleaks-ignore.txt`, `scripts/public-routes.txt`, `scripts/unimplemented-routes.txt` or
+  `scripts/authz-tests.txt`. No symbolic link, submodule, file mode change or binary file either. The publish job
+  refuses all of these on both sides of a change (a rename included).
   When a fix needs one of them, do not make it: the verdict is OWNER with a one-line reason. The workflow labels the pull
   request `needs-owner` from your result; you never label, comment or @-mention anyone yourself.
 - No new dependency, no generated file edited by hand (run `make generate` only if the slice already needs it).
 - Implement every fix through the project agent that owns the area, exactly as the lead session does: `web-implementer`
-  for `src/web/**`, `go-implementer` for `src/api/**`, `postgres-expert` for `db/queries/**` and SQL behaviour. Their
+  for `src/web/**`, `go-implementer` for `src/api/**`, `postgres-expert` for `db/queries/**` and SQL behaviour,
+  `ci-implementer` for `.github/**`, `scripts/**`, `mk/**` and `Makefile`. Most of those pipeline paths are owner paths
+  (verdict OWNER, no change), so `ci-implementer` is used only for pipeline files the guard allows. Their
   definitions in `.claude/agents/` (skills, preconditions, "never push, merge or deploy") apply in full. Give each one a
   task contract: the finding id and its scenario, the allowed paths of the slice, the failing test to write first, the
   gates, the stop condition. You frame the work, route it, then read the agent's diff and run the gates yourself; you do
@@ -69,10 +75,11 @@ Fix rules (binding):
   `go test` is denied) and that it never pushes (the trusted publish job does). Network tools other than `gh pr view`
   and `gh issue view` are not available.
 
-Commands in CI: git reads, single tests and web scripts go through `fixer-run` (`fixer-run git status|diff|log|show
-...`, `fixer-run go test ./src/api/... -run TestX -count=1`, `fixer-run pnpm --filter web run test|lint|typecheck|format:check`);
-it refuses any argument that writes a file or runs a program (`-o`, `--output`, `-exec`, a profile file). `git add`,
-`git commit` and `git restore` run directly. Locally, run the same commands without `fixer-run`.
+Commands in CI: git reads, single tests and web scripts go through `fixer-run`, which takes allowlists only:
+`fixer-run git status|diff|log|show` with `--stat`, `--cached`, `--name-only`, `--name-status`, `--oneline`, `-p`,
+`-<n>`, `--` and refs or paths; `fixer-run go test -run TestX -count=1 [-race] [-v] [-tags=...] [-timeout 60s] ./src/api/...`;
+`fixer-run pnpm --filter web run test|lint|typecheck|format:check [-- <path>]`. go test and pnpm may run without
+network. `git add`, `git commit` and `git restore` run directly. Locally, run the same commands without `fixer-run`.
 
 ## 3. Gates, one at a time
 
