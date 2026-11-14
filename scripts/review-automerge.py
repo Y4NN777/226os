@@ -23,9 +23,9 @@ rebase; GitHub's own branch protection still applies (a 405 is reported, exit 0)
 for every other open pull request into develop from this repository (failures are printed, never fatal).
 
 Reads use GH_TOKEN (the workflow's read-only token); only the merge and update-branch use BOT_TOKEN (the secret
-REVIEW_BOT_TOKEN: a merge with GITHUB_TOKEN would trigger no workflow, so the notes harvest would never run).
+REVIEW_AGENT_TOKEN of the GitHub environment review-agent: a merge with GITHUB_TOKEN would trigger no workflow, so the notes harvest would never run).
 Mode (AUTO_MERGE): off (nothing), report (default: prints WOULD MERGE / WOULD UPDATE, writes nothing), on.
-A missing BOT_TOKEN prints `auto-merge: NOT RUN (REVIEW_BOT_TOKEN missing)`. Every error is NOT RUN with exit 0.
+A missing BOT_TOKEN prints `auto-merge: NOT RUN (REVIEW_AGENT_TOKEN missing)`. Every error is NOT RUN with exit 0.
 
 Environment: REPO, HEAD_SHA (the head commit a workflow_run completed on) or PR_NUMBER (a manual run), AUTO_MERGE,
 BOT_TOKEN, GH_TOKEN, BASE (default develop), OWNER (default Y4NN777), REQUIRED_CHECKS (comma separated, default
@@ -194,7 +194,7 @@ def main():
         return 0
     token = os.environ.get("BOT_TOKEN", "")
     if not token:
-        print("auto-merge: NOT RUN (REVIEW_BOT_TOKEN missing)")
+        print("auto-merge: NOT RUN (REVIEW_AGENT_TOKEN missing)")
         return 0
     repo = os.environ.get("REPO", "")
     head_sha, number = os.environ.get("HEAD_SHA", ""), os.environ.get("PR_NUMBER", "")

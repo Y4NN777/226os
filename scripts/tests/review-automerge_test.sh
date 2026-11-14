@@ -148,7 +148,7 @@ reset; run report
 reset; run ""
 [ -z "$writes" ] && grep -q 'WOULD MERGE' <<<"$out" && ok "the default mode is report" || ko "default ($out $writes)"
 reset; TOKEN='' run on
-[ "$rc" -eq 0 ] && [ "$out" = "auto-merge: NOT RUN (REVIEW_BOT_TOKEN missing)" ] && [ -z "$calls" ] && ok "a missing token: NOT RUN, exit 0, no call at all" || ko "no token (rc=$rc $out $calls)"
+[ "$rc" -eq 0 ] && [ "$out" = "auto-merge: NOT RUN (REVIEW_AGENT_TOKEN missing)" ] && [ -z "$calls" ] && ok "a missing token: NOT RUN, exit 0, no call at all" || ko "no token (rc=$rc $out $calls)"
 reset; PRN=7 run report
 grep -q 'WOULD MERGE #7' <<<"$out" && ! grep -q "commits/$H/pulls" <<<"$calls" && ok "PR_NUMBER (manual run) evaluates that pull request" || ko "pr number ($out)"
 reset; PRN='7;x' run report

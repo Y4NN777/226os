@@ -10,10 +10,11 @@
 # the DEFAULT branch's copy of this file (main), with the default branch's scripts: it does nothing before it is
 # promoted to main. Manual run: workflow_dispatch with a pull request number.
 # MODE: repository variable AUTO_MERGE = off | report (default: prints WOULD MERGE, writes nothing) | on.
-# TOKEN: the secret REVIEW_BOT_TOKEN (fine-grained, this repository only: Contents read and write, Pull requests read
+# TOKEN: the secret REVIEW_AGENT_TOKEN of the GitHub environment `review-agent` (deployment branches main and
+# develop; only this job declares the environment, no other job can read it). Fine-grained, this repository only: Contents read and write, Pull requests read
 # and write; no Workflows permission). A merge with GITHUB_TOKEN would trigger no workflow, so the notes harvest would
 # never run. GITHUB_TOKEN (read-only below) does every read; the bot token only merges and updates branches. Without
-# the secret the job prints "auto-merge: NOT RUN (REVIEW_BOT_TOKEN missing)" and exits 0.
+# the secret the job prints "auto-merge: NOT RUN (REVIEW_AGENT_TOKEN missing)" and exits 0.
 # SAFETY: the pull request's code is never checked out nor run; event fields reach the script through env only.
 name: Review auto-merge
 
@@ -44,6 +45,8 @@ jobs:
           && github.event.workflow_run.head_repository.full_name == github.repository)
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # The only job that can read REVIEW_AGENT_TOKEN.
+    environment: review-agent
     permissions:
       contents: read
       pull-requests: read
@@ -59,7 +62,7 @@ jobs:
 
       - name: Decide and merge
         env:
-          BOT_TOKEN: ${{ secrets.REVIEW_BOT_TOKEN }}
+          BOT_TOKEN: ${{ secrets.REVIEW_AGENT_TOKEN }}
           GH_TOKEN: ${{ github.token }}
           AUTO_MERGE: ${{ vars.AUTO_MERGE || 'report' }}
           REPO: ${{ github.repository }}
@@ -69,7 +72,7 @@ jobs:
         run: |
           set -o pipefail
           if [ -z "$BOT_TOKEN" ]; then
-            echo "auto-merge: NOT RUN (REVIEW_BOT_TOKEN missing)" | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "auto-merge: NOT RUN (REVIEW_AGENT_TOKEN missing)" | tee -a "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
           if [ ! -f scripts/review-automerge.py ]; then
