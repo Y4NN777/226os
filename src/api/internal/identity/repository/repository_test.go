@@ -495,19 +495,12 @@ func TestHitPurgesExpiredBucketsWhenAWindowOpens(t *testing.T) {
 	}
 }
 
-func TestCount(t *testing.T) {
+func TestGiveBack(t *testing.T) {
 	ctx := context.Background()
-	db := &fakeDB{steps: []dbStep{{vals: []any{int32(4)}}}}
-	hits, retry, err := New(db).Count(ctx, "signin:account", testToken, 15*time.Minute, testTime)
-	if err != nil || hits != 4 || retry <= 0 {
-		t.Fatalf("count %d %v %v", hits, retry, err)
+	if err := New(&fakeDB{steps: []dbStep{{}}}).GiveBack(ctx, "signin:account", testToken, 15*time.Minute, testTime); err != nil {
+		t.Fatalf("give back: %v", err)
 	}
-	// No row yet: zero hits, not an error.
-	db = &fakeDB{steps: []dbStep{{}}}
-	if hits, _, err = New(db).Count(ctx, "signin:account", testToken, 15*time.Minute, testTime); err != nil || hits != 0 {
-		t.Fatalf("empty window: %d %v", hits, err)
-	}
-	if _, _, err = New(&fakeDB{steps: []dbStep{{err: errors.New("down")}}}).Count(ctx, "s", testToken, time.Minute, testTime); err == nil {
+	if err := New(&fakeDB{steps: []dbStep{{err: errors.New("down")}}}).GiveBack(ctx, "s", testToken, time.Minute, testTime); err == nil {
 		t.Fatal("driver error swallowed")
 	}
 }

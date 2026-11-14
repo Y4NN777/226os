@@ -68,13 +68,13 @@ type Store interface {
 	// every session of the account in one atomic write.
 	ResetPassword(ctx context.Context, hash [32]byte, phc string, now time.Time) error
 
-	// Count reports the hits recorded so far in the fixed window that contains
-	// now, plus the time until that window ends. No hit is recorded.
-	Count(ctx context.Context, scope string, key [32]byte, window time.Duration, now time.Time) (int, time.Duration, error)
-
 	// Hit records one attempt in a fixed-window bucket and reports whether it
 	// is allowed plus the retry delay when it is not. key is already hashed.
 	Hit(ctx context.Context, scope string, key [32]byte, limit int, window time.Duration, now time.Time) (bool, time.Duration, error)
+
+	// GiveBack atomically releases one hit from the bucket window that contains
+	// now (never below zero). now must be the instant the matching Hit used.
+	GiveBack(ctx context.Context, scope string, key [32]byte, window time.Duration, now time.Time) error
 
 	// ---------- profiles ----------
 
@@ -397,28 +397,36 @@ func (s *Service) SignIn(ctx context.Context, in SignInInput) (SignInResult, err
 		return SignInResult{}, err
 	}
 	email := normalizeEmail(in.Email)
-	// ADR-0003: 5 failures per account per window. The bucket is read before
-	// the lookup and a failure is counted the same way for a known and an
-	// unknown e-mail, so there is no 429-vs-401 enumeration oracle; successes
-	// are not counted.
-	if err := s.accountNotBlocked(ctx, email); err != nil {
-		return SignInResult{}, err
+	// ADR-0003: 5 failures per account per window. The attempt is counted UP
+	// FRONT by one atomic Hit, before the lookup and the password check, so N
+	// concurrent attempts cannot all read "below the limit" (issue #97). It is
+	// counted the same way for a known and an unknown e-mail (no 429-vs-401
+	// oracle) and a store error fails closed. A successful sign-in gives its hit
+	// back below, so only failures stay counted.
+	hitAt := s.now()
+	accountKey := s.bucketKey("signin:account", email)
+	ok, retry, err := s.store.Hit(ctx, "signin:account", accountKey, signInAccountLimit, signInWindow, hitAt)
+	if err != nil {
+		return SignInResult{}, apperr.Wrap(apperr.CodeInternal, err) // fail closed per ADR-0003
+	}
+	if !ok {
+		return SignInResult{}, apperr.New(apperr.CodeRateLimited, "Too many requests.").WithRetryAfter(retry)
 	}
 	acct, err := s.store.AccountByEmail(ctx, email)
 	if err != nil {
 		if errors.Is(err, domain.ErrNotFound) {
 			verifyDummy(in.Password)
-			return SignInResult{}, s.signInFailed(ctx, email)
+			return SignInResult{}, invalidCredentials()
 		}
 		return SignInResult{}, apperr.Wrap(apperr.CodeInternal, err)
 	}
 	if acct.Status != "active" {
 		verifyDummy(in.Password)
-		return SignInResult{}, s.signInFailed(ctx, email)
+		return SignInResult{}, invalidCredentials()
 	}
-	ok, err := password.Verify(in.Password, acct.PasswordHash)
-	if err != nil || !ok {
-		return SignInResult{}, s.signInFailed(ctx, email)
+	verified, err := password.Verify(in.Password, acct.PasswordHash)
+	if err != nil || !verified {
+		return SignInResult{}, invalidCredentials()
 	}
 	cookie, sess, err := s.sessionSecrets()
 	if err != nil {
@@ -435,30 +443,15 @@ func (s *Service) SignIn(ctx context.Context, in SignInInput) (SignInResult, err
 			return SignInResult{}, apperr.Wrap(apperr.CodeInternal, err)
 		}
 	}
+	// The sign-in succeeded: release the up-front hit so only failures count.
+	// A give-back error must not fail an authenticated sign-in; the hit then
+	// stays counted (the strict side) until the window ends. The log carries
+	// neither the e-mail nor the bucket key.
+	if err := s.store.GiveBack(ctx, "signin:account", accountKey, signInWindow, hitAt); err != nil {
+		slog.WarnContext(ctx, "identity sign-in rate limit give back failed", slog.String("error", err.Error()))
+	}
 	cookie.Name = "" // transport picks the profile-specific name
 	return SignInResult{Cookie: cookie, Account: acct}, nil
-}
-
-// accountNotBlocked denies the sign-in when the account already has the maximum
-// number of failures in the window. A store error fails closed.
-func (s *Service) accountNotBlocked(ctx context.Context, email string) error {
-	hits, retry, err := s.store.Count(ctx, "signin:account", s.bucketKey("signin:account", email), signInWindow, s.now())
-	if err != nil {
-		return apperr.Wrap(apperr.CodeInternal, err)
-	}
-	if hits >= signInAccountLimit {
-		return apperr.New(apperr.CodeRateLimited, "Too many requests.").WithRetryAfter(retry)
-	}
-	return nil
-}
-
-// signInFailed counts one failure against the account bucket and returns the
-// generic invalid-credentials problem. A store error fails closed.
-func (s *Service) signInFailed(ctx context.Context, email string) error {
-	if _, _, err := s.store.Hit(ctx, "signin:account", s.bucketKey("signin:account", email), signInAccountLimit, signInWindow, s.now()); err != nil {
-		return apperr.Wrap(apperr.CodeInternal, err)
-	}
-	return invalidCredentials()
 }
 
 // ---------- session ----------
