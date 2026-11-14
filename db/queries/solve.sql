@@ -238,3 +238,85 @@ FROM answer_sources s
 WHERE s.answer_id = ANY (sqlc.arg('ids')::uuid[])
 ORDER BY s.answer_id, s.created_at, s.id
 LIMIT 300;
+
+-- Votes (US-SOLVE-001). A vote is two statements in one transaction: the lock of the target row, then the
+-- vote write together with the score delta. The lock serialises every vote and every retraction of one
+-- target, so the second statement (which starts after the lock is held, with a fresh snapshot) reads the
+-- caller's previous vote exactly; two concurrent first votes of one user cannot both add their value.
+-- vote_score is never read into Go and written back: the UPDATE adds new value minus previous value.
+-- NO KEY UPDATE is the lock an ordinary UPDATE takes: it blocks other voters but not the foreign-key
+-- checks of inserts that point at the row.
+
+-- name: LockSolveQuestionForVote :one
+-- A removed or unknown question is no row. The author comes back for the self-vote rule.
+SELECT author_id
+FROM questions
+WHERE id = sqlc.arg('id')::uuid AND status = 'published'
+FOR NO KEY UPDATE;
+
+-- name: LockSolveAnswerForVote :one
+-- A removed or unknown answer, or an answer of a removed question, is no row.
+SELECT a.author_id
+FROM answers a
+JOIN questions q ON q.id = a.question_id
+WHERE a.id = sqlc.arg('id')::uuid AND a.status = 'published' AND q.status = 'published'
+FOR NO KEY UPDATE OF a;
+
+-- name: SetSolveQuestionVote :one
+-- value 1 or -1 inserts or replaces the vote (ON CONFLICT: a repeat creates no row), value 0 deletes it.
+-- Returns the new vote_score. Run only after LockSolveQuestionForVote.
+WITH old AS (
+  SELECT v.value FROM votes v
+  WHERE v.user_id = sqlc.arg('user_id')::uuid AND v.target_type = 'question' AND v.target_id = sqlc.arg('question_id')::uuid
+), del AS (
+  DELETE FROM votes
+  WHERE sqlc.arg('value')::smallint = 0
+    AND user_id = sqlc.arg('user_id')::uuid AND target_type = 'question' AND target_id = sqlc.arg('question_id')::uuid
+), up AS (
+  INSERT INTO votes (user_id, target_type, question_id, value)
+  SELECT sqlc.arg('user_id')::uuid, 'question', sqlc.arg('question_id')::uuid, sqlc.arg('value')::smallint
+  WHERE sqlc.arg('value')::smallint <> 0
+  ON CONFLICT ON CONSTRAINT votes_pk DO UPDATE SET value = EXCLUDED.value
+)
+UPDATE questions
+SET vote_score = vote_score + sqlc.arg('value')::smallint - COALESCE((SELECT value FROM old), 0)::smallint
+WHERE id = sqlc.arg('question_id')::uuid
+RETURNING vote_score;
+
+-- name: SetSolveAnswerVote :one
+-- As SetSolveQuestionVote, for an answer. Run only after LockSolveAnswerForVote.
+WITH old AS (
+  SELECT v.value FROM votes v
+  WHERE v.user_id = sqlc.arg('user_id')::uuid AND v.target_type = 'answer' AND v.target_id = sqlc.arg('answer_id')::uuid
+), del AS (
+  DELETE FROM votes
+  WHERE sqlc.arg('value')::smallint = 0
+    AND user_id = sqlc.arg('user_id')::uuid AND target_type = 'answer' AND target_id = sqlc.arg('answer_id')::uuid
+), up AS (
+  INSERT INTO votes (user_id, target_type, answer_id, value)
+  SELECT sqlc.arg('user_id')::uuid, 'answer', sqlc.arg('answer_id')::uuid, sqlc.arg('value')::smallint
+  WHERE sqlc.arg('value')::smallint <> 0
+  ON CONFLICT ON CONSTRAINT votes_pk DO UPDATE SET value = EXCLUDED.value
+)
+UPDATE answers
+SET vote_score = vote_score + sqlc.arg('value')::smallint - COALESCE((SELECT value FROM old), 0)::smallint
+WHERE id = sqlc.arg('answer_id')::uuid
+RETURNING vote_score;
+
+-- name: LockSolveAnswerForAccept :one
+-- The answer must be a published answer of THIS question (an id of another question, an unknown or a
+-- removed answer is no row: one answer for all three). FOR SHARE keeps a moderator from removing it
+-- between this check and the write.
+SELECT a.id
+FROM answers a
+WHERE a.id = sqlc.arg('id')::uuid AND a.question_id = sqlc.arg('question_id')::uuid AND a.status = 'published'
+FOR SHARE;
+
+-- name: SetSolveAcceptedAnswer :exec
+-- One UPDATE replaces the previous accepted answer or, with a NULL answer_id, clears it. It runs under the
+-- question's row lock (LockSolveQuestion), so two concurrent accepts end with exactly one accepted answer;
+-- the composite foreign key (accepted_answer_id, id) -> answers (id, question_id) is the backstop for the
+-- answer belonging to the question. updated_at is not touched: acceptance does not change the ETag.
+UPDATE questions
+SET accepted_answer_id = sqlc.narg('answer_id')::uuid
+WHERE id = sqlc.arg('id')::uuid;

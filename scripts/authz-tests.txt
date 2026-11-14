@@ -26,3 +26,7 @@ POST /api/v1/assistant/answers TestAuthzAskAssistantAnonymous   # verified membe
 POST /api/v1/questions TestAuthzCreateQuestionAnonymous   # verified member + CSRF: anonymous 401, unverified 403, nothing created
 PATCH /api/v1/questions/{questionId} TestAuthzUpdateQuestionNonOwner   # owner only: anonymous 401, non-owner 403 on a visible question whatever the If-Match, unknown or removed 404, nothing written
 POST /api/v1/questions/{questionId}/answers TestAuthzCreateAnswerAnonymous   # verified member + CSRF: anonymous 401, unverified 403, unknown or removed question 404, nothing created
+POST /api/v1/votes TestAuthzCastVoteAnonymous   # verified member + CSRF, not own content: anonymous 401, unverified 403, unknown or removed target 404, own content 403 SELF_VOTE_FORBIDDEN, no vote written
+DELETE /api/v1/votes TestAuthzRetractVoteAnonymous   # verified member + CSRF: anonymous 401, unverified 403, unknown or removed target 404, nothing written
+POST /api/v1/questions/{questionId}/accept TestAuthzAcceptAnswerNonOwner   # question author only: anonymous 401, unverified 403, non-author 403 and nothing changes, unknown or removed question 404, answer of another question 422
+POST /api/v1/questions/{questionId}/unaccept TestAuthzUnacceptAnswerNonOwner   # question author only: anonymous 401, unverified 403, non-author 403 and nothing changes, unknown or removed question 404

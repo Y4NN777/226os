@@ -11,9 +11,5 @@ PUT /api/v1/learn/series/{seriesId}/lessons/{lessonId}/progress   # putLessonPro
 POST /api/v1/moderation/error-reports/{reportId}/resolve   # resolveErrorReport
 POST /api/v1/moderation/{targetType}/{targetId}/hide   # hideContent
 POST /api/v1/moderation/{targetType}/{targetId}/restore   # restoreContent
-POST /api/v1/questions/{questionId}/accept   # acceptAnswer
-POST /api/v1/questions/{questionId}/unaccept   # unacceptAnswer
 GET /api/v1/resources/{resourceId}/reviews   # listResourceReviews (P1)
 POST /api/v1/resources/{resourceId}/reviews   # createResourceReview (P1)
-DELETE /api/v1/votes   # retractVote
-POST /api/v1/votes   # castVote

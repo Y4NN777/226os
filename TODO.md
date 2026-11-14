@@ -166,10 +166,10 @@ Open owner items outside CADEV (IDs and decisions in ROADMAP section 8, 10 and 1
   - [x] `updateQuestion` (owner only, non-owner 403; `If-Match` required: 428 missing, 412 stale; authz and 404 run BEFORE the ETag check) — `feature/solve/questions-answers`, 2026-11-14
   - [x] `listAnswers` (accepted first, then by score) — `feature/solve/questions-answers`, 2026-11-14
   - [x] `createAnswer` (verified email; Idempotency-Key) — `feature/solve/questions-answers`, 2026-11-14
-  - [ ] `castVote` (one vote per target; own content 403 `SELF_VOTE_FORBIDDEN`; server-side score)
-  - [ ] `retractVote` (idempotent)
-  - [ ] `acceptAnswer` (question author only; atomically replaces the previous accepted answer)
-  - [ ] `unacceptAnswer` (idempotent)
+  - [x] `castVote` (one vote per target; own content 403 `SELF_VOTE_FORBIDDEN`; server-side score) — `feature/solve/votes-accept`, 2026-11-14
+  - [x] `retractVote` (idempotent) — `feature/solve/votes-accept`, 2026-11-14
+  - [x] `acceptAnswer` (question author only; atomically replaces the previous accepted answer) — `feature/solve/votes-accept`, 2026-11-14
+  - [x] `unacceptAnswer` (idempotent) — `feature/solve/votes-accept`, 2026-11-14
 - **Tables:** `questions`, `answers`, `votes`, `question_tags`, `question_sources`, `answer_sources`, `content_relations`, `tags`, `idempotency_keys`.
 - **Acceptance:** `US-SOLVE-001/1`, `/2`, `US-IDENTITY-001/1`. Negative authz: writes 401 anonymous, 403 `EMAIL_NOT_VERIFIED`, 403 CSRF; non-owner PATCH 403; Bob's accept 403 with no change; self-vote 403; duplicate vote creates no row; closed or removed question rejects answers; links to private targets or by non-authors rejected.
 - **Prototype pages:** `solve`, `question`, part of `accueil`. **Allowed paths:** `src/api/internal/solve/**`, `db/queries/**` (solve files), generated `dbgen`, `scripts/public-routes.txt` (3 public reads). **DoD:** DoD-common plus a vote-score reconciliation test and a concurrent-accept test on real PostgreSQL. **Stop:** any change to `api/openapi.yaml` (R7).
@@ -180,8 +180,10 @@ Open owner items outside CADEV (IDs and decisions in ROADMAP section 8, 10 and 1
   - A missing `If-Match` is 428 from the generated parameter binding, before the authorization check; it leaks nothing (same answer for every id). A stale one gets 403 or 404 first.
   - No "closed" question state exists: a removed or unknown question is 404 for reads, edits and answers.
   - `updateQuestion` draws on the `write:user` budget like the creates; it does not require a verified email (owner only, and verification cannot revert at P0).
-  - The answer cursor assumes a stable `vote_score`; PR 2 (votes) must make paging stable.
-- **Status:** IN PROGRESS. PR 1 (`feature/solve/questions-answers`, six operations) built by the owner's session on 2026-11-14 with `NICE-DEV226` as slice owner (owner decision on #67); PR 2 (`feature/solve/votes-accept`) not started.
+  - Answer paging under moving votes (owner decision 2026-11-14, accepted): `listAnswers` keeps the SPEC order (accepted first, then score); while votes move, a client paging through can miss an answer that rose above the cut or see one twice. Nothing errors and a reload fixes it.
+  - Votes and accept need a verified email (as the content they act on, ADR-0003). An unknown, removed or other-question `answer_id` on accept is 422 on `/answer_id` (the question is visible to its author, so nothing leaks); a vote on an unknown or removed target is 404.
+  - Allowed paths extended as S4 and S5 (owner approval 2026-11-14): `src/api/internal/app/**` (wiring), `src/api/internal/platform/pgtest/**` and `dbgen/*_test.go` (tests), the route lists `scripts/unimplemented-routes.txt`, `scripts/public-routes.txt`, `scripts/authz-tests.txt`, and `scripts/tests/authz-routes_test.sh` (its fixture routes moved to still-unimplemented P1 operations).
+- **Status:** IN REVIEW. PR 1 merged (#147, 2026-11-14); PR 2 (`feature/solve/votes-accept`, four operations) built by the owner's session with `NICE-DEV226` as slice owner (owner decision on #67).
 
 ---
 
@@ -268,6 +270,7 @@ Open owner items outside CADEV (IDs and decisions in ROADMAP section 8, 10 and 1
   - 2026-11-13 (PR 2): public reads wired live: `discover` (`listResources`), `resource` (`getResource`, `listResourceSources`; the error-report form waits), `recherche` (`search`, plus an assistant panel marked as a demo until S9).
   - 2026-11-13 (`fix/platform/s7-api-gaps`, owner-approved): the API now serves `Resource.provenance` (`live`/`demo`) for the demo badge, `listResources` accepts a comma list in `country` (up to 20, union) for the West Africa default, and the verify/reset mails carry `<APP_BASE_URL>/verifier-email#token=…` and `/reinitialiser#token=…` links when the optional `APP_BASE_URL` is set (owner sets it per environment; unset keeps the bare code).
 - 2026-11-14 (`Y4NN777`, `feature/solve/web-solve-question`): `solve` (`listQuestions` with `q` and tag, `createQuestion` with an Idempotency-Key per submission, one snippet, a link only when pre-filled from the route) and `question` (`getQuestion`, `listAnswers`, `createAnswer`, owner edit with `If-Match` and a reload on 412) wired live after S3 PR 1 (#147); vote and accept controls show for members and hide for the session on a 501 until S3 PR 2 lands. Navigation: Résoudre is live. Vitest `testTimeout` raised to 15 s (owner decision: page tests hit 5 s under machine load).
+- 2026-11-14 (`Y4NN777`, `feature/learn/web-ecrire`, #124): `ecrire` wired to `createLearnArticle`: articles are published (no draft), an Idempotency-Key per submission, a `Idempotency-Body-Omitted` replay follows `Location` (same-origin article only), a link only when pre-filled from the route (question, resource or project; series and article refused), the 14 learn topics, entry in the account menu. No article page exists yet, so success links home.
 - [ ] **Profile visibility setting** on `parametres` (C14b) with FR/EN copy saying that bylines still show the name. It slips before the column if the team is behind.
   - 2026-11-14 (`Y4NN777`, `feature/identity/web-settings-profile`, first #109 item): the `parametres` display name is read with `getMe` and saved with `updateMyProfile` (server violations on the field; header refreshed); the name is no longer kept in browser storage, and the key an earlier build wrote is deleted at start-up.
   - 2026-11-13 (PR 3, `feature/platform/web-home-settings`): `parametres` (old `/settings` redirects) with public / members / private, saved through `updateMyProfile`; the copy says bylines still show the name. Shown disabled with a label while `getMe` answers 501; it turns on by itself when PR #94 merges.

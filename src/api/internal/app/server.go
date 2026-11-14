@@ -406,3 +406,39 @@ func (s *Server) CreateAnswer(w http.ResponseWriter, r *http.Request, questionID
 	}
 	s.solve.CreateAnswer(w, r, questionID, params)
 }
+
+// CastVote serves POST /votes. A server built without WithSolve stays unimplemented.
+func (s *Server) CastVote(w http.ResponseWriter, r *http.Request) {
+	if s.solve == nil {
+		s.Unimplemented.CastVote(w, r)
+		return
+	}
+	s.solve.CastVote(w, r)
+}
+
+// RetractVote serves DELETE /votes. A server built without WithSolve stays unimplemented.
+func (s *Server) RetractVote(w http.ResponseWriter, r *http.Request, params apigen.RetractVoteParams) {
+	if s.solve == nil {
+		s.Unimplemented.RetractVote(w, r, params)
+		return
+	}
+	s.solve.RetractVote(w, r, params)
+}
+
+// AcceptAnswer serves POST /questions/{questionId}/accept. A server built without WithSolve stays unimplemented.
+func (s *Server) AcceptAnswer(w http.ResponseWriter, r *http.Request, questionID apigen.QuestionId) {
+	if s.solve == nil {
+		s.Unimplemented.AcceptAnswer(w, r, questionID)
+		return
+	}
+	s.solve.AcceptAnswer(w, r, questionID)
+}
+
+// UnacceptAnswer serves POST /questions/{questionId}/unaccept. A server built without WithSolve stays unimplemented.
+func (s *Server) UnacceptAnswer(w http.ResponseWriter, r *http.Request, questionID apigen.QuestionId) {
+	if s.solve == nil {
+		s.Unimplemented.UnacceptAnswer(w, r, questionID)
+		return
+	}
+	s.solve.UnacceptAnswer(w, r, questionID)
+}
