@@ -45,7 +45,7 @@ func TestBuildRoutesDelegateOnlyWhenWired(t *testing.T) {
 		},
 		"decideApplication": func(s *Server, w http.ResponseWriter, r *http.Request) { s.DecideApplication(w, r, id) },
 	}
-	wired := NewServer(WithBuild(build.NewHandler(&fakePool{}, github.New(), c, allowLimiter{}, nil)))
+	wired := NewServer(WithBuild(build.NewHandler(&fakePool{}, github.New("", nil), c, allowLimiter{}, nil)))
 	for name, call := range calls {
 		t.Run(name, func(t *testing.T) {
 			req := func() *http.Request {

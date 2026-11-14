@@ -449,6 +449,9 @@ func TestDirectoryRateLimit(t *testing.T) {
 	seedTags(ctx, t, s.conn)
 	newPerson(1, "limited").insert(ctx, t, s.conn)
 	viewer := s.signIn(t, "dir-viewer", true, 65)
+	// The limiter uses fixed one-minute windows: each 61-call burst must start inside one window,
+	// or a minute rollover resets the bucket and the 61st call is allowed.
+	awaitFreshMinute(t)
 	for i := 1; i <= 60; i++ {
 		if rec := s.read(t, nil, "/api/v1/profiles"); rec.Code != http.StatusOK {
 			t.Fatalf("anonymous call %d: %d %s", i, rec.Code, rec.Body.String())
@@ -459,6 +462,7 @@ func TestDirectoryRateLimit(t *testing.T) {
 		t.Fatalf("61st anonymous call: %d retry-after %q %s", rec.Code, rec.Header().Get("Retry-After"), rec.Body.String())
 	}
 	// The member has its own per-user budget, untouched by the anonymous network's.
+	awaitFreshMinute(t)
 	if rec := s.read(t, &viewer, "/api/v1/profiles"); rec.Code != http.StatusOK {
 		t.Fatalf("member call after the anonymous limit: %d %s", rec.Code, rec.Body.String())
 	}
