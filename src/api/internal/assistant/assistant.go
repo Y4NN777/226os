@@ -26,17 +26,16 @@ type Retriever struct{ search Searcher }
 // NewRetriever returns a retriever over s.
 func NewRetriever(s Searcher) Retriever { return Retriever{search: s} }
 
-// kinds maps a search group to the passage kind and the in-app URL of an item of that group. Only
-// questions and resources have a page (src/web router); projects and articles link to the search
-// for their title until their pages exist.
+// kinds maps a search group to the passage kind and the in-app URL of an item of that group. Series
+// are not retrieved, so they have no entry.
 var kinds = map[searchdomain.Group]struct {
 	kind string
-	url  func(id, title string) string
+	url  func(id string) string
 }{
-	searchdomain.Questions: {domain.KindQuestion, func(id, _ string) string { return "/questions/" + id }},
-	searchdomain.Resources: {domain.KindResource, func(id, _ string) string { return "/discover/" + id }},
-	searchdomain.Projects:  {domain.KindProject, func(_, title string) string { return domain.SearchURL(title) }},
-	searchdomain.Learn:     {domain.KindArticle, func(_, title string) string { return domain.SearchURL(title) }},
+	searchdomain.Questions: {domain.KindQuestion, func(id string) string { return "/questions/" + id }},
+	searchdomain.Resources: {domain.KindResource, func(id string) string { return "/discover/" + id }},
+	searchdomain.Projects:  {domain.KindProject, func(id string) string { return "/build/" + id }},
+	searchdomain.Learn:     {domain.KindArticle, func(id string) string { return "/apprendre/articles/" + id }},
 }
 
 // Retrieve runs the search once as a member (no anonymous limit) and keeps the best limit hits,
@@ -62,7 +61,8 @@ func (r Retriever) Retrieve(ctx context.Context, question string, limit int) ([]
 			}
 			h, k := items[round], kinds[g]
 			out = append(out, domain.Passage{
-				Type: k.kind, ID: h.ID, Title: h.Title, Text: domain.Cut(h.Snippet, domain.MaxPassageRunes), URL: k.url(h.ID, h.Title),
+				Type: k.kind, ID: h.ID, Title: h.Title, Text: domain.Cut(h.Snippet, domain.MaxPassageRunes), URL: k.url(h.ID),
+				PublishedAt: h.PublishedAt,
 			})
 			added = true
 		}
