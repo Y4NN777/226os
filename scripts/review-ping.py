@@ -50,7 +50,7 @@ def main():
     except Exception as exc:  # fail open: a broken read must never fail the pull request
         print("review-ping: NOT RUN (%s)" % type(exc).__name__)
         return 0
-    open_serious = [f for f in (ledger or {}).get("findings", []) if f["status"] == "open" and f["sev"] in SERIOUS]
+    open_serious = [f for f in (ledger or {}).get("findings", []) if f["kind"] == "finding" and f["status"] == "open" and f["sev"] in SERIOUS]
     try:
         if open_serious:
             gh(binary, "api", "-X", "POST", "repos/%s/issues/%s/labels" % (repo, pr), "-f", "labels[]=%s" % LABEL)
