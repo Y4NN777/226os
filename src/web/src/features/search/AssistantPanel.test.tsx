@@ -208,7 +208,9 @@ describe('AssistantPanel', () => {
     const now = Date.now();
     vi.spyOn(Date, 'now').mockReturnValue(now + 31_000);
     await router.navigate({ to: '/recherche', search: { q: 'webhook' } });
-    expect(await screen.findByRole('heading', { level: 2, name: /^Assistant/ })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { level: 2, name: /^Assistant/ }),
+    ).toBeInTheDocument();
   });
 
   it('invites an anonymous visitor to sign in and returns to the search', async () => {

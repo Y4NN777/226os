@@ -207,7 +207,7 @@ export function AssistantPanel({
   const session = useSession();
   const [unavailableUntil] = useUnavailableUntil();
   const signedIn = session.data?.authenticated === true;
-  const [seen] = useState(unavailableUntil > Date.now());
+  const [seen] = useState(() => unavailableUntil > Date.now());
   if (seen || session.isPending) return null;
 
   return (
