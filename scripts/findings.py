@@ -449,7 +449,9 @@ def one_line(text, width=120):
 
 def defect_id(ident, where):
     """The key under which items are one defect: the id, the file AND the line, all three. A generic id on the same file at
-    another line, or with no known line, is another defect and stays its own row (settling one must never close the other)."""
+    another line, or with no known line, is another defect and stays its own row (settling one must never close the other).
+    The title is deliberately NOT part of the key (#212 L8, accepted trade-off): a note's text has no `<id>: ` prefix and a
+    finding's title is cut, so a title key would split the same defect raised on several pull requests."""
     if not ident or not where or where.group(1) in ("", "?") or not re.fullmatch(r"\d+", where.group(2) or ""):
         return None
     return (ident, where.group(1), int(where.group(2)))
@@ -539,14 +541,15 @@ def merged_fix(ctx, binary, repo, issue):
     (`#N` or its URL), or None. Since ADR-0013 `develop` is the default branch, so `Closes #N` closes an issue natively on a merge into develop (needs-owner ones included); `close-merged-issues.py` stays as the idempotent backstop, and this check settles the batch whichever way the issue closed."""
     number = issue.get("number")
     # Only a pull request that says it IS the batch's fix counts: a `Batch: #N` line (the body written for the batch fix
-    # pull request), a closing keyword before the reference, or the words "review batch". A bare mention does not.
+    # pull request), a closing keyword before the reference, A bare mention does not, and the pull request's head branch must be a `fix/review/batch-` one.
     ref_n = r"(?:#%s(?!\d)|https://github\.com/[\w.-]+/[\w.-]+/issues/%s(?!\d))" % (number, number)
-    ref = re.compile(r"^Batch:\s*%s|\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\b:?\s+(?:the\s+)?(?:review\s+)?(?:batch\s+)?%s|\breview\s+batch\s+%s" % (ref_n, ref_n, ref_n), re.I | re.M)
+    # (No bare "review batch #N" match: anyone can write those words; and the head must be the batch branch, #212 L7.)
+    ref = re.compile(r"^Batch:\s*%s|\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\b:?\s+(?:the\s+)?(?:review\s+)?(?:batch\s+)?%s" % (ref_n, ref_n), re.I | re.M)
     created = issue.get("created_at", "")
     pulls = ctx.gh_api(binary, "repos/%s/pulls?state=closed&base=develop&sort=updated&direction=desc&per_page=100" % repo)
     for pr in pulls:
         merged = pr.get("merged_at") or ""
-        if merged and merged >= created and ref.search(pr.get("body") or ""):
+        if merged and merged >= created and str((pr.get("head") or {}).get("ref") or "").startswith(BATCH_PREFIX) and ref.search(pr.get("body") or ""):
             return pr
     return None
 
@@ -555,7 +558,7 @@ SETTLE_MARK = "<!-- settled-by:PR%s -->"
 DECISIONS = ("FIXED", "FIXED ELSEWHERE", "NOT A DEFECT", "DECIDED", "OWNER", "AFTER FREEZE")
 # Only a fix closes or ticks by itself; NOT A DEFECT and DECIDED are the fixer's opinion: a human closes or ticks them.
 CLOSE_AS = {"FIXED": "completed", "FIXED ELSEWHERE": "completed"}
-STAYS_OPEN = {"OWNER": "stays open for the owner", "AFTER FREEZE": "stays open until after the freeze",
+STAYS_OPEN = {"NOT VERIFIED": "stays open: a human checks", "OWNER": "stays open for the owner", "AFTER FREEZE": "stays open until after the freeze",
               "NOT A DEFECT": "stays open: a human closes it as not planned if they agree",
               "DECIDED": "stays open: a human closes it as not planned or ticks it if they agree"}
 SETTLE_ROW = re.compile(r"^\|\s*(#\d+(?:/[\w-]+)?)\s*\|")
@@ -583,7 +586,41 @@ def settle_text(decision, reason, pr):
     return "%s: %s" % (decision.lower(), one_line(reason, 200))
 
 
-def settle_issue(ctx, binary, repo, pr, batch_no, number, entries):
+PR_REF = re.compile(r"#(\d+)")
+
+
+def unverified(ctx, binary, repo, pr, files, decision, reason, cited):
+    """None when a FIXED or FIXED ELSEWHERE row is backed by the facts, else the one-line comment that leaves the source open
+    (the fixer's verdict is its own opinion): FIXED needs the merged batch pull request's diff (`files`) to touch the file
+    the finding cites; FIXED ELSEWHERE needs the pull request named in the reason (#N) to be merged and to have touched the cited file too."""
+    if decision == "FIXED":
+        if not cited or cited == "?":
+            return "marked FIXED but the finding cites no file: a human checks"
+        if files is None or cited not in files:
+            return "marked FIXED but #%s did not touch `%s`: a human checks" % (pr, one_line(cited, 120))
+        return None
+    if decision == "FIXED ELSEWHERE":
+        m = PR_REF.search(re.sub("[\u200b\u200c\u200d\u2060\ufeff]", "", reason or ""))  # the batch body was disarmed: #<ZWSP>N
+        if not m:
+            return "marked FIXED ELSEWHERE but names no pull request: a human checks"
+        try:
+            info = (ctx.gh_api(binary, "repos/%s/pulls/%s" % (repo, m.group(1))) or [{}])[0]
+        except Exception:  # not a pull request, or unreadable: never close on it
+            info = {}
+        if not info.get("merged_at"):
+            return "named PR #%s is not merged: a human checks" % m.group(1)
+        try:
+            named = set()
+            for f in ctx.gh_api(binary, "repos/%s/pulls/%s/files?per_page=100" % (repo, m.group(1))):
+                named |= {f.get(k) for k in ("filename", "previous_filename") if f.get(k)}
+        except Exception:
+            named = set()
+        if not cited or cited == "?" or cited not in named:
+            return "named PR #%s did not touch `%s`: a human checks" % (m.group(1), one_line(cited or "no file cited", 120))
+    return None
+
+
+def settle_issue(ctx, binary, repo, pr, batch_no, number, entries, files=None):
     """Settle one source issue (a finding issue, or a notes issue with its boxes). Idempotent: an issue that carries
     the settling comment of this pull request is not touched again; the comment is written last."""
     mark = SETTLE_MARK % pr
@@ -605,6 +642,17 @@ def settle_issue(ctx, binary, repo, pr, batch_no, number, entries):
     notes = {slug(n): (d, r) for n, d, r in entries if n}
     if notes:
         old = issue.get("body") or ""
+        cited_by = {}
+        for line in old.split("\n"):
+            mm = NOTE_ITEM.match(line)
+            if mm:
+                w = NOTE_WHERE.match(mm.group(4))
+                cited_by[slug(mm.group(2))] = w.group(1) if w else ""
+        for key, (d, r) in list(notes.items()):
+            bad = unverified(ctx, binary, repo, pr, files, d, r, cited_by.get(key, ""))
+            if bad:
+                notes[key] = ("NOT VERIFIED", bad)
+        entries = [(n, *notes.get(slug(n), (d, r))) if n else (n, d, r) for n, d, r in entries]
         out, ticked_all, seen = [], True, 0
         for line in old.split("\n"):
             m = NOTE_ITEM.match(line)
@@ -622,9 +670,13 @@ def settle_issue(ctx, binary, repo, pr, batch_no, number, entries):
         if seen and ticked_all and issue.get("state") == "open":
             batch_write(binary, "PATCH", endpoint, [("state", "closed"), ("state_reason", "completed")])
         detail = "; ".join("`%s` %s" % (one_line(n, 40), d if d in CLOSE_AS else "%s (%s)%s" % (
-            d, STAYS_OPEN[d], ": " + one_line(r, 200) if d in ("NOT A DEFECT", "DECIDED") else "")) for n, d, r in entries if n)
+            d, STAYS_OPEN[d], ": " + one_line(r, 200) if d in ("NOT A DEFECT", "DECIDED", "NOT VERIFIED") else "")) for n, d, r in entries if n)
     else:
         _, decision, reason = entries[0]
+        w = WHERE.search(issue.get("body") or "")
+        bad = unverified(ctx, binary, repo, pr, files, decision, reason, w.group(1) if w else "")
+        if bad:
+            decision, reason = "NOT VERIFIED", bad
         if decision in CLOSE_AS and issue.get("state") == "open":
             batch_write(binary, "PATCH", endpoint, [("state", "closed"), ("state_reason", CLOSE_AS[decision])])
         detail = "%s%s. %s" % (decision, ": " + STAYS_OPEN[decision] if decision in STAYS_OPEN else "", one_line(reason, 200))
@@ -668,8 +720,14 @@ def settle_pr(ctx, binary, repo, info):
         for source in [key] + rows[key]:
             number, _, note = source[1:].partition("/")
             groups.setdefault(number, []).append((note or None, decision, reason))
+    try:
+        files = set()
+        for f in ctx.gh_api(binary, "repos/%s/pulls/%s/files?per_page=100" % (repo, pr)):
+            files |= {f.get(k) for k in ("filename", "previous_filename") if f.get(k)}
+    except Exception:  # unreadable diff: no FIXED row can be verified, so none closes
+        files = None
     for number, entries in groups.items():
-        settle_issue(ctx, binary, repo, pr, batch_no, number, entries)
+        settle_issue(ctx, binary, repo, pr, batch_no, number, entries, files)
     if batch_no:
         issue = (ctx.gh_api(binary, "repos/%s/issues/%s" % (repo, batch_no)) or [{}])[0]
         if issue.get("state") == "open" and BATCH_LABEL in names(issue.get("labels")):

@@ -15,3 +15,9 @@ fddf1a3462c72cb0c6bf645daccd143dbc34de5f:scripts/verify-containers.sh:generic-ap
 # PR 1 (#147) and pushed history is not rewritten. Merge #147 with a merge commit so the commit
 # keeps its id. Approved by the owner Y4NN777, 2026-11-14.
 85d403e9f416fcbe384c781ef93c0c153fabb8d2:src/api/internal/platform/pgtest/solve_integration_test.go:generic-api-key:271
+#
+# 29ada78: scripts/tests/review-comment_test.sh carried the BEGIN line of a FAKE private key block (no key material, test
+# text only) as the fixture of the #212 redaction test; a ghp_-shaped fake token was added the same way in c022ab1. Both
+# fixtures are built at run time now, so the working tree is clean; the commits are pushed on #223 and pushed history is
+# not rewritten. Merge #223 with a merge commit so the commit keeps its id. Reviewer Y4NN777, owner-approved 2026-11-14.
+29ada7852d895a1f8e17afcc931fe914919bff2b:scripts/tests/review-comment_test.sh:private-key:727

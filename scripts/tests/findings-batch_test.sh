@@ -208,14 +208,23 @@ grep -q 'ONE fix pull' <<<"$(get 910 body)" && grep -q 'fix/review/batch-2026-11
 printf '[{"number":150,"merged_at":null,"body":"Fixes the batch #910"},{"number":151,"merged_at":"2026-11-14T03:00:00Z","body":"unrelated, see #9100 and #91"}]' >"$tmp/st/pulls.json"
 run batch
 [ "$rc" -eq 0 ] && [ "$(get 910 state)" = "open" ] && ok "an unmerged pull request naming the batch, or a merged unrelated one, does not close it" || ko "unrelated pr (state=$(get 910 state) out=$out)"
+# #212 L7: the words "review batch #910" alone, a merged pull request without the batch branch, and a batch-looking body on
+# another branch never close the batch.
+for pr in '{"number":160,"merged_at":"2026-11-14T03:50:00Z","head":{"ref":"fix/review/batch-2026-11-14"},"body":"Review batch #910: fixes the top items"}' \
+          '{"number":161,"merged_at":"2026-11-14T03:50:00Z","head":{"ref":"feature/x/y"},"body":"Closes #910"}' \
+          '{"number":162,"merged_at":"2026-11-14T03:50:00Z","body":"Batch: #910"}'; do
+  printf '[%s]' "$pr" >"$tmp/st/pulls.json"
+  run batch
+  [ "$rc" -eq 0 ] && [ "$(get 910 state)" = "open" ] && ok "L7: $(sed 's/.*"number":\([0-9]*\).*/PR \1/' <<<"$pr") does not close the batch" || ko "L7 ($pr state=$(get 910 state) out=$out)"
+done
 # Review note n-batch-close-ref (#152): a merged pull request that only MENTIONS the batch number does not close it.
 printf '[{"number":153,"merged_at":"2026-11-14T03:30:00Z","body":"Touches the same file as #910, see #910 for context. Related: https://github.com/o/r/issues/910"}]' >"$tmp/st/pulls.json"
 run batch
 [ "$rc" -eq 0 ] && [ "$(get 910 state)" = "open" ] && ok "a merged pull request that only mentions the batch number (see #910) does not close the batch" || ko "mention closes (state=$(get 910 state) out=$out)"
-printf '[{"number":154,"merged_at":"2026-11-14T03:40:00Z","body":"Fix pull request.\\n\\nBatch: #910\\nSources: #204"}]' >"$tmp/st/pulls.json"
+printf '[{"number":154,"merged_at":"2026-11-14T03:40:00Z","head":{"ref":"fix/review/batch-2026-11-14"},"body":"Fix pull request.\\n\\nBatch: #910\\nSources: #204"}]' >"$tmp/st/pulls.json"
 run batch --print
 grep -q 'would close #910' <<<"$out" && ok "a pull request with a Batch: #910 line (the batch fix pull request body) closes the batch" || ko "batch line ($out)"
-printf '[{"number":152,"merged_at":"2026-11-14T04:00:00Z","body":"Review batch #910: fixes the top items"}]' >"$tmp/st/pulls.json"
+printf '[{"number":152,"merged_at":"2026-11-14T04:00:00Z","head":{"ref":"fix/review/batch-2026-11-14"},"body":"Closes #910: fixes the top items"}]' >"$tmp/st/pulls.json"
 before="$(writes)"
 run batch --print
 [ "$rc" -eq 0 ] && [ "$(writes)" = "$before" ] && grep -q 'would close #910' <<<"$out" && [ "$(get 910 state)" = "open" ] \

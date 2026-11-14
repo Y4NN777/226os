@@ -41,7 +41,15 @@ def save(): json.dump(issues, open(os.path.join(st, "issues.json"), "w"))
 def find(n): return next(x for x in issues if x["number"] == int(n))
 if method != "GET":
     open(os.path.join(st, "log"), "a").write("%s %s %s\n" % (method, path, json.dumps(fields, sort_keys=True)))
-if method == "GET" and parts[-2] == "pulls":
+if method == "GET" and parts[-1] == "files":
+    other = os.path.join(st, "files%s.json" % parts[-2])
+    if parts[-2] != "163" and not os.path.exists(other): sys.stderr.write("404\n"); sys.exit(1)
+    print(open(other if parts[-2] != "163" else os.path.join(st, "files.json")).read())
+elif method == "GET" and parts[-2] == "pulls" and parts[-1] != "163":
+    other = os.path.join(st, "pr%s.json" % parts[-1])
+    if not os.path.exists(other): sys.stderr.write("404\n"); sys.exit(1)
+    print(open(other).read())
+elif method == "GET" and parts[-2] == "pulls":
     print(open(os.path.join(st, "pr.json")).read())
 elif method == "GET" and parts[-2] == "issues":
     x = dict(find(parts[-1])); x.pop("comments", None); print(json.dumps(x))
@@ -65,7 +73,7 @@ import json, os, sys
 st = sys.argv[1]
 def finding(n, title):
     return {"number": n, "state": "open", "state_reason": None, "title": title, "labels": [{"name": "finding"}],
-            "body": "<!-- finding:PR90#f%d -->" % n, "comments": [{"user": {"login": "dev"}, "body": "human note @someone"}]}
+            "body": "<!-- finding:PR90#f%d -->\n\n- Where: `src/f%d.go:1`\n" % (n, n), "comments": [{"user": {"login": "dev"}, "body": "human note @someone"}]}
 notes20 = ("<!-- finding:PR91#notes -->\nNotes of PR #91.\n\n"
            "- [ ] `n1` [INFERRED] `src/a.go:1` guess one\n- [ ] `n2` [OBSERVED] `src/b.go:2` remark two")
 notes21 = ("<!-- finding:PR92#notes -->\nNotes of PR #92.\n\n"
@@ -79,6 +87,9 @@ issues = [finding(7, "not in the batch"), finding(12, "a"), finding(13, "b"), fi
                "- [ ] %s x <!-- batch-item:%s -->" % (k, k) for k in ("#12", "#13", "#14", "#15", "#16", "#20/n1", "#20/n2", "#21/n3")),
            "comments": []}]
 json.dump(issues, open(os.path.join(st, "issues.json"), "w"))
+json.dump([{"filename": "src/f12.go"}, {"filename": "src/f13.go"}, {"filename": "src/f16.go"}, {"filename": "src/a.go"}, {"filename": "src/b.go"}], open(os.path.join(st, "files.json"), "w"))
+json.dump([{"filename": "src/f15.go"}], open(os.path.join(st, "files150.json"), "w"))
+json.dump({"number": 150, "merged_at": "2026-11-13T12:00:00Z"}, open(os.path.join(st, "pr150.json"), "w"))
 body = "\n".join([
     "Fix pull request for the review batch #40.", "", "Batch: #40", "Sources: #12 #13 #14 #15 #16 #20 #21", "",
     "| Item | Source | Decision | Reason |", "|---|---|---|---|",
@@ -205,5 +216,61 @@ d = json.load(open(sys.argv[1])); d["body"] += "\n| #7 | #7 | FIXED | a row of t
 EOF
 run 163
 [ "$(field 7 'x["state"]')" = "open" ] && ok "a source that only the table names (not the batch issue) is not settled" || ko "table only ($(field 7 'x["state"]'))"
+
+# --- the fixer's verdict is checked against the facts (note-settle-trusts-fixer-verdict) ---
+setup
+run 163
+[ "$(field 12 'x["state"]')" = "closed" ] && [ "$(field 15 'x["state"]')" = "closed" ] && ok "verified: FIXED with the cited file in the diff closes, FIXED ELSEWHERE naming a merged PR closes" || ko "verified closes"
+
+setup
+python3 -I - "$tmp/st/files.json" <<'EOF'
+import json, sys
+json.dump([{"filename": "src/other.go"}, {"filename": "src/b.go"}], open(sys.argv[1], "w"))
+EOF
+run 163
+[ "$(field 12 'x["state"]')" = "open" ] && field 12 'x["comments"][-1]["body"]' | grep -q 'marked FIXED but #163 did not touch `src/f12.go`: a human checks' && ok "FIXED with the cited file NOT in the diff: stays open, comment says a human checks" || ko "fixed not in diff ($(field 12 'x["state"], x["comments"][-1]["body"]'))"
+
+setup
+python3 -I - "$tmp/st/issues.json" <<'EOF'
+import json, sys
+d = json.load(open(sys.argv[1]))
+for x in d:
+    if x["number"] == 12: x["body"] = "<!-- finding:PR90#f12 -->\n\n- Where: `?:?`\n"
+json.dump(d, open(sys.argv[1], "w"))
+EOF
+run 163
+[ "$(field 12 'x["state"]')" = "open" ] && field 12 'x["comments"][-1]["body"]' | grep -q 'cites no file' && ok "FIXED with no cited file stays open with a comment" || ko "no cited file ($(field 12 'x["comments"][-1]["body"]'))"
+
+setup
+rm "$tmp/st/pr150.json"
+run 163
+[ "$(field 15 'x["state"]')" = "open" ] && field 15 'x["comments"][-1]["body"]' | grep -q 'named PR #150 is not merged: a human checks' && ok "FIXED ELSEWHERE naming a PR that is missing: stays open with a comment" || ko "elsewhere missing ($(field 15 'x["comments"][-1]["body"]'))"
+setup
+printf '{"number":150,"merged_at":null}' >"$tmp/st/pr150.json"
+run 163
+[ "$(field 15 'x["state"]')" = "open" ] && ok "FIXED ELSEWHERE naming an unmerged PR stays open" || ko "elsewhere unmerged"
+
+setup
+python3 -I - "$tmp/st/files.json" <<'EOF'
+import json, sys
+json.dump([{"filename": "src/f12.go"}], open(sys.argv[1], "w"))
+EOF
+run 163
+field 20 'x["body"]' | grep -q -- '- \[ \] `n2`' && field 20 'x["comments"][-1]["body"]' | grep -q 'did not touch `src/b.go`' && ok "a note FIXED whose cited file is not in the diff keeps its box unticked" || ko "note not in diff ($(field 20 'x["body"]'))"
+
+# note-fixed-elsewhere-any-merged-pr: the named merged PR must have touched the cited file too.
+setup
+printf '[{"filename":"src/unrelated.go"}]' >"$tmp/st/files150.json"
+run 163
+[ "$(field 15 'x["state"]')" = "open" ] && field 15 'x["comments"][-1]["body"]' | grep -q 'named PR #150 did not touch `src/f15.go`: a human checks' && ok "FIXED ELSEWHERE naming a merged PR that did not touch the cited file stays open" || ko "elsewhere other file ($(field 15 'x["state"], x["comments"][-1]["body"]'))"
+
+# deep-fixed-elsewhere-ref-disarmed: the batch body is disarmed (a zero-width space after the #), the reason still names the PR.
+setup
+python3 -I - "$tmp/st/pr.json" <<'EOF'
+import json, sys
+d = json.load(open(sys.argv[1])); d["body"] = d["body"].replace("fixed by #150", "fixed by #" + chr(0x200B) + "150"); json.dump(d, open(sys.argv[1], "w"))
+EOF
+run 163
+[ "$(field 15 'x["state"], x["state_reason"]')" = "('closed', 'completed')" ] && ok "FIXED ELSEWHERE with a disarmed reference (#<zero-width space>150), merged and touching the cited file, closes" || ko "disarmed ref ($(field 15 'x["state"], x["comments"][-1]["body"]'))"
 
 finish

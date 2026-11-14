@@ -10,7 +10,9 @@
 # Job `gate` ("Review gate"): scripts/review-gate.py, run from the BASE branch so a pull request cannot edit it. It
 # fails only on (1) an OBSERVED CRITICAL verdict not overridden by the owner (label owner-override) or (2) a sensitive
 # path (.github/sensitive-paths.txt) without the owner's approval. It fails OPEN when the review did not run, and it
-# does NOT wait for the review (no `needs`): a merge never waits for the AI.
+# waits for the review and the deep review of the same run (`needs: [review, deep]`, `if: always() && !cancelled()`: a
+# skipped, failed or advisory-failed review never blocks it, it only runs after them). It decides from the LEDGER of the
+# comment and only when the ledger sha is PR_HEAD_SHA (a stale ledger is NOT RUN; a stale CRITICAL keeps blocking).
 # GATE MODE: repository variable CODE_REVIEW_GATE = off | report (default, never blocks) | enforce.
 # Two newer checks have their own switch, CODE_REVIEW_GATE_NEW = off | report (default, prints a NOTE) | enforce:
 # stray paths (.github/stray-paths.txt) and a finding issue closed without a test change. Promote to enforce after 10
@@ -299,6 +301,24 @@ jobs:
             echo "review-comment: NOT RUN (scripts/review-comment.py is not on the base branch yet)"
           fi
 
+      # The review decided `skip` (the base branch was merged into the branch, no own change): the previous review still
+      # covers the head, so the ledger sha and the deep sha are moved to the head in a new comment (BASE script, fails open).
+      - name: Repin the ledger when only the base branch was merged
+        if: steps.pack.outputs.decision == 'skip'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          LOCATION_REPO: ${{ github.workspace }}
+        run: |
+          if [ -f "$RUNNER_TEMP/base-scripts/review-comment.py" ]; then
+            python3 -I "$RUNNER_TEMP/base-scripts/review-comment.py" repin
+          else
+            echo "repin: NOT RUN (scripts/review-comment.py is not on the base branch yet)"
+          fi
+
       # A CRITICAL or HIGH still open: label the pull request and ask the owner for a review. Deterministic, from the
       # ledger the review wrote, run from the BASE commit. Never uses `gh pr edit` (it fails on the Projects classic API).
       - name: Ping the owner when a CRITICAL or HIGH is open
@@ -497,12 +517,15 @@ jobs:
 
   gate:
     name: Review gate
-    # No `needs: review`: the gate fails open when there is no verdict, so a merge never waits for the AI review.
+    # The gate runs AFTER the review and the deep review of the same run (they are advisory: a failed, skipped or
+    # cancelled-by-advisory job never blocks it, hence `always() && !cancelled()`); it still fails open when there is no
+    # verdict. Branch protection reads the latest "Review gate" run (INFERRED: verify on a throwaway pull request).
+    needs: [review, deep]
     # A closed pull request has nothing left to gate. "Review gate" is a required check, and a skipped job counts as
     # passing, so this is deliberate and safe only because the skip exists on the `closed` event alone: an open pull
     # request always gets a real run (opened, synchronize, reopened, ready_for_review, labeled, unlabeled and review
     # events). If this `if` is ever widened, re-check branch protection first.
-    if: github.event.action != 'closed'
+    if: always() && !cancelled() && github.event.action != 'closed'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -525,6 +548,7 @@ jobs:
           REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           BASE_REF: ${{ github.event.pull_request.base.ref }}
           GH_TOKEN: ${{ github.token }}
         run: |

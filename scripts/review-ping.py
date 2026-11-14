@@ -7,7 +7,8 @@ decision is read from the ledger, not guessed, and it works the same whatever th
 - Reads the newest bot comment that carries a valid ledger (the parser of scripts/review-context.py).
 - A CRITICAL or HIGH finding not marked fixed: POST the label `needs-owner`; request the owner's review unless the owner wrote the pull
   request (GitHub refuses a review request to the author).
-- Nothing serious open: remove the label (it reflects the current state).
+- Nothing serious open: remove the label only when the Actions bot added it (the last labeled event); one the owner or
+  anyone else added stays (#212 L1).
 - Uses `gh api` only: `gh pr edit` fails on the Projects classic GraphQL API.
 
 Fail OPEN: any GitHub error is printed and the exit code stays 0, so an outage never fails a pull request.
@@ -20,6 +21,23 @@ import sys
 
 LABEL = "needs-owner"
 SERIOUS = ("CRITICAL", "HIGH")
+BOT_LOGINS = {"github-actions[bot]", "github-actions"}
+
+
+def label_added_by_bot(ctx, binary, repo, pr):
+    """True only when the LAST needs-owner label event on the pull request is a `labeled` one by the Actions bot (this
+    script's own label). A label the owner or anyone else added is theirs to remove; an unreadable or missing event means
+    keep the label."""
+    try:
+        events = ctx.gh_api(binary, "repos/%s/issues/%s/events" % (repo, pr))
+    except Exception:  # fail safe: keep the label
+        return False
+    last = None
+    for e in events or []:
+        if isinstance(e, dict) and e.get("event") in ("labeled", "unlabeled") and (e.get("label") or {}).get("name") == LABEL:
+            if last is None or (e.get("created_at") or "") >= (last.get("created_at") or ""):
+                last = e
+    return last is not None and last.get("event") == "labeled" and (last.get("actor") or {}).get("login") in BOT_LOGINS
 
 
 def load_context_module():
@@ -60,9 +78,11 @@ def main():
                 gh(binary, "api", "-X", "POST", "repos/%s/pulls/%s/requested_reviewers" % (repo, pr), "-f", "reviewers[]=%s" % owner)
             print("review-ping: %d open CRITICAL/HIGH finding(s): labelled %s%s" % (
                 len(open_serious), LABEL, "" if author == owner else ", review requested from the owner"))
-        else:
+        elif label_added_by_bot(ctx, binary, repo, pr):
             gh(binary, "api", "-X", "DELETE", "repos/%s/issues/%s/labels/%s" % (repo, pr, LABEL))
-            print("review-ping: no open CRITICAL or HIGH finding")
+            print("review-ping: no open CRITICAL or HIGH finding: removed the label this script added")
+        else:
+            print("review-ping: no open CRITICAL or HIGH finding (a needs-owner label not added by the bot stays)")
     except (OSError, subprocess.SubprocessError) as exc:
         print("review-ping: NOT RUN (%s)" % type(exc).__name__)
     return 0

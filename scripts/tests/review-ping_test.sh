@@ -22,6 +22,7 @@ echo "$*" >>"$LOG"
 [ -z "${FAKE_GH_FAIL:-}" ] || { echo "gh: boom" >&2; exit 1; }
 case "$*" in
   *"/comments"*"--paginate"*) cat "$FX" ;;
+  *"/events"*"--paginate"*) cat "$EV" ;;
   *) echo '{}' ;;
 esac
 EOF
@@ -42,8 +43,12 @@ EOF
 run() {
   : >"$tmp/log"
   rc=0
-  out="$(PATH="$tmp/bin:$PATH" LOG="$tmp/log" FX="$tmp/fx.json" REPO=o/r PR_NUMBER=7 PR_AUTHOR="${1:-dev}" OWNER=Y4NN777 python3 -I "$tool" 2>&1)" || rc=$?
+  out="$(PATH="$tmp/bin:$PATH" LOG="$tmp/log" FX="$tmp/fx.json" EV="$tmp/ev.json" REPO=o/r PR_NUMBER=7 PR_AUTHOR="${1:-dev}" OWNER=Y4NN777 python3 -I "$tool" 2>&1)" || rc=$?
 }
+
+# events ACTOR [ACTION]: the issue events; the last needs-owner label event is by ACTOR.
+events() { python3 -I -c 'import json,sys; json.dump([{"event": sys.argv[2], "actor": {"login": sys.argv[1]}, "created_at": "2026-11-13T09:00:00Z", "label": {"name": "needs-owner"}}], open(sys.argv[3], "w"))' "$1" "${2:-labeled}" "$tmp/ev.json"; }
+events 'github-actions[bot]'
 
 ledger HIGH open >"$tmp/fx.json"
 run dev
@@ -109,5 +114,20 @@ EOF
 run dev
 ! grep -q 'requested_reviewers' "$tmp/log" && ! grep -q 'POST.*issues/7/labels' "$tmp/log" && ok "an open note never labels the pull request needs-owner nor asks the owner for a review" || ko "note ping ($(cat "$tmp/log"))"
 
+
+# L1 (#212): the label is removed only when the bot put it there; a label the owner or someone else added stays.
+ledger MEDIUM open >"$tmp/fx.json"
+for actor in Y4NN777 dev-user; do
+  events "$actor"; run dev
+  ! grep -q 'DELETE' "$tmp/log" && ok "L1: a needs-owner label added by $actor is never removed by the ping" || ko "L1 $actor ($(cat "$tmp/log"))"
+done
+printf '[]' >"$tmp/ev.json"; run dev
+! grep -q 'DELETE' "$tmp/log" && ok "L1: no label event found means the label is kept" || ko "L1 no events ($(cat "$tmp/log"))"
+events 'github-actions[bot]'; run dev
+grep -q 'DELETE' "$tmp/log" && ok "L1: a label the Actions bot added is removed when nothing serious is open" || ko "L1 bot ($(cat "$tmp/log"))"
+events 'github-actions[bot]' unlabeled; run dev
+! grep -q 'DELETE' "$tmp/log" && ok "L1: the last event is not a labeled event: nothing to remove" || ko "L1 unlabeled ($(cat "$tmp/log"))"
+FAKE_GH_FAIL=1 run dev
+[ "$rc" -eq 0 ] && ok "L1: a failing event read never fails the job" || ko "L1 fail (rc=$rc)"
 
 finish

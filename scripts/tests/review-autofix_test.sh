@@ -563,6 +563,19 @@ run check BASE_SHA="$wb3" WORKTREE="$w3" EXPECT_NAME=Y4NN77 EXPECT_EMAIL=fixer@e
 [ "$rc" -eq 0 ] && ok "apply: the commit with the dropped trailer and the Review-Pipeline trailer passes the guard (the fix is not lost)" || ko "apply then check trailer (rc=$rc $out)"
 
 
+# #212 HMAC: with REVIEW_PIPELINE_HMAC_KEY (the publish job's environment secret) every commit also carries a signature of
+# its tree, its parent, the workflow and the run id; without the key there is none (auto-merge then never exempts it).
+! git -C "$w3" log -1 --format=%B | grep -q '^Review-Pipeline-Sig:' && ok "apply: without REVIEW_PIPELINE_HMAC_KEY the commit carries no signature" || ko "sig without key"
+w4="$tmp/whmac"
+git clone -q "$r3" "$w4"
+git -C "$w4" reset -q --hard "$wb3"
+run apply GITHUB_WORKFLOW="autofix-test" GITHUB_RUN_ID=4242 REVIEW_PIPELINE_HMAC_KEY=k3y PATCH_DIR="$pd3" WORKTREE="$w4" EXPECT_NAME=Y4NN77 EXPECT_EMAIL=fixer@example.invalid
+sig="$(git -C "$w4" log -1 --format=%B | sed -n 's/^Review-Pipeline-Sig: //p')"
+want="$(python3 -I -c 'import hmac,hashlib,sys; print(hmac.new(sys.argv[1].encode(), "\n".join(["226os-review-pipeline", sys.argv[2], sys.argv[3], "autofix-test", "4242"]).encode(), hashlib.sha256).hexdigest())' k3y "$(git -C "$w4" rev-parse 'HEAD^{tree}')" "$(git -C "$w4" rev-parse 'HEAD^')")"
+[ "$rc" -eq 0 ] && [ -n "$sig" ] && [ "$sig" = "$want" ] && ok "apply: with the key the commit carries Review-Pipeline-Sig = HMAC-SHA256 of tree, parent, workflow and run id" || ko "sig (rc=$rc sig=$sig want=$want out=$out)"
+! grep -q 'k3y' <<<"$out" && ! git -C "$w4" log -1 --format=%B | grep -q 'k3y' && ok "apply: the key never appears in the output or the message" || ko "key leak"
+
+
 # H6 (independent review of #187): a commit message from the fixer lands on develop, the default branch, where GitHub acts
 # on closing keywords: every issue reference form in the subject and body is neutralised by the trusted apply step.
 w4="$tmp/w4"

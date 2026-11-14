@@ -478,12 +478,32 @@ def cmd_check():
     return 0
 
 
-def pipeline_trailer():
+SIGN_PREFIX = "226os-review-pipeline"
+
+
+def sign_commit(key, tree, parent, workflow, run_id):
+    """HMAC-SHA256 (hex) of what a pipeline commit is: its tree, its parent, the workflow and the run id. The key is the
+    secret REVIEW_PIPELINE_HMAC_KEY of the environment review-agent, read only by the trusted publish jobs and by
+    review-automerge.py, which recomputes it from the API: a trailer typed by hand, or by a commit changed after
+    signing, never verifies."""
+    import hashlib
+    import hmac
+    return hmac.new(key.encode("utf-8"), "\n".join([SIGN_PREFIX, tree, parent, workflow, run_id]).encode("utf-8"), hashlib.sha256).hexdigest()
+
+
+def pipeline_trailer(tree="", parent=""):
     """`Review-Pipeline: <workflow>/<run_id>` (letters, digits, dot, dash, underscore, space and slash only), written by this
-    trusted step on every commit it makes. It is provenance, not an AI attribution: review-automerge.py reads it so a
-    pipeline commit made with the owner's identity is never treated as owner-authored."""
+    trusted step on every commit it makes, then, when REVIEW_PIPELINE_HMAC_KEY is set and the tree and the parent are known,
+    `Review-Pipeline-Sig: <hmac>`. It is provenance, not an AI attribution: review-automerge.py reads it so a pipeline commit
+    made with the owner's identity is never treated as owner-authored, and only a valid signature exempts a batch pull
+    request from the owner's click."""
     clean = lambda v, d: re.sub(r"[^\w. /-]+", "", os.environ.get(v, "") or d)[:60].strip() or d
-    return "Review-Pipeline: %s/%s" % (clean("GITHUB_WORKFLOW", "pipeline"), re.sub(r"\D", "", os.environ.get("GITHUB_RUN_ID", ""))[:20] or "0")
+    workflow, run_id = clean("GITHUB_WORKFLOW", "pipeline"), re.sub(r"\D", "", os.environ.get("GITHUB_RUN_ID", ""))[:20] or "0"
+    out = "Review-Pipeline: %s/%s" % (workflow, run_id)
+    key = os.environ.get("REVIEW_PIPELINE_HMAC_KEY", "")
+    if key and tree and parent:
+        out += "\nReview-Pipeline-Sig: %s" % sign_commit(key, tree, parent, workflow, run_id)
+    return out
 
 
 def cmd_apply():
@@ -527,7 +547,8 @@ def cmd_apply():
             # issue references never close or link anything.
             subject, body = disarm_refs(subject), disarm_refs(body)
             subprocess.run([git, "-C", worktree, *quiet, "apply", "--index", diff], capture_output=True, timeout=60, check=True)
-            subprocess.run([git, "-C", worktree, *quiet, "commit", "-q", "--no-verify", "-m", subject + ("\n\n" + body if body else "") + "\n\n" + pipeline_trailer()],
+            tree, parent = git_out(git, worktree, "write-tree").strip(), git_out(git, worktree, "rev-parse", "HEAD").strip()
+            subprocess.run([git, "-C", worktree, *quiet, "commit", "-q", "--no-verify", "-m", subject + ("\n\n" + body if body else "") + "\n\n" + pipeline_trailer(tree, parent)],
                            env=env, capture_output=True, timeout=60, check=True)
             for tmp in (msg, diff):
                 os.remove(tmp)
