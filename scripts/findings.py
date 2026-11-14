@@ -592,7 +592,7 @@ PR_REF = re.compile(r"#(\d+)")
 def unverified(ctx, binary, repo, pr, files, decision, reason, cited):
     """None when a FIXED or FIXED ELSEWHERE row is backed by the facts, else the one-line comment that leaves the source open
     (the fixer's verdict is its own opinion): FIXED needs the merged batch pull request's diff (`files`) to touch the file
-    the finding cites; FIXED ELSEWHERE needs the pull request named in the reason (#N) to be merged."""
+    the finding cites; FIXED ELSEWHERE needs the pull request named in the reason (#N) to be merged and to have touched the cited file too."""
     if decision == "FIXED":
         if not cited or cited == "?":
             return "marked FIXED but the finding cites no file: a human checks"
@@ -609,6 +609,14 @@ def unverified(ctx, binary, repo, pr, files, decision, reason, cited):
             info = {}
         if not info.get("merged_at"):
             return "named PR #%s is not merged: a human checks" % m.group(1)
+        try:
+            named = set()
+            for f in ctx.gh_api(binary, "repos/%s/pulls/%s/files?per_page=100" % (repo, m.group(1))):
+                named |= {f.get(k) for k in ("filename", "previous_filename") if f.get(k)}
+        except Exception:
+            named = set()
+        if not cited or cited == "?" or cited not in named:
+            return "named PR #%s did not touch `%s`: a human checks" % (m.group(1), one_line(cited or "no file cited", 120))
     return None
 
 

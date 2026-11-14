@@ -24,6 +24,7 @@ case "$ep" in
   *"/contents/.github/sensitive-paths.txt"*) [ -z "${FAKE_NO_LIST:-}" ] || { echo "404" >&2; exit 1; }; cat "$FX/contents.json" ;;
   *"/contents/.github/stray-paths.txt"*) [ -z "${FAKE_NO_STRAY:-}" ] || { echo "404" >&2; exit 1; }; cat "$FX/stray.json" ;;
   *"/pulls/7") cat "$FX/pull.json" ;;
+  *"/actions/runs"*) [ -z "${FAKE_RUNS_FAIL:-}" ] || { echo boom >&2; exit 1; }; cat "$FX/runs.json" ;;
   *"/pulls/7/commits"*) [ -z "${FAKE_COMMITS_FAIL:-}" ] || { echo boom >&2; exit 1; }; cat "$FX/commits.json" ;;
   *"/issues/12") cat "$FX/issue12.json" ;;
   *"/comments"*) cat "$FX/comments.json" ;;
@@ -45,6 +46,7 @@ reset() {
   printf '{"body":"","labels":[],"head":{"ref":"feature/identity/profiles"},"user":{"login":"dev"},"changed_files":1,"commits":1}' >"$tmp/fx/pull.json"
   printf '{"number":12,"labels":[{"name":"finding"}]}' >"$tmp/fx/issue12.json"
   printf '[{"sha":"c1","author":{"login":"Y4NN777"},"committer":{"login":"Y4NN777"},"commit":{"message":"own work","committer":{"date":"2026-11-12T00:00:00Z"},"verification":{"verified":true}}}]' >"$tmp/fx/commits.json"
+  printf '{"workflow_runs":[{"created_at":"2026-11-12T00:00:00Z"}]}' >"$tmp/fx/runs.json"
   printf '[]' >"$tmp/fx/comments.json"
   printf '[]' >"$tmp/fx/events.json"
   printf '[]' >"$tmp/fx/reviews.json"
@@ -98,7 +100,7 @@ run() {
   rc=0
   # An owner-authored run: the pull request is the owner's (the gate reads the pull request, not PR_AUTHOR).
   if [ "${2:-dev}" = Y4NN777 ]; then pull_field user '{"login":"Y4NN777"}'; fi
-  out="$(PATH="$tmp/bin:$PATH" FX="$tmp/fx" GATE_MODE="$1" REPO=o/r PR_NUMBER=7 PR_AUTHOR="${2:-dev}" PR_HEAD_SHA="${HEAD_SHA:-$head}" OWNER=Y4NN777 BASE_REF=develop python3 -I "$gate" 2>&1)" || rc=$?
+  out="$(PATH="$tmp/bin:$PATH" FX="$tmp/fx" GATE_MODE="$1" REPO=o/r PR_NUMBER=7 PR_AUTHOR="${2:-dev}" PR_HEAD_SHA="${HEAD_SHA-$head}" OWNER=Y4NN777 BASE_REF=develop python3 -I "$gate" 2>&1)" || rc=$?
 }
 
 BOT='github-actions[bot]'
@@ -410,22 +412,31 @@ unv; event labeled dev-user 2026-11-13T02:00:00Z owner-override; run enforce Y4N
 reset; files scripts/x.sh; event labeled Y4NN777 2026-11-13T02:00:00Z owner-override; event unlabeled Y4NN777 2026-11-13T03:00:00Z owner-override; run enforce dev
 [ "$rc" -eq 1 ] && ok "override: a removed label no longer clears it" || ko "removed override (rc=$rc out=$out)"
 
-# --- last review round: the override is bound to the head; unreadable reads fail closed once a sensitive path is touched ---
+# --- last review round: the override is bound to the head's push time (a GitHub-side time, never a commit date) ---
+runs_at() { printf '{"workflow_runs":[%s]}' "$(printf '{"created_at":"%s"},' "$@" | sed 's/,$//')" >"$tmp/fx/runs.json"; }
 unv; event labeled Y4NN777 2026-11-14T10:00:00Z owner-override
-python3 -I -c 'import json,sys; d=json.load(open(sys.argv[1])); d[0]["commit"]["committer"]["date"]="2026-11-14T11:00:00Z"; json.dump(d, open(sys.argv[1],"w"))' "$tmp/fx/commits.json"
+python3 -I -c 'import json,sys; d=json.load(open(sys.argv[1])); d[0]["commit"]["committer"]["date"]="2026-11-01T00:00:00Z"; json.dump(d, open(sys.argv[1],"w"))' "$tmp/fx/commits.json"
+runs_at 2026-11-14T11:00:00Z
 run enforce Y4NN777
-[ "$rc" -eq 1 ] && ok "override bound to the head: the label, then a LATER push, fails again" || ko "label then push (rc=$rc out=$out)"
+[ "$rc" -eq 1 ] && ok "override bound to the head: a BACKDATED commit does not help, the head's run was created after the label: the label does not count" || ko "backdated (rc=$rc out=$out)"
+unv; event labeled Y4NN777 2026-11-14T12:00:00Z owner-override; runs_at 2026-11-14T11:00:00Z 2026-11-14T11:30:00Z
+run enforce Y4NN777
+[ "$rc" -eq 0 ] && ok "override bound to the head: the label after the head's first run counts" || ko "label after run (rc=$rc out=$out)"
+unv; event labeled Y4NN777 2026-11-14T12:00:00Z owner-override; runs_at 2026-11-14T11:00:00Z 2026-11-14T13:00:00Z
+run enforce Y4NN777
+[ "$rc" -eq 0 ] && ok "override bound to the head: it is the EARLIEST run of the head that counts" || ko "earliest run (rc=$rc out=$out)"
+unv; event labeled Y4NN777 2026-11-14T12:00:00Z owner-override; FAKE_RUNS_FAIL=1 run enforce Y4NN777
+[ "$rc" -eq 1 ] && ok "override bound to the head: an error on the runs API means the label does not count" || ko "runs error (rc=$rc out=$out)"
+unv; event labeled Y4NN777 2026-11-14T12:00:00Z owner-override; printf '{"workflow_runs":[]}' >"$tmp/fx/runs.json"
+run enforce Y4NN777
+[ "$rc" -eq 1 ] && ok "override bound to the head: no run for the head means the label does not count" || ko "no run (rc=$rc out=$out)"
 unv; event labeled Y4NN777 2026-11-14T12:00:00Z owner-override
-python3 -I -c 'import json,sys; d=json.load(open(sys.argv[1])); d[0]["commit"]["committer"]["date"]="2026-11-14T11:00:00Z"; json.dump(d, open(sys.argv[1],"w"))' "$tmp/fx/commits.json"
-run enforce Y4NN777
-[ "$rc" -eq 0 ] && ok "override bound to the head: the label after the last commit passes" || ko "label after push (rc=$rc out=$out)"
-unv; python3 -I -c 'import json,sys; d=json.load(open(sys.argv[1])); del d[0]["commit"]["committer"]["date"]; json.dump(d, open(sys.argv[1],"w"))' "$tmp/fx/commits.json"; event labeled Y4NN777 2026-11-14T12:00:00Z owner-override
-run enforce Y4NN777
-[ "$rc" -eq 1 ] && ok "override bound to the head: a commit with no date never lets the label count" || ko "no commit date (rc=$rc out=$out)"
-reset; files scripts/x.sh; event labeled Y4NN777 2026-11-14T12:00:00Z owner-override; printf '[{"sha":"c1","commit":{"committer":{"date":"2026-11-14T13:00:00Z"}}}]' >"$tmp/fx/commits.json"
+HEAD_SHA="" run enforce Y4NN777
+[ "$rc" -eq 1 ] && ok "override bound to the head: no PR_HEAD_SHA means the label does not count" || ko "no head (rc=$rc out=$out)"
+reset; files scripts/x.sh; event labeled Y4NN777 2026-11-14T12:00:00Z owner-override; runs_at 2026-11-14T13:00:00Z
 comment "$BOT" 2026-11-14T09:00:00Z "$crit_ok"
 run enforce dev
-[ "$rc" -eq 1 ] && ok "override bound to the head: a CRITICAL is not cleared by a label older than the last commit either" || ko "critical label then push (rc=$rc out=$out)"
+[ "$rc" -eq 1 ] && ok "override bound to the head: a CRITICAL is not cleared by a label older than the head's first run either" || ko "critical label then push (rc=$rc out=$out)"
 unv; FAKE_COMMITS_FAIL=1 run enforce Y4NN777
 [ "$rc" -eq 1 ] && grep -q 'sensitive' <<<"$out" && ok "a GitHub error on the commits read fails a sensitive-path check closed" || ko "commits read (rc=$rc out=$out)"
 reset; files scripts/x.sh; FAKE_EVENTS_FAIL=1 run enforce dev

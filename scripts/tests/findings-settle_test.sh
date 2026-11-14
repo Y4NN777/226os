@@ -42,7 +42,9 @@ def find(n): return next(x for x in issues if x["number"] == int(n))
 if method != "GET":
     open(os.path.join(st, "log"), "a").write("%s %s %s\n" % (method, path, json.dumps(fields, sort_keys=True)))
 if method == "GET" and parts[-1] == "files":
-    print(open(os.path.join(st, "files.json")).read())
+    other = os.path.join(st, "files%s.json" % parts[-2])
+    if parts[-2] != "163" and not os.path.exists(other): sys.stderr.write("404\n"); sys.exit(1)
+    print(open(other if parts[-2] != "163" else os.path.join(st, "files.json")).read())
 elif method == "GET" and parts[-2] == "pulls" and parts[-1] != "163":
     other = os.path.join(st, "pr%s.json" % parts[-1])
     if not os.path.exists(other): sys.stderr.write("404\n"); sys.exit(1)
@@ -86,6 +88,7 @@ issues = [finding(7, "not in the batch"), finding(12, "a"), finding(13, "b"), fi
            "comments": []}]
 json.dump(issues, open(os.path.join(st, "issues.json"), "w"))
 json.dump([{"filename": "src/f12.go"}, {"filename": "src/f13.go"}, {"filename": "src/f16.go"}, {"filename": "src/a.go"}, {"filename": "src/b.go"}], open(os.path.join(st, "files.json"), "w"))
+json.dump([{"filename": "src/f15.go"}], open(os.path.join(st, "files150.json"), "w"))
 json.dump({"number": 150, "merged_at": "2026-11-13T12:00:00Z"}, open(os.path.join(st, "pr150.json"), "w"))
 body = "\n".join([
     "Fix pull request for the review batch #40.", "", "Batch: #40", "Sources: #12 #13 #14 #15 #16 #20 #21", "",
@@ -254,5 +257,11 @@ json.dump([{"filename": "src/f12.go"}], open(sys.argv[1], "w"))
 EOF
 run 163
 field 20 'x["body"]' | grep -q -- '- \[ \] `n2`' && field 20 'x["comments"][-1]["body"]' | grep -q 'did not touch `src/b.go`' && ok "a note FIXED whose cited file is not in the diff keeps its box unticked" || ko "note not in diff ($(field 20 'x["body"]'))"
+
+# note-fixed-elsewhere-any-merged-pr: the named merged PR must have touched the cited file too.
+setup
+printf '[{"filename":"src/unrelated.go"}]' >"$tmp/st/files150.json"
+run 163
+[ "$(field 15 'x["state"]')" = "open" ] && field 15 'x["comments"][-1]["body"]' | grep -q 'named PR #150 did not touch `src/f15.go`: a human checks' && ok "FIXED ELSEWHERE naming a merged PR that did not touch the cited file stays open" || ko "elsewhere other file ($(field 15 'x["state"], x["comments"][-1]["body"]'))"
 
 finish
