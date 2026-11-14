@@ -6,11 +6,17 @@ The review returns its text; this script, run by the workflow from the BASE bran
     `Tool:` line of the preview step (a `Tool:` line written by the model is dropped);
   - the bot comment that carries the marker is edited by id; without one, the newest updated bot `Triage:` comment of an
     older run is adopted; otherwise a new comment is created. Another bot comment is never edited;
-  - every other bot `Triage:` comment (a duplicate of an older run) is minimized as OUTDATED, never deleted.
-Fails OPEN: a missing text or a GitHub error prints NOT RUN and exits 0, so it never turns the pull request red.
+  - every other bot `Triage:` comment (a duplicate of an older run) is minimized as OUTDATED, never deleted;
+  - the ledger `sha` is always PR_HEAD_SHA (validated), never what the model wrote; a review without a ledger gets one
+    at the head with no findings.
+No usable review text (empty, invalid, timed out, no `Triage:` first line): the marker comment becomes
+`Triage: NOT RUN | <reason>` and carries the PREVIOUS ledger unchanged (or none), so nothing looks reviewed and the
+commits not reviewed are reviewed on the next run. The Review gate reads no verdict from it.
+Fails OPEN: a GitHub error prints NOT RUN and exits 0, so it never turns the pull request red.
 
 Environment: REPO (owner/name), PR_NUMBER, REVIEW_JSON (the review's structured output, {"body": "..."}) or
-REVIEW_BODY_FILE (a file with the text, for a local run), TOOL_LINE (the preview step's `Tool:` line), GH_BIN (default gh).
+REVIEW_BODY_FILE (a file with the text, for a local run), TOOL_LINE (the preview step's `Tool:` line), PR_HEAD_SHA (the
+pull request head, 40 hex characters), REVIEW_OUTCOME (the review step's outcome, for the NOT RUN reason), GH_BIN.
 """
 import json
 import os
@@ -23,6 +29,9 @@ BOT_LOGINS = {"github-actions[bot]", "github-actions"}
 MARKER = "<!-- 226os-ai-review -->"
 VERDICT = re.compile(r"^Triage:\s*(CRITICAL|HIGH|MEDIUM|NONE)\s*\|\s*blast radius:\s*\S.*$")
 TOOL = re.compile(r"^Tool: (PASS \(\d+ files?\)|NOT RUN \([^()\n]{1,200}\))$")
+FULL_SHA = re.compile(r"^[0-9a-f]{40}$")
+FENCED = re.compile(r"(<details>\s*<summary>[^<]*ledger[^<]*</summary>.*?```json\s*)(\{.*?\})(\s*```)", re.S | re.I)
+LEDGER_BLOCK = re.compile(r"<details>\s*<summary>[^<]*ledger[^<]*</summary>.*?```json\s*\{.*?\}\s*```\s*</details>", re.S | re.I)
 MINIMIZE = "mutation($id: ID!) { minimizeComment(input: {subjectId: $id, classifier: OUTDATED}) { minimizedComment { isMinimized } } }"
 
 
@@ -83,18 +92,57 @@ def review_comment(comments):
     return max(triage, key=stamp) if triage else None
 
 
-def compose(text, tool_line):
-    """The comment body: verdict, marker, Tool line, then the review without any marker or Tool line of its own.
-    None when the text does not start with a valid verdict (the gate could not read it)."""
+def ledger_block(sha, findings=None):
+    return "<details><summary>Review ledger</summary>\n\n```json\n%s\n```\n\n</details>" % json.dumps(
+        {"sha": sha, "findings": findings or []})
+
+
+def pin_ledger(text, head):
+    """The text with its ledger sha set to head (findings kept); a ledger at head with no findings is added when the
+    text has none. Unchanged when head is not a full sha (a local run without PR_HEAD_SHA)."""
+    if not FULL_SHA.match(head or ""):
+        return text
+    m = FENCED.search(text)
+    if m:
+        try:
+            data = json.loads(m.group(2))
+        except ValueError:
+            data = None
+        if isinstance(data, dict):
+            data.pop("last_reviewed_commit", None)
+            data.pop("commit", None)
+            data["sha"] = head
+            return text[:m.start(2)] + json.dumps(data) + text[m.end(2):]
+        return text[:m.start()] + ledger_block(head) + text[m.end():]
+    return text.rstrip("\n") + "\n\n" + ledger_block(head)
+
+
+def tool_or_default(tool_line):
+    return tool_line if TOOL.match(tool_line or "") else "Tool: NOT RUN (the preview step gave no result)"
+
+
+def compose(text, tool_line, head=""):
+    """The comment body: verdict, marker, Tool line, then the review without any marker or Tool line of its own, its
+    ledger pinned to head. None when the text does not start with a valid verdict (the gate could not read it)."""
     lines = (text or "").strip().splitlines()
     if not lines or not VERDICT.match(lines[0].strip()):
         return None
-    if not TOOL.match(tool_line or ""):
-        tool_line = "Tool: NOT RUN (the preview step gave no result)"
     rest = [l for l in lines[1:] if MARKER not in l and not l.startswith("Tool:")]
     while rest and not rest[0].strip():
         rest.pop(0)
-    return "\n".join([lines[0].strip(), MARKER, tool_line, ""] + rest) + "\n"
+    return pin_ledger("\n".join([lines[0].strip(), MARKER, tool_or_default(tool_line), ""] + rest), head) + "\n"
+
+
+def not_run(reason, tool_line, previous):
+    """The NOT RUN marker comment: no verdict the gate reads, and the previous review comment's ledger block unchanged
+    (none when it had none), so the unreviewed commits stay unreviewed in the ledger."""
+    m = LEDGER_BLOCK.search((previous or {}).get("body") or "")
+    body = ["Triage: NOT RUN | %s" % reason, MARKER, tool_or_default(tool_line), "",
+            "The AI review produced no result on this run: nothing in the new commits was reviewed. Push again or "
+            "add the label `ai-review` to retry."]
+    if m:
+        body += ["", m.group(0)]
+    return "\n".join(body) + "\n"
 
 
 def review_text():
@@ -119,16 +167,23 @@ def main():
     if not repo or not re.match(r"^\d+$", pr):
         print("review-comment: NOT RUN (REPO and PR_NUMBER are required)")
         return 0
-    body = compose(review_text(), os.environ.get("TOOL_LINE", ""))
-    if body is None:
-        print("review-comment: NOT RUN (no review text starting with a Triage line)")
-        return 0
+    tool_line = os.environ.get("TOOL_LINE", "")
+    text = review_text()
+    body = compose(text, tool_line, os.environ.get("PR_HEAD_SHA", ""))
     try:
         comments = parse_pages(gh(binary, ["api", "repos/%s/issues/%s/comments" % (repo, pr), "--paginate"]))
     except (GitHubError, ValueError) as exc:
         print("review-comment: NOT RUN (%s)" % exc)
         return 0
     target = review_comment(comments)
+    if body is None:
+        outcome = re.sub(r"[^a-z_]", "", os.environ.get("REVIEW_OUTCOME", "").lower())[:20]
+        if text is None or not text.strip():
+            reason = "the review step ended with %s and returned no text" % (outcome or "an unknown outcome")
+        else:
+            reason = "the review text has no Triage first line"
+        body = not_run(reason, tool_line, target)
+        print("review-comment: the review gave no usable text (%s): writing a NOT RUN comment" % reason)
     try:
         if target is not None:
             gh(binary, ["api", "-X", "PATCH", "repos/%s/issues/comments/%s" % (repo, int(target["id"]))], {"body": body})
