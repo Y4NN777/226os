@@ -427,4 +427,59 @@ run body ISSUE=40 ITEMS="$items" RESULT_JSON='not json'
 run body ISSUE=40 ITEMS='#12' RESULT_JSON='{"outcome":"fixed","reason":"closes #7","results":[{"item":"#12","verdict":"FIXED","reason":"fixes #5 and resolves #6, see owner/repo#8"}]}'
 ! grep -qiE '(close|fix|resolve)[a-z]*:? +#[0-9]' <<<"$out" && ! grep -qE '#[5678]' <<<"$out" && ok "body: closing keywords and references written by the model are neutralised" || ko "body keywords ($out)"
 
+
+# ---- the context the fixer gets (detail, fix, permalink), written to a file by the trusted script ----
+# Single issues are routed by number: $ST/issue-N.json (the fake above knows only the fixed fixtures, so this
+# section replaces it with a router that also serves them).
+python3 -I - "$tmp/bin/gh" <<'EOF'
+import sys
+p = sys.argv[1]
+s = open(p).read()
+s = s.replace('elif "/actions/runs/" in path: name = "jobs.json"',
+              'elif "/actions/runs/" in path: name = "jobs.json"\nelif __import__("re").search(r"/issues/\\d+$", path): name = "issue-%s.json" % path.rsplit("/", 1)[1]')
+open(p, "w").write(s)
+EOF
+sha_a=3333333333333333333333333333333333333333
+tok="gh""p_$(printf 'a1B2%.0s' 1 2 3 4 5 6 7 8 9)"
+python3 -I - "$tmp/st/comments.json" "$HEAD" "$sha_a" "$tok" <<'EOF'
+import json, sys
+p, head, first, tok = sys.argv[1:5]
+findings = [
+  {"id": "f1", "kind": "finding", "evidence": "OBSERVED", "sev": "MEDIUM", "file": "src/a.go", "line": 3, "scenario": "s1", "status": "open",
+   "detail": "proof one @someone <!-- x -->", "fix": "fix one", "source": "review", "first_sha": first, "location": "verified"},
+  {"id": "f2", "kind": "finding", "evidence": "OBSERVED", "sev": "MEDIUM", "file": "src/b.go", "line": 4, "scenario": "s2", "status": "open",
+   "detail": "proof two", "fix": "rotate " + tok, "source": "review", "first_sha": first, "location": "verified"},
+  {"id": "f3", "kind": "finding", "evidence": "OBSERVED", "sev": "MEDIUM", "file": "src/c.go", "line": 5, "scenario": "s3", "status": "open"}]
+body = "Triage: MEDIUM\n<!-- 226os-ai-review -->\nTool: PASS (1 files)\n\n<details><summary>Review ledger</summary>\n\n```json\n" + \
+       json.dumps({"sha": head, "findings": findings}) + "\n```\n\n</details>"
+json.dump([{"user": {"login": "github-actions[bot]"}, "updated_at": "2026-11-14T10:00:00Z", "html_url": "https://github.com/o/r/pull/7#issuecomment-5", "body": body}], open(p, "w"))
+EOF
+run context MODE=pr FINDINGS=f1,f2,f3 HEAD_SHA="$HEAD"
+ctx_py() { python3 -I -c "import json,sys; d=json.loads(sys.stdin.read()); $1" <<<"$out"; }
+[ "$rc" -eq 0 ] && ctx_py 'it={i["id"]:i for i in d["items"]}; assert sorted(it)==["f1","f2","f3"]; f=it["f1"]; assert f["fix"]=="fix one" and "proof one" in f["detail"] and f["permalink"]=="https://github.com/o/r/blob/'$sha_a'/src/a.go#L3" and f["comment"]=="https://github.com/o/r/pull/7#issuecomment-5" and f["source"]=="review"' && ok "context (pr): the planned ids, each with detail, fix, permalink, source and the review comment" || ko "context pr (rc=$rc $out)"
+ctx_py 'it={i["id"]:i for i in d["items"]}; assert "@someone" not in it["f1"]["detail"] and "<!--" not in it["f1"]["detail"] and "'"$tok"'" not in str(d) and "redacted" in it["f2"]["fix"]' && ok "context (pr): neutralised and redacted like the issues" || ko "context safety ($out)"
+ctx_py 'f={i["id"]:i for i in d["items"]}["f3"]; assert f["detail"]=="not recorded (older review)" and f["fix"]=="not recorded (older review)" and not f.get("permalink")' && ok "context (pr): an older entry says not recorded (older review)" || ko "context old ($out)"
+run context MODE=pr FINDINGS=f1 HEAD_SHA=9999999999999999999999999999999999999999
+ctx_py 'assert d["items"]==[] and "head" in d["note"]' && ok "context (pr): a ledger for another head gives no items (the stale ledger is not passed)" || ko "context stale ($out)"
+run context MODE=pr FINDINGS=f1 HEAD_SHA="$HEAD" FAKE_GH_FAIL=1
+[ "$rc" -eq 0 ] && ctx_py 'assert d["items"]==[] and "NOT RUN" in d["note"]' && ok "context: a GitHub error is NOT RUN with exit 0 and no items (the fixer still has the ids)" || ko "context fail (rc=$rc $out)"
+
+# batch: the sources of the row (also-sources included) come from the issues, boxes from their notes issue.
+python3 -I - "$tmp/st" "$tok" <<'EOF'
+import json, os, sys
+st, tok = sys.argv[1:3]
+def put(n, body, title="t", labels=()):
+    json.dump({"number": n, "state": "open", "title": title, "body": body, "labels": list(labels)}, open(os.path.join(st, "issue-%d.json" % n), "w"))
+put(40, "<!-- review-batch -->\n# Review batch\n\n- [ ] #12 x <!-- batch-also:#13,#20/n1 --> <!-- batch-item:#12 -->\n- [ ] #31 y <!-- batch-item:#31 -->\n", labels=["review-batch"])
+put(12, "<!-- finding:PR90#f12 -->\n- Where: `a.go:3`\n- Detail: the proof for twelve\n- Leak: " + tok + "\n- Fix: fix twelve <!-- evil -->\n")
+put(13, "<!-- finding:PR95#f12 -->\n- Where: `a.go:3`\n- Detail: the proof for thirteen\n")
+put(20, "<!-- finding:PR91#notes -->\n- [ ] `n1` [OBSERVED] `a.go:3` remark one\n  - detail: note proof\n  - fix: none: accept\n- [ ] `n2` [OBSERVED] `b.go:2` other\n  - detail: other proof\n")
+put(31, "<!-- finding:PR93#f31 -->\n- Detail: not in this row\n")
+EOF
+run context MODE=batch ISSUE=40 ITEMS='#12'
+ctx_py 'it={i["key"]:i for i in d["items"]}; assert sorted(it)==["#12","#13","#20/n1"], sorted(it); assert "proof for twelve" in it["#12"]["text"] and "proof for thirteen" in it["#13"]["text"] and "note proof" in it["#20/n1"]["text"] and "other proof" not in it["#20/n1"]["text"] and "not in this row" not in str(d)' && ok "context (batch): each planned item and the other sources of its row, a note by its box only" || ko "context batch (rc=$rc $out)"
+ctx_py 'assert "'"$tok"'" not in str(d) and "<!--" not in str(d)' && ok "context (batch): redacted and neutralised" || ko "context batch safety ($out)"
+run context MODE=batch ISSUE=40 ITEMS='#12' FAKE_GH_FAIL=1
+[ "$rc" -eq 0 ] && ctx_py 'assert d["items"]==[] and "NOT RUN" in d["note"]' && ok "context (batch): a GitHub error is NOT RUN, exit 0" || ko "context batch fail ($out)"
+
 finish

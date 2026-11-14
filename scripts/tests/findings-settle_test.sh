@@ -177,4 +177,31 @@ setup
 FAKE_GH_FAIL=1 run 163
 [ "$rc" -ne 0 ] && grep -q 'FAILED' <<<"$out" && ok "a GitHub error fails closed" || ko "gh failure (rc=$rc $out)"
 
+# ---------- duplicates: a grouped row settles every source of it ----------
+setup
+python3 -I - "$tmp/st/issues.json" "$tmp/st/pr.json" <<'EOF'
+import json, sys
+d = json.load(open(sys.argv[1]))
+for x in d:
+    if x["number"] == 40:
+        x["body"] = x["body"].replace("- [ ] #12 x <!-- batch-item:#12 -->", "- [ ] #12 x <!-- batch-also:#13,#20/n1 --> <!-- batch-item:#12 -->")
+json.dump(d, open(sys.argv[1], "w"))
+pr = json.load(open(sys.argv[2]))
+pr["body"] = "\n".join(l for l in pr["body"].splitlines() if not l.startswith(("| #13 ", "| #20/n1 ")))
+json.dump(pr, open(sys.argv[2], "w"))
+EOF
+run 163
+[ "$(field 12 'x["state"], x["state_reason"]')" = "('closed', 'completed')" ] && [ "$(field 13 'x["state"], x["state_reason"]')" = "('closed', 'completed')" ] && ok "a grouped row (#12 also #13 and the box #20/n1) settles every source with the decision of the row" || ko "grouped settle (12=$(field 12 'x["state"]') 13=$(field 13 'x["state"]') out=$out)"
+field 20 'x["body"]' | grep -q -- '- \[x\] `n1` .* fixed in #163' && ok "the note box of the grouped row is ticked with the decision" || ko "grouped note ($(field 20 'x["body"]'))"
+[ "$(bot_comments 13)" -eq 1 ] && [ "$(bot_comments 12)" -eq 1 ] && ok "one settling comment per source of the row" || ko "grouped comments ($(bot_comments 13) $(bot_comments 12))"
+
+# The also-sources come from the batch issue (written by the script), never from the table of the fix pull request.
+setup
+python3 -I - "$tmp/st/pr.json" <<'EOF'
+import json, sys
+d = json.load(open(sys.argv[1])); d["body"] += "\n| #7 | #7 | FIXED | a row of the table only |"; json.dump(d, open(sys.argv[1], "w"))
+EOF
+run 163
+[ "$(field 7 'x["state"]')" = "open" ] && ok "a source that only the table names (not the batch issue) is not settled" || ko "table only ($(field 7 'x["state"]'))"
+
 finish

@@ -49,6 +49,47 @@ PREVIEW_HEADER = re.compile(r"^# Files \((\d+) reviewable / (\d+) total\)", re.M
 PREVIEW_MAX_LINES = 200
 
 
+# --- text that came from the ledger (model output) and is written to issues or prompts ---
+REDACTED = "[redacted: looked like a secret]"
+# Secret shapes (private key blocks, AWS, GitHub and Slack tokens, sk- keys, JWT, an Authorization header WITH a value).
+# The same list is in scripts/review-comment.py (it must stay one standalone file): tests/review-comment_test.sh and
+# findings_test.sh feed both the same samples.
+SECRET_SHAPES = [re.compile(p) for p in (
+    r"-----BEGIN [A-Z ]*PRIVATE KEY-----",
+    r"\b(?:AKIA|ASIA|AGPA|AIDA|AROA|ANPA)[0-9A-Z]{16}\b",
+    r"\bgh[pousr]_[A-Za-z0-9]{30,}",
+    r"\bgithub_pat_[A-Za-z0-9_]{20,}",
+    r"\bxox[abposr]-[A-Za-z0-9-]{10,}",
+    r"\bsk-[A-Za-z0-9_-]{20,}",
+    r"\beyJ[A-Za-z0-9_-]{8,}\.eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}",
+    r"(?i)\bauthorization\s*[:=]\s*[\"']?(?:(?:bearer|basic|token)\s+)?[A-Za-z0-9._~+/=-]{16,}",
+)]
+NOT_RECORDED = "not recorded (older review)"
+ZWSP = chr(0x200B)
+
+
+def looks_secret(text):
+    return any(p.search(text or "") for p in SECRET_SHAPES)
+
+
+def redact(text):
+    """(text, flagged): the whole text is replaced when it matches a secret shape (a partial mask could leak the rest)."""
+    return (REDACTED, True) if looks_secret(text) else (text, False)
+
+
+def defuse(text, limit=None):
+    """One line of text that cannot act when written to an issue or a prompt: no HTML tag or comment (a forged marker
+    must not parse), `<` escaped, an @mention and a #N reference broken with a zero-width space (no notification, no
+    closing keyword), whitespace collapsed."""
+    text = " ".join(str(text or "").split())
+    text = re.sub(r"<!--.*?-->|</?[A-Za-z!][^>]*>", "", text)
+    text = text.replace("<!--", "").replace("<", "&lt;")
+    text = re.sub(r"@(?=[A-Za-z0-9_-])", "@" + ZWSP, text)
+    text = re.sub(r"#(?=\d)", "#" + ZWSP, text)
+    text = " ".join(text.split())
+    return text if limit is None or len(text) <= limit else text[:limit - 3] + "..."
+
+
 class Unavailable(Exception):
     """A source could not be read: the section says so and the run goes on."""
 
@@ -114,6 +155,8 @@ def parse_finding(f):
     # reason for a new review or a ping, whatever severity the model wrote: its severity is pinned to LOW.
     kind = "note" if str(f.get("kind", "finding")).lower() == "note" else "finding"
     evidence = str(f.get("evidence", "")).upper()
+    first_sha = str(f.get("first_sha") or "")
+    deep = f.get("deep") if isinstance(f.get("deep"), dict) else None
     return {
         "kind": kind,
         "evidence": evidence if evidence in EVIDENCE else "INFERRED",
@@ -123,6 +166,18 @@ def parse_finding(f):
         "sev": "LOW" if kind == "note" else (sev if sev in SEVERITIES else "MEDIUM"),
         "file": str(f.get("file", ""))[:300],
         "line": line if isinstance(line, int) else 0,
+        # The register detail (absent from older ledgers: empty means "not recorded").
+        "detail": " ".join(str(f.get("detail") or "").split())[:600],
+        "fix": " ".join(str(f.get("fix") or "").split())[:300],
+        "source": "deep" if f.get("source") == "deep" else "review",
+        "first_sha": first_sha if FULL_SHA.match(first_sha) else "",
+        "location": "verified" if f.get("location") == "verified" else ("unverified" if f.get("location") == "unverified" else ""),
+        "redacted": f.get("redacted") is True,
+        "deep": None if deep is None else {
+            "detail": " ".join(str(deep.get("detail") or "").split())[:600], "fix": " ".join(str(deep.get("fix") or "").split())[:300],
+            "sev": str(deep.get("sev", "")).upper() if str(deep.get("sev", "")).upper() in SEVERITIES else "",
+            "file": str(deep.get("file", ""))[:300], "line": deep.get("line") if isinstance(deep.get("line"), int) else 0,
+            "location": "verified" if deep.get("location") == "verified" else "unverified", "redacted": deep.get("redacted") is True},
     }
 
 
@@ -162,7 +217,7 @@ def parse_ledger(comments):
         findings = [x for x in (parse_finding(f) for f in entries) if x]
         stamp = c.get("updated_at") or c.get("created_at") or ""
         if best is None or stamp >= best[0]:
-            best = (stamp, {"sha": data["sha"], "findings": findings[:50]})
+            best = (stamp, {"sha": data["sha"], "findings": findings[:50], "url": str(c.get("html_url") or "")})
     return None if best is None else best[1]
 
 

@@ -255,4 +255,42 @@ rc=0
 out="$(PATH="$tmp/bin:$PATH" ST="$tmp/st" python3 -I "$tool" batch 2>&1)" || rc=$?
 [ "$rc" -ne 0 ] && grep -q 'REPO' <<<"$out" && ok "batch without REPO fails closed" || ko "no repo (rc=$rc out=$out)"
 
+# ---------- duplicates: the same id and file on several pull requests are one row ----------
+mkgroup() { # NUMBER PR ID FILE CREATED [STATE]
+  python3 -I - "$tmp/st/issues.json" "$@" <<'EOF'
+import json, sys
+p, n, pr, fid, f, created = sys.argv[1:7]
+state = sys.argv[7] if len(sys.argv) > 7 else "open"
+d = json.load(open(p))
+d.append({"number": int(n), "state": state, "state_reason": "completed" if state == "closed" else None,
+          "labels": ["finding", "sev:high", "due:before-freeze", "area:web"], "created_at": created, "title": "PR%s %s: same defect" % (pr, fid),
+          "body": "<!-- finding:PR%s#%s -->\nFound by the AI review of PR #%s (t).\n\n- Where: `%s:3`\n- Severity: HIGH\n" % (pr, fid, pr, f)})
+json.dump(d, open(p, "w"))
+EOF
+}
+reset
+mkgroup 601 90 shared a.go 2026-11-10T10:00:00Z
+mkgroup 602 95 shared a.go 2026-11-12T10:00:00Z
+mkgroup 603 96 shared other.go 2026-11-12T10:00:00Z
+mknote 604 open 2026-11-13T10:00:00Z '<!-- finding:PR98#notes -->\n- [ ] `shared` [OBSERVED] `a.go:3` the same remark'
+run batch
+body="$(get 904 body)"
+[ "$(grep -c 'batch-item:' <<<"$body")" -eq 2 ] && ok "the same id and file on three sources (two findings, one note) is ONE row; the same id in another file is its own row" || ko "grouped rows ($body)"
+line="$(grep 'batch-item:#601' <<<"$body")"
+grep -q 'batch-also:#602,#604/shared' <<<"$line" && grep -q 'PR90' <<<"$line" && grep -q 'PR95' <<<"$line" && grep -q 'PR98' <<<"$line" && ok "the row lists every source (issue and PR) and the primary key is the oldest issue" || ko "group row ($line)"
+grep -q 'batch-item:#603' <<<"$body" && ! grep -q 'batch-also' <<<"$(grep 'batch-item:#603' <<<"$body")" && ok "an item without duplicates has no also-marker (old rows keep their shape)" || ko "single row ($body)"
+
+# Ticked boxes survive a change of the primary: when the oldest source closes, the row follows the remaining sources.
+set_issue 904 body "$(sed 's/- \[ \] \(.*batch-item:#601\)/- [x] \1/' <<<"$body")"
+set_issue 601 state closed
+run batch
+body="$(get 904 body)"
+line="$(grep 'batch-item:#602' <<<"$body" || true)"
+[ -n "$line" ] && grep -q -- '^- \[x\]' <<<"$line" && grep -q 'batch-also:#604/shared' <<<"$line" && ! grep -q 'batch-item:#601' <<<"$body" && ok "the primary source closes: the row follows the remaining sources, its ticked box kept, never marked done while one is open" || ko "follow ($body)"
+set_issue 602 state closed
+set_issue 604 state closed
+run batch
+body="$(get 904 body)"
+grep -q '(done)' <<<"$(grep 'batch-item:#602' <<<"$body")" && ok "every source of the row closed: the row is done" || ko "row done ($body)"
+
 finish

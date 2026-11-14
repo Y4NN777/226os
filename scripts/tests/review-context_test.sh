@@ -487,4 +487,22 @@ PR_HEAD_SHA="$mb_head" run
 grep -q 'OWNER PREF: base' <<<"$out" && ! grep -q 'OWNER PREF: pr' <<<"$out" && ok "the owner's preferences come from the base branch, never the pull request" || ko "owner prefs ($out)"
 REPO_DIR="$tmp/repo"
 
+
+# The ledger parser keeps the register detail (detail, fix, source, first_sha, location, deep, the comment's url) and
+# reads an older entry (none of them) as "not recorded".
+python3 -I - "$root/scripts/review-context.py" <<'EOF' && ok "parse_ledger keeps detail, fix, source, first_sha, location, redacted and the deep sub-field, and the comment url; an older entry has them empty" || ko "parse_ledger register fields"
+import importlib.util, json, sys
+spec = importlib.util.spec_from_file_location("rc", sys.argv[1]); rc = importlib.util.module_from_spec(spec); spec.loader.exec_module(rc)
+new = {"id": "a", "kind": "finding", "sev": "HIGH", "status": "open", "file": "x.go", "line": 3, "detail": "d" * 700, "fix": "one\nline", "source": "deep",
+       "first_sha": "1" * 40, "location": "verified", "redacted": True, "deep": {"detail": "dd", "fix": "ff", "sev": "high", "location": "verified", "line": 7}}
+old = {"id": "b", "kind": "finding", "sev": "HIGH", "status": "open", "file": "x.go", "line": 3}
+body = "Triage: HIGH | blast radius: x\n<!-- 226os-ai-review -->\n\n<details><summary>Review ledger</summary>\n\n```json\n" + json.dumps({"sha": "3" * 40, "findings": [new, old]}) + "\n```\n\n</details>"
+led = rc.parse_ledger([{"user": {"login": "github-actions[bot]"}, "created_at": "2026-11-14T10:00:00Z", "html_url": "https://example.invalid/c/1", "body": body}])
+a, b = led["findings"]
+assert led["url"] == "https://example.invalid/c/1"
+assert len(a["detail"]) == 600 and a["fix"] == "one line" and a["source"] == "deep" and a["first_sha"] == "1" * 40 and a["location"] == "verified" and a["redacted"] is True
+assert a["deep"]["detail"] == "dd" and a["deep"]["sev"] == "HIGH" and a["deep"]["line"] == 7
+assert b["detail"] == "" and b["fix"] == "" and b["source"] == "review" and b["first_sha"] == "" and b["location"] == "" and b["deep"] is None and b["redacted"] is False
+EOF
+
 finish

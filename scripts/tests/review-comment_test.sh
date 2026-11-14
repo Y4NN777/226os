@@ -77,7 +77,7 @@ led = {"sha": "a" * 40, "findings": [{"id": "old-open", "kind": "finding", "sev"
 body = "Triage: MEDIUM | blast radius: x\n<!-- 226os-ai-review -->\nTool: PASS (1 files)\n\n<details><summary>Review ledger</summary>\n\n```json\n" + json.dumps(led) + "\n```\n\n</details>"
 json.dump([{"id": 2, "node_id": "N2", "user": {"login": "github-actions[bot]"}, "body": body, "created_at": "2026-11-14T09:00:00Z"}], open(sys.argv[1], "w"))
 PY2
-HEAD_SHA=0123456789abcdef0123456789abcdef01234567 JSON='{"body":"Triage: MEDIUM | blast radius: x\n\n<details><summary>Review ledger</summary>\n\n```json\n{\"sha\":\"x\",\"findings\":[{\"id\":\"dup\",\"kind\":\"finding\",\"sev\":\"MEDIUM\",\"status\":\"fixed\"},{\"id\":\"new\",\"kind\":\"finding\",\"sev\":\"MEDIUM\",\"status\":\"open\"}]}\n```\n\n</details>"}' run
+HEAD_SHA=0123456789abcdef0123456789abcdef01234567 JSON='{"body":"Triage: MEDIUM | blast radius: x\n\n<details><summary>Review ledger</summary>\n\n```json\n{\"sha\":\"x\",\"findings\":[{\"id\":\"dup\",\"kind\":\"finding\",\"sev\":\"MEDIUM\",\"status\":\"fixed\",\"detail\":\"d\",\"fix\":\"f\"},{\"id\":\"new\",\"kind\":\"finding\",\"sev\":\"MEDIUM\",\"status\":\"open\",\"detail\":\"d\",\"fix\":\"f\"}]}\n```\n\n</details>"}' run
 python3 -I -c '
 import json, re, sys
 body = json.loads(sys.stdin.read().split("BODY ", 1)[1].splitlines()[0])["body"]
@@ -95,7 +95,7 @@ head_sha=0123456789abcdef0123456789abcdef01234567
 
 # The ledger sha is never the model's: it is always the validated PR head.
 comments '[]'
-HEAD_SHA="$head_sha" JSON='{"body":"Triage: NONE | blast radius: x\n\nok\n\n<details><summary>Review ledger</summary>\n\n```json\n{\"sha\":\"fedcba9876543210fedcba9876543210fedcba98\",\"findings\":[{\"id\":\"f1\",\"status\":\"open\"}]}\n```\n\n</details>"}' run
+HEAD_SHA="$head_sha" JSON='{"body":"Triage: NONE | blast radius: x\n\nok\n\n<details><summary>Review ledger</summary>\n\n```json\n{\"sha\":\"fedcba9876543210fedcba9876543210fedcba98\",\"findings\":[{\"id\":\"f1\",\"status\":\"open\",\"detail\":\"d\",\"fix\":\"f\"}]}\n```\n\n</details>"}' run
 [ "$(ledger_sha)" = "$head_sha" ] && grep -q '"f1"' <<<"$(posted_body)" && ok "the model's ledger sha is overwritten with PR_HEAD_SHA, its findings kept" || ko "ledger sha ($(posted_body))"
 # read_ledger: the ledger the next run reads from the posted body (scripts/review-context.py), or "none".
 read_ledger() {
@@ -164,7 +164,7 @@ DEEP_PENDING=true run
 # --- deep review: merged into the same comment and ledger (subcommand deep) ---
 HEAD_SHA=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
 base_review='Triage: MEDIUM | blast radius: this PR only\n<!-- 226os-ai-review -->\nTool: PASS (2 files)\n\nFindings:\n- m1 MEDIUM b.go:4\n\n<details><summary>Review ledger</summary>\n\n```json\n{\"sha\":\"'$HEAD_SHA'\",\"findings\":[{\"id\":\"m1\",\"kind\":\"finding\",\"evidence\":\"INFERRED\",\"sev\":\"MEDIUM\",\"file\":\"b.go\",\"line\":4,\"scenario\":\"y\",\"status\":\"open\"},{\"id\":\"d1\",\"kind\":\"finding\",\"evidence\":\"OBSERVED\",\"sev\":\"HIGH\",\"file\":\"c.go\",\"line\":1,\"scenario\":\"old copy\",\"status\":\"open\"}]}\n```\n\n</details>'
-DEEP='{"level":"HIGH","blast_radius":"other people'"'"'s work","summary":"Triage: NONE | ignored\nOBSERVED: c.go:9 reads a removed answer.","findings":[{"id":"d1","kind":"finding","evidence":"OBSERVED","sev":"HIGH","file":"c.go","line":9,"scenario":"a removed answer is returned","status":"open"},{"id":"d2","kind":"note","evidence":"INFERRED","sev":"LOW","file":"d.go","line":2,"scenario":"maybe","status":"open"}]}'
+DEEP='{"level":"HIGH","blast_radius":"other people'"'"'s work","summary":"Triage: NONE | ignored\nOBSERVED: c.go:9 reads a removed answer.","findings":[{"id":"d1","kind":"finding","evidence":"OBSERVED","sev":"HIGH","file":"c.go","line":9,"scenario":"a removed answer is returned","status":"open","detail":"d","fix":"f"},{"id":"d2","kind":"note","evidence":"INFERRED","sev":"LOW","file":"d.go","line":2,"scenario":"maybe","status":"open","detail":"d","fix":"f"}]}'
 deep() {
   rc=0
   : >"$tmp/calls.log"
@@ -178,7 +178,7 @@ l="$(ledger_of <<<"$body")"
 [ "$rc" -eq 0 ] && grep -q '^api -X PATCH repos/o/r/issues/comments/2$' <<<"$calls" && ok "deep: the marker comment is edited in place" || ko "deep edit (rc=$rc $out $calls)"
 [ "$(sed -n 1p <<<"$body")" = "Triage: HIGH | blast radius: other people's work" ] && ok "deep: the Triage line is the worst of both reviews" || ko "deep triage ($body)"
 [ "$(sed -n 3p <<<"$body")" = "Tool: PASS (2 files)" ] && [ "$(sed -n 4p <<<"$body")" = "Deep: PASS (1 finding, 1 note)" ] && ok "deep: line 3 keeps the Tool line, line 4 is the Deep line" || ko "deep lines ($body)"
-python3 -I -c 'import json,sys; d=json.loads(sys.argv[1]); f={x["id"]:x for x in d["findings"]}; assert d["sha"]==sys.argv[2]; assert f["d1"]["source"]=="deep" and f["d1"]["line"]==9; assert f["d2"]["source"]=="deep"; assert "source" not in f["m1"]; assert len(d["findings"])==3; assert d["deep"]=={"status":"PASS","sha":sys.argv[2]}' "$l" "$HEAD_SHA" && ok "deep: findings merge into the same ledger, tagged source deep, deep wins on the same id, deep sha recorded" || ko "deep ledger ($l)"
+python3 -I -c 'import json,sys; d=json.loads(sys.argv[1]); f={x["id"]:x for x in d["findings"]}; assert d["sha"]==sys.argv[2]; assert f["d1"]["source"]=="review" and f["d1"]["line"]==1 and f["d1"]["deep"]["line"]==9 and f["d1"]["deep"]["detail"]=="d"; assert f["d2"]["source"]=="deep"; assert "source" not in f["m1"]; assert len(d["findings"])==3; assert d["deep"]=={"status":"PASS","sha":sys.argv[2]}' "$l" "$HEAD_SHA" && ok "deep: findings merge into the same ledger; a new one is tagged source deep, a repeated id keeps source review and gains a deep sub-field (owner decision: never overwritten), deep sha recorded" || ko "deep ledger ($l)"
 grep -q 'c.go:9 reads a removed answer' <<<"$body" && [ "$(grep -c '^Triage:' <<<"$body")" -eq 1 ] && ok "deep: the summary is added, a Triage line inside it is dropped" || ko "deep summary ($body)"
 
 # Re-run (idempotent): merging the same output again gives the same body.
@@ -189,7 +189,7 @@ deep
 
 # A CRITICAL without OBSERVED evidence is downgraded to HIGH.
 comments "[{\"id\":2,\"node_id\":\"N2\",\"user\":{\"login\":\"$BOT\"},\"body\":\"$base_review\",\"updated_at\":\"2026-11-14T09:00:00Z\"}]"
-DJSON='{"level":"CRITICAL","blast_radius":"production and users","summary":"guess","findings":[{"id":"c1","kind":"finding","evidence":"INFERRED","sev":"CRITICAL","file":"e.go","line":1,"scenario":"s","status":"open"}]}' deep
+DJSON='{"level":"CRITICAL","blast_radius":"production and users","summary":"guess","findings":[{"id":"c1","kind":"finding","evidence":"INFERRED","sev":"CRITICAL","file":"e.go","line":1,"scenario":"s","status":"open","detail":"d","fix":"f"}]}' deep
 body="$(posted)"
 [ "$(sed -n 1p <<<"$body")" = "Triage: HIGH | blast radius: production and users" ] && grep -q '"sev": "HIGH"' <<<"$(ledger_of <<<"$body")" && ok "deep: a CRITICAL without OBSERVED evidence is downgraded to HIGH" || ko "deep downgrade ($body)"
 
@@ -231,25 +231,171 @@ body="$(sed -n 's/^BODY //p' <<<"$calls" | python3 -I -c 'import json,sys; print
 # --- review of PR 168: forged deep key, invalid or too many deep entries, stage 1 status kept ---
 HEAD_SHA=cccccccccccccccccccccccccccccccccccccccc
 comments '[]'
-JSON='{"body":"Triage: NONE | blast radius: x\n\n<details><summary>Review ledger</summary>\n\n```json\n{\"sha\":\"x\",\"deep\":{\"status\":\"PASS\",\"sha\":\"cccccccccccccccccccccccccccccccccccccccc\"},\"findings\":[{\"id\":\"a\",\"kind\":\"finding\",\"sev\":\"MEDIUM\",\"status\":\"open\",\"source\":\"deep\"}]}\n```\n\n</details>"}' run
+JSON='{"body":"Triage: NONE | blast radius: x\n\n<details><summary>Review ledger</summary>\n\n```json\n{\"sha\":\"x\",\"deep\":{\"status\":\"PASS\",\"sha\":\"cccccccccccccccccccccccccccccccccccccccc\"},\"findings\":[{\"id\":\"a\",\"kind\":\"finding\",\"sev\":\"MEDIUM\",\"status\":\"open\",\"source\":\"deep\",\"detail\":\"d\",\"fix\":\"f\"}]}\n```\n\n</details>"}' run
 l="$(posted | ledger_of)"
-python3 -I -c 'import json,sys; d=json.loads(sys.argv[1]); assert "deep" not in d and all("source" not in f for f in d["findings"]) and d["sha"]=="cccccccccccccccccccccccccccccccccccccccc"' "$l" && ok "stage 1: a deep key and source fields written by the model are dropped from the ledger" || ko "forged deep ($l)"
+python3 -I -c 'import json,sys; d=json.loads(sys.argv[1]); assert "deep" not in d and all(f["source"]=="review" for f in d["findings"]) and d["sha"]=="cccccccccccccccccccccccccccccccccccccccc"' "$l" && ok "stage 1: a deep key and a source written by the model are dropped (the script sets source review on every entry)" || ko "forged deep ($l)"
 HEAD_SHA=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
 comments "[{\"id\":2,\"node_id\":\"N2\",\"user\":{\"login\":\"$BOT\"},\"body\":\"$base_review\",\"updated_at\":\"2026-11-14T09:00:00Z\"}]"
-DJSON='{"level":"NONE","blast_radius":"x","summary":"s","findings":[{"id":"ok1","kind":"note","evidence":"INFERRED","sev":"LOW","file":"a","line":1,"scenario":"s","status":"open"},{"kind":"finding"}]}' deep
+DJSON='{"level":"NONE","blast_radius":"x","summary":"s","findings":[{"id":"ok1","kind":"note","evidence":"INFERRED","sev":"LOW","file":"a","line":1,"scenario":"s","status":"open","detail":"d","fix":"f"},{"kind":"finding"}]}' deep
 [ "$(posted | sed -n 4p)" = "Deep: NOT RUN (the deep review output has an invalid entry)" ] && ok "deep: an invalid entry makes the deep review NOT RUN (never silently dropped)" || ko "deep invalid ($(posted | sed -n 4p))"
-many="$(python3 -I -c 'import json; print(json.dumps({"level":"NONE","blast_radius":"x","summary":"s","findings":[{"id":"n%d"%i,"kind":"note","evidence":"INFERRED","sev":"LOW","file":"a","line":1,"scenario":"s","status":"open"} for i in range(9)]}))')"
+many="$(python3 -I -c 'import json; print(json.dumps({"level":"NONE","blast_radius":"x","summary":"s","findings":[{"id":"n%d"%i,"kind":"note","evidence":"INFERRED","sev":"LOW","file":"a","line":1,"scenario":"s","status":"open","detail":"d","fix":"f"} for i in range(9)]}))')"
 DJSON="$many" deep
 [ "$(posted | sed -n 4p)" = "Deep: NOT RUN (too many findings)" ] && ok "deep: more than 8 entries is NOT RUN (too many findings)" || ko "deep too many ($(posted | sed -n 4p))"
-many="$(python3 -I -c 'import json; e=[{"id":"n%d"%i,"kind":"note","evidence":"INFERRED","sev":"LOW","file":"a","line":1,"scenario":"s","status":"open"} for i in range(8)]+[{"id":"h1","kind":"finding","evidence":"OBSERVED","sev":"HIGH","file":"a","line":2,"scenario":"s","status":"open"}]; print(json.dumps({"level":"HIGH","blast_radius":"x","summary":"s","findings":e}))')"
+many="$(python3 -I -c 'import json; e=[{"id":"n%d"%i,"kind":"note","evidence":"INFERRED","sev":"LOW","file":"a","line":1,"scenario":"s","status":"open","detail":"d","fix":"f"} for i in range(8)]+[{"id":"h1","kind":"finding","evidence":"OBSERVED","sev":"HIGH","file":"a","line":2,"scenario":"s","status":"open","detail":"d","fix":"f"}]; print(json.dumps({"level":"HIGH","blast_radius":"x","summary":"s","findings":e}))')"
 DJSON="$many" deep
 python3 -I -c 'import json,sys; d=json.loads(sys.argv[1]); deep=[x for x in d["findings"] if x.get("source")=="deep"]; assert len(deep)==8 and any(x["id"]=="h1" for x in deep) and d["deep"]["status"]=="NOT RUN"' "$(posted | ledger_of)" && ok "deep: with more than 8 entries the 8 most severe are kept in the ledger (the HIGH first), the result stays NOT RUN" || ko "deep keep severe ($(posted | ledger_of))"
-DJSON='{"level":"NONE","blast_radius":"x","summary":"s","findings":[{"id":"m1","kind":"finding","evidence":"INFERRED","sev":"MEDIUM","file":"b.go","line":4,"scenario":"y","status":"fixed"}]}' deep
+DJSON='{"level":"NONE","blast_radius":"x","summary":"s","findings":[{"id":"m1","kind":"finding","evidence":"INFERRED","sev":"MEDIUM","file":"b.go","line":4,"scenario":"y","status":"fixed","detail":"d","fix":"f"}]}' deep
 python3 -I -c 'import json,sys; d=json.loads(sys.argv[1]); f=[x for x in d["findings"] if x["id"]=="m1"]; assert len(f)==1 and f[0]["status"]=="open" and "source" not in f[0]' "$(posted | ledger_of)" && ok "deep: a deep entry never marks a stage 1 finding fixed (the stage 1 entry is kept)" || ko "deep status ($(posted | ledger_of))"
-DJSON='{"level":"HIGH","blast_radius":"x","summary":"s","findings":[{"id":"m1","kind":"finding","evidence":"OBSERVED","sev":"HIGH","file":"b.go","line":4,"scenario":"worse","status":"open"}]}' deep
-python3 -I -c 'import json,sys; d=json.loads(sys.argv[1]); f=[x for x in d["findings"] if x["id"]=="m1"]; assert len(f)==1 and f[0]["sev"]=="HIGH" and f[0]["source"]=="deep"' "$(posted | ledger_of)" && ok "deep: a deep entry that is not better may override the stage 1 entry" || ko "deep override ($(posted | ledger_of))"
+DJSON='{"level":"HIGH","blast_radius":"x","summary":"s","findings":[{"id":"m1","kind":"finding","evidence":"OBSERVED","sev":"HIGH","file":"b.go","line":4,"scenario":"worse","status":"open","detail":"d","fix":"f"}]}' deep
+python3 -I -c 'import json,sys; d=json.loads(sys.argv[1]); f=[x for x in d["findings"] if x["id"]=="m1"]; assert len(f)==1 and f[0]["sev"]=="HIGH" and f[0]["source"]=="review" and f[0]["deep"]["sev"]=="HIGH" and f[0]["scenario"]=="y"' "$(posted | ledger_of)" && ok "deep: a deep entry that is not better raises the severity of the stage 1 entry, which keeps its source review" || ko "deep override ($(posted | ledger_of))"
 
 need_renamed() { printf '[{"filename":"src/web/x.ts","previous_filename":"%s","status":"renamed"}]' "$1" >"$tmp/files.json"; PATH="$tmp/bin:$PATH" FX="$tmp" REPO=o/r PR_NUMBER=7 ROOT="$tmp/root" python3 -I "$tool" deep-needed 2>/dev/null; }
 [ "$(need_renamed src/api/internal/identity/a.go)" = "true" ] && ok "deep-needed: a rename out of an identity path is true" || ko "deep-needed rename"
+
+
+# --- the register detail: every entry carries detail and fix, the script owns first_sha, source, location ---
+# A tiny git repository stands for the checkout of the reviewed commit: a.go has 10 lines.
+repo="$tmp/locrepo"
+mkdir -p "$repo"
+git -C "$repo" init -q
+seq 1 10 | sed 's/^/line /' >"$repo/a.go"
+git -C "$repo" add a.go
+git -C "$repo" -c user.name=t -c user.email=t@example.invalid commit -q -m init
+locsha="$(git -C "$repo" rev-parse HEAD)"
+old_sha=1111111111111111111111111111111111111111
+
+# mkreview ENTRIES_JSON: the model's REVIEW_JSON (verdict, text, fenced ledger with a wrong sha).
+mkreview() {
+  python3 -I - "$1" <<'EOF2'
+import json, sys
+body = "Triage: MEDIUM | blast radius: x\n\ntext\n\n<details><summary>Review ledger</summary>\n\n```json\n" + \
+       json.dumps({"sha": "x", "findings": json.loads(sys.argv[1])}) + "\n```\n\n</details>"
+print(json.dumps({"body": body}))
+EOF2
+}
+# entry_of ID: one entry of the posted ledger as JSON (or "NONE").
+entry_of() { posted_body | python3 -I -c '
+import json, re, sys
+m = re.search(r"```json\s*(\{.*?\})\s*```", sys.stdin.read(), re.S)
+d = json.loads(m.group(1)) if m else {"findings": []}
+print(json.dumps(next((f for f in d["findings"] if f["id"] == sys.argv[1]), "NONE")))' "$1"; }
+pyassert() { python3 -I -c "$1" "$2"; }
+E_GOOD='{"id":"g1","kind":"finding","evidence":"OBSERVED","sev":"MEDIUM","file":"a.go","line":3,"scenario":"s","status":"open","detail":"proof of it","fix":"do this"}'
+
+comments '[]'
+HEAD_SHA="$locsha" LOCATION_REPO="$repo" JSON="$(mkreview "[$E_GOOD]")" run
+[ "$rc" -eq 0 ] && pyassert 'import json,sys; f=json.loads(sys.argv[1]); assert f["detail"]=="proof of it" and f["fix"]=="do this" and f["source"]=="review" and f["first_sha"]=="'"$locsha"'" and f["location"]=="verified"' "$(entry_of g1)" 2>/dev/null && ok "an entry with detail and fix is kept; the script sets source review, first_sha (the head) and location verified" || ko "good entry ($(entry_of g1))"
+
+# A missing or empty detail or fix is NOT RUN with the id, never a silent loss, never a pass.
+comments '[]'
+E_NOFIX='{"id":"nofix","kind":"finding","evidence":"OBSERVED","sev":"HIGH","file":"a.go","line":3,"scenario":"s","status":"open","detail":"proof"}'
+HEAD_SHA="$locsha" JSON="$(mkreview "[$E_GOOD,$E_NOFIX]")" run
+pb="$(posted_body)"
+[ "$(sed -n 1p <<<"$pb")" = "Triage: NOT RUN | ledger entry nofix lacks detail or fix" ] && [ "$(sed -n 2p <<<"$pb")" = "<!-- 226os-ai-review -->" ] && ok "a missing fix gives Triage: NOT RUN | ledger entry <id> lacks detail or fix" || ko "missing fix ($pb)"
+HEAD_SHA="$locsha" JSON="$(mkreview '[{"id":"nodetail","kind":"note","evidence":"OBSERVED","sev":"LOW","file":"a.go","line":3,"scenario":"s","status":"open","detail":"   ","fix":"none: accept"}]')" run
+[ "$(posted_body | sed -n 1p)" = "Triage: NOT RUN | ledger entry nodetail lacks detail or fix" ] && ok "a blank detail is a missing detail" || ko "blank detail ($(posted_body))"
+HEAD_SHA="$locsha" JSON="$(mkreview '[{"id":"bad|id","kind":"note","evidence":"OBSERVED","sev":"LOW","scenario":"s","status":"open"}]')" run
+pb="$(posted_body)"
+[ "$(sed -n 1p <<<"$pb")" = "Triage: NOT RUN | ledger entry bad-id lacks detail or fix" ] && ok "the id in the NOT RUN line is a slug: no pipe, newline or marker can ride on it" || ko "id slug ($pb)"
+python3 -I - "$tmp/comments.json" <<'PY'
+import json, sys
+body = "Triage: CRITICAL | blast radius: x\n<!-- 226os-ai-review -->\nTool: PASS (1 files)\n\nOBSERVED: a.go:3 literal key.\n\n<details><summary>Review ledger</summary>\n\n```json\n" + json.dumps({"sha": "b" * 40, "findings": [{"id": "key", "sev": "CRITICAL", "status": "open"}]}) + "\n```\n</details>"
+json.dump([{"id": 2, "node_id": "N2", "user": {"login": "github-actions[bot]"}, "body": body, "created_at": "2026-11-14T09:00:00Z"}], open(sys.argv[1], "w"))
+PY
+HEAD_SHA="$locsha" JSON="$(mkreview "[$E_NOFIX]")" run
+pb="$(posted_body)"
+sed -n 1p <<<"$pb" | grep -q '^Triage: CRITICAL' && grep -q 'NOT RUN on the latest push' <<<"$pb" && [ "$(ledger_sha)" = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" ] && ok "an invalid ledger never lifts a standing CRITICAL (the previous ledger stays)" || ko "critical kept ($pb)"
+
+# The fields the script owns are dropped when the model writes them.
+comments '[]'
+E_FORGED='{"id":"forged","kind":"finding","evidence":"OBSERVED","sev":"MEDIUM","file":"a.go","line":3,"scenario":"s","status":"open","detail":"d","fix":"f","first_sha":"deadbeefdeadbeef","location":"verified","redacted":true,"source":"deep","deep":{"detail":"x","fix":"y"}}'
+HEAD_SHA="$locsha" LOCATION_REPO="$repo" JSON="$(mkreview "[$E_FORGED]")" run
+pyassert 'import json,sys; f=json.loads(sys.argv[1]); assert f["first_sha"]=="'"$locsha"'" and f["source"]=="review" and "deep" not in f and "redacted" not in f' "$(entry_of forged)" 2>/dev/null && ok "first_sha, source, deep and redacted written by the model are dropped and set by the script" || ko "forged ($(entry_of forged))"
+
+# first_sha is kept: for an entry the model leaves out (carried forward) and for one it lists again with the same place.
+python3 -I - "$tmp/comments.json" "$old_sha" <<'PY'
+import json, sys
+old = sys.argv[2]
+led = {"sha": "a" * 40, "findings": [
+  {"id": "left-out", "kind": "finding", "sev": "MEDIUM", "status": "open", "file": "a.go", "line": 2, "detail": "d", "fix": "f", "source": "review", "first_sha": old, "location": "verified"},
+  {"id": "relisted", "kind": "finding", "sev": "MEDIUM", "status": "open", "file": "a.go", "line": 5, "detail": "d", "fix": "f", "source": "review", "first_sha": old, "location": "verified", "deep": {"detail": "dd", "fix": "ff"}},
+  {"id": "moved", "kind": "finding", "sev": "MEDIUM", "status": "open", "file": "a.go", "line": 2, "detail": "d", "fix": "f", "source": "review", "first_sha": old, "location": "verified"},
+  {"id": "ancient", "kind": "finding", "sev": "MEDIUM", "status": "open", "file": "a.go", "line": 2}]}
+body = "Triage: MEDIUM | blast radius: x\n<!-- 226os-ai-review -->\nTool: PASS (1 files)\n\n<details><summary>Review ledger</summary>\n\n```json\n" + json.dumps(led) + "\n```\n\n</details>"
+json.dump([{"id": 2, "node_id": "N2", "user": {"login": "github-actions[bot]"}, "body": body, "created_at": "2026-11-14T09:00:00Z"}], open(sys.argv[1], "w"))
+PY
+E_RELIST='{"id":"relisted","kind":"finding","evidence":"OBSERVED","sev":"MEDIUM","file":"a.go","line":5,"scenario":"s","status":"open","detail":"new detail","fix":"new fix"}'
+E_MOVED='{"id":"moved","kind":"finding","evidence":"OBSERVED","sev":"MEDIUM","file":"a.go","line":4,"scenario":"s","status":"open","detail":"new detail","fix":"new fix"}'
+HEAD_SHA="$locsha" LOCATION_REPO="$repo" JSON="$(mkreview "[$E_RELIST,$E_MOVED]")" run
+pyassert 'import json,sys; f=json.loads(sys.argv[1]); assert f["first_sha"]=="'"$old_sha"'" and f["detail"]=="new detail" and f["deep"]["detail"]=="dd"' "$(entry_of relisted)" 2>/dev/null && ok "an entry listed again with the same place keeps its first_sha and its deep sub-field (the new detail replaces the old)" || ko "relisted ($(entry_of relisted))"
+pyassert 'import json,sys; f=json.loads(sys.argv[1]); assert f["first_sha"]=="'"$locsha"'" and f["location"]=="verified"' "$(entry_of moved)" 2>/dev/null && ok "an entry whose file or line changed gets the head as first_sha (the permalink stays right)" || ko "moved ($(entry_of moved))"
+pyassert 'import json,sys; f=json.loads(sys.argv[1]); assert f["first_sha"]=="'"$old_sha"'" and f["line"]==2' "$(entry_of left-out)" 2>/dev/null && ok "an entry the model left out is carried forward with its first_sha" || ko "left-out ($(entry_of left-out))"
+pyassert 'import json,sys; f=json.loads(sys.argv[1]); assert "first_sha" not in f and "detail" not in f' "$(entry_of ancient)" 2>/dev/null && ok "an older entry (no detail, no first_sha) is carried as it is: nothing is invented for it" || ko "ancient ($(entry_of ancient))"
+
+# Location: file exists at the reviewed commit and the line is inside it, else unverified.
+comments '[]'
+mk() { python3 -I -c 'import json,sys; print(json.dumps({"id":sys.argv[1],"kind":"finding","evidence":"OBSERVED","sev":"MEDIUM","file":sys.argv[2],"line":int(sys.argv[3]),"scenario":"s","status":"open","detail":"d","fix":"f"}))' "$@"; }
+HEAD_SHA="$locsha" LOCATION_REPO="$repo" JSON="$(mkreview "[$(mk in a.go 10),$(mk past a.go 11),$(mk gone nope.go 1),$(mk nofile '' 1),$(mk dots ../x 1),$(mk fileonly a.go 0)]")" run
+loc() { entry_of "$1" | python3 -I -c 'import json,sys; print(json.load(sys.stdin)["location"])'; }
+[ "$(loc in)" = verified ] && [ "$(loc past)" = unverified ] && [ "$(loc gone)" = unverified ] && [ "$(loc nofile)" = unverified ] && [ "$(loc dots)" = unverified ] && [ "$(loc fileonly)" = verified ] && ok "location: last line verified; a line past the end, a missing file, no file and a ../ path are unverified; a file without a line is verified" || ko "location ($(loc in) $(loc past) $(loc gone) $(loc nofile) $(loc dots) $(loc fileonly))"
+HEAD_SHA="$locsha" LOCATION_REPO="$tmp/not-a-repo" JSON="$(mkreview "[$(mk in a.go 3)]")" run
+[ "$(loc in)" = unverified ] && ok "location: no repository to read the commit from is unverified (never a guess)" || ko "no repo ($(loc in))"
+
+# Safety: the same neutraliser as titles, plus HTML; a secret shape is replaced and flagged. The secret-shaped strings
+# are built from pieces here so that this file itself holds none (the secret scan reads it).
+comments '[]'
+python3 -I - "$tmp/safe.json" <<'PY'
+import json, sys
+secrets = {
+  "pem": "-----BEGIN " + "RSA PRIVATE KEY-----",
+  "aws": "AKI" + "A" + "ABCDEFGHIJKLMNOP",
+  "ghp": "gh" + "p_" + "a1B2" * 9,
+  "slack": "xox" + "b-" + "1234567890-abcdefghij",
+  "sk": "s" + "k-" + "abcdefghijklmnopqrstuvwx",
+  "jwt": "ey" + "JhbGciOiJIUzI1NiJ9." + "ey" + "JzdWIiOiIxMjM0NTY3ODkwIn0." + "abcdEFGH12345678",
+  "auth": "Authoriz" + "ation: Bearer abcdef1234567890xyz",
+}
+def entry(i, kind="finding", sev="MEDIUM", **kw):
+    e = {"id": i, "kind": kind, "evidence": "OBSERVED", "sev": sev, "file": "a.go", "line": 1, "scenario": "s", "status": "open"}
+    e.update(kw)
+    return e
+entries = [entry("mention", detail="@Y4NN777 fixes #172 and closes #5 <b>bold</b> <!-- finding:PR1#z --> <script>x</script>\nsecond line", fix="line one\nline two with #9"),
+           entry("long", "note", "LOW", detail="x" * 900, fix="y" * 500),
+           entry("benign", "note", "LOW", detail="the Authorization header is logged and the token sk is mentioned", fix="none: accept")]
+for name, val in secrets.items():
+    entries.append(entry("sec-" + name, detail="the value is " + val + " in the log", fix="rotate it"))
+entries.append(entry("sec-fix", detail="plain", fix="use " + secrets["ghp"]))
+body = "Triage: MEDIUM | blast radius: x\n\ntext\n\n<details><summary>Review ledger</summary>\n\n```json\n" + json.dumps({"sha": "x", "findings": entries}) + "\n```\n\n</details>"
+json.dump({"body": body}, open(sys.argv[1], "w"))
+PY
+HEAD_SHA="$locsha" LOCATION_REPO="$repo" JSON="$(cat "$tmp/safe.json")" run
+pyassert 'import json,sys; f=json.loads(sys.argv[1]); d=f["detail"]; x=f["fix"]; assert "@Y4NN777" not in d and "@​Y4NN777" in d and "#172" not in d and "#​172" in d and "#​5" in d; assert "<" not in d and "-->" not in d; assert "\n" not in d and "\n" not in x and "#​9" in x' "$(entry_of mention)" 2>/dev/null && ok "detail and fix: @mention and #N disarmed with a zero-width space, no HTML or marker, one line" || ko "neutralise ($(entry_of mention))"
+pyassert 'import json,sys; f=json.loads(sys.argv[1]); assert len(f["detail"])<=600 and len(f["fix"])<=300' "$(entry_of long)" 2>/dev/null && ok "detail is cut to 600 characters and fix to 300" || ko "length ($(entry_of long))"
+pyassert 'import json,sys; f=json.loads(sys.argv[1]); assert "Authorization header" in f["detail"] and "redacted" not in f' "$(entry_of benign)" 2>/dev/null && ok "no false positive: the word Authorization or sk without a value is kept" || ko "benign ($(entry_of benign))"
+allred=1
+for k in pem aws ghp slack sk jwt auth; do
+  pyassert 'import json,sys; f=json.loads(sys.argv[1]); assert f["detail"]=="[redacted: looked like a secret]" and f["redacted"] is True and f["fix"]=="rotate it"' "$(entry_of "sec-$k")" 2>/dev/null || { allred=0; ko "secret shape $k not redacted ($(entry_of "sec-$k"))"; }
+done
+[ "$allred" -eq 1 ] && ok "private key block, AWS key, GitHub token, Slack token, sk- key, JWT and Authorization header values are replaced and flagged" || true
+pyassert 'import json,sys; f=json.loads(sys.argv[1]); assert f["fix"]=="[redacted: looked like a secret]" and f["detail"]=="plain" and f["redacted"] is True' "$(entry_of sec-fix)" 2>/dev/null && ok "a secret shape in the fix is replaced too" || ko "fix secret ($(entry_of sec-fix))"
+
+# --- deep: detail and fix are required; a repeated id keeps its source (the #180 case) ---
+HEAD_SHA="$locsha"
+note_base='Triage: NONE | blast radius: x\n<!-- 226os-ai-review -->\nTool: PASS (1 files)\n\n<details><summary>Review ledger</summary>\n\n```json\n{\"sha\":\"'$locsha'\",\"findings\":[{\"id\":\"n180\",\"kind\":\"note\",\"evidence\":\"INFERRED\",\"sev\":\"LOW\",\"file\":\"a.go\",\"line\":3,\"scenario\":\"stage 1 remark\",\"status\":\"open\",\"detail\":\"stage 1 detail\",\"fix\":\"none: accept\",\"source\":\"review\",\"first_sha\":\"'$old_sha'\",\"location\":\"verified\"},{\"id\":\"h1\",\"kind\":\"finding\",\"evidence\":\"OBSERVED\",\"sev\":\"HIGH\",\"file\":\"a.go\",\"line\":4,\"scenario\":\"hh\",\"status\":\"open\",\"detail\":\"stage 1 high\",\"fix\":\"fix h1\",\"source\":\"review\",\"first_sha\":\"'$old_sha'\",\"location\":\"verified\"}]}\n```\n\n</details>'
+DEEP180='{"level":"MEDIUM","blast_radius":"x","summary":"s","findings":[{"id":"n180","kind":"finding","evidence":"OBSERVED","sev":"MEDIUM","file":"a.go","line":7,"scenario":"deep scenario","status":"open","detail":"deep detail","fix":"deep fix"},{"id":"h1","kind":"note","evidence":"INFERRED","sev":"LOW","file":"a.go","line":4,"scenario":"s","status":"open","detail":"deep says less","fix":"none"}]}'
+comments "[{\"id\":2,\"node_id\":\"N2\",\"user\":{\"login\":\"$BOT\"},\"body\":\"$note_base\",\"created_at\":\"2026-11-14T09:00:00Z\"}]"
+LOCATION_REPO="$repo" DJSON="$DEEP180" deep
+posted_entry() { posted | python3 -I -c 'import json,re,sys; m=re.search(r"```json\s*(\{.*?\})\s*```", sys.stdin.read(), re.S); d=json.loads(m.group(1)); print(json.dumps(next(f for f in d["findings"] if f["id"]==sys.argv[1])))' "$1"; }
+pyassert 'import json,sys; f=json.loads(sys.argv[1]); assert f["source"]=="review" and f["sev"]=="MEDIUM" and f["kind"]=="finding" and f["detail"]=="stage 1 detail" and f["first_sha"]=="'"$old_sha"'" and f["line"]==3; d=f["deep"]; assert d["detail"]=="deep detail" and d["fix"]=="deep fix" and d["sev"]=="MEDIUM" and d["line"]==7 and d["location"]=="verified"' "$(posted_entry n180)" 2>/dev/null && ok "#180: a stage 1 note repeated by the deep review keeps source review, gains a deep sub-field and takes the worse severity" || ko "180 case ($(posted_entry n180))"
+pyassert 'import json,sys; f=json.loads(sys.argv[1]); assert f["sev"]=="HIGH" and f["source"]=="review" and f["deep"]["fix"]=="none"' "$(posted_entry h1)" 2>/dev/null && ok "the worse severity wins in both directions (a deep LOW never lowers a stage 1 HIGH)" || ko "worst sev ($(posted_entry h1))"
+first="$(posted)"
+comments "$(python3 -I -c 'import json,sys; print(json.dumps([{"id":2,"node_id":"N2","user":{"login":"github-actions[bot]"},"body":sys.argv[1],"created_at":"2026-11-14T09:00:00Z"}]))' "$first")"
+LOCATION_REPO="$repo" DJSON="$DEEP180" deep
+[ "$(posted)" = "$first" ] && ok "the merge with a repeated id is idempotent" || ko "idempotent sub-field ($(posted | ledger_of))"
+comments "[{\"id\":2,\"node_id\":\"N2\",\"user\":{\"login\":\"$BOT\"},\"body\":\"$note_base\",\"created_at\":\"2026-11-14T09:00:00Z\"}]"
+DJSON='{"level":"NONE","blast_radius":"x","summary":"s","findings":[{"id":"nofix","kind":"note","evidence":"INFERRED","sev":"LOW","file":"a.go","line":1,"scenario":"s","status":"open","detail":"only a detail"}]}' deep
+[ "$(posted | sed -n 4p)" = "Deep: NOT RUN (ledger entry nofix lacks detail or fix)" ] && ok "a deep entry without fix is Deep: NOT RUN (ledger entry <id> lacks detail or fix), never dropped silently" || ko "deep missing ($(posted | sed -n 4p))"
+LOCATION_REPO="$repo" DJSON='{"level":"NONE","blast_radius":"x","summary":"s","findings":[{"id":"new-deep","kind":"note","evidence":"INFERRED","sev":"LOW","file":"a.go","line":1,"scenario":"s","status":"open","detail":"mail me at @Y4NN777 #44","fix":"none: accept"}]}' deep
+pyassert 'import json,sys; f=json.loads(sys.argv[1]); assert f["source"]=="deep" and f["first_sha"]=="'"$locsha"'" and "@​Y4NN777" in f["detail"] and "#​44" in f["detail"]' "$(posted_entry new-deep)" 2>/dev/null && ok "a new deep entry is tagged source deep with first_sha, and its detail goes through the same neutraliser" || ko "deep new ($(posted_entry new-deep))"
 
 finish

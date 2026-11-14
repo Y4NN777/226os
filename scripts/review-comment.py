@@ -18,10 +18,21 @@ commits not reviewed are reviewed on the next run. The Review gate reads no verd
 then line 1 stays the CRITICAL verdict and its evidence is kept, so a push that exhausts the review never lifts a block.
 Line 4 is `Deep: PENDING (...)` when DEEP_PENDING is true (a P0 path is touched; the deep job replaces it).
 
+Ledger entries (the register detail): every entry the model writes carries `detail` (the proof and reasoning, at most
+600 characters) and `fix` (one line, at most 300; for a note it may be "none: accept" with a reason). A missing or
+blank one makes the comment `Triage: NOT RUN | ledger entry <id> lacks detail or fix` (the deep review: `Deep: NOT RUN`
+with the same reason): never a silent loss, never a pass. The script, never the model, sets `source` (review or deep),
+`first_sha` (the head the entry was first raised at, kept when the entry is listed again with the same file and line or
+carried forward), `location` (verified or unverified: the file exists at that commit and the line is inside it, read as
+git objects from LOCATION_REPO, else the current directory, else `pr/`) and `redacted`. `detail`, `fix` and the
+scenario are cut, neutralised (no @mention, `#N` disarmed with a zero-width space, no HTML, one line) and replaced by
+"[redacted: looked like a secret]" when they match a secret shape.
+
 Subcommand `deep` (stage 2): merges the deep review's structured output (DEEP_JSON: level, blast_radius, summary,
 findings) into the comment and ledger of the SAME run (REVIEW_COMMENT_ID, else the marker comment whose ledger sha is
-PR_HEAD_SHA); when a newer review comment exists it edits nothing (NOT RUN, stale). Its entries are tagged `"source":"deep"` (the deep entry wins on the same
-id), line 4 becomes `Deep: PASS (...)` or `Deep: NOT RUN (<reason>)`, the Triage line becomes the worse of both levels
+PR_HEAD_SHA); when a newer review comment exists it edits nothing (NOT RUN, stale). A new entry is tagged `"source":"deep"`; when the deep review repeats an id already in the stage 1 ledger, the stage 1
+entry keeps `"source":"review"`, gains a `deep` sub-field with the deep detail, fix and location, and takes the worse
+severity of the two (never overwritten); line 4 becomes `Deep: PASS (...)` or `Deep: NOT RUN (<reason>)`, the Triage line becomes the worse of both levels
 (a NOT RUN verdict stays NOT RUN), the ledger records `"deep":{"status":"PASS"|"NOT RUN","sha":PR_HEAD_SHA}` and keeps
 its own sha, and the merge is idempotent.
 Subcommand `deep-needed`: prints `true` when the pull request touches a P0 path (.github/sensitive-paths.txt plus
@@ -64,6 +75,24 @@ P0_LISTS = (".github/sensitive-paths.txt", ".github/deep-review-paths.txt")
 DEEP_MAX_ENTRIES = 8
 SEV_RANK = {"LOW": 0, "MEDIUM": 1, "HIGH": 2, "CRITICAL": 3}
 STATUS_RANK = {"open": 0, "answered": 1, "accepted": 1, "fixed": 2}
+REDACTED = "[redacted: looked like a secret]"
+# Secret shapes (private key blocks, AWS, GitHub and Slack tokens, sk- keys, JWT, an Authorization header WITH a value).
+# The same list is in scripts/review-context.py: this script must stay one standalone file (the workflow copies it alone).
+SECRET_SHAPES = [re.compile(p) for p in (
+    r"-----BEGIN [A-Z ]*PRIVATE KEY-----",
+    r"\b(?:AKIA|ASIA|AGPA|AIDA|AROA|ANPA)[0-9A-Z]{16}\b",
+    r"\bgh[pousr]_[A-Za-z0-9]{30,}",
+    r"\bgithub_pat_[A-Za-z0-9_]{20,}",
+    r"\bxox[abposr]-[A-Za-z0-9-]{10,}",
+    r"\bsk-[A-Za-z0-9_-]{20,}",
+    r"\beyJ[A-Za-z0-9_-]{8,}\.eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}",
+    r"(?i)\bauthorization\s*[:=]\s*[\"']?(?:(?:bearer|basic|token)\s+)?[A-Za-z0-9._~+/=-]{16,}",
+)]
+ZWSP = chr(0x200B)
+DETAIL_MAX = 600
+FIX_MAX = 300
+LOCATE_MAX_BYTES = 5000000
+SCRIPT_OWNED = ("source", "first_sha", "location", "redacted", "deep")
 MINIMIZE = "mutation($id: ID!) { minimizeComment(input: {subjectId: $id, classifier: OUTDATED}) { minimizedComment { isMinimized } } }"
 
 
@@ -134,7 +163,113 @@ def review_comment(comments):
     return max(triage, key=stamp) if triage else None
 
 
-def pin_ledger(text, head):
+def looks_secret(text):
+    return any(p.search(text or "") for p in SECRET_SHAPES)
+
+
+def defuse(text, limit=None):
+    """One line that cannot act when written to an issue or a prompt: no HTML tag or comment (a forged marker must not
+    parse), `<` escaped, an @mention and a #N reference broken with a zero-width space, whitespace collapsed."""
+    text = " ".join(str(text or "").split())
+    text = re.sub(r"<!--.*?-->|</?[A-Za-z!][^>]*>", "", text)
+    text = text.replace("<!--", "").replace("<", "&lt;")
+    text = re.sub(r"@(?=[A-Za-z0-9_-])", "@" + ZWSP, text)
+    text = re.sub(r"#(?=\d)", "#" + ZWSP, text)
+    text = " ".join(text.split())
+    return text if limit is None or len(text) <= limit else text[:limit - 3] + "..."
+
+
+def clean_field(text, limit):
+    """(text, redacted): a secret shape replaces the whole text; otherwise it is defused and cut."""
+    raw = " ".join(str(text or "").split())
+    if looks_secret(raw):
+        return REDACTED, True
+    return defuse(raw, limit), False
+
+
+def slug_id(identifier):
+    """An id as it may appear in a verdict line: letters, digits, underscore and dash only."""
+    return re.sub(r"[^\w-]+", "-", str(identifier or "?"))[:40] or "?"
+
+
+def is_blank(value):
+    return not isinstance(value, str) or not value.strip()
+
+
+def ledger_problem(text):
+    """The reason (for a `Triage: NOT RUN` line) when an entry of the model's fenced ledger lacks `detail` or `fix`, else
+    None (also when there is no usable ledger: that case is handled as before)."""
+    m = FENCED.search(text or "")
+    if not m:
+        return None
+    try:
+        data = json.loads(m.group(2))
+    except ValueError:
+        return None
+    for f in data.get("findings") if isinstance(data, dict) and isinstance(data.get("findings"), list) else []:
+        if isinstance(f, dict) and (is_blank(f.get("detail")) or is_blank(f.get("fix"))):
+            return "ledger entry %s lacks detail or fix" % slug_id(f.get("id"))
+    return None
+
+
+def location_dirs():
+    env = os.environ.get("LOCATION_REPO")
+    return [env] if env else [".", "pr"]
+
+
+def locate(head, path, line):
+    """`verified` when `path` exists at the commit `head` and `line` is inside it (no line: the file only), else
+    `unverified`. The commit is read as git objects (cat-file, an argument list, a size cap): nothing of the pull
+    request is executed or checked out."""
+    if (not FULL_SHA.match(head or "") or not isinstance(path, str) or not path or len(path) > 300 or path.startswith(("/", "-"))
+            or ".." in path.split("/") or re.search(r"[\x00-\x1f]", path)):
+        return "unverified"
+    line = line if isinstance(line, int) and not isinstance(line, bool) else 0
+    spec = "%s:%s" % (head, path)
+    for folder in location_dirs():
+        try:
+            size = subprocess.run(["git", "-C", folder, "cat-file", "-s", spec], capture_output=True, text=True, timeout=20, check=False)
+            if size.returncode != 0:
+                continue
+            if int(size.stdout.strip() or "0") > LOCATE_MAX_BYTES:
+                return "unverified"
+            blob = subprocess.run(["git", "-C", folder, "cat-file", "blob", spec], capture_output=True, timeout=20, check=False)
+        except (OSError, subprocess.SubprocessError, ValueError):
+            return "unverified"
+        if blob.returncode != 0:
+            continue
+        count = blob.stdout.count(b"\n") + (0 if not blob.stdout or blob.stdout.endswith(b"\n") else 1)
+        return "verified" if 0 <= line <= count else "unverified"
+    return "unverified"
+
+
+def refine_entry(f, previous, head):
+    """The model's entry with the fields the script owns: cleaned detail, fix and scenario; source, first_sha, location
+    and the deep sub-field from the previous ledger when it listed the same id (first_sha only while the file and line are
+    the same: the permalink must keep pointing at the right place), else the head."""
+    for key in SCRIPT_OWNED:
+        f.pop(key, None)
+    f["detail"], hit1 = clean_field(f.get("detail"), DETAIL_MAX)
+    f["fix"], hit2 = clean_field(f.get("fix"), FIX_MAX)
+    hit3 = isinstance(f.get("scenario"), str) and looks_secret(f["scenario"])
+    if hit3:
+        f["scenario"] = REDACTED
+    if hit1 or hit2 or hit3:
+        f["redacted"] = True
+    previous = previous if isinstance(previous, dict) else {}
+    f["source"] = previous.get("source") if previous.get("source") in ("review", "deep") else "review"
+    if isinstance(previous.get("deep"), dict):
+        f["deep"] = previous["deep"]
+    if FULL_SHA.match(str(previous.get("first_sha") or "")) and previous.get("file") == f.get("file") and previous.get("line") == f.get("line"):
+        f["first_sha"] = previous["first_sha"]
+        f["location"] = previous["location"] if previous.get("location") in ("verified", "unverified") else locate(f["first_sha"], f.get("file"), f.get("line"))
+    else:
+        f["first_sha"] = head
+        f["location"] = locate(head, f.get("file"), f.get("line"))
+    return f
+
+
+def pin_ledger(text, head, previous_ledger=None):
     """The text with its fenced ledger's sha set to head (findings kept). Anything else is no usable ledger and nothing
     is invented: a hidden-comment ledger (it would carry the model's sha) is removed, a bare or broken one is left as
     text the parser ignores, and none is added. Unchanged when head is not a full sha (a local run)."""
@@ -150,11 +285,13 @@ def pin_ledger(text, head):
         if isinstance(data, dict):
             data.pop("last_reviewed_commit", None)
             data.pop("commit", None)
-            # Only the deep merge writes `deep` and `source`: a model-written one would forge a deep review PASS.
+            # Only the script writes `deep`, `source`, `first_sha`, `location` and `redacted`: a model-written one would
+            # forge a deep review PASS or a permalink.
             data.pop("deep", None)
+            before = {x.get("id"): x for x in (previous_ledger or {}).get("findings", []) if isinstance(x, dict)}
             for f in data.get("findings") if isinstance(data.get("findings"), list) else []:
                 if isinstance(f, dict):
-                    f.pop("source", None)
+                    refine_entry(f, before.get(f.get("id")), head)
             data["sha"] = head
             return text[:m.start(2)] + json.dumps(data) + text[m.end(2):]
     return text
@@ -206,7 +343,7 @@ def compose(text, tool_line, head="", deep_line=None, reviewed=None, previous_le
     while rest and not rest[0].strip():
         rest.pop(0)
     top = [lines[0].strip(), MARKER, tool_or_default(tool_line)] + ([reviewed] if reviewed else []) + ([deep_line] if deep_line else [])
-    text = pin_ledger("\n".join(top + [""] + rest), head)
+    text = pin_ledger("\n".join(top + [""] + rest), head, previous_ledger)
     if FULL_SHA.match(head or ""):
         text = carry_forward(text, previous_ledger)
     return text + "\n"
@@ -266,10 +403,14 @@ def main():
         print("review-comment: NOT RUN (%s)" % exc)
         return 0
     previous = review_comment(comments)
-    body = compose(text, tool_line, head, deep_line, reviewed_line(head, rng), ledger_of((previous or {}).get("body")))
+    first = (text or "").strip().splitlines()[:1]
+    problem = ledger_problem(text) if first and VERDICT.match(first[0].strip()) else None
+    body = None if problem else compose(text, tool_line, head, deep_line, reviewed_line(head, rng), ledger_of((previous or {}).get("body")))
     if body is None:
         outcome = re.sub(r"[^a-z_]", "", os.environ.get("REVIEW_OUTCOME", "").lower())[:20]
-        if text is None or not text.strip():
+        if problem:
+            reason = problem
+        elif text is None or not text.strip():
             reason = "the review step ended with %s and returned no text" % (outcome or "an unknown outcome")
         else:
             reason = "the review text has no Triage first line"
@@ -367,7 +508,7 @@ def target_env():
 
 # --- stage 2: the deep review merges into the same comment and ledger ---
 
-def deep_entry(f):
+def deep_entry(f, head=""):
     """One deep ledger entry, normalised and tagged source deep, or None when it is not valid."""
     if not isinstance(f, dict) or not isinstance(f.get("id"), str) or not f["id"].strip() or f.get("status") not in STATUSES:
         return None
@@ -380,11 +521,21 @@ def deep_entry(f):
     path = str(f.get("file") or "")[:300]
     if sev == "CRITICAL" and not (evidence == "OBSERVED" and path and line > 0):
         sev = "HIGH"  # a CRITICAL must be OBSERVED with file:line
-    return {"id": f["id"].strip()[:40], "kind": kind, "evidence": evidence, "sev": sev, "file": path, "line": line,
-            "scenario": one_line(f.get("scenario"), 400), "status": f["status"], "source": "deep"}
+    detail, hit1 = clean_field(f.get("detail"), DETAIL_MAX)
+    fix, hit2 = clean_field(f.get("fix"), FIX_MAX)
+    scenario = one_line(f.get("scenario"), 400)
+    hit3 = looks_secret(scenario)
+    entry = {"id": f["id"].strip()[:40], "kind": kind, "evidence": evidence, "sev": sev, "file": path, "line": line,
+             "scenario": REDACTED if hit3 else scenario, "status": f["status"], "detail": detail, "fix": fix, "source": "deep"}
+    if hit1 or hit2 or hit3:
+        entry["redacted"] = True
+    if FULL_SHA.match(head or ""):
+        entry["first_sha"] = head
+        entry["location"] = locate(head, path, line)
+    return entry
 
 
-def deep_output():
+def deep_output(head=""):
     """(data, None) or (None, reason) from DEEP_JSON."""
     raw = os.environ.get("DEEP_JSON") or ""
     if not raw.strip():
@@ -395,7 +546,10 @@ def deep_output():
         return None, "the deep review output is not valid JSON"
     if not isinstance(data, dict) or str(data.get("level", "")).upper() not in LEVELS or not isinstance(data.get("findings"), list):
         return None, "the deep review output has no level or findings"
-    entries = [deep_entry(f) for f in data["findings"]]
+    for f in data["findings"]:
+        if deep_entry(f, "") is not None and (is_blank(f.get("detail")) or is_blank(f.get("fix"))):
+            return None, "ledger entry %s lacks detail or fix" % slug_id(f.get("id"))
+    entries = [deep_entry(f, head) for f in data["findings"]]
     if not all(entries):
         return None, "the deep review output has an invalid entry"
     why = None
@@ -437,14 +591,34 @@ def merge_deep(base, data, why, head):
     reviewed = [lines[3].strip()] if len(lines) > 3 and lines[3].startswith("Reviewed:") else []
     ledger = ledger_of(base) or {"sha": "", "findings": []}
     if data is not None:
-        # A deep entry may replace a stage 1 entry of the same id only when its status is not better: the deep review
-        # can never mark a stage 1 finding fixed, answered or accepted.
+        # A deep entry never overwrites a stage 1 entry of the same id: the stage 1 entry keeps its source (review), gains
+        # a `deep` sub-field and takes the worse severity. The deep review can never mark a stage 1 finding fixed,
+        # answered or accepted: an entry with a better status than the stage 1 entry is ignored.
         stage1 = {f.get("id"): f for f in ledger["findings"] if isinstance(f, dict) and f.get("source") != "deep"}
-        merged = [e for e in data["entries"]
-                  if e["id"] not in stage1 or STATUS_RANK[e["status"]] <= STATUS_RANK.get(stage1[e["id"]].get("status"), 0)]
-        ids = {e["id"] for e in merged}
-        kept = [f for f in ledger["findings"] if not (isinstance(f, dict) and (f.get("source") == "deep" or f.get("id") in ids))]
-        ledger["findings"] = kept + merged
+        before = {f.get("id"): f for f in ledger["findings"] if isinstance(f, dict) and f.get("source") == "deep"}
+        standalone = []
+        for e in data["entries"]:
+            s1 = stage1.get(e["id"])
+            if s1 is None:
+                old = before.get(e["id"]) or {}
+                if FULL_SHA.match(str(old.get("first_sha") or "")) and old.get("file") == e["file"] and old.get("line") == e["line"]:
+                    e["first_sha"], e["location"] = old["first_sha"], old.get("location", e.get("location", "unverified"))
+                standalone.append(e)
+                continue
+            if STATUS_RANK[e["status"]] > STATUS_RANK.get(s1.get("status"), 0):
+                continue
+            sub = {k: e.get(k) for k in ("detail", "fix", "sev", "file", "line", "location") if e.get(k) is not None}
+            if e.get("redacted"):
+                sub["redacted"] = True
+            s1["source"] = s1.get("source") if s1.get("source") in ("review", "deep") else "review"
+            s1["deep"] = sub
+            s1["kind"] = "finding" if "finding" in (s1.get("kind", "finding"), e["kind"]) else "note"
+            worst = max(str(s1.get("sev", "LOW")).upper(), e["sev"], key=lambda v: SEV_RANK.get(v, 0))
+            s1["sev"] = "LOW" if s1["kind"] == "note" else worst
+            if s1["sev"] == "CRITICAL" and e["sev"] == "CRITICAL":
+                s1["evidence"] = "OBSERVED"
+            s1["status"] = e["status"]
+        ledger["findings"] = [f for f in ledger["findings"] if not (isinstance(f, dict) and f.get("source") == "deep")] + standalone
         ledger["deep"] = {"status": "NOT RUN" if why else "PASS", "sha": head}
         found = sum(1 for e in data["entries"] if e["kind"] == "finding")
         if why:
@@ -473,7 +647,7 @@ def deep_main():
     repo, pr, binary = env
     head = os.environ.get("PR_HEAD_SHA", "")
     head = head if FULL_SHA.match(head) else ""
-    data, why = deep_output()
+    data, why = deep_output(head)
     try:
         comments = fetch_comments(binary, repo, pr)
     except (GitHubError, ValueError) as exc:
