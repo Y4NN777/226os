@@ -38,6 +38,7 @@ func ts() pgtype.Timestamptz {
 type step struct {
 	rows [][]any
 	err  error
+	zero bool // Exec reports no affected row
 }
 
 type fakeDB struct {
@@ -61,7 +62,10 @@ func (f *fakeDB) next(kind string) step {
 
 func (f *fakeDB) Exec(context.Context, string, ...any) (pgconn.CommandTag, error) {
 	s := f.next("exec")
-	return pgconn.NewCommandTag("INSERT 0 1"), s.err
+	if s.zero {
+		return pgconn.NewCommandTag("UPDATE 0"), s.err
+	}
+	return pgconn.NewCommandTag("UPDATE 1"), s.err
 }
 
 func (f *fakeDB) Query(context.Context, string, ...any) (pgx.Rows, error) {

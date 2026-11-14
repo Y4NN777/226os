@@ -181,3 +181,74 @@ WHERE n.project_id = sqlc.arg('project_id')::uuid
        OR (n.created_at, n.id) < (sqlc.narg('after_created')::timestamptz, sqlc.narg('after_id')::uuid))
 ORDER BY n.created_at DESC, n.id DESC
 LIMIT sqlc.arg('row_limit');
+
+-- Applications (US-BUILD-001). Transitions are guarded on the locked row (DATABASE_DESIGN 3.5):
+-- pending -> accepted | declined | withdrawn; withdrawn -> pending (the applicant re-applies, the row is
+-- reopened); accepted and declined are terminal.
+
+-- name: LockNeedForApply :one
+-- The need, its project's owner and visibility; the need row is locked so it cannot change under the
+-- application. A removed project or a missing need is no row.
+SELECT n.status, n.language, p.owner_id, p.visibility
+FROM contribution_needs n
+JOIN projects p ON p.id = n.project_id AND p.status = 'published'
+WHERE n.id = sqlc.arg('need_id')::uuid
+FOR SHARE OF n;
+
+-- name: InsertApplication :one
+-- No row returned means the (user, need) pair already exists (applications_user_need_uq).
+INSERT INTO applications (contribution_need_id, user_id, message, language)
+VALUES (sqlc.arg('need_id')::uuid, sqlc.arg('user_id')::uuid, sqlc.arg('message')::text, sqlc.arg('language')::text)
+ON CONFLICT (user_id, contribution_need_id) DO NOTHING
+RETURNING id;
+
+-- name: LockOwnApplication :one
+SELECT id, status FROM applications
+WHERE user_id = sqlc.arg('user_id')::uuid AND contribution_need_id = sqlc.arg('need_id')::uuid
+FOR UPDATE;
+
+-- name: ReopenApplication :execrows
+UPDATE applications SET status = 'pending', withdrawn_at = NULL, message = sqlc.arg('message')::text,
+  language = sqlc.arg('language')::text, updated_at = now()
+WHERE id = sqlc.arg('id')::uuid AND status = 'withdrawn';
+
+-- name: LockApplicationForDecision :one
+-- The applicant, the status and the project owner, read on the locked application row.
+SELECT a.user_id, a.status, p.owner_id
+FROM applications a
+JOIN contribution_needs n ON n.id = a.contribution_need_id
+JOIN projects p ON p.id = n.project_id AND p.status = 'published'
+WHERE a.id = sqlc.arg('id')::uuid
+FOR UPDATE OF a;
+
+-- name: DecideApplication :execrows
+UPDATE applications SET
+  status = sqlc.arg('status')::text,
+  decided_by = CASE WHEN sqlc.arg('status')::text IN ('accepted', 'declined') THEN sqlc.arg('actor_id')::uuid END,
+  decided_at = CASE WHEN sqlc.arg('status')::text IN ('accepted', 'declined') THEN now() END,
+  withdrawn_at = CASE WHEN sqlc.arg('status')::text = 'withdrawn' THEN now() END,
+  updated_at = now()
+WHERE id = sqlc.arg('id')::uuid AND status = 'pending';
+
+-- name: GetApplication :one
+SELECT a.id, a.contribution_need_id, n.project_id, a.user_id, pr.username, pr.display_name, a.message,
+       a.status, a.created_at, a.decided_at
+FROM applications a
+JOIN contribution_needs n ON n.id = a.contribution_need_id
+JOIN profiles pr ON pr.user_id = a.user_id
+WHERE a.id = sqlc.arg('id')::uuid;
+
+-- name: ListProjectApplications :many
+-- The owner predicate is part of the query (DATABASE_DESIGN section 7), never a post-filter.
+SELECT a.id, a.contribution_need_id, n.project_id, a.user_id, pr.username, pr.display_name, a.message,
+       a.status, a.created_at, a.decided_at
+FROM applications a
+JOIN contribution_needs n ON n.id = a.contribution_need_id
+JOIN projects p ON p.id = n.project_id
+JOIN profiles pr ON pr.user_id = a.user_id
+WHERE n.project_id = sqlc.arg('project_id')::uuid AND p.owner_id = sqlc.arg('owner_id')::uuid
+  AND (sqlc.narg('status')::text IS NULL OR a.status = sqlc.narg('status')::text)
+  AND (sqlc.narg('after_created')::timestamptz IS NULL
+       OR (a.created_at, a.id) < (sqlc.narg('after_created')::timestamptz, sqlc.narg('after_id')::uuid))
+ORDER BY a.created_at DESC, a.id DESC
+LIMIT sqlc.arg('row_limit');

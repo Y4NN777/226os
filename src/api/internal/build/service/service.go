@@ -48,6 +48,10 @@ type Store interface {
 	ProjectAccess(ctx context.Context, id string) (domain.Access, error)
 	CreateNeed(ctx context.Context, in domain.NewNeed, authorize func(domain.Access) error) (domain.Need, error)
 	ListNeeds(ctx context.Context, q domain.NeedQuery) ([]domain.Need, error)
+	CreateApplication(ctx context.Context, in domain.NewApplication, authorize func(domain.NeedAccess) error) (string, error)
+	DecideApplication(ctx context.Context, id, actorID, status string, authorize func(domain.ApplicationAccess) error) error
+	GetApplication(ctx context.Context, id string) (domain.Application, error)
+	ListApplications(ctx context.Context, q domain.ApplicationQuery) ([]domain.Application, error)
 }
 
 // GitHub reads one public repository. The service owns this port.
@@ -474,6 +478,10 @@ func storeErr(err error) error {
 		return notFound()
 	case errors.Is(err, domain.ErrDuplicateURL):
 		return duplicateURL()
+	case errors.Is(err, domain.ErrDuplicateApplication):
+		return apperr.New(apperr.CodeDuplicateApplication, "You already applied to this need.")
+	case errors.Is(err, domain.ErrStateConflict):
+		return stateConflict("The application is no longer pending.")
 	case errors.Is(err, domain.ErrLinkTarget):
 		return invalid("/links", "invalid_value", "each link must point to a published, public item.")
 	default:
@@ -502,6 +510,8 @@ func duplicateURL() error {
 	return apperr.New(apperr.CodeStateConflict, "This GitHub repository is already registered.").
 		WithViolations(apperr.Violation{Field: "/github_url", Code: "duplicate"})
 }
+
+func stateConflict(detail string) error { return apperr.New(apperr.CodeStateConflict, detail) }
 
 func invalidCursor() error {
 	return apperr.New(apperr.CodeInvalidCursor, "The cursor is invalid or expired.")

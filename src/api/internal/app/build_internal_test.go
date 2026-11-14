@@ -14,7 +14,7 @@ import (
 	"github.com/Y4NN777/226os/src/api/internal/platform/cursor"
 )
 
-// The six S5 routes answer 501 without a handler and reach the handler when it is set. The calls are
+// The nine S5 routes answer 501 without a handler and reach the handler when it is set. The calls are
 // anonymous, so no wired route reaches GitHub.
 func TestBuildRoutesDelegateOnlyWhenWired(t *testing.T) {
 	c, err := cursor.New([]byte("0123456789abcdef0123456789abcdef"))
@@ -37,6 +37,13 @@ func TestBuildRoutesDelegateOnlyWhenWired(t *testing.T) {
 		"createContributionNeed": func(s *Server, w http.ResponseWriter, r *http.Request) {
 			s.CreateContributionNeed(w, r, id, apigen.CreateContributionNeedParams{})
 		},
+		"createApplication": func(s *Server, w http.ResponseWriter, r *http.Request) {
+			s.CreateApplication(w, r, id, apigen.CreateApplicationParams{})
+		},
+		"listProjectApplications": func(s *Server, w http.ResponseWriter, r *http.Request) {
+			s.ListProjectApplications(w, r, id, apigen.ListProjectApplicationsParams{})
+		},
+		"decideApplication": func(s *Server, w http.ResponseWriter, r *http.Request) { s.DecideApplication(w, r, id) },
 	}
 	wired := NewServer(WithBuild(build.NewHandler(&fakePool{}, github.New(), c, allowLimiter{}, nil)))
 	for name, call := range calls {

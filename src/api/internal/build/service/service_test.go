@@ -49,6 +49,7 @@ type fakeStore struct {
 	needs      []domain.Need
 	needsErr   error
 	needQuery  domain.NeedQuery
+	apps       appFake
 }
 
 func (f *fakeStore) URLTaken(context.Context, string) (bool, error) { return f.taken, f.takenErr }

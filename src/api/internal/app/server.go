@@ -306,3 +306,30 @@ func (s *Server) CreateContributionNeed(w http.ResponseWriter, r *http.Request, 
 	}
 	s.build.CreateContributionNeed(w, r, projectID, params)
 }
+
+// CreateApplication records a member's application. A server built without WithBuild stays unimplemented.
+func (s *Server) CreateApplication(w http.ResponseWriter, r *http.Request, needID apigen.NeedId, params apigen.CreateApplicationParams) {
+	if s.build == nil {
+		s.Unimplemented.CreateApplication(w, r, needID, params)
+		return
+	}
+	s.build.CreateApplication(w, r, needID, params)
+}
+
+// ListProjectApplications serves a project's applications to its owner. A server built without WithBuild stays unimplemented.
+func (s *Server) ListProjectApplications(w http.ResponseWriter, r *http.Request, projectID apigen.ProjectId, params apigen.ListProjectApplicationsParams) {
+	if s.build == nil {
+		s.Unimplemented.ListProjectApplications(w, r, projectID, params)
+		return
+	}
+	s.build.ListProjectApplications(w, r, projectID, params)
+}
+
+// DecideApplication accepts, declines or withdraws an application. A server built without WithBuild stays unimplemented.
+func (s *Server) DecideApplication(w http.ResponseWriter, r *http.Request, applicationID apigen.ApplicationId) {
+	if s.build == nil {
+		s.Unimplemented.DecideApplication(w, r, applicationID)
+		return
+	}
+	s.build.DecideApplication(w, r, applicationID)
+}

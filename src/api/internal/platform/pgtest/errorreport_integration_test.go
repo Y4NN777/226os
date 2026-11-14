@@ -139,9 +139,11 @@ func (s *s2Stack) preSession(t *testing.T) (*http.Cookie, string) {
 }
 
 // verificationToken waits for the single verification mail sent to to.
+// The deadline only bounds the wait: under the full -race suite each sign-up hashes with Argon2id
+// (64 MiB) while other packages run, and 5 seconds was not always enough (2026-11-14).
 func (s *s2Stack) verificationToken(t *testing.T, to string) string {
 	t.Helper()
-	deadline := time.Now().Add(5 * time.Second)
+	deadline := time.Now().Add(30 * time.Second)
 	for time.Now().Before(deadline) {
 		for _, m := range s.mail.Sent() {
 			if len(m.To) == 1 && m.To[0] == to {

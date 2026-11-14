@@ -11,6 +11,30 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const decideApplication = `-- name: DecideApplication :execrows
+UPDATE applications SET
+  status = $1::text,
+  decided_by = CASE WHEN $1::text IN ('accepted', 'declined') THEN $2::uuid END,
+  decided_at = CASE WHEN $1::text IN ('accepted', 'declined') THEN now() END,
+  withdrawn_at = CASE WHEN $1::text = 'withdrawn' THEN now() END,
+  updated_at = now()
+WHERE id = $3::uuid AND status = 'pending'
+`
+
+type DecideApplicationParams struct {
+	Status  string
+	ActorID pgtype.UUID
+	ID      pgtype.UUID
+}
+
+func (q *Queries) DecideApplication(ctx context.Context, arg DecideApplicationParams) (int64, error) {
+	result, err := q.db.Exec(ctx, decideApplication, arg.Status, arg.ActorID, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const deleteProjectTags = `-- name: DeleteProjectTags :exec
 DELETE FROM project_tags pt
 USING tags t
@@ -21,6 +45,46 @@ WHERE pt.project_id = $1::uuid AND pt.tag_id = t.id AND t.status = 'active'
 func (q *Queries) DeleteProjectTags(ctx context.Context, projectID pgtype.UUID) error {
 	_, err := q.db.Exec(ctx, deleteProjectTags, projectID)
 	return err
+}
+
+const getApplication = `-- name: GetApplication :one
+SELECT a.id, a.contribution_need_id, n.project_id, a.user_id, pr.username, pr.display_name, a.message,
+       a.status, a.created_at, a.decided_at
+FROM applications a
+JOIN contribution_needs n ON n.id = a.contribution_need_id
+JOIN profiles pr ON pr.user_id = a.user_id
+WHERE a.id = $1::uuid
+`
+
+type GetApplicationRow struct {
+	ID                 pgtype.UUID
+	ContributionNeedID pgtype.UUID
+	ProjectID          pgtype.UUID
+	UserID             pgtype.UUID
+	Username           string
+	DisplayName        string
+	Message            string
+	Status             string
+	CreatedAt          pgtype.Timestamptz
+	DecidedAt          pgtype.Timestamptz
+}
+
+func (q *Queries) GetApplication(ctx context.Context, id pgtype.UUID) (GetApplicationRow, error) {
+	row := q.db.QueryRow(ctx, getApplication, id)
+	var i GetApplicationRow
+	err := row.Scan(
+		&i.ID,
+		&i.ContributionNeedID,
+		&i.ProjectID,
+		&i.UserID,
+		&i.Username,
+		&i.DisplayName,
+		&i.Message,
+		&i.Status,
+		&i.CreatedAt,
+		&i.DecidedAt,
+	)
+	return i, err
 }
 
 const getProject = `-- name: GetProject :one
@@ -80,6 +144,33 @@ func (q *Queries) GetProject(ctx context.Context, arg GetProjectParams) (GetProj
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const insertApplication = `-- name: InsertApplication :one
+INSERT INTO applications (contribution_need_id, user_id, message, language)
+VALUES ($1::uuid, $2::uuid, $3::text, $4::text)
+ON CONFLICT (user_id, contribution_need_id) DO NOTHING
+RETURNING id
+`
+
+type InsertApplicationParams struct {
+	NeedID   pgtype.UUID
+	UserID   pgtype.UUID
+	Message  string
+	Language string
+}
+
+// No row returned means the (user, need) pair already exists (applications_user_need_uq).
+func (q *Queries) InsertApplication(ctx context.Context, arg InsertApplicationParams) (pgtype.UUID, error) {
+	row := q.db.QueryRow(ctx, insertApplication,
+		arg.NeedID,
+		arg.UserID,
+		arg.Message,
+		arg.Language,
+	)
+	var id pgtype.UUID
+	err := row.Scan(&id)
+	return id, err
 }
 
 const insertNeed = `-- name: InsertNeed :one
@@ -328,6 +419,82 @@ func (q *Queries) ListNeeds(ctx context.Context, arg ListNeedsParams) ([]ListNee
 	return items, nil
 }
 
+const listProjectApplications = `-- name: ListProjectApplications :many
+SELECT a.id, a.contribution_need_id, n.project_id, a.user_id, pr.username, pr.display_name, a.message,
+       a.status, a.created_at, a.decided_at
+FROM applications a
+JOIN contribution_needs n ON n.id = a.contribution_need_id
+JOIN projects p ON p.id = n.project_id
+JOIN profiles pr ON pr.user_id = a.user_id
+WHERE n.project_id = $1::uuid AND p.owner_id = $2::uuid
+  AND ($3::text IS NULL OR a.status = $3::text)
+  AND ($4::timestamptz IS NULL
+       OR (a.created_at, a.id) < ($4::timestamptz, $5::uuid))
+ORDER BY a.created_at DESC, a.id DESC
+LIMIT $6
+`
+
+type ListProjectApplicationsParams struct {
+	ProjectID    pgtype.UUID
+	OwnerID      pgtype.UUID
+	Status       pgtype.Text
+	AfterCreated pgtype.Timestamptz
+	AfterID      pgtype.UUID
+	RowLimit     int32
+}
+
+type ListProjectApplicationsRow struct {
+	ID                 pgtype.UUID
+	ContributionNeedID pgtype.UUID
+	ProjectID          pgtype.UUID
+	UserID             pgtype.UUID
+	Username           string
+	DisplayName        string
+	Message            string
+	Status             string
+	CreatedAt          pgtype.Timestamptz
+	DecidedAt          pgtype.Timestamptz
+}
+
+// The owner predicate is part of the query (DATABASE_DESIGN section 7), never a post-filter.
+func (q *Queries) ListProjectApplications(ctx context.Context, arg ListProjectApplicationsParams) ([]ListProjectApplicationsRow, error) {
+	rows, err := q.db.Query(ctx, listProjectApplications,
+		arg.ProjectID,
+		arg.OwnerID,
+		arg.Status,
+		arg.AfterCreated,
+		arg.AfterID,
+		arg.RowLimit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListProjectApplicationsRow{}
+	for rows.Next() {
+		var i ListProjectApplicationsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ContributionNeedID,
+			&i.ProjectID,
+			&i.UserID,
+			&i.Username,
+			&i.DisplayName,
+			&i.Message,
+			&i.Status,
+			&i.CreatedAt,
+			&i.DecidedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listProjects = `-- name: ListProjects :many
 SELECT p.id, p.name, COALESCE(p.github_url, '')::text AS github_url,
        left(COALESCE(p.description_md, p.summary), 1000)::text AS description,
@@ -430,6 +597,85 @@ func (q *Queries) ListProjects(ctx context.Context, arg ListProjectsParams) ([]L
 		return nil, err
 	}
 	return items, nil
+}
+
+const lockApplicationForDecision = `-- name: LockApplicationForDecision :one
+SELECT a.user_id, a.status, p.owner_id
+FROM applications a
+JOIN contribution_needs n ON n.id = a.contribution_need_id
+JOIN projects p ON p.id = n.project_id AND p.status = 'published'
+WHERE a.id = $1::uuid
+FOR UPDATE OF a
+`
+
+type LockApplicationForDecisionRow struct {
+	UserID  pgtype.UUID
+	Status  string
+	OwnerID pgtype.UUID
+}
+
+// The applicant, the status and the project owner, read on the locked application row.
+func (q *Queries) LockApplicationForDecision(ctx context.Context, id pgtype.UUID) (LockApplicationForDecisionRow, error) {
+	row := q.db.QueryRow(ctx, lockApplicationForDecision, id)
+	var i LockApplicationForDecisionRow
+	err := row.Scan(&i.UserID, &i.Status, &i.OwnerID)
+	return i, err
+}
+
+const lockNeedForApply = `-- name: LockNeedForApply :one
+
+SELECT n.status, n.language, p.owner_id, p.visibility
+FROM contribution_needs n
+JOIN projects p ON p.id = n.project_id AND p.status = 'published'
+WHERE n.id = $1::uuid
+FOR SHARE OF n
+`
+
+type LockNeedForApplyRow struct {
+	Status     string
+	Language   string
+	OwnerID    pgtype.UUID
+	Visibility string
+}
+
+// Applications (US-BUILD-001). Transitions are guarded on the locked row (DATABASE_DESIGN 3.5):
+// pending -> accepted | declined | withdrawn; withdrawn -> pending (the applicant re-applies, the row is
+// reopened); accepted and declined are terminal.
+// The need, its project's owner and visibility; the need row is locked so it cannot change under the
+// application. A removed project or a missing need is no row.
+func (q *Queries) LockNeedForApply(ctx context.Context, needID pgtype.UUID) (LockNeedForApplyRow, error) {
+	row := q.db.QueryRow(ctx, lockNeedForApply, needID)
+	var i LockNeedForApplyRow
+	err := row.Scan(
+		&i.Status,
+		&i.Language,
+		&i.OwnerID,
+		&i.Visibility,
+	)
+	return i, err
+}
+
+const lockOwnApplication = `-- name: LockOwnApplication :one
+SELECT id, status FROM applications
+WHERE user_id = $1::uuid AND contribution_need_id = $2::uuid
+FOR UPDATE
+`
+
+type LockOwnApplicationParams struct {
+	UserID pgtype.UUID
+	NeedID pgtype.UUID
+}
+
+type LockOwnApplicationRow struct {
+	ID     pgtype.UUID
+	Status string
+}
+
+func (q *Queries) LockOwnApplication(ctx context.Context, arg LockOwnApplicationParams) (LockOwnApplicationRow, error) {
+	row := q.db.QueryRow(ctx, lockOwnApplication, arg.UserID, arg.NeedID)
+	var i LockOwnApplicationRow
+	err := row.Scan(&i.ID, &i.Status)
+	return i, err
 }
 
 const lockProjectAccess = `-- name: LockProjectAccess :one
@@ -552,6 +798,26 @@ func (q *Queries) ProjectURLTaken(ctx context.Context, githubUrl string) (bool, 
 	var column_1 bool
 	err := row.Scan(&column_1)
 	return column_1, err
+}
+
+const reopenApplication = `-- name: ReopenApplication :execrows
+UPDATE applications SET status = 'pending', withdrawn_at = NULL, message = $1::text,
+  language = $2::text, updated_at = now()
+WHERE id = $3::uuid AND status = 'withdrawn'
+`
+
+type ReopenApplicationParams struct {
+	Message  string
+	Language string
+	ID       pgtype.UUID
+}
+
+func (q *Queries) ReopenApplication(ctx context.Context, arg ReopenApplicationParams) (int64, error) {
+	result, err := q.db.Exec(ctx, reopenApplication, arg.Message, arg.Language, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const updateProject = `-- name: UpdateProject :exec

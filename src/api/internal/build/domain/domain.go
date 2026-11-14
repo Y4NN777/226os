@@ -28,6 +28,19 @@ var (
 	ErrRepoNotFound = errors.New("build: repository not found or not public")
 	// ErrUpstream is GitHub being unreachable, slow, rate limited or answering an error.
 	ErrUpstream = errors.New("build: github unavailable")
+	// ErrDuplicateApplication is a second application to the same need that cannot be reopened.
+	ErrDuplicateApplication = errors.New("build: application already exists")
+	// ErrStateConflict is a transition from a state that does not allow it.
+	ErrStateConflict = errors.New("build: state conflict")
+)
+
+// Need and application status values (contribution_needs_status_ck, applications_status_ck).
+const (
+	NeedOpen             = "open"
+	ApplicationPending   = "pending"
+	ApplicationAccepted  = "accepted"
+	ApplicationDeclined  = "declined"
+	ApplicationWithdrawn = "withdrawn"
 )
 
 // LinkTypes a project link may name: the pairs content_relations allows with a project
@@ -137,4 +150,35 @@ func NormalizeGitHubURL(raw string) (canonical, owner, repo string, ok bool) {
 		return "", "", "", false
 	}
 	return "https://github.com/" + owner + "/" + repo, owner, repo, true
+}
+
+// NeedAccess is what an application decision needs to know about the need and its project.
+type NeedAccess struct {
+	NeedStatus, OwnerID, Visibility string
+}
+
+// NewApplication is a validated createApplication; the applicant is the session subject.
+type NewApplication struct {
+	NeedID, UserID, Message string
+}
+
+// ApplicationAccess is what a decision needs to know, read on the locked application row.
+type ApplicationAccess struct {
+	ApplicantID, OwnerID, Status string
+}
+
+// Application is one application as the project owner or the applicant reads it.
+type Application struct {
+	ID, NeedID, ProjectID, Message, Status string
+	Applicant                              Owner
+	CreatedAt                              time.Time
+	DecidedAt                              *time.Time
+}
+
+// ApplicationQuery is one listProjectApplications page request. Limit is the page size plus one.
+type ApplicationQuery struct {
+	ProjectID, OwnerID, Status string
+	AfterCreated               *time.Time
+	AfterID                    string
+	Limit                      int
 }
