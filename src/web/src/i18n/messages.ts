@@ -4,6 +4,7 @@ import * as home from '../features/home/messages';
 import * as identity from '../features/identity/messages';
 import * as landing from '../features/landing/messages';
 import * as learn from '../features/learn/messages';
+import * as profile from '../features/profile/messages';
 import * as search from '../features/search/messages';
 import * as solve from '../features/solve/messages';
 
@@ -42,6 +43,7 @@ const core = {
   'account.signOut': 'Se déconnecter',
   'account.write': 'Écrire un article',
   'account.settings': 'Réglages',
+  'account.profile': 'Mon profil',
   'account.menu': 'Compte de {name}',
   'account.more': 'Plus d’options',
   'account.language': 'Langue',
@@ -132,6 +134,7 @@ const coreEn: Record<keyof typeof core, string> = {
   'account.signOut': 'Sign out',
   'account.write': 'Write an article',
   'account.settings': 'Settings',
+  'account.profile': 'My profile',
   'account.menu': '{name}’s account',
   'account.more': 'More options',
   'account.language': 'Language',
@@ -210,6 +213,7 @@ const fr = {
   ...home.fr,
   ...solve.fr,
   ...build.fr,
+  ...profile.fr,
 };
 
 export type MessageKey = keyof typeof fr;
@@ -224,6 +228,7 @@ const en: Record<MessageKey, string> = {
   ...home.en,
   ...solve.en,
   ...build.en,
+  ...profile.en,
 };
 
 export type Catalogs = Record<Locale, Partial<Record<MessageKey, string>>>;
@@ -239,6 +244,7 @@ export const frenchParts: readonly Record<string, string>[] = [
   home.fr,
   solve.fr,
   build.fr,
+  profile.fr,
 ];
 
 export const catalogs: Catalogs = { fr, en };

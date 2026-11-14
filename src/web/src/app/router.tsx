@@ -22,6 +22,7 @@ import { VerifyEmailPage } from '../features/identity/VerifyEmailPage';
 import { WelcomePage } from '../features/identity/WelcomePage';
 import { validateWriteSearch } from '../features/learn/routeSearch';
 import { WritePage } from '../features/learn/WritePage';
+import { ProfilePage } from '../features/profile/ProfilePage';
 import { NotFound } from '../features/NotFound';
 import { validateSearchSearch } from '../features/search/routeSearch';
 import { SearchPage } from '../features/search/SearchPage';
@@ -109,6 +110,13 @@ const projectRoute = createRoute({
   component: ProjectPage,
 });
 
+// Member profile.
+const profileRoute = createRoute({
+  getParentRoute: () => appLayout,
+  path: '/profils/$username',
+  component: ProfilePage,
+});
+
 // Standalone account pages (no app chrome).
 const authLayout = createRoute({
   getParentRoute: () => rootRoute,
@@ -160,6 +168,7 @@ const routeTree = rootRoute.addChildren([
     questionRoute,
     buildRoute,
     projectRoute,
+    profileRoute,
   ]),
   authLayout.addChildren([
     signInRoute,
