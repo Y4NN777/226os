@@ -1,4 +1,4 @@
-import { act, screen, waitFor, within } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import type { components } from '../../api/schema';
@@ -231,36 +231,6 @@ describe('SearchPage', () => {
     expect(screen.getByRole('searchbox', { name: 'Votre recherche' })).toHaveValue('');
   });
 
-  it('marks the assistant as an unreleased demo, with its sample answer behind a toggle', async () => {
-    setLanguages(['fr-FR']);
-    mockApi(searchRoute(results));
-    await renderApp('/recherche?q=momo');
-    const heading = await screen.findByRole('heading', { level: 2, name: /^Assistant/ });
-    const panel = heading.closest('section');
-    expect(panel).not.toBeNull();
-    const inPanel = within(panel as HTMLElement);
-    expect(inPanel.getByText('IA')).toBeInTheDocument();
-    expect(inPanel.getByText('Démo')).toBeInTheDocument();
-    expect(inPanel.getByText(/pas encore en service/)).toBeInTheDocument();
-    expect(inPanel.getByText(/envoyée à un fournisseur d’IA/)).toBeInTheDocument();
-    const toggle = inPanel.getByRole('button', { name: 'Voir un exemple de réponse' });
-    expect(toggle).toHaveAttribute('aria-expanded', 'false');
-
-    await userEvent.click(toggle);
-    expect(toggle).toHaveAttribute('aria-expanded', 'true');
-    expect(await inPanel.findByText('Comment vérifier')).toBeInTheDocument();
-    expect(inPanel.getByRole('link', { name: 'Catalogue des API' })).toHaveAttribute(
-      'href',
-      '/discover',
-    );
-    expect(inPanel.getByRole('link', { name: 'Recherche : sandbox de paiement' })).toHaveAttribute(
-      'href',
-      '/recherche?q=sandbox%20paiement',
-    );
-    expect(inPanel.queryByText(/vérifié/i)).not.toBeInTheDocument();
-    expect(inPanel.queryByRole('button', { name: /voter|accepter|vote|accept/i })).toBeNull();
-  });
-
   it('speaks English', async () => {
     setLanguages(['en-US']);
     mockApi(searchRoute(results));
@@ -268,7 +238,6 @@ describe('SearchPage', () => {
     expect(await screen.findByRole('heading', { level: 2, name: 'Learn' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 2, name: 'Projects' })).toBeInTheDocument();
     expect(screen.getByText(/There are more results/)).toBeInTheDocument();
-    expect(screen.getByText(/not live yet/)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'See a sample answer' })).toBeInTheDocument();
+    expect(await screen.findByText(/Sign in to ask the assistant/)).toBeInTheDocument();
   });
 });
