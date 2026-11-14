@@ -122,7 +122,12 @@ func stripInvisible(s string) string {
 // links' targets, HTML tags, the markdown structure of line starts and inline emphasis or code
 // pairs, and keeps the characters that are content ("C#", "~/.config", "5 * 3").
 func Snippet(markdown string) string {
-	plain := htmlTag.ReplaceAllString(markdownLink.ReplaceAllString(stripInvisible(markdown), "$1"), "")
+	plain := markdownLink.ReplaceAllString(stripInvisible(markdown), "$1")
+	// Removing a tag can join the text around it into a new tag ("<<b>script>"), so repeat until
+	// nothing changes. Each pass that matches strictly shortens the string, so the loop ends.
+	for stripped := htmlTag.ReplaceAllString(plain, ""); stripped != plain; stripped = htmlTag.ReplaceAllString(plain, "") {
+		plain = stripped
+	}
 	plain = lineMarker.ReplaceAllString(plain, "")
 	plain = boldOrStrike.ReplaceAllString(plain, "$1$2")
 	plain = emphasis.ReplaceAllString(plain, "$1$2")

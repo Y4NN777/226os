@@ -49,6 +49,8 @@ func TestSnippetIsPlainTextOfAtMost300Runes(t *testing.T) {
 		{"empty", "", ""},
 		{"html tags are removed whole", "<b>gras</b> <script>alert(1)</script>", "gras alert(1)"},
 		{"an unterminated tag does not survive", "texte <img src=x onerror=alert(1)", "texte"},
+		{"nested tags do not rebuild a tag", "<<b>script>alert(1)<</b>/script>", "alert(1)"},
+		{"a tag hidden by a tag does not survive", "texte <<i>img src=x onerror=alert(1)>", "texte"},
 		{"programming text keeps its characters (#118)", "How to use C# records, ~/.config, 5 * 3, a < b, x -> y", "How to use C# records, ~/.config, 5 * 3, a < b, x -> y"},
 		{"line start structure goes", "## Titre\n> cité\n- puce\n* autre\n+ encore", "Titre cité puce autre encore"},
 		{"emphasis pairs go, lone markers stay", "*it* et **gras** et a*b*c et 2 * 3 * 4", "it et gras et a*b*c et 2 * 3 * 4"},
