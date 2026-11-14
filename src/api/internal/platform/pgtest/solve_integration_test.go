@@ -777,6 +777,48 @@ func TestSolveTagFilterMatchesOnlyDisplayedTags(t *testing.T) {
 	}
 }
 
+// Issue #167 (note-insert-hidden-slug): an author who sends the slug of a moderator-hidden tag gets a 422
+// on /tags and nothing is written: no invisible link, on create or on edit. (An unknown slug is created
+// and shown; a hidden one cannot be, so it is refused.)
+func TestSolveHiddenTagSlugIsRefusedAndNeverLinked(t *testing.T) {
+	s := newSolveStack(t)
+	alice := s.signIn(t, "solve-hiddenslug-alice", true, 96)
+	bob := s.signIn(t, "solve-hiddenslug-bob", true, 97)
+	s.ask(t, &alice, "Titre qui crée le tag", `"tags":["go","zz-moderated"]`)
+	if _, err := s.conn.Exec(t.Context(), `UPDATE tags SET status = 'hidden' WHERE slug = 'zz-moderated'`); err != nil {
+		t.Fatal(err)
+	}
+	linked := func() int {
+		var n int
+		if err := s.conn.QueryRow(t.Context(), `SELECT count(*) FROM question_tags qt JOIN tags t ON t.id = qt.tag_id WHERE t.slug = 'zz-moderated'`).Scan(&n); err != nil {
+			t.Fatal(err)
+		}
+		return n
+	}
+	before := linked()
+	assertRefused := func(rec *httptest.ResponseRecorder) {
+		t.Helper()
+		if rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), `"/tags"`) {
+			t.Fatalf("hidden slug: %d %s, want 422 on /tags", rec.Code, rec.Body.String())
+		}
+	}
+	assertRefused(s.write(t, &bob, http.MethodPost, "/api/v1/questions", questionBody("Titre avec un tag masqué", `"tags":["go","zz-moderated"]`), nil))
+	var n int
+	if err := s.conn.QueryRow(t.Context(), `SELECT count(*) FROM questions WHERE title = 'Titre avec un tag masqué'`).Scan(&n); err != nil || n != 0 {
+		t.Fatalf("%d questions written, %v; the refusal rolls the creation back", n, err)
+	}
+	q := s.ask(t, &bob, "Titre à éditer", `"tags":["go"]`)
+	path := "/api/v1/questions/" + q.Id.String()
+	tag := s.read(t, nil, path).Header().Get("ETag")
+	assertRefused(s.write(t, &bob, http.MethodPatch, path, `{"tags":["python","zz-moderated"]}`, map[string]string{"If-Match": tag}))
+	if got := decodeAs[apigen.Question](t, s.read(t, nil, path)); !slices.Equal(got.Tags, []string{"go"}) {
+		t.Fatalf("tags after the refused edit = %v, want [go]", got.Tags)
+	}
+	if after := linked(); after != before {
+		t.Fatalf("%d links to the hidden tag, want the %d it had", after, before)
+	}
+}
+
 // connTx lets the recording wrapper open the transactions the solve repository wants.
 type connTx struct {
 	*recordingDB

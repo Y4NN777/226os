@@ -459,8 +459,12 @@ func writeTags(ctx context.Context, q *dbgen.Queries, questionID, by pgtype.UUID
 	if err := q.EnsureTags(ctx, dbgen.EnsureTagsParams{Slugs: slugs, CreatedBy: by}); err != nil {
 		return fmt.Errorf("solve ensure tags: %w", err)
 	}
-	if err := q.InsertSolveQuestionTags(ctx, dbgen.InsertSolveQuestionTagsParams{QuestionID: questionID, Slugs: slugs}); err != nil {
+	unavailable, err := q.InsertSolveQuestionTags(ctx, dbgen.InsertSolveQuestionTagsParams{QuestionID: questionID, Slugs: slugs})
+	if err != nil {
 		return fmt.Errorf("solve question tags: %w", err)
+	}
+	if unavailable > 0 {
+		return domain.ErrTagUnavailable
 	}
 	return nil
 }

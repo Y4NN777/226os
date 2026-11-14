@@ -150,10 +150,17 @@ DELETE FROM question_tags qt
 USING tags t
 WHERE qt.question_id = sqlc.arg('question_id')::uuid AND qt.tag_id = t.id AND t.status = 'active';
 
--- name: InsertSolveQuestionTags :exec
-INSERT INTO question_tags (question_id, tag_id)
-SELECT sqlc.arg('question_id')::uuid, t.id FROM tags t WHERE t.slug = ANY (sqlc.arg('slugs')::text[])
-ON CONFLICT DO NOTHING;
+-- name: InsertSolveQuestionTags :one
+-- Links the ACTIVE tags among the slugs and returns how many slugs name a tag that is not active: a
+-- moderator-hidden tag can be neither created nor shown, so the author sending it is refused (the caller
+-- rolls the transaction back) and no invisible link is written (issue #167).
+WITH ins AS (
+  INSERT INTO question_tags (question_id, tag_id)
+  SELECT sqlc.arg('question_id')::uuid, t.id FROM tags t
+  WHERE t.slug = ANY (sqlc.arg('slugs')::text[]) AND t.status = 'active'
+  ON CONFLICT DO NOTHING
+)
+SELECT count(*)::int FROM tags t WHERE t.slug = ANY (sqlc.arg('slugs')::text[]) AND t.status <> 'active';
 
 -- name: DeleteSolveQuestionLinks :exec
 -- An edit replaces the active links the author wrote (created_by); a link someone else created stays, and

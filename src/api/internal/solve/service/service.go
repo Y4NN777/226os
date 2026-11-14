@@ -671,6 +671,8 @@ func writeErr(err error) error {
 	switch {
 	case errors.Is(err, domain.ErrLinkTarget):
 		return invalid("/links", "invalid_value", "each link must point to a published, public item.")
+	case errors.Is(err, domain.ErrTagUnavailable):
+		return invalid("/tags", "invalid_value", "each tag must be a tag you can use.")
 	case errors.Is(err, domain.ErrUnknownCountry):
 		return invalid("/country", "invalid_value", "country must be a known country code.")
 	}

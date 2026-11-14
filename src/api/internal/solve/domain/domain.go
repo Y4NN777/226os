@@ -18,6 +18,8 @@ var (
 	ErrLinkTarget = errors.New("solve link target not linkable")
 	// ErrUnknownCountry means the country code is not a countries row.
 	ErrUnknownCountry = errors.New("solve country unknown")
+	// ErrTagUnavailable means a tag slug names a tag a moderator hid: it cannot be linked.
+	ErrTagUnavailable = errors.New("solve tag unavailable")
 	// ErrSelfVote means the voter wrote the question or answer.
 	ErrSelfVote = errors.New("solve vote on own content")
 	// ErrAnswerNotInQuestion means the answer is unknown, removed, or belongs to another question: one

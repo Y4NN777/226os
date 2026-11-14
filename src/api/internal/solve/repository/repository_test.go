@@ -187,8 +187,9 @@ func tagRows() step { return rows([]any{uid(qID), "api"}, []any{uid(qID), "go"})
 func relatedRows() step {
 	return rows([]any{uid(qID), "resource", uid(aID), "Alpha", "fr"})
 }
-func yes() step { return rows([]any{true}) }
-func no() step  { return rows([]any{false}) }
+func noHidden() step { return rows([]any{int32(0)}) }
+func yes() step      { return rows([]any{true}) }
+func no() step       { return rows([]any{false}) }
 
 func fkErr(constraint string) error {
 	return &pgconn.PgError{Code: "23503", ConstraintName: constraint}
@@ -265,7 +266,7 @@ func newQuestion() domain.NewQuestion {
 }
 
 func createOK() []step {
-	return []step{rows([]any{uid(qID)}), {}, {}, yes(), yes(), yes(), rows(questionRow("x", "BF", pgtype.UUID{})), tagRows(), relatedRows()}
+	return []step{rows([]any{uid(qID)}), {}, noHidden(), yes(), yes(), yes(), rows(questionRow("x", "BF", pgtype.UUID{})), tagRows(), relatedRows()}
 }
 
 func TestCreateQuestionWritesEverythingInOneTransaction(t *testing.T) {
@@ -277,7 +278,7 @@ func TestCreateQuestionWritesEverythingInOneTransaction(t *testing.T) {
 	// No snippet, no country, no link.
 	in := newQuestion()
 	in.Snippets, in.Country, in.Links = nil, "", nil
-	steps := []step{rows([]any{uid(qID)}), {}, {}, rows(questionRow("", "", pgtype.UUID{})), tagRows(), relatedRows()}
+	steps := []step{rows([]any{uid(qID)}), {}, noHidden(), rows(questionRow("", "", pgtype.UUID{})), tagRows(), relatedRows()}
 	if _, err := New(db(t, steps...)).CreateQuestion(t.Context(), in); err != nil {
 		t.Fatal(err)
 	}
@@ -298,6 +299,7 @@ func TestCreateQuestionErrors(t *testing.T) {
 		"other fk":        {with(0, fail(fkErr("questions_author_fk"))), nil},
 		"ensure tags":     {with(1, fail(errDB)), errDB},
 		"question tags":   {with(2, fail(errDB)), errDB},
+		"hidden tag":      {with(2, rows([]any{int32(1)})), domain.ErrTagUnavailable},
 		"link resource":   {with(3, fail(errDB)), errDB},
 		"link project":    {with(4, fail(errDB)), errDB},
 		"link article":    {with(5, fail(errDB)), errDB},
@@ -335,7 +337,7 @@ func TestCreateQuestionErrors(t *testing.T) {
 	} {
 		in := newQuestion()
 		in.Links = links
-		if _, err := New(db(t, rows([]any{uid(qID)}), step{}, step{})).CreateQuestion(t.Context(), in); !errors.Is(err, domain.ErrLinkTarget) {
+		if _, err := New(db(t, rows([]any{uid(qID)}), step{}, noHidden())).CreateQuestion(t.Context(), in); !errors.Is(err, domain.ErrLinkTarget) {
 			t.Fatalf("%s: %v", name, err)
 		}
 	}
@@ -354,7 +356,7 @@ func TestUpdateQuestionAppliesAMergePatchUnderTheLock(t *testing.T) {
 	snippets := []domain.Snippet{}
 	var seen domain.Question
 	// Everything set: update, tags (delete, ensure, insert), links (delete, one link), then the reload.
-	steps := append([]step{rows(lockRow()), {}, {}, {}, {}, {}, yes()}, updateTail()...)
+	steps := append([]step{rows(lockRow()), {}, {}, {}, noHidden(), {}, yes()}, updateTail()...)
 	d := db(t, steps...)
 	got, err := New(d).UpdateQuestion(t.Context(), qID, domain.QuestionPatch{Title: &title, Country: &country, Tags: &tags, Links: &links, Snippets: &snippets},
 		func(q domain.Question) error { seen = q; return nil })
@@ -389,7 +391,7 @@ func TestUpdateQuestionErrors(t *testing.T) {
 	tags := []string{"go"}
 	links := []domain.LinkRef{{Type: "project", ID: aID}}
 	full := domain.QuestionPatch{Title: &title, Tags: &tags, Links: &links}
-	ok := append([]step{rows(lockRow()), {}, {}, {}, {}, {}, yes()}, updateTail()...)
+	ok := append([]step{rows(lockRow()), {}, {}, {}, noHidden(), {}, yes()}, updateTail()...)
 	with := func(i int, s step) []step { return append(append([]step(nil), ok[:i]...), s) }
 	cases := map[string]struct {
 		steps []step
@@ -402,6 +404,7 @@ func TestUpdateQuestionErrors(t *testing.T) {
 		"delete tags":     {with(2, fail(errDB)), errDB},
 		"ensure tags":     {with(3, fail(errDB)), errDB},
 		"insert tags":     {with(4, fail(errDB)), errDB},
+		"hidden tag":      {with(4, rows([]any{int32(2)})), domain.ErrTagUnavailable},
 		"delete links":    {with(5, fail(errDB)), errDB},
 		"link unusable":   {with(6, no()), domain.ErrLinkTarget},
 		"reload":          {with(7, fail(errDB)), errDB},

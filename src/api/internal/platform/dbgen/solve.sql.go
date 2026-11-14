@@ -233,20 +233,29 @@ func (q *Queries) InsertSolveQuestion(ctx context.Context, arg InsertSolveQuesti
 	return id, err
 }
 
-const insertSolveQuestionTags = `-- name: InsertSolveQuestionTags :exec
-INSERT INTO question_tags (question_id, tag_id)
-SELECT $1::uuid, t.id FROM tags t WHERE t.slug = ANY ($2::text[])
-ON CONFLICT DO NOTHING
+const insertSolveQuestionTags = `-- name: InsertSolveQuestionTags :one
+WITH ins AS (
+  INSERT INTO question_tags (question_id, tag_id)
+  SELECT $2::uuid, t.id FROM tags t
+  WHERE t.slug = ANY ($1::text[]) AND t.status = 'active'
+  ON CONFLICT DO NOTHING
+)
+SELECT count(*)::int FROM tags t WHERE t.slug = ANY ($1::text[]) AND t.status <> 'active'
 `
 
 type InsertSolveQuestionTagsParams struct {
-	QuestionID pgtype.UUID
 	Slugs      []string
+	QuestionID pgtype.UUID
 }
 
-func (q *Queries) InsertSolveQuestionTags(ctx context.Context, arg InsertSolveQuestionTagsParams) error {
-	_, err := q.db.Exec(ctx, insertSolveQuestionTags, arg.QuestionID, arg.Slugs)
-	return err
+// Links the ACTIVE tags among the slugs and returns how many slugs name a tag that is not active: a
+// moderator-hidden tag can be neither created nor shown, so the author sending it is refused (the caller
+// rolls the transaction back) and no invisible link is written (issue #167).
+func (q *Queries) InsertSolveQuestionTags(ctx context.Context, arg InsertSolveQuestionTagsParams) (int32, error) {
+	row := q.db.QueryRow(ctx, insertSolveQuestionTags, arg.Slugs, arg.QuestionID)
+	var column_1 int32
+	err := row.Scan(&column_1)
+	return column_1, err
 }
 
 const listSolveAnswers = `-- name: ListSolveAnswers :many

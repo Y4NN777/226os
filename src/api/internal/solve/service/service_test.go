@@ -371,6 +371,7 @@ func TestCreateQuestionLimiterAndStoreErrors(t *testing.T) {
 		code  apperr.Code
 	}{
 		{domain.ErrLinkTarget, "/links", apperr.CodeValidation},
+		{domain.ErrTagUnavailable, "/tags", apperr.CodeValidation},
 		{domain.ErrUnknownCountry, "/country", apperr.CodeValidation},
 		{domain.ErrNotFound, "", apperr.CodeNotFound},
 		{errDB, "", apperr.CodeInternal},
@@ -434,6 +435,7 @@ func TestUpdateQuestionDecidesOwnershipBeforeThePrecondition(t *testing.T) {
 		}{
 			{domain.ErrNotFound, "", apperr.CodeNotFound},
 			{domain.ErrLinkTarget, "/links", apperr.CodeValidation},
+			{domain.ErrTagUnavailable, "/tags", apperr.CodeValidation},
 			{domain.ErrUnknownCountry, "/country", apperr.CodeValidation},
 			{errDB, "", apperr.CodeInternal},
 		} {

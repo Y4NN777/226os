@@ -71,11 +71,11 @@ func TestSolveQueries(t *testing.T) {
 		t.Fatal(err)
 	}
 	assertCall(t, db, "DELETE FROM question_tags", []any{id})
-	db = &fakeDB{}
-	if err := dbgen.New(db).InsertSolveQuestionTags(ctx, dbgen.InsertSolveQuestionTagsParams{QuestionID: id, Slugs: []string{"go"}}); err != nil {
-		t.Fatal(err)
+	db = &fakeDB{rowVals: []any{int32(1)}}
+	if n, err := dbgen.New(db).InsertSolveQuestionTags(ctx, dbgen.InsertSolveQuestionTagsParams{QuestionID: id, Slugs: []string{"go"}}); err != nil || n != 1 {
+		t.Fatalf("hidden count %d, %v", n, err)
 	}
-	assertCall(t, db, "INSERT INTO question_tags", []any{id, []string{"go"}})
+	assertCall(t, db, "INSERT INTO question_tags", []any{[]string{"go"}, id})
 	db = &fakeDB{}
 	if err := dbgen.New(db).DeleteSolveQuestionLinks(ctx, dbgen.DeleteSolveQuestionLinksParams{QuestionID: id, CreatedBy: other}); err != nil {
 		t.Fatal(err)
@@ -199,6 +199,10 @@ func TestSolveQueries(t *testing.T) {
 			_, err := dbgen.New(db).InsertSolveAnswer(ctx, dbgen.InsertSolveAnswerParams{})
 			return err
 		},
+		func(db *fakeDB) error {
+			_, err := dbgen.New(db).InsertSolveQuestionTags(ctx, dbgen.InsertSolveQuestionTagsParams{})
+			return err
+		},
 		func(db *fakeDB) error { _, err := dbgen.New(db).SolveQuestionExists(ctx, id); return err },
 		func(db *fakeDB) error { _, err := dbgen.New(db).BumpSolveAnswerCount(ctx, id); return err },
 	}
@@ -212,9 +216,6 @@ func TestSolveQueries(t *testing.T) {
 			return dbgen.New(db).UpdateSolveQuestion(ctx, dbgen.UpdateSolveQuestionParams{})
 		},
 		func(db *fakeDB) error { return dbgen.New(db).DeleteSolveQuestionTags(ctx, id) },
-		func(db *fakeDB) error {
-			return dbgen.New(db).InsertSolveQuestionTags(ctx, dbgen.InsertSolveQuestionTagsParams{})
-		},
 		func(db *fakeDB) error {
 			return dbgen.New(db).DeleteSolveQuestionLinks(ctx, dbgen.DeleteSolveQuestionLinksParams{})
 		},
