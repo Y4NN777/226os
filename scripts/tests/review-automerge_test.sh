@@ -13,7 +13,7 @@ tool="$root/scripts/review-automerge.py"
 
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
-mkdir -p "$tmp/bin" "$tmp/fx" "$tmp/root/.github"
+mkdir -p "$tmp/bin" "$tmp/fx"
 export H=1111111111111111111111111111111111111111
 OLD=2222222222222222222222222222222222222222
 
@@ -30,6 +30,7 @@ case "$*" in
   "api repos/o/r/issues/7/comments --paginate") cat "$FX/comments.json" ;;
   "api repos/o/r/pulls/7/reviews --paginate") cat "$FX/reviews.json" ;;
   "api repos/o/r/contents/.github/sensitive-paths.txt?ref=develop --paginate") cat "$FX/contents.json" ;;
+  "api repos/o/r/contents/.github/deep-review-paths.txt?ref=develop --paginate") cat "$FX/deep-paths.json" ;;
   "api repos/o/r/pulls?state=open&base=develop&per_page=100 --paginate") cat "$FX/open.json" ;;
   "pr merge 7 --repo o/r --merge --match-head-commit $H") [ -z "${FAKE_MERGE_FAIL:-}" ] || { echo "405 not mergeable" >&2; exit 1; } ;;
   "api -X PUT repos/o/r/pulls/"*"/update-branch") echo '{}' ;;
@@ -38,8 +39,7 @@ esac
 GH
 chmod +x "$tmp/bin/gh"
 
-printf 'scripts/*\n.github/*\n' >"$tmp/root/.github/sensitive-paths.txt"
-printf 'src/api/internal/identity/*\ndb/queries/*\n' >"$tmp/root/.github/deep-review-paths.txt"
+printf '{"content":"%s"}' "$(printf 'src/api/internal/identity/*\ndb/queries/*\n' | base64 -w0)" >"$tmp/fx/deep-paths.json"
 printf '{"content":"%s"}' "$(printf 'scripts/*\n.github/*\n' | base64 -w0)" >"$tmp/fx/contents.json"
 
 # pull [state base headrepo draft labels-json author]
@@ -50,9 +50,9 @@ pull() {
 files() { python3 -I -c 'import json,sys; json.dump([{"filename": f} for f in sys.argv[2:]], open(sys.argv[1], "w"))' "$tmp/fx/files.json" "$@"; }
 # checks NAME:STATUS:CONCLUSION ...
 checks() { python3 -I -c 'import json,sys; json.dump({"total_count":len(sys.argv)-2,"check_runs":[dict(zip(("name","status","conclusion"),c.split(":")), id=i) for i,c in enumerate(sys.argv[2:])]}, open(sys.argv[1],"w"))' "$tmp/fx/checks.json" "$@"; }
-# review_comment TRIAGE LEDGER-JSON
+# review_comment TRIAGE LEDGER-JSON [DEEP-LINE]
 review_comment() {
-  python3 -I -c 'import json,sys; body="%s\n<!-- 226os-ai-review -->\nTool: PASS (2 files)\n\n<details><summary>Review ledger</summary>\n\n```json\n%s\n```\n\n</details>" % (sys.argv[2], sys.argv[3]); json.dump([{"id":1,"user":{"login":"github-actions[bot]"},"body":body,"updated_at":"2026-11-14T10:00:00Z"}], open(sys.argv[1],"w"))' "$tmp/fx/comments.json" "$1" "$2"
+  python3 -I -c 'import json,sys; body="%s\n<!-- 226os-ai-review -->\nTool: PASS (2 files)\n%s\n<details><summary>Review ledger</summary>\n\n```json\n%s\n```\n\n</details>" % (sys.argv[2], sys.argv[4], sys.argv[3]); json.dump([{"id":1,"user":{"login":"github-actions[bot]"},"body":body,"updated_at":"2026-11-14T10:00:00Z"}], open(sys.argv[1],"w"))' "$tmp/fx/comments.json" "$1" "$2" "${3:-}"
 }
 GOOD_CHECKS=("Validate branch promotion:completed:success" "quality:completed:success" "Review gate:completed:success" "Code review (advisory):completed:failure")
 NOTE='{"id":"n1","kind":"note","evidence":"INFERRED","sev":"LOW","file":"a.go","line":1,"scenario":"s","status":"open"}'
@@ -71,7 +71,7 @@ reset() {
 run() {
   rc=0
   : >"$tmp/fx/calls.log"
-  out="$(PATH="$tmp/bin:$PATH" FX="$tmp/fx" REPO=o/r HEAD_SHA="$H" PR_NUMBER="${PRN:-}" AUTO_MERGE="${1-on}" BOT_TOKEN="${TOKEN-bot-secret}" GH_TOKEN=read-token OWNER=Y4NN777 ROOT="$tmp/root" python3 -I "$tool" 2>&1)" || rc=$?
+  out="$(PATH="$tmp/bin:$PATH" FX="$tmp/fx" REPO=o/r HEAD_SHA="$H" PR_NUMBER="${PRN:-}" AUTO_MERGE="${1-on}" BOT_TOKEN="${TOKEN-bot-secret}" GH_TOKEN=read-token OWNER=Y4NN777 python3 -I "$tool" 2>&1)" || rc=$?
   calls="$(cat "$tmp/fx/calls.log")"
   writes="$(grep -E 'pr merge|-X PUT|-X POST|-X PATCH|-X DELETE' <<<"$calls" || true)"
 }
@@ -115,6 +115,9 @@ reset; files src/api/internal/identity/service/x.go; review_comment "Triage: NON
 reset; files src/api/internal/identity/service/x.go; review_comment "Triage: NONE | blast radius: x" "{\"sha\":\"$H\",\"findings\":[],\"deep\":{\"status\":\"PASS\",\"sha\":\"$H\"}}"
 run on
 grep -q 'pr merge 7' <<<"$calls" && ok "a P0 path with a deep review PASS of the head merges" || ko "deep pass ($out)"
+reset; review_comment "Triage: NONE | blast radius: x" "{\"sha\":\"$H\",\"findings\":[]}" "Deep: PENDING (a P0 path is touched: the deep review runs next)"; refused 'deep review is not done' "Deep: PENDING on line 4, even when the lists match nothing"
+reset; review_comment "Triage: NONE | blast radius: x" "{\"sha\":\"$H\",\"findings\":[]}" "Deep: NOT RUN (the deep review returned no structured output)"; refused 'deep review is not done' "Deep: NOT RUN on line 4"
+reset; files db/queries/solve.sql; refused 'P0 path' "the deep-review list is read from the base branch (db/queries)"
 reset; files scripts/x.sh; review_comment "Triage: NONE | blast radius: x" "{\"sha\":\"$H\",\"findings\":[],\"deep\":{\"status\":\"PASS\",\"sha\":\"$H\"}}"; refused 'owner' "a sensitive path without the owner's approval"
 reset; files scripts/x.sh; review_comment "Triage: NONE | blast radius: x" "{\"sha\":\"$H\",\"findings\":[],\"deep\":{\"status\":\"PASS\",\"sha\":\"$H\"}}"; printf '[{"user":{"login":"Y4NN777"},"state":"APPROVED","submitted_at":"2026-11-14T10:00:00Z"}]' >"$tmp/fx/reviews.json"
 run on

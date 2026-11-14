@@ -44,7 +44,7 @@ REVIEW='{"body":"Triage: MEDIUM | blast radius: this PR only\n\nTool: PASS (99 f
 run() {
   rc=0
   : >"$tmp/calls.log"
-  out="$(PATH="$tmp/bin:$PATH" FX="$tmp" REPO=o/r PR_NUMBER=7 TOOL_LINE="${TOOL:-Tool: PASS (3 files)}" REVIEW_JSON="${JSON-$REVIEW}" python3 -I "$tool" 2>&1)" || rc=$?
+  out="$(PATH="$tmp/bin:$PATH" FX="$tmp" REPO=o/r PR_NUMBER=7 TOOL_LINE="${TOOL:-Tool: PASS (3 files)}" REVIEW_JSON="${JSON-$REVIEW}" DEEP_PENDING="${DEEP_PENDING:-}" python3 -I "$tool" 2>&1)" || rc=$?
   calls="$(cat "$tmp/calls.log")"
 }
 
@@ -71,6 +71,11 @@ grep -q 'graphql.*id=N1' <<<"$calls" && ok "the older duplicate Triage comment i
 comments "[{\"id\":1,\"node_id\":\"N1\",\"user\":{\"login\":\"$BOT\"},\"body\":\"Triage: MEDIUM | blast radius: x\",\"created_at\":\"2026-11-13T16:58:00Z\",\"updated_at\":\"2026-11-13T16:58:00Z\"},{\"id\":2,\"node_id\":\"N2\",\"user\":{\"login\":\"$BOT\"},\"body\":\"Triage: NONE | blast radius: x\",\"created_at\":\"2026-11-13T17:06:00Z\",\"updated_at\":\"2026-11-14T08:00:00Z\"}]"
 run
 grep -q '^api -X PATCH repos/o/r/issues/comments/2$' <<<"$calls" && grep -q 'graphql.*id=N1' <<<"$calls" && ok "no marker: the latest updated Triage comment is edited, the other minimized" || ko "adopt ($calls)"
+
+# DEEP_PENDING: line 4 says the deep review runs next (auto-merge refuses until the deep job replaces it).
+comments '[]'
+DEEP_PENDING=true run
+[ "$(sed -n 's/^BODY //p' <<<"$calls" | python3 -I -c 'import json,sys; print(json.load(sys.stdin)["body"])' | sed -n 4p)" = "Deep: PENDING (a P0 path is touched: the deep review runs next)" ] && ok "DEEP_PENDING=true writes the Deep: PENDING line 4" || ko "deep pending ($calls)"
 
 # Fallback: an empty or invalid review still writes the marker comment, with the verdict NOT RUN (never a pass).
 posted() { sed -n 's/^BODY //p' <<<"$calls" | tail -1 | python3 -I -c 'import json,sys; print(json.load(sys.stdin)["body"])' 2>/dev/null || true; }

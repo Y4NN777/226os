@@ -10,8 +10,9 @@ It decides MERGE only if ALL of these hold for the pull request (any other case 
   - the review comment (marker `<!-- 226os-ai-review -->`, scripts/review-comment.py) exists, its Triage is neither
     NOT RUN nor CRITICAL, its ledger sha is the head (the review covered the latest commit) and no `finding` is open
     (notes never block);
-  - when a P0 path is touched (.github/sensitive-paths.txt plus .github/deep-review-paths.txt under ROOT), the ledger
-    records a deep review PASS of the head;
+  - when a P0 path is touched (.github/sensitive-paths.txt plus .github/deep-review-paths.txt, both read from the BASE
+    branch through the API, like the gate and the review job), the ledger records a deep review PASS of the head; and
+    line 4 of the comment is never `Deep: PENDING` or `Deep: NOT RUN` (the review job's own signal, whatever the lists);
   - when a sensitive path is touched, the owner approved it or wrote it (the Review gate's rule, applied whatever the
     gate mode is: the gate in report mode passes such a pull request).
 MERGE is a merge commit of exactly the evaluated head (`gh pr merge --merge --match-head-commit`), never squash or
@@ -25,9 +26,9 @@ A missing BOT_TOKEN prints `auto-merge: NOT RUN (REVIEW_BOT_TOKEN missing)`. Eve
 
 Environment: REPO, HEAD_SHA (the head commit a workflow_run completed on) or PR_NUMBER (a manual run), AUTO_MERGE,
 BOT_TOKEN, GH_TOKEN, BASE (default develop), OWNER (default Y4NN777), REQUIRED_CHECKS (comma separated, default
-"Validate branch promotion,quality,Review gate"), ROOT (the trusted checkout with the path lists, default the
-repository of this script), GH_BIN (default gh).
+"Validate branch promotion,quality,Review gate"), GH_BIN (default gh).
 """
+import base64
 import importlib.util
 import os
 import re
@@ -64,11 +65,21 @@ def latest_runs(items):
     return latest
 
 
+def base_list(gh, repo, path, base):
+    """The patterns of a path list on the BASE branch (empty when it is missing)."""
+    try:
+        items = gate.gh_api(gh, "repos/%s/contents/%s?ref=%s" % (repo, path, base))
+        raw = base64.b64decode(items[0]["content"]).decode("utf-8")
+    except (gate.GitHubError, KeyError, IndexError, ValueError):
+        return []
+    return [l.strip() for l in raw.splitlines() if l.strip() and not l.lstrip().startswith("#")]
+
+
 def label_names(pull):
     return [x if isinstance(x, str) else (x or {}).get("name", "") for x in pull.get("labels") or []]
 
 
-def refusals(gh, repo, number, base, owner, required, root):
+def refusals(gh, repo, number, base, owner, required):
     """(head sha, [reasons]) for one pull request; no reason means MERGE. Raises gate.GitHubError on a read error."""
     pull = (gate.gh_api(gh, "repos/%s/pulls/%s" % (repo, number)) or [{}])[0]
     head = (pull.get("head") or {}).get("sha", "")
@@ -118,7 +129,12 @@ def refusals(gh, repo, number, base, owner, required, root):
     if open_ids:
         why.append("open finding(s): %s" % ", ".join(open_ids[:6]))
 
-    hits = comment.p0_hits(files, comment.p0_patterns(root))
+    lines = body.strip().splitlines()
+    deep_line = lines[3].strip() if len(lines) > 3 else ""
+    if deep_line.startswith(("Deep: PENDING", "Deep: NOT RUN")):
+        why.append("the deep review is not done (%s)" % deep_line)
+    patterns = [p for rel in comment.P0_LISTS for p in base_list(gh, repo, rel, base)]
+    hits = comment.p0_hits(files, patterns)
     deep = ledger.get("deep") if isinstance(ledger.get("deep"), dict) else {}
     if hits and not (deep.get("status") == "PASS" and deep.get("sha") == head):
         why.append("a P0 path is touched (%s) without a deep review PASS of the head" % ", ".join(hits[:3]))
@@ -178,7 +194,6 @@ def main():
     base = os.environ.get("BASE", "develop")
     owner = os.environ.get("OWNER", "Y4NN777")
     required = [c.strip() for c in (os.environ.get("REQUIRED_CHECKS") or DEFAULT_CHECKS).split(",") if c.strip()]
-    root = os.environ.get("ROOT") or os.path.dirname(HERE)
     try:
         numbers = [number] if number else sorted({str(p.get("number")) for p in gate.gh_api(gh, "repos/%s/commits/%s/pulls" % (repo, head_sha)) if p.get("number")})
     except gate.GitHubError as exc:
@@ -188,7 +203,7 @@ def main():
         print("auto-merge: no pull request has the head %s" % head_sha[:12])
     for n in numbers:
         try:
-            head, why = refusals(gh, repo, n, base, owner, required, root)
+            head, why = refusals(gh, repo, n, base, owner, required)
         except (gate.GitHubError, ValueError, KeyError, TypeError, AttributeError) as exc:
             print("auto-merge: NOT RUN for #%s (%s): no merge" % (n, exc))
             continue
