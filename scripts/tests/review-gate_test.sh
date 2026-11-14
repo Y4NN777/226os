@@ -24,6 +24,7 @@ case "$ep" in
   *"/contents/.github/sensitive-paths.txt"*) [ -z "${FAKE_NO_LIST:-}" ] || { echo "404" >&2; exit 1; }; cat "$FX/contents.json" ;;
   *"/contents/.github/stray-paths.txt"*) [ -z "${FAKE_NO_STRAY:-}" ] || { echo "404" >&2; exit 1; }; cat "$FX/stray.json" ;;
   *"/pulls/7") cat "$FX/pull.json" ;;
+  *"/pulls/7/commits"*) cat "$FX/commits.json" ;;
   *"/issues/12") cat "$FX/issue12.json" ;;
   *"/comments"*) cat "$FX/comments.json" ;;
   *"/events"*) cat "$FX/events.json" ;;
@@ -41,8 +42,9 @@ stray_b64="$(printf '# one pattern per line, prefixed by when it applies\nalways
 printf '{"content":"%s","encoding":"base64"}' "$stray_b64" >"$tmp/fx/stray.json"
 
 reset() {
-  printf '{"body":"","labels":[],"head":{"ref":"feature/identity/profiles"},"user":{"login":"dev"}}' >"$tmp/fx/pull.json"
+  printf '{"body":"","labels":[],"head":{"ref":"feature/identity/profiles"},"user":{"login":"dev"},"changed_files":1,"commits":1}' >"$tmp/fx/pull.json"
   printf '{"number":12,"labels":[{"name":"finding"}]}' >"$tmp/fx/issue12.json"
+  printf '[{"sha":"c1","author":{"login":"Y4NN777"},"commit":{"message":"own work","verification":{"verified":true}}}]' >"$tmp/fx/commits.json"
   printf '[]' >"$tmp/fx/comments.json"
   printf '[]' >"$tmp/fx/events.json"
   printf '[]' >"$tmp/fx/reviews.json"
@@ -82,16 +84,31 @@ json.dump(d, open(p, "w"))
 EOF
 }
 
-files() { python3 -I -c 'import json,sys; json.dump([{"filename": f} for f in sys.argv[2:]], open(sys.argv[1], "w"))' "$tmp/fx/files.json" "$@"; }
+# files PATH...: the pull request's files, and the pull request's own count of them.
+files() {
+  python3 -I -c 'import json,sys
+json.dump([{"filename": f} for f in sys.argv[3:]], open(sys.argv[1], "w"))
+d = json.load(open(sys.argv[2])); d["changed_files"] = len(sys.argv[3:]); json.dump(d, open(sys.argv[2], "w"))' "$tmp/fx/files.json" "$tmp/fx/pull.json" "$@"
+}
+# pull_field NAME VALUE_JSON: sets one field of the pull request answer.
+pull_field() { python3 -I -c 'import json,sys; d = json.load(open(sys.argv[1])); d[sys.argv[2]] = json.loads(sys.argv[3]); json.dump(d, open(sys.argv[1], "w"))' "$tmp/fx/pull.json" "$1" "$2"; }
 
 # run MODE [author]: runs the gate; sets rc and out.
 run() {
   rc=0
-  out="$(PATH="$tmp/bin:$PATH" FX="$tmp/fx" GATE_MODE="$1" REPO=o/r PR_NUMBER=7 PR_AUTHOR="${2:-dev}" OWNER=Y4NN777 BASE_REF=develop python3 -I "$gate" 2>&1)" || rc=$?
+  # An owner-authored run: the pull request is the owner's (the gate reads the pull request, not PR_AUTHOR).
+  if [ "${2:-dev}" = Y4NN777 ]; then pull_field user '{"login":"Y4NN777"}'; fi
+  out="$(PATH="$tmp/bin:$PATH" FX="$tmp/fx" GATE_MODE="$1" REPO=o/r PR_NUMBER=7 PR_AUTHOR="${2:-dev}" PR_HEAD_SHA="${HEAD_SHA:-$head}" OWNER=Y4NN777 BASE_REF=develop python3 -I "$gate" 2>&1)" || rc=$?
 }
 
 BOT='github-actions[bot]'
-crit_ok='Triage: CRITICAL | blast radius: the whole team
+head=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+old_head=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+# ledger SHA FINDINGS_JSON: the ledger block of a review comment (the gate decides from it, never from the prose).
+ledger() { printf '<details><summary>Review ledger</summary>\n\n```json\n{"sha":"%s","findings":%s}\n```\n\n</details>' "$1" "$2"; }
+crit_entry='[{"id":"k","kind":"finding","evidence":"OBSERVED","sev":"CRITICAL","file":"src/api/config.go","line":12,"status":"open"}]'
+infer_entry='[{"id":"k","kind":"finding","evidence":"INFERRED","sev":"CRITICAL","file":"src/api/config.go","line":12,"status":"open"}]'
+crit_prose='Triage: CRITICAL | blast radius: the whole team
 
 | Dimension | Level | Note |
 |---|---|---|
@@ -99,9 +116,14 @@ crit_ok='Triage: CRITICAL | blast radius: the whole team
 
 OBSERVED: src/api/config.go:12 holds a literal API key.
 Fix: remove it and rotate the key.'
-crit_inferred='Triage: CRITICAL | blast radius: production and users
+crit_ok="$crit_prose
 
-INFERRED: this could leak data if the handler is reached.'
+$(ledger "$head" "$crit_entry")"
+crit_inferred="Triage: CRITICAL | blast radius: production and users
+
+INFERRED: this could leak data if the handler is reached.
+
+$(ledger "$head" "$infer_entry")"
 
 reset
 run enforce
@@ -223,7 +245,7 @@ run enforce dev
 
 # --- stray paths and finding-to-test: report only until GATE_NEW=enforce (the promotion switch) ---
 set_pull() { # BODY LABELS_JSON HEAD_REF
-  python3 -I -c 'import json,sys; json.dump({"body": sys.argv[2], "labels": json.loads(sys.argv[3]), "head": {"ref": sys.argv[4]}, "user": {"login": "dev"}}, open(sys.argv[1], "w"))' "$tmp/fx/pull.json" "$1" "$2" "$3"
+  python3 -I -c 'import json,sys; old = json.load(open(sys.argv[1])); json.dump({"body": sys.argv[2], "labels": json.loads(sys.argv[3]), "head": {"ref": sys.argv[4]}, "user": {"login": "dev"}, "changed_files": old.get("changed_files"), "commits": 1}, open(sys.argv[1], "w"))' "$tmp/fx/pull.json" "$1" "$2" "$3"
 }
 
 reset; files .gitignore src/api/internal/app/app.go
@@ -299,5 +321,75 @@ GATE_NEW=enforce run enforce dev
 reset; set_pull "Fixes: #12" "[]" "fix/identity/x"; files src/api/internal/app/app.go
 GATE_NEW=enforce run enforce dev
 [ "$rc" -eq 1 ] && ok "\"Fixes: #12\" (with a colon, as GitHub reads it) is a closing keyword" || ko "colon (rc=$rc out=$out)"
+
+# --- #212 M7: the gate decides from the head's LEDGER, not from the prose ---
+reset; comment "$BOT" 2026-11-13T01:00:00Z "$crit_prose"
+run enforce
+[ "$rc" -eq 0 ] && grep -q 'downgraded' <<<"$out" && ok "M7: a prose CRITICAL with OBSERVED text but no ledger entry is HIGH and never blocks" || ko "prose critical (rc=$rc out=$out)"
+
+reset; comment "$BOT" 2026-11-13T01:00:00Z "Triage: HIGH | blast radius: x
+OBSERVED: src/a.go:1
+
+$(ledger "$head" "$crit_entry")"
+run enforce
+[ "$rc" -eq 1 ] && ok "M7: a HIGH first line with a blocking OBSERVED CRITICAL entry in the ledger blocks" || ko "ledger critical (rc=$rc out=$out)"
+
+reset; comment "$BOT" 2026-11-13T01:00:00Z "$(printf 'Triage: NONE | blast radius: x\n\n%s' "$(ledger "$old_head" '[]')")"
+run enforce
+[ "$rc" -eq 0 ] && grep -q 'NOT RUN (stale' <<<"$out" && ok "M7: a ledger of another head is NOT RUN (stale), not a pass" || ko "stale none (rc=$rc out=$out)"
+
+reset; comment "$BOT" 2026-11-13T01:00:00Z "$(printf 'Triage: CRITICAL | blast radius: x\n\n%s' "$(ledger "$old_head" "$crit_entry")")"
+run enforce
+[ "$rc" -eq 1 ] && grep -q 'stale' <<<"$out" && ok "M7: a stale CRITICAL keeps blocking" || ko "stale critical (rc=$rc out=$out)"
+HEAD_SHA="" run enforce
+[ "$rc" -eq 1 ] && ok "M7: no PR_HEAD_SHA never lifts a CRITICAL" || ko "no head critical (rc=$rc out=$out)"
+
+# --- #212 L2 (rename) / L4 (caps): the file list is complete or the gate fails closed ---
+reset; printf '[{"filename":"docs/new.md","previous_filename":"scripts/old.sh","status":"renamed"}]' >"$tmp/fx/files.json"
+run enforce dev
+[ "$rc" -eq 1 ] && grep -q 'scripts/old.sh' <<<"$out" && ok "L2: a rename out of a sensitive path touches it (the old path counts)" || ko "rename (rc=$rc out=$out)"
+
+reset; files docs/a.md docs/b.md; pull_field changed_files 3
+run enforce dev
+[ "$rc" -eq 1 ] && grep -q 'incomplete' <<<"$out" && ok "L4: a file list shorter than changed_files fails closed" || ko "short list (rc=$rc out=$out)"
+
+reset; files docs/a.md; pull_field commits 251
+run enforce dev
+[ "$rc" -eq 1 ] && grep -q '251 commits' <<<"$out" && ok "L4: more than 250 commits fails closed" || ko "251 commits (rc=$rc out=$out)"
+
+reset; files docs/a.md; pull_field changed_files 3000
+run enforce dev
+[ "$rc" -eq 1 ] && grep -q 'incomplete' <<<"$out" && ok "L4: 3000 files (GitHub's cap) fails closed" || ko "3000 files (rc=$rc out=$out)"
+
+# --- #212 M8 + L3: owner trust is a verified commit by the owner, never a claimed login ---
+reset; files scripts/x.sh
+printf '[{"sha":"c1","author":{"login":"Y4NN777"},"commit":{"message":"own work","verification":{"verified":false}}}]' >"$tmp/fx/commits.json"
+run enforce Y4NN777
+[ "$rc" -eq 1 ] && ok "M8: an owner PR whose commit is not verified (a forged author email) is not owner-authored" || ko "unverified (rc=$rc out=$out)"
+reset; files scripts/x.sh
+printf '[{"sha":"c1","author":{"login":"Y4NN777"},"commit":{"message":"own work"}}]' >"$tmp/fx/commits.json"
+run enforce Y4NN777
+[ "$rc" -eq 1 ] && ok "M8: a commit with no verification answer is not verified" || ko "no verification (rc=$rc out=$out)"
+reset; files scripts/x.sh
+printf '[{"sha":"c1","author":{"login":"Y4NN777"},"commit":{"message":"x\\n\\nReview-Pipeline: autofix/1","verification":{"verified":true}}}]' >"$tmp/fx/commits.json"
+run enforce Y4NN777
+[ "$rc" -eq 1 ] && ok "M8: a pipeline commit (Review-Pipeline trailer) is never owner-authored" || ko "trailer (rc=$rc out=$out)"
+reset; files scripts/x.sh; pull_field user '{"login":"Y4NN777"}'
+printf '[{"sha":"c1","author":{"login":"Y4NN777"},"commit":{"message":"a","verification":{"verified":true}}},{"sha":"c2","author":{"login":"dev"},"commit":{"message":"b","verification":{"verified":true}}}]' >"$tmp/fx/commits.json"
+run enforce dev
+[ "$rc" -eq 1 ] && ok "M8: the owner opened it but another author has a commit: not owner-authored" || ko "mixed authors (rc=$rc out=$out)"
+reset; files scripts/x.sh; pull_field commits 251
+run enforce Y4NN777
+[ "$rc" -eq 1 ] && ok "M8: more than 250 commits cannot be verified (fails closed)" || ko "251 owner commits (rc=$rc out=$out)"
+reset; files scripts/x.sh
+run enforce Y4NN777
+[ "$rc" -eq 0 ] && grep -q 'owner-authored' <<<"$out" && ok "M8: every commit verified and by the owner on the owner's PR passes" || ko "verified owner (rc=$rc out=$out)"
+
+# --- #212 workflow wiring (static): the gate waits for the review and gets the head; a skip repins the ledger ---
+wf="$root/.github/workflows/code-review.yml"
+gate_job="$(sed -n '/^  gate:/,$p' "$wf")"
+grep -q 'needs: \[review, deep\]' <<<"$gate_job" && grep -q "if: always() && !cancelled() && github.event.action != 'closed'" <<<"$gate_job" && ok "code-review.yml: the Review gate runs after review and deep, even when they fail or are skipped" || ko "gate needs"
+grep -q 'PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}' <<<"$gate_job" && ok "code-review.yml: the gate gets PR_HEAD_SHA" || ko "gate head"
+grep -q "steps.pack.outputs.decision == 'skip'" "$wf" && grep -q 'review-comment.py" repin' "$wf" && ok "code-review.yml: a skip decision runs the repin step from the base script" || ko "repin step"
 
 finish

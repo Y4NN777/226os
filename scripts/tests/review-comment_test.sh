@@ -443,7 +443,7 @@ stage1_then_deep "" "$FIXED_DH"
 # ledger x carried deep entry x deep run, with the gate's reading of each comment; it replaces the one-off level cases.
 tbl="$(python3 -I "$here/review-comment-levels.py" 2>&1)" || true
 tail_line="$(tail -1 <<<"$tbl")"
-[ "$tail_line" = "cases=504 rows=39 failures=0" ] && ok "level table: $tail_line (declared x stage 1 ledger x carried x deep run: I1-I4 and the gate's reading)" || ko "level table ($(head -5 <<<"$tbl"))"
+[ "$tail_line" = "cases=504 rows=45 failures=0" ] && ok "level table: $tail_line (declared x stage 1 ledger x carried x deep run: I1-I4 and the gate's reading)" || ko "level table ($(head -5 <<<"$tbl"))"
 # The carried counter rises by exactly 1 per review run: a deep entry is counted by the deep merge when the deep stage runs
 # in that run, by stage 1 only when none runs.
 carried_n() { python3 -I -c 'import json,sys; print(json.loads(sys.argv[1]).get("carried"))' "$(posted_entry dh)"; }
@@ -588,5 +588,107 @@ PY
 HEAD_SHA="$locsha" LOCATION_REPO="$repo" JSON="$(mkreview "[$E_GOOD]")" run
 pyassert 'import json,sys; f=json.loads(sys.argv[1]); assert f["status"]=="open" and f["carried"]==2' "$(entry_of gone-quiet)" 2>/dev/null && grep -q 'Carried forward without a new decision.*gone-quiet' <<<"$(posted_body)" && ok "an open entry the model omits is carried with a count and named in the comment (fix, answer or accept it)" || ko "carried ($(entry_of gone-quiet) $(posted_body | head -12))"
 pyassert 'import json,sys; assert "carried" not in json.loads(sys.argv[1])' "$(entry_of g1)" 2>/dev/null && ok "an entry the model lists itself carries no count (the model cannot write it)" || ko "carried on listed"
+
+# --- #212 L2: repin. A base merged into the branch with no own change moves the ledger and deep sha to the head ---
+rp="$tmp/repin-repo"
+git init -q "$rp"
+git_rp() { git -C "$rp" -c user.name=t -c user.email=t@example.com "$@"; }
+git_rp checkout -q -b work
+echo 0 >"$rp/a.txt"; git_rp add a.txt; git_rp commit -q -m base
+git_rp update-ref refs/remotes/origin/develop HEAD
+echo 1 >"$rp/own.txt"; git_rp add own.txt; git_rp commit -q -m own
+reviewed="$(git_rp rev-parse HEAD)"
+git_rp checkout -q -b dev-side refs/remotes/origin/develop
+echo 2 >"$rp/other.txt"; git_rp add other.txt; git_rp commit -q -m other
+git_rp update-ref refs/remotes/origin/develop HEAD
+git_rp checkout -q work
+git_rp merge -q --no-edit dev-side
+merged="$(git_rp rev-parse HEAD)"
+echo 3 >"$rp/own2.txt"; git_rp add own2.txt; git_rp commit -q -m own2
+own_head="$(git_rp rev-parse HEAD)"
+git_rp reset -q --hard "$merged"
+repin_comments() { # SHA [FIRST_LINE]
+  python3 -I - "$tmp/comments.json" "$1" "${2:-Triage: HIGH | blast radius: x}" <<'PY3'
+import json, sys
+led = {"sha": sys.argv[2], "findings": [{"id": "h1", "kind": "finding", "sev": "HIGH", "status": "open", "detail": "d", "fix": "f"}], "deep": {"status": "PASS", "sha": sys.argv[2]}}
+body = sys.argv[3] + "\n<!-- 226os-ai-review -->\nTool: PASS (1 files)\nReviewed: " + sys.argv[2][:7] + " (a..b) at 10:00 UTC\nDeep: PASS (1 finding, 0 notes)\n\nfree text\n\n<details><summary>Review ledger</summary>\n\n```json\n" + json.dumps(led) + "\n```\n\n</details>"
+json.dump([{"id": 2, "node_id": "N2", "user": {"login": "github-actions[bot]"}, "body": body, "created_at": "2026-11-14T09:00:00Z"}], open(sys.argv[1], "w"))
+PY3
+}
+repin_run() { # HEAD
+  rc=0; : >"$tmp/calls.log"
+  out="$(PATH="$tmp/bin:$PATH" FX="$tmp" REPO=o/r PR_NUMBER=7 PR_HEAD_SHA="$1" BASE_REF=develop LOCATION_REPO="$rp" REVIEW_NOW=11:11 GITHUB_OUTPUT="$tmp/gh-output" python3 -I "$tool" repin 2>&1)" || rc=$?
+  calls="$(cat "$tmp/calls.log")"
+}
+repin_comments "$reviewed"
+repin_run "$merged"
+[ "$rc" -eq 0 ] && [ "$(ledger_sha)" = "$merged" ] && ok "L2: a base merged with no own change repins the ledger sha to the head" || ko "repin sha (rc=$rc out=$out calls=$calls)"
+python3 -I -c 'import sys,re,json; b=sys.argv[1]; d=json.loads(re.search(r"```json\s*(\{.*?\})\s*```", b, re.S).group(1)); assert d["deep"]=={"status":"PASS","sha":sys.argv[2]}; assert d["findings"][0]["id"]=="h1" and d["findings"][0]["status"]=="open"' "$(posted_body)" "$merged" 2>/dev/null && ok "L2: deep.sha moves too, the findings are untouched" || ko "repin deep ($(posted_body))"
+[ "$(posted_body | sed -n 1p)" = "Triage: HIGH | blast radius: x" ] && [ "$(posted_body | sed -n 2p)" = "<!-- 226os-ai-review -->" ] && [ "$(posted_body | sed -n 4p)" = "Reviewed: ${merged:0:7} (base merged, no own change) at 11:11 UTC" ] && grep -q 'graphql.*id=N2' <<<"$calls" && ok "L2: the new comment keeps the verdict, line 4 says base merged, the old one is minimized" || ko "repin layout ($(posted_body))"
+
+for case in "own change after the review|$reviewed|$own_head" "ledger already at the head|$merged|$merged" "ledger sha unknown|$(printf 'c%.0s' {1..40})|$merged" "head is not a sha|$reviewed|nothere"; do
+  IFS='|' read -r label led hd <<<"$case"
+  repin_comments "$led"; repin_run "$hd"
+  [ "$rc" -eq 0 ] && ! grep -q 'POST' <<<"$calls" && grep -q 'repin: not repinned' <<<"$out" && ok "L2: no repin when $label" || ko "no repin: $label (rc=$rc out=$out calls=$calls)"
+done
+repin_comments "$reviewed" "Triage: NOT RUN | the review returned no text"; repin_run "$merged"
+! grep -q 'POST' <<<"$calls" && ok "L2: a NOT RUN review comment is never repinned (nothing was reviewed)" || ko "repin not run ($calls)"
+
+# --- #212 group 3: the comment never loses a review or a CRITICAL, nor leaks a secret ---
+# rawreview FIRSTLINE FINDINGS_JSON [FREE_TEXT]: a model review whose first line is whatever the caller writes.
+rawreview() {
+  python3 -I - "$1" "$2" "${3:-}" <<'PY4'
+import json, sys
+first, findings, free = sys.argv[1:4]
+body = first + "\n\n" + free + "\n\n<details><summary>Review ledger</summary>\n\n```json\n" + json.dumps({"sha": "x", "findings": json.loads(findings)}) + "\n```\n\n</details>"
+print(json.dumps({"body": body}))
+PY4
+}
+E_CRIT='{"id":"k1","kind":"finding","evidence":"OBSERVED","sev":"CRITICAL","file":"a.go","line":3,"scenario":"s","status":"open","detail":"d","fix":"f"}'
+E_NOTE='{"id":"n1","kind":"note","evidence":"INFERRED","sev":"LOW","file":"a.go","line":3,"scenario":"s","status":"open","detail":"d","fix":"none: accept"}'
+comments '[]'
+HEAD_SHA="$head_sha" JSON="$(rawreview '**Triage: CRITICAL | blast radius: the team**' "[$E_CRIT]")" run
+[ "$(posted_body | sed -n 1p)" = "Triage: CRITICAL | blast radius: the team" ] && ok "M12: a decorated first line (**bold**) is read, not lost to NOT RUN" || ko "M12 bold ($(posted_body | head -3))"
+HEAD_SHA="$head_sha" JSON="$(rawreview 'Review summary for this pull request' "[$E_CRIT]")" run
+[ "$(posted_body | sed -n 1p | cut -c1-17)" = "Triage: CRITICAL " ] && grep -q '"k1"' <<<"$(posted_body)" && ok "M12: no verdict line but a valid ledger with an OBSERVED CRITICAL: the verdict is rebuilt from the ledger, the CRITICAL survives" || ko "M12 rebuilt ($(posted_body | head -3))"
+HEAD_SHA="$head_sha" JSON="$(rawreview 'Review summary for this pull request' "[$E_NOTE]")" run
+[ "$(posted_body | sed -n 1p | cut -c1-15)" = "Triage: NOT RUN" ] && ok "M12: no verdict line and nothing blocking in the ledger stays NOT RUN" || ko "M12 not run ($(posted_body | head -3))"
+
+# M10: only a line that IS the marker is dropped, never a line that merely mentions it.
+HEAD_SHA="$head_sha" JSON="$(rawreview 'Triage: NONE | blast radius: x' "[]" "see <!-- 226os-ai-review --> in the docs
+<!-- 226os-ai-review -->
+Tool: nothing here")" run
+b="$(posted_body)"
+grep -q 'in the docs' <<<"$b" && [ "$(grep -c '^<!-- 226os-ai-review -->$' <<<"$b")" -eq 1 ] && ok "M10: a line that only mentions the marker text is kept; a line that IS the marker is dropped (one marker left)" || ko "M10 ($b)"
+
+# L6: a head that is not 40 hex is NOT RUN, and the model's ledger is never posted.
+HEAD_SHA="not-a-sha" JSON="$(rawreview 'Triage: NONE | blast radius: x' "[{\"id\":\"zz9\",\"status\":\"open\",\"detail\":\"d\",\"fix\":\"f\"}]")" run
+b="$(posted_body)"
+[ "$(sed -n 1p <<<"$b" | cut -c1-15)" = "Triage: NOT RUN" ] && ! grep -q 'zz9' <<<"$b" && ok "L6: an invalid PR_HEAD_SHA gives NOT RUN and never posts the model's ledger" || ko "L6 ($b)"
+
+# M11: the comment stays under GitHub's 65536 characters; the header and the ledger stay whole.
+big="$(python3 -I -c 'print("filler line of free text. " * 4000)')"
+HEAD_SHA="$head_sha" JSON="$(rawreview 'Triage: CRITICAL | blast radius: x' "[$E_CRIT]" "$big")" run
+b="$(posted_body)"
+[ "${#b}" -lt 65000 ] && [ "$(sed -n 1p <<<"$b")" = "Triage: CRITICAL | blast radius: x" ] && grep -q '"k1"' <<<"$b" && ok "M11: a huge free text is cut under the limit, the header and the ledger stay whole" || ko "M11 text (${#b})"
+many="$(python3 -I -c 'import json; print(json.dumps([{"id":"e%d" % i,"kind":"finding","evidence":"OBSERVED","sev":"MEDIUM","file":"a.go","line":3,"scenario":"s"*300,"status":"open","detail":"d"*590,"fix":"f"*290} for i in range(60)]))')"
+HEAD_SHA="$head_sha" JSON="$(rawreview 'Triage: MEDIUM | blast radius: x' "$many")" run
+b="$(posted_body)"
+python3 -I -c 'import json,re,sys; b=sys.stdin.read(); assert len(b) < 65000, len(b); d=json.loads(re.search(r"```json\s*(\{.*?\})\s*```", b, re.S).group(1)); assert len(d["findings"])==60' <<<"$b" && ok "M11: a ledger too big alone loses its long fields, never an entry" || ko "M11 ledger (${#b})"
+
+# L5: a secret shape in the free text is redacted per line (the rest of the text stays).
+tok="ghp_$(printf 'a1B2%.0s' {1..10})"
+HEAD_SHA="$head_sha" JSON="$(rawreview 'Triage: NONE | blast radius: x' "[]" "keep this line
+the token is $tok in the diff
+and keep this one")" run
+b="$(posted_body)"
+! grep -q "$tok" <<<"$b" && grep -q 'keep this line' <<<"$b" && grep -q 'and keep this one' <<<"$b" && grep -q 'redacted: looked like a secret' <<<"$b" && ok "L5: a free text line that looks like a secret is redacted, its neighbours stay" || ko "L5 ($b)"
+
+# L5 (deep): the deep summary is redacted per line too.
+HEAD_SHA=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+comments "[{\"id\":2,\"node_id\":\"N2\",\"user\":{\"login\":\"$BOT\"},\"body\":\"$base_review\",\"updated_at\":\"2026-11-14T09:00:00Z\"}]"
+DJSON='{"level":"NONE","blast_radius":"x","summary":"fine line\nkey ghp_a1B2a1B2a1B2a1B2a1B2a1B2a1B2a1B2a1B2 leaked\nlast line","findings":[]}' deep
+b="$(posted)"
+! grep -q 'ghp_a1B2' <<<"$b" && grep -q 'fine line' <<<"$b" && grep -q 'last line' <<<"$b" && ok "L5: a deep summary line that looks like a secret is redacted, the others stay" || ko "L5 deep ($b rc=$rc out=$out)"
 
 finish

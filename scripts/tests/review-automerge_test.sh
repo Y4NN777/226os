@@ -28,9 +28,15 @@ case "$*" in
   "api repos/o/r/pulls/7 --paginate") cat "$FX/pull.json" ;;
   "api repos/o/r/pulls/7/files --paginate") cat "$FX/files.json" ;;
   "api repos/o/r/commits/$H/check-runs?per_page=100 --paginate") cat "$FX/checks.json" ;;
+  "api repos/o/r/actions/runs?head_sha=$H&per_page=100 --paginate") cat "$FX/runs.json" ;;
   "api repos/o/r/issues/7/comments --paginate") cat "$FX/comments.json" ;;
   "api repos/o/r/pulls/7/reviews --paginate") cat "$FX/reviews.json" ;;
-  "api repos/o/r/pulls/7/commits --paginate") cat "$FX/commits.json" ;;
+  "api repos/o/r/pulls/7/commits --paginate") python3 -I -c '
+import json, sys
+d = json.load(open(sys.argv[1]))
+for c in d:
+    c.setdefault("commit", {}).setdefault("verification", {"verified": True})
+print(json.dumps(d))' "$FX/commits.json" ;;
   "api repos/o/r/contents/.github/sensitive-paths.txt?ref=develop --paginate") cat "$FX/contents.json" ;;
   "api repos/o/r/contents/.github/deep-review-paths.txt?ref=develop --paginate") cat "$FX/deep-paths.json" ;;
   "api repos/o/r/contents/.github/pipeline-paths.txt?ref=develop --paginate") cat "$FX/pipeline-paths.json" ;;
@@ -54,7 +60,21 @@ pull() {
 }
 files() { python3 -I -c 'import json,sys; json.dump([{"filename": f} for f in sys.argv[2:]], open(sys.argv[1], "w"))' "$tmp/fx/files.json" "$@"; }
 # checks NAME:STATUS:CONCLUSION ...
-checks() { python3 -I -c 'import json,sys; json.dump({"total_count":len(sys.argv)-2,"check_runs":[dict(zip(("name","status","conclusion"),c.split(":")), id=i) for i,c in enumerate(sys.argv[2:])]}, open(sys.argv[1],"w"))' "$tmp/fx/checks.json" "$@"; }
+# checks NAME:STATUS:CONCLUSION ...: the check runs, each in its own check suite; the workflow run of the suite has the path
+# of the workflow that defines the check (the expected one, unless FORGE names a check that comes from another file).
+checks() {
+  python3 -I -c '
+import json, os, sys
+paths = {"Validate branch promotion": ".github/workflows/branch-policy.yml", "quality": ".github/workflows/quality.yml", "Review gate": ".github/workflows/code-review.yml"}
+forge = os.environ.get("FORGE", "")
+runs, suites = [], []
+for i, c in enumerate(sys.argv[3:]):
+    name, status, conclusion = c.split(":")
+    runs.append({"name": name, "status": status, "conclusion": conclusion, "id": i, "check_suite": {"id": 100 + i}})
+    suites.append({"check_suite_id": 100 + i, "path": ".github/workflows/evil.yml" if name == forge else paths.get(name, ".github/workflows/code-review.yml")})
+json.dump({"total_count": len(runs), "check_runs": runs}, open(sys.argv[1], "w"))
+json.dump({"total_count": len(suites), "workflow_runs": suites}, open(sys.argv[2], "w"))' "$tmp/fx/checks.json" "$tmp/fx/runs.json" "$@"
+}
 # review_comment TRIAGE LEDGER-JSON [DEEP-LINE]: the real layout (review-comment.py): line 1 Triage, 2 the marker, 3 Tool,
 # 4 Reviewed, 5 Deep (when the run has a deep stage), then a blank line.
 review_comment() {
@@ -78,7 +98,7 @@ reset() {
 run() {
   rc=0
   : >"$tmp/fx/calls.log"
-  out="$(PATH="$tmp/bin:$PATH" FX="$tmp/fx" REPO=o/r HEAD_SHA="$H" PR_NUMBER="${PRN:-}" AUTO_MERGE="${1-on}" BOT_TOKEN="${TOKEN-bot-secret}" GH_TOKEN=read-token OWNER=Y4NN777 python3 -I "$tool" 2>&1)" || rc=$?
+  out="$(PATH="$tmp/bin:$PATH" FX="$tmp/fx" REPO=o/r HEAD_SHA="$H" PR_NUMBER="${PRN:-}" AUTO_MERGE="${1-on}" BOT_TOKEN="${TOKEN-bot-secret}" GH_TOKEN=read-token OWNER=Y4NN777 REVIEW_PIPELINE_HMAC_KEY="${HMAC_KEY-}" python3 -I "$tool" 2>&1)" || rc=$?
   calls="$(cat "$tmp/fx/calls.log")"
   writes="$(grep -E 'pr merge|-X PUT|-X POST|-X PATCH|-X DELETE' <<<"$calls" || true)"
 }
@@ -145,6 +165,28 @@ grep -q 'pr merge 7' <<<"$calls" && ok "an owner-authored sensitive change whose
 reset; files scripts/x.sh; review_comment "Triage: NONE | blast radius: x" "$SENS_OK"; pull open develop o/r false '[]' Y4NN777
 printf '[{"sha":"%s","author":{"login":"Y4NN777"}},{"sha":"%s","author":{"login":"someone"}}]' "$OLD" "$H" >"$tmp/fx/commits.json"
 refused 'owner' "an owner-authored PR with a commit by someone else is not owner-authored"
+# --- #212 L9: a check counts only when its workflow file is the expected one ---
+reset; FORGE=quality checks "${GOOD_CHECKS[@]}"
+refused "required check quality has not reported" "L9: a check named quality that comes from another workflow file is ignored"
+reset; FORGE="Review gate" checks "${GOOD_CHECKS[@]}"
+refused "required check Review gate has not reported" "L9: a Review gate check from another workflow file is ignored"
+reset; printf '' >"$tmp/fx/runs.json"
+FAKE_GH_FAIL=1 run on
+[ "$rc" -eq 0 ] && ! grep -q 'pr merge' <<<"$calls" && ok "L9: unreadable workflow runs never merge" || ko "L9 unreadable ($out)"
+
+# --- #212 M8 + L3: verified commits only, 250 cap, the owner's standing CHANGES_REQUESTED ---
+reset; files scripts/x.sh; review_comment "Triage: NONE | blast radius: x" "$SENS_OK"; pull open develop o/r false '[]' Y4NN777
+printf '[{"sha":"%s","author":{"login":"Y4NN777"},"commit":{"message":"x","verification":{"verified":false}}}]' "$H" >"$tmp/fx/commits.json"
+refused 'owner' "M8: an owner commit that is not verified (a forged author email) is not owner-authored"
+reset; files scripts/x.sh; review_comment "Triage: NONE | blast radius: x" "$SENS_OK"; pull open develop o/r false '[]' Y4NN777
+python3 -I -c 'import json,sys; d=json.load(open(sys.argv[1])); d["commits"]=251; json.dump(d, open(sys.argv[1],"w"))' "$tmp/fx/pull.json"
+refused 'owner' "M8: more than 250 commits cannot be verified, so the owner needs to approve the head"
+reset; printf '[{"user":{"login":"Y4NN777"},"state":"CHANGES_REQUESTED","commit_id":"%s","submitted_at":"2026-11-14T10:00:00Z"}]' "$H" >"$tmp/fx/reviews.json"
+refused "requests changes" "L3: the owner's latest review CHANGES_REQUESTED refuses even a non-sensitive pull request"
+reset; printf '[{"user":{"login":"Y4NN777"},"state":"CHANGES_REQUESTED","commit_id":"%s","submitted_at":"2026-11-14T10:00:00Z"},{"user":{"login":"Y4NN777"},"state":"APPROVED","commit_id":"%s","submitted_at":"2026-11-14T11:00:00Z"}]' "$H" "$H" >"$tmp/fx/reviews.json"
+run on
+grep -q 'pr merge 7' <<<"$calls" && ok "L3: a later owner approval lifts the CHANGES_REQUESTED refusal" || ko "L3 lifted ($out)"
+
 # --- review of PR 185: pipeline commits carry the owner's identity and token, so they are never "owner authored" ---
 TRAILER_MSG='fix(review): x\n\nReview-Pipeline: review-batch/123'
 reset; files scripts/x.sh; review_comment "Triage: NONE | blast radius: x" "$SENS_OK"; pull open develop o/r false '[]' Y4NN777
@@ -196,7 +238,8 @@ refused 'owner' "an owner-authored pipeline batch PR touching an owner path (db/
 reset; files scripts/review-x.sh; review_comment "Triage: NONE | blast radius: x" "$SENS_OK"; pull open develop o/r false '[]' Y4NN777 $BATCH; pipeline_commits
 run on
 [ "$rc" -eq 0 ] && grep -q 'REFUSE #7' <<<"$out" && grep -q 'review pipeline' <<<"$out" && ! grep -q 'pr merge' <<<"$calls" && ok "batch PR touching a pipeline path: still refused (the owner merges it)" || ko "batch pipeline path (rc=$rc out=$out)"
-grep -q 'pipeline_batch\|BATCH_BRANCH' "$tool" && ko "the batch exemption code is still in review-automerge.py" || ok "review-automerge.py has no batch exemption left (pipeline_batch, BATCH_BRANCH)"
+# #212 group 6 brings the exemption back, but only behind the HMAC: the code may exist only with the signature check in it.
+grep -q 'not key or not str' "$tool" && grep -q 'all(signed_by_pipeline(c, key) for c in commits)' "$tool" && ok "review-automerge.py has a batch exemption only behind the HMAC check (no key, no exemption)" || ko "the batch exemption is not behind the HMAC"
 reset; files scripts/x.sh; review_comment "Triage: NONE | blast radius: x" "$SENS_OK"; pull open develop o/r false '["autofix-1"]' Y4NN777 feature/x
 printf '[{"sha":"%s","author":{"login":"Y4NN777"},"commit":{"message":"fix\n\nReview-Pipeline: autofix/9"}}]' "$H" >"$tmp/fx/commits.json"
 refused 'owner' "an autofix commit on a normal PR + sensitive path still needs the owner's approval of the head"
@@ -237,6 +280,43 @@ json.dump([{"id": 1, "user": {"login": "github-actions[bot]"}, "body": body("Tri
 PY2
 run on
 grep -q 'pr merge 7' <<<"$calls" && ok "auto-merge reads the newest created review comment (its ledger covers the head)" || ko "newest run automerge ($out)"
+
+# --- #212 HMAC: the no-click batch exemption returns only for commits signed by the trusted publish job ---
+# signed_commits KEY [TREE]: the batch commit of the head, signed over (tree, parent, workflow, run id).
+signed_commits() {
+  python3 -I -c '
+import hashlib, hmac, json, sys
+key, head, tree = sys.argv[1], sys.argv[2], sys.argv[3]
+parent = "4444444444444444444444444444444444444444"
+sig = hmac.new(key.encode(), "\n".join(["226os-review-pipeline", "5555555555555555555555555555555555555555", parent, "review-batch", "77"]).encode(), hashlib.sha256).hexdigest()
+msg = "fix(review): x\n\nReview-Pipeline: review-batch/77\nReview-Pipeline-Sig: " + sig
+json.dump([{"sha": head, "author": {"login": "Y4NN777"}, "parents": [{"sha": parent}], "commit": {"message": msg, "tree": {"sha": tree}}}], open(sys.argv[4], "w"))' "$1" "$H" "${2:-5555555555555555555555555555555555555555}" "$tmp/fx/commits.json"
+}
+hmac_case() { reset; files docs/ai-usage/x.md; review_comment "Triage: NONE | blast radius: x" "{\"sha\":\"$H\",\"findings\":[],\"deep\":{\"status\":\"PASS\",\"sha\":\"$H\"}}"; pull open develop o/r false '[]' Y4NN777 $BATCH; }
+hmac_case; signed_commits right-key
+HMAC_KEY=right-key run on
+grep -q 'pr merge 7' <<<"$calls" && ok "HMAC: a batch PR on a sensitive path whose every commit is signed by the right key, with a deep PASS of the head, merges without the owner" || ko "hmac valid (out=$out)"
+hmac_case; signed_commits right-key
+HMAC_KEY=wrong-key refused 'owner' "HMAC: a signature made with another key is a forgery: the owner's approval is needed"
+hmac_case; signed_commits right-key
+HMAC_KEY="" refused 'owner' "HMAC: without the key in the environment verification fails closed (no exemption)"
+hmac_case; signed_commits right-key 6666666666666666666666666666666666666666
+HMAC_KEY=right-key refused 'owner' "HMAC: the same signature on another tree (a commit changed after signing) is refused"
+hmac_case; pipeline_commits
+HMAC_KEY=right-key refused 'owner' "HMAC: a Review-Pipeline trailer without a signature is refused (a forged trailer only)"
+hmac_case; signed_commits right-key; pull open develop o/r false '[]' dev $BATCH
+HMAC_KEY=right-key refused 'owner' "HMAC: a batch branch opened by someone other than the owner is refused"
+hmac_case; signed_commits right-key; pull open develop o/r false '[]' Y4NN777 feature/x
+HMAC_KEY=right-key refused 'owner' "HMAC: a signed commit on a pull request that is not a fix/review/batch- branch is refused"
+reset; files scripts/review-x.sh; review_comment "Triage: NONE | blast radius: x" "$SENS_OK"; pull open develop o/r false '[]' Y4NN777 $BATCH; signed_commits right-key
+HMAC_KEY=right-key run on
+grep -q 'REFUSE #7' <<<"$out" && grep -q 'review pipeline' <<<"$out" && ! grep -q 'pr merge' <<<"$calls" && ok "HMAC: a signed batch touching a pipeline path is still refused (the owner merges it)" || ko "hmac pipeline path (out=$out)"
+
+# The three jobs that sign or verify get the secret (environment review-agent); the signer only passes it to `apply`.
+for wf in review-batch review-autofix review-automerge; do
+  grep -q 'secrets.REVIEW_PIPELINE_HMAC_KEY' "$root/.github/workflows/$wf.yml" && ok "HMAC: $wf.yml reads REVIEW_PIPELINE_HMAC_KEY from the environment secret" || ko "$wf.yml lacks the HMAC secret"
+done
+grep -q 'REVIEW_PIPELINE_HMAC_KEY="$HMAC_KEY" PATCH_DIR' "$root/.github/workflows/review-batch.yml" && grep -q 'REVIEW_PIPELINE_HMAC_KEY="$HMAC_KEY" PATCH_DIR' "$root/.github/workflows/review-autofix.yml" && ok "HMAC: the publish jobs hand the key to the apply step only" || ko "apply key wiring"
 
 # --- review pipeline paths: never auto-merged; with AUTO_MERGE=on labelled needs-owner with a one-line reason ---
 pipeline_ok() { review_comment "Triage: NONE | blast radius: x" "{\"sha\":\"$H\",\"findings\":[],\"deep\":{\"status\":\"PASS\",\"sha\":\"$H\"}}"; pull open develop o/r false '[]' Y4NN777; }

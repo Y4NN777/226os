@@ -208,14 +208,23 @@ grep -q 'ONE fix pull' <<<"$(get 910 body)" && grep -q 'fix/review/batch-2026-11
 printf '[{"number":150,"merged_at":null,"body":"Fixes the batch #910"},{"number":151,"merged_at":"2026-11-14T03:00:00Z","body":"unrelated, see #9100 and #91"}]' >"$tmp/st/pulls.json"
 run batch
 [ "$rc" -eq 0 ] && [ "$(get 910 state)" = "open" ] && ok "an unmerged pull request naming the batch, or a merged unrelated one, does not close it" || ko "unrelated pr (state=$(get 910 state) out=$out)"
+# #212 L7: the words "review batch #910" alone, a merged pull request without the batch branch, and a batch-looking body on
+# another branch never close the batch.
+for pr in '{"number":160,"merged_at":"2026-11-14T03:50:00Z","head":{"ref":"fix/review/batch-2026-11-14"},"body":"Review batch #910: fixes the top items"}' \
+          '{"number":161,"merged_at":"2026-11-14T03:50:00Z","head":{"ref":"feature/x/y"},"body":"Closes #910"}' \
+          '{"number":162,"merged_at":"2026-11-14T03:50:00Z","body":"Batch: #910"}'; do
+  printf '[%s]' "$pr" >"$tmp/st/pulls.json"
+  run batch
+  [ "$rc" -eq 0 ] && [ "$(get 910 state)" = "open" ] && ok "L7: $(sed 's/.*"number":\([0-9]*\).*/PR \1/' <<<"$pr") does not close the batch" || ko "L7 ($pr state=$(get 910 state) out=$out)"
+done
 # Review note n-batch-close-ref (#152): a merged pull request that only MENTIONS the batch number does not close it.
 printf '[{"number":153,"merged_at":"2026-11-14T03:30:00Z","body":"Touches the same file as #910, see #910 for context. Related: https://github.com/o/r/issues/910"}]' >"$tmp/st/pulls.json"
 run batch
 [ "$rc" -eq 0 ] && [ "$(get 910 state)" = "open" ] && ok "a merged pull request that only mentions the batch number (see #910) does not close the batch" || ko "mention closes (state=$(get 910 state) out=$out)"
-printf '[{"number":154,"merged_at":"2026-11-14T03:40:00Z","body":"Fix pull request.\\n\\nBatch: #910\\nSources: #204"}]' >"$tmp/st/pulls.json"
+printf '[{"number":154,"merged_at":"2026-11-14T03:40:00Z","head":{"ref":"fix/review/batch-2026-11-14"},"body":"Fix pull request.\\n\\nBatch: #910\\nSources: #204"}]' >"$tmp/st/pulls.json"
 run batch --print
 grep -q 'would close #910' <<<"$out" && ok "a pull request with a Batch: #910 line (the batch fix pull request body) closes the batch" || ko "batch line ($out)"
-printf '[{"number":152,"merged_at":"2026-11-14T04:00:00Z","body":"Review batch #910: fixes the top items"}]' >"$tmp/st/pulls.json"
+printf '[{"number":152,"merged_at":"2026-11-14T04:00:00Z","head":{"ref":"fix/review/batch-2026-11-14"},"body":"Closes #910: fixes the top items"}]' >"$tmp/st/pulls.json"
 before="$(writes)"
 run batch --print
 [ "$rc" -eq 0 ] && [ "$(writes)" = "$before" ] && grep -q 'would close #910' <<<"$out" && [ "$(get 910 state)" = "open" ] \
@@ -280,7 +289,7 @@ reset
 mkgroup 601 90 shared a.go 2026-11-10T10:00:00Z
 mkgroup 602 95 shared a.go 2026-11-12T10:00:00Z
 mkgroup 603 96 shared other.go 2026-11-12T10:00:00Z
-mknote 604 open 2026-11-13T10:00:00Z '<!-- finding:PR98#notes -->\n- [ ] `shared` [OBSERVED] `a.go:3` the same remark'
+mknote 604 open 2026-11-13T10:00:00Z '<!-- finding:PR98#notes -->\n- [ ] `shared` [OBSERVED] `a.go:3` shared: same defect'
 run batch
 body="$(get 904 body)"
 [ "$(grep -c 'batch-item:' <<<"$body")" -eq 2 ] && ok "the same id and file on three sources (two findings, one note) is ONE row; the same id in another file is its own row" || ko "grouped rows ($body)"
@@ -306,13 +315,29 @@ reset
 mkgroup 611 91 missing-test a.go 2026-11-10T10:00:00Z open 3
 mkgroup 612 92 missing-test a.go 2026-11-11T10:00:00Z open 9
 mkgroup 613 93 missing-test a.go 2026-11-12T10:00:00Z open '?'
-mknote 614 open 2026-11-13T10:00:00Z '<!-- finding:PR94#notes -->\n- [ ] `missing-test` [OBSERVED] `a.go:3` the same remark as 611\n- [ ] `missing-test` [OBSERVED] `a.go:20` another remark'
+mknote 614 open 2026-11-13T10:00:00Z '<!-- finding:PR94#notes -->\n- [ ] `missing-test` [OBSERVED] `a.go:3` missing-test: same defect\n- [ ] `missing-test` [OBSERVED] `a.go:20` another remark'
 run batch
 body="$(get 904 body)"
 [ "$(grep -c 'batch-item:' <<<"$body")" -eq 4 ] && ok "same id and file at another line, or with no line, are separate rows (4 rows: 611 with note, 612, 613, the note at line 20)" || ko "line ignored ($body)"
 line="$(grep 'batch-item:#611' <<<"$body")"
 grep -q 'batch-also:#614/missing-test' <<<"$line" && ! grep -q '#612\|#613' <<<"$line" && ok "only the source at the same id, file and line joins the row" || ko "same line row ($line)"
 ! grep -q 'batch-also' <<<"$(grep 'batch-item:#612\|batch-item:#613' <<<"$body")" && ok "the other lines have no also-marker: settling one row cannot close their sources" || ko "also on other line ($body)"
+
+# #212 L8: the same id, file and line with ANOTHER title is a coincidence, never one row.
+reset
+mkgroup 621 91 shared a.go 2026-11-10T10:00:00Z open 3
+python3 -I - "$tmp/st/issues.json" <<'EOF'
+import json, sys
+p = sys.argv[1]
+d = json.load(open(p))
+d.append({"number": 622, "state": "open", "state_reason": None, "labels": ["finding", "sev:high", "due:before-freeze", "area:web"], "created_at": "2026-11-11T10:00:00Z",
+          "title": "PR92 shared: an unrelated defect", "body": "<!-- finding:PR92#shared -->\nFound by the AI review of PR #92 (t).\n\n- Where: `a.go:3`\n- Severity: HIGH\n"})
+json.dump(d, open(p, "w"))
+EOF
+run batch
+read -r -a bs <<<"$(batches)"
+body="$(get "${bs[0]}" body)"
+[ "$(grep -c 'batch-item:' <<<"$body")" -eq 2 ] && ! grep -q 'batch-also' <<<"$body" && ok "L8: the same id, file and line with another title are two rows (a coincidence never merges)" || ko "L8 ($body)"
 
 # ---------- rank keeps the due component (review note n-batch-rank-due, #152) ----------
 reset
