@@ -60,10 +60,14 @@ Fix rules (binding):
   When a fix needs one of them, do not make it: the verdict is OWNER with a one-line reason. The workflow labels the pull
   request `needs-owner` from your result; you never label, comment or @-mention anyone yourself.
 - No new dependency, no generated file edited by hand (run `make generate` only if the slice already needs it).
-- You may delegate one bounded item to a project agent (`go-implementer`, `web-implementer`, `postgres-expert`) with a
-  task contract (allowed paths, the failing test, the stop condition), as a project session does; you still check its
-  diff and run the gates yourself. Network tools other than `gh pr view` and `gh issue view` are not available. Tell the
-  agent that in CI its git reads and tests go through `fixer-run` too (a direct `go test` is denied).
+- Implement every fix through the project agent that owns the area, exactly as the lead session does: `web-implementer`
+  for `src/web/**`, `go-implementer` for `src/api/**`, `postgres-expert` for `db/queries/**` and SQL behaviour. Their
+  definitions in `.claude/agents/` (skills, preconditions, "never push, merge or deploy") apply in full. Give each one a
+  task contract: the finding id and its scenario, the allowed paths of the slice, the failing test to write first, the
+  gates, the stop condition. You frame the work, route it, then read the agent's diff and run the gates yourself; you do
+  not implement around an agent. Tell the agent that in CI its git reads and tests go through `fixer-run` (a direct
+  `go test` is denied) and that it never pushes (the trusted publish job does). Network tools other than `gh pr view`
+  and `gh issue view` are not available.
 
 Commands in CI: git reads, single tests and web scripts go through `fixer-run` (`fixer-run git status|diff|log|show
 ...`, `fixer-run go test ./src/api/... -run TestX -count=1`, `fixer-run pnpm --filter web run test|lint|typecheck|format:check`);
