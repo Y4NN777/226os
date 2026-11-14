@@ -211,7 +211,7 @@ func (h *Handler) SignUp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if body.Password == nil {
-		writeErr(h.logger, w, r, missingField("password"))
+		writeErr(h.logger, w, r, missingField("/password"))
 		return
 	}
 	err := h.svc.SignUp(r.Context(), service.SignUpInput{
@@ -234,7 +234,7 @@ func (h *Handler) SignIn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if body.Password == nil {
-		writeErr(h.logger, w, r, missingField("password"))
+		writeErr(h.logger, w, r, missingField("/password"))
 		return
 	}
 	res, err := h.svc.SignIn(r.Context(), service.SignInInput{
@@ -351,7 +351,7 @@ func (h *Handler) ConfirmPasswordReset(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if body.NewPassword == nil {
-		writeErr(h.logger, w, r, missingField("new_password"))
+		writeErr(h.logger, w, r, missingField("/new_password"))
 		return
 	}
 	if err := h.svc.ConfirmPasswordReset(r.Context(), body.Token, *body.NewPassword, clientIP(r)); err != nil {
