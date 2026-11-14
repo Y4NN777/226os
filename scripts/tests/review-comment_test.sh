@@ -44,7 +44,7 @@ REVIEW='{"body":"Triage: MEDIUM | blast radius: this PR only\n\nTool: PASS (99 f
 run() {
   rc=0
   : >"$tmp/calls.log"
-  out="$(PATH="$tmp/bin:$PATH" FX="$tmp" REPO=o/r PR_NUMBER=7 PR_HEAD_SHA="${HEAD_SHA:-}" REVIEW_OUTCOME="${OUTCOME:-success}" TOOL_LINE="${TOOL:-Tool: PASS (3 files)}" REVIEW_JSON="${JSON:-$REVIEW}" DEEP_PENDING="${DEEP_PENDING:-}" python3 -I "$tool" 2>&1)" || rc=$?
+  out="$(PATH="$tmp/bin:$PATH" FX="$tmp" REPO=o/r PR_NUMBER=7 PR_HEAD_SHA="${HEAD_SHA:-}" REVIEW_OUTCOME="${OUTCOME:-success}" TOOL_LINE="${TOOL:-Tool: PASS (3 files)}" REVIEW_JSON="${JSON:-$REVIEW}" DEEP_PENDING="${DEEP_PENDING:-}" REVIEW_RANGE="${RANGE-0123456789abcdef0123456789abcdef01234567..fedcba9876543210fedcba9876543210fedcba98}" REVIEW_NOW=14:05 GITHUB_OUTPUT="$tmp/gh-output" python3 -I "$tool" 2>&1)" || rc=$?
   calls="$(cat "$tmp/calls.log")"
 }
 
@@ -59,18 +59,33 @@ body="$(sed -n 's/^BODY //p' <<<"$calls" | python3 -I -c 'import json,sys; print
 [ "$(sed -n 1p <<<"$body")" = "Triage: MEDIUM | blast radius: this PR only" ] && [ "$(sed -n 2p <<<"$body")" = "<!-- 226os-ai-review -->" ] && [ "$(sed -n 3p <<<"$body")" = "Tool: PASS (3 files)" ] && ok "line 1 Triage, line 2 marker, line 3 the Tool line of the workflow" || ko "layout ($body)"
 ! grep -q 'PASS (99 files)' <<<"$body" && ok "a Tool line written by the model is dropped" || ko "model tool line ($body)"
 
-# The marker comment exists, plus an older duplicate Triage comment and another bot comment in between.
-comments "[{\"id\":1,\"node_id\":\"N1\",\"user\":{\"login\":\"$BOT\"},\"body\":\"Triage: MEDIUM | blast radius: x\\nold\",\"updated_at\":\"2026-11-14T11:00:00Z\"},{\"id\":2,\"node_id\":\"N2\",\"user\":{\"login\":\"$BOT\"},\"body\":\"Triage: NONE | blast radius: x\\n<!-- 226os-ai-review -->\\nTool: PASS (1 files)\",\"updated_at\":\"2026-11-14T09:00:00Z\"},{\"id\":3,\"node_id\":\"N3\",\"user\":{\"login\":\"$BOT\"},\"body\":\"Owner review requested.\",\"updated_at\":\"2026-11-14T12:00:00Z\"},{\"id\":4,\"node_id\":\"N4\",\"user\":{\"login\":\"Y4NN777\"},\"body\":\"Triage: NONE | blast radius: me\",\"updated_at\":\"2026-11-14T12:00:00Z\"}]"
+[ "$(sed -n 4p <<<"$body")" = "Reviewed: unknown (0123456..fedcba9) at 14:05 UTC" ] && ok "line 4 says what this run reviewed: head, range, time" || ko "reviewed line ($body)"
+grep -q '^comment_id=999$' "$tmp/gh-output" && ok "the new comment's id is written to GITHUB_OUTPUT (the deep job of the same run edits only it)" || ko "comment id output ($(cat "$tmp/gh-output" 2>/dev/null))"
+
+# One comment PER RUN: a second run creates a new comment and collapses every older bot review comment.
+comments "[{\"id\":1,\"node_id\":\"N1\",\"user\":{\"login\":\"$BOT\"},\"body\":\"Triage: MEDIUM | blast radius: x\\nold\",\"created_at\":\"2026-11-14T08:00:00Z\",\"updated_at\":\"2026-11-14T11:00:00Z\"},{\"id\":2,\"node_id\":\"N2\",\"user\":{\"login\":\"$BOT\"},\"body\":\"Triage: NONE | blast radius: x\\n<!-- 226os-ai-review -->\\nTool: PASS (1 files)\",\"created_at\":\"2026-11-14T09:00:00Z\",\"updated_at\":\"2026-11-14T09:00:00Z\"},{\"id\":3,\"node_id\":\"N3\",\"user\":{\"login\":\"$BOT\"},\"body\":\"Owner review requested.\",\"updated_at\":\"2026-11-14T12:00:00Z\"},{\"id\":4,\"node_id\":\"N4\",\"user\":{\"login\":\"Y4NN777\"},\"body\":\"Triage: NONE | blast radius: me\\n<!-- 226os-ai-review -->\",\"updated_at\":\"2026-11-14T12:00:00Z\"}]"
 run
-grep -q '^api -X PATCH repos/o/r/issues/comments/2$' <<<"$calls" && ! grep -q 'POST' <<<"$calls" && ok "the marker comment is edited by id, even when a duplicate was updated later" || ko "edit marker ($calls)"
-grep -q 'graphql.*id=N1' <<<"$calls" && ok "the older duplicate Triage comment is minimized as outdated" || ko "minimize ($calls)"
-! grep -q 'N3\|comments/3' <<<"$calls" && ! grep -q 'N4\|comments/4' <<<"$calls" && ok "another bot comment and a human Triage comment are never touched" || ko "untouched ($calls)"
+grep -q '^api -X POST repos/o/r/issues/7/comments$' <<<"$calls" && ! grep -q 'PATCH' <<<"$calls" && ok "a second run creates a new comment, it never edits an older one" || ko "create per run ($calls)"
+grep -q 'graphql.*id=N2' <<<"$calls" && grep -q 'graphql.*id=N1' <<<"$calls" && ok "every older bot review comment (marker or Triage) is minimized as outdated" || ko "minimize ($calls)"
+! grep -q 'N3\|comments/3' <<<"$calls" && ! grep -q 'N4\|comments/4' <<<"$calls" && ok "another bot comment and a human comment (even with the marker) are never touched" || ko "untouched ($calls)"
 ! grep -qi 'DELETE' <<<"$calls" && ok "nothing is ever deleted" || ko "delete ($calls)"
 
-# No marker (an older pull request): the most recently updated bot Triage comment is adopted and edited.
-comments "[{\"id\":1,\"node_id\":\"N1\",\"user\":{\"login\":\"$BOT\"},\"body\":\"Triage: MEDIUM | blast radius: x\",\"created_at\":\"2026-11-13T16:58:00Z\",\"updated_at\":\"2026-11-13T16:58:00Z\"},{\"id\":2,\"node_id\":\"N2\",\"user\":{\"login\":\"$BOT\"},\"body\":\"Triage: NONE | blast radius: x\",\"created_at\":\"2026-11-13T17:06:00Z\",\"updated_at\":\"2026-11-14T08:00:00Z\"}]"
-run
-grep -q '^api -X PATCH repos/o/r/issues/comments/2$' <<<"$calls" && grep -q 'graphql.*id=N1' <<<"$calls" && ok "no marker: the latest updated Triage comment is edited, the other minimized" || ko "adopt ($calls)"
+# The ledger carries forward: the previous comment's open entries (ids and statuses) the model left out are kept.
+python3 -I - "$tmp/comments.json" <<'PY2'
+import json, sys
+led = {"sha": "a" * 40, "findings": [{"id": "old-open", "kind": "finding", "sev": "MEDIUM", "status": "answered"}, {"id": "old-fixed", "kind": "finding", "sev": "MEDIUM", "status": "fixed"}, {"id": "dup", "kind": "finding", "sev": "MEDIUM", "status": "open"}, {"id": "d9", "kind": "finding", "sev": "HIGH", "status": "open", "source": "deep"}], "deep": {"status": "PASS", "sha": "a" * 40}}
+body = "Triage: MEDIUM | blast radius: x\n<!-- 226os-ai-review -->\nTool: PASS (1 files)\n\n<details><summary>Review ledger</summary>\n\n```json\n" + json.dumps(led) + "\n```\n\n</details>"
+json.dump([{"id": 2, "node_id": "N2", "user": {"login": "github-actions[bot]"}, "body": body, "created_at": "2026-11-14T09:00:00Z"}], open(sys.argv[1], "w"))
+PY2
+HEAD_SHA=0123456789abcdef0123456789abcdef01234567 JSON='{"body":"Triage: MEDIUM | blast radius: x\n\n<details><summary>Review ledger</summary>\n\n```json\n{\"sha\":\"x\",\"findings\":[{\"id\":\"dup\",\"kind\":\"finding\",\"sev\":\"MEDIUM\",\"status\":\"fixed\"},{\"id\":\"new\",\"kind\":\"finding\",\"sev\":\"MEDIUM\",\"status\":\"open\"}]}\n```\n\n</details>"}' run
+python3 -I -c '
+import json, re, sys
+body = json.loads(sys.stdin.read().split("BODY ", 1)[1].splitlines()[0])["body"]
+d = json.loads(re.search(r"```json\s*(\{.*?\})\s*```", body, re.S).group(1))
+f = {x["id"]: x for x in d["findings"]}
+assert f["dup"]["status"] == "fixed" and f["new"]["status"] == "open"
+assert f["old-open"]["status"] == "answered" and "old-fixed" not in f
+assert f["d9"].get("source") == "deep" and "deep" not in d' <<<"$calls" && ok "the ledger carries the previous comment's entries forward (ids and statuses kept, fixed ones dropped)" || ko "carry forward ($calls)"
 
 # posted_body: the body of the last write in the call log.
 posted_body() { sed -n 's/^BODY //p' <<<"$calls" | tail -1 | python3 -I -c 'import json,sys; print(json.load(sys.stdin)["body"])'; }
@@ -109,7 +124,7 @@ json.dump([{"id": 2, "node_id": "N2", "user": {"login": "github-actions[bot]"}, 
 PY
 HEAD_SHA="$head_sha" OUTCOME=failure JSON='{}' run
 pb="$(posted_body)"
-[ "$rc" -eq 0 ] && grep -q '^api -X PATCH repos/o/r/issues/comments/2$' <<<"$calls" && [ "$(sed -n 1p <<<"$pb")" = "Triage: NOT RUN | the review step ended with failure and returned no text" ] && [ "$(sed -n 2p <<<"$pb")" = "<!-- 226os-ai-review -->" ] && ok "no review text (timeout or failure): the marker comment says Triage: NOT RUN with the reason" || ko "not run comment (rc=$rc $calls $pb)"
+[ "$rc" -eq 0 ] && grep -q '^api -X POST repos/o/r/issues/7/comments$' <<<"$calls" && grep -q 'graphql.*id=N2' <<<"$calls" && [ "$(sed -n 1p <<<"$pb")" = "Triage: NOT RUN | the review step ended with failure and returned no text" ] && [ "$(sed -n 2p <<<"$pb")" = "<!-- 226os-ai-review -->" ] && ok "no review text (timeout or failure): a new marker comment says Triage: NOT RUN with the reason, the older one collapsed" || ko "not run comment (rc=$rc $calls $pb)"
 [ "$(ledger_sha)" = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" ] && grep -q '"keep"' <<<"$pb" && ok "a NOT RUN comment carries the previous ledger, never the head" || ko "not run ledger ($pb)"
 # A CRITICAL stays a CRITICAL when the next push gives no review (max turns, timeout): the gate still blocks.
 python3 -I - "$tmp/comments.json" <<'PY'
@@ -144,7 +159,7 @@ ledger_of() { python3 -I -c 'import json,re,sys; m=re.search(r"```json\s*(\{.*?\
 # DEEP_PENDING: line 4 says the deep review runs next (auto-merge refuses until the deep job replaces it).
 comments '[]'
 DEEP_PENDING=true run
-[ "$(sed -n 's/^BODY //p' <<<"$calls" | python3 -I -c 'import json,sys; print(json.load(sys.stdin)["body"])' | sed -n 4p)" = "Deep: PENDING (a P0 path is touched: the deep review runs next)" ] && ok "DEEP_PENDING=true writes the Deep: PENDING line 4" || ko "deep pending ($calls)"
+[ "$(sed -n 's/^BODY //p' <<<"$calls" | python3 -I -c 'import json,sys; print(json.load(sys.stdin)["body"])' | sed -n 5p)" = "Deep: PENDING (a P0 path is touched: the deep review runs next)" ] && ok "DEEP_PENDING=true writes the Deep: PENDING line 4" || ko "deep pending ($calls)"
 
 # --- deep review: merged into the same comment and ledger (subcommand deep) ---
 HEAD_SHA=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
@@ -153,7 +168,7 @@ DEEP='{"level":"HIGH","blast_radius":"other people'"'"'s work","summary":"Triage
 deep() {
   rc=0
   : >"$tmp/calls.log"
-  out="$(PATH="$tmp/bin:$PATH" FX="$tmp" REPO=o/r PR_NUMBER=7 PR_HEAD_SHA="$HEAD_SHA" DEEP_JSON="${DJSON-$DEEP}" python3 -I "$tool" deep 2>&1)" || rc=$?
+  out="$(PATH="$tmp/bin:$PATH" FX="$tmp" REPO=o/r PR_NUMBER=7 PR_HEAD_SHA="$HEAD_SHA" DEEP_JSON="${DJSON-$DEEP}" REVIEW_COMMENT_ID="${CID:-}" python3 -I "$tool" deep 2>&1)" || rc=$?
   calls="$(cat "$tmp/calls.log")"
 }
 comments "[{\"id\":2,\"node_id\":\"N2\",\"user\":{\"login\":\"$BOT\"},\"body\":\"$base_review\",\"updated_at\":\"2026-11-14T09:00:00Z\"}]"
@@ -183,11 +198,22 @@ DJSON='' deep
 body="$(posted)"
 [ "$(sed -n 1p <<<"$body")" = "Triage: MEDIUM | blast radius: this PR only" ] && [ "$(sed -n 4p <<<"$body")" = "Deep: NOT RUN (the deep review returned no structured output)" ] && python3 -I -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["deep"]["status"]=="NOT RUN"' "$(ledger_of <<<"$body")" && ok "deep: no output is Deep NOT RUN, recorded in the ledger" || ko "deep not run ($body)"
 
-# The standard review was NOT RUN: the verdict stays NOT RUN, the sha is not set to the head.
+# The standard review of this run was NOT RUN (its comment id is passed): the verdict stays NOT RUN, the sha is not set.
+comments "[{\"id\":5,\"node_id\":\"N5\",\"user\":{\"login\":\"$BOT\"},\"body\":\"Triage: NOT RUN | the review step ended with failure and returned no text\\n<!-- 226os-ai-review -->\\nTool: PASS (1 files)\\nReviewed: none\",\"created_at\":\"2026-11-14T10:00:00Z\"}]"
+CID=5 deep
+body="$(posted)"
+grep -q '^api -X PATCH repos/o/r/issues/comments/5$' <<<"$calls" && sed -n 1p <<<"$body" | grep -q '^Triage: NOT RUN | ' && [ "$(sed -n 4p <<<"$body")" = "Reviewed: none" ] && [ "$(sed -n 5p <<<"$body")" = "Deep: PASS (1 finding, 1 note)" ] && python3 -I -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["sha"]=="" and d["deep"]["status"]=="PASS"' "$(ledger_of <<<"$body")" && ok "deep: merges into its own run's comment (by id) after the Reviewed line; a NOT RUN verdict stays NOT RUN" || ko "deep over not run ($calls $body)"
+
+# A newer push already has a newer review comment: the deep job never edits the older one (stale, NOT RUN).
+older="Triage: NONE | blast radius: x\\n<!-- 226os-ai-review -->\\nTool: PASS (1 files)\\n\\n<details><summary>Review ledger</summary>\\n\\n\`\`\`json\\n{\\\"sha\\\":\\\"$HEAD_SHA\\\",\\\"findings\\\":[]}\\n\`\`\`\\n\\n</details>"
+comments "[{\"id\":5,\"node_id\":\"N5\",\"user\":{\"login\":\"$BOT\"},\"body\":\"$older\",\"created_at\":\"2026-11-14T10:00:00Z\"},{\"id\":6,\"node_id\":\"N6\",\"user\":{\"login\":\"$BOT\"},\"body\":\"Triage: NONE | blast radius: x\\n<!-- 226os-ai-review -->\",\"created_at\":\"2026-11-14T11:00:00Z\"}]"
+CID=5 deep
+[ "$rc" -eq 0 ] && ! grep -q 'PATCH\|POST' <<<"$calls" && grep -q 'NOT RUN (stale' <<<"$out" && ok "deep: a newer review comment exists: the stale run edits nothing (NOT RUN, stale)" || ko "deep stale id ($out $calls)"
+deep
+[ "$rc" -eq 0 ] && ! grep -q 'PATCH\|POST' <<<"$calls" && grep -q 'NOT RUN (stale' <<<"$out" && ok "deep without an id: the comment whose ledger sha is the head is found, and skipped when a newer one exists" || ko "deep stale sha ($out $calls)"
 comments '[]'
 deep
-body="$(posted)"
-sed -n 1p <<<"$body" | grep -q '^Triage: NOT RUN | ' && python3 -I -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["sha"]=="" and d["deep"]["status"]=="PASS"' "$(ledger_of <<<"$body")" && ok "deep: when the standard review left no comment, the verdict stays NOT RUN and the sha is not the head" || ko "deep over not run ($body)"
+[ "$rc" -eq 0 ] && ! grep -q 'PATCH\|POST' <<<"$calls" && grep -q 'NOT RUN' <<<"$out" && ok "deep: no review comment of this run: nothing is written" || ko "deep none ($out $calls)"
 
 # deep-needed: P0 paths from the two lists of ROOT.
 mkdir -p "$tmp/root/.github"

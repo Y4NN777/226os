@@ -2,8 +2,8 @@
 #
 # Job `review` (advisory): Claude Code (anthropics/claude-code-action, Claude Code OAuth login) performs the review;
 # open-code-review, pinned and run through scripts/review.sh, only selects the files and supplies the 226os rules
-# (.opencodereview/rule.json), like the local /delegate-review command. It keeps ONE summary comment per pull request
-# (edited in place, with a fenced JSON ledger of its findings) and its failure never blocks a merge. After it ran,
+# (.opencodereview/rule.json), like the local /delegate-review command. It writes ONE summary comment PER RUN
+# (a new comment each run, with a fenced JSON ledger carried forward; older ones are minimized as outdated) and its failure never blocks a merge. After it ran,
 # `scripts/review-ping.py` (from the BASE branch) labels the pull request `needs-owner` and asks the owner for a review
 # when a CRITICAL or HIGH finding is still open.
 #
@@ -20,7 +20,7 @@
 # stage 2 `deep` (below, only when the pull request touches a P0 path: .github/sensitive-paths.txt plus
 # .github/deep-review-paths.txt) runs an adversarial review (.claude/commands/deep-review.md, the skeptic's mandate,
 # Opus; tools Read, Grep, Glob, gh pr diff/view, Skill, Agent only: no git command, since `git diff`/`git show` accept
-# `--output=<file>`) on the same Range and merges its findings into the SAME comment and ledger (`"source":"deep"`, through
+# `--output=<file>`) on the same Range and merges its findings into the comment and ledger of the SAME run (`"source":"deep"`, through
 # scripts/review-comment.py deep); stage 4 is .github/workflows/review-automerge.yml. An empty or invalid review output
 # writes `Triage: NOT RUN | <reason>` (never a pass: the gate says NOT RUN, auto-merge refuses).
 #
@@ -81,6 +81,7 @@ jobs:
     outputs:
       decision: ${{ steps.pack.outputs.decision }}
       deep: ${{ steps.deep.outputs.deep }}
+      comment_id: ${{ steps.write.outputs.comment_id }}
     steps:
       - name: Checkout the pull request (full history for the merge base)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -250,7 +251,7 @@ jobs:
             and script files yourself (Step 1b) and apply the logic lens of Step 3 to every "Read first" pointer. Obey
             the calibration of the project context (at most 5 findings plus 3 notes). Do not post the summary
             yourself: return its full text as `body` in your structured output (first line `Triage:`, no `Tool:`
-            line); the workflow writes the one review comment. It ends with the fenced JSON ledger inside <details>,
+            line); the workflow writes this run's review comment. It ends with the fenced JSON ledger inside <details>,
             whose sha is the pack's Head commit (Step 4). Inline comments only for HIGH and
             CRITICAL; do not @-mention anyone (the workflow pings the owner). A CRITICAL must cite file:line and be
             marked OBSERVED, otherwise rate it HIGH. Never block: do not request changes.
@@ -265,10 +266,12 @@ jobs:
             --json-schema '{"type":"object","properties":{"body":{"type":"string","description":"The full review summary comment, first line Triage:"}},"required":["body"],"additionalProperties":false}'
             --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr diff:*),Bash(gh pr view:*),Read,Grep,Glob"
 
-      # The one review comment, written deterministically from the BASE script: line 1 Triage, line 2 the marker, line 3
-      # the Tool line of the preview step; the marker comment is edited by id (else created), older bot Triage
-      # duplicates are minimized as outdated, never deleted. Fails open.
+      # The review comment of THIS run, written deterministically from the BASE script: line 1 Triage, line 2 the marker,
+      # line 3 the Tool line of the preview step, line 4 `Reviewed: <head> (<range>) at <UTC time>`. A new comment every
+      # run (the timeline stays visible); every older bot review comment is minimized as outdated, never deleted. Its id
+      # goes to the deep job. Fails open.
       - name: Write the review comment
+        id: write
         if: always() && steps.pack.outputs.decision != 'skip'
         env:
           GH_TOKEN: ${{ github.token }}
@@ -280,6 +283,9 @@ jobs:
           TOOL_LINE: ${{ steps.preview.outputs.tool_line }}
           DEEP_PENDING: ${{ steps.deep.outputs.deep }}
         run: |
+          from="$(sed -n 's/^PREVIEW_FROM: //p' .review-context.md | head -1)"
+          to="$(sed -n 's/^PREVIEW_TO: //p' .review-context.md | head -1)"
+          export REVIEW_RANGE="${from:-?}..${to:-?}"
           if [ -f "$RUNNER_TEMP/base-scripts/review-comment.py" ]; then
             python3 -I "$RUNNER_TEMP/base-scripts/review-comment.py"
           else
@@ -417,8 +423,9 @@ jobs:
             --json-schema '{"type":"object","properties":{"level":{"type":"string","enum":["CRITICAL","HIGH","MEDIUM","NONE"]},"blast_radius":{"type":"string"},"summary":{"type":"string"},"findings":{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"},"kind":{"type":"string","enum":["finding","note"]},"evidence":{"type":"string","enum":["OBSERVED","INFERRED"]},"sev":{"type":"string","enum":["CRITICAL","HIGH","MEDIUM","LOW"]},"file":{"type":"string"},"line":{"type":"integer"},"scenario":{"type":"string"},"status":{"type":"string","enum":["open","answered","accepted","fixed"]}},"required":["id","kind","evidence","sev","file","line","scenario","status"],"additionalProperties":false}}},"required":["level","blast_radius","summary","findings"],"additionalProperties":false}'
             --allowedTools "Bash(gh pr diff:*),Bash(gh pr view:*),Read,Grep,Glob,Skill,Agent"
 
-      # Merge into the one review comment and its ledger (entries tagged "source":"deep", Deep line on line 4, the
-      # deep sha recorded); an empty or invalid output writes `Deep: NOT RUN`. From the BASE commit. Fails open.
+      # Merge into this run's review comment and its ledger (entries tagged "source":"deep", the Deep line after the
+      # Reviewed line, the deep sha recorded); an empty or invalid output writes `Deep: NOT RUN`. A newer review comment
+      # (a newer push) makes this run stale: nothing is edited. From the BASE commit. Fails open.
       - name: Merge the deep findings into the review comment
         if: ${{ !cancelled() }}
         env:
@@ -427,6 +434,8 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           DEEP_JSON: ${{ steps.deep.outputs.structured_output }}
+          # The comment this run's review created: the deep merge edits only it (a newer one means stale: skipped).
+          REVIEW_COMMENT_ID: ${{ needs.review.outputs.comment_id }}
         run: python3 -I "$RUNNER_TEMP/base-scripts/review-comment.py" deep
 
       - name: Ping the owner when a CRITICAL or HIGH is open

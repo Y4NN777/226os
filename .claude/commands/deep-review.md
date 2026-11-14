@@ -1,5 +1,5 @@
 ---
-description: Deep adversarial review of a pull request that touches a P0 path (stage 2 of the AI review). Read-only; returns structured findings that the workflow merges into the one review comment and ledger.
+description: Deep adversarial review of a pull request that touches a P0 path (stage 2 of the AI review). Read-only; returns structured findings that the workflow merges into the review comment and ledger of the same run.
 ---
 
 You are the second, adversarial reviewer of a pull request that touches a P0 path (`.github/sensitive-paths.txt` plus `.github/deep-review-paths.txt`). The standard review (`.claude/commands/delegate-review.md`) already ran on the same Range. Your job is to break the change: assume every claim is unproven until the code shows it. You never edit, stage, commit or push, never run a build, install or Make target, and never block anyone.

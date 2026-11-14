@@ -159,6 +159,19 @@ reset; renamed src/api/internal/other/x.go src/api/internal/identity/service/x.g
 reset; renamed scripts/old-gate.py scripts/review-gate.py; pull open develop o/r false '[]' Y4NN777; review_comment "Triage: NONE | blast radius: x" "$SENS_OK"; run report
 grep -q 'review pipeline (scripts/review-gate.py' <<<"$out" && ok "a rename out of scripts/review-gate.py is a pipeline path" || ko "rename pipeline ($out)"
 
+# One comment PER RUN: auto-merge reads the newest created marker comment, not an older run's comment edited later.
+reset
+python3 -I - "$tmp/fx/comments.json" "$H" "$OLD" <<'PY2'
+import json, sys
+p, head, old = sys.argv[1:4]
+def body(triage, sha):
+    return "%s\n<!-- 226os-ai-review -->\nTool: PASS (2 files)\n\n<details><summary>Review ledger</summary>\n\n```json\n%s\n```\n\n</details>" % (triage, json.dumps({"sha": sha, "findings": []}))
+json.dump([{"id": 1, "user": {"login": "github-actions[bot]"}, "body": body("Triage: NONE | blast radius: x", old), "created_at": "2026-11-14T09:00:00Z", "updated_at": "2026-11-14T12:00:00Z"},
+           {"id": 2, "user": {"login": "github-actions[bot]"}, "body": body("Triage: NONE | blast radius: x", head), "created_at": "2026-11-14T10:00:00Z", "updated_at": "2026-11-14T10:00:00Z"}], open(p, "w"))
+PY2
+run on
+grep -q 'pr merge 7' <<<"$calls" && ok "auto-merge reads the newest created review comment (its ledger covers the head)" || ko "newest run automerge ($out)"
+
 # --- review pipeline paths: never auto-merged; with AUTO_MERGE=on labelled needs-owner with a one-line reason ---
 pipeline_ok() { review_comment "Triage: NONE | blast radius: x" "{\"sha\":\"$H\",\"findings\":[],\"deep\":{\"status\":\"PASS\",\"sha\":\"$H\"}}"; pull open develop o/r false '[]' Y4NN777; }
 reset; files scripts/review-gate.py; pipeline_ok; run on
