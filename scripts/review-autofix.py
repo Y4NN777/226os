@@ -13,18 +13,25 @@ whether its commits may be pushed. The workflows only call this script; the mode
          batch" issue when the batch step created or updated it (BATCH_RESULT; FORCE=true on a manual run), unless a
          pull request from a fix/review/batch-* branch into develop is already open. Branch fix/review/batch-TODAY,
          with a -2, -3... suffix when that branch exists.
+  apply  the trusted job's way in: validates the patch files of PATCH_DIR (at most 20, at most 1 MB in all, names
+         NNNN-slug.patch), then applies each one with `git apply --index` and commits it itself as EXPECT_NAME
+         <EXPECT_EMAIL> (author and committer), hooks off: the untrusted job's From: line is never trusted.
   check  the guard before any push, run from a trusted copy: at least one new commit since BASE_SHA; every author and
-         committer is EXPECT_NAME <EXPECT_EMAIL>; no Co-authored-by trailer and no "Generated with" line; no changed
-         path the owner keeps (api/openapi.yaml R7, db/migrations R6, ADRs, secrets, .env files, .github, the Claude
-         harness, the review workspace files, any .npmrc, the owner's preferences). Exit 1 with the reason on a failure.
-         The publishing job runs it after `git am` of the fixer's patch, in a fresh checkout where no pull request
-         code ever ran; only then is the bot token used.
-  run    `run CMD ARGS...`, installed as `fixer-run` for the model: the only way it runs git (status, diff, log, show,
-         without a pager), go test and `pnpm --filter web run test|lint|typecheck|format:check`; any argument that
-         writes a file or runs a program (-o, --output, -exec, -toolexec, a profile file) is refused.
+         committer is EXPECT_NAME <EXPECT_EMAIL>; no Co-authored-by trailer and no "Generated with" line; no symbolic
+         link, submodule, file mode change or binary change; and no changed path, on EITHER side of a change (renames
+         are split, paths read NUL-separated so a quoted name cannot hide), that the owner keeps: the contract (R7),
+         migrations (R6), ADRs, docs/quality, secrets, .env files, any .npmrc, .github, the Claude harness, Make files,
+         the review, findings, coverage and check scripts, the route and secret-scan lists, the owner's preferences.
+         Exit 1 with the reason; the workflow then labels needs-owner.
+  run    `run CMD ARGS...`, installed as `fixer-run` for the model: git status|diff|log|show with an allowlist of
+         options, go test with an allowlist of flags (-run, -count, -race, -tags, -v, -timeout) and ./ package paths,
+         `pnpm --filter web run test|lint|typecheck|format:check` with paths only. With FIXER_NETNS=1, go test and pnpm
+         run in a namespace without network (`unshare -rn`). DEFENCE IN DEPTH, NOT A BOUNDARY: make, go test and pnpm
+         run code the pull request controls; the boundary is that the job running them holds no write token.
   body   the batch pull request body from the fixer's structured result (RESULT_JSON): it names the batch issue
          (#ISSUE, which closes the batch on merge) and has one table row per item (item, source, decision, reason): FIXED,
-         FIXED ELSEWHERE, NOT A DEFECT, DECIDED, OWNER or AFTER FREEZE. `findings.py settle` reads it on merge. Model text is data: @-mentions are neutralised, pipes escaped.
+         FIXED ELSEWHERE, NOT A DEFECT, DECIDED, OWNER or AFTER FREEZE. `findings.py settle` reads it on merge. Model text is data: @-mentions and #N references (so closing keywords)
+         are neutralised, pipes escaped.
 
 Mode: AUTO_FIX = off | report (default: says what it would do, writes nothing) | on. HAS_TOKEN must be `true` (the
 workflow passes `secrets.REVIEW_BOT_TOKEN != ''`): without it, "autofix: NOT RUN (REVIEW_BOT_TOKEN missing)" and
@@ -36,6 +43,7 @@ Environment: REPO, PR_NUMBER, RUN_ID, RUN_HEAD_SHA, BATCH_RESULT, FORCE, TODAY (
 EXPECT_NAME, EXPECT_EMAIL, ISSUE, RESULT_JSON, GH_BIN (default gh), GIT_BIN (default git).
 """
 import datetime
+import fnmatch
 import importlib.util
 import json
 import os
@@ -52,14 +60,30 @@ PROTECTED_HEADS = ("main", "develop")
 VERDICTS = ("FIXED", "FIXED ELSEWHERE", "NOT A DEFECT", "DECIDED", "OWNER", "AFTER FREEZE")
 # Paths the fixer never changes: the contract (R7), migrations (R6), decisions, secrets, CI, the harness itself and the
 # files the workflows leave in the workspace.
-FORBIDDEN_EXACT = ("api/openapi.yaml", "CLAUDE.md", "AGENTS.md", "docs/team/OWNER_PREFERENCES.md")
-FORBIDDEN_PREFIX = ("db/migrations/", "docs/decisions/", "secrets/", ".github/", ".claude/")
+FORBIDDEN_EXACT = ("api/openapi.yaml", "CLAUDE.md", "CLAUDE.local.md", "AGENTS.md", "docs/team/OWNER_PREFERENCES.md",
+                   "Makefile", "scripts/findings.py", "scripts/close-merged-issues.py", "scripts/gitleaks-ignore.txt",
+                   "scripts/public-routes.txt", "scripts/unimplemented-routes.txt", "scripts/authz-tests.txt",
+                   ".mcp.json", ".claude.json", ".gitmodules")
+FORBIDDEN_PREFIX = ("db/migrations/", "docs/decisions/", "docs/quality/", "secrets/", ".github/", ".claude/", "mk/",
+                    ".husky/")
+FORBIDDEN_GLOB = ("scripts/review-*.py", "scripts/coverage-*.sh", "scripts/check-*.py", "scripts/check-*.sh")
 FORBIDDEN_NAMES = (".npmrc",)
-# The wrapper of the fixer's commands (`run`): only these, and never an argument that writes a file or runs a program.
+# The wrapper of the fixer's commands (`run`): allowlists of subcommands, options and flags (defence in depth).
 WEB_SCRIPTS = ("test", "lint", "typecheck", "format:check")
-GIT_READ = ("status", "diff", "log", "show")
-BANNED_ARG = re.compile(r"^(-o|--o|-{1,2}(exec|toolexec|c$|coverprofile|cpuprofile|memprofile|blockprofile|mutexprofile|trace|outputdir))")
-SAFE_ARGS = ("--oneline",)
+GIT_OPTIONS = {
+    "status": {"--short", "-s", "--porcelain", "-b", "--branch"},
+    "diff": {"--stat", "--cached", "--staged", "--name-only", "--name-status", "--no-color", "--"},
+    "log": {"--oneline", "--stat", "--name-only", "--no-color", "-p", "--"},
+    "show": {"--stat", "--name-only", "--no-color", "--"},
+}
+GIT_NUMERIC = re.compile(r"^-(\d{1,4}|U\d{1,2})$")
+GO_VALUE_FLAGS = {"-run": re.compile(r"^[\w^$|().*+\[\]/-]{1,200}$"), "-count": re.compile(r"^\d{1,3}$"),
+                  "-tags": re.compile(r"^[\w,]{1,60}$"), "-timeout": re.compile(r"^\d{1,4}[smh]$")}
+GO_BOOL_FLAGS = ("-race", "-v")
+GO_PACKAGE = re.compile(r"^\./[\w./-]*$|^\.$")
+PATCH_NAME = re.compile(r"^[0-9]{4}-[a-z0-9-]+\.patch$")
+MAX_PATCHES = 20
+MAX_PATCH_BYTES = 1000000
 ITEM_KEY = re.compile(r"^#\d+(?:/[\w-]+)?$")
 TRAILER = re.compile(r"^\s*co-authored-by:|generated with", re.I | re.M)
 
@@ -270,6 +294,7 @@ def git_out(git, worktree, *args):
 def forbidden(path):
     name = path.rsplit("/", 1)[-1]
     return (path in FORBIDDEN_EXACT or path.startswith(FORBIDDEN_PREFIX) or name.startswith(".env") or name in FORBIDDEN_NAMES
+            or any(fnmatch.fnmatchcase(path, g) for g in FORBIDDEN_GLOB)
             or (("/" not in path) and name.startswith((".review-", ".autofix-"))))
 
 
@@ -286,7 +311,28 @@ def check_commits(git, worktree, base, name, email):
             return "commit %s has another identity than %s (author %s, committer %s)" % (sha[:12], name, an, cn)
         if TRAILER.search(body):
             return "commit %s has an AI trailer or a Generated with line" % sha[:12]
-    bad = [p for p in git_out(git, worktree, "diff", "--name-only", base, "HEAD").split("\n") if p and forbidden(p)]
+    # NUL-separated and without rename detection: both sides of a move are listed, and no path comes back quoted.
+    tokens = git_out(git, worktree, "diff", "--raw", "-z", "--no-renames", "--no-abbrev", base, "HEAD").split("\x00")
+    paths, i = [], 0
+    while i < len(tokens):
+        head = tokens[i]
+        if not head.startswith(":"):
+            i += 1
+            continue
+        old_mode, new_mode = head[1:].split()[:2]
+        path = tokens[i + 1] if i + 1 < len(tokens) else ""
+        i += 2
+        paths.append(path)
+        if "120000" in (old_mode, new_mode):
+            return "a symlink is changed: %s" % path
+        if "160000" in (old_mode, new_mode):
+            return "a submodule is changed: %s" % path
+        if "000000" not in (old_mode, new_mode) and old_mode != new_mode:
+            return "a file mode change: %s (%s to %s)" % (path, old_mode, new_mode)
+    for entry in git_out(git, worktree, "diff", "--numstat", "-z", "--no-renames", base, "HEAD").split("\x00"):
+        if entry.startswith("-\t-\t"):
+            return "a binary change: %s" % entry[4:]
+    bad = [p for p in paths if p and forbidden(p)]
     if bad:
         return "owner paths changed: %s" % ", ".join(bad[:10])
     return None
@@ -310,8 +356,58 @@ def cmd_check():
     return 0
 
 
+def cmd_apply():
+    """Validate the patch files, then apply and commit each one here, as the human identity (never the patch's From:)."""
+    git, worktree = os.environ.get("GIT_BIN", "git"), os.environ.get("WORKTREE", ".")
+    folder, name, email = os.environ.get("PATCH_DIR", ""), os.environ.get("EXPECT_NAME", ""), os.environ.get("EXPECT_EMAIL", "")
+    try:
+        files = sorted(f for f in os.listdir(folder) if os.path.isfile(os.path.join(folder, f)))
+    except OSError:
+        files = []
+    reason = None
+    if not name or not email:
+        reason = "EXPECT_NAME and EXPECT_EMAIL are required"
+    elif not files:
+        reason = "no patch file"
+    elif len(files) > MAX_PATCHES:
+        reason = "too many patch files (%d, at most %d)" % (len(files), MAX_PATCHES)
+    elif any(not PATCH_NAME.match(f) for f in files):
+        reason = "a patch file name is not NNNN-slug.patch"
+    elif sum(os.path.getsize(os.path.join(folder, f)) for f in files) > MAX_PATCH_BYTES:
+        reason = "the patches are too large (more than %d bytes)" % MAX_PATCH_BYTES
+    if reason:
+        print("autofix apply: FAILED (%s)" % reason)
+        return 1
+    start = git_out(git, worktree, "rev-parse", "HEAD").strip()
+    env = dict(os.environ, GIT_AUTHOR_NAME=name, GIT_AUTHOR_EMAIL=email, GIT_COMMITTER_NAME=name, GIT_COMMITTER_EMAIL=email)
+    quiet = ["-c", "core.hooksPath=/dev/null"]
+    try:
+        for f in files:
+            msg, diff = os.path.join(folder, ".msg"), os.path.join(folder, ".diff")
+            with open(os.path.join(folder, f), "rb") as fh:
+                info = subprocess.run([git, "-C", worktree, "mailinfo", msg, diff], stdin=fh, capture_output=True, timeout=60, check=True)
+            subject = next((l[9:] for l in info.stdout.decode("utf-8", "replace").splitlines() if l.startswith("Subject: ")), "")
+            with open(msg, encoding="utf-8", errors="replace") as fh:
+                body = fh.read().strip()
+            if not subject:
+                raise RuntimeError("%s has no subject" % f)
+            subprocess.run([git, "-C", worktree, *quiet, "apply", "--index", diff], capture_output=True, timeout=60, check=True)
+            subprocess.run([git, "-C", worktree, *quiet, "commit", "-q", "--no-verify", "-m", subject + ("\n\n" + body if body else "")],
+                           env=env, capture_output=True, timeout=60, check=True)
+            for tmp in (msg, diff):
+                os.remove(tmp)
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired, OSError, RuntimeError) as exc:
+        subprocess.run([git, "-C", worktree, "reset", "-q", "--hard", start], capture_output=True, timeout=60, check=False)
+        print("autofix apply: FAILED (%s does not apply: %s); nothing was kept" % (f, type(exc).__name__))
+        return 1
+    print("autofix apply: PASS (%d patch(es) committed as %s)" % (len(files), name))
+    return 0
+
+
 def cell(text, width=300):
     text = re.sub(r"@(?=[A-Za-z0-9_-])", "@" + chr(0x200B), " ".join(str(text or "").split()))
+    # A reference written by the model never links or closes anything: `fixes #5` becomes `fixes #\u200b5`.
+    text = re.sub(r"#(?=\d)", "#" + chr(0x200B), text)
     text = text.replace("|", "\\|")
     return text if len(text) <= width else text[: width - 1] + "..."
 
@@ -351,15 +447,44 @@ def cmd_body():
     return 0
 
 
+def git_args_ok(sub, args):
+    allowed = GIT_OPTIONS[sub]
+    return all((a in allowed or GIT_NUMERIC.match(a)) if a.startswith("-") else True for a in args)
+
+
+def go_args_ok(args):
+    i, packages = 0, 0
+    while i < len(args):
+        a = args[i]
+        name, eq, value = a.partition("=")
+        if name in GO_VALUE_FLAGS:
+            if not eq:
+                if i + 1 >= len(args):
+                    return False
+                value = args[i + 1]
+                i += 1
+            if not GO_VALUE_FLAGS[name].match(value):
+                return False
+        elif a in GO_BOOL_FLAGS:
+            pass
+        elif GO_PACKAGE.match(a):
+            packages += 1
+        else:
+            return False
+        i += 1
+    return True
+
+
 def wrapped(argv):
-    """The argv to execute for a fixer command, or None when it is not allowed."""
-    if not argv or any(BANNED_ARG.match(a) and a not in SAFE_ARGS for a in argv[1:]):
+    """The argv to execute for a fixer command, or None when it is not allowed (allowlists only)."""
+    if not argv:
         return None
-    if argv[0] == "git" and len(argv) > 1 and argv[1] in GIT_READ:
+    if argv[0] == "git" and len(argv) > 1 and argv[1] in GIT_OPTIONS and git_args_ok(argv[1], argv[2:]):
         return ["git", "--no-pager"] + argv[1:]
-    if argv[0] == "go" and len(argv) > 1 and argv[1] == "test":
+    if argv[:2] == ["go", "test"] and go_args_ok(argv[2:]):
         return argv
-    if argv[:4] == ["pnpm", "--filter", "web", "run"] and len(argv) > 4 and argv[4] in WEB_SCRIPTS:
+    if (argv[:4] == ["pnpm", "--filter", "web", "run"] and len(argv) > 4 and argv[4] in WEB_SCRIPTS
+            and all(a == "--" or not a.startswith("-") for a in argv[5:])):
         return argv
     return None
 
@@ -369,9 +494,14 @@ def cmd_run(argv):
     command, and any argument that writes a file or runs a program (-o, --output, -exec, -coverprofile, ...)."""
     target = wrapped(argv)
     if target is None:
-        print("fixer-run: refused (allowed: git status|diff|log|show, go test, pnpm --filter web run "
-              "test|lint|typecheck|format:check; never -o, --output, -exec or a profile file): %s" % " ".join(argv[:6]))
+        print("fixer-run: refused (allowed: git status|diff|log|show with a few read options, go test with -run, -count, "
+              "-race, -tags, -v, -timeout and ./ packages, pnpm --filter web run test|lint|typecheck|format:check with "
+              "paths): %s" % " ".join(argv[:6]))
         return 2
+    if os.environ.get("FIXER_NETNS") == "1" and target[0] in ("go", "pnpm"):
+        # No network for code the pull request controls; modules and packages were installed before.
+        os.environ.update({"GOPROXY": "off", "GOTOOLCHAIN": "local"})
+        target = ["unshare", "-rn"] + target
     os.execvp(target[0], target)
     return 0  # not reached
 
@@ -380,9 +510,9 @@ def main():
     sub = sys.argv[1] if len(sys.argv) > 1 else ""
     if sub == "run":
         return cmd_run(sys.argv[2:])
-    commands = {"pr": cmd_pr, "batch": cmd_batch, "check": cmd_check, "body": cmd_body}
+    commands = {"pr": cmd_pr, "batch": cmd_batch, "check": cmd_check, "body": cmd_body, "apply": cmd_apply}
     if sub not in commands:
-        print("usage: review-autofix.py pr|batch|check|body|run")
+        print("usage: review-autofix.py pr|batch|apply|check|body|run")
         return 2
     return commands[sub]()
 

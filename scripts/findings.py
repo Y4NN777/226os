@@ -465,6 +465,14 @@ def settle_issue(ctx, binary, repo, pr, batch_no, number, entries):
     if any(mark in (c.get("body") or "") for c in comments):
         return
     endpoint = "repos/%s/issues/%s" % (repo, number)
+    held = [l for l in ("needs-owner", BATCH_LABEL) if l in names(issue.get("labels"))]
+    if held:
+        detail = "; ".join("%s%s" % ("`%s` " % one_line(n, 40) if n else "", d) for n, d, _ in entries)
+        text = "%s\nSettled by #%s (review batch #%s): %s; left open because it is labelled %s." % (
+            mark, pr, batch_no or "?", detail, held[0])
+        batch_write(binary, "POST", endpoint + "/comments", [("body", text)])
+        print("findings settle: #%s is labelled %s: commented, left open" % (number, held[0]))
+        return
     notes = {slug(n): (d, r) for n, d, r in entries if n}
     if notes:
         old = issue.get("body") or ""
@@ -502,7 +510,7 @@ def settle_pr(ctx, binary, repo, info):
     head = info.get("head") or {}
     head_repo = (head.get("repo") or {}).get("full_name")
     if (not info.get("merged_at") or (info.get("base") or {}).get("ref") != "develop"
-            or not (head.get("ref") or "").startswith(BATCH_PREFIX) or head_repo not in (None, repo)):
+            or not (head.get("ref") or "").startswith(BATCH_PREFIX) or head_repo != repo):
         print("findings settle: #%s is not a merged batch fix pull request into develop: nothing to settle" % info.get("number"))
         return False
     pr, body = info.get("number"), info.get("body") or ""

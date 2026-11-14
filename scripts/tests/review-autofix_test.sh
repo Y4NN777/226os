@@ -230,24 +230,111 @@ check
 [ "$rc" -ne 0 ] && grep -qi 'identity' <<<"$out" && ok "guard: another author identity is refused" || ko "identity (rc=$rc $out)"
 git -C "$repo" reset -q --hard HEAD~1
 
-for forbidden in api/openapi.yaml db/migrations/00099_x.sql docs/decisions/0011-x.md secrets/x.enc.env .github/workflows/x.yml .review-context.md .npmrc src/web/.npmrc docs/team/OWNER_PREFERENCES.md; do
+for forbidden in api/openapi.yaml db/migrations/00099_x.sql docs/decisions/0011-x.md secrets/x.enc.env .github/workflows/x.yml .review-context.md .npmrc src/web/.npmrc docs/team/OWNER_PREFERENCES.md \
+    docs/quality/COVERAGE_SCOPE.md docs/quality/REVIEW_CONTEXT.md scripts/review-gate.py scripts/findings.py scripts/close-merged-issues.py \
+    scripts/coverage-go.sh scripts/check-docs.py Makefile mk/20-gates.mk .github/pipeline-paths.txt .github/sensitive-paths.txt \
+    .github/deep-review-paths.txt scripts/gitleaks-ignore.txt scripts/public-routes.txt scripts/unimplemented-routes.txt scripts/authz-tests.txt; do
   mkdir -p "$repo/$(dirname "$forbidden")"; echo x >>"$repo/$forbidden"; g add -f "$forbidden"; g commit -qm "fix: touch"
   check
   [ "$rc" -ne 0 ] && grep -q "$forbidden" <<<"$out" && ok "guard: $forbidden is refused (owner path)" || ko "forbidden $forbidden (rc=$rc $out)"
   git -C "$repo" reset -q --hard HEAD~1
 done
 
+# Both sides of a rename, quoted paths, links, submodules, mode changes and binary changes.
+mkdir -p "$repo/.github/workflows" "$repo/db/migrations" "$repo/docs"
+echo q >"$repo/.github/workflows/quality.yml"; echo m >"$repo/db/migrations/0001.sql"
+g add -f .github/workflows/quality.yml db/migrations/0001.sql; g commit -qm base2
+base="$(git -C "$repo" rev-parse HEAD)"
+for moved in .github/workflows/quality.yml db/migrations/0001.sql; do
+  mkdir -p "$repo/docs"; g mv "$moved" "docs/$(basename "$moved")"; g commit -qm "docs: move"
+  check
+  [ "$rc" -ne 0 ] && grep -q "$moved" <<<"$out" && ok "guard: a rename out of $moved is refused (both sides are checked)" || ko "rename $moved (rc=$rc $out)"
+  git -C "$repo" reset -q --hard HEAD~1
+done
+for odd in ".github/workflows/é.yml" ".claude/é.md" "db/migrations/é.sql" ".github/a	tab.yml"; do
+  mkdir -p "$repo/$(dirname "$odd")"; echo x >"$repo/$odd"; g add -f "$odd"; g commit -qm "fix: odd"
+  check
+  [ "$rc" -ne 0 ] && grep -q 'owner paths' <<<"$out" && ok "guard: a quoted path under an owner directory is refused ($(basename "$odd"))" || ko "odd path $odd (rc=$rc $out)"
+  git -C "$repo" reset -q --hard HEAD~1
+done
+ln -s /etc/passwd "$repo/src/link"; g add src/link; g commit -qm "fix: link"
+check
+[ "$rc" -ne 0 ] && grep -qi 'symlink' <<<"$out" && ok "guard: a symbolic link is refused" || ko "symlink (rc=$rc $out)"
+git -C "$repo" reset -q --hard HEAD~1
+g update-index --add --cacheinfo "160000,$base,src/sub"; g commit -qm "fix: sub"
+check
+[ "$rc" -ne 0 ] && grep -qi 'submodule' <<<"$out" && ok "guard: a submodule is refused" || ko "submodule (rc=$rc $out)"
+git -C "$repo" reset -q --hard HEAD~1
+chmod +x "$repo/src/a.go"; g add src/a.go; g commit -qm "fix: mode"
+check
+[ "$rc" -ne 0 ] && grep -qi 'mode' <<<"$out" && ok "guard: a file mode change is refused" || ko "mode (rc=$rc $out)"
+git -C "$repo" reset -q --hard HEAD~1
+printf 'a\000b' >"$repo/src/b.bin"; g add src/b.bin; g commit -qm "fix: bin"
+check
+[ "$rc" -ne 0 ] && grep -qi 'binary' <<<"$out" && ok "guard: a binary change is refused" || ko "binary (rc=$rc $out)"
+git -C "$repo" reset -q --hard HEAD~1
+
+# ---- apply: the trusted job validates the patch files and commits them itself, as the human identity ----
+work="$tmp/work"
+git clone -q "$repo" "$work"
+wbase="$(git -C "$work" rev-parse HEAD)"
+echo z >>"$repo/src/a.go"
+git -C "$repo" -c user.name=claude -c user.email=x@y commit -qam "fix(solve): z"
+pd="$tmp/pd"; git -C "$repo" format-patch -q -o "$pd" "$wbase..HEAD"
+git -C "$repo" reset -q --hard HEAD~1
+apply() { run apply PATCH_DIR="$1" WORKTREE="$work" EXPECT_NAME=Y4NN77 EXPECT_EMAIL=fixer@example.invalid; }
+apply "$pd"
+who="$(git -C "$work" log -1 --format='%an <%ae> %cn <%ce> %s')"
+[ "$rc" -eq 0 ] && [ "$who" = "Y4NN77 <fixer@example.invalid> Y4NN77 <fixer@example.invalid> fix(solve): z" ] && ok "apply: the trusted job commits the patch as the human identity, subject kept" || ko "apply identity (rc=$rc $out who=$who)"
+run check BASE_SHA="$wbase" WORKTREE="$work" EXPECT_NAME=Y4NN77 EXPECT_EMAIL=fixer@example.invalid
+[ "$rc" -eq 0 ] && ok "apply: the applied commits pass the guard" || ko "apply then check (rc=$rc $out)"
+git -C "$work" reset -q --hard "$wbase"
+mkdir -p "$tmp/bad1"; for n in $(seq -w 1 21); do cp "$pd"/0001-*.patch "$tmp/bad1/00$n-x.patch"; done
+apply "$tmp/bad1"
+[ "$rc" -ne 0 ] && grep -qi 'too many' <<<"$out" && [ "$(git -C "$work" rev-parse HEAD)" = "$wbase" ] && ok "apply: more than 20 patch files are refused, nothing applied" || ko "too many (rc=$rc $out)"
+mkdir -p "$tmp/bad2"; cp "$pd"/0001-*.patch "$tmp/bad2/evil.sh"
+apply "$tmp/bad2"
+[ "$rc" -ne 0 ] && grep -qi 'name' <<<"$out" && ok "apply: a file name that is not NNNN-slug.patch is refused" || ko "bad name (rc=$rc $out)"
+mkdir -p "$tmp/bad3"; head -c 1100000 /dev/zero | tr '\0' 'a' >"$tmp/bad3/0001-big.patch"
+apply "$tmp/bad3"
+[ "$rc" -ne 0 ] && grep -qi 'large' <<<"$out" && ok "apply: more than 1 MB of patches is refused" || ko "too large (rc=$rc $out)"
+mkdir -p "$tmp/bad4"
+apply "$tmp/bad4"
+[ "$rc" -ne 0 ] && grep -qi 'no patch' <<<"$out" && ok "apply: an empty patch directory is refused" || ko "empty (rc=$rc $out)"
+
 # ---- the command wrapper of the fixer (`run`): read-only git, go test, the web scripts; never an output file ----
 mkdir -p "$tmp/wbin"
-for b in git go pnpm; do printf '#!/bin/sh\necho "RAN %s $*"\n' "$b" >"$tmp/wbin/$b"; chmod +x "$tmp/wbin/$b"; done
-wrap() { rc=0; out="$(PATH="$tmp/wbin:$PATH" python3 -I "$tool" run "$@" 2>&1)" || rc=$?; }
+for b in git go pnpm unshare; do printf '#!/bin/sh\necho "RAN %s $*"\n' "$b" >"$tmp/wbin/$b"; chmod +x "$tmp/wbin/$b"; done
+wrap() { rc=0; out="$(env -u FIXER_NETNS PATH="$tmp/wbin:$PATH" python3 -I "$tool" run "$@" 2>&1)" || rc=$?; }
 allowed() { wrap "$@"; [ "$rc" -eq 0 ] && grep -q "^RAN $1" <<<"$out" && ok "wrapper runs: $*" || ko "wrapper should run: $* (rc=$rc $out)"; }
 refused() { wrap "$@"; [ "$rc" -ne 0 ] && ! grep -q '^RAN' <<<"$out" && ok "wrapper refuses: $*" || ko "wrapper should refuse: $* (rc=$rc $out)"; }
 allowed git diff --stat
+allowed git diff -- src/a.go
+allowed git diff --cached --name-only
+allowed git status --short
 allowed git log --oneline -5
 allowed git show HEAD:src/a.go
 allowed go test ./src/api/... -run TestX -count=1
+allowed go test -run TestX -count 1 -race -v -timeout 60s ./src/api/...
+allowed go test -tags=integration ./src/api/internal/...
 allowed pnpm --filter web run test
+allowed pnpm --filter web run test -- src/features/x.test.tsx
+refused go test -test.coverprofile=/tmp/c ./...
+refused go test ./... -args -test.outputdir /tmp
+refused go test -ldflags=-extld=sh ./...
+refused go test -gcflags=all=-N ./...
+refused go test -modfile=/tmp/m ./...
+refused go test /abs/pkg
+refused go test -run
+refused git diff --ext-diff
+refused git diff --no-index /etc/passwd src/a.go
+refused git log --format=%H
+refused pnpm --filter web run test --reporter=verbose
+wrapnet() { rc=0; out="$(env FIXER_NETNS=1 PATH="$tmp/wbin:$PATH" python3 -I "$tool" run "$@" 2>&1)" || rc=$?; }
+wrapnet go test ./src/api/...
+grep -q '^RAN unshare -rn go test ./src/api/...' <<<"$out" && ok "wrapper: with FIXER_NETNS=1, go test runs without network (unshare -rn)" || ko "netns ($out)"
+wrapnet git status
+grep -q '^RAN git --no-pager status' <<<"$out" && ok "wrapper: git reads are not wrapped in a network namespace" || ko "netns git ($out)"
 refused git diff --output=/tmp/x
 refused git diff --output /tmp/x
 refused git show -o /tmp/x HEAD
@@ -271,7 +358,7 @@ run body ISSUE=40 ITEMS="$items" RESULT_JSON='{"outcome":"fixed","reason":"ok","
 grep -qx 'Batch: #40' <<<"$out" && ok "body: a Batch line names the batch issue" || ko "body batch line ($out)"
 grep -qx 'Sources: #12 #20 #31' <<<"$out" && ok "body: a Sources line references every source issue once" || ko "body sources ($out)"
 grep -q '| #12 | #12 | FIXED | guard \\| added' <<<"$out" && ok "body: one table row per item (item, source, decision, reason)" || ko "body row ($out)"
-grep -q '| #20/n2 | #20 | FIXED ELSEWHERE | by #150 |' <<<"$out" && ok "body: FIXED ELSEWHERE is a decision" || ko "body elsewhere ($out)"
+grep -q '| #20/n2 | #20 | FIXED ELSEWHERE | by #' <<<"$out" && ok "body: FIXED ELSEWHERE is a decision" || ko "body elsewhere ($out)"
 grep -q '| #31 | #31 | OWNER | no result from the fixer |' <<<"$out" && ok "body: an item without a result is listed as OWNER" || ko "body missing item ($out)"
 ! grep -q '#99' <<<"$out" && ok "body: a result for an item outside the batch is dropped" || ko "body extra item ($out)"
 ! grep -q '@Y4NN777' <<<"$out" && ok "body: an @-mention from the model is neutralised" || ko "body mention ($out)"
@@ -280,5 +367,8 @@ grep -q '| #20/n1 | #20 | OWNER |' <<<"$out" && ok "body: an unknown verdict bec
 
 run body ISSUE=40 ITEMS="$items" RESULT_JSON='not json'
 [ "$rc" -eq 0 ] && grep -qx 'Batch: #40' <<<"$out" && grep -qx 'Sources: #12 #20 #31' <<<"$out" && grep -q '| #31 | #31 | OWNER | no result from the fixer |' <<<"$out" && ok "body: an unreadable result still lists every source, as OWNER" || ko "body bad json (rc=$rc $out)"
+
+run body ISSUE=40 ITEMS='#12' RESULT_JSON='{"outcome":"fixed","reason":"closes #7","results":[{"item":"#12","verdict":"FIXED","reason":"fixes #5 and resolves #6, see owner/repo#8"}]}'
+! grep -qiE '(close|fix|resolve)[a-z]*:? +#[0-9]' <<<"$out" && ! grep -qE '#[5678]' <<<"$out" && ok "body: closing keywords and references written by the model are neutralised" || ko "body keywords ($out)"
 
 finish

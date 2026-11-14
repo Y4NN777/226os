@@ -60,9 +60,9 @@ chmod +x "$tmp/bin/gh"
 
 # setup BODY [BASE] [HEAD_REPO] [MERGED_AT]
 setup() {
-  python3 -I - "$tmp/st" "$1" "${2:-develop}" "${3:-o/r}" "${4:-2026-11-14T12:00:00Z}" <<'EOF'
+  python3 -I - "$tmp/st" "$1" "${2:-develop}" "${3:-o/r}" "${4:-2026-11-14T12:00:00Z}" "${5:-fix/solve/x}" <<'EOF'
 import json, os, sys
-st, body, base, head_repo, merged = sys.argv[1:6]
+st, body, base, head_repo, merged, head_ref = sys.argv[1:7]
 def issue(n, state="open", labels=(), pr=False):
     x = {"number": n, "state": state, "state_reason": None, "labels": [{"name": l} for l in labels],
          "comments": [{"user": {"login": "dev"}, "body": "a human comment"}]}
@@ -72,7 +72,7 @@ issues = [issue(n) for n in (1, 2, 3, 4, 5, 6, 7, 8, 9)] + [issue(10, pr=True), 
           issue(12, labels=("review-batch",)), issue(13, labels=("needs-owner",))]
 json.dump(issues, open(os.path.join(st, "issues.json"), "w"))
 json.dump({"number": 170, "merged_at": None if merged == "none" else merged, "merge_commit_sha": "abcdef1234567890abcdef1234567890abcdef12",
-           "base": {"ref": base}, "head": {"ref": "fix/solve/x", "repo": {"full_name": head_repo}}, "body": body},
+           "base": {"ref": base}, "head": {"ref": head_ref, "repo": {"full_name": head_repo}}, "body": body},
           open(os.path.join(st, "pr.json"), "w"))
 EOF
   : >"$tmp/st/log"
@@ -115,6 +115,10 @@ run
 setup "fixes #1" develop o/r none
 run
 [ ! -s "$tmp/st/log" ] && ok "a closed, unmerged pull request closes nothing" || ko "unmerged ($(cat "$tmp/st/log"))"
+
+setup "| #1 | #1 | FIXED | fixes #2 |" develop o/r 2026-11-14T12:00:00Z fix/review/batch-2026-11-14
+run
+[ "$rc" -eq 0 ] && [ ! -s "$tmp/st/log" ] && ok "a batch fix pull request closes nothing here (its sources are settled by findings.py settle)" || ko "batch pr ($(cat "$tmp/st/log"))"
 
 setup "fixes #1"
 FAKE_GH_FAIL=1 run

@@ -6,7 +6,8 @@ Reads the BODY of pull request PR_NUMBER (never its commits or comments). When i
 repository, every `close|closes|closed|fix|fixes|fixed|resolve|resolves|resolved #N` (any case, an optional colon) names
 an issue of this repository. For each one that is open: one comment "Fixed in #<pr> (merged into develop, <short sha>)."
 then close it as completed. Left alone: pull requests, issues already closed, missing issues, another repository's
-`owner/repo#N`, and issues labelled `review-batch` (`findings.py settle` closes a batch after its sources). An issue
+`owner/repo#N`, issues labelled `review-batch`, and every issue named by a batch fix pull request (fix/review/batch-*:
+`findings.py settle` settles its sources from trusted keys and closes the batch after them). An issue
 labelled `needs-owner` gets a comment and stays open. Idempotent: the comment carries a marker and is written once; a
 closed issue is never touched again. No mention.
 
@@ -86,6 +87,11 @@ def main():
         head_repo = ((info.get("head") or {}).get("repo") or {}).get("full_name")
         if not info.get("merged_at") or (info.get("base") or {}).get("ref") != "develop" or head_repo != repo:
             print("close-merged: #%s is not a pull request of this repository merged into develop: nothing to close" % pr)
+            return 0
+        if ((info.get("head") or {}).get("ref") or "").startswith("fix/review/batch-"):
+            # The body of a batch fix pull request is partly written by the model: its sources are settled by
+            # `findings.py settle` from the trusted item keys, never from closing keywords.
+            print("close-merged: #%s is a batch fix pull request: its sources are left to findings.py settle" % pr)
             return 0
         sha = (info.get("merge_commit_sha") or "")[:7] or "?"
         numbers = named_issues(info.get("body"))

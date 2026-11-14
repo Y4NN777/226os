@@ -69,19 +69,21 @@ notes20 = ("<!-- finding:PR91#notes -->\nNotes of PR #91.\n\n"
            "- [ ] `n1` [INFERRED] `src/a.go:1` guess one\n- [ ] `n2` [OBSERVED] `src/b.go:2` remark two")
 notes21 = ("<!-- finding:PR92#notes -->\nNotes of PR #92.\n\n"
            "- [ ] `n3` [INFERRED] `src/c.go:3` later\n- [ ] `n4` [OBSERVED] `src/d.go:4` not in the batch")
-issues = [finding(12, "a"), finding(13, "b"), finding(14, "c"), finding(15, "d"),
+held = finding(16, "e"); held["labels"].append({"name": "needs-owner"})
+issues = [finding(12, "a"), finding(13, "b"), finding(14, "c"), finding(15, "d"), held,
           {"number": 20, "state": "open", "state_reason": None, "title": "PR91 notes", "labels": [{"name": "kind:note"}], "body": notes20, "comments": []},
           {"number": 21, "state": "open", "state_reason": None, "title": "PR92 notes", "labels": [{"name": "kind:note"}], "body": notes21, "comments": []},
           {"number": 40, "state": "open", "state_reason": None, "title": "Review batch 2026-11-14", "labels": [{"name": "review-batch"}],
            "body": "<!-- review-batch -->\n# Review batch 2026-11-14\n", "comments": []}]
 json.dump(issues, open(os.path.join(st, "issues.json"), "w"))
 body = "\n".join([
-    "Fix pull request for the review batch #40.", "", "Batch: #40", "Sources: #12 #13 #14 #15 #20 #21", "",
+    "Fix pull request for the review batch #40.", "", "Batch: #40", "Sources: #12 #13 #14 #15 #16 #20 #21", "",
     "| Item | Source | Decision | Reason |", "|---|---|---|---|",
     "| #12 | #12 | FIXED | guard added at src/a.go:9 |",
     "| #13 | #13 | NOT A DEFECT | the check runs before \\| the write, @someone |",
     "| #14 | #14 | OWNER | needs a migration |",
     "| #15 | #15 | FIXED ELSEWHERE | fixed by #150 |",
+    "| #16 | #16 | FIXED | but the owner holds it |",
     "| #20/n1 | #20 | DECIDED | REVIEW_CONTEXT says so |",
     "| #20/n2 | #20 | FIXED | test added |",
     "| #21/n3 | #21 | AFTER FREEZE | not a gate |"])
@@ -116,6 +118,7 @@ field 20 'x["body"]' | grep -q -- '- \[x\] `n1` .* — decided: REVIEW_CONTEXT s
 [ "$(bot_comments 20)" -eq 1 ] && ok "ONE comment per touched source issue (two notes, one comment)" || ko "notes comments ($(bot_comments 20))"
 field 21 'x["body"]' | grep -q -- '- \[ \] `n3`' && [ "$(field 21 'x["state"]')" = "open" ] && ok "AFTER FREEZE: the box stays unticked and the issue open" || ko "after freeze ($(field 21 'x["body"]'))"
 [ "$(field 40 'x["state"], x["state_reason"]')" = "('closed', 'completed')" ] && ok "the batch issue is closed" || ko "batch close ($(field 40 'x["state"]'))"
+[ "$(field 16 'x["state"]')" = "open" ] && field 16 'x["comments"][-1]["body"]' | grep -q 'needs-owner' && ok "a needs-owner source gets a comment and stays open" || ko "needs-owner source ($(field 16 'x["state"], x["comments"]'))"
 last="$(tail -1 "$tmp/st/log")"
 grep -q 'PATCH repos/o/r/issues/40 ' <<<"$last" && ok "the batch issue closes last, after its sources" || ko "batch last ($last)"
 
@@ -139,6 +142,14 @@ d = json.load(open(sys.argv[1])); d["merged_at"] = None; json.dump(d, open(sys.a
 EOF
 run 163
 [ "$rc" -eq 0 ] && [ ! -s "$tmp/st/log" ] && ok "a closed, unmerged pull request settles nothing" || ko "unmerged ($(cat "$tmp/st/log"))"
+
+setup
+python3 -I - "$tmp/st/pr.json" <<'EOF'
+import json, sys
+d = json.load(open(sys.argv[1])); d["head"].pop("repo"); json.dump(d, open(sys.argv[1], "w"))
+EOF
+run 163
+[ "$rc" -eq 0 ] && [ ! -s "$tmp/st/log" ] && ok "a pull request without a known head repository settles nothing" || ko "no head repo ($(cat "$tmp/st/log"))"
 
 setup
 FAKE_GH_FAIL=1 run 163
