@@ -4,6 +4,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 	"unicode/utf8"
 
 	"github.com/Y4NN777/226os/src/api/internal/assistant/domain"
@@ -311,5 +312,48 @@ func TestParseOnlySplitsOnAHeadingLine(t *testing.T) {
 	}
 	if !strings.Contains(a.Text, "Body.") || !strings.HasPrefix(a.HowToVerify, "Check [1].") {
 		t.Fatalf("text %q verify %q", a.Text, a.HowToVerify)
+	}
+}
+
+// AI-5: every passage is sent with its date, and how_to_verify only says what is true of the
+// sources that are cited.
+func TestUserPromptCarriesEachPassageDate(t *testing.T) {
+	dated := domain.Passage{Type: "article", Title: "Dated", Text: "a", PublishedAt: time.Date(2026, 11, 2, 23, 30, 0, 0, time.FixedZone("x", -2*3600))}
+	undated := domain.Passage{Type: "resource", Title: "Undated", Text: "b"}
+	got := domain.UserPrompt("question here", []domain.Passage{dated, undated})
+	if !strings.Contains(got, "[S1] article | Dated | published 2026-11-03\n") || !strings.Contains(got, "[S2] resource | Undated | undated\n") {
+		t.Fatalf("prompt: %s", got)
+	}
+	if !strings.Contains(domain.SystemPrompt("en"), "publication date") {
+		t.Fatal("the system prompt must explain the date marker")
+	}
+}
+
+func TestParseVerifyNoticeFollowsTheCitedSources(t *testing.T) {
+	day := time.Date(2026, 11, 2, 0, 0, 0, 0, time.UTC)
+	ps := []domain.Passage{
+		{Type: "article", ID: "1", Title: "A", PublishedAt: day},
+		{Type: "article", ID: "2", Title: "B", PublishedAt: day},
+		{Type: "article", ID: "3", Title: "C"},
+	}
+	tests := []struct {
+		name, text, lang, want, notWant string
+	}{
+		{"fr all dated", "Ok [S1] [S2].", "fr", "Les dates de publication sont indiquées à côté de chaque source\u00a0: vérifiez", "ne portent pas"},
+		{"en all dated", "Ok [S1] [S2].", "en", "Publication dates are shown next to each source: check that the content is still current.", "carry no date"},
+		{"fr one undated", "Ok [S1] [S3].", "fr", "Certaines sources ne portent pas de date\u00a0: vérifiez", "Les dates de publication"},
+		{"en one undated", "Ok [S1] [S3].", "en", "Some sources carry no date: check that they are still current.", "dates are shown"},
+		{"an undated passage that is not cited does not count", "Ok [S1] [S2].", "en", "dates are shown", "carry no date"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			a, err := domain.Parse(tc.text, ps, tc.lang)
+			if err != nil || !strings.Contains(a.HowToVerify, tc.want) || strings.Contains(a.HowToVerify, tc.notWant) {
+				t.Fatalf("%q %v; want %q, not %q", a.HowToVerify, err, tc.want, tc.notWant)
+			}
+			if utf8.RuneCountInString(a.HowToVerify) > domain.MaxVerifyRunes {
+				t.Fatal("how_to_verify too long")
+			}
+		})
 	}
 }

@@ -1,0 +1,16 @@
+## Free Learn series: the four lessons rewritten for engineers (#125)
+
+```yaml
+date: "2026-11-14"
+contributor: "mibienpanjoe"
+tool_or_model: "Claude Code, Claude Opus 5.5 then Claude Fable 5.2 (main session, no subagents)"
+purpose: "Issue #125: the four lessons of scripts/content/free-series.sql were judged outdated and too shallow for an engineering audience. The contributor set the direction (address engineers; cover harnesses, agentic systems, always-on agents and models that are no longer text-only). AI-drafted: the full French text of the four lessons, the series title and summary, the four lesson titles and summaries. Human part: the direction above, then a full read and approval of the text by the contributor, without line edits. Structure changes: series retitled 'Des LLM aux agents : l'ingénierie de l'IA aujourd'hui' (the idempotency guard no longer depends on the title: it refuses when a platform series on topic ai already exists, after the review finding deep-free-series-guard-title), level beginner -> intermediate, tags ia/llm/prompt/debutant -> ia/llm/agents/harness. Still 4 tutorial lessons, language fr, topic ai."
+repository_or_source_context: "branch docs/learn/free-series-lessons; issue #125 (from PR #111, S4 Learn)"
+files_or_sections_affected: ["scripts/content/free-series.sql", "src/api/internal/platform/pgtest/learn_integration_test.go", "TODO.md", "docs/ai-usage/2026-11-14-free-series-lessons.md"]
+third_party_sources_consulted: []
+license_review: "Original text written for 226os; no passage copied or translated from a third-party source. Vendor-neutral: no product or model named, except the open protocol MCP and the AGENTS.md file convention."
+closure: "open"
+human_reviewers: ["mibienpanjoe (read and approved the text, 2026-11-14)", "pending: PR review, and the owner's approval of the final text (issue #125)"]
+tests_or_evidence: ["scripts/tests/free-series_test.sh 13 passed, 0 failed", "RED: TestFreeSeriesContentScript failed (run after a retitled series: nil) with the title-only guard; GREEN after the guard on origin and topic (ephemeral PostgreSQL)", "excalibur run: verified, known debt in forge-check", "screenshots read after loading the series with the script: code block, inline code, lists and table render correctly"]
+open_risks: ["rendering was checked on a throwaway local stack only (temporary PostgreSQL, API and Vite dev server; not the nginx and Traefik front): lessons 1 to 4 at 390 px or 1280 px; the body no longer repeats the lesson title as a first heading (the page already shows it); the lesson 4 table scrolls sideways inside its own box on a phone", "technical statements about models and agents are general and undated; they need a re-read when the field moves"]
+```

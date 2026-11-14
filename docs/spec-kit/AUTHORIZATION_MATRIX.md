@@ -1,14 +1,14 @@
 # 226os P0 Authentication and Authorization Matrix
 
 **Status:** ACCEPTED (ADR-0003, 2026-11-11, approver `Y4NN777`)
-**Subject roles:** anonymous, member, moderator, owner. `owner` always means ownership of the specific resource, not a global administrator. "Collaborator" is **not** a role: it is a resource-scoped relationship (an applicant whose application was accepted on a project, ADR-0005). Owner-added `project_maintainers` have explicit rights on their project (edit project, manage needs and applications).
+**Subject roles:** anonymous, member, moderator, owner. `owner` always means ownership of the specific resource, not a global administrator. "Collaborator" is **not** a role: it is a resource-scoped relationship (an applicant whose application was accepted on a project, ADR-0005). A `project_maintainers` row grants no right at P0: project actions belong to the project owner only (C1, ROADMAP section 10; the project rows below).
 **Paths** are the `api/openapi.yaml` paths under `/api/v1`.
 
 ## Authentication and session policy
 
 The policy (Argon2id parameters, session lifetimes, cookie and CSRF rules, token lifetimes, 401/403/404 rule, unverified-email limits, rate limits) is owned by [ADR-0003](../decisions/0003-authentication-sessions-csrf-rate-limits.md) and is not repeated here. Rule used below: 403 if the object is visible to the caller, 404 if its existence must not leak. Publishing needs a verified email (403 `EMAIL_NOT_VERIFIED`).
 
-**Status:** negative authorization tests mapped: none yet; `scripts/authz-tests.txt` is empty and slices add their lines with their routes (checked by `scripts/check-authz-routes.sh`).
+**Status:** negative authorization tests mapped: 19 routes in `scripts/authz-tests.txt` (2026-11-14: identity, discover error reports, learn, build, solve and the assistant); slices add their lines with their routes (checked by `scripts/check-authz-routes.sh`). The moderation routes still answer 501 (`scripts/unimplemented-routes.txt`).
 
 ## Matrix
 

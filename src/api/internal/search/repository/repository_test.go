@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -69,15 +70,18 @@ func (r *fakeRows) Scan(dest ...any) error {
 	return nil
 }
 
+func stamp(t time.Time) pgtype.Timestamptz { return pgtype.Timestamptz{Time: t, Valid: true} }
+
 func uid(s string) pgtype.UUID { return pgtype.UUID{Bytes: uuid.MustParse(s), Valid: true} }
 
 func TestSearchMapsEveryGroupToPlainTextHits(t *testing.T) {
 	long := strings.Repeat("mot ", 100)
+	published := time.Date(2026, 11, 3, 9, 30, 0, 0, time.UTC)
 	for _, g := range domain.Groups() {
 		t.Run(string(g), func(t *testing.T) {
 			db := &fakeDB{rows: [][]any{
-				{uid(hitID), "Un titre", "**Gras** <b>html</b> [lien](https://x.example)", "fr"},
-				{uid(hitID), "Long", long, "en"},
+				{uid(hitID), "Un titre", "**Gras** <b>html</b> [lien](https://x.example)", "fr", stamp(published.In(time.FixedZone("WAT", 3600)))},
+				{uid(hitID), "Long", long, "en", pgtype.Timestamptz{}}, // a learn article row may carry no date
 			}}
 			got, err := New(db).Search(t.Context(), g, domain.Query{Text: "mot", Country: "BF", Lang: "fr", Limit: 6})
 			if err != nil {
@@ -85,6 +89,12 @@ func TestSearchMapsEveryGroupToPlainTextHits(t *testing.T) {
 			}
 			if len(got) != 2 || got[0].Type != g || got[0].ID != hitID || got[0].Title != "Un titre" || got[0].Lang != "fr" {
 				t.Fatalf("hits = %+v", got)
+			}
+			if !got[0].PublishedAt.Equal(published) || got[0].PublishedAt.Location() != time.UTC {
+				t.Fatalf("published_at = %v, want %v in UTC", got[0].PublishedAt, published)
+			}
+			if !got[1].PublishedAt.IsZero() {
+				t.Fatalf("a NULL published_at must map to the zero time, got %v", got[1].PublishedAt)
 			}
 			if got[0].Snippet != "Gras html lien" {
 				t.Fatalf("snippet = %q", got[0].Snippet)

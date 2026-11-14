@@ -3,6 +3,7 @@ package service_test
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"strings"
 	"sync"
 	"testing"
@@ -322,4 +323,90 @@ func TestAskEmptyAnswerBodyIs503(t *testing.T) {
 	if _, err := r.ask(member, "how do webhooks work"); code(t, err) != apperr.CodeServiceUnavailable {
 		t.Fatalf("err = %v", err)
 	}
+}
+
+// Every assistant 503 carries Retry-After: the disabled switch and a failing limiter as well as the
+// provider failures; a spent global guard keeps the limiter's own retry.
+func TestAskEvery503CarriesRetryAfter(t *testing.T) {
+	retryOf := func(t *testing.T, err error) time.Duration {
+		t.Helper()
+		var ae *apperr.Error
+		if !errors.As(err, &ae) || ae.Code != apperr.CodeServiceUnavailable {
+			t.Fatalf("err = %v, want a 503", err)
+		}
+		return ae.RetryAfter
+	}
+	t.Run("disabled", func(t *testing.T) {
+		_, err := newRig(false, three...).ask(member, "how do webhooks work")
+		if got := retryOf(t, err); got != 30*time.Second {
+			t.Fatalf("Retry-After %v", got)
+		}
+	})
+	for _, scope := range []string{"assistant:user", "assistant:global"} {
+		t.Run("limiter failure "+scope, func(t *testing.T) {
+			r := newRig(true, three...)
+			r.lim.failOn = scope
+			_, err := r.ask(member, "how do webhooks work")
+			if got := retryOf(t, err); got != 30*time.Second {
+				t.Fatalf("Retry-After %v", got)
+			}
+		})
+	}
+	t.Run("provider down", func(t *testing.T) {
+		r := newRig(true, three...)
+		r.fake.FailWith(llm.ErrUnavailable)
+		_, err := r.ask(member, "how do webhooks work")
+		if got := retryOf(t, err); got != 30*time.Second {
+			t.Fatalf("Retry-After %v", got)
+		}
+	})
+	t.Run("provider 429", func(t *testing.T) {
+		r := newRig(true, three...)
+		r.fake.FailWith(&llm.StatusError{Kind: llm.ErrQuotaExhausted, Status: 429})
+		_, err := r.ask(member, "how do webhooks work")
+		if got := retryOf(t, err); got != 30*time.Second {
+			t.Fatalf("Retry-After %v", got)
+		}
+	})
+	t.Run("global guard spent keeps the limiter retry", func(t *testing.T) {
+		r := newRig(true, three...)
+		r.lim.hits = map[string]int{"assistant:global": 12}
+		_, err := r.ask(member, "how do webhooks work")
+		if got := retryOf(t, err); got != 30*time.Minute {
+			t.Fatalf("Retry-After %v, want the limiter's 30m", got)
+		}
+	})
+}
+
+// AI-3: a guarantee sentence is removed before the citation check; the check then decides.
+func TestAskRemovesGuaranteeSentences(t *testing.T) {
+	t.Run("the guarantee goes, the cited sentence stays", func(t *testing.T) {
+		var logs strings.Builder
+		r := newRig(true, three...)
+		r.svc = service.New(service.Config{Enabled: true}, r.ret, r.fake, r.lim, slog.New(slog.NewTextHandler(&logs, nil)))
+		r.fake.Enqueue(llm.Response{Text: "This call is guaranteed to work [S2]. Sign the raw body [S1].\n\nComment vérifier\n- Test it."})
+		a, err := r.ask(member, "how do webhooks work")
+		if err != nil || !a.Answered || strings.Contains(a.Text, "guaranteed") || a.Text != "Sign the raw body [1]." || len(a.Sources) != 1 || a.Sources[0].ID != three[0].ID {
+			t.Fatalf("%+v %v", a, err)
+		}
+		if !strings.Contains(logs.String(), "guarantee_removed") || strings.Contains(logs.String(), "raw body") {
+			t.Fatalf("log: %s", logs.String())
+		}
+	})
+	t.Run("a guarantee as the only cited sentence is a refusal", func(t *testing.T) {
+		r := newRig(true, three...)
+		r.fake.Enqueue(llm.Response{Text: "I guarantee this works [S1]."})
+		a, err := r.ask(member, "how do webhooks work")
+		if err != nil || a.Answered || len(a.Sources) != 0 || a.SearchURL == "" {
+			t.Fatalf("%+v %v", a, err)
+		}
+	})
+	t.Run("a negated guarantee stays", func(t *testing.T) {
+		r := newRig(true, three...)
+		r.fake.Enqueue(llm.Response{Text: "There is no guarantee it works [S1]."})
+		a, err := r.ask(member, "how do webhooks work")
+		if err != nil || !a.Answered || !strings.Contains(a.Text, "no guarantee") {
+			t.Fatalf("%+v %v", a, err)
+		}
+	})
 }

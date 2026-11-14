@@ -3,6 +3,7 @@
 - **Status:** ACCEPTED
 - **Date:** 2026-11-11
 - **Approver:** `Y4NN777`
+- **Amended:** 2026-11-14, same approver: point 10 follows ROADMAP C1 (project actions belong to the project owner only at P0).
 - **Closes:** ADR-OPEN-005
 - **Refines:** G0-DATA-001, G0-DATA-002, G0-DATA-003
 - **Related:** `docs/spec-kit/DATABASE_DESIGN.md` (entity detail and DDL), [ADR-0003](0003-authentication-sessions-csrf-rate-limits.md), [ADR-0004](0004-api-contract-conventions.md), [ADR-0006](0006-toolchain-environments-quality-commands.md)
@@ -34,7 +35,7 @@ TASK-DATA-001 needs the migration tool, PostgreSQL version, ID strategy, search 
    - A moderator **hide** sets `status = 'removed'` (with `removed_at` and an `audit_log` row); **restore** sets it back and clears `removed_at`. Status vocabulary: `removed` is the publication status of content (not shown publicly, restorable by a moderator); `hidden` is the status of a moderated content relation or tag (a separate column with its own check, see decision 13).
 8. **Votes.** Up or down on questions and answers (`value` +1 / -1). **Self-vote is forbidden**: 403 `SELF_VOTE_FORBIDDEN`, a service rule inside the vote transaction.
 9. **Applications.** Unique per `(user, need)`. **Re-applying is allowed only if the previous application was withdrawn by the applicant**: the row is reused and reopened (`withdrawn -> pending`). **No re-apply after a decline.** `accepted` and `declined` are terminal at P0.
-10. **"Collaborator".** A collaborator is **an applicant whose application was accepted on a project**: a resource-scoped relationship derived from `applications`, **not a global role**. It is not in any role list. `project_maintainers` stays for owner-added maintainers, who have explicit rights (edit the project, manage needs and applications).
+10. **"Collaborator".** A collaborator is **an applicant whose application was accepted on a project**: a resource-scoped relationship derived from `applications`, **not a global role**. It is not in any role list. `project_maintainers` stays in the schema for owner-added maintainers, but **grants nothing at P0**: project actions (edit, needs, list applications, accept or decline) belong to the project owner only, and the applicant may withdraw (ROADMAP C1, owner decision; amended 2026-11-14, the matrix in `docs/spec-kit/AUTHORIZATION_MATRIX.md` already follows it). Maintainer delegation is a P1 question.
 11. **Tags.** Free-form, normalized to a lowercase slug of at most 32 characters, **at most 5 per item**. Moderators can merge and rename (the merge/rename operations are not part of the P0 moderator scope in ADR-0003 and ship later; until then the owner performs them by an audited operational step).
 12. **Profile visibility defaults.** Name, username, skills, country, bio, GitHub username, `open_to_collab` and languages are **public by default**; each optional field keeps an owner-controlled visibility (`public | members | private`). **Email is never public** and is not a profile field.
 13. **Content relations.** Types: question-resource, question-project, resource-project, article-question, article-resource, article-project. **Only the author of the source item creates a relation, only to published public targets; moderators can remove them** (`status = 'hidden'`, audited).

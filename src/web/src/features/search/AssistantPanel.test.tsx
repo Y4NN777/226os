@@ -156,6 +156,72 @@ describe('AssistantPanel', () => {
     expect(container.querySelector('b')).toBeNull();
   });
 
+  const dated: AssistantAnswer = {
+    ...answered,
+    sources: [
+      {
+        type: 'project',
+        id: '7a1c2a34-0000-4000-8000-0000000000b1',
+        title: 'Projet Lumière',
+        url: '/build/7a1c2a34-0000-4000-8000-0000000000b1',
+        published_at: '2026-11-02T10:00:00Z',
+      },
+      {
+        type: 'article',
+        id: '7a1c2a34-0000-4000-8000-0000000000c2',
+        title: 'Guide webhooks',
+        url: '/apprendre/articles/7a1c2a34-0000-4000-8000-0000000000c2',
+      },
+    ],
+  };
+
+  async function askWith(answer: AssistantAnswer, label: string) {
+    member({ 'POST /assistant/answers': () => jsonResponse(answer) });
+    await renderApp('/recherche?q=momo');
+    const inPanel = await panel();
+    await userEvent.click(await inPanel.findByRole('button', { name: label }));
+    return inPanel;
+  }
+
+  it('shows each source date in French inside a time element, and Non daté when absent', async () => {
+    setLanguages(['fr-FR']);
+    const inPanel = await askWith(dated, 'Demander à l’assistant');
+    const date = await inPanel.findByText('2 novembre 2026');
+    expect(date.closest('time')).toHaveAttribute('datetime', '2026-11-02T10:00:00Z');
+    expect(date.parentElement?.textContent).toBe('Publié le 2 novembre 2026');
+    expect(inPanel.getByText('Non daté')).toBeInTheDocument();
+    expect(inPanel.queryByText(/Undated/)).toBeNull();
+  });
+
+  it('shows each source date in English, and Undated when absent', async () => {
+    setLanguages(['en-US']);
+    const inPanel = await askWith(dated, 'Ask the assistant');
+    const date = await inPanel.findByText('2 November 2026');
+    expect(date.closest('time')).toHaveAttribute('datetime', '2026-11-02T10:00:00Z');
+    expect(date.parentElement?.textContent).toBe('Published 2 November 2026');
+    expect(inPanel.getByText('Undated')).toBeInTheDocument();
+  });
+
+  it('treats a null published_at as undated', async () => {
+    setLanguages(['fr-FR']);
+    const inPanel = await askWith(answered, 'Demander à l’assistant');
+    expect((await inPanel.findAllByText('Non daté')).length).toBe(2);
+  });
+
+  it('links project and article sources to their in-app pages', async () => {
+    setLanguages(['fr-FR']);
+    const inPanel = await askWith(dated, 'Demander à l’assistant');
+    const project = await inPanel.findByRole('link', { name: 'Projet Lumière' });
+    expect(project).toHaveAttribute('href', '/build/7a1c2a34-0000-4000-8000-0000000000b1');
+    expect(project).not.toHaveAttribute('target');
+    const article = inPanel.getByRole('link', { name: 'Guide webhooks' });
+    expect(article).toHaveAttribute(
+      'href',
+      '/apprendre/articles/7a1c2a34-0000-4000-8000-0000000000c2',
+    );
+    expect(article).not.toHaveAttribute('target');
+  });
+
   it('refuses clearly with a link to the search results on no_source', async () => {
     setLanguages(['fr-FR']);
     member({ 'POST /assistant/answers': () => jsonResponse(noSource) });
