@@ -13,14 +13,16 @@ import (
 	"github.com/Y4NN777/226os/src/api/internal/platform/dbgen"
 )
 
-// maxReportAttempts bounds the insert/select dance when the open report is resolved between the two
-// statements; the second attempt then inserts a fresh report.
+// maxReportAttempts bounds the insert/select dance in the one case it can repeat: the open report that
+// made the insert do nothing is resolved before the select, so the second attempt inserts a fresh report.
 const maxReportAttempts = 2
 
 // CreateReport files an error report for a published resource, or returns the reporter's open report
-// of the same kind. Each statement is its own snapshot (READ COMMITTED), so when a concurrent request
-// has just inserted the open report, ON CONFLICT DO NOTHING waits for its commit and the following
-// select sees it: two simultaneous identical requests yield exactly one row and the same id.
+// of the same kind. The insert reports the resource visibility itself (issue #117), so a resource that
+// is not visible is a 404 after one round trip and a fresh report costs one. Each statement is its own
+// snapshot (READ COMMITTED), so when a concurrent request has just inserted the open report, ON CONFLICT
+// DO NOTHING waits for its commit and the following select sees it: two simultaneous identical requests
+// yield exactly one row and the same id.
 func (r *Repository) CreateReport(ctx context.Context, in domain.NewReport) (domain.ErrorReport, error) {
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
@@ -40,11 +42,14 @@ func (r *Repository) CreateReport(ctx context.Context, in domain.NewReport) (dom
 		created, err := r.q.CreateErrorReport(ctx, dbgen.CreateErrorReportParams{
 			ReporterID: reporter, Kind: in.Kind, Message: in.Body, SourceID: source, ResourceID: resource,
 		})
-		if err == nil {
-			return report(created.ID, created.ResourceID, created.Kind, created.Status, created.CreatedAt), nil
-		}
-		if !errors.Is(err, pgx.ErrNoRows) {
+		if err != nil {
 			return domain.ErrorReport{}, reportErr(err)
+		}
+		if !created.ResourceVisible {
+			return domain.ErrorReport{}, domain.ErrNotFound
+		}
+		if created.ID.Valid {
+			return report(created.ID, created.ResourceID, created.Kind.String, created.Status.String, created.CreatedAt), nil
 		}
 		open, err := r.q.GetOpenErrorReport(ctx, dbgen.GetOpenErrorReportParams{ResourceID: resource, ReporterID: reporter, Kind: in.Kind})
 		if err == nil {

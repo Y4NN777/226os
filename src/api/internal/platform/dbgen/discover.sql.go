@@ -199,44 +199,59 @@ func (q *Queries) CatalogueSDKs(ctx context.Context, ids []pgtype.UUID) ([]Catal
 }
 
 const createErrorReport = `-- name: CreateErrorReport :one
-INSERT INTO error_reports (resource_id, reporter_id, kind, message, source_id)
-SELECT r.id, $1::uuid, $2::text, $3::text, $4::uuid
-FROM resources r
-JOIN providers p ON p.id = r.provider_id AND p.status = 'published' AND p.removed_at IS NULL
-WHERE r.id = $5::uuid AND r.status = 'published'
-ON CONFLICT DO NOTHING
-RETURNING id, resource_id, kind, status, created_at
+WITH visible AS (
+  SELECT r.id
+  FROM resources r
+  JOIN providers p ON p.id = r.provider_id AND p.status = 'published' AND p.removed_at IS NULL
+  WHERE r.id = $1::uuid AND r.status = 'published'
+), ins AS (
+  INSERT INTO error_reports (resource_id, reporter_id, kind, message, source_id)
+  SELECT v.id, $2::uuid, $3::text, $4::text, $5::uuid
+  FROM visible v
+  ON CONFLICT DO NOTHING
+  RETURNING id, resource_id, kind, status, created_at
+)
+SELECT EXISTS (SELECT 1 FROM visible)::boolean AS resource_visible,
+       i.id, i.resource_id, i.kind, i.status, i.created_at
+FROM (SELECT 1) AS one
+LEFT JOIN ins i ON true
 `
 
 type CreateErrorReportParams struct {
+	ResourceID pgtype.UUID
 	ReporterID pgtype.UUID
 	Kind       string
 	Message    string
 	SourceID   pgtype.UUID
-	ResourceID pgtype.UUID
 }
 
 type CreateErrorReportRow struct {
-	ID         pgtype.UUID
-	ResourceID pgtype.UUID
-	Kind       string
-	Status     string
-	CreatedAt  pgtype.Timestamptz
+	ResourceVisible bool
+	ID              pgtype.UUID
+	ResourceID      pgtype.UUID
+	Kind            pgtype.Text
+	Status          pgtype.Text
+	CreatedAt       pgtype.Timestamptz
 }
 
-// Inserts one open report for a published resource with a published, non-removed provider.
-// No row means the resource is not visible OR an open report of the same (resource, reporter, kind)
-// exists (error_reports_open_uq). A source_id of another resource is rejected by error_reports_source_fk.
+// One statement answers both questions of a report (issue #117): resource_visible says whether the
+// resource is published with a published, non-removed provider, and the report columns are the freshly
+// inserted open report. Always exactly one row. resource_visible = false is a 404 after one round trip;
+// visible with NULL report columns means an open report of the same (resource, reporter, kind) already
+// exists (error_reports_open_uq, ON CONFLICT DO NOTHING) and the caller selects it. The visibility
+// predicate is the one of GetOpenErrorReport. A source_id of another resource is rejected by
+// error_reports_source_fk, as before.
 func (q *Queries) CreateErrorReport(ctx context.Context, arg CreateErrorReportParams) (CreateErrorReportRow, error) {
 	row := q.db.QueryRow(ctx, createErrorReport,
+		arg.ResourceID,
 		arg.ReporterID,
 		arg.Kind,
 		arg.Message,
 		arg.SourceID,
-		arg.ResourceID,
 	)
 	var i CreateErrorReportRow
 	err := row.Scan(
+		&i.ResourceVisible,
 		&i.ID,
 		&i.ResourceID,
 		&i.Kind,

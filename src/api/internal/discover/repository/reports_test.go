@@ -6,6 +6,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/Y4NN777/226os/src/api/internal/discover/domain"
 )
@@ -16,45 +17,75 @@ func newReport() domain.NewReport {
 	return domain.NewReport{ResourceID: resID, ReporterID: reporterID, Kind: "outdated", Body: "moved"}
 }
 
-func reportRow(status string) []any {
+func uidNull() pgtype.UUID { return pgtype.UUID{} }
+
+// createRow is what CreateErrorReport returns for a visible resource and a fresh insert.
+func createRow(status string) []any {
+	return row(true, uid("00000000-0000-7000-8000-0000000000e1"), uid(resID),
+		pgtype.Text{String: "outdated", Valid: true}, pgtype.Text{String: status, Valid: true}, when())
+}
+
+// conflictRow is what CreateErrorReport returns when the resource is visible and an open report exists.
+func conflictRow() []any {
+	return row(true, uidNull(), uidNull(), pgtype.Text{}, pgtype.Text{}, pgtype.Timestamptz{})
+}
+
+// invisibleRow is what CreateErrorReport returns when the resource is not visible.
+func invisibleRow() []any {
+	return row(false, uidNull(), uidNull(), pgtype.Text{}, pgtype.Text{}, pgtype.Timestamptz{})
+}
+
+func openRow(status string) []any {
 	return row(uid("00000000-0000-7000-8000-0000000000e1"), uid(resID), "outdated", status, when())
 }
 
 func TestCreateReportInsertsAndReturnsTheNewReport(t *testing.T) {
 	in := newReport()
 	in.SourceID = srcID
-	got, err := New(&script{t: t, steps: [][][]any{{reportRow("received")}}, errs: []error{nil}}).CreateReport(t.Context(), in)
+	s := &script{t: t, steps: [][][]any{{createRow("received")}}, errs: []error{nil}}
+	got, err := New(s).CreateReport(t.Context(), in)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.ID != "00000000-0000-7000-8000-0000000000e1" || got.ResourceID != resID || got.Kind != "outdated" || got.Status != "received" || !got.CreatedAt.Equal(when().Time) {
-		t.Fatalf("got %+v", got)
+	if got.ID != "00000000-0000-7000-8000-0000000000e1" || got.ResourceID != resID || got.Kind != "outdated" || got.Status != "received" || !got.CreatedAt.Equal(when().Time) || s.n != 1 {
+		t.Fatalf("got %+v after %d queries", got, s.n)
 	}
 }
 
 func TestCreateReportReturnsTheExistingOpenReportOnDuplicate(t *testing.T) {
-	s := &script{t: t, steps: [][][]any{nil, {reportRow("triaged")}}, errs: []error{pgx.ErrNoRows, nil}}
+	s := &script{t: t, steps: [][][]any{{conflictRow()}, {openRow("triaged")}}, errs: []error{nil, nil}}
 	got, err := New(s).CreateReport(t.Context(), newReport())
 	if err != nil || got.Status != "triaged" || s.n != 2 {
 		t.Fatalf("got %+v, %v after %d queries; want the open report from the second query", got, err, s.n)
 	}
 }
 
-// The open report may be resolved between the failed insert and the select: one more attempt.
+// The open report may be resolved between the insert that did nothing and the select: one more attempt.
 func TestCreateReportRetriesWhenTheOpenReportVanishes(t *testing.T) {
 	s := &script{t: t,
-		steps: [][][]any{nil, nil, {reportRow("received")}},
-		errs:  []error{pgx.ErrNoRows, pgx.ErrNoRows, nil}}
+		steps: [][][]any{{conflictRow()}, nil, {createRow("received")}},
+		errs:  []error{nil, pgx.ErrNoRows, nil}}
 	got, err := New(s).CreateReport(t.Context(), newReport())
-	if err != nil || got.Status != "received" {
-		t.Fatalf("got %+v, %v", got, err)
+	if err != nil || got.Status != "received" || s.n != 3 {
+		t.Fatalf("got %+v, %v after %d queries", got, err, s.n)
 	}
 }
 
-func TestCreateReportOfAnInvisibleResourceIsNotFound(t *testing.T) {
-	s := &script{t: t, steps: [][][]any{nil, nil, nil, nil}, errs: []error{pgx.ErrNoRows, pgx.ErrNoRows, pgx.ErrNoRows, pgx.ErrNoRows}}
-	if _, err := New(s).CreateReport(t.Context(), newReport()); !errors.Is(err, domain.ErrNotFound) {
-		t.Fatalf("err = %v, want ErrNotFound", err)
+// Issue #117: an invisible resource is a 404 after one query, not four.
+func TestCreateReportOfAnInvisibleResourceIsNotFoundAfterOneQuery(t *testing.T) {
+	s := &script{t: t, steps: [][][]any{{invisibleRow()}}, errs: []error{nil}}
+	if _, err := New(s).CreateReport(t.Context(), newReport()); !errors.Is(err, domain.ErrNotFound) || s.n != 1 {
+		t.Fatalf("err = %v after %d queries, want ErrNotFound after 1", err, s.n)
+	}
+}
+
+// Two attempts at most: when the open report keeps vanishing, the answer is 404, never an endless loop.
+func TestCreateReportGivesUpAfterTwoAttempts(t *testing.T) {
+	s := &script{t: t,
+		steps: [][][]any{{conflictRow()}, nil, {conflictRow()}, nil},
+		errs:  []error{nil, pgx.ErrNoRows, nil, pgx.ErrNoRows}}
+	if _, err := New(s).CreateReport(t.Context(), newReport()); !errors.Is(err, domain.ErrNotFound) || s.n != 4 {
+		t.Fatalf("err = %v after %d queries, want ErrNotFound after 4", err, s.n)
 	}
 }
 
@@ -73,7 +104,7 @@ func TestCreateReportTranslatesErrors(t *testing.T) {
 		{"source of another resource", [][][]any{nil}, []error{fk}, newReport(), domain.ErrSourceMismatch, false},
 		{"another foreign key is an internal error", [][][]any{nil}, []error{otherFK}, newReport(), otherFK, true},
 		{"insert failure", [][][]any{nil}, []error{boom}, newReport(), boom, true},
-		{"select failure", [][][]any{nil, nil}, []error{pgx.ErrNoRows, boom}, newReport(), boom, true},
+		{"select failure", [][][]any{{conflictRow()}, nil}, []error{nil, boom}, newReport(), boom, true},
 		{"malformed resource id", nil, nil, domain.NewReport{ResourceID: "bad", ReporterID: reporterID}, domain.ErrNotFound, false},
 		{"malformed reporter id", nil, nil, domain.NewReport{ResourceID: resID, ReporterID: "bad"}, nil, true},
 		{"malformed source id", nil, nil, domain.NewReport{ResourceID: resID, ReporterID: reporterID, SourceID: "bad"}, domain.ErrSourceMismatch, false},
