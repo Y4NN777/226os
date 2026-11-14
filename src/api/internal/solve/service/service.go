@@ -434,7 +434,7 @@ func validateLinks(in []domain.LinkRef) ([]domain.LinkRef, error) {
 
 func validateSources(in []string) ([]string, error) {
 	for _, u := range in {
-		if !validText(u) || !(strings.HasPrefix(u, "http://") || strings.HasPrefix(u, "https://")) {
+		if !validText(u) || (!strings.HasPrefix(u, "http://") && !strings.HasPrefix(u, "https://")) {
 			return nil, invalid("/sources", "invalid_format", "each source must be an http or https URL.")
 		}
 	}

@@ -112,7 +112,14 @@ func newSvc(t *testing.T, st *fakeStore) (*service.Service, *fakeLimiter) {
 	return service.New(st, codec(t), lim), lim
 }
 
-func wantCode(t *testing.T, err error, code apperr.Code) *apperr.Error {
+func wantCode(t *testing.T, err error, code apperr.Code) {
+	t.Helper()
+	if ae := codeOf(t, err, code); ae == nil {
+		t.Fatal("no problem")
+	}
+}
+
+func codeOf(t *testing.T, err error, code apperr.Code) *apperr.Error {
 	t.Helper()
 	var ae *apperr.Error
 	if !errors.As(err, &ae) || ae.Code != code {
@@ -123,7 +130,7 @@ func wantCode(t *testing.T, err error, code apperr.Code) *apperr.Error {
 
 func wantViolation(t *testing.T, err error, field, code string) {
 	t.Helper()
-	ae := wantCode(t, err, apperr.CodeValidation)
+	ae := codeOf(t, err, apperr.CodeValidation)
 	if len(ae.Violations) != 1 || ae.Violations[0].Field != field || ae.Violations[0].Code != code {
 		t.Fatalf("violations = %+v, want %s %s", ae.Violations, field, code)
 	}
@@ -336,7 +343,7 @@ func TestCreateQuestionLimiterAndStoreErrors(t *testing.T) {
 
 	lim.err, lim.allowed, lim.retry = nil, false, 12*time.Second
 	_, err = svc.CreateQuestion(t.Context(), member, createReq())
-	if ae := wantCode(t, err, apperr.CodeRateLimited); ae.RetryAfter != 12*time.Second || st.writes != 0 {
+	if ae := codeOf(t, err, apperr.CodeRateLimited); ae.RetryAfter != 12*time.Second || st.writes != 0 {
 		t.Fatalf("retry %v writes %d", ae.RetryAfter, st.writes)
 	}
 
