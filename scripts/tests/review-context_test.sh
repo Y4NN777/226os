@@ -10,6 +10,7 @@ root="$(cd "$here/../.." && pwd)"
 # shellcheck source=scripts/tests/lib.sh
 source "$here/lib.sh"
 tool="$root/scripts/review-context.py"
+unset PR_HEAD_SHA DIFF_FILE
 
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
@@ -286,17 +287,17 @@ grep -q 'f1.*\[open\]' <<<"$out" && ok "the fenced JSON ledger is read (id and s
 reset
 add issue "$(ledger_comment "$first" '[{"id":"f1","sev":"HIGH","file":"zzz.txt","line":1,"scenario":"x","status":"open"}]')"
 run
-grep -q '^REVIEW_DECISION: skip$' <<<"$out" && ok "an open HIGH on a file NOT changed since the last review: skip" || ko "decision skip file ($out)"
+grep -q '^REVIEW_DECISION: incremental$' <<<"$out" && ok "new commits, open HIGH on an unchanged file: incremental (every push with commits is reviewed)" || ko "decision incremental file ($out)"
 
 reset
 add issue "$(ledger_comment "$first" '[{"id":"f1","sev":"MEDIUM","file":"b.txt","line":1,"scenario":"x","status":"open"}]')"
 run
-grep -q '^REVIEW_DECISION: skip$' <<<"$out" && ok "only a MEDIUM open on a changed file: skip (a push does not re-review)" || ko "decision skip medium ($out)"
+grep -q '^REVIEW_DECISION: incremental$' <<<"$out" && ok "new commits, only a MEDIUM open: incremental (every push with commits is reviewed)" || ko "decision incremental medium ($out)"
 
 reset
 add issue "$(ledger_comment "$first" '[{"id":"f1","sev":"CRITICAL","file":"b.txt","line":1,"scenario":"x","status":"fixed"}]')"
 run
-grep -q '^REVIEW_DECISION: skip$' <<<"$out" && ok "a fixed CRITICAL does not trigger a new review" || ko "decision skip fixed ($out)"
+grep -q '^REVIEW_DECISION: incremental$' <<<"$out" && ok "new commits, a fixed CRITICAL: incremental (the decision follows the commits, not the findings)" || ko "decision incremental fixed ($out)"
 
 reset
 add issue '{"user":{"login":"github-actions[bot]"},"created_at":"2026-11-13T10:00:00Z","body":"<details><summary>Review ledger</summary>\n\n```json\n{not json\n```\n\n</details>"}'
@@ -307,7 +308,7 @@ run
 reset
 add issue "$(ledger_comment "$first" '[{"id":"n1","kind":"note","evidence":"INFERRED","sev":"HIGH","file":"b.txt","line":1,"scenario":"a guess about timing","status":"open"}]')"
 run
-grep -q '^REVIEW_DECISION: skip$' <<<"$out" && ok "an open note never triggers a new review, even with a HIGH sev written by the model" || ko "note decision ($out)"
+grep -q '^REVIEW_DECISION: incremental$' <<<"$out" && ok "new commits, an open note (HIGH sev written by the model): incremental, the note changes nothing" || ko "note decision ($out)"
 grep -q 'n1.*\[open\].*note.*INFERRED.*a guess about timing' <<<"$out" && ok "the ledger lists a note with its kind and evidence" || ko "note in ledger ($out)"
 
 reset
@@ -327,5 +328,155 @@ reset
 run
 grep -q '^## Notes already decided' <<<"$out" && grep -q '(none)' <<<"$(sed -n '/^## Notes already decided/,/^## [^N]/p' <<<"$out")" && ok "no notes issue yet: the section says none" || ko "no notes ($out)"
 
+# ---------- the head commit: the ledger records the pull request head, never the temporary merge commit ----------
+# A repository shaped like the pull_request checkout of CI: develop moved on (base-only file), the work branch has two
+# commits, and HEAD is a detached merge of both (refs/pull/N/merge). PR_HEAD_SHA is the work head. The base-only Go
+# file carries a pointer pattern and an open HIGH, so a range or a decision that ends at the merge commit is caught.
+mc="$tmp/merge-checkout"
+(
+  mkdir -p "$mc" && cd "$mc"
+  git init -q -b develop
+  git config user.email t@example.invalid
+  git config user.name t
+  echo base >base.txt
+  git add -A && git -c commit.gpgsign=false commit -q -m base
+  git checkout -q -b work
+  echo a >a.txt && git add -A && git -c commit.gpgsign=false commit -q -m first
+  git rev-parse HEAD >"$tmp/mc-first.sha"
+  echo b >b.txt && git add -A && git -c commit.gpgsign=false commit -q -m second
+  git rev-parse HEAD >"$tmp/mc-head.sha"
+  git checkout -q develop
+  printf 'package x\n\nvar ip = r.Header.Get("X-Forwarded-For")\n' >base_only.go && git add -A && git -c commit.gpgsign=false commit -q -m develop-moved
+  git update-ref refs/remotes/origin/develop HEAD
+  git checkout -q --detach HEAD
+  git -c commit.gpgsign=false merge -q --no-ff -m merge work
+)
+mc_first="$(cat "$tmp/mc-first.sha")"
+mc_head="$(cat "$tmp/mc-head.sha")"
+REPO_DIR="$mc"
+
+reset
+add issue "$(ledger_comment "$mc_head" '[{"id":"f1","sev":"HIGH","file":"base_only.go","line":1,"scenario":"x","status":"open"}]')"
+PR_HEAD_SHA="$mc_head" run
+grep -q "^Head commit: $mc_head$" <<<"$out" && ok "the pack prints the Head commit from PR_HEAD_SHA, not the merge commit" || ko "head line ($out)"
+grep -q '^REVIEW_DECISION: skip$' <<<"$out" && ok "the ledger sha is the head and no commit is new: skip (a re-run or a label)" || ko "decision skip at head ($out)"
+
+reset
+add issue "$(ledger_comment "$mc_first" '[{"id":"f1","sev":"HIGH","file":"b.txt","line":1,"scenario":"x","status":"open"}]')"
+PR_HEAD_SHA="$mc_head" run
+grep -q '^REVIEW_DECISION: incremental$' <<<"$out" && grep -qF "Range: \`$mc_first..$mc_head\`" <<<"$out" && ok "new commits after the ledger sha, open HIGH: incremental, range <ledger sha>..<head>" || ko "incremental to head ($out)"
+! grep -q 'base_only' <<<"$out" && ok "the incremental range leaves out what develop merged in" || ko "base noise ($out)"
+
+reset
+add issue "$(ledger_comment "$mc_first" '[]')"
+PR_HEAD_SHA="$mc_head" run
+grep -q '^REVIEW_DECISION: incremental$' <<<"$out" && ok "new commits and no open finding: incremental, not skip" || ko "incremental no findings ($out)"
+
+reset
+add issue "$(ledger_comment "0123456789abcdef0123456789abcdef01234567" '[{"id":"f1","sev":"HIGH","file":"b.txt","line":1,"scenario":"x","status":"open"}]')"
+PR_HEAD_SHA="$mc_head" run
+grep -q '^REVIEW_DECISION: first$' <<<"$out" && grep -q 'Why the whole pull request: the last reviewed commit 0123456789abcdef0123456789abcdef01234567 is not in the repository' <<<"$out" && ok "a ledger sha unknown to git: first, and the pack says why" || ko "unknown ledger sha ($out)"
+
+reset
+add issue "$(ledger_comment "$mc_first" '[]')"
+PR_HEAD_SHA="fedcba9876543210fedcba9876543210fedcba98" run
+[ "$rc" -eq 0 ] && grep -q '^REVIEW_DECISION: first$' <<<"$out" && grep -q '^Head commit: NOT AVAILABLE' <<<"$out" && ok "a head commit missing from the checkout fails open: first" || ko "unknown head (rc=$rc out=$out)"
+
+reset
+PR_HEAD_SHA='HEAD; rm -rf /' run
+[ "$rc" -eq 0 ] && grep -q '^REVIEW_DECISION: first$' <<<"$out" && grep -q 'not a full commit hash' <<<"$out" && ok "a PR_HEAD_SHA that is not 40 hex characters is refused: first" || ko "bad head value (rc=$rc out=$out)"
+
+reset
+REPO_DIR="$tmp/repo"
+run
+grep -q "^Head commit: $(git -C "$tmp/repo" rev-parse HEAD)$" <<<"$out" && ok "without PR_HEAD_SHA (a local run) the Head commit is HEAD" || ko "local head ($out)"
+
+# ---------- the one review comment: the marker comment wins over a stale duplicate ----------
+# PRs #100-#102 had two bot Triage comments; the ledger must come from the marked one, never from a stale duplicate.
+reset
+REPO_DIR="$tmp/repo"
+add issue "{\"user\":{\"login\":\"$BOT\"},\"created_at\":\"2026-11-13T10:00:00Z\",\"updated_at\":\"2026-11-14T09:00:00Z\",\"body\":\"Triage: NONE | blast radius: x\\n<!-- 226os-ai-review -->\\n<details><summary>Review ledger</summary>\\n\\n\`\`\`json\\n{\\\"sha\\\":\\\"$first\\\",\\\"findings\\\":[{\\\"id\\\":\\\"marked\\\",\\\"status\\\":\\\"open\\\"}]}\\n\`\`\`\\n</details>\"}"
+add issue "{\"user\":{\"login\":\"$BOT\"},\"created_at\":\"2026-11-13T11:00:00Z\",\"updated_at\":\"2026-11-14T10:00:00Z\",\"body\":\"Triage: MEDIUM | blast radius: x\\n<details><summary>Review ledger</summary>\\n\\n\`\`\`json\\n{\\\"sha\\\":\\\"$first\\\",\\\"findings\\\":[{\\\"id\\\":\\\"stale\\\",\\\"status\\\":\\\"open\\\"}]}\\n\`\`\`\\n</details>\"}"
+run
+grep -q '`marked` \[open\]' <<<"$out" && ! grep -q '`stale`' <<<"$out" && ok "two Triage comments: the ledger comes from the marker comment, even when the other was updated later" || ko "marker ledger ($out)"
+
+reset
+add issue "{\"user\":{\"login\":\"$BOT\"},\"created_at\":\"2026-11-13T10:00:00Z\",\"updated_at\":\"2026-11-14T10:00:00Z\",\"body\":\"Triage: NONE | blast radius: x\\n<details><summary>Review ledger</summary>\\n\\n\`\`\`json\\n{\\\"sha\\\":\\\"$first\\\",\\\"findings\\\":[{\\\"id\\\":\\\"edited-later\\\",\\\"status\\\":\\\"open\\\"}]}\\n\`\`\`\\n</details>\"}"
+add issue "{\"user\":{\"login\":\"$BOT\"},\"created_at\":\"2026-11-13T11:00:00Z\",\"updated_at\":\"2026-11-13T11:00:00Z\",\"body\":\"Triage: MEDIUM | blast radius: x\\n<details><summary>Review ledger</summary>\\n\\n\`\`\`json\\n{\\\"sha\\\":\\\"$first\\\",\\\"findings\\\":[{\\\"id\\\":\\\"created-later\\\",\\\"status\\\":\\\"open\\\"}]}\\n\`\`\`\\n</details>\"}"
+run
+grep -q '`edited-later` \[open\]' <<<"$out" && ! grep -q '`created-later`' <<<"$out" && ok "no marker (an older pull request): the most recently updated Triage comment wins" || ko "updated fallback ($out)"
+
+# ---------- the preview range and the Tool line ----------
+reset
+add issue "$(ledger_comment "$mc_first" '[]')"
+REPO_DIR="$mc"
+PR_HEAD_SHA="$mc_head" run
+grep -q "^PREVIEW_FROM: $mc_first$" <<<"$out" && grep -q "^PREVIEW_TO: $mc_head$" <<<"$out" && ok "incremental: the preview range is <ledger sha> to <head>" || ko "preview range incremental ($out)"
+reset
+PR_HEAD_SHA="$mc_head" run
+grep -q '^PREVIEW_FROM: origin/develop$' <<<"$out" && grep -q "^PREVIEW_TO: $mc_head$" <<<"$out" && ok "first review: the preview range is the base branch to the head" || ko "preview range first ($out)"
+REPO_DIR="$tmp/repo"
+
+printf '# Files (3 reviewable / 7 total)\n\n- mode: range\n  - `scripts/x.py` [modified] +1/-0\n' >"$tmp/preview.txt"
+tout="$(python3 -I "$tool" tool "$tmp/preview.txt" 0)"
+grep -q '^Tool: PASS (3 files)$' <<<"$tout" && grep -q 'scripts/x.py' <<<"$tout" && grep -q 'UNTRUSTED DATA' <<<"$tout" && ok "a preview that ran: Tool: PASS (3 files) and the list in the pack" || ko "tool pass ($tout)"
+tout="$(python3 -I "$tool" tool "$tmp/preview.txt" 124)"
+grep -q '^Tool: NOT RUN (the preview timed out)$' <<<"$tout" && ! grep -q 'scripts/x.py' <<<"$tout" && ok "a preview that timed out: Tool: NOT RUN with the reason, no list" || ko "tool timeout ($tout)"
+tout="$(python3 -I "$tool" tool "$tmp/preview.txt" 1)"
+grep -q '^Tool: NOT RUN (the preview exited with code 1)$' <<<"$tout" && ok "a preview that failed: Tool: NOT RUN with its exit code" || ko "tool fail ($tout)"
+printf 'npm ERR! network\n' >"$tmp/preview-bad.txt"
+tout="$(python3 -I "$tool" tool "$tmp/preview-bad.txt" 0)"
+grep -q '^Tool: NOT RUN (no file list in the preview output)$' <<<"$tout" && ok "a preview without a file list: Tool: NOT RUN" || ko "tool no list ($tout)"
+rc=0
+tout="$(python3 -I "$tool" tool "$tmp/missing.txt" 0)" || rc=$?
+[ "$rc" -eq 0 ] && grep -q '^Tool: NOT RUN' <<<"$tout" && ok "a missing preview file: Tool: NOT RUN, exit 0" || ko "tool missing (rc=$rc $tout)"
+
+# ---------- develop merged into the branch: only the pull request's own changes since the last review ----------
+mb="$tmp/merge-base"
+(
+  mkdir -p "$mb" && cd "$mb"
+  git init -q -b develop
+  git config user.email t@example.invalid
+  git config user.name t
+  mkdir -p docs/team
+  echo base >base.txt
+  printf 'OWNER PREF: base\n' >docs/team/OWNER_PREFERENCES.md
+  git add -A && git -c commit.gpgsign=false commit -q -m base
+  git checkout -q -b work
+  echo a >a.txt && git add -A && git -c commit.gpgsign=false commit -q -m own-1
+  git rev-parse HEAD >"$tmp/mb-ledger.sha"
+  git checkout -q develop
+  printf 'package x\n\nvar ip = r.Header.Get("X-Forwarded-For")\n' >base_only.go && git add -A && git -c commit.gpgsign=false commit -q -m develop-moved
+  git update-ref refs/remotes/origin/develop HEAD
+  git checkout -q work
+  git -c commit.gpgsign=false merge -q --no-ff -m merge-develop develop
+  git rev-parse HEAD >"$tmp/mb-merge.sha"
+  printf 'package x\n\nvar ip = r.Header.Get("X-Forwarded-For")\n' >own.go
+  printf 'OWNER PREF: pr\n' >docs/team/OWNER_PREFERENCES.md
+  git add -A && git -c commit.gpgsign=false commit -q -m own-2
+  git rev-parse HEAD >"$tmp/mb-head.sha"
+  git checkout -q --detach HEAD
+)
+mb_ledger="$(cat "$tmp/mb-ledger.sha")"
+mb_merge="$(cat "$tmp/mb-merge.sha")"
+mb_head="$(cat "$tmp/mb-head.sha")"
+REPO_DIR="$mb"
+
+reset
+add issue "$(ledger_comment "$mb_ledger" '[]')"
+PR_HEAD_SHA="$mb_head" DIFF_FILE="$tmp/mb.patch" run
+rf="$(read_first)"
+grep -q '^REVIEW_DECISION: incremental$' <<<"$out" && grep -q 'own.go' <<<"$rf" && ! grep -q 'base_only.go' <<<"$rf" && ok "develop merged into the branch: the pointers cover the branch's own changes, not develop's" || ko "merge-base pointers ($out)"
+grep -q 'own.go' "$tmp/mb.patch" 2>/dev/null && ! grep -q 'base_only.go' "$tmp/mb.patch" && ok "the diff file of the range holds the branch's own changes only" || ko "diff file"
+
+reset
+add issue "$(ledger_comment "$mb_ledger" '[]')"
+PR_HEAD_SHA="$mb_merge" run
+grep -q '^REVIEW_DECISION: skip$' <<<"$out" && ok "a push that only merges develop (no own change): skip" || ko "merge only ($out)"
+
+reset
+PR_HEAD_SHA="$mb_head" run
+grep -q 'OWNER PREF: base' <<<"$out" && ! grep -q 'OWNER PREF: pr' <<<"$out" && ok "the owner's preferences come from the base branch, never the pull request" || ko "owner prefs ($out)"
+REPO_DIR="$tmp/repo"
 
 finish

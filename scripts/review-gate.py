@@ -3,7 +3,8 @@
 owner review only the sensitive paths, without making everyone wait for a review.
 
 It checks two things on a pull request:
-  1. Triage verdict. The latest comment written by the Actions bot whose first line is exactly
+  1. Triage verdict. The review comment of the Actions bot (the one with the marker `<!-- 226os-ai-review -->`, else
+     the most recently updated one) whose first line is exactly
      `Triage: <CRITICAL|HIGH|MEDIUM|NONE> | blast radius: <phrase>` is the verdict. Only a CRITICAL that cites OBSERVED
      evidence (`file:line`) can fail the gate; a CRITICAL without it is downgraded. The label `owner-override`
      cancels a CRITICAL only when the owner added it (the last labeled/unlabeled event decides). Comments by humans
@@ -28,6 +29,7 @@ import subprocess
 import sys
 
 BOT_LOGINS = {"github-actions[bot]", "github-actions"}
+MARKER = "<!-- 226os-ai-review -->"
 VERDICT = re.compile(r"^Triage:\s*(CRITICAL|HIGH|MEDIUM|NONE)\s*\|\s*blast radius:\s*\S.*$")
 EVIDENCE = re.compile(r"[\w./-]+\.\w+:\d+")
 OVERRIDE_LABEL = "owner-override"
@@ -74,16 +76,21 @@ def gh_api(gh, endpoint):
 
 
 def latest_verdict(comments):
-    """(level, body) of the newest valid verdict by the bot, or None."""
+    """(level, body) of the review comment's verdict, or None. The bot comment with the marker MARKER (the one review
+    comment, scripts/review-comment.py) wins; without one (an older pull request), the most recently UPDATED bot
+    verdict, so a stale duplicate created later never wins. When a marker comment exists it is the only candidate: its
+    `Triage: NOT RUN` (the review gave no result) is no verdict, and an older duplicate is never used instead."""
+    bots = [c for c in comments if (c.get("user") or {}).get("login") in BOT_LOGINS]
+    marked = [c for c in bots if MARKER in (c.get("body") or "")]
     best = None
-    for c in comments:
-        if (c.get("user") or {}).get("login") not in BOT_LOGINS:
-            continue
+    for c in marked or bots:
         body = c.get("body") or ""
         first = body.strip().splitlines()[0] if body.strip() else ""
         m = VERDICT.match(first)
-        if m and (best is None or c.get("created_at", "") >= best[0]):
-            best = (c.get("created_at", ""), m.group(1), body)
+        if m:
+            key = (MARKER in body, c.get("updated_at") or c.get("created_at") or "")
+            if best is None or key >= best[0]:
+                best = (key, m.group(1), body)
     return None if best is None else (best[1], best[2])
 
 

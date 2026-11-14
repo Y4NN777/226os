@@ -49,13 +49,13 @@ reset() {
   printf '[{"filename":"src/api/internal/app/app.go"}]' >"$tmp/fx/files.json"
 }
 
-# comment LOGIN CREATED BODY: appends one issue comment.
+# comment LOGIN CREATED BODY [UPDATED]: appends one issue comment.
 comment() {
-  python3 -I - "$tmp/fx/comments.json" "$1" "$2" "$3" <<'EOF'
+  python3 -I - "$tmp/fx/comments.json" "$1" "$2" "$3" "${4:-}" <<'EOF'
 import json, sys
-p, login, created, body = sys.argv[1:5]
+p, login, created, body, updated = sys.argv[1:6]
 d = json.load(open(p))
-d.append({"user": {"login": login}, "created_at": created, "body": body})
+d.append({"user": {"login": login}, "created_at": created, "updated_at": updated or created, "body": body})
 json.dump(d, open(p, "w"))
 EOF
 }
@@ -134,6 +134,22 @@ run enforce
 reset; comment "$BOT" 2026-11-13T01:00:00Z "$crit_ok"; comment "$BOT" 2026-11-13T02:00:00Z "Triage: NONE | blast radius: this PR only"
 run enforce
 [ "$rc" -eq 0 ] && ok "the latest bot verdict wins" || ko "latest wins (rc=$rc out=$out)"
+
+# One review comment per pull request (#100-#102 had two): the marker comment wins, else the most recently UPDATED one.
+marker='<!-- 226os-ai-review -->'
+crit_marked="$(printf '%s\n%s\n%s' "$(head -1 <<<"$crit_ok")" "$marker" "$(tail -n +2 <<<"$crit_ok")")"
+reset; comment "$BOT" 2026-11-13T01:00:00Z "$crit_marked" 2026-11-13T03:00:00Z; comment "$BOT" 2026-11-13T02:00:00Z "Triage: NONE | blast radius: this PR only"
+run enforce
+[ "$rc" -ne 0 ] && ok "the marker comment is the verdict, not a duplicate created later" || ko "marker verdict (rc=$rc out=$out)"
+reset; comment "$BOT" 2026-11-13T01:00:00Z "$(printf 'Triage: NONE | blast radius: x\n%s' "$marker")" 2026-11-13T02:00:00Z; comment "$BOT" 2026-11-13T02:00:00Z "$crit_ok" 2026-11-13T05:00:00Z
+run enforce
+[ "$rc" -eq 0 ] && ok "a duplicate without the marker never wins over the marker comment, even updated later" || ko "marker over update (rc=$rc out=$out)"
+reset; comment "$BOT" 2026-11-13T01:00:00Z "$crit_ok" 2026-11-13T03:00:00Z; comment "$BOT" 2026-11-13T02:00:00Z "Triage: NONE | blast radius: this PR only"
+run enforce
+[ "$rc" -ne 0 ] && ok "no marker (an older pull request): the most recently updated verdict wins" || ko "updated wins (rc=$rc out=$out)"
+reset; comment "$BOT" 2026-11-13T01:00:00Z "$crit_ok"; comment "$BOT" 2026-11-13T02:00:00Z "$(printf 'Triage: NOT RUN | the review returned no text\n%s' "$marker")"
+run enforce
+[ "$rc" -eq 0 ] && grep -q 'NOT RUN' <<<"$out" && ok "a NOT RUN marker comment is no verdict: a stale CRITICAL duplicate is never used instead" || ko "not run marker (rc=$rc out=$out)"
 
 reset; comment "$BOT" 2026-11-13T01:00:00Z "not a verdict at all"
 run enforce
