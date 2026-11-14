@@ -253,3 +253,22 @@ func TestNegativeIssuedAtDoesNotPanic(t *testing.T) {
 	_, err := c.Decode(cursor.SignForTest(c, body), "")
 	assertInvalid(t, err)
 }
+
+// The contract caps a cursor at 512 characters, and the filters a cursor is bound to can be long: q alone is 200
+// runes, 400 bytes in French (#118). Whatever the filters, the cursor stays within the cap, and it still refuses
+// other filters.
+func TestCursorLengthDoesNotGrowWithTheFilters(t *testing.T) {
+	c := newCodec(t, 1)
+	filters := "200:" + strings.Repeat("é", 200) + "|" + strings.Repeat("x", 400)
+	p := cursor.Payload{Sort: "2026-11-13T09:30:00.123456789Z", ID: "019a0000-0000-7000-8000-0000000000a1", FilterHash: filters}
+	token := c.Encode(p)
+	if len(token) > 512 {
+		t.Fatalf("cursor is %d characters, the contract allows 512", len(token))
+	}
+	got, err := c.Decode(token, filters)
+	if err != nil || got != p {
+		t.Fatalf("got %+v, %v", got, err)
+	}
+	_, err = c.Decode(token, filters+"!")
+	assertInvalid(t, err)
+}
