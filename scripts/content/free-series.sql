@@ -7,8 +7,8 @@
 --   training_lessons.article_id, all provenance 'live', status 'published', language 'fr'.
 -- Attribution: the owner's real account, looked up by username from the session setting
 -- content.owner_username (never a hard-coded id). The account must exist and be active.
--- Refuses (nothing written) when the setting is missing, the account is unknown or inactive, or the series
--- already exists, so a second run changes nothing.
+-- Refuses (nothing written) when the setting is missing, the account is unknown or inactive, or a platform
+-- series on topic 'ai' already exists (whatever its title), so a second run changes nothing.
 -- Text: original team text, written for 226os; review it in the PR before the first run.
 
 DO $script$
@@ -29,7 +29,9 @@ BEGIN
   IF v_owner IS NULL THEN
     RAISE EXCEPTION 'no active account with username %', v_owner_name;
   END IF;
-  IF EXISTS (SELECT 1 FROM training_series WHERE origin = 'platform' AND title = 'Des LLM aux agents : l''ingénierie de l''IA aujourd''hui') THEN
+  -- By origin and topic, not by title: a series loaded by an earlier version of this script (other title)
+  -- must block a new run too.
+  IF EXISTS (SELECT 1 FROM training_series WHERE origin = 'platform' AND topic_code = 'ai') THEN
     RAISE EXCEPTION 'the free series already exists; nothing changed';
   END IF;
 
