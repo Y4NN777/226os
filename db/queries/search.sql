@@ -9,11 +9,13 @@
 -- negations, or nothing left after parsing: querytree is 'T' or empty) would match every row, so it
 -- reads none; at most 500 matching rows (candidates) are ranked, so ts_rank never scores every row of
 -- a very common term. Above 500 matches the ranked set is the first 500 the index returns.
+-- published_at rides along (all four tables have it; learn articles are non-null once published) so the
+-- assistant can date a source; it changes neither the predicates, the index use, the order nor the limits.
 
 -- name: SearchQuestions :many
 WITH i AS NOT MATERIALIZED (SELECT websearch_to_tsquery('simple', f_unaccent(sqlc.arg('q')::text)) AS tsq),
 candidates AS (
-  SELECT q.id, q.title, q.body_md AS excerpt_src, q.language, q.search_document
+  SELECT q.id, q.title, q.body_md AS excerpt_src, q.language, q.published_at, q.search_document
   FROM questions q
   CROSS JOIN i
   WHERE querytree(i.tsq) NOT IN ('', 'T')
@@ -23,7 +25,7 @@ candidates AS (
     AND (sqlc.narg('lang')::text IS NULL OR q.language = sqlc.narg('lang'))
   LIMIT 500
 )
-SELECT c.id, c.title, left(c.excerpt_src, 600)::text AS excerpt, c.language
+SELECT c.id, c.title, left(c.excerpt_src, 600)::text AS excerpt, c.language, c.published_at
 FROM candidates c CROSS JOIN i
 ORDER BY ts_rank(c.search_document, i.tsq) DESC, c.id
 LIMIT sqlc.arg('row_limit');
@@ -33,7 +35,7 @@ LIMIT sqlc.arg('row_limit');
 -- name: SearchResources :many
 WITH i AS NOT MATERIALIZED (SELECT websearch_to_tsquery('simple', f_unaccent(sqlc.arg('q')::text)) AS tsq),
 candidates AS (
-  SELECT r.id, r.name AS title, r.summary AS excerpt_src, r.summary_language AS language, r.search_document
+  SELECT r.id, r.name AS title, r.summary AS excerpt_src, r.summary_language AS language, r.published_at, r.search_document
   FROM resources r
   JOIN providers p ON p.id = r.provider_id AND p.status = 'published' AND p.removed_at IS NULL
   CROSS JOIN i
@@ -46,7 +48,7 @@ candidates AS (
     AND (sqlc.narg('lang')::text IS NULL OR r.summary_language = sqlc.narg('lang'))
   LIMIT 500
 )
-SELECT c.id, c.title, left(c.excerpt_src, 600)::text AS excerpt, c.language
+SELECT c.id, c.title, left(c.excerpt_src, 600)::text AS excerpt, c.language, c.published_at
 FROM candidates c CROSS JOIN i
 ORDER BY ts_rank(c.search_document, i.tsq) DESC, c.id
 LIMIT sqlc.arg('row_limit');
@@ -55,7 +57,7 @@ LIMIT sqlc.arg('row_limit');
 -- name: SearchProjects :many
 WITH i AS NOT MATERIALIZED (SELECT websearch_to_tsquery('simple', f_unaccent(sqlc.arg('q')::text)) AS tsq),
 candidates AS (
-  SELECT p.id, p.name AS title, p.summary AS excerpt_src, p.language, p.search_document
+  SELECT p.id, p.name AS title, p.summary AS excerpt_src, p.language, p.published_at, p.search_document
   FROM projects p
   CROSS JOIN i
   WHERE querytree(i.tsq) NOT IN ('', 'T')
@@ -65,7 +67,7 @@ candidates AS (
     AND (sqlc.narg('lang')::text IS NULL OR p.language = sqlc.narg('lang'))
   LIMIT 500
 )
-SELECT c.id, c.title, left(c.excerpt_src, 600)::text AS excerpt, c.language
+SELECT c.id, c.title, left(c.excerpt_src, 600)::text AS excerpt, c.language, c.published_at
 FROM candidates c CROSS JOIN i
 ORDER BY ts_rank(c.search_document, i.tsq) DESC, c.id
 LIMIT sqlc.arg('row_limit');
@@ -75,7 +77,7 @@ LIMIT sqlc.arg('row_limit');
 -- name: SearchLearn :many
 WITH i AS NOT MATERIALIZED (SELECT websearch_to_tsquery('simple', f_unaccent(sqlc.arg('q')::text)) AS tsq),
 candidates AS (
-  SELECT a.id, a.title, COALESCE(NULLIF(a.summary, ''), a.body_md) AS excerpt_src, a.language, a.search_document
+  SELECT a.id, a.title, COALESCE(NULLIF(a.summary, ''), a.body_md) AS excerpt_src, a.language, a.published_at, a.search_document
   FROM learn_articles a
   CROSS JOIN i
   WHERE querytree(i.tsq) NOT IN ('', 'T')
@@ -84,7 +86,7 @@ candidates AS (
     AND (sqlc.narg('lang')::text IS NULL OR a.language = sqlc.narg('lang'))
   LIMIT 500
 )
-SELECT c.id, c.title, left(c.excerpt_src, 600)::text AS excerpt, c.language
+SELECT c.id, c.title, left(c.excerpt_src, 600)::text AS excerpt, c.language, c.published_at
 FROM candidates c CROSS JOIN i
 ORDER BY ts_rank(c.search_document, i.tsq) DESC, c.id
 LIMIT sqlc.arg('row_limit');

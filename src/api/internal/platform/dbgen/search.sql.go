@@ -14,7 +14,7 @@ import (
 const searchLearn = `-- name: SearchLearn :many
 WITH i AS NOT MATERIALIZED (SELECT websearch_to_tsquery('simple', f_unaccent($2::text)) AS tsq),
 candidates AS (
-  SELECT a.id, a.title, COALESCE(NULLIF(a.summary, ''), a.body_md) AS excerpt_src, a.language, a.search_document
+  SELECT a.id, a.title, COALESCE(NULLIF(a.summary, ''), a.body_md) AS excerpt_src, a.language, a.published_at, a.search_document
   FROM learn_articles a
   CROSS JOIN i
   WHERE querytree(i.tsq) NOT IN ('', 'T')
@@ -23,7 +23,7 @@ candidates AS (
     AND ($3::text IS NULL OR a.language = $3)
   LIMIT 500
 )
-SELECT c.id, c.title, left(c.excerpt_src, 600)::text AS excerpt, c.language
+SELECT c.id, c.title, left(c.excerpt_src, 600)::text AS excerpt, c.language, c.published_at
 FROM candidates c CROSS JOIN i
 ORDER BY ts_rank(c.search_document, i.tsq) DESC, c.id
 LIMIT $1
@@ -36,10 +36,11 @@ type SearchLearnParams struct {
 }
 
 type SearchLearnRow struct {
-	ID       pgtype.UUID
-	Title    string
-	Excerpt  string
-	Language string
+	ID          pgtype.UUID
+	Title       string
+	Excerpt     string
+	Language    string
+	PublishedAt pgtype.Timestamptz
 }
 
 // Learn articles have no country column, so the country filter does not apply to this group.
@@ -58,6 +59,7 @@ func (q *Queries) SearchLearn(ctx context.Context, arg SearchLearnParams) ([]Sea
 			&i.Title,
 			&i.Excerpt,
 			&i.Language,
+			&i.PublishedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -72,7 +74,7 @@ func (q *Queries) SearchLearn(ctx context.Context, arg SearchLearnParams) ([]Sea
 const searchProjects = `-- name: SearchProjects :many
 WITH i AS NOT MATERIALIZED (SELECT websearch_to_tsquery('simple', f_unaccent($2::text)) AS tsq),
 candidates AS (
-  SELECT p.id, p.name AS title, p.summary AS excerpt_src, p.language, p.search_document
+  SELECT p.id, p.name AS title, p.summary AS excerpt_src, p.language, p.published_at, p.search_document
   FROM projects p
   CROSS JOIN i
   WHERE querytree(i.tsq) NOT IN ('', 'T')
@@ -82,7 +84,7 @@ candidates AS (
     AND ($4::text IS NULL OR p.language = $4)
   LIMIT 500
 )
-SELECT c.id, c.title, left(c.excerpt_src, 600)::text AS excerpt, c.language
+SELECT c.id, c.title, left(c.excerpt_src, 600)::text AS excerpt, c.language, c.published_at
 FROM candidates c CROSS JOIN i
 ORDER BY ts_rank(c.search_document, i.tsq) DESC, c.id
 LIMIT $1
@@ -96,10 +98,11 @@ type SearchProjectsParams struct {
 }
 
 type SearchProjectsRow struct {
-	ID       pgtype.UUID
-	Title    string
-	Excerpt  string
-	Language string
+	ID          pgtype.UUID
+	Title       string
+	Excerpt     string
+	Language    string
+	PublishedAt pgtype.Timestamptz
 }
 
 // Private projects never appear, even for their owner.
@@ -122,6 +125,7 @@ func (q *Queries) SearchProjects(ctx context.Context, arg SearchProjectsParams) 
 			&i.Title,
 			&i.Excerpt,
 			&i.Language,
+			&i.PublishedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -137,7 +141,7 @@ const searchQuestions = `-- name: SearchQuestions :many
 
 WITH i AS NOT MATERIALIZED (SELECT websearch_to_tsquery('simple', f_unaccent($2::text)) AS tsq),
 candidates AS (
-  SELECT q.id, q.title, q.body_md AS excerpt_src, q.language, q.search_document
+  SELECT q.id, q.title, q.body_md AS excerpt_src, q.language, q.published_at, q.search_document
   FROM questions q
   CROSS JOIN i
   WHERE querytree(i.tsq) NOT IN ('', 'T')
@@ -147,7 +151,7 @@ candidates AS (
     AND ($4::text IS NULL OR q.language = $4)
   LIMIT 500
 )
-SELECT c.id, c.title, left(c.excerpt_src, 600)::text AS excerpt, c.language
+SELECT c.id, c.title, left(c.excerpt_src, 600)::text AS excerpt, c.language, c.published_at
 FROM candidates c CROSS JOIN i
 ORDER BY ts_rank(c.search_document, i.tsq) DESC, c.id
 LIMIT $1
@@ -161,10 +165,11 @@ type SearchQuestionsParams struct {
 }
 
 type SearchQuestionsRow struct {
-	ID       pgtype.UUID
-	Title    string
-	Excerpt  string
-	Language string
+	ID          pgtype.UUID
+	Title       string
+	Excerpt     string
+	Language    string
+	PublishedAt pgtype.Timestamptz
 }
 
 // Search reads (S2). One bounded, ranked query per group over the stored generated search_document
@@ -178,6 +183,8 @@ type SearchQuestionsRow struct {
 // negations, or nothing left after parsing: querytree is 'T' or empty) would match every row, so it
 // reads none; at most 500 matching rows (candidates) are ranked, so ts_rank never scores every row of
 // a very common term. Above 500 matches the ranked set is the first 500 the index returns.
+// published_at rides along (all four tables have it; learn articles are non-null once published) so the
+// assistant can date a source; it changes neither the predicates, the index use, the order nor the limits.
 func (q *Queries) SearchQuestions(ctx context.Context, arg SearchQuestionsParams) ([]SearchQuestionsRow, error) {
 	rows, err := q.db.Query(ctx, searchQuestions,
 		arg.RowLimit,
@@ -197,6 +204,7 @@ func (q *Queries) SearchQuestions(ctx context.Context, arg SearchQuestionsParams
 			&i.Title,
 			&i.Excerpt,
 			&i.Language,
+			&i.PublishedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -211,7 +219,7 @@ func (q *Queries) SearchQuestions(ctx context.Context, arg SearchQuestionsParams
 const searchResources = `-- name: SearchResources :many
 WITH i AS NOT MATERIALIZED (SELECT websearch_to_tsquery('simple', f_unaccent($2::text)) AS tsq),
 candidates AS (
-  SELECT r.id, r.name AS title, r.summary AS excerpt_src, r.summary_language AS language, r.search_document
+  SELECT r.id, r.name AS title, r.summary AS excerpt_src, r.summary_language AS language, r.published_at, r.search_document
   FROM resources r
   JOIN providers p ON p.id = r.provider_id AND p.status = 'published' AND p.removed_at IS NULL
   CROSS JOIN i
@@ -224,7 +232,7 @@ candidates AS (
     AND ($4::text IS NULL OR r.summary_language = $4)
   LIMIT 500
 )
-SELECT c.id, c.title, left(c.excerpt_src, 600)::text AS excerpt, c.language
+SELECT c.id, c.title, left(c.excerpt_src, 600)::text AS excerpt, c.language, c.published_at
 FROM candidates c CROSS JOIN i
 ORDER BY ts_rank(c.search_document, i.tsq) DESC, c.id
 LIMIT $1
@@ -238,10 +246,11 @@ type SearchResourcesParams struct {
 }
 
 type SearchResourcesRow struct {
-	ID       pgtype.UUID
-	Title    string
-	Excerpt  string
-	Language string
+	ID          pgtype.UUID
+	Title       string
+	Excerpt     string
+	Language    string
+	PublishedAt pgtype.Timestamptz
 }
 
 // A resource is visible only with a published, not removed provider (same rule as the catalogue).
@@ -265,6 +274,7 @@ func (q *Queries) SearchResources(ctx context.Context, arg SearchResourcesParams
 			&i.Title,
 			&i.Excerpt,
 			&i.Language,
+			&i.PublishedAt,
 		); err != nil {
 			return nil, err
 		}
