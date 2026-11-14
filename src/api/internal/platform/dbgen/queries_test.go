@@ -533,12 +533,12 @@ func TestIdentityQueries(t *testing.T) {
 		t.Fatalf("update profile call %+v", db.calls)
 	}
 
-	// DeleteUserSkills :exec — wipes the user's skill rows inside the tx.
+	// DeleteUserSkills :exec — removes only the links to active tags inside the tx.
 	db = &fakeDB{}
 	if err := dbgen.New(db).DeleteUserSkills(ctx, uid); err != nil {
 		t.Fatal(err)
 	}
-	assertCall(t, db, "DELETE FROM user_skills WHERE user_id", []any{uid})
+	assertCall(t, db, "DELETE FROM user_skills us", []any{uid})
 
 	// InsertUserSkills :exec — inserts the resolved tag ids, conflict-safe.
 	db = &fakeDB{}
