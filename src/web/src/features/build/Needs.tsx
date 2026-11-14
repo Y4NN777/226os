@@ -48,6 +48,12 @@ const statusKey = {
   closed: 'project.need.status.closed',
 } as const satisfies Record<Need['status'], MessageKey>;
 
+const settledKey = {
+  accepted: 'project.apply.accepted',
+  declined: 'project.apply.declined',
+  withdrawn: 'project.apply.withdrawn',
+} as const satisfies Record<Exclude<Sent['status'], 'pending'>, MessageKey>;
+
 /** A refusal the page can explain precisely, shown as one focused notice. */
 function MessageNotice({ message }: { message: string }) {
   return (
@@ -57,17 +63,18 @@ function MessageNotice({ message }: { message: string }) {
   );
 }
 
-/** What this visitor did on a need: applied (with the id to withdraw by, if known) or withdrawn. */
-type Sent = { id: string | null; withdrawn: boolean };
+/** What this visitor did on a need: the application's id (null when unknown) and its status. */
+type Sent = { id: string | null; status: components['schemas']['ApplicationStatus'] };
 
 /**
- * Kept in the query cache, not in component state: leaving the project page and coming back must
- * not offer the apply button again. Sign-out clears the cache (app/session.ts), so it never leaks
- * to another account; after a reload the server answers DUPLICATE_APPLICATION, which is explained.
+ * The server's `viewer_application` is the source of truth after a reload. What the visitor does in
+ * this session is kept in the query cache, not in component state, so leaving the project page and
+ * coming back keeps it even before the needs are refetched; it wins over the server value until the
+ * page is reloaded. Sign-out clears the cache (app/session.ts), so it never leaks to another account.
  */
-function useSent(needId: string) {
+function useSent(need: Need) {
   const queryClient = useQueryClient();
-  const key = ['applications', 'sent', needId] as const;
+  const key = ['applications', 'sent', need.id] as const;
   const { data } = useQuery<Sent | null>({
     queryKey: key,
     queryFn: () => null,
@@ -77,7 +84,7 @@ function useSent(needId: string) {
     initialData: null,
   });
   return [
-    data,
+    data ?? need.viewer_application,
     (next: Sent) => {
       queryClient.setQueryData(key, next);
     },
@@ -91,7 +98,7 @@ function ApplyForm({ need, projectId }: { need: Need; projectId: string }) {
   const { failure, report, clear } = useFailure();
   const { formRef, focusFirstInvalid } = useInvalidFocus();
   const [serverInvalid, setServerInvalid] = useState(false);
-  const [sent, setSent] = useSent(need.id);
+  const [sent, setSent] = useSent(need);
 
   const form = useForm({
     defaultValues: { message: '' },
@@ -101,7 +108,7 @@ function ApplyForm({ need, projectId }: { need: Need; projectId: string }) {
       setServerInvalid(false);
       try {
         const created = await create.mutateAsync(value.message.trim());
-        setSent({ id: created.id, withdrawn: false });
+        setSent({ id: created.id, status: 'pending' });
       } catch (error) {
         if (
           error instanceof ApiError &&
@@ -116,10 +123,10 @@ function ApplyForm({ need, projectId }: { need: Need; projectId: string }) {
     },
   });
 
-  if (sent?.withdrawn)
+  if (sent && sent.status !== 'pending')
     return (
       <Text as="p" role="status">
-        {t('project.apply.withdrawn')}
+        {t(settledKey[sent.status])}
       </Text>
     );
   if (sent) {
@@ -138,7 +145,7 @@ function ApplyForm({ need, projectId }: { need: Need; projectId: string }) {
                 { id: sent.id ?? '', status: 'withdrawn' },
                 {
                   onSuccess: () => {
-                    setSent({ id: sent.id, withdrawn: true });
+                    setSent({ id: sent.id, status: 'withdrawn' });
                   },
                 },
               );
@@ -233,7 +240,7 @@ function NeedItem({
 }) {
   const { t } = useI18n();
   const [applying, setApplying] = useState(false);
-  const [sent] = useSent(need.id);
+  const [sent] = useSent(need);
   return (
     <Card variant="muted">
       <VStack gap={2}>

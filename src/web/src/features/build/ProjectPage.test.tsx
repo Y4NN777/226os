@@ -304,6 +304,48 @@ describe('ProjectPage apply', () => {
     expect(callsTo(fetchMock, `POST /contribution-needs/${needId}/applications`)).toHaveLength(1);
   });
 
+  it('shows the pending application after a full reload and withdraws it by its id', async () => {
+    setLanguages(['fr-FR']);
+    const fetchMock = member({
+      ...routes,
+      [`GET ${base}/contribution-needs`]: () =>
+        page([need({ viewer_application: { id: applicationId, status: 'pending' } })]),
+      [`PATCH /applications/${applicationId}`]: () =>
+        jsonResponse(application({ status: 'withdrawn' })),
+    });
+    const user = userEvent.setup();
+    await renderApp(`/build/${projectId}`);
+    expect(await screen.findByText(/Candidature envoyée/)).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Postuler' })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Retirer ma candidature' }));
+    expect(await screen.findByText('Candidature retirée.')).toBeVisible();
+    expect(callsTo(fetchMock, `PATCH /applications/${applicationId}`)).toHaveLength(1);
+    expect(callsTo(fetchMock, `POST /contribution-needs/${needId}/applications`)).toHaveLength(0);
+  });
+
+  it.each([
+    ['accepted', 'Votre candidature a été acceptée.'],
+    ['declined', 'Votre candidature n’a pas été retenue.'],
+    ['withdrawn', 'Candidature retirée.'],
+  ] as const)(
+    'shows a %s application after a reload, without apply or withdraw',
+    async (status, text) => {
+      setLanguages(['fr-FR']);
+      member({
+        ...routes,
+        [`GET ${base}/contribution-needs`]: () =>
+          page([need({ viewer_application: { id: applicationId, status } })]),
+      });
+      await renderApp(`/build/${projectId}`);
+      expect(await screen.findByText(text)).toBeVisible();
+      expect(screen.queryByRole('button', { name: 'Postuler' })).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole('button', { name: 'Retirer ma candidature' }),
+      ).not.toBeInTheDocument();
+    },
+  );
+
   it.each([
     ['no Location', undefined],
     ['a cross-origin Location', `https://evil.test/api/v1/applications/${applicationId}`],
