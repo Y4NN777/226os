@@ -10,7 +10,7 @@ root="$(cd "$here/../.." && pwd)"
 # shellcheck source=scripts/tests/lib.sh
 source "$here/lib.sh"
 tool="$root/scripts/review-context.py"
-unset PR_HEAD_SHA
+unset PR_HEAD_SHA DIFF_FILE
 
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
@@ -430,5 +430,53 @@ grep -q '^Tool: NOT RUN (no file list in the preview output)$' <<<"$tout" && ok 
 rc=0
 tout="$(python3 -I "$tool" tool "$tmp/missing.txt" 0)" || rc=$?
 [ "$rc" -eq 0 ] && grep -q '^Tool: NOT RUN' <<<"$tout" && ok "a missing preview file: Tool: NOT RUN, exit 0" || ko "tool missing (rc=$rc $tout)"
+
+# ---------- develop merged into the branch: only the pull request's own changes since the last review ----------
+mb="$tmp/merge-base"
+(
+  mkdir -p "$mb" && cd "$mb"
+  git init -q -b develop
+  git config user.email t@example.invalid
+  git config user.name t
+  mkdir -p docs/team
+  echo base >base.txt
+  printf 'OWNER PREF: base\n' >docs/team/OWNER_PREFERENCES.md
+  git add -A && git -c commit.gpgsign=false commit -q -m base
+  git checkout -q -b work
+  echo a >a.txt && git add -A && git -c commit.gpgsign=false commit -q -m own-1
+  git rev-parse HEAD >"$tmp/mb-ledger.sha"
+  git checkout -q develop
+  printf 'package x\n\nvar ip = r.Header.Get("X-Forwarded-For")\n' >base_only.go && git add -A && git -c commit.gpgsign=false commit -q -m develop-moved
+  git update-ref refs/remotes/origin/develop HEAD
+  git checkout -q work
+  git -c commit.gpgsign=false merge -q --no-ff -m merge-develop develop
+  git rev-parse HEAD >"$tmp/mb-merge.sha"
+  printf 'package x\n\nvar ip = r.Header.Get("X-Forwarded-For")\n' >own.go
+  printf 'OWNER PREF: pr\n' >docs/team/OWNER_PREFERENCES.md
+  git add -A && git -c commit.gpgsign=false commit -q -m own-2
+  git rev-parse HEAD >"$tmp/mb-head.sha"
+  git checkout -q --detach HEAD
+)
+mb_ledger="$(cat "$tmp/mb-ledger.sha")"
+mb_merge="$(cat "$tmp/mb-merge.sha")"
+mb_head="$(cat "$tmp/mb-head.sha")"
+REPO_DIR="$mb"
+
+reset
+add issue "$(ledger_comment "$mb_ledger" '[]')"
+PR_HEAD_SHA="$mb_head" DIFF_FILE="$tmp/mb.patch" run
+rf="$(read_first)"
+grep -q '^REVIEW_DECISION: incremental$' <<<"$out" && grep -q 'own.go' <<<"$rf" && ! grep -q 'base_only.go' <<<"$rf" && ok "develop merged into the branch: the pointers cover the branch's own changes, not develop's" || ko "merge-base pointers ($out)"
+grep -q 'own.go' "$tmp/mb.patch" 2>/dev/null && ! grep -q 'base_only.go' "$tmp/mb.patch" && ok "the diff file of the range holds the branch's own changes only" || ko "diff file"
+
+reset
+add issue "$(ledger_comment "$mb_ledger" '[]')"
+PR_HEAD_SHA="$mb_merge" run
+grep -q '^REVIEW_DECISION: skip$' <<<"$out" && ok "a push that only merges develop (no own change): skip" || ko "merge only ($out)"
+
+reset
+PR_HEAD_SHA="$mb_head" run
+grep -q 'OWNER PREF: base' <<<"$out" && ! grep -q 'OWNER PREF: pr' <<<"$out" && ok "the owner's preferences come from the base branch, never the pull request" || ko "owner prefs ($out)"
+REPO_DIR="$tmp/repo"
 
 finish

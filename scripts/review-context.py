@@ -18,7 +18,8 @@ review to what it was before and never blocks anyone.
 Environment: REPO (owner/name), PR_NUMBER, BASE_REF (default develop), PR_HEAD_SHA (the pull request's head commit, 40
 hex characters; default HEAD, right for a local run but not in a pull_request checkout, whose HEAD is GitHub's temporary
 merge commit), GH_BIN (default gh, authenticated through GH_TOKEN), GIT_BIN (default git), MAX_COMMENT (default 700),
-MAX_ITEMS (default 40).
+MAX_ITEMS (default 40), DIFF_FILE (optional: where to write the diff of the range, restricted to the branch's own
+changes, for a reviewer that has no git diff tool).
 """
 import base64
 import fnmatch
@@ -38,6 +39,7 @@ BLOCK = re.compile(r"^--\s*name:\s*(\w+)", re.M)
 HUNK = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@")
 REVIEWABLE = (".go", ".sql", ".ts", ".tsx", ".sh", ".py", ".yml", ".yaml")
 CONTEXT_PATH = "docs/quality/REVIEW_CONTEXT.md"
+OWNER_PATH = "docs/team/OWNER_PREFERENCES.md"
 MAP_PATH = ".opencodereview/context-map.json"
 HEX = re.compile(r"^[0-9a-f]{7,40}$")
 FULL_SHA = re.compile(r"^[0-9a-f]{40}$")
@@ -177,16 +179,19 @@ def head_commit(git, env_sha):
     return env_sha, sha, ""
 
 
-def decide(git, ledger, incremental, head="HEAD"):
+def decide(git, ledger, incremental, head="HEAD", paths=None):
     """first | incremental | skip: whether this run needs a review, and of what.
 
     first: there is no usable previous review (none yet, its commit is unknown or no longer an ancestor of the head,
     or the head itself is unknown): review the whole pull request.
     incremental: the last reviewed commit is an ancestor of the head and there are new commits: review only those.
     Every push that adds commits is reviewed, whatever the open findings say.
-    skip: no new commit since the last review (a re-run, a label or a review event)."""
+    skip: no new commit since the last review (a re-run, a label or a review event), or only commits of the base
+    branch merged in without a change of the branch's own (paths, from review_range, is then empty)."""
     if not ledger or not incremental or not head:
         return "first"
+    if paths is not None:
+        return "incremental" if paths else "skip"
     try:
         count = int(run([git, "rev-list", "--count", "%s..%s" % (ledger["sha"], head)]).strip() or "0")
     except (Unavailable, ValueError):
@@ -194,23 +199,43 @@ def decide(git, ledger, incremental, head="HEAD"):
     return "incremental" if count > 0 else "skip"
 
 
+def own_paths(git, base, since, head):
+    """The files the branch's own commits changed in since..head: commits reachable from origin/<base> (develop merged
+    into the branch) are left out; a merge commit counts only for what it changed itself (a conflict resolution).
+    None when git cannot tell."""
+    argv = [git, "log", "--format=", "--name-only", "--cc", "%s..%s" % (since, head)]
+    if commit_of(git, "origin/%s" % base):
+        argv += ["--not", "origin/%s" % base]
+    try:
+        return sorted({p for p in run(argv).splitlines() if p.strip()})
+    except Unavailable:
+        return None
+
+
 def review_range(git, base, ledger, head="HEAD"):
-    """(range, incremental, reason): only the new commits when the last reviewed commit is still an ancestor of the
-    head; else the whole pull request, with the reason in one line (empty when there is no ledger)."""
+    """(range, incremental, reason, paths): only the new commits when the last reviewed commit is still an ancestor of
+    the head, restricted to the branch's own changed files (paths; None = all); else the whole pull request, with the
+    reason in one line (empty when there is no ledger)."""
     if ledger and head:
         if commit_of(git, ledger["sha"]) is None:
             reason = "the last reviewed commit %s is not in the repository (it was a temporary merge commit?)" % ledger["sha"]
         else:
             try:
                 run([git, "merge-base", "--is-ancestor", ledger["sha"], head])
-                return "%s..%s" % (ledger["sha"], head), True, ""
+                rng = "%s..%s" % (ledger["sha"], head)
+                return rng, True, "", own_paths(git, base, ledger["sha"], head)
             except Unavailable:
                 reason = "the last reviewed commit %s is not an ancestor of the head (rebase or force push)" % ledger["sha"]
     elif ledger:
         reason = "the head commit is unknown"
     else:
         reason = ""
-    return "origin/%s...HEAD" % base, False, reason
+    return "origin/%s...%s" % (base, head or "HEAD"), False, reason, None
+
+
+def diff_argv(git, rng, paths=None, extra=()):
+    argv = [git, "diff", "--no-color", "--no-ext-diff", "--no-textconv"] + list(extra) + [rng]
+    return argv + (["--"] + list(paths) if paths else [])
 
 
 def clip(text, limit):
@@ -251,10 +276,10 @@ def pointers(context_map, files):
     return out
 
 
-def added_lines(git, rng):
+def added_lines(git, rng, paths=None):
     """{path: [(line number, text)]} for the lines added in rng, plus {path: touched line numbers} (added lines and the
     place of a pure deletion) for the reviewable files. Raises Unavailable when git cannot diff."""
-    text = run([git, "diff", "--unified=0", "--no-color", "--no-ext-diff", "--no-textconv", rng])
+    text = run(diff_argv(git, rng, paths, ["--unified=0"]))
     added, touched, path, new_no = {}, {}, None, 0
     for line in text.splitlines():
         if line.startswith("+++ "):
@@ -403,11 +428,11 @@ def go_pointers(path, lines, patterns=()):
     return out
 
 
-def read_first(git, rng, head="HEAD"):
+def read_first(git, rng, head="HEAD", paths=None):
     """(summary line, pointer lines) for the changed lines of rng; the pack's \"Read first\" section. File contents
     are read at head, the end of rng, so the line numbers of the diff match them."""
     try:
-        added, touched = added_lines(git, rng)
+        added, touched = added_lines(git, rng, paths)
     except Unavailable:
         return "Read first: NOT AVAILABLE (git could not diff %s)" % rng, []
     found = []
@@ -526,6 +551,9 @@ def main():
     context = base_file(gh, git, repo, base, CONTEXT_PATH)
     out += ["## Project context (from the %s branch)" % base, "",
             context if context else "NOT AVAILABLE: %s is missing on %s; review from AGENTS.md, CLAUDE.md and the ADRs." % (CONTEXT_PATH, base), ""]
+    prefs = base_file(gh, git, repo, base, OWNER_PATH)
+    out += ["## The owner's standing preferences (from the %s branch; a change that breaks one is a finding)" % base, "",
+            prefs if prefs else "(none: %s is missing on %s)" % (OWNER_PATH, base), ""]
 
     try:
         issue_comments = gh_api(gh, "repos/%s/issues/%s/comments" % (repo, pr))
@@ -541,8 +569,8 @@ def main():
 
     ledger = parse_ledger(issue_comments)
     head, head_sha, head_why = head_commit(git, os.environ.get("PR_HEAD_SHA", ""))
-    rng, incremental, why = review_range(git, base, ledger, head)
-    decision = decide(git, ledger, incremental, head)
+    rng, incremental, why, paths = review_range(git, base, ledger, head)
+    decision = decide(git, ledger, incremental, head, paths)
     preview_from = ledger["sha"] if incremental else "origin/%s" % base
     out[1:1] = ["", "REVIEW_DECISION: %s" % decision,
                 "Head commit: %s" % (head_sha or "NOT AVAILABLE (%s)" % (head_why or "git could not read HEAD")),
@@ -555,7 +583,21 @@ def main():
         out.append("- Why the whole pull request: %s" % (why or head_why))
     out.append("")
 
-    summary, pointer_lines = read_first(git, rng, head if incremental else "HEAD")
+    if paths is not None:
+        out.insert(out.index("- Touched files: %d" % len(files)),
+                   "- Own changes in the range: %d files (commits of origin/%s merged into the branch are left out)" % (len(paths), base))
+    diff_file = os.environ.get("DIFF_FILE")
+    if diff_file:
+        try:
+            text = run(diff_argv(git, rng, paths)) if paths is None or paths else ""
+        except Unavailable as exc:
+            text = "NOT AVAILABLE (%s)\n" % exc
+        try:
+            with open(diff_file, "w", encoding="utf-8") as fh:
+                fh.write(text)
+        except OSError:
+            pass
+    summary, pointer_lines = read_first(git, rng, head or "HEAD", paths)
     section = ["## Read first (changed lines only, found by pattern: pointers, not verdicts)", "", summary, ""]
     section += ["- %s" % t for t in pointer_lines] if pointer_lines else ["(nothing to point at: read the diff as usual)"]
     section.append("")
