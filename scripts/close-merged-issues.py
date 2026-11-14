@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""Close the issues a merged pull request names (stdlib only). GitHub honours `Closes #N` only on a merge into the
-default branch (main); work merges into develop, so this does it there.
+"""Close the issues a merged pull request names (stdlib only). GitHub honours `Closes #N` on a merge into the default
+branch, which is develop since ADR-0013, `needs-owner` issues included. This stays as the idempotent backstop: it closes
+what GitHub may not (another keyword case or form), with one comment, and keeps `needs-owner` issues open.
 
 Reads the BODY of pull request PR_NUMBER (never its commits or comments). When it is merged into develop from this
 repository, every `close|closes|closed|fix|fixes|fixed|resolve|resolves|resolved #N` (any case, an optional colon) names
