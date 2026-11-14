@@ -21,6 +21,7 @@ import type { Locale } from '../../i18n/messages';
 import { countryName, languageName } from '../discover/present';
 import { WEST_AFRICA } from '../discover/region';
 import { TagList } from '../learn/present';
+import { githubProfileUrl } from '../profile/github';
 import { useProfileDirectory, type ProfileSummary } from './queries';
 import { languageTag, skillTag, validateConnectSearch, type ConnectSearch } from './routeSearch';
 
@@ -112,6 +113,7 @@ function Filters({
 
 function PersonCard({ person }: { person: ProfileSummary }) {
   const { t, locale } = useI18n();
+  const githubUrl = person.github ? githubProfileUrl(person.github) : null;
   const facts = [
     person.country ? countryName(person.country, locale) : undefined,
     person.languages && person.languages.length > 0
@@ -134,11 +136,8 @@ function PersonCard({ person }: { person: ProfileSummary }) {
           </Text>
         ))}
         {person.skills && person.skills.length > 0 ? <TagList tags={person.skills} /> : null}
-        {person.github ? (
-          <Link
-            href={`https://github.com/${person.github}`}
-            aria-label={t('connect.github', { name: person.display_name })}
-          >
+        {githubUrl ? (
+          <Link href={githubUrl} aria-label={t('connect.github', { name: person.display_name })}>
             GitHub
           </Link>
         ) : null}

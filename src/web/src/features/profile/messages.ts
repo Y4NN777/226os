@@ -37,6 +37,10 @@ export const fr = {
   'profile.item.bio': 'Présentation',
   'profile.item.bio.value': 'Quelques lignes pour que les autres sachent qui vous êtes.',
   'profile.item.bio.hint': '500 caractères au maximum.',
+  'profile.item.open_to_collab': 'Visible dans l’annuaire Connect',
+  'profile.item.open_to_collab.value':
+    'Rendez votre profil visible pour que d’autres développeurs puissent vous trouver.',
+  'profile.item.open_to_collab.hint': 'Vous pourrez modifier ce choix dans les réglages.',
   'profile.item.save': 'Enregistrer {field}',
   'profile.err.intent': 'Choisissez ce qui vous amène.',
   'profile.err.skills': 'Indiquez de 1 à 30 compétences (minuscules, chiffres, - + . #).',
@@ -45,6 +49,7 @@ export const fr = {
     'Indiquez des codes de langue de deux ou trois lettres, par exemple fr, en.',
   'profile.err.github': 'Indiquez votre identifiant GitHub, sans l’adresse.',
   'profile.err.bio': 'Écrivez de 1 à 500 caractères.',
+  'profile.err.open_to_collab': 'Cette option n’a pas été enregistrée.',
 } as const;
 
 export const en: Record<keyof typeof fr, string> = {
@@ -82,6 +87,10 @@ export const en: Record<keyof typeof fr, string> = {
   'profile.item.bio': 'About you',
   'profile.item.bio.value': 'A few lines so others know who you are.',
   'profile.item.bio.hint': '500 characters at most.',
+  'profile.item.open_to_collab': 'Visible in the Connect directory',
+  'profile.item.open_to_collab.value':
+    'Make your profile visible so other developers can find you.',
+  'profile.item.open_to_collab.hint': 'You can change this choice in settings.',
   'profile.item.save': 'Save {field}',
   'profile.err.intent': 'Choose what brings you here.',
   'profile.err.skills': 'Give 1 to 30 skills (lowercase, digits, - + . #).',
@@ -89,4 +98,5 @@ export const en: Record<keyof typeof fr, string> = {
   'profile.err.languages': 'Give language codes of two or three letters, for example fr, en.',
   'profile.err.github': 'Give your GitHub username, without the address.',
   'profile.err.bio': 'Write 1 to 500 characters.',
+  'profile.err.open_to_collab': 'This option was not saved.',
 };

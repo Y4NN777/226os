@@ -208,6 +208,13 @@ grep -q 'ONE fix pull' <<<"$(get 910 body)" && grep -q 'fix/review/batch-2026-11
 printf '[{"number":150,"merged_at":null,"body":"Fixes the batch #910"},{"number":151,"merged_at":"2026-11-14T03:00:00Z","body":"unrelated, see #9100 and #91"}]' >"$tmp/st/pulls.json"
 run batch
 [ "$rc" -eq 0 ] && [ "$(get 910 state)" = "open" ] && ok "an unmerged pull request naming the batch, or a merged unrelated one, does not close it" || ko "unrelated pr (state=$(get 910 state) out=$out)"
+# Review note n-batch-close-ref (#152): a merged pull request that only MENTIONS the batch number does not close it.
+printf '[{"number":153,"merged_at":"2026-11-14T03:30:00Z","body":"Touches the same file as #910, see #910 for context. Related: https://github.com/o/r/issues/910"}]' >"$tmp/st/pulls.json"
+run batch
+[ "$rc" -eq 0 ] && [ "$(get 910 state)" = "open" ] && ok "a merged pull request that only mentions the batch number (see #910) does not close the batch" || ko "mention closes (state=$(get 910 state) out=$out)"
+printf '[{"number":154,"merged_at":"2026-11-14T03:40:00Z","body":"Fix pull request.\\n\\nBatch: #910\\nSources: #204"}]' >"$tmp/st/pulls.json"
+run batch --print
+grep -q 'would close #910' <<<"$out" && ok "a pull request with a Batch: #910 line (the batch fix pull request body) closes the batch" || ko "batch line ($out)"
 printf '[{"number":152,"merged_at":"2026-11-14T04:00:00Z","body":"Review batch #910: fixes the top items"}]' >"$tmp/st/pulls.json"
 before="$(writes)"
 run batch --print
@@ -254,5 +261,68 @@ FAKE_WRITE_FAIL=1 run batch
 rc=0
 out="$(PATH="$tmp/bin:$PATH" ST="$tmp/st" python3 -I "$tool" batch 2>&1)" || rc=$?
 [ "$rc" -ne 0 ] && grep -q 'REPO' <<<"$out" && ok "batch without REPO fails closed" || ko "no repo (rc=$rc out=$out)"
+
+# ---------- duplicates: the same id and file on several pull requests are one row ----------
+mkgroup() { # NUMBER PR ID FILE CREATED [STATE] [LINE]
+  python3 -I - "$tmp/st/issues.json" "$@" <<'EOF'
+import json, sys
+p, n, pr, fid, f, created = sys.argv[1:7]
+state = sys.argv[7] if len(sys.argv) > 7 else "open"
+line = sys.argv[8] if len(sys.argv) > 8 else "3"
+d = json.load(open(p))
+d.append({"number": int(n), "state": state, "state_reason": "completed" if state == "closed" else None,
+          "labels": ["finding", "sev:high", "due:before-freeze", "area:web"], "created_at": created, "title": "PR%s %s: same defect" % (pr, fid),
+          "body": "<!-- finding:PR%s#%s -->\nFound by the AI review of PR #%s (t).\n\n- Where: `%s:%s`\n- Severity: HIGH\n" % (pr, fid, pr, f, line)})
+json.dump(d, open(p, "w"))
+EOF
+}
+reset
+mkgroup 601 90 shared a.go 2026-11-10T10:00:00Z
+mkgroup 602 95 shared a.go 2026-11-12T10:00:00Z
+mkgroup 603 96 shared other.go 2026-11-12T10:00:00Z
+mknote 604 open 2026-11-13T10:00:00Z '<!-- finding:PR98#notes -->\n- [ ] `shared` [OBSERVED] `a.go:3` the same remark'
+run batch
+body="$(get 904 body)"
+[ "$(grep -c 'batch-item:' <<<"$body")" -eq 2 ] && ok "the same id and file on three sources (two findings, one note) is ONE row; the same id in another file is its own row" || ko "grouped rows ($body)"
+line="$(grep 'batch-item:#601' <<<"$body")"
+grep -q 'batch-also:#602,#604/shared' <<<"$line" && grep -q 'PR90' <<<"$line" && grep -q 'PR95' <<<"$line" && grep -q 'PR98' <<<"$line" && ok "the row lists every source (issue and PR) and the primary key is the oldest issue" || ko "group row ($line)"
+grep -q 'batch-item:#603' <<<"$body" && ! grep -q 'batch-also' <<<"$(grep 'batch-item:#603' <<<"$body")" && ok "an item without duplicates has no also-marker (old rows keep their shape)" || ko "single row ($body)"
+
+# Ticked boxes survive a change of the primary: when the oldest source closes, the row follows the remaining sources.
+set_issue 904 body "$(sed 's/- \[ \] \(.*batch-item:#601\)/- [x] \1/' <<<"$body")"
+set_issue 601 state closed
+run batch
+body="$(get 904 body)"
+line="$(grep 'batch-item:#602' <<<"$body" || true)"
+[ -n "$line" ] && grep -q -- '^- \[x\]' <<<"$line" && grep -q 'batch-also:#604/shared' <<<"$line" && ! grep -q 'batch-item:#601' <<<"$body" && ok "the primary source closes: the row follows the remaining sources, its ticked box kept, never marked done while one is open" || ko "follow ($body)"
+set_issue 602 state closed
+set_issue 604 state closed
+run batch
+body="$(get 904 body)"
+grep -q '(done)' <<<"$(grep 'batch-item:#602' <<<"$body")" && ok "every source of the row closed: the row is done" || ko "row done ($body)"
+
+# Review of PR 187: the same generic id on the same file at ANOTHER line (or with no line) is another defect: never one row.
+reset
+mkgroup 611 91 missing-test a.go 2026-11-10T10:00:00Z open 3
+mkgroup 612 92 missing-test a.go 2026-11-11T10:00:00Z open 9
+mkgroup 613 93 missing-test a.go 2026-11-12T10:00:00Z open '?'
+mknote 614 open 2026-11-13T10:00:00Z '<!-- finding:PR94#notes -->\n- [ ] `missing-test` [OBSERVED] `a.go:3` the same remark as 611\n- [ ] `missing-test` [OBSERVED] `a.go:20` another remark'
+run batch
+body="$(get 904 body)"
+[ "$(grep -c 'batch-item:' <<<"$body")" -eq 4 ] && ok "same id and file at another line, or with no line, are separate rows (4 rows: 611 with note, 612, 613, the note at line 20)" || ko "line ignored ($body)"
+line="$(grep 'batch-item:#611' <<<"$body")"
+grep -q 'batch-also:#614/missing-test' <<<"$line" && ! grep -q '#612\|#613' <<<"$line" && ok "only the source at the same id, file and line joins the row" || ko "same line row ($line)"
+! grep -q 'batch-also' <<<"$(grep 'batch-item:#612\|batch-item:#613' <<<"$body")" && ok "the other lines have no also-marker: settling one row cannot close their sources" || ko "also on other line ($body)"
+
+# ---------- rank keeps the due component (review note n-batch-rank-due, #152) ----------
+reset
+mkissue 801 open "finding,sev:high,due:after-freeze,area:web" 2026-11-01T10:00:00Z "PR80 overflow-high: a HIGH filed in a follow-ups issue (after freeze)"
+mkissue 802 open "finding,sev:medium,due:before-freeze,area:web" 2026-11-13T10:00:00Z "PR81 med-before: a MEDIUM that is due before the freeze"
+run batch --print
+order="$(grep -o 'batch-item:#[0-9/a-z]*' <<<"$out" | sed 's/batch-item://' | tr '\n' ' ' || true)"
+[ "$order" = "#802 #801 " ] && ok "before-freeze items are ranked first, whatever their severity: $order" || ko "due rank ($order)"
+
+# Owner decision (2026-11-14): the review batch runs every 2 hours.
+grep -qE '^\s*- cron: "0 \*/2 \* \* \*"$' "$root/.github/workflows/review-batch.yml" && ! grep -qE 'cron: "[^"]*\*/5' "$root/.github/workflows/review-batch.yml" && ok "review-batch.yml: the schedule is every 2 hours (0 */2 * * *)" || ko "batch cron is not every 2 hours"
 
 finish

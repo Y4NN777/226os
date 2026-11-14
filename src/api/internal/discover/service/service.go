@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/google/uuid"
@@ -20,6 +21,9 @@ const (
 	maxLimit     = 50
 	maxQuery     = 200
 	maxCountries = 20
+	searchScope  = "search:ip"
+	searchLimit  = 60
+	searchWindow = time.Minute
 )
 
 // Reader loads published catalogue rows. The service owns this port.
@@ -38,6 +42,8 @@ type Cursors interface {
 // ListRequest is the public list. Nil Q means no text filter. Nil Limit means 20.
 type ListRequest struct {
 	Q, Category, Type, SDK, Provider, Doclang *string
+	Anonymous                                 bool
+	ClientIP                                  string
 	// Countries is the raw list from the request. Nil means no country filter.
 	Countries []string
 	Cursor    string
@@ -54,11 +60,16 @@ type Page struct {
 type Service struct {
 	store   Reader
 	cursors Cursors
+	limiter Limiter
 }
 
 // New returns a catalogue service.
-func New(store Reader, cursors Cursors) *Service {
-	return &Service{store: store, cursors: cursors}
+func New(store Reader, cursors Cursors, limiter ...Limiter) *Service {
+	var l Limiter
+	if len(limiter) > 0 {
+		l = limiter[0]
+	}
+	return &Service{store: store, cursors: cursors, limiter: l}
 }
 
 // List returns one page of published resources. A cursor from another filter is rejected.
@@ -66,6 +77,12 @@ func (s *Service) List(ctx context.Context, req ListRequest) (Page, error) {
 	q, err := textFilter(req.Q)
 	if err != nil {
 		return Page{}, err
+	}
+	if q != "" && req.Anonymous && s.limiter != nil {
+		ok, retry, limitErr := s.limiter.Hit(ctx, searchScope, req.ClientIP, searchLimit, searchWindow)
+		if limitErr == nil && !ok {
+			return Page{}, apperr.New(apperr.CodeRateLimited, "Too many requests.").WithRetryAfter(retry)
+		}
 	}
 	size, err := pageSize(req.Limit)
 	if err != nil {

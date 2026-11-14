@@ -49,7 +49,7 @@ describe('BuildPage list', () => {
           ? page([second])
           : page([project()], 'cur-2'),
     });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp('/build');
     await screen.findByRole('link', { name: 'kora-sdk' });
     await user.click(screen.getByRole('button', { name: 'Afficher plus' }));
@@ -72,7 +72,7 @@ describe('BuildPage list', () => {
       'GET /projects': () =>
         ++calls === 1 ? problemResponse(500, 'INTERNAL_ERROR') : page([project()]),
     });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp('/build');
     await expectAlert('Une erreur est survenue');
     await user.click(screen.getByRole('button', { name: 'Réessayer' }));
@@ -101,7 +101,7 @@ describe('BuildPage list', () => {
 const created = project({ id: 'e0000000-0000-4000-8000-0000000000bb' });
 
 async function openForm() {
-  const user = userEvent.setup();
+  const user = userEvent.setup({ delay: null });
   await renderApp('/build');
   await user.click(await screen.findByRole('button', { name: 'Proposer un projet' }));
   return user;
@@ -270,7 +270,7 @@ describe('BuildPage create form', () => {
             },
           }),
       });
-      const user = userEvent.setup();
+      const user = userEvent.setup({ delay: null });
       const { router } = await renderApp('/build');
       await user.click(await screen.findByRole('button', { name: 'Proposer un projet' }));
       await user.type(

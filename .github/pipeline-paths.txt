@@ -4,6 +4,11 @@
 .github/*
 scripts/review-*
 scripts/findings.py
+# The pipeline's own tests (independent review of #187): a fix pull request cannot weaken the tests that guard it.
+scripts/tests/review-*
+scripts/tests/findings*
+scripts/tests/lib.sh
+scripts/tests/review-agent-*
 .claude/*
 docs/team/OWNER_PREFERENCES.md
 docs/quality/REVIEW_CONTEXT.md

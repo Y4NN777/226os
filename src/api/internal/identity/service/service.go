@@ -46,6 +46,8 @@ const (
 	resetWindow        = time.Hour
 	confirmIPLimit     = 10
 	confirmWindow      = time.Hour
+	verifyIPLimit      = 10
+	verifyWindow       = time.Hour
 )
 
 // Store is the persistence port. The repository implements it over sqlc;
@@ -591,7 +593,14 @@ func (s *Service) CheckCSRF(sessionHash *[32]byte, preSessionSecret, header stri
 
 // VerifyEmail consumes a 24 h single-use token and marks the account
 // verified. Unknown, expired or replayed tokens all return INVALID_TOKEN.
-func (s *Service) VerifyEmail(ctx context.Context, plain string) error {
+func (s *Service) VerifyEmail(ctx context.Context, plain string, clientIP ...string) error {
+	ip := ""
+	if len(clientIP) > 0 {
+		ip = clientIP[0]
+	}
+	if err := s.allow(ctx, "verify:ip", ipKey(ip), verifyIPLimit, verifyWindow); err != nil {
+		return err
+	}
 	hash, err := hashToken(plain)
 	if err != nil {
 		return invalidToken()

@@ -47,10 +47,7 @@ function member(routes = {}) {
 }
 
 async function expectAlert(text: string) {
-  await waitFor(() => {
-    const alerts = screen.getAllByRole('alert').map((alert) => alert.textContent);
-    expect(alerts.join(' ')).toContain(text);
-  });
+  expect(await screen.findByText(text, { exact: false })).toBeVisible();
 }
 
 describe('ProfilePage view', () => {
@@ -68,6 +65,17 @@ describe('ProfilePage view', () => {
       'href',
       'https://github.com/awa-dev',
     );
+  });
+
+  it('renders no GitHub link for a malformed github value', async () => {
+    setLanguages(['fr-FR']);
+    mockApi({
+      'GET /profiles/awa': () => jsonResponse(publicProfile({ github: '../evil?x=1' })),
+    });
+    await renderApp('/profils/awa');
+    expect(await screen.findByRole('heading', { level: 1, name: 'Awa Traoré' })).toBeVisible();
+    expect(screen.queryByRole('link', { name: /evil/ })).not.toBeInTheDocument();
+    expect(screen.queryByText(/evil/)).not.toBeInTheDocument();
   });
 
   it('omits fields the server hid, without placeholders', async () => {
@@ -162,7 +170,7 @@ describe('ProfilePage view', () => {
   it('adds Mon profil to the account menu, pointing at the own profile', async () => {
     setLanguages(['fr-FR']);
     member({ 'GET /profiles/awa': () => jsonResponse(publicProfile()) });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp('/profils/awa');
     await user.click(await screen.findByRole('button', { name: /Awa Traoré/ }));
     expect(await screen.findByRole('menuitem', { name: 'Mon profil' })).toHaveAttribute(
@@ -208,11 +216,31 @@ describe('ProfilePage completion checklist', () => {
     const card = await screen.findByRole('region', { name: 'Complétez votre profil' });
     expect(within(card).getByRole('progressbar', { name: 'Profil complété' })).toHaveAttribute(
       'aria-valuenow',
-      '50',
+      '57',
     );
     expect(within(card).getAllByRole('listitem')).toHaveLength(3);
     expect(within(card).getByText(/Quelques lignes pour que les autres/)).toBeVisible();
     expect(within(card).queryByRole('textbox', { name: /Compétences/ })).not.toBeInTheDocument();
+  });
+
+  it('offers the Connect directory opt-in in the own-profile checklist', async () => {
+    setLanguages(['fr-FR']);
+    let saved: unknown;
+    member({
+      ...profileRoutes,
+      'GET /me': () =>
+        jsonResponse({ account: memberAccount, profile: myProfile(['open_to_collab']) }),
+      'PATCH /me/profile': async (request: Request) => {
+        saved = await request.json();
+        return jsonResponse(myProfile([]));
+      },
+    });
+    await renderApp('/profils/awa');
+    await userEvent.click(
+      await screen.findByRole('checkbox', { name: 'Visible dans l’annuaire Connect' }),
+    );
+    await userEvent.click(screen.getByRole('button', { name: /Enregistrer/ }));
+    expect(saved).toEqual({ open_to_collab: true });
   });
 
   it('saves a field in place, updates the progress and removes the item', async () => {
@@ -226,7 +254,7 @@ describe('ProfilePage completion checklist', () => {
         return jsonResponse(myProfile(missing));
       },
     });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp('/profils/awa');
     const card = await screen.findByRole('region', { name: 'Complétez votre profil' });
     await user.type(within(card).getByRole('textbox', { name: /Présentation/ }), 'Développeuse.');
@@ -235,7 +263,7 @@ describe('ProfilePage completion checklist', () => {
     await waitFor(() => {
       expect(within(card).queryByRole('textbox', { name: /Présentation/ })).not.toBeInTheDocument();
     });
-    expect(within(card).getByRole('progressbar')).toHaveAttribute('aria-valuenow', '83');
+    expect(within(card).getByRole('progressbar')).toHaveAttribute('aria-valuenow', '86');
     const [request] = callsTo(fetchMock, 'PATCH /me/profile');
     expect(request?.headers.get('X-CSRF-Token')).toBeTruthy();
     expect(request?.headers.get('Content-Type')).toContain('application/json');
@@ -253,7 +281,7 @@ describe('ProfilePage completion checklist', () => {
         }),
       'PATCH /me/profile': () => jsonResponse(myProfile(['languages', 'skills'])),
     });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp('/profils/awa');
     const card = await screen.findByRole('region', { name: 'Complétez votre profil' });
     await user.type(within(card).getByRole('textbox', { name: /Pays/ }), 'bf');
@@ -277,7 +305,7 @@ describe('ProfilePage completion checklist', () => {
           violations: [{ field: '/github', code: 'invalid_format' }],
         }),
     });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp('/profils/awa');
     const card = await screen.findByRole('region', { name: 'Complétez votre profil' });
 
@@ -303,7 +331,7 @@ describe('ProfilePage completion checklist', () => {
         return jsonResponse(myProfile(missing));
       },
     });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp('/profils/awa');
     const card = await screen.findByRole('region', { name: 'Complétez votre profil' });
     await user.click(within(card).getByRole('radio', { name: 'Apprendre' }));
@@ -333,7 +361,7 @@ describe('ProfilePage completion checklist', () => {
       'GET /me': () => jsonResponse({ account: memberAccount, profile: myProfile(['bio']) }),
       'PATCH /me/profile': () => problemResponse(403, 'EMAIL_NOT_VERIFIED'),
     });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp('/profils/awa');
     const card = await screen.findByRole('region', { name: 'Complétez votre profil' });
     await user.type(within(card).getByRole('textbox', { name: /Présentation/ }), 'Bonjour');

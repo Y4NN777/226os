@@ -58,7 +58,7 @@ describe('LandingPage', () => {
     );
   });
 
-  it('lists the pillars with Apprendre and Connect first, and only Découvrir links', async () => {
+  it('lists the pillars with Apprendre and Connect first, all linked to their live pages', async () => {
     setLanguages(['fr-FR']);
     mockApi({ 'GET /resources': () => page([resource(1)]) });
     const { main } = await open();
@@ -72,22 +72,22 @@ describe('LandingPage', () => {
     ]);
     const link = main.getByRole('link', { name: 'Ouvrir le catalogue' });
     expect(link).toHaveAttribute('href', '/discover');
-    // Every built pillar links to its page; only Connect is still announced.
+    // Every built pillar links to its page.
     for (const [name, href] of [
       ['Lire les articles et les formations', '/apprendre'],
+      ['Trouver des développeurs', '/connect'],
       ['Voir les questions', '/solve'],
       ['Voir les projets', '/build'],
     ] as const) {
       expect(main.getByRole('link', { name })).toHaveAttribute('href', href);
     }
-    expect(main.getAllByText('Bientôt')).toHaveLength(1);
-    expect(main.queryByRole('link', { name: /Connect/ })).not.toBeInTheDocument();
+    expect(main.queryByText('Bientôt')).not.toBeInTheDocument();
   });
 
   it('searches the catalogue with a trimmed, capped query and ignores an empty one', async () => {
     setLanguages(['fr-FR']);
     mockApi({ 'GET /resources': () => page([resource(1)]) });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     const { main, router } = await open();
     const field = await main.findByRole('searchbox', { name: 'Rechercher dans le catalogue' });
     await user.type(field, '   {Enter}');
@@ -104,7 +104,7 @@ describe('LandingPage', () => {
   it('caps the query at 100 characters', async () => {
     setLanguages(['fr-FR']);
     mockApi({ 'GET /resources': () => page([resource(1)]) });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     const { main, router } = await open();
     const field = await main.findByRole('searchbox', { name: 'Rechercher dans le catalogue' });
     await user.click(field);
@@ -144,7 +144,7 @@ describe('LandingPage', () => {
         return calls === 1 ? problemResponse(503, 'SERVICE_UNAVAILABLE') : page([resource(1)]);
       },
     });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     const { main } = await open();
     await main.findByRole('alert');
     await user.click(main.getByRole('button', { name: 'Réessayer' }));
@@ -175,6 +175,6 @@ describe('LandingPage', () => {
       'href',
       '/inscription',
     );
-    expect(main.getAllByText('Soon')).toHaveLength(1);
+    expect(main.queryByText('Soon')).not.toBeInTheDocument();
   });
 });

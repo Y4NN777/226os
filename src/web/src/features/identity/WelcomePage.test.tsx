@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { memberAccount, memberSession, mockApi, problemResponse } from '../../test/api';
 import { jsonResponse, renderApp, setLanguages } from '../../test/render';
+import { findVisibleText } from '../../test/visibleText';
 
 describe('WelcomePage', () => {
   it('greets a signed-in member by display name with next actions and no profile form', async () => {
@@ -12,12 +13,12 @@ describe('WelcomePage', () => {
     expect(
       await screen.findByRole('heading', { level: 1, name: 'Bienvenue, Awa Traoré' }),
     ).toBeVisible();
-    expect(screen.getByRole('link', { name: 'Découvrir le catalogue' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Apprendre' })).toHaveAttribute('href', '/apprendre');
+    expect(screen.getByRole('link', { name: 'Connect' })).toHaveAttribute('href', '/connect');
+    expect(screen.getByRole('link', { name: 'Mon profil' })).toHaveAttribute(
       'href',
-      '/discover',
+      '/profils/awa',
     );
-    expect(screen.getByRole('link', { name: 'Rechercher' })).toHaveAttribute('href', '/recherche');
-    expect(screen.getByRole('link', { name: 'Réglages' })).toHaveAttribute('href', '/parametres');
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
   });
 
@@ -58,9 +59,9 @@ describe('WelcomePage', () => {
       'GET /auth/session': () =>
         healthy ? jsonResponse(memberSession) : problemResponse(500, 'INTERNAL_ERROR'),
     });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp('/bienvenue');
-    expect(await screen.findByText(/Une erreur est survenue/)).toBeInTheDocument();
+    expect(await findVisibleText(/Une erreur est survenue/)).toBeInTheDocument();
     healthy = true;
     await user.click(screen.getByRole('button', { name: 'Réessayer' }));
     expect(
@@ -75,6 +76,6 @@ describe('WelcomePage', () => {
     expect(
       await screen.findByRole('heading', { level: 1, name: 'Welcome, Awa Traoré' }),
     ).toBeVisible();
-    expect(screen.getByRole('link', { name: 'Browse the catalogue' })).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Learn' })).toBeVisible();
   });
 });

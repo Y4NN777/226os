@@ -18,6 +18,13 @@ function renderAt(path: string) {
 }
 
 describe('App routing', () => {
+  it('sets a localized title for the current page', async () => {
+    setLanguages(['fr-FR']);
+    renderAt('/recherche');
+    await screen.findByRole('heading', { level: 1, name: 'Recherche' });
+    expect(document.title).toBe('Recherche · 226os');
+  });
+
   it('renders the shell and the public landing page at /', async () => {
     setLanguages(['fr-FR']);
     renderAt('/');
@@ -34,8 +41,12 @@ describe('App routing', () => {
   it('navigates to settings from the account menu without a full reload', async () => {
     setLanguages(['en-US']);
     renderAt('/');
-    await userEvent.click(await screen.findByRole('button', { name: 'More options' }));
-    await userEvent.click(await screen.findByRole('menuitem', { name: 'Settings' }));
+    await userEvent
+      .setup({ delay: null })
+      .click(await screen.findByRole('button', { name: 'More options' }));
+    await userEvent
+      .setup({ delay: null })
+      .click(await screen.findByRole('menuitem', { name: 'Settings' }));
     expect(await screen.findByRole('heading', { level: 1, name: 'Settings' })).toBeInTheDocument();
   });
 
@@ -45,7 +56,9 @@ describe('App routing', () => {
     const heading = await screen.findByRole('heading', { name: 'Page introuvable' });
     // No layout route matches an unknown address: the page frames itself in a main landmark.
     expect(screen.getByRole('main')).toContainElement(heading);
-    await userEvent.click(screen.getByRole('link', { name: 'Retour à l’accueil' }));
+    await userEvent
+      .setup({ delay: null })
+      .click(screen.getByRole('link', { name: 'Retour à l’accueil' }));
     expect(
       await screen.findByRole('heading', {
         level: 1,

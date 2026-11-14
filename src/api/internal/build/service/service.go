@@ -33,6 +33,9 @@ const (
 	importScope  = "import:github"
 	importLimit  = 10
 	importWindow = time.Hour
+	searchScope  = "search:ip"
+	searchLimit  = 60
+	searchWindow = time.Minute
 )
 
 // Store loads and saves Build content. The service owns this port.
@@ -76,6 +79,7 @@ type ProjectListRequest struct {
 	OpenNeeds            *bool
 	Cursor               string
 	Limit                *int
+	ClientIP             string
 }
 
 // CreateProjectRequest is the createProject body. Nil Visibility means public.
@@ -135,6 +139,12 @@ func (s *Service) ListProjects(ctx context.Context, sub subject.Subject, req Pro
 	q, err := textFilter(req.Q)
 	if err != nil {
 		return ProjectPage{}, err
+	}
+	if q != "" && sub.Anonymous() && s.limiter != nil {
+		ok, retry, limitErr := s.limiter.Hit(ctx, searchScope, req.ClientIP, searchLimit, searchWindow)
+		if limitErr == nil && !ok {
+			return ProjectPage{}, apperr.New(apperr.CodeRateLimited, "Too many requests.").WithRetryAfter(retry)
+		}
 	}
 	size, err := pageSize(req.Limit)
 	if err != nil {
@@ -273,7 +283,7 @@ func (s *Service) ListNeeds(ctx context.Context, sub subject.Subject, projectID 
 	if access.Visibility != domain.VisibilityPublic && access.OwnerID != sub.UserID {
 		return NeedPage{}, notFound()
 	}
-	query := domain.NeedQuery{ProjectID: projectID, Limit: size + 1}
+	query := domain.NeedQuery{ProjectID: projectID, ViewerID: sub.UserID, Limit: size + 1}
 	hash := lengthPrefixed("need", projectID)
 	if req.Cursor != "" {
 		at, id, err := s.decode(req.Cursor, hash)

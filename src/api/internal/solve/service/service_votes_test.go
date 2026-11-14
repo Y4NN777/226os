@@ -230,3 +230,15 @@ func TestUnacceptAnswer(t *testing.T) {
 		t.Fatalf("change %+v, want %+v", st.gotChange, want)
 	}
 }
+
+// A vote on an unknown target spends one write on the budget, by design (#155): the budget bounds
+// the attempts that reach the database, so probing target ids is as limited as writing is. Checking
+// the target first would make failed probes free and unbounded.
+func TestAVoteOnAnUnknownTargetSpendsOneWrite(t *testing.T) {
+	svc, lim := newSvc(t, &fakeStore{err: domain.ErrNotFound})
+	_, err := svc.CastVote(t.Context(), member, service.VoteRequest{TargetType: domain.TargetAnswer, TargetID: aID, Value: 1})
+	wantCode(t, err, apperr.CodeNotFound)
+	if lim.hits != 1 {
+		t.Fatalf("limiter hits = %d, want 1", lim.hits)
+	}
+}

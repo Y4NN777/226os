@@ -590,17 +590,20 @@ func TestRateBucketAndErrorReportQueries(t *testing.T) {
 		t.Fatalf("PurgeRateBuckets err = %v", err)
 	}
 
-	db = &fakeDB{rowVals: []any{id, rid, "outdated", "received", ts}}
+	db = &fakeDB{rowVals: []any{true, id, rid, pgtype.Text{String: "outdated", Valid: true}, pgtype.Text{String: "received", Valid: true}, ts}}
 	created, err := dbgen.New(db).CreateErrorReport(ctx, dbgen.CreateErrorReportParams{
 		ReporterID: id, Kind: "outdated", Message: "m", SourceID: src, ResourceID: rid,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if want := (dbgen.CreateErrorReportRow{ID: id, ResourceID: rid, Kind: "outdated", Status: "received", CreatedAt: ts}); created != want {
+	if want := (dbgen.CreateErrorReportRow{
+		ResourceVisible: true, ID: id, ResourceID: rid,
+		Kind: pgtype.Text{String: "outdated", Valid: true}, Status: pgtype.Text{String: "received", Valid: true}, CreatedAt: ts,
+	}); created != want {
 		t.Fatalf("CreateErrorReport = %+v, want %+v", created, want)
 	}
-	assertCall(t, db, "ON CONFLICT DO NOTHING", []any{id, "outdated", "m", src, rid})
+	assertCall(t, db, "ON CONFLICT DO NOTHING", []any{rid, id, "outdated", "m", src})
 
 	db = &fakeDB{rowVals: []any{id, rid, "outdated", "triaged", ts}}
 	open, err := dbgen.New(db).GetOpenErrorReport(ctx, dbgen.GetOpenErrorReportParams{ResourceID: rid, ReporterID: id, Kind: "outdated"})

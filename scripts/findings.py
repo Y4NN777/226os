@@ -21,10 +21,18 @@ dashboard says what to fix next. Nobody files a finding by hand: classifying one
              update never unticks a box; when that pull request is merged into develop, or every source is closed or
              decided, the batch is closed as completed and the next run starts a new one. It never writes to a source issue and never mentions anyone. `--print` writes nothing.
   settle PR  when the batch fix pull request PR (fix/review/batch-*) is merged into develop, its results table settles
-             each source: FIXED and FIXED ELSEWHERE close a finding issue as completed, NOT A DEFECT and DECIDED as not
-             planned; a note's box is ticked with the decision; OWNER and AFTER FREEZE stay open. One comment per touched
-             source ("Settled by #PR (review batch #N): ..."), once (marker); a notes issue whose boxes are all ticked is
-             closed as completed; the batch issue closes last. Fails CLOSED like `batch`.
+             each source. Only FIXED and FIXED ELSEWHERE act: they close a finding issue as completed or tick a note's
+             box. NOT A DEFECT and DECIDED never close or tick anything (a model verdict is not a decision): their
+             reason is posted as a comment and a human closes the issue as not planned or ticks the box; OWNER and AFTER
+             FREEZE stay open. One comment per touched source ("Settled by #PR (review batch #N): ..."), once (marker); a
+             notes issue whose boxes are all ticked is closed as completed; the batch issue closes last. Fails CLOSED like
+             `batch`.
+
+Every issue is self-contained: the ledger entry's `detail` (proof and reasoning), `fix`, `source` (review or deep), a
+permalink at `first_sha` (only when the location was verified) and a link to the exact review comment are written in it,
+after the same neutraliser and secret redaction as the titles. An older ledger without them shows "not recorded (older
+review)" instead of failing. `batch` puts the items that share an id and a file (the same defect on several pull
+requests) in ONE row that lists every source (`<!-- batch-also:... -->`); `settle` settles every source of the row.
 
 Labels (created on first use by the issue API): finding, sev:*, src:ai, area:*, due:before-freeze|due:after-freeze,
 review-batch.
@@ -39,6 +47,7 @@ import os
 import re
 import subprocess
 import sys
+import urllib.parse
 
 SERIOUS = ("CRITICAL", "HIGH")
 SEV_RANK = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}
@@ -118,6 +127,74 @@ def create_issue(binary, repo, title, body, labels, author):
     return ok
 
 
+_RC = []
+
+
+def rc_module():
+    """scripts/review-context.py (loaded once): the shared text helpers (defuse, redact) live there."""
+    if not _RC:
+        _RC.append(load_context_module())
+    return _RC[0]
+
+
+def defuse(text, limit=None):
+    return rc_module().defuse(text, limit)
+
+
+def field_text(f, key):
+    """The detail or the fix of an entry as one safe line: secret shapes replaced, HTML, @mentions and #N disarmed; the
+    plain mention when an older ledger did not record it."""
+    raw = f.get(key) or ""
+    if not raw:
+        return rc_module().NOT_RECORDED
+    return defuse(rc_module().redact(raw)[0])
+
+
+def flagged(f):
+    """True when a secret-looking text was replaced (at write time or now)."""
+    rc = rc_module()
+    deep = f.get("deep") or {}
+    return bool(f.get("redacted") or deep.get("redacted") or any(rc.looks_secret(x) for x in (f.get("detail"), f.get("fix"), deep.get("detail"), deep.get("fix"))))
+
+
+def permalink(repo, f):
+    """A stable link to file:line at the commit the finding was raised on; "" unless the location was verified."""
+    if not repo or f.get("location") != "verified" or not f.get("first_sha") or not f.get("file"):
+        return ""
+    return "https://github.com/%s/blob/%s/%s%s" % (repo, f["first_sha"], urllib.parse.quote(f["file"], safe="/"), "#L%d" % f["line"] if f.get("line") else "")
+
+
+def source_text(f):
+    return "review (the deep review also raised it)" if f.get("source") != "deep" and f.get("deep") else f.get("source") or "review"
+
+
+def detail_block(f, repo, url, bullet, labels):
+    """The detail, fix, source, permalink and review comment of an entry, one line each. `labels` is the style:
+    capitalised labels for a field list, lower case for the indented lines under a checklist box."""
+    cap = (lambda t: t.capitalize()) if labels == "cap" else (lambda t: t)
+    out = [bullet + "%s: %s" % (cap("detail"), field_text(f, "detail")), bullet + "%s: %s" % (cap("fix"), field_text(f, "fix"))]
+    deep = f.get("deep")
+    if deep and (deep.get("detail") or deep.get("fix")):
+        out.append(bullet + "%s: %s | fix: %s" % (cap("deep review"), field_text(deep, "detail"), field_text(deep, "fix")))
+    out.append(bullet + "%s: %s" % (cap("source"), source_text(f)))
+    link = permalink(repo, f)
+    if link:
+        out.append(bullet + "%s: %s" % (cap("permalink"), link))
+    elif f.get("location") == "mismatch":
+        probable = defuse(f.get("probable") or "")
+        out.append(bullet + "%s: MISMATCH: what the text names is not near the cited `%s:%s`; probable location: `%s`%s" % (
+            cap("location"), neutral(f.get("file")) or "?", f.get("line") or "?", probable or "?",
+            " (%s)" % "https://github.com/%s/blob/%s/%s" % (repo, f["first_sha"], urllib.parse.quote(probable.rsplit(":", 1)[0], safe="/")
+                                                            + "#L" + probable.rsplit(":", 1)[1]) if repo and f.get("first_sha") and ":" in probable else ""))
+    elif f.get("location") == "unverified":
+        out.append(bullet + "%s: unverified (the file or the line was not found at the reviewed commit)" % cap("location"))
+    if url:
+        out.append(bullet + "%s: %s" % (cap("review comment"), url))
+    if flagged(f):
+        out.append(bullet + "%s: a text that looked like a secret was replaced by the review pipeline" % cap("note"))
+    return out
+
+
 def neutral(text):
     """Text that came from the ledger (model output): an @mention would notify the person, so a zero-width space is
     put after the @. The name stays readable."""
@@ -131,7 +208,7 @@ def slug(identifier):
 
 def single_title(pr, f):
     """The title carries the pull request number: the title check against a human-edited issue is then per pull request."""
-    return neutral("PR%s %s: %s" % (pr, f["id"], f["title"][:90]))
+    return defuse("PR%s %s: %s" % (pr, f["id"], f["title"][:90]))
 
 
 STALE = "its file changed after the review (a later push may have fixed it): verify that it still applies before working on it"
@@ -149,15 +226,16 @@ def changed_since(ctx, binary, repo, reviewed_sha, head_sha):
     return {f.get("filename", "") for item in items for f in item.get("files", [])}
 
 
-def single_body(pr, pr_title, f, stale=False):
+def single_body(pr, pr_title, f, stale=False, repo="", url=""):
     lines = [
         marker_of(pr, slug(f["id"])),
         "Found by the AI review of PR #%s (%s)." % (pr, neutral(pr_title)),
         "",
         "- Where: `%s:%s`" % (neutral(f["file"]) or "?", f["line"] or "?"),
         "- Severity: %s" % f["sev"],
-        "- Scenario: %s" % neutral(f["title"]),
+        "- Scenario: %s" % defuse(f["title"]),
     ]
+    lines += detail_block(f, repo, url, "- ", "cap")
     if stale:
         lines.append("- Note: " + STALE + ".")
     lines += ["", "Close as **completed** when it is fixed (with a test), or as **not planned** when it is accepted or not a "
@@ -165,24 +243,27 @@ def single_body(pr, pr_title, f, stale=False):
     return "\n".join(lines)
 
 
-def followups_body(pr, pr_title, findings, changed=frozenset()):
+def checklist_line(f, evidence, changed):
+    note = " (%s)" % STALE if f["file"] in changed else ""
+    return "- [ ] `%s` [%s] `%s:%s` %s%s" % (neutral(f["id"]), evidence, neutral(f["file"]) or "?", f["line"] or "?", defuse(f["title"]), note)
+
+
+def followups_body(pr, pr_title, findings, changed=frozenset(), repo="", url=""):
     lines = [marker_of(pr, "followups"), "Open findings of the AI review of PR #%s (%s) that do not get their own issue. "
              "Tick a box when it is fixed; close the issue when none is left." % (pr, neutral(pr_title)), ""]
     for f in findings:
-        note = " (%s)" % STALE if f["file"] in changed else ""
-        lines.append("- [ ] `%s` [%s] `%s:%s` %s%s" % (neutral(f["id"]), f["sev"], neutral(f["file"]) or "?", f["line"] or "?",
-                                                        neutral(f["title"]), note))
+        lines.append(checklist_line(f, f["sev"], changed))
+        lines += detail_block(f, repo, url, "  - ", "low")
     return "\n".join(lines)
 
 
-def notes_body(pr, pr_title, notes, changed=frozenset()):
+def notes_body(pr, pr_title, notes, changed=frozenset(), repo="", url=""):
     lines = [marker_of(pr, "notes"), "Notes of the AI review of PR #%s (%s): remarks that are not defects. Tick a box when you decided "
              "(fine as is, or fixed) and say why in a comment; close the issue as **not planned** when none needs action. "
              "OBSERVED means the reviewer read it in the code; INFERRED means it is a guess to check." % (pr, neutral(pr_title)), ""]
     for n in notes:
-        note = " (%s)" % STALE if n["file"] in changed else ""
-        lines.append("- [ ] `%s` [%s] `%s:%s` %s%s" % (neutral(n["id"]), n["evidence"], neutral(n["file"]) or "?", n["line"] or "?",
-                                                      neutral(n["title"]), note))
+        lines.append(checklist_line(n, n["evidence"], changed))
+        lines += detail_block(n, repo, url, "  - ", "low")
     return "\n".join(lines)
 
 
@@ -199,6 +280,7 @@ def harvest(ctx, binary, repo, pr, author_env):
                       and re.search(r"review[ -]ledger", c.get("body") or "", re.I) is not None for c in comments)
         print("findings: ledger skipped (malformed)" if problem else "findings: no ledger on pull request #%s" % pr)
         return 0
+    url = ledger.get("url", "")
     open_entries = [f for f in ledger["findings"] if f["status"] == "open"]
     open_findings = [f for f in open_entries if f["kind"] == "finding"]
     open_notes = [f for f in open_entries if f["kind"] == "note"]
@@ -227,7 +309,7 @@ def harvest(ctx, binary, repo, pr, author_env):
         issue_title = single_title(pr, f)
         if key in existing or issue_title in existing_titles:
             continue
-        body = single_body(pr, title, f, stale=f["file"] in changed)
+        body = single_body(pr, title, f, stale=f["file"] in changed, repo=repo, url=url)
         if create_issue(binary, repo, issue_title, body, finding_labels(f["sev"], area), author):
             filed += 1
             print("findings: filed %s" % key)
@@ -237,13 +319,13 @@ def harvest(ctx, binary, repo, pr, author_env):
         worst = min((f["sev"] for f in rest), key=lambda s: SEV_RANK[s])
         labels = finding_labels(worst, area)
         labels[-1] = "due:after-freeze"
-        if create_issue(binary, repo, "PR%s follow-ups" % pr, followups_body(pr, title, rest, changed), labels, author):
+        if create_issue(binary, repo, "PR%s follow-ups" % pr, followups_body(pr, title, rest, changed, repo, url), labels, author):
             filed += 1
             print("findings: filed PR%s#followups (%d findings)" % (pr, len(rest)))
         else:
             print("findings: NOT RUN for PR%s#followups (the issue could not be created)" % pr)
     if open_notes and "PR%s#notes" % pr not in existing and "PR%s notes" % pr not in existing_titles:
-        if create_issue(binary, repo, "PR%s notes" % pr, notes_body(pr, title, open_notes, changed), note_labels(area), author):
+        if create_issue(binary, repo, "PR%s notes" % pr, notes_body(pr, title, open_notes, changed, repo, url), note_labels(area), author):
             filed += 1
             print("findings: filed PR%s#notes (%d notes)" % (pr, len(open_notes)))
         else:
@@ -348,6 +430,11 @@ BATCH_LABEL = "review-batch"
 BATCH_SIZE = 15
 NOTE_ITEM = re.compile(r"^\s*- \[( |x|X)\]\s*`([^`]*)`\s*\[(OBSERVED|INFERRED)\]\s*(.*)$")
 BATCH_LINE = re.compile(r"^- \[( |x|X)\] (.*?) <!-- batch-item:(#\d+(?:/[\w-]+)?) -->$")
+ALSO = re.compile(r"\s*<!-- batch-also:([^>]*?) -->")
+ITEM_KEY_RE = re.compile(r"^#\d+(?:/[\w-]+)?$")
+WHERE = re.compile(r"^- Where: `([^`]*):([^:`]*)`", re.M)
+NOTE_WHERE = re.compile(r"^`([^`]*):([^:`]*)`")
+NOTES_TITLE = re.compile(r"^PR(\d+) notes")
 NOTE_RANK = len(SEV_RANK)  # notes come after every finding severity; a stale INFERRED note first
 
 
@@ -360,16 +447,28 @@ def one_line(text, width=120):
     return text if len(text) <= width else text[:width - 1] + "..."
 
 
+def defect_id(ident, where):
+    """The key under which items are one defect: the id, the file AND the line, all three. A generic id on the same file at
+    another line, or with no known line, is another defect and stays its own row (settling one must never close the other)."""
+    if not ident or not where or where.group(1) in ("", "?") or not re.fullmatch(r"\d+", where.group(2) or ""):
+        return None
+    return (ident, where.group(1), int(where.group(2)))
+
+
 def batch_items(finding_issues, note_issues):
     """The open work: each open finding issue is one item (a follow-ups issue too), each unticked box of an open notes
-    issue is one item. rank = (severity, area, age); notes rank after LOW, INFERRED undecided for 7 days first."""
+    issue is one item. rank = (due, severity, area, age); notes rank after LOW, INFERRED undecided for 7 days first."""
     items = []
     for i in finding_issues:
         if i.get("state") != "open" or DASHBOARD_MARK in (i.get("body") or ""):
             continue
         labels = names(i.get("labels"))
         sev = label_value(labels, "sev:").upper() or "?"
-        items.append({"key": "#%s" % i.get("number"), "rank": sort_key(i)[1:],
+        mark, where = MARK.search(i.get("body") or ""), WHERE.search(i.get("body") or "")
+        ident = mark.group(1).partition("#")[2] if mark else ""
+        gid = defect_id(ident, where) if ident and ident not in ("followups", "notes") else None
+        items.append({"key": "#%s" % i.get("number"), "rank": sort_key(i), "number": i.get("number") or 0, "gid": gid,
+                      "pr": mark.group(1).partition("#")[0][2:] if mark else "?",
                       "text": "#%s [%s] %s (area:%s)" % (i.get("number"), sev, one_line(i.get("title", "")),
                                                          label_value(labels, "area:") or "?")})
     for i in note_issues:
@@ -383,11 +482,34 @@ def batch_items(finding_issues, note_issues):
             if not m or m.group(1) != " ":
                 continue
             stale = old and m.group(3) == "INFERRED"
-            items.append({"key": "#%s/%s" % (i.get("number"), slug(m.group(2))),
-                          "rank": (NOTE_RANK + (0 if stale else 1), 0 if area in AREA_FIRST else 1, i.get("created_at", "")),
+            where = NOTE_WHERE.match(m.group(4))
+            title = MARK.search(i.get("body") or "") or NOTES_TITLE.match(i.get("title") or "")
+            items.append({"key": "#%s/%s" % (i.get("number"), slug(m.group(2))), "number": i.get("number") or 0,
+                          "gid": defect_id(slug(m.group(2)), where),
+                          "pr": (title.group(1).partition("#")[0][2:] if title.group(1).startswith("PR") else title.group(1)) if title else "?",
+                          "rank": (1, NOTE_RANK + (0 if stale else 1), 0 if area in AREA_FIRST else 1, i.get("created_at", "")),
                           "text": "#%s [NOTE %s%s] `%s` %s" % (i.get("number"), m.group(3), ", %d+ days" % STALE_NOTE_DAYS if stale else "",
                                                              one_line(m.group(2), 40), one_line(m.group(4)))})
     return sorted(items, key=lambda it: (it["rank"], it["key"]))
+
+
+def group_items(items):
+    """One row per defect: the items that share an id, a file and a line (the same finding raised on several pull requests, or a
+    finding and a note) are ONE row, keyed by the oldest source, that lists every source. Rows are ranked by their worst
+    member. An item without an id, a file and a line stays alone."""
+    groups = {}
+    for it in items:
+        groups.setdefault(it["gid"] or ("alone", it["key"]), []).append(it)
+    rows = []
+    for members in groups.values():
+        members.sort(key=lambda it: (it["number"], it["key"]))
+        head = members[0]
+        text = head["text"]
+        if len(members) > 1:
+            text += " [sources: %s]" % ", ".join("%s (PR%s)" % (m["key"], m["pr"]) for m in members)
+        rows.append({"key": head["key"], "also": [m["key"] for m in members[1:]], "sources": [m["key"] for m in members],
+                     "rank": min(m["rank"] for m in members), "text": text})
+    return sorted(rows, key=lambda r: (r["rank"], r["key"]))
 
 
 def render_batch(title, lines, rest):
@@ -400,7 +522,8 @@ def render_batch(title, lines, rest):
            "only tracks progress: the sources decide. This issue closes itself when its fix pull request is merged into "
            "`develop` or when every source is closed or decided; the next run then starts a new batch from what is "
            "still open." % day, ""]
-    out += ["- [%s] %s <!-- batch-item:%s -->" % ("x" if ticked else " ", text, key) for key, ticked, text in lines]
+    out += ["- [%s] %s%s <!-- batch-item:%s -->" % ("x" if ticked else " ", text, " <!-- batch-also:%s -->" % ",".join(also) if also else "", key)
+            for key, ticked, text, also in lines]
     out += ["", "%d more open items wait for the next batch." % rest if rest else "Nothing else is waiting."]
     return "\n".join(out) + "\n"
 
@@ -413,9 +536,12 @@ def batch_write(binary, method, endpoint, fields):
 
 def merged_fix(ctx, binary, repo, issue):
     """The first pull request merged into develop after the batch was created whose body names the batch issue
-    (`#N` or its URL), or None. `Closes #N` does not close an issue on a merge into develop, so this is checked here."""
+    (`#N` or its URL), or None. Since ADR-0013 `develop` is the default branch, so `Closes #N` closes an issue natively on a merge into develop (needs-owner ones included); `close-merged-issues.py` stays as the idempotent backstop, and this check settles the batch whichever way the issue closed."""
     number = issue.get("number")
-    ref = re.compile(r"(?<![\w/])#%s(?!\d)|/issues/%s(?!\d)" % (number, number))
+    # Only a pull request that says it IS the batch's fix counts: a `Batch: #N` line (the body written for the batch fix
+    # pull request), a closing keyword before the reference, or the words "review batch". A bare mention does not.
+    ref_n = r"(?:#%s(?!\d)|https://github\.com/[\w.-]+/[\w.-]+/issues/%s(?!\d))" % (number, number)
+    ref = re.compile(r"^Batch:\s*%s|\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\b:?\s+(?:the\s+)?(?:review\s+)?(?:batch\s+)?%s|\breview\s+batch\s+%s" % (ref_n, ref_n, ref_n), re.I | re.M)
     created = issue.get("created_at", "")
     pulls = ctx.gh_api(binary, "repos/%s/pulls?state=closed&base=develop&sort=updated&direction=desc&per_page=100" % repo)
     for pr in pulls:
@@ -427,8 +553,11 @@ def merged_fix(ctx, binary, repo, issue):
 
 SETTLE_MARK = "<!-- settled-by:PR%s -->"
 DECISIONS = ("FIXED", "FIXED ELSEWHERE", "NOT A DEFECT", "DECIDED", "OWNER", "AFTER FREEZE")
-CLOSE_AS = {"FIXED": "completed", "FIXED ELSEWHERE": "completed", "NOT A DEFECT": "not_planned", "DECIDED": "not_planned"}
-STAYS_OPEN = {"OWNER": "stays open for the owner", "AFTER FREEZE": "stays open until after the freeze"}
+# Only a fix closes or ticks by itself; NOT A DEFECT and DECIDED are the fixer's opinion: a human closes or ticks them.
+CLOSE_AS = {"FIXED": "completed", "FIXED ELSEWHERE": "completed"}
+STAYS_OPEN = {"OWNER": "stays open for the owner", "AFTER FREEZE": "stays open until after the freeze",
+              "NOT A DEFECT": "stays open: a human closes it as not planned if they agree",
+              "DECIDED": "stays open: a human closes it as not planned or ticks it if they agree"}
 SETTLE_ROW = re.compile(r"^\|\s*(#\d+(?:/[\w-]+)?)\s*\|")
 BATCH_PREFIX = "fix/review/batch-"
 
@@ -492,8 +621,8 @@ def settle_issue(ctx, binary, repo, pr, batch_no, number, entries):
             batch_write(binary, "PATCH", endpoint, [("body", new)])
         if seen and ticked_all and issue.get("state") == "open":
             batch_write(binary, "PATCH", endpoint, [("state", "closed"), ("state_reason", "completed")])
-        detail = "; ".join("`%s` %s" % (one_line(n, 40), d if d in CLOSE_AS else "%s (%s)" % (d, STAYS_OPEN[d]))
-                           for n, d, _ in entries if n)
+        detail = "; ".join("`%s` %s" % (one_line(n, 40), d if d in CLOSE_AS else "%s (%s)%s" % (
+            d, STAYS_OPEN[d], ": " + one_line(r, 200) if d in ("NOT A DEFECT", "DECIDED") else "")) for n, d, r in entries if n)
     else:
         _, decision, reason = entries[0]
         if decision in CLOSE_AS and issue.get("state") == "open":
@@ -519,9 +648,14 @@ def settle_pr(ctx, binary, repo, info):
     # Only the items of the linked batch issue (its batch-item markers, written by the batch run) are settled: a row
     # naming any other issue, added by the model or by an edit of the body, is refused.
     batch_issue = (ctx.gh_api(binary, "repos/%s/issues/%s" % (repo, batch_no)) or [{}])[0] if batch_no else {}
-    items = set()
+    rows = {}
     if BATCH_LABEL in names(batch_issue.get("labels")) and BATCH_MARK in (batch_issue.get("body") or ""):
-        items = {mm.group(3) for mm in (BATCH_LINE.match(l) for l in (batch_issue.get("body") or "").splitlines()) if mm}
+        for line in (batch_issue.get("body") or "").splitlines():
+            mm = BATCH_LINE.match(line)
+            if mm:
+                also = ALSO.search(line)
+                rows[mm.group(3)] = [k for k in (also.group(1).split(",") if also else []) if ITEM_KEY_RE.match(k)]
+    items = set(rows)
     if not items:
         print("findings settle: #%s names no batch issue with items: nothing to settle" % pr)
         return False
@@ -530,8 +664,10 @@ def settle_pr(ctx, binary, repo, info):
         if key not in items:
             print("findings settle: %s is not an item of batch #%s: refused" % (key, batch_no))
             continue
-        number, _, note = key[1:].partition("/")
-        groups.setdefault(number, []).append((note or None, decision, reason))
+        # A grouped row settles every source it lists (read from the batch issue, never from the table of the pull request).
+        for source in [key] + rows[key]:
+            number, _, note = source[1:].partition("/")
+            groups.setdefault(number, []).append((note or None, decision, reason))
     for number, entries in groups.items():
         settle_issue(ctx, binary, repo, pr, batch_no, number, entries)
     if batch_no:
@@ -567,8 +703,9 @@ def batch(ctx, binary, repo, write):
     notes = list_issues(ctx, binary, repo, "kind:note")
     batches = sorted((i for i in list_issues(ctx, binary, repo, BATCH_LABEL)
                       if i.get("state") == "open" and BATCH_MARK in (i.get("body") or "")), key=lambda i: i.get("number", 0))
-    ranked = batch_items(findings, notes)
+    ranked = group_items(batch_items(findings, notes))
     current = {it["key"]: it for it in ranked}
+    by_source = {src: it["key"] for it in ranked for src in it["sources"]}
     if len(batches) > 1:
         print("findings batch: %d open batch issues, the oldest (#%s) is kept up to date" % (len(batches), batches[0].get("number")))
     if not batches:
@@ -577,7 +714,7 @@ def batch(ctx, binary, repo, write):
             return 0
         title = "Review batch %s" % now().strftime("%Y-%m-%d")
         members = ranked[:BATCH_SIZE]
-        body = render_batch(title, [(it["key"], False, it["text"]) for it in members], len(ranked) - len(members))
+        body = render_batch(title, [(it["key"], False, it["text"], it["also"]) for it in members], len(ranked) - len(members))
         if not write:
             print("findings batch: would create \"%s\" (%d items, %d more)\n\n%s" % (title, len(members), len(ranked) - len(members), body))
             return 0
@@ -591,20 +728,26 @@ def batch(ctx, binary, repo, write):
     for line in (issue.get("body") or "").splitlines():
         m = BATCH_LINE.match(line)
         if m:
-            previous.append((m.group(3), m.group(1) != " ", m.group(2)))
-    known = {key for key, _, _ in previous}
-    # Membership is frozen when the batch is created, so a batch can finish; only an urgent item joins it later.
-    joined = [it for it in ranked if it["key"] not in known and it["rank"][0] <= SEV_RANK["HIGH"]]
-    open_lines, done_lines = [], []
-    for key, ticked, text in previous:
-        if key in current:
-            open_lines.append((current[key]["rank"], key, ticked, current[key]["text"]))
+            also = ALSO.search(line)
+            previous.append((m.group(3), m.group(1) != " ", ALSO.sub("", m.group(2)),
+                             [k for k in (also.group(1).split(",") if also else []) if ITEM_KEY_RE.match(k)]))
+    known = {src for key, _, _, also in previous for src in [key] + also}
+    # Membership is frozen when the batch is created, so a batch can finish; only an urgent item joins it later. A row
+    # follows its sources: when the oldest source of a grouped row closes, the row is keyed by the next one.
+    joined = [it for it in ranked if not known.intersection(it["sources"]) and it["rank"][1] <= SEV_RANK["HIGH"]]
+    open_map, done_lines = {}, []
+    for key, ticked, text, also in previous:
+        target = next((by_source[src] for src in [key] + also if src in by_source), None)
+        if target is None:
+            done_lines.append((key, True, text if text.endswith("(done)") else text + " (done)", also))
+        elif target in open_map:
+            open_map[target][2] = open_map[target][2] or ticked
         else:
-            done_lines.append((key, True, text if text.endswith("(done)") else text + " (done)"))
-    open_lines += [(it["rank"], it["key"], False, it["text"]) for it in joined]
-    open_lines.sort()
-    lines = [(key, ticked, text) for _, key, ticked, text in open_lines] + done_lines
-    members = {key for key, _, _ in lines}
+            open_map[target] = [current[target]["rank"], target, ticked, current[target]["text"], current[target]["also"]]
+    open_lines = sorted(list(open_map.values()) + [[it["rank"], it["key"], False, it["text"], it["also"]] for it in joined],
+                        key=lambda row: (row[0], row[1]))
+    lines = [(key, ticked, text, also) for _, key, ticked, text, also in open_lines] + done_lines
+    members = {key for key, _, _, _ in lines}
     rest = sum(1 for key in current if key not in members)
     body = render_batch(title, lines, rest)
     endpoint = "repos/%s/issues/%s" % (repo, number)

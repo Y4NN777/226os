@@ -19,6 +19,7 @@ import (
 	"github.com/Y4NN777/226os/src/api/internal/identity/service"
 	identitytransport "github.com/Y4NN777/226os/src/api/internal/identity/transport"
 	"github.com/Y4NN777/226os/src/api/internal/learn"
+	"github.com/Y4NN777/226os/src/api/internal/moderation"
 	"github.com/Y4NN777/226os/src/api/internal/platform/config"
 	"github.com/Y4NN777/226os/src/api/internal/platform/cursor"
 	"github.com/Y4NN777/226os/src/api/internal/platform/httpx"
@@ -99,6 +100,7 @@ func run(ctx context.Context, getenv func(string) string, out io.Writer, serve s
 		WithIdentity(authHandler),
 		WithSearch(search.NewHandler(pool, limiter, logger)),
 		WithLearn(learn.NewHandler(pool, codec, limiter, logger)),
+		WithModeration(moderation.NewHandler(pool, limiter, logger)),
 		WithBuild(build.NewHandler(pool, github.New(cfg.GitHubToken, logger), codec, limiter, logger)),
 		WithAssistant(newAssistantHandler(cfg.AI, pool, limiter, logger)),
 		WithSolve(solve.NewHandler(pool, codec, limiter, logger)),

@@ -284,8 +284,19 @@ func TestListContributionNeeds(t *testing.T) {
 	rec := httptest.NewRecorder()
 	handler(t, st).ListContributionNeeds(rec, req(t, subject.Subject{}, http.MethodGet, ""), uuid.MustParse(projID), apigen.ListContributionNeedsParams{})
 	page := decode[apigen.NeedPage](t, rec)
-	if rec.Code != http.StatusOK || len(page.Items) != 1 || page.Items[0].Status != "open" || page.NextCursor != nil {
+	if rec.Code != http.StatusOK || len(page.Items) != 1 || page.Items[0].Status != "open" || page.NextCursor != nil || page.Items[0].ViewerApplication != nil {
 		t.Fatalf("%d %s", rec.Code, rec.Body.String())
+	}
+	if rec.Header().Get("Vary") != "Cookie" || rec.Header().Get("Cache-Control") != "private, no-cache" {
+		t.Fatalf("a viewer-scoped answer: Vary %q, Cache-Control %q", rec.Header().Get("Vary"), rec.Header().Get("Cache-Control"))
+	}
+	applied := need()
+	applied.ViewerApplication = &domain.ViewerApplication{ID: aliceID, Status: "pending"}
+	st.needs = []domain.Need{applied}
+	rec = httptest.NewRecorder()
+	handler(t, st).ListContributionNeeds(rec, req(t, alice, http.MethodGet, ""), uuid.MustParse(projID), apigen.ListContributionNeedsParams{})
+	if got := decode[apigen.NeedPage](t, rec).Items[0].ViewerApplication; got == nil || got.Id.String() != aliceID || got.Status != "pending" {
+		t.Fatalf("viewer_application = %+v", got)
 	}
 	st.access.Visibility = "private"
 	rec = httptest.NewRecorder()
@@ -312,7 +323,7 @@ func TestCreateContributionNeedAnswers201(t *testing.T) {
 }
 
 // Negative authz for POST /api/v1/projects/{projectId}/contribution-needs (createContributionNeed,
-// allow: owner, C1): anonymous 401, unverified 403, non-owner 403 on a public project and 404 on a
+// allow: owner, C1): anonymous 401, unverified 403, non-owner or moderator 403 on a public project and 404 on a
 // private one; nothing is created.
 func TestAuthzCreateContributionNeedNonOwner(t *testing.T) {
 	cases := []struct {
@@ -325,6 +336,8 @@ func TestAuthzCreateContributionNeedNonOwner(t *testing.T) {
 		{"unverified member", subject.Subject{UserID: bobID}, "public", http.StatusForbidden},
 		{"non-owner on a public project", bob, "public", http.StatusForbidden},
 		{"non-owner on a private project", bob, "private", http.StatusNotFound},
+		{"moderator on a public project", subject.Subject{UserID: bobID, EmailVerified: true, Roles: []string{"moderator"}}, "public", http.StatusForbidden},
+		{"moderator on a private project", subject.Subject{UserID: bobID, EmailVerified: true, Roles: []string{"moderator"}}, "private", http.StatusNotFound},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

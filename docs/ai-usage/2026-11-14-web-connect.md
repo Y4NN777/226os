@@ -11,6 +11,6 @@ third_party_sources_consulted: []
 license_review: "NOT APPLICABLE: original code, no new dependency"
 closure: "open"
 human_reviewers: ["PANK4SS (E5 UI owner, pending)"]
-tests_or_evidence: ["RED: connect, Shell and Home tests failing before the route existed", "GREEN: lint, format:check, typecheck, coverage exit 0 (476 tests; 95.97/89.2/95.63/97.01)"]
+tests_or_evidence: ["RED: connect, Shell and Home tests failing before the route existed", "GREEN: lint, format:check, typecheck, coverage exit 0 (476 tests; 95.97/89.2/95.63/97.01)", "#214 follow-up: githubProfileUrl helper, RED then GREEN in src/features/connect and src/features/profile"]
 open_risks: ["not exercised against the real backend", "axe, visual and responsive checks NOT RUN"]
 ```

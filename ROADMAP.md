@@ -13,7 +13,7 @@
 | CADEV submission, hard limit | Sun 2026-11-15 17:00 | `docs/SHIP.md` section 6 |
 | Planned submission | Sun 2026-11-15 about 12:00 | owner decision, 2026-11-12 |
 | Progress checkpoint (drop decisions, S10 go/no-go) | Sat 2026-11-14 12:00 | owner decision, 2026-11-12 |
-| Feature freeze on `develop` | Sat 2026-11-14 18:00 | owner decision, 2026-11-12 |
+| Feature freeze on `develop` | Sat 2026-11-14 20:00 GMT | owner decision, 2026-11-14 |
 | **Every member votes**, or the team's project is excluded | Sun 2026-11-15 18:00 to Mon 2026-11-16 23:59 | `docs/SHIP.md` section 6 |
 
 **Scope**
@@ -168,7 +168,7 @@ Reviews (ADR-0008, accepted 2026-11-12):
 - **Fri 13, 23:00.** Checkpoint: helpers. S4 and S5 progress decides who helps first (default: `NICE-DEV226` on S5, `Y4NN777` on S4 and the content script).
 - **Sat 14, 12:00.** Checkpoint (progress): the owner decides any drop or exception from measured progress (merged PRs, CI status) and whether S10 is a GO. The decisions go in section 14. Morning work: S3, S4 publish and the content script, S9 port and retrieval, `make test-e2e` harness.
 - **Sat 14, until 18:00.** S6 and S9 merged, S3 and S5 merged, `make perf` harness, backup and restore drill on staging, the content script rehearsed on `staging-test`, the team's real accounts create `live` content on staging, SEED finished, E4, E5 backend if time allows.
-- **Sat 14, 18:00: freeze.** `develop` takes only fixes for failing gates or smoke checks (S9 and S10 included). Evening: `make quality-full` on the `develop` SHA, rollback drill, S9 golden run, G7 evidence, ADR-0007 evidence.
+- **Sat 14, 20:00 GMT: freeze.** `develop` takes only fixes for failing gates or smoke checks (S9 and S10 included). Evening: `make quality-full` on the `develop` SHA, rollback drill, S9 golden run, G7 evidence, ADR-0007 evidence.
 - **Sun 15, morning.** `Y4NN777` runs the release: production PR `develop` to `main`, backup, `migrate-up`, deploy the exact SHA, smoke, moderator promotion, content script on production (H19), **submits `https://226os.tech` around 12:00** (O1). Content window for all four right after the deploy (K38).
 - **Sun 15, 17:00: hard submission limit.** **Sun 18:00 to Mon 23:59: every member votes (H10).**
 
@@ -180,7 +180,7 @@ Reviews (ADR-0008, accepted 2026-11-12):
 2. S1 (identity), which blocks every member write;
 3. the member writes in S3, S4 and S5 (S6 last, S9 after S1 and S2);
 4. the S7 write flows on the live endpoints;
-5. the freeze (Sat 18:00);
+5. the freeze (Sat 20:00 GMT);
 6. G5, G6 and G7 evidence;
 7. production deploy (needs H6, H7 and B4);
 8. submission.

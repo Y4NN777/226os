@@ -62,6 +62,16 @@ describe('ConnectPage list', () => {
     expect(card.textContent).toBe('Kofi Mensah@kofi');
   });
 
+  it('renders no GitHub link for a malformed github value', async () => {
+    setLanguages(['fr-FR']);
+    mockApi({ 'GET /profiles': () => page([{ ...awa, github: '../evil?x=1' }]) });
+    await renderApp('/connect');
+    const card = (await screen.findByRole('link', { name: 'Awa Traoré' })).closest(
+      'li',
+    ) as HTMLElement;
+    expect(within(card).queryByRole('link', { name: /GitHub/ })).not.toBeInTheDocument();
+  });
+
   it('speaks English when the browser does', async () => {
     setLanguages(['en-US']);
     mockApi(base);

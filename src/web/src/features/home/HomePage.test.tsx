@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import type { components } from '../../api/schema';
 import { callsTo, memberSession, mockApi, problemResponse } from '../../test/api';
 import { jsonResponse, renderApp, setLanguages } from '../../test/render';
+import { findVisibleText } from '../../test/visibleText';
 
 type Resource = components['schemas']['Resource'];
 
@@ -238,7 +239,9 @@ describe('HomePage', () => {
       await screen.findByRole('region', { name: 'API du catalogue' }),
     ).findByRole('alert');
     expect(alert).toHaveTextContent('Impossible de charger le contenu');
-    await userEvent.click(within(alert).getByRole('button', { name: 'Réessayer' }));
+    await userEvent
+      .setup({ delay: null })
+      .click(within(alert).getByRole('button', { name: 'Réessayer' }));
     expect(await screen.findByRole('link', { name: 'SMS Beta' })).toBeVisible();
   });
 
@@ -246,7 +249,7 @@ describe('HomePage', () => {
     setLanguages(['fr-FR']);
     signedIn(() => jsonResponse({ items: [], next_cursor: null }));
     await renderApp('/');
-    expect(await screen.findByText('Le catalogue est vide pour l’instant.')).toBeVisible();
+    expect(await findVisibleText('Le catalogue est vide pour l’instant.')).toBeVisible();
   });
 
   it('shows a labelled loading indicator while the catalogue loads', async () => {
@@ -262,9 +265,9 @@ describe('HomePage', () => {
     signedIn(() => jsonResponse(page));
     const { router } = await renderApp('/');
     const field = await screen.findByRole('searchbox', { name: 'Rechercher dans 226os' });
-    await userEvent.type(field, '   {Enter}');
+    await userEvent.setup({ delay: null }).type(field, '   {Enter}');
     expect(router.state.location.pathname).toBe('/');
-    await userEvent.type(field, '  go api  {Enter}');
+    await userEvent.setup({ delay: null }).type(field, '  go api  {Enter}');
     await waitFor(() => {
       expect(router.state.location.pathname).toBe('/recherche');
     });
@@ -276,9 +279,11 @@ describe('HomePage', () => {
     signedIn(() => jsonResponse(page));
     const { router } = await renderApp('/');
     const field = await screen.findByRole('searchbox', { name: 'Rechercher dans 226os' });
-    await userEvent.click(field);
-    await userEvent.paste('a'.repeat(120));
-    await userEvent.click(screen.getByRole('button', { name: 'Rechercher' }));
+    await userEvent.setup({ delay: null }).click(field);
+    await userEvent.setup({ delay: null }).paste('a'.repeat(120));
+    await userEvent
+      .setup({ delay: null })
+      .click(screen.getByRole('button', { name: 'Rechercher' }));
     await waitFor(() => {
       expect(router.state.location.pathname).toBe('/recherche');
     });

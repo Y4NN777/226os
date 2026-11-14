@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { callsTo, mockApi, problemResponse } from '../../test/api';
 import { jsonResponse, renderApp, setLanguages } from '../../test/render';
 import { resource, rowOf, source } from './testFixtures';
+import { findVisibleText } from '../../test/visibleText';
 
 const id = 'c0000000-0000-4000-8000-000000000001';
 const detail = resource({
@@ -99,7 +100,7 @@ describe('ResourcePage', () => {
     }
   });
 
-  it('links only related listings and shows other related items as plain text', async () => {
+  it('links every related content type to its page', async () => {
     setLanguages(['fr-FR']);
     routes();
     await renderApp(`/discover/${id}`);
@@ -107,8 +108,10 @@ describe('ResourcePage', () => {
       'href',
       '/discover/c0000000-0000-4000-8000-000000000002',
     );
-    expect(screen.getByText(/Webhook non reçu/)).toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: /Webhook non reçu/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Webhook non reçu/ })).toHaveAttribute(
+      'href',
+      '/questions/c0000000-0000-4000-8000-000000000003',
+    );
   });
 
   it('lists sources as evidence, never presenting a claim as verified', async () => {
@@ -135,9 +138,7 @@ describe('ResourcePage', () => {
     setLanguages(['fr-FR']);
     routes({ [`GET /resources/${id}/sources`]: () => jsonResponse({ items: [] }) });
     await renderApp(`/discover/${id}`);
-    expect(
-      await screen.findByText('Aucune source enregistrée pour le moment.'),
-    ).toBeInTheDocument();
+    expect(await findVisibleText('Aucune source enregistrée pour le moment.')).toBeInTheDocument();
   });
 
   it('keeps the listing readable when only the sources fail, with a retry', async () => {
@@ -149,7 +150,9 @@ describe('ResourcePage', () => {
     });
     await renderApp(`/discover/${id}`);
     expect(await screen.findByRole('heading', { level: 1, name: 'Wave Pay' })).toBeInTheDocument();
-    await userEvent.click(await screen.findByRole('button', { name: 'Réessayer' }));
+    await userEvent
+      .setup({ delay: null })
+      .click(await screen.findByRole('button', { name: 'Réessayer' }));
     expect(await screen.findByRole('link', { name: /Grille tarifaire/ })).toBeInTheDocument();
   });
 
@@ -184,7 +187,9 @@ describe('ResourcePage', () => {
     });
     const { router } = await renderApp(`/discover/${id}`);
     expect(await screen.findByRole('heading', { name: 'Fiche introuvable' })).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('link', { name: 'Retour au catalogue' }));
+    await userEvent
+      .setup({ delay: null })
+      .click(screen.getByRole('link', { name: 'Retour au catalogue' }));
     await screen.findByRole('heading', { level: 1, name: 'Découvrir' });
     expect(router.state.location.pathname).toBe('/discover');
   });
@@ -197,8 +202,8 @@ describe('ResourcePage', () => {
         calls++ === 0 ? problemResponse(500, 'INTERNAL_ERROR') : jsonResponse(detail),
     });
     await renderApp(`/discover/${id}`);
-    expect(await screen.findByText('Référence : req-test-1')).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Réessayer' }));
+    expect(await findVisibleText('Référence : req-test-1')).toBeInTheDocument();
+    await userEvent.setup({ delay: null }).click(screen.getByRole('button', { name: 'Réessayer' }));
     expect(await screen.findByRole('heading', { level: 1, name: 'Wave Pay' })).toBeInTheDocument();
     expect(callsTo(fetchMock, `GET /resources/${id}`)).toHaveLength(2);
   });

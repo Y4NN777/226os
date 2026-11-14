@@ -25,6 +25,7 @@ import (
 	"github.com/Y4NN777/226os/src/api/internal/identity/service"
 	identitytransport "github.com/Y4NN777/226os/src/api/internal/identity/transport"
 	"github.com/Y4NN777/226os/src/api/internal/learn"
+	"github.com/Y4NN777/226os/src/api/internal/moderation"
 	"github.com/Y4NN777/226os/src/api/internal/platform/cursor"
 	"github.com/Y4NN777/226os/src/api/internal/platform/httpx"
 	"github.com/Y4NN777/226os/src/api/internal/platform/idempotency"
@@ -83,6 +84,7 @@ func newS2Stack(ctx context.Context, t *testing.T, override limiter) *s2Stack {
 			app.WithErrorReports(catalogue),
 			app.WithSearch(search.NewHandler(pool, lim, nil)),
 			app.WithLearn(learn.NewHandler(pool, codec, lim, nil)),
+			app.WithModeration(moderation.NewHandler(pool, lim, nil)),
 		),
 		Ready: pool,
 		// As in production (app.newDeps): the six bound operations, createLearnArticle among them, honour Idempotency-Key.

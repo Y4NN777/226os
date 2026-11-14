@@ -22,7 +22,7 @@ interface Pillar {
   id: 'learn' | 'connect' | 'solve' | 'discover' | 'build';
   title: MessageKey;
   text: MessageKey;
-  /** Only built pillars link somewhere; the others carry a "Bientôt" marker. */
+  /** Live pillars link to their product page. */
   live?: { to: string; label: MessageKey };
 }
 
@@ -33,7 +33,12 @@ const featured: Pillar[] = [
     text: 'landing.pillar.learn.text',
     live: { to: '/apprendre', label: 'landing.pillar.learn.link' },
   },
-  { id: 'connect', title: 'landing.pillar.connect.title', text: 'landing.pillar.connect.text' },
+  {
+    id: 'connect',
+    title: 'landing.pillar.connect.title',
+    text: 'landing.pillar.connect.text',
+    live: { to: '/connect', label: 'landing.pillar.connect.link' },
+  },
 ];
 
 const others: Pillar[] = [
