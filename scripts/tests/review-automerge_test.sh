@@ -31,6 +31,8 @@ case "$*" in
   "api repos/o/r/pulls/7/reviews --paginate") cat "$FX/reviews.json" ;;
   "api repos/o/r/contents/.github/sensitive-paths.txt?ref=develop --paginate") cat "$FX/contents.json" ;;
   "api repos/o/r/contents/.github/deep-review-paths.txt?ref=develop --paginate") cat "$FX/deep-paths.json" ;;
+  "api repos/o/r/contents/.github/pipeline-paths.txt?ref=develop --paginate") cat "$FX/pipeline-paths.json" ;;
+  "api -X POST repos/o/r/issues/7/labels "*|"api -X POST repos/o/r/issues/7/comments "*) echo '{}' ;;
   "api repos/o/r/pulls?state=open&base=develop&per_page=100 --paginate") cat "$FX/open.json" ;;
   "pr merge 7 --repo o/r --merge --match-head-commit $H") [ -z "${FAKE_MERGE_FAIL:-}" ] || { echo "405 not mergeable" >&2; exit 1; } ;;
   "api -X PUT repos/o/r/pulls/"*"/update-branch") echo '{}' ;;
@@ -39,6 +41,7 @@ esac
 GH
 chmod +x "$tmp/bin/gh"
 
+printf '{"content":"%s"}' "$(printf '.github/*\nscripts/review-*\nscripts/findings.py\n.claude/*\n' | base64 -w0)" >"$tmp/fx/pipeline-paths.json"
 printf '{"content":"%s"}' "$(printf 'src/api/internal/identity/*\ndb/queries/*\n' | base64 -w0)" >"$tmp/fx/deep-paths.json"
 printf '{"content":"%s"}' "$(printf 'scripts/*\n.github/*\n' | base64 -w0)" >"$tmp/fx/contents.json"
 
@@ -96,7 +99,8 @@ reset; pull open main; refused 'base is main' "the base is not develop (never ma
 reset; pull open develop fork/r; refused 'head repository' "a fork"
 reset; pull open develop o/r true; refused 'draft' "a draft"
 for l in needs-owner do-not-merge owner-override-pending; do reset; pull open develop o/r false "[{\"name\":\"$l\"}]"; refused "label $l" "the label $l"; done
-reset; files .github/workflows/x.yml; pull open develop o/r false '[]' Y4NN777; refused 'workflow' "a change to .github/workflows (the bot never merges one)"
+reset; files .github/workflows/x.yml; pull open develop o/r false '[]' Y4NN777; run on
+grep -q 'REFUSE #7.*workflow' <<<"$out" && ! grep -q 'pr merge' <<<"$calls" && ok "refused: a change to .github/workflows (the bot never merges one)" || ko "workflows ($out)"
 reset; checks "Validate branch promotion:completed:success" "quality:completed:failure" "Review gate:completed:success"; refused 'quality' "a required check failed"
 reset; checks "Validate branch promotion:completed:success" "quality:in_progress:" "Review gate:completed:success"; refused 'quality' "a required check is still running"
 reset; checks "Validate branch promotion:completed:success" "Review gate:completed:success"; refused 'quality' "a required check is missing"
@@ -126,6 +130,15 @@ reset; FAKE_GH_FAIL=1 run on
 [ "$rc" -eq 0 ] && grep -q 'NOT RUN' <<<"$out" && ! grep -q 'pr merge' <<<"$calls" && ok "a GitHub read error is NOT RUN: no merge, exit 0" || ko "gh fail (rc=$rc $out)"
 reset; FAKE_MERGE_FAIL=1 run on
 [ "$rc" -eq 0 ] && grep -q 'GitHub refused the merge' <<<"$out" && ! grep -q 'update-branch' <<<"$calls" && ok "a merge GitHub refuses (conflict, unresolved thread) is reported, exit 0, no update-branch" || ko "merge fail (rc=$rc $out)"
+
+# --- review pipeline paths: never auto-merged; with AUTO_MERGE=on labelled needs-owner with a one-line reason ---
+pipeline_ok() { review_comment "Triage: NONE | blast radius: x" "{\"sha\":\"$H\",\"findings\":[],\"deep\":{\"status\":\"PASS\",\"sha\":\"$H\"}}"; pull open develop o/r false '[]' Y4NN777; }
+reset; files scripts/review-gate.py; pipeline_ok; run on
+[ "$rc" -eq 0 ] && grep -q 'REFUSE #7.*review pipeline (scripts/review-gate.py)' <<<"$out" && ! grep -q 'pr merge' <<<"$calls" && grep -q '^TOKEN=bot-secret api -X POST repos/o/r/issues/7/labels -f labels\[\]=needs-owner$' <<<"$calls" && grep -q 'issues/7/comments -f body=Auto-merge skipped: it touches the review pipeline' <<<"$calls" && ok "a pipeline path is skipped and labelled needs-owner with a one-line reason" || ko "pipeline on (rc=$rc $out $calls)"
+reset; files .claude/commands/deep-review.md; pipeline_ok; run report
+[ -z "$writes" ] && grep -q 'WOULD LABEL #7 needs-owner' <<<"$out" && ok "report mode: a pipeline path is not labelled, only reported" || ko "pipeline report ($out $writes)"
+reset; files src/web/src/features/solve/Question.tsx src/api/internal/build/build.go; run on
+grep -q 'pr merge 7' <<<"$calls" && ! grep -q 'labels' <<<"$calls" && ok "an app-only pull request merges, no label" || ko "app only ($out)"
 
 # --- modes and token ---
 reset; run off

@@ -6,6 +6,9 @@ It decides MERGE only if ALL of these hold for the pull request (any other case 
   - it is open, not a draft, its base is develop (never main) and its head repository is this repository;
   - it has none of the labels needs-owner, do-not-merge, owner-override-pending;
   - it changes nothing under .github/workflows/ (the bot never merges a workflow change: the owner does);
+  - it touches no review pipeline path (.github/pipeline-paths.txt, read from the BASE branch). With AUTO_MERGE=on
+    such a pull request is labelled `needs-owner` with a one-line comment giving the reason (once: the label then
+    refuses it before anything else), and the owner merges it;
   - every required check (REQUIRED_CHECKS) has a latest check run on the head that is completed with SUCCESS;
   - the review comment (marker `<!-- 226os-ai-review -->`, scripts/review-comment.py) exists, its Triage is neither
     NOT RUN nor CRITICAL, its ledger sha is the head (the review covered the latest commit) and no `finding` is open
@@ -38,6 +41,8 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 BLOCKING_LABELS = ("needs-owner", "do-not-merge", "owner-override-pending")
 DEFAULT_CHECKS = "Validate branch promotion,quality,Review gate"
+PIPELINE_LIST = ".github/pipeline-paths.txt"
+OWNER_LABEL = "needs-owner"
 FULL_SHA = re.compile(r"^[0-9a-f]{40}$")
 
 
@@ -80,7 +85,8 @@ def label_names(pull):
 
 
 def refusals(gh, repo, number, base, owner, required):
-    """(head sha, [reasons]) for one pull request; no reason means MERGE. Raises gate.GitHubError on a read error."""
+    """(head sha, [reasons], pipeline reason or None) for one pull request; no reason means MERGE. Raises
+    gate.GitHubError on a read error."""
     pull = (gate.gh_api(gh, "repos/%s/pulls/%s" % (repo, number)) or [{}])[0]
     head = (pull.get("head") or {}).get("sha", "")
     why = []
@@ -96,11 +102,16 @@ def refusals(gh, repo, number, base, owner, required):
         if label in label_names(pull):
             why.append("label %s" % label)
     if why or not FULL_SHA.match(head):
-        return head, why or ["no head commit"]
+        return head, why or ["no head commit"], None
 
     files = [f.get("filename", "") for f in gate.gh_api(gh, "repos/%s/pulls/%s/files" % (repo, number))]
     if any(f.startswith(".github/workflows/") for f in files):
         why.append("it changes a workflow under .github/workflows (the owner merges it)")
+    pipeline = comment.p0_hits(files, base_list(gh, repo, PIPELINE_LIST, base))
+    pipeline_why = None
+    if pipeline:
+        pipeline_why = "it touches the review pipeline (%s): the owner merges it" % ", ".join(pipeline[:3])
+        why.append(pipeline_why)
 
     latest = latest_runs(gate.gh_api(gh, "repos/%s/commits/%s/check-runs?per_page=100" % (repo, head)))
     for name in required:
@@ -142,7 +153,7 @@ def refusals(gh, repo, number, base, owner, required):
     failure, _ = gate.check_sensitive(gh, repo, number, (pull.get("user") or {}).get("login", ""), owner, base)
     if failure:
         why.append(failure)
-    return head, why
+    return head, why, pipeline_why
 
 
 def write(gh, token, args):
@@ -203,12 +214,20 @@ def main():
         print("auto-merge: no pull request has the head %s" % head_sha[:12])
     for n in numbers:
         try:
-            head, why = refusals(gh, repo, n, base, owner, required)
+            head, why, pipeline_why = refusals(gh, repo, n, base, owner, required)
         except (gate.GitHubError, ValueError, KeyError, TypeError, AttributeError) as exc:
             print("auto-merge: NOT RUN for #%s (%s): no merge" % (n, exc))
             continue
         if why:
             print("auto-merge: REFUSE #%s: %s" % (n, "; ".join(why)))
+            if pipeline_why and mode == "on":
+                ok, err = write(gh, token, ["api", "-X", "POST", "repos/%s/issues/%s/labels" % (repo, n), "-f", "labels[]=%s" % OWNER_LABEL])
+                if ok:
+                    write(gh, token, ["api", "-X", "POST", "repos/%s/issues/%s/comments" % (repo, n), "-f",
+                                      "body=Auto-merge skipped: %s." % pipeline_why])
+                print("auto-merge: labelled #%s %s" % (n, OWNER_LABEL) if ok else "auto-merge: could not label #%s (%s)" % (n, err))
+            elif pipeline_why:
+                print("auto-merge: WOULD LABEL #%s %s" % (n, OWNER_LABEL))
             continue
         if mode != "on":
             print("auto-merge: WOULD MERGE #%s at %s (merge commit; AUTO_MERGE=report)" % (n, head[:12]))
