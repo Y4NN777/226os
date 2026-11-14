@@ -32,7 +32,11 @@ describe('ProjectPage read view', () => {
         jsonResponse(
           project({
             related: [
-              { type: 'article', id: 'a1000000-0000-4000-8000-000000000001', title: 'Signer un webhook' },
+              {
+                type: 'article',
+                id: 'a1000000-0000-4000-8000-000000000001',
+                title: 'Signer un webhook',
+              },
               { type: 'series', id: 'a1000000-0000-4000-8000-000000000002', title: 'Paiements' },
             ],
           }),

@@ -88,7 +88,8 @@ export const en: Record<keyof typeof fr, string> = {
   'profile.item.bio.value': 'A few lines so others know who you are.',
   'profile.item.bio.hint': '500 characters at most.',
   'profile.item.open_to_collab': 'Visible in the Connect directory',
-  'profile.item.open_to_collab.value': 'Make your profile visible so other developers can find you.',
+  'profile.item.open_to_collab.value':
+    'Make your profile visible so other developers can find you.',
   'profile.item.open_to_collab.hint': 'You can change this choice in settings.',
   'profile.item.save': 'Save {field}',
   'profile.err.intent': 'Choose what brings you here.',

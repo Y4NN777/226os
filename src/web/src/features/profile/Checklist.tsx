@@ -105,7 +105,9 @@ function ItemForm({ item, username }: { item: ChecklistItem; username: string })
                     label={label}
                     description={t('profile.item.open_to_collab.hint')}
                     value={field.state.value === 'true'}
-                    onChange={(checked) => change(String(checked))}
+                    onChange={(checked) => {
+                      change(String(checked));
+                    }}
                     {...status}
                   />
                   {submit}

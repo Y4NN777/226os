@@ -275,7 +275,8 @@ Open owner items outside CADEV (IDs and decisions in ROADMAP section 8, 10 and 1
 - **Tables:** `audit_log`, `users.role`, `error_reports`, every target table. **Acceptance:** ROADMAP section 3, item 9. Negative authz: non-moderator 403, anonymous 401, CSRF 403, audit row in the same transaction (rollback leaves no orphan), the moderator never edits content.
 - **Allowed paths:** `src/api/internal/moderation/**`, `db/queries/**` (moderation files), generated `dbgen`, `docs/runbooks/moderation.md`. **DoD:** DoD-common plus the same-transaction audit test. **Stop:** if scope would grow beyond ADR-0003.
 - 2026-11-14 (12:00 checkpoint, ROADMAP section 14): kept for the 18:00 freeze; a minimal backend built after the web lanes; no migration (`audit_log` and `users.role` exist). The three operations still answer 501 (`scripts/unimplemented-routes.txt`).
-- **Status:** PLANNED
+- 2026-11-14 (`Y4NN777`, `fix/platform/demo-gaps`, S6): moderator-only hide, restore and error-report resolution are in review with same-transaction audit writes, owner-only moderator negative cases and the operational runbook; no migration or contract change.
+- **Status:** IN REVIEW (`fix/platform/demo-gaps`; RED/GREEN unit and real-PostgreSQL tests pass locally)
 
 ---
 

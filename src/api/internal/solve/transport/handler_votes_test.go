@@ -175,7 +175,7 @@ func TestAuthzRetractVoteAnonymous(t *testing.T) {
 }
 
 // Negative authz for POST /api/v1/questions/{questionId}/accept (AUTHORIZATION_MATRIX, allow: owner, the
-// question author): anonymous 401, unverified 403, a member who is not the author 403 and nothing changes,
+// question author): anonymous 401, unverified 403, a member or moderator who is not the author 403 and nothing changes,
 // an unknown or removed question 404, an answer of another question 422.
 func TestAuthzAcceptAnswerNonOwner(t *testing.T) {
 	cases := []struct {
@@ -187,6 +187,7 @@ func TestAuthzAcceptAnswerNonOwner(t *testing.T) {
 		{"anonymous", subject.Subject{}, nil, http.StatusUnauthorized},
 		{"member without a verified email", subject.Subject{UserID: userID}, nil, http.StatusForbidden},
 		{"other member", subject.Subject{UserID: otherU, EmailVerified: true}, domain.ErrForbidden, http.StatusForbidden},
+		{"moderator is not the owner", subject.Subject{UserID: otherU, EmailVerified: true, Roles: []string{"moderator"}}, domain.ErrForbidden, http.StatusForbidden},
 		{"unknown or removed question", member, domain.ErrNotFound, http.StatusNotFound},
 		{"answer of another question", member, domain.ErrAnswerNotInQuestion, http.StatusUnprocessableEntity},
 	}
@@ -203,7 +204,7 @@ func TestAuthzAcceptAnswerNonOwner(t *testing.T) {
 }
 
 // Negative authz for POST /api/v1/questions/{questionId}/unaccept (allow: owner): anonymous 401, unverified
-// 403, a member who is not the author 403 and nothing changes, an unknown or removed question 404.
+// 403, a member or moderator who is not the author 403 and nothing changes, an unknown or removed question 404.
 func TestAuthzUnacceptAnswerNonOwner(t *testing.T) {
 	cases := []struct {
 		name   string
@@ -214,6 +215,7 @@ func TestAuthzUnacceptAnswerNonOwner(t *testing.T) {
 		{"anonymous", subject.Subject{}, nil, http.StatusUnauthorized},
 		{"member without a verified email", subject.Subject{UserID: userID}, nil, http.StatusForbidden},
 		{"other member", subject.Subject{UserID: otherU, EmailVerified: true}, domain.ErrForbidden, http.StatusForbidden},
+		{"moderator is not the owner", subject.Subject{UserID: otherU, EmailVerified: true, Roles: []string{"moderator"}}, domain.ErrForbidden, http.StatusForbidden},
 		{"unknown or removed question", member, domain.ErrNotFound, http.StatusNotFound},
 	}
 	for _, tc := range cases {

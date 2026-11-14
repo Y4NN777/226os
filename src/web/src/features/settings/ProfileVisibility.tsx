@@ -126,7 +126,9 @@ export function ProfileVisibility() {
           value={me.data?.profile.open_to_collab ?? false}
           isLoading={saveDirectory.isPending}
           isDisabled={notLive}
-          onChange={(open) => saveDirectory.mutate(open)}
+          onChange={(open) => {
+            saveDirectory.mutate(open);
+          }}
           {...(saveDirectory.error instanceof ApiError &&
           saveDirectory.error.violations.some(
             (violation) => violationName(violation.field) === 'open_to_collab',

@@ -8,6 +8,7 @@ import (
 	"github.com/Y4NN777/226os/src/api/internal/discover/transport"
 	identitytransport "github.com/Y4NN777/226os/src/api/internal/identity/transport"
 	learntransport "github.com/Y4NN777/226os/src/api/internal/learn/transport"
+	moderationtransport "github.com/Y4NN777/226os/src/api/internal/moderation/transport"
 	"github.com/Y4NN777/226os/src/api/internal/platform/apigen"
 	"github.com/Y4NN777/226os/src/api/internal/platform/mailer"
 	searchtransport "github.com/Y4NN777/226os/src/api/internal/search/transport"
@@ -20,15 +21,16 @@ import (
 // Besides the operations it exposes one accessor, Mailer, for the session mail flows (S1).
 type Server struct {
 	apigen.Unimplemented
-	mailer    mailer.Mailer
-	catalogue *transport.Handler
-	reports   *transport.Handler
-	search    *searchtransport.Handler
-	auth      *identitytransport.Handler
-	learn     *learntransport.Handler
-	build     *buildtransport.Handler
-	assistant *assistanttransport.Handler
-	solve     *solvetransport.Handler
+	mailer     mailer.Mailer
+	catalogue  *transport.Handler
+	reports    *transport.Handler
+	search     *searchtransport.Handler
+	auth       *identitytransport.Handler
+	learn      *learntransport.Handler
+	moderation *moderationtransport.Handler
+	build      *buildtransport.Handler
+	assistant  *assistanttransport.Handler
+	solve      *solvetransport.Handler
 }
 
 // Option configures NewServer.
@@ -51,6 +53,11 @@ func WithIdentity(h *identitytransport.Handler) Option { return func(s *Server) 
 
 // WithLearn sets the S4 Learn operations. Without it those routes stay 501.
 func WithLearn(h *learntransport.Handler) Option { return func(s *Server) { s.learn = h } }
+
+// WithModeration sets the S6 moderator operations. Without it those routes stay 501.
+func WithModeration(h *moderationtransport.Handler) Option {
+	return func(s *Server) { s.moderation = h }
+}
 
 // WithBuild sets the S5 project and contribution-need operations. Without it those routes stay 501.
 func WithBuild(h *buildtransport.Handler) Option { return func(s *Server) { s.build = h } }
@@ -450,4 +457,31 @@ func (s *Server) UnacceptAnswer(w http.ResponseWriter, r *http.Request, question
 		return
 	}
 	s.solve.UnacceptAnswer(w, r, questionID)
+}
+
+// HideContent hides published content through the moderator module.
+func (s *Server) HideContent(w http.ResponseWriter, r *http.Request, targetType apigen.ModerationTargetType, targetID apigen.Uuid) {
+	if s.moderation == nil {
+		s.Unimplemented.HideContent(w, r, targetType, targetID)
+		return
+	}
+	s.moderation.HideContent(w, r, targetType, targetID)
+}
+
+// RestoreContent restores content through the moderator module.
+func (s *Server) RestoreContent(w http.ResponseWriter, r *http.Request, targetType apigen.ModerationTargetType, targetID apigen.Uuid) {
+	if s.moderation == nil {
+		s.Unimplemented.RestoreContent(w, r, targetType, targetID)
+		return
+	}
+	s.moderation.RestoreContent(w, r, targetType, targetID)
+}
+
+// ResolveErrorReport resolves a report through the moderator module.
+func (s *Server) ResolveErrorReport(w http.ResponseWriter, r *http.Request, reportID apigen.Uuid) {
+	if s.moderation == nil {
+		s.Unimplemented.ResolveErrorReport(w, r, reportID)
+		return
+	}
+	s.moderation.ResolveErrorReport(w, r, reportID)
 }

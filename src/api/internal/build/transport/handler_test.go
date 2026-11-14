@@ -312,7 +312,7 @@ func TestCreateContributionNeedAnswers201(t *testing.T) {
 }
 
 // Negative authz for POST /api/v1/projects/{projectId}/contribution-needs (createContributionNeed,
-// allow: owner, C1): anonymous 401, unverified 403, non-owner 403 on a public project and 404 on a
+// allow: owner, C1): anonymous 401, unverified 403, non-owner or moderator 403 on a public project and 404 on a
 // private one; nothing is created.
 func TestAuthzCreateContributionNeedNonOwner(t *testing.T) {
 	cases := []struct {
@@ -325,6 +325,8 @@ func TestAuthzCreateContributionNeedNonOwner(t *testing.T) {
 		{"unverified member", subject.Subject{UserID: bobID}, "public", http.StatusForbidden},
 		{"non-owner on a public project", bob, "public", http.StatusForbidden},
 		{"non-owner on a private project", bob, "private", http.StatusNotFound},
+		{"moderator on a public project", subject.Subject{UserID: bobID, EmailVerified: true, Roles: []string{"moderator"}}, "public", http.StatusForbidden},
+		{"moderator on a private project", subject.Subject{UserID: bobID, EmailVerified: true, Roles: []string{"moderator"}}, "private", http.StatusNotFound},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
