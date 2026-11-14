@@ -291,7 +291,7 @@ comments '[]'
 E_NOFIX='{"id":"nofix","kind":"finding","evidence":"OBSERVED","sev":"HIGH","file":"a.go","line":3,"scenario":"s","status":"open","detail":"proof"}'
 HEAD_SHA="$locsha" JSON="$(mkreview "[$E_GOOD,$E_NOFIX]")" run
 pb="$(posted_body)"
-[ "$(sed -n 1p <<<"$pb")" = "Triage: MEDIUM | blast radius: x" ] && [ "$(sed -n 2p <<<"$pb")" = "<!-- 226os-ai-review -->" ] && grep -q 'Detail or fix not recorded by the review (the verdict is unchanged): `nofix`\.' <<<"$pb" && ok "a missing fix keeps the verdict and every entry, and the comment names the id" || ko "missing fix ($pb)"
+[ "$(sed -n 1p <<<"$pb")" = "Triage: HIGH | blast radius: x" ] && [ "$(sed -n 2p <<<"$pb")" = "<!-- 226os-ai-review -->" ] && grep -q 'Detail or fix not recorded by the review (the verdict is unchanged): `nofix`\.' <<<"$pb" && ok "a missing fix keeps the verdict (raised to the open HIGH entry's level) and every entry, and the comment names the id" || ko "missing fix ($pb)"
 pyassert 'import json,sys; f=json.loads(sys.argv[1]); assert f["detail"]=="proof" and f["fix"]=="not recorded by the review" and f["sev"]=="HIGH"' "$(entry_of nofix)" 2>/dev/null && pyassert 'import json,sys; f=json.loads(sys.argv[1]); assert f["fix"]=="do this"' "$(entry_of g1)" 2>/dev/null && ok "the missing field is filled with the not-recorded marker, the complete entry is untouched" || ko "marker ($(entry_of nofix))"
 HEAD_SHA="$locsha" JSON="$(mkreview '[{"id":"nodetail","kind":"note","evidence":"OBSERVED","sev":"LOW","file":"a.go","line":3,"scenario":"s","status":"open","detail":"   ","fix":"none: accept"}]')" run
 pyassert 'import json,sys; f=json.loads(sys.argv[1]); assert f["detail"]=="not recorded by the review" and f["fix"]=="none: accept"' "$(entry_of nodetail)" 2>/dev/null && ok "a blank detail is a missing detail, filled" || ko "blank detail ($(posted_body))"
@@ -415,6 +415,22 @@ LOCATION_REPO="$repo" DJSON="$DEEP180" deep
 comments "[{\"id\":2,\"node_id\":\"N2\",\"user\":{\"login\":\"$BOT\"},\"body\":\"$note_base\",\"created_at\":\"2026-11-14T09:00:00Z\"}]"
 DJSON='{"level":"NONE","blast_radius":"x","summary":"s","findings":[{"id":"nofix","kind":"note","evidence":"INFERRED","sev":"LOW","file":"a.go","line":1,"scenario":"s","status":"open","detail":"only a detail"}]}' deep
 [ "$(posted | sed -n 4p)" = "Deep: PASS (0 findings, 1 note)" ] && posted | grep -q 'Detail or fix not recorded by the review (the verdict is unchanged): `nofix`\.' && pyassert 'import json,sys; f=json.loads(sys.argv[1]); assert f["fix"]=="not recorded by the review" and f["detail"]=="only a detail"' "$(posted_entry nofix)" 2>/dev/null && ok "a deep entry without fix is filled and named, the Deep line is not NOT RUN" || ko "deep missing ($(posted | sed -n 1,6p))"
+# Review of PR 187 (deep-critical-kept-without-evidence): the level is derived from the kept entries, never the declared one.
+DJSON='{"level":"CRITICAL","blast_radius":"x","summary":"s","findings":[{"id":"inf","kind":"finding","evidence":"INFERRED","sev":"CRITICAL","file":"a.go","line":1,"scenario":"s","status":"open","detail":"d","fix":"f"},{"id":"bad","kind":"finding","sev":"CRITICAL"}]}' deep
+[ "$(posted | sed -n 1p)" = "Triage: HIGH | blast radius: x" ] && ! posted | sed -n 1p | grep -q CRITICAL && posted | grep -q 'it claimed CRITICAL: a human must read the deep review' && ok "deep: a declared CRITICAL whose only CRITICAL entry is INFERRED (lowered to HIGH) plus a dropped entry is HIGH, and the dropped claim is named" || ko "deep critical no evidence ($(posted | sed -n 1,6p))"
+DJSON='{"level":"NONE","blast_radius":"x","summary":"s","findings":[{"id":"real","kind":"finding","evidence":"OBSERVED","sev":"HIGH","file":"a.go","line":1,"scenario":"s","status":"open","detail":"d","fix":"f"}]}' deep
+[ "$(posted | sed -n 1p)" = "Triage: HIGH | blast radius: x" ] && ok "deep: a declared NONE with a valid open OBSERVED HIGH entry is HIGH" || ko "deep raise ($(posted | sed -n 1,3p))"
+comments '[]'
+HEAD_SHA="$locsha" JSON="$(python3 -I - <<'EOF2'
+import json
+led = {"sha": "x", "findings": [{"id": "k", "kind": "finding", "evidence": "INFERRED", "sev": "CRITICAL", "file": "a.go", "line": 3, "scenario": "s", "status": "open", "detail": "d", "fix": "f"}]}
+print(json.dumps({"body": "Triage: CRITICAL | blast radius: x\n\ntext\n\n<details><summary>Review ledger</summary>\n\n```json\n" + json.dumps(led) + "\n```\n\n</details>"}))
+EOF2
+)" run
+[ "$(posted_body | sed -n 1p)" = "Triage: HIGH | blast radius: x" ] && ok "stage 1: a declared CRITICAL without an OBSERVED CRITICAL entry with file:line is HIGH" || ko "stage 1 critical cap ($(posted_body | sed -n 1,3p))"
+HEAD_SHA="$locsha" JSON="$(mkreview "[$E_GOOD]" | sed 's/Triage: MEDIUM/Triage: NONE/')" run
+[ "$(posted_body | sed -n 1p)" = "Triage: MEDIUM | blast radius: x" ] && ok "stage 1: a declared NONE with an open MEDIUM finding is MEDIUM" || ko "stage 1 raise ($(posted_body | sed -n 1,3p))"
+comments "[{\"id\":2,\"node_id\":\"N2\",\"user\":{\"login\":\"$BOT\"},\"body\":\"$note_base\",\"created_at\":\"2026-11-14T09:00:00Z\"}]"
 DJSON='{"level":"CRITICAL","blast_radius":"x","summary":"s","findings":[{"id":"nofix","kind":"finding","evidence":"OBSERVED","sev":"CRITICAL","file":"a.go","line":1,"scenario":"s","status":"open","detail":"d"},{"kind":"note","detail":"no id"}]}' deep
 [ "$(posted | sed -n 1p)" = "Triage: CRITICAL | blast radius: x" ] && posted | grep -q '^Deep: NOT RUN (the deep review output had an invalid entry (dropped))$' && ok "a deep CRITICAL with a missing field and an invalid entry still raises the Triage line to CRITICAL" || ko "deep critical ($(posted | sed -n 1,6p))"
 LOCATION_REPO="$repo" DJSON='{"level":"NONE","blast_radius":"x","summary":"s","findings":[{"id":"new-deep","kind":"note","evidence":"INFERRED","sev":"LOW","file":"a.go","line":1,"scenario":"s","status":"open","detail":"mail me at @Y4NN777 #44","fix":"none: accept"}]}' deep

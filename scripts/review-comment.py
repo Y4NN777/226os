@@ -411,6 +411,48 @@ def carry_forward(text, previous_ledger):
     return out
 
 
+def effective_level(declared, entries):
+    """The verdict level the ledger supports. Never the model's declared level alone: a CRITICAL needs an open OBSERVED
+    CRITICAL finding with file and line (else it is at most HIGH, the rule the gate and review-ping apply), and an open
+    finding raises the level to its own severity (a CRITICAL without that evidence counts as HIGH). Notes never count."""
+    top = 0
+    qualified = False
+    for f in entries:
+        if not isinstance(f, dict) or str(f.get("kind", "finding")).lower() == "note" or f.get("status") != "open":
+            continue
+        sev = str(f.get("sev", "MEDIUM")).upper()
+        line = f.get("line")
+        if sev == "CRITICAL":
+            if str(f.get("evidence", "")).upper() == "OBSERVED" and f.get("file") and isinstance(line, int) and not isinstance(line, bool) and line > 0:
+                qualified = True
+            else:
+                sev = "HIGH"
+        top = max(top, {"MEDIUM": 1, "HIGH": 2, "CRITICAL": 3}.get(sev, 0))
+    level = declared
+    if level == "CRITICAL" and not qualified:
+        level = "HIGH"
+    return max(level, LEVELS[top], key=LEVELS.index)
+
+
+def pin_level(text):
+    """The text with its first line's level set to the one its own ledger supports (blast radius text kept)."""
+    m = FENCED.search(text or "")
+    first = (text or "").split("\n", 1)[0]
+    v = VERDICT.match(first.strip())
+    if not m or not v:
+        return text
+    try:
+        data = json.loads(m.group(2))
+    except ValueError:
+        return text
+    if not isinstance(data, dict) or not isinstance(data.get("findings"), list):
+        return text
+    level = effective_level(v.group(1), data["findings"])
+    if level == v.group(1):
+        return text
+    return first.replace(v.group(1), level, 1) + text[len(first):]
+
+
 def compose(text, tool_line, head="", deep_line=None, reviewed=None, previous_ledger=None):
     """The comment body: verdict, marker, Tool line, then the review without any marker or Tool line of its own, its
     ledger pinned to head. None when the text does not start with a valid verdict (the gate could not read it)."""
@@ -424,7 +466,7 @@ def compose(text, tool_line, head="", deep_line=None, reviewed=None, previous_le
     text = pin_ledger("\n".join(top + [""] + rest), head, previous_ledger)
     if FULL_SHA.match(head or ""):
         text = carry_forward(text, previous_ledger)
-    return text + "\n"
+    return pin_level(text) + "\n"
 
 
 def not_run(reason, tool_line, previous, reviewed=None):
@@ -625,20 +667,21 @@ def deep_output(head=""):
             for key in ("detail", "fix"):
                 if is_blank(f.get(key)):
                     f[key] = MISSING_FIELD
-    entries = [deep_entry(f, head) for f in data["findings"]]
-    why, dropped = None, False
-    if not all(entries):
-        # An invalid entry is dropped and named, never the reason to lose the level: the worse level still applies.
-        entries = [e for e in entries if e]
-        dropped = True
-        why = "the deep review output had an invalid entry (dropped)"
+    raw_entries = [deep_entry(f, head) for f in data["findings"]]
+    entries, why, claimed = [e for e in raw_entries if e], None, []
+    if not all(raw_entries):
+        # An invalid entry is dropped and named; it never sets the level. When it claimed HIGH or CRITICAL the line says so
+        # explicitly, so a human looks at it.
+        for f, e in zip(data["findings"], raw_entries):
+            if e is None and isinstance(f, dict) and str(f.get("sev", "")).upper() in ("HIGH", "CRITICAL"):
+                claimed.append(str(f.get("sev")).upper())
+        why = "the deep review output had an invalid entry (dropped)" + (
+            "; it claimed %s: a human must read the deep review" % "/".join(sorted(set(claimed))) if claimed else "")
     if len(entries) > DEEP_MAX_ENTRIES:
         # Keep the most severe (findings before notes), list them, and say NOT RUN: the review did not respect its cap.
         entries = sorted(entries, key=lambda e: (e["kind"] != "finding", -SEV_RANK.get(e["sev"], 0)))[:DEEP_MAX_ENTRIES]
         why = "too many findings"
-    level = str(data["level"]).upper()
-    if level == "CRITICAL" and not dropped and not any(e["sev"] == "CRITICAL" and e["kind"] == "finding" for e in entries):
-        level = "HIGH"
+    level = effective_level(str(data["level"]).upper(), entries)
     return {"level": level, "blast": one_line(data.get("blast_radius")) or "unknown",
             "summary": str(data.get("summary") or ""), "entries": entries, "filled": filled}, why
 
