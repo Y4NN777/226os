@@ -205,22 +205,24 @@ Open owner items outside CADEV (IDs and decisions in ROADMAP section 8, 10 and 1
 - **Owner:** `mibienpanjoe` (accountable). **Reviewers:** `NICE-DEV226`; when `NICE-DEV226` co-writes, `Y4NN777` reviews and co-reviews the GitHub fetch and anti-SSRF code (K10). **Helpers:** `NICE-DEV226` (default first helper after Solve; the Fri 13 Nov 23:00 checkpoint decides), `Y4NN777`, `PANK4SS` on demand.
 - **Branches:** `feature/build/projects-needs`, `feature/build/applications`. **Depends on:** S1. C1 DECIDED: project owner only, no maintainer delegation at P0; the applicant may withdraw.
 - **Operations:**
-  - [ ] `listProjects` (public projects plus the caller's own private ones)
-  - [ ] `createProject` (verified email, Idempotency-Key, GitHub URL allowlist normalized and unique, fetch with timeouts and anti-SSRF, 10 imports/user/hour)
-  - [ ] `getProject` (private projects 404 to everyone but the owner)
-  - [ ] `updateProject` (owner only; non-owner 403 on public, 404 on private; `github_url` immutable)
-  - [ ] `listContributionNeeds` (follows the project's visibility)
-  - [ ] `createContributionNeed` (owner, C1; Idempotency-Key)
+  - [x] `listProjects` (public projects plus the caller's own private ones) — `feature/build/projects-needs`, 2026-11-14
+  - [x] `createProject` (verified email, Idempotency-Key, GitHub URL allowlist normalized and unique, fetch with timeouts and anti-SSRF, 10 imports/user/hour) — `feature/build/projects-needs`, 2026-11-14
+  - [x] `getProject` (private projects 404 to everyone but the owner) — `feature/build/projects-needs`, 2026-11-14
+  - [x] `updateProject` (owner only; non-owner 403 on public, 404 on private; `github_url` immutable) — `feature/build/projects-needs`, 2026-11-14
+  - [x] `listContributionNeeds` (follows the project's visibility) — `feature/build/projects-needs`, 2026-11-14
+  - [x] `createContributionNeed` (owner, C1; Idempotency-Key) — `feature/build/projects-needs`, 2026-11-14
   - [ ] `createApplication` (verified email; not on your own project; duplicate 409 `DUPLICATE_APPLICATION`; closed need 409 `STATE_CONFLICT`; re-apply only after withdrawal; replay returns the original 201)
   - [ ] `listProjectApplications` (owner, C1; a third party gets 403 or 404 and no count)
   - [ ] `decideApplication` (applicant may withdraw; only the project owner accepts or declines; invalid transition 409; cross-project IDOR 404)
-- [ ] Correct the `decideApplication` x-authz ("owner or maintainer" to owner only): carried by the first contract PR (Shared pieces).
-- [ ] In the S5 PR, correct `AUTHORIZATION_MATRIX.md` (the three "owner or maintainer" rows for project update, needs and applications) to "owner only" (C1). This narrows ADR-0005 point 10; the owner records it.
-- [ ] Docs follow-up (S5 PR or a docs PR): `DATABASE_DESIGN.md` sections 7 and 10 and the `project_maintainers` description still say "owner or maintainer"; correct to owner only (C1). Owner `mibienpanjoe`, reviewed by `NICE-DEV226`.
+- [x] Correct the `decideApplication` x-authz ("owner or maintainer" to owner only): carried by the first contract PR (Shared pieces). OBSERVED 2026-11-14: `api/openapi.yaml` `decideApplication` says owner (accept, decline) or applicant (withdraw).
+- [x] In the S5 PR, correct `AUTHORIZATION_MATRIX.md` (the three "owner or maintainer" rows for project update, needs and applications) to "owner only" (C1). 2026-11-14: four rows said it (`decideApplication` too); all four corrected, in line with the contract. This narrows ADR-0005 point 10; the owner records it.
+- [x] Docs follow-up (S5 PR or a docs PR): `DATABASE_DESIGN.md` sections 7 and 10 and the `project_maintainers` description still say "owner or maintainer"; correct to owner only (C1). Owner `mibienpanjoe`, reviewed by `NICE-DEV226`.
 - **Tables:** `projects`, `project_maintainers`, `project_tags`, `contribution_needs`, `need_skills`, `applications`, `content_relations`, `tags`, `idempotency_keys`, `rate_limit_buckets`.
 - **Acceptance:** `US-BUILD-001/1`, `/2`. Negative authz: invalid GitHub URL, SSRF targets and rate limit rejected; non-owner cannot mutate and a private project is 404; a `project_maintainers` row grants nothing; duplicates, closed needs, re-apply after decline rejected; no count leaks; cross-project IDOR blocked.
 - **Prototype pages:** `build`, `project`. **Allowed paths:** `src/api/internal/build/**`, `db/queries/**` (build files), generated `dbgen`, `scripts/public-routes.txt`, `docs/spec-kit/AUTHORIZATION_MATRIX.md` (the three C1 rows only; owner review). **DoD:** DoD-common plus an SSRF test suite (private IPs, redirects, non-GitHub hosts) and a double-click application test. **Stop:** any `api/openapi.yaml` change outside a contract PR (R7).
-- **Status:** PLANNED
+- **Allowed paths, as S4 (2026-11-14, owner agreement asked on the PR):** S5 also touches the composition root `src/api/internal/app/**` (wiring only), `src/api/internal/platform/pgtest/**` and `src/api/internal/platform/dbgen/*_test.go` (tests), `scripts/unimplemented-routes.txt`, `scripts/authz-tests.txt`, `docs/spec-kit/DATABASE_DESIGN.md` (the C1 lines) and `TODO.md`.
+- **Choices where the docs are silent (GUESS, reviewer confirms; no contract or schema change):** the GitHub check is one unauthenticated `GET https://api.github.com/repos/{owner}/{repo}` (no token: a token is an owner secret; the unauthenticated quota is 60 per hour per server IP, shared by all users); `name` is the repository name and `projects.summary` its GitHub description cut to 500 characters (the name when empty); the response `description` is the owner's text, or the summary when there is none; a missing, private, renamed (redirect) or legally blocked repository is 422 `INVALID_GITHUB_URL`, GitHub down, slow or rate limited is 503 `UPSTREAM_UNAVAILABLE`; a duplicate URL is 409 `STATE_CONFLICT`, checked before GitHub so it costs no quota; `links` on `updateProject` are added, never removed (other members' question and resource links point to the project); a need's `Location` is the project's needs list (there is no need read operation).
+- **Status:** IN PROGRESS. PR 1 (`feature/build/projects-needs`): the six project and need operations; PR 2 (`feature/build/applications`) follows.
 
 ---
 
@@ -331,7 +333,7 @@ Open owner items outside CADEV (IDs and decisions in ROADMAP section 8, 10 and 1
 - [x] **Separate migration file: `profile_visibility` (C14b DECIDED).** Written by `mibienpanjoe` only, numbered by `make migrate-new`; may share the PR but is its own file: `ALTER TABLE profiles ADD COLUMN profile_visibility text NOT NULL DEFAULT 'public'` with a named CHECK `IN ('public','members','private')`. Update the pgtest structure and constraint tests in the same PR. Docs follow-up: the `profiles` entry in `DATABASE_DESIGN.md`. (2026-11-12: `00012_profile_visibility`, check `profiles_profile_visibility_ck`. 2026-11-13: sqlc model `Profile.ProfileVisibility` regenerated so the static gate matches the column.)
 - Removals are **DEFERRED** until after CADEV and need explicit human approval: `ussd-messaging`, `geo-data`, the `logistics` merge. Taxonomy rows are data: they change through a new forward-only migration or a moderator path, never by editing old migrations.
 - **Allowed paths:** new files in `db/migrations/`, `src/api/internal/platform/pgtest/**`. **DoD:** DoD-common; `make test-integration` passes on fresh and upgrade runs; the migration immutability and no-`Down` checks pass (`make lint`).
-- **Status:** IN PROGRESS (PR #80, 2026-11-13). `DONE` waits for the merge.
+- **Status:** DONE (PR #80, 2026-11-13).
 
 ---
 

@@ -24,3 +24,6 @@ GET /api/v1/learn/articles   # listLearnArticles: published articles and tutoria
 GET /api/v1/learn/articles/{articleId}   # getLearnArticle: published article or 404; a draft or archived article only to its author (session subject), removed never
 GET /api/v1/learn/series   # listTrainingSeries: published series only, anonymous (US-LEARN-001)
 GET /api/v1/learn/series/{seriesId}   # getTrainingSeries: published series and its published lessons or 404; no my_progress (C3, P1)
+GET /api/v1/projects   # listProjects: published public projects, plus the caller's own private ones (US-BUILD-001)
+GET /api/v1/projects/{projectId}   # getProject: published project; a private one only to its owner, 404 to everyone else with the unknown-project body
+GET /api/v1/projects/{projectId}/contribution-needs   # listContributionNeeds: follows the project's visibility (private: 404 to all but the owner)
