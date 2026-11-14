@@ -154,9 +154,16 @@ describe('SettingsPage display-name form (live profile)', () => {
     setLanguages(['fr-FR']);
     member();
     await renderApp('/parametres');
-    expect(await screen.findByRole('radio', { name: 'Système' })).toBeChecked();
-    await userEvent.click(screen.getByRole('radio', { name: 'Sombre' }));
-    expect(screen.getByRole('radio', { name: 'Sombre' })).toBeChecked();
+    const system = await screen.findByRole('radio', { name: 'Système' });
+    expect(system).toBeChecked();
+    // Keyboard selection (APG radiogroup, selection follows focus). A pointer click is not
+    // deterministic in jsdom: Astryx commits a press to the segment nearest the pointer, and
+    // without layout that choice races with the click and can pick the first segment.
+    system.focus();
+    await userEvent.keyboard('{ArrowLeft}');
+    await waitFor(() => {
+      expect(screen.getByRole('radio', { name: 'Sombre' })).toBeChecked();
+    });
     expect(document.documentElement).toHaveAttribute('data-theme', 'dark');
     expect(localStorage.getItem('226os.theme')).toBe('dark');
   });
