@@ -20,3 +20,19 @@ body {
   color: var(--color-text-primary);
   font-weight: 600;
 }
+
+/* Standalone account pages: one centred column on the body background. */
+.auth-layout {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: 100dvh;
+  padding: 48px 16px;
+  box-sizing: border-box;
+}
+
+.state-loading {
+  display: flex;
+  justify-content: center;
+  padding: 32px 0;
+}

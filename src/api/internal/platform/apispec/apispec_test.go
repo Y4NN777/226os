@@ -3,6 +3,7 @@ package apispec_test
 import (
 	"bytes"
 	"os"
+	"strings"
 	"testing"
 
 	"go.yaml.in/yaml/v3"
@@ -39,5 +40,39 @@ func TestGetProfileDeclaresTheValidatorsUnprocessable(t *testing.T) {
 	}
 	if _, ok := doc.Paths["/profiles/{username}"]["get"].Responses["422"]; !ok {
 		t.Fatal("getProfile does not declare 422 for a malformed username")
+	}
+}
+
+// TestLinkTypesMatchTheStoredPairs pins the owner decision of 2026-11-14 (S3): a question links
+// only to a resource, a project or an article, and no write link may target a series, because
+// content_relations stores no such pair (migration 00009).
+func TestLinkTypesMatchTheStoredPairs(t *testing.T) {
+	type schema struct {
+		Properties map[string]struct {
+			Enum  []string `yaml:"enum"`
+			Items struct {
+				Ref string `yaml:"$ref"`
+			} `yaml:"items"`
+		} `yaml:"properties"`
+	}
+	var doc struct {
+		Components struct {
+			Schemas map[string]schema `yaml:"schemas"`
+		} `yaml:"components"`
+	}
+	if err := yaml.Unmarshal(apispec.YAML, &doc); err != nil {
+		t.Fatalf("parse embedded spec: %v", err)
+	}
+	s := doc.Components.Schemas
+	for _, name := range []string{"QuestionCreate", "QuestionUpdate"} {
+		if got := s[name].Properties["links"].Items.Ref; got != "#/components/schemas/QuestionLinkRef" {
+			t.Errorf("%s.links items = %q, want QuestionLinkRef", name, got)
+		}
+	}
+	if got := strings.Join(s["QuestionLinkRef"].Properties["type"].Enum, ","); got != "resource,project,article" {
+		t.Errorf("QuestionLinkRef types = %q", got)
+	}
+	if got := strings.Join(s["LinkRef"].Properties["type"].Enum, ","); got != "question,resource,project,article" {
+		t.Errorf("LinkRef types = %q", got)
 	}
 }

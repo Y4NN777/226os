@@ -1,35 +1,41 @@
 import { createMemoryHistory } from '@tanstack/react-router';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
+import { mockApi } from '../test/api';
 import { jsonResponse, setLanguages } from '../test/render';
 import { App } from './App';
 import { createAppRouter } from './router';
 
+function stubApi() {
+  mockApi({ 'GET /resources': () => jsonResponse({ items: [], next_cursor: null }) });
+}
+
 function renderAt(path: string) {
-  vi.stubGlobal(
-    'fetch',
-    vi.fn(() => Promise.resolve(jsonResponse({ status: 'ok' }))),
-  );
+  stubApi();
   const router = createAppRouter({ history: createMemoryHistory({ initialEntries: [path] }) });
   return render(<App router={router} />);
 }
 
 describe('App routing', () => {
-  it('renders the shell and the home route with the API status', async () => {
+  it('renders the shell and the public landing page at /', async () => {
     setLanguages(['fr-FR']);
     renderAt('/');
     expect(
-      await screen.findByRole('heading', { level: 1, name: 'Bienvenue sur 226os' }),
+      await screen.findByRole('heading', {
+        level: 1,
+        name: 'Apprenez, échangez et construisez entre développeurs africains',
+      }),
     ).toBeInTheDocument();
     expect(screen.getByRole('navigation', { name: 'Navigation principale' })).toBeInTheDocument();
-    expect(await screen.findByText('API opérationnelle')).toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: 'Se connecter' })).toBeInTheDocument();
   });
 
-  it('navigates to settings through the nav link without a full reload', async () => {
+  it('navigates to settings from the account menu without a full reload', async () => {
     setLanguages(['en-US']);
     renderAt('/');
-    await userEvent.click(await screen.findByRole('link', { name: 'Settings' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'More options' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Settings' }));
     expect(await screen.findByRole('heading', { level: 1, name: 'Settings' })).toBeInTheDocument();
   });
 
@@ -39,19 +45,22 @@ describe('App routing', () => {
     expect(await screen.findByRole('heading', { name: 'Page introuvable' })).toBeInTheDocument();
     await userEvent.click(screen.getByRole('link', { name: 'Retour à l’accueil' }));
     expect(
-      await screen.findByRole('heading', { level: 1, name: 'Bienvenue sur 226os' }),
+      await screen.findByRole('heading', {
+        level: 1,
+        name: 'Apprenez, échangez et construisez entre développeurs africains',
+      }),
     ).toBeInTheDocument();
   });
 
   it('creates its own browser router when none is injected', async () => {
     setLanguages(['fr-FR']);
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(() => Promise.resolve(jsonResponse({ status: 'ok' }))),
-    );
+    stubApi();
     render(<App />);
     expect(
-      await screen.findByRole('heading', { level: 1, name: 'Bienvenue sur 226os' }),
+      await screen.findByRole('heading', {
+        level: 1,
+        name: 'Apprenez, échangez et construisez entre développeurs africains',
+      }),
     ).toBeInTheDocument();
   });
 });

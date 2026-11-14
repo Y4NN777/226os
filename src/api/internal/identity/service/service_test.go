@@ -1,10 +1,12 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/base64"
 	"errors"
+	"log/slog"
 	"strings"
 	"sync"
 	"testing"
@@ -197,11 +199,15 @@ func (f *fakeStore) ResetPassword(_ context.Context, h [32]byte, phc string, now
 	}
 	return nil
 }
-func (f *fakeStore) Count(_ context.Context, scope string, key [32]byte, _ time.Duration, _ time.Time) (int, time.Duration, error) {
-	if err := f.errs["Count"]; err != nil {
-		return 0, 0, err
+func (f *fakeStore) GiveBack(_ context.Context, scope string, key [32]byte, _ time.Duration, _ time.Time) error {
+	if err := f.errs["GiveBack"]; err != nil {
+		return err
 	}
-	return f.buckets[scope+":"+base64.RawURLEncoding.EncodeToString(key[:8])], time.Minute, nil
+	k := scope + ":" + base64.RawURLEncoding.EncodeToString(key[:8])
+	if f.buckets[k] > 0 {
+		f.buckets[k]--
+	}
+	return nil
 }
 
 func (f *fakeStore) Hit(_ context.Context, scope string, key [32]byte, limit int, _ time.Duration, _ time.Time) (bool, time.Duration, error) {
@@ -542,7 +548,7 @@ func TestSignInFailuresBlockEvenTheRightPassword(t *testing.T) {
 }
 
 func TestSignInRateLimitStoreErrorsFailClosed(t *testing.T) {
-	for _, method := range []string{"Count", "Hit"} {
+	for _, method := range []string{"Hit"} {
 		svc, st, _ := testSvc(t)
 		seedAccount(t, st, "sam@example.com")
 		withErrs(st, map[string]error{method: errBoom})
@@ -742,5 +748,63 @@ func TestCSRFDerivationIsSessionBound(t *testing.T) {
 	}
 	if svc.CheckCSRF(nil, "", svc.csrfToken(a)) {
 		t.Fatal("session token accepted without a session")
+	}
+}
+
+// A give-back failure must not turn an authenticated sign-in into an error: the
+// hit simply stays counted (strict side) and a warning is logged without the
+// e-mail address.
+func TestSignInGiveBackFailureDoesNotFailTheSignIn(t *testing.T) {
+	var logs bytes.Buffer
+	prev := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&logs, nil)))
+	t.Cleanup(func() { slog.SetDefault(prev) })
+
+	svc, st, _ := testSvc(t)
+	seedAccount(t, st, "sam@example.com")
+	withErrs(st, map[string]error{"GiveBack": errBoom})
+	if _, err := svc.SignIn(context.Background(), SignInInput{Email: "sam@example.com", Password: testPassword, IP: "198.51.100.9"}); err != nil {
+		t.Fatalf("give-back failure failed the sign-in: %v", err)
+	}
+	out := logs.String()
+	if !strings.Contains(out, "give back failed") {
+		t.Fatalf("give-back failure not logged: %q", out)
+	}
+	if strings.Contains(out, "sam@example.com") {
+		t.Fatalf("e-mail leaked into the log: %q", out)
+	}
+	// The hit stayed counted: only 4 more failures fit before the 5-hit limit.
+	var last error
+	for i := 0; i < signInAccountLimit; i++ {
+		_, last = svc.SignIn(context.Background(), SignInInput{Email: "sam@example.com", Password: "wrong-password-12", IP: "198.51.100.9"})
+	}
+	if apperrCode(t, last) != apperr.CodeRateLimited {
+		t.Fatalf("expected the retained hit to make the 5th failure RATE_LIMITED, got %v", last)
+	}
+}
+
+// The give-back keeps ADR-0003's "5 failures" meaning: 4 failures, a success,
+// then exactly one more failure is still allowed before the block.
+func TestSignInSuccessGivesBackItsHit(t *testing.T) {
+	svc, st, _ := testSvc(t)
+	ctx := context.Background()
+	seedAccount(t, st, "sam@example.com")
+	in := func(pw string) error {
+		_, err := svc.SignIn(ctx, SignInInput{Email: "sam@example.com", Password: pw, IP: "198.51.100.10"})
+		return err
+	}
+	for i := 0; i < signInAccountLimit-1; i++ {
+		if apperrCode(t, in("wrong-password-12")) != apperr.CodeInvalidCredentials {
+			t.Fatalf("failure %d", i+1)
+		}
+	}
+	if err := in(testPassword); err != nil {
+		t.Fatal(err)
+	}
+	if apperrCode(t, in("wrong-password-12")) != apperr.CodeInvalidCredentials {
+		t.Fatal("5th failure must still reach the password check")
+	}
+	if apperrCode(t, in("wrong-password-12")) != apperr.CodeRateLimited {
+		t.Fatal("6th attempt must be rate limited")
 	}
 }
