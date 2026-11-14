@@ -17,6 +17,7 @@ import { useSeries, type TrainingSeries } from './queries';
 function Detail({ series }: { series: TrainingSeries }) {
   const { t } = useI18n();
   const lessons = [...series.lessons].sort((a, b) => a.position - b.position);
+  const firstLesson = lessons[0];
   return (
     <VStack gap={5}>
       <VStack gap={2}>
@@ -32,6 +33,17 @@ function Detail({ series }: { series: TrainingSeries }) {
         </div>
         <AuthorLine author={series.author} />
       </VStack>
+      {firstLesson ? (
+        <HStack>
+          {/* A question can only link to an article (QuestionLinkRef has no series), so the
+              overview points at its first lesson and says so. */}
+          <Button
+            variant="primary"
+            label={t('learn.series.askFirst')}
+            href={`/solve?link=article:${firstLesson.article_id}`}
+          />
+        </HStack>
+      ) : null}
       <VStack gap={3}>
         <Heading level={2} id="learn-lessons">
           {t('learn.series.lessonsTitle')}

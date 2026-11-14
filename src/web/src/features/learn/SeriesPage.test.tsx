@@ -32,6 +32,25 @@ describe('SeriesPage', () => {
     expect(screen.getByRole('link', { name: '@fatou' })).toHaveAttribute('href', '/profils/fatou');
   });
 
+  it('offers to ask about the first lesson, which is the lowest position, not the first listed', async () => {
+    setLanguages(['fr-FR']);
+    mockApi(route(series()));
+    await renderApp(`/apprendre/formations/${seriesId}`);
+    expect(
+      await screen.findByRole('link', { name: 'Poser une question sur la première leçon' }),
+    ).toHaveAttribute('href', `/solve?link=article:${articleId}`);
+  });
+
+  it('offers no question action when the series has no lesson', async () => {
+    setLanguages(['en-US']);
+    mockApi(route(series({ lessons: [] })));
+    await renderApp(`/apprendre/formations/${seriesId}`);
+    await screen.findByRole('heading', { level: 1 });
+    expect(
+      screen.queryByRole('link', { name: 'Ask a question about the first lesson' }),
+    ).not.toBeInTheDocument();
+  });
+
   it('renders no section for the always-empty tags and related', async () => {
     setLanguages(['fr-FR']);
     mockApi(route(series({ tags: [], related: [] })));
