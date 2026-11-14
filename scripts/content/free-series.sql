@@ -48,9 +48,7 @@ BEGIN
     SELECT * FROM (VALUES
       (1, 'Le modèle : tokens, contexte, outils et modalités',
        'Ce qu''un LLM fait réellement aujourd''hui : fenêtre de contexte, appel d''outils, raisonnement, et des entrées et sorties qui ne se limitent plus au texte.',
-       $l1$# Le modèle : tokens, contexte, outils et modalités
-
-Avant de parler d'agents, il faut savoir ce que fait la pièce centrale. Un grand modèle de langage (LLM) reçoit une suite de *tokens* (des fragments de mots, mais aussi d'images ou de son) et prédit la suite, token après token. Tout le reste est construit autour de ce mécanisme.
+       $l1$Avant de parler d'agents, il faut savoir ce que fait la pièce centrale. Un grand modèle de langage (LLM) reçoit une suite de *tokens* (des fragments de mots, mais aussi d'images ou de son) et prédit la suite, token après token. Tout le reste est construit autour de ce mécanisme.
 
 ## Le contexte est la seule mémoire de travail
 
@@ -94,9 +92,7 @@ La réponse d'ingénieur à ces deux limites n'est pas la méfiance générale, 
 $l1$),
       (2, 'Le harnais : ce qui transforme un modèle en agent',
        'La boucle agentique, les outils, MCP, l''ingénierie du contexte, les permissions et les hooks : pourquoi, à modèle égal, le harnais fait la différence.',
-       $l2$# Le harnais : ce qui transforme un modèle en agent
-
-Un modèle seul répond à une question. Un **agent** poursuit un objectif : il lit des fichiers, lance des commandes, observe le résultat, corrige, recommence. La différence ne vient pas du modèle. Elle vient du programme qui l'entoure, que l'on appelle le **harnais** (*harness*). Les assistants de code en terminal ou dans l'éditeur sont des harnais ; vous pouvez aussi écrire le vôtre avec un SDK d'agents.
+       $l2$Un modèle seul répond à une question. Un **agent** poursuit un objectif : il lit des fichiers, lance des commandes, observe le résultat, corrige, recommence. La différence ne vient pas du modèle. Elle vient du programme qui l'entoure, que l'on appelle le **harnais** (*harness*). Les assistants de code en terminal ou dans l'éditeur sont des harnais ; vous pouvez aussi écrire le vôtre avec un SDK d'agents.
 
 ## La boucle
 
@@ -149,9 +145,7 @@ Le même modèle, placé dans deux harnais différents, n'obtient pas les mêmes
 $l2$),
       (3, 'Agents en arrière-plan et agents toujours actifs',
        'Faire tourner des agents sans surveillance : état durable, idempotence, budgets, traces, injection de prompt et validation humaine.',
-       $l3$# Agents en arrière-plan et agents toujours actifs
-
-Dans une session interactive, vous êtes devant l'écran : vous voyez chaque action et vous pouvez interrompre. La pratique s'étend désormais bien au-delà :
+       $l3$Dans une session interactive, vous êtes devant l'écran : vous voyez chaque action et vous pouvez interrompre. La pratique s'étend désormais bien au-delà :
 
 - des **agents en arrière-plan**, à qui l'on confie une tâche et que l'on retrouve une heure plus tard avec une *pull request* ;
 - plusieurs agents **en parallèle**, chacun dans sa copie de travail du dépôt ;
@@ -213,9 +207,7 @@ Remarquez ce que l'agent ne fait pas : il ne corrige rien et ne fusionne rien. 
 $l3$),
       (4, 'Spécifier, vérifier, évaluer : travailler en ingénieur avec des agents',
        'Tâches bornées, test d''abord, portes déterministes, revue à contexte neuf et evals : garder la responsabilité de ce que l''on livre.',
-       $l4$# Spécifier, vérifier, évaluer : travailler en ingénieur avec des agents
-
-Quand un agent écrit trois cents lignes en deux minutes, écrire du code n'est plus ce qui limite le débit. Deux choses restent rares : **savoir précisément ce que l'on veut** et **savoir si ce qui a été produit est correct**. Le métier se déplace vers ces deux extrémités.
+       $l4$Quand un agent écrit trois cents lignes en deux minutes, écrire du code n'est plus ce qui limite le débit. Deux choses restent rares : **savoir précisément ce que l'on veut** et **savoir si ce qui a été produit est correct**. Le métier se déplace vers ces deux extrémités.
 
 ## Spécifier : une tâche bornée
 
