@@ -266,13 +266,19 @@ wrap git diff --stat
 grep -q '^RAN git --no-pager diff --stat' <<<"$out" && ok "wrapper: git runs without a pager" || ko "no pager ($out)"
 
 # ---- the batch pull request body ----
-run body ISSUE=40 RESULT_JSON='{"outcome":"fixed","reason":"ok","results":[{"item":"#12","verdict":"FIXED","reason":"guard | added @Y4NN777"},{"item":"#20/n1","verdict":"maybe","reason":"x"}]}'
-grep -q '#40' <<<"$out" && grep -q '| #12 | FIXED | guard \\| added' <<<"$out" && ok "body: names the batch issue and has one table row per item" || ko "body ($out)"
+items='#12,#20/n1,#20/n2,#31'
+run body ISSUE=40 ITEMS="$items" RESULT_JSON='{"outcome":"fixed","reason":"ok","results":[{"item":"#12","verdict":"FIXED","reason":"guard | added @Y4NN777"},{"item":"#20/n1","verdict":"maybe","reason":"x"},{"item":"#20/n2","verdict":"fixed elsewhere","reason":"by #150"},{"item":"#99","verdict":"FIXED","reason":"not in the batch"}]}'
+grep -qx 'Batch: #40' <<<"$out" && ok "body: a Batch line names the batch issue" || ko "body batch line ($out)"
+grep -qx 'Sources: #12 #20 #31' <<<"$out" && ok "body: a Sources line references every source issue once" || ko "body sources ($out)"
+grep -q '| #12 | #12 | FIXED | guard \\| added' <<<"$out" && ok "body: one table row per item (item, source, decision, reason)" || ko "body row ($out)"
+grep -q '| #20/n2 | #20 | FIXED ELSEWHERE | by #150 |' <<<"$out" && ok "body: FIXED ELSEWHERE is a decision" || ko "body elsewhere ($out)"
+grep -q '| #31 | #31 | OWNER | no result from the fixer |' <<<"$out" && ok "body: an item without a result is listed as OWNER" || ko "body missing item ($out)"
+! grep -q '#99' <<<"$out" && ok "body: a result for an item outside the batch is dropped" || ko "body extra item ($out)"
 ! grep -q '@Y4NN777' <<<"$out" && ok "body: an @-mention from the model is neutralised" || ko "body mention ($out)"
-grep -q '| #20/n1 | OWNER |' <<<"$out" && ok "body: an unknown verdict becomes OWNER" || ko "body verdict ($out)"
+grep -q '| #20/n1 | #20 | OWNER |' <<<"$out" && ok "body: an unknown verdict becomes OWNER" || ko "body verdict ($out)"
 ! grep -qi 'generated with\|co-authored' <<<"$out" && ok "body: no AI attribution line" || ko "body attribution"
 
-run body ISSUE=40 RESULT_JSON='not json'
-[ "$rc" -eq 0 ] && grep -q '#40' <<<"$out" && grep -qi 'no result' <<<"$out" && ok "body: an unreadable result still names the issue and says so" || ko "body bad json (rc=$rc $out)"
+run body ISSUE=40 ITEMS="$items" RESULT_JSON='not json'
+[ "$rc" -eq 0 ] && grep -qx 'Batch: #40' <<<"$out" && grep -qx 'Sources: #12 #20 #31' <<<"$out" && grep -q '| #31 | #31 | OWNER | no result from the fixer |' <<<"$out" && ok "body: an unreadable result still lists every source, as OWNER" || ko "body bad json (rc=$rc $out)"
 
 finish

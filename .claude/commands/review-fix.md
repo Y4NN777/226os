@@ -41,7 +41,12 @@ For each finding or item, one verdict with a one-line reason grounded in the cod
 | NOT A DEFECT | the code is right; say what the review missed |
 | DECIDED | `REVIEW_CONTEXT.md`, an ADR or a `TODO.md` decision already settles it (quote the line) |
 | OWNER | a fix needs an owner path or an owner decision (below), or you could not make it safely |
+| FIXED ELSEWHERE | already fixed by another merged pull request (name it, `#N`, in the reason) |
 | AFTER FREEZE | real but not a fix for a failing gate or a P0 path, and the freeze is on |
+
+When a batch fix pull request merges, `scripts/findings.py settle` acts on these verdicts: FIXED and FIXED ELSEWHERE
+close the finding issue (or tick the note's box), NOT A DEFECT and DECIDED close it as not planned (or tick the box) with
+your reason, OWNER and AFTER FREEZE stay open. So a verdict is a decision on the source: be exact.
 
 Fix rules (binding):
 - Test first: write the failing test, run it and see it fail for the right reason, then the smallest fix, then run it
@@ -57,7 +62,8 @@ Fix rules (binding):
 - No new dependency, no generated file edited by hand (run `make generate` only if the slice already needs it).
 - You may delegate one bounded item to a project agent (`go-implementer`, `web-implementer`, `postgres-expert`) with a
   task contract (allowed paths, the failing test, the stop condition), as a project session does; you still check its
-  diff and run the gates yourself. Network tools other than `gh pr view` and `gh issue view` are not available.
+  diff and run the gates yourself. Network tools other than `gh pr view` and `gh issue view` are not available. Tell the
+  agent that in CI its git reads and tests go through `fixer-run` too (a direct `go test` is denied).
 
 Commands in CI: git reads, single tests and web scripts go through `fixer-run` (`fixer-run git status|diff|log|show
 ...`, `fixer-run go test ./src/api/... -run TestX -count=1`, `fixer-run pnpm --filter web run test|lint|typecheck|format:check`);
@@ -82,8 +88,9 @@ verdict OWNER.
   `tool_or_model` names Claude Code in CI, `tests_or_evidence` lists the RED and GREEN test names and each gate's
   verdict, `closure: "open"`.
 - Commit with the human identity of the owner, which the workflow sets (`Y4NN77` with the GitHub noreply address):
-  stage explicit paths only (never `git add -A` or `.`), one commit per item or one for the batch, an imperative
-  subject such as `fix(solve): ...`. Never add a `Co-authored-by` trailer, a "Generated with" line or any AI attribution.
+  stage explicit paths only (never `git add -A` or `.`) and commit with an explicit pathspec,
+  `git commit -m "<subject>" -- <paths>`, so nothing else that happens to be staged rides along; one commit per item or
+  one for the batch, an imperative subject such as `fix(solve): ...`. Never add a `Co-authored-by` trailer, a "Generated with" line or any AI attribution.
   Never commit `.autofix-*`, `.review-*` or anything outside your edits.
 - Push: in CI you do not push and do not open a pull request. Your job has no write token: the workflow turns your
   commits into a patch, and a separate job that never runs pull request code applies it in a fresh checkout, checks it
@@ -92,7 +99,7 @@ verdict OWNER.
 ## 5. Result
 
 Return a structured result (CI) or print it (local):
-`{"outcome": "fixed" | "nothing" | "needs-owner", "reason": "<one line>", "results": [{"item": "<id or key>", "verdict": "FIXED|NOT A DEFECT|DECIDED|OWNER|AFTER FREEZE", "reason": "<one line, file:line>"}]}`.
+`{"outcome": "fixed" | "nothing" | "needs-owner", "reason": "<one line>", "results": [{"item": "<id or key>", "verdict": "FIXED|FIXED ELSEWHERE|NOT A DEFECT|DECIDED|OWNER|AFTER FREEZE", "reason": "<one line, file:line>"}]}`.
 `fixed` when at least one commit was made, `needs-owner` when any item is OWNER and nothing else could be done,
 `nothing` otherwise. One entry per given item, in the given order. No secret, e-mail address or quotation of a comment
 in it.

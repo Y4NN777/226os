@@ -20,6 +20,11 @@ dashboard says what to fix next. Nobody files a finding by hand: classifying one
              scope of ONE fix pull request (branch fix/review/batch-YYYY-MM-DD, its body names the batch issue). An
              update never unticks a box; when that pull request is merged into develop, or every source is closed or
              decided, the batch is closed as completed and the next run starts a new one. It never writes to a source issue and never mentions anyone. `--print` writes nothing.
+  settle PR  when the batch fix pull request PR (fix/review/batch-*) is merged into develop, its results table settles
+             each source: FIXED and FIXED ELSEWHERE close a finding issue as completed, NOT A DEFECT and DECIDED as not
+             planned; a note's box is ticked with the decision; OWNER and AFTER FREEZE stay open. One comment per touched
+             source ("Settled by #PR (review batch #N): ..."), once (marker); a notes issue whose boxes are all ticked is
+             closed as completed; the batch issue closes last. Fails CLOSED like `batch`.
 
 Labels (created on first use by the issue API): finding, sev:*, src:ai, area:*, due:before-freeze|due:after-freeze,
 review-batch.
@@ -416,8 +421,124 @@ def merged_fix(ctx, binary, repo, issue):
     for pr in pulls:
         merged = pr.get("merged_at") or ""
         if merged and merged >= created and ref.search(pr.get("body") or ""):
-            return pr.get("number")
+            return pr
     return None
+
+
+SETTLE_MARK = "<!-- settled-by:PR%s -->"
+DECISIONS = ("FIXED", "FIXED ELSEWHERE", "NOT A DEFECT", "DECIDED", "OWNER", "AFTER FREEZE")
+CLOSE_AS = {"FIXED": "completed", "FIXED ELSEWHERE": "completed", "NOT A DEFECT": "not_planned", "DECIDED": "not_planned"}
+STAYS_OPEN = {"OWNER": "stays open for the owner", "AFTER FREEZE": "stays open until after the freeze"}
+SETTLE_ROW = re.compile(r"^\|\s*(#\d+(?:/[\w-]+)?)\s*\|")
+BATCH_PREFIX = "fix/review/batch-"
+
+
+def settle_rows(body):
+    """[(key, decision, reason)] from the results table of a batch fix pull request: | item | source | decision |
+    reason |. Escaped pipes (\\|) belong to the text. Rows with an unknown decision are ignored (left open)."""
+    rows = []
+    for line in (body or "").splitlines():
+        line = line.strip()
+        if not SETTLE_ROW.match(line):
+            continue
+        cells = [c.strip().replace("\\|", "|") for c in re.split(r"(?<!\\)\|", line.strip().strip("|"))]
+        if len(cells) < 4 or cells[2].upper() not in DECISIONS:
+            continue
+        rows.append((cells[0], cells[2].upper(), " | ".join(cells[3:])))
+    return rows
+
+
+def settle_text(decision, reason, pr):
+    if decision == "FIXED":
+        return "fixed in #%s" % pr
+    return "%s: %s" % (decision.lower(), one_line(reason, 200))
+
+
+def settle_issue(ctx, binary, repo, pr, batch_no, number, entries):
+    """Settle one source issue (a finding issue, or a notes issue with its boxes). Idempotent: an issue that carries
+    the settling comment of this pull request is not touched again; the comment is written last."""
+    mark = SETTLE_MARK % pr
+    issue = (ctx.gh_api(binary, "repos/%s/issues/%s" % (repo, number)) or [{}])[0]
+    if "pull_request" in issue:
+        return
+    comments = ctx.gh_api(binary, "repos/%s/issues/%s/comments" % (repo, number))
+    if any(mark in (c.get("body") or "") for c in comments):
+        return
+    endpoint = "repos/%s/issues/%s" % (repo, number)
+    notes = {slug(n): (d, r) for n, d, r in entries if n}
+    if notes:
+        old = issue.get("body") or ""
+        out, ticked_all, seen = [], True, 0
+        for line in old.split("\n"):
+            m = NOTE_ITEM.match(line)
+            if m:
+                seen += 1
+                hit = notes.get(slug(m.group(2)))
+                if m.group(1) == " " and hit and hit[0] in CLOSE_AS:
+                    line = line.replace("- [ ]", "- [x]", 1) + " \u2014 " + settle_text(hit[0], hit[1], pr)
+                elif m.group(1) == " ":
+                    ticked_all = False
+            out.append(line)
+        new = "\n".join(out)
+        if new != old:
+            batch_write(binary, "PATCH", endpoint, [("body", new)])
+        if seen and ticked_all and issue.get("state") == "open":
+            batch_write(binary, "PATCH", endpoint, [("state", "closed"), ("state_reason", "completed")])
+        detail = "; ".join("`%s` %s" % (one_line(n, 40), d if d in CLOSE_AS else "%s (%s)" % (d, STAYS_OPEN[d]))
+                           for n, d, _ in entries if n)
+    else:
+        _, decision, reason = entries[0]
+        if decision in CLOSE_AS and issue.get("state") == "open":
+            batch_write(binary, "PATCH", endpoint, [("state", "closed"), ("state_reason", CLOSE_AS[decision])])
+        detail = "%s%s. %s" % (decision, ": " + STAYS_OPEN[decision] if decision in STAYS_OPEN else "", one_line(reason, 200))
+    text = "%s\nSettled by #%s (review batch #%s): %s" % (mark, pr, batch_no or "?", detail)
+    batch_write(binary, "POST", endpoint + "/comments", [("body", text)])
+    print("findings settle: #%s settled" % number)
+
+
+def settle_pr(ctx, binary, repo, info):
+    """Settle the sources of a merged batch fix pull request, then close its batch issue (last). False when the pull
+    request is not a merged fix/review/batch-* pull request into develop of this repository (nothing is written)."""
+    head = info.get("head") or {}
+    head_repo = (head.get("repo") or {}).get("full_name")
+    if (not info.get("merged_at") or (info.get("base") or {}).get("ref") != "develop"
+            or not (head.get("ref") or "").startswith(BATCH_PREFIX) or head_repo not in (None, repo)):
+        print("findings settle: #%s is not a merged batch fix pull request into develop: nothing to settle" % info.get("number"))
+        return False
+    pr, body = info.get("number"), info.get("body") or ""
+    m = re.search(r"^Batch:\s*#(\d+)", body, re.M)
+    batch_no = m.group(1) if m else None
+    groups = {}
+    for key, decision, reason in settle_rows(body):
+        number, _, note = key[1:].partition("/")
+        groups.setdefault(number, []).append((note or None, decision, reason))
+    for number, entries in groups.items():
+        settle_issue(ctx, binary, repo, pr, batch_no, number, entries)
+    if batch_no:
+        issue = (ctx.gh_api(binary, "repos/%s/issues/%s" % (repo, batch_no)) or [{}])[0]
+        if issue.get("state") == "open" and BATCH_LABEL in names(issue.get("labels")):
+            text = (issue.get("body") or "") + "\nClosed: its fix pull request #%s is merged into develop and its sources are settled.\n" % pr
+            batch_write(binary, "PATCH", "repos/%s/issues/%s" % (repo, batch_no),
+                        [("body", text), ("state", "closed"), ("state_reason", "completed")])
+            print("findings settle: batch #%s closed after its sources" % batch_no)
+    print("findings settle: #%s done (%d source issue(s))" % (pr, len(groups)))
+    return True
+
+
+def run_settle(binary, repo, pr):
+    """Fail CLOSED like the batch: a GitHub error is FAILED with exit 1."""
+    if not repo or not re.match(r"^\d+$", pr or ""):
+        print("findings settle: FAILED (REPO and a pull request number are required)")
+        return 2
+    try:
+        ctx = load_context_module()
+        info = (ctx.gh_api(binary, "repos/%s/pulls/%s" % (repo, pr)) or [{}])[0]
+        settle_pr(ctx, binary, repo, info)
+        return 0
+    except Exception as exc:  # fail closed
+        reason = str(exc) if isinstance(exc, BatchError) or type(exc).__name__ == "Unavailable" else type(exc).__name__
+        print("findings settle: FAILED (%s); the next run settles what is left" % reason)
+        return 1
 
 
 def batch(ctx, binary, repo, write):
@@ -467,7 +588,12 @@ def batch(ctx, binary, repo, write):
     rest = sum(1 for key in current if key not in members)
     body = render_batch(title, lines, rest)
     endpoint = "repos/%s/issues/%s" % (repo, number)
-    fix = merged_fix(ctx, binary, repo, issue) if open_lines else None
+    fix_pr = merged_fix(ctx, binary, repo, issue) if open_lines else None
+    fix = fix_pr.get("number") if fix_pr else None
+    # A merged batch fix pull request settles its sources first and closes the batch itself (the sources before the
+    # batch); another pull request that names the batch only closes it, as before.
+    if fix_pr and write and settle_pr(ctx, binary, repo, fix_pr):
+        return 0
     if not open_lines or fix:
         why = "its fix pull request #%s is merged into develop" % fix if fix else "every source is closed or decided"
         body += "\nClosed: %s.\n" % why
@@ -508,8 +634,10 @@ def main():
     binary = os.environ.get("GH_BIN", "gh")
     if args and args[0] == "batch":
         return run_batch(binary, repo, write="--print" not in args)
+    if args and args[0] == "settle":
+        return run_settle(binary, repo, args[1] if len(args) > 1 else "")
     if not args or args[0] not in ("harvest", "dashboard") or not repo:
-        print("usage: findings.py harvest|dashboard|batch [--print]   (REPO required; PR_NUMBER for harvest)")
+        print("usage: findings.py harvest|dashboard|batch [--print]|settle PR   (REPO required; PR_NUMBER for harvest)")
         return 0 if repo else 0
     try:
         ctx = load_context_module()

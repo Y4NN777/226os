@@ -193,7 +193,7 @@ jobs:
           bot_name: ${{ vars.REVIEW_FIX_GIT_NAME || 'Y4NN77' }}
           bot_id: ${{ steps.identity.outputs.id }}
           use_sticky_comment: 'false'
-          settings: '{"includeCoAuthoredBy": false}'
+          settings: '{"attribution": {"commit": "", "pr": "", "sessionUrl": false}, "includeCoAuthoredBy": false}'
           prompt: |
             REPO: ${{ github.repository }}
             MODE: pr

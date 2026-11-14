@@ -23,8 +23,8 @@ whether its commits may be pushed. The workflows only call this script; the mode
          without a pager), go test and `pnpm --filter web run test|lint|typecheck|format:check`; any argument that
          writes a file or runs a program (-o, --output, -exec, -toolexec, a profile file) is refused.
   body   the batch pull request body from the fixer's structured result (RESULT_JSON): it names the batch issue
-         (#ISSUE, which closes the batch on merge) and has one table row per item, verdict FIXED, NOT A DEFECT,
-         DECIDED, OWNER or AFTER FREEZE with a reason. Model text is data: @-mentions are neutralised, pipes escaped.
+         (#ISSUE, which closes the batch on merge) and has one table row per item (item, source, decision, reason): FIXED,
+         FIXED ELSEWHERE, NOT A DEFECT, DECIDED, OWNER or AFTER FREEZE. `findings.py settle` reads it on merge. Model text is data: @-mentions are neutralised, pipes escaped.
 
 Mode: AUTO_FIX = off | report (default: says what it would do, writes nothing) | on. HAS_TOKEN must be `true` (the
 workflow passes `secrets.REVIEW_BOT_TOKEN != ''`): without it, "autofix: NOT RUN (REVIEW_BOT_TOKEN missing)" and
@@ -49,7 +49,7 @@ OWNER_LABEL = "needs-owner"
 REVIEW_JOB = "Code review (advisory)"
 BATCH_PREFIX = "fix/review/batch-"
 PROTECTED_HEADS = ("main", "develop")
-VERDICTS = ("FIXED", "NOT A DEFECT", "DECIDED", "OWNER", "AFTER FREEZE")
+VERDICTS = ("FIXED", "FIXED ELSEWHERE", "NOT A DEFECT", "DECIDED", "OWNER", "AFTER FREEZE")
 # Paths the fixer never changes: the contract (R7), migrations (R6), decisions, secrets, CI, the harness itself and the
 # files the workflows leave in the workspace.
 FORBIDDEN_EXACT = ("api/openapi.yaml", "CLAUDE.md", "AGENTS.md", "docs/team/OWNER_PREFERENCES.md")
@@ -60,6 +60,7 @@ WEB_SCRIPTS = ("test", "lint", "typecheck", "format:check")
 GIT_READ = ("status", "diff", "log", "show")
 BANNED_ARG = re.compile(r"^(-o|--o|-{1,2}(exec|toolexec|c$|coverprofile|cpuprofile|memprofile|blockprofile|mutexprofile|trace|outputdir))")
 SAFE_ARGS = ("--oneline",)
+ITEM_KEY = re.compile(r"^#\d+(?:/[\w-]+)?$")
 TRAILER = re.compile(r"^\s*co-authored-by:|generated with", re.I | re.M)
 
 
@@ -317,23 +318,32 @@ def cell(text, width=300):
 
 def cmd_body():
     issue = re.sub(r"\D", "", os.environ.get("ISSUE", ""))
-    out = ["Fix pull request for the review batch #%s (one batch, one pull request; it closes the batch when it is "
-           "merged into `develop`)." % issue, ""]
+    # The items come from the plan (ITEMS, keys read from the batch issue by script), never from the model: every
+    # source is listed, and a result for anything else is dropped.
+    items = [k for k in os.environ.get("ITEMS", "").split(",") if ITEM_KEY.match(k)]
+    sources = []
+    for k in items:
+        if k.split("/", 1)[0] not in sources:
+            sources.append(k.split("/", 1)[0])
+    out = ["Fix pull request for the review batch #%s (one batch, one pull request). When it is merged into `develop`, "
+           "`scripts/findings.py settle` settles each source below from this table, then closes the batch." % issue, "",
+           "Batch: #%s" % issue, "Sources: %s" % " ".join(sources), ""]
     try:
         data = json.loads(os.environ.get("RESULT_JSON", ""))
         rows = data.get("results") if isinstance(data, dict) else None
         if not isinstance(rows, list):
             raise ValueError("no results")
     except ValueError:
-        out += ["No result from the fixer could be read: check every item of #%s by hand." % issue]
-        print("\n".join(out))
-        return 0
-    out += ["| Item | Result | Reason |", "|---|---|---|"]
-    for r in rows[:40]:
-        if not isinstance(r, dict):
-            continue
-        verdict = str(r.get("verdict", "")).upper().strip()
-        out.append("| %s | %s | %s |" % (cell(r.get("item"), 40), verdict if verdict in VERDICTS else "OWNER", cell(r.get("reason"))))
+        data, rows = {"outcome": "nothing", "reason": "no result from the fixer could be read"}, []
+    found = {}
+    for r in rows:
+        if isinstance(r, dict) and str(r.get("item", "")).strip() in items:
+            found.setdefault(str(r["item"]).strip(), r)
+    out += ["| Item | Source | Decision | Reason |", "|---|---|---|---|"]
+    for key in items:
+        r = found.get(key, {"verdict": "OWNER", "reason": "no result from the fixer"})
+        verdict = " ".join(str(r.get("verdict", "")).upper().split())
+        out.append("| %s | %s | %s | %s |" % (key, key.split("/", 1)[0], verdict if verdict in VERDICTS else "OWNER", cell(r.get("reason"))))
     out += ["", "Outcome: %s. %s" % (cell(data.get("outcome"), 20), cell(data.get("reason"))), "",
             "Written by the CI fixer (`.claude/commands/review-fix.md`). Humans still close or tick each source with the "
             "reason; this pull request goes through review like any other."]

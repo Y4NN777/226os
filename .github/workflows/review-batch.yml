@@ -202,7 +202,7 @@ jobs:
           bot_name: ${{ vars.REVIEW_FIX_GIT_NAME || 'Y4NN77' }}
           bot_id: ${{ steps.identity.outputs.id }}
           use_sticky_comment: 'false'
-          settings: '{"includeCoAuthoredBy": false}'
+          settings: '{"attribution": {"commit": "", "pr": "", "sessionUrl": false}, "includeCoAuthoredBy": false}'
           prompt: |
             REPO: ${{ github.repository }}
             MODE: batch
@@ -280,6 +280,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           BRANCH: ${{ needs.plan.outputs.branch }}
           ISSUE: ${{ needs.plan.outputs.issue }}
+          ITEMS: ${{ needs.plan.outputs.items }}
           REPO: ${{ github.repository }}
           GIT_LOGIN: ${{ vars.REVIEW_FIX_GIT_LOGIN || 'Y4NN777' }}
           GIT_NAME: ${{ vars.REVIEW_FIX_GIT_NAME || 'Y4NN77' }}
