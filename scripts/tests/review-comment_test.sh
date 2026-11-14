@@ -442,4 +442,25 @@ HEAD_SHA="$mmsha" LOCATION_REPO="$mm" JSON="$(mkreview "[$(mkt n172 .github/work
 [ "$(loc nowhere)" = unverified ] && ok "an identifier found nowhere is unverified" || ko "nowhere ($(loc nowhere))"
 [ "$(loc farwindow)" = mismatch ] && ok "an identifier 368 lines from the cited line is outside the window: mismatch" || ko "window ($(loc farwindow))"
 
+# --- review notes of #172 (PR168) ---
+# unreachable-code-after-return: main() ends with its return (no dead loop after it that refers to a name that does not exist).
+python3 -I - "$tool" <<'EOF2' && ok "main() has no statement after its last return (the old minimize loop is gone)" || ko "dead code after return in main()"
+import ast, sys
+tree = ast.parse(open(sys.argv[1], encoding="utf-8").read())
+main = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "main")
+first = next(i for i, n in enumerate(main.body) if isinstance(n, ast.Return))
+assert first == len(main.body) - 1, "%d statement(s) after the first top-level return" % (len(main.body) - 1 - first)
+EOF2
+
+# carry-forward-keeps-omitted-open: an entry the model left out is carried, marked `carried` and named in the comment.
+python3 -I - "$tmp/comments.json" <<'PY'
+import json, sys
+led = {"sha": "a" * 40, "findings": [{"id": "gone-quiet", "kind": "finding", "sev": "HIGH", "status": "open", "file": "a.go", "line": 2, "detail": "d", "fix": "f", "source": "review", "first_sha": "1" * 40, "location": "verified", "carried": 1}]}
+body = "Triage: HIGH | blast radius: x\n<!-- 226os-ai-review -->\nTool: PASS (1 files)\n\n<details><summary>Review ledger</summary>\n\n```json\n" + json.dumps(led) + "\n```\n\n</details>"
+json.dump([{"id": 2, "node_id": "N2", "user": {"login": "github-actions[bot]"}, "body": body, "created_at": "2026-11-14T09:00:00Z"}], open(sys.argv[1], "w"))
+PY
+HEAD_SHA="$locsha" LOCATION_REPO="$repo" JSON="$(mkreview "[$E_GOOD]")" run
+pyassert 'import json,sys; f=json.loads(sys.argv[1]); assert f["status"]=="open" and f["carried"]==2' "$(entry_of gone-quiet)" 2>/dev/null && grep -q 'Carried forward without a new decision.*gone-quiet' <<<"$(posted_body)" && ok "an open entry the model omits is carried with a count and named in the comment (fix, answer or accept it)" || ko "carried ($(entry_of gone-quiet) $(posted_body | head -12))"
+pyassert 'import json,sys; assert "carried" not in json.loads(sys.argv[1])' "$(entry_of g1)" 2>/dev/null && ok "an entry the model lists itself carries no count (the model cannot write it)" || ko "carried on listed"
+
 finish

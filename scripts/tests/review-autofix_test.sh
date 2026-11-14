@@ -487,4 +487,44 @@ for wf in review-autofix review-batch; do
   grep -q 'steps.ctx.outputs.sha' "$root/.github/workflows/$wf.yml" && grep -q 'sha256sum' "$root/.github/workflows/$wf.yml" && ok "$wf.yml: the finding context is hash-checked before the model" || ko "$wf.yml context hash"
 done
 
+
+# ---- review notes of #178 (PR170): a trailer in a patch, hand-edited sqlc output ----
+r3="$tmp/r3"
+git init -q -b develop "$r3"
+g3() { git -C "$r3" -c user.name=Y4NN77 -c user.email=fixer@example.invalid "$@"; }
+mkdir -p "$r3/src/api/internal/platform/dbgen" "$r3/db/queries"
+echo a >"$r3/src/a.go"; echo q >"$r3/db/queries/x.sql"; echo g >"$r3/src/api/internal/platform/dbgen/build.sql.go"; echo t >"$r3/src/api/internal/platform/dbgen/build_queries_test.go"
+g3 add -A; g3 commit -qm base
+base3="$(git -C "$r3" rev-parse HEAD)"
+check3() { run check BASE_SHA="$base3" WORKTREE="$r3" EXPECT_NAME=Y4NN77 EXPECT_EMAIL=fixer@example.invalid; }
+echo hand >>"$r3/src/api/internal/platform/dbgen/build.sql.go"; g3 add -A; g3 commit -qm "fix(build): edit generated"
+check3
+[ "$rc" -ne 0 ] && grep -qi 'generated' <<<"$out" && ok "guard (note-dbgen-not-owner): sqlc output changed without a db/queries change is refused" || ko "dbgen alone (rc=$rc $out)"
+echo q2 >>"$r3/db/queries/x.sql"; g3 add -A; g3 commit -qm "fix(build): query"
+check3
+[ "$rc" -eq 0 ] && ok "guard: sqlc output regenerated together with db/queries is allowed" || ko "dbgen with queries (rc=$rc $out)"
+g3 reset -q --hard "$base3"
+echo more >>"$r3/src/api/internal/platform/dbgen/build_queries_test.go"; g3 add -A; g3 commit -qm "test: dbgen test"
+check3
+[ "$rc" -eq 0 ] && ok "guard: a hand-written test in the dbgen directory is still allowed" || ko "dbgen test (rc=$rc $out)"
+
+# A trailer the action adds (settings not passed through) is dropped by the trusted apply step: the fix is not lost.
+w3="$tmp/w3"
+git clone -q "$r3" "$w3"
+wb3="$(git -C "$w3" rev-parse HEAD)"
+echo fix >>"$r3/src/a.go"
+git -C "$r3" -c user.name=claude -c user.email=x@y commit -qam "fix(solve): trailer
+
+Real body line.
+
+Generated with Claude Code
+
+Co-Authored-By: Claude <noreply@anthropic.com>"
+pd3="$tmp/pd3"; git -C "$r3" format-patch -q -o "$pd3" "$wb3..HEAD"
+run apply PATCH_DIR="$pd3" WORKTREE="$w3" EXPECT_NAME=Y4NN77 EXPECT_EMAIL=fixer@example.invalid
+msg="$(git -C "$w3" log -1 --format=%B)"
+[ "$rc" -eq 0 ] && grep -q 'Real body line' <<<"$msg" && ! grep -qi 'co-authored\|generated with' <<<"$msg" && ok "apply (note settings-flag-passthrough): an AI trailer or Generated with line in a patch message is dropped, the body is kept" || ko "apply trailer (rc=$rc $out $msg)"
+run check BASE_SHA="$wb3" WORKTREE="$w3" EXPECT_NAME=Y4NN77 EXPECT_EMAIL=fixer@example.invalid
+[ "$rc" -eq 0 ] && ok "apply: the commit with the dropped trailer passes the guard (the fix is not lost)" || ko "apply then check trailer (rc=$rc $out)"
+
 finish

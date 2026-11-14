@@ -92,7 +92,7 @@ ZWSP = chr(0x200B)
 DETAIL_MAX = 600
 FIX_MAX = 300
 LOCATE_MAX_BYTES = 5000000
-SCRIPT_OWNED = ("source", "first_sha", "location", "probable", "redacted", "deep")
+SCRIPT_OWNED = ("source", "first_sha", "location", "probable", "redacted", "deep", "carried")
 MINIMIZE = "mutation($id: ID!) { minimizeComment(input: {subjectId: $id, classifier: OUTDATED}) { minimizedComment { isMinimized } } }"
 
 
@@ -379,10 +379,21 @@ def carry_forward(text, previous_ledger):
     if not isinstance(data, dict) or not isinstance(data.get("findings"), list):
         return text
     ids = {f.get("id") for f in data["findings"] if isinstance(f, dict)}
+    carried = []
     for f in previous_ledger.get("findings", []):
         if isinstance(f, dict) and f.get("id") and f.get("id") not in ids and f.get("status") != "fixed":
+            f = dict(f)
+            if f.get("status") == "open":
+                # Still open and not mentioned by this review: the model made no new decision. Counted and named in the
+                # comment, so a stale entry that keeps blocking auto-merge is visible and a person can settle it.
+                f["carried"] = int(f.get("carried") or 0) + 1 if isinstance(f.get("carried"), int) else 1
+                carried.append(slug_id(f["id"]))
             data["findings"].append(f)
-    return text[:m.start(2)] + json.dumps(data) + text[m.end(2):]
+    out = text[:m.start(2)] + json.dumps(data) + text[m.end(2):]
+    if carried:
+        notice = "Carried forward without a new decision (this review did not mention them: fix, answer or accept them): %s.\n\n" % ", ".join("`%s`" % c for c in carried)
+        out = out[:m.start(1)] + notice + out[m.start(1):]
+    return out
 
 
 def compose(text, tool_line, head="", deep_line=None, reviewed=None, previous_ledger=None):
@@ -481,17 +492,6 @@ def main():
                 fh.write("comment_id=%s\n" % int(created["id"]))
         except (OSError, ValueError, TypeError):
             pass
-    return 0
-    for c in comments:
-        if c is target or c.get("id") == target.get("id") or not is_bot(c) or not c.get("node_id"):
-            continue
-        if not VERDICT.match(first_line(c.get("body"))):
-            continue
-        try:
-            gh(binary, ["api", "graphql", "-f", "query=%s" % MINIMIZE, "-f", "id=%s" % c["node_id"]])
-            print("review-comment: minimized the older review comment %s as outdated" % c.get("id"))
-        except GitHubError as exc:
-            print("review-comment: could not minimize comment %s (%s)" % (c.get("id"), exc))
     return 0
 
 

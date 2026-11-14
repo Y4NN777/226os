@@ -447,7 +447,7 @@ def one_line(text, width=120):
 
 def batch_items(finding_issues, note_issues):
     """The open work: each open finding issue is one item (a follow-ups issue too), each unticked box of an open notes
-    issue is one item. rank = (severity, area, age); notes rank after LOW, INFERRED undecided for 7 days first."""
+    issue is one item. rank = (due, severity, area, age); notes rank after LOW, INFERRED undecided for 7 days first."""
     items = []
     for i in finding_issues:
         if i.get("state") != "open" or DASHBOARD_MARK in (i.get("body") or ""):
@@ -457,7 +457,7 @@ def batch_items(finding_issues, note_issues):
         mark, where = MARK.search(i.get("body") or ""), WHERE.search(i.get("body") or "")
         ident = mark.group(1).partition("#")[2] if mark else ""
         gid = (ident, where.group(1)) if ident and ident not in ("followups", "notes") and where and where.group(1) not in ("", "?") else None
-        items.append({"key": "#%s" % i.get("number"), "rank": sort_key(i)[1:], "number": i.get("number") or 0, "gid": gid,
+        items.append({"key": "#%s" % i.get("number"), "rank": sort_key(i), "number": i.get("number") or 0, "gid": gid,
                       "pr": mark.group(1).partition("#")[0][2:] if mark else "?",
                       "text": "#%s [%s] %s (area:%s)" % (i.get("number"), sev, one_line(i.get("title", "")),
                                                          label_value(labels, "area:") or "?")})
@@ -477,7 +477,7 @@ def batch_items(finding_issues, note_issues):
             items.append({"key": "#%s/%s" % (i.get("number"), slug(m.group(2))), "number": i.get("number") or 0,
                           "gid": (slug(m.group(2)), where.group(1)) if where and where.group(1) not in ("", "?") else None,
                           "pr": (title.group(1).partition("#")[0][2:] if title.group(1).startswith("PR") else title.group(1)) if title else "?",
-                          "rank": (NOTE_RANK + (0 if stale else 1), 0 if area in AREA_FIRST else 1, i.get("created_at", "")),
+                          "rank": (1, NOTE_RANK + (0 if stale else 1), 0 if area in AREA_FIRST else 1, i.get("created_at", "")),
                           "text": "#%s [NOTE %s%s] `%s` %s" % (i.get("number"), m.group(3), ", %d+ days" % STALE_NOTE_DAYS if stale else "",
                                                              one_line(m.group(2), 40), one_line(m.group(4)))})
     return sorted(items, key=lambda it: (it["rank"], it["key"]))
@@ -528,7 +528,10 @@ def merged_fix(ctx, binary, repo, issue):
     """The first pull request merged into develop after the batch was created whose body names the batch issue
     (`#N` or its URL), or None. Since ADR-0013 `develop` is the default branch, so `Closes #N` closes an issue natively on a merge into develop (needs-owner ones included); `close-merged-issues.py` stays as the idempotent backstop, and this check settles the batch whichever way the issue closed."""
     number = issue.get("number")
-    ref = re.compile(r"(?<![\w/])#%s(?!\d)|/issues/%s(?!\d)" % (number, number))
+    # Only a pull request that says it IS the batch's fix counts: a `Batch: #N` line (the body written for the batch fix
+    # pull request), a closing keyword before the reference, or the words "review batch". A bare mention does not.
+    ref_n = r"(?:#%s(?!\d)|https://github\.com/[\w.-]+/[\w.-]+/issues/%s(?!\d))" % (number, number)
+    ref = re.compile(r"^Batch:\s*%s|\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\b:?\s+(?:the\s+)?(?:review\s+)?(?:batch\s+)?%s|\breview\s+batch\s+%s" % (ref_n, ref_n, ref_n), re.I | re.M)
     created = issue.get("created_at", "")
     pulls = ctx.gh_api(binary, "repos/%s/pulls?state=closed&base=develop&sort=updated&direction=desc&per_page=100" % repo)
     for pr in pulls:
@@ -718,7 +721,7 @@ def batch(ctx, binary, repo, write):
     known = {src for key, _, _, also in previous for src in [key] + also}
     # Membership is frozen when the batch is created, so a batch can finish; only an urgent item joins it later. A row
     # follows its sources: when the oldest source of a grouped row closes, the row is keyed by the next one.
-    joined = [it for it in ranked if not known.intersection(it["sources"]) and it["rank"][0] <= SEV_RANK["HIGH"]]
+    joined = [it for it in ranked if not known.intersection(it["sources"]) and it["rank"][1] <= SEV_RANK["HIGH"]]
     open_map, done_lines = {}, []
     for key, ticked, text, also in previous:
         target = next((by_source[src] for src in [key] + also if src in by_source), None)

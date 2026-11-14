@@ -113,6 +113,8 @@ MAX_PATCHES = 20
 MAX_PATCH_BYTES = 1000000
 ITEM_KEY = re.compile(r"^#\d+(?:/[\w-]+)?$")
 TRAILER = re.compile(r"^\s*co-authored-by:|generated with", re.I | re.M)
+# Generated sqlc output: a hand edit is invisible in review; it may change only together with db/queries (regeneration).
+DBGEN_GENERATED = re.compile(r"^src/api/internal/platform/dbgen/(?:(?:db|models|querier)\.go|[^/]+\.sql\.go)$")
 
 
 def load_context_module():
@@ -445,6 +447,9 @@ def check_commits(git, worktree, base, name, email):
     bad = [p for p in paths if p and forbidden(p)]
     if bad:
         return "owner paths changed: %s" % ", ".join(bad[:10])
+    generated = [p for p in paths if DBGEN_GENERATED.match(p)]
+    if generated and not any(p.startswith("db/queries/") for p in paths):
+        return "generated sqlc output changed without a db/queries change (a hand edit): %s" % ", ".join(generated[:5])
     return None
 
 
@@ -498,7 +503,9 @@ def cmd_apply():
                 info = subprocess.run([git, "-C", worktree, "mailinfo", msg, diff], stdin=fh, capture_output=True, timeout=60, check=True)
             subject = next((l[9:] for l in info.stdout.decode("utf-8", "replace").splitlines() if l.startswith("Subject: ")), "")
             with open(msg, encoding="utf-8", errors="replace") as fh:
-                body = fh.read().strip()
+                # An AI trailer or a Generated with line (the action did not take --settings) is dropped here: the fix is
+                # kept, the guard never sees the trailer.
+                body = "\n".join(l for l in fh.read().splitlines() if not TRAILER.search(l)).strip()
             if not subject:
                 raise RuntimeError("%s has no subject" % f)
             subprocess.run([git, "-C", worktree, *quiet, "apply", "--index", diff], capture_output=True, timeout=60, check=True)

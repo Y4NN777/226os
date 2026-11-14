@@ -208,6 +208,13 @@ grep -q 'ONE fix pull' <<<"$(get 910 body)" && grep -q 'fix/review/batch-2026-11
 printf '[{"number":150,"merged_at":null,"body":"Fixes the batch #910"},{"number":151,"merged_at":"2026-11-14T03:00:00Z","body":"unrelated, see #9100 and #91"}]' >"$tmp/st/pulls.json"
 run batch
 [ "$rc" -eq 0 ] && [ "$(get 910 state)" = "open" ] && ok "an unmerged pull request naming the batch, or a merged unrelated one, does not close it" || ko "unrelated pr (state=$(get 910 state) out=$out)"
+# Review note n-batch-close-ref (#152): a merged pull request that only MENTIONS the batch number does not close it.
+printf '[{"number":153,"merged_at":"2026-11-14T03:30:00Z","body":"Touches the same file as #910, see #910 for context. Related: https://github.com/o/r/issues/910"}]' >"$tmp/st/pulls.json"
+run batch
+[ "$rc" -eq 0 ] && [ "$(get 910 state)" = "open" ] && ok "a merged pull request that only mentions the batch number (see #910) does not close the batch" || ko "mention closes (state=$(get 910 state) out=$out)"
+printf '[{"number":154,"merged_at":"2026-11-14T03:40:00Z","body":"Fix pull request.\\n\\nBatch: #910\\nSources: #204"}]' >"$tmp/st/pulls.json"
+run batch --print
+grep -q 'would close #910' <<<"$out" && ok "a pull request with a Batch: #910 line (the batch fix pull request body) closes the batch" || ko "batch line ($out)"
 printf '[{"number":152,"merged_at":"2026-11-14T04:00:00Z","body":"Review batch #910: fixes the top items"}]' >"$tmp/st/pulls.json"
 before="$(writes)"
 run batch --print
@@ -292,5 +299,13 @@ set_issue 604 state closed
 run batch
 body="$(get 904 body)"
 grep -q '(done)' <<<"$(grep 'batch-item:#602' <<<"$body")" && ok "every source of the row closed: the row is done" || ko "row done ($body)"
+
+# ---------- rank keeps the due component (review note n-batch-rank-due, #152) ----------
+reset
+mkissue 801 open "finding,sev:high,due:after-freeze,area:web" 2026-11-01T10:00:00Z "PR80 overflow-high: a HIGH filed in a follow-ups issue (after freeze)"
+mkissue 802 open "finding,sev:medium,due:before-freeze,area:web" 2026-11-13T10:00:00Z "PR81 med-before: a MEDIUM that is due before the freeze"
+run batch --print
+order="$(grep -o 'batch-item:#[0-9/a-z]*' <<<"$out" | sed 's/batch-item://' | tr '\n' ' ' || true)"
+[ "$order" = "#802 #801 " ] && ok "before-freeze items are ranked first, whatever their severity: $order" || ko "due rank ($order)"
 
 finish
