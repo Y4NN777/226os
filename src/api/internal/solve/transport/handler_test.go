@@ -46,6 +46,10 @@ type fakeStore struct {
 	patch   domain.QuestionPatch
 	newAns  domain.NewAnswer
 	writes  int
+
+	vote      domain.VoteState
+	gotVote   domain.Vote
+	gotChange domain.AcceptChange
 }
 
 func (f *fakeStore) ListQuestions(context.Context, domain.QuestionQuery) ([]domain.Question, error) {

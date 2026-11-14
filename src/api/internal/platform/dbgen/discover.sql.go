@@ -100,7 +100,10 @@ FROM (
   FROM content_relations cr
   LEFT JOIN questions q ON q.id = cr.tgt_question_id AND q.status = 'published'
   LEFT JOIN resources res ON res.id = cr.tgt_resource_id AND res.status = 'published'
-  LEFT JOIN projects proj ON proj.id = cr.tgt_project_id AND proj.status = 'published'
+  -- A project shows only while it is public, as on the project read (issue #118): a project links to a
+  -- resource by storing resource -> project, and may be private or made private later. The resource
+  -- join needs no provider check: content_relations_pair_ck allows no resource -> resource pair.
+  LEFT JOIN projects proj ON proj.id = cr.tgt_project_id AND proj.status = 'published' AND proj.visibility = 'public'
   LEFT JOIN learn_articles art ON art.id = cr.tgt_article_id AND art.status = 'published'
   WHERE cr.src_resource_id = ANY ($1::uuid[])
     AND cr.status = 'active'

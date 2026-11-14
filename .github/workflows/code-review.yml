@@ -77,19 +77,24 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      # The scripts that read untrusted pull request data come from the BASE commit, like the gate.
-      - name: Checkout the base commit (scripts)
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ github.event.pull_request.base.sha }}
-          path: .base
-          fetch-depth: 1
-          persist-credentials: false
-
-      # Every later step runs the BASE scripts from a copy outside the workspace, so nothing the review step (or the
-      # pull request) does to the workspace can change the code that runs with GH_TOKEN afterwards.
-      - name: Copy the base scripts out of the workspace
-        run: cp -R .base/scripts "$RUNNER_TEMP/base-scripts"
+      # The scripts that read untrusted pull request data come from the BASE commit, like the gate: each one is read
+      # from the git objects of the base commit (raw blobs, no filter or textconv) into RUNNER_TEMP, never from a
+      # workspace path a pull request could plant. A script the base does not have is left out (its step says NOT RUN).
+      # The project rules for the model are taken the same way.
+      - name: Extract the base scripts from the base commit
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          dest="$RUNNER_TEMP/base-scripts"
+          mkdir -p "$dest"
+          for name in review-context.py review-comment.py review-ping.py review.sh; do
+            if git cat-file -e "$BASE_SHA:scripts/$name" 2>/dev/null; then
+              git cat-file blob "$BASE_SHA:scripts/$name" > "$dest/$name"
+            else
+              echo "base-scripts: scripts/$name is not on the base commit: its step is NOT RUN"
+            fi
+          done
+          git cat-file blob "$BASE_SHA:.opencodereview/rule.json" > .review-rules.json 2>/dev/null || echo "{}" > .review-rules.json
 
       # The project memory, the ledger of the previous review, the range, the conversation and the pointers on the
       # changed lines (fails open). Decides first | incremental | skip.
@@ -184,7 +189,7 @@ jobs:
             Then follow the workflow in .claude/commands/delegate-review.md exactly (Step 0 to Step 4). The workflow
             already ran the open-code-review preview: its file list is in the pack ("Files the tool selected"). You
             have no git tool: the diff of the Range is in `.review-diff.patch` (Read it in chunks), the rules are in
-            `.base/.opencodereview/rule.json`, and files are read with Read and Grep. Read the changed `.sql`, migration, contract
+            `.review-rules.json` (from the base commit), and files are read with Read and Grep. Read the changed `.sql`, migration, contract
             and script files yourself (Step 1b) and apply the logic lens of Step 3 to every "Read first" pointer. Obey
             the calibration of the project context (at most 5 findings plus 3 notes). Do not post the summary
             yourself: return its full text as `body` in your structured output (first line `Triage:`, no `Tool:`

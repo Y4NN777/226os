@@ -3,6 +3,7 @@ package app
 import (
 	"net/http"
 
+	assistanttransport "github.com/Y4NN777/226os/src/api/internal/assistant/transport"
 	buildtransport "github.com/Y4NN777/226os/src/api/internal/build/transport"
 	"github.com/Y4NN777/226os/src/api/internal/discover/transport"
 	identitytransport "github.com/Y4NN777/226os/src/api/internal/identity/transport"
@@ -26,6 +27,7 @@ type Server struct {
 	auth      *identitytransport.Handler
 	learn     *learntransport.Handler
 	build     *buildtransport.Handler
+	assistant *assistanttransport.Handler
 	solve     *solvetransport.Handler
 }
 
@@ -52,6 +54,9 @@ func WithLearn(h *learntransport.Handler) Option { return func(s *Server) { s.le
 
 // WithBuild sets the S5 project and contribution-need operations. Without it those routes stay 501.
 func WithBuild(h *buildtransport.Handler) Option { return func(s *Server) { s.build = h } }
+
+// WithAssistant sets the S9 assistant operation. Without it POST /assistant/answers stays 501.
+func WithAssistant(h *assistanttransport.Handler) Option { return func(s *Server) { s.assistant = h } }
 
 // WithSolve sets the S3 question and answer operations. Without it those routes stay 501.
 func WithSolve(h *solvetransport.Handler) Option { return func(s *Server) { s.solve = h } }
@@ -339,6 +344,15 @@ func (s *Server) DecideApplication(w http.ResponseWriter, r *http.Request, appli
 	s.build.DecideApplication(w, r, applicationID)
 }
 
+// AskAssistant serves the grounded assistant. A server built without WithAssistant stays unimplemented.
+func (s *Server) AskAssistant(w http.ResponseWriter, r *http.Request) {
+	if s.assistant == nil {
+		s.Unimplemented.AskAssistant(w, r)
+		return
+	}
+	s.assistant.AskAssistant(w, r)
+}
+
 // ListQuestions serves GET /questions. A server built without WithSolve stays unimplemented.
 func (s *Server) ListQuestions(w http.ResponseWriter, r *http.Request, params apigen.ListQuestionsParams) {
 	if s.solve == nil {
@@ -391,4 +405,40 @@ func (s *Server) CreateAnswer(w http.ResponseWriter, r *http.Request, questionID
 		return
 	}
 	s.solve.CreateAnswer(w, r, questionID, params)
+}
+
+// CastVote serves POST /votes. A server built without WithSolve stays unimplemented.
+func (s *Server) CastVote(w http.ResponseWriter, r *http.Request) {
+	if s.solve == nil {
+		s.Unimplemented.CastVote(w, r)
+		return
+	}
+	s.solve.CastVote(w, r)
+}
+
+// RetractVote serves DELETE /votes. A server built without WithSolve stays unimplemented.
+func (s *Server) RetractVote(w http.ResponseWriter, r *http.Request, params apigen.RetractVoteParams) {
+	if s.solve == nil {
+		s.Unimplemented.RetractVote(w, r, params)
+		return
+	}
+	s.solve.RetractVote(w, r, params)
+}
+
+// AcceptAnswer serves POST /questions/{questionId}/accept. A server built without WithSolve stays unimplemented.
+func (s *Server) AcceptAnswer(w http.ResponseWriter, r *http.Request, questionID apigen.QuestionId) {
+	if s.solve == nil {
+		s.Unimplemented.AcceptAnswer(w, r, questionID)
+		return
+	}
+	s.solve.AcceptAnswer(w, r, questionID)
+}
+
+// UnacceptAnswer serves POST /questions/{questionId}/unaccept. A server built without WithSolve stays unimplemented.
+func (s *Server) UnacceptAnswer(w http.ResponseWriter, r *http.Request, questionID apigen.QuestionId) {
+	if s.solve == nil {
+		s.Unimplemented.UnacceptAnswer(w, r, questionID)
+		return
+	}
+	s.solve.UnacceptAnswer(w, r, questionID)
 }
