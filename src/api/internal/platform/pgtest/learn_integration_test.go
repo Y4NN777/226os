@@ -208,14 +208,13 @@ func TestLearnRejectsUnusableLinksAndTopicsAtomically(t *testing.T) {
 		t.Fatal(err)
 	}
 	for name, body := range map[string]string{
-		"removed question":       articleJSON("published", "", "question", catGoneQ),
-		"removed resource":       articleJSON("published", "", "resource", catRemoved),
-		"unpublished provider":   articleJSON("published", "", "resource", catSecret),
-		"private project":        articleJSON("published", "", "project", "019a0000-0000-7000-8000-0000000000e9"),
-		"unknown target":         articleJSON("published", "", "question", "019a0000-0000-7000-8000-00000000fffe"),
-		"series is not storable": articleJSON("published", "", "series", catQuestion),
-		"good then bad":          articleJSON("published", "", "question", catQuestion, "question", catGoneQ),
-		"unknown topic":          articleJSON("published", "not-a-topic"),
+		"removed question":     articleJSON("published", "", "question", catGoneQ),
+		"removed resource":     articleJSON("published", "", "resource", catRemoved),
+		"unpublished provider": articleJSON("published", "", "resource", catSecret),
+		"private project":      articleJSON("published", "", "project", "019a0000-0000-7000-8000-0000000000e9"),
+		"unknown target":       articleJSON("published", "", "question", "019a0000-0000-7000-8000-00000000fffe"),
+		"good then bad":        articleJSON("published", "", "question", catQuestion, "question", catGoneQ),
+		"unknown topic":        articleJSON("published", "not-a-topic"),
 	} {
 		t.Run(name, func(t *testing.T) {
 			p := assertProblem(t, s.publish(t, &alice, body, nil), http.StatusUnprocessableEntity, "VALIDATION_ERROR")
@@ -227,6 +226,15 @@ func TestLearnRejectsUnusableLinksAndTopicsAtomically(t *testing.T) {
 			}
 		})
 	}
+	// A series target is not in the contract's LinkRef any more (no content_relations pair has one,
+	// owner decision 2026-11-14), so request validation refuses it and names the exact member.
+	t.Run("series is not in the contract", func(t *testing.T) {
+		p := assertProblem(t, s.publish(t, &alice, articleJSON("published", "", "series", catQuestion), nil), http.StatusUnprocessableEntity, "VALIDATION_ERROR")
+		v, _ := json.Marshal(p["violations"])
+		if string(v) != `[{"code":"invalid_value","field":"/links/0/type"}]` {
+			t.Fatalf("violations %s", v)
+		}
+	})
 	var articles, relations, tags int
 	if err := s.conn.QueryRow(ctx, `SELECT (SELECT count(*) FROM learn_articles), (SELECT count(*) FROM content_relations WHERE tgt_article_id IS NOT NULL),
 		(SELECT count(*) FROM tags WHERE slug = 'paiement')`).Scan(&articles, &relations, &tags); err != nil {

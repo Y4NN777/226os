@@ -3368,7 +3368,7 @@ components:
       additionalProperties: false
     LinkRef:
       type: object
-      description: Typed contextual link (write side).
+      description: Typed contextual link (write side). The server accepts only the source and target pairs it can store; an unsupported pair (for example an article linking to an article) is 422 with the field pointer of the link.
       required:
       - type
       - id
@@ -3380,7 +3380,22 @@ components:
           - resource
           - project
           - article
-          - series
+        id:
+          $ref: '#/components/schemas/Uuid'
+      additionalProperties: false
+    QuestionLinkRef:
+      type: object
+      description: Link from a question (write side). A question links to a resource, a project or an article only.
+      required:
+      - type
+      - id
+      properties:
+        type:
+          type: string
+          enum:
+          - resource
+          - project
+          - article
         id:
           $ref: '#/components/schemas/Uuid'
       additionalProperties: false
@@ -3525,7 +3540,7 @@ components:
         links:
           type: array
           items:
-            $ref: '#/components/schemas/LinkRef'
+            $ref: '#/components/schemas/QuestionLinkRef'
           maxItems: 10
       additionalProperties: false
     QuestionUpdate:
@@ -3558,7 +3573,7 @@ components:
         links:
           type: array
           items:
-            $ref: '#/components/schemas/LinkRef'
+            $ref: '#/components/schemas/QuestionLinkRef'
           maxItems: 10
       additionalProperties: false
       minProperties: 1

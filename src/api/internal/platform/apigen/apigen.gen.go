@@ -185,7 +185,6 @@ const (
 	LinkRefTypeProject  LinkRefType = "project"
 	LinkRefTypeQuestion LinkRefType = "question"
 	LinkRefTypeResource LinkRefType = "resource"
-	LinkRefTypeSeries   LinkRefType = "series"
 )
 
 // Defines values for ModerationTargetType.
@@ -227,6 +226,13 @@ const (
 const (
 	ProjectVisibilityPrivate ProjectVisibility = "private"
 	ProjectVisibilityPublic  ProjectVisibility = "public"
+)
+
+// Defines values for QuestionLinkRefType.
+const (
+	QuestionLinkRefTypeArticle  QuestionLinkRefType = "article"
+	QuestionLinkRefTypeProject  QuestionLinkRefType = "project"
+	QuestionLinkRefTypeResource QuestionLinkRefType = "resource"
 )
 
 // Defines values for QuestionState.
@@ -714,7 +720,7 @@ type LessonProgressUpdate struct {
 // Level defines model for Level.
 type Level string
 
-// LinkRef Typed contextual link (write side).
+// LinkRef Typed contextual link (write side). The server accepts only the source and target pairs it can store; an unsupported pair (for example an article linking to an article) is 422 with the field pointer of the link.
 type LinkRef struct {
 	// Id Opaque identifier; never an authorization control.
 	Id   Uuid        `json:"id"`
@@ -988,12 +994,22 @@ type QuestionCreate struct {
 	Country *CountryCode `json:"country,omitempty"`
 
 	// Lang Language of user content (original language preserved, never auto-translated).
-	Lang     Lang       `json:"lang"`
-	Links    *[]LinkRef `json:"links,omitempty"`
-	Snippets *[]Snippet `json:"snippets,omitempty"`
-	Tags     []TagSlug  `json:"tags"`
-	Title    string     `json:"title"`
+	Lang     Lang               `json:"lang"`
+	Links    *[]QuestionLinkRef `json:"links,omitempty"`
+	Snippets *[]Snippet         `json:"snippets,omitempty"`
+	Tags     []TagSlug          `json:"tags"`
+	Title    string             `json:"title"`
 }
+
+// QuestionLinkRef Link from a question (write side). A question links to a resource, a project or an article only.
+type QuestionLinkRef struct {
+	// Id Opaque identifier; never an authorization control.
+	Id   Uuid                `json:"id"`
+	Type QuestionLinkRefType `json:"type"`
+}
+
+// QuestionLinkRefType defines model for QuestionLinkRef.Type.
+type QuestionLinkRefType string
 
 // QuestionPage defines model for QuestionPage.
 type QuestionPage struct {
@@ -1009,12 +1025,12 @@ type QuestionState string
 // QuestionUpdate JSON Merge Patch. lang is immutable (original language preserved). The solve state is derived from answers and acceptance and cannot be set. Requires If-Match (ETag of the current question).
 type QuestionUpdate struct {
 	// BodyMd Markdown source. Raw HTML is neutralised on output; code is never executed.
-	BodyMd   *Markdown    `json:"body_md,omitempty"`
-	Country  *CountryCode `json:"country,omitempty"`
-	Links    *[]LinkRef   `json:"links,omitempty"`
-	Snippets *[]Snippet   `json:"snippets,omitempty"`
-	Tags     *[]TagSlug   `json:"tags,omitempty"`
-	Title    *string      `json:"title,omitempty"`
+	BodyMd   *Markdown          `json:"body_md,omitempty"`
+	Country  *CountryCode       `json:"country,omitempty"`
+	Links    *[]QuestionLinkRef `json:"links,omitempty"`
+	Snippets *[]Snippet         `json:"snippets,omitempty"`
+	Tags     *[]TagSlug         `json:"tags,omitempty"`
+	Title    *string            `json:"title,omitempty"`
 }
 
 // RelatedLink Resolved link (read side); only visible targets are returned.

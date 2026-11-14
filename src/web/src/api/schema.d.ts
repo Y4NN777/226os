@@ -947,10 +947,16 @@ export interface components {
             display_name: string;
             country?: components["schemas"]["CountryCode"] | null;
         };
-        /** @description Typed contextual link (write side). */
+        /** @description Typed contextual link (write side). The server accepts only the source and target pairs it can store; an unsupported pair (for example an article linking to an article) is 422 with the field pointer of the link. */
         LinkRef: {
             /** @enum {string} */
-            type: "question" | "resource" | "project" | "article" | "series";
+            type: "question" | "resource" | "project" | "article";
+            id: components["schemas"]["Uuid"];
+        };
+        /** @description Link from a question (write side). A question links to a resource, a project or an article only. */
+        QuestionLinkRef: {
+            /** @enum {string} */
+            type: "resource" | "project" | "article";
             id: components["schemas"]["Uuid"];
         };
         /** @description Resolved link (read side); only visible targets are returned. */
@@ -989,7 +995,7 @@ export interface components {
             tags: components["schemas"]["TagSlug"][];
             snippets?: components["schemas"]["Snippet"][];
             country?: components["schemas"]["CountryCode"];
-            links?: components["schemas"]["LinkRef"][];
+            links?: components["schemas"]["QuestionLinkRef"][];
         };
         /** @description JSON Merge Patch. lang is immutable (original language preserved). The solve state is derived from answers and acceptance and cannot be set. Requires If-Match (ETag of the current question). */
         QuestionUpdate: {
@@ -998,7 +1004,7 @@ export interface components {
             tags?: components["schemas"]["TagSlug"][];
             snippets?: components["schemas"]["Snippet"][];
             country?: components["schemas"]["CountryCode"] | null;
-            links?: components["schemas"]["LinkRef"][];
+            links?: components["schemas"]["QuestionLinkRef"][];
         };
         QuestionPage: {
             items: components["schemas"]["Question"][];
