@@ -1,3 +1,5 @@
+import { topicCodes, type TopicCode } from './topics';
+
 /**
  * Link kinds an article can carry. The API also names `article` (and once `series`), but it answers
  * 422 for those pairs for now, so they are never offered (issue #124).
@@ -29,4 +31,14 @@ export function validateWriteSearch(raw: Record<string, unknown>): WriteSearch {
   return typeof raw.link === 'string' && parseLink(raw.link)
     ? { link: raw.link.toLowerCase() }
     : {};
+}
+
+/** Learn hub filter kept in the URL (shareable, back-button friendly). */
+export interface LearnSearch {
+  topic?: TopicCode;
+}
+
+export function validateLearnSearch(raw: Record<string, unknown>): LearnSearch {
+  const topic = topicCodes.find((code) => code === raw.topic);
+  return topic ? { topic } : {};
 }

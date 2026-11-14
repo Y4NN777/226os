@@ -20,7 +20,10 @@ import { SignInPage } from '../features/identity/SignInPage';
 import { SignUpPage } from '../features/identity/SignUpPage';
 import { VerifyEmailPage } from '../features/identity/VerifyEmailPage';
 import { WelcomePage } from '../features/identity/WelcomePage';
-import { validateWriteSearch } from '../features/learn/routeSearch';
+import { ArticlePage } from '../features/learn/ArticlePage';
+import { LearnPage } from '../features/learn/LearnPage';
+import { validateLearnSearch, validateWriteSearch } from '../features/learn/routeSearch';
+import { SeriesPage } from '../features/learn/SeriesPage';
 import { WritePage } from '../features/learn/WritePage';
 import { ProfilePage } from '../features/profile/ProfilePage';
 import { NotFound } from '../features/NotFound';
@@ -79,6 +82,22 @@ const writeRoute = createRoute({
   path: '/ecrire',
   component: WritePage,
   validateSearch: validateWriteSearch,
+});
+const learnRoute = createRoute({
+  getParentRoute: () => appLayout,
+  path: '/apprendre',
+  component: LearnPage,
+  validateSearch: validateLearnSearch,
+});
+const articleRoute = createRoute({
+  getParentRoute: () => appLayout,
+  path: '/apprendre/articles/$articleId',
+  component: ArticlePage,
+});
+const seriesRoute = createRoute({
+  getParentRoute: () => appLayout,
+  path: '/apprendre/formations/$seriesId',
+  component: SeriesPage,
 });
 const searchRoute = createRoute({
   getParentRoute: () => appLayout,
@@ -163,6 +182,9 @@ const routeTree = rootRoute.addChildren([
     discoverRoute,
     resourceRoute,
     writeRoute,
+    learnRoute,
+    articleRoute,
+    seriesRoute,
     searchRoute,
     solveRoute,
     questionRoute,
