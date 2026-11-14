@@ -2,6 +2,7 @@ package dbgen_test
 
 import (
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -133,6 +134,16 @@ func TestSolveQueries(t *testing.T) {
 		t.Fatalf("ListSolveAnswers = %+v, %v", answers, err)
 	}
 	assertCall(t, db, "a.created_at, a.id", []any{id, other, int32(1), int32(-2), ts, int32(21)})
+	// A question removed after the existence check leaks no answer: the list itself filters on it.
+	if sql := db.calls[0].sql; !strings.Contains(sql, "a.status = 'published' AND q.status = 'published'") {
+		t.Errorf("ListSolveAnswers does not filter on the question status: %s", sql)
+	}
+	// An edit replaces only the author's active links; a hidden relation is a moderator decision.
+	db = &fakeDB{}
+	_ = dbgen.New(db).DeleteSolveQuestionLinks(ctx, dbgen.DeleteSolveQuestionLinksParams{})
+	if sql := db.calls[0].sql; !strings.Contains(sql, "status = 'active'") {
+		t.Errorf("DeleteSolveQuestionLinks does not keep hidden relations: %s", sql)
+	}
 
 	tags, err := dbgen.New(&fakeDB{many: [][]any{{id, "go"}}}).SolveQuestionTags(ctx, []pgtype.UUID{id})
 	if err != nil || tags[0].Slug != "go" {

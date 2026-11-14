@@ -571,3 +571,53 @@ func TestSolveWriteRateLimitFailsClosed(t *testing.T) {
 		t.Fatalf("an answer was written with the limiter down: %d/%d", rows, count)
 	}
 }
+
+func TestSolveUpdateDrawsOnTheWriteBudget(t *testing.T) {
+	awaitFreshMinute(t)
+	s := newSolveStack(t)
+	alice := s.signIn(t, "solve-patch-limit", true, 87)
+	q := s.ask(t, &alice, "Titre pour la limite PATCH")
+	path := "/api/v1/questions/" + q.Id.String()
+	last := 0
+	// One write is the question itself; the 60th and later counted writes are refused with 429.
+	for i := 0; i < 61; i++ {
+		rec := s.write(t, &alice, http.MethodPatch, path, `{"tags":["a","b","c","d","e"]}`, map[string]string{"If-Match": `"stale"`})
+		if last = rec.Code; last == http.StatusTooManyRequests {
+			assertProblem(t, rec, http.StatusTooManyRequests, "RATE_LIMITED")
+			if rec.Header().Get("Retry-After") == "" {
+				t.Fatal("no Retry-After")
+			}
+			return
+		}
+		if last != http.StatusPreconditionFailed {
+			t.Fatalf("patch %d: %d %s", i, last, rec.Body.String())
+		}
+	}
+	t.Fatalf("61 PATCHes never reached the budget (last %d)", last)
+}
+
+func TestSolveEditKeepsAHiddenLinkHidden(t *testing.T) {
+	s := newSolveStack(t)
+	alice := s.signIn(t, "solve-hidden-alice", true, 88)
+	q := s.ask(t, &alice, "Titre pour le lien caché", `"links":[{"type":"resource","id":"`+catAlpha+`"}]`)
+	qid := q.Id.String()
+	if _, err := s.conn.Exec(t.Context(), `UPDATE content_relations SET status = 'hidden' WHERE src_question_id = $1`, qid); err != nil {
+		t.Fatal(err)
+	}
+	tag := s.read(t, nil, "/api/v1/questions/"+qid).Header().Get("ETag")
+	rec := s.write(t, &alice, http.MethodPatch, "/api/v1/questions/"+qid, `{"title":"Nouveau titre","links":[{"type":"resource","id":"`+catAlpha+`"}]}`, map[string]string{"If-Match": tag})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("patch %d %s", rec.Code, rec.Body.String())
+	}
+	var status string
+	var n int
+	if err := s.conn.QueryRow(t.Context(), `SELECT count(*), min(status) FROM content_relations WHERE src_question_id = $1`, qid).Scan(&n, &status); err != nil {
+		t.Fatal(err)
+	}
+	if n != 1 || status != "hidden" {
+		t.Fatalf("%d relations, status %q: the moderator's decision was undone", n, status)
+	}
+	if got := decodeAs[apigen.Question](t, s.read(t, nil, "/api/v1/questions/"+qid)); len(got.Related) != 0 {
+		t.Fatalf("hidden link shown: %+v", got.Related)
+	}
+}

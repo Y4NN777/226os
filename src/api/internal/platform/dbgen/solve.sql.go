@@ -29,7 +29,7 @@ func (q *Queries) BumpSolveAnswerCount(ctx context.Context, id pgtype.UUID) (pgt
 const deleteSolveQuestionLinks = `-- name: DeleteSolveQuestionLinks :exec
 DELETE FROM content_relations
 WHERE source_type = 'question' AND src_question_id = $1::uuid
-  AND created_by = $2::uuid
+  AND created_by = $2::uuid AND status = 'active'
 `
 
 type DeleteSolveQuestionLinksParams struct {
@@ -37,7 +37,8 @@ type DeleteSolveQuestionLinksParams struct {
 	CreatedBy  pgtype.UUID
 }
 
-// An edit replaces the links the author wrote (created_by); a link someone else created stays.
+// An edit replaces the active links the author wrote (created_by); a link someone else created stays, and
+// a hidden one is a moderator decision: it stays hidden, and re-inserting its pair conflicts and does nothing.
 func (q *Queries) DeleteSolveQuestionLinks(ctx context.Context, arg DeleteSolveQuestionLinksParams) error {
 	_, err := q.db.Exec(ctx, deleteSolveQuestionLinks, arg.QuestionID, arg.CreatedBy)
 	return err
@@ -254,7 +255,7 @@ SELECT a.id, a.question_id, a.body_md, a.language, a.vote_score, a.created_at, a
 FROM answers a
 JOIN questions q ON q.id = a.question_id
 JOIN profiles pr ON pr.user_id = a.author_id
-WHERE a.question_id = $1::uuid AND a.status = 'published'
+WHERE a.question_id = $1::uuid AND a.status = 'published' AND q.status = 'published'
   AND ($2::uuid IS NULL
        OR ((CASE WHEN q.accepted_answer_id IS NOT DISTINCT FROM a.id THEN 0 ELSE 1 END), -a.vote_score, a.created_at, a.id)
           > ($3::int, $4::int, $5::timestamptz, $2::uuid))

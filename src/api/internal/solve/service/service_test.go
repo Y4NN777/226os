@@ -267,7 +267,7 @@ func TestCreateQuestionStoresTheTextAsGivenForTheSubject(t *testing.T) {
 	}
 	in := st.created
 	if in.AuthorID != userID || in.Title != "  Comment encaisser ?  " || in.BodyMD != "Corps\r\n" || in.Country != "BF" ||
-		strings.Join(in.Tags, ",") != "go,api" || len(in.Links) != 1 || len(in.Snippets) != 1 {
+		strings.Join(in.Tags, ",") != "api,go" || len(in.Links) != 1 || len(in.Snippets) != 1 {
 		t.Fatalf("stored %+v", in)
 	}
 	if lim.hits != 1 || lim.scope != "write:user" || lim.value != userID || lim.limit != 60 || lim.window != time.Minute {
@@ -611,4 +611,46 @@ func TestCreateAnswer(t *testing.T) {
 			wantCode(t, err, tc.code)
 		}
 	})
+}
+
+func TestUpdateQuestionDrawsOnTheWriteBudgetAndFailsClosed(t *testing.T) {
+	ok := func(string) error { return nil }
+	req := service.UpdateQuestionRequest{Title: ptr("Nouveau titre")}
+	st := &fakeStore{guardAs: domain.Question{Author: domain.Author{ID: userID}}}
+	svc, lim := newSvc(t, st)
+	if _, err := svc.UpdateQuestion(t.Context(), member, qID, req, ok); err != nil || lim.hits != 1 || lim.scope != "write:user" || lim.limit != 60 || lim.value != userID {
+		t.Fatalf("err %v, limiter %+v", err, lim)
+	}
+	writes := st.writes
+	lim.allowed, lim.retry = false, 7*time.Second
+	_, err := svc.UpdateQuestion(t.Context(), member, qID, req, ok)
+	if ae := codeOf(t, err, apperr.CodeRateLimited); ae.RetryAfter != 7*time.Second || st.writes != writes {
+		t.Fatalf("retry %v, writes %d", ae.RetryAfter, st.writes)
+	}
+	lim.allowed, lim.err = true, errDB
+	_, err = svc.UpdateQuestion(t.Context(), member, qID, req, ok)
+	wantCode(t, err, apperr.CodeInternal)
+	if st.writes != writes {
+		t.Fatal("the limiter failed open")
+	}
+	// A refused body or anonymous caller does not spend the budget.
+	lim.err, lim.hits = nil, 0
+	_, _ = svc.UpdateQuestion(t.Context(), member, qID, service.UpdateQuestionRequest{Title: ptr(" ")}, ok)
+	_, _ = svc.UpdateQuestion(t.Context(), subject.Subject{}, qID, req, ok)
+	if lim.hits != 0 {
+		t.Fatalf("%d hits for refused requests", lim.hits)
+	}
+}
+
+func TestTagsAreSortedAndDistinctBeforeTheyReachTheStore(t *testing.T) {
+	st := &fakeStore{guardAs: domain.Question{Author: domain.Author{ID: userID}}}
+	svc, _ := newSvc(t, st)
+	req := createReq()
+	req.Tags = []string{"zeta", "alpha", "zeta", "mid"}
+	if _, err := svc.CreateQuestion(t.Context(), member, req); err != nil || strings.Join(st.created.Tags, ",") != "alpha,mid,zeta" {
+		t.Fatalf("created tags %v, %v", st.created.Tags, err)
+	}
+	if _, err := svc.UpdateQuestion(t.Context(), member, qID, service.UpdateQuestionRequest{Tags: &[]string{"b", "a", "b"}}, func(string) error { return nil }); err != nil || strings.Join(*st.patched.Tags, ",") != "a,b" {
+		t.Fatalf("patched tags %v, %v", st.patched.Tags, err)
+	}
 }

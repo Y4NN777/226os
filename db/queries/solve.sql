@@ -118,10 +118,11 @@ SELECT sqlc.arg('question_id')::uuid, t.id FROM tags t WHERE t.slug = ANY (sqlc.
 ON CONFLICT DO NOTHING;
 
 -- name: DeleteSolveQuestionLinks :exec
--- An edit replaces the links the author wrote (created_by); a link someone else created stays.
+-- An edit replaces the active links the author wrote (created_by); a link someone else created stays, and
+-- a hidden one is a moderator decision: it stays hidden, and re-inserting its pair conflicts and does nothing.
 DELETE FROM content_relations
 WHERE source_type = 'question' AND src_question_id = sqlc.arg('question_id')::uuid
-  AND created_by = sqlc.arg('created_by')::uuid;
+  AND created_by = sqlc.arg('created_by')::uuid AND status = 'active';
 
 -- The three link writers lock the target (FOR SHARE) and return whether it is usable, so an already
 -- existing link (ON CONFLICT DO NOTHING) is not mistaken for a bad target.
@@ -203,7 +204,7 @@ SELECT a.id, a.question_id, a.body_md, a.language, a.vote_score, a.created_at, a
 FROM answers a
 JOIN questions q ON q.id = a.question_id
 JOIN profiles pr ON pr.user_id = a.author_id
-WHERE a.question_id = sqlc.arg('question_id')::uuid AND a.status = 'published'
+WHERE a.question_id = sqlc.arg('question_id')::uuid AND a.status = 'published' AND q.status = 'published'
   AND (sqlc.narg('after_id')::uuid IS NULL
        OR ((CASE WHEN q.accepted_answer_id IS NOT DISTINCT FROM a.id THEN 0 ELSE 1 END), -a.vote_score, a.created_at, a.id)
           > (sqlc.arg('after_rank')::int, sqlc.arg('after_neg_score')::int, sqlc.narg('after_created')::timestamptz, sqlc.narg('after_id')::uuid))

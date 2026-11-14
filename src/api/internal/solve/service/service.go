@@ -213,7 +213,7 @@ func (s *Service) CreateQuestion(ctx context.Context, sub subject.Subject, req C
 	return q, nil
 }
 
-// UpdateQuestion edits the caller's own question. Order: session (401), body (422), then in the store's
+// UpdateQuestion edits the caller's own question. Order: session (401), body (422), the write budget (429, fails closed), then in the store's
 // transaction the unknown or removed question (404), a visible question that is not the caller's (403),
 // and only then the precondition (check: 428 missing, 412 stale), so 403 and 404 never depend on the tag.
 func (s *Service) UpdateQuestion(ctx context.Context, sub subject.Subject, id string, req UpdateQuestionRequest,
@@ -224,6 +224,9 @@ func (s *Service) UpdateQuestion(ctx context.Context, sub subject.Subject, id st
 	}
 	patch, err := validatePatch(req)
 	if err != nil {
+		return domain.Question{}, err
+	}
+	if err := s.hit(ctx, sub); err != nil {
 		return domain.Question{}, err
 	}
 	guard := func(cur domain.Question) error {
@@ -397,7 +400,9 @@ func validatePatch(req UpdateQuestionRequest) (domain.QuestionPatch, error) {
 }
 
 func validateTags(in []string) ([]string, error) {
+	// Sorted, so two requests creating the same new tags lock the tags rows in the same order.
 	tags := dedupe(in)
+	slices.Sort(tags)
 	if len(tags) < 1 || len(tags) > maxTags {
 		return nil, invalid("/tags", "out_of_range", "tags must hold 1 to 5 distinct slugs.")
 	}
