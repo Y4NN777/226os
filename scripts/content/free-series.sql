@@ -50,7 +50,7 @@ BEGIN
     SELECT * FROM (VALUES
       (1, 'Le modèle : tokens, contexte, outils et modalités',
        'Ce qu''un LLM fait réellement aujourd''hui : fenêtre de contexte, appel d''outils, raisonnement, et des entrées et sorties qui ne se limitent plus au texte.',
-       $l1$Avant de parler d'agents, il faut savoir ce que fait la pièce centrale. Un grand modèle de langage (LLM) reçoit une suite de *tokens* (des fragments de mots, mais aussi d'images ou de son) et prédit la suite, token après token. Tout le reste est construit autour de ce mécanisme.
+       $l1$Avant de parler d'agents, il faut savoir ce que fait la pièce centrale. Un grand modèle de langage (LLM) reçoit une suite de *tokens* (des fragments de texte — et, pour les modèles multimodaux, d'images ou de son) et prédit la suite, token après token. Tout le reste est construit autour de ce mécanisme.
 
 ## Le contexte est la seule mémoire de travail
 
@@ -72,7 +72,7 @@ Dans le même esprit, les **sorties structurées** contraignent la réponse à u
 
 ## Le raisonnement
 
-Les modèles récents peuvent « réfléchir » avant de répondre : ils produisent d'abord un raisonnement intermédiaire, puis la réponse. On règle en général l'effort consenti. Plus de réflexion aide sur un bogue retors ou une décision de conception, et coûte du temps et des tokens sur une tâche simple. C'est un curseur à régler selon la tâche, pas un réglage à pousser au maximum par principe.
+Les modèles récents peuvent « réfléchir » avant de répondre : ils produisent d'abord un raisonnement intermédiaire, puis la réponse. On règle en général l'effort de raisonnement. Plus de réflexion aide sur un bogue retors ou une décision de conception, et coûte du temps et des tokens sur une tâche simple. C'est un curseur à régler selon la tâche, pas un réglage à pousser au maximum par principe.
 
 ## Les LLM ne traitent plus seulement du texte
 

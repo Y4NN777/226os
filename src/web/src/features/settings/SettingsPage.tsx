@@ -1,5 +1,6 @@
 import { Heading } from '@astryxdesign/core/Heading';
 import { SegmentedControl, SegmentedControlItem } from '@astryxdesign/core/SegmentedControl';
+import { Text } from '@astryxdesign/core/Text';
 import { VStack } from '@astryxdesign/core/VStack';
 import { useI18n } from '../../i18n/I18nProvider';
 import { isLocale, locales } from '../../i18n/messages';
@@ -21,33 +22,48 @@ export function SettingsPage() {
     <VStack gap={6} hAlign="start" maxWidth={560}>
       <Heading level={1}>{t('settings.title')}</Heading>
 
-      <SegmentedControl
-        label={t('settings.theme.label')}
-        value={mode}
-        onChange={(value) => {
-          if (isThemeMode(value)) setMode(value);
-        }}
-      >
-        {themeModes.map((option) => (
-          <SegmentedControlItem key={option} value={option} label={t(`settings.theme.${option}`)} />
-        ))}
-      </SegmentedControl>
+      {/* The control's own label is only an aria-label: show it too. */}
+      <VStack gap={2} hAlign="start">
+        <Text weight="semibold" aria-hidden="true">
+          {t('settings.theme.label')}
+        </Text>
+        <SegmentedControl
+          label={t('settings.theme.label')}
+          value={mode}
+          onChange={(value) => {
+            if (isThemeMode(value)) setMode(value);
+          }}
+        >
+          {themeModes.map((option) => (
+            <SegmentedControlItem
+              key={option}
+              value={option}
+              label={t(`settings.theme.${option}`)}
+            />
+          ))}
+        </SegmentedControl>
+      </VStack>
 
-      <SegmentedControl
-        label={t('settings.language.label')}
-        value={locale}
-        onChange={(value) => {
-          if (isLocale(value)) setLocale(value);
-        }}
-      >
-        {locales.map((option) => (
-          <SegmentedControlItem
-            key={option}
-            value={option}
-            label={t(`settings.language.${option}`)}
-          />
-        ))}
-      </SegmentedControl>
+      <VStack gap={2} hAlign="start">
+        <Text weight="semibold" aria-hidden="true">
+          {t('settings.language.label')}
+        </Text>
+        <SegmentedControl
+          label={t('settings.language.label')}
+          value={locale}
+          onChange={(value) => {
+            if (isLocale(value)) setLocale(value);
+          }}
+        >
+          {locales.map((option) => (
+            <SegmentedControlItem
+              key={option}
+              value={option}
+              label={t(`settings.language.${option}`)}
+            />
+          ))}
+        </SegmentedControl>
+      </VStack>
 
       <DisplayName />
 

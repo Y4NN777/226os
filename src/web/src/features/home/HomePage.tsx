@@ -170,8 +170,11 @@ export function HomePage() {
 
       <Section title={t('feed.connect.title')}>
         <Text as="p" type="supporting">
-          {t('feed.connect.soon')}
+          {t('feed.connect.body')}
         </Text>
+        <HStack>
+          <Link href="/connect">{t('feed.connect.link')}</Link>
+        </HStack>
       </Section>
 
       <LiveSection

@@ -41,15 +41,18 @@ function Filters({ search }: { search: SolveSearch }) {
       }}
     >
       <HStack gap={2} vAlign="end" wrap="wrap">
-        <TextInput
-          type="search"
-          label={t('solve.search.label')}
-          isLabelHidden
-          placeholder={t('solve.search.placeholder')}
-          value={q}
-          onChange={setQ}
-          width="100%"
-        />
+        {/* One row on desktop: the question field takes the free width, the tag filter and the button follow. */}
+        <div className="grow-field">
+          <TextInput
+            type="search"
+            label={t('solve.search.label')}
+            isLabelHidden
+            placeholder={t('solve.search.placeholder')}
+            value={q}
+            onChange={setQ}
+            width="100%"
+          />
+        </div>
         <TextInput
           label={t('solve.tag.label')}
           isLabelHidden
@@ -77,7 +80,10 @@ function QuestionCard({ question }: { question: Question }) {
         <TagList tags={question.tags} />
         <HStack gap={3} wrap="wrap">
           <Byline name={question.author.display_name} />
-          <Text type="supporting">{t('solve.answers.count', { n: question.answer_count })}</Text>
+          {/* With no answer the state badge already says so. */}
+          {question.answer_count > 0 ? (
+            <Text type="supporting">{t('solve.answers.count', { n: question.answer_count })}</Text>
+          ) : null}
           <Text type="supporting">{t('solve.score', { n: question.vote_score })}</Text>
         </HStack>
       </VStack>
