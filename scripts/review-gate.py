@@ -242,6 +242,8 @@ def check_sensitive(gh, repo, pr, author, owner, base):
     shown = ", ".join(hits[:6]) + (" ..." if len(hits) > 6 else "")
     if owner_authored(gh, repo, pr, pull, owner):
         return None, "sensitive paths touched (%s): owner-authored (every commit verified)" % shown
+    if owner_override(gh_api(gh, "repos/%s/issues/%s/events?per_page=100" % (repo, pr)), owner):
+        return None, "sensitive paths touched (%s): cleared by an owner override (label %s added by %s)" % (shown, OVERRIDE_LABEL, owner)
     if owner_state(gh_api(gh, "repos/%s/pulls/%s/reviews?per_page=100" % (repo, pr)), owner) == "APPROVED":
         return None, "sensitive paths touched (%s): approved by the owner" % shown
     return "sensitive paths touched (%s) without the owner's approval" % shown, ""

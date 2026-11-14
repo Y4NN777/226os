@@ -19,11 +19,13 @@ It decides MERGE only if ALL of these hold for the pull request (any other case 
     no header line of the comment (line 5 when present, after Triage, the marker, Tool and Reviewed) is `Deep: PENDING`
     or `Deep: NOT RUN` (the review job's own signal, whatever the lists);
   - (HMAC, #212) a review batch pull request (`fix/review/batch-*`, opened by the owner's account, every commit signed with
-    REVIEW_PIPELINE_HMAC_KEY by the trusted publish job, no owner path) needs no owner click after a deep PASS of the head and
-    with no CRITICAL ever recorded; without the key, or with one bad signature, it needs the owner like any other;
+    REVIEW_PIPELINE_HMAC_KEY by the trusted publish job, no owner path) whose sensitive paths are ALL documentation
+    (`docs/decisions/*`, `docs/quality/*` except REVIEW_CONTEXT.md, `THIRD_PARTY_NOTICES.md`) needs no owner click after a
+    deep PASS of the head and with no CRITICAL ever recorded; any other sensitive path, no key, or one bad signature needs the
+    owner like any other;
   - when a sensitive path is touched, the owner's latest review APPROVED exactly the head commit, or the owner opened
     the pull request and authored every commit on it, each one verified (review-gate.py owner_authored) (stricter than the Review gate, applied whatever the gate mode).
-    The only exemption is the HMAC one above (a review batch pull request whose every commit the trusted publish job
+    The only exemption is the HMAC one above, for documentation-only sensitive paths (a review batch pull request whose every commit the trusted publish job
     signed, one parent each, at most 250, no owner path, a deep PASS of the head, no CRITICAL ever recorded on it, the
     key REVIEW_PIPELINE_HMAC_KEY present). Any other pipeline-made commit (a stage 3 autofix, an unsigned or forged
     one, a batch without the key) needs the owner's approval of the head too; the Review gate never exempts a batch;
@@ -44,6 +46,7 @@ BOT_TOKEN, GH_TOKEN, BASE (default develop), OWNER (default Y4NN777), REQUIRED_C
 "Validate branch promotion,quality,Review gate"), GH_BIN (default gh).
 """
 import base64
+import fnmatch
 import hashlib
 import hmac
 import importlib.util
@@ -135,6 +138,17 @@ def owner_approved_head(gh, repo, number, owner, head):
     return last is not None and last.get("state") == "APPROVED" and last.get("commit_id") == head
 
 
+# The only sensitive paths a signed batch pull request may touch without the owner's click: documentation. Everything else
+# sensitive (platform code, migrations, the contract, deploy, dependency files, scripts, .github, mk) needs the owner.
+DOC_PATTERNS = ("docs/decisions/*", "docs/quality/*", "THIRD_PARTY_NOTICES.md")
+DOC_EXCLUDED = ("docs/quality/REVIEW_CONTEXT.md",)
+
+
+def docs_only(hits):
+    """True when every sensitive path touched is a documentation path (DOC_PATTERNS, REVIEW_CONTEXT.md excepted: the owner's)."""
+    return bool(hits) and all(h not in DOC_EXCLUDED and any(fnmatch.fnmatchcase(h, p) for p in DOC_PATTERNS) for h in hits)
+
+
 def signed_by_pipeline(c, key):
     """True when a commit of the API answer carries a valid `Review-Pipeline-Sig` for its own tree and first parent
     (review-autofix.py sign_commit, the secret REVIEW_PIPELINE_HMAC_KEY), compared in constant time. No key, no signature,
@@ -159,7 +173,8 @@ def pipeline_batch(gh, repo, number, pull, owner, files, key):
     commits = gate.gh_api(gh, "repos/%s/pulls/%s/commits?per_page=100" % (repo, number))
     if not commits or len(commits) > gate.MAX_COMMITS or not all(signed_by_pipeline(c, key) for c in commits):
         return False
-    return bool(files) and not any(autofix.forbidden(f) for f in files)
+    # A documentation path is judged by docs_only (the caller); every other path must not be one the publish guard refuses.
+    return bool(files) and not any(autofix.forbidden(f) for f in files if not docs_only([f]))
 
 
 def sensitive_refusal(gh, repo, number, pull, owner, files, patterns, head, ledger=None):
@@ -171,7 +186,7 @@ def sensitive_refusal(gh, repo, number, pull, owner, files, patterns, head, ledg
     hits = comment.p0_hits(files, patterns)
     if not hits:
         return None
-    if pipeline_batch(gh, repo, number, pull, owner, files, os.environ.get("REVIEW_PIPELINE_HMAC_KEY", "")):
+    if docs_only(hits) and pipeline_batch(gh, repo, number, pull, owner, files, os.environ.get("REVIEW_PIPELINE_HMAC_KEY", "")):
         ledger = ledger if isinstance(ledger, dict) else {}
         deep = ledger.get("deep") if isinstance(ledger.get("deep"), dict) else {}
         if not (deep.get("status") == "PASS" and deep.get("sha") == head):

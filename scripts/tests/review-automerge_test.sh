@@ -52,7 +52,7 @@ chmod +x "$tmp/bin/gh"
 
 printf '{"content":"%s"}' "$(printf '.github/*\nscripts/review-*\nscripts/findings.py\n.claude/*\n' | base64 -w0)" >"$tmp/fx/pipeline-paths.json"
 printf '{"content":"%s"}' "$(printf 'src/api/internal/identity/*\ndb/queries/*\n' | base64 -w0)" >"$tmp/fx/deep-paths.json"
-printf '{"content":"%s"}' "$(printf 'scripts/*\n.github/*\ndocs/ai-usage/*\ndb/migrations/*\n' | base64 -w0)" >"$tmp/fx/contents.json"
+printf '{"content":"%s"}' "$(printf 'scripts/*\n.github/*\ndocs/ai-usage/*\ndb/migrations/*\ndocs/decisions/*\ndocs/quality/*\nsrc/api/internal/platform/*\nTHIRD_PARTY_NOTICES.md\napi/openapi.yaml\n' | base64 -w0)" >"$tmp/fx/contents.json"
 
 # pull [state base headrepo draft labels-json author]
 pull() {
@@ -293,7 +293,7 @@ sig = hmac.new(key.encode(), "\n".join(["226os-review-pipeline", "55555555555555
 msg = "fix(review): x\n\nReview-Pipeline: review-batch/77\nReview-Pipeline-Sig: " + sig
 json.dump([{"sha": head, "author": {"login": "Y4NN777"}, "parents": [{"sha": parent}], "commit": {"message": msg, "tree": {"sha": tree}}}], open(sys.argv[4], "w"))' "$1" "$H" "${2:-5555555555555555555555555555555555555555}" "$tmp/fx/commits.json"
 }
-hmac_case() { reset; files docs/ai-usage/x.md; review_comment "Triage: NONE | blast radius: x" "{\"sha\":\"$H\",\"findings\":[],\"deep\":{\"status\":\"PASS\",\"sha\":\"$H\"}}"; pull open develop o/r false '[]' Y4NN777 $BATCH; }
+hmac_case() { reset; files docs/decisions/0099-x.md; review_comment "Triage: NONE | blast radius: x" "{\"sha\":\"$H\",\"findings\":[],\"deep\":{\"status\":\"PASS\",\"sha\":\"$H\"}}"; pull open develop o/r false '[]' Y4NN777 $BATCH; }
 hmac_case; signed_commits right-key
 HMAC_KEY=right-key run on
 grep -q 'pr merge 7' <<<"$calls" && ok "HMAC: a batch PR on a sensitive path whose every commit is signed by the right key, with a deep PASS of the head, merges without the owner" || ko "hmac valid (out=$out)"
@@ -312,6 +312,20 @@ HMAC_KEY=right-key refused 'owner' "HMAC: a signed commit on a pull request that
 reset; files scripts/review-x.sh; review_comment "Triage: NONE | blast radius: x" "$SENS_OK"; pull open develop o/r false '[]' Y4NN777 $BATCH; signed_commits right-key
 HMAC_KEY=right-key run on
 grep -q 'REFUSE #7' <<<"$out" && grep -q 'review pipeline' <<<"$out" && ! grep -q 'pr merge' <<<"$calls" && ok "HMAC: a signed batch touching a pipeline path is still refused (the owner merges it)" || ko "hmac pipeline path (out=$out)"
+
+# B2: the exemption covers documentation-only sensitive paths; any other sensitive path needs the owner.
+hmac_case; files docs/decisions/0099-x.md; signed_commits right-key
+HMAC_KEY=right-key run on
+grep -q 'pr merge 7' <<<"$calls" && ok "HMAC: a signed batch touching only docs/decisions is exempt from the owner click" || ko "docs exempt ($out)"
+hmac_case; files docs/decisions/0099-x.md THIRD_PARTY_NOTICES.md docs/quality/COVERAGE_SCOPE.md; signed_commits right-key
+HMAC_KEY=right-key run on
+grep -q 'pr merge 7' <<<"$calls" && ok "HMAC: docs/decisions, docs/quality and THIRD_PARTY_NOTICES.md are all documentation paths" || ko "docs exempt 2 ($out)"
+for f in src/api/internal/platform/x.go api/openapi.yaml scripts/x.sh docs/quality/REVIEW_CONTEXT.md docs/ai-usage/x.md; do
+  hmac_case; files docs/decisions/0099-x.md "$f"; signed_commits right-key
+  HMAC_KEY=right-key refused 'owner' "HMAC: a signed batch that also touches $f is not exempt (owner approval of the head)"
+done
+hmac_case; files src/api/internal/platform/x.go; signed_commits right-key
+HMAC_KEY=right-key refused 'owner' "HMAC: a signed batch touching only src/api/internal/platform is refused"
 
 # Behavioural cases that must REFUSE (skeptic follow-up): the exemption holds only when every condition does.
 # batch_commits KEY N [unsigned-index] [merge-index]: N commits, each signed over its own tree and parent.

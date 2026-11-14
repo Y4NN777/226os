@@ -687,7 +687,9 @@ b="$(posted_body)"
 # L5 (deep): the deep summary is redacted per line too.
 HEAD_SHA=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
 comments "[{\"id\":2,\"node_id\":\"N2\",\"user\":{\"login\":\"$BOT\"},\"body\":\"$base_review\",\"updated_at\":\"2026-11-14T09:00:00Z\"}]"
-DJSON='{"level":"NONE","blast_radius":"x","summary":"fine line\nkey ghp_a1B2a1B2a1B2a1B2a1B2a1B2a1B2a1B2a1B2 leaked\nlast line","findings":[]}' deep
+# (the fake token is assembled at run time so no literal in the repository looks like a secret)
+ftok="ghp_""$(printf 'a1B2%.0s' {1..9})"
+DJSON="{\"level\":\"NONE\",\"blast_radius\":\"x\",\"summary\":\"fine line\\nkey $ftok leaked\\nlast line\",\"findings\":[]}" deep
 b="$(posted)"
 ! grep -q 'ghp_a1B2' <<<"$b" && grep -q 'fine line' <<<"$b" && grep -q 'last line' <<<"$b" && ok "L5: a deep summary line that looks like a secret is redacted, the others stay" || ko "L5 deep ($b rc=$rc out=$out)"
 
@@ -723,11 +725,13 @@ done
 
 # Skeptic follow-up: a secret on the verdict line, and a whole PEM block, are redacted.
 comments '[]'
+pem_b="-----BEGIN ""RSA PRIVATE KEY-----"
+pem_e="-----END ""RSA PRIVATE KEY-----"
 HEAD_SHA="$head_sha" JSON="$(rawreview "Triage: HIGH | blast radius: leaks $tok to everyone" "[]" "before
------BEGIN RSA PRIVATE KEY-----
+$pem_b
 MIIEowIBAAKCAQEAsecretkeymaterialline1
 secretkeymaterialline2
------END RSA PRIVATE KEY-----
+$pem_e
 after")" run
 b="$(posted_body)"
 ! grep -q "$tok" <<<"$b" && [ "$(sed -n 1p <<<"$b" | cut -c1-14)" = "Triage: HIGH |" ] && ok "L5: a secret on the verdict line is redacted, the line stays a valid verdict" || ko "L5 first line ($(sed -n 1p <<<"$b"))"

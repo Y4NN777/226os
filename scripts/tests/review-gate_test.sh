@@ -399,6 +399,17 @@ FAKE_FILES_FAIL=1 run enforce dev
 [ "$rc" -eq 1 ] && grep -q 'sensitive paths' <<<"$out" && ok "a GitHub error on the file list fails the sensitive-path check closed (never NOT RUN)" || ko "files fail (rc=$rc out=$out)"
 grep -q 'per_page=100' "$gate" && ok "paged listings ask for per_page=100" || ko "per_page"
 
+# --- owner override also clears a sensitive-path failure (an owner PR with unverified commits must not lock the owner out) ---
+unv() { reset; files scripts/x.sh; printf '[{"sha":"c1","author":{"login":"Y4NN777"},"committer":{"login":"Y4NN777"},"commit":{"message":"own work","verification":{"verified":false}}}]' >"$tmp/fx/commits.json"; }
+unv; run enforce Y4NN777
+[ "$rc" -eq 1 ] && ok "override: an owner PR with unverified commits on a sensitive path fails" || ko "unverified lockout (rc=$rc out=$out)"
+unv; event labeled Y4NN777 2026-11-13T02:00:00Z owner-override; run enforce Y4NN777
+[ "$rc" -eq 0 ] && grep -q 'owner override' <<<"$out" && ok "override: the owner's owner-override label clears the sensitive-path failure" || ko "override clears (rc=$rc out=$out)"
+unv; event labeled dev-user 2026-11-13T02:00:00Z owner-override; run enforce Y4NN777
+[ "$rc" -eq 1 ] && ok "override: the label added by someone else does not clear it" || ko "foreign override (rc=$rc out=$out)"
+reset; files scripts/x.sh; event labeled Y4NN777 2026-11-13T02:00:00Z owner-override; event unlabeled Y4NN777 2026-11-13T03:00:00Z owner-override; run enforce dev
+[ "$rc" -eq 1 ] && ok "override: a removed label no longer clears it" || ko "removed override (rc=$rc out=$out)"
+
 # --- #212 workflow wiring (static): the gate waits for the review and gets the head; a skip repins the ledger ---
 wf="$root/.github/workflows/code-review.yml"
 gate_job="$(sed -n '/^  gate:/,$p' "$wf")"
