@@ -3,6 +3,7 @@ package app
 import (
 	"net/http"
 
+	assistanttransport "github.com/Y4NN777/226os/src/api/internal/assistant/transport"
 	buildtransport "github.com/Y4NN777/226os/src/api/internal/build/transport"
 	"github.com/Y4NN777/226os/src/api/internal/discover/transport"
 	identitytransport "github.com/Y4NN777/226os/src/api/internal/identity/transport"
@@ -26,6 +27,7 @@ type Server struct {
 	auth      *identitytransport.Handler
 	learn     *learntransport.Handler
 	build     *buildtransport.Handler
+	assistant *assistanttransport.Handler
 	solve     *solvetransport.Handler
 }
 
@@ -52,6 +54,9 @@ func WithLearn(h *learntransport.Handler) Option { return func(s *Server) { s.le
 
 // WithBuild sets the S5 project and contribution-need operations. Without it those routes stay 501.
 func WithBuild(h *buildtransport.Handler) Option { return func(s *Server) { s.build = h } }
+
+// WithAssistant sets the S9 assistant operation. Without it POST /assistant/answers stays 501.
+func WithAssistant(h *assistanttransport.Handler) Option { return func(s *Server) { s.assistant = h } }
 
 // WithSolve sets the S3 question and answer operations. Without it those routes stay 501.
 func WithSolve(h *solvetransport.Handler) Option { return func(s *Server) { s.solve = h } }
@@ -337,6 +342,15 @@ func (s *Server) DecideApplication(w http.ResponseWriter, r *http.Request, appli
 		return
 	}
 	s.build.DecideApplication(w, r, applicationID)
+}
+
+// AskAssistant serves the grounded assistant. A server built without WithAssistant stays unimplemented.
+func (s *Server) AskAssistant(w http.ResponseWriter, r *http.Request) {
+	if s.assistant == nil {
+		s.Unimplemented.AskAssistant(w, r)
+		return
+	}
+	s.assistant.AskAssistant(w, r)
 }
 
 // ListQuestions serves GET /questions. A server built without WithSolve stays unimplemented.

@@ -100,6 +100,7 @@ func run(ctx context.Context, getenv func(string) string, out io.Writer, serve s
 		WithSearch(search.NewHandler(pool, limiter, logger)),
 		WithLearn(learn.NewHandler(pool, codec, limiter, logger)),
 		WithBuild(build.NewHandler(pool, github.New(), codec, limiter, logger)),
+		WithAssistant(newAssistantHandler(cfg.AI, pool, limiter, logger)),
 		WithSolve(solve.NewHandler(pool, codec, limiter, logger)),
 	)
 	deps.Subjects = identitytransport.NewResolver(identSvc, secureCookies)
