@@ -630,6 +630,39 @@ func TestSolveEditKeepsAHiddenLinkHidden(t *testing.T) {
 	}
 }
 
+// Issue #156: an edit replaces the visible tags only. A link to a tag a moderator hid stays (the author
+// cannot see it to send it back), so restoring the tag brings it back; the other links are replaced.
+func TestSolveEditKeepsALinkToAHiddenTag(t *testing.T) {
+	s := newSolveStack(t)
+	alice := s.signIn(t, "solve-hiddentag-alice", true, 124)
+	rec := s.write(t, &alice, http.MethodPost, "/api/v1/questions",
+		`{"title":"Titre pour le tag caché","body_md":"Corps.","lang":"fr","tags":["go","mobile-money","tag-cache"]}`, nil)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("ask: %d %s", rec.Code, rec.Body.String())
+	}
+	qid := decodeAs[apigen.Question](t, rec).Id.String()
+	setTag := func(status string) {
+		t.Helper()
+		if _, err := s.conn.Exec(t.Context(), `UPDATE tags SET status = $1 WHERE slug = 'tag-cache'`, status); err != nil {
+			t.Fatal(err)
+		}
+	}
+	setTag("hidden")
+	etag := s.read(t, nil, "/api/v1/questions/"+qid).Header().Get("ETag")
+	rec = s.write(t, &alice, http.MethodPatch, "/api/v1/questions/"+qid, `{"tags":["go"]}`, map[string]string{"If-Match": etag})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("patch %d %s", rec.Code, rec.Body.String())
+	}
+	if got := decodeAs[apigen.Question](t, rec).Tags; strings.Join(got, ",") != "go" {
+		t.Fatalf("tags after the edit %v, want [go] (the hidden tag is not shown)", got)
+	}
+	setTag("active")
+	got := decodeAs[apigen.Question](t, s.read(t, nil, "/api/v1/questions/"+qid)).Tags
+	if strings.Join(got, ",") != "go,tag-cache" {
+		t.Fatalf("tags after the restore %v, want [go tag-cache]: the edit dropped the link to the hidden tag", got)
+	}
+}
+
 func TestSolveSearchRanksByRelevanceThenNewest(t *testing.T) {
 	s := newSolveStack(t)
 	alice := s.signIn(t, "solve-rank-alice", true, 89)

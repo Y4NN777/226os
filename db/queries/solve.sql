@@ -131,7 +131,10 @@ UPDATE questions SET
 WHERE id = sqlc.arg('id')::uuid;
 
 -- name: DeleteSolveQuestionTags :exec
-DELETE FROM question_tags WHERE question_id = sqlc.arg('question_id')::uuid;
+-- Tags are replaced as a set; links to hidden tags are kept (moderator state, issue #156).
+DELETE FROM question_tags qt
+USING tags t
+WHERE qt.question_id = sqlc.arg('question_id')::uuid AND qt.tag_id = t.id AND t.status = 'active';
 
 -- name: InsertSolveQuestionTags :exec
 INSERT INTO question_tags (question_id, tag_id)
