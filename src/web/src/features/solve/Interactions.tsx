@@ -13,32 +13,40 @@ import {
   useCastVote,
   useInteractions,
   useRetractVote,
+  type ViewerVote,
   type VoteState,
   type VoteTarget,
 } from './queries';
 
 /**
- * Score with up and down buttons (when votes are live and the visitor is a member). The score
- * after a vote is the one the server returned; the buttons only send intent.
+ * Score with up and down buttons (when votes are live and the visitor is a member). The pressed
+ * button starts from the viewer's vote in the contract; the score after a vote is the one the
+ * server returned, and the cached question and answers are refreshed. The buttons only send intent.
  */
 export function VoteControls({
   target,
   id,
   score,
+  viewerVote,
+  questionId,
   interactive,
 }: {
   target: VoteTarget;
   id: string;
   score: number;
+  /** The caller's vote as the server last returned it (0 when none or anonymous). */
+  viewerVote: ViewerVote;
+  /** The question whose cached detail and answers are refreshed after a vote. */
+  questionId: string;
   interactive: boolean;
 }) {
   const { t } = useI18n();
-  const cast = useCastVote();
-  const retract = useRetractVote();
+  const cast = useCastVote(questionId);
+  const retract = useRetractVote(questionId);
   const { absorbNotLive } = useInteractions();
   const [state, setState] = useState<VoteState | null>(null);
   const [error, setError] = useState<unknown>(null);
-  const value = state?.value ?? 0;
+  const value = state?.value ?? viewerVote;
 
   const press = async (next: 1 | -1) => {
     setError(null);

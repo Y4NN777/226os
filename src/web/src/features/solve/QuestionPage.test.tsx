@@ -454,6 +454,56 @@ describe('QuestionPage votes and acceptance', () => {
     expect(up[1]).toHaveAttribute('aria-pressed', 'true');
   });
 
+  it('starts from the vote the server says the viewer already cast, and a press retracts it', async () => {
+    setLanguages(['fr-FR']);
+    const voted = answer({ body_md: 'Une autre piste.', viewer_vote: 1, vote_score: 4 });
+    let answerReads = 0;
+    const fetchMock = member(
+      readRoutes({
+        [`GET ${key('/answers')}`]: () => {
+          answerReads += 1;
+          return page([voted, accepted]);
+        },
+        'DELETE /votes': () =>
+          jsonResponse({ target_type: 'answer', target_id: voted.id, value: 0, score: 3 }),
+      }),
+    );
+    const user = userEvent.setup();
+    await renderApp(base);
+    await screen.findByText('Une autre piste.');
+    const up = (
+      await screen.findAllByRole('button', { name: 'Vote positif sur cette réponse' })
+    )[1];
+    expect(up).toHaveAttribute('aria-pressed', 'true');
+
+    await user.click(up as HTMLElement);
+
+    expect(await screen.findByText('Score : 3')).toBeInTheDocument();
+    expect(callsTo(fetchMock, 'DELETE /votes')).toHaveLength(1);
+    expect(callsTo(fetchMock, 'POST /votes')).toHaveLength(0);
+    expect(up).toHaveAttribute('aria-pressed', 'false');
+    await waitFor(() => {
+      expect(answerReads).toBeGreaterThan(1);
+    });
+  });
+
+  it('shows an existing downvote on the question', async () => {
+    setLanguages(['fr-FR']);
+    member(
+      readRoutes({
+        [`GET ${key()}`]: () => withEtag(question({ viewer_vote: -1 }), '"v1"'),
+      }),
+    );
+    await renderApp(base);
+    expect(
+      await screen.findByRole('button', { name: 'Vote négatif sur la question' }),
+    ).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Vote positif sur la question' })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
+  });
+
   it('lets the question author accept an answer and refreshes', async () => {
     setLanguages(['fr-FR']);
     const fetchMock = member(

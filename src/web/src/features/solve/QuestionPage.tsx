@@ -128,6 +128,8 @@ function AnswerItem({
               target="answer"
               id={answer.id}
               score={answer.vote_score}
+              viewerVote={answer.viewer_vote}
+              questionId={answer.question_id}
               interactive={interactive}
             />
           </HStack>
@@ -280,6 +282,8 @@ export function QuestionPage() {
                 target="question"
                 id={question.id}
                 score={question.vote_score}
+                viewerVote={question.viewer_vote}
+                questionId={question.id}
                 interactive={interactive && !isAuthor}
               />
             </HStack>
