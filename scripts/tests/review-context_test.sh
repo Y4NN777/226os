@@ -391,4 +391,44 @@ REPO_DIR="$tmp/repo"
 run
 grep -q "^Head commit: $(git -C "$tmp/repo" rev-parse HEAD)$" <<<"$out" && ok "without PR_HEAD_SHA (a local run) the Head commit is HEAD" || ko "local head ($out)"
 
+# ---------- the one review comment: the marker comment wins over a stale duplicate ----------
+# PRs #100-#102 had two bot Triage comments; the ledger must come from the marked one, never from a stale duplicate.
+reset
+REPO_DIR="$tmp/repo"
+add issue "{\"user\":{\"login\":\"$BOT\"},\"created_at\":\"2026-11-13T10:00:00Z\",\"updated_at\":\"2026-11-14T09:00:00Z\",\"body\":\"Triage: NONE | blast radius: x\\n<!-- 226os-ai-review -->\\n<details><summary>Review ledger</summary>\\n\\n\`\`\`json\\n{\\\"sha\\\":\\\"$first\\\",\\\"findings\\\":[{\\\"id\\\":\\\"marked\\\",\\\"status\\\":\\\"open\\\"}]}\\n\`\`\`\\n</details>\"}"
+add issue "{\"user\":{\"login\":\"$BOT\"},\"created_at\":\"2026-11-13T11:00:00Z\",\"updated_at\":\"2026-11-14T10:00:00Z\",\"body\":\"Triage: MEDIUM | blast radius: x\\n<details><summary>Review ledger</summary>\\n\\n\`\`\`json\\n{\\\"sha\\\":\\\"$first\\\",\\\"findings\\\":[{\\\"id\\\":\\\"stale\\\",\\\"status\\\":\\\"open\\\"}]}\\n\`\`\`\\n</details>\"}"
+run
+grep -q '`marked` \[open\]' <<<"$out" && ! grep -q '`stale`' <<<"$out" && ok "two Triage comments: the ledger comes from the marker comment, even when the other was updated later" || ko "marker ledger ($out)"
+
+reset
+add issue "{\"user\":{\"login\":\"$BOT\"},\"created_at\":\"2026-11-13T10:00:00Z\",\"updated_at\":\"2026-11-14T10:00:00Z\",\"body\":\"Triage: NONE | blast radius: x\\n<details><summary>Review ledger</summary>\\n\\n\`\`\`json\\n{\\\"sha\\\":\\\"$first\\\",\\\"findings\\\":[{\\\"id\\\":\\\"edited-later\\\",\\\"status\\\":\\\"open\\\"}]}\\n\`\`\`\\n</details>\"}"
+add issue "{\"user\":{\"login\":\"$BOT\"},\"created_at\":\"2026-11-13T11:00:00Z\",\"updated_at\":\"2026-11-13T11:00:00Z\",\"body\":\"Triage: MEDIUM | blast radius: x\\n<details><summary>Review ledger</summary>\\n\\n\`\`\`json\\n{\\\"sha\\\":\\\"$first\\\",\\\"findings\\\":[{\\\"id\\\":\\\"created-later\\\",\\\"status\\\":\\\"open\\\"}]}\\n\`\`\`\\n</details>\"}"
+run
+grep -q '`edited-later` \[open\]' <<<"$out" && ! grep -q '`created-later`' <<<"$out" && ok "no marker (an older pull request): the most recently updated Triage comment wins" || ko "updated fallback ($out)"
+
+# ---------- the preview range and the Tool line ----------
+reset
+add issue "$(ledger_comment "$mc_first" '[]')"
+REPO_DIR="$mc"
+PR_HEAD_SHA="$mc_head" run
+grep -q "^PREVIEW_FROM: $mc_first$" <<<"$out" && grep -q "^PREVIEW_TO: $mc_head$" <<<"$out" && ok "incremental: the preview range is <ledger sha> to <head>" || ko "preview range incremental ($out)"
+reset
+PR_HEAD_SHA="$mc_head" run
+grep -q '^PREVIEW_FROM: origin/develop$' <<<"$out" && grep -q "^PREVIEW_TO: $mc_head$" <<<"$out" && ok "first review: the preview range is the base branch to the head" || ko "preview range first ($out)"
+REPO_DIR="$tmp/repo"
+
+printf '# Files (3 reviewable / 7 total)\n\n- mode: range\n  - `scripts/x.py` [modified] +1/-0\n' >"$tmp/preview.txt"
+tout="$(python3 -I "$tool" tool "$tmp/preview.txt" 0)"
+grep -q '^Tool: PASS (3 files)$' <<<"$tout" && grep -q 'scripts/x.py' <<<"$tout" && grep -q 'UNTRUSTED DATA' <<<"$tout" && ok "a preview that ran: Tool: PASS (3 files) and the list in the pack" || ko "tool pass ($tout)"
+tout="$(python3 -I "$tool" tool "$tmp/preview.txt" 124)"
+grep -q '^Tool: NOT RUN (the preview timed out)$' <<<"$tout" && ! grep -q 'scripts/x.py' <<<"$tout" && ok "a preview that timed out: Tool: NOT RUN with the reason, no list" || ko "tool timeout ($tout)"
+tout="$(python3 -I "$tool" tool "$tmp/preview.txt" 1)"
+grep -q '^Tool: NOT RUN (the preview exited with code 1)$' <<<"$tout" && ok "a preview that failed: Tool: NOT RUN with its exit code" || ko "tool fail ($tout)"
+printf 'npm ERR! network\n' >"$tmp/preview-bad.txt"
+tout="$(python3 -I "$tool" tool "$tmp/preview-bad.txt" 0)"
+grep -q '^Tool: NOT RUN (no file list in the preview output)$' <<<"$tout" && ok "a preview without a file list: Tool: NOT RUN" || ko "tool no list ($tout)"
+rc=0
+tout="$(python3 -I "$tool" tool "$tmp/missing.txt" 0)" || rc=$?
+[ "$rc" -eq 0 ] && grep -q '^Tool: NOT RUN' <<<"$tout" && ok "a missing preview file: Tool: NOT RUN, exit 0" || ko "tool missing (rc=$rc $tout)"
+
 finish

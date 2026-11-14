@@ -44,6 +44,8 @@ scripts/review.sh ocr delegate preview [user-args]
 
 This outputs mode/ref metadata and the reviewable file list.
 
+In CI the workflow has already run the preview on the Range: its list is in the pack ("Files the tool selected") with a fixed `Tool:` line. Review from that list plus Step 1b and do not run the preview again; when it says `Tool: NOT RUN`, Step 1b covers every changed file.
+
 ### Step 1b: Files the preview skips (you review them yourself)
 
 `open-code-review` does not read `.sql` files or several other types, and the concurrency bugs of this project live in SQL. List what changed in the Range and read the diff of every file the preview did not list, in particular `db/queries/**`, `db/migrations/**`, `api/openapi.yaml`, `scripts/**`, `mk/**` and `.github/**`:
@@ -115,16 +117,16 @@ There is no per-dimension table: it cost the reader time and told them nothing t
 
 **State the blast radius** in one phrase: this PR only, one slice, other people's work, the whole team, or production and users.
 
-**Calibrate before you write.** Follow the severity calibration of the project context: MEDIUM needs a concrete failing scenario (input, then wrong result); an INFERRED worry without one is a one-line note. At most 5 findings plus 3 notes; if nothing is above a note the level is `NONE`, say so and stop. Do not write about wording, naming, comment style, `AI_USAGE.md` bookkeeping, or anything CI already proves.
+**Calibrate before you write.** Follow the severity calibration of the project context: MEDIUM needs a concrete failing scenario (input, then wrong result). On a P0 path (authentication, sessions, tokens, CSRF, rate limits, authorization, money or data writes, concurrency), an INFERRED concern with a plausible failing scenario (input, then wrong result) is a MEDIUM finding marked INFERRED, not a note. Elsewhere an INFERRED worry without a scenario is a one-line note. At most 5 findings plus 3 notes; if nothing is above a note the level is `NONE`, say so and stop. Do not write about wording, naming, comment style, `AI_USAGE.md` bookkeeping, or anything CI already proves.
 
-**Post ONE summary comment and EDIT it on every run; never add a new one.** Use `gh pr comment <number> --edit-last --create-if-none --body "<text>"` (CI tools allow no file writes; locally you may use `--body-file` with a file outside the repository). The comment is shaped like this:
+**ONE review comment per pull request, written by a script, never by `gh pr comment --edit-last`** (it edits the bot's last comment, whatever it is, and made duplicates on #100 to #102). In CI, return the text as the `body` of your structured output; the workflow writes it with `scripts/review-comment.py`. Locally, write the text to a file outside the repository and run `REPO=<owner/name> PR_NUMBER=<n> REVIEW_BODY_FILE=<file> python3 -I scripts/review-comment.py`. The script puts the marker on line 2 and the workflow's `Tool:` line on line 3: do not write either yourself. The comment is shaped like this:
 
 ```
 Triage: <CRITICAL|HIGH|MEDIUM|NONE> | blast radius: <phrase>
 
 <Findings, at most 5, worst first. Each: `id`, level, `file:line`, the failing scenario (input, then wrong result), the fix. CRITICAL and HIGH in detail, MEDIUM as one line.>
 <Notes, at most 3, one line each: a remark without a failing scenario, each marked OBSERVED (you read it in the code) or INFERRED (a guess to check). Do not repeat a note listed in the pack under "Notes already decided".>
-Coverage: <reviewed by the tool>/<total>, plus <n> files you read yourself (Step 1b). Range: <range>. Gates and tests were NOT RUN by this review; rely on CI.
+Coverage: <n> of the tool's files reviewed, plus <n> files you read yourself (Step 1b). Range: <range>. Gates and tests were NOT RUN by this review; rely on CI.
 
 <details><summary>Review ledger</summary>
 
