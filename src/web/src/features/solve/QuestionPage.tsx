@@ -296,7 +296,11 @@ export function QuestionPage() {
         </VStack>
       ) : session.isPending ? null : (
         <HStack>
-          <Button label={t('solve.answer.signIn')} href={signInHref(`/questions/${question.id}`)} />
+          <Button
+            variant="primary"
+            label={t('solve.answer.signIn')}
+            href={signInHref(`/questions/${question.id}`)}
+          />
         </HStack>
       )}
     </VStack>

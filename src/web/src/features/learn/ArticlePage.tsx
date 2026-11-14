@@ -53,7 +53,8 @@ function Detail({ article }: { article: Article }) {
         </Breadcrumbs>
         {/* The content keeps its own language, whatever the interface language is. */}
         <article lang={article.lang}>
-          <VStack gap={4}>
+          {/* A readable line length for long lessons. */}
+          <VStack gap={4} maxWidth={720}>
             <VStack gap={2}>
               <Heading level={1}>{article.title}</Heading>
               {article.summary ? <Text as="p">{article.summary}</Text> : null}
