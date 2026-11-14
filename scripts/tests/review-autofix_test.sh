@@ -233,7 +233,9 @@ git -C "$repo" reset -q --hard HEAD~1
 for forbidden in api/openapi.yaml db/migrations/00099_x.sql docs/decisions/0011-x.md secrets/x.enc.env .github/workflows/x.yml .review-context.md .npmrc src/web/.npmrc docs/team/OWNER_PREFERENCES.md \
     docs/quality/COVERAGE_SCOPE.md docs/quality/REVIEW_CONTEXT.md scripts/review-gate.py scripts/findings.py scripts/close-merged-issues.py \
     scripts/coverage-go.sh scripts/check-docs.py Makefile mk/20-gates.mk .github/pipeline-paths.txt .github/sensitive-paths.txt \
-    .github/deep-review-paths.txt scripts/gitleaks-ignore.txt scripts/public-routes.txt scripts/unimplemented-routes.txt scripts/authz-tests.txt; do
+    .github/deep-review-paths.txt scripts/gitleaks-ignore.txt scripts/public-routes.txt scripts/unimplemented-routes.txt scripts/authz-tests.txt \
+    scripts/tests/review-comment_test.sh scripts/tests/review-comment-levels.py scripts/tests/review-automerge_test.sh scripts/tests/findings_test.sh \
+    scripts/tests/findings-settle_test.sh scripts/tests/lib.sh scripts/tests/review-agent-triggers_test.sh; do
   mkdir -p "$repo/$(dirname "$forbidden")"; echo x >>"$repo/$forbidden"; g add -f "$forbidden"; g commit -qm "fix: touch"
   check
   [ "$rc" -ne 0 ] && grep -q "$forbidden" <<<"$out" && ok "guard: $forbidden is refused (owner path)" || ko "forbidden $forbidden (rc=$rc $out)"
@@ -426,6 +428,9 @@ run body ISSUE=40 ITEMS="$items" RESULT_JSON='not json'
 
 run body ISSUE=40 ITEMS='#12' RESULT_JSON='{"outcome":"fixed","reason":"closes #7","results":[{"item":"#12","verdict":"FIXED","reason":"fixes #5 and resolves #6, see owner/repo#8"}]}'
 ! grep -qiE '(close|fix|resolve)[a-z]*:? +#[0-9]' <<<"$out" && ! grep -qE '#[5678]' <<<"$out" && ok "body: closing keywords and references written by the model are neutralised" || ko "body keywords ($out)"
+# H6 (independent review of #187): every issue reference form is neutralised, not only #N: GH-N and issue or pull URLs.
+run body ISSUE=40 ITEMS='#12' RESULT_JSON='{"outcome":"fixed","reason":"closes gh-3","results":[{"item":"#12","verdict":"FIXED","reason":"fixes GH-6 and resolves https://github.com/o/r/issues/9, closes https://github.com/o/r/pull/10"}]}'
+! grep -qiE 'gh-[0-9]' <<<"$out" && ! grep -qE 'github\.com/[^ ]*/(issues|pull)/' <<<"$out" && ok "body: GH-N and issue or pull request URLs written by the model are neutralised" || ko "body GH-N and URLs ($out)"
 
 
 # ---- the context the fixer gets (detail, fix, permalink), written to a file by the trusted script ----
@@ -552,5 +557,19 @@ tr="$(git -C "$w3" log -1 --format=%B | grep '^Review-Pipeline: ' || true)"
 [ "$tr" = "Review-Pipeline: autofix-test/4242" ] && ok "apply: the commit carries Review-Pipeline: <workflow>/<run_id> from GITHUB_WORKFLOW and GITHUB_RUN_ID" || ko "pipeline trailer ($tr)"
 run check BASE_SHA="$wb3" WORKTREE="$w3" EXPECT_NAME=Y4NN77 EXPECT_EMAIL=fixer@example.invalid
 [ "$rc" -eq 0 ] && ok "apply: the commit with the dropped trailer and the Review-Pipeline trailer passes the guard (the fix is not lost)" || ko "apply then check trailer (rc=$rc $out)"
+
+
+# H6 (independent review of #187): a commit message from the fixer lands on develop, the default branch, where GitHub acts
+# on closing keywords: every issue reference form in the subject and body is neutralised by the trusted apply step.
+w4="$tmp/w4"
+git clone -q "$r3" "$w4"
+echo refs >>"$r3/src/a.go"
+git -C "$r3" -c user.name=claude -c user.email=x@y commit -qam "fix(solve): closes #5 and gh-6
+
+Resolves owner/repo#7, fixes https://github.com/o/r/issues/8 and closes https://github.com/o/r/pull/9."
+pd4="$tmp/pd4"; git -C "$r3" format-patch -q -o "$pd4" HEAD~1..HEAD
+run apply GITHUB_WORKFLOW="autofix-test" GITHUB_RUN_ID=4243 PATCH_DIR="$pd4" WORKTREE="$w4" EXPECT_NAME=Y4NN77 EXPECT_EMAIL=fixer@example.invalid
+msg="$(git -C "$w4" log -1 --format=%B)"
+[ "$rc" -eq 0 ] && ! grep -qE '#[0-9]' <<<"$msg" && ! grep -qiE 'gh-[0-9]' <<<"$msg" && ! grep -qE 'github\.com/[^ ]*/(issues|pull)/' <<<"$msg" && grep -q '^Review-Pipeline: autofix-test/4243$' <<<"$msg" && ok "apply: issue references (#N, GH-N, owner/repo#N, issue and pull URLs) in a fixer commit message are neutralised, the trailer kept" || ko "apply refs (rc=$rc $out $msg)"
 
 finish

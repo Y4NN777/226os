@@ -21,10 +21,12 @@ dashboard says what to fix next. Nobody files a finding by hand: classifying one
              update never unticks a box; when that pull request is merged into develop, or every source is closed or
              decided, the batch is closed as completed and the next run starts a new one. It never writes to a source issue and never mentions anyone. `--print` writes nothing.
   settle PR  when the batch fix pull request PR (fix/review/batch-*) is merged into develop, its results table settles
-             each source: FIXED and FIXED ELSEWHERE close a finding issue as completed, NOT A DEFECT and DECIDED as not
-             planned; a note's box is ticked with the decision; OWNER and AFTER FREEZE stay open. One comment per touched
-             source ("Settled by #PR (review batch #N): ..."), once (marker); a notes issue whose boxes are all ticked is
-             closed as completed; the batch issue closes last. Fails CLOSED like `batch`.
+             each source. Only FIXED and FIXED ELSEWHERE act: they close a finding issue as completed or tick a note's
+             box. NOT A DEFECT and DECIDED never close or tick anything (a model verdict is not a decision): their
+             reason is posted as a comment and a human closes the issue as not planned or ticks the box; OWNER and AFTER
+             FREEZE stay open. One comment per touched source ("Settled by #PR (review batch #N): ..."), once (marker); a
+             notes issue whose boxes are all ticked is closed as completed; the batch issue closes last. Fails CLOSED like
+             `batch`.
 
 Every issue is self-contained: the ledger entry's `detail` (proof and reasoning), `fix`, `source` (review or deep), a
 permalink at `first_sha` (only when the location was verified) and a link to the exact review comment are written in it,
@@ -551,8 +553,11 @@ def merged_fix(ctx, binary, repo, issue):
 
 SETTLE_MARK = "<!-- settled-by:PR%s -->"
 DECISIONS = ("FIXED", "FIXED ELSEWHERE", "NOT A DEFECT", "DECIDED", "OWNER", "AFTER FREEZE")
-CLOSE_AS = {"FIXED": "completed", "FIXED ELSEWHERE": "completed", "NOT A DEFECT": "not_planned", "DECIDED": "not_planned"}
-STAYS_OPEN = {"OWNER": "stays open for the owner", "AFTER FREEZE": "stays open until after the freeze"}
+# Only a fix closes or ticks by itself; NOT A DEFECT and DECIDED are the fixer's opinion: a human closes or ticks them.
+CLOSE_AS = {"FIXED": "completed", "FIXED ELSEWHERE": "completed"}
+STAYS_OPEN = {"OWNER": "stays open for the owner", "AFTER FREEZE": "stays open until after the freeze",
+              "NOT A DEFECT": "stays open: a human closes it as not planned if they agree",
+              "DECIDED": "stays open: a human closes it as not planned or ticks it if they agree"}
 SETTLE_ROW = re.compile(r"^\|\s*(#\d+(?:/[\w-]+)?)\s*\|")
 BATCH_PREFIX = "fix/review/batch-"
 
@@ -616,8 +621,8 @@ def settle_issue(ctx, binary, repo, pr, batch_no, number, entries):
             batch_write(binary, "PATCH", endpoint, [("body", new)])
         if seen and ticked_all and issue.get("state") == "open":
             batch_write(binary, "PATCH", endpoint, [("state", "closed"), ("state_reason", "completed")])
-        detail = "; ".join("`%s` %s" % (one_line(n, 40), d if d in CLOSE_AS else "%s (%s)" % (d, STAYS_OPEN[d]))
-                           for n, d, _ in entries if n)
+        detail = "; ".join("`%s` %s" % (one_line(n, 40), d if d in CLOSE_AS else "%s (%s)%s" % (
+            d, STAYS_OPEN[d], ": " + one_line(r, 200) if d in ("NOT A DEFECT", "DECIDED") else "")) for n, d, r in entries if n)
     else:
         _, decision, reason = entries[0]
         if decision in CLOSE_AS and issue.get("state") == "open":

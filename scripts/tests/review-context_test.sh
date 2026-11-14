@@ -10,7 +10,7 @@ root="$(cd "$here/../.." && pwd)"
 # shellcheck source=scripts/tests/lib.sh
 source "$here/lib.sh"
 tool="$root/scripts/review-context.py"
-unset PR_HEAD_SHA DIFF_FILE
+unset PR_HEAD_SHA DIFF_FILE DEEP_DIFF_FILE
 
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
@@ -504,5 +504,50 @@ assert len(a["detail"]) == 600 and a["fix"] == "one line" and a["source"] == "de
 assert a["deep"]["detail"] == "dd" and a["deep"]["sev"] == "HIGH" and a["deep"]["line"] == 7
 assert b["detail"] == "" and b["fix"] == "" and b["source"] == "review" and b["first_sha"] == "" and b["location"] == "" and b["deep"] is None and b["redacted"] is False
 EOF
+
+
+# H1 (independent review of #187): the deep review must cover every commit since its last PASS. When the previous ledger
+# has no deep review PASS of its own sha (cancelled, NOT RUN or never run), the deep range is the whole pull request,
+# even when stage 1 reviews only the new commits; DEEP_DIFF_FILE gets that diff.
+deep_ledger() { # DEEP-JSON (or empty): the previous review comment, ledger sha = the first commit
+  python3 -I - "$tmp/fx/issue.json" "$first" "$1" <<'PY'
+import json, sys
+path, sha, deep = sys.argv[1:4]
+led = {"sha": sha, "findings": []}
+if deep:
+    led["deep"] = json.loads(deep)
+body = "Triage: NONE | blast radius: x\n<!-- 226os-ai-review -->\nTool: PASS (1 files)\n\n<details><summary>Review ledger</summary>\n\n```json\n" + json.dumps(led) + "\n```\n\n</details>"
+json.dump([{"user": {"login": "github-actions[bot]"}, "created_at": "2026-11-13T10:00:00Z", "body": body}], open(path, "w"))
+PY
+}
+deep_case() { # DEEP-JSON WANT-RANGE DESCRIPTION
+  reset; deep_ledger "$1"; rm -f "$tmp/deep.patch"
+  DEEP_DIFF_FILE="$tmp/deep.patch" run
+  if [ "$2" = full ]; then
+    grep -qx 'DEEP_RANGE: origin/develop...HEAD' <<<"$out" && grep -q 'Deep range: `origin/develop...HEAD`' <<<"$out" && grep -q 'a.txt' "$tmp/deep.patch" && grep -q 'b.txt' "$tmp/deep.patch" && grep -q "$first..HEAD" <<<"$out" \
+      && ok "deep range: $3: the whole pull request (stage 1 still reviews only the new commits)" || ko "deep range full $3 ($(grep -E '^DEEP_RANGE|Deep range|Range' <<<"$out"); $(cat "$tmp/deep.patch" 2>/dev/null | grep '^diff'))"
+  else
+    grep -qx "DEEP_RANGE: $first..HEAD" <<<"$out" && ! grep -q 'Deep range:' <<<"$out" && grep -q 'b.txt' "$tmp/deep.patch" && ! grep -q 'a.txt' "$tmp/deep.patch" \
+      && ok "deep range: $3: the same range as stage 1" || ko "deep range incremental $3 ($(grep -E '^DEEP_RANGE|Deep range' <<<"$out"); $(cat "$tmp/deep.patch" 2>/dev/null | grep '^diff'))"
+  fi
+}
+deep_case "" full "the previous ledger has no deep review"
+deep_case "{\"status\":\"NOT RUN\",\"sha\":\"$first\"}" full "the previous deep review was NOT RUN"
+deep_case '{"status":"PASS","sha":"0000000000000000000000000000000000000000"}' full "the previous deep PASS is of another commit"
+deep_case "{\"status\":\"PASS\",\"sha\":\"$first\"}" incremental "the previous deep review PASSED on the ledger's own commit"
+reset; DEEP_DIFF_FILE="$tmp/deep.patch" run
+grep -qx 'DEEP_RANGE: origin/develop...HEAD' <<<"$out" && ok "deep range: no ledger: the whole pull request" || ko "deep range no ledger ($(grep '^DEEP_RANGE' <<<"$out"))"
+
+# The workflow hands that diff to the deep job (static check of .github/workflows/code-review.yml, stdlib only).
+python3 -I - "$root/.github/workflows/code-review.yml" <<'PY' && ok "code-review.yml: the pack step writes DEEP_DIFF_FILE, the hand-off ships it as the deep diff, the deep prompt reviews the Deep range" || ko "code-review.yml deep range wiring"
+import re, sys
+text = open(sys.argv[1], encoding="utf-8").read()
+pack = text[text.index("- name: Build the review context pack and decide"):text.index("- name: Preview the files to review")]
+assert re.search(r"^\s+DEEP_DIFF_FILE: \.review-deep-diff\.patch$", pack, re.M), "pack env"
+hand = text[text.index("- name: Hand the context pack to the deep review"):text.index("- name: Upload the context pack")]
+assert '.review-deep-diff.patch "$RUNNER_TEMP/review-pack/diff.patch"' in hand, "hand-off copy"
+deep = text[text.index("- name: Deep review (adversarial, read-only)"):text.index("- name: Merge the deep findings into the review comment")]
+assert "Deep range" in deep, "deep prompt"
+PY
 
 finish

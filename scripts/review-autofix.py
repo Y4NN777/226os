@@ -18,7 +18,9 @@ whether its commits may be pushed. The workflows only call this script; the mode
          from SOURCE_REF (work tree only) and marks them skip-worktree so `git add -A` never stages them.
   apply  the trusted job's way in: validates the patch files of PATCH_DIR (at most 20, at most 1 MB in all, names
          NNNN-slug.patch), then applies each one with `git apply --index` and commits it itself as EXPECT_NAME
-         <EXPECT_EMAIL> (author and committer), hooks off: the untrusted job's From: line is never trusted.
+         <EXPECT_EMAIL> (author and committer), hooks off: the untrusted job's From: line is never trusted. Every
+         issue reference in the subject and body (#N, owner/repo#N, GH-N, issue and pull URLs) is neutralised: the
+         commit lands on develop, the default branch, where a closing keyword would act.
   check  the guard before any push, run from a trusted copy: at least one new commit since BASE_SHA; every author and
          committer is EXPECT_NAME <EXPECT_EMAIL>; no Co-authored-by trailer and no "Generated with" line; no symbolic
          link, submodule, file mode change, binary change or new executable outside scripts/; and every changed path,
@@ -27,7 +29,8 @@ whether its commits may be pushed. The workflows only call this script; the mode
          public/, the contract copy and generated code), db/queries/**, scripts/tests/**,
          docs/ai-usage/** and TODO.md. The deny list stays as a second layer: the contract (R7),
          migrations (R6), ADRs, docs/quality, secrets, .env files, any .npmrc, .github, the Claude harness, Make files,
-         the review, findings, coverage and check scripts, the route and secret-scan lists, the owner's preferences.
+         the review, findings, coverage and check scripts, the pipeline's own tests (scripts/tests/review-*,
+         findings*, lib.sh), the route and secret-scan lists, the owner's preferences.
          Exit 1 with the reason; the workflow then labels needs-owner.
   run    `run CMD ARGS...`, installed as `fixer-run` for the model: git status|diff|log|show with an allowlist of
          options, go test with an allowlist of flags (-run, -count, -race, -tags, -v, -timeout) and ./ package paths,
@@ -43,8 +46,10 @@ whether its commits may be pushed. The workflows only call this script; the mode
          exit 0, no items.
   body   the batch pull request body from the fixer's structured result (RESULT_JSON): it names the batch issue
          (#ISSUE, which closes the batch on merge) and has one table row per item (item, source, decision, reason): FIXED,
-         FIXED ELSEWHERE, NOT A DEFECT, DECIDED, OWNER or AFTER FREEZE. `findings.py settle` reads it on merge. Model text is data: @-mentions and #N references (so closing keywords)
-         are neutralised, pipes escaped.
+         FIXED ELSEWHERE, NOT A DEFECT, DECIDED, OWNER or AFTER FREEZE. `findings.py settle` reads it on merge: only
+         FIXED and FIXED ELSEWHERE close or tick a source; the others get a comment and stay open for a human. Model
+         text is data: @-mentions and every issue reference form (#N, owner/repo#N, GH-N, issue and pull URLs, so
+         closing keywords) are neutralised, pipes escaped.
 
 Mode: AUTO_FIX = off | report (default: says what it would do, writes nothing) | on. HAS_TOKEN must be `true` (the
 publish jobs alone hold secrets.REVIEW_AGENT_TOKEN, in the environment review-agent, so the decide and plan jobs pass
@@ -79,7 +84,9 @@ FORBIDDEN_EXACT = ("api/openapi.yaml", "CLAUDE.md", "CLAUDE.local.md", "AGENTS.m
                    ".mcp.json", ".claude.json", ".gitmodules")
 FORBIDDEN_PREFIX = ("db/migrations/", "docs/decisions/", "docs/quality/", "secrets/", ".github/", ".claude/", "mk/",
                     ".husky/")
-FORBIDDEN_GLOB = ("scripts/review-*.py", "scripts/coverage-*.sh", "scripts/check-*.py", "scripts/check-*.sh")
+# The pipeline's own tests are the owner's too: a fix must never weaken the tests that guard the pipeline.
+FORBIDDEN_GLOB = ("scripts/review-*.py", "scripts/coverage-*.sh", "scripts/check-*.py", "scripts/check-*.sh",
+                  "scripts/tests/review-*", "scripts/tests/findings*", "scripts/tests/lib.sh", "scripts/tests/review-agent-*")
 FORBIDDEN_NAMES = (".npmrc",)
 # The fixer may change ONLY these (an allowlist); everything else is the owner's. Inside src/, the web build, lint,
 # format, type and test-threshold configuration and the package manifest stay the owner's too.
@@ -112,6 +119,7 @@ MAX_PATCHES = 20
 MAX_PATCH_BYTES = 1000000
 ITEM_KEY = re.compile(r"^#\d+(?:/[\w-]+)?$")
 TRAILER = re.compile(r"^\s*co-authored-by:|generated with", re.I | re.M)
+ZWSP = chr(0x200B)
 # Generated sqlc output: a hand edit is invisible in review; it may change only together with db/queries (regeneration).
 DBGEN_GENERATED = re.compile(r"^src/api/internal/platform/dbgen/(?:(?:db|models|querier)\.go|[^/]+\.sql\.go)$")
 
@@ -515,6 +523,9 @@ def cmd_apply():
                 body = "\n".join(l for l in fh.read().splitlines() if not TRAILER.search(l)).strip()
             if not subject:
                 raise RuntimeError("%s has no subject" % f)
+            # The commit lands on develop, the default branch, where GitHub acts on closing keywords: the model's
+            # issue references never close or link anything.
+            subject, body = disarm_refs(subject), disarm_refs(body)
             subprocess.run([git, "-C", worktree, *quiet, "apply", "--index", diff], capture_output=True, timeout=60, check=True)
             subprocess.run([git, "-C", worktree, *quiet, "commit", "-q", "--no-verify", "-m", subject + ("\n\n" + body if body else "") + "\n\n" + pipeline_trailer()],
                            env=env, capture_output=True, timeout=60, check=True)
@@ -568,10 +579,19 @@ def cmd_prepare():
     return 0
 
 
+def disarm_refs(text):
+    """Every issue reference form GitHub acts on, broken with a zero-width space, so no closing keyword can close or link
+    anything: `#5` and `owner/repo#5` (`#\u200b5`), `GH-5` (`GH-\u200b5`), and issue or pull request URLs
+    (`github\u200b.com`)."""
+    text = re.sub(r"#(?=\d)", "#" + ZWSP, str(text or ""))
+    text = re.sub(r"(?i)\b(gh)-(?=\d)", lambda m: m.group(1) + "-" + ZWSP, text)
+    return re.sub(r"(?i)\bgithub\.com", lambda m: m.group(0)[:6] + ZWSP + m.group(0)[6:], text)
+
+
 def cell(text, width=300):
-    text = re.sub(r"@(?=[A-Za-z0-9_-])", "@" + chr(0x200B), " ".join(str(text or "").split()))
+    text = re.sub(r"@(?=[A-Za-z0-9_-])", "@" + ZWSP, " ".join(str(text or "").split()))
     # A reference written by the model never links or closes anything: `fixes #5` becomes `fixes #\u200b5`.
-    text = re.sub(r"#(?=\d)", "#" + chr(0x200B), text)
+    text = disarm_refs(text)
     text = text.replace("|", "\\|")
     return text if len(text) <= width else text[: width - 1] + "..."
 
@@ -605,8 +625,9 @@ def cmd_body():
         verdict = " ".join(str(r.get("verdict", "")).upper().split())
         out.append("| %s | %s | %s | %s |" % (key, key.split("/", 1)[0], verdict if verdict in VERDICTS else "OWNER", cell(r.get("reason"))))
     out += ["", "Outcome: %s. %s" % (cell(data.get("outcome"), 20), cell(data.get("reason"))), "",
-            "Written by the CI fixer (`.claude/commands/review-fix.md`). Humans still close or tick each source with the "
-            "reason; this pull request goes through review like any other."]
+            "Written by the CI fixer (`.claude/commands/review-fix.md`). On merge, FIXED and FIXED ELSEWHERE close or tick "
+            "their source; every other decision is only a comment: a human closes or ticks that source with the reason. "
+            "This pull request goes through review like any other."]
     print("\n".join(out))
     return 0
 

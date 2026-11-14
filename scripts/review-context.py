@@ -138,18 +138,32 @@ def base_file(gh, git, repo, base, path):
         return None
 
 
+def last_match(pattern, text):
+    found = None
+    for found in pattern.finditer(text or ""):
+        pass
+    return found
+
+
 def ledger_json(body):
-    """The ledger JSON text of a bot comment: the fenced block inside <details> (current format), else the hidden
-    comment line (previous format), else None."""
-    m = FENCED.search(body) or LEDGER.search(body)
+    """The ledger JSON text of a bot comment: the LAST fenced block inside <details> (current format; the same block
+    scripts/review-comment.py reads and writes), else the last hidden comment line (previous format), else None."""
+    m = last_match(FENCED, body) or last_match(LEDGER, body)
     return m.group(1) if m else None
 
 
+def norm_status(value):
+    """Trimmed and lower-case; anything but answered, accepted or fixed (unknown or missing) is open (review-comment.py
+    norm_status: a status the script cannot read never hides an entry)."""
+    value = str(value or "").strip().lower()
+    return value if value in ("answered", "accepted", "fixed") else "open"
+
+
 def parse_finding(f):
-    """One ledger entry, normalised and bounded, or None when it is not valid."""
-    if not isinstance(f, dict) or str(f.get("status")) not in STATUSES or not f.get("id"):
+    """One ledger entry, normalised and bounded, or None when it is not valid (not an object, or no id)."""
+    if not isinstance(f, dict) or not f.get("id"):
         return None
-    sev = str(f.get("sev", "MEDIUM")).upper()
+    sev = str(f.get("sev") or "MEDIUM").upper()
     line = f.get("line")
     # kind: a defect (`finding`, the default so older ledgers keep working) or a remark (`note`). A note is never a
     # reason for a new review or a ping, whatever severity the model wrote: its severity is pinned to LOW.
@@ -162,7 +176,7 @@ def parse_finding(f):
         "evidence": evidence if evidence in EVIDENCE else "INFERRED",
         "id": str(f["id"])[:40],
         "title": str(f.get("title") or f.get("scenario") or f["id"])[:200],
-        "status": str(f["status"]),
+        "status": norm_status(f.get("status")),
         "sev": "LOW" if kind == "note" else (sev if sev in SEVERITIES else "MEDIUM"),
         "file": str(f.get("file", ""))[:300],
         "line": line if isinstance(line, int) else 0,
@@ -215,11 +229,14 @@ def parse_ledger(comments):
         data["sha"] = next((str(data[k]) for k in ("sha", "last_reviewed_commit", "commit") if data.get(k)), "")
         if not HEX.match(data["sha"]):
             continue
-        entries = data.get("findings") if isinstance(data.get("findings"), list) else []
-        findings = [x for x in (parse_finding(f) for f in entries) if x]
+        if not isinstance(data.get("findings"), list):
+            continue  # findings that are not a list: an unusable ledger, never an empty one
+        findings = [x for x in (parse_finding(f) for f in data["findings"]) if x]
+        deep = data.get("deep") if isinstance(data.get("deep"), dict) else {}
+        deep = {"status": str(deep.get("status") or ""), "sha": str(deep.get("sha") or "")}
         stamp = c.get("updated_at") or c.get("created_at") or ""
         if best is None or stamp >= best[0]:
-            best = (stamp, {"sha": data["sha"], "findings": findings[:50], "url": str(c.get("html_url") or "")})
+            best = (stamp, {"sha": data["sha"], "findings": findings[:50], "url": str(c.get("html_url") or ""), "deep": deep})
     return None if best is None else best[1]
 
 
@@ -297,6 +314,25 @@ def review_range(git, base, ledger, head="HEAD"):
     else:
         reason = ""
     return "origin/%s...%s" % (base, head or "HEAD"), False, reason, None
+
+
+def deep_range(base, ledger, rng, incremental, head="HEAD"):
+    """(range, reason) of the deep review: the stage 1 range when the previous ledger records a deep review PASS of its
+    own sha (the deep review already covered everything up to it), else the whole pull request with the reason: a deep
+    run that was cancelled, NOT RUN or never ran must not leave commits that no deep review read."""
+    full = "origin/%s...%s" % (base, head or "HEAD")
+    if not incremental or not ledger:
+        return full, ""
+    deep = ledger.get("deep") or {}
+    if deep.get("status") == "PASS" and deep.get("sha") == ledger["sha"]:
+        return rng, ""
+    if not deep.get("status"):
+        why = "the previous review has no deep review"
+    elif deep.get("status") != "PASS":
+        why = "the previous deep review was %s" % clip(deep["status"], 20)
+    else:
+        why = "the previous deep review PASS is not of the last reviewed commit"
+    return full, why
 
 
 def diff_argv(git, rng, paths=None, extra=()):
@@ -638,15 +674,19 @@ def main():
     rng, incremental, why, paths = review_range(git, base, ledger, head)
     decision = decide(git, ledger, incremental, head, paths)
     preview_from = ledger["sha"] if incremental else "origin/%s" % base
+    drng, dwhy = deep_range(base, ledger, rng, incremental, head)
     out[1:1] = ["", "REVIEW_DECISION: %s" % decision,
                 "Head commit: %s" % (head_sha or "NOT AVAILABLE (%s)" % (head_why or "git could not read HEAD")),
-                "PREVIEW_FROM: %s" % preview_from, "PREVIEW_TO: %s" % (head or "HEAD")]
+                "PREVIEW_FROM: %s" % preview_from, "PREVIEW_TO: %s" % (head or "HEAD"), "DEEP_RANGE: %s" % drng]
     out += ["## What to review", "",
             "- Pull request: %s (author %s, base %s)" % (clip(info.get("title", "?"), 160), (info.get("user") or {}).get("login", "?"), base),
             "- Range: `%s` (%s)" % (rng, "only commits since the last review" if incremental else "the whole pull request, no usable previous review"),
             "- Touched files: %d" % len(files)]
     if why or head_why:
         out.append("- Why the whole pull request: %s" % (why or head_why))
+    if drng != rng:
+        out.append("- Deep range: `%s` (stage 2, the deep review, only: %s, so it reviews the whole pull request; stage 1 "
+                   "reviews the Range above)" % (drng, dwhy))
     out.append("")
 
     if paths is not None:
@@ -660,6 +700,21 @@ def main():
             text = "NOT AVAILABLE (%s)\n" % exc
         try:
             with open(diff_file, "w", encoding="utf-8") as fh:
+                fh.write(text)
+        except OSError:
+            pass
+    deep_file = os.environ.get("DEEP_DIFF_FILE")
+    if deep_file:
+        # The diff the deep review reads: the whole pull request when its range is wider than stage 1's.
+        try:
+            if drng == rng:
+                text = run(diff_argv(git, rng, paths)) if paths is None or paths else ""
+            else:
+                text = run(diff_argv(git, drng))
+        except Unavailable as exc:
+            text = "NOT AVAILABLE (%s)\n" % exc
+        try:
+            with open(deep_file, "w", encoding="utf-8") as fh:
                 fh.write(text)
         except OSError:
             pass

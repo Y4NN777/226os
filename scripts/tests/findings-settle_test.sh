@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # Tests for `scripts/findings.py settle <pr>` with a stateful fake `gh`: when a batch fix pull request
-# (fix/review/batch-*) is merged into develop, the results table of its body settles each source. FIXED and FIXED
-# ELSEWHERE close a finding issue as completed, NOT A DEFECT and DECIDED close it as not planned; a note's box is ticked
-# with the decision; OWNER and AFTER FREEZE stay open. One comment per touched source, once. A notes issue whose boxes are
-# all ticked is closed. The batch issue closes last. A second run changes nothing; no human comment is edited; no mention.
+# (fix/review/batch-*) is merged into develop, the results table of its body settles each source. Only FIXED and FIXED
+# ELSEWHERE act: they close a finding issue as completed or tick a note's box. NOT A DEFECT and DECIDED only post the
+# reason as a comment (independent review of #187, H5: a model verdict never closes or ticks by itself; a human does);
+# OWNER and AFTER FREEZE stay open. One comment per touched source, once. A notes issue whose boxes are all ticked is
+# closed. The batch issue closes last. A second run changes nothing; no human comment is edited; no mention.
 # Usage: scripts/tests/findings-settle_test.sh
 set -euo pipefail
 
@@ -108,15 +109,16 @@ setup
 run 163
 [ "$rc" -eq 0 ] && ok "settle runs (rc=0)" || ko "settle rc=$rc ($out)"
 [ "$(field 12 'x["state"], x["state_reason"]')" = "('closed', 'completed')" ] && ok "FIXED: the finding issue is closed as completed" || ko "fixed ($(field 12 'x["state"], x["state_reason"]'))"
-[ "$(field 13 'x["state"], x["state_reason"]')" = "('closed', 'not_planned')" ] && ok "NOT A DEFECT: the finding issue is closed as not planned" || ko "not a defect ($(field 13 'x["state"], x["state_reason"]'))"
+[ "$(field 13 'x["state"], x["state_reason"]')" = "('open', None)" ] && field 13 'x["comments"][-1]["body"]' | grep -q 'NOT A DEFECT' && ok "NOT A DEFECT: the finding issue stays open, the reason is posted as a comment (a human closes it)" || ko "not a defect ($(field 13 'x["state"], x["state_reason"]'))"
 [ "$(field 15 'x["state"], x["state_reason"]')" = "('closed', 'completed')" ] && ok "FIXED ELSEWHERE: closed as completed" || ko "fixed elsewhere"
 [ "$(field 14 'x["state"]')" = "open" ] && field 14 'x["comments"][-1]["body"]' | grep -q 'OWNER' && ok "OWNER: the finding stays open, with a comment saying so" || ko "owner ($(field 14 'x["comments"]'))"
 field 12 'x["comments"][-1]["body"]' | grep -q 'Settled by #163 (review batch #40): FIXED' && ok "the settling comment names the pull request, the batch and the decision" || ko "comment text ($(field 12 'x["comments"]'))"
 field 13 'x["comments"][-1]["body"]' | grep -q 'the check runs before | the write' && ok "the reason is carried, pipes unescaped" || ko "reason ($(field 13 'x["comments"][-1]["body"]'))"
 ! grep -q '@someone' <<<"$(field 13 'x["comments"][-1]["body"]')" && ok "no mention in a comment" || ko "mention"
 [ "$(field 12 'x["comments"][0]["body"]')" = "human note @someone" ] && ! grep -q '^PATCH .*/comments' "$tmp/st/log" && ok "a human comment is never edited" || ko "human comment"
-field 20 'x["body"]' | grep -q -- '- \[x\] `n1` .* — decided: REVIEW_CONTEXT says so' && field 20 'x["body"]' | grep -q -- '- \[x\] `n2` .* — fixed in #163' && ok "notes: the boxes are ticked with the decision" || ko "notes tick ($(field 20 'x["body"]'))"
-[ "$(field 20 'x["state"], x["state_reason"]')" = "('closed', 'completed')" ] && ok "a notes issue whose boxes are all ticked is closed as completed" || ko "notes close ($(field 20 'x["state"]'))"
+field 20 'x["body"]' | grep -q -- '- \[ \] `n1` [^—]*$' && field 20 'x["body"]' | grep -q -- '- \[x\] `n2` .* — fixed in #163' && ok "notes: FIXED ticks its box, DECIDED leaves its box unticked" || ko "notes tick ($(field 20 'x["body"]'))"
+field 20 'x["comments"][-1]["body"]' | grep -q '`n1` DECIDED.*REVIEW_CONTEXT says so' && ok "notes: the DECIDED reason is posted in the comment" || ko "notes decided reason ($(field 20 'x["comments"]'))"
+[ "$(field 20 'x["state"], x["state_reason"]')" = "('open', None)" ] && ok "a notes issue with a box left unticked (DECIDED) stays open" || ko "notes stay open ($(field 20 'x["state"]'))"
 [ "$(bot_comments 20)" -eq 1 ] && ok "ONE comment per touched source issue (two notes, one comment)" || ko "notes comments ($(bot_comments 20))"
 field 21 'x["body"]' | grep -q -- '- \[ \] `n3`' && [ "$(field 21 'x["state"]')" = "open" ] && ok "AFTER FREEZE: the box stays unticked and the issue open" || ko "after freeze ($(field 21 'x["body"]'))"
 [ "$(field 40 'x["state"], x["state_reason"]')" = "('closed', 'completed')" ] && ok "the batch issue is closed" || ko "batch close ($(field 40 'x["state"]'))"

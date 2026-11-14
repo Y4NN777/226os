@@ -11,13 +11,17 @@ It decides MERGE only if ALL of these hold for the pull request (any other case 
     refuses it before anything else), and the owner merges it;
   - every required check (REQUIRED_CHECKS) has a latest check run on the head that is completed with SUCCESS;
   - the review comment (marker `<!-- 226os-ai-review -->`, scripts/review-comment.py) exists, its Triage is neither
-    NOT RUN nor CRITICAL, its ledger sha is the head (the review covered the latest commit) and no `finding` is open
-    (notes never block);
+    NOT RUN nor CRITICAL, its ledger sha is the head (the review covered the latest commit) and no `finding` blocks
+    (review-comment.py `blocking`: an open finding of any severity, an unknown status counting as open, or a HIGH or
+    CRITICAL one not marked `fixed`, answered and accepted included; notes never block);
   - when a P0 path is touched (.github/sensitive-paths.txt plus .github/deep-review-paths.txt, both read at the
     current tip of develop through the API; renames count with their old path), the ledger records a deep review PASS of the head; and
-    line 4 of the comment is never `Deep: PENDING` or `Deep: NOT RUN` (the review job's own signal, whatever the lists);
+    no header line of the comment (line 5 when present, after Triage, the marker, Tool and Reviewed) is `Deep: PENDING`
+    or `Deep: NOT RUN` (the review job's own signal, whatever the lists);
   - when a sensitive path is touched, the owner's latest review APPROVED exactly the head commit, or the owner opened
-    the pull request and authored every commit on it (stricter than the Review gate, applied whatever the gate mode);
+    the pull request and authored every commit on it (stricter than the Review gate, applied whatever the gate mode).
+    No exemption: a review batch pull request (`fix/review/batch-*`) and any other pipeline-made commit need the owner's
+    approval of the head too (the no-click batch exemption was withdrawn after the independent review of #187);
   - a HIGH or MEDIUM verdict always has an open finding that explains it (otherwise it is refused, never merged);
   - every path list (sensitive, deep-review, pipeline) is read at the current tip of develop, and a renamed file counts
     with its old path too.
@@ -43,7 +47,6 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PIPELINE_BRANCH = "fix/review/"
-BATCH_BRANCH = "fix/review/batch-"
 PIPELINE_TRAILER = re.compile(r"^Review-Pipeline:", re.M | re.I)
 BLOCKING_LABELS = ("needs-owner", "do-not-merge", "owner-override-pending")
 DEFAULT_CHECKS = "Validate branch promotion,quality,Review gate"
@@ -62,7 +65,6 @@ def load(name, filename):
 
 comment = load("review_comment", "review-comment.py")
 gate = load("review_gate", "review-gate.py")
-autofix = load("review_autofix", "review-autofix.py")
 
 
 def latest_runs(items):
@@ -117,34 +119,11 @@ def owner_approved_head(gh, repo, number, owner, head):
     return last is not None and last.get("state") == "APPROVED" and last.get("commit_id") == head
 
 
-def pipeline_batch(gh, repo, number, pull, owner, files):
-    """True only for a pull request the batch publish job made: head branch `fix/review/batch-*` (of this repository, which
-    `refusals` checks), opened by the owner's account (the token the job pushes with), EVERY commit carrying the
-    `Review-Pipeline:` trailer its trusted `apply` step writes, and no changed path that is the owner's (the very list the
-    publish job's guard refuses: `review-autofix.py forbidden`). A branch name alone is never enough."""
-    if not str((pull.get("head") or {}).get("ref") or "").startswith(BATCH_BRANCH) or (pull.get("user") or {}).get("login") != owner:
-        return False
-    commits = gate.gh_api(gh, "repos/%s/pulls/%s/commits" % (repo, number))
-    if not commits or not all(PIPELINE_TRAILER.search(str((c.get("commit") or {}).get("message") or "")) for c in commits):
-        return False
-    return bool(files) and not any(autofix.forbidden(f) for f in files)
-
-
-def sensitive_refusal(gh, repo, number, pull, owner, files, patterns, head, ledger=None):
-    """The refusal for a sensitive path, or None: the owner authored every commit, or approved exactly the head. A review
-    batch pull request made by the pipeline (`pipeline_batch`) needs no owner click instead: the deep review PASSED on exactly
-    this head and no CRITICAL was ever recorded on it (open findings and the other checks are refused by `refusals` for
-    every pull request). Any other pull request, a look-alike branch name included, follows the normal rule."""
+def sensitive_refusal(gh, repo, number, pull, owner, files, patterns, head):
+    """The refusal for a sensitive path, or None: the owner authored every commit, or approved exactly the head. No pull
+    request is exempt, a review batch pull request included."""
     hits = comment.p0_hits(files, patterns)
     if not hits:
-        return None
-    if pipeline_batch(gh, repo, number, pull, owner, files):
-        ledger = ledger if isinstance(ledger, dict) else {}
-        deep = ledger.get("deep") if isinstance(ledger.get("deep"), dict) else {}
-        if not (deep.get("status") == "PASS" and deep.get("sha") == head):
-            return "sensitive paths touched (%s): the batch pull request waits for the deep review of the head" % ", ".join(hits[:3])
-        if any(isinstance(f, dict) and str(f.get("sev", "")).upper() == "CRITICAL" for f in ledger.get("findings", [])):
-            return "sensitive paths touched (%s): a CRITICAL was recorded on this head" % ", ".join(hits[:3])
         return None
     if owner_authored(gh, repo, number, pull, owner) or owner_approved_head(gh, repo, number, owner, head):
         return None
@@ -206,15 +185,20 @@ def refusals(gh, repo, number, base, owner, required):
     level = comment.VERDICT.match(first).group(1) if target is not None and comment.VERDICT.match(first) else None
     if target is not None and ledger.get("sha") != head:
         why.append("the ledger sha %s is not the head %s (the review did not cover the latest commit)" % (str(ledger.get("sha"))[:12] or "(none)", head[:12]))
-    open_ids = [str(f.get("id")) for f in ledger.get("findings", []) if isinstance(f, dict)
-                and str(f.get("kind", "finding")).lower() != "note" and str(f.get("status") or "").strip().lower() == "open"]
+    open_ids = [str(f.get("id")) for f in ledger.get("findings", []) if comment.blocking(f)]
     if open_ids:
         why.append("open finding(s): %s" % ", ".join(open_ids[:6]))
     elif level in ("HIGH", "MEDIUM"):
         why.append("the verdict is %s but no open finding explains it" % level)
 
-    lines = body.strip().splitlines()
-    deep_line = lines[3].strip() if len(lines) > 3 else ""
+    # The Deep line is a header line (line 5 after Triage, the marker, Tool and Reviewed): read the header, up to the
+    # first blank line, never a fixed index.
+    header = []
+    for line in body.strip().splitlines():
+        if not line.strip():
+            break
+        header.append(line.strip())
+    deep_line = next((l for l in header if l.startswith("Deep:")), "")
     if deep_line.startswith(("Deep: PENDING", "Deep: NOT RUN")):
         why.append("the deep review is not done (%s)" % deep_line)
     patterns = [p for rel in comment.P0_LISTS for p in base_list(gh, repo, rel, base_ref)]
@@ -223,7 +207,7 @@ def refusals(gh, repo, number, base, owner, required):
     if hits and not (deep.get("status") == "PASS" and deep.get("sha") == head):
         why.append("a P0 path is touched (%s) without a deep review PASS of the head" % ", ".join(hits[:3]))
 
-    failure = sensitive_refusal(gh, repo, number, pull, owner, files, base_list(gh, repo, SENSITIVE_LIST, base_ref), head, ledger)
+    failure = sensitive_refusal(gh, repo, number, pull, owner, files, base_list(gh, repo, SENSITIVE_LIST, base_ref), head)
     if failure:
         why.append(failure)
     return head, why, pipeline_why

@@ -55,9 +55,10 @@ pull() {
 files() { python3 -I -c 'import json,sys; json.dump([{"filename": f} for f in sys.argv[2:]], open(sys.argv[1], "w"))' "$tmp/fx/files.json" "$@"; }
 # checks NAME:STATUS:CONCLUSION ...
 checks() { python3 -I -c 'import json,sys; json.dump({"total_count":len(sys.argv)-2,"check_runs":[dict(zip(("name","status","conclusion"),c.split(":")), id=i) for i,c in enumerate(sys.argv[2:])]}, open(sys.argv[1],"w"))' "$tmp/fx/checks.json" "$@"; }
-# review_comment TRIAGE LEDGER-JSON [DEEP-LINE]
+# review_comment TRIAGE LEDGER-JSON [DEEP-LINE]: the real layout (review-comment.py): line 1 Triage, 2 the marker, 3 Tool,
+# 4 Reviewed, 5 Deep (when the run has a deep stage), then a blank line.
 review_comment() {
-  python3 -I -c 'import json,sys; body="%s\n<!-- 226os-ai-review -->\nTool: PASS (2 files)\n%s\n<details><summary>Review ledger</summary>\n\n```json\n%s\n```\n\n</details>" % (sys.argv[2], sys.argv[4], sys.argv[3]); json.dump([{"id":1,"user":{"login":"github-actions[bot]"},"body":body,"updated_at":"2026-11-14T10:00:00Z"}], open(sys.argv[1],"w"))' "$tmp/fx/comments.json" "$1" "$2" "${3:-}"
+  python3 -I -c 'import json,sys; body="%s\n<!-- 226os-ai-review -->\nTool: PASS (2 files)\nReviewed: 1111111 (x..y) at 10:00 UTC\n%s\n<details><summary>Review ledger</summary>\n\n```json\n%s\n```\n\n</details>" % (sys.argv[2], sys.argv[4], sys.argv[3]); json.dump([{"id":1,"user":{"login":"github-actions[bot]"},"body":body,"updated_at":"2026-11-14T10:00:00Z"}], open(sys.argv[1],"w"))' "$tmp/fx/comments.json" "$1" "$2" "${3:-}"
 }
 GOOD_CHECKS=("Validate branch promotion:completed:success" "quality:completed:success" "Review gate:completed:success" "Code review (advisory):completed:failure")
 NOTE='{"id":"n1","kind":"note","evidence":"INFERRED","sev":"LOW","file":"a.go","line":1,"scenario":"s","status":"open"}'
@@ -122,8 +123,8 @@ reset; files src/api/internal/identity/service/x.go; review_comment "Triage: NON
 reset; files src/api/internal/identity/service/x.go; review_comment "Triage: NONE | blast radius: x" "{\"sha\":\"$H\",\"findings\":[],\"deep\":{\"status\":\"PASS\",\"sha\":\"$H\"}}"
 run on
 grep -q 'pr merge 7' <<<"$calls" && ok "a P0 path with a deep review PASS of the head merges" || ko "deep pass ($out)"
-reset; review_comment "Triage: NONE | blast radius: x" "{\"sha\":\"$H\",\"findings\":[]}" "Deep: PENDING (a P0 path is touched: the deep review runs next)"; refused 'deep review is not done' "Deep: PENDING on line 4, even when the lists match nothing"
-reset; review_comment "Triage: NONE | blast radius: x" "{\"sha\":\"$H\",\"findings\":[]}" "Deep: NOT RUN (the deep review returned no structured output)"; refused 'deep review is not done' "Deep: NOT RUN on line 4"
+reset; review_comment "Triage: NONE | blast radius: x" "{\"sha\":\"$H\",\"findings\":[]}" "Deep: PENDING (a P0 path is touched: the deep review runs next)"; refused 'deep review is not done' "Deep: PENDING on line 5 (after the Reviewed line), even when the lists match nothing"
+reset; review_comment "Triage: NONE | blast radius: x" "{\"sha\":\"$H\",\"findings\":[]}" "Deep: NOT RUN (the deep review returned no structured output)"; refused 'deep review is not done' "Deep: NOT RUN on line 5 (after the Reviewed line)"
 reset; files db/queries/solve.sql; refused 'P0 path' "the deep-review list is read from the base branch (db/queries)"
 reset; files scripts/x.sh; review_comment "Triage: NONE | blast radius: x" "{\"sha\":\"$H\",\"findings\":[],\"deep\":{\"status\":\"PASS\",\"sha\":\"$H\"}}"; refused 'owner' "a sensitive path without the owner's approval"
 reset; files scripts/x.sh; review_comment "Triage: NONE | blast radius: x" "{\"sha\":\"$H\",\"findings\":[],\"deep\":{\"status\":\"PASS\",\"sha\":\"$H\"}}"; printf '[{"user":{"login":"Y4NN777"},"state":"APPROVED","commit_id":"%s","submitted_at":"2026-11-14T10:00:00Z"}]' "$H" >"$tmp/fx/reviews.json"
@@ -159,21 +160,28 @@ refused 'owner' "a fix/review/ head branch is never owner-authored, even without
 reset; files scripts/x.sh; review_comment "Triage: NONE | blast radius: x" "$SENS_OK"; pull open develop o/r false '["autofix-1"]' Y4NN777
 refused 'owner' "an autofix label means the pull request is never owner-authored"
 
-# --- owner decision 2026-11-14: a review batch pull request merges without the owner's click, sensitive paths included ---
+# --- owner decision 2026-11-14, withdrawn after the independent review of #187: a review batch pull request has NO
+# exemption. On a sensitive path it needs the owner's approval of the head like any pipeline-made commit; a batch pull
+# request that touches no sensitive path still auto-merges.
 BATCH=fix/review/batch-2026-11-14
 pipeline_commits() { printf '[{"sha":"%s","author":{"login":"Y4NN777"},"commit":{"message":"fix(review): x\\n\\nReview-Pipeline: review-batch/1"}}]' "$H" >"$tmp/fx/commits.json"; }
 reset; files docs/ai-usage/x.md; review_comment "Triage: NONE | blast radius: x" "$SENS_OK"; pull open develop o/r false '[]' Y4NN777 $BATCH; pipeline_commits
+refused "sensitive paths touched \(docs/ai-usage/x.md\) without the owner's approval of the head" "batch PR + sensitive path + deep PASS on the head + clean: refused without the owner's approval of the head (no batch exemption)"
+reset; files docs/ai-usage/x.md; review_comment "Triage: NONE | blast radius: x" "$SENS_OK"; pull open develop o/r false '[]' Y4NN777 $BATCH; pipeline_commits
+printf '[{"user":{"login":"Y4NN777"},"state":"APPROVED","commit_id":"%s","submitted_at":"2026-11-14T10:00:00Z"}]' "$H" >"$tmp/fx/reviews.json"
 run on
-grep -q 'pr merge 7' <<<"$calls" && ok "batch PR + sensitive path + deep PASS on the head + clean: merges without the owner" || ko "batch merge ($out)"
+grep -q 'pr merge 7' <<<"$calls" && ok "batch PR + sensitive path: merges once the owner approved exactly the head" || ko "batch approved ($out)"
+reset; files src/web/src/main.tsx; review_comment "Triage: NONE | blast radius: x" "{\"sha\":\"$H\",\"findings\":[]}"; pull open develop o/r false '[]' Y4NN777 $BATCH; pipeline_commits
+run on
+grep -q 'pr merge 7' <<<"$calls" && ok "batch PR touching no sensitive path: still auto-merges without the owner" || ko "batch non-sensitive ($out)"
 reset; files docs/ai-usage/x.md; review_comment "Triage: NONE | blast radius: x" "{\"sha\":\"$H\",\"findings\":[],\"deep\":{\"status\":\"PASS\",\"sha\":\"$OLD\"}}"; pull open develop o/r false '[]' Y4NN777 $BATCH; pipeline_commits
-refused 'deep review' "batch PR + sensitive path + the deep review on an older sha: refused (waits for the deep review)"
+refused 'deep review' "batch PR + sensitive path + the deep review on an older sha: refused"
 reset; files docs/ai-usage/x.md; review_comment "Triage: NONE | blast radius: x" "{\"sha\":\"$H\",\"findings\":[]}"; pull open develop o/r false '[]' Y4NN777 $BATCH; pipeline_commits
 refused 'deep review' "batch PR + sensitive path + no deep review on the head: refused"
 reset; files docs/ai-usage/x.md; review_comment "Triage: MEDIUM | blast radius: x" "{\"sha\":\"$H\",\"findings\":[{\"id\":\"m1\",\"kind\":\"finding\",\"evidence\":\"OBSERVED\",\"sev\":\"MEDIUM\",\"file\":\"a.go\",\"line\":1,\"scenario\":\"s\",\"status\":\"open\"}],\"deep\":{\"status\":\"PASS\",\"sha\":\"$H\"}}"; pull open develop o/r false '[]' Y4NN777 $BATCH; pipeline_commits
 refused 'open finding' "batch PR + sensitive path + an open MEDIUM: refused"
 reset; files docs/ai-usage/x.md; review_comment "Triage: NONE | blast radius: x" "{\"sha\":\"$H\",\"findings\":[{\"id\":\"c1\",\"kind\":\"finding\",\"evidence\":\"OBSERVED\",\"sev\":\"CRITICAL\",\"file\":\"a.go\",\"line\":1,\"scenario\":\"s\",\"status\":\"fixed\"}],\"deep\":{\"status\":\"PASS\",\"sha\":\"$H\"}}"; pull open develop o/r false '[]' Y4NN777 $BATCH; pipeline_commits
-refused 'CRITICAL' "batch PR + a CRITICAL recorded on the head (even fixed): refused"
-# A look-alike branch name is not the pipeline: author, trailer on EVERY commit and no owner path are all required.
+refused 'owner' "batch PR + sensitive path + a fixed CRITICAL on the head: refused (the owner approves the head)"
 reset; files db/migrations/00001_x.sql; review_comment "Triage: NONE | blast radius: x" "$SENS_OK"; pull open develop o/r false '[]' dev $BATCH; pipeline_commits
 printf '[{"sha":"%s","author":{"login":"dev"},"commit":{"message":"x\\n\\nReview-Pipeline: review-batch/1"}}]' "$H" >"$tmp/fx/commits.json"
 refused 'owner' "a collaborator's PR on a fix/review/batch-x branch touching db/migrations is refused"
@@ -184,14 +192,24 @@ reset; files docs/ai-usage/x.md; review_comment "Triage: NONE | blast radius: x"
 printf '[{"sha":"%s","author":{"login":"Y4NN777"},"commit":{"message":"fix(review): x\\n\\nReview-Pipeline: review-batch/1"}},{"sha":"%s","author":{"login":"Y4NN777"},"commit":{"message":"a hand made commit"}}]' "$OLD" "$H" >"$tmp/fx/commits.json"
 refused 'owner' "an owner-authored batch PR with one commit lacking the Review-Pipeline trailer is refused"
 reset; files db/migrations/00001_x.sql; review_comment "Triage: NONE | blast radius: x" "$SENS_OK"; pull open develop o/r false '[]' Y4NN777 $BATCH; pipeline_commits
-refused 'owner' "an owner-authored pipeline batch PR touching an owner path (db/migrations) still needs the owner's approval"
+refused 'owner' "an owner-authored pipeline batch PR touching an owner path (db/migrations) needs the owner's approval"
 reset; files scripts/review-x.sh; review_comment "Triage: NONE | blast radius: x" "$SENS_OK"; pull open develop o/r false '[]' Y4NN777 $BATCH; pipeline_commits
 run on
 [ "$rc" -eq 0 ] && grep -q 'REFUSE #7' <<<"$out" && grep -q 'review pipeline' <<<"$out" && ! grep -q 'pr merge' <<<"$calls" && ok "batch PR touching a pipeline path: still refused (the owner merges it)" || ko "batch pipeline path (rc=$rc out=$out)"
+grep -q 'pipeline_batch\|BATCH_BRANCH' "$tool" && ko "the batch exemption code is still in review-automerge.py" || ok "review-automerge.py has no batch exemption left (pipeline_batch, BATCH_BRANCH)"
 reset; files scripts/x.sh; review_comment "Triage: NONE | blast radius: x" "$SENS_OK"; pull open develop o/r false '["autofix-1"]' Y4NN777 feature/x
 printf '[{"sha":"%s","author":{"login":"Y4NN777"},"commit":{"message":"fix\n\nReview-Pipeline: autofix/9"}}]' "$H" >"$tmp/fx/commits.json"
 refused 'owner' "an autofix commit on a normal PR + sensitive path still needs the owner's approval of the head"
 
+# H4 (independent review of #187): only an explicit `fixed` removes a HIGH or CRITICAL from the open set; answered or
+# accepted MEDIUM and LOW keep today's behaviour. M1: an unknown status is open.
+reset; review_comment "Triage: HIGH | blast radius: x" "{\"sha\":\"$H\",\"findings\":[{\"id\":\"a1\",\"kind\":\"finding\",\"sev\":\"HIGH\",\"status\":\"answered\"}]}"; refused 'open finding\(s\): a1' "an answered HIGH still blocks (only fixed removes it)"
+reset; review_comment "Triage: HIGH | blast radius: x" "{\"sha\":\"$H\",\"findings\":[{\"id\":\"a2\",\"kind\":\"finding\",\"sev\":\"CRITICAL\",\"status\":\"accepted\"}]}"; refused 'open finding\(s\): a2' "an accepted CRITICAL still blocks"
+reset; review_comment "Triage: NONE | blast radius: x" "{\"sha\":\"$H\",\"findings\":[{\"id\":\"a3\",\"kind\":\"finding\",\"sev\":\"MEDIUM\",\"status\":\"answered\"},{\"id\":\"a4\",\"kind\":\"finding\",\"sev\":\"LOW\",\"status\":\"accepted\"}]}"
+run on
+grep -q 'pr merge 7' <<<"$calls" && ok "an answered MEDIUM and an accepted LOW do not block (unchanged)" || ko "answered medium ($out)"
+reset; review_comment "Triage: MEDIUM | blast radius: x" "{\"sha\":\"$H\",\"findings\":[{\"id\":\"u1\",\"kind\":\"finding\",\"sev\":\"MEDIUM\",\"status\":\"Pending\"}]}"; refused 'open finding\(s\): u1' "an unknown status is open (M1)"
+reset; review_comment "Triage: MEDIUM | blast radius: x" "{\"sha\":\"$H\",\"findings\":[{\"id\":\"u2\",\"kind\":\"finding\",\"sev\":\"MEDIUM\"}]}"; refused 'open finding\(s\): u2' "a missing status is open (M1)"
 reset; review_comment "Triage: HIGH | blast radius: x" "{\"sha\":\"$H\",\"findings\":[]}"; refused 'no open finding explains' "a HIGH verdict with no open finding"
 reset; review_comment "Triage: MEDIUM | blast radius: x" "{\"sha\":\"$H\",\"findings\":[$NOTE]}"; refused 'no open finding explains' "a MEDIUM verdict with only a note"
 reset; run on
@@ -242,5 +260,22 @@ reset; PRN=7 run report
 grep -q 'WOULD MERGE #7' <<<"$out" && ! grep -q "commits/$H/pulls" <<<"$calls" && ok "PR_NUMBER (manual run) evaluates that pull request" || ko "pr number ($out)"
 reset; PRN='7;x' run report
 grep -q 'NOT RUN' <<<"$out" && [ -z "$calls" ] && ok "a malformed PR_NUMBER is NOT RUN" || ko "bad pr number ($out)"
+
+
+# H2/H3 (independent review of #187): the pipeline's own tests are pipeline paths (auto-merge sends them to the owner) and
+# owner paths for the fixer (review-autofix.py FORBIDDEN_GLOB): a fix pull request cannot weaken the tests that guard it.
+python3 -I - "$root" <<'PY' && ok "the real .github/pipeline-paths.txt and the fixer's FORBIDDEN_GLOB cover the review and findings tests and lib.sh" || ko "pipeline tests not protected"
+import fnmatch, importlib.util, os, sys
+root = sys.argv[1]
+pats = [l.strip() for l in open(os.path.join(root, ".github/pipeline-paths.txt")) if l.strip() and not l.startswith("#")]
+spec = importlib.util.spec_from_file_location("af", os.path.join(root, "scripts/review-autofix.py")); af = importlib.util.module_from_spec(spec); spec.loader.exec_module(af)
+for want in ("scripts/tests/review-*", "scripts/tests/findings*", "scripts/tests/lib.sh", "scripts/tests/review-agent-*"):
+    assert want in pats, want
+    assert want in af.FORBIDDEN_GLOB, want
+for path in ("scripts/tests/review-comment-levels.py", "scripts/tests/findings-settle_test.sh", "scripts/tests/lib.sh", "scripts/tests/review-agent-triggers_test.sh"):
+    assert any(fnmatch.fnmatchcase(path, p) for p in pats), path
+    assert af.forbidden(path), path
+assert not af.forbidden("scripts/tests/x_test.sh")
+PY
 
 finish
