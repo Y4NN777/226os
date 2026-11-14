@@ -1,0 +1,89 @@
+# Review batch: the AI-review register (open `finding` issues, undecided boxes of the "PR<N> notes" issues) worked in
+# batches by priority instead of one by one. scripts/findings.py `batch` keeps ONE open "Review batch YYYY-MM-DD"
+# checklist issue (top 15 by severity, area and age), never writes to a source issue and never mentions anyone. A batch
+# is the scope of ONE fix pull request into develop (branch fix/review/batch-YYYY-MM-DD, its body names the batch
+# issue); the batch closes as completed when that pull request is merged or when every source is closed or decided,
+# and the next run opens a new one (docs/quality/REVIEW_CONTEXT.md).
+#
+# Job `batch` (schedule every 5 hours, manual dispatch): writes the batch issue (issues: write, GITHUB_TOKEN only) and
+#   reads the merged pull requests into develop (pull-requests: read).
+#   A scheduled run uses the workflow and the script of the DEFAULT branch.
+# Job `report` (pull requests into main, promotions): writes the ranked batch to the job summary only, from the BASE
+#   commit; it edits nothing on GitHub (read permissions), whether or not the pull request comes from a fork.
+# Neither job is a required check, so it never blocks a merge. The script fails CLOSED: a GitHub error makes the run
+# red with "findings batch: FAILED" instead of writing a batch from a partial read.
+name: Review batch
+
+on:
+  schedule:
+    - cron: "0 */5 * * *"
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    # Explicit bash: pipefail, so a failure of the script is not hidden by `tee`.
+    shell: bash
+
+jobs:
+  batch:
+    name: Review batch
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # One writer at a time; a run is never cancelled in the middle of a write.
+    concurrency:
+      group: review-batch-write
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: read
+    steps:
+      - name: Checkout (scripts of the branch the run is for)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Create or update the review batch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: python3 -I scripts/findings.py batch | tee -a "$GITHUB_STEP_SUMMARY"
+
+  report:
+    name: Review batch (report)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    concurrency:
+      group: review-batch-report-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
+    steps:
+      # The script comes from the BASE commit, not from the pull request.
+      - name: Checkout the base commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Print the review batch (read-only)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          if [ ! -f scripts/findings.py ]; then
+            echo "findings batch: NOT RUN (scripts/findings.py is not on the base branch)"
+            exit 0
+          fi
+          python3 -I scripts/findings.py batch --print | tee -a "$GITHUB_STEP_SUMMARY"
