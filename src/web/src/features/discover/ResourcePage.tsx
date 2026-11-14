@@ -25,6 +25,7 @@ import {
   sourceStatus,
   typeKey,
 } from './present';
+import { ErrorReport } from './ErrorReport';
 import { useResource, useResourceSources } from './queries';
 import type { Resource } from './region';
 import { VerificationBadge } from './VerificationBadge';
@@ -173,6 +174,8 @@ function Detail({ resource }: { resource: Resource }) {
       ) : null}
 
       <Sources id={resource.id} />
+
+      <ErrorReport resourceId={resource.id} />
 
       {resource.related.length > 0 ? (
         <VStack gap={2}>
