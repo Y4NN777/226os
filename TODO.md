@@ -421,7 +421,7 @@ Open owner items outside CADEV (IDs and decisions in ROADMAP section 8, 10 and 1
 - [ ] Moderation can hide messages (an S6 extension, audited).
 - [ ] `PANK4SS`: a channel panel on the `project` and `formation` pages.
 - **Negative authz:** anonymous 401; a private project channel 404 to non-owners; CSRF on posting; rate limits; a hidden message is never delivered. **Allowed paths:** the S10 module under `src/api/internal/**` (GUESS), `api/openapi.yaml` (contract PR), generated outputs, `db/migrations/**` (`mibienpanjoe` only), the channel UI in `src/web/**`. **DoD:** DoD-common plus a stream reconnect test and a moderation-hide test.
-- **Status:** CONDITIONAL
+- **Status:** NOT BUILT (P2): owner decision at the Sat 14 12:00 checkpoint (it needs an ADR, a contract PR and a migration); see ROADMAP section 14.
 
 ---
 
