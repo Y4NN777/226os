@@ -76,3 +76,25 @@ func TestLinkTypesMatchTheStoredPairs(t *testing.T) {
 		t.Errorf("LinkRef types = %q", got)
 	}
 }
+
+// TestApplicationMessageIsNotEmpty pins the owner decision of 2026-11-14 (#135): the contract asks for
+// 1 to 2000 characters, as applications_message_ck and the service already do.
+func TestApplicationMessageIsNotEmpty(t *testing.T) {
+	var doc struct {
+		Components struct {
+			Schemas map[string]struct {
+				Properties map[string]struct {
+					MinLength *int `yaml:"minLength"`
+					MaxLength *int `yaml:"maxLength"`
+				} `yaml:"properties"`
+			} `yaml:"schemas"`
+		} `yaml:"components"`
+	}
+	if err := yaml.Unmarshal(apispec.YAML, &doc); err != nil {
+		t.Fatalf("parse embedded spec: %v", err)
+	}
+	m := doc.Components.Schemas["ApplicationCreate"].Properties["message"]
+	if m.MinLength == nil || *m.MinLength != 1 || m.MaxLength == nil || *m.MaxLength != 2000 {
+		t.Fatalf("ApplicationCreate.message bounds = %v..%v, want 1..2000", m.MinLength, m.MaxLength)
+	}
+}
