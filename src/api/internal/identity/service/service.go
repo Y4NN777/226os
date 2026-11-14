@@ -298,7 +298,13 @@ func (s *Service) SignUp(ctx context.Context, in SignUpInput) error {
 	// account existence.
 	if !password.Valid(in.Password) {
 		return apperr.New(apperr.CodeValidation, "password does not meet the policy.").
-			WithViolations(apperr.Violation{Field: "password", Code: "invalid"})
+			WithViolations(apperr.Violation{Field: "/password", Code: "invalid_value"})
+	}
+	// PostgreSQL text holds neither NUL nor invalid UTF-8: refuse them here (422, same answer whether or not the e-mail
+	// is registered, before any hash or write) instead of a 22021 constraint failure mapped to 500.
+	if !validText(in.DisplayName) {
+		return apperr.New(apperr.CodeValidation, "display_name must be valid text.").
+			WithViolations(apperr.Violation{Field: "/display_name", Code: "invalid_value"})
 	}
 	if _, err := s.store.AccountByEmail(ctx, email); err == nil {
 		// Pay the same Argon2id cost as a new account so the response time
@@ -651,7 +657,7 @@ func (s *Service) ConfirmPasswordReset(ctx context.Context, plain, newPassword, 
 	}
 	if !password.Valid(newPassword) {
 		return apperr.New(apperr.CodeValidation, "password does not meet the policy.").
-			WithViolations(apperr.Violation{Field: "new_password", Code: "invalid"})
+			WithViolations(apperr.Violation{Field: "/new_password", Code: "invalid_value"})
 	}
 	phc, err := hashPassword(newPassword)
 	if err != nil {

@@ -84,4 +84,15 @@ rc=0
 out="$(PATH="$tmp/bin:$PATH" LOG="$tmp/log" FX="$tmp/fx.json" python3 -I "$tool" 2>&1)" || rc=$?
 [ "$rc" -eq 0 ] && grep -q 'NOT RUN' <<<"$out" && ok "missing REPO and PR_NUMBER is NOT RUN, not a failure" || ko "no env (rc=$rc out=$out)"
 
+# A note is a remark, not a defect: even with a HIGH sev written by the model it does not ping the owner.
+python3 -I - >"$tmp/fx.json" <<'EOF'
+import json
+body = "Triage: NONE\n\n<details><summary>Review ledger</summary>\n\n```json\n" + json.dumps(
+    {"sha": "abcdef1234567", "findings": [{"id": "n1", "kind": "note", "evidence": "INFERRED", "sev": "HIGH", "file": "a.go", "line": 1, "scenario": "guess", "status": "open"}]}) + "\n```\n\n</details>"
+print(json.dumps([{"user": {"login": "github-actions[bot]"}, "created_at": "2026-11-13T10:00:00Z", "body": body}]))
+EOF
+run dev
+! grep -q 'requested_reviewers' "$tmp/log" && ! grep -q 'POST.*issues/7/labels' "$tmp/log" && ok "an open note never labels the pull request needs-owner nor asks the owner for a review" || ko "note ping ($(cat "$tmp/log"))"
+
+
 finish

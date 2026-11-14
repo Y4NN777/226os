@@ -2,9 +2,11 @@
 //
 // Wire format: base64url(no padding) of
 //
-//	version(2) | len|Sort | len|ID | len|FilterHash | issuedAt(8) | HMAC-SHA256(all preceding bytes)
+//	version(2) | len|Sort | len|ID | len|SHA-256(FilterHash)[:16] | issuedAt(8) | HMAC-SHA256(all preceding bytes)
 //
-// where len is an unsigned varint and issuedAt is big-endian unix seconds. The
+// where len is an unsigned varint and issuedAt is big-endian unix seconds. The filters are carried as a
+// fixed 16-byte digest, so the cursor stays within the contract's 512 characters however long the filters
+// are (#118); a cursor issued before the digest no longer matches its filters and is refused once. The
 // key is a server secret; a cursor is bound to the filter it was issued for so
 // it cannot be replayed on another query. A cursor expires DefaultTTL (24 h,
 // WithTTL) after issue and is refused when issued more than 5 minutes in the
@@ -34,7 +36,16 @@ const minKeyLen = 32
 type Payload struct {
 	Sort       string // sort key value, e.g. the last row's ordering column
 	ID         string // tie-breaker UUID of the last row
-	FilterHash string // hash of the query filters the cursor was issued for
+	FilterHash string // the query filters the cursor was issued for (carried as a digest)
+}
+
+// filterDigestLen is how much of the SHA-256 of the filters a cursor carries: collision resistance is not
+// needed (the HMAC authenticates the cursor), only that two filter sets differ.
+const filterDigestLen = 16
+
+func filterDigest(filters string) string {
+	sum := sha256.Sum256([]byte(filters))
+	return string(sum[:filterDigestLen])
 }
 
 // Codec signs and verifies cursors with a secret key.
@@ -83,7 +94,7 @@ func (c *Codec) sign(body []byte) []byte {
 // Encode returns the opaque cursor string for p.
 func (c *Codec) Encode(p Payload) string {
 	body := []byte{version}
-	for _, f := range []string{p.Sort, p.ID, p.FilterHash} {
+	for _, f := range []string{p.Sort, p.ID, filterDigest(p.FilterHash)} {
 		body = binary.AppendUvarint(body, uint64(len(f)))
 		body = append(body, f...)
 	}
@@ -95,7 +106,7 @@ func invalid() error {
 	return apperr.New(apperr.CodeInvalidCursor, "The cursor is invalid or expired.")
 }
 
-// Decode verifies s and returns its payload. Any malformed, tampered,
+// Decode verifies s and returns its payload, whose FilterHash is filterHash. Any malformed, tampered,
 // wrong-version, wrong-key or wrong-filter cursor yields INVALID_CURSOR.
 func (c *Codec) Decode(s, filterHash string) (Payload, error) {
 	raw, err := base64.RawURLEncoding.Strict().DecodeString(s)
@@ -107,9 +118,10 @@ func (c *Codec) Decode(s, filterHash string) (Payload, error) {
 		return Payload{}, invalid()
 	}
 	p, issuedAt, ok := parse(body)
-	if !ok || !c.fresh(issuedAt) || subtle.ConstantTimeCompare([]byte(p.FilterHash), []byte(filterHash)) != 1 {
+	if !ok || !c.fresh(issuedAt) || subtle.ConstantTimeCompare([]byte(p.FilterHash), []byte(filterDigest(filterHash))) != 1 {
 		return Payload{}, invalid()
 	}
+	p.FilterHash = filterHash
 	return p, nil
 }
 

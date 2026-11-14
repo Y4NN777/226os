@@ -324,9 +324,14 @@ func TestSearchQueriesBindArgumentsScanAndReject(t *testing.T) {
 			if !strings.Contains(sql, "LIMIT") || !strings.Contains(sql, "ts_rank") || !strings.Contains(sql, "websearch_to_tsquery('simple', f_unaccent(") {
 				t.Fatalf("search query is not bounded, ranked and accent-folded:\n%s", sql)
 			}
-			wantArgs := []any{"mot", country, lang, int32(6)}
+			// #118: no positive term reads nothing, and at most 500 candidates are ranked.
+			if !strings.Contains(sql, "querytree(i.tsq) NOT IN ('', 'T')") || !strings.Contains(sql, "LIMIT 500") {
+				t.Fatalf("search query does not bound its candidates:\n%s", sql)
+			}
+			// With a CTE, sqlc binds the outer LIMIT first.
+			wantArgs := []any{int32(6), "mot", country, lang}
 			if name == "learn" {
-				wantArgs = []any{"mot", lang, int32(6)}
+				wantArgs = []any{int32(6), "mot", lang}
 			}
 			if !reflect.DeepEqual(db.calls[0].args, wantArgs) {
 				t.Fatalf("args = %#v, want %#v", db.calls[0].args, wantArgs)
@@ -528,12 +533,12 @@ func TestIdentityQueries(t *testing.T) {
 		t.Fatalf("update profile call %+v", db.calls)
 	}
 
-	// DeleteUserSkills :exec — wipes the user's skill rows inside the tx.
+	// DeleteUserSkills :exec — removes only the links to active tags inside the tx.
 	db = &fakeDB{}
 	if err := dbgen.New(db).DeleteUserSkills(ctx, uid); err != nil {
 		t.Fatal(err)
 	}
-	assertCall(t, db, "DELETE FROM user_skills WHERE user_id", []any{uid})
+	assertCall(t, db, "DELETE FROM user_skills us", []any{uid})
 
 	// InsertUserSkills :exec — inserts the resolved tag ids, conflict-safe.
 	db = &fakeDB{}

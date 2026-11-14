@@ -338,8 +338,8 @@ func TestCreateMapsStoreErrors(t *testing.T) {
 		want  apperr.Code
 		field string
 	}{
-		{domain.ErrUnknownTopic, apperr.CodeValidation, "topic"},
-		{domain.ErrLinkTarget, apperr.CodeValidation, "links"},
+		{domain.ErrUnknownTopic, apperr.CodeValidation, "/topic"},
+		{domain.ErrLinkTarget, apperr.CodeValidation, "/links"},
 		{errDB, apperr.CodeInternal, ""},
 	}
 	for _, tc := range tests {
@@ -416,5 +416,52 @@ func TestFilterHashesAreUnambiguous(t *testing.T) {
 	}
 	if seriesHash(domain.SeriesQuery{Topic: "a", Level: "b"}) == seriesHash(domain.SeriesQuery{Topic: "ab"}) {
 		t.Fatal("series hash collides")
+	}
+}
+
+// contractCodes is the Violation.code enum of api/openapi.yaml.
+var contractCodes = map[string]bool{
+	"required": true, "too_short": true, "too_long": true, "invalid_format": true, "invalid_value": true,
+	"out_of_range": true, "too_many_items": true, "duplicate": true, "unknown_field": true,
+}
+
+// Body violations name the request member as a JSON pointer and use a contract code, so the web form can map
+// them (same rule as identity, issue #116).
+func TestCreateViolationsUseContractCodesAndPointers(t *testing.T) {
+	tests := map[string]struct {
+		mutate func(*CreateRequest)
+		store  error
+		field  string
+	}{
+		"status":  {mutate: func(r *CreateRequest) { r.Status = ptr("archived") }, field: "/status"},
+		"title":   {mutate: func(r *CreateRequest) { r.Title = "     " }, field: "/title"},
+		"body":    {mutate: func(r *CreateRequest) { r.BodyMD = "\x00" }, field: "/body_md"},
+		"summary": {mutate: func(r *CreateRequest) { r.Summary = ptr("\x00") }, field: "/summary"},
+		"tags":    {mutate: func(r *CreateRequest) { r.Tags = nil }, field: "/tags"},
+		"link":    {mutate: func(r *CreateRequest) { r.Links = []domain.LinkRef{{Type: "series", ID: targetID}} }, field: "/links"},
+		"link id": {mutate: func(r *CreateRequest) { r.Links = []domain.LinkRef{{Type: "project", ID: "x"}} }, field: "/links"},
+		"topic":   {mutate: func(*CreateRequest) {}, store: domain.ErrUnknownTopic, field: "/topic"},
+		"target":  {mutate: func(*CreateRequest) {}, store: domain.ErrLinkTarget, field: "/links"},
+	}
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			req := goodCreate()
+			tc.mutate(&req)
+			_, err := newSvc(t, &fakeStore{createErr: tc.store}, nil).CreateArticle(t.Context(), alice, req)
+			var ae *apperr.Error
+			if !errors.As(err, &ae) || len(ae.Violations) != 1 {
+				t.Fatalf("err %v", err)
+			}
+			v := ae.Violations[0]
+			if v.Field != tc.field || !contractCodes[v.Code] {
+				t.Fatalf("violation %+v, want field %s and a contract code", v, tc.field)
+			}
+		})
+	}
+	// Query parameters keep their name (the schema allows "JSON pointer or query parameter name").
+	_, err := newSvc(t, &fakeStore{}, nil).ListArticles(t.Context(), ArticleListRequest{Q: ptr("\x00")})
+	var ae *apperr.Error
+	if !errors.As(err, &ae) || ae.Violations[0].Field != "q" || !contractCodes[ae.Violations[0].Code] {
+		t.Fatalf("q violation %v", err)
 	}
 }

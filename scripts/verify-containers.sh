@@ -113,6 +113,21 @@ for name, s in svcs.items():
     env = s.get("environment") or {}
     if "APP_ENV" in env and env["APP_ENV"] != profile:
         errs.append(f"{name} APP_ENV={env['APP_ENV']} != profile {profile}")
+# The API keys anonymous rate limits on the right-most X-Forwarded-For entry (httpx.ClientIPKey), which is
+# only the real peer while Traefik replaces untrusted forwarded headers. Pin that on every entrypoint and
+# trust no upstream proxy: a CDN in front would need an explicit, reviewed trustedIPs (#117).
+for name, s in svcs.items():
+    if not name.startswith("traefik"):
+        continue
+    cmd = [str(c) for c in (s.get("command") or [])]
+    eps = [c.split(".")[1] for c in cmd if c.startswith("--entrypoints.") and c.split("=")[0].endswith(".address")]
+    if not eps:
+        errs.append(f"{name} declares no entrypoint address: the forwardedHeaders pin cannot be verified")
+    for ep in eps:
+        if f"--entrypoints.{ep}.forwardedHeaders.insecure=false" not in cmd:
+            errs.append(f"{name} entrypoint {ep} does not pin forwardedHeaders.insecure=false")
+    if any(".forwardedHeaders.trustedIPs" in c or ".forwardedHeaders.insecure=true" in c for c in cmd):
+        errs.append(f"{name} trusts forwarded headers from upstream proxies")
 if not cfg["networks"]["backend"].get("internal"):
     errs.append("backend network is not internal")
 # The API has database code (S0): it must receive its two secrets, and no other service may get the

@@ -27,6 +27,7 @@ LEDGER = re.compile(r"<!--\s*review-ledger\s+(\{.*?\})\s*-->", re.S)
 FENCED = re.compile(r"<details>\s*<summary>[^<]*ledger[^<]*</summary>.*?```json\s*(\{.*?\})\s*```", re.S | re.I)
 STATUSES = {"open", "answered", "accepted", "fixed"}
 SEVERITIES = {"CRITICAL", "HIGH", "MEDIUM", "LOW"}
+EVIDENCE = {"OBSERVED", "INFERRED"}
 BLOCK = re.compile(r"^--\s*name:\s*(\w+)", re.M)
 HUNK = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@")
 REVIEWABLE = (".go", ".sql", ".ts", ".tsx", ".sh", ".py", ".yml", ".yaml")
@@ -96,11 +97,17 @@ def parse_finding(f):
         return None
     sev = str(f.get("sev", "MEDIUM")).upper()
     line = f.get("line")
+    # kind: a defect (`finding`, the default so older ledgers keep working) or a remark (`note`). A note is never a
+    # reason for a new review or a ping, whatever severity the model wrote: its severity is pinned to LOW.
+    kind = "note" if str(f.get("kind", "finding")).lower() == "note" else "finding"
+    evidence = str(f.get("evidence", "")).upper()
     return {
+        "kind": kind,
+        "evidence": evidence if evidence in EVIDENCE else "INFERRED",
         "id": str(f["id"])[:40],
         "title": str(f.get("title") or f.get("scenario") or f["id"])[:200],
         "status": str(f["status"]),
-        "sev": sev if sev in SEVERITIES else "MEDIUM",
+        "sev": "LOW" if kind == "note" else (sev if sev in SEVERITIES else "MEDIUM"),
         "file": str(f.get("file", ""))[:300],
         "line": line if isinstance(line, int) else 0,
     }
@@ -146,7 +153,7 @@ def decide(git, ledger, incremental):
     except Unavailable:
         return "first"
     for f in ledger["findings"]:
-        if f["status"] == "open" and f["sev"] in ("CRITICAL", "HIGH") and f["file"] in changed:
+        if f["kind"] == "finding" and f["status"] == "open" and f["sev"] in ("CRITICAL", "HIGH") and f["file"] in changed:
             return "incremental"
     return "skip"
 
@@ -396,6 +403,28 @@ def register_lines(gh, repo, limit=15):
     return tracked[:limit], dismissed[-limit:]
 
 
+def notes_decided(gh, repo, limit=15):
+    """The notes that were decided, so the reviewer does not raise them again: the ticked lines of the open `kind:note`
+    issues and every line of a notes issue closed as not planned. Undecided lines, and notes issues closed as completed
+    (fixed), are left out. Fails open to an empty list."""
+    try:
+        issues = gh_api(gh, "repos/%s/issues?labels=kind:note&state=all&per_page=100" % repo)
+    except Unavailable:
+        return []
+    out = []
+    for i in issues:
+        if "pull_request" in i:
+            continue
+        for line in (i.get("body") or "").splitlines():
+            m = re.match(r"\s*- \[( |x|X)\]\s*(.*)", line)
+            if not m:
+                continue
+            ticked = m.group(1) != " "
+            if (i.get("state") == "open" and ticked) or (i.get("state") == "closed" and i.get("state_reason") == "not_planned"):
+                out.append("- #%s %s" % (i.get("number"), clip(m.group(2), 160)))
+    return out[-limit:]
+
+
 def main():
     repo, pr = os.environ.get("REPO", ""), os.environ.get("PR_NUMBER", "")
     if not repo or not pr:
@@ -451,7 +480,8 @@ def main():
         out.append("Last reviewed commit: `%s`. Carry these forward: mark `fixed` when the code changed, `answered` when someone replied with a reason, `accepted` when the owner or the project context accepts it. Do not report an `answered` or `accepted` finding again unless the code still contradicts the answer." % ledger["sha"])
         out.append("")
         for f in ledger["findings"]:
-            out.append("- `%s` [%s] %s" % (f["id"], f["status"], f["title"]))
+            tag = "(note, %s) " % f["evidence"] if f["kind"] == "note" else ""
+            out.append("- `%s` [%s] %s%s" % (f["id"], f["status"], tag, f["title"]))
         if not ledger["findings"]:
             out.append("- (no findings were recorded)")
     else:
@@ -483,6 +513,9 @@ def main():
     out += tracked if tracked else ["(none)"]
     out += ["", "## Closed as not planned (accepted or not a defect: do not raise them again)", ""]
     out += dismissed if dismissed else ["(none)"]
+    decided = notes_decided(gh, repo)
+    out += ["", "## Notes already decided (ticked, or closed as not planned: do not raise them again)", ""]
+    out += decided if decided else ["(none)"]
     out.append("")
     print("\n".join(out))
     return 0
