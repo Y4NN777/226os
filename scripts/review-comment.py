@@ -310,6 +310,8 @@ def refine_entry(f, previous, head):
     the same: the permalink must keep pointing at the right place), else the head."""
     for key in SCRIPT_OWNED:
         f.pop(key, None)
+    if isinstance(f.get("status"), str) and f["status"].strip().lower() in STATUSES:
+        f["status"] = f["status"].strip().lower()
     f["detail"], hit1 = clean_field(f.get("detail"), DETAIL_MAX)
     f["fix"], hit2 = clean_field(f.get("fix"), FIX_MAX)
     hit3 = isinstance(f.get("scenario"), str) and looks_secret(f["scenario"])
@@ -396,9 +398,9 @@ def carry_forward(text, previous_ledger):
     ids = {f.get("id") for f in data["findings"] if isinstance(f, dict)}
     carried = []
     for f in previous_ledger.get("findings", []):
-        if isinstance(f, dict) and f.get("id") and f.get("id") not in ids and f.get("status") != "fixed":
+        if isinstance(f, dict) and f.get("id") and f.get("id") not in ids and status_of(f) != "fixed":
             f = dict(f)
-            if f.get("status") == "open":
+            if status_of(f) == "open":
                 # Still open and not mentioned by this review: the model made no new decision. Counted and named in the
                 # comment, so a stale entry that keeps blocking auto-merge is visible and a person can settle it.
                 f["carried"] = int(f.get("carried") or 0) + 1 if isinstance(f.get("carried"), int) else 1
@@ -411,6 +413,11 @@ def carry_forward(text, previous_ledger):
     return out
 
 
+def status_of(f):
+    """An entry's status, trimmed and lower-cased: `Open` and `OPEN` are open."""
+    return str(f.get("status") or "").strip().lower() if isinstance(f, dict) else ""
+
+
 def effective_level(declared, entries):
     """The verdict level the ledger supports. Never the model's declared level alone: a CRITICAL needs an open OBSERVED
     CRITICAL finding with file and line (else it is at most HIGH, the rule the gate and review-ping apply), and an open
@@ -418,7 +425,7 @@ def effective_level(declared, entries):
     top = 0
     qualified = False
     for f in entries:
-        if not isinstance(f, dict) or str(f.get("kind", "finding")).lower() == "note" or f.get("status") != "open":
+        if not isinstance(f, dict) or str(f.get("kind", "finding")).lower() == "note" or status_of(f) != "open":
             continue
         sev = str(f.get("sev", "MEDIUM")).upper()
         line = f.get("line")
@@ -622,7 +629,7 @@ def target_env():
 
 def deep_entry(f, head=""):
     """One deep ledger entry, normalised and tagged source deep, or None when it is not valid."""
-    if not isinstance(f, dict) or not isinstance(f.get("id"), str) or not f["id"].strip() or f.get("status") not in STATUSES:
+    if not isinstance(f, dict) or not isinstance(f.get("id"), str) or not f["id"].strip() or status_of(f) not in STATUSES:
         return None
     kind = "note" if str(f.get("kind", "finding")).lower() == "note" else "finding"
     evidence = str(f.get("evidence", "")).upper()
@@ -638,7 +645,7 @@ def deep_entry(f, head=""):
     scenario = one_line(f.get("scenario"), 400)
     hit3 = looks_secret(scenario)
     entry = {"id": f["id"].strip()[:40], "kind": kind, "evidence": evidence, "sev": sev, "file": path, "line": line,
-             "scenario": REDACTED if hit3 else scenario, "status": f["status"], "detail": detail, "fix": fix, "source": "deep"}
+             "scenario": REDACTED if hit3 else scenario, "status": status_of(f), "detail": detail, "fix": fix, "source": "deep"}
     if hit1 or hit2 or hit3:
         entry["redacted"] = True
     if FULL_SHA.match(head or ""):
@@ -747,9 +754,14 @@ def merge_deep(base, data, why, head):
             deep_line = "Deep: NOT RUN (%s)" % one_line(why)
         else:
             deep_line = "Deep: PASS (%s, %s)" % (plural(found, "finding"), plural(len(data["entries"]) - found, "note"))
+        # The level is worked out again from the FINAL merged ledger (it goes down as well as up): a carried open deep entry
+        # the deep stage marks fixed must not hold the Triage line up. A NOT RUN Triage stays as it is.
         m = VERDICT.match(first)
-        if m and LEVELS.index(data["level"]) > LEVELS.index(m.group(1)):
-            first = "Triage: %s | blast radius: %s" % (data["level"], data["blast"])
+        if m:
+            level = effective_level("NONE", ledger["findings"])
+            if level != m.group(1):
+                blast = data["blast"] if LEVELS.index(level) > LEVELS.index(m.group(1)) else (re.search(r"blast radius:\s*(.*)$", first) or [None, data["blast"]])[1]
+                first = "Triage: %s | blast radius: %s" % (level, blast)
         summary = clean_summary(data["summary"]) or "(no text)"
         if data.get("filled"):
             summary = missing_notice(data["filled"]) + "\n\n" + summary

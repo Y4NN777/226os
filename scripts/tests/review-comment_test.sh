@@ -415,6 +415,32 @@ LOCATION_REPO="$repo" DJSON="$DEEP180" deep
 comments "[{\"id\":2,\"node_id\":\"N2\",\"user\":{\"login\":\"$BOT\"},\"body\":\"$note_base\",\"created_at\":\"2026-11-14T09:00:00Z\"}]"
 DJSON='{"level":"NONE","blast_radius":"x","summary":"s","findings":[{"id":"nofix","kind":"note","evidence":"INFERRED","sev":"LOW","file":"a.go","line":1,"scenario":"s","status":"open","detail":"only a detail"}]}' deep
 [ "$(posted | sed -n 4p)" = "Deep: PASS (0 findings, 1 note)" ] && posted | grep -q 'Detail or fix not recorded by the review (the verdict is unchanged): `nofix`\.' && pyassert 'import json,sys; f=json.loads(sys.argv[1]); assert f["fix"]=="not recorded by the review" and f["detail"]=="only a detail"' "$(posted_entry nofix)" 2>/dev/null && ok "a deep entry without fix is filled and named, the Deep line is not NOT RUN" || ko "deep missing ($(posted | sed -n 1,6p))"
+# Review of 8f28cca: the level is worked out again from the FINAL merged ledger (down as well as up).
+carried_base() { # LEVEL STATUS: a stage 1 comment carrying one deep HIGH entry
+  python3 -I -c '
+import json, sys
+led = {"sha": sys.argv[3], "findings": [{"id": "dh", "kind": "finding", "evidence": "OBSERVED", "sev": "HIGH", "file": "a.go", "line": 3, "scenario": "s", "status": sys.argv[2], "detail": "d", "fix": "f", "source": "deep", "first_sha": sys.argv[3], "location": "verified"}]}
+body = "Triage: %s | blast radius: x\n<!-- 226os-ai-review -->\nTool: PASS (1 files)\n\n<details><summary>Review ledger</summary>\n\n```json\n%s\n```\n\n</details>" % (sys.argv[1], json.dumps(led))
+print(json.dumps([{"id": 2, "node_id": "N2", "user": {"login": "github-actions[bot]"}, "body": body, "created_at": "2026-11-14T09:00:00Z"}]))' "$1" "$2" "$locsha"
+}
+comments "$(carried_base HIGH open)"
+DJSON='{"level":"NONE","blast_radius":"x","summary":"s","findings":[{"id":"dh","kind":"finding","evidence":"OBSERVED","sev":"HIGH","file":"a.go","line":3,"scenario":"s","status":"fixed","detail":"d","fix":"f"}]}' deep
+[ "$(posted | sed -n 1p)" = "Triage: NONE | blast radius: x" ] && ok "deep: a carried open deep HIGH that the deep stage marks fixed drops the Triage line to NONE (no stale HIGH)" || ko "stale high ($(posted | sed -n 1,4p))"
+comments "$(carried_base HIGH open)"
+DJSON='{"level":"NONE","blast_radius":"x","summary":"s","findings":[]}' deep
+[ "$(posted | sed -n 1p)" = "Triage: NONE | blast radius: x" ] && ok "deep: a carried open deep entry the deep stage no longer lists leaves no open finding: Triage NONE" || ko "stale left out ($(posted | sed -n 1,4p))"
+comments "$(carried_base NONE fixed)"
+DJSON='{"level":"NONE","blast_radius":"deep blast","summary":"s","findings":[{"id":"dn","kind":"finding","evidence":"OBSERVED","sev":"HIGH","file":"a.go","line":2,"scenario":"s","status":"open","detail":"d","fix":"f"}]}' deep
+[ "$(posted | sed -n 1p)" = "Triage: HIGH | blast radius: deep blast" ] && ok "deep: a new open OBSERVED HIGH still raises the Triage line" || ko "deep raise again ($(posted | sed -n 1,4p))"
+# Status is case-insensitive wherever entries are read.
+comments '[]'
+HEAD_SHA="$locsha" JSON="$(mkreview '[{"id":"cs","kind":"finding","evidence":"OBSERVED","sev":"HIGH","file":"a.go","line":3,"scenario":"s","status":" Open ","detail":"d","fix":"f"}]' | sed 's/Triage: MEDIUM/Triage: NONE/')" run
+[ "$(posted_body | sed -n 1p)" = "Triage: HIGH | blast radius: x" ] && pyassert 'import json,sys; assert json.loads(sys.argv[1])["status"]=="open"' "$(entry_of cs)" 2>/dev/null && ok "stage 1: a status written ' Open ' counts as open and is stored as open" || ko "status case ($(posted_body | sed -n 1,3p))"
+comments "$(carried_base HIGH OPEN)"
+HEAD_SHA="$locsha" JSON="$(mkreview '[]' | sed 's/Triage: MEDIUM/Triage: NONE/')" run
+posted_body | grep -q 'Carried forward without a new decision.*`dh`' && ok "carry_forward: an OPEN (upper case) entry is carried and named as undecided" || ko "carry case ($(posted_body | sed -n 1,8p))"
+comments "[{\"id\":2,\"node_id\":\"N2\",\"user\":{\"login\":\"$BOT\"},\"body\":\"$note_base\",\"created_at\":\"2026-11-14T09:00:00Z\"}]"
+
 # Review of PR 187 (deep-critical-kept-without-evidence): the level is derived from the kept entries, never the declared one.
 DJSON='{"level":"CRITICAL","blast_radius":"x","summary":"s","findings":[{"id":"inf","kind":"finding","evidence":"INFERRED","sev":"CRITICAL","file":"a.go","line":1,"scenario":"s","status":"open","detail":"d","fix":"f"},{"id":"bad","kind":"finding","sev":"CRITICAL"}]}' deep
 [ "$(posted | sed -n 1p)" = "Triage: HIGH | blast radius: x" ] && ! posted | sed -n 1p | grep -q CRITICAL && posted | grep -q 'it claimed CRITICAL: a human must read the deep review' && ok "deep: a declared CRITICAL whose only CRITICAL entry is INFERRED (lowered to HIGH) plus a dropped entry is HIGH, and the dropped claim is named" || ko "deep critical no evidence ($(posted | sed -n 1,6p))"

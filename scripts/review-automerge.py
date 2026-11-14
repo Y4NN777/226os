@@ -181,7 +181,7 @@ def refusals(gh, repo, number, base, owner, required):
     if target is not None and ledger.get("sha") != head:
         why.append("the ledger sha %s is not the head %s (the review did not cover the latest commit)" % (str(ledger.get("sha"))[:12] or "(none)", head[:12]))
     open_ids = [str(f.get("id")) for f in ledger.get("findings", []) if isinstance(f, dict)
-                and str(f.get("kind", "finding")).lower() != "note" and f.get("status") == "open"]
+                and str(f.get("kind", "finding")).lower() != "note" and str(f.get("status") or "").strip().lower() == "open"]
     if open_ids:
         why.append("open finding(s): %s" % ", ".join(open_ids[:6]))
     elif level in ("HIGH", "MEDIUM"):
