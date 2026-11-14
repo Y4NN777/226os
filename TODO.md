@@ -171,6 +171,7 @@ Open owner items outside CADEV (IDs and decisions in ROADMAP section 8, 10 and 1
 - **Status:** OPERATIONS DONE — catalogue reads (PR #83), search (PR #92) and error reports (PR #96) merged 2026-11-13; issue #66 closed. Still open: the EXPLAIN and bilingual relevance dataset item (G6).
 - 2026-11-14 (`Y4NN777`, `fix/review/batch-2026-11-14-b`, review batch #174 and the review pile): `CreateErrorReport` is one statement (an invisible resource costs 1 round trip, `TestErrorReportRoundTrips`); search `Snippet` strips whole tags and markdown markers only, titles go through `domain.PlainText` (no control, bidi or zero-width characters), validation runs before the anonymous limiter.
 - 2026-11-14 (CI fixer, pr 199): snippet-nested-tag fixed, search `Snippet` strips HTML tags until the text is stable, so a nested tag (`<<b>script>`) cannot rebuild a tag.
+- 2026-11-14 (CI fixer, pr 199): snippet-markdown-rebuilds-tag fixed, search `Snippet` repeats the whole strip pipeline (links, tags, markdown markers) until the text is stable, so inline code or emphasis (``<`script`>``, `<*b*>`) cannot rebuild a tag.
 
 ---
 
