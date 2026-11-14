@@ -6,7 +6,7 @@ It decides MERGE only if ALL of these hold for the pull request (any other case 
   - it is open, not a draft, its base is develop (never main) and its head repository is this repository;
   - it has none of the labels needs-owner, do-not-merge, owner-override-pending;
   - it changes nothing under .github/workflows/ (the bot never merges a workflow change: the owner does);
-  - it touches no review pipeline path (.github/pipeline-paths.txt, read at the base sha). With AUTO_MERGE=on
+  - it touches no review pipeline path (.github/pipeline-paths.txt, read at the current tip of develop). With AUTO_MERGE=on
     such a pull request is labelled `needs-owner` with a one-line comment giving the reason (once: the label then
     refuses it before anything else), and the owner merges it;
   - every required check (REQUIRED_CHECKS) has a latest check run on the head that is completed with SUCCESS;
@@ -14,12 +14,13 @@ It decides MERGE only if ALL of these hold for the pull request (any other case 
     NOT RUN nor CRITICAL, its ledger sha is the head (the review covered the latest commit) and no `finding` is open
     (notes never block);
   - when a P0 path is touched (.github/sensitive-paths.txt plus .github/deep-review-paths.txt, both read at the
-    pull request's base sha through the API, like the review job), the ledger records a deep review PASS of the head; and
+    current tip of develop through the API; renames count with their old path), the ledger records a deep review PASS of the head; and
     line 4 of the comment is never `Deep: PENDING` or `Deep: NOT RUN` (the review job's own signal, whatever the lists);
   - when a sensitive path is touched, the owner's latest review APPROVED exactly the head commit, or the owner opened
     the pull request and authored every commit on it (stricter than the Review gate, applied whatever the gate mode);
   - a HIGH or MEDIUM verdict always has an open finding that explains it (otherwise it is refused, never merged);
-  - every path list (sensitive, deep-review, pipeline) is read at the pull request's base sha.
+  - every path list (sensitive, deep-review, pipeline) is read at the current tip of develop, and a renamed file counts
+    with its old path too.
 MERGE is a merge commit of exactly the evaluated head (`gh pr merge --merge --match-head-commit`), never squash or
 rebase; GitHub's own branch protection still applies (a 405 is reported, exit 0). Then the update-branch API is called
 for every other open pull request into develop from this repository (failures are printed, never fatal).
@@ -135,14 +136,13 @@ def refusals(gh, repo, number, base, owner, required):
     if why or not FULL_SHA.match(head):
         return head, why or ["no head commit"], None
 
-    # Every path list is read at the pull request's base sha, the same commit the review workflow reads them from.
-    base_sha = (pull.get("base") or {}).get("sha", "")
-    if not FULL_SHA.match(base_sha):
-        return head, ["no base commit"], None
-    files = [f.get("filename", "") for f in gate.gh_api(gh, "repos/%s/pulls/%s/files" % (repo, number))]
+    # Every path list is read at the CURRENT tip of the base branch (what the merge lands on): a list that grew since the
+    # review's event demands its deep review or owner approval here, or the pull request is refused with the reason.
+    base_ref = base
+    files = comment.changed_paths(gate.gh_api(gh, "repos/%s/pulls/%s/files" % (repo, number)))
     if any(f.startswith(".github/workflows/") for f in files):
         why.append("it changes a workflow under .github/workflows (the owner merges it)")
-    pipeline = comment.p0_hits(files, base_list(gh, repo, PIPELINE_LIST, base_sha))
+    pipeline = comment.p0_hits(files, base_list(gh, repo, PIPELINE_LIST, base_ref))
     pipeline_why = None
     if pipeline:
         pipeline_why = "it touches the review pipeline (%s): the owner merges it" % ", ".join(pipeline[:3])
@@ -182,13 +182,13 @@ def refusals(gh, repo, number, base, owner, required):
     deep_line = lines[3].strip() if len(lines) > 3 else ""
     if deep_line.startswith(("Deep: PENDING", "Deep: NOT RUN")):
         why.append("the deep review is not done (%s)" % deep_line)
-    patterns = [p for rel in comment.P0_LISTS for p in base_list(gh, repo, rel, base_sha)]
+    patterns = [p for rel in comment.P0_LISTS for p in base_list(gh, repo, rel, base_ref)]
     hits = comment.p0_hits(files, patterns)
     deep = ledger.get("deep") if isinstance(ledger.get("deep"), dict) else {}
     if hits and not (deep.get("status") == "PASS" and deep.get("sha") == head):
         why.append("a P0 path is touched (%s) without a deep review PASS of the head" % ", ".join(hits[:3]))
 
-    failure = sensitive_refusal(gh, repo, number, pull, owner, files, base_list(gh, repo, SENSITIVE_LIST, base_sha), head)
+    failure = sensitive_refusal(gh, repo, number, pull, owner, files, base_list(gh, repo, SENSITIVE_LIST, base_ref), head)
     if failure:
         why.append(failure)
     return head, why, pipeline_why

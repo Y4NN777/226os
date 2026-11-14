@@ -57,6 +57,7 @@ SEVERITIES = {"CRITICAL", "HIGH", "MEDIUM", "LOW"}
 STATUSES = {"open", "answered", "accepted", "fixed"}
 P0_LISTS = (".github/sensitive-paths.txt", ".github/deep-review-paths.txt")
 DEEP_MAX_ENTRIES = 8
+SEV_RANK = {"LOW": 0, "MEDIUM": 1, "HIGH": 2, "CRITICAL": 3}
 STATUS_RANK = {"open": 0, "answered": 1, "accepted": 1, "fixed": 2}
 MINIMIZE = "mutation($id: ID!) { minimizeComment(input: {subjectId: $id, classifier: OUTDATED}) { minimizedComment { isMinimized } } }"
 
@@ -336,16 +337,19 @@ def deep_output():
         return None, "the deep review output is not valid JSON"
     if not isinstance(data, dict) or str(data.get("level", "")).upper() not in LEVELS or not isinstance(data.get("findings"), list):
         return None, "the deep review output has no level or findings"
-    if len(data["findings"]) > DEEP_MAX_ENTRIES:
-        return None, "the deep review returned more than %d entries" % DEEP_MAX_ENTRIES
     entries = [deep_entry(f) for f in data["findings"]]
     if not all(entries):
         return None, "the deep review output has an invalid entry"
+    why = None
+    if len(entries) > DEEP_MAX_ENTRIES:
+        # Keep the most severe (findings before notes), list them, and say NOT RUN: the review did not respect its cap.
+        entries = sorted(entries, key=lambda e: (e["kind"] != "finding", -SEV_RANK.get(e["sev"], 0)))[:DEEP_MAX_ENTRIES]
+        why = "too many findings"
     level = str(data["level"]).upper()
     if level == "CRITICAL" and not any(e["sev"] == "CRITICAL" and e["kind"] == "finding" for e in entries):
         level = "HIGH"
     return {"level": level, "blast": one_line(data.get("blast_radius")) or "unknown",
-            "summary": str(data.get("summary") or ""), "entries": entries}, None
+            "summary": str(data.get("summary") or ""), "entries": entries}, why
 
 
 def plural(n, word):
@@ -382,9 +386,12 @@ def merge_deep(base, data, why, head):
         ids = {e["id"] for e in merged}
         kept = [f for f in ledger["findings"] if not (isinstance(f, dict) and (f.get("source") == "deep" or f.get("id") in ids))]
         ledger["findings"] = kept + merged
-        ledger["deep"] = {"status": "PASS", "sha": head}
+        ledger["deep"] = {"status": "NOT RUN" if why else "PASS", "sha": head}
         found = sum(1 for e in data["entries"] if e["kind"] == "finding")
-        deep_line = "Deep: PASS (%s, %s)" % (plural(found, "finding"), plural(len(data["entries"]) - found, "note"))
+        if why:
+            deep_line = "Deep: NOT RUN (%s)" % one_line(why)
+        else:
+            deep_line = "Deep: PASS (%s, %s)" % (plural(found, "finding"), plural(len(data["entries"]) - found, "note"))
         m = VERDICT.match(first)
         if m and LEVELS.index(data["level"]) > LEVELS.index(m.group(1)):
             first = "Triage: %s | blast radius: %s" % (data["level"], data["blast"])
@@ -436,6 +443,17 @@ def p0_patterns(root):
     return out
 
 
+def changed_paths(items):
+    """Every path a pull request touches, from the pulls/N/files answer: the new name and, for a rename, the old one
+    (a rename out of a P0, sensitive or pipeline path touches it)."""
+    out = []
+    for f in items:
+        for key in ("filename", "previous_filename"):
+            if isinstance(f, dict) and f.get(key):
+                out.append(f[key])
+    return out
+
+
 def p0_hits(files, patterns):
     return sorted(f for f in files if any(fnmatch.fnmatchcase(f, p) for p in patterns))
 
@@ -448,7 +466,7 @@ def deep_needed_main():
         return 0
     repo, pr, binary = env
     try:
-        files = [f.get("filename", "") for f in parse_pages(gh(binary, ["api", "repos/%s/pulls/%s/files" % (repo, pr), "--paginate"]))]
+        files = changed_paths(parse_pages(gh(binary, ["api", "repos/%s/pulls/%s/files" % (repo, pr), "--paginate"])))
     except (GitHubError, ValueError) as exc:
         print("deep-needed: NOT RUN (%s): no deep review" % exc, file=sys.stderr)
         print("false")

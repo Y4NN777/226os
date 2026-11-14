@@ -11,6 +11,6 @@ third_party_sources_consulted: []
 license_review: "NOT APPLICABLE: original code, no new dependency"
 closure: "open"
 human_reviewers: ["Y4NN777 (owner, pending)"]
-tests_or_evidence: ["RED: review-comment 16 of 28 fail, review-gate 1 of 49, review-automerge 34 of 38 (no script)", "GREEN: review-comment 30, review-gate 50, review-automerge 44 passed (after merging the PR 159 hardening)", "PR 168 review (4 MEDIUM): RED review-comment 4 of 39, review-automerge 12 of 50, review-strip-pr 1 of 4 failed; GREEN 39, 50 and 4 passed"]
+tests_or_evidence: ["RED: review-comment 16 of 28 fail, review-gate 1 of 49, review-automerge 34 of 38 (no script)", "GREEN: review-comment 30, review-gate 50, review-automerge 44 passed (after merging the PR 159 hardening)", "PR 168 review (4 MEDIUM): RED review-comment 4 of 39, review-automerge 12 of 50, review-strip-pr 1 of 4 failed; GREEN 39, 50 and 4 passed", "PR 168 second review (2 MEDIUM): RED review-comment 3 of 41, review-automerge 13 of 53; GREEN 41 and 53 passed"]
 open_risks: ["auto-merge runs from main (workflow_run uses the default branch): NOT RUN end to end before the promotion", "the deep job and the NOT RUN fallback run only once their scripts are on develop (they are read from the base commit)", "a CRITICAL replaced by a later NOT RUN no longer fails the gate (the gate fails open on NOT RUN); auto-merge still refuses", "update-branch after each merge costs one CI run and one review per open pull request"]
 ```

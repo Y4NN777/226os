@@ -31,9 +31,9 @@ case "$*" in
   "api repos/o/r/issues/7/comments --paginate") cat "$FX/comments.json" ;;
   "api repos/o/r/pulls/7/reviews --paginate") cat "$FX/reviews.json" ;;
   "api repos/o/r/pulls/7/commits --paginate") cat "$FX/commits.json" ;;
-  "api repos/o/r/contents/.github/sensitive-paths.txt?ref=$BS --paginate") cat "$FX/contents.json" ;;
-  "api repos/o/r/contents/.github/deep-review-paths.txt?ref=$BS --paginate") cat "$FX/deep-paths.json" ;;
-  "api repos/o/r/contents/.github/pipeline-paths.txt?ref=$BS --paginate") cat "$FX/pipeline-paths.json" ;;
+  "api repos/o/r/contents/.github/sensitive-paths.txt?ref=develop --paginate") cat "$FX/contents.json" ;;
+  "api repos/o/r/contents/.github/deep-review-paths.txt?ref=develop --paginate") cat "$FX/deep-paths.json" ;;
+  "api repos/o/r/contents/.github/pipeline-paths.txt?ref=develop --paginate") cat "$FX/pipeline-paths.json" ;;
   "api -X POST repos/o/r/issues/7/labels "*|"api -X POST repos/o/r/issues/7/comments "*) echo '{}' ;;
   "api repos/o/r/pulls?state=open&base=develop&per_page=100 --paginate") cat "$FX/open.json" ;;
   "pr merge 7 --repo o/r --merge --match-head-commit $H") [ -z "${FAKE_MERGE_FAIL:-}" ] || { echo "405 not mergeable" >&2; exit 1; } ;;
@@ -147,7 +147,17 @@ refused 'owner' "an owner-authored PR with a commit by someone else is not owner
 reset; review_comment "Triage: HIGH | blast radius: x" "{\"sha\":\"$H\",\"findings\":[]}"; refused 'no open finding explains' "a HIGH verdict with no open finding"
 reset; review_comment "Triage: MEDIUM | blast radius: x" "{\"sha\":\"$H\",\"findings\":[$NOTE]}"; refused 'no open finding explains' "a MEDIUM verdict with only a note"
 reset; run on
-grep -q "contents/.github/pipeline-paths.txt?ref=$BS" <<<"$calls" && grep -q "contents/.github/deep-review-paths.txt?ref=$BS" <<<"$calls" && ! grep -q 'ref=develop' <<<"$calls" && ok "the path lists are read at the pull request's base sha" || ko "lists ref ($calls)"
+grep -q "contents/.github/pipeline-paths.txt?ref=develop" <<<"$calls" && grep -q "contents/.github/deep-review-paths.txt?ref=develop" <<<"$calls" && grep -q "contents/.github/sensitive-paths.txt?ref=develop" <<<"$calls" && ! grep -q "ref=$BS" <<<"$calls" && ok "the path lists are read at the current tip of develop (what the merge lands on), not the event's base sha" || ko "lists ref ($calls)"
+# The current tip demands a deep review the event's base did not (the list grew since): refused with the reason.
+reset; files src/api/internal/build/build.go
+printf '{"content":"%s"}' "$(printf 'src/api/internal/identity/*\ndb/queries/*\nsrc/api/internal/build/*\n' | base64 -w0)" >"$tmp/fx/deep-paths.json"
+refused 'P0 path is touched \(src/api/internal/build/build.go\) without a deep review' "a path the current develop lists as P0 needs a deep review even if the event's base did not"
+printf '{"content":"%s"}' "$(printf 'src/api/internal/identity/*\ndb/queries/*\n' | base64 -w0)" >"$tmp/fx/deep-paths.json"
+# Renames: the old path counts.
+renamed() { python3 -I -c 'import json,sys; json.dump([{"filename": sys.argv[2], "previous_filename": sys.argv[3], "status": "renamed"}], open(sys.argv[1], "w"))' "$tmp/fx/files.json" "$1" "$2"; }
+reset; renamed src/api/internal/other/x.go src/api/internal/identity/service/x.go; refused 'P0 path is touched \(src/api/internal/identity/service/x.go\)' "a rename out of an identity path needs a deep review"
+reset; renamed scripts/old-gate.py scripts/review-gate.py; pull open develop o/r false '[]' Y4NN777; review_comment "Triage: NONE | blast radius: x" "$SENS_OK"; run report
+grep -q 'review pipeline (scripts/review-gate.py' <<<"$out" && ok "a rename out of scripts/review-gate.py is a pipeline path" || ko "rename pipeline ($out)"
 
 # --- review pipeline paths: never auto-merged; with AUTO_MERGE=on labelled needs-owner with a one-line reason ---
 pipeline_ok() { review_comment "Triage: NONE | blast radius: x" "{\"sha\":\"$H\",\"findings\":[],\"deep\":{\"status\":\"PASS\",\"sha\":\"$H\"}}"; pull open develop o/r false '[]' Y4NN777; }

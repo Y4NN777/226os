@@ -18,9 +18,11 @@ for f in CLAUDE.md CLAUDE.local.md AGENTS.md .mcp.json .claude/settings.json .cl
   echo x >"$pr/$f"
 done
 
+mkdir -p "$pr/.git/info" && echo x >"$pr/.git/info/CLAUDE.md" && echo ref >"$pr/.git/HEAD"
 rc=0; out="$("$tool" "$pr" 2>&1)" || rc=$?
-left="$(cd "$pr" && find . -name CLAUDE.md -o -name CLAUDE.local.md -o -name AGENTS.md -o -name .mcp.json -o -name .claude | sort)"
+left="$(cd "$pr" && find . -path ./.git -prune -o \( -name CLAUDE.md -o -name CLAUDE.local.md -o -name AGENTS.md -o -name .mcp.json -o -name .claude \) -print | sort)"
 [ "$rc" -eq 0 ] && [ -z "$left" ] && ok "every CLAUDE.md, CLAUDE.local.md, AGENTS.md, .mcp.json and .claude/ is removed, at any depth" || ko "strip (rc=$rc out=$out left=$left)"
+[ -f "$pr/.git/HEAD" ] && [ -f "$pr/.git/info/CLAUDE.md" ] && ok "pr/.git is left untouched" || ko "git dir touched"
 [ -f "$pr/db/query.sql" ] && [ -f "$pr/src/api/main.go" ] && ok "the code under review stays" || ko "code removed"
 rc=0; "$tool" "$tmp/missing" >/dev/null 2>&1 || rc=$?
 [ "$rc" -ne 0 ] && ok "a missing directory fails (the deep review then does not run)" || ko "missing dir (rc=$rc)"

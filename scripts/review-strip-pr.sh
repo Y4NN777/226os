@@ -8,7 +8,8 @@ set -euo pipefail
 
 dir="${1:-}"
 [ -n "$dir" ] && [ -d "$dir" ] || { echo "review-strip-pr: BLOCKED: no directory '$dir'" >&2; exit 2; }
-find "$dir" -depth \( -name .git -prune \) -o \( -type d -name .claude -exec rm -rf {} + \)
+# pr/.git is pruned (never entered); a .claude directory is pruned too and removed whole after the walk.
+find "$dir" -name .git -prune -o -type d -name .claude -prune -print0 | xargs -0 -r rm -rf
 find "$dir" \( -name .git -prune \) -o \( \( -name CLAUDE.md -o -name CLAUDE.local.md -o -name AGENTS.md -o -name .mcp.json \) -exec rm -rf {} + \)
 left="$(find "$dir" \( -name .git -prune \) -o \( -name CLAUDE.md -o -name CLAUDE.local.md -o -name AGENTS.md -o -name .mcp.json -o -name .claude \) -print)"
 [ -z "$left" ] || { echo "review-strip-pr: FAIL: still present: $left" >&2; exit 1; }
