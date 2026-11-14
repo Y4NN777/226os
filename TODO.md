@@ -126,6 +126,7 @@ Open owner items outside CADEV (IDs and decisions in ROADMAP section 8, 10 and 1
 - **Allowed paths:** `src/api/internal/identity/**`, `db/queries/identity.sql`, `db/queries/platform.sql`, generated `dbgen` (via `make generate`), `scripts/public-routes.txt` (anonymous auth routes, with reasons). **DoD:** DoD-common plus cookie inspection per profile and a redacted email-flow log through Mailpit. **Stop:** if ADR-0003 values would need to change.
 - **Status:** OPERATIONS DONE — the 8 auth operations (PR #89, follow-ups #90 and #93) and the profile operations (PR #94) are merged (2026-11-13); issue #65 closed. Still open: the bylines item (Learn reads show username and display name whatever `profile_visibility` says, 2026-11-13, S4; deleted accounts are not handled yet) and O4 (owner ruling).
   - 2026-11-13 (`mibienpanjoe`): issue #91, the reset-mail race in `TestIdentitySignInRotationAndReset`, fixed on `fix/identity/reset-mail-race` (test-only: `mailToken` waits for the next mail instead of returning the latest).
+  - 2026-11-14 (`Y4NN777`, `fix/identity/signin-limit-race`): issue #97, the per-account sign-in limit now holds under concurrency: one atomic hit on `signin:account` before the lookup (429 without a password check when over 5), given back on a successful sign-in (`GiveBackRateLimit`), so only failures stay counted (owner chose this option of ADR-0003). RED: 20 concurrent wrong passwords at one account reached the password check 20 times; GREEN: 5, the other 15 get 429. `signin:ip` was already a single atomic hit.
 
 ---
 

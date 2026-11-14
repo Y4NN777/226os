@@ -548,14 +548,13 @@ func TestIdentityQueries(t *testing.T) {
 	}
 	assertCall(t, db, "INSERT INTO user_skills", []any{uid, ids})
 
-	// CountRateLimit :one.
-	db = &fakeDB{rowVals: []any{int32(3)}}
-	got, err := dbgen.New(db).CountRateLimit(ctx, dbgen.CountRateLimitParams{
-		Scope: "signin:account", KeyHash: hash, WindowStart: ts})
-	if err != nil || got != 3 {
-		t.Fatalf("count = %d, %v", got, err)
+	// GiveBackRateLimit :exec.
+	db = &fakeDB{}
+	if err := dbgen.New(db).GiveBackRateLimit(ctx, dbgen.GiveBackRateLimitParams{
+		Scope: "signin:account", KeyHash: hash, WindowStart: ts}); err != nil {
+		t.Fatalf("give back: %v", err)
 	}
-	assertCall(t, db, "SELECT hits FROM rate_limit_buckets", []any{"signin:account", hash, ts})
+	assertCall(t, db, "UPDATE rate_limit_buckets SET hits = hits - 1", []any{"signin:account", hash, ts})
 
 	// PurgeRateLimitBuckets :exec.
 	db = &fakeDB{}
