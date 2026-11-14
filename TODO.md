@@ -305,6 +305,7 @@ Open owner items outside CADEV (IDs and decisions in ROADMAP section 8, 10 and 1
   - [ ] PROPOSED: the Connect directory highlights West African builders and the diaspora, within the E5 visibility rules.
   - [ ] PROPOSED: the Learn series examples use low-bandwidth and Mobile Money contexts.
 - 2026-11-14 (`Y4NN777`, `chore/docs/state-sync`): merged: API gaps #99, shell and identity #100, public reads #101, home and settings #102, `parametres` display name #144, `solve` and `question` #149, `ecrire` #154, `apprendre`, `article` and `formation` #173, `build`, `project` and `profile` #177, the S9 panels #169 and #176. Still open in the page map: `connect` (E5), the `resource` error-report form, live lists on `accueil` in place of the demo examples, and `bienvenue` (GUESS operation); the remaining items are in issue #109. The manual keyboard and screen-reader pass is cut until after the freeze (12:00 checkpoint).
+- 2026-11-14 (`Y4NN777`, `feature/web/live-home-and-e4`): `accueil` on live data: the four sections (`listLearnArticles`, `listQuestions`, `listResources`, `listProjects`, limit 4) each with loading, empty and error states, a failing section never breaks the page; the fixtures file and the demo badges are gone from the page. Not yet merged.
 - **Status:** IN PROGRESS (pages merged as listed above; open: `connect` with E5, issue #109)
 
 ---

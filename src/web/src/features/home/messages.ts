@@ -5,8 +5,6 @@ export const fr = {
   'feed.hello': 'Bonjour, {name}',
   'feed.search.label': 'Rechercher dans 226os',
   'feed.search.submit': 'Rechercher',
-  'feed.demo.note':
-    'Exemples fictifs. Les contenus réels arriveront à l’ouverture de cette section.',
   'feed.by': 'par {name}',
   'feed.level.beginner': 'Débutant',
   'feed.level.intermediate': 'Intermédiaire',
@@ -20,6 +18,9 @@ export const fr = {
   'feed.catalog.more': 'Parcourir le catalogue',
   'feed.catalog.empty': 'Le catalogue est vide pour l’instant.',
   'feed.projects.title': 'Projets',
+  'feed.learn.empty': 'Aucun article pour l’instant.',
+  'feed.questions.empty': 'Aucune question pour l’instant.',
+  'feed.projects.empty': 'Aucun projet pour l’instant.',
 } as const;
 
 export const en: Record<keyof typeof fr, string> = {
@@ -27,7 +28,6 @@ export const en: Record<keyof typeof fr, string> = {
   'feed.hello': 'Hello, {name}',
   'feed.search.label': 'Search 226os',
   'feed.search.submit': 'Search',
-  'feed.demo.note': 'Made-up examples. Real content will appear when this section opens.',
   'feed.by': 'by {name}',
   'feed.level.beginner': 'Beginner',
   'feed.level.intermediate': 'Intermediate',
@@ -41,4 +41,7 @@ export const en: Record<keyof typeof fr, string> = {
   'feed.catalog.more': 'Browse the catalogue',
   'feed.catalog.empty': 'The catalogue is empty for now.',
   'feed.projects.title': 'Projects',
+  'feed.learn.empty': 'No articles yet.',
+  'feed.questions.empty': 'No questions yet.',
+  'feed.projects.empty': 'No projects yet.',
 };
