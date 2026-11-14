@@ -51,7 +51,6 @@ function ItemForm({ item, username }: { item: ChecklistItem; username: string })
       {(isSubmitting) => (
         <IconButton
           type="submit"
-          variant="ghost"
           label={t('profile.item.save', { field: label })}
           icon={<Icon icon="check" />}
           isDisabled={isSubmitting}
@@ -104,6 +103,7 @@ function ItemForm({ item, username }: { item: ChecklistItem; username: string })
                   <TextArea
                     label={label}
                     description={t('profile.item.bio.hint')}
+                    width="100%"
                     rows={3}
                     value={field.state.value}
                     htmlName={field.name}
@@ -119,6 +119,7 @@ function ItemForm({ item, username }: { item: ChecklistItem; username: string })
                 <TextInput
                   label={label}
                   description={t(`profile.item.${item}.hint`)}
+                  width="100%"
                   value={field.state.value}
                   htmlName={field.name}
                   autoCapitalize="none"

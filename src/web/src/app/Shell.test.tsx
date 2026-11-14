@@ -60,15 +60,17 @@ describe('Shell', () => {
     expect([...order].sort((a, b) => a - b)).toEqual(order);
   });
 
-  it('labels areas that are not built yet as coming soon, never as live links', async () => {
+  it('links every pillar, Connect included, and shows no area as coming soon', async () => {
     setLanguages(['fr-FR']);
     mockApi();
     await renderApp('/');
     await screen.findByRole('link', { name: 'Se connecter' });
-    // Construire is live since S7 (build pages); Connect is still to come.
-    const connect = within(primaryNav()).getByText('Connect').closest('a, button, [aria-disabled]');
-    expect(connect).toHaveAttribute('aria-disabled', 'true');
-    expect(within(primaryNav()).getAllByText('Bientôt').length).toBeGreaterThan(0);
+    // Connect went live with the E5 directory: it is a link now, and nothing is left disabled.
+    expect(within(primaryNav()).getByRole('link', { name: 'Connect' })).toHaveAttribute(
+      'href',
+      '/connect',
+    );
+    expect(within(primaryNav()).queryByText('Bientôt')).not.toBeInTheDocument();
   });
 
   it('links Résoudre as a live pillar', async () => {

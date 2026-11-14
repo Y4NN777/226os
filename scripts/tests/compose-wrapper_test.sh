@@ -8,7 +8,7 @@ source "$here/lib.sh"
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 mkdir "$tmp/bin"
-printf '#!/usr/bin/env bash\nprintf "%%s\\n" "$*" >>"%s/docker.log"\n' "$tmp" >"$tmp/bin/docker"
+printf '#!/usr/bin/env bash\nprintf "%%s\\n" "$*" >>"%s/docker.log"\nprintf "%%s\\n" "${GITHUB_TOKEN:-}" >>"%s/docker.token"\n' "$tmp" "$tmp" >"$tmp/bin/docker"
 chmod +x "$tmp/bin/docker"
 printf 'APP_ENV=local-dev\n' >"$tmp/env.local-dev"
 printf 'APP_ENV=staging-test\nPUBLIC_HOST=s.example.test\nACME_EMAIL=a@example.test\n' >"$tmp/env.staging-test"
@@ -32,6 +32,11 @@ run COMPOSE_ENV_FILE="$tmp/env.local-dev" "$root/scripts/compose.sh" staging-tes
 
 run COMPOSE_PROFILES=production-live COMPOSE_ENV_FILE="$tmp/env.local-dev" "$root/scripts/compose.sh" local-dev up -d
 [ "$rc" -eq 0 ] && ! grep -q production-live "$tmp/docker.log" && ok "ambient COMPOSE_PROFILES ignored" || ko "ambient profiles ($rc)"
+
+# The profile's env file is the only source of GITHUB_TOKEN; an ambient personal token must not reach compose interpolation.
+: >"$tmp/docker.token"
+run GITHUB_TOKEN=ambient-personal-token COMPOSE_ENV_FILE="$tmp/env.local-dev" "$root/scripts/compose.sh" local-dev up -d
+[ "$rc" -eq 0 ] && [ -s "$tmp/docker.log" ] && ! grep -q . "$tmp/docker.token" && ok "ambient GITHUB_TOKEN ignored" || ko "ambient GITHUB_TOKEN ($rc)"
 
 run "$root/scripts/compose.sh" local-dev
 [ "$rc" -ne 0 ] && ok "no compose args refused" || ko "no args"
