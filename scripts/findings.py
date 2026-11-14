@@ -600,7 +600,7 @@ def unverified(ctx, binary, repo, pr, files, decision, reason, cited):
             return "marked FIXED but #%s did not touch `%s`: a human checks" % (pr, one_line(cited, 120))
         return None
     if decision == "FIXED ELSEWHERE":
-        m = PR_REF.search(reason or "")
+        m = PR_REF.search(re.sub("[\u200b\u200c\u200d\u2060\ufeff]", "", reason or ""))  # the batch body was disarmed: #<ZWSP>N
         if not m:
             return "marked FIXED ELSEWHERE but names no pull request: a human checks"
         try:

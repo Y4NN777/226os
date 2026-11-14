@@ -264,4 +264,13 @@ printf '[{"filename":"src/unrelated.go"}]' >"$tmp/st/files150.json"
 run 163
 [ "$(field 15 'x["state"]')" = "open" ] && field 15 'x["comments"][-1]["body"]' | grep -q 'named PR #150 did not touch `src/f15.go`: a human checks' && ok "FIXED ELSEWHERE naming a merged PR that did not touch the cited file stays open" || ko "elsewhere other file ($(field 15 'x["state"], x["comments"][-1]["body"]'))"
 
+# deep-fixed-elsewhere-ref-disarmed: the batch body is disarmed (a zero-width space after the #), the reason still names the PR.
+setup
+python3 -I - "$tmp/st/pr.json" <<'EOF'
+import json, sys
+d = json.load(open(sys.argv[1])); d["body"] = d["body"].replace("fixed by #150", "fixed by #" + chr(0x200B) + "150"); json.dump(d, open(sys.argv[1], "w"))
+EOF
+run 163
+[ "$(field 15 'x["state"], x["state_reason"]')" = "('closed', 'completed')" ] && ok "FIXED ELSEWHERE with a disarmed reference (#<zero-width space>150), merged and touching the cited file, closes" || ko "disarmed ref ($(field 15 'x["state"], x["comments"][-1]["body"]'))"
+
 finish

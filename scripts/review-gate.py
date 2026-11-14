@@ -121,39 +121,13 @@ def latest_verdict(comments):
     return None if best is None else (best[1], best[2])
 
 
-def override_event(events, owner):
-    """The owner's current `owner-override` labeled event (the last label event decides), or None."""
+def owner_override(events, owner):
     last = None
     for e in events:
         if e.get("event") in ("labeled", "unlabeled") and (e.get("label") or {}).get("name") == OVERRIDE_LABEL:
             if last is None or e.get("created_at", "") >= last.get("created_at", ""):
                 last = e
-    return last if last is not None and last.get("event") == "labeled" and (last.get("actor") or {}).get("login") == owner else None
-
-
-def owner_override(events, owner):
-    return override_event(events, owner) is not None
-
-
-def head_bound_override(gh, repo, pr, owner, head):
-    """True only when the owner's override label is NOT OLDER than the first workflow run of the pull request's exact head
-    (`actions/runs?head_sha=`): that time is GitHub's own record of when the head was pushed, which a commit date (the pusher
-    sets it) is not. A push after the label voids it. No run, an unreadable answer or no head sha: the label does not count."""
-    if not FULL_SHA.match(head or ""):
-        return False
-    try:
-        event = override_event(gh_api(gh, "repos/%s/issues/%s/events?per_page=100" % (repo, pr)), owner)
-        if event is None or not event.get("created_at"):
-            return False
-        runs = gh_api(gh, "repos/%s/actions/runs?head_sha=%s&per_page=100" % (repo, head))
-    except GitHubError:
-        return False
-    times = []
-    for page in runs:
-        for r in (page.get("workflow_runs", []) if isinstance(page, dict) else []):
-            if isinstance(r, dict) and r.get("created_at"):
-                times.append(r["created_at"])
-    return bool(times) and event["created_at"] >= min(times)
+    return last is not None and last.get("event") == "labeled" and (last.get("actor") or {}).get("login") == owner
 
 
 def check_verdict(gh, repo, pr, owner, head=""):
@@ -174,7 +148,7 @@ def check_verdict(gh, repo, pr, owner, head=""):
         if declared == "CRITICAL":
             return None, "triage verdict CRITICAL downgraded: no OBSERVED CRITICAL entry with file:line in the ledger, treated as HIGH"
         return None, "triage verdict %s: never blocks" % level
-    if head_bound_override(gh, repo, pr, owner, head):
+    if owner_override(gh_api(gh, "repos/%s/issues/%s/events?per_page=100" % (repo, pr)), owner):
         return None, "triage verdict CRITICAL cancelled by an owner override (label %s added by %s)" % (OVERRIDE_LABEL, owner)
     why = " (stale ledger: it still blocks until a review of the head lifts it)" if stale else ""
     return "CRITICAL review verdict with OBSERVED evidence%s (add the label %s to override, owner only)" % (why, OVERRIDE_LABEL), ""
@@ -248,7 +222,7 @@ def owner_authored(gh, repo, number, pull, owner):
     return True
 
 
-def check_sensitive(gh, repo, pr, author, owner, base, head=""):
+def check_sensitive(gh, repo, pr, author, owner, base):
     patterns = sensitive_patterns(gh, repo, base)
     if patterns is None:
         return None, "sensitive paths: NOT RUN (no sensitive-paths list on %s)" % base
@@ -268,8 +242,6 @@ def check_sensitive(gh, repo, pr, author, owner, base, head=""):
     try:
         if owner_authored(gh, repo, pr, pull, owner):
             return None, "sensitive paths touched (%s): owner-authored (every commit verified)" % shown
-        if head_bound_override(gh, repo, pr, owner, head):
-            return None, "sensitive paths touched (%s): cleared by an owner override (label %s added by %s after the head's first run)" % (shown, OVERRIDE_LABEL, owner)
         if owner_state(gh_api(gh, "repos/%s/pulls/%s/reviews?per_page=100" % (repo, pr)), owner) == "APPROVED":
             return None, "sensitive paths touched (%s): approved by the owner" % shown
     except GitHubError as exc:
@@ -374,7 +346,7 @@ def main():
 
     failures = []
     for name, check in (("verdict", lambda: check_verdict(gh, repo, pr, owner, head)),
-                        ("sensitive", lambda: check_sensitive(gh, repo, pr, author, owner, base, head))):
+                        ("sensitive", lambda: check_sensitive(gh, repo, pr, author, owner, base))):
         try:
             failure, note = check()
         except GitHubError as exc:
