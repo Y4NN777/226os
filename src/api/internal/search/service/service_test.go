@@ -270,3 +270,40 @@ func TestLimiterFailureFailsOpenAndIsLogged(t *testing.T) {
 		t.Fatalf("log = %q; want the failure logged without the driver text", logs.String())
 	}
 }
+
+// An invalid request must not spend anonymous budget (#118): shape checks come first, and a
+// refusal is free of any limiter write.
+func TestInvalidRequestsDoNotConsumeTheAnonymousBudget(t *testing.T) {
+	bad := []Request{
+		{Q: "a", Anonymous: true, Client: "x"},
+		{Q: "ab\x00", Anonymous: true, Client: "x"},
+		{Q: "ab", PerGroup: ints(99), Anonymous: true, Client: "x"},
+		{Q: "ab", Types: []string{"answers"}, Anonymous: true, Client: "x"},
+	}
+	for _, req := range bad {
+		l := &fakeLimiter{allowed: true}
+		if _, err := New(&fakeReader{}, l, nil).Search(t.Context(), req); err == nil {
+			t.Fatalf("%+v: want a validation error", req)
+		}
+		if len(l.scopes) != 0 {
+			t.Fatalf("%+v: the invalid request hit the limiter %d time(s)", req, len(l.scopes))
+		}
+	}
+}
+
+type titledReader struct{}
+
+func (titledReader) Search(_ context.Context, g domain.Group, _ domain.Query) ([]domain.Hit, error) {
+	return []domain.Hit{{Type: g, ID: "id", Title: "re\u202etset\u0007 ok"}}, nil
+}
+
+// The title is returned as plain text (#118): bidi overrides and control characters are dropped.
+func TestTitlesAreReturnedAsPlainText(t *testing.T) {
+	res, err := New(titledReader{}, allow, nil).Search(t.Context(), Request{Q: "ab", Types: []string{"learn"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := res.Groups[domain.Learn].Items[0].Title; got != "retset ok" {
+		t.Fatalf("title = %q", got)
+	}
+}

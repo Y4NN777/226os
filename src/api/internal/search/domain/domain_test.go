@@ -47,7 +47,12 @@ func TestSnippetIsPlainTextOfAtMost300Runes(t *testing.T) {
 	}{
 		{"plain", "Paiement mobile", "Paiement mobile"},
 		{"empty", "", ""},
-		{"html tags lose their angle brackets", "<b>gras</b> <script>alert(1)</script>", "bgras/b scriptalert(1)/script"},
+		{"html tags are removed whole", "<b>gras</b> <script>alert(1)</script>", "gras alert(1)"},
+		{"an unterminated tag does not survive", "texte <img src=x onerror=alert(1)", "texte"},
+		{"programming text keeps its characters (#118)", "How to use C# records, ~/.config, 5 * 3, a < b, x -> y", "How to use C# records, ~/.config, 5 * 3, a < b, x -> y"},
+		{"line start structure goes", "## Titre\n> cité\n- puce\n* autre\n+ encore", "Titre cité puce autre encore"},
+		{"emphasis pairs go, lone markers stay", "*it* et **gras** et a*b*c et 2 * 3 * 4", "it et gras et a*b*c et 2 * 3 * 4"},
+		{"bidi and control characters are dropped", "a\u202eb\u200bc\u0000d\u2066e\ufeff", "abcde"},
 		{"markdown markers are dropped", "# Titre\n\n**gras** et `code` ~~barré~~", "Titre gras et code barré"},
 		{"links keep their text", "voir [la doc](https://example.org/x) ici", "voir la doc ici"},
 		{"whitespace is collapsed", "a \n\n\t b   c", "a b c"},
@@ -70,6 +75,21 @@ func TestSnippetIsPlainTextOfAtMost300Runes(t *testing.T) {
 	multi := Snippet(strings.Repeat("é", 400))
 	if utf8.RuneCountInString(multi) != MaxSnippetRunes || !utf8.ValidString(multi) {
 		t.Fatalf("multi-byte snippet: %d runes", utf8.RuneCountInString(multi))
+	}
+}
+
+func TestPlainTextDropsControlAndBidiAndKeepsTheRest(t *testing.T) {
+	tests := []struct{ name, in, want string }{
+		{"markdown is kept: a title is not markdown", "How to use **C#**", "How to use **C#**"},
+		{"bidi override and control are dropped", "re\u202etset\u0007  ok", "retset ok"},
+		{"joiners of Persian and emoji text stay", "می\u200cخواهم", "می\u200cخواهم"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := PlainText(tc.in); got != tc.want {
+				t.Fatalf("PlainText() = %q, want %q", got, tc.want)
+			}
+		})
 	}
 }
 
