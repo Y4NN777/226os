@@ -14,6 +14,9 @@ export default defineConfig({
   },
   test: {
     environment: 'jsdom',
+    // Owner decision 2026-11-14: jsdom page tests passed alone but hit the 5 s default when the
+    // machine also ran integration suites; 15 s keeps a hung test visible without flaking.
+    testTimeout: 15_000,
     setupFiles: ['./src/test/setup.ts'],
     include: ['src/**/*.test.{ts,tsx}'],
     css: false,
