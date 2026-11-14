@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import type { components } from '../../api/schema';
 import { callsTo, memberSession, mockApi, problemResponse } from '../../test/api';
 import { jsonResponse, renderApp, setLanguages } from '../../test/render';
+import { findVisibleText } from '../../test/visibleText';
 
 type Article = components['schemas']['Article'];
 
@@ -359,7 +360,7 @@ describe('ecrire page', () => {
       await publish();
 
       expect(
-        await screen.findByText('Ce lien n’est pas accepté. Retirez-le, puis publiez à nouveau.'),
+        await findVisibleText('Ce lien n’est pas accepté. Retirez-le, puis publiez à nouveau.'),
       ).toBeVisible();
     });
   });

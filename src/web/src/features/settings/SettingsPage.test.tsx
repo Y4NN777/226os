@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import type { components } from '../../api/schema';
 import { callsTo, memberAccount, memberSession, mockApi, problemResponse } from '../../test/api';
 import { jsonResponse, renderApp, setLanguages } from '../../test/render';
+import { findVisibleText } from '../../test/visibleText';
 
 type MyProfile = components['schemas']['MyProfile'];
 
@@ -93,7 +94,7 @@ describe('SettingsPage display-name form (live profile)', () => {
     await userEvent.clear(input);
     await userEvent.type(input, '  Awa K.  ');
     await userEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
-    expect(await screen.findByText('Nom enregistré.')).toBeInTheDocument();
+    expect(await findVisibleText('Nom enregistré.')).toBeInTheDocument();
     expect(sent).toEqual({ display_name: 'Awa K.' });
     const [patch] = callsTo(fetchMock, 'PATCH /me/profile');
     expect(patch?.headers.get('X-CSRF-Token')).toBe('csrf-member');
@@ -110,7 +111,7 @@ describe('SettingsPage display-name form (live profile)', () => {
     await userEvent.clear(input);
     await userEvent.type(input, 'Awa K.');
     await userEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
-    await screen.findByText('Nom enregistré.');
+    await findVisibleText('Nom enregistré.');
     expect(await screen.findByRole('button', { name: 'Awa K.' })).toBeInTheDocument();
     expect(localStorage.getItem('226os.displayName')).toBeNull();
   });

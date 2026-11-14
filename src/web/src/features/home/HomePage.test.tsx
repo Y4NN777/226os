@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import type { components } from '../../api/schema';
 import { callsTo, memberSession, mockApi, problemResponse } from '../../test/api';
 import { jsonResponse, renderApp, setLanguages } from '../../test/render';
+import { findVisibleText } from '../../test/visibleText';
 
 type Resource = components['schemas']['Resource'];
 
@@ -126,7 +127,7 @@ describe('HomePage', () => {
     setLanguages(['fr-FR']);
     signedIn(() => jsonResponse({ items: [], next_cursor: null }));
     await renderApp('/');
-    expect(await screen.findByText('Le catalogue est vide pour l’instant.')).toBeVisible();
+    expect(await findVisibleText('Le catalogue est vide pour l’instant.')).toBeVisible();
   });
 
   it('shows a labelled loading indicator while the catalogue loads', async () => {

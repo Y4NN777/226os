@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
 import { callsTo, mockApi, problemResponse } from '../../test/api';
 import { renderApp, setLanguages } from '../../test/render';
+import { findVisibleText, getVisibleText } from '../../test/visibleText';
 
 const VERIFY = 'POST /auth/verify-email';
 const TOKEN = 'abcdefghijklmnopqrstuvwxyz012345';
@@ -147,7 +148,7 @@ describe('VerifyEmailPage', () => {
     setLanguages(['fr-FR']);
     mockApi({ [VERIFY]: () => problemResponse(500, 'INTERNAL_ERROR') });
     await renderApp('/verifier-email');
-    expect(await screen.findByText(/Une erreur est survenue/)).toBeInTheDocument();
+    expect(await findVisibleText(/Une erreur est survenue/)).toBeInTheDocument();
     expect(screen.getByLabelText('Code de confirmation')).toHaveValue(TOKEN);
   });
 
@@ -158,7 +159,7 @@ describe('VerifyEmailPage', () => {
     await user.type(screen.getByLabelText('Code de confirmation'), TOKEN);
     await user.click(screen.getByRole('button', { name: 'Confirmer' }));
     expect(await screen.findByRole('button', { name: 'Réessayer dans 20 s' })).toBeInTheDocument();
-    expect(screen.getByText('Trop de tentatives')).toBeInTheDocument();
+    expect(getVisibleText('Trop de tentatives')).toBeInTheDocument();
   });
 
   it('shows the network message when the server cannot be reached', async () => {
@@ -169,7 +170,7 @@ describe('VerifyEmailPage', () => {
     });
     await user.type(screen.getByLabelText('Code de confirmation'), TOKEN);
     await user.click(screen.getByRole('button', { name: 'Confirmer' }));
-    expect(await screen.findByText(/Le serveur ne répond pas/)).toBeInTheDocument();
+    expect(await findVisibleText(/Le serveur ne répond pas/)).toBeInTheDocument();
   });
 
   it('sends one request on a double click', async () => {

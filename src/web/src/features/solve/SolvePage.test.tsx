@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { callsTo, mockApi, problemResponse } from '../../test/api';
 import { jsonResponse, renderApp, setLanguages } from '../../test/render';
 import { member, page, question, questionId } from './testFixtures';
+import { findVisibleText } from '../../test/visibleText';
 
 const second = question({
   id: 'b0000000-0000-4000-8000-000000000002',
@@ -81,7 +82,7 @@ describe('SolvePage list', () => {
     setLanguages(['fr-FR']);
     mockApi({ 'GET /questions': () => page([]) });
     await renderApp('/solve?q=zzz');
-    expect(await screen.findByText('Aucune question ne correspond')).toBeInTheDocument();
+    expect(await findVisibleText('Aucune question ne correspond')).toBeInTheDocument();
   });
 
   it('shows a retryable error when the list cannot be loaded', async () => {

@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { callsTo, mockApi, problemResponse } from '../../test/api';
 import { jsonResponse, renderApp, setLanguages } from '../../test/render';
 import { listParams, resource, rowOf } from './testFixtures';
+import { findVisibleText } from '../../test/visibleText';
 
 const senegal = resource({ id: 'a0000000-0000-4000-8000-000000000001', name: 'Wave Pay' });
 const kenya = resource({
@@ -238,7 +239,7 @@ describe('DiscoverPage', () => {
       'GET /resources': (request) => (searchOf(request).has('country') ? page([]) : page([kenya])),
     });
     const { router } = await renderApp('/discover');
-    expect(await screen.findByText('Aucune fiche ne correspond')).toBeInTheDocument();
+    expect(await findVisibleText('Aucune fiche ne correspond')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Voir toute l’Afrique' }));
     await waitFor(() => {
       expect(router.state.location.search).toMatchObject({ region: 'all' });
@@ -250,8 +251,12 @@ describe('DiscoverPage', () => {
     setLanguages(['fr-FR']);
     mockApi({ 'GET /resources': () => page([]) });
     await renderApp('/discover?region=all&q=zzz');
-    expect(await screen.findByText('Aucune fiche ne correspond')).toBeInTheDocument();
-    expect(screen.getByText(/Retirez un filtre/)).toBeInTheDocument();
+    expect(await findVisibleText('Aucune fiche ne correspond')).toBeInTheDocument();
+    // Astryx may also announce the message in its aria-live status region, so match the visible copy only.
+    const visible = screen
+      .getAllByText(/Retirez un filtre/)
+      .filter((el) => !el.closest('[data-astryx-live-region]'));
+    expect(visible).toHaveLength(1);
     expect(screen.queryByRole('button', { name: 'Voir toute l’Afrique' })).not.toBeInTheDocument();
   });
 
@@ -263,7 +268,7 @@ describe('DiscoverPage', () => {
         calls++ === 0 ? problemResponse(500, 'INTERNAL_ERROR') : page([senegal]),
     });
     await renderApp('/discover');
-    expect(await screen.findByText('Référence : req-test-1')).toBeInTheDocument();
+    expect(await findVisibleText('Référence : req-test-1')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Réessayer' }));
     expect(await screen.findByRole('link', { name: 'Wave Pay' })).toBeInTheDocument();
   });
@@ -288,7 +293,7 @@ describe('DiscoverPage', () => {
     setLanguages(['fr-FR']);
     mockApi({ 'GET /resources': () => problemResponse(429, 'RATE_LIMITED', { retryAfter: 12 }) });
     await renderApp('/discover');
-    expect(await screen.findByText(/Réessayez dans 12 s/)).toBeInTheDocument();
+    expect(await findVisibleText(/Réessayez dans 12 s/)).toBeInTheDocument();
   });
 
   it('keeps the list and reports an error when loading more fails', async () => {

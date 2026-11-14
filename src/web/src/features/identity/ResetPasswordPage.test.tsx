@@ -8,6 +8,7 @@ import { sessionQueryKey } from '../../app/session';
 import { I18nProvider } from '../../i18n/I18nProvider';
 import { renderApp, setLanguages } from '../../test/render';
 import { ResetPasswordPage } from './ResetPasswordPage';
+import { findVisibleText, getVisibleText } from '../../test/visibleText';
 
 const CONFIRM = 'POST /auth/password-reset/confirm';
 const TOKEN = 'abcdefghijklmnopqrstuvwxyz012345';
@@ -181,7 +182,7 @@ describe('ResetPasswordPage', () => {
     });
     await fillAndSubmit(user);
     expect(await screen.findByRole('button', { name: 'Réessayer dans 10 s' })).toBeInTheDocument();
-    expect(screen.getByText('Trop de tentatives')).toBeInTheDocument();
+    expect(getVisibleText('Trop de tentatives')).toBeInTheDocument();
   });
 
   it('shows a generic error with a reference on a server failure', async () => {
@@ -189,8 +190,8 @@ describe('ResetPasswordPage', () => {
       [CONFIRM]: () => problemResponse(500, 'INTERNAL_ERROR'),
     });
     await fillAndSubmit(user);
-    expect(await screen.findByText(/Une erreur est survenue/)).toBeInTheDocument();
-    expect(screen.getByText(/req-test-1/)).toBeInTheDocument();
+    expect(await findVisibleText(/Une erreur est survenue/)).toBeInTheDocument();
+    expect(getVisibleText(/req-test-1/)).toBeInTheDocument();
   });
 
   it('sends one request on a double click', async () => {

@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { callsTo, mockApi, problemResponse } from '../../test/api';
 import { jsonResponse, renderApp, setLanguages } from '../../test/render';
 import { resource, rowOf, source } from './testFixtures';
+import { findVisibleText } from '../../test/visibleText';
 
 const id = 'c0000000-0000-4000-8000-000000000001';
 const detail = resource({
@@ -135,9 +136,7 @@ describe('ResourcePage', () => {
     setLanguages(['fr-FR']);
     routes({ [`GET /resources/${id}/sources`]: () => jsonResponse({ items: [] }) });
     await renderApp(`/discover/${id}`);
-    expect(
-      await screen.findByText('Aucune source enregistrée pour le moment.'),
-    ).toBeInTheDocument();
+    expect(await findVisibleText('Aucune source enregistrée pour le moment.')).toBeInTheDocument();
   });
 
   it('keeps the listing readable when only the sources fail, with a retry', async () => {
@@ -197,7 +196,7 @@ describe('ResourcePage', () => {
         calls++ === 0 ? problemResponse(500, 'INTERNAL_ERROR') : jsonResponse(detail),
     });
     await renderApp(`/discover/${id}`);
-    expect(await screen.findByText('Référence : req-test-1')).toBeInTheDocument();
+    expect(await findVisibleText('Référence : req-test-1')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Réessayer' }));
     expect(await screen.findByRole('heading', { level: 1, name: 'Wave Pay' })).toBeInTheDocument();
     expect(callsTo(fetchMock, `GET /resources/${id}`)).toHaveLength(2);
