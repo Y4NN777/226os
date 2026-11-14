@@ -160,3 +160,13 @@ describe('SettingsPage display-name form (live profile)', () => {
     expect(localStorage.getItem('226os.theme')).toBe('dark');
   });
 });
+
+describe('SettingsPage preferences', () => {
+  it('shows a visible label above the theme and language switches', async () => {
+    setLanguages(['fr-FR']);
+    mockApi();
+    await renderApp('/parametres');
+    expect(await screen.findByText('Thème')).toBeVisible();
+    expect(screen.getByText('Langue')).toBeVisible();
+  });
+});

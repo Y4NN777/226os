@@ -1,8 +1,7 @@
-import { HStack } from '@astryxdesign/core/HStack';
 import { Icon } from '@astryxdesign/core/Icon';
 import { IconButton } from '@astryxdesign/core/IconButton';
 import { TextInput } from '@astryxdesign/core/TextInput';
-import { useState, type SVGProps } from 'react';
+import { useLayoutEffect, useRef, useState, type SVGProps } from 'react';
 import { useI18n } from '../../i18n/I18nProvider';
 import { errorStatus } from './validation';
 
@@ -37,9 +36,10 @@ interface PasswordFieldProps {
 }
 
 /**
- * Password input with the show/hide toggle beside it. TextInput has no end slot and InputGroup
- * merges the group label into the input name (tried: it breaks the accessible name), so the
- * toggle sits next to the field. Paste stays allowed.
+ * Password input with the show/hide toggle inside its end. TextInput has no end slot and InputGroup
+ * merges the group label into the input name (tried: it breaks the accessible name), so the toggle
+ * is laid over the input box (`.password-field` in index.css reserves its room) and the field keeps
+ * the full width of the form, like the e-mail field. Paste stays allowed.
  */
 export function PasswordField({
   label,
@@ -53,8 +53,17 @@ export function PasswordField({
 }: PasswordFieldProps) {
   const { t } = useI18n();
   const [visible, setVisible] = useState(false);
+  const wrapper = useRef<HTMLDivElement>(null);
+  const [top, setTop] = useState(0);
+  // The toggle lines up with the input box, wherever the label (and description) put it.
+  useLayoutEffect(() => {
+    const box = wrapper.current?.querySelector<HTMLElement>('[data-pressable-container]');
+    if (box && wrapper.current) {
+      setTop(box.getBoundingClientRect().top - wrapper.current.getBoundingClientRect().top);
+    }
+  }, [label, description]);
   return (
-    <HStack gap={2} vAlign="end">
+    <div ref={wrapper} className="password-field">
       <TextInput
         label={label}
         type={visible ? 'text' : 'password'}
@@ -67,15 +76,17 @@ export function PasswordField({
         {...(description ? { description } : {})}
         {...errorStatus(error)}
       />
-      <IconButton
-        label={t('identity.password.show')}
-        aria-pressed={visible}
-        variant="ghost"
-        icon={<Icon icon={visible ? 'eyeSlash' : EyeIcon} />}
-        onClick={() => {
-          setVisible((current) => !current);
-        }}
-      />
-    </HStack>
+      <span className="password-field-toggle" style={{ top }}>
+        <IconButton
+          label={t('identity.password.show')}
+          aria-pressed={visible}
+          variant="ghost"
+          icon={<Icon icon={visible ? 'eyeSlash' : EyeIcon} />}
+          onClick={() => {
+            setVisible((current) => !current);
+          }}
+        />
+      </span>
+    </div>
   );
 }
