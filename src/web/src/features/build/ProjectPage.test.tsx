@@ -95,6 +95,21 @@ describe('ProjectPage read view', () => {
   });
 });
 
+describe('ProjectPage repository link', () => {
+  it('renders the repository as a link only for a github.com address', async () => {
+    setLanguages(['fr-FR']);
+    mockApi({
+      [`GET ${base}`]: () => jsonResponse(project({ github_url: 'javascript:alert(1)' })),
+      [`GET ${base}/contribution-needs`]: () => page([]),
+    });
+    await renderApp(`/build/${projectId}`);
+    await screen.findByRole('heading', { level: 1, name: 'kora-sdk' });
+    expect(
+      screen.queryByRole('link', { name: /Voir le dépôt sur GitHub/ }),
+    ).not.toBeInTheDocument();
+  });
+});
+
 describe('ProjectPage visibility of controls', () => {
   const routes = {
     [`GET ${base}`]: () => jsonResponse(project()),
@@ -193,7 +208,7 @@ describe('ProjectPage apply', () => {
   });
 
   it.each([
-    ['DUPLICATE_APPLICATION', 'Vous avez déjà candidaté à ce besoin.'],
+    ['DUPLICATE_APPLICATION', 'Vous avez déjà postulé à ce besoin.'],
     ['STATE_CONFLICT', 'Ce besoin n’accepte plus de candidatures'],
     ['EMAIL_NOT_VERIFIED', 'Confirmez d’abord votre adresse e-mail.'],
   ] as const)('explains a refused application (%s)', async (code, text) => {
@@ -208,6 +223,85 @@ describe('ProjectPage apply', () => {
     await user.click(screen.getByRole('button', { name: 'Envoyer ma candidature' }));
     await expectAlert(text);
   });
+
+  it('reuses the same Idempotency-Key when the same application is retried after a failure', async () => {
+    setLanguages(['fr-FR']);
+    let calls = 0;
+    const fetchMock = member({
+      ...routes,
+      [`POST /contribution-needs/${needId}/applications`]: () =>
+        ++calls === 1
+          ? problemResponse(503, 'SERVICE_UNAVAILABLE')
+          : jsonResponse(application(), { status: 201 }),
+    });
+    const user = await apply();
+    await user.type(screen.getByRole('textbox', { name: /Votre message/ }), 'Bonjour');
+    await user.click(screen.getByRole('button', { name: 'Envoyer ma candidature' }));
+    await expectAlert('momentanément indisponible');
+    await user.click(screen.getByRole('button', { name: 'Envoyer ma candidature' }));
+    expect(await screen.findByText(/Candidature envoyée/)).toBeVisible();
+    const [first, again] = callsTo(fetchMock, `POST /contribution-needs/${needId}/applications`);
+    expect(first?.headers.get('Idempotency-Key')).toBeTruthy();
+    expect(again?.headers.get('Idempotency-Key')).toBe(first?.headers.get('Idempotency-Key'));
+  });
+
+  it('withdraws through the id in Location when a replay omits the body', async () => {
+    setLanguages(['fr-FR']);
+    const fetchMock = member({
+      ...routes,
+      [`POST /contribution-needs/${needId}/applications`]: () =>
+        new Response(null, {
+          status: 201,
+          headers: {
+            'Idempotency-Body-Omitted': 'true',
+            Location: `/api/v1/applications/${applicationId}`,
+          },
+        }),
+      [`PATCH /applications/${applicationId}`]: () =>
+        jsonResponse(application({ status: 'withdrawn' })),
+    });
+    const user = await apply();
+    await user.type(screen.getByRole('textbox', { name: /Votre message/ }), 'Bonjour');
+    await user.click(screen.getByRole('button', { name: 'Envoyer ma candidature' }));
+    await user.click(await screen.findByRole('button', { name: 'Retirer ma candidature' }));
+    expect(await screen.findByText('Candidature retirée.')).toBeVisible();
+    expect(callsTo(fetchMock, `PATCH /applications/${applicationId}`)).toHaveLength(1);
+  });
+
+  it.each([
+    ['no Location', undefined],
+    ['a cross-origin Location', `https://evil.test/api/v1/applications/${applicationId}`],
+    ['a protocol-relative Location', `//evil.test/api/v1/applications/${applicationId}`],
+    ['a Location that is not an application', `/api/v1/projects/${applicationId}`],
+  ] as const)(
+    'shows the sent state without withdraw when a replay has %s',
+    async (_name, location) => {
+      setLanguages(['fr-FR']);
+      const fetchMock = member({
+        ...routes,
+        [`POST /contribution-needs/${needId}/applications`]: () =>
+          new Response(null, {
+            status: 201,
+            headers: {
+              'Idempotency-Body-Omitted': 'true',
+              ...(location ? { Location: location } : {}),
+            },
+          }),
+      });
+      const user = await apply();
+      await user.type(screen.getByRole('textbox', { name: /Votre message/ }), 'Bonjour');
+      await user.click(screen.getByRole('button', { name: 'Envoyer ma candidature' }));
+      expect(await screen.findByText(/Candidature envoyée/)).toBeVisible();
+      expect(
+        screen.queryByRole('button', { name: 'Retirer ma candidature' }),
+      ).not.toBeInTheDocument();
+      expect(
+        fetchMock.mock.calls.some(([input]) =>
+          String(input instanceof Request ? input.url : input).includes('/applications/undefined'),
+        ),
+      ).toBe(false);
+    },
+  );
 
   it('shows a server violation on the message field', async () => {
     setLanguages(['fr-FR']);
@@ -252,6 +346,41 @@ describe('ProjectPage owner writes', () => {
     expect(await request?.clone().json()).toEqual({ description: 'Nouvelle description' });
   });
 
+  it('saves nothing and calls nothing when the edit changes nothing', async () => {
+    setLanguages(['fr-FR']);
+    const fetchMock = owner(routes);
+    const user = userEvent.setup();
+    await renderApp(`/build/${projectId}`);
+    await user.click(await screen.findByRole('button', { name: 'Modifier le projet' }));
+    await user.click(screen.getByRole('button', { name: 'Enregistrer' }));
+    expect(await screen.findByRole('button', { name: 'Modifier le projet' })).toBeVisible();
+    expect(callsTo(fetchMock, `PATCH ${base}`)).toHaveLength(0);
+  });
+
+  it('sends exactly the changed technologies and visibility, never links or github_url', async () => {
+    setLanguages(['fr-FR']);
+    const fetchMock = owner({
+      ...routes,
+      [`PATCH ${base}`]: () =>
+        jsonResponse(project({ technologies: ['go', 'rust'], visibility: 'private' })),
+    });
+    const user = userEvent.setup();
+    await renderApp(`/build/${projectId}`);
+    await user.click(await screen.findByRole('button', { name: 'Modifier le projet' }));
+    const tech = screen.getByRole('textbox', { name: /Technologies/ });
+    await user.clear(tech);
+    await user.type(tech, 'Go, Rust');
+    await user.click(screen.getByRole('radio', { name: 'Privé, visible de vous seul' }));
+    await user.click(screen.getByRole('button', { name: 'Enregistrer' }));
+    await waitFor(() => {
+      expect(callsTo(fetchMock, `PATCH ${base}`)).toHaveLength(1);
+    });
+    const body: unknown = await callsTo(fetchMock, `PATCH ${base}`)[0]?.clone().json();
+    expect(body).toEqual({ technologies: ['go', 'rust'], visibility: 'private' });
+    expect(body).not.toHaveProperty('links');
+    expect(body).not.toHaveProperty('github_url');
+  });
+
   it('shows a calm error when a non-owner edit is refused', async () => {
     setLanguages(['fr-FR']);
     owner({ ...routes, [`PATCH ${base}`]: () => problemResponse(403, 'FORBIDDEN') });
@@ -289,9 +418,11 @@ describe('ProjectPage owner writes', () => {
     await waitFor(() => {
       expect(callsTo(fetchMock, `POST ${base}/contribution-needs`)).toHaveLength(2);
     });
-    const [request] = callsTo(fetchMock, `POST ${base}/contribution-needs`);
+    const [request, retry] = callsTo(fetchMock, `POST ${base}/contribution-needs`);
     expect(request?.headers.get('X-CSRF-Token')).toBeTruthy();
     expect(request?.headers.get('Idempotency-Key')).toBeTruthy();
+    // The retry after the 422 is the same submission: the key is reused, never regenerated.
+    expect(retry?.headers.get('Idempotency-Key')).toBe(request?.headers.get('Idempotency-Key'));
     expect(await request?.clone().json()).toMatchObject({ title: 'Traduction', skills: ['go'] });
   });
 

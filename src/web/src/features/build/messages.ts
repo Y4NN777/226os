@@ -71,7 +71,7 @@ export const fr = {
   'project.apply.withdraw': 'Retirer ma candidature',
   'project.apply.withdrawn': 'Candidature retirée.',
   'project.err.message': 'Écrivez un message de 1 à 2 000 caractères.',
-  'project.err.duplicate': 'Vous avez déjà candidaté à ce besoin.',
+  'project.err.duplicate': 'Vous avez déjà postulé à ce besoin.',
   'project.err.closed': 'Ce besoin n’accepte plus de candidatures, ou ce projet est le vôtre.',
   'project.apps.title': 'Candidatures',
   'project.apps.none': 'Aucune candidature pour le moment.',

@@ -85,19 +85,26 @@ export function useApplications(id: string) {
   });
 }
 
-const PROJECT_PATH =
-  /^\/api\/v1\/projects\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
+const APPLICATION_PATH =
+  /^\/api\/v1\/applications\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
 
-/** The project id in a Location header, only when it points at a project of this very API. */
-function projectIdOf(location: string | null): string | undefined {
+/** The id in a Location header, only when it points at `path` of this very API (same origin). */
+function idFromLocation(location: string | null, path: RegExp): string | undefined {
   if (location === null) return undefined;
   try {
     const url = new URL(location, globalThis.location.origin);
     if (url.origin !== globalThis.location.origin) return undefined;
-    return PROJECT_PATH.exec(url.pathname)?.[1];
+    return path.exec(url.pathname)?.[1];
   } catch {
     return undefined;
   }
+}
+
+const PROJECT_PATH =
+  /^\/api\/v1\/projects\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
+
+function projectIdOf(location: string | null): string | undefined {
+  return idFromLocation(location, PROJECT_PATH);
 }
 
 /**
@@ -170,17 +177,23 @@ export function useCreateNeed(projectId: string) {
 export function useCreateApplication(needId: string) {
   const { keyFor, settle } = useIdempotencyKey();
   return useMutation({
-    mutationFn: async (message: string) => {
+    // `id` is null when a replay omitted the body and Location is missing or foreign: the
+    // application exists, but there is nothing safe to withdraw by.
+    mutationFn: async (message: string): Promise<{ id: string | null }> => {
       const body = { message };
       const key = keyFor(body);
-      const created = await api.call(() =>
-        api.client.POST('/contribution-needs/{needId}/applications', {
+      let response: Response | undefined;
+      const created = await api.call(async () => {
+        const result = await api.client.POST('/contribution-needs/{needId}/applications', {
           params: { path: { needId }, header: { 'Idempotency-Key': key } },
           body,
-        }),
-      );
+        });
+        response = result.response;
+        return result;
+      });
       settle();
-      return created;
+      if (response?.headers.get('Idempotency-Body-Omitted') !== 'true') return { id: created.id };
+      return { id: idFromLocation(response.headers.get('Location'), APPLICATION_PATH) ?? null };
     },
   });
 }

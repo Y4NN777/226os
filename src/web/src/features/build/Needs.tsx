@@ -63,7 +63,7 @@ function ApplyForm({ need, projectId }: { need: Need; projectId: string }) {
   const { failure, report, clear } = useFailure();
   const { formRef, focusFirstInvalid } = useInvalidFocus();
   const [serverInvalid, setServerInvalid] = useState(false);
-  const [applicationId, setApplicationId] = useState<string | null>(null);
+  const [sent, setSent] = useState<{ id: string | null } | null>(null);
   const [withdrawn, setWithdrawn] = useState(false);
 
   const form = useForm({
@@ -74,7 +74,7 @@ function ApplyForm({ need, projectId }: { need: Need; projectId: string }) {
       setServerInvalid(false);
       try {
         const created = await create.mutateAsync(value.message.trim());
-        setApplicationId(created.id);
+        setSent(created);
       } catch (error) {
         if (
           error instanceof ApiError &&
@@ -95,27 +95,29 @@ function ApplyForm({ need, projectId }: { need: Need; projectId: string }) {
         {t('project.apply.withdrawn')}
       </Text>
     );
-  if (applicationId !== null) {
+  if (sent !== null) {
     return (
       <VStack gap={2} hAlign="start">
         <Text as="p" role="status">
           {t('project.apply.sent')}
         </Text>
-        <Button
-          variant="ghost"
-          label={t('project.apply.withdraw')}
-          isLoading={decide.isPending}
-          onClick={() => {
-            decide.mutate(
-              { id: applicationId, status: 'withdrawn' },
-              {
-                onSuccess: () => {
-                  setWithdrawn(true);
+        {sent.id !== null ? (
+          <Button
+            variant="ghost"
+            label={t('project.apply.withdraw')}
+            isLoading={decide.isPending}
+            onClick={() => {
+              decide.mutate(
+                { id: sent.id ?? '', status: 'withdrawn' },
+                {
+                  onSuccess: () => {
+                    setWithdrawn(true);
+                  },
                 },
-              },
-            );
-          }}
-        />
+              );
+            }}
+          />
+        ) : null}
         {decide.isError ? <ErrorState error={decide.error} /> : null}
       </VStack>
     );

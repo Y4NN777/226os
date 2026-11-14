@@ -264,9 +264,11 @@ export function ProjectPage() {
         )}
         <HStack gap={3} wrap="wrap" vAlign="center">
           <OwnerByline username={project.owner.username} name={project.owner.display_name} />
-          <Link href={project.github_url} isExternalLink newTabLabel={t('discover.newTab')}>
-            {t('project.github')}
-          </Link>
+          {project.github_url.startsWith('https://github.com/') ? (
+            <Link href={project.github_url} isExternalLink newTabLabel={t('discover.newTab')}>
+              {t('project.github')}
+            </Link>
+          ) : null}
         </HStack>
         <Related links={project.related} />
       </VStack>

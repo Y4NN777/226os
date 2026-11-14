@@ -249,4 +249,38 @@ describe('BuildPage create form', () => {
     await user.click(screen.getByRole('button', { name: 'Publier le projet' }));
     expect(await screen.findByRole('heading', { level: 1, name: 'kora-sdk' })).toBeVisible();
   });
+
+  it.each([
+    ['a cross-origin absolute Location', `https://evil.test/api/v1/projects/${created.id}`],
+    ['a protocol-relative Location', `//evil.test/api/v1/projects/${created.id}`],
+    ['a Location that is not a project', `/api/v1/questions/${created.id}`],
+    ['no Location', undefined],
+  ] as const)(
+    'does not navigate when a replay omits the body and has %s',
+    async (_name, location) => {
+      setLanguages(['fr-FR']);
+      member({
+        'GET /projects': () => page([]),
+        'POST /projects': () =>
+          new Response(null, {
+            status: 201,
+            headers: {
+              'Idempotency-Body-Omitted': 'true',
+              ...(location ? { Location: location } : {}),
+            },
+          }),
+      });
+      const user = userEvent.setup();
+      const { router } = await renderApp('/build');
+      await user.click(await screen.findByRole('button', { name: 'Proposer un projet' }));
+      await user.type(
+        screen.getByRole('textbox', { name: /Adresse GitHub/ }),
+        'https://github.com/kora-dev/kora-sdk',
+      );
+      await user.click(screen.getByRole('button', { name: 'Publier le projet' }));
+      await expectAlert('Une erreur est survenue');
+      expect(router.state.location.pathname).toBe('/build');
+      expect(window.location.origin).not.toContain('evil');
+    },
+  );
 });
