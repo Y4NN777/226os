@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -133,6 +134,10 @@ func TestSearchMapsErrorsToProblemJSON(t *testing.T) {
 		{"per_group 0 is a 422", apigen.SearchParams{Q: "ab", PerGroup: &zero}, nil, http.StatusUnprocessableEntity, "VALIDATION_ERROR"},
 		{"short q is a 422", apigen.SearchParams{Q: "a"}, nil, http.StatusUnprocessableEntity, "VALIDATION_ERROR"},
 		{"a reader failure is a 500 without internals", apigen.SearchParams{Q: "ab"}, func(domain.Group, domain.Query) ([]domain.Hit, error) { return nil, boom }, http.StatusInternalServerError, "INTERNAL_ERROR"},
+		// The repository's 2 s query timeout surfaces as this wrapped error (#118): a redacted 500, never the cause.
+		{"a query timeout is a 500 without internals", apigen.SearchParams{Q: "ab"}, func(domain.Group, domain.Query) ([]domain.Hit, error) {
+			return nil, fmt.Errorf("search questions: select * from secrets: %w", context.DeadlineExceeded)
+		}, http.StatusInternalServerError, "INTERNAL_ERROR"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -147,7 +152,7 @@ func TestSearchMapsErrorsToProblemJSON(t *testing.T) {
 			if err := json.Unmarshal(rec.Body.Bytes(), &p); err != nil || p.Code != tc.code {
 				t.Fatalf("code = %q err %v body %s", p.Code, err, rec.Body.String())
 			}
-			if strings.Contains(rec.Body.String(), "secrets") || strings.Contains(rec.Body.String(), "connection refused") {
+			if strings.Contains(rec.Body.String(), "secrets") || strings.Contains(rec.Body.String(), "connection refused") || strings.Contains(rec.Body.String(), "deadline") {
 				t.Fatalf("internals leaked: %s", rec.Body.String())
 			}
 		})

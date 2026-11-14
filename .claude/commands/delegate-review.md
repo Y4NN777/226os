@@ -123,19 +123,19 @@ There is no per-dimension table: it cost the reader time and told them nothing t
 Triage: <CRITICAL|HIGH|MEDIUM|NONE> | blast radius: <phrase>
 
 <Findings, at most 5, worst first. Each: `id`, level, `file:line`, the failing scenario (input, then wrong result), the fix. CRITICAL and HIGH in detail, MEDIUM as one line.>
-<Notes, at most 3, one line each: worries without a failing scenario, marked INFERRED.>
+<Notes, at most 3, one line each: a remark without a failing scenario, each marked OBSERVED (you read it in the code) or INFERRED (a guess to check). Do not repeat a note listed in the pack under "Notes already decided".>
 Coverage: <reviewed by the tool>/<total>, plus <n> files you read yourself (Step 1b). Range: <range>. Gates and tests were NOT RUN by this review; rely on CI.
 
 <details><summary>Review ledger</summary>
 
 ```json
-{"sha":"<the HEAD commit you reviewed, full hash>","findings":[{"id":"<stable short slug>","sev":"CRITICAL|HIGH|MEDIUM|LOW","file":"<path>","line":<number>,"scenario":"<the failing scenario in one sentence>","status":"open|answered|accepted|fixed"}]}
+{"sha":"<the HEAD commit you reviewed, full hash>","findings":[{"id":"<stable short slug>","kind":"finding|note","evidence":"OBSERVED|INFERRED","sev":"CRITICAL|HIGH|MEDIUM|LOW","file":"<path>","line":<number>,"scenario":"<the failing scenario (finding) or the remark (note) in one sentence>","status":"open|answered|accepted|fixed"}]}
 ```
 
 </details>
 ```
 
-The first line must stay the `Triage:` line (the Review gate reads it). The ledger is read by machines: `scripts/review-context.py` (the next run: what is still open) and `scripts/review-ping.py` (the owner ping). Keep ids stable across runs (the same finding keeps its id), include every finding that is not `fixed` plus the ones fixed since the last run, put exactly one JSON object in the block, use these exact names (`<summary>Review ledger</summary>`, key `sha`, never `last_reviewed_commit`; a drifted label is tolerated by the parser, a missing one means the next run starts from nothing), and never put a secret, an e-mail address or a quotation of a comment in it.
+The first line must stay the `Triage:` line (the Review gate reads it). The ledger is read by machines: `scripts/review-context.py` (the next run: what is still open) and `scripts/review-ping.py` (the owner ping). Keep ids stable across runs (the same finding keeps its id), include every finding that is not `fixed` plus the ones fixed since the last run, put exactly one JSON object in the block, every entry of the Findings part has `kind` `finding` and every Notes line has `kind` `note` (a note is a remark, not a defect: it never triggers a new review or an owner ping, and its `sev` is `LOW`), `evidence` is `OBSERVED` or `INFERRED` on every entry, use these exact names (`<summary>Review ledger</summary>`, key `sha`, never `last_reviewed_commit`; a drifted label is tolerated by the parser, a missing one means the next run starts from nothing), and never put a secret, an e-mail address or a quotation of a comment in it.
 
 - Inline comments only for CRITICAL and HIGH findings. MEDIUM goes in the summary only. LOW is dropped.
 - **A CRITICAL must be OBSERVED and cite `file:line`** (for example `OBSERVED: src/api/config.go:12 holds a literal key`). If you cannot observe it in the diff or the files, it is HIGH, not CRITICAL. The Review gate only acts on a CRITICAL with that evidence.

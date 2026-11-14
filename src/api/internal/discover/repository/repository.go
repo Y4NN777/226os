@@ -40,6 +40,7 @@ type entry struct {
 	providerName      string
 	providerURL       pgtype.Text
 	sourceCount       int32
+	provenance        string
 }
 
 // List returns published resources for q, with countries, SDKs and related links.
@@ -52,7 +53,7 @@ func (r *Repository) List(ctx context.Context, q domain.Query) ([]domain.Resourc
 	}
 	rows, err := r.q.ListCatalogue(ctx, dbgen.ListCatalogueParams{
 		Category: text(q.Category), ResourceType: text(q.Type), Provider: text(q.Provider),
-		Country: text(q.Country), Sdk: text(q.SDK), Doclang: text(q.Doclang), Q: text(q.Q),
+		Countries: q.Countries, Sdk: text(q.SDK), Doclang: text(q.Doclang), Q: text(q.Q),
 		AfterName: text(q.AfterName), AfterID: after, RowLimit: int32(q.Limit), //nolint:gosec // page size is at most 51
 	})
 	if err != nil {
@@ -220,17 +221,18 @@ func resourceFrom(row entry) domain.Resource {
 		Provider:           domain.Provider{Name: row.providerName, Slug: row.providerSlug, URL: textPtr(row.providerURL)},
 		SourceCount:        int(row.sourceCount),
 		VerificationStatus: row.status,
+		Provenance:         row.provenance,
 		LastVerifiedAt:     timePtr(row.verifiedAt),
 		UpdatedAt:          row.updatedAt.Time,
 	}
 }
 
 func entryFromList(row dbgen.ListCatalogueRow) entry {
-	return entry{row.ID, row.Slug, row.Name, row.Type, row.CategoryCode, row.Summary, row.DocLanguages, row.DocsUrl, row.VerificationStatus, row.VerifiedAt, row.UpdatedAt, row.VerifiedSourceID, row.ProviderSlug, row.ProviderName, row.ProviderUrl, row.SourceCount}
+	return entry{row.ID, row.Slug, row.Name, row.Type, row.CategoryCode, row.Summary, row.DocLanguages, row.DocsUrl, row.VerificationStatus, row.VerifiedAt, row.UpdatedAt, row.VerifiedSourceID, row.ProviderSlug, row.ProviderName, row.ProviderUrl, row.SourceCount, row.Provenance}
 }
 
 func entryFromGet(row dbgen.GetCatalogueEntryRow) entry {
-	return entry{row.ID, row.Slug, row.Name, row.Type, row.CategoryCode, row.Summary, row.DocLanguages, row.DocsUrl, row.VerificationStatus, row.VerifiedAt, row.UpdatedAt, row.VerifiedSourceID, row.ProviderSlug, row.ProviderName, row.ProviderUrl, row.SourceCount}
+	return entry{row.ID, row.Slug, row.Name, row.Type, row.CategoryCode, row.Summary, row.DocLanguages, row.DocsUrl, row.VerificationStatus, row.VerifiedAt, row.UpdatedAt, row.VerifiedSourceID, row.ProviderSlug, row.ProviderName, row.ProviderUrl, row.SourceCount, row.Provenance}
 }
 
 func indexOf(rows []entry, id pgtype.UUID) (int, bool) {

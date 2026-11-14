@@ -198,17 +198,17 @@ func TestCatalogueQueriesScanAndReject(t *testing.T) {
 	id := pgtype.UUID{Bytes: [16]byte{1}, Valid: true}
 	ts := pgtype.Timestamptz{Time: time.Unix(10, 0).UTC(), Valid: true}
 	text := pgtype.Text{String: "https://example.test", Valid: true}
-	listRow := []any{id, "alpha", "Alpha", "api", "mobile-money", "Paiement", []string{"fr"}, text, "verified", ts, ts, id, "acme", "Acme", text, int32(1)}
+	listRow := []any{id, "alpha", "Alpha", "api", "mobile-money", "Paiement", []string{"fr"}, text, "verified", ts, ts, id, "demo", "acme", "Acme", text, int32(1)}
 	db := &fakeDB{many: [][]any{listRow}}
 	rows, err := dbgen.New(db).ListCatalogue(t.Context(), dbgen.ListCatalogueParams{RowLimit: 21, Q: text})
-	if err != nil || len(rows) != 1 || rows[0].Slug != "alpha" {
+	if err != nil || len(rows) != 1 || rows[0].Slug != "alpha" || rows[0].Provenance != "demo" {
 		t.Fatalf("rows %+v err %v", rows, err)
 	}
 	if !strings.Contains(db.calls[0].sql, "LIMIT") {
 		t.Fatal("list query is not bounded")
 	}
 	got, err := dbgen.New(&fakeDB{rowVals: listRow}).GetCatalogueEntry(t.Context(), id)
-	if err != nil || got.Slug != "alpha" {
+	if err != nil || got.Slug != "alpha" || got.Provenance != "demo" {
 		t.Fatalf("%+v %v", got, err)
 	}
 	countries, err := dbgen.New(&fakeDB{many: [][]any{{id, "BF"}}}).CatalogueCountries(t.Context(), []pgtype.UUID{id})
@@ -324,9 +324,14 @@ func TestSearchQueriesBindArgumentsScanAndReject(t *testing.T) {
 			if !strings.Contains(sql, "LIMIT") || !strings.Contains(sql, "ts_rank") || !strings.Contains(sql, "websearch_to_tsquery('simple', f_unaccent(") {
 				t.Fatalf("search query is not bounded, ranked and accent-folded:\n%s", sql)
 			}
-			wantArgs := []any{"mot", country, lang, int32(6)}
+			// #118: no positive term reads nothing, and at most 500 candidates are ranked.
+			if !strings.Contains(sql, "querytree(i.tsq) NOT IN ('', 'T')") || !strings.Contains(sql, "LIMIT 500") {
+				t.Fatalf("search query does not bound its candidates:\n%s", sql)
+			}
+			// With a CTE, sqlc binds the outer LIMIT first.
+			wantArgs := []any{int32(6), "mot", country, lang}
 			if name == "learn" {
-				wantArgs = []any{"mot", lang, int32(6)}
+				wantArgs = []any{int32(6), "mot", lang}
 			}
 			if !reflect.DeepEqual(db.calls[0].args, wantArgs) {
 				t.Fatalf("args = %#v, want %#v", db.calls[0].args, wantArgs)
@@ -528,12 +533,12 @@ func TestIdentityQueries(t *testing.T) {
 		t.Fatalf("update profile call %+v", db.calls)
 	}
 
-	// DeleteUserSkills :exec — wipes the user's skill rows inside the tx.
+	// DeleteUserSkills :exec — removes only the links to active tags inside the tx.
 	db = &fakeDB{}
 	if err := dbgen.New(db).DeleteUserSkills(ctx, uid); err != nil {
 		t.Fatal(err)
 	}
-	assertCall(t, db, "DELETE FROM user_skills WHERE user_id", []any{uid})
+	assertCall(t, db, "DELETE FROM user_skills us", []any{uid})
 
 	// InsertUserSkills :exec — inserts the resolved tag ids, conflict-safe.
 	db = &fakeDB{}

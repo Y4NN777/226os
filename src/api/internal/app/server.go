@@ -3,8 +3,10 @@ package app
 import (
 	"net/http"
 
+	buildtransport "github.com/Y4NN777/226os/src/api/internal/build/transport"
 	"github.com/Y4NN777/226os/src/api/internal/discover/transport"
 	identitytransport "github.com/Y4NN777/226os/src/api/internal/identity/transport"
+	learntransport "github.com/Y4NN777/226os/src/api/internal/learn/transport"
 	"github.com/Y4NN777/226os/src/api/internal/platform/apigen"
 	"github.com/Y4NN777/226os/src/api/internal/platform/mailer"
 	searchtransport "github.com/Y4NN777/226os/src/api/internal/search/transport"
@@ -21,6 +23,8 @@ type Server struct {
 	reports   *transport.Handler
 	search    *searchtransport.Handler
 	auth      *identitytransport.Handler
+	learn     *learntransport.Handler
+	build     *buildtransport.Handler
 }
 
 // Option configures NewServer.
@@ -40,6 +44,12 @@ func WithSearch(h *searchtransport.Handler) Option { return func(s *Server) { s.
 
 // WithIdentity sets the S1 auth operations. Without it those routes stay 501.
 func WithIdentity(h *identitytransport.Handler) Option { return func(s *Server) { s.auth = h } }
+
+// WithLearn sets the S4 Learn operations. Without it those routes stay 501.
+func WithLearn(h *learntransport.Handler) Option { return func(s *Server) { s.learn = h } }
+
+// WithBuild sets the S5 project and contribution-need operations. Without it those routes stay 501.
+func WithBuild(h *buildtransport.Handler) Option { return func(s *Server) { s.build = h } }
 
 // NewServer returns the production server with all operations unimplemented.
 // Without WithMailer its mailer is mailer.Disabled.
@@ -196,4 +206,130 @@ func (s *Server) GetProfile(w http.ResponseWriter, r *http.Request, username api
 		return
 	}
 	s.auth.GetProfile(w, r, username)
+}
+
+// ListLearnArticles serves published articles. A server built without WithLearn stays unimplemented.
+func (s *Server) ListLearnArticles(w http.ResponseWriter, r *http.Request, params apigen.ListLearnArticlesParams) {
+	if s.learn == nil {
+		s.Unimplemented.ListLearnArticles(w, r, params)
+		return
+	}
+	s.learn.ListLearnArticles(w, r, params)
+}
+
+// CreateLearnArticle saves a member's article. A server built without WithLearn stays unimplemented.
+func (s *Server) CreateLearnArticle(w http.ResponseWriter, r *http.Request, params apigen.CreateLearnArticleParams) {
+	if s.learn == nil {
+		s.Unimplemented.CreateLearnArticle(w, r, params)
+		return
+	}
+	s.learn.CreateLearnArticle(w, r, params)
+}
+
+// GetLearnArticle serves one article. A server built without WithLearn stays unimplemented.
+func (s *Server) GetLearnArticle(w http.ResponseWriter, r *http.Request, articleID apigen.ArticleId) {
+	if s.learn == nil {
+		s.Unimplemented.GetLearnArticle(w, r, articleID)
+		return
+	}
+	s.learn.GetLearnArticle(w, r, articleID)
+}
+
+// ListTrainingSeries serves published series. A server built without WithLearn stays unimplemented.
+func (s *Server) ListTrainingSeries(w http.ResponseWriter, r *http.Request, params apigen.ListTrainingSeriesParams) {
+	if s.learn == nil {
+		s.Unimplemented.ListTrainingSeries(w, r, params)
+		return
+	}
+	s.learn.ListTrainingSeries(w, r, params)
+}
+
+// GetTrainingSeries serves one series with its lessons. A server built without WithLearn stays unimplemented.
+func (s *Server) GetTrainingSeries(w http.ResponseWriter, r *http.Request, seriesID apigen.SeriesId) {
+	if s.learn == nil {
+		s.Unimplemented.GetTrainingSeries(w, r, seriesID)
+		return
+	}
+	s.learn.GetTrainingSeries(w, r, seriesID)
+}
+
+// ListProjects serves published projects. A server built without WithBuild stays unimplemented.
+func (s *Server) ListProjects(w http.ResponseWriter, r *http.Request, params apigen.ListProjectsParams) {
+	if s.build == nil {
+		s.Unimplemented.ListProjects(w, r, params)
+		return
+	}
+	s.build.ListProjects(w, r, params)
+}
+
+// CreateProject registers a member's GitHub project. A server built without WithBuild stays unimplemented.
+func (s *Server) CreateProject(w http.ResponseWriter, r *http.Request, params apigen.CreateProjectParams) {
+	if s.build == nil {
+		s.Unimplemented.CreateProject(w, r, params)
+		return
+	}
+	s.build.CreateProject(w, r, params)
+}
+
+// GetProject serves one project. A server built without WithBuild stays unimplemented.
+func (s *Server) GetProject(w http.ResponseWriter, r *http.Request, projectID apigen.ProjectId) {
+	if s.build == nil {
+		s.Unimplemented.GetProject(w, r, projectID)
+		return
+	}
+	s.build.GetProject(w, r, projectID)
+}
+
+// UpdateProject edits the owner's project. A server built without WithBuild stays unimplemented.
+func (s *Server) UpdateProject(w http.ResponseWriter, r *http.Request, projectID apigen.ProjectId) {
+	if s.build == nil {
+		s.Unimplemented.UpdateProject(w, r, projectID)
+		return
+	}
+	s.build.UpdateProject(w, r, projectID)
+}
+
+// ListContributionNeeds serves a project's needs. A server built without WithBuild stays unimplemented.
+func (s *Server) ListContributionNeeds(w http.ResponseWriter, r *http.Request, projectID apigen.ProjectId, params apigen.ListContributionNeedsParams) {
+	if s.build == nil {
+		s.Unimplemented.ListContributionNeeds(w, r, projectID, params)
+		return
+	}
+	s.build.ListContributionNeeds(w, r, projectID, params)
+}
+
+// CreateContributionNeed publishes the owner's need. A server built without WithBuild stays unimplemented.
+func (s *Server) CreateContributionNeed(w http.ResponseWriter, r *http.Request, projectID apigen.ProjectId, params apigen.CreateContributionNeedParams) {
+	if s.build == nil {
+		s.Unimplemented.CreateContributionNeed(w, r, projectID, params)
+		return
+	}
+	s.build.CreateContributionNeed(w, r, projectID, params)
+}
+
+// CreateApplication records a member's application. A server built without WithBuild stays unimplemented.
+func (s *Server) CreateApplication(w http.ResponseWriter, r *http.Request, needID apigen.NeedId, params apigen.CreateApplicationParams) {
+	if s.build == nil {
+		s.Unimplemented.CreateApplication(w, r, needID, params)
+		return
+	}
+	s.build.CreateApplication(w, r, needID, params)
+}
+
+// ListProjectApplications serves a project's applications to its owner. A server built without WithBuild stays unimplemented.
+func (s *Server) ListProjectApplications(w http.ResponseWriter, r *http.Request, projectID apigen.ProjectId, params apigen.ListProjectApplicationsParams) {
+	if s.build == nil {
+		s.Unimplemented.ListProjectApplications(w, r, projectID, params)
+		return
+	}
+	s.build.ListProjectApplications(w, r, projectID, params)
+}
+
+// DecideApplication accepts, declines or withdraws an application. A server built without WithBuild stays unimplemented.
+func (s *Server) DecideApplication(w http.ResponseWriter, r *http.Request, applicationID apigen.ApplicationId) {
+	if s.build == nil {
+		s.Unimplemented.DecideApplication(w, r, applicationID)
+		return
+	}
+	s.build.DecideApplication(w, r, applicationID)
 }

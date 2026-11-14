@@ -84,21 +84,21 @@ func TestListCursorIsBoundToTheFilters(t *testing.T) {
 		if q.AfterName == "" {
 			return rows, nil
 		}
-		if q.AfterName != "Alpha" || q.Country != "BF" {
+		if q.AfterName != "Alpha" || len(q.Countries) != 1 || q.Countries[0] != "BF" {
 			t.Fatalf("continued query = %+v", q)
 		}
 		return rows[1:], nil
 	}}, codec(t))
 	one := 1
-	first, err := svc.List(t.Context(), ListRequest{Limit: &one, Country: str("BF")})
+	first, err := svc.List(t.Context(), ListRequest{Limit: &one, Countries: []string{"BF"}})
 	if err != nil || first.NextCursor == "" || len(first.Items) != 1 || first.Items[0].Name != "Alpha" {
 		t.Fatalf("first = %+v, err %v", first, err)
 	}
-	second, err := svc.List(t.Context(), ListRequest{Limit: &one, Country: str("BF"), Cursor: first.NextCursor})
+	second, err := svc.List(t.Context(), ListRequest{Limit: &one, Countries: []string{"BF"}, Cursor: first.NextCursor})
 	if err != nil || len(second.Items) != 1 || second.Items[0].Name != "Beta" || second.NextCursor != "" {
 		t.Fatalf("second = %+v, err %v", second, err)
 	}
-	if _, err := svc.List(t.Context(), ListRequest{Limit: &one, Country: str("CI"), Cursor: first.NextCursor}); !errors.As(err, new(*apperr.Error)) {
+	if _, err := svc.List(t.Context(), ListRequest{Limit: &one, Countries: []string{"CI"}, Cursor: first.NextCursor}); !errors.As(err, new(*apperr.Error)) {
 		t.Fatalf("replay on another filter: %v", err)
 	} else {
 		var ae *apperr.Error
@@ -155,15 +155,15 @@ func TestGetAndSourcesPassThrough(t *testing.T) {
 // Two filter sets that the old "\x1f" join mapped to the same string must hash differently,
 // otherwise a cursor issued for one filter set would be accepted for the other.
 func TestFilterHashSeparatesFieldsThatContainTheOldSeparator(t *testing.T) {
-	a := domain.Query{Q: "x\x1f", Country: "y"}
-	b := domain.Query{Q: "x", Country: "\x1fy"}
+	a := domain.Query{Q: "x\x1f", Category: "y"}
+	b := domain.Query{Q: "x", Category: "\x1fy"}
 	if oldJoin(a) != oldJoin(b) {
 		t.Fatal("the fixture no longer collides under the old join")
 	}
 	if filterHash(a) == filterHash(b) {
 		t.Fatalf("filterHash collides: %q", filterHash(a))
 	}
-	again := domain.Query{Q: "x\x1f", Country: "y"}
+	again := domain.Query{Q: "x\x1f", Category: "y"}
 	if filterHash(a) != filterHash(again) || filterHash(domain.Query{}) == filterHash(domain.Query{Q: "a"}) {
 		t.Fatal("filterHash must be deterministic and sensitive to each field")
 	}
@@ -173,11 +173,11 @@ func TestListCursorIsRefusedOnACollidingFilterSet(t *testing.T) {
 	rows := []domain.Resource{{ID: "00000000-0000-7000-8000-000000000001", Name: "Alpha"}, {ID: "00000000-0000-7000-8000-000000000002", Name: "Beta"}}
 	svc := New(fakeReader{list: func(domain.Query) ([]domain.Resource, error) { return rows, nil }}, codec(t))
 	one := 1
-	first, err := svc.List(t.Context(), ListRequest{Limit: &one, Q: str("x\x1f"), Country: str("y")})
+	first, err := svc.List(t.Context(), ListRequest{Limit: &one, Q: str("x\x1f"), Category: str("y")})
 	if err != nil || first.NextCursor == "" {
 		t.Fatalf("first = %+v, err %v", first, err)
 	}
-	_, err = svc.List(t.Context(), ListRequest{Limit: &one, Q: str("x"), Country: str("\x1fy"), Cursor: first.NextCursor})
+	_, err = svc.List(t.Context(), ListRequest{Limit: &one, Q: str("x"), Category: str("\x1fy"), Cursor: first.NextCursor})
 	var ae *apperr.Error
 	if !errors.As(err, &ae) || ae.Code != apperr.CodeInvalidCursor {
 		t.Fatalf("err = %v", err)
@@ -186,5 +186,90 @@ func TestListCursorIsRefusedOnACollidingFilterSet(t *testing.T) {
 
 // oldJoin is the pre-fix encoding, kept only to prove the collision fixture is real.
 func oldJoin(q domain.Query) string {
-	return q.Q + "\x1f" + q.Country + "\x1f" + q.Category + "\x1f" + q.Type + "\x1f" + q.SDK + "\x1f" + q.Provider + "\x1f" + q.Doclang
+	return q.Q + "\x1f" + strings.Join(q.Countries, ",") + "\x1f" + q.Category + "\x1f" + q.Type + "\x1f" + q.SDK + "\x1f" + q.Provider + "\x1f" + q.Doclang
+}
+
+func TestListCanonicalisesTheCountryFilter(t *testing.T) {
+	var got domain.Query
+	svc := New(fakeReader{list: func(q domain.Query) ([]domain.Resource, error) {
+		got = q
+		return nil, nil
+	}}, codec(t))
+	tests := []struct {
+		name string
+		in   []string
+		want []string
+	}{
+		{"unset stays unset", nil, nil},
+		{"single code", []string{"BF"}, []string{"BF"}},
+		{"sorted", []string{"SN", "BF", "CI"}, []string{"BF", "CI", "SN"}},
+		{"duplicates removed", []string{"CI", "BF", "CI"}, []string{"BF", "CI"}},
+		{"twenty codes", codes(20), codes(20)},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got = domain.Query{Countries: []string{"sentinel"}}
+			if _, err := svc.List(t.Context(), ListRequest{Countries: tc.in}); err != nil {
+				t.Fatal(err)
+			}
+			if strings.Join(got.Countries, ",") != strings.Join(tc.want, ",") || (tc.want == nil) != (got.Countries == nil) {
+				t.Fatalf("countries = %#v, want %#v", got.Countries, tc.want)
+			}
+		})
+	}
+}
+
+func TestListRejectsABadCountryFilter(t *testing.T) {
+	svc := New(fakeReader{list: func(domain.Query) ([]domain.Resource, error) {
+		t.Fatal("store should not be called")
+		return nil, nil
+	}}, codec(t))
+	tests := []struct {
+		name     string
+		in       []string
+		wantCode string
+	}{
+		{"empty list", []string{}, "too_short"},
+		{"twenty-one codes", codes(21), "too_many_items"},
+		{"lowercase", []string{"bf"}, "invalid_format"},
+		{"three letters", []string{"BFA"}, "invalid_format"},
+		{"empty code", []string{"BF", ""}, "invalid_format"},
+		{"digits", []string{"B1"}, "invalid_format"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := svc.List(t.Context(), ListRequest{Countries: tc.in})
+			var ae *apperr.Error
+			if !errors.As(err, &ae) || ae.Code != apperr.CodeValidation || len(ae.Violations) != 1 ||
+				ae.Violations[0].Field != "country" || ae.Violations[0].Code != tc.wantCode {
+				t.Fatalf("err = %#v, want a country violation %s", err, tc.wantCode)
+			}
+		})
+	}
+}
+
+// BF,CI and CI,BF are one filter: a cursor from one must continue on the other, and a single code hashes as before.
+func TestFilterHashIgnoresCountryOrder(t *testing.T) {
+	a := filterHash(domain.Query{Countries: []string{"BF", "CI"}})
+	if a == filterHash(domain.Query{Countries: []string{"BF"}}) || a == filterHash(domain.Query{}) {
+		t.Fatal("the hash must depend on the country list")
+	}
+	rows := []domain.Resource{{ID: "00000000-0000-7000-8000-000000000001", Name: "Alpha"}, {ID: "00000000-0000-7000-8000-000000000002", Name: "Beta"}}
+	svc := New(fakeReader{list: func(domain.Query) ([]domain.Resource, error) { return rows, nil }}, codec(t))
+	one := 1
+	first, err := svc.List(t.Context(), ListRequest{Limit: &one, Countries: []string{"CI", "BF"}})
+	if err != nil || first.NextCursor == "" {
+		t.Fatalf("first = %+v, err %v", first, err)
+	}
+	if _, err := svc.List(t.Context(), ListRequest{Limit: &one, Countries: []string{"BF", "CI"}, Cursor: first.NextCursor}); err != nil {
+		t.Fatalf("same filter in another order: %v", err)
+	}
+}
+
+func codes(n int) []string {
+	out := make([]string, n)
+	for i := range out {
+		out[i] = string(rune('A'+i/26)) + string(rune('A'+i%26))
+	}
+	return out
 }

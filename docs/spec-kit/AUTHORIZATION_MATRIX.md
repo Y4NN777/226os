@@ -38,13 +38,13 @@ Legend: `A` allowed, `D` denied (401 for anonymous, 403 or 404 per the rule abov
 | `POST /resources`, `PATCH /resources/{id}` | not in P0 | not in P0 | not in P0 | not in P0 | no P0 story needs a member-facing create/edit; the owner loads catalogue content outside the API; moderators only hide |
 | `POST /resources/{resourceId}/reviews` | P1 | P1 | P1 | P1 | one review per user and resource |
 | `POST /projects` | D | C (verified) | C | C | invalid GitHub URL, SSRF, rate limit |
-| `PATCH /projects/{projectId}` | D | O or maintainer | O | D | non-owner cannot mutate; private project 404 |
+| `PATCH /projects/{projectId}` | D | O (owner only, C1) | O | D | non-owner cannot mutate (403 public, 404 private); a `project_maintainers` row grants nothing |
 | `DELETE /projects/{id}` | not in P0 | not in P0 | not in P0 | hide only (below) | no delete endpoint at P0 |
-| `POST /projects/{projectId}/contribution-needs` | D | O or maintainer | O | D | only owner or maintainer publishes a need |
+| `POST /projects/{projectId}/contribution-needs` | D | O (owner only, C1) | O | D | only the owner publishes a need (403 public, 404 private) |
 | `PATCH /contribution-needs/{id}` | not in P0 | not in P0 | not in P0 | not in P0 | need status changes are out of P0 |
 | `POST /contribution-needs/{needId}/applications` | D | C (verified, not the project owner) | C | C | duplicate application, closed need, re-apply only after own withdrawal |
-| `GET /projects/{projectId}/applications` | D | O or maintainer | O | D | third party denied; no count or data leak |
-| `PATCH /applications/{applicationId}` | D | applicant (withdraw) or project owner/maintainer (accept, decline) | O | D | cross-project IDOR, invalid state transition, no re-apply after decline |
+| `GET /projects/{projectId}/applications` | D | O (owner only, C1) | O | D | third party denied; no count or data leak |
+| `PATCH /applications/{applicationId}` | D | applicant (withdraw) or project owner (accept, decline; C1) | O | D | cross-project IDOR, invalid state transition, no re-apply after decline |
 | `GET /learn/series/{seriesId}/lessons/{lessonId}/progress`, `PUT` (lesson progress) | P1 | P1 | P1 | P1 | table deferred to a later migration |
 | `POST /learn/articles` | D (401) | C (verified) | C | C | unauthenticated 401, unverified 403, CSRF |
 | content relations via `links[]` on create/update | D | C: only the author of the source item, only to published public targets | O of source | remove only (below) | dangling/private target, non-author link |

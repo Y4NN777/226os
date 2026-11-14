@@ -53,8 +53,8 @@ func TestListResourcesEncodesAPage(t *testing.T) {
 			Provider: domain.Provider{Name: "Acme", Slug: "acme"}, Countries: []string{"BF"},
 			SDKs:        []domain.SDK{{Language: "go", Name: "Go", URL: "https://pkg.example"}, {Language: "js", URL: "https://js.example"}},
 			Related:     []domain.Link{{ID: "00000000-0000-7000-8000-0000000000c1", Type: "question", Title: "How", Lang: "fr"}, {ID: "00000000-0000-7000-8000-0000000000c2", Type: "project", Title: "Proj"}},
-			SourceCount: 1, VerificationStatus: "verified", LastVerifiedAt: &when, UpdatedAt: when,
-		}, {Name: "Beta"}}, nil
+			SourceCount: 1, VerificationStatus: "verified", Provenance: "demo", LastVerifiedAt: &when, UpdatedAt: when,
+		}, {Name: "Beta", Provenance: "live"}}, nil
 	}})
 	rec := httptest.NewRecorder()
 	one := 1
@@ -71,6 +71,9 @@ func TestListResourcesEncodesAPage(t *testing.T) {
 	}
 	if len(page.Items) != 1 || page.NextCursor == nil || page.Items[0].VerificationStatus != "verified" {
 		t.Fatalf("%+v", page)
+	}
+	if page.Items[0].Provenance != apigen.ResourceProvenance("demo") {
+		t.Fatalf("provenance %q, want demo", page.Items[0].Provenance)
 	}
 	if page.Items[0].Countries[0] != "BF" || page.Items[0].SdkLanguages[0].Url == "" || len(page.Items[0].Related) != 2 {
 		t.Fatalf("%+v", page.Items[0])
@@ -130,7 +133,7 @@ func TestGetResourceAndBadIDs(t *testing.T) {
 	when := time.Date(2026, 11, 12, 0, 0, 0, 0, time.UTC)
 	h := handler(t, fakeReader{
 		get: func(string) (domain.Resource, error) {
-			return domain.Resource{ID: "00000000-0000-7000-8000-0000000000a1", Name: "Alpha", Type: "api", Category: "mobile-money", Summary: "Paiement", Provider: domain.Provider{Name: "Acme", Slug: "acme"}, Countries: []string{}, SDKs: []domain.SDK{}, Related: []domain.Link{}, DocLanguages: []string{}, UpdatedAt: when, VerificationStatus: "unverified"}, nil
+			return domain.Resource{ID: "00000000-0000-7000-8000-0000000000a1", Name: "Alpha", Type: "api", Category: "mobile-money", Summary: "Paiement", Provider: domain.Provider{Name: "Acme", Slug: "acme"}, Countries: []string{}, SDKs: []domain.SDK{}, Related: []domain.Link{}, DocLanguages: []string{}, UpdatedAt: when, VerificationStatus: "unverified", Provenance: "demo"}, nil
 		},
 		list: func(domain.Query) ([]domain.Resource, error) {
 			return []domain.Resource{{ID: "bad", Name: "Alpha"}}, nil
@@ -143,6 +146,10 @@ func TestGetResourceAndBadIDs(t *testing.T) {
 	h.GetResource(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil), uuid.MustParse("00000000-0000-7000-8000-0000000000a1"))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("get %d %s", rec.Code, rec.Body.String())
+	}
+	var one apigen.Resource
+	if err := json.Unmarshal(rec.Body.Bytes(), &one); err != nil || one.Provenance != apigen.ResourceProvenance("demo") {
+		t.Fatalf("provenance %q err %v", one.Provenance, err)
 	}
 	rec = httptest.NewRecorder()
 	h.ListResources(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil), apigen.ListResourcesParams{})
@@ -175,4 +182,23 @@ func containsAt(s, part string) bool {
 		}
 	}
 	return false
+}
+
+func TestListResourcesPassesTheCountryList(t *testing.T) {
+	var got domain.Query
+	h := handler(t, fakeReader{list: func(q domain.Query) ([]domain.Resource, error) {
+		got = q
+		return nil, nil
+	}})
+	countries := []apigen.CountryCode{"CI", "BF"}
+	rec := httptest.NewRecorder()
+	h.ListResources(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil), apigen.ListResourcesParams{Country: &countries})
+	if rec.Code != http.StatusOK || len(got.Countries) != 2 || got.Countries[0] != "BF" || got.Countries[1] != "CI" {
+		t.Fatalf("status %d countries %v", rec.Code, got.Countries)
+	}
+	rec = httptest.NewRecorder()
+	h.ListResources(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil), apigen.ListResourcesParams{})
+	if rec.Code != http.StatusOK || got.Countries != nil {
+		t.Fatalf("status %d countries %v, want none", rec.Code, got.Countries)
+	}
 }

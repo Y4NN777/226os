@@ -176,13 +176,17 @@ UPDATE profiles SET
   WHERE profiles.user_id = $1
 RETURNING profiles.user_id;
 
--- Skill replacement pair: DeleteUserSkills wipes the user's skill rows and
--- InsertUserSkills adds the resolved set. The repository runs both inside
--- the UpdateProfile transaction, after the profile row lock is held, so
+-- Skill replacement pair: DeleteUserSkills removes the user's links to active
+-- tags and InsertUserSkills adds the resolved set. The repository runs both
+-- inside the UpdateProfile transaction, after the profile row lock is held, so
 -- each statement sees a fresh snapshot and concurrent patches serialize
--- instead of merging.
+-- instead of merging. Links to hidden tags are moderator state, not the user's
+-- visible skill set: they are kept so a restored tag brings the skill back
+-- instead of losing it silently on an unrelated write (issue #116).
 -- name: DeleteUserSkills :exec
-DELETE FROM user_skills WHERE user_id = $1;
+DELETE FROM user_skills us
+USING tags t
+WHERE us.user_id = $1 AND us.tag_id = t.id AND t.status = 'active';
 
 -- name: InsertUserSkills :exec
 INSERT INTO user_skills (user_id, tag_id)

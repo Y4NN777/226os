@@ -24,8 +24,10 @@ import (
 	"github.com/Y4NN777/226os/src/api/internal/identity/repository"
 	"github.com/Y4NN777/226os/src/api/internal/identity/service"
 	identitytransport "github.com/Y4NN777/226os/src/api/internal/identity/transport"
+	"github.com/Y4NN777/226os/src/api/internal/learn"
 	"github.com/Y4NN777/226os/src/api/internal/platform/cursor"
 	"github.com/Y4NN777/226os/src/api/internal/platform/httpx"
+	"github.com/Y4NN777/226os/src/api/internal/platform/idempotency"
 	"github.com/Y4NN777/226os/src/api/internal/platform/mailer"
 	"github.com/Y4NN777/226os/src/api/internal/platform/ratelimit"
 	"github.com/Y4NN777/226os/src/api/internal/search"
@@ -40,7 +42,7 @@ type limiter interface {
 	searchservice.Limiter
 }
 
-// s2Stack is the production router with identity, the catalogue, error reports and search over a
+// s2Stack is the production router with identity, the catalogue, error reports, search and Learn over a
 // migrated, catalogue-seeded database and a pooled connection (the tests run requests concurrently).
 type s2Stack struct {
 	router http.Handler
@@ -80,8 +82,11 @@ func newS2Stack(ctx context.Context, t *testing.T, override limiter) *s2Stack {
 			app.WithCatalogue(catalogue),
 			app.WithErrorReports(catalogue),
 			app.WithSearch(search.NewHandler(pool, lim, nil)),
+			app.WithLearn(learn.NewHandler(pool, codec, lim, nil)),
 		),
 		Ready: pool,
+		// As in production (app.newDeps): the six bound operations, createLearnArticle among them, honour Idempotency-Key.
+		Idempotency: idempotency.NewPgStore(pool),
 	}
 	deps.Subjects = identitytransport.NewResolver(svc, false)
 	deps.CSRF = identitytransport.CSRFMiddleware(svc, false, nil)
@@ -134,9 +139,11 @@ func (s *s2Stack) preSession(t *testing.T) (*http.Cookie, string) {
 }
 
 // verificationToken waits for the single verification mail sent to to.
+// The deadline only bounds the wait: under the full -race suite each sign-up hashes with Argon2id
+// (64 MiB) while other packages run, and 5 seconds was not always enough (2026-11-14).
 func (s *s2Stack) verificationToken(t *testing.T, to string) string {
 	t.Helper()
-	deadline := time.Now().Add(5 * time.Second)
+	deadline := time.Now().Add(30 * time.Second)
 	for time.Now().Before(deadline) {
 		for _, m := range s.mail.Sent() {
 			if len(m.To) == 1 && m.To[0] == to {
@@ -459,7 +466,7 @@ func TestErrorReportValidation(t *testing.T) {
 		rec := s.report(t, &alice, catAlpha, `{"kind":"other","body":"x","source_id":"`+catSrcBeta+`"}`)
 		p := assertProblem(t, rec, http.StatusUnprocessableEntity, "VALIDATION_ERROR")
 		v, _ := json.Marshal(p["violations"])
-		if !strings.Contains(string(v), `"source_id"`) {
+		if !strings.Contains(string(v), `"/source_id"`) || !strings.Contains(string(v), `"invalid_value"`) {
 			t.Fatalf("violations %s", v)
 		}
 		for _, leak := range []string{catSrcBeta, catBeta, "Beta"} {

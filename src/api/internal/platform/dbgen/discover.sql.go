@@ -245,7 +245,7 @@ func (q *Queries) CreateErrorReport(ctx context.Context, arg CreateErrorReportPa
 
 const getCatalogueEntry = `-- name: GetCatalogueEntry :one
 SELECT r.id, r.slug, r.name, r.type, r.category_code, r.summary, r.doc_languages,
-       r.docs_url, r.verification_status, r.verified_at, r.updated_at, r.verified_source_id,
+       r.docs_url, r.verification_status, r.verified_at, r.updated_at, r.verified_source_id, r.provenance,
        p.slug AS provider_slug, p.name AS provider_name, p.website_url AS provider_url,
        (SELECT count(*)::int FROM resource_sources s WHERE s.resource_id = r.id) AS source_count
 FROM resources r
@@ -266,6 +266,7 @@ type GetCatalogueEntryRow struct {
 	VerifiedAt         pgtype.Timestamptz
 	UpdatedAt          pgtype.Timestamptz
 	VerifiedSourceID   pgtype.UUID
+	Provenance         string
 	ProviderSlug       string
 	ProviderName       string
 	ProviderUrl        pgtype.Text
@@ -288,6 +289,7 @@ func (q *Queries) GetCatalogueEntry(ctx context.Context, id pgtype.UUID) (GetCat
 		&i.VerifiedAt,
 		&i.UpdatedAt,
 		&i.VerifiedSourceID,
+		&i.Provenance,
 		&i.ProviderSlug,
 		&i.ProviderName,
 		&i.ProviderUrl,
@@ -336,7 +338,7 @@ func (q *Queries) GetOpenErrorReport(ctx context.Context, arg GetOpenErrorReport
 const listCatalogue = `-- name: ListCatalogue :many
 
 SELECT r.id, r.slug, r.name, r.type, r.category_code, r.summary, r.doc_languages,
-       r.docs_url, r.verification_status, r.verified_at, r.updated_at, r.verified_source_id,
+       r.docs_url, r.verification_status, r.verified_at, r.updated_at, r.verified_source_id, r.provenance,
        p.slug AS provider_slug, p.name AS provider_name, p.website_url AS provider_url,
        (SELECT count(*)::int FROM resource_sources s WHERE s.resource_id = r.id) AS source_count
 FROM resources r
@@ -345,9 +347,9 @@ WHERE r.status = 'published'
   AND ($1::text IS NULL OR r.category_code = $1)
   AND ($2::text IS NULL OR r.type = $2)
   AND ($3::text IS NULL OR p.slug = $3)
-  AND ($4::text IS NULL OR EXISTS (
+  AND ($4::text[] IS NULL OR EXISTS (
         SELECT 1 FROM resource_countries c
-        WHERE c.resource_id = r.id AND c.country_code = $4))
+        WHERE c.resource_id = r.id AND c.country_code = ANY ($4::text[])))
   AND ($5::text IS NULL OR EXISTS (
         SELECT 1 FROM resource_sdk_languages k
         WHERE k.resource_id = r.id AND k.language = $5))
@@ -363,7 +365,7 @@ type ListCatalogueParams struct {
 	Category     pgtype.Text
 	ResourceType pgtype.Text
 	Provider     pgtype.Text
-	Country      pgtype.Text
+	Countries    []string
 	Sdk          pgtype.Text
 	Doclang      pgtype.Text
 	Q            pgtype.Text
@@ -385,6 +387,7 @@ type ListCatalogueRow struct {
 	VerifiedAt         pgtype.Timestamptz
 	UpdatedAt          pgtype.Timestamptz
 	VerifiedSourceID   pgtype.UUID
+	Provenance         string
 	ProviderSlug       string
 	ProviderName       string
 	ProviderUrl        pgtype.Text
@@ -402,7 +405,7 @@ func (q *Queries) ListCatalogue(ctx context.Context, arg ListCatalogueParams) ([
 		arg.Category,
 		arg.ResourceType,
 		arg.Provider,
-		arg.Country,
+		arg.Countries,
 		arg.Sdk,
 		arg.Doclang,
 		arg.Q,
@@ -430,6 +433,7 @@ func (q *Queries) ListCatalogue(ctx context.Context, arg ListCatalogueParams) ([
 			&i.VerifiedAt,
 			&i.UpdatedAt,
 			&i.VerifiedSourceID,
+			&i.Provenance,
 			&i.ProviderSlug,
 			&i.ProviderName,
 			&i.ProviderUrl,
