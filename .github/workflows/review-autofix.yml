@@ -360,6 +360,8 @@ jobs:
           GIT_LOGIN: ${{ vars.REVIEW_FIX_GIT_LOGIN || 'Y4NN777' }}
           GIT_NAME: ${{ vars.REVIEW_FIX_GIT_NAME || 'Y4NN77' }}
           BOT_TOKEN: ${{ secrets.REVIEW_AGENT_TOKEN }}
+          # Signs every commit `apply` makes (environment secret review-agent; absent: unsigned commits).
+          HMAC_KEY: ${{ secrets.REVIEW_PIPELINE_HMAC_KEY }}
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
           # The guard comes from the default branch as a git object, read before the patch is applied.
@@ -377,7 +379,7 @@ jobs:
             exit 0
           fi
           # Validated, applied and committed here as the human identity; the untrusted job's From: is never used.
-          if ! PATCH_DIR="$RUNNER_TEMP/patches" WORKTREE=work EXPECT_NAME="$GIT_NAME" EXPECT_EMAIL="$email" \
+          if ! REVIEW_PIPELINE_HMAC_KEY="$HMAC_KEY" PATCH_DIR="$RUNNER_TEMP/patches" WORKTREE=work EXPECT_NAME="$GIT_NAME" EXPECT_EMAIL="$email" \
                python3 -I "$guard" apply | tee -a "$GITHUB_STEP_SUMMARY"; then
             echo "outcome=owner" >>"$GITHUB_OUTPUT"
             exit 0

@@ -68,6 +68,9 @@ jobs:
           HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
           PR_NUMBER: ${{ inputs.pr_number }}
           BASE: develop
+          # Verifies the HMAC trailer of a review batch pull request (environment secret review-agent). Absent: no
+          # exemption, a batch pull request on a sensitive path needs the owner's approval of the head.
+          REVIEW_PIPELINE_HMAC_KEY: ${{ secrets.REVIEW_PIPELINE_HMAC_KEY }}
         run: |
           set -o pipefail
           if [ -z "$BOT_TOKEN" ]; then

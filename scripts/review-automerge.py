@@ -18,6 +18,9 @@ It decides MERGE only if ALL of these hold for the pull request (any other case 
     current tip of develop through the API; renames count with their old path), the ledger records a deep review PASS of the head; and
     no header line of the comment (line 5 when present, after Triage, the marker, Tool and Reviewed) is `Deep: PENDING`
     or `Deep: NOT RUN` (the review job's own signal, whatever the lists);
+  - (HMAC, #212) a review batch pull request (`fix/review/batch-*`, opened by the owner's account, every commit signed with
+    REVIEW_PIPELINE_HMAC_KEY by the trusted publish job, no owner path) needs no owner click after a deep PASS of the head and
+    with no CRITICAL ever recorded; without the key, or with one bad signature, it needs the owner like any other;
   - when a sensitive path is touched, the owner's latest review APPROVED exactly the head commit, or the owner opened
     the pull request and authored every commit on it, each one verified (review-gate.py owner_authored) (stricter than the Review gate, applied whatever the gate mode).
     No exemption: a review batch pull request (`fix/review/batch-*`) and any other pipeline-made commit need the owner's
@@ -39,6 +42,8 @@ BOT_TOKEN, GH_TOKEN, BASE (default develop), OWNER (default Y4NN777), REQUIRED_C
 "Validate branch promotion,quality,Review gate"), GH_BIN (default gh).
 """
 import base64
+import hashlib
+import hmac
 import importlib.util
 import os
 import re
@@ -48,6 +53,9 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 BLOCKING_LABELS = ("needs-owner", "do-not-merge", "owner-override-pending")
 DEFAULT_CHECKS = "Validate branch promotion,quality,Review gate"
+BATCH_BRANCH = "fix/review/batch-"
+TRAILER_WORKFLOW = re.compile(r"^Review-Pipeline:[ \t]*(.+)/(\d+)[ \t]*$", re.M)
+TRAILER_SIG = re.compile(r"^Review-Pipeline-Sig:[ \t]*([0-9a-f]{64})[ \t]*$", re.M)
 PIPELINE_LIST = ".github/pipeline-paths.txt"
 SENSITIVE_LIST = ".github/sensitive-paths.txt"
 OWNER_LABEL = "needs-owner"
@@ -62,6 +70,7 @@ def load(name, filename):
 
 
 comment = load("review_comment", "review-comment.py")
+autofix = load("review_autofix", "review-autofix.py")
 gate = load("review_gate", "review-gate.py")
 
 
@@ -124,11 +133,49 @@ def owner_approved_head(gh, repo, number, owner, head):
     return last is not None and last.get("state") == "APPROVED" and last.get("commit_id") == head
 
 
-def sensitive_refusal(gh, repo, number, pull, owner, files, patterns, head):
-    """The refusal for a sensitive path, or None: the owner authored every commit, or approved exactly the head. No pull
-    request is exempt, a review batch pull request included."""
+def signed_by_pipeline(c, key):
+    """True when a commit of the API answer carries a valid `Review-Pipeline-Sig` for its own tree and first parent
+    (review-autofix.py sign_commit, the secret REVIEW_PIPELINE_HMAC_KEY), compared in constant time. No key, no signature,
+    a merge commit, or a commit changed after signing: False (fail closed)."""
+    info = c.get("commit") or {}
+    parents = c.get("parents") or []
+    tree = (info.get("tree") or {}).get("sha") or ""
+    workflow, sig = TRAILER_WORKFLOW.findall(str(info.get("message") or "")), TRAILER_SIG.findall(str(info.get("message") or ""))
+    if not key or len(parents) != 1 or not tree or not workflow or not sig:
+        return False
+    want = autofix.sign_commit(key, tree, str((parents[0] or {}).get("sha") or ""), workflow[-1][0], workflow[-1][1])
+    return hmac.compare_digest(want, sig[-1])
+
+
+def pipeline_batch(gh, repo, number, pull, owner, files, key):
+    """True only for a pull request the batch publish job made: head branch `fix/review/batch-*`, opened by the owner's
+    account (the token the job pushes with), EVERY commit signed with the HMAC key (signed_by_pipeline), at most 250
+    commits, and no changed path that is the owner's (the list the publish job's guard refuses: `review-autofix.py
+    forbidden`). A branch name or a trailer alone is never enough, and without the key there is no exemption."""
+    if not key or not str((pull.get("head") or {}).get("ref") or "").startswith(BATCH_BRANCH) or (pull.get("user") or {}).get("login") != owner:
+        return False
+    commits = gate.gh_api(gh, "repos/%s/pulls/%s/commits" % (repo, number))
+    if not commits or len(commits) > gate.MAX_COMMITS or not all(signed_by_pipeline(c, key) for c in commits):
+        return False
+    return bool(files) and not any(autofix.forbidden(f) for f in files)
+
+
+def sensitive_refusal(gh, repo, number, pull, owner, files, patterns, head, ledger=None):
+    """The refusal for a sensitive path, or None: the owner authored every commit, or approved exactly the head. A review
+    batch pull request whose commits all carry a valid HMAC (`pipeline_batch`) needs no owner click instead: the deep review
+    PASSED on exactly this head and no CRITICAL was ever recorded on it (open findings and the other checks are refused by
+    `refusals` for every pull request). The Review gate never exempts a batch pull request. Any other pull request follows
+    the normal rule."""
     hits = comment.p0_hits(files, patterns)
     if not hits:
+        return None
+    if pipeline_batch(gh, repo, number, pull, owner, files, os.environ.get("REVIEW_PIPELINE_HMAC_KEY", "")):
+        ledger = ledger if isinstance(ledger, dict) else {}
+        deep = ledger.get("deep") if isinstance(ledger.get("deep"), dict) else {}
+        if not (deep.get("status") == "PASS" and deep.get("sha") == head):
+            return "sensitive paths touched (%s): the batch pull request waits for the deep review of the head" % ", ".join(hits[:3])
+        if any(isinstance(f, dict) and str(f.get("sev", "")).upper() == "CRITICAL" for f in ledger.get("findings", [])):
+            return "sensitive paths touched (%s): a CRITICAL was recorded on this head" % ", ".join(hits[:3])
         return None
     if gate.owner_authored(gh, repo, number, pull, owner) or owner_approved_head(gh, repo, number, owner, head):
         return None
@@ -217,7 +264,7 @@ def refusals(gh, repo, number, base, owner, required):
     if hits and not (deep.get("status") == "PASS" and deep.get("sha") == head):
         why.append("a P0 path is touched (%s) without a deep review PASS of the head" % ", ".join(hits[:3]))
 
-    failure = sensitive_refusal(gh, repo, number, pull, owner, files, base_list(gh, repo, SENSITIVE_LIST, base_ref), head)
+    failure = sensitive_refusal(gh, repo, number, pull, owner, files, base_list(gh, repo, SENSITIVE_LIST, base_ref), head, ledger)
     if failure:
         why.append(failure)
     return head, why, pipeline_why

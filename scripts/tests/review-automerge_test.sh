@@ -98,7 +98,7 @@ reset() {
 run() {
   rc=0
   : >"$tmp/fx/calls.log"
-  out="$(PATH="$tmp/bin:$PATH" FX="$tmp/fx" REPO=o/r HEAD_SHA="$H" PR_NUMBER="${PRN:-}" AUTO_MERGE="${1-on}" BOT_TOKEN="${TOKEN-bot-secret}" GH_TOKEN=read-token OWNER=Y4NN777 python3 -I "$tool" 2>&1)" || rc=$?
+  out="$(PATH="$tmp/bin:$PATH" FX="$tmp/fx" REPO=o/r HEAD_SHA="$H" PR_NUMBER="${PRN:-}" AUTO_MERGE="${1-on}" BOT_TOKEN="${TOKEN-bot-secret}" GH_TOKEN=read-token OWNER=Y4NN777 REVIEW_PIPELINE_HMAC_KEY="${HMAC_KEY-}" python3 -I "$tool" 2>&1)" || rc=$?
   calls="$(cat "$tmp/fx/calls.log")"
   writes="$(grep -E 'pr merge|-X PUT|-X POST|-X PATCH|-X DELETE' <<<"$calls" || true)"
 }
@@ -238,7 +238,8 @@ refused 'owner' "an owner-authored pipeline batch PR touching an owner path (db/
 reset; files scripts/review-x.sh; review_comment "Triage: NONE | blast radius: x" "$SENS_OK"; pull open develop o/r false '[]' Y4NN777 $BATCH; pipeline_commits
 run on
 [ "$rc" -eq 0 ] && grep -q 'REFUSE #7' <<<"$out" && grep -q 'review pipeline' <<<"$out" && ! grep -q 'pr merge' <<<"$calls" && ok "batch PR touching a pipeline path: still refused (the owner merges it)" || ko "batch pipeline path (rc=$rc out=$out)"
-grep -q 'pipeline_batch\|BATCH_BRANCH' "$tool" && ko "the batch exemption code is still in review-automerge.py" || ok "review-automerge.py has no batch exemption left (pipeline_batch, BATCH_BRANCH)"
+# #212 group 6 brings the exemption back, but only behind the HMAC: the code may exist only with the signature check in it.
+grep -q 'not key or not str' "$tool" && grep -q 'all(signed_by_pipeline(c, key) for c in commits)' "$tool" && ok "review-automerge.py has a batch exemption only behind the HMAC check (no key, no exemption)" || ko "the batch exemption is not behind the HMAC"
 reset; files scripts/x.sh; review_comment "Triage: NONE | blast radius: x" "$SENS_OK"; pull open develop o/r false '["autofix-1"]' Y4NN777 feature/x
 printf '[{"sha":"%s","author":{"login":"Y4NN777"},"commit":{"message":"fix\n\nReview-Pipeline: autofix/9"}}]' "$H" >"$tmp/fx/commits.json"
 refused 'owner' "an autofix commit on a normal PR + sensitive path still needs the owner's approval of the head"
@@ -279,6 +280,43 @@ json.dump([{"id": 1, "user": {"login": "github-actions[bot]"}, "body": body("Tri
 PY2
 run on
 grep -q 'pr merge 7' <<<"$calls" && ok "auto-merge reads the newest created review comment (its ledger covers the head)" || ko "newest run automerge ($out)"
+
+# --- #212 HMAC: the no-click batch exemption returns only for commits signed by the trusted publish job ---
+# signed_commits KEY [TREE]: the batch commit of the head, signed over (tree, parent, workflow, run id).
+signed_commits() {
+  python3 -I -c '
+import hashlib, hmac, json, sys
+key, head, tree = sys.argv[1], sys.argv[2], sys.argv[3]
+parent = "4444444444444444444444444444444444444444"
+sig = hmac.new(key.encode(), "\n".join(["226os-review-pipeline", "5555555555555555555555555555555555555555", parent, "review-batch", "77"]).encode(), hashlib.sha256).hexdigest()
+msg = "fix(review): x\n\nReview-Pipeline: review-batch/77\nReview-Pipeline-Sig: " + sig
+json.dump([{"sha": head, "author": {"login": "Y4NN777"}, "parents": [{"sha": parent}], "commit": {"message": msg, "tree": {"sha": tree}}}], open(sys.argv[4], "w"))' "$1" "$H" "${2:-5555555555555555555555555555555555555555}" "$tmp/fx/commits.json"
+}
+hmac_case() { reset; files docs/ai-usage/x.md; review_comment "Triage: NONE | blast radius: x" "{\"sha\":\"$H\",\"findings\":[],\"deep\":{\"status\":\"PASS\",\"sha\":\"$H\"}}"; pull open develop o/r false '[]' Y4NN777 $BATCH; }
+hmac_case; signed_commits right-key
+HMAC_KEY=right-key run on
+grep -q 'pr merge 7' <<<"$calls" && ok "HMAC: a batch PR on a sensitive path whose every commit is signed by the right key, with a deep PASS of the head, merges without the owner" || ko "hmac valid (out=$out)"
+hmac_case; signed_commits right-key
+HMAC_KEY=wrong-key refused 'owner' "HMAC: a signature made with another key is a forgery: the owner's approval is needed"
+hmac_case; signed_commits right-key
+HMAC_KEY="" refused 'owner' "HMAC: without the key in the environment verification fails closed (no exemption)"
+hmac_case; signed_commits right-key 6666666666666666666666666666666666666666
+HMAC_KEY=right-key refused 'owner' "HMAC: the same signature on another tree (a commit changed after signing) is refused"
+hmac_case; pipeline_commits
+HMAC_KEY=right-key refused 'owner' "HMAC: a Review-Pipeline trailer without a signature is refused (a forged trailer only)"
+hmac_case; signed_commits right-key; pull open develop o/r false '[]' dev $BATCH
+HMAC_KEY=right-key refused 'owner' "HMAC: a batch branch opened by someone other than the owner is refused"
+hmac_case; signed_commits right-key; pull open develop o/r false '[]' Y4NN777 feature/x
+HMAC_KEY=right-key refused 'owner' "HMAC: a signed commit on a pull request that is not a fix/review/batch- branch is refused"
+reset; files scripts/review-x.sh; review_comment "Triage: NONE | blast radius: x" "$SENS_OK"; pull open develop o/r false '[]' Y4NN777 $BATCH; signed_commits right-key
+HMAC_KEY=right-key run on
+grep -q 'REFUSE #7' <<<"$out" && grep -q 'review pipeline' <<<"$out" && ! grep -q 'pr merge' <<<"$calls" && ok "HMAC: a signed batch touching a pipeline path is still refused (the owner merges it)" || ko "hmac pipeline path (out=$out)"
+
+# The three jobs that sign or verify get the secret (environment review-agent); the signer only passes it to `apply`.
+for wf in review-batch review-autofix review-automerge; do
+  grep -q 'secrets.REVIEW_PIPELINE_HMAC_KEY' "$root/.github/workflows/$wf.yml" && ok "HMAC: $wf.yml reads REVIEW_PIPELINE_HMAC_KEY from the environment secret" || ko "$wf.yml lacks the HMAC secret"
+done
+grep -q 'REVIEW_PIPELINE_HMAC_KEY="$HMAC_KEY" PATCH_DIR' "$root/.github/workflows/review-batch.yml" && grep -q 'REVIEW_PIPELINE_HMAC_KEY="$HMAC_KEY" PATCH_DIR' "$root/.github/workflows/review-autofix.yml" && ok "HMAC: the publish jobs hand the key to the apply step only" || ko "apply key wiring"
 
 # --- review pipeline paths: never auto-merged; with AUTO_MERGE=on labelled needs-owner with a one-line reason ---
 pipeline_ok() { review_comment "Triage: NONE | blast radius: x" "{\"sha\":\"$H\",\"findings\":[],\"deep\":{\"status\":\"PASS\",\"sha\":\"$H\"}}"; pull open develop o/r false '[]' Y4NN777; }

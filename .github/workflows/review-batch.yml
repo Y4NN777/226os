@@ -371,6 +371,9 @@ jobs:
           GIT_LOGIN: ${{ vars.REVIEW_FIX_GIT_LOGIN || 'Y4NN777' }}
           GIT_NAME: ${{ vars.REVIEW_FIX_GIT_NAME || 'Y4NN77' }}
           BOT_TOKEN: ${{ secrets.REVIEW_AGENT_TOKEN }}
+          # Signs every commit `apply` makes (tree, parent, workflow, run id); auto-merge verifies it. Environment secret
+          # review-agent; absent: the commits are unsigned and the batch pull request needs the owner's click.
+          HMAC_KEY: ${{ secrets.REVIEW_PIPELINE_HMAC_KEY }}
         run: |
           # The guard is read as a git object of the planned develop commit, before the patch is applied.
           base_sha="$(git -C work rev-parse HEAD)"
@@ -386,7 +389,7 @@ jobs:
           email="$(gh api "users/$GIT_LOGIN" --jq .id)+${GIT_LOGIN}@users.noreply.github.com"
           git -C work switch -q -c "$BRANCH"
           # Validated, applied and committed here as the human identity; the untrusted job's From: is never used.
-          if ! PATCH_DIR="$dir/patches" WORKTREE=work EXPECT_NAME="$GIT_NAME" EXPECT_EMAIL="$email" python3 -I "$trusted" apply | tee -a "$GITHUB_STEP_SUMMARY" \
+          if ! REVIEW_PIPELINE_HMAC_KEY="$HMAC_KEY" PATCH_DIR="$dir/patches" WORKTREE=work EXPECT_NAME="$GIT_NAME" EXPECT_EMAIL="$email" python3 -I "$trusted" apply | tee -a "$GITHUB_STEP_SUMMARY" \
              || ! BASE_SHA="$base_sha" WORKTREE=work EXPECT_NAME="$GIT_NAME" EXPECT_EMAIL="$email" python3 -I "$trusted" check | tee -a "$GITHUB_STEP_SUMMARY"; then
             echo "autofix batch: no pull request (no commit, a patch that does not apply, or the guard refused it)" | tee -a "$GITHUB_STEP_SUMMARY"
             cat "$RUNNER_TEMP/body.md" >>"$GITHUB_STEP_SUMMARY"
