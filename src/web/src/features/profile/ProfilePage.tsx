@@ -36,8 +36,14 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-function Details({ profile }: { profile: PublicProfile }) {
+function Details({ profile, isOwn }: { profile: PublicProfile; isOwn: boolean }) {
   const { t, locale } = useI18n();
+  const isEmpty =
+    !profile.bio &&
+    !profile.country &&
+    !profile.github &&
+    !(profile.languages && profile.languages.length > 0) &&
+    !(profile.skills && profile.skills.length > 0);
   const joined = new Intl.DateTimeFormat(locale, { year: 'numeric', month: 'long' }).format(
     new Date(profile.joined_at),
   );
@@ -51,6 +57,12 @@ function Details({ profile }: { profile: PublicProfile }) {
           {profile.open_to_collab ? <Badge variant="success" label={t('profile.collab')} /> : null}
         </HStack>
       </VStack>
+      {/* A visitor sees why the page is bare; the member sees the checklist instead. */}
+      {isEmpty && !isOwn ? (
+        <Text as="p" type="supporting">
+          {t('profile.empty', { name: profile.display_name })}
+        </Text>
+      ) : null}
       {profile.bio ? <Text as="p">{profile.bio}</Text> : null}
       {profile.country ? (
         <Row label={t('profile.country')}>
@@ -112,8 +124,9 @@ export function ProfilePage() {
 
   return (
     <VStack gap={6} maxWidth={640}>
+      {/* Who the page is about first; the member's own checklist follows. */}
+      <Details profile={query.data} isOwn={isOwn} />
       {isOwn ? <Checklist username={username} /> : null}
-      <Details profile={query.data} />
     </VStack>
   );
 }

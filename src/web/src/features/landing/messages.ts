@@ -25,6 +25,9 @@ export const fr = {
   'landing.pillar.discover.text':
     'Un catalogue d’API et d’outils sourcés, avec la date de leur dernière vérification.',
   'landing.pillar.discover.link': 'Ouvrir le catalogue',
+  'landing.pillar.learn.link': 'Lire les articles et les formations',
+  'landing.pillar.solve.link': 'Voir les questions',
+  'landing.pillar.build.link': 'Voir les projets',
   'landing.pillar.build.title': 'Construire',
   'landing.pillar.build.text':
     'Rejoignez des projets open source ou publiez le vôtre pour trouver des contributeurs.',
@@ -57,6 +60,9 @@ export const en: Record<keyof typeof fr, string> = {
   'landing.pillar.discover.text':
     'A catalogue of sourced APIs and tools, with the date of their last check.',
   'landing.pillar.discover.link': 'Open the catalogue',
+  'landing.pillar.learn.link': 'Read the articles and courses',
+  'landing.pillar.solve.link': 'See the questions',
+  'landing.pillar.build.link': 'See the projects',
   'landing.pillar.build.title': 'Build',
   'landing.pillar.build.text':
     'Join open-source projects or publish your own to find contributors.',

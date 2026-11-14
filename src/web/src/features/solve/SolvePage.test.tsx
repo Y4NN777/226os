@@ -39,6 +39,9 @@ describe('SolvePage list', () => {
     expect(within(results).getByText('Résolue')).toBeInTheDocument();
     expect(within(results).getByText('go')).toBeInTheDocument();
     expect(within(results).getAllByText('Par Kofi Mensah')).toHaveLength(2);
+    // The count shows only when there are answers; « Sans réponse » already says the rest.
+    expect(within(results).getByText(/^Réponses\s:\s3$/)).toBeInTheDocument();
+    expect(within(results).queryByText(/^Réponses\s:\s0$/)).not.toBeInTheDocument();
   });
 
   it('loads the next page with the opaque cursor', async () => {

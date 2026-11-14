@@ -41,3 +41,21 @@ body {
 .no-shrink {
   flex-shrink: 0;
 }
+
+/* A field that takes the free width of its row, and wraps onto its own row on a phone. */
+.grow-field {
+  flex: 1 1 240px;
+  min-width: 0;
+}
+
+/* Password field: room at the end of the input box for the show/hide toggle laid over it. */
+.password-field {
+  position: relative;
+}
+.password-field [data-pressable-container] {
+  padding-inline-end: 32px;
+}
+.password-field-toggle {
+  position: absolute;
+  inset-inline-end: 0;
+}

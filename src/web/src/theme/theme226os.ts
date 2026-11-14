@@ -32,4 +32,9 @@ export const theme226os = defineTheme({
   // DESIGN.md: 16px body text (Astryx core default is 14px). ratio 1.2 is the documented default.
   typography: { scale: { base: 16, ratio: 1.2 } },
   tokens,
+  components: {
+    // Astryx paints the bare track with the muted surface, so a bar at 0 % vanishes on a muted
+    // card (the profile checklist). The border tone keeps the track visible on every surface.
+    'progress-bar-track': { base: { backgroundColor: 'var(--color-border)' } },
+  },
 });
