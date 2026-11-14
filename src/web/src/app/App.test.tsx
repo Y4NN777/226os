@@ -26,10 +26,11 @@ describe('App routing', () => {
     expect(await screen.findByText('API opérationnelle')).toBeInTheDocument();
   });
 
-  it('navigates to settings through the nav link without a full reload', async () => {
+  it('navigates to settings from the account menu without a full reload', async () => {
     setLanguages(['en-US']);
     renderAt('/');
-    await userEvent.click(await screen.findByRole('link', { name: 'Settings' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'More options' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Settings' }));
     expect(await screen.findByRole('heading', { level: 1, name: 'Settings' })).toBeInTheDocument();
   });
 
