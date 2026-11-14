@@ -10,9 +10,9 @@ flowchart LR
   A --> M[Modules métier: identity, solve, discover, build, community, connect, language, intelligence, learn]
   M --> Q[pgx + sqlc]
   Q --> P[(PostgreSQL: FTS + GIN + pg_trgm)]
-  A -. planned, limited read only .-> GH[GitHub public API]
+  A -. limited read only .-> GH[GitHub public API]
   A --> SMTP[SMTP server]
-  A -. planned .-> LLM[LLM provider]
+  A -. grounded assistance .-> LLM[LLM provider]
   CI[GitHub Actions] --> IMG[Container Registry]
   IMG --> T
 ```

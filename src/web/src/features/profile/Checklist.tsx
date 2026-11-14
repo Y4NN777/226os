@@ -1,4 +1,5 @@
 import { Card } from '@astryxdesign/core/Card';
+import { CheckboxInput } from '@astryxdesign/core/CheckboxInput';
 import { Heading } from '@astryxdesign/core/Heading';
 import { HStack } from '@astryxdesign/core/HStack';
 import { Icon } from '@astryxdesign/core/Icon';
@@ -93,6 +94,22 @@ function ItemForm({ item, username }: { item: ChecklistItem; username: string })
                       />
                     ))}
                   </RadioList>
+                  {submit}
+                </HStack>
+              );
+            }
+            if (item === 'open_to_collab') {
+              return (
+                <HStack gap={2} vAlign="end">
+                  <CheckboxInput
+                    label={label}
+                    description={t('profile.item.open_to_collab.hint')}
+                    value={field.state.value === 'true'}
+                    onChange={(checked) => {
+                      change(String(checked));
+                    }}
+                    {...status}
+                  />
                   {submit}
                 </HStack>
               );

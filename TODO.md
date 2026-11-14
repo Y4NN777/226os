@@ -17,7 +17,7 @@ One line per person. Each person edits only their own line.
 
 | Login | Next action | Updated |
 |---|---|---|
-| `Y4NN777` | Merged: S3 (#147, #153), S9 (#161, #169, #176; ADR-0012 accepted), the S7 pages (#99 to #102, #144, #149, #154, #173, #177). Next, per the 12:00 checkpoint (ROADMAP section 14): S6 moderation after the web lanes, review of the `connect` page (`PANK4SS`) if the E5 backend merges by 16:30, the 18:00 freeze, then the release (S8, B4). Owner tasks: H6 and H7, H12 (V2), H10, issue #46, `APP_BASE_URL` per environment (#109). | 2026-11-14 |
+| `Y4NN777` | Merged: S3 (#147, #153), S9 (#161, #169, #176; ADR-0012 accepted), the S7 pages (#99 to #102, #144, #149, #154, #173, #177). Next, per the owner’s 17:50 update: the demo gaps before the 20:00 GMT freeze, then the release (S8, B4). Owner tasks: H6 and H7, H12 (V2), H10, issue #46, `APP_BASE_URL` per environment (#109). | 2026-11-14 |
 | `NICE-DEV226` | S1 merged (#89, #90, #94); S3 finished (#147, #153, fix #160). Now (owner sync, 12:00 checkpoint): E5 Connect is offered on #77 (contract by 13:30, backend by 16:30), then reviews before the freeze. | 2026-11-14 |
 | `mibienpanjoe` | S2, S4 and S5 merged (S5: #131, #132; #135 closed by #164). Now: reviews for the team before the freeze, then the after-freeze items (#116 C14b follow-ups, the S4 article-link deviation). | 2026-11-14 |
 | `PANK4SS` | Repository access active (H2 done). S7 pages are built by `Y4NN777` since 2026-11-13; `PANK4SS` reviews them. Now (owner sync, 12:00 checkpoint): SEED (#75) and #109 (APP_BASE_URL is the owner's), then E4 support. | 2026-11-14 |
@@ -169,6 +169,7 @@ Open owner items outside CADEV (IDs and decisions in ROADMAP section 8, 10 and 1
 - **Acceptance:** `US-DISCOVER-001/1`, search steps of `US-SOLVE-001/1` and `US-LEARN-001/2`. Negative authz: no private or removed content through lists or search; anonymous error report 401; CSRF 403; reporter identity never exposed; rate limit.
 - **Prototype pages:** `discover`, `resource`, `recherche`, part of `accueil`. **Allowed paths:** `src/api/internal/discover/**`, `src/api/internal/search/**`, `db/queries/**` (these files), generated `dbgen`, `db/migrations/**` only if needed (R6), `scripts/public-routes.txt`. **DoD:** DoD-common plus EXPLAIN plans. **Stop:** if a query cannot be bounded within ADR-0005.
 - **Status:** OPERATIONS DONE — catalogue reads (PR #83), search (PR #92) and error reports (PR #96) merged 2026-11-13; issue #66 closed. Still open: the EXPLAIN and bilingual relevance dataset item (G6).
+- 2026-11-14 (`Y4NN777`, `fix/platform/demo-gaps`): anonymous full-text `q` on the resource, question, article and project lists now shares the existing `search:ip` budget (60 per client network per minute), and `verifyEmail` has a dedicated 10-per-network-per-hour limit; focused RED/GREEN tests cover all five endpoints.
 
 ---
 
@@ -276,7 +277,8 @@ Open owner items outside CADEV (IDs and decisions in ROADMAP section 8, 10 and 1
 - **Tables:** `audit_log`, `users.role`, `error_reports`, every target table. **Acceptance:** ROADMAP section 3, item 9. Negative authz: non-moderator 403, anonymous 401, CSRF 403, audit row in the same transaction (rollback leaves no orphan), the moderator never edits content.
 - **Allowed paths:** `src/api/internal/moderation/**`, `db/queries/**` (moderation files), generated `dbgen`, `docs/runbooks/moderation.md`. **DoD:** DoD-common plus the same-transaction audit test. **Stop:** if scope would grow beyond ADR-0003.
 - 2026-11-14 (12:00 checkpoint, ROADMAP section 14): kept for the 18:00 freeze; a minimal backend built after the web lanes; no migration (`audit_log` and `users.role` exist). The three operations still answer 501 (`scripts/unimplemented-routes.txt`).
-- **Status:** PLANNED
+- 2026-11-14 (`Y4NN777`, `fix/platform/demo-gaps`, S6): moderator-only hide, restore and error-report resolution are in review with same-transaction audit writes, owner-only moderator negative cases and the operational runbook; no migration or contract change.
+- **Status:** IN REVIEW (`fix/platform/demo-gaps`; RED/GREEN unit and real-PostgreSQL tests pass locally)
 
 ---
 
@@ -320,7 +322,8 @@ Open owner items outside CADEV (IDs and decisions in ROADMAP section 8, 10 and 1
 - 2026-11-14 (`Y4NN777`, `chore/docs/state-sync`): merged: API gaps #99, shell and identity #100, public reads #101, home and settings #102, `parametres` display name #144, `solve` and `question` #149, `ecrire` #154, `apprendre`, `article` and `formation` #173, `build`, `project` and `profile` #177, the S9 panels #169 and #176. Still open in the page map: `connect` (E5), the `resource` error-report form, live lists on `accueil` in place of the demo examples, and `bienvenue` (GUESS operation); the remaining items are in issue #109. The manual keyboard and screen-reader pass is cut until after the freeze (12:00 checkpoint).
 - 2026-11-14 (`Y4NN777`, `feature/web/live-home-and-e4`): `accueil` on live data: the four sections (`listLearnArticles`, `listQuestions`, `listResources`, `listProjects`, limit 4) each with loading, empty and error states, a failing section never breaks the page; the fixtures file and the demo badges are gone from the page. Not yet merged.
 - 2026-11-14 (`Y4NN777`, `feature/web/live-home-and-e4`): `resource` error report: « Signaler une erreur » (icon and label) opens an in-place form on `createResourceErrorReport` (kind, message of 1 to 2000 characters, optional source), CSRF header, anonymous visitors are asked to sign in, 404 and 422 handled. The contract has no duplicate code for this operation (no 409), so there is no duplicate message. Not yet merged.
-- **Status:** IN PROGRESS (pages merged as listed above; open: `connect` with E5, issue #109)
+- 2026-11-14 (`Y4NN777`, `fix/platform/demo-gaps`, S7): Connect opt-in, linked search and related content, live landing pillar, bienvenue destinations and localized page titles are in review before the 20:00 GMT freeze.
+- **Status:** IN REVIEW (demo gaps; pages and Connect are merged, remaining #109 gaps are in `fix/platform/demo-gaps`)
 
 ---
 
@@ -424,7 +427,7 @@ Open owner items outside CADEV (IDs and decisions in ROADMAP section 8, 10 and 1
 - 2026-11-14 (`Y4NN777`, `feature/web/live-home-and-e4`): the button on `formation`: the series page is an overview (the lessons are the article pages, where the button already exists) and a question link can only point at an article, so the overview offers « Poser une question sur la première leçon » (lowest position) to `/solve?link=article:<id>`, hidden when the series has no lesson. Not yet merged.
 - 2026-11-14 (`Y4NN777`, `feature/web/live-home-and-e4`): read-only topic feed on `apprendre`: with a topic chosen, « Questions sur ce sujet » lists up to 5 questions from `listQuestions?tag=<topic code>` next to the articles (loading, empty and error states, link to `/solve?tag=<code>`); no request without a topic. Not yet merged.
 - 2026-11-14 (`Y4NN777`, `feature/web/live-home-and-e4`): E4 tests (`src/web/src/features/solve/AskAboutLesson.test.tsx`): from an article and from a series the form opens with the lesson linked and `createQuestion` sends `links: [{type: article, id}]` with the CSRF header and an Idempotency-Key; an anonymous visitor lands on `/solve`, sees the sign-in invitation, and `/connexion?next=` keeps the link. `solve` has no server-side redirect: the invitation replaces the form. The box stays open: `coverage` could not complete on this host (load average above 50 from other sessions made 53 unrelated tests time out; `test` alone passed, 451 of 451), so the coverage figure is NOT RUN. Not yet merged.
-- **Status:** PLANNED
+- **Status:** DONE (PR #196, 2026-11-14; lesson question flow, topic feed and RED/GREEN tests merged)
 
 ---
 
@@ -442,7 +445,7 @@ Open owner items outside CADEV (IDs and decisions in ROADMAP section 8, 10 and 1
 - **Privacy tests (required):** hidden fields never appear for callers who may not see them; filtering on a hidden field never matches; no `email` key; one test per `profile_visibility` x caller and per `open_to_collab_visibility` x caller; `limit=51` 422; tampered cursor 400; N+1 past the rate limit 429.
 - **Allowed paths:** `api/openapi.yaml` (contract PR), generated outputs, `src/api/internal/identity/**` or a new profiles package (the lead decides), `db/queries/**` (profiles), `scripts/public-routes.txt`, `src/web/**`. E5 adds no migration. **DoD:** DoD-common plus the privacy tests on real PostgreSQL and the failure modes in ROADMAP section 12.2.
 - 2026-11-14 (12:00 checkpoint, ROADMAP section 14): both dependencies are merged (first contract PR #79, `profile_visibility` migration #80). E5 is offered to `NICE-DEV226` on #77: contract PR by 13:30, backend by 16:30, the `connect` page by `PANK4SS` (owner, 2026-11-14: the UI stays with `PANK4SS` as planned); it slips after the freeze if the backend is not merged by 16:30.
-- **Status:** IN PROGRESS (contract and backend done 2026-11-14 on `feature/connect/people-directory`, review pending; open: the `connect` page by `PANK4SS`, the office-hours note)
+- **Status:** DONE (backend #193, web #213 and GitHub-link follow-up #216, 2026-11-14; the optional office-hours process note remains owner-authored)
 
 ---
 

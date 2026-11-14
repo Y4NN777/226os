@@ -669,6 +669,21 @@ func TestVerifyEmailSingleUse(t *testing.T) {
 	}
 }
 
+func TestVerifyEmailRateLimitedPerIP(t *testing.T) {
+	svc, _, _ := testSvc(t)
+	for i := 0; i < 10; i++ {
+		if err := svc.VerifyEmail(t.Context(), "invalid", "198.51.100.7"); apperrCode(t, err) != apperr.CodeInvalidToken {
+			t.Fatalf("attempt %d: %v", i+1, err)
+		}
+	}
+	if err := svc.VerifyEmail(t.Context(), "invalid", "198.51.100.200"); apperrCode(t, err) != apperr.CodeRateLimited {
+		t.Fatalf("11th same-network attempt: %v", err)
+	}
+	if err := svc.VerifyEmail(t.Context(), "invalid", "203.0.113.7"); apperrCode(t, err) != apperr.CodeInvalidToken {
+		t.Fatalf("other network: %v", err)
+	}
+}
+
 func TestPasswordResetRevokesAllSessions(t *testing.T) {
 	svc, st, _ := testSvc(t)
 	ctx := context.Background()

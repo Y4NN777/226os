@@ -36,9 +36,12 @@ const (
 
 	// Writes draw on the one authenticated-writes budget, 60 per user per minute (ADR-0003); Learn,
 	// Build and error reports share the same write:user scope.
-	writeScope  = "write:user"
-	writeLimit  = 60
-	writeWindow = time.Minute
+	writeScope   = "write:user"
+	writeLimit   = 60
+	writeWindow  = time.Minute
+	searchScope  = "search:ip"
+	searchLimit  = 60
+	searchWindow = time.Minute
 )
 
 // Store loads and saves Solve content. The service owns this port. A question that is missing or
@@ -83,6 +86,8 @@ type QuestionListRequest struct {
 	Q, Tag, State, Country, Lang *string
 	Cursor                       string
 	Limit                        *int
+	Anonymous                    bool
+	ClientIP                     string
 }
 
 // AnswerListRequest is listAnswers. Nil Limit means 20.
@@ -160,6 +165,12 @@ func (s *Service) ListQuestions(ctx context.Context, req QuestionListRequest) (Q
 	q, err := textFilter(req.Q)
 	if err != nil {
 		return QuestionPage{}, err
+	}
+	if q != "" && req.Anonymous && s.limiter != nil {
+		ok, retry, limitErr := s.limiter.Hit(ctx, searchScope, req.ClientIP, searchLimit, searchWindow)
+		if limitErr == nil && !ok {
+			return QuestionPage{}, apperr.New(apperr.CodeRateLimited, "Too many requests.").WithRetryAfter(retry)
+		}
 	}
 	size, err := pageSize(req.Limit)
 	if err != nil {

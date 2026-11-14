@@ -18,6 +18,23 @@ type fakeReader struct {
 	sources func(string) ([]domain.Source, error)
 }
 
+type catalogueLimiter struct {
+	allowed bool
+	retry   time.Duration
+	err     error
+	hits    int
+	scope   string
+	value   string
+	limit   int
+	window  time.Duration
+}
+
+func (f *catalogueLimiter) Hit(_ context.Context, scope, value string, limit int, window time.Duration) (bool, time.Duration, error) {
+	f.hits++
+	f.scope, f.value, f.limit, f.window = scope, value, limit, window
+	return f.allowed, f.retry, f.err
+}
+
 func (f fakeReader) List(_ context.Context, q domain.Query) ([]domain.Resource, error) {
 	return f.list(q)
 }
@@ -38,6 +55,20 @@ func codec(t *testing.T) *cursor.Codec {
 }
 
 func str(s string) *string { return &s }
+
+func TestListAnonymousQueryUsesSearchBudget(t *testing.T) {
+	reader := fakeReader{list: func(domain.Query) ([]domain.Resource, error) { return nil, nil }}
+	lim := &catalogueLimiter{allowed: false, retry: 11 * time.Second}
+	svc := New(reader, codec(t), lim)
+	_, err := svc.List(t.Context(), ListRequest{Q: str("paiement"), Anonymous: true, ClientIP: "198.51.100.0/24"})
+	var ae *apperr.Error
+	if !errors.As(err, &ae) || ae.Code != apperr.CodeRateLimited || ae.RetryAfter != 11*time.Second {
+		t.Fatalf("err = %v", err)
+	}
+	if lim.hits != 1 || lim.scope != "search:ip" || lim.value != "198.51.100.0/24" || lim.limit != 60 || lim.window != time.Minute {
+		t.Fatalf("limiter = %+v", lim)
+	}
+}
 
 func TestListValidatesPageAndQuery(t *testing.T) {
 	var got domain.Query

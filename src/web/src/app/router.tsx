@@ -5,9 +5,12 @@ import {
   createRouter,
   Outlet,
   redirect,
+  useRouterState,
   type RouterHistory,
 } from '@tanstack/react-router';
 import { RouterAnchor } from '../components/RouterAnchor';
+import { useI18n } from '../i18n/I18nProvider';
+import type { MessageKey } from '../i18n/messages';
 import { BuildPage } from '../features/build/BuildPage';
 import { ProjectPage } from '../features/build/ProjectPage';
 import { ConnectPage } from '../features/connect/ConnectPage';
@@ -38,10 +41,39 @@ import { SettingsPage } from '../features/settings/SettingsPage';
 import { AuthLayout } from './AuthLayout';
 import { IndexPage } from './IndexPage';
 import { Shell } from './Shell';
+import { usePageTitle } from './usePageTitle';
+
+function titleKey(pathname: string): MessageKey {
+  if (pathname === '/') return 'landing.title';
+  if (pathname === '/parametres' || pathname === '/settings') return 'settings.title';
+  if (pathname === '/discover' || pathname.startsWith('/discover/')) return 'discover.title';
+  if (pathname === '/ecrire') return 'learn.write.title';
+  if (pathname === '/apprendre' || pathname.startsWith('/apprendre/')) return 'learn.title';
+  if (pathname === '/connect') return 'connect.title';
+  if (pathname === '/recherche') return 'search.title';
+  if (pathname === '/solve' || pathname.startsWith('/questions/')) return 'solve.title';
+  if (pathname === '/build' || pathname.startsWith('/build/')) return 'build.title';
+  if (pathname.startsWith('/profils/')) return 'account.profile';
+  if (pathname === '/connexion') return 'identity.signIn.title';
+  if (pathname === '/inscription') return 'identity.signUp.title';
+  if (pathname === '/verifier-email') return 'identity.verify.title';
+  if (pathname === '/mot-de-passe-oublie') return 'identity.forgot.title';
+  if (pathname === '/reinitialiser') return 'identity.reset.title';
+  if (pathname === '/bienvenue') return 'identity.welcome.anonymous.title';
+  return 'notFound.title';
+}
+
+function RouteTitle() {
+  const { t } = useI18n();
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  usePageTitle(t(titleKey(pathname)));
+  return null;
+}
 
 function Root() {
   return (
     <LinkProvider component={RouterAnchor}>
+      <RouteTitle />
       <Outlet />
     </LinkProvider>
   );

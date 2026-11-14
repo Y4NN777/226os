@@ -8,8 +8,5 @@
 # The 4 P1 operations stay here for the whole P0 (ROADMAP O3, closed by B1).
 GET /api/v1/learn/series/{seriesId}/lessons/{lessonId}/progress   # getLessonProgress (P1)
 PUT /api/v1/learn/series/{seriesId}/lessons/{lessonId}/progress   # putLessonProgress (P1)
-POST /api/v1/moderation/error-reports/{reportId}/resolve   # resolveErrorReport
-POST /api/v1/moderation/{targetType}/{targetId}/hide   # hideContent
-POST /api/v1/moderation/{targetType}/{targetId}/restore   # restoreContent
 GET /api/v1/resources/{resourceId}/reviews   # listResourceReviews (P1)
 POST /api/v1/resources/{resourceId}/reviews   # createResourceReview (P1)

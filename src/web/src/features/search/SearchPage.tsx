@@ -64,17 +64,20 @@ function SearchForm({ initial }: { initial: string }) {
   );
 }
 
-function Hit({ hit, linked }: { hit: SearchHit; linked: boolean }) {
+const pathByGroup: Record<GroupName, (id: string) => string> = {
+  resources: (id) => `/discover/${id}`,
+  questions: (id) => `/questions/${id}`,
+  learn: (id) => `/apprendre/articles/${id}`,
+  projects: (id) => `/build/${id}`,
+};
+
+function Hit({ hit, group }: { hit: SearchHit; group: GroupName }) {
   const { locale } = useI18n();
   const lang = hit.lang && hit.lang !== locale ? hit.lang : undefined;
   return (
     <li lang={lang}>
       <VStack gap={0.5} hAlign="start">
-        {linked ? (
-          <Link href={`/discover/${hit.id}`}>{hit.title}</Link>
-        ) : (
-          <Text weight="semibold">{hit.title}</Text>
-        )}
+        <Link href={pathByGroup[group](hit.id)}>{hit.title}</Link>
         {hit.snippet ? (
           <Text as="p" type="supporting">
             {hit.snippet}
@@ -104,7 +107,7 @@ function Results({ q, data }: { q: string; data: SearchResults }) {
             </Heading>
             <VStack as="ul" gap={3} hAlign="stretch">
               {group.items.map((hit) => (
-                <Hit key={hit.id} hit={hit} linked={name === 'resources'} />
+                <Hit key={hit.id} hit={hit} group={name} />
               ))}
             </VStack>
             {group.has_more ? (

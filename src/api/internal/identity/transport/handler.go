@@ -37,7 +37,7 @@ type Service interface {
 	SignUp(ctx context.Context, in service.SignUpInput) error
 	SignIn(ctx context.Context, in service.SignInInput) (service.SignInResult, error)
 	SignOut(ctx context.Context, plain string) error
-	VerifyEmail(ctx context.Context, plain string) error
+	VerifyEmail(ctx context.Context, plain string, clientIP ...string) error
 	RequestPasswordReset(ctx context.Context, email, ip string) error
 	ConfirmPasswordReset(ctx context.Context, plain, newPassword, ip string) error
 	GetMe(ctx context.Context, acct domain.Account) (service.MeView, error)
@@ -321,7 +321,7 @@ func (h *Handler) VerifyEmail(w http.ResponseWriter, r *http.Request) {
 		writeErr(h.logger, w, r, err)
 		return
 	}
-	if err := h.svc.VerifyEmail(r.Context(), body.Token); err != nil {
+	if err := h.svc.VerifyEmail(r.Context(), body.Token, clientIP(r)); err != nil {
 		writeErr(h.logger, w, r, err)
 		return
 	}

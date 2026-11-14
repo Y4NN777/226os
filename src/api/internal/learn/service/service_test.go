@@ -68,15 +68,18 @@ func (f *fakeStore) GetSeries(context.Context, string) (domain.Series, error) {
 }
 
 type fakeLimiter struct {
-	allow bool
-	err   error
-	hits  int
-	scope string
+	allow  bool
+	err    error
+	hits   int
+	scope  string
+	value  string
+	limit  int
+	window time.Duration
 }
 
-func (l *fakeLimiter) Hit(_ context.Context, scope, _ string, _ int, _ time.Duration) (bool, time.Duration, error) {
+func (l *fakeLimiter) Hit(_ context.Context, scope, value string, limit int, window time.Duration) (bool, time.Duration, error) {
 	l.hits++
-	l.scope = scope
+	l.scope, l.value, l.limit, l.window = scope, value, limit, window
 	return l.allow, 7 * time.Second, l.err
 }
 
@@ -132,6 +135,20 @@ func TestListArticlesPagesWithASignedCursor(t *testing.T) {
 	}
 	if st.lastQuery.AfterID != page.Items[1].ID || !st.lastQuery.AfterPublished.Equal(page.Items[1].PublishedAt) {
 		t.Fatalf("keyset %+v", st.lastQuery)
+	}
+}
+
+func TestListLearnArticlesAnonymousQueryUsesSearchBudget(t *testing.T) {
+	lim := &fakeLimiter{allow: false}
+	_, err := newSvc(t, &fakeStore{}, lim).ListArticles(t.Context(), ArticleListRequest{
+		Q: ptr("paiement"), Anonymous: true, ClientIP: "198.51.100.0/24",
+	})
+	var ae *apperr.Error
+	if !errors.As(err, &ae) || ae.Code != apperr.CodeRateLimited || ae.RetryAfter != 7*time.Second {
+		t.Fatalf("err = %v", err)
+	}
+	if lim.hits != 1 || lim.scope != "search:ip" || lim.value != "198.51.100.0/24" || lim.limit != 60 || lim.window != time.Minute {
+		t.Fatalf("limiter = %+v", lim)
 	}
 }
 

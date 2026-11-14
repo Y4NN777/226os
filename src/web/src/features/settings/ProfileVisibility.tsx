@@ -1,4 +1,5 @@
 import { Button } from '@astryxdesign/core/Button';
+import { CheckboxInput } from '@astryxdesign/core/CheckboxInput';
 import { Heading } from '@astryxdesign/core/Heading';
 import { Link } from '@astryxdesign/core/Link';
 import { RadioList, RadioListItem } from '@astryxdesign/core/RadioList';
@@ -12,6 +13,7 @@ import { useSession } from '../../app/session';
 import { ErrorState } from '../../components/ErrorState';
 import { LoadingState } from '../../components/LoadingState';
 import { useI18n } from '../../i18n/I18nProvider';
+import { violationName } from '../identity/violations';
 import { meQueryKey, useMe } from './useMe';
 
 type Visibility = components['schemas']['ProfileVisibility'];
@@ -37,6 +39,15 @@ export function ProfileVisibility() {
   const save = useMutation({
     mutationFn: (visibility: Visibility) =>
       api.call(() => api.client.PATCH('/me/profile', { body: { profile_visibility: visibility } })),
+    onSuccess: (profile) => {
+      queryClient.setQueryData(meQueryKey, (old: typeof me.data) =>
+        old ? { ...old, profile } : old,
+      );
+    },
+  });
+  const saveDirectory = useMutation({
+    mutationFn: (open: boolean) =>
+      api.call(() => api.client.PATCH('/me/profile', { body: { open_to_collab: open } })),
     onSuccess: (profile) => {
       queryClient.setQueryData(meQueryKey, (old: typeof me.data) =>
         old ? { ...old, profile } : old,
@@ -109,6 +120,27 @@ export function ProfileVisibility() {
             />
           ))}
         </RadioList>
+        <CheckboxInput
+          label={t('settings.directory.label')}
+          description={t('settings.directory.description')}
+          value={me.data?.profile.open_to_collab ?? false}
+          isLoading={saveDirectory.isPending}
+          isDisabled={notLive}
+          onChange={(open) => {
+            saveDirectory.mutate(open);
+          }}
+          {...(saveDirectory.error instanceof ApiError &&
+          saveDirectory.error.violations.some(
+            (violation) => violationName(violation.field) === 'open_to_collab',
+          )
+            ? {
+                status: {
+                  type: 'error' as const,
+                  message: t('settings.directory.failed'),
+                },
+              }
+            : {})}
+        />
         {notLive ? null : (
           <Button
             type="submit"
@@ -121,6 +153,15 @@ export function ProfileVisibility() {
           {save.isSuccess ? <Text>{t('settings.visibility.saved')}</Text> : null}
         </div>
         {save.isError ? <ErrorState error={save.error} title="settings.visibility.failed" /> : null}
+        {saveDirectory.isError &&
+        !(
+          saveDirectory.error instanceof ApiError &&
+          saveDirectory.error.violations.some(
+            (violation) => violationName(violation.field) === 'open_to_collab',
+          )
+        ) ? (
+          <ErrorState error={saveDirectory.error} title="settings.directory.failed" />
+        ) : null}
       </VStack>
     </form>
   );

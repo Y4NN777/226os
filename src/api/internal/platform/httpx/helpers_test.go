@@ -39,3 +39,16 @@ func containsAny(s string, subs ...string) bool {
 	}
 	return false
 }
+
+func TestRequestIDCapsClientValueForPersistence(t *testing.T) {
+	var got string
+	next := middleware.RequestID(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		got = httpx.RequestID(r.Context())
+	}))
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/x", nil)
+	req.Header.Set(middleware.RequestIDHeader, strings.Repeat("x", 65))
+	next.ServeHTTP(httptest.NewRecorder(), req)
+	if got != strings.Repeat("x", 64) {
+		t.Fatalf("request id length = %d, want 64", len(got))
+	}
+}
