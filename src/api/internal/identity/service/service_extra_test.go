@@ -75,9 +75,11 @@ func TestSignUpStoreAndValidationErrors(t *testing.T) {
 
 	// Weak password -> 422 validation, before any write.
 	svc, _, _ = testSvc(t)
-	if err := svc.SignUp(ctx, SignUpInput{Email: "a@b.co", Password: "short", Username: "aa", IP: "10.0.0.2"}); apperrCode(t, err) != apperr.CodeValidation {
+	err := svc.SignUp(ctx, SignUpInput{Email: "a@b.co", Password: "short", Username: "aa", IP: "10.0.0.2"})
+	if apperrCode(t, err) != apperr.CodeValidation {
 		t.Fatalf("weak password: %v", err)
 	}
+	wantViolation(t, err, "/password", "invalid_value")
 
 	// Weak password on a *registered* e-mail must also be 422: answering 202
 	// there would leak account existence through the policy check.

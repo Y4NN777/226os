@@ -293,7 +293,7 @@ func (s *Service) SignUp(ctx context.Context, in SignUpInput) error {
 	// account existence.
 	if !password.Valid(in.Password) {
 		return apperr.New(apperr.CodeValidation, "password does not meet the policy.").
-			WithViolations(apperr.Violation{Field: "password", Code: "invalid"})
+			WithViolations(apperr.Violation{Field: "/password", Code: "invalid_value"})
 	}
 	if _, err := s.store.AccountByEmail(ctx, email); err == nil {
 		// Pay the same Argon2id cost as a new account so the response time
@@ -635,7 +635,7 @@ func (s *Service) ConfirmPasswordReset(ctx context.Context, plain, newPassword, 
 	}
 	if !password.Valid(newPassword) {
 		return apperr.New(apperr.CodeValidation, "password does not meet the policy.").
-			WithViolations(apperr.Violation{Field: "new_password", Code: "invalid"})
+			WithViolations(apperr.Violation{Field: "/new_password", Code: "invalid_value"})
 	}
 	phc, err := hashPassword(newPassword)
 	if err != nil {
