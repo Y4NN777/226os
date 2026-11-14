@@ -30,7 +30,11 @@ func TestSolveQueries(t *testing.T) {
 	if err != nil || len(list) != 1 || list[0].AnswerCount != 2 || list[0].AuthorCountry != "BF" || list[0].Rank != 0.5 {
 		t.Fatalf("ListSolveQuestions = %+v, %v", list, err)
 	}
-	assertCall(t, db, "ORDER BY rank DESC, q.created_at DESC, q.id DESC", []any{text, pgtype.Text{}, pgtype.Text{}, pgtype.Text{}, ts, float32(0), id, int32(21), pgtype.Text{}})
+	assertCall(t, db, "ORDER BY c.rank DESC, c.created_at DESC, c.id DESC", []any{ts, float32(0), id, int32(21), pgtype.Text{}, text, pgtype.Text{}, pgtype.Text{}, pgtype.Text{}})
+
+	if sql := db.calls[0].sql; !strings.Contains(sql, "THEN NULL ELSE 500 END") {
+		t.Errorf("ListSolveQuestions does not cap the ranked candidates at 500: %s", sql)
+	}
 
 	db = &fakeDB{rowVals: questionRow}
 	q, err := dbgen.New(db).GetSolveQuestion(ctx, id)

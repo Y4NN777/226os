@@ -10,36 +10,46 @@
 -- name: ListSolveQuestions :many
 -- With q: most relevant first (ts_rank over the stored search_document, the S2 search tsquery:
 -- websearch_to_tsquery('simple', f_unaccent(q)), a query with no positive term reads none), then newest,
--- then id. Without q the rank is 0 and the order is newest first. The keyset is (rank, created_at, id),
--- all descending; rank is the same real the cursor carried, so the comparison is exact.
+-- then id. Bounded like S2 search (ADR-0005): only the 500 newest matches are ranked, so ts_rank never
+-- scores every row of a very common term and the candidate set is the same on every page. Without q the
+-- rank is 0, there is no cap, and the order is newest first. The keyset is (rank, created_at, id), all
+-- descending; rank is the same real the cursor carried, so the comparison is exact.
 WITH i AS NOT MATERIALIZED (
   SELECT CASE WHEN sqlc.narg('q')::text IS NULL THEN NULL
          ELSE websearch_to_tsquery('simple', f_unaccent(sqlc.narg('q')::text)) END AS tsq
+),
+candidates AS (
+  SELECT q.id, q.title, q.body_md, q.language, q.snippet, q.snippet_language, q.country_code,
+         q.answer_count, q.vote_score, q.accepted_answer_id, q.created_at, q.updated_at, q.author_id,
+         (CASE WHEN i.tsq IS NULL THEN 0 ELSE ts_rank(q.search_document, i.tsq) END)::real AS rank
+  FROM questions q
+  CROSS JOIN i
+  WHERE q.status = 'published'
+    AND (i.tsq IS NULL OR (querytree(i.tsq) NOT IN ('', 'T') AND q.search_document @@ i.tsq))
+    AND (sqlc.narg('tag')::text IS NULL OR EXISTS (
+          SELECT 1 FROM question_tags qt JOIN tags t ON t.id = qt.tag_id AND t.status = 'active'
+          WHERE qt.question_id = q.id AND t.slug = sqlc.narg('tag')::text))
+    AND (sqlc.narg('state')::text IS NULL
+         OR (CASE WHEN q.accepted_answer_id IS NOT NULL THEN 'resolved'
+                  WHEN q.answer_count > 0 THEN 'answered' ELSE 'open' END) = sqlc.narg('state')::text)
+    AND (sqlc.narg('country')::text IS NULL OR q.country_code = sqlc.narg('country')::text)
+    AND (sqlc.narg('lang')::text IS NULL OR q.language = sqlc.narg('lang')::text)
+  ORDER BY q.created_at DESC, q.id DESC
+  LIMIT (SELECT CASE WHEN tsq IS NULL THEN NULL ELSE 500 END FROM i)
 )
-SELECT q.id, q.title, q.body_md, q.language, COALESCE(q.snippet, '')::text AS snippet,
-       COALESCE(q.snippet_language, '')::text AS snippet_language, COALESCE(q.country_code, '')::text AS country_code,
-       q.answer_count, q.vote_score, q.accepted_answer_id, q.created_at, q.updated_at,
-       q.author_id, pr.username AS author_username, pr.display_name AS author_display_name,
+SELECT c.id, c.title, c.body_md, c.language, COALESCE(c.snippet, '')::text AS snippet,
+       COALESCE(c.snippet_language, '')::text AS snippet_language, COALESCE(c.country_code, '')::text AS country_code,
+       c.answer_count, c.vote_score, c.accepted_answer_id, c.created_at, c.updated_at,
+       c.author_id, pr.username AS author_username, pr.display_name AS author_display_name,
        COALESCE(CASE WHEN pr.profile_visibility = 'public' AND pr.country_visibility = 'public'
              THEN pr.country_code END, '')::text AS author_country,
-       (CASE WHEN i.tsq IS NULL THEN 0 ELSE ts_rank(q.search_document, i.tsq) END)::real AS rank
-FROM questions q
-JOIN profiles pr ON pr.user_id = q.author_id
-CROSS JOIN i
-WHERE q.status = 'published'
-  AND (i.tsq IS NULL OR (querytree(i.tsq) NOT IN ('', 'T') AND q.search_document @@ i.tsq))
-  AND (sqlc.narg('tag')::text IS NULL OR EXISTS (
-        SELECT 1 FROM question_tags qt JOIN tags t ON t.id = qt.tag_id AND t.status = 'active'
-        WHERE qt.question_id = q.id AND t.slug = sqlc.narg('tag')::text))
-  AND (sqlc.narg('state')::text IS NULL
-       OR (CASE WHEN q.accepted_answer_id IS NOT NULL THEN 'resolved'
-                WHEN q.answer_count > 0 THEN 'answered' ELSE 'open' END) = sqlc.narg('state')::text)
-  AND (sqlc.narg('country')::text IS NULL OR q.country_code = sqlc.narg('country')::text)
-  AND (sqlc.narg('lang')::text IS NULL OR q.language = sqlc.narg('lang')::text)
-  AND (sqlc.narg('after_created')::timestamptz IS NULL
-       OR ((CASE WHEN i.tsq IS NULL THEN 0 ELSE ts_rank(q.search_document, i.tsq) END)::real, q.created_at, q.id)
+       c.rank
+FROM candidates c
+JOIN profiles pr ON pr.user_id = c.author_id
+WHERE (sqlc.narg('after_created')::timestamptz IS NULL
+       OR (c.rank, c.created_at, c.id)
           < (sqlc.arg('after_rank')::real, sqlc.narg('after_created')::timestamptz, sqlc.narg('after_id')::uuid))
-ORDER BY rank DESC, q.created_at DESC, q.id DESC
+ORDER BY c.rank DESC, c.created_at DESC, c.id DESC
 LIMIT sqlc.arg('row_limit');
 
 -- name: GetSolveQuestion :one

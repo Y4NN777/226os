@@ -692,3 +692,59 @@ func TestSolveSearchRanksByRelevanceThenNewest(t *testing.T) {
 		t.Fatalf("negation-only query matched %d", len(none.Items))
 	}
 }
+
+// The ranked query reads at most 500 candidates (the newest matches), as S2 search does (ADR-0005): with
+// more matches, paging ends cleanly after them, without an error or a duplicate. Without q there is no cap.
+func TestSolveSearchRanksAtMost500Candidates(t *testing.T) {
+	s := newSolveStack(t)
+	alice := s.signIn(t, "solve-cap-alice", true, 90)
+	if _, err := s.conn.Exec(t.Context(), `
+		INSERT INTO questions (author_id, title, body_md, language, created_at)
+		SELECT $1::uuid, 'Question ' || g, 'Le paiement numéro ' || g, 'fr', now() - g * interval '1 second'
+		FROM generate_series(1, 520) g`, alice.id); err != nil {
+		t.Fatal(err)
+	}
+	seen := map[string]bool{}
+	cursorValue := ""
+	for range 20 {
+		path := "/api/v1/questions?limit=50&q=paiement"
+		if cursorValue != "" {
+			path += "&cursor=" + cursorValue
+		}
+		rec := s.read(t, nil, path)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("list: %d %s", rec.Code, rec.Body.String())
+		}
+		page := decodeAs[apigen.QuestionPage](t, rec)
+		for _, q := range page.Items {
+			if seen[q.Id.String()] {
+				t.Fatalf("duplicate %s", q.Id)
+			}
+			seen[q.Id.String()] = true
+		}
+		if page.NextCursor == nil {
+			break
+		}
+		cursorValue = *page.NextCursor
+	}
+	if len(seen) != 500 {
+		t.Fatalf("ranked %d candidates, want exactly 500 of 520 matches", len(seen))
+	}
+	// Without q every question is reachable (keyset, no cap).
+	total, cursorValue := 0, ""
+	for range 20 {
+		path := "/api/v1/questions?limit=50"
+		if cursorValue != "" {
+			path += "&cursor=" + cursorValue
+		}
+		page := decodeAs[apigen.QuestionPage](t, s.read(t, nil, path))
+		total += len(page.Items)
+		if page.NextCursor == nil {
+			break
+		}
+		cursorValue = *page.NextCursor
+	}
+	if total != 520 {
+		t.Fatalf("listed %d without q, want 520", total)
+	}
+}

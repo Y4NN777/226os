@@ -332,46 +332,54 @@ func (q *Queries) ListSolveAnswers(ctx context.Context, arg ListSolveAnswersPara
 const listSolveQuestions = `-- name: ListSolveQuestions :many
 
 WITH i AS NOT MATERIALIZED (
-  SELECT CASE WHEN $9::text IS NULL THEN NULL
-         ELSE websearch_to_tsquery('simple', f_unaccent($9::text)) END AS tsq
+  SELECT CASE WHEN $5::text IS NULL THEN NULL
+         ELSE websearch_to_tsquery('simple', f_unaccent($5::text)) END AS tsq
+),
+candidates AS (
+  SELECT q.id, q.title, q.body_md, q.language, q.snippet, q.snippet_language, q.country_code,
+         q.answer_count, q.vote_score, q.accepted_answer_id, q.created_at, q.updated_at, q.author_id,
+         (CASE WHEN i.tsq IS NULL THEN 0 ELSE ts_rank(q.search_document, i.tsq) END)::real AS rank
+  FROM questions q
+  CROSS JOIN i
+  WHERE q.status = 'published'
+    AND (i.tsq IS NULL OR (querytree(i.tsq) NOT IN ('', 'T') AND q.search_document @@ i.tsq))
+    AND ($6::text IS NULL OR EXISTS (
+          SELECT 1 FROM question_tags qt JOIN tags t ON t.id = qt.tag_id AND t.status = 'active'
+          WHERE qt.question_id = q.id AND t.slug = $6::text))
+    AND ($7::text IS NULL
+         OR (CASE WHEN q.accepted_answer_id IS NOT NULL THEN 'resolved'
+                  WHEN q.answer_count > 0 THEN 'answered' ELSE 'open' END) = $7::text)
+    AND ($8::text IS NULL OR q.country_code = $8::text)
+    AND ($9::text IS NULL OR q.language = $9::text)
+  ORDER BY q.created_at DESC, q.id DESC
+  LIMIT (SELECT CASE WHEN tsq IS NULL THEN NULL ELSE 500 END FROM i)
 )
-SELECT q.id, q.title, q.body_md, q.language, COALESCE(q.snippet, '')::text AS snippet,
-       COALESCE(q.snippet_language, '')::text AS snippet_language, COALESCE(q.country_code, '')::text AS country_code,
-       q.answer_count, q.vote_score, q.accepted_answer_id, q.created_at, q.updated_at,
-       q.author_id, pr.username AS author_username, pr.display_name AS author_display_name,
+SELECT c.id, c.title, c.body_md, c.language, COALESCE(c.snippet, '')::text AS snippet,
+       COALESCE(c.snippet_language, '')::text AS snippet_language, COALESCE(c.country_code, '')::text AS country_code,
+       c.answer_count, c.vote_score, c.accepted_answer_id, c.created_at, c.updated_at,
+       c.author_id, pr.username AS author_username, pr.display_name AS author_display_name,
        COALESCE(CASE WHEN pr.profile_visibility = 'public' AND pr.country_visibility = 'public'
              THEN pr.country_code END, '')::text AS author_country,
-       (CASE WHEN i.tsq IS NULL THEN 0 ELSE ts_rank(q.search_document, i.tsq) END)::real AS rank
-FROM questions q
-JOIN profiles pr ON pr.user_id = q.author_id
-CROSS JOIN i
-WHERE q.status = 'published'
-  AND (i.tsq IS NULL OR (querytree(i.tsq) NOT IN ('', 'T') AND q.search_document @@ i.tsq))
-  AND ($1::text IS NULL OR EXISTS (
-        SELECT 1 FROM question_tags qt JOIN tags t ON t.id = qt.tag_id AND t.status = 'active'
-        WHERE qt.question_id = q.id AND t.slug = $1::text))
-  AND ($2::text IS NULL
-       OR (CASE WHEN q.accepted_answer_id IS NOT NULL THEN 'resolved'
-                WHEN q.answer_count > 0 THEN 'answered' ELSE 'open' END) = $2::text)
-  AND ($3::text IS NULL OR q.country_code = $3::text)
-  AND ($4::text IS NULL OR q.language = $4::text)
-  AND ($5::timestamptz IS NULL
-       OR ((CASE WHEN i.tsq IS NULL THEN 0 ELSE ts_rank(q.search_document, i.tsq) END)::real, q.created_at, q.id)
-          < ($6::real, $5::timestamptz, $7::uuid))
-ORDER BY rank DESC, q.created_at DESC, q.id DESC
-LIMIT $8
+       c.rank
+FROM candidates c
+JOIN profiles pr ON pr.user_id = c.author_id
+WHERE ($1::timestamptz IS NULL
+       OR (c.rank, c.created_at, c.id)
+          < ($2::real, $1::timestamptz, $3::uuid))
+ORDER BY c.rank DESC, c.created_at DESC, c.id DESC
+LIMIT $4
 `
 
 type ListSolveQuestionsParams struct {
-	Tag          pgtype.Text
-	State        pgtype.Text
-	Country      pgtype.Text
-	Lang         pgtype.Text
 	AfterCreated pgtype.Timestamptz
 	AfterRank    float32
 	AfterID      pgtype.UUID
 	RowLimit     int32
 	Q            pgtype.Text
+	Tag          pgtype.Text
+	State        pgtype.Text
+	Country      pgtype.Text
+	Lang         pgtype.Text
 }
 
 type ListSolveQuestionsRow struct {
@@ -404,19 +412,21 @@ type ListSolveQuestionsRow struct {
 // more with a 422 instead of dropping data.
 // With q: most relevant first (ts_rank over the stored search_document, the S2 search tsquery:
 // websearch_to_tsquery('simple', f_unaccent(q)), a query with no positive term reads none), then newest,
-// then id. Without q the rank is 0 and the order is newest first. The keyset is (rank, created_at, id),
-// all descending; rank is the same real the cursor carried, so the comparison is exact.
+// then id. Bounded like S2 search (ADR-0005): only the 500 newest matches are ranked, so ts_rank never
+// scores every row of a very common term and the candidate set is the same on every page. Without q the
+// rank is 0, there is no cap, and the order is newest first. The keyset is (rank, created_at, id), all
+// descending; rank is the same real the cursor carried, so the comparison is exact.
 func (q *Queries) ListSolveQuestions(ctx context.Context, arg ListSolveQuestionsParams) ([]ListSolveQuestionsRow, error) {
 	rows, err := q.db.Query(ctx, listSolveQuestions,
-		arg.Tag,
-		arg.State,
-		arg.Country,
-		arg.Lang,
 		arg.AfterCreated,
 		arg.AfterRank,
 		arg.AfterID,
 		arg.RowLimit,
 		arg.Q,
+		arg.Tag,
+		arg.State,
+		arg.Country,
+		arg.Lang,
 	)
 	if err != nil {
 		return nil, err
