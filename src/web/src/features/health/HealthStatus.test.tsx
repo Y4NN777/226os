@@ -52,7 +52,9 @@ describe('HealthStatus', () => {
     vi.stubGlobal('fetch', fetchMock);
     renderWithProviders(<HealthStatus />);
     await findVisibleText('The API is not responding.');
-    await userEvent.click(screen.getByRole('button', { name: 'Check again' }));
+    await userEvent
+      .setup({ delay: null })
+      .click(screen.getByRole('button', { name: 'Check again' }));
     expect(await screen.findByText('API is up')).toBeInTheDocument();
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(2);

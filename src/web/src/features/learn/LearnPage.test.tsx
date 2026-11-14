@@ -61,7 +61,7 @@ describe('LearnPage list', () => {
       'GET /learn/articles': (request) =>
         params(request).get('cursor') === 'cur-2' ? page([second]) : page([summary()], 'cur-2'),
     });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp('/apprendre');
     await screen.findByRole('link', { name: 'Vérifier un webhook signé' });
     await user.click(screen.getByRole('button', { name: 'Afficher plus d’articles' }));
@@ -87,7 +87,7 @@ describe('LearnPage list', () => {
             ])
           : page([seriesSummary()], 'cur-s'),
     });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp('/apprendre');
     await screen.findByRole('link', { name: 'Premiers pas avec une API de paiement' });
     await user.click(screen.getByRole('button', { name: 'Afficher plus de formations' }));
@@ -98,7 +98,7 @@ describe('LearnPage list', () => {
   it('sends the chosen topic code to both lists and keeps it in the route search', async () => {
     setLanguages(['fr-FR']);
     const fetchMock = mockApi(base);
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     const { router } = await renderApp('/apprendre');
     await screen.findByRole('link', { name: 'Vérifier un webhook signé' });
 
@@ -133,7 +133,7 @@ describe('LearnPage list', () => {
   it('clears the topic filter with its reset button', async () => {
     setLanguages(['fr-FR']);
     mockApi(base);
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     const { router } = await renderApp('/apprendre?topic=mobile');
     await screen.findByRole('link', { name: 'Vérifier un webhook signé' });
     await user.click(screen.getByRole('button', { name: 'Tous les sujets' }));
@@ -160,7 +160,7 @@ describe('LearnPage list', () => {
         return calls === 1 ? problemResponse(500, 'INTERNAL_ERROR') : page([summary()]);
       },
     });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp('/apprendre');
     expect(await screen.findByText('Impossible de charger le contenu')).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'Réessayer' }));

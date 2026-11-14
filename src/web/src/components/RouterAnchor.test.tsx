@@ -9,7 +9,9 @@ describe('RouterAnchor (via LinkProvider)', () => {
     setLanguages(['fr-FR']);
     mockApi();
     const { router } = await renderApp('/');
-    await userEvent.click(await screen.findByRole('link', { name: 'Se connecter' }));
+    await userEvent
+      .setup({ delay: null })
+      .click(await screen.findByRole('link', { name: 'Se connecter' }));
     expect(router.state.location.pathname).toBe('/connexion');
   });
 
@@ -18,7 +20,7 @@ describe('RouterAnchor (via LinkProvider)', () => {
     mockApi();
     const { router } = await renderApp('/');
     const link = await screen.findByRole('link', { name: 'Se connecter' });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await user.keyboard('{Control>}');
     await user.click(link);
     await user.keyboard('{/Control}');

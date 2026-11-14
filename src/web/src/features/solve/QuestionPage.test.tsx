@@ -156,7 +156,7 @@ describe('QuestionPage answering', () => {
         },
       }),
     );
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp(base);
     await user.type(
       await screen.findByRole('textbox', { name: 'Rédigez votre réponse' }),
@@ -177,7 +177,7 @@ describe('QuestionPage answering', () => {
     member(
       readRoutes({ [`POST ${key('/answers')}`]: () => problemResponse(403, 'EMAIL_NOT_VERIFIED') }),
     );
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp(base);
     await user.type(
       await screen.findByRole('textbox', { name: 'Rédigez votre réponse' }),
@@ -198,7 +198,7 @@ describe('QuestionPage answering', () => {
           }),
       }),
     );
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp(base);
     await user.type(await screen.findByRole('textbox', { name: 'Rédigez votre réponse' }), 'Trop');
     await user.click(screen.getByRole('button', { name: 'Publier la réponse' }));
@@ -247,7 +247,7 @@ describe('QuestionPage editing', () => {
         },
       }),
     );
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp(base);
     await user.click(await screen.findByRole('button', { name: 'Modifier la question' }));
     const field = screen.getByRole('textbox', { name: 'Titre' });
@@ -282,7 +282,7 @@ describe('QuestionPage editing', () => {
           ? withEtag(question({ author: mine, title: 'Webhook toujours non reçu' }), '"member-v2"')
           : problemResponse(412, 'PRECONDITION_FAILED'),
     });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     const { router } = await renderApp(base);
     await screen.findByRole('heading', { level: 1, name: 'Webhook non reçu après un paiement' });
 
@@ -317,7 +317,7 @@ describe('QuestionPage editing', () => {
           }),
       }),
     );
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp(base);
     await user.click(await screen.findByRole('button', { name: 'Modifier la question' }));
     const tags = screen.getByRole('textbox', { name: /Étiquettes/ });
@@ -355,7 +355,7 @@ describe('QuestionPage editing', () => {
         })(),
       }),
     );
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp(base);
     await user.click(await screen.findByRole('button', { name: 'Modifier la question' }));
     const field = screen.getByRole('textbox', { name: 'Titre' });
@@ -389,7 +389,7 @@ describe('QuestionPage editing', () => {
           ),
       }),
     );
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp(base);
     await user.click(await screen.findByRole('button', { name: 'Modifier la question' }));
     expect(screen.getByRole('button', { name: 'Enregistrer' })).toHaveAttribute(
@@ -417,7 +417,7 @@ describe('QuestionPage editing', () => {
         [`PATCH ${key()}`]: () => problemResponse(412, 'PRECONDITION_FAILED'),
       }),
     );
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp(base);
     await user.click(await screen.findByRole('button', { name: 'Modifier la question' }));
     await user.type(screen.getByRole('textbox', { name: 'Titre' }), ' !');
@@ -452,7 +452,7 @@ describe('QuestionPage votes and acceptance', () => {
   it('hides vote and accept controls after a 501, with no error shown', async () => {
     setLanguages(['fr-FR']);
     member(ownedRoutes({ 'POST /votes': () => new Response(null, { status: 501 }) }));
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp(base);
     const up = await screen.findAllByRole('button', { name: 'Vote positif sur cette réponse' });
     expect(
@@ -479,7 +479,7 @@ describe('QuestionPage votes and acceptance', () => {
   it('hides the controls when accepting answers 501', async () => {
     setLanguages(['fr-FR']);
     member(ownedRoutes({ [`POST ${key('/accept')}`]: () => new Response(null, { status: 501 }) }));
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp(base);
     const buttons = await screen.findAllByRole('button', { name: 'Accepter cette réponse' });
     await user.click(buttons[0] as HTMLElement);
@@ -506,7 +506,7 @@ describe('QuestionPage votes and acceptance', () => {
           jsonResponse({ target_type: 'answer', target_id: plain.id, value: 1, score: 5 }),
       }),
     );
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp(base);
     await screen.findByText('Une autre piste.');
     const up = await screen.findAllByRole('button', { name: 'Vote positif sur cette réponse' });
@@ -536,7 +536,7 @@ describe('QuestionPage votes and acceptance', () => {
           jsonResponse({ target_type: 'answer', target_id: voted.id, value: 0, score: 3 }),
       }),
     );
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp(base);
     await screen.findByText('Une autre piste.');
     const up = (
@@ -580,7 +580,7 @@ describe('QuestionPage votes and acceptance', () => {
           jsonResponse(question({ author: owner, accepted_answer_id: plain.id })),
       }),
     );
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp(base);
     const buttons = await screen.findAllByRole('button', { name: 'Accepter cette réponse' });
     await user.click(buttons[0] as HTMLElement);
@@ -608,7 +608,7 @@ describe('QuestionPage votes and acceptance', () => {
   it('explains a refused vote on one’s own content', async () => {
     setLanguages(['fr-FR']);
     member(readRoutes({ 'POST /votes': () => problemResponse(403, 'SELF_VOTE_FORBIDDEN') }));
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp(base);
     const up = await screen.findAllByRole('button', { name: 'Vote positif sur cette réponse' });
     await user.click(up[0] as HTMLElement);

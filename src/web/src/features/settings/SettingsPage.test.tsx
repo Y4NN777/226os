@@ -54,8 +54,10 @@ describe('SettingsPage display-name form (live profile)', () => {
     setLanguages(['fr-FR']);
     const fetchMock = member();
     await renderApp('/parametres');
-    await userEvent.clear(await screen.findByLabelText(/Nom d’affichage/));
-    await userEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
+    await userEvent.setup({ delay: null }).clear(await screen.findByLabelText(/Nom d’affichage/));
+    await userEvent
+      .setup({ delay: null })
+      .click(screen.getByRole('button', { name: 'Enregistrer' }));
     await waitFor(() => {
       expect(screen.getByRole('alert')).toHaveTextContent('Saisissez un nom d’affichage.');
     });
@@ -69,13 +71,13 @@ describe('SettingsPage display-name form (live profile)', () => {
     const fetchMock = member();
     await renderApp('/parametres');
     const input = await screen.findByLabelText(/Display name/);
-    await userEvent.clear(input);
-    await userEvent.type(input, 'A');
-    await userEvent.tab();
+    await userEvent.setup({ delay: null }).clear(input);
+    await userEvent.setup({ delay: null }).type(input, 'A');
+    await userEvent.setup({ delay: null }).tab();
     // Astryx keeps an aria-live region with role "alert" between tests, so check the field itself.
     expect(input).toBeValid();
     expect(screen.queryByText(/at least|Enter a display name/)).not.toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await userEvent.setup({ delay: null }).click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => {
       expect(callsTo(fetchMock, 'PATCH /me/profile')).toHaveLength(1);
     });
@@ -92,9 +94,11 @@ describe('SettingsPage display-name form (live profile)', () => {
     });
     await renderApp('/parametres');
     const input = await screen.findByLabelText(/Nom d’affichage/);
-    await userEvent.clear(input);
-    await userEvent.type(input, '  Awa K.  ');
-    await userEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
+    await userEvent.setup({ delay: null }).clear(input);
+    await userEvent.setup({ delay: null }).type(input, '  Awa K.  ');
+    await userEvent
+      .setup({ delay: null })
+      .click(screen.getByRole('button', { name: 'Enregistrer' }));
     expect(await findVisibleText('Nom enregistré.')).toBeInTheDocument();
     expect(sent).toEqual({ display_name: 'Awa K.' });
     const [patch] = callsTo(fetchMock, 'PATCH /me/profile');
@@ -109,9 +113,11 @@ describe('SettingsPage display-name form (live profile)', () => {
     });
     await renderApp('/parametres');
     const input = await screen.findByLabelText(/Nom d’affichage/);
-    await userEvent.clear(input);
-    await userEvent.type(input, 'Awa K.');
-    await userEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
+    await userEvent.setup({ delay: null }).clear(input);
+    await userEvent.setup({ delay: null }).type(input, 'Awa K.');
+    await userEvent
+      .setup({ delay: null })
+      .click(screen.getByRole('button', { name: 'Enregistrer' }));
     await findVisibleText('Nom enregistré.');
     expect(await screen.findByRole('button', { name: 'Awa K.' })).toBeInTheDocument();
     expect(localStorage.getItem('226os.displayName')).toBeNull();
@@ -127,9 +133,11 @@ describe('SettingsPage display-name form (live profile)', () => {
     });
     await renderApp('/parametres');
     const input = await screen.findByLabelText(/Nom d’affichage/);
-    await userEvent.clear(input);
-    await userEvent.type(input, 'Awa');
-    await userEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
+    await userEvent.setup({ delay: null }).clear(input);
+    await userEvent.setup({ delay: null }).type(input, 'Awa');
+    await userEvent
+      .setup({ delay: null })
+      .click(screen.getByRole('button', { name: 'Enregistrer' }));
     await waitFor(() => {
       expect(screen.getByRole('alert')).toHaveTextContent(
         'Le nom doit contenir 80 caractères au plus.',
@@ -144,8 +152,8 @@ describe('SettingsPage display-name form (live profile)', () => {
     member();
     await renderApp('/parametres');
     const input = await screen.findByLabelText(/Nom d’affichage/);
-    await userEvent.clear(input);
-    await userEvent.type(input, 'Moussa');
+    await userEvent.setup({ delay: null }).clear(input);
+    await userEvent.setup({ delay: null }).type(input, 'Moussa');
     await selectSegment(screen.getByRole('radio', { name: 'English' }));
     expect(await screen.findByLabelText(/Display name/)).toHaveValue('Moussa');
     expect(localStorage.getItem('226os.locale')).toBe('en');

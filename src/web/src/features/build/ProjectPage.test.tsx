@@ -89,7 +89,7 @@ describe('ProjectPage read view', () => {
           ? page([need({ id: 'e1000000-0000-4000-8000-000000000003', title: 'Traduction' })])
           : page([need()], 'c2'),
     });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp(`/build/${projectId}`);
     await user.click(await screen.findByRole('button', { name: 'Afficher plus' }));
     expect(await screen.findByText('Traduction')).toBeVisible();
@@ -165,7 +165,7 @@ describe('ProjectPage apply', () => {
     [`GET ${base}/contribution-needs`]: () => page([need()]),
   };
   const apply = async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp(`/build/${projectId}`);
     await user.click(await screen.findByRole('button', { name: 'Postuler' }));
     return user;
@@ -291,7 +291,7 @@ describe('ProjectPage apply', () => {
       [`POST /contribution-needs/${needId}/applications`]: () =>
         jsonResponse(application(), { status: 201 }),
     });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     const { router } = await renderApp(`/build/${projectId}`);
     await user.click(await screen.findByRole('button', { name: 'Postuler' }));
     await user.type(screen.getByRole('textbox', { name: /Votre message/ }), 'Bonjour');
@@ -314,7 +314,7 @@ describe('ProjectPage apply', () => {
       [`PATCH /applications/${applicationId}`]: () =>
         jsonResponse(application({ status: 'withdrawn' })),
     });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp(`/build/${projectId}`);
     expect(await screen.findByText(/Candidature envoyée/)).toBeVisible();
     expect(screen.queryByRole('button', { name: 'Postuler' })).not.toBeInTheDocument();
@@ -411,7 +411,7 @@ describe('ProjectPage owner writes', () => {
       ...routes,
       [`PATCH ${base}`]: () => jsonResponse(project({ description: 'Nouvelle description' })),
     });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp(`/build/${projectId}`);
     await user.click(await screen.findByRole('button', { name: 'Modifier le projet' }));
     const field = screen.getByRole('textbox', { name: /Description/ });
@@ -428,7 +428,7 @@ describe('ProjectPage owner writes', () => {
   it('saves nothing and calls nothing when the edit changes nothing', async () => {
     setLanguages(['fr-FR']);
     const fetchMock = owner(routes);
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp(`/build/${projectId}`);
     await user.click(await screen.findByRole('button', { name: 'Modifier le projet' }));
     await user.click(screen.getByRole('button', { name: 'Enregistrer' }));
@@ -443,7 +443,7 @@ describe('ProjectPage owner writes', () => {
       [`PATCH ${base}`]: () =>
         jsonResponse(project({ technologies: ['go', 'rust'], visibility: 'private' })),
     });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp(`/build/${projectId}`);
     await user.click(await screen.findByRole('button', { name: 'Modifier le projet' }));
     const tech = screen.getByRole('textbox', { name: /Technologies/ });
@@ -463,7 +463,7 @@ describe('ProjectPage owner writes', () => {
   it('shows a calm error when a non-owner edit is refused', async () => {
     setLanguages(['fr-FR']);
     owner({ ...routes, [`PATCH ${base}`]: () => problemResponse(403, 'FORBIDDEN') });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp(`/build/${projectId}`);
     await user.click(await screen.findByRole('button', { name: 'Modifier le projet' }));
     const field = screen.getByRole('textbox', { name: /Description/ });
@@ -484,7 +484,7 @@ describe('ProjectPage owner writes', () => {
             })
           : jsonResponse(need(), { status: 201 }),
     });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp(`/build/${projectId}`);
     await user.click(await screen.findByRole('button', { name: 'Ajouter un besoin' }));
     await user.type(screen.getByRole('textbox', { name: 'Titre du besoin' }), 'Traduction');
@@ -512,7 +512,7 @@ describe('ProjectPage owner writes', () => {
       [`PATCH /applications/${applicationId}`]: () =>
         jsonResponse(application({ status: 'accepted' })),
     });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp(`/build/${projectId}`);
     const section = await screen.findByRole('region', { name: 'Candidatures' });
     expect(await within(section).findByText('Je connais bien ce domaine.')).toBeVisible();
@@ -536,7 +536,7 @@ describe('ProjectPage owner writes', () => {
       ...routes,
       [`PATCH /applications/${applicationId}`]: () => problemResponse(409, 'STATE_CONFLICT'),
     });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp(`/build/${projectId}`);
     await user.click(
       await screen.findByRole('button', { name: 'Refuser la candidature de Awa Traoré' }),

@@ -16,5 +16,5 @@ export async function selectSegment(radio: HTMLElement): Promise<void> {
   if (to < 0 || from === to) return;
   (radios[from >= 0 ? from : 0] as HTMLElement).focus();
   const key = to > from ? '{ArrowRight}' : '{ArrowLeft}';
-  await userEvent.keyboard(key.repeat(Math.abs(to - Math.max(from, 0))));
+  await userEvent.setup({ delay: null }).keyboard(key.repeat(Math.abs(to - Math.max(from, 0))));
 }

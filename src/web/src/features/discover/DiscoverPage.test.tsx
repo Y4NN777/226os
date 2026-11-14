@@ -130,7 +130,9 @@ describe('DiscoverPage', () => {
     await renderApp('/discover');
     await screen.findByRole('link', { name: 'Wave Pay' });
 
-    await userEvent.click(screen.getByRole('button', { name: 'Afficher plus' }));
+    await userEvent
+      .setup({ delay: null })
+      .click(screen.getByRole('button', { name: 'Afficher plus' }));
     expect(await screen.findByRole('link', { name: 'Accra Gate' })).toBeInTheDocument();
     const calls = callsTo(fetchMock, 'GET /resources');
     expect(calls).toHaveLength(2);
@@ -162,8 +164,10 @@ describe('DiscoverPage', () => {
     const { router } = await renderApp('/discover');
     await screen.findByRole('link', { name: 'Wave Pay' });
 
-    await userEvent.click(screen.getByRole('button', { name: /^Pays/ }));
-    await userEvent.click(await screen.findByRole('option', { name: 'Ghana' }));
+    await userEvent.setup({ delay: null }).click(screen.getByRole('button', { name: /^Pays/ }));
+    await userEvent
+      .setup({ delay: null })
+      .click(await screen.findByRole('option', { name: 'Ghana' }));
     expect(await screen.findByRole('link', { name: 'Safari Hub' })).toBeInTheDocument();
     expect(router.state.location.search).toMatchObject({ country: 'GH' });
     expect(listParams(fetchMock, 'last').get('country')).toBe('GH');
@@ -174,7 +178,7 @@ describe('DiscoverPage', () => {
     mockApi({ 'GET /resources': () => page([senegal]) });
     await renderApp('/discover');
     await screen.findByRole('link', { name: 'Wave Pay' });
-    await userEvent.click(screen.getByRole('button', { name: /^Country/ }));
+    await userEvent.setup({ delay: null }).click(screen.getByRole('button', { name: /^Country/ }));
     expect(await screen.findByRole('option', { name: 'Senegal' })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: 'Côte d’Ivoire' })).toBeInTheDocument();
   });
@@ -188,10 +192,9 @@ describe('DiscoverPage', () => {
       screen.queryByRole('button', { name: 'Réinitialiser les filtres' }),
     ).not.toBeInTheDocument();
 
-    await userEvent.type(
-      screen.getByRole('searchbox', { name: /Rechercher une API/ }),
-      'momo{Enter}',
-    );
+    await userEvent
+      .setup({ delay: null })
+      .type(screen.getByRole('searchbox', { name: /Rechercher une API/ }), 'momo{Enter}');
     await waitFor(() => {
       expect(listParams(fetchMock, 'last').get('q')).toBe('momo');
     });
@@ -201,7 +204,9 @@ describe('DiscoverPage', () => {
     });
     expect(router.state.location.search).toMatchObject({ q: 'momo', type: 'sdk' });
 
-    await userEvent.click(screen.getByRole('button', { name: 'Réinitialiser les filtres' }));
+    await userEvent
+      .setup({ delay: null })
+      .click(screen.getByRole('button', { name: 'Réinitialiser les filtres' }));
     await waitFor(() => {
       expect(router.state.location.search).toEqual({});
     });
@@ -213,8 +218,12 @@ describe('DiscoverPage', () => {
     const fetchMock = mockApi({ 'GET /resources': () => page([senegal]) });
     await renderApp('/discover');
     await screen.findByRole('link', { name: 'Wave Pay' });
-    await userEvent.type(screen.getByRole('searchbox', { name: /Rechercher une API/ }), 'ussd');
-    await userEvent.click(screen.getByRole('button', { name: 'Lancer la recherche' }));
+    await userEvent
+      .setup({ delay: null })
+      .type(screen.getByRole('searchbox', { name: /Rechercher une API/ }), 'ussd');
+    await userEvent
+      .setup({ delay: null })
+      .click(screen.getByRole('button', { name: 'Lancer la recherche' }));
     await waitFor(() => {
       expect(listParams(fetchMock, 'last').get('q')).toBe('ussd');
     });
@@ -227,7 +236,9 @@ describe('DiscoverPage', () => {
     await screen.findByRole('link', { name: 'Wave Pay' });
     expect(listParams(fetchMock, 'first').get('category')).toBe('payments');
     expect(screen.getByText('Catégorie : payments')).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Retirer le filtre de catégorie' }));
+    await userEvent
+      .setup({ delay: null })
+      .click(screen.getByRole('button', { name: 'Retirer le filtre de catégorie' }));
     await waitFor(() => {
       expect(router.state.location.search).toEqual({});
     });
@@ -241,7 +252,9 @@ describe('DiscoverPage', () => {
     });
     const { router } = await renderApp('/discover');
     expect(await findVisibleText('Aucune fiche ne correspond')).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Voir toute l’Afrique' }));
+    await userEvent
+      .setup({ delay: null })
+      .click(screen.getByRole('button', { name: 'Voir toute l’Afrique' }));
     await waitFor(() => {
       expect(router.state.location.search).toMatchObject({ region: 'all' });
     });
@@ -270,7 +283,7 @@ describe('DiscoverPage', () => {
     });
     await renderApp('/discover');
     expect(await findVisibleText('Référence : req-test-1')).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Réessayer' }));
+    await userEvent.setup({ delay: null }).click(screen.getByRole('button', { name: 'Réessayer' }));
     expect(await screen.findByRole('link', { name: 'Wave Pay' })).toBeInTheDocument();
   });
 
@@ -306,7 +319,9 @@ describe('DiscoverPage', () => {
           : problemResponse(500, 'INTERNAL_ERROR'),
     });
     await renderApp('/discover');
-    await userEvent.click(await screen.findByRole('button', { name: 'Afficher plus' }));
+    await userEvent
+      .setup({ delay: null })
+      .click(await screen.findByRole('button', { name: 'Afficher plus' }));
     expect((await screen.findAllByRole('alert')).length).toBeGreaterThan(0);
     expect(screen.getByRole('link', { name: 'Wave Pay' })).toBeInTheDocument();
   });

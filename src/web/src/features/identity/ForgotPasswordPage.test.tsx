@@ -11,7 +11,7 @@ const accepted = () => jsonResponse({ status: 'accepted' }, { status: 202 });
 async function open(language = 'fr-FR', routes: Parameters<typeof mockApi>[0] = {}) {
   setLanguages([language]);
   const fetchMock = mockApi(routes);
-  const user = userEvent.setup();
+  const user = userEvent.setup({ delay: null });
   const app = await renderApp('/mot-de-passe-oublie');
   await screen.findByRole('heading', { level: 1 });
   return { fetchMock, user, ...app };

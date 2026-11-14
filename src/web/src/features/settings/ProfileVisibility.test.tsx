@@ -73,8 +73,10 @@ describe('Profile visibility setting (parametres)', () => {
     });
     await renderApp('/parametres');
     expect(await screen.findByRole('radio', { name: /Public/ })).toBeChecked();
-    await userEvent.click(screen.getByRole('radio', { name: /Membres/ }));
-    await userEvent.click(screen.getByRole('button', { name: 'Enregistrer la visibilité' }));
+    await userEvent.setup({ delay: null }).click(screen.getByRole('radio', { name: /Membres/ }));
+    await userEvent
+      .setup({ delay: null })
+      .click(screen.getByRole('button', { name: 'Enregistrer la visibilité' }));
     expect(await findVisibleText('Visibilité enregistrée.')).toBeInTheDocument();
     expect(saved).toEqual({ profile_visibility: 'members' });
     const [patch] = callsTo(fetchMock, 'PATCH /me/profile');
@@ -88,8 +90,12 @@ describe('Profile visibility setting (parametres)', () => {
       'PATCH /me/profile': () => problemResponse(429, 'RATE_LIMITED', { retryAfter: 20 }),
     });
     await renderApp('/parametres');
-    await userEvent.click(await screen.findByRole('radio', { name: /Privé/ }));
-    await userEvent.click(screen.getByRole('button', { name: 'Enregistrer la visibilité' }));
+    await userEvent
+      .setup({ delay: null })
+      .click(await screen.findByRole('radio', { name: /Privé/ }));
+    await userEvent
+      .setup({ delay: null })
+      .click(screen.getByRole('button', { name: 'Enregistrer la visibilité' }));
     await waitFor(() => {
       expect(screen.getByRole('alert')).toHaveTextContent(/Réessayez dans 20/);
     });

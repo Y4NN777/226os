@@ -82,8 +82,12 @@ describe('Shell', () => {
       },
     });
     await renderApp('/');
-    await userEvent.click(await screen.findByRole('button', { name: /Awa Traoré/ }));
-    await userEvent.click(await screen.findByRole('menuitem', { name: 'Se déconnecter' }));
+    await userEvent
+      .setup({ delay: null })
+      .click(await screen.findByRole('button', { name: /Awa Traoré/ }));
+    await userEvent
+      .setup({ delay: null })
+      .click(await screen.findByRole('menuitem', { name: 'Se déconnecter' }));
     expect(await screen.findByRole('link', { name: 'Se connecter' })).toBeInTheDocument();
     const [signOut] = callsTo(fetchMock, 'POST /auth/sign-out');
     expect(signOut?.headers.get('X-CSRF-Token')).toBe('csrf-member');
@@ -103,8 +107,12 @@ describe('Shell', () => {
       },
     });
     await renderApp('/');
-    await userEvent.click(await screen.findByRole('button', { name: /Awa Traoré/ }));
-    await userEvent.click(await screen.findByRole('menuitem', { name: 'Se déconnecter' }));
+    await userEvent
+      .setup({ delay: null })
+      .click(await screen.findByRole('button', { name: /Awa Traoré/ }));
+    await userEvent
+      .setup({ delay: null })
+      .click(await screen.findByRole('menuitem', { name: 'Se déconnecter' }));
     expect(await screen.findByRole('link', { name: 'Se connecter' })).toBeInTheDocument();
     expect(screen.queryByText('La déconnexion a échoué. Réessayez.')).not.toBeInTheDocument();
   });
@@ -113,8 +121,12 @@ describe('Shell', () => {
     setLanguages(['fr-FR']);
     mockApi();
     await renderApp('/');
-    await userEvent.click(await screen.findByRole('button', { name: 'Plus d’options' }));
-    await userEvent.click(await screen.findByRole('menuitem', { name: 'English' }));
+    await userEvent
+      .setup({ delay: null })
+      .click(await screen.findByRole('button', { name: 'Plus d’options' }));
+    await userEvent
+      .setup({ delay: null })
+      .click(await screen.findByRole('menuitem', { name: 'English' }));
     await waitFor(() => {
       expect(screen.getByRole('link', { name: 'Sign in' })).toBeInTheDocument();
     });

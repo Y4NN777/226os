@@ -44,7 +44,7 @@ describe('ErrorState', () => {
     expect(alert).toHaveTextContent('Impossible de charger le contenu');
     expect(alert).toHaveTextContent('Le serveur ne répond pas.');
     expect(alert).toHaveTextContent(/Référence\s:\sreq-9/);
-    await userEvent.click(screen.getByRole('button', { name: 'Réessayer' }));
+    await userEvent.setup({ delay: null }).click(screen.getByRole('button', { name: 'Réessayer' }));
     expect(onRetry).toHaveBeenCalledOnce();
   });
 

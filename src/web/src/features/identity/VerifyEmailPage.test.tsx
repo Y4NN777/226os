@@ -12,7 +12,7 @@ const noContent = () => new Response(null, { status: 204 });
 async function open(language = 'fr-FR', routes: Parameters<typeof mockApi>[0] = {}) {
   setLanguages([language]);
   const fetchMock = mockApi(routes);
-  const user = userEvent.setup();
+  const user = userEvent.setup({ delay: null });
   const app = await renderApp('/verifier-email');
   await screen.findByRole('heading', { level: 1 });
   return { fetchMock, user, ...app };

@@ -129,7 +129,7 @@ describe('ProfilePage view', () => {
   it('adds Mon profil to the account menu, pointing at the own profile', async () => {
     setLanguages(['fr-FR']);
     member({ 'GET /profiles/awa': () => jsonResponse(publicProfile()) });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp('/profils/awa');
     await user.click(await screen.findByRole('button', { name: /Awa Traoré/ }));
     expect(await screen.findByRole('menuitem', { name: 'Mon profil' })).toHaveAttribute(
@@ -193,7 +193,7 @@ describe('ProfilePage completion checklist', () => {
         return jsonResponse(myProfile(missing));
       },
     });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp('/profils/awa');
     const card = await screen.findByRole('region', { name: 'Complétez votre profil' });
     await user.type(within(card).getByRole('textbox', { name: /Présentation/ }), 'Développeuse.');
@@ -220,7 +220,7 @@ describe('ProfilePage completion checklist', () => {
         }),
       'PATCH /me/profile': () => jsonResponse(myProfile(['languages', 'skills'])),
     });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp('/profils/awa');
     const card = await screen.findByRole('region', { name: 'Complétez votre profil' });
     await user.type(within(card).getByRole('textbox', { name: /Pays/ }), 'bf');
@@ -244,7 +244,7 @@ describe('ProfilePage completion checklist', () => {
           violations: [{ field: '/github', code: 'invalid_format' }],
         }),
     });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp('/profils/awa');
     const card = await screen.findByRole('region', { name: 'Complétez votre profil' });
 
@@ -270,7 +270,7 @@ describe('ProfilePage completion checklist', () => {
         return jsonResponse(myProfile(missing));
       },
     });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp('/profils/awa');
     const card = await screen.findByRole('region', { name: 'Complétez votre profil' });
     await user.click(within(card).getByRole('radio', { name: 'Apprendre' }));
@@ -300,7 +300,7 @@ describe('ProfilePage completion checklist', () => {
       'GET /me': () => jsonResponse({ account: memberAccount, profile: myProfile(['bio']) }),
       'PATCH /me/profile': () => problemResponse(403, 'EMAIL_NOT_VERIFIED'),
     });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp('/profils/awa');
     const card = await screen.findByRole('region', { name: 'Complétez votre profil' });
     await user.type(within(card).getByRole('textbox', { name: /Présentation/ }), 'Bonjour');

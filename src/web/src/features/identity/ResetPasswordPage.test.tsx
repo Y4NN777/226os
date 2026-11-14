@@ -17,7 +17,7 @@ const noContent = () => new Response(null, { status: 204 });
 async function open(language = 'fr-FR', routes: Parameters<typeof mockApi>[0] = {}) {
   setLanguages([language]);
   const fetchMock = mockApi(routes);
-  const user = userEvent.setup();
+  const user = userEvent.setup({ delay: null });
   const app = await renderApp('/reinitialiser');
   await screen.findByRole('heading', { level: 1 });
   return { fetchMock, user, ...app };
@@ -100,7 +100,7 @@ describe('ResetPasswordPage', () => {
     const queryClient = new QueryClient();
     queryClient.setQueryData(sessionQueryKey, memberSession);
     api.csrf.set('csrf-member');
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     render(
       <QueryClientProvider client={queryClient}>
         <I18nProvider>
@@ -162,7 +162,7 @@ describe('ResetPasswordPage', () => {
     window.history.replaceState(null, '', `/reinitialiser#token=${TOKEN}`);
     setLanguages(['fr-FR']);
     const fetchMock = mockApi({ [CONFIRM]: noContent });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp('/reinitialiser');
     await screen.findByRole('heading', { level: 1 });
     expect(screen.getByLabelText('Code de confirmation')).toHaveValue(TOKEN);

@@ -148,7 +148,9 @@ describe('ResourcePage', () => {
     });
     await renderApp(`/discover/${id}`);
     expect(await screen.findByRole('heading', { level: 1, name: 'Wave Pay' })).toBeInTheDocument();
-    await userEvent.click(await screen.findByRole('button', { name: 'Réessayer' }));
+    await userEvent
+      .setup({ delay: null })
+      .click(await screen.findByRole('button', { name: 'Réessayer' }));
     expect(await screen.findByRole('link', { name: /Grille tarifaire/ })).toBeInTheDocument();
   });
 
@@ -183,7 +185,9 @@ describe('ResourcePage', () => {
     });
     const { router } = await renderApp(`/discover/${id}`);
     expect(await screen.findByRole('heading', { name: 'Fiche introuvable' })).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('link', { name: 'Retour au catalogue' }));
+    await userEvent
+      .setup({ delay: null })
+      .click(screen.getByRole('link', { name: 'Retour au catalogue' }));
     await screen.findByRole('heading', { level: 1, name: 'Découvrir' });
     expect(router.state.location.pathname).toBe('/discover');
   });
@@ -197,7 +201,7 @@ describe('ResourcePage', () => {
     });
     await renderApp(`/discover/${id}`);
     expect(await findVisibleText('Référence : req-test-1')).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Réessayer' }));
+    await userEvent.setup({ delay: null }).click(screen.getByRole('button', { name: 'Réessayer' }));
     expect(await screen.findByRole('heading', { level: 1, name: 'Wave Pay' })).toBeInTheDocument();
     expect(callsTo(fetchMock, `GET /resources/${id}`)).toHaveLength(2);
   });

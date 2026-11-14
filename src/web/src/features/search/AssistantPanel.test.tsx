@@ -76,7 +76,9 @@ describe('AssistantPanel', () => {
     const fetchMock = member({ 'POST /assistant/answers': () => jsonResponse(answered) });
     await renderApp('/recherche?q=momo');
     const inPanel = await panel();
-    await userEvent.click(await inPanel.findByRole('button', { name: 'Demander à l’assistant' }));
+    await userEvent
+      .setup({ delay: null })
+      .click(await inPanel.findByRole('button', { name: 'Demander à l’assistant' }));
     await inPanel.findByText('Comment vérifier');
     const [request] = callsTo(fetchMock, 'POST /assistant/answers');
     expect(request?.headers.get('X-CSRF-Token')).toBe('csrf-member');
@@ -94,9 +96,11 @@ describe('AssistantPanel', () => {
     expect(
       inPanel.getByText('Saisissez au moins 3 caractères pour interroger l’assistant.'),
     ).toBeVisible();
-    await userEvent.click(ask);
+    await userEvent.setup({ delay: null }).click(ask);
     expect(callsTo(fetchMock, 'POST /assistant/answers')).toHaveLength(0);
-    await userEvent.type(inPanel.getByRole('textbox', { name: /Votre question/ }), 'Comment ?');
+    await userEvent
+      .setup({ delay: null })
+      .type(inPanel.getByRole('textbox', { name: /Votre question/ }), 'Comment ?');
     expect(inPanel.getByRole('button', { name: 'Demander à l’assistant' })).not.toHaveAttribute(
       'aria-disabled',
       'true',
@@ -108,11 +112,15 @@ describe('AssistantPanel', () => {
     const fetchMock = member({ 'POST /assistant/answers': () => jsonResponse(answered) });
     await renderApp('/recherche?q=momo');
     const inPanel = await panel();
-    await userEvent.type(
-      await inPanel.findByRole('textbox', { name: /Votre question/ }),
-      'Comment tester un webhook ?',
-    );
-    await userEvent.click(inPanel.getByRole('button', { name: 'Demander à l’assistant' }));
+    await userEvent
+      .setup({ delay: null })
+      .type(
+        await inPanel.findByRole('textbox', { name: /Votre question/ }),
+        'Comment tester un webhook ?',
+      );
+    await userEvent
+      .setup({ delay: null })
+      .click(inPanel.getByRole('button', { name: 'Demander à l’assistant' }));
     await inPanel.findByText('Comment vérifier');
     const [request] = callsTo(fetchMock, 'POST /assistant/answers');
     expect(await request?.json()).toEqual({ question: 'Comment tester un webhook ?', lang: 'fr' });
@@ -123,7 +131,9 @@ describe('AssistantPanel', () => {
     member({ 'POST /assistant/answers': () => jsonResponse(answered) });
     const { container } = await renderApp('/recherche?q=momo');
     const inPanel = await panel();
-    await userEvent.click(await inPanel.findByRole('button', { name: 'Demander à l’assistant' }));
+    await userEvent
+      .setup({ delay: null })
+      .click(await inPanel.findByRole('button', { name: 'Demander à l’assistant' }));
     expect(await inPanel.findByText(/Utilisez le bac à sable/)).toBeInTheDocument();
     expect(inPanel.getAllByText('IA').length).toBeGreaterThan(0);
     expect(
@@ -151,7 +161,9 @@ describe('AssistantPanel', () => {
     member({ 'POST /assistant/answers': () => jsonResponse(noSource) });
     await renderApp('/recherche?q=momo');
     const inPanel = await panel();
-    await userEvent.click(await inPanel.findByRole('button', { name: 'Demander à l’assistant' }));
+    await userEvent
+      .setup({ delay: null })
+      .click(await inPanel.findByRole('button', { name: 'Demander à l’assistant' }));
     expect(await inPanel.findByText(/Aucune source pour répondre/)).toBeInTheDocument();
     expect(inPanel.getByRole('link', { name: 'Voir les résultats de recherche' })).toHaveAttribute(
       'href',
@@ -167,7 +179,9 @@ describe('AssistantPanel', () => {
     });
     await renderApp('/recherche?q=momo');
     const inPanel = await panel();
-    await userEvent.click(await inPanel.findByRole('button', { name: 'Demander à l’assistant' }));
+    await userEvent
+      .setup({ delay: null })
+      .click(await inPanel.findByRole('button', { name: 'Demander à l’assistant' }));
     expect(await inPanel.findByText(/Réessayez dans 42 s/)).toBeInTheDocument();
     expect(inPanel.getByRole('button', { name: 'Demander à l’assistant' })).toBeInTheDocument();
   });
@@ -180,7 +194,9 @@ describe('AssistantPanel', () => {
     });
     const { router } = await renderApp('/recherche?q=momo');
     const inPanel = await panel();
-    await userEvent.click(await inPanel.findByRole('button', { name: 'Demander à l’assistant' }));
+    await userEvent
+      .setup({ delay: null })
+      .click(await inPanel.findByRole('button', { name: 'Demander à l’assistant' }));
     expect(await inPanel.findByText(/L’assistant est indisponible/)).toBeInTheDocument();
     expect(inPanel.queryByRole('button', { name: 'Demander à l’assistant' })).toBeNull();
     await new Promise((resolve) => setTimeout(resolve, 50));
@@ -202,7 +218,9 @@ describe('AssistantPanel', () => {
     });
     const { router } = await renderApp('/recherche?q=momo');
     const inPanel = await panel();
-    await userEvent.click(await inPanel.findByRole('button', { name: 'Demander à l’assistant' }));
+    await userEvent
+      .setup({ delay: null })
+      .click(await inPanel.findByRole('button', { name: 'Demander à l’assistant' }));
     await inPanel.findByText(/L’assistant est indisponible/);
 
     const now = Date.now();
@@ -229,7 +247,9 @@ describe('AssistantPanel', () => {
     member({ 'POST /assistant/answers': () => problemResponse(403, 'EMAIL_NOT_VERIFIED') });
     await renderApp('/recherche?q=momo');
     const inPanel = await panel();
-    await userEvent.click(await inPanel.findByRole('button', { name: 'Demander à l’assistant' }));
+    await userEvent
+      .setup({ delay: null })
+      .click(await inPanel.findByRole('button', { name: 'Demander à l’assistant' }));
     expect(await inPanel.findByText('Confirmez d’abord votre adresse e-mail.')).toBeInTheDocument();
   });
 

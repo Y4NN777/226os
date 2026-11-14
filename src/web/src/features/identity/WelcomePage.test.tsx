@@ -59,7 +59,7 @@ describe('WelcomePage', () => {
       'GET /auth/session': () =>
         healthy ? jsonResponse(memberSession) : problemResponse(500, 'INTERNAL_ERROR'),
     });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await renderApp('/bienvenue');
     expect(await findVisibleText(/Une erreur est survenue/)).toBeInTheDocument();
     healthy = true;

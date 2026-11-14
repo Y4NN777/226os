@@ -49,7 +49,7 @@ describe('ThemePreferenceProvider', () => {
 
   it('changes and persists the preference', async () => {
     renderProbe();
-    await userEvent.click(screen.getByRole('button', { name: 'dark' }));
+    await userEvent.setup({ delay: null }).click(screen.getByRole('button', { name: 'dark' }));
     expect(screen.getByText('mode:dark')).toBeInTheDocument();
     expect(document.documentElement).toHaveAttribute('data-theme', 'dark');
     expect(localStorage.getItem('226os.theme')).toBe('dark');
