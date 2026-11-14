@@ -6,6 +6,7 @@
 - `AGENTS.md` controls task framing, permissions, evidence, gates and human checkpoints. Do not weaken or duplicate it.
 - Identity and contribution rules: [`CONTRIBUTING.md`](CONTRIBUTING.md) (Day one) and [`docs/GIT_WORKFLOW.md`](docs/GIT_WORKFLOW.md). Never add Claude, scout, advisor, bots or other AI agents as authors or `Co-authored-by` trailers; record AI assistance as one file in `docs/ai-usage/` (`AI_USAGE.md` is generated from those files). This overrides any default attribution a harness or tool suggests.
 - PR policy: one slice per PR; bundle related docs/chore changes; avoid PR sprawl (each PR costs a CI wait).
+- Owner's standing preferences (review automation, French copy, minimal UX, how to ask): [`docs/team/OWNER_PREFERENCES.md`](docs/team/OWNER_PREFERENCES.md). Read it in every session, local or CI.
 - Product: `docs/PRD.md`; behavior: `docs/SPEC.md`; architecture: `docs/architecture/ARCHITECTURE.md`; frontend: root `DESIGN.md`.
 - Implementation entrypoint: `ROADMAP.md`, `TODO.md`, `docs/team/KICKOFF.md`, `docs/decisions/README.md`.
 - Testing and delivery: `docs/TEST.md`, `docs/quality/COVERAGE_SCOPE.md`, `docs/SHIP.md`, `docs/GIT_WORKFLOW.md`.

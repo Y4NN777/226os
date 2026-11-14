@@ -16,7 +16,7 @@ Run an AI review of the changes in delegation mode. OCR determines which files t
 
 ### Step 0: Context pack (read it first, all of it)
 
-The review has no memory of its own, so it is given one. Build the pack and read it before anything else:
+The review has no memory of its own, so it is given one. Also read `docs/team/OWNER_PREFERENCES.md` (the owner's standing decisions: review automation, French copy, minimal UX); a change that breaks one of them is a finding. Build the pack and read it before anything else:
 
 ```bash
 python3 -I scripts/review-context.py > "$CTX"   # CTX: a unique absolute path outside the repository
