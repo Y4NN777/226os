@@ -170,6 +170,9 @@ services:
       - --global.checkNewVersion=false
       - --global.sendAnonymousUsage=false
       - --entrypoints.web.address=:8000
+      # Replace client-sent X-Forwarded-* (Traefik's default, pinned): the API keys anonymous limits on the
+      # right-most entry (httpx.ClientIPKey). scripts/verify-containers.sh enforces it.
+      - --entrypoints.web.forwardedHeaders.insecure=false
       - --providers.file.filename=/etc/traefik/dynamic.yml
       - --providers.file.watch=false
       - --ping=true
@@ -225,6 +228,10 @@ services:
       - --entrypoints.web.http.redirections.entryPoint.to=:443
       - --entrypoints.web.http.redirections.entryPoint.scheme=https
       - --entrypoints.websecure.address=:8443
+      # Replace client-sent X-Forwarded-* (Traefik's default, pinned; no upstream proxy is trusted): the API keys
+      # anonymous limits on the right-most entry (httpx.ClientIPKey). scripts/verify-containers.sh enforces it.
+      - --entrypoints.web.forwardedHeaders.insecure=false
+      - --entrypoints.websecure.forwardedHeaders.insecure=false
       - --entrypoints.websecure.http.tls.certResolver=le
       - --entrypoints.websecure.http.tls.domains[0].main=${PUBLIC_HOST:-}
       - --certificatesresolvers.le.acme.email=${ACME_EMAIL:-}

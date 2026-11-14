@@ -394,6 +394,7 @@ Open owner items outside CADEV (IDs and decisions in ROADMAP section 8, 10 and 1
 - [ ] `develop` SHA frozen at Sat 18:00. `make quality-full` run on it, with its result (G1 to G6).
 - [ ] `staging-test` deployed from that SHA by digest (`make build`, then `make up-staging-test`); DNS resolves for `226os.tech` and the staging subdomain first (H7).
 - [ ] Staging smoke per `docs/SHIP.md` section 4: HTTPS, `/healthz` at the edge, `/readyz` inside the container (B2), auth, Q&A, vote, search, resource, project, application, anonymous reads, denied mutations, FR/EN, mobile, no secrets in logs.
+- [ ] Spoofed `X-Forwarded-For` through the real Traefik on `staging-test` (#117, `Y4NN777`): an anonymous search with a forged leading entry must still be keyed on the real client network (`httpx.ClientIPKey`). Traefik pins `forwardedHeaders.insecure=false` on every entrypoint and trusts no upstream proxy (`scripts/verify-containers.sh` enforces it, 2026-11-13, `chore/ops/traefik-forwarded-headers`); a CDN in front would need a reviewed `trustedIPs`.
 - [ ] Staging rehearsal: the team's real accounts create real `live` content through the app, and the S4 content script runs on staging with the production procedure; record the date in the Done log.
 - [ ] Backup taken and restore verified on a scratch database; rollback drill (previous image redeployed by digest).
 - [ ] Zero `provenance='demo'` rows on **both** `staging-test` and `production-live` (see SEED).
