@@ -255,8 +255,8 @@ Les deux questions ont `language = 'fr'`, `status = 'published'`, `provenance = 
 
 | UUID | Auteur | Titre | Pays |
 |---|---|---|---|
-| `01900000-0000-7000-8000-000000000901` | `002` | `Un webhook peut-il arriver dans le désordre ?` | `GH` |
-| `01900000-0000-7000-8000-000000000902` | `001` | `Faut-il enregistrer le corps brut avant de vérifier la signature ?` | `BF` |
+| `01900000-0000-7000-8000-000000000901` | `002` | `Un webhook peut-il arriver dans le désordre ?` | `GH` |
+| `01900000-0000-7000-8000-000000000902` | `001` | `Faut-il enregistrer le corps brut avant de vérifier la signature ?` | `BF` |
 
 Tags :
 
@@ -432,8 +432,8 @@ Build, quatre besoins ouverts :
 
 Solve, deux questions optionnelles :
 
-- Un webhook peut-il arriver dans le désordre ?
-- Faut-il enregistrer le corps brut avant de vérifier la signature ?
+- Un webhook peut-il arriver dans le désordre ?
+- Faut-il enregistrer le corps brut avant de vérifier la signature ?
 
 ## 10. À ne pas faire
 
@@ -466,3 +466,23 @@ Ce README est le seul livrable de T1. Les autres fichiers du slice SEED #75 sont
 | T6 et T8 | preuves `local-dev`, `TODO.md`, `docs/ai-usage/` |
 
 Tout écart avec ce contrat doit être signalé au orchestrateur avant écriture du SQL, et non corrigé silencieusement dans un fichier de seed.
+
+## 12. Lancer et vérifier les seeds
+
+Sur une base `local-dev` démarrée et migrée (`make up-local-dev`) :
+
+```sh
+APP_ENV=local-dev make seed   # 107 lignes la première fois
+APP_ENV=local-dev make seed   # 0 ligne ensuite : idempotent
+```
+
+Toute autre valeur de `APP_ENV`, ou un `COMPOSE_PROFILES` différent de `local-dev`, est refusée avec le code 2 avant le moindre appel à Docker.
+
+Les preuves automatiques :
+
+| Commande | Ce qu'elle vérifie |
+|---|---|
+| `scripts/tests/seed_test.sh` | les refus de `make seed` et l'appel `psql -1` en `local-dev`, sans Docker |
+| `go test -race -tags integration -run Seed ./src/api/internal/platform/pgtest/` | le contenu de ce contrat sur une base PostgreSQL neuve : nombres de lignes, provenance, absence de credentials, de votes, de candidatures et de vérifications, URLs `example.org`, idempotence |
+
+Une ligne ajoutée ou modifiée dans un fichier de seed doit d'abord l'être dans ce contrat, puis dans `seed_integration_test.go` si un nombre change.
