@@ -55,12 +55,22 @@ export function PasswordField({
   const [visible, setVisible] = useState(false);
   const wrapper = useRef<HTMLDivElement>(null);
   const [top, setTop] = useState(0);
-  // The toggle lines up with the input box, wherever the label (and description) put it.
+  // The toggle lines up with the input box, wherever the label (and description) put it; measured
+  // again when the field resizes (a label wrapping on a narrow screen, a late font load).
   useLayoutEffect(() => {
-    const box = wrapper.current?.querySelector<HTMLElement>('[data-pressable-container]');
-    if (box && wrapper.current) {
-      setTop(box.getBoundingClientRect().top - wrapper.current.getBoundingClientRect().top);
-    }
+    const element = wrapper.current;
+    if (!element) return;
+    const measure = () => {
+      const box = element.querySelector<HTMLElement>('[data-pressable-container]');
+      if (box) setTop(box.getBoundingClientRect().top - element.getBoundingClientRect().top);
+    };
+    measure();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => {
+      observer.disconnect();
+    };
   }, [label, description]);
   return (
     <div ref={wrapper} className="password-field">
