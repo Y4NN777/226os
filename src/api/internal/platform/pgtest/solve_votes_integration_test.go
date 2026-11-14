@@ -159,8 +159,23 @@ func TestSolveVoteAndAcceptAuthorizationMatrix(t *testing.T) {
 			t.Fatalf("%s: unknown and removed differ: %s / %s", name, pair[0].Body.String(), pair[1].Body.String())
 		}
 	}
-	// An answer of a removed question is also not votable.
-	assertProblem(t, s.vote(t, &bob, "answer", removedAnswer, 1, nil), http.StatusNotFound, "NOT_FOUND")
+	// An answer of a removed question is not votable either: the answer itself stays published.
+	orphanQ := s.ask(t, &alice, "Question retirée avec sa réponse")
+	orphan := s.answer(t, &bob, orphanQ.Id.String(), "Réponse d'une question retirée").Id.String()
+	if _, err := s.conn.Exec(t.Context(), `UPDATE questions SET status = 'removed', removed_at = now() WHERE id = $1`, orphanQ.Id.String()); err != nil {
+		t.Fatal(err)
+	}
+	unknown := s.vote(t, &alice, "answer", unknownID, 1, nil)
+	castOrphan := s.vote(t, &alice, "answer", orphan, 1, nil)
+	retractOrphan := s.unvote(t, &alice, "answer", orphan, nil)
+	assertProblem(t, castOrphan, http.StatusNotFound, "NOT_FOUND")
+	assertProblem(t, retractOrphan, http.StatusNotFound, "NOT_FOUND")
+	if problemWithoutInstance(t, castOrphan) != problemWithoutInstance(t, unknown) || problemWithoutInstance(t, retractOrphan) != problemWithoutInstance(t, unknown) {
+		t.Fatal("an answer of a removed question differs from an unknown one")
+	}
+	if got := s.score(t, "answers", orphan); got != 0 {
+		t.Fatalf("score %d after refused votes", got)
+	}
 	if s.totalVotes(t) != 0 {
 		t.Fatal("a vote reached the database through a 404")
 	}
@@ -330,7 +345,13 @@ func TestSolveVoteScoreReconcilesWithTheVotes(t *testing.T) {
 			default:
 				rec = s.unvote(t, who, tg.kind, tg.id, nil)
 			}
-			if rec.Code != http.StatusOK && rec.Code != http.StatusForbidden {
+			switch rec.Code {
+			case http.StatusOK:
+			case http.StatusForbidden: // only a self-vote may be refused
+				if got := problem(t, rec)["code"]; got != "SELF_VOTE_FORBIDDEN" {
+					t.Errorf("403 with code %v, want SELF_VOTE_FORBIDDEN", got)
+				}
+			default:
 				t.Errorf("vote: %d %s", rec.Code, rec.Body.String())
 			}
 		}
