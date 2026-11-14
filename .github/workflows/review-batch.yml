@@ -10,7 +10,20 @@
 #   A scheduled run uses the workflow and the script of the DEFAULT branch.
 # Job `report` (pull requests into main, promotions): writes the ranked batch to the job summary only, from the BASE
 #   commit; it edits nothing on GitHub (read permissions), whether or not the pull request comes from a fork.
-# Neither job is a required check, so it never blocks a merge. The script fails CLOSED: a GitHub error makes the run
+# Job `fix` (stage 5, after `batch` on a schedule or a manual run): when the batch issue was created or updated (a manual
+#   run always tries), Claude Code works the batch with .claude/commands/review-fix.md as a normal project session, on a
+#   new branch fix/review/batch-YYYY-MM-DD from develop, and this workflow opens ONE pull request into develop whose body
+#   names the batch issue and holds the results table (FIXED, NOT A DEFECT, DECIDED, OWNER, AFTER FREEZE, each with a
+#   reason). The decision, the guard before the push and the body are scripts/review-autofix.py (`batch`, `check`,
+#   `body`); it is skipped while a batch pull request is open. Three jobs: `plan` (decides, no repository code runs),
+#   `fix` (UNTRUSTED: the model and make on the code it wrote, NO write token, git reads through `fixer-run`; its
+#   commits leave as a patch artifact) and `publish` (TRUSTED: never runs repository code; `git am` with hooks off,
+#   `check`, then the push and the pull request with REVIEW_AGENT_TOKEN from the environment `review-agent`, the only
+#   job that reads it; with GITHUB_TOKEN no CI would run on the pull request).
+#   The pull request then goes through review, deep review and auto-merge like any other.
+#   Same switch as stage 3: AUTO_FIX = off | report (default) | on; without the token, "autofix: NOT RUN
+#   (REVIEW_AGENT_TOKEN missing)". The prompt carries the repository, the issue number and the item keys only.
+# No job is a required check, so none blocks a merge. The script fails CLOSED: a GitHub error makes the run
 # red with "findings batch: FAILED" instead of writing a batch from a partial read.
 name: Review batch
 
@@ -43,6 +56,8 @@ jobs:
       contents: read
       issues: write
       pull-requests: read
+    outputs:
+      result: ${{ steps.write.outputs.result }}
     steps:
       - name: Checkout (scripts of the branch the run is for)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -51,10 +66,298 @@ jobs:
           persist-credentials: false
 
       - name: Create or update the review batch
+        id: write
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
-        run: python3 -I scripts/findings.py batch | tee -a "$GITHUB_STEP_SUMMARY"
+        run: |
+          python3 -I scripts/findings.py batch | tee -a "$GITHUB_STEP_SUMMARY" | tee "$RUNNER_TEMP/batch.txt"
+          # Only the verb goes to the next job (created, updated, closed; anything else is unchanged), never issue text.
+          verb="$(grep -m1 -oE '^findings batch: (created|updated|closed)' "$RUNNER_TEMP/batch.txt" | cut -d' ' -f3 || true)"
+          echo "result=${verb:-unchanged}" >>"$GITHUB_OUTPUT"
+
+  # Stage 5, three jobs. `plan` decides (no pull request code); `fix` is UNTRUSTED (the model, then make on the code it
+  # wrote) and holds NO write token; `publish` is TRUSTED (never runs repository code) and alone holds REVIEW_AGENT_TOKEN.
+  plan:
+    name: Review batch (plan the fix)
+    needs: batch
+    if: (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && vars.AUTO_FIX != 'off'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
+    outputs:
+      run: ${{ steps.decide.outputs.run }}
+      issue: ${{ steps.decide.outputs.issue }}
+      branch: ${{ steps.decide.outputs.branch }}
+      items: ${{ steps.decide.outputs.items }}
+      base_sha: ${{ steps.decide.outputs.base_sha }}
+    steps:
+      - name: Checkout develop (the batch branch starts here; develop is protected, so its scripts are trusted)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: develop
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Decide whether to fix the batch
+        id: decide
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          AUTO_FIX: ${{ vars.AUTO_FIX || 'report' }}
+          # The token lives in the environment review-agent, readable by the publish job only: it checks it.
+          HAS_TOKEN: 'true'
+          BATCH_RESULT: "findings batch: ${{ needs.batch.outputs.result }}"
+          FORCE: ${{ github.event_name == 'workflow_dispatch' }}
+        run: |
+          if [ ! -f scripts/review-autofix.py ]; then
+            echo "autofix batch: NOT RUN (scripts/review-autofix.py is not on develop)" | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "run=false" >>"$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "base_sha=$(git rev-parse HEAD)" >>"$GITHUB_OUTPUT"
+          python3 -I scripts/review-autofix.py batch | tee -a "$GITHUB_STEP_SUMMARY"
+
+  fix:
+    name: Review batch (fix, untrusted, read-only)
+    needs: plan
+    if: needs.plan.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    concurrency:
+      group: review-batch-fix
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
+    outputs:
+      outcome: ${{ steps.patch.outputs.outcome }}
+    steps:
+      - name: Checkout develop at the planned commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.plan.outputs.base_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      # Out of the fixer's reach, before any edit: the wrapper and the base documents are read as git objects of the
+      # planned develop commit (`git cat-file blob`, like code-review.yml) into $RUNNER_TEMP.
+      - name: Install fixer-run and the base documents, create the batch branch
+        env:
+          BRANCH: ${{ needs.plan.outputs.branch }}
+          BASE_SHA: ${{ needs.plan.outputs.base_sha }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/bin" "$RUNNER_TEMP/base-docs"
+          git cat-file blob "$BASE_SHA:scripts/review-autofix.py" >"$RUNNER_TEMP/bin/review-autofix.py"
+          printf '#!/bin/sh\nexec python3 -I "%s/bin/review-autofix.py" run "$@"\n' "$RUNNER_TEMP" >"$RUNNER_TEMP/bin/fixer-run"
+          chmod +x "$RUNNER_TEMP/bin/fixer-run"
+          echo "$RUNNER_TEMP/bin" >>"$GITHUB_PATH"
+          for doc in docs/quality/REVIEW_CONTEXT.md docs/team/OWNER_PREFERENCES.md; do
+            if git cat-file -e "$BASE_SHA:$doc" 2>/dev/null; then
+              git cat-file blob "$BASE_SHA:$doc" >"$RUNNER_TEMP/base-docs/$(basename "$doc")"
+            else
+              echo "base-docs: $doc is not on develop"
+            fi
+          done
+          git switch -c "$BRANCH"
+
+      - name: Set up Go (version from go.mod)
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Set up pnpm (version from the packageManager field)
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+        with:
+          run_install: false
+
+      - name: Set up Node (version from .nvmrc)
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+
+      # make setup runs code the pull request controls: it gets a throwaway HOME, so it cannot plant a Claude user
+      # configuration (the Go caches, corepack and the pnpm store keep their real place, so later runs find them). This is
+      # not a boundary (the code can still write anywhere it can reach); the prepare step below is.
+      - name: Install from lockfiles (throwaway HOME)
+        run: |
+          real_home="$HOME"
+          mkdir -p "$RUNNER_TEMP/setup-home"
+          HOME="$RUNNER_TEMP/setup-home" GOPATH="$real_home/go" GOMODCACHE="$real_home/go/pkg/mod" \
+            GOCACHE="$real_home/.cache/go-build" COREPACK_HOME="$real_home/.cache/node/corepack" \
+            XDG_DATA_HOME="$real_home/.local/share" XDG_CACHE_HOME="$real_home/.cache" make setup
+
+      # go test and pnpm (through fixer-run) run without network when unprivileged user namespaces are allowed; make
+      # targets keep the network (Docker) and the model needs it for the API.
+      - name: Probe network isolation for tests
+        run: |
+          if unshare -rn true 2>/dev/null; then
+            echo "FIXER_NETNS=1" >>"$GITHUB_ENV"
+            echo "network isolation for go test and pnpm: ON (unshare -rn)" | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            echo "network isolation for go test and pnpm: NOT AVAILABLE (unshare -rn refused on this runner)" | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
+
+      # The owner's human identity (CONTRIBUTING.md); the noreply address is computed, never written in the repository.
+      - name: Set the human commit identity
+        id: identity
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GIT_LOGIN: ${{ vars.REVIEW_FIX_GIT_LOGIN || 'Y4NN777' }}
+          GIT_NAME: ${{ vars.REVIEW_FIX_GIT_NAME || 'Y4NN77' }}
+        run: |
+          id="$(gh api "users/$GIT_LOGIN" --jq .id)"
+          email="${id}+${GIT_LOGIN}@users.noreply.github.com"
+          {
+            echo "GIT_AUTHOR_NAME=$GIT_NAME"; echo "GIT_COMMITTER_NAME=$GIT_NAME"
+            echo "GIT_AUTHOR_EMAIL=$email"; echo "GIT_COMMITTER_EMAIL=$email"
+          } >>"$GITHUB_ENV"
+          git config user.name "$GIT_NAME"
+          git config user.email "$email"
+          echo "id=$id" >>"$GITHUB_OUTPUT"
+
+      # Immediately before the model, after make setup (which ran repository code): the home Claude configuration is
+      # wiped and the project's restored from the planned develop commit, the same ref as fixer-run and the guard.
+      - name: Prepare the Claude session (home config wiped, project config from develop)
+        env:
+          BASE_SHA: ${{ needs.plan.outputs.base_sha }}
+        run: |
+          SOURCE_REF="$BASE_SHA" WORKTREE="$GITHUB_WORKSPACE" python3 -I "$RUNNER_TEMP/bin/review-autofix.py" prepare \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Fix the batch (Claude Code, review-fix command)
+        id: claude
+        uses: anthropics/claude-code-action@4d75e5f390ee76b2e09c1980ecc99ff3a2e088c8 # v1.0.275
+        env:
+          # Best-effort scrub of the Anthropic, cloud and GitHub secrets from the model's subprocesses (the pinned action
+          # passes it through; its bubblewrap PID isolation is only installed with allowed_non_write_users).
+          CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: '1'
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ github.token }}
+          bot_name: ${{ vars.REVIEW_FIX_GIT_NAME || 'Y4NN77' }}
+          bot_id: ${{ steps.identity.outputs.id }}
+          use_sticky_comment: 'false'
+          prompt: |
+            REPO: ${{ github.repository }}
+            MODE: batch
+            BATCH ISSUE: ${{ needs.plan.outputs.issue }}
+            ITEMS: ${{ needs.plan.outputs.items }}
+            BASE DOCS: ${{ runner.temp }}/base-docs
+
+            Read .claude/commands/review-fix.md and follow it exactly, with these arguments: batch, the batch issue and
+            the item keys above. The batch branch is checked out from develop. Read REVIEW_CONTEXT.md and
+            OWNER_PREFERENCES.md from BASE DOCS. Commit, but do not push and do not open or comment on anything: the
+            workflow checks your commits, pushes them and opens the pull request with your results. Return the result
+            of step 5 as your structured output.
+          claude_args: |
+            --model claude-opus-5-5
+            --max-turns 200
+            --setting-sources project
+            --settings '{"attribution": {"commit": "", "pr": "", "sessionUrl": false}, "includeCoAuthoredBy": false}'
+            --add-dir ${{ runner.temp }}/base-docs
+            --json-schema '{"type":"object","properties":{"outcome":{"type":"string","enum":["fixed","nothing","needs-owner"]},"reason":{"type":"string"},"results":{"type":"array","items":{"type":"object","properties":{"item":{"type":"string"},"verdict":{"type":"string"},"reason":{"type":"string"}},"required":["item","verdict","reason"]}}},"required":["outcome","reason","results"],"additionalProperties":false}'
+            --allowedTools "Read,Grep,Glob,Edit,Write,Skill,Agent,Bash(make lint),Bash(make lint-go),Bash(make lint-web),Bash(make lint-scripts),Bash(make lint-contract),Bash(make typecheck),Bash(make generate),Bash(make test-unit),Bash(make coverage),Bash(make test-integration-go),Bash(make security),Bash(fixer-run:*),Bash(git add:*),Bash(git commit:*),Bash(git restore:*),Bash(gh pr view:*),Bash(gh issue view:*)"
+
+      # The commits and the result leave this job as an artifact only; the publish job decides what is pushed.
+      - name: Export the commits as a patch
+        id: patch
+        if: always() && steps.claude.outcome != 'skipped'
+        env:
+          RESULT_JSON: ${{ steps.claude.outputs.structured_output }}
+          BASE_SHA: ${{ needs.plan.outputs.base_sha }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/autofix/patches"
+          printf '%s' "$RESULT_JSON" >"$RUNNER_TEMP/autofix/result.json"
+          if [ "$(git rev-list --count "$BASE_SHA..HEAD")" -gt 0 ]; then
+            git format-patch -q -o "$RUNNER_TEMP/autofix/patches" "$BASE_SHA..HEAD"
+            i=0
+            for f in "$RUNNER_TEMP"/autofix/patches/*.patch; do
+              i=$((i + 1)); mv "$f" "$RUNNER_TEMP/autofix/patches/$(printf '%04d' "$i")-fix.patch"
+            done
+            outcome=fixed
+          else
+            outcome=nothing
+          fi
+          echo "fixer commits: $outcome" | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "outcome=$outcome" >>"$GITHUB_OUTPUT"
+
+      - name: Upload the patch and the result
+        if: always() && steps.patch.outcome == 'success'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: batch-fix
+          path: ${{ runner.temp }}/autofix/
+          if-no-files-found: error
+          retention-days: 1
+
+  publish:
+    name: Review batch (check, push, open the pull request; trusted)
+    needs: [plan, fix]
+    environment: review-agent
+    if: always() && needs.plan.outputs.run == 'true' && needs.fix.outputs.outcome != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      # Checked out, never executed: no make, no npm; the only script is the guard, copied before the patch applies.
+      - name: Checkout develop at the planned commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.plan.outputs.base_sha }}
+          path: work
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Download the patch and the result
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: batch-fix
+          path: ${{ runner.temp }}/batch-fix
+
+      - name: Apply, check, push and open the pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ needs.plan.outputs.branch }}
+          ISSUE: ${{ needs.plan.outputs.issue }}
+          ITEMS: ${{ needs.plan.outputs.items }}
+          REPO: ${{ github.repository }}
+          GIT_LOGIN: ${{ vars.REVIEW_FIX_GIT_LOGIN || 'Y4NN777' }}
+          GIT_NAME: ${{ vars.REVIEW_FIX_GIT_NAME || 'Y4NN77' }}
+          BOT_TOKEN: ${{ secrets.REVIEW_AGENT_TOKEN }}
+        run: |
+          # The guard is read as a git object of the planned develop commit, before the patch is applied.
+          base_sha="$(git -C work rev-parse HEAD)"
+          trusted="$RUNNER_TEMP/review-autofix.py"
+          git -C work cat-file blob "$base_sha:scripts/review-autofix.py" >"$trusted"
+          dir="$RUNNER_TEMP/batch-fix"
+          RESULT_JSON="$(head -c 200000 "$dir/result.json" 2>/dev/null || true)" python3 -I "$trusted" body >"$RUNNER_TEMP/body.md"
+          if [ -z "$BOT_TOKEN" ]; then
+            echo "autofix: NOT RUN (REVIEW_AGENT_TOKEN missing)" | tee -a "$GITHUB_STEP_SUMMARY"
+            cat "$RUNNER_TEMP/body.md" >>"$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          email="$(gh api "users/$GIT_LOGIN" --jq .id)+${GIT_LOGIN}@users.noreply.github.com"
+          git -C work switch -q -c "$BRANCH"
+          # Validated, applied and committed here as the human identity; the untrusted job's From: is never used.
+          if ! PATCH_DIR="$dir/patches" WORKTREE=work EXPECT_NAME="$GIT_NAME" EXPECT_EMAIL="$email" python3 -I "$trusted" apply | tee -a "$GITHUB_STEP_SUMMARY" \
+             || ! BASE_SHA="$base_sha" WORKTREE=work EXPECT_NAME="$GIT_NAME" EXPECT_EMAIL="$email" python3 -I "$trusted" check | tee -a "$GITHUB_STEP_SUMMARY"; then
+            echo "autofix batch: no pull request (no commit, a patch that does not apply, or the guard refused it)" | tee -a "$GITHUB_STEP_SUMMARY"
+            cat "$RUNNER_TEMP/body.md" >>"$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          auth="$(printf 'x-access-token:%s' "$BOT_TOKEN" | base64 -w0)"
+          echo "::add-mask::$auth"
+          git -C work -c core.hooksPath=/dev/null -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $auth" \
+            push -q "https://github.com/$REPO.git" "HEAD:refs/heads/$BRANCH"
+          GH_TOKEN="$BOT_TOKEN" gh pr create --repo "$REPO" --base develop --head "$BRANCH" \
+            --title "fix(review): review batch #$ISSUE" --body-file "$RUNNER_TEMP/body.md" | tee -a "$GITHUB_STEP_SUMMARY"
 
   report:
     name: Review batch (report)

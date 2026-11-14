@@ -110,6 +110,7 @@ export function QuestionForm({
   failureNotice,
   initialLink,
   isUnchanged,
+  assistant,
 }: {
   mode: 'create' | 'edit';
   initial: QuestionInitial;
@@ -121,6 +122,8 @@ export function QuestionForm({
   initialLink?: LinkDraft | undefined;
   /** When it says the draft equals the saved question, Save stays disabled (edit only). */
   isUnchanged?: (draft: Pick<QuestionDraft, 'title' | 'body_md' | 'tags'>) => boolean;
+  /** Rendered under the form with the current draft title and body (S9 assistant panel). */
+  assistant?: (draft: { title: string; body: string }) => ReactNode;
 }) {
   const { t } = useI18n();
   const { failure, report, clear } = useFailure();
@@ -385,6 +388,13 @@ export function QuestionForm({
           </form.Subscribe>
         </VStack>
       </form>
+      {assistant ? (
+        <form.Subscribe
+          selector={(state) => ({ title: state.values.title, body: state.values.body })}
+        >
+          {(draft) => assistant(draft)}
+        </form.Subscribe>
+      ) : null}
     </VStack>
   );
 }

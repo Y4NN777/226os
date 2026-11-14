@@ -16,13 +16,16 @@ export interface NavSection {
  * full pillars in the same navigation, on desktop and in the mobile drawer.
  */
 export const navSections: NavSection[] = [
-  { title: 'nav.section.grow', items: [{ label: 'nav.learn' }, { label: 'nav.connect' }] },
+  {
+    title: 'nav.section.grow',
+    items: [{ label: 'nav.learn', to: '/apprendre' }, { label: 'nav.connect' }],
+  },
   {
     title: 'nav.section.pillars',
     items: [
       { label: 'nav.solve', to: '/solve' },
       { label: 'nav.discover', to: '/discover' },
-      { label: 'nav.build' },
+      { label: 'nav.build', to: '/build' },
     ],
   },
 ];

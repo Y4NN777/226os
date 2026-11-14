@@ -15,6 +15,7 @@ import { ErrorState } from '../../components/ErrorState';
 import { LoadingState } from '../../components/LoadingState';
 import { useI18n } from '../../i18n/I18nProvider';
 import { useSession } from '../../app/session';
+import { AssistantPanel } from '../search/AssistantPanel';
 import { useIdempotencyKey } from './idempotency';
 import { Byline, StateBadge, TagList } from './present';
 import { QuestionForm, type LinkDraft, type QuestionDraft } from './QuestionForm';
@@ -112,6 +113,13 @@ function AskForm({ onClose, link }: { onClose: () => void; link: LinkDraft | und
       onSubmit={submit}
       onCancel={onClose}
       initialLink={link}
+      assistant={(draft) => (
+        <AssistantPanel
+          q={[draft.title.trim(), draft.body.trim()].filter(Boolean).join('\n\n')}
+          free={false}
+          signInNext="/solve"
+        />
+      )}
     />
   );
 }

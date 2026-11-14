@@ -8,6 +8,8 @@ import {
   type RouterHistory,
 } from '@tanstack/react-router';
 import { RouterAnchor } from '../components/RouterAnchor';
+import { BuildPage } from '../features/build/BuildPage';
+import { ProjectPage } from '../features/build/ProjectPage';
 import { DiscoverPage } from '../features/discover/DiscoverPage';
 import { ResourcePage } from '../features/discover/ResourcePage';
 import { validateDiscoverSearch } from '../features/discover/routeSearch';
@@ -18,8 +20,12 @@ import { SignInPage } from '../features/identity/SignInPage';
 import { SignUpPage } from '../features/identity/SignUpPage';
 import { VerifyEmailPage } from '../features/identity/VerifyEmailPage';
 import { WelcomePage } from '../features/identity/WelcomePage';
-import { validateWriteSearch } from '../features/learn/routeSearch';
+import { ArticlePage } from '../features/learn/ArticlePage';
+import { LearnPage } from '../features/learn/LearnPage';
+import { validateLearnSearch, validateWriteSearch } from '../features/learn/routeSearch';
+import { SeriesPage } from '../features/learn/SeriesPage';
 import { WritePage } from '../features/learn/WritePage';
+import { ProfilePage } from '../features/profile/ProfilePage';
 import { NotFound } from '../features/NotFound';
 import { validateSearchSearch } from '../features/search/routeSearch';
 import { SearchPage } from '../features/search/SearchPage';
@@ -77,6 +83,22 @@ const writeRoute = createRoute({
   component: WritePage,
   validateSearch: validateWriteSearch,
 });
+const learnRoute = createRoute({
+  getParentRoute: () => appLayout,
+  path: '/apprendre',
+  component: LearnPage,
+  validateSearch: validateLearnSearch,
+});
+const articleRoute = createRoute({
+  getParentRoute: () => appLayout,
+  path: '/apprendre/articles/$articleId',
+  component: ArticlePage,
+});
+const seriesRoute = createRoute({
+  getParentRoute: () => appLayout,
+  path: '/apprendre/formations/$seriesId',
+  component: SeriesPage,
+});
 const searchRoute = createRoute({
   getParentRoute: () => appLayout,
   path: '/recherche',
@@ -93,6 +115,25 @@ const questionRoute = createRoute({
   getParentRoute: () => appLayout,
   path: '/questions/$questionId',
   component: QuestionPage,
+});
+
+// Build: project list and detail.
+const buildRoute = createRoute({
+  getParentRoute: () => appLayout,
+  path: '/build',
+  component: BuildPage,
+});
+const projectRoute = createRoute({
+  getParentRoute: () => appLayout,
+  path: '/build/$projectId',
+  component: ProjectPage,
+});
+
+// Member profile.
+const profileRoute = createRoute({
+  getParentRoute: () => appLayout,
+  path: '/profils/$username',
+  component: ProfilePage,
 });
 
 // Standalone account pages (no app chrome).
@@ -141,9 +182,15 @@ const routeTree = rootRoute.addChildren([
     discoverRoute,
     resourceRoute,
     writeRoute,
+    learnRoute,
+    articleRoute,
+    seriesRoute,
     searchRoute,
     solveRoute,
     questionRoute,
+    buildRoute,
+    projectRoute,
+    profileRoute,
   ]),
   authLayout.addChildren([
     signInRoute,

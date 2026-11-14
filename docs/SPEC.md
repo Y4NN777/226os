@@ -1,6 +1,6 @@
 # 226os — Functional & Technical Specification
 
-**Version :** 1.2 (US-INTEL-001, US-CONNECT-001, US-LEARN-002 et extension de US-IDENTITY-001, validées avec l'amendement 3.2 du PRD (approuvé le 2026-11-12) ; 1.1 : US-LEARN-001, PRD 3.1). **Statut :** contrat initial de développement. **Source produit :** [PRD.md](PRD.md)
+**Version :** 1.3 (scénarios de US-INTEL-001 précisés selon ADR-0012, 2026-11-14) ; 1.2 (US-INTEL-001, US-CONNECT-001, US-LEARN-002 et extension de US-IDENTITY-001, validées avec l'amendement 3.2 du PRD (approuvé le 2026-11-12) ; 1.1 : US-LEARN-001, PRD 3.1). **Statut :** contrat initial de développement. **Source produit :** [PRD.md](PRD.md)
 
 ## 1. Règles de spécification
 - Toute fonctionnalité part d'une user story `US-*`, d'un scénario Given/When/Then, et d'un contrat d'API ou d'interface observables.
@@ -230,76 +230,153 @@ Feature: Annuaire des membres
     And aucune mise en relation ni aucun espace fictif n'est affiché
 ```
 
-### US-INTEL-001 — Assistant IA sourcé (VALIDÉ le 2026-11-12, PRD amendement 3.2)
+### US-INTEL-001 — Poser une question à l'assistant sourcé (VALIDÉ le 2026-11-12, PRD amendement 3.2 ; scénarios précisés le 2026-11-14 selon ADR-0012)
 
-L'opération `askAssistant` (`POST /assistant/answers`, membres seulement, CSRF, réponse étiquetée IA) est dans `api/openapi.yaml` ; l'implémentation attend une décision d'architecture sur les délais, le plafond de coût et le comportement FR/EN (fournisseur : [ADR-0011](decisions/0011-ai-assistant-provider.md)). L'accès des visiteurs non authentifiés est une décision ouverte ; les scénarios ci-dessous utilisent donc un membre. Tant qu'il n'est pas intégré, l'assistant reste désactivé par configuration. Ces scénarios et les règles de refus, de citation et de confidentialité forment aussi le jeu d'évaluation de référence, exécuté en CI contre un adaptateur factice ; l'exécution contre le vrai fournisseur est consignée à part et reste NOT RUN tant qu'elle n'a pas eu lieu.
+**Story :** en tant que membre dont l'adresse e-mail est vérifiée, je pose une question technique à l'assistant et j'obtiens une réponse tirée des contenus publiés de 226os, avec ses sources, ou un refus clair quand aucun contenu ne permet de répondre.
+
+**Critères d'acceptation** (règles d'intégration : [ADR-0012](decisions/0012-ai-assistant-integration.md), PROPOSÉ à cette date ; fournisseur : [ADR-0011](decisions/0011-ai-assistant-provider.md)) :
+- **Accès.** `askAssistant` (`POST /assistant/answers`) est réservé aux membres dont l'adresse e-mail est vérifiée (401 `UNAUTHENTICATED` sans session, 403 `EMAIL_NOT_VERIFIED`), avec le jeton CSRF. Le sujet vient de la session. Pas d'accès anonyme au P0.
+- **Requête.** Corps JSON strict : `question` de 3 à 1 000 caractères, `lang` facultatif. JSON illisible : 400. Question hors bornes ou champ inconnu : 422 `VALIDATION_ERROR`. Corps trop gros : 413.
+- **Recherche.** Les passages viennent de la recherche PostgreSQL de la plateforme (S2), limitée aux contenus publiés, visibles et publics : questions, fiches, projets, articles Learn. Les séries Learn ne sont pas cherchées. Au plus 5 passages, chacun l'extrait de recherche (300 caractères au plus). Aucun contenu privé, retiré, brouillon ou archivé n'est retrouvé ni cité.
+- **Ancrage.** Sans passage, le fournisseur n'est pas appelé : réponse 200 `no_source` avec `search_url`. Sinon, le serveur vérifie que chaque citation `[S1]`, `[S2]`… désigne un passage retrouvé et qu'il y en a au moins une ; à défaut, toute la réponse est écartée et le résultat est `no_source`. `sources` liste exactement les passages cités. Lien d'une source : la page de la question ou de la fiche, la recherche sur le titre pour un projet ou un article.
+- **Forme.** La réponse porte `generated_by: ai`, n'est jamais enregistrée et ne crée aucune ligne `questions`, `answers` ni `votes`. Elle ne promet aucune garantie. `how_to_verify` (« Comment vérifier ») est toujours rempli, avec un texte par défaut si le modèle n'en a pas écrit, et rappelle que les sources ne sont pas datées. La langue suit `lang`, sinon celle de la question (français en cas de doute).
+- **Données envoyées.** Seuls le texte de la question et les passages, après masquage (adresses e-mail, clés et jetons, mots de passe, identifiants dans les URL), partent chez le fournisseur. Ni identifiant, ni e-mail du compte, ni profil, ni session. La question, les passages et la réponse ne sont jamais journalisés.
+- **Limites.** 10 questions par membre et par heure, refus compris : au-delà, 429 `RATE_LIMITED` avec `Retry-After`. Garde globale de 12 appels au fournisseur par heure : au-delà, 503 avec `Retry-After`. Un seul appel au fournisseur par question, jamais relancé, borné à 20 secondes. Si le limiteur lui-même échoue, la réponse est 503 (échec fermé).
+- **Indisponibilité.** Assistant désactivé dans l'environnement, fournisseur en erreur ou à court de quota, délai dépassé ou réponse vide : 503 `SERVICE_UNAVAILABLE`, sans détail sur le fournisseur. La recherche et le reste de la page ne dépendent pas de l'assistant.
+- **Évaluation.** Les scénarios ci-dessous forment le jeu d'évaluation de référence (cas G1 à G13 d'ADR-0012), exécuté en CI contre un adaptateur factice. L'exécution contre le vrai fournisseur (V4) est consignée à part et reste NOT RUN tant qu'elle n'a pas eu lieu.
 
 ```gherkin
 Feature: Assistant sourcé
   Background:
     Given l'assistant est activé dans cet environnement
-    And Alice est authentifiée
+    And Alice est connectée et son adresse e-mail est vérifiée
 
   Scenario: Répondre à partir des contenus publiés, avec citations
-    Given des questions, des articles ou des fiches publiés correspondent à la question d'Alice
+    Given des contenus publiés correspondent à la question d'Alice
     When Alice pose sa question à l'assistant
-    Then la réponse cite au moins une source, avec un lien vers chaque contenu cité
+    Then le serveur répond 200 avec le résultat answered
+    And la réponse cite au moins une source et chaque source a un lien
     And chaque source citée fait partie des passages retrouvés par la recherche de la plateforme
-    And le serveur retire ou rejette toute citation extérieure à ces passages
-    And la réponse se termine par une section « Comment vérifier »
+    And la réponse comporte une section « Comment vérifier »
 
   Scenario: Refuser faute de source
     Given aucun contenu publié ne correspond à la question d'Alice
     When Alice pose sa question à l'assistant
-    Then l'assistant indique qu'il n'a trouvé aucune source
-    And il propose un lien vers la recherche
+    Then le serveur répond 200 avec le résultat no_source, sans aucune source
+    And la réponse propose un lien vers la recherche
     And le fournisseur n'est pas appelé
+
+  Scenario Outline: Refuser une réponse mal sourcée
+    Given des contenus publiés correspondent à la question d'Alice
+    And le modèle répond avec <citation>
+    When Alice pose sa question à l'assistant
+    Then le serveur écarte toute la réponse du modèle
+    And il répond 200 avec le résultat no_source et un lien vers la recherche
+    And aucune source étrangère aux passages retrouvés n'est renvoyée
+
+    Examples:
+      | citation                                           |
+      | la citation d'un passage qui n'a pas été retrouvé  |
+      | aucune citation                                    |
+
+  Scenario: Ignorer une instruction cachée dans un contenu
+    Given un contenu publié contient une instruction adressée à l'assistant
+    And ce contenu fait partie des passages retrouvés pour la question d'Alice
+    When Alice pose sa question à l'assistant
+    Then le passage est transmis au fournisseur comme une donnée, jamais comme une instruction
+    And la réponse reste sourcée par les passages retrouvés, ou c'est un refus no_source
+
+  Scenario: Ne jamais retrouver un contenu privé ou retiré
+    Given une question retirée, un projet privé, un article en brouillon et un article archivé correspondent à la question d'Alice
+    When Alice pose sa question à l'assistant
+    Then aucun de ces contenus ne figure dans les passages envoyés au fournisseur
+    And aucun n'est cité dans la réponse
+
+  Scenario: N'envoyer aucune donnée personnelle au fournisseur
+    Given la question d'Alice contient une adresse e-mail et une clé d'API
+    When l'assistant interroge le fournisseur
+    Then la requête ne contient que le texte de la question, après masquage, et des passages publics retrouvés
+    And l'adresse e-mail et la clé sont masquées avant l'envoi
+    And ni le profil d'Alice, ni l'adresse e-mail de son compte, ni aucun contenu privé ou retiré n'est envoyé
+    And ni la question, ni les passages, ni la réponse ne sont journalisés
+    And l'interface indique que la question est envoyée au fournisseur
+
+  Scenario: Une réponse de l'IA n'est pas une réponse de la communauté
+    When l'assistant répond à Alice
+    Then la réponse est étiquetée comme générée par une IA
+    And aucune ligne n'est créée dans questions, answers ou votes
+    And la réponse de l'assistant ne peut être ni votée ni acceptée
 
   Scenario: Ne promettre aucune garantie
     Given une fiche d'API publiée et des réponses à son sujet
     When Alice demande si cette API fonctionnera dans son projet
     Then la réponse n'affirme aucune garantie sur l'API
     And elle ne présente aucune solution comme vérifiée
-    And elle renvoie aux sources et à la section « Comment vérifier »
+    And elle renvoie aux sources et à la section « Comment vérifier »
 
   Scenario: Signaler l'incertitude
-    Given les sources retrouvées se contredisent ou ne sont pas datées
+    Given les passages retrouvés ne portent pas de date
     When Alice pose sa question à l'assistant
-    Then la réponse signale explicitement son incertitude
-    And elle indique la date de chaque source quand elle existe
+    Then la section « Comment vérifier » indique que les sources ne sont pas datées
+    And si les passages se contredisent, la réponse le signale
 
-  Scenario: Une réponse de l'IA n'est pas une réponse de la communauté
-    When l'assistant répond à Alice
-    Then la réponse est étiquetée comme générée par une IA
-    And aucune ligne n'est créée dans answers ni dans votes
-    And la réponse de l'assistant ne peut être ni votée ni acceptée
+  Scenario Outline: Refuser l'accès sans session ou sans adresse vérifiée
+    When <appelant> envoie une question à l'assistant
+    Then le serveur répond <statut> avec le code <code>
+    And le fournisseur n'est pas appelé
 
-  Scenario: N'envoyer aucune donnée personnelle au fournisseur
-    Given la question d'Alice contient une adresse e-mail et une clé d'API
-    When l'assistant interroge le fournisseur
-    Then la requête ne contient que le texte de la question, après masquage, et des contenus publics retrouvés
-    And l'adresse e-mail et la clé sont masquées avant l'envoi
-    And ni le profil d'Alice, ni l'adresse e-mail de son compte, ni aucun contenu privé ou retiré n'est envoyé
-    And la question n'est pas journalisée avec ces données
-    And l'interface indique que la question est envoyée au fournisseur
+    Examples:
+      | appelant                                            | statut | code               |
+      | un visiteur non authentifié                         | 401    | UNAUTHENTICATED    |
+      | un membre dont l'adresse e-mail n'est pas vérifiée  | 403    | EMAIL_NOT_VERIFIED |
+      | Alice, sans jeton CSRF                              | 403    | CSRF_FAILED        |
 
-  Scenario: Ignorer une instruction cachée dans un contenu
-    Given un contenu publié contient une instruction adressée à l'assistant
-    When ce contenu fait partie des passages retrouvés pour la question d'Alice
-    Then l'assistant le traite comme une donnée et non comme une instruction
-    And la réponse reste sourcée, ou c'est un refus
+  Scenario Outline: Refuser une requête invalide
+    When Alice envoie <corps>
+    Then le serveur répond 422 avec le code VALIDATION_ERROR
+    And le fournisseur n'est pas appelé
 
-  Scenario: Fournisseur indisponible ou quota épuisé
-    Given le fournisseur est en panne ou son quota est épuisé
+    Examples:
+      | corps                                    |
+      | une question de moins de 3 caractères    |
+      | une question de plus de 1000 caractères  |
+      | un corps qui contient un champ inconnu   |
+
+  Scenario: Limite par membre
+    Given Alice a déjà posé 10 questions à l'assistant dans l'heure, refus compris
+    When elle en pose une onzième
+    Then le serveur répond 429 avec le code RATE_LIMITED et un en-tête Retry-After
+    And le fournisseur n'est pas appelé
+
+  Scenario Outline: Fournisseur en échec
+    Given <panne>
+    When Alice pose une question à laquelle des contenus publiés correspondent
+    Then le serveur répond 503 avec le code SERVICE_UNAVAILABLE et l'en-tête Retry-After: 30
+    And le problème ne donne aucun détail sur le fournisseur
+    And le fournisseur a été appelé une seule fois, sans nouvelle tentative
+    And Alice voit que l'assistant est indisponible, sans que l'interface relance la requête
+    And la recherche et le reste de la page fonctionnent normalement
+
+    Examples:
+      | panne                                                    |
+      | le fournisseur est en panne                              |
+      | le fournisseur a épuisé son quota                        |
+      | le fournisseur ne répond pas dans le délai de 20 secondes |
+      | le fournisseur renvoie une réponse vide                  |
+
+  Scenario: Garde globale épuisée
+    Given les 12 appels au fournisseur permis pour l'heure en cours ont déjà eu lieu
+    When Alice pose une question à laquelle des contenus publiés correspondent
+    Then le serveur répond 503 avec le code SERVICE_UNAVAILABLE et un en-tête Retry-After
+    And le fournisseur n'est pas appelé
+    And une question sans source reçoit toujours le refus no_source
+
+  Scenario: Assistant désactivé dans l'environnement
+    Given l'assistant est désactivé par la configuration de cet environnement
     When Alice pose sa question à l'assistant
-    Then elle voit le message « assistant indisponible »
-    And le reste de la page fonctionne normalement
-    And le serveur répond par un problème 503 sans relancer d'appels en boucle
-
-  Scenario: Limite de débit
-    Given Alice a atteint la limite de requêtes de l'assistant
-    When elle envoie une requête de plus
-    Then le serveur répond 429 avec un en-tête Retry-After
+    Then le serveur répond 503 avec le code SERVICE_UNAVAILABLE
+    And le fournisseur n'est pas appelé et la limite d'Alice n'est pas décomptée
+    And la recherche et le reste de la page fonctionnent normalement
 ```
 
 ### US-ACCESS-001 — Réseau limité
@@ -333,7 +410,7 @@ Les modules P1/P2 ne doivent pas être artificiellement matérialisés en code v
 - Pagination par curseur stable (taille maximale documentée), limite de taille des corps, filtres validés strictement, listes ordonnées de façon déterministe.
 - Ressources initiales (chemins de `api/openapi.yaml`) : `/auth/*`, `/me`, `/profiles/{username}`, `questions`, `answers`, `votes`, `/learn/articles` et `/learn/series`, `resources`, `projects`, `contribution-needs`, `applications`, `/moderation/*`, `/search`.
 - Les verbes HTTP et schémas sont figés dans `api/openapi.yaml` avant développement parallèle ; ce document ne prétend pas qu'ils sont déjà implémentés.
-- L'annuaire des membres (US-CONNECT-001) et l'assistant (US-INTEL-001) entrent dans `api/openapi.yaml` par des PR de contrat séparées (PRD 3.2) ; ils n'y figurent pas encore.
+- L'assistant (US-INTEL-001) figure dans `api/openapi.yaml` sous une seule opération, `askAssistant` (`POST /assistant/answers`). L'annuaire des membres (US-CONNECT-001) y entre par une PR de contrat séparée (PRD 3.2) ; il n'y figure pas encore.
 - Auth via session cookie sécurisée, protections CSRF pour mutations, autorisation par propriétaire/role **sur serveur**. Codes : 401 non authentifié ; 403 authentifié mais non autorisé sur un objet visible ; 404 si l'existence d'un objet privé ne doit pas fuiter (règle : 403 si l'objet est visible pour l'appelant, 404 sinon). Publier exige un email vérifié (403 `EMAIL_NOT_VERIFIED`).
 - Journaliser les tentatives d'accès interdit sans secrets ni données personnelles inutiles.
 
@@ -373,10 +450,10 @@ Ce tableau est la seule carte de traçabilité au niveau des user stories ; [TRA
 | US-LEARN-002 (validé, PRD 3.2) | questions (`links[]` vers l'article), learn/articles par code de thème, questions par tag | question liée à l'article, redirection vers la connexion sans session, fil par thème sans brouillon ni contenu retiré | test/e2e |
 | US-IDENTITY-001 | sessions/profiles/relations | connexion, langue, liens ; visibilité du profil par appelant, 404 identique à un profil inconnu, signature visible, jamais d'e-mail (extension PRD 3.2) | test/security |
 | US-CONNECT-001 (validé, PRD 3.2) | annuaire, `GET /profiles` suggéré (PR de contrat en attente) | liste par appelant selon les visibilités, filtres sur champs visibles, jamais d'e-mail, état vide, `limit=51` → 422, 429 | test/security |
-| US-INTEL-001 (validé, PRD 3.2) | `askAssistant` (`POST /assistant/answers`), search | citations limitées aux passages retrouvés, refus sans appel au fournisseur, aucune garantie, « Comment vérifier », étiquette IA non votable, aucune donnée personnelle envoyée, injection ignorée, 503, 429 ; jeu d'évaluation de référence | test/security/évaluation |
+| US-INTEL-001 (validé, PRD 3.2 ; ADR-0012) | `askAssistant` (`POST /assistant/answers`), `assistant`, search | réponse sourcée avec « Comment vérifier », refus `no_source` sans appel au fournisseur, citation d'un passage non retrouvé refusée, injection ignorée, aucun contenu privé, retiré, brouillon ou archivé, aucune donnée personnelle envoyée, étiquette IA sans ligne `answers` ni `votes`, 401, 403 `EMAIL_NOT_VERIFIED`, 403 CSRF, 422, 429 à la 11e question de l'heure, 503 (désactivé, fournisseur en échec, garde globale épuisée) ; jeu d'évaluation G1 à G13 (adaptateur factice) | test/security/évaluation |
 | US-ACCESS-001 | frontend/infra | mobile + réseau simulé | perf/accessibility |
 
-`api/openapi.yaml` compte aujourd'hui 43 opérations `x-priority: P0`. Le total passe à 44 une fois la PR de contrat de l'annuaire acceptée ; le nombre d'opérations de l'assistant n'est pas encore fixé. Le calendrier de ces PR est suivi dans [ROADMAP.md](../ROADMAP.md).
+`api/openapi.yaml` compte aujourd'hui 44 opérations `x-priority: P0`, dont `askAssistant`. Le total passe à 45 une fois la PR de contrat de l'annuaire acceptée. Le calendrier de ces PR est suivi dans [ROADMAP.md](../ROADMAP.md).
 
 ## 9. Références normatives
 `api/openapi.yaml` (accepté), `docs/spec-kit/DATABASE_DESIGN.md` (modèle accepté) et les ADR acceptés (voir l'[index des ADR](decisions/README.md)) sont normatifs. Les migrations `00001` à `00010` de `db/migrations` et le code généré depuis `api/openapi.yaml` existent depuis le bootstrap B0 (PR #24) ; les migrations suivantes, le code applicatif et les seeds sont à produire sous revue. Ce document ne présume aucun statut d'exécution des gates G1 à G7.

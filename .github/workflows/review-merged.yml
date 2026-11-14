@@ -1,0 +1,68 @@
+# After a merge into develop: what GitHub does only on the default branch, and the settling of a review batch.
+#
+# Job `settle` (a pull request of this repository merged into develop), scripts from the BASE branch after the merge,
+# GITHUB_TOKEN with issues: write only (issue edits need not trigger other workflows):
+#   1. scripts/close-merged-issues.py: the issues the pull request BODY names with a closing keyword (closes, fixes,
+#      resolves... #N) are closed as completed with one comment; `needs-owner` issues get a comment and stay open;
+#      `review-batch` issues are left to step 2.
+#   2. for a batch fix pull request (branch fix/review/batch-*), scripts/findings.py settle: each source of its results
+#      table is settled by decision (closed, or its note box ticked; OWNER and AFTER FREEZE stay open, with a comment),
+#      one comment per source, once; then the batch issue closes, last.
+# Neither step reads commits or comments; both are idempotent and mention nobody. Not a required check.
+name: Review merged
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [develop]
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+concurrency:
+  group: review-merged-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  settle:
+    name: Close named issues and settle a batch
+    if: >-
+      github.event.pull_request.merged == true
+      && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: read
+    steps:
+      - name: Checkout the base branch (scripts, after the merge)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.base.ref }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Close the issues the pull request names
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          if [ ! -f scripts/close-merged-issues.py ]; then
+            echo "close-merged: NOT RUN (the script is not on the base branch)"
+            exit 0
+          fi
+          python3 -I scripts/close-merged-issues.py | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Settle the review batch
+        if: always() && startsWith(github.event.pull_request.head.ref, 'fix/review/batch-')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: python3 -I scripts/findings.py settle "$PR_NUMBER" | tee -a "$GITHUB_STEP_SUMMARY"
