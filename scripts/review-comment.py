@@ -544,15 +544,20 @@ def defang(text):
     return re.sub(r"(?i)```(\s*)json", r"```\1text", text)
 
 
+def redact_lines(text):
+    """Every line of free text that looks like a secret is replaced by REDACTED (the other lines stay)."""
+    return "\n".join(REDACTED if looks_secret(l) else l for l in (text or "").split("\n"))
+
+
 def neutralise_free(text):
     """The model's text with every ledger-looking block defanged except the LAST fenced ledger block (up to its
     </details>), the one every reader takes."""
     m = last_match(FENCED, text)
     if not m:
-        return defang(text)
+        return redact_lines(defang(text))
     end = text.find("</details>", m.end())
     end = len(text) if end < 0 else end + len("</details>")
-    return defang(text[:m.start()]) + text[m.start():end] + defang(text[end:])
+    return redact_lines(defang(text[:m.start()])) + text[m.start():end] + redact_lines(defang(text[end:]))
 
 
 def effective_level(declared, entries):
@@ -631,13 +636,34 @@ def pin_level(text):
     return first.replace(v.group(1), level, 1) + text[len(first):]
 
 
+DECORATION = " \t*_`#>"
+
+
+def readable_verdict(text):
+    """The review text with a readable first line, or the text unchanged. A decorated verdict line (`**Triage: ...**`,
+    a heading) is stripped of its decoration; with no verdict line at all, a valid ledger that has a blocking entry rebuilds
+    one (`Triage: <level the ledger supports> | blast radius: ...`) so a CRITICAL the review found is never lost to NOT RUN.
+    A ledger with nothing blocking stays NOT RUN (nothing to lose)."""
+    lines = (text or "").strip().splitlines()
+    if not lines or VERDICT.match(lines[0].strip()):
+        return text
+    stripped = lines[0].strip(DECORATION)
+    if VERDICT.match(stripped):
+        return "\n".join([stripped] + lines[1:])
+    _, data = usable_ledger(text)
+    level = effective_level("NONE", data["findings"]) if data else "NONE"
+    if level == "NONE":
+        return text
+    return "\n".join(["Triage: %s | blast radius: unknown (verdict line rebuilt from the ledger: the review wrote none)" % level, ""] + lines)
+
+
 def compose(text, tool_line, head="", deep_line=None, reviewed=None, previous_ledger=None):
     """The comment body: verdict, marker, Tool line, then the review without any marker or Tool line of its own, its
     ledger pinned to head. None when the text does not start with a valid verdict (the gate could not read it)."""
     lines = (text or "").strip().splitlines()
     if not lines or not VERDICT.match(lines[0].strip()):
         return None
-    rest = [l for l in lines[1:] if MARKER not in l and not l.startswith(("Tool:", "Deep:", "Reviewed:"))]
+    rest = [l for l in lines[1:] if l.strip() != MARKER and not l.startswith(("Tool:", "Deep:", "Reviewed:"))]
     while rest and not rest[0].strip():
         rest.pop(0)
     top = [lines[0].strip(), MARKER, tool_or_default(tool_line)] + ([reviewed] if reviewed else []) + ([deep_line] if deep_line else [])
@@ -650,6 +676,43 @@ def compose(text, tool_line, head="", deep_line=None, reviewed=None, previous_le
     return pin_level(text) + "\n"
 
 
+COMMENT_LIMIT = 60000  # GitHub refuses a comment over 65536 characters
+
+
+def cap(body, limit=COMMENT_LIMIT):
+    """The body under `limit` characters, never losing the header or an entry of the ledger: the free text between the
+    header and the ledger is cut first (with a note); a ledger that is still too big loses the long fields (scenario, detail,
+    fix) of its non-blocking entries, then of every entry. Never an entry, never a status, never the Triage line."""
+    if len(body) <= limit:
+        return body
+    m = last_match(LEDGER_BLOCK, body)
+    if not m:
+        return body[:limit]
+    head_end = body.find("\n\n")
+    head_end = head_end + 2 if 0 <= head_end < m.start() else 0
+    header, middle, tail = body[:head_end], body[head_end:m.start()], body[m.start():]
+    room = limit - len(header) - len(tail) - 200
+    ledger = ledger_of(tail)
+    if room < 0 and ledger:
+        for pass_ in (1, 2):
+            for f in ledger["findings"]:
+                if isinstance(f, dict) and (pass_ == 2 or not blocking(f)):
+                    for key in ("scenario", "detail", "fix"):
+                        if key in f:
+                            f[key] = ""
+            tail = tail[:last_match(LEDGER_JSON, tail).start(1)] + json.dumps(ledger, ensure_ascii=False) + tail[last_match(LEDGER_JSON, tail).end(1):]
+            room = limit - len(header) - len(tail) - 200
+            if room >= 0:
+                break
+    if room < 0:
+        return header + tail
+    cut = middle[:room].rsplit("\n", 1)[0] if len(middle) > room else middle
+    note = "\n\n[the free text was cut: the comment would exceed GitHub's size limit; the header and the ledger are whole]\n\n" if len(middle) > room else ""
+    if DEEP_START in cut and DEEP_END not in cut:
+        note = "\n" + DEEP_END + note
+    return header + cut + note + tail
+
+
 def not_run(reason, tool_line, previous, reviewed=None):
     """The NOT RUN marker comment: no verdict the gate reads, and the previous review comment's ledger block unchanged
     (none when it had none), so the unreviewed commits stay unreviewed in the ledger."""
@@ -659,7 +722,7 @@ def not_run(reason, tool_line, previous, reviewed=None):
     m = VERDICT.match(old[0].strip()) if old else None
     if m and m.group(1) == "CRITICAL":
         # A CRITICAL is never lifted by a review that did not run: keep the verdict and its evidence, add the reason.
-        rest = [l for l in old[1:] if MARKER not in l and not l.startswith(("Tool:", "Reviewed:", "Deep:"))]
+        rest = [l for l in old[1:] if l.strip() != MARKER and not l.startswith(("Tool:", "Reviewed:", "Deep:"))]
         while rest and not rest[0].strip():
             rest.pop(0)
         return "\n".join([old[0].strip(), MARKER, tool_or_default(tool_line)] + ([reviewed] if reviewed else [])
@@ -698,6 +761,9 @@ def main():
     rng = os.environ.get("REVIEW_RANGE", "")
     text = review_text()
     deep_line = DEEP_PENDING_LINE if os.environ.get("DEEP_PENDING") == "true" else None
+    bad_head = bool(head) and not FULL_SHA.match(head)  # unset = a local run; set but not 40 hex = NOT RUN (never a model sha)
+    if text is not None and not bad_head:
+        text = readable_verdict(text)
     try:
         comments = parse_pages(gh(binary, ["api", "repos/%s/issues/%s/comments" % (repo, pr), "--paginate"]))
     except (GitHubError, ValueError) as exc:
@@ -711,16 +777,19 @@ def main():
         if filled:
             lines = text.strip().splitlines()
             text = "\n".join(lines[:1] + [missing_notice(filled), ""] + lines[1:])
-    body = compose(text, tool_line, head, deep_line, reviewed_line(head, rng), ledger_of((previous or {}).get("body")))
+    body = None if bad_head else compose(text, tool_line, head, deep_line, reviewed_line(head, rng), ledger_of((previous or {}).get("body")))
     if body is None:
         outcome = re.sub(r"[^a-z_]", "", os.environ.get("REVIEW_OUTCOME", "").lower())[:20]
-        if text is None or not text.strip():
+        if bad_head:
+            reason = "PR_HEAD_SHA is not a full commit sha, so the review cannot be pinned to a head"
+        elif text is None or not text.strip():
             reason = "the review step ended with %s and returned no text" % (outcome or "an unknown outcome")
         else:
             reason = "the review text has no Triage first line"
         body = not_run(reason, tool_line, previous, reviewed_line(head, rng, done=False))
         print("review-comment: the review gave no usable text (%s): writing a NOT RUN comment" % reason)
     # One comment PER RUN: always a new comment, then every older bot review comment is collapsed.
+    body = cap(body)
     try:
         created = create_and_collapse(binary, repo, pr, comments, body)
     except (GitHubError, ValueError, KeyError, TypeError) as exc:
@@ -880,7 +949,7 @@ def strip_body(body):
     """The free text of a review comment: without the first line, marker, Tool and Deep lines, deep section and ledger."""
     body = ANY_LEDGER.sub("", DEEP_SECTION.sub("", body or ""))
     lines = body.strip().splitlines()[1:]
-    lines = [l for l in lines if MARKER not in l and not l.startswith(("Tool:", "Deep:", "Reviewed:"))]
+    lines = [l for l in lines if l.strip() != MARKER and not l.startswith(("Tool:", "Deep:", "Reviewed:"))]
     return "\n".join(lines).strip()
 
 
@@ -889,8 +958,8 @@ def clean_summary(text):
     ledger or a hidden comment (defang)."""
     text = ANY_LEDGER.sub("", DEEP_SECTION.sub("", text or ""))
     keep = [l for l in text.strip().splitlines()
-            if not l.startswith(("Triage:", "Tool:", "Deep:", "Reviewed:")) and MARKER not in l and DEEP_START not in l and DEEP_END not in l]
-    return defang("\n".join(keep).strip())
+            if not l.startswith(("Triage:", "Tool:", "Deep:", "Reviewed:")) and l.strip() != MARKER and DEEP_START not in l and DEEP_END not in l]
+    return redact_lines(defang("\n".join(keep).strip()))
 
 
 def merge_deep(base, data, why, head):
@@ -989,7 +1058,7 @@ def merge_deep(base, data, why, head):
     rest = strip_body(base)
     out = [first, MARKER, tool] + reviewed + [deep_line, ""] + ([rest, ""] if rest else [])
     out += [DEEP_START, "### Deep review (P0 paths, adversarial)", "", summary, DEEP_END, "", ledger_section(ledger)]
-    return "\n".join(out) + "\n"
+    return cap("\n".join(out) + "\n")
 
 
 def deep_main():
