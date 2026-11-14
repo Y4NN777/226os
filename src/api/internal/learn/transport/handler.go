@@ -33,9 +33,10 @@ func New(svc *service.Service, logger *slog.Logger) *Handler {
 
 // ListLearnArticles serves GET /learn/articles.
 func (h *Handler) ListLearnArticles(w http.ResponseWriter, r *http.Request, params apigen.ListLearnArticlesParams) {
+	sub := subject.From(r.Context())
 	page, err := h.svc.ListArticles(r.Context(), service.ArticleListRequest{
 		Q: params.Q, Type: str(params.Type), Topic: params.Topic, Level: str(params.Level), Lang: str(params.Lang),
-		Cursor: deref(params.Cursor), Limit: params.Limit,
+		Cursor: deref(params.Cursor), Limit: params.Limit, Anonymous: sub.Anonymous(), ClientIP: httpx.ClientIPKey(r),
 	})
 	if err != nil {
 		h.fail(w, r, err)

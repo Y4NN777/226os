@@ -27,9 +27,12 @@ const (
 
 	// Article creation draws on the one authenticated-writes budget, 60 per user per minute
 	// (ADR-0003); error reports and S3 to S5 share the same write:user scope.
-	writeScope  = "write:user"
-	writeLimit  = 60
-	writeWindow = time.Minute
+	writeScope   = "write:user"
+	writeLimit   = 60
+	writeWindow  = time.Minute
+	searchScope  = "search:ip"
+	searchLimit  = 60
+	searchWindow = time.Minute
 )
 
 // Store loads and saves Learn content. The service owns this port.
@@ -62,6 +65,8 @@ type ArticleListRequest struct {
 	Q, Type, Topic, Level, Lang *string
 	Cursor                      string
 	Limit                       *int
+	Anonymous                   bool
+	ClientIP                    string
 }
 
 // SeriesListRequest is listTrainingSeries. Nil means unset; nil Limit means 20.
@@ -108,6 +113,12 @@ func (s *Service) ListArticles(ctx context.Context, req ArticleListRequest) (Art
 	q, err := textFilter(req.Q)
 	if err != nil {
 		return ArticlePage{}, err
+	}
+	if q != "" && req.Anonymous && s.limiter != nil {
+		ok, retry, limitErr := s.limiter.Hit(ctx, searchScope, req.ClientIP, searchLimit, searchWindow)
+		if limitErr == nil && !ok {
+			return ArticlePage{}, apperr.New(apperr.CodeRateLimited, "Too many requests.").WithRetryAfter(retry)
+		}
 	}
 	size, err := pageSize(req.Limit)
 	if err != nil {

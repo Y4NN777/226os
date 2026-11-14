@@ -167,6 +167,7 @@ Open owner items outside CADEV (IDs and decisions in ROADMAP section 8, 10 and 1
 - **Acceptance:** `US-DISCOVER-001/1`, search steps of `US-SOLVE-001/1` and `US-LEARN-001/2`. Negative authz: no private or removed content through lists or search; anonymous error report 401; CSRF 403; reporter identity never exposed; rate limit.
 - **Prototype pages:** `discover`, `resource`, `recherche`, part of `accueil`. **Allowed paths:** `src/api/internal/discover/**`, `src/api/internal/search/**`, `db/queries/**` (these files), generated `dbgen`, `db/migrations/**` only if needed (R6), `scripts/public-routes.txt`. **DoD:** DoD-common plus EXPLAIN plans. **Stop:** if a query cannot be bounded within ADR-0005.
 - **Status:** OPERATIONS DONE — catalogue reads (PR #83), search (PR #92) and error reports (PR #96) merged 2026-11-13; issue #66 closed. Still open: the EXPLAIN and bilingual relevance dataset item (G6).
+- 2026-11-14 (`Y4NN777`, `fix/platform/demo-gaps`): anonymous full-text `q` on the resource, question, article and project lists now shares the existing `search:ip` budget (60 per client network per minute), and `verifyEmail` has a dedicated 10-per-network-per-hour limit; focused RED/GREEN tests cover all five endpoints.
 
 ---
 

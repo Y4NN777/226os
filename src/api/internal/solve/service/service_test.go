@@ -177,6 +177,20 @@ func TestListQuestionsPagesAndBindsTheCursorToTheFilters(t *testing.T) {
 	}
 }
 
+func TestListQuestionsAnonymousQueryUsesSearchBudget(t *testing.T) {
+	svc, lim := newSvc(t, &fakeStore{})
+	lim.allowed, lim.retry = false, 12*time.Second
+	_, err := svc.ListQuestions(t.Context(), service.QuestionListRequest{
+		Q: ptr("paiement"), Anonymous: true, ClientIP: "198.51.100.0/24",
+	})
+	if ae := codeOf(t, err, apperr.CodeRateLimited); ae.RetryAfter != 12*time.Second {
+		t.Fatalf("retry_after = %s", ae.RetryAfter)
+	}
+	if lim.hits != 1 || lim.scope != "search:ip" || lim.value != "198.51.100.0/24" || lim.limit != 60 || lim.window != time.Minute {
+		t.Fatalf("limiter = %+v", lim)
+	}
+}
+
 func TestListQuestionsRejectsBadInput(t *testing.T) {
 	c := codec(t)
 	tests := []struct {
