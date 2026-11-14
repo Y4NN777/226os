@@ -126,14 +126,23 @@ def parse_finding(f):
     }
 
 
+def created_key(c):
+    """Order of creation: created_at, then the id (ids grow)."""
+    try:
+        cid = int(c.get("id") or 0)
+    except (TypeError, ValueError):
+        cid = 0
+    return (c.get("created_at") or c.get("updated_at") or "", cid)
+
+
 def parse_ledger(comments):
-    """The ledger of the review comment, or None. The bot comment with the marker wins (the newest updated one), and
-    then only it counts: a stale duplicate is never read. Without a marker (a pull request reviewed before it existed),
-    the newest updated bot comment that carries a valid ledger."""
+    """The ledger of the review comment, or None. One comment per run: the NEWEST CREATED bot comment with the marker
+    (older runs are minimized) is the only one read, even when an older one was edited later. Without a marker (a pull
+    request reviewed before it existed), the newest updated bot comment that carries a valid ledger."""
     bots = [c for c in comments if (c.get("user") or {}).get("login") in BOT_LOGINS]
     marked = [c for c in bots if MARKER in (c.get("body") or "")]
     if marked:
-        bots = [max(marked, key=lambda c: c.get("updated_at") or c.get("created_at") or "")]
+        bots = [max(marked, key=created_key)]
     best = None
     for c in bots:
         raw = ledger_json(c.get("body") or "")

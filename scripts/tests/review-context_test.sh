@@ -400,6 +400,14 @@ add issue "{\"user\":{\"login\":\"$BOT\"},\"created_at\":\"2026-11-13T11:00:00Z\
 run
 grep -q '`marked` \[open\]' <<<"$out" && ! grep -q '`stale`' <<<"$out" && ok "two Triage comments: the ledger comes from the marker comment, even when the other was updated later" || ko "marker ledger ($out)"
 
+# One comment PER RUN: the NEWEST CREATED marker comment is the current one, even when an older one was updated later.
+reset
+REPO_DIR="$tmp/repo"
+add issue "{\"user\":{\"login\":\"$BOT\"},\"created_at\":\"2026-11-13T10:00:00Z\",\"updated_at\":\"2026-11-14T12:00:00Z\",\"body\":\"Triage: NONE | blast radius: x\\n<!-- 226os-ai-review -->\\n<details><summary>Review ledger</summary>\\n\\n\`\`\`json\\n{\\\"sha\\\":\\\"$first\\\",\\\"findings\\\":[{\\\"id\\\":\\\"older-run\\\",\\\"status\\\":\\\"open\\\"}]}\\n\`\`\`\\n</details>\"}"
+add issue "{\"user\":{\"login\":\"$BOT\"},\"created_at\":\"2026-11-13T11:00:00Z\",\"updated_at\":\"2026-11-13T11:00:00Z\",\"body\":\"Triage: NONE | blast radius: x\\n<!-- 226os-ai-review -->\\n<details><summary>Review ledger</summary>\\n\\n\`\`\`json\\n{\\\"sha\\\":\\\"$first\\\",\\\"findings\\\":[{\\\"id\\\":\\\"newer-run\\\",\\\"status\\\":\\\"open\\\"}]}\\n\`\`\`\\n</details>\"}"
+run
+grep -q '`newer-run` \[open\]' <<<"$out" && ! grep -q '`older-run`' <<<"$out" && ok "two marker comments (one per run): the ledger comes from the newest created" || ko "newest run ledger ($out)"
+
 reset
 add issue "{\"user\":{\"login\":\"$BOT\"},\"created_at\":\"2026-11-13T10:00:00Z\",\"updated_at\":\"2026-11-14T10:00:00Z\",\"body\":\"Triage: NONE | blast radius: x\\n<details><summary>Review ledger</summary>\\n\\n\`\`\`json\\n{\\\"sha\\\":\\\"$first\\\",\\\"findings\\\":[{\\\"id\\\":\\\"edited-later\\\",\\\"status\\\":\\\"open\\\"}]}\\n\`\`\`\\n</details>\"}"
 add issue "{\"user\":{\"login\":\"$BOT\"},\"created_at\":\"2026-11-13T11:00:00Z\",\"updated_at\":\"2026-11-13T11:00:00Z\",\"body\":\"Triage: MEDIUM | blast radius: x\\n<details><summary>Review ledger</summary>\\n\\n\`\`\`json\\n{\\\"sha\\\":\\\"$first\\\",\\\"findings\\\":[{\\\"id\\\":\\\"created-later\\\",\\\"status\\\":\\\"open\\\"}]}\\n\`\`\`\\n</details>\"}"
