@@ -16,7 +16,12 @@ whether its commits may be pushed. The workflows only call this script; the mode
   check  the guard before any push, run from a trusted copy: at least one new commit since BASE_SHA; every author and
          committer is EXPECT_NAME <EXPECT_EMAIL>; no Co-authored-by trailer and no "Generated with" line; no changed
          path the owner keeps (api/openapi.yaml R7, db/migrations R6, ADRs, secrets, .env files, .github, the Claude
-         harness, the review workspace files). Exit 1 with the reason on a failure.
+         harness, the review workspace files, any .npmrc, the owner's preferences). Exit 1 with the reason on a failure.
+         The publishing job runs it after `git am` of the fixer's patch, in a fresh checkout where no pull request
+         code ever ran; only then is the bot token used.
+  run    `run CMD ARGS...`, installed as `fixer-run` for the model: the only way it runs git (status, diff, log, show,
+         without a pager), go test and `pnpm --filter web run test|lint|typecheck|format:check`; any argument that
+         writes a file or runs a program (-o, --output, -exec, -toolexec, a profile file) is refused.
   body   the batch pull request body from the fixer's structured result (RESULT_JSON): it names the batch issue
          (#ISSUE, which closes the batch on merge) and has one table row per item, verdict FIXED, NOT A DEFECT,
          DECIDED, OWNER or AFTER FREEZE with a reason. Model text is data: @-mentions are neutralised, pipes escaped.
@@ -47,8 +52,14 @@ PROTECTED_HEADS = ("main", "develop")
 VERDICTS = ("FIXED", "NOT A DEFECT", "DECIDED", "OWNER", "AFTER FREEZE")
 # Paths the fixer never changes: the contract (R7), migrations (R6), decisions, secrets, CI, the harness itself and the
 # files the workflows leave in the workspace.
-FORBIDDEN_EXACT = ("api/openapi.yaml", "CLAUDE.md", "AGENTS.md")
+FORBIDDEN_EXACT = ("api/openapi.yaml", "CLAUDE.md", "AGENTS.md", "docs/team/OWNER_PREFERENCES.md")
 FORBIDDEN_PREFIX = ("db/migrations/", "docs/decisions/", "secrets/", ".github/", ".claude/")
+FORBIDDEN_NAMES = (".npmrc",)
+# The wrapper of the fixer's commands (`run`): only these, and never an argument that writes a file or runs a program.
+WEB_SCRIPTS = ("test", "lint", "typecheck", "format:check")
+GIT_READ = ("status", "diff", "log", "show")
+BANNED_ARG = re.compile(r"^(-o|--o|-{1,2}(exec|toolexec|c$|coverprofile|cpuprofile|memprofile|blockprofile|mutexprofile|trace|outputdir))")
+SAFE_ARGS = ("--oneline",)
 TRAILER = re.compile(r"^\s*co-authored-by:|generated with", re.I | re.M)
 
 
@@ -257,7 +268,7 @@ def git_out(git, worktree, *args):
 
 def forbidden(path):
     name = path.rsplit("/", 1)[-1]
-    return (path in FORBIDDEN_EXACT or path.startswith(FORBIDDEN_PREFIX) or name.startswith(".env")
+    return (path in FORBIDDEN_EXACT or path.startswith(FORBIDDEN_PREFIX) or name.startswith(".env") or name in FORBIDDEN_NAMES
             or (("/" not in path) and name.startswith((".review-", ".autofix-"))))
 
 
@@ -330,11 +341,38 @@ def cmd_body():
     return 0
 
 
+def wrapped(argv):
+    """The argv to execute for a fixer command, or None when it is not allowed."""
+    if not argv or any(BANNED_ARG.match(a) and a not in SAFE_ARGS for a in argv[1:]):
+        return None
+    if argv[0] == "git" and len(argv) > 1 and argv[1] in GIT_READ:
+        return ["git", "--no-pager"] + argv[1:]
+    if argv[0] == "go" and len(argv) > 1 and argv[1] == "test":
+        return argv
+    if argv[:4] == ["pnpm", "--filter", "web", "run"] and len(argv) > 4 and argv[4] in WEB_SCRIPTS:
+        return argv
+    return None
+
+
+def cmd_run(argv):
+    """`run CMD ARGS...`: the fixer's only way to run git (read-only), go test and the web scripts. Refused: any other
+    command, and any argument that writes a file or runs a program (-o, --output, -exec, -coverprofile, ...)."""
+    target = wrapped(argv)
+    if target is None:
+        print("fixer-run: refused (allowed: git status|diff|log|show, go test, pnpm --filter web run "
+              "test|lint|typecheck|format:check; never -o, --output, -exec or a profile file): %s" % " ".join(argv[:6]))
+        return 2
+    os.execvp(target[0], target)
+    return 0  # not reached
+
+
 def main():
     sub = sys.argv[1] if len(sys.argv) > 1 else ""
+    if sub == "run":
+        return cmd_run(sys.argv[2:])
     commands = {"pr": cmd_pr, "batch": cmd_batch, "check": cmd_check, "body": cmd_body}
     if sub not in commands:
-        print("usage: review-autofix.py pr|batch|check|body")
+        print("usage: review-autofix.py pr|batch|check|body|run")
         return 2
     return commands[sub]()
 

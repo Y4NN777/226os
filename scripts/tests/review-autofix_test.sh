@@ -209,7 +209,7 @@ mkdir -p "$repo/src" "$repo/api"
 echo a >"$repo/src/a.go"; echo c >"$repo/api/openapi.yaml"
 g add -A; g commit -qm base
 base="$(git -C "$repo" rev-parse HEAD)"
-check() { run check BASE_SHA="$base" WORKTREE="$repo" EXPECT_NAME=Y4NN77 EXPECT_EMAIL=fixer@example.invalid "$@"; }
+check() { run check BASE_SHA="$base" WORKTREE="$repo" EXPECT_NAME=Y4NN77 EXPECT_EMAIL=fixer@example.invalid; }
 
 check
 [ "$rc" -ne 0 ] && grep -q 'no commit' <<<"$out" && ok "guard: no new commit is a failure (nothing to push)" || ko "no commit (rc=$rc $out)"
@@ -230,12 +230,40 @@ check
 [ "$rc" -ne 0 ] && grep -qi 'identity' <<<"$out" && ok "guard: another author identity is refused" || ko "identity (rc=$rc $out)"
 git -C "$repo" reset -q --hard HEAD~1
 
-for forbidden in api/openapi.yaml db/migrations/00099_x.sql docs/decisions/0011-x.md secrets/x.enc.env .github/workflows/x.yml .review-context.md; do
+for forbidden in api/openapi.yaml db/migrations/00099_x.sql docs/decisions/0011-x.md secrets/x.enc.env .github/workflows/x.yml .review-context.md .npmrc src/web/.npmrc docs/team/OWNER_PREFERENCES.md; do
   mkdir -p "$repo/$(dirname "$forbidden")"; echo x >>"$repo/$forbidden"; g add -f "$forbidden"; g commit -qm "fix: touch"
   check
   [ "$rc" -ne 0 ] && grep -q "$forbidden" <<<"$out" && ok "guard: $forbidden is refused (owner path)" || ko "forbidden $forbidden (rc=$rc $out)"
   git -C "$repo" reset -q --hard HEAD~1
 done
+
+# ---- the command wrapper of the fixer (`run`): read-only git, go test, the web scripts; never an output file ----
+mkdir -p "$tmp/wbin"
+for b in git go pnpm; do printf '#!/bin/sh\necho "RAN %s $*"\n' "$b" >"$tmp/wbin/$b"; chmod +x "$tmp/wbin/$b"; done
+wrap() { rc=0; out="$(PATH="$tmp/wbin:$PATH" python3 -I "$tool" run "$@" 2>&1)" || rc=$?; }
+allowed() { wrap "$@"; [ "$rc" -eq 0 ] && grep -q "^RAN $1" <<<"$out" && ok "wrapper runs: $*" || ko "wrapper should run: $* (rc=$rc $out)"; }
+refused() { wrap "$@"; [ "$rc" -ne 0 ] && ! grep -q '^RAN' <<<"$out" && ok "wrapper refuses: $*" || ko "wrapper should refuse: $* (rc=$rc $out)"; }
+allowed git diff --stat
+allowed git log --oneline -5
+allowed git show HEAD:src/a.go
+allowed go test ./src/api/... -run TestX -count=1
+allowed pnpm --filter web run test
+refused git diff --output=/tmp/x
+refused git diff --output /tmp/x
+refused git show -o /tmp/x HEAD
+refused git push
+refused git -c core.pager=sh diff
+refused go test -o /tmp/x ./...
+refused go test -exec sh ./...
+refused go test -coverprofile=/tmp/c ./...
+refused go build ./...
+refused pnpm --filter web exec sh
+refused pnpm --filter web run test --outputFile=/tmp/x
+refused pnpm install
+refused rm -rf src
+refused
+wrap git diff --stat
+grep -q '^RAN git --no-pager diff --stat' <<<"$out" && ok "wrapper: git runs without a pager" || ko "no pager ($out)"
 
 # ---- the batch pull request body ----
 run body ISSUE=40 RESULT_JSON='{"outcome":"fixed","reason":"ok","results":[{"item":"#12","verdict":"FIXED","reason":"guard | added @Y4NN777"},{"item":"#20/n1","verdict":"maybe","reason":"x"}]}'
