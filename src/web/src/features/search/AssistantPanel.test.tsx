@@ -84,6 +84,25 @@ describe('AssistantPanel', () => {
     expect(await request?.json()).toEqual({ question: 'momo', lang: 'fr' });
   });
 
+  it('disables the action with a hint when the query is shorter than 3 characters', async () => {
+    setLanguages(['fr-FR']);
+    const fetchMock = member();
+    await renderApp('/recherche?q=mo');
+    const inPanel = await panel();
+    const ask = await inPanel.findByRole('button', { name: 'Demander à l’assistant' });
+    expect(ask).toHaveAttribute('aria-disabled', 'true');
+    expect(
+      inPanel.getByText('Saisissez au moins 3 caractères pour interroger l’assistant.'),
+    ).toBeVisible();
+    await userEvent.click(ask);
+    expect(callsTo(fetchMock, 'POST /assistant/answers')).toHaveLength(0);
+    await userEvent.type(inPanel.getByRole('textbox', { name: /Votre question/ }), 'Comment ?');
+    expect(inPanel.getByRole('button', { name: 'Demander à l’assistant' })).not.toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+  });
+
   it('sends the free question when one is typed', async () => {
     setLanguages(['fr-FR']);
     const fetchMock = member({ 'POST /assistant/answers': () => jsonResponse(answered) });

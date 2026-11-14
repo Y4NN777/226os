@@ -337,3 +337,149 @@ describe('SolvePage ask flow', () => {
     expect(await screen.findByRole('button', { name: 'Ask a question' })).toBeInTheDocument();
   });
 });
+
+describe('SolvePage assistant panel', () => {
+  const answered = {
+    outcome: 'answered',
+    generated_by: 'ai',
+    lang: 'fr',
+    answer: 'Vérifiez la signature <b>HMAC</b>.',
+    how_to_verify: 'Relisez la documentation du fournisseur.',
+    sources: [],
+  } as const;
+
+  async function panel() {
+    const heading = await screen.findByRole('heading', { level: 2, name: /^Assistant/ });
+    return within(heading.closest('section') as HTMLElement);
+  }
+
+  async function open(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(await screen.findByRole('button', { name: 'Poser une question' }));
+  }
+
+  it('shows the Google notice, sends nothing, and stays disabled under 3 characters', async () => {
+    setLanguages(['fr-FR']);
+    const fetchMock = member({ 'GET /questions': () => page([]) });
+    const user = userEvent.setup();
+    await renderApp('/solve');
+    await open(user);
+    const inPanel = await panel();
+    expect(inPanel.getByText(/envoyée à Google \(AI Studio\)/)).toBeInTheDocument();
+    const ask = inPanel.getByRole('button', { name: 'Demander à l’assistant' });
+    expect(ask).toHaveAttribute('aria-disabled', 'true');
+    expect(
+      inPanel.getByText('Saisissez au moins 3 caractères pour interroger l’assistant.'),
+    ).toBeVisible();
+    await user.type(screen.getByRole('textbox', { name: 'Titre' }), 'ab');
+    expect(inPanel.getByRole('button', { name: 'Demander à l’assistant' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+    expect(callsTo(fetchMock, 'POST /assistant/answers')).toHaveLength(0);
+  });
+
+  it('asks with the draft title and body, CSRF header and JSON body, no vote control', async () => {
+    setLanguages(['fr-FR']);
+    const fetchMock = member({
+      'GET /questions': () => page([]),
+      'POST /assistant/answers': () => jsonResponse(answered),
+    });
+    const user = userEvent.setup();
+    await renderApp('/solve');
+    await open(user);
+    await user.type(screen.getByRole('textbox', { name: 'Titre' }), 'Comment signer un webhook ?');
+    await user.type(screen.getByRole('textbox', { name: 'Votre question' }), 'Voici le contexte.');
+    const inPanel = await panel();
+    await user.click(inPanel.getByRole('button', { name: 'Demander à l’assistant' }));
+    expect(await inPanel.findByText(/Vérifiez la signature/)).toBeInTheDocument();
+    const [request] = callsTo(fetchMock, 'POST /assistant/answers');
+    expect(request?.headers.get('X-CSRF-Token')).toBe('csrf-member');
+    expect(request?.headers.get('Content-Type')).toContain('application/json');
+    expect(await request?.json()).toEqual({
+      question: 'Comment signer un webhook ?\n\nVoici le contexte.',
+      lang: 'fr',
+    });
+    expect(inPanel.getAllByText('IA').length).toBeGreaterThan(0);
+    expect(
+      inPanel.getByRole('heading', { level: 3, name: 'Comment vérifier' }),
+    ).toBeInTheDocument();
+    expect(inPanel.queryByRole('button', { name: /voter|accepter|résolu/i })).toBeNull();
+    expect(callsTo(fetchMock, 'POST /questions')).toHaveLength(0);
+  });
+
+  it('refuses with no_source', async () => {
+    setLanguages(['fr-FR']);
+    member({
+      'GET /questions': () => page([]),
+      'POST /assistant/answers': () =>
+        jsonResponse({ ...answered, outcome: 'no_source', search_url: '/recherche?q=abc' }),
+    });
+    const user = userEvent.setup();
+    await renderApp('/solve');
+    await open(user);
+    await user.type(screen.getByRole('textbox', { name: 'Titre' }), 'Un titre valable');
+    const inPanel = await panel();
+    await user.click(inPanel.getByRole('button', { name: 'Demander à l’assistant' }));
+    expect(await inPanel.findByText(/Aucune source pour répondre/)).toBeInTheDocument();
+  });
+
+  it('on 503 hides the panel while the question can still be posted', async () => {
+    setLanguages(['fr-FR']);
+    const fetchMock = member({
+      'GET /questions': () => page([]),
+      'POST /assistant/answers': () => problemResponse(503, 'SERVICE_UNAVAILABLE'),
+      'POST /questions': () => jsonResponse(question({ id: questionId }), { status: 201 }),
+      'GET /questions/b0000000-0000-4000-8000-000000000001': () => jsonResponse(question()),
+      'GET /questions/b0000000-0000-4000-8000-000000000001/answers': () => page([]),
+    });
+    const user = userEvent.setup();
+    const { router } = await renderApp('/solve');
+    await open(user);
+    await user.type(screen.getByRole('textbox', { name: 'Titre' }), 'Comment signer un webhook ?');
+    await user.type(screen.getByRole('textbox', { name: 'Votre question' }), 'Contexte.');
+    await user.type(screen.getByRole('textbox', { name: /Étiquettes/ }), 'go');
+    const inPanel = await panel();
+    await user.click(inPanel.getByRole('button', { name: 'Demander à l’assistant' }));
+    expect(await inPanel.findByText(/L’assistant est indisponible/)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Publier la question' }));
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe(`/questions/${questionId}`);
+    });
+    expect(callsTo(fetchMock, 'POST /assistant/answers')).toHaveLength(1);
+    expect(callsTo(fetchMock, 'POST /questions')).toHaveLength(1);
+  });
+
+  it('posts the question independently of the assistant, which is never asked', async () => {
+    setLanguages(['fr-FR']);
+    const fetchMock = member({
+      'GET /questions': () => page([]),
+      'POST /questions': () => jsonResponse(question({ id: questionId }), { status: 201 }),
+      'GET /questions/b0000000-0000-4000-8000-000000000001': () => jsonResponse(question()),
+      'GET /questions/b0000000-0000-4000-8000-000000000001/answers': () => page([]),
+    });
+    const user = userEvent.setup();
+    const { router } = await renderApp('/solve');
+    await open(user);
+    await user.type(screen.getByRole('textbox', { name: 'Titre' }), 'Comment signer un webhook ?');
+    await user.type(screen.getByRole('textbox', { name: 'Votre question' }), 'Contexte.');
+    await user.type(screen.getByRole('textbox', { name: /Étiquettes/ }), 'go');
+    await user.click(screen.getByRole('button', { name: 'Publier la question' }));
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe(`/questions/${questionId}`);
+    });
+    expect(callsTo(fetchMock, 'POST /assistant/answers')).toHaveLength(0);
+  });
+
+  it('speaks English', async () => {
+    setLanguages(['en-US']);
+    member({ 'GET /questions': () => page([]) });
+    const user = userEvent.setup();
+    await renderApp('/solve');
+    await user.click(await screen.findByRole('button', { name: 'Ask a question' }));
+    const inPanel = await panel();
+    expect(inPanel.getByRole('button', { name: 'Ask the assistant' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+  });
+});

@@ -1,8 +1,8 @@
 # ADR-0012 — AI assistant integration (grounded answers, limits, fallback, golden set)
 
-- **Status:** PROPOSED
+- **Status:** ACCEPTED (owner `Y4NN777`, 2026-11-14, at the 12:00 checkpoint)
 - **Date:** 2026-11-14
-- **Approver:** `Y4NN777`, repository owner (the owner accepts this ADR by merging it)
+- **Approver:** `Y4NN777`, repository owner
 - **Scope:** how `POST /assistant/answers` (`askAssistant`, S9) retrieves, sends, limits, validates and falls back. The provider and model are decided in [ADR-0011](0011-ai-assistant-provider.md).
 - **Answers:** ROADMAP O5, TODO S9 (the PROPOSED ADR task). The SPEC story and the `AUTHORIZATION_MATRIX.md` rows stay with the owner (H13).
 - **Related:** `src/api/internal/assistant`, `src/api/internal/platform/llm`, `src/api/internal/platform/ratelimit`, [ADR-0003](0003-authentication-sessions-csrf-rate-limits.md), PRD amendment 3.2

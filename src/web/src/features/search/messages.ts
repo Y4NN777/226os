@@ -24,6 +24,9 @@ export const fr = {
   'search.assistant.field': 'Votre question (facultatif)',
   'search.assistant.hint': 'Sans question, l’assistant utilise votre recherche « {q} ».',
   'search.assistant.ask': 'Demander à l’assistant',
+  'search.assistant.tooShort': 'Saisissez au moins 3 caractères pour interroger l’assistant.',
+  'solve.assistant.hint':
+    'L’assistant répond à partir du titre et du texte de votre question. Publier la question reste une action distincte.',
   'search.assistant.loading': 'L’assistant rédige sa réponse…',
   'search.assistant.verify': 'Comment vérifier',
   'search.assistant.sources': 'Sources',
@@ -61,6 +64,9 @@ export const en: Record<keyof typeof fr, string> = {
   'search.assistant.field': 'Your question (optional)',
   'search.assistant.hint': 'Without a question, the assistant uses your search “{q}”.',
   'search.assistant.ask': 'Ask the assistant',
+  'search.assistant.tooShort': 'Enter at least 3 characters to ask the assistant.',
+  'solve.assistant.hint':
+    'The assistant answers from the title and text of your question. Publishing the question stays a separate action.',
   'search.assistant.loading': 'The assistant is writing its answer…',
   'search.assistant.verify': 'How to verify',
   'search.assistant.sources': 'Sources',
