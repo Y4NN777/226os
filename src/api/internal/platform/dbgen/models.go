@@ -125,6 +125,23 @@ type ErrorReport struct {
 	SourceID   pgtype.UUID
 }
 
+type GithubDeveloper struct {
+	CountryCode   string
+	Login         string
+	Rank          int32
+	Name          string
+	AvatarUrl     string
+	Contributions int32
+	Organizations []string
+	GeneratedAt   pgtype.Timestamptz
+	ImportedAt    pgtype.Timestamptz
+}
+
+type GithubDeveloperOptout struct {
+	Login     string
+	CreatedAt pgtype.Timestamptz
+}
+
 type IdempotencyKey struct {
 	UserID         pgtype.UUID
 	IdempotencyKey string

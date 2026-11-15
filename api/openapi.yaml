@@ -461,7 +461,14 @@ paths:
           caller, open_to_collab is true and open_to_collab_visibility allows the caller. Each summary field is
           filtered by the owner''s field_visibility for this caller; a filter on a field the caller cannot see never
           matches. Email is never returned. Order: username ascending, UUID tie-breaker. Limited to 60 requests
-          per minute per client network (anonymous) or per user (member).'
+          per minute per client network (anonymous) or per user (member). ADR-0016: with source all (default) or
+          github, public GitHub developers ranked by committers.top follow the members in the optional `external`
+          array (rank ascending); `items` keeps the member ProfileSummary unchanged, so a client that reads only
+          `items` is unaffected, and source=members returns exactly the member page. An external entry is never an
+          account; it is dropped when a member listable for the caller shows the same GitHub login (case-insensitive)
+          with a github field visible to the caller, and when the login opted out. country filters both segments;
+          language and skill filter members only, so either one omits the external entries. The cursor carries the
+          segment and is bound to every filter including source.'
       security:
       - {}
       - cookieAuth: []
@@ -486,6 +493,17 @@ paths:
         description: Keep profiles whose visible skills contain this tag slug.
         schema:
           $ref: '#/components/schemas/TagSlug'
+      - name: source
+        in: query
+        description: Which entries to list. members is the opt-in member directory; github is the external
+          committers.top entries; all (default) is the members first, then the external entries.
+        schema:
+          type: string
+          enum:
+          - all
+          - members
+          - github
+          default: all
       responses:
         '200':
           description: Page of listable profiles (visibility-filtered summaries)
@@ -3588,6 +3606,79 @@ components:
           $ref: '#/components/schemas/ProfileVisibility'
         joined_at:
           $ref: '#/components/schemas/Timestamp'
+        ranking:
+          $ref: '#/components/schemas/GitHubRanking'
+      additionalProperties: false
+    GitHubRanking:
+      type: object
+      description: 'committers.top rank of the profile''s GitHub login (ADR-0016). Present only when the github field
+        is visible to the caller, the login is ranked and has not opted out.'
+      required:
+      - country
+      - rank
+      - generated_at
+      properties:
+        country:
+          $ref: '#/components/schemas/CountryCode'
+        rank:
+          type: integer
+          minimum: 1
+          maximum: 500
+        generated_at:
+          $ref: '#/components/schemas/Timestamp'
+      additionalProperties: false
+    ExternalDeveloper:
+      type: object
+      description: 'A public GitHub developer ranked by committers.top (ADR-0016). Not an account: only public GitHub
+        data, labelled with its source.'
+      required:
+      - login
+      - name
+      - avatar_url
+      - country
+      - rank
+      - contributions
+      - organizations
+      - generated_at
+      - source
+      properties:
+        login:
+          type: string
+          minLength: 1
+          maxLength: 39
+          pattern: ^[A-Za-z0-9][A-Za-z0-9-]{0,38}$
+          description: GitHub login.
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        avatar_url:
+          type: string
+          maxLength: 500
+          pattern: ^https://avatars\.githubusercontent\.com/
+        country:
+          $ref: '#/components/schemas/CountryCode'
+        rank:
+          type: integer
+          minimum: 1
+          maximum: 500
+        contributions:
+          type: integer
+          minimum: 0
+          maximum: 2147483647
+        organizations:
+          type: array
+          items:
+            type: string
+            minLength: 1
+            maxLength: 100
+          maxItems: 50
+        generated_at:
+          $ref: '#/components/schemas/Timestamp'
+        source:
+          type: string
+          enum:
+          - committers.top
       additionalProperties: false
     ProfileSummary:
       type: object
@@ -3636,6 +3727,13 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ProfileSummary'
+          maxItems: 50
+        external:
+          type: array
+          description: External GitHub developers (ADR-0016), after the members of the page; omitted when the page
+            has none. items plus external hold at most limit entries.
+          items:
+            $ref: '#/components/schemas/ExternalDeveloper'
           maxItems: 50
         next_cursor:
           type:

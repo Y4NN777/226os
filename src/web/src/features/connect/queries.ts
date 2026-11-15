@@ -4,6 +4,7 @@ import type { components } from '../../api/schema';
 import type { ConnectSearch } from './routeSearch';
 
 export type ProfileSummary = components['schemas']['ProfileSummary'];
+export type ExternalDeveloper = components['schemas']['ExternalDeveloper'];
 
 export const connectKeys = {
   list: (filters: ConnectSearch) => ['profiles', 'list', filters] as const,
@@ -21,7 +22,7 @@ export function useProfileDirectory(filters: ConnectSearch) {
     queryFn: async ({ pageParam }) => {
       const query = { ...filters, ...(pageParam === null ? {} : { cursor: pageParam }) };
       const page = await api.call(() => api.client.GET('/profiles', { params: { query } }));
-      return { items: page.items, nextCursor: page.next_cursor };
+      return { items: page.items, external: page.external ?? [], nextCursor: page.next_cursor };
     },
     getNextPageParam: (last) => last.nextCursor,
   });

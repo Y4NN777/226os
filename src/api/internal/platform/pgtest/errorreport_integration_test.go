@@ -71,7 +71,7 @@ func newS2Stack(ctx context.Context, t *testing.T, override limiter) *s2Stack {
 	if err != nil {
 		t.Fatal(err)
 	}
-	svc := service.New(repository.New(pool), mail, s2Secret, service.WithCursors(codec))
+	svc := service.New(repository.New(pool), mail, s2Secret, service.WithCursors(codec), service.WithGitHubDevelopers(repository.New(pool)))
 	var lim limiter = ratelimit.New(pool, s2Secret, nil)
 	if override != nil {
 		lim = override

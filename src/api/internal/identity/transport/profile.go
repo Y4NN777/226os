@@ -238,6 +238,11 @@ func publicProfileJSON(p domain.PublicProfile) apigen.PublicProfile {
 	if p.OpenToCollab != nil {
 		out.OpenToCollab = p.OpenToCollab
 	}
+	if p.Ranking != nil {
+		out.Ranking = &apigen.GitHubRanking{
+			Country: apigen.CountryCode(p.Ranking.Country), Rank: p.Ranking.Rank, GeneratedAt: p.Ranking.GeneratedAt.UTC(),
+		}
+	}
 	return out
 }
 

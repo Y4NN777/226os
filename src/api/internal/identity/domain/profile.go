@@ -78,6 +78,7 @@ type PublicProfile struct {
 	OpenToCollab *bool
 	Visibility   Visibility
 	JoinedAt     time.Time
+	Ranking      *Ranking // committers.top rank, only when GitHub is visible to the caller (ADR-0016)
 }
 
 // ProfileWrite is the resolved merge patch handed to the store: every member

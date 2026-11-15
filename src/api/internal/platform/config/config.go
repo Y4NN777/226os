@@ -23,6 +23,8 @@ type Config struct {
 	// AppBaseURL is the public origin used to build links in verification and reset mails (APP_BASE_URL, optional).
 	// Empty means the mails carry the bare code only. Not a secret.
 	AppBaseURL string
+	// GitHubImport runs the daily committers.top import of the Connect directory (CONNECT_GITHUB_IMPORT, ADR-0016).
+	GitHubImport bool
 }
 
 const (
@@ -72,7 +74,11 @@ func Load(getenv func(string) string) (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
-	return Config{GitHubToken: ghToken, AppEnv: env, Addr: addr, DatabaseURL: dbURL, CursorKey: key, SMTP: smtp, AI: ai, AppBaseURL: baseURL}, nil
+	ghImport, err := LoadGitHubImport(getenv, env)
+	if err != nil {
+		return Config{}, err
+	}
+	return Config{GitHubImport: ghImport, GitHubToken: ghToken, AppEnv: env, Addr: addr, DatabaseURL: dbURL, CursorKey: key, SMTP: smtp, AI: ai, AppBaseURL: baseURL}, nil
 }
 
 func checkDatabaseURL(raw string) error {

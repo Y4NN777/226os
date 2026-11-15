@@ -92,6 +92,9 @@ INSERT INTO password_resets (id, user_id, token_hash, expires_at) VALUES
   ('` + resetAlic + `', '` + uAlice + `', decode(repeat('02', 32), 'hex'), now() + interval '30 minutes');
 INSERT INTO rate_limit_buckets (scope, key_hash, window_start) VALUES
   ('signin:ip', decode(repeat('03', 32), 'hex'), date_trunc('minute', now()));
+INSERT INTO github_developers (country_code, login, rank, name, avatar_url, contributions, organizations, generated_at) VALUES
+  ('BF', 'fixture-dev', 1, 'Fixture Dev', 'https://avatars.githubusercontent.com/u/1', 10, '{acme}', now());
+INSERT INTO github_developer_optouts (login) VALUES ('fixture-optout');
 
 INSERT INTO questions (id, author_id, title, body_md, language, country_code) VALUES
   ('` + qAlice + `', '` + uAlice + `', 'Webhook signature fails', 'HMAC mismatch on retry', 'en', 'BF'),
