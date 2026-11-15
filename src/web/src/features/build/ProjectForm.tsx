@@ -17,23 +17,32 @@ import { useInvalidFocus } from '../identity/useInvalidFocus';
 import { errorStatus } from '../identity/validation';
 import { violationName } from '../identity/violations';
 import type { ProjectCreate } from './queries';
-import { checkDescription, checkGithubUrl, checkTechnologies, parseTags } from './validate';
+import { CountryField, LicenseField, StageField } from './ProjectFields';
+import {
+  checkDescription,
+  checkGithubUrl,
+  checkLicense,
+  checkTechnologies,
+  parseTags,
+} from './validate';
 
 type Lang = components['schemas']['Lang'];
-type Field = 'github_url' | 'description' | 'technologies';
+type Field =
+  'github_url' | 'description' | 'technologies' | 'stage' | 'license_spdx' | 'country_code';
 type ServerErrors = Partial<Record<Field, MessageKey>>;
 
 const keyOfField: Record<Field, MessageKey> = {
   github_url: 'build.err.github',
   description: 'build.err.description',
   technologies: 'build.err.technologies',
+  stage: 'build.err.stage',
+  license_spdx: 'build.err.license',
+  country_code: 'build.err.country',
 };
 
 function fieldOf(pointer: string): Field | undefined {
   const head = violationName(pointer).split('/')[0];
-  return head === 'github_url' || head === 'description' || head === 'technologies'
-    ? head
-    : undefined;
+  return head && head in keyOfField ? (head as Field) : undefined;
 }
 
 /** Field-level outcome of a failed submit; anything else is shown as a notice. */
@@ -85,9 +94,21 @@ export function ProjectForm({
     github_url: string;
     description: string;
     technologies: string;
+    stage: NonNullable<ProjectCreate['stage']>;
+    license: string;
+    country: string | null;
     lang: Lang;
     visibility: NonNullable<ProjectCreate['visibility']>;
-  } = { github_url: '', description: '', technologies: '', lang: locale, visibility: 'public' };
+  } = {
+    github_url: '',
+    description: '',
+    technologies: '',
+    stage: 'idea',
+    license: '',
+    country: null,
+    lang: locale,
+    visibility: 'public',
+  };
   const form = useForm({
     defaultValues: defaults,
     onSubmitInvalid: focusFirstInvalid,
@@ -96,6 +117,7 @@ export function ProjectForm({
       setServerErrors({});
       const technologies = parseTags(value.technologies);
       const description = value.description.trim();
+      const license = value.license.trim();
       try {
         await onSubmit({
           github_url: value.github_url.trim(),
@@ -103,6 +125,9 @@ export function ProjectForm({
           visibility: value.visibility,
           ...(description ? { description } : {}),
           ...(technologies.length > 0 ? { technologies } : {}),
+          ...(value.stage !== 'idea' ? { stage: value.stage } : {}),
+          ...(license ? { license_spdx: license } : {}),
+          ...(value.country ? { country_code: value.country } : {}),
         });
       } catch (error) {
         const fields = serverFieldErrors(error);
@@ -217,6 +242,42 @@ export function ProjectForm({
                 />
               );
             }}
+          </form.Field>
+          <form.Field name="stage">
+            {(field) => (
+              <StageField
+                value={field.state.value}
+                error={serverErrors.stage}
+                onChange={(stage) => {
+                  forget('stage');
+                  field.handleChange(stage);
+                }}
+              />
+            )}
+          </form.Field>
+          <form.Field name="license" validators={{ onSubmit: ({ value }) => checkLicense(value) }}>
+            {(field) => (
+              <LicenseField
+                value={field.state.value}
+                error={field.state.meta.errors[0] ?? serverErrors.license_spdx}
+                onChange={(value) => {
+                  forget('license_spdx');
+                  field.handleChange(value);
+                }}
+              />
+            )}
+          </form.Field>
+          <form.Field name="country">
+            {(field) => (
+              <CountryField
+                value={field.state.value}
+                error={serverErrors.country_code}
+                onChange={(country) => {
+                  forget('country_code');
+                  field.handleChange(country);
+                }}
+              />
+            )}
           </form.Field>
           <form.Field name="lang">
             {(field) => (

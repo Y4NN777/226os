@@ -1,8 +1,8 @@
 import { Button } from '@astryxdesign/core/Button';
-import { HStack } from '@astryxdesign/core/HStack';
 import { Icon } from '@astryxdesign/core/Icon';
 import { IconButton } from '@astryxdesign/core/IconButton';
 import { Text } from '@astryxdesign/core/Text';
+import { VisuallyHidden } from '@astryxdesign/core/VisuallyHidden';
 import { VStack } from '@astryxdesign/core/VStack';
 import { useState } from 'react';
 import { ApiError } from '../../api/http';
@@ -18,19 +18,7 @@ import {
   type VoteTarget,
 } from './queries';
 
-/**
- * Score with up and down buttons (when votes are live and the visitor is a member). The pressed
- * button starts from the viewer's vote in the contract; the score after a vote is the one the
- * server returned, and the cached question and answers are refreshed. The buttons only send intent.
- */
-export function VoteControls({
-  target,
-  id,
-  score,
-  viewerVote,
-  questionId,
-  interactive,
-}: {
+export interface VoteSubject {
   target: VoteTarget;
   id: string;
   score: number;
@@ -38,9 +26,14 @@ export function VoteControls({
   viewerVote: ViewerVote;
   /** The question whose cached detail and answers are refreshed after a vote. */
   questionId: string;
-  interactive: boolean;
-}) {
-  const { t } = useI18n();
+}
+
+/**
+ * The vote on one question or answer. The pressed button starts from the viewer's vote in the
+ * contract; the score after a vote is the one the server returned, and the cached question and
+ * answers are refreshed. The buttons only send intent.
+ */
+export function useVote({ target, id, score, viewerVote, questionId }: VoteSubject) {
   const cast = useCastVote(questionId);
   const retract = useRetractVote(questionId);
   const { absorbNotLive } = useInteractions();
@@ -61,44 +54,72 @@ export function VoteControls({
     }
   };
 
-  const pending = cast.isPending || retract.isPending;
+  return {
+    target,
+    value,
+    score: state?.score ?? score,
+    pending: cast.isPending || retract.isPending,
+    error,
+    press,
+  };
+}
+
+export type Vote = ReturnType<typeof useVote>;
+
+/**
+ * The prototype's vote column: up, score, down (buttons only when votes are live and the visitor
+ * is a member). The score is shown as a number and read out as "Score : n".
+ */
+export function VoteColumn({ vote, interactive }: { vote: Vote; interactive: boolean }) {
+  const { t } = useI18n();
   return (
-    <VStack gap={1}>
-      <HStack gap={1} vAlign="center">
-        {interactive ? (
-          <IconButton
-            size="sm"
-            variant="ghost"
-            label={t(`solve.vote.up.${target}`)}
-            icon={<Icon icon="arrowUp" />}
-            isDisabled={pending}
-            aria-pressed={value === 1}
-            onClick={() => void press(1)}
-          />
-        ) : null}
-        <Text type="supporting">{t('solve.score', { n: state?.score ?? score })}</Text>
-        {interactive ? (
-          <IconButton
-            size="sm"
-            variant="ghost"
-            label={t(`solve.vote.down.${target}`)}
-            icon={<Icon icon="arrowDown" />}
-            isDisabled={pending}
-            aria-pressed={value === -1}
-            onClick={() => void press(-1)}
-          />
-        ) : null}
-      </HStack>
-      {error ? (
-        error instanceof ApiError && error.code === 'SELF_VOTE_FORBIDDEN' ? (
-          <Text role="alert" type="supporting">
-            {t('solve.err.selfVote')}
-          </Text>
-        ) : (
-          <ErrorState error={error} />
-        )
+    <div className="solve-vote">
+      {interactive ? (
+        <IconButton
+          size="sm"
+          variant="ghost"
+          className="solve-vote-btn"
+          label={t(`solve.vote.up.${vote.target}`)}
+          icon={<Icon icon="arrowUp" />}
+          isDisabled={vote.pending}
+          aria-pressed={vote.value === 1}
+          onClick={() => void vote.press(1)}
+        />
+      ) : (
+        <span className="solve-vote-btn" aria-hidden="true">
+          <Icon icon="arrowUp" size="sm" color="secondary" />
+        </span>
+      )}
+      <span className="solve-vote-score">
+        <span aria-hidden="true">{vote.score}</span>
+        <VisuallyHidden>{t('solve.score', { n: vote.score })}</VisuallyHidden>
+      </span>
+      {interactive ? (
+        <IconButton
+          size="sm"
+          variant="ghost"
+          className="solve-vote-btn"
+          label={t(`solve.vote.down.${vote.target}`)}
+          icon={<Icon icon="arrowDown" />}
+          isDisabled={vote.pending}
+          aria-pressed={vote.value === -1}
+          onClick={() => void vote.press(-1)}
+        />
       ) : null}
-    </VStack>
+    </div>
+  );
+}
+
+/** A refused vote, said next to the content (the column is too narrow for a sentence). */
+export function VoteError({ vote }: { vote: Vote }) {
+  const { t } = useI18n();
+  if (!vote.error) return null;
+  return vote.error instanceof ApiError && vote.error.code === 'SELF_VOTE_FORBIDDEN' ? (
+    <Text role="alert" type="supporting">
+      {t('solve.err.selfVote')}
+    </Text>
+  ) : (
+    <ErrorState error={vote.error} />
   );
 }
 
@@ -118,6 +139,7 @@ export function AcceptButton({
   return (
     <VStack gap={1} hAlign="start">
       <Button
+        size="sm"
         variant={isAccepted ? 'ghost' : 'secondary'}
         label={t(isAccepted ? 'solve.unaccept' : 'solve.accept')}
         isLoading={accept.isPending}

@@ -1,25 +1,32 @@
-import { Badge } from '@astryxdesign/core/Badge';
 import { Banner } from '@astryxdesign/core/Banner';
 import { Button } from '@astryxdesign/core/Button';
-import { Card } from '@astryxdesign/core/Card';
-import { EmptyState } from '@astryxdesign/core/EmptyState';
-import { Heading } from '@astryxdesign/core/Heading';
 import { HStack } from '@astryxdesign/core/HStack';
 import { Icon } from '@astryxdesign/core/Icon';
+import { IconButton } from '@astryxdesign/core/IconButton';
 import { Link } from '@astryxdesign/core/Link';
 import { Text } from '@astryxdesign/core/Text';
-import { VStack } from '@astryxdesign/core/VStack';
 import { useParams } from '@tanstack/react-router';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { useSession } from '../../app/session';
 import { ApiError } from '../../api/http';
+import { Breadcrumbs } from '../../components/Breadcrumbs';
+import { CountryCode } from '../../components/CountryCode';
+import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
+import { EditIcon, LinkIcon, MessageIcon } from '../../components/icons';
+import { LangCode } from '../../components/LangCode';
+import { LinkedItems } from '../../components/LinkedItems';
 import { LoadingState } from '../../components/LoadingState';
+import { Meta, MetaItem } from '../../components/Meta';
+import { PageHeader } from '../../components/PageHeader';
+import { Section } from '../../components/Section';
+import { StatusBadge } from '../../components/StatusBadge';
+import { TagList } from '../../components/Tag';
 import { useI18n } from '../../i18n/I18nProvider';
 import { relatedPath } from '../related';
 import { AnswerForm } from './AnswerForm';
-import { AcceptButton, VoteControls } from './Interactions';
-import { Byline, StateBadge, TagList } from './present';
+import { AcceptButton, useVote, VoteColumn, VoteError } from './Interactions';
+import { DateText, Person, QuestionState } from './present';
 import { QuestionForm, type QuestionDraft } from './QuestionForm';
 import {
   useAnswers,
@@ -33,6 +40,7 @@ import {
 } from './queries';
 import { RichText } from './RichText';
 import { signInHref } from './signIn';
+import './solve.css';
 
 /** The merge patch holds only what changed, so an untouched field never overwrites a newer one. */
 function diffOf(
@@ -44,6 +52,14 @@ function diffOf(
   if (draft.body_md !== question.body_md) patch.body_md = draft.body_md;
   if (draft.tags.join(',') !== question.tags.join(',')) patch.tags = draft.tags;
   return patch;
+}
+
+/** "1 réponse", "2 réponses" (French counts 0 and 1 as singular; Intl knows the rule). */
+function useAnswerCount() {
+  const { t, locale } = useI18n();
+  const rules = new Intl.PluralRules(locale);
+  return (n: number) =>
+    rules.select(n) === 'one' ? t('solve.answers.one', { n }) : t('solve.answers.many', { n });
 }
 
 function EditQuestion({
@@ -97,6 +113,48 @@ function EditQuestion({
   );
 }
 
+/** `new URL` in a try: URL.canParse is missing from Safari before 17. */
+function parseUrl(value: string): URL | null {
+  try {
+    return new URL(value);
+  } catch {
+    return null;
+  }
+}
+
+/** Answer sources: http(s) addresses become external links, anything else stays plain text. */
+function Sources({ sources }: { sources: readonly string[] }) {
+  const { t } = useI18n();
+  const id = useId();
+  if (sources.length === 0) return null;
+  return (
+    <div className="solve-sources">
+      <p id={id} className="solve-sources-h">
+        <Icon icon={LinkIcon} size="sm" />
+        {t('solve.answer.sources')}
+      </p>
+      <ul aria-labelledby={id}>
+        {sources.map((source) => {
+          const url = parseUrl(source);
+          const safe = url !== null && (url.protocol === 'https:' || url.protocol === 'http:');
+          const label = safe ? `${url.host}${url.pathname === '/' ? '' : url.pathname}` : source;
+          return (
+            <li key={source}>
+              {safe ? (
+                <Link href={url.href} isExternalLink newTabLabel={t('solve.newTab')}>
+                  {label}
+                </Link>
+              ) : (
+                <Text type="supporting">{label}</Text>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
 function AnswerItem({
   answer,
   questionId,
@@ -108,55 +166,61 @@ function AnswerItem({
   interactive: boolean;
   canAccept: boolean;
 }) {
-  const { t } = useI18n();
+  const vote = useVote({
+    target: 'answer',
+    id: answer.id,
+    score: answer.vote_score,
+    viewerVote: answer.viewer_vote,
+    questionId: answer.question_id,
+  });
   return (
-    <li>
-      <Card variant={answer.is_accepted ? 'green' : 'muted'}>
-        <VStack gap={3}>
-          {answer.is_accepted ? (
-            <HStack>
-              <Badge
-                variant="success"
-                icon={<Icon icon="check" size="sm" />}
-                label={t('solve.answer.accepted')}
+    <li className="ui-panel">
+      {answer.is_accepted ? (
+        <div className="solve-answer-head">
+          <StatusBadge kind="accepted" />
+        </div>
+      ) : null}
+      <div className="solve-post">
+        <VoteColumn vote={vote} interactive={interactive} />
+        <div className="solve-post-main">
+          <div lang={answer.lang}>
+            <RichText markdown={answer.body_md} snippets={answer.snippets} />
+          </div>
+          <VoteError vote={vote} />
+          <Sources sources={answer.sources} />
+          <div className="solve-answer-foot">
+            <Meta>
+              <Person author={answer.author} />
+              <DateText iso={answer.created_at} />
+              <LangCode lang={answer.lang} />
+            </Meta>
+            {canAccept ? (
+              <AcceptButton
+                questionId={questionId}
+                answerId={answer.id}
+                isAccepted={answer.is_accepted}
               />
-            </HStack>
-          ) : null}
-          <RichText markdown={answer.body_md} snippets={answer.snippets} />
-          <HStack gap={3} wrap="wrap" vAlign="center">
-            <Byline name={answer.author.display_name} />
-            <VoteControls
-              target="answer"
-              id={answer.id}
-              score={answer.vote_score}
-              viewerVote={answer.viewer_vote}
-              questionId={answer.question_id}
-              interactive={interactive}
-            />
-          </HStack>
-          {canAccept ? (
-            <AcceptButton
-              questionId={questionId}
-              answerId={answer.id}
-              isAccepted={answer.is_accepted}
-            />
-          ) : null}
-        </VStack>
-      </Card>
+            ) : null}
+          </div>
+        </div>
+      </div>
     </li>
   );
 }
 
 function Answers({
   questionId,
+  count,
   interactive,
   canAccept,
 }: {
   questionId: string;
+  count: number;
   interactive: boolean;
   canAccept: boolean;
 }) {
   const { t } = useI18n();
+  const answerCount = useAnswerCount();
   const answers = useAnswers(questionId);
   // The server already sends the accepted answer first; sorting keeps it so across pages.
   const items = (answers.data?.pages.flatMap((page) => page.items) ?? [])
@@ -166,15 +230,14 @@ function Answers({
     )
     .map(({ answer }) => answer);
   return (
-    <VStack gap={3}>
-      <Heading level={2}>{t('solve.answers.title')}</Heading>
+    <Section title={count > 0 ? answerCount(count) : t('solve.answers.title')}>
       {answers.isPending ? <LoadingState /> : null}
       {answers.isError && !answers.data ? (
         <ErrorState error={answers.error} onRetry={() => void answers.refetch()} />
       ) : null}
       {answers.data && items.length === 0 ? <Text as="p">{t('solve.answers.none')}</Text> : null}
       {items.length > 0 ? (
-        <VStack as="ul" gap={3} aria-label={t('solve.answers.title')}>
+        <ul className="solve-answer-list" aria-label={t('solve.answers.title')}>
           {items.map((answer) => (
             <AnswerItem
               key={answer.id}
@@ -184,7 +247,7 @@ function Answers({
               canAccept={canAccept}
             />
           ))}
-        </VStack>
+        </ul>
       ) : null}
       {answers.hasNextPage ? (
         <HStack hAlign="center">
@@ -195,31 +258,76 @@ function Answers({
           />
         </HStack>
       ) : null}
-    </VStack>
+    </Section>
   );
 }
 
-function Related({ links }: { links: Question['related'] }) {
+const kindKey = {
+  question: 'solve.kind.question',
+  resource: 'solve.kind.resource',
+  project: 'solve.kind.project',
+  article: 'solve.kind.article',
+  series: 'solve.kind.series',
+} as const;
+
+/** Context and linked items, the prototype's side column (only what the contract carries). */
+function Aside({ question }: { question: Question }) {
   const { t } = useI18n();
-  if (links.length === 0) return null;
+  if (!question.country && question.related.length === 0) return null;
   return (
-    <VStack gap={1}>
-      <Text type="label" color="secondary">
-        {t('solve.question.related')}
-      </Text>
-      <VStack as="ul" gap={1}>
-        {links.map((link) => (
-          <li key={`${link.type}-${link.id}`}>
-            <Link href={relatedPath(link)}>{link.title}</Link>
-          </li>
-        ))}
-      </VStack>
-    </VStack>
+    <div className="ui-columns-aside">
+      {question.country ? (
+        <Section as="aside" title={t('solve.question.context')} isPanel>
+          <dl className="ui-facts">
+            <dt>{t('solve.question.country')}</dt>
+            <dd>
+              <CountryCode code={question.country} withName />
+            </dd>
+          </dl>
+        </Section>
+      ) : null}
+      {question.related.length > 0 ? (
+        <Section as="aside" title={t('solve.question.linked')} isPanel>
+          <LinkedItems
+            items={question.related.map((link) => ({
+              key: `${link.type}-${link.id}`,
+              kind: t(kindKey[link.type]),
+              title: link.title,
+              href: relatedPath(link),
+              lang: link.lang,
+            }))}
+          />
+        </Section>
+      ) : null}
+    </div>
+  );
+}
+
+function QuestionPost({ question, interactive }: { question: Question; interactive: boolean }) {
+  const vote = useVote({
+    target: 'question',
+    id: question.id,
+    score: question.vote_score,
+    viewerVote: question.viewer_vote,
+    questionId: question.id,
+  });
+  return (
+    <article className="ui-panel solve-post">
+      <VoteColumn vote={vote} interactive={interactive} />
+      <div className="solve-post-main">
+        <div lang={question.lang}>
+          <RichText markdown={question.body_md} snippets={question.snippets} />
+        </div>
+        <VoteError vote={vote} />
+        {question.tags.length > 0 ? <TagList tags={question.tags} /> : null}
+      </div>
+    </article>
   );
 }
 
 export function QuestionPage() {
   const { t } = useI18n();
+  const answerCount = useAnswerCount();
   const { questionId } = useParams({ from: '/app/questions/$questionId' });
   const session = useSession();
   const query = useQuestion(questionId);
@@ -235,7 +343,6 @@ export function QuestionPage() {
         <EmptyState
           headingLevel={1}
           title={t('solve.question.notFound.title')}
-          description={t('solve.question.notFound.body')}
           actions={<Button label={t('solve.question.back')} href="/solve" />}
         />
       );
@@ -246,11 +353,17 @@ export function QuestionPage() {
   const { question, etag } = query.data;
   const isAuthor = user !== null && user.id === question.author.id;
 
+  const crumbs = [
+    { label: t('nav.home'), href: '/' },
+    { label: t('nav.solve'), href: '/solve' },
+    { label: question.title },
+  ];
+
   return (
-    <VStack gap={6}>
-      <VStack gap={3} hAlign="start">
-        <Link href="/solve">{t('solve.question.back')}</Link>
-        {editing ? (
+    <div className="ui-page">
+      {editing ? (
+        <>
+          <Breadcrumbs items={crumbs} />
           <EditQuestion
             data={query.data}
             onDone={() => {
@@ -258,56 +371,63 @@ export function QuestionPage() {
             }}
             onReload={() => void query.refetch()}
           />
-        ) : (
-          <>
-            <HStack gap={2} vAlign="center" wrap="wrap">
-              <Heading level={1}>{question.title}</Heading>
-              <StateBadge state={question.state} />
-              {isAuthor && etag ? (
-                <Button
-                  variant="ghost"
-                  label={t('solve.question.edit')}
-                  onClick={() => {
-                    setEditing(true);
-                  }}
-                />
-              ) : null}
-            </HStack>
-            <HStack gap={3} wrap="wrap" vAlign="center">
-              <Byline name={question.author.display_name} />
-              <VoteControls
-                target="question"
-                id={question.id}
-                score={question.vote_score}
-                viewerVote={question.viewer_vote}
-                questionId={question.id}
-                interactive={interactive && !isAuthor}
+        </>
+      ) : (
+        <PageHeader
+          title={question.title}
+          titleLang={question.lang}
+          breadcrumbs={crumbs}
+          actions={
+            isAuthor && etag ? (
+              <IconButton
+                variant="ghost"
+                label={t('solve.question.edit')}
+                icon={<Icon icon={EditIcon} />}
+                onClick={() => {
+                  setEditing(true);
+                }}
               />
-            </HStack>
-            <TagList tags={question.tags} />
-            <RichText markdown={question.body_md} snippets={question.snippets} />
-            <Related links={question.related} />
-          </>
-        )}
-      </VStack>
-      <Answers
-        questionId={question.id}
-        interactive={interactive}
-        canAccept={interactive && isAuthor}
-      />
-      {user ? (
-        <VStack gap={3}>
-          <AnswerForm questionId={question.id} />
-        </VStack>
-      ) : session.isPending ? null : (
-        <HStack>
-          <Button
-            variant="primary"
-            label={t('solve.answer.signIn')}
-            href={signInHref(`/questions/${question.id}`)}
-          />
-        </HStack>
+            ) : undefined
+          }
+          meta={
+            <>
+              <QuestionState state={question.state} />
+              <Person author={question.author} />
+              <DateText iso={question.created_at} />
+              <MetaItem icon={MessageIcon}>{answerCount(question.answer_count)}</MetaItem>
+              <LangCode lang={question.lang} />
+            </>
+          }
+        />
       )}
-    </VStack>
+      <div className="ui-columns">
+        <div className="ui-columns-main">
+          {editing ? null : (
+            <QuestionPost question={question} interactive={interactive && !isAuthor} />
+          )}
+          <Answers
+            questionId={question.id}
+            count={question.answer_count}
+            interactive={interactive}
+            canAccept={interactive && isAuthor}
+          />
+          {user ? (
+            <Section title={t('solve.answer.yours')} titleId="solve-answer-h" isPanel>
+              <AnswerForm questionId={question.id} />
+            </Section>
+          ) : session.isPending ? null : (
+            <div className="solve-compose-cta">
+              <MessageIcon width={20} height={20} />
+              <Button
+                variant="primary"
+                label={t('solve.answer.signIn')}
+                href={signInHref(`/questions/${question.id}`)}
+              />
+            </div>
+          )}
+        </div>
+        <Aside question={question} />
+      </div>
+    </div>
   );
 }

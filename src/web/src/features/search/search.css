@@ -1,0 +1,108 @@
+/* Search page layout after prototypes/html/pages/recherche.html: title, wide search field,
+   grouped sections of the shared dense rows (src/components/List). Page layout only.
+   The assistant keeps its own internals; only its container is styled here. */
+
+.srch-page {
+  display: grid;
+  gap: var(--spacing-6);
+  min-width: 0;
+}
+.srch-page .ui-page-header {
+  margin-bottom: 0;
+}
+/* The query sits in the title with no-break spaces: let a long one wrap on a phone. */
+.srch-page .ui-page-header h1 {
+  overflow-wrap: anywhere;
+}
+.srch-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: var(--spacing-2);
+}
+.srch-field {
+  flex: 1 1 14rem;
+  min-width: 0;
+  max-width: 40rem;
+}
+/* No query yet: left-aligned heading, one line, topic chips (prototype `recherche.html`). */
+.srch-start {
+  display: grid;
+  gap: var(--spacing-2);
+  justify-items: start;
+}
+.srch-start h2 {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.35;
+}
+.srch-start p {
+  margin: 0;
+  color: var(--color-text-secondary);
+}
+.srch-topics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-2);
+  margin: var(--spacing-1) 0 0;
+  padding: 0;
+  list-style: none;
+}
+.srch-topic {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 var(--spacing-3);
+  border-radius: var(--radius-full);
+  background: var(--color-background-muted);
+  color: var(--color-text-primary);
+  font-size: 0.875rem;
+  font-weight: var(--font-weight-medium);
+  text-decoration: none;
+}
+/* Astryx Link sets its own size on the inner text. */
+.srch-topic * {
+  font-size: inherit;
+  font-weight: inherit;
+}
+.srch-topic:hover {
+  text-decoration: underline;
+}
+.srch-groups {
+  display: grid;
+  gap: var(--spacing-8);
+}
+.srch-section {
+  display: grid;
+  gap: var(--spacing-3);
+  min-width: 0;
+}
+.srch-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-2) var(--spacing-3);
+}
+.srch-head h2 {
+  margin: 0;
+}
+.srch-count {
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+}
+.srch-more {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+}
+.srch-assistant {
+  padding: var(--spacing-5);
+  border-radius: var(--radius-container);
+  background: var(--color-background-surface);
+}
+@media (forced-colors: active) {
+  .srch-assistant {
+    border: 1px solid CanvasText;
+  }
+}

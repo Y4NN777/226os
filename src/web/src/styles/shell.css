@@ -1,0 +1,380 @@
+/*
+ * App shell, after the HTML prototype shell (prototypes/html/assets/css/layout.css):
+ * a white top bar with one hairline, the sidebar on the page background, content on the page
+ * background in a 1200px column. Astryx tokens only; selectors use the documented Astryx theming
+ * classes (astryx-*) of the components the shell is built from.
+ */
+.shell,
+.shell-footer {
+  --shell-gutter: var(--spacing-4);
+  --shell-header-height: 56px;
+  --shell-sidebar-width: 232px;
+  --shell-rail-width: 92px;
+  --shell-content-max: 1200px;
+  --shell-bottom-nav-height: 60px;
+}
+@media (min-width: 768px) {
+  .shell,
+  .shell-footer {
+    --shell-gutter: var(--spacing-6);
+  }
+}
+@media (min-width: 1024px) {
+  .shell,
+  .shell-footer {
+    --shell-gutter: var(--spacing-8);
+  }
+}
+
+/* ---------- Top bar ---------- */
+.shell .astryx-app-shell-header {
+  background: var(--color-background-surface);
+  box-shadow: inset 0 -1px 0 var(--color-border);
+}
+.shell-topnav {
+  min-height: var(--shell-header-height);
+  padding: var(--spacing-2) var(--shell-gutter);
+  box-sizing: border-box;
+  gap: var(--spacing-2) var(--spacing-3);
+}
+.shell-brand {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  border-radius: var(--radius-inner);
+}
+.shell-brand-logo {
+  display: block;
+  height: 32px;
+  width: auto;
+}
+@media (min-width: 768px) and (max-width: 1023px) {
+  /* Aligned with the rail, as in the prototype. */
+  .shell-topnav .shell-brand {
+    min-width: calc(var(--shell-rail-width) - var(--shell-gutter) * 2 + 40px);
+  }
+}
+@media (min-width: 1024px) {
+  /* The search starts where the content column starts, as in the prototype. */
+  .shell-topnav .shell-brand {
+    min-width: calc(var(--shell-sidebar-width) - var(--shell-gutter) - 4px);
+  }
+}
+.shell-search {
+  width: 460px;
+  max-width: 100%;
+}
+@media (min-width: 768px) and (max-width: 1099px) {
+  .shell-topnav .shell-search {
+    width: 260px;
+  }
+}
+.shell-search .astryx-text-input {
+  min-height: 44px;
+}
+.shell-actions,
+.shell-auth {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-1);
+}
+
+/* ---------- Sidebar ---------- */
+.shell .astryx-app-shell-sidenav {
+  background: transparent;
+}
+/* SideNav pads its own list by 8px: with this, items sit 12px from the edge and 16px under the
+   top bar, as in the prototype. */
+.shell-sidenav {
+  width: var(--shell-sidebar-width);
+  padding: 0 var(--spacing-1);
+  box-sizing: border-box;
+  background: transparent;
+}
+.shell-sidenav .astryx-side-nav-item,
+.shell .astryx-side-nav-item {
+  min-height: 44px;
+  gap: var(--spacing-3);
+  padding: var(--spacing-2) var(--spacing-3);
+  border-radius: var(--radius-element);
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+  font-weight: var(--font-weight-medium);
+}
+.shell .astryx-side-nav-item svg {
+  width: 18px;
+  height: 18px;
+}
+.shell .astryx-side-nav-item:hover {
+  background: var(--color-background-muted);
+  color: var(--color-text-primary);
+}
+/* Active = soft neutral fill + full-contrast label and icon, and a heavier weight: never a bar,
+   never colour alone. */
+.shell .astryx-side-nav-item[aria-current='page'] {
+  background: var(--color-background-muted);
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-bold);
+}
+.shell .astryx-side-nav-item[aria-disabled='true']:hover {
+  background: none;
+  color: var(--color-text-secondary);
+}
+/* « Bientôt »: a quiet word at the end of the row, not a badge. */
+.nav-soon {
+  flex: none;
+  font-size: 0.75rem;
+  font-weight: var(--font-weight-normal);
+  color: var(--color-text-secondary);
+}
+
+/* ---------- Tablet rail, 768-1023px (prototype .nav-item as a rail) ---------- */
+.shell-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  box-sizing: border-box;
+  width: var(--shell-rail-width);
+  padding: var(--spacing-3) var(--spacing-2);
+}
+.shell-rail-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: 44px;
+  padding: var(--spacing-2) var(--spacing-1);
+  border-radius: var(--radius-element);
+  color: var(--color-text-secondary);
+  font-size: 0.6875rem;
+  font-weight: var(--font-weight-medium);
+  line-height: 1.15;
+  text-align: center;
+  text-decoration: none;
+}
+.shell-rail-item svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+.shell-rail-item:hover {
+  background: var(--color-background-muted);
+  color: var(--color-text-primary);
+}
+.shell-rail-item[aria-current='page'] {
+  background: var(--color-background-muted);
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-bold);
+}
+.shell-rail-item[aria-disabled='true'] {
+  cursor: default;
+}
+.shell-rail-item[aria-disabled='true']:hover {
+  background: none;
+  color: var(--color-text-secondary);
+}
+
+/* ---------- Content column ---------- */
+.shell-page {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: calc(var(--shell-content-max) + var(--shell-gutter) * 2);
+  margin-inline: auto;
+  padding: var(--spacing-6) var(--shell-gutter) var(--spacing-12);
+}
+.shell-page > .shell-search {
+  width: 100%;
+  margin-bottom: var(--spacing-6);
+}
+
+/* ---------- « Poser une question » (prototype .header-create) ---------- */
+.shell-ask-label {
+  font-size: 0.875rem;
+}
+/* Below 1024px only the plus icon shows; the label stays the accessible name. */
+@media (max-width: 1023px) {
+  .shell-ask {
+    width: 44px;
+    min-width: 44px;
+    padding-inline: 0;
+  }
+  .shell-ask-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
+/* ---------- Footer (prototype .app-footer) ---------- */
+.shell-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-2) var(--spacing-4);
+  box-sizing: border-box;
+  padding: var(--spacing-6) var(--shell-gutter) var(--spacing-8);
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+}
+@media (min-width: 768px) {
+  /* Under the content column, beside the rail, as in the prototype grid. */
+  .shell-footer {
+    padding-inline-start: calc(var(--shell-rail-width) + var(--shell-gutter));
+  }
+}
+@media (min-width: 1024px) {
+  /* ... and beside the sidebar. */
+  .shell-footer {
+    padding-inline-start: calc(var(--shell-sidebar-width) + var(--shell-gutter));
+  }
+}
+.shell-footer-name {
+  font-weight: var(--font-weight-medium);
+}
+.shell-footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-1) var(--spacing-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.shell-footer-links a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  color: var(--color-text-secondary);
+}
+/* Astryx Link sizes its label span itself; the footer keeps one 14px size. */
+.shell-footer-links a,
+.shell-footer-links a > span {
+  font-size: 0.875rem;
+}
+.shell-footer-links a:hover {
+  color: var(--color-text-primary);
+}
+
+/* ---------- Phone bottom bar (prototype .bottom-nav) ---------- */
+.shell-bottom-nav {
+  position: fixed;
+  inset: auto 0 0 0;
+  /* The bar sits on the page like the sticky top bar (AppShell header layer); menus and the
+     drawer open in the top layer above it. */
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 2px;
+  box-sizing: content-box;
+  height: var(--shell-bottom-nav-height, 60px);
+  padding-inline: var(--spacing-1);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  background: var(--color-background-surface);
+  box-shadow: inset 0 1px 0 var(--color-border);
+}
+.shell-bottom-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: 0;
+  min-height: 44px;
+  margin-block: var(--spacing-1);
+  padding: var(--spacing-1);
+  border: 0;
+  border-radius: var(--radius-element);
+  background: none;
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: 0.6875rem;
+  font-weight: var(--font-weight-medium);
+  text-decoration: none;
+  cursor: pointer;
+}
+.shell-bottom-item svg {
+  width: 20px;
+  height: 20px;
+  flex: none;
+}
+.shell-bottom-item > span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.shell-bottom-item:hover {
+  color: var(--color-text-primary);
+}
+/* Active = soft fill + full-contrast label and a heavier weight, never a bar or colour alone. */
+.shell-bottom-item[aria-current='page'] {
+  background: var(--color-background-muted);
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-bold);
+}
+
+/* ---------- Account pages (prototype layout-account) ---------- */
+.auth-brand {
+  justify-content: center;
+}
+/* The prototype's account card is a white surface without a border. */
+.auth-card {
+  border-color: transparent;
+}
+
+/* ---------- Phone ---------- */
+@media (max-width: 767px) {
+  /* The search reads as the second line of the top bar (prototype phone header): the same
+     surface, flush under the bar, with the one hairline under both. */
+  .shell .astryx-app-shell-header {
+    box-shadow: none;
+  }
+  .shell-page > .shell-search {
+    box-sizing: border-box;
+    width: auto;
+    max-width: none;
+    margin: calc(-1 * var(--spacing-6)) calc(-1 * var(--shell-gutter)) var(--spacing-6);
+    padding: 0 var(--shell-gutter) var(--spacing-2);
+    background: var(--color-background-surface);
+    box-shadow: inset 0 -1px 0 var(--color-border);
+  }
+  /* A control scrolled into view (keyboard focus, find in page) stops above the bar, not under it
+     (WCAG 2.4.11). A literal height: the shell's custom property is not set on html. */
+  html:has(.shell-bottom-nav) {
+    scroll-padding-bottom: calc(60px + env(safe-area-inset-bottom, 0px));
+  }
+  /* Room for the fixed bottom bar: the last content and the footer stay above it. */
+  .shell-footer {
+    padding-bottom: calc(
+      var(--spacing-8) + var(--shell-bottom-nav-height) + env(safe-area-inset-bottom, 0px)
+    );
+  }
+}
+@media (max-width: 767px) {
+  /* The logo keeps its size; when the actions do not fit beside it they wrap under it, at the
+     end of the bar (the prototype's phone header). */
+  .shell-topnav {
+    flex-wrap: wrap;
+    row-gap: var(--spacing-1);
+  }
+  .shell-topnav > :first-child {
+    flex: none;
+  }
+  .shell-topnav > :last-child {
+    margin-inline-start: auto;
+  }
+  /* Signed out, the sign-in row wraps under the logo and starts at the start edge, as in the
+     prototype; a member's icons stay at the end of the bar. */
+  .shell-topnav > :last-child:has(.shell-auth) {
+    margin-inline-start: 0;
+  }
+}
+@media (max-width: 479px) {
+  /* As in the prototype: the theme switch stays in the preferences menu on a narrow phone. */
+  .shell-theme-toggle {
+    display: none;
+  }
+}

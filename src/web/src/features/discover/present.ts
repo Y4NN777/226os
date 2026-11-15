@@ -1,8 +1,19 @@
 import type { components } from '../../api/schema';
+import { countryName as sharedCountryName } from '../../components/CountryCode';
+import type { StatusKind } from '../../components/StatusBadge';
 import type { Locale } from '../../i18n/messages';
 import type { MessageKey } from '../../i18n/messages';
 
 export type VerificationStatus = components['schemas']['VerificationStatus'];
+
+/** The shared state pill for each verification status (prototype App.statePill). */
+export const statusKind = {
+  verified: 'verified',
+  claimed: 'claimed',
+  unverified: 'unverified',
+  stale: 'stale',
+  disputed: 'disputed',
+} as const satisfies Record<VerificationStatus, StatusKind>;
 
 export const statusKey = {
   verified: 'discover.status.verified',
@@ -29,13 +40,9 @@ export function formatDate(iso: string, locale: Locale): string {
   );
 }
 
-/** Localized region name from the platform, never a hand-kept list; the code itself as fallback. */
+/** Localized region name (the shared CountryCode's); kept here for the pages that import it. */
 export function countryName(code: string, locale: Locale): string {
-  try {
-    return new Intl.DisplayNames([locale], { type: 'region' }).of(code) ?? code;
-  } catch {
-    return code;
-  }
+  return sharedCountryName(code, locale);
 }
 
 export function languageName(code: string, locale: Locale): string {

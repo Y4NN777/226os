@@ -40,6 +40,12 @@ export function checkTechnologies(value: string): MessageKey | undefined {
     : 'build.err.technologies';
 }
 
+/** The contract's LicenseSpdx pattern. Optional: an empty field clears the licence. */
+export function checkLicense(value: string): MessageKey | undefined {
+  const id = value.trim();
+  return id === '' || /^[A-Za-z0-9.+-]{1,64}$/.test(id) ? undefined : 'build.err.license';
+}
+
 export function checkNeedTitle(value: string): MessageKey | undefined {
   const size = length(value.trim());
   return size < NEED_TITLE_MIN || size > NEED_TITLE_MAX ? 'project.err.needTitle' : undefined;

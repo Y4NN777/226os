@@ -5,8 +5,7 @@ import { expect, test } from '@playwright/test';
 const drawerTrigger = { name: /^(Plus|Ouvrir la navigation)$/ };
 
 test.describe('Mobile navigation', () => {
-  // Returns when the prototype shell's bottom bar lands (feature/web/prototype-fidelity).
-  test.fixme('the bottom bar reaches Résoudre and Découvrir', async ({ page }) => {
+  test('the bottom bar reaches Résoudre and Découvrir', async ({ page }) => {
     await page.goto('/');
     const bar = page.getByRole('navigation', { name: 'Navigation rapide' });
     await expect(bar).toBeVisible();

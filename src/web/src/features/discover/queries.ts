@@ -31,7 +31,7 @@ export function useResourceList(search: DiscoverSearch) {
       const page = await api.call(() =>
         api.client.GET('/resources', { params: { query }, querySerializer: commaArrays }),
       );
-      return { items: page.items, nextCursor: page.next_cursor };
+      return { items: page.items, nextCursor: page.next_cursor, total: page.total };
     },
     getNextPageParam: (last) => last.nextCursor,
   });

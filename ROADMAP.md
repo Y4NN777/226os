@@ -11,9 +11,9 @@
 | What | When (GMT) | Source |
 |---|---|---|
 | CADEV submission, hard limit | Sun 2026-11-15 17:00 | `docs/SHIP.md` section 6 |
-| Planned submission | Sun 2026-11-15 about 12:00 | owner decision, 2026-11-12 |
+| Planned submission | Sun 2026-11-15, after the production smoke check, before the 17:00 hard limit | owner decision, 2026-11-15 (freeze at 12:00) |
 | Progress checkpoint (drop decisions, S10 go/no-go) | Sat 2026-11-14 12:00 | owner decision, 2026-11-12 |
-| Feature freeze on `develop` | Sat 2026-11-14 22:00 GMT | owner decision, 2026-11-14 |
+| Feature freeze on `develop` | Sun 2026-11-15 12:00 GMT at the latest | owner decision, 2026-11-15 |
 | **Every member votes**, or the team's project is excluded | Sun 2026-11-15 18:00 to Mon 2026-11-16 23:59 | `docs/SHIP.md` section 6 |
 
 **Scope**
@@ -33,7 +33,7 @@
     - The Learn free series is a small demo-fixture series of 3 to 4 short original lessons (US-LEARN-001).
   - **E4:** zero-migration interaction modes. An "ask about this lesson" button and read-only topic feeds.
   - **E5:** Connect as a read-only people directory. This is a **new operation**, suggested `GET /profiles`, so it is a contract change. With its contract commit (2026-11-14), P0 has **45 operations**. Office hours are a process note only.
-  - **Region:** public positioning is "Afrique de l'Ouest d'abord, puis toute l'Afrique" (owner decision 2026-11-12). The default filter is "Afrique de l'Ouest", with a one-click "Toute l'Afrique". The region is a UI constant in `src/web`, with no migration and no column. See TODO S7.
+  - **Region:** public positioning is "Afrique de l'Ouest d'abord, puis toute l'Afrique" (owner decision 2026-11-12). 2026-11-15 (owner): superseded by PRD amendment 3.3, "né au Burkina Faso, ouvert à l'Afrique de l'Ouest, puis à tout le continent"; the default filter below is unchanged. The default filter is "Afrique de l'Ouest", with a one-click "Toute l'Afrique". The region is a UI constant in `src/web`, with no migration and no column. See TODO S7.
   - **Pillars:** "Learn & Grow" and "Connect" are made prominent in navigation, home and wording only. No pillar is erased or demoted. The PRD amendment proposal is OPEN (O7).
   - See section 12 for what slips first.
 - **Out of scope:**
@@ -169,8 +169,8 @@ Reviews (ADR-0008, accepted 2026-11-12):
 - **Fri 13, 23:00.** Checkpoint: helpers. S4 and S5 progress decides who helps first (default: `NICE-DEV226` on S5, `Y4NN777` on S4 and the content script).
 - **Sat 14, 12:00.** Checkpoint (progress): the owner decides any drop or exception from measured progress (merged PRs, CI status) and whether S10 is a GO. The decisions go in section 14. Morning work: S3, S4 publish and the content script, S9 port and retrieval, `make test-e2e` harness.
 - **Sat 14, until 18:00.** S6 and S9 merged, S3 and S5 merged, `make perf` harness, backup and restore drill on staging, the content script rehearsed on `staging-test`, the team's real accounts create `live` content on staging, SEED finished, E4, E5 backend if time allows.
-- **Sat 14, 22:00 GMT: freeze.** `develop` takes only fixes for failing gates or smoke checks (S9 and S10 included). Evening: `make quality-full` on the `develop` SHA, rollback drill, S9 golden run, G7 evidence, ADR-0007 evidence.
-- **Sun 15, morning.** `Y4NN777` runs the release: production PR `develop` to `main`, backup, `migrate-up`, deploy the exact SHA, smoke, moderator promotion, content script on production (H19), **submits `https://226os.tech` around 12:00** (O1). Content window for all four right after the deploy (K38).
+- **Sun 15, 12:00 GMT at the latest: freeze** (owner decision 2026-11-15, moved from Sat 22:00). One review batch runs before it. After it, `develop` takes only fixes for failing gates or smoke checks (S9 and S10 included). Then: `make quality-full` on the `develop` SHA, rollback drill, S9 golden run, G7 evidence, ADR-0007 evidence.
+- **Sun 15, after the freeze.** `Y4NN777` deploys staging and production, on separate servers, and runs the release: production PR `develop` to `main`, backup, `migrate-up`, deploy the exact SHA, smoke, moderator promotion, content script on production (H19), **submits `https://226os.tech` after the production smoke check** (O1). Content window for all four right after the deploy (K38).
 - **Sun 15, 17:00: hard submission limit.** **Sun 18:00 to Mon 23:59: every member votes (H10).**
 
 ## 7. Dependencies and critical path
@@ -181,7 +181,7 @@ Reviews (ADR-0008, accepted 2026-11-12):
 2. S1 (identity), which blocks every member write;
 3. the member writes in S3, S4 and S5 (S6 last, S9 after S1 and S2);
 4. the S7 write flows on the live endpoints;
-5. the freeze (Sat 22:00 GMT);
+5. the freeze (Sun 12:00 GMT at the latest);
 6. G5, G6 and G7 evidence;
 7. production deploy (needs H6, H7 and B4);
 8. submission.
@@ -431,4 +431,6 @@ Superseded entries (OpenAI provider, V1 to V4 findings note, E3/S11, pillars fir
 | 2026-11-14 | **12:00 checkpoint (owner).** Kept for the 18:00 freeze: S6 moderation (P0; backend minimal, built after the web lanes; no migration, `audit_log` and `users.role` exist), E5 Connect directory (offered to `NICE-DEV226` on #77: contract PR by 13:30, backend by 16:30, the `connect` page by `PANK4SS` (owner, 2026-11-14: Connect UI stays with `PANK4SS`); slips after the freeze if the backend is not merged by 16:30), E4 (topic feeds and the "question about this lesson" button), SEED (`local-dev` only), the S7 pages `apprendre`, `article`, `formation`, `build`, `project`, `profile`, #125 lessons, `APP_BASE_URL` for staging and production (#109). **S10 NOT BUILT (P2)**: it needs an ADR, a contract PR and a migration. Cut and announced honestly, after the submission: `Retry-After` on the disabled and limiter-failure 503 of S9, the AI-3 and AI-5 golden cases, `published_at` and `series` sources, local SMTP and the manual a11y pass (#109). ADR-0012 accepted. | `Y4NN777` |
 | 2026-11-14 | **S9 cuts back in scope (owner, ~15:15).** The items cut at the 12:00 checkpoint are built before the freeze: `Retry-After` on every assistant 503, AI-3 enforced on the server, AI-5 dated sources (`published_at` from the search, no migration and no contract change), golden cases G14 to G17 on the fake adapter. ADR-0012 points 6, 9 and 11 amended. | `Y4NN777` |
 | 2026-11-14 | **Freeze moved twice (owner).** The `develop` feature freeze moves from Sat 18:00 to 20:00 GMT (~17:00), then to 22:00 GMT (~19:45). After it, only fixes for failing gates or smoke checks. | `Y4NN777` |
+| 2026-11-15 | **Freeze moved (owner).** The `develop` feature freeze is Sun 15 at 12:00 GMT at the latest, so staging and production can be deployed on separate servers before the 17:00 limit; one review batch runs before the freeze. | `Y4NN777` |
 | 2026-11-15 | Owner reverses correction B: demo seeds allowed in local-dev and staging-test (ADR-0005 point 17); production-live never. | `Y4NN777` |
+| 2026-11-15 | **DECIDED: positioning, PRD amendment 3.3.** 226os is born in Burkina Faso: first the reference for Burkinabè developers, engineers and techies, then the sub-region through partnerships (tech communities, hubs, schools), then Africa. Public line: "né au Burkina Faso, ouvert à l'Afrique de l'Ouest, puis à tout le continent". Product unchanged: open to all, West Africa stays the Discover default filter. The UI positioning copy (landing and Discover, FR and EN) follows in a web pull request. | `Y4NN777` |

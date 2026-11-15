@@ -1,0 +1,659 @@
+/*
+ * Shared UI pieces (src/components), after the prototype catalogue
+ * (prototypes/html/assets/css/components.css, CONVENTIONS.md section 3). Astryx tokens only.
+ * Few borders: fills and spacing; one hairline between list rows at most.
+ */
+
+/*
+ * One scale for every page (prototype base.css and layout.css): h1 clamp(26px..32px), lead 16px
+ * muted, every section h2 20px (plain or panel), h3 16px, meta 14px, pills 12px, rows 12px/16px
+ * padding, panels 20px padding on the container radius, 24px between page blocks.
+ */
+
+/* Field labels (prototype `.label`): 14px, medium, in the text colour, not the muted tone. */
+.astryx-field-label {
+  color: var(--color-text-primary);
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+/* ---------- Page header ---------- */
+.ui-page-header {
+  display: grid;
+  gap: var(--spacing-2);
+  margin-bottom: var(--spacing-6);
+  min-width: 0;
+}
+/* Inside a page grid or a hero panel the container already spaces it. */
+.ui-page > .ui-page-header,
+.ui-panel > .ui-page-header {
+  margin-bottom: 0;
+}
+/* Extra header content (a bio, tags, links) after the lead. */
+.ui-page-header > p {
+  margin: 0;
+  max-width: 68ch;
+}
+.ui-page-header-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-3);
+  justify-content: space-between;
+  align-items: flex-start;
+}
+.ui-page-header .ui-page-title {
+  margin: 0;
+  font-size: clamp(1.625rem, 1.2rem + 1.6vw, 2rem);
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
+}
+.ui-page-header .ui-page-title:focus {
+  outline: none;
+}
+.ui-page-header-id {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-4);
+  min-width: 0;
+  flex: 1 1 20rem;
+}
+.ui-page-header-media {
+  flex: none;
+  display: flex;
+}
+.ui-page-header-text {
+  display: grid;
+  gap: var(--spacing-1);
+  min-width: 0;
+}
+.ui-page-header-text > p {
+  margin: var(--spacing-2) 0 0;
+  max-width: 68ch;
+}
+.ui-page-header-text > .ui-tag-list,
+.ui-page-header-text > .ui-meta {
+  margin-top: var(--spacing-2);
+}
+.ui-page-header-eyebrow,
+.ui-page-header-subtitle {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+}
+.ui-page-header-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-1) var(--spacing-3);
+  margin-top: var(--spacing-1);
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+.ui-page-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-2);
+  align-items: center;
+}
+.ui-page-header .ui-page-header-lead {
+  margin: 0;
+  max-width: 68ch;
+  font-size: 1rem;
+}
+.ui-breadcrumbs {
+  margin-bottom: var(--spacing-1);
+}
+/* Phone: the parent crumb alone, as a back link with a 44px target. */
+.ui-breadcrumbs-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 44px;
+  margin-inline-start: calc(var(--spacing-1) * -1);
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+  text-decoration: none;
+}
+.ui-breadcrumbs-back:hover {
+  color: var(--color-text-primary);
+  text-decoration: underline;
+}
+@media (max-width: 479px) {
+  .ui-page-header-id {
+    align-items: flex-start;
+    gap: var(--spacing-3);
+  }
+}
+
+/* ---------- Page blocks: sections and panels ---------- */
+.ui-page {
+  display: grid;
+  gap: var(--spacing-6);
+  min-width: 0;
+  container-type: inline-size;
+}
+.ui-section {
+  display: grid;
+  gap: var(--spacing-3);
+  min-width: 0;
+  align-content: start;
+}
+.ui-panel {
+  padding: var(--spacing-5);
+  border-radius: var(--radius-container);
+  background: var(--color-background-surface);
+  min-width: 0;
+}
+/* A filter bar (prototype `.filter-bar`): the panel surface, tighter padding. */
+.ui-panel.ui-filter-bar {
+  padding: var(--spacing-3);
+}
+.ui-section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-2) var(--spacing-3);
+}
+.ui-section-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-2);
+  min-width: 0;
+}
+.ui-section-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-2);
+}
+.ui-section .ui-section-title {
+  margin: 0;
+  font-size: 1.25rem;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+.ui-section-lede {
+  margin: calc(var(--spacing-2) * -1) 0 0;
+  max-width: 68ch;
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+}
+.ui-section h3,
+.ui-section h3.ui-section-title {
+  font-size: 1rem;
+  line-height: 1.35;
+  letter-spacing: 0;
+}
+/* Facts as label/value pairs (prototype `.dl-meta`). */
+.ui-facts {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--spacing-2) var(--spacing-4);
+  margin: 0;
+  font-size: 0.875rem;
+}
+.ui-facts dt {
+  color: var(--color-text-secondary);
+}
+.ui-facts dd {
+  margin: 0;
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+}
+@media (max-width: 479px) {
+  .ui-facts {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+  .ui-facts dd {
+    margin-bottom: var(--spacing-2);
+  }
+}
+/* Two columns on wide pages: main content, then a 300px side column (prototype `.with-aside`). */
+.ui-columns {
+  display: grid;
+  gap: var(--spacing-6);
+  align-items: start;
+  min-width: 0;
+}
+@container (min-width: 880px) {
+  .ui-columns {
+    grid-template-columns: minmax(0, 1fr) 300px;
+  }
+}
+.ui-columns-main,
+.ui-columns-aside {
+  display: grid;
+  gap: var(--spacing-6);
+  min-width: 0;
+  align-content: start;
+}
+.ui-columns-aside {
+  gap: var(--spacing-4);
+}
+
+/* ---------- Linked content tiles ---------- */
+.ui-linked {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(14rem, 100%), 1fr));
+  gap: var(--spacing-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ui-linked-item {
+  position: relative;
+  display: grid;
+  gap: var(--spacing-1);
+  padding: var(--spacing-3);
+  border-radius: var(--radius-element);
+  background: var(--color-background-surface);
+}
+.ui-panel .ui-linked-item {
+  background: var(--color-background-muted);
+}
+.ui-linked-item:hover {
+  background: var(--color-background-muted);
+}
+.ui-linked-kind {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+}
+.ui-linked-title {
+  font-size: 0.875rem;
+  font-weight: var(--font-weight-bold);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+/* The title link covers the tile, so the tile is one target named by the title. */
+.ui-linked-title a::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-element);
+}
+
+/* ---------- Results line ---------- */
+.ui-results-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-3);
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-2);
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+}
+.ui-results-meta-summary {
+  margin: 0;
+}
+.ui-results-meta-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-2);
+  align-items: center;
+}
+
+/* ---------- List > row ---------- */
+.ui-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  background: var(--color-background-surface);
+  border-radius: var(--radius-container);
+  overflow: hidden;
+  container-type: inline-size;
+}
+.ui-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--spacing-3);
+  align-items: start;
+  padding: var(--spacing-3) var(--spacing-4);
+}
+.ui-row.has-lead {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+.ui-row + .ui-row {
+  border-top: 1px solid var(--color-border);
+}
+.ui-row:hover {
+  background: var(--color-background-muted);
+}
+.ui-row-lead {
+  display: flex;
+  align-items: flex-start;
+  padding-top: 2px;
+}
+.ui-row-main {
+  min-width: 0;
+  display: grid;
+  gap: var(--spacing-1);
+}
+.ui-row-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: var(--font-weight-bold);
+  line-height: 1.35;
+}
+.ui-row-title .ui-row-link {
+  color: var(--color-text-primary);
+  font-weight: inherit;
+  text-decoration: none;
+}
+/* Astryx Link sets its own weight on the inner text span: the title's weight wins. */
+.ui-row-title .ui-row-link *,
+.ui-linked-title a * {
+  font-weight: inherit;
+}
+/* The title link covers the whole row; other links sit above it in .ui-row-above. */
+.ui-row-title .ui-row-link::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+}
+.ui-row-title .ui-row-link:hover {
+  color: var(--color-text-accent);
+  text-decoration: underline;
+}
+.ui-row-above {
+  position: relative;
+  z-index: 1;
+}
+/* Links and controls outside the title (owner, origin, GitHub) stay above the row link. */
+.ui-row-main .ui-meta a,
+.ui-row-main .ui-meta button,
+.ui-row-aside a,
+.ui-row-aside button,
+.ui-row .ui-status-wrap {
+  position: relative;
+  z-index: 1;
+}
+.ui-row-subtitle {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+  overflow-wrap: anywhere;
+}
+.ui-row-excerpt {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.ui-row-aside {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--spacing-1);
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+@container (max-width: 480px) {
+  .ui-row.has-lead:not(.has-corner) {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .ui-row.has-lead:not(.has-corner) > .ui-row-aside {
+    grid-column: 1 / -1;
+  }
+  /* A small tag (language code) stays in the top-right corner instead of taking its own row. */
+  .ui-row-aside.is-corner {
+    align-items: flex-start;
+  }
+  .ui-row-aside {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+}
+.ui-list.is-grid {
+  background: transparent;
+  border-radius: 0;
+  overflow: visible;
+  display: grid;
+  gap: var(--spacing-3);
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
+}
+.ui-list.is-grid > .ui-row {
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  gap: var(--spacing-2);
+  padding: var(--spacing-4);
+  background: var(--color-background-surface);
+  border-radius: var(--radius-container);
+}
+.ui-list.is-grid > .ui-row + .ui-row {
+  border-top: 0;
+}
+.ui-list.is-grid > .ui-row > .ui-row-aside {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+/* ---------- Meta ---------- */
+.ui-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-1) var(--spacing-3);
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+.ui-meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-1);
+}
+/* A link in a meta line (owner, origin, GitHub) keeps the line's size. */
+.ui-meta a,
+.ui-meta a * {
+  font-size: inherit;
+}
+
+/* ---------- Status pill (icon + word on a neutral fill) ---------- */
+.ui-status.astryx-badge {
+  gap: 6px;
+  min-height: 24px;
+  padding: 2px var(--spacing-3) 2px var(--spacing-2);
+  border-radius: var(--radius-full);
+  background: var(--color-background-muted);
+  color: var(--color-text-primary);
+  font-size: 0.75rem;
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+  flex: none;
+  max-width: none;
+}
+.ui-status-wrap {
+  flex: none;
+}
+.ui-status svg {
+  width: 14px;
+  height: 14px;
+}
+.ui-status-wrap {
+  display: inline-flex;
+}
+
+/* ---------- Tags, country ---------- */
+.ui-tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-1);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.ui-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px var(--spacing-2);
+  border-radius: var(--radius-inner);
+  background: var(--color-background-muted);
+  color: var(--color-text-primary);
+  font-family: var(--font-family-code);
+  font-size: 0.75rem;
+  line-height: 1.6;
+  text-decoration: none;
+}
+a.ui-tag:hover {
+  color: var(--color-text-accent);
+  text-decoration: underline;
+}
+.ui-tag-more {
+  align-self: center;
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+/* Original language of user content: a quiet mono code, like the country chip. */
+.ui-lang {
+  font-family: var(--font-family-code);
+  font-size: 0.75rem;
+  font-weight: var(--font-weight-medium);
+  letter-spacing: 0.04em;
+  color: var(--color-text-secondary);
+}
+.ui-countries {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-1) var(--spacing-2);
+}
+.ui-country {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-1);
+}
+.ui-country-code {
+  padding: 0 6px;
+  border-radius: var(--radius-inner);
+  background: var(--color-background-muted);
+  font-family: var(--font-family-code);
+  font-size: 0.75rem;
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.04em;
+  line-height: 1.5;
+}
+.ui-avatar-wrap {
+  display: inline-flex;
+}
+/* Monogram tiles (prototype `.thumb`, 32/48/72): five token pairs, never a remote image. */
+.ui-tile {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-element);
+  font-size: 1rem;
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.02em;
+  line-height: 1;
+  user-select: none;
+}
+.ui-tile-xs,
+.ui-tile-sm {
+  width: 32px;
+  height: 32px;
+  font-size: 0.75rem;
+  border-radius: var(--radius-inner);
+}
+.ui-tile-lg,
+.ui-tile-xl {
+  width: 72px;
+  height: 72px;
+  font-size: 1.5rem;
+  border-radius: var(--radius-container);
+}
+.ui-tone-0 {
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+.ui-tone-1 {
+  background: var(--color-background-green);
+  color: var(--color-text-green);
+}
+.ui-tone-2 {
+  background: var(--color-background-muted);
+  color: var(--color-text-primary);
+}
+.ui-tone-3 {
+  background: var(--color-background-orange);
+  color: var(--color-text-orange);
+}
+.ui-tone-4 {
+  background: var(--color-neutral);
+  color: var(--color-text-primary);
+}
+
+/* ---------- States: empty, error, loading rows ---------- */
+.ui-state {
+  display: grid;
+  justify-items: center;
+  gap: var(--spacing-2);
+  padding: var(--spacing-8) var(--spacing-4);
+  border-radius: var(--radius-container);
+  background: var(--color-background-muted);
+  text-align: center;
+}
+.ui-state > p {
+  margin: 0;
+  max-width: 52ch;
+}
+.ui-state-title {
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+.ui-state-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--spacing-2);
+  margin-top: var(--spacing-2);
+}
+.not-found {
+  width: 100%;
+  max-width: 480px;
+}
+.ui-skeleton-list {
+  background: var(--color-background-surface);
+  border-radius: var(--radius-container);
+  overflow: hidden;
+}
+.ui-skeleton-row {
+  display: grid;
+  gap: var(--spacing-2);
+  padding: var(--spacing-3) var(--spacing-4);
+}
+.ui-skeleton-row + .ui-skeleton-row {
+  border-top: 1px solid var(--color-border);
+}
+
+/* Increased contrast: the borderless pieces get an outline back. */
+@media (prefers-contrast: more) {
+  .ui-list,
+  .ui-panel,
+  .ui-linked-item,
+  .ui-tile,
+  .ui-state,
+  .ui-status.astryx-badge,
+  .ui-tag,
+  .ui-country-code {
+    outline: 1px solid var(--color-text-secondary);
+    outline-offset: -1px;
+  }
+}

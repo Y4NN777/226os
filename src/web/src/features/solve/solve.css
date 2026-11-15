@@ -1,0 +1,260 @@
+/*
+ * Solve pages (questions list, ask view, question detail), after prototypes/html/pages/solve.html
+ * and question.html. Header, rows, pills, tags, panels, facts, linked tiles and the two-column
+ * layout are the shared pieces (src/components, styles/ui.css); what stays here is specific to
+ * solve: the search toolbar, the row's score column, the vote column, answers and their sources.
+ */
+
+/* ---- search and toolbar ---- */
+.solve-search {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--spacing-3);
+}
+.solve-searchbar {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+}
+.solve-searchbar > .solve-grow {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.solve-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-2) var(--spacing-3);
+}
+/* Four French labels do not fit at 360px: the control scrolls inside its own strip, the page never does. */
+.solve-seg {
+  max-width: 100%;
+  padding: 2px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.solve-seg > * {
+  min-width: max-content;
+}
+/* On a phone the four states fit the strip (14px labels, tight padding); the scroll stays as the
+   fallback for larger text sizes. */
+@media (max-width: 479px) {
+  .solve-seg button,
+  .solve-seg button * {
+    font-size: 0.875rem;
+  }
+  .solve-seg button {
+    padding-inline: 6px;
+  }
+}
+.solve-toolbar-end {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-1);
+  margin-inline-start: auto;
+}
+.solve-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--spacing-3);
+  padding: var(--spacing-4);
+  border-radius: var(--radius-container);
+  background: var(--color-background-surface);
+}
+.solve-filters[hidden] {
+  display: none;
+}
+.solve-filters > .solve-grow {
+  flex: 1 1 200px;
+  min-width: 0;
+}
+
+/* ---- row lead: score and answer count ---- */
+.solve-stats {
+  display: grid;
+  align-content: start;
+  gap: var(--spacing-2);
+  min-width: 2.75rem;
+}
+.solve-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+  line-height: 1;
+}
+.solve-stat strong {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+.solve-stat-accepted,
+.solve-stat-accepted strong {
+  color: var(--color-text-success);
+}
+.solve-stat-none svg {
+  opacity: 0.55;
+}
+.solve-pill-tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-2);
+}
+.solve-person {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-1-5);
+  color: var(--color-text-primary);
+}
+
+/* ---- the ask view's way back (local state on /solve, so a button) ---- */
+.solve-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 36px;
+  padding: 0 var(--spacing-3) 0 var(--spacing-1);
+  border: 0;
+  border-radius: var(--radius-element);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-weight: var(--font-weight-medium);
+  text-decoration: none;
+  cursor: pointer;
+}
+.solve-back:hover {
+  background: var(--color-background-muted);
+  color: var(--color-text-primary);
+}
+.solve-back:focus-visible {
+  outline: 2px solid var(--focus-outline-color);
+  outline-offset: 1px;
+}
+
+/* ---- ask view: form and assistant side by side ---- */
+.solve-ask-layout {
+  display: grid;
+  gap: var(--spacing-5);
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+}
+@media (min-width: 1024px) {
+  .solve-ask-layout {
+    grid-template-columns: minmax(0, 1fr) 340px;
+    gap: var(--spacing-6);
+  }
+}
+
+/* ---- question page: posts with their vote column ---- */
+.solve-post {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--spacing-3);
+  align-items: start;
+}
+@media (min-width: 640px) {
+  .solve-post {
+    gap: var(--spacing-5);
+  }
+}
+.solve-post-main {
+  display: grid;
+  gap: var(--spacing-4);
+  min-width: 0;
+}
+.solve-answer-list {
+  display: grid;
+  gap: var(--spacing-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.solve-answer-head {
+  margin-bottom: var(--spacing-3);
+}
+.solve-answer-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-2) var(--spacing-3);
+}
+.solve-sources {
+  display: grid;
+  gap: var(--spacing-2);
+  padding: var(--spacing-3) var(--spacing-4);
+  border-radius: var(--radius-element);
+  background: var(--color-background-muted);
+}
+.solve-sources-h {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+  font-weight: var(--font-weight-medium);
+}
+.solve-sources ul {
+  display: grid;
+  gap: var(--spacing-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-wrap: anywhere;
+}
+
+/* vote column: up, score, down */
+.solve-vote {
+  display: grid;
+  justify-items: center;
+  gap: var(--spacing-1);
+  min-width: 2.5rem;
+}
+/* Tinted square buttons, as the prototype's `.vote button`. */
+.solve-vote-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 36px;
+  border-radius: var(--radius-inner);
+  background: var(--color-background-muted);
+  color: var(--color-text-secondary);
+}
+.solve-vote-btn:hover:not(:disabled) {
+  background: var(--color-neutral);
+  color: var(--color-text-primary);
+}
+.solve-vote-score {
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+.solve-vote [aria-pressed='true'] {
+  background: var(--color-background-green);
+  color: var(--color-text-accent);
+}
+
+/* signed-out answer invitation */
+.solve-compose-cta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-3);
+  padding: var(--spacing-4);
+  border-radius: var(--radius-container);
+  background: var(--color-background-muted);
+}
+.solve-compose-cta > svg {
+  flex: none;
+  color: var(--color-text-accent);
+}
+.solve-compose-cta p {
+  flex: 1 1 18ch;
+  margin: 0;
+  color: var(--color-text-secondary);
+}

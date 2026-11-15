@@ -1,34 +1,60 @@
-import { Badge } from '@astryxdesign/core/Badge';
-import { HStack } from '@astryxdesign/core/HStack';
-import { Text } from '@astryxdesign/core/Text';
+import { Avatar } from '../../components/Avatar';
+import { CountryCode } from '../../components/CountryCode';
+import { StatusBadge } from '../../components/StatusBadge';
 import { useI18n } from '../../i18n/I18nProvider';
-import type { MessageKey } from '../../i18n/messages';
 import type { Question } from './queries';
 
-const stateKey = {
-  open: 'solve.state.open',
-  answered: 'solve.state.answered',
-  resolved: 'solve.state.resolved',
-} as const satisfies Record<Question['state'], MessageKey>;
+type Author = Question['author'];
 
-const stateVariant = { open: 'neutral', answered: 'info', resolved: 'success' } as const;
-
-export function StateBadge({ state }: { state: Question['state'] }) {
+/**
+ * The state pill (shared StatusBadge). Only the two states the prototype labels get one:
+ * "answered" is already told by the answer count next to it.
+ */
+export function QuestionState({ state }: { state: Question['state'] }) {
   const { t } = useI18n();
-  return <Badge variant={stateVariant[state]} label={t(stateKey[state])} />;
-}
-
-export function TagList({ tags }: { tags: readonly string[] }) {
-  return (
-    <HStack gap={1} wrap="wrap">
-      {tags.map((tag) => (
-        <Badge key={tag} variant="blue" label={tag} />
-      ))}
-    </HStack>
+  if (state === 'answered') return null;
+  return state === 'resolved' ? (
+    <StatusBadge kind="accepted" label={t('solve.pill.resolved')} />
+  ) : (
+    <StatusBadge kind="open" label={t('solve.pill.open')} />
   );
 }
 
-export function Byline({ name }: { name: string }) {
-  const { t } = useI18n();
-  return <Text type="supporting">{t('solve.by', { name })}</Text>;
+/** Initials avatar (no remote image), display name and country code. */
+export function Person({ author }: { author: Author }) {
+  return (
+    <span className="solve-person">
+      <Avatar name={author.display_name} size="xs" />
+      <span>{author.display_name}</span>
+      {author.country ? <CountryCode code={author.country} /> : null}
+    </span>
+  );
+}
+
+/** "10 nov. 2026" / "10 Nov 2026", in UTC so the day never shifts with the visitor's zone. */
+export function DateText({ iso }: { iso: string }) {
+  const { locale } = useI18n();
+  const label = new Intl.DateTimeFormat(locale === 'en' ? 'en-GB' : locale, {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).format(new Date(iso));
+  return <time dateTime={iso}>{label}</time>;
+}
+
+/**
+ * A one-paragraph plain-text preview of a Markdown body: code blocks dropped, links reduced to
+ * their text, emphasis and heading marks removed. Rendered as text, never as HTML.
+ */
+export function excerptOf(markdown: string, max = 240): string {
+  const text = markdown
+    .replace(/```[\s\S]*?(```|$)/g, ' ')
+    .replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/^\s{0,3}(#{1,6}|>|[-*+]|\d+[.)])\s+/gm, '')
+    .replace(/[`*_~]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text;
 }

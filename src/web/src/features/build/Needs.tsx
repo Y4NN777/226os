@@ -1,9 +1,8 @@
-import { Badge } from '@astryxdesign/core/Badge';
 import { Banner } from '@astryxdesign/core/Banner';
 import { Button } from '@astryxdesign/core/Button';
-import { Card } from '@astryxdesign/core/Card';
-import { Heading } from '@astryxdesign/core/Heading';
 import { HStack } from '@astryxdesign/core/HStack';
+import { Icon } from '@astryxdesign/core/Icon';
+import { Link } from '@astryxdesign/core/Link';
 import { SegmentedControl, SegmentedControlItem } from '@astryxdesign/core/SegmentedControl';
 import { Text } from '@astryxdesign/core/Text';
 import { TextArea } from '@astryxdesign/core/TextArea';
@@ -24,7 +23,9 @@ import { useInvalidFocus } from '../identity/useInvalidFocus';
 import { errorStatus } from '../identity/validation';
 import { violationName } from '../identity/violations';
 import { signInHref } from '../solve/signIn';
-import { Technologies } from './present';
+import { Section } from '../../components/Section';
+import { StatusBadge, type StatusKind } from '../../components/StatusBadge';
+import { TagList } from '../../components/Tag';
 import {
   useCreateApplication,
   useCreateNeed,
@@ -47,6 +48,12 @@ const statusKey = {
   filled: 'project.need.status.filled',
   closed: 'project.need.status.closed',
 } as const satisfies Record<Need['status'], MessageKey>;
+
+const statusKind: Record<Need['status'], StatusKind> = {
+  open: 'open',
+  filled: 'accepted',
+  closed: 'closed',
+};
 
 const settledKey = {
   accepted: 'project.apply.accepted',
@@ -241,39 +248,49 @@ function NeedItem({
   const { t } = useI18n();
   const [applying, setApplying] = useState(false);
   const [sent] = useSent(need);
+  const open = need.status === 'open';
+  const classes = ['build-need'];
+  if (!open) classes.push('is-settled');
+  if (open && applying && !sent) classes.push('is-open-form');
   return (
-    <Card variant="muted">
-      <VStack gap={2}>
-        <HStack gap={2} wrap="wrap" vAlign="center">
-          <Heading level={3}>{need.title}</Heading>
-          <Badge
-            variant={need.status === 'open' ? 'success' : 'neutral'}
-            label={t(statusKey[need.status])}
-          />
-        </HStack>
-        <Text as="p">{need.description}</Text>
-        <Technologies items={need.skills} />
-        {need.status === 'open' && viewer === 'member' ? (
-          applying || sent ? (
-            <ApplyForm need={need} projectId={projectId} />
-          ) : (
-            <HStack>
-              <Button
-                label={t('project.apply')}
-                onClick={() => {
-                  setApplying(true);
-                }}
-              />
-            </HStack>
-          )
-        ) : null}
-        {need.status === 'open' && viewer === 'anonymous' ? (
+    <li className={classes.join(' ')}>
+      <div className="build-need-head">
+        <h3 lang={need.lang}>{need.title}</h3>
+        <StatusBadge kind={statusKind[need.status]} label={t(statusKey[need.status])} />
+      </div>
+      <p className="build-need-body" lang={need.lang}>
+        {need.description}
+      </p>
+      {need.skills.length > 0 ? <TagList tags={need.skills} /> : null}
+      {open && viewer === 'member' ? (
+        applying || sent ? (
+          <ApplyForm need={need} projectId={projectId} />
+        ) : (
           <HStack>
-            <Button label={t('project.apply.signIn')} href={signInHref(`/build/${projectId}`)} />
+            <Button
+              variant="primary"
+              size="sm"
+              label={t('project.apply')}
+              onClick={() => {
+                setApplying(true);
+              }}
+            />
           </HStack>
-        ) : null}
-      </VStack>
-    </Card>
+        )
+      ) : null}
+    </li>
+  );
+}
+
+/** One line for an anonymous visitor, above the needs: reading is open, applying needs an account. */
+function SignInHint({ projectId }: { projectId: string }) {
+  const { t } = useI18n();
+  return (
+    <p className="build-signin-hint">
+      <Icon icon="info" color="secondary" />
+      <span>{t('project.signin.hint')}</span>
+      <Link href={signInHref(`/build/${projectId}`)}>{t('project.apply.signIn')}</Link>
+    </p>
   );
 }
 
@@ -463,53 +480,61 @@ export function Needs({
   const needs = useNeeds(projectId);
   const [adding, setAdding] = useState(false);
   const items = needs.data?.pages.flatMap((page) => page.items) ?? [];
+  const anyOpen = items.some((need) => need.status === 'open');
   return (
-    <section aria-label={t('project.needs.title')}>
-      <VStack gap={3}>
-        <HStack gap={3} vAlign="center" wrap="wrap">
-          <Heading level={2}>{t('project.needs.title')}</Heading>
-          {viewer === 'owner' && !adding ? (
-            <Button
-              variant="ghost"
-              label={t('project.need.add')}
-              onClick={() => {
-                setAdding(true);
-              }}
-            />
-          ) : null}
-        </HStack>
-        {viewer === 'owner' && adding ? (
+    <Section
+      id="besoins"
+      title={t('project.needs.title')}
+      titleId="project-needs-heading"
+      actions={
+        viewer === 'owner' && !adding ? (
+          <Button
+            variant="secondary"
+            size="sm"
+            label={t('project.need.add')}
+            onClick={() => {
+              setAdding(true);
+            }}
+          />
+        ) : undefined
+      }
+    >
+      {viewer === 'owner' && adding ? (
+        <div className="ui-panel">
           <NeedForm
             projectId={projectId}
             onClose={() => {
               setAdding(false);
             }}
           />
-        ) : null}
-        {needs.isPending ? <LoadingState /> : null}
-        {needs.isError && !needs.data ? (
-          <ErrorState error={needs.error} onRetry={() => void needs.refetch()} />
-        ) : null}
-        {needs.data && items.length === 0 ? <Text as="p">{t('project.needs.none')}</Text> : null}
-        {items.length > 0 ? (
-          <VStack as="ul" gap={3}>
-            {items.map((need) => (
-              <li key={need.id}>
-                <NeedItem need={need} projectId={projectId} viewer={viewer} />
-              </li>
-            ))}
-          </VStack>
-        ) : null}
-        {needs.hasNextPage ? (
-          <HStack hAlign="center">
-            <Button
-              label={t('build.more')}
-              isLoading={needs.isFetchingNextPage}
-              onClick={() => void needs.fetchNextPage()}
-            />
-          </HStack>
-        ) : null}
-      </VStack>
-    </section>
+        </div>
+      ) : null}
+      {viewer === 'anonymous' && anyOpen ? <SignInHint projectId={projectId} /> : null}
+      {needs.isPending ? <LoadingState /> : null}
+      {needs.isError && !needs.data ? (
+        <ErrorState error={needs.error} onRetry={() => void needs.refetch()} />
+      ) : null}
+      {needs.data && items.length === 0 ? (
+        <Text as="p" color="secondary">
+          {t('project.needs.none')}
+        </Text>
+      ) : null}
+      {items.length > 0 ? (
+        <ul className="build-needs">
+          {items.map((need) => (
+            <NeedItem key={need.id} need={need} projectId={projectId} viewer={viewer} />
+          ))}
+        </ul>
+      ) : null}
+      {needs.hasNextPage ? (
+        <HStack hAlign="center">
+          <Button
+            label={t('build.more')}
+            isLoading={needs.isFetchingNextPage}
+            onClick={() => void needs.fetchNextPage()}
+          />
+        </HStack>
+      ) : null}
+    </Section>
   );
 }

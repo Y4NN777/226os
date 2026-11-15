@@ -6,7 +6,7 @@
 
 226os (« 226 Open Stack », 226 étant l'indicatif téléphonique du Burkina Faso) est une plateforme qui relie l'entraide technique, les ressources utiles aux développeurs africains, les projets open source et l'apprentissage. Le but n'est pas d'ajouter un forum, un annuaire d'API ou un réseau professionnel de plus, mais de raccourcir le chemin entre un problème rencontré, une solution documentée et une contribution que d'autres peuvent réutiliser.
 
-Positionnement : **Afrique de l'Ouest d'abord, puis toute l'Afrique.**
+Positionnement : **né au Burkina Faso, ouvert à l'Afrique de l'Ouest, puis à tout le continent.** 226os veut d'abord être la référence des développeurs, ingénieurs et techies burkinabè, puis s'étendre dans la sous-région par des partenariats.
 
 **État** : le MVP tourne sur `develop` et la mise en production se prépare. Plan dans [ROADMAP.md](ROADMAP.md), suivi dans [TODO.md](TODO.md).
 
@@ -28,6 +28,40 @@ Beaucoup de solutions techniques africaines existent déjà, mais restent peu co
 - **Recherche** : une seule recherche plein texte couvre les questions, les ressources, les projets et Apprendre.
 - **Modération** : « Signaler une erreur » sur une fiche Découvrir ; les modérateurs masquent ou rétablissent un contenu et traitent les signalements par l'API ([runbook](docs/runbooks/moderation.md)).
 - **Assistant sourcé** : il répond uniquement à partir des contenus publiés et cite ses sources ; sans source, il le dit. Désactivé par défaut.
+
+## Aperçu
+
+Captures du 15 novembre 2026 sur les données de démonstration. Les autres pages et la comparaison avec les maquettes sont dans le [rapport de fidélité](docs/quality/PROTOTYPE_FIDELITY.md).
+
+### Accueil
+
+![Page d’accueil de 226os pour un visiteur](docs/quality/evidence/fidelity/2026-11-15/landing-app-1280-light.png)
+
+### Découvrir
+
+![Catalogue Découvrir avec les fiches d’API et d’outils, leurs pays et leur statut de vérification](docs/quality/evidence/fidelity/2026-11-15/discover-app-1280-light.png)
+
+### Résoudre
+
+![Liste des questions de Résoudre avec leur état, leurs étiquettes et leur langue](docs/quality/evidence/fidelity/2026-11-15/solve-app-1280-light.png)
+
+### Question
+
+![Page d’une question avec la réponse acceptée et les votes](docs/quality/evidence/fidelity/2026-11-15/question-app-1280-light.png)
+
+### Construire
+
+![Liste des projets open source de Construire avec leurs besoins ouverts](docs/quality/evidence/fidelity/2026-11-15/build-app-1280-light.png)
+
+### Apprendre
+
+![Page Apprendre avec les filtres par type, sujet, niveau et langue](docs/quality/evidence/fidelity/2026-11-15/apprendre-app-1280-light.png)
+
+### Sur téléphone
+
+| Découvrir | Résoudre | Question |
+|---|---|---|
+| <img src="docs/quality/evidence/fidelity/2026-11-15/discover-app-375-light.png" alt="Découvrir sur téléphone" width="240"> | <img src="docs/quality/evidence/fidelity/2026-11-15/solve-app-375-light.png" alt="Résoudre sur téléphone" width="240"> | <img src="docs/quality/evidence/fidelity/2026-11-15/question-app-375-light.png" alt="Une question sur téléphone" width="240"> |
 
 ## Ce qui distingue 226os
 
@@ -59,7 +93,14 @@ Un monolithe Go modulaire (Chi, pgx, sqlc) expose une API REST décrite en OpenA
 
 ## Qualité
 
-`make quality` lance G1 à G4, aussi en CI. Le détail est dans [docs/TEST.md](docs/TEST.md).
+Chaque pull request passe les mêmes contrôles en CI, et `make quality` les lance en local :
+
+- **Code propre** : formatage, lint, types, et code généré (client d'API, requêtes SQL) à jour.
+- **Tests unitaires** : 100 % des instructions couvertes côté Go, plus de 70 % côté web.
+- **Intégration** : tests sur une vraie base PostgreSQL, réponses de l'API conformes au contrat OpenAPI, contrôles d'accès testés rôle par rôle.
+- **Sécurité** : analyse statique du code, failles connues des dépendances et des images Docker, recherche de secrets, et tests des accès refusés sur chaque route.
+
+Les tests de bout en bout dans le navigateur et les tests de performance ne sont pas encore en place. Le détail est dans [docs/TEST.md](docs/TEST.md).
 
 ## Documentation
 

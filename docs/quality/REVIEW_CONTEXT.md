@@ -4,7 +4,7 @@ This file is the reviewer's project memory. The workflow reads it from the BASE 
 
 ## Phase (update when it changes)
 
-- Sat 14 Nov 2026 12:00: go/no-go. Sat 14 Nov 18:00: feature freeze on `develop` (only fixes for failing gates or smoke checks afterwards). Submission Sun 15 Nov.
+- Feature freeze on `develop`: Sun 15 Nov 2026, 12:00 GMT at the latest (owner decision 2026-11-15). After it, only fixes for failing gates or smoke checks; staging and production are deployed on separate servers, then the project is submitted before 17:00 GMT.
 - The team has one afternoon per slice: keep each finding short and actionable. Missing a real defect on a P0 path costs more than one extra MEDIUM.
 
 ## What matters, in this order

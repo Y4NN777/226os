@@ -11,6 +11,7 @@ import {
   need,
   needId,
   owner,
+  ownerId,
   page,
   project,
   projectId,
@@ -68,7 +69,7 @@ describe('ProjectPage read view', () => {
 
     expect(await screen.findByRole('heading', { level: 1, name: 'kora-sdk' })).toBeVisible();
     expect(screen.getByText('Un SDK pour les paiements mobiles.')).toBeVisible();
-    expect(screen.getByRole('link', { name: /Voir le dépôt sur GitHub/ })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: /Voir sur GitHub/ })).toHaveAttribute(
       'href',
       'https://github.com/kora-dev/kora-sdk',
     );
@@ -76,7 +77,7 @@ describe('ProjectPage read view', () => {
       'href',
       '/profils/kofi',
     );
-    const needs = await screen.findByRole('region', { name: 'Besoins de contribution' });
+    const needs = await screen.findByRole('region', { name: 'Besoins' });
     expect(within(needs).getByText('Tests d’intégration')).toBeVisible();
     expect(within(needs).getByText('Ouvert')).toBeVisible();
     expect(within(needs).getByText('Fermé')).toBeVisible();
@@ -105,7 +106,7 @@ describe('ProjectPage read view', () => {
       [`GET ${base}/contribution-needs`]: () => page([]),
     });
     await renderApp(`/build/${projectId}`);
-    expect(await screen.findByText('Aucun besoin pour le moment.')).toBeVisible();
+    expect(await screen.findByText('Aucun besoin.')).toBeVisible();
   });
 
   it('pages needs with the cursor', async () => {
@@ -124,6 +125,103 @@ describe('ProjectPage read view', () => {
   });
 });
 
+describe('ProjectPage layout', () => {
+  it('shows the header pill, the description with its language, the facts and the maintainer', async () => {
+    setLanguages(['fr-FR']);
+    mockApi({
+      [`GET ${base}`]: () =>
+        jsonResponse(
+          project({
+            open_needs_count: 2,
+            visibility: 'private',
+            updated_at: '2026-11-08T12:00:00Z',
+            owner: { id: ownerId, username: 'kofi', display_name: 'Kofi Mensah', country: 'BF' },
+          }),
+        ),
+      [`GET ${base}/contribution-needs`]: () => page([need()]),
+    });
+    await renderApp(`/build/${projectId}`);
+    const heading = await screen.findByRole('heading', { level: 1, name: 'kora-sdk' });
+    const crumbs = screen.getByRole('navigation', { name: 'Fil d’Ariane' });
+    expect(within(crumbs).getByRole('link', { name: 'Construire' })).toHaveAttribute(
+      'href',
+      '/build',
+    );
+    expect(within(crumbs).getByText('kora-sdk')).toHaveAttribute('aria-current', 'page');
+    const header = heading.closest<HTMLElement>('.ui-page-header');
+    expect(header).not.toBeNull();
+    expect(within(header as HTMLElement).getByText('2 besoins ouverts')).toBeVisible();
+    expect(within(header as HTMLElement).getByText('Privé')).toBeVisible();
+    expect(
+      within(header as HTMLElement).getByRole('link', { name: 'Voir les besoins' }),
+    ).toHaveAttribute('href', '#besoins');
+
+    const description = screen.getByRole('region', { name: 'Description' });
+    expect(within(description).getByText('Un SDK pour les paiements mobiles.')).toHaveAttribute(
+      'lang',
+      'fr',
+    );
+    expect(within(description).getByText('FR')).toBeVisible();
+
+    const facts = screen.getByRole('region', { name: 'À propos' });
+    expect(within(facts).getByText('8 nov. 2026')).toBeVisible();
+    expect(within(facts).getByText('Français')).toBeVisible();
+    const technologies = screen.getByRole('region', { name: 'Technologies' });
+    expect(within(technologies).getByText('mobile-money')).toBeVisible();
+    const maintainer = screen.getByRole('region', { name: 'Mainteneur' });
+    expect(within(maintainer).getByRole('link', { name: 'Kofi Mensah' })).toBeVisible();
+    expect(within(maintainer).getByText('Burkina Faso')).toBeVisible();
+  });
+
+  it('labels each related link with its kind, outside the link name', async () => {
+    setLanguages(['fr-FR']);
+    mockApi({
+      [`GET ${base}`]: () =>
+        jsonResponse(
+          project({
+            related: [
+              { type: 'question', id: 'b1000000-0000-4000-8000-000000000001', title: 'Pourquoi ?' },
+            ],
+          }),
+        ),
+      [`GET ${base}/contribution-needs`]: () => page([]),
+    });
+    await renderApp(`/build/${projectId}`);
+    const related = await screen.findByRole('region', { name: 'Contenus liés' });
+    expect(within(related).getByText('Question')).toBeVisible();
+    expect(within(related).getByRole('link', { name: 'Pourquoi ?' })).toHaveAttribute(
+      'href',
+      '/questions/b1000000-0000-4000-8000-000000000001',
+    );
+  });
+
+  it('hides the repository block when the project has no GitHub address', async () => {
+    setLanguages(['fr-FR']);
+    mockApi({
+      [`GET ${base}`]: () => jsonResponse(project({ github_url: '' })),
+      [`GET ${base}/contribution-needs`]: () => page([]),
+    });
+    await renderApp(`/build/${projectId}`);
+    await screen.findByRole('heading', { level: 1, name: 'kora-sdk' });
+    expect(screen.queryByRole('link', { name: /Voir sur GitHub/ })).not.toBeInTheDocument();
+  });
+
+  it('tells an anonymous visitor once that reading is open, above the needs', async () => {
+    setLanguages(['fr-FR']);
+    mockApi({
+      [`GET ${base}`]: () => jsonResponse(project()),
+      [`GET ${base}/contribution-needs`]: () =>
+        page([need(), need({ id: 'e1000000-0000-4000-8000-000000000002', title: 'Docs' })]),
+    });
+    await renderApp(`/build/${projectId}`);
+    const needs = await screen.findByRole('region', { name: 'Besoins' });
+    expect(await within(needs).findByText('Lecture libre.')).toBeVisible();
+    expect(within(needs).getAllByRole('link', { name: 'Se connecter pour postuler' })).toHaveLength(
+      1,
+    );
+  });
+});
+
 describe('ProjectPage repository link', () => {
   it('renders the repository as a link only for a github.com address', async () => {
     setLanguages(['fr-FR']);
@@ -133,9 +231,7 @@ describe('ProjectPage repository link', () => {
     });
     await renderApp(`/build/${projectId}`);
     await screen.findByRole('heading', { level: 1, name: 'kora-sdk' });
-    expect(
-      screen.queryByRole('link', { name: /Voir le dépôt sur GitHub/ }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Voir sur GitHub/ })).not.toBeInTheDocument();
   });
 });
 
@@ -218,10 +314,7 @@ describe('ProjectPage apply', () => {
         jsonResponse(application({ status: 'withdrawn' })),
     });
     const user = await apply();
-    await user.type(
-      screen.getByRole('textbox', { name: /Votre message au projet/ }),
-      'Je connais ce domaine.',
-    );
+    await user.type(screen.getByRole('textbox', { name: /Message/ }), 'Je connais ce domaine.');
     await user.click(screen.getByRole('button', { name: 'Envoyer ma candidature' }));
     expect(await screen.findByText(/Candidature envoyée/)).toBeVisible();
     const [request] = callsTo(fetchMock, `POST /contribution-needs/${needId}/applications`);
@@ -248,7 +341,7 @@ describe('ProjectPage apply', () => {
         problemResponse(code === 'EMAIL_NOT_VERIFIED' ? 403 : 409, code),
     });
     const user = await apply();
-    await user.type(screen.getByRole('textbox', { name: /Votre message/ }), 'Bonjour');
+    await user.type(screen.getByRole('textbox', { name: /Message/ }), 'Bonjour');
     await user.click(screen.getByRole('button', { name: 'Envoyer ma candidature' }));
     await expectAlert(text);
   });
@@ -264,9 +357,9 @@ describe('ProjectPage apply', () => {
           : jsonResponse(application(), { status: 201 }),
     });
     const user = await apply();
-    await user.type(screen.getByRole('textbox', { name: /Votre message/ }), 'Bonjour');
+    await user.type(screen.getByRole('textbox', { name: /Message/ }), 'Bonjour');
     await user.click(screen.getByRole('button', { name: 'Envoyer ma candidature' }));
-    await expectAlert('momentanément indisponible');
+    await expectAlert('Service indisponible');
     await user.click(screen.getByRole('button', { name: 'Envoyer ma candidature' }));
     expect(await screen.findByText(/Candidature envoyée/)).toBeVisible();
     const [first, again] = callsTo(fetchMock, `POST /contribution-needs/${needId}/applications`);
@@ -290,7 +383,7 @@ describe('ProjectPage apply', () => {
         jsonResponse(application({ status: 'withdrawn' })),
     });
     const user = await apply();
-    await user.type(screen.getByRole('textbox', { name: /Votre message/ }), 'Bonjour');
+    await user.type(screen.getByRole('textbox', { name: /Message/ }), 'Bonjour');
     await user.click(screen.getByRole('button', { name: 'Envoyer ma candidature' }));
     await user.click(await screen.findByRole('button', { name: 'Retirer ma candidature' }));
     expect(await screen.findByText('Candidature retirée.')).toBeVisible();
@@ -306,7 +399,7 @@ describe('ProjectPage apply', () => {
       [`PATCH /applications/${applicationId}`]: () => problemResponse(409, 'STATE_CONFLICT'),
     });
     const user = await apply();
-    await user.type(screen.getByRole('textbox', { name: /Votre message/ }), 'Bonjour');
+    await user.type(screen.getByRole('textbox', { name: /Message/ }), 'Bonjour');
     await user.click(screen.getByRole('button', { name: 'Envoyer ma candidature' }));
     await user.click(await screen.findByRole('button', { name: 'Retirer ma candidature' }));
     await expectAlert('Cette candidature a déjà été traitée.');
@@ -322,7 +415,7 @@ describe('ProjectPage apply', () => {
     const user = userEvent.setup({ delay: null });
     const { router } = await renderApp(`/build/${projectId}`);
     await user.click(await screen.findByRole('button', { name: 'Postuler' }));
-    await user.type(screen.getByRole('textbox', { name: /Votre message/ }), 'Bonjour');
+    await user.type(screen.getByRole('textbox', { name: /Message/ }), 'Bonjour');
     await user.click(screen.getByRole('button', { name: 'Envoyer ma candidature' }));
     await screen.findByText(/Candidature envoyée/);
 
@@ -354,8 +447,8 @@ describe('ProjectPage apply', () => {
   });
 
   it.each([
-    ['accepted', 'Votre candidature a été acceptée.'],
-    ['declined', 'Votre candidature n’a pas été retenue.'],
+    ['accepted', 'Candidature acceptée.'],
+    ['declined', 'Candidature non retenue.'],
     ['withdrawn', 'Candidature retirée.'],
   ] as const)(
     'shows a %s application after a reload, without apply or withdraw',
@@ -396,7 +489,7 @@ describe('ProjectPage apply', () => {
           }),
       });
       const user = await apply();
-      await user.type(screen.getByRole('textbox', { name: /Votre message/ }), 'Bonjour');
+      await user.type(screen.getByRole('textbox', { name: /Message/ }), 'Bonjour');
       await user.click(screen.getByRole('button', { name: 'Envoyer ma candidature' }));
       expect(await screen.findByText(/Candidature envoyée/)).toBeVisible();
       expect(
@@ -420,7 +513,7 @@ describe('ProjectPage apply', () => {
         }),
     });
     const user = await apply();
-    await user.type(screen.getByRole('textbox', { name: /Votre message/ }), 'Bonjour');
+    await user.type(screen.getByRole('textbox', { name: /Message/ }), 'Bonjour');
     await user.click(screen.getByRole('button', { name: 'Envoyer ma candidature' }));
     expect(await screen.findByText(/Écrivez un message de 1 à 2/)).toBeVisible();
   });
@@ -445,7 +538,7 @@ describe('ProjectPage owner writes', () => {
     const field = screen.getByRole('textbox', { name: /Description/ });
     await user.clear(field);
     await user.type(field, 'Nouvelle description');
-    expect(screen.queryByRole('textbox', { name: /Adresse GitHub/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: /Dépôt GitHub/ })).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Enregistrer' }));
     expect(await screen.findByText('Nouvelle description')).toBeVisible();
     const [request] = callsTo(fetchMock, `PATCH ${base}`);
@@ -477,7 +570,7 @@ describe('ProjectPage owner writes', () => {
     const tech = screen.getByRole('textbox', { name: /Technologies/ });
     await user.clear(tech);
     await user.type(tech, 'Go, Rust');
-    await selectSegment(screen.getByRole('radio', { name: 'Privé, visible de vous seul' }));
+    await selectSegment(screen.getByRole('radio', { name: 'Privé, visible par vous uniquement' }));
     await user.click(screen.getByRole('button', { name: 'Enregistrer' }));
     await waitFor(() => {
       expect(callsTo(fetchMock, `PATCH ${base}`)).toHaveLength(1);
@@ -497,7 +590,7 @@ describe('ProjectPage owner writes', () => {
     const field = screen.getByRole('textbox', { name: /Description/ });
     await user.type(field, ' plus');
     await user.click(screen.getByRole('button', { name: 'Enregistrer' }));
-    await expectAlert('Vous n’avez pas accès à cette action.');
+    await expectAlert('Action non autorisée.');
   });
 
   it('adds a need with an Idempotency-Key and shows violations on fields', async () => {
@@ -515,11 +608,11 @@ describe('ProjectPage owner writes', () => {
     const user = userEvent.setup({ delay: null });
     await renderApp(`/build/${projectId}`);
     await user.click(await screen.findByRole('button', { name: 'Ajouter un besoin' }));
-    await user.type(screen.getByRole('textbox', { name: 'Titre du besoin' }), 'Traduction');
+    await user.type(screen.getByRole('textbox', { name: 'Titre' }), 'Traduction');
     await user.type(screen.getByRole('textbox', { name: /^Description/ }), 'Traduire la doc.');
     await user.type(screen.getByRole('textbox', { name: /Compétences/ }), 'go');
     await user.click(screen.getByRole('button', { name: 'Publier le besoin' }));
-    expect(await screen.findByText(/Indiquez de 1 à 10 compétences/)).toBeVisible();
+    expect(await screen.findByText(/De 1 à 10 compétences/)).toBeVisible();
     refuse = false;
     await user.click(screen.getByRole('button', { name: 'Publier le besoin' }));
     await waitFor(() => {

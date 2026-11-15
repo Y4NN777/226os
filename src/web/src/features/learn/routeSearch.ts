@@ -1,3 +1,4 @@
+import type { components } from '../../api/schema';
 import { topicCodes, type TopicCode } from './topics';
 
 /**
@@ -33,12 +34,44 @@ export function validateWriteSearch(raw: Record<string, unknown>): WriteSearch {
     : {};
 }
 
-/** Learn hub filter kept in the URL (shareable, back-button friendly). */
+/** Type chips: the two article kinds (listLearnArticles `type`) and the training series. */
+export const learnTypes = ['article', 'tutorial', 'series'] as const;
+export type LearnType = (typeof learnTypes)[number];
+export const learnLevels = [
+  'beginner',
+  'intermediate',
+  'advanced',
+] as const satisfies readonly components['schemas']['Level'][];
+export type LearnLevel = (typeof learnLevels)[number];
+export const learnLangs = ['fr', 'en'] as const satisfies readonly components['schemas']['Lang'][];
+export type LearnLang = (typeof learnLangs)[number];
+
+/** Learn hub filters kept in the URL (shareable, back-button friendly). No personal data. */
 export interface LearnSearch {
+  type?: LearnType;
+  /** Text search: listLearnArticles only (1..200 characters); listTrainingSeries has no `q`. */
+  q?: string;
   topic?: TopicCode;
+  level?: LearnLevel;
+  lang?: LearnLang;
 }
 
+function pick<T extends string>(values: readonly T[], raw: unknown): T | undefined {
+  return values.find((value) => value === raw);
+}
+
+/** Unknown values are dropped; `q` is dropped under the series type, which cannot be searched. */
 export function validateLearnSearch(raw: Record<string, unknown>): LearnSearch {
-  const topic = topicCodes.find((code) => code === raw.topic);
-  return topic ? { topic } : {};
+  const out: LearnSearch = {};
+  const type = pick(learnTypes, raw.type);
+  if (type) out.type = type;
+  const q = typeof raw.q === 'string' ? raw.q.trim().slice(0, 200) : '';
+  if (q && type !== 'series') out.q = q;
+  const topic = pick(topicCodes, raw.topic);
+  if (topic) out.topic = topic;
+  const level = pick(learnLevels, raw.level);
+  if (level) out.level = level;
+  const lang = pick(learnLangs, raw.lang);
+  if (lang) out.lang = lang;
+  return out;
 }

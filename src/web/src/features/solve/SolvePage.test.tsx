@@ -1,10 +1,11 @@
-import { screen, waitFor, within } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { callsTo, mockApi, problemResponse } from '../../test/api';
 import { jsonResponse, renderApp, setLanguages } from '../../test/render';
 import { member, page, question, questionId } from './testFixtures';
 import { findVisibleText } from '../../test/visibleText';
+import { selectSegment } from '../../test/segmented';
 
 const second = question({
   id: 'b0000000-0000-4000-8000-000000000002',
@@ -32,17 +33,113 @@ describe('SolvePage list', () => {
     mockApi({ 'GET /questions': () => page([question(), second]) });
     await renderApp('/solve');
 
-    expect(await screen.findByRole('heading', { level: 1, name: 'Résoudre' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Questions' })).toBeInTheDocument();
+    const crumbs = screen.getByRole('navigation', { name: 'Fil d’Ariane' });
+    expect(within(crumbs).getByRole('link', { name: 'Accueil' })).toHaveAttribute('href', '/');
+    expect(within(crumbs).getByText('Résoudre')).toHaveAttribute('aria-current', 'page');
     const link = await screen.findByRole('link', { name: 'Webhook non reçu après un paiement' });
     expect(link).toHaveAttribute('href', `/questions/${questionId}`);
     const results = screen.getByRole('region', { name: 'Questions' });
     expect(within(results).getByText('Sans réponse')).toBeInTheDocument();
+    // The prototype's accepted pill; the answered-only state has no pill, its count says it.
     expect(within(results).getByText('Résolue')).toBeInTheDocument();
     expect(within(results).getByText('go')).toBeInTheDocument();
-    expect(within(results).getAllByText('Par Kofi Mensah')).toHaveLength(2);
-    // The count shows only when there are answers; « Sans réponse » already says the rest.
+    expect(within(results).getAllByText('Kofi Mensah')).toHaveLength(2);
+    // Every row shows its counts, like the prototype (0 included), with a spoken label.
     expect(within(results).getByText(/^Réponses\s:\s3$/)).toBeInTheDocument();
-    expect(within(results).queryByText(/^Réponses\s:\s0$/)).not.toBeInTheDocument();
+    expect(within(results).getByText(/^Réponses\s:\s0$/)).toBeInTheDocument();
+  });
+
+  it('shows each question as a dense row: score, answers, excerpt, author, country, date, language', async () => {
+    setLanguages(['fr-FR']);
+    mockApi({
+      'GET /questions': () =>
+        page([
+          question({
+            vote_score: 14,
+            answer_count: 2,
+            state: 'answered',
+            body_md:
+              '## Contexte\n\nMon `webhook` **ne répond pas** depuis [hier](https://example.org).',
+            author: {
+              id: 'b0000000-0000-4000-8000-0000000000aa',
+              username: 'kofi',
+              display_name: 'Kofi Mensah',
+              country: 'BF',
+            },
+          }),
+        ]),
+    });
+    await renderApp('/solve');
+
+    const link = await screen.findByRole('link', { name: 'Webhook non reçu après un paiement' });
+    const row = link.closest('li') as HTMLElement;
+    expect(within(row).getByText(/^Score\s:\s14$/)).toBeInTheDocument();
+    expect(within(row).getByText(/^Réponses\s:\s2$/)).toBeInTheDocument();
+    expect(within(row).queryByText('Résolue')).not.toBeInTheDocument();
+    expect(within(row).queryByText('Sans réponse')).not.toBeInTheDocument();
+    // The excerpt is plain text: no Markdown marks, no link target.
+    expect(within(row).getByText('Contexte Mon webhook ne répond pas depuis hier.')).toBeVisible();
+    expect(within(row).getByText('BF')).toBeInTheDocument();
+    expect(within(row).getByText('Burkina Faso')).toBeInTheDocument();
+    expect(within(row).getByText('10 nov. 2026').closest('time')).toHaveAttribute(
+      'datetime',
+      '2026-11-10T09:00:00Z',
+    );
+    expect(within(row).getByText('FR')).toBeInTheDocument();
+    // The language tag stays in the row's top-right corner, also on a phone.
+    expect(row).toHaveClass('has-corner');
+    expect(link.closest('[lang]')).toHaveAttribute('lang', 'fr');
+  });
+
+  it('filters by solve state with the segmented control, sent to the server', async () => {
+    setLanguages(['fr-FR']);
+    const fetchMock = mockApi({ 'GET /questions': () => page([question()]) });
+    await renderApp('/solve');
+    await screen.findByRole('link', { name: 'Webhook non reçu après un paiement' });
+
+    expect(screen.getByRole('radio', { name: 'Toutes' })).toBeChecked();
+    await selectSegment(screen.getByRole('radio', { name: 'Sans réponse' }));
+    await waitFor(() => {
+      expect(params(callsTo(fetchMock, 'GET /questions').at(-1)).get('state')).toBe('open');
+    });
+    await selectSegment(await screen.findByRole('radio', { name: 'Résolues' }));
+    await waitFor(() => {
+      expect(params(callsTo(fetchMock, 'GET /questions').at(-1)).get('state')).toBe('resolved');
+    });
+    await selectSegment(await screen.findByRole('radio', { name: 'Toutes' }));
+    await waitFor(() => {
+      expect(params(callsTo(fetchMock, 'GET /questions').at(-1)).has('state')).toBe(false);
+    });
+  });
+
+  it('opens the ask view from the page header, with a way back to the list', async () => {
+    setLanguages(['fr-FR']);
+    member({ 'GET /questions': () => page([question()]) });
+    const user = userEvent.setup({ delay: null });
+    await renderApp('/solve');
+    await user.click(await screen.findByRole('button', { name: 'Poser une question' }));
+
+    expect(screen.getByRole('heading', { level: 1, name: 'Poser une question' })).toHaveFocus();
+    expect(screen.queryByRole('region', { name: 'Questions' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Questions' }));
+    expect(await screen.findByRole('heading', { level: 1, name: 'Questions' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Webhook non reçu après un paiement' })).toBeVisible();
+  });
+
+  it('opens the ask view when the hash becomes #ask while already on the list', async () => {
+    setLanguages(['fr-FR']);
+    member({ 'GET /questions': () => page([question()]) });
+    const { router } = await renderApp('/solve');
+    await screen.findByRole('link', { name: 'Webhook non reçu après un paiement' });
+
+    await act(() => router.navigate({ to: '/solve', hash: 'ask' }));
+
+    const heading = await screen.findByRole('heading', { level: 1, name: 'Poser une question' });
+    expect(heading).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByRole('textbox', { name: /Titre/ })).toHaveFocus();
+    });
   });
 
   it('loads the next page with the opaque cursor', async () => {
@@ -70,14 +167,30 @@ describe('SolvePage list', () => {
     await renderApp('/solve');
     await screen.findByRole('link', { name: 'Webhook non reçu après un paiement' });
 
+    // The icon sits inside the field: there is no separate search button, Enter submits.
+    expect(screen.queryByRole('button', { name: 'Lancer la recherche' })).not.toBeInTheDocument();
     await user.type(screen.getByRole('searchbox', { name: 'Rechercher une question' }), 'cors');
-    await user.type(screen.getByRole('textbox', { name: 'Filtrer par étiquette' }), 'go');
-    await user.click(screen.getByRole('button', { name: 'Lancer la recherche' }));
+    // The tag filter sits behind the filter toggle, like the prototype's filter panel.
+    expect(screen.queryByRole('textbox', { name: 'Étiquette' })).not.toBeInTheDocument();
+    const toggle = screen.getByRole('button', { name: 'Filtres' });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    await user.type(screen.getByRole('textbox', { name: 'Étiquette' }), 'go');
+    await user.type(screen.getByRole('textbox', { name: 'Étiquette' }), '{Enter}');
 
     await waitFor(() => {
       const last = callsTo(fetchMock, 'GET /questions').at(-1);
       expect(params(last).get('q')).toBe('cors');
       expect(params(last).get('tag')).toBe('go');
+    });
+    // A tag in the URL keeps the panel open, with a reset that clears every filter.
+    expect(await screen.findByRole('textbox', { name: 'Étiquette' })).toHaveValue('go');
+    await user.click(screen.getByRole('button', { name: 'Effacer les filtres' }));
+    await waitFor(() => {
+      const last = callsTo(fetchMock, 'GET /questions').at(-1);
+      expect(params(last).has('q')).toBe(false);
+      expect(params(last).has('tag')).toBe(false);
     });
   });
 
@@ -237,8 +350,8 @@ describe('SolvePage ask flow', () => {
     const user = userEvent.setup({ delay: null });
     await renderApp('/solve');
     await fillAndOpen(user);
-    await user.type(screen.getByRole('textbox', { name: /Langage de l’extrait/ }), 'go');
-    await user.type(screen.getByRole('textbox', { name: /Code de l’extrait/ }), 'fmt.Println(1)');
+    await user.type(screen.getByRole('textbox', { name: /Langage/ }), 'go');
+    await user.type(screen.getByRole('textbox', { name: /Extrait de code/ }), 'fmt.Println(1)');
     await user.click(screen.getByRole('button', { name: 'Publier la question' }));
 
     await waitFor(() => {
@@ -316,7 +429,7 @@ describe('SolvePage ask flow', () => {
     await user.type(screen.getByRole('textbox', { name: /Étiquettes/ }), 'a, b, c, d, e, f');
     await user.click(screen.getByRole('button', { name: 'Publier la question' }));
 
-    expect(await screen.findByText(/Indiquez de 1 à 5 étiquettes/)).toBeVisible();
+    expect(await screen.findByText(/De 1 à 5 étiquettes/)).toBeVisible();
     expect(callsTo(fetchMock, 'POST /questions')).toHaveLength(0);
   });
 
@@ -337,7 +450,7 @@ describe('SolvePage ask flow', () => {
     setLanguages(['en-GB']);
     member({ 'GET /questions': () => page([]) });
     await renderApp('/solve');
-    expect(await screen.findByRole('heading', { level: 1, name: 'Solve' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Questions' })).toBeInTheDocument();
     expect(await screen.findByRole('button', { name: 'Ask a question' })).toBeInTheDocument();
   });
 });
@@ -371,9 +484,7 @@ describe('SolvePage assistant panel', () => {
     expect(inPanel.getByText(/envoyée à Google \(AI Studio\)/)).toBeInTheDocument();
     const ask = inPanel.getByRole('button', { name: 'Demander à l’assistant' });
     expect(ask).toHaveAttribute('aria-disabled', 'true');
-    expect(
-      inPanel.getByText('Saisissez au moins 3 caractères pour interroger l’assistant.'),
-    ).toBeVisible();
+    expect(inPanel.getByText('3 caractères minimum.')).toBeVisible();
     await user.type(screen.getByRole('textbox', { name: 'Titre' }), 'ab');
     expect(inPanel.getByRole('button', { name: 'Demander à l’assistant' })).toHaveAttribute(
       'aria-disabled',
@@ -465,7 +576,7 @@ describe('SolvePage assistant panel', () => {
     await user.type(screen.getByRole('textbox', { name: /Étiquettes/ }), 'go');
     const inPanel = await panel();
     await user.click(inPanel.getByRole('button', { name: 'Demander à l’assistant' }));
-    expect(await inPanel.findByText(/L’assistant est indisponible/)).toBeInTheDocument();
+    expect(await inPanel.findByText(/Assistant indisponible/)).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Publier la question' }));
     await waitFor(() => {
       expect(router.state.location.pathname).toBe(`/questions/${questionId}`);

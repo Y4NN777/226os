@@ -19,6 +19,10 @@ describe('WelcomePage', () => {
       'href',
       '/profils/awa',
     );
+    // Each choice says what it leads to, outside the link so the link name stays short.
+    expect(screen.getByText('Articles, tutoriels et formations')).toBeVisible();
+    expect(screen.getByText('Des développeurs près de chez vous')).toBeVisible();
+    expect(screen.getByText('Ce que les autres voient de vous')).toBeVisible();
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
   });
 

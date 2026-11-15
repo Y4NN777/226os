@@ -5,7 +5,7 @@ import { callsTo, mockApi, problemResponse } from '../../test/api';
 import { jsonResponse, renderApp, setLanguages } from '../../test/render';
 import { selectSegment } from '../../test/segmented';
 import { listParams, resource, rowOf } from './testFixtures';
-import { findVisibleText } from '../../test/visibleText';
+import { findVisibleText, getVisibleText } from '../../test/visibleText';
 
 const senegal = resource({ id: 'a0000000-0000-4000-8000-000000000001', name: 'Wave Pay' });
 const kenya = resource({
@@ -28,8 +28,12 @@ const ghana = resource({
   verification_status: 'disputed',
 });
 
-function page(items: ReturnType<typeof resource>[], next: string | null = null) {
-  return jsonResponse({ items, next_cursor: next });
+function page(
+  items: ReturnType<typeof resource>[],
+  next: string | null = null,
+  total = items.length,
+) {
+  return jsonResponse({ items, next_cursor: next, total });
 }
 
 function searchOf(request: Request) {
@@ -79,10 +83,11 @@ describe('DiscoverPage', () => {
     mockApi({ 'GET /resources': () => page([senegal]) });
     await renderApp('/discover');
     const row = rowOf(await screen.findByRole('link', { name: 'Wave Pay' }));
-    expect(within(row).getByText('Par Exemple SA')).toBeInTheDocument();
+    // Prototype sub-line: the provider name alone, then category and type.
+    expect(within(row).getByText('Exemple SA')).toBeInTheDocument();
     expect(within(row).getByText('Vérifié')).toBeInTheDocument();
     expect(within(row).getByText(/Vérifié le 10 nov/)).toBeInTheDocument();
-    expect(within(row).getByText('Sources : 2')).toBeInTheDocument();
+    expect(within(row).getByText('2 sources')).toBeInTheDocument();
     expect(within(row).getByText(/Sénégal/)).toBeInTheDocument();
     expect(within(row).getByText('Encaissement mobile money.')).toBeInTheDocument();
   });
@@ -111,7 +116,7 @@ describe('DiscoverPage', () => {
     await renderApp('/discover');
     for (const [n, text] of [
       [1, 'Vérifié'],
-      [2, 'Déclaré par le fournisseur'],
+      [2, 'Déclaré'],
       [3, 'Non vérifié'],
       [4, 'À revérifier'],
       [5, 'Contesté'],
@@ -190,13 +195,11 @@ describe('DiscoverPage', () => {
     const fetchMock = mockApi({ 'GET /resources': () => page([senegal]) });
     const { router } = await renderApp('/discover');
     await screen.findByRole('link', { name: 'Wave Pay' });
-    expect(
-      screen.queryByRole('button', { name: 'Réinitialiser les filtres' }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Effacer les filtres' })).not.toBeInTheDocument();
 
     await userEvent
       .setup({ delay: null })
-      .type(screen.getByRole('searchbox', { name: /Rechercher une API/ }), 'momo{Enter}');
+      .type(screen.getByRole('searchbox', { name: /Rechercher dans le catalogue/ }), 'momo{Enter}');
     await waitFor(() => {
       expect(listParams(fetchMock, 'last').get('q')).toBe('momo');
     });
@@ -208,27 +211,22 @@ describe('DiscoverPage', () => {
 
     await userEvent
       .setup({ delay: null })
-      .click(screen.getByRole('button', { name: 'Réinitialiser les filtres' }));
+      .click(screen.getByRole('button', { name: 'Effacer les filtres' }));
     await waitFor(() => {
       expect(router.state.location.search).toEqual({});
     });
-    expect(screen.getByRole('searchbox', { name: /Rechercher une API/ })).toHaveValue('');
+    expect(screen.getByRole('searchbox', { name: /Rechercher dans le catalogue/ })).toHaveValue('');
   });
 
-  it('submits the search with the button too', async () => {
+  it('keeps the search icon inside the field: no separate search button', async () => {
     setLanguages(['fr-FR']);
-    const fetchMock = mockApi({ 'GET /resources': () => page([senegal]) });
+    mockApi({ 'GET /resources': () => page([senegal]) });
     await renderApp('/discover');
     await screen.findByRole('link', { name: 'Wave Pay' });
-    await userEvent
-      .setup({ delay: null })
-      .type(screen.getByRole('searchbox', { name: /Rechercher une API/ }), 'ussd');
-    await userEvent
-      .setup({ delay: null })
-      .click(screen.getByRole('button', { name: 'Lancer la recherche' }));
-    await waitFor(() => {
-      expect(listParams(fetchMock, 'last').get('q')).toBe('ussd');
-    });
+    expect(
+      screen.getByRole('searchbox', { name: /Rechercher dans le catalogue/ }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Rechercher' })).not.toBeInTheDocument();
   });
 
   it('shows and removes an active category filter coming from the URL', async () => {
@@ -274,6 +272,19 @@ describe('DiscoverPage', () => {
       .filter((el) => !el.closest('[data-astryx-live-region]'));
     expect(visible).toHaveLength(1);
     expect(screen.queryByRole('button', { name: 'Voir toute l’Afrique' })).not.toBeInTheDocument();
+  });
+
+  it('offers to clear the filters from the empty state', async () => {
+    setLanguages(['fr-FR']);
+    mockApi({ 'GET /resources': () => page([]) });
+    const { router } = await renderApp('/discover?region=all&q=zzz');
+    expect(await findVisibleText('Aucune fiche ne correspond')).toBeInTheDocument();
+    await userEvent
+      .setup({ delay: null })
+      .click(screen.getByRole('button', { name: 'Effacer les filtres' }));
+    await waitFor(() => {
+      expect(router.state.location.search).toEqual({});
+    });
   });
 
   it('shows the error with the request reference and retries', async () => {
@@ -328,6 +339,118 @@ describe('DiscoverPage', () => {
     expect(screen.getByRole('link', { name: 'Wave Pay' })).toBeInTheDocument();
   });
 
+  it('lays each listing out as a compact row: title heading, provider line, codes and status', async () => {
+    setLanguages(['fr-FR']);
+    const momo = resource({
+      id: 'a0000000-0000-4000-8000-000000000005',
+      name: 'Kalimba Pay',
+      category: 'mobile-money',
+      countries: ['SN', 'BF'],
+    });
+    mockApi({ 'GET /resources': () => page([momo]) });
+    await renderApp('/discover');
+    const link = await screen.findByRole('link', { name: 'Kalimba Pay' });
+    expect(screen.getByRole('heading', { level: 3, name: 'Kalimba Pay' })).toContainElement(link);
+    const row = rowOf(link);
+    expect(within(row).getByText('Paiements Mobile Money')).toBeInTheDocument();
+    expect(within(row).getByText('API')).toBeInTheDocument();
+    // Country codes stay text (no flags), each with its full name for assistive technology.
+    expect(within(row).getByText('SN')).toBeInTheDocument();
+    expect(within(row).getByText('Burkina Faso')).toBeInTheDocument();
+    expect(within(row).getByText('2 sources')).toBeInTheDocument();
+  });
+
+  it('heads the page with the shared breadcrumbs: Accueil, then Découvrir as the current page', async () => {
+    setLanguages(['fr-FR']);
+    mockApi({ 'GET /resources': () => page([senegal]) });
+    await renderApp('/discover');
+    const crumbs = await screen.findByRole('navigation', { name: 'Fil d’Ariane' });
+    expect(within(crumbs).getByRole('link', { name: 'Accueil' })).toHaveAttribute('href', '/');
+    expect(within(crumbs).getByText('Découvrir')).toHaveAttribute('aria-current', 'page');
+    expect(
+      screen
+        .getByRole('heading', { level: 1, name: 'Découvrir' })
+        .closest<HTMLElement>('.ui-page-header'),
+    ).toContainElement(crumbs);
+  });
+
+  it('keeps the heading outline: h1, a hidden « Résultats » h2, then one h3 per row', async () => {
+    setLanguages(['fr-FR']);
+    mockApi({ 'GET /resources': () => page([senegal]) });
+    await renderApp('/discover');
+    await screen.findByRole('link', { name: 'Wave Pay' });
+    const results = screen.getByRole('region', { name: 'Résultats' });
+    expect(
+      within(results).getByRole('heading', { level: 2, name: 'Résultats' }),
+    ).toBeInTheDocument();
+    expect(
+      within(results).getByRole('heading', { level: 3, name: 'Wave Pay' }),
+    ).toBeInTheDocument();
+  });
+
+  it('says « Choisir un pays » in the West Africa view and « Tous les pays » for the continent', async () => {
+    setLanguages(['fr-FR']);
+    mockApi({ 'GET /resources': () => page([senegal]) });
+    await renderApp('/discover');
+    await screen.findByRole('link', { name: 'Wave Pay' });
+    expect(screen.getByRole('button', { name: /^Pays/ })).toHaveTextContent('Choisir un pays');
+    await selectSegment(screen.getByRole('radio', { name: 'Toute l’Afrique' }));
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /^Pays/ })).toHaveTextContent('Tous les pays');
+    });
+  });
+
+  it('shows the raw category code when the label is unknown', async () => {
+    setLanguages(['fr-FR']);
+    mockApi({ 'GET /resources': () => page([senegal]) });
+    await renderApp('/discover');
+    const row = rowOf(await screen.findByRole('link', { name: 'Wave Pay' }));
+    expect(within(row).getByText('payments')).toBeInTheDocument();
+  });
+
+  it('counts the whole catalogue from the total, before and after loading more', async () => {
+    setLanguages(['fr-FR']);
+    mockApi({
+      'GET /resources': (request) =>
+        searchOf(request).get('cursor') === null
+          ? page([senegal, ghana], 'c1', 3)
+          : page([pan], null, 3),
+    });
+    await renderApp('/discover');
+    await screen.findByRole('link', { name: 'Wave Pay' });
+    expect(getVisibleText('3 fiches')).toBeInTheDocument();
+    await userEvent
+      .setup({ delay: null })
+      .click(screen.getByRole('button', { name: 'Afficher plus' }));
+    await screen.findByRole('link', { name: 'Sans Pays' });
+    expect(getVisibleText('3 fiches')).toBeInTheDocument();
+  });
+
+  it('says « 1 fiche » in the singular', async () => {
+    setLanguages(['fr-FR']);
+    mockApi({ 'GET /resources': () => page([senegal]) });
+    await renderApp('/discover');
+    await screen.findByRole('link', { name: 'Wave Pay' });
+    expect(getVisibleText('1 fiche')).toBeInTheDocument();
+  });
+
+  it('filters by category with a labelled select and sends the code to the server', async () => {
+    setLanguages(['fr-FR']);
+    const fetchMock = mockApi({ 'GET /resources': () => page([senegal]) });
+    const { router } = await renderApp('/discover');
+    await screen.findByRole('link', { name: 'Wave Pay' });
+    await userEvent
+      .setup({ delay: null })
+      .click(screen.getByRole('button', { name: /^Catégorie/ }));
+    await userEvent
+      .setup({ delay: null })
+      .click(await screen.findByRole('option', { name: 'Modèles et API d’IA' }));
+    await waitFor(() => {
+      expect(listParams(fetchMock, 'last').get('category')).toBe('ai-models');
+    });
+    expect(router.state.location.search).toMatchObject({ category: 'ai-models' });
+  });
+
   it('renders in English', async () => {
     setLanguages(['en-US']);
     mockApi({ 'GET /resources': () => page([senegal]) });
@@ -338,7 +461,9 @@ describe('DiscoverPage', () => {
       ),
     ).toBeInTheDocument();
     const row = rowOf(await screen.findByRole('link', { name: 'Wave Pay' }));
-    expect(within(row).getByText('By Exemple SA')).toBeInTheDocument();
+    expect(within(row).getByText('Exemple SA')).toBeInTheDocument();
+    expect(within(row).getByText('Senegal')).toBeInTheDocument();
+    expect(within(row).getByText('2 sources')).toBeInTheDocument();
     expect(within(row).getByText(/Verified on Nov 10, 2026/)).toBeInTheDocument();
   });
 });

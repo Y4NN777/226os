@@ -1,4 +1,4 @@
-import { act, screen, waitFor } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import type { components } from '../../api/schema';
@@ -86,11 +86,28 @@ describe('SearchPage', () => {
     expect(callsTo(fetchMock, 'GET /search')).toHaveLength(0);
   });
 
+  it('without a query suggests topics from the demo data, each a search link', async () => {
+    setLanguages(['fr-FR']);
+    mockApi();
+    await renderApp('/recherche');
+    const field = await screen.findByRole('searchbox', { name: 'Votre recherche' });
+    expect(field).toHaveAttribute('placeholder', 'Ex. webhook, USSD, Go');
+    const topics = screen.getByRole('list', { name: 'Sujets' });
+    expect(within(topics).getByRole('link', { name: 'mobile-money' })).toHaveAttribute(
+      'href',
+      '/recherche?q=mobile-money',
+    );
+    expect(within(topics).getByRole('link', { name: 'webhooks' })).toHaveAttribute(
+      'href',
+      '/recherche?q=webhooks',
+    );
+  });
+
   it('does not search for a single character', async () => {
     setLanguages(['fr-FR']);
     const fetchMock = mockApi();
     await renderApp('/recherche?q=a');
-    expect(await screen.findByText('Saisissez au moins deux caractères.')).toBeInTheDocument();
+    expect(await screen.findByText('2 caractères minimum.')).toBeInTheDocument();
     expect(callsTo(fetchMock, 'GET /search')).toHaveLength(0);
   });
 
@@ -128,6 +145,21 @@ describe('SearchPage', () => {
     expect(callsTo(fetchMock, 'GET /search')).toHaveLength(1);
   });
 
+  it('titles the page with the query and counts a group only when it is complete', async () => {
+    setLanguages(['fr-FR']);
+    mockApi(searchRoute(results));
+    await renderApp('/recherche?q=momo');
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Résultats pour « momo »' }),
+    ).toBeInTheDocument();
+    const catalogue = (await screen.findByRole('heading', { level: 2, name: 'Catalogue' }))
+      .parentElement;
+    expect(catalogue).toHaveTextContent(/^Catalogue1$/);
+    // Questions has more results than shown: a count would be false.
+    const questions = screen.getByRole('heading', { level: 2, name: 'Questions' }).parentElement;
+    expect(questions).toHaveTextContent(/^Questions$/);
+  });
+
   it('renders snippets as plain text, never as HTML', async () => {
     setLanguages(['fr-FR']);
     mockApi(searchRoute(results));
@@ -140,11 +172,15 @@ describe('SearchPage', () => {
     setLanguages(['fr-FR']);
     mockApi(searchRoute(results));
     await renderApp('/recherche?q=momo');
-    const english = (await screen.findByText('Webhook reçu deux fois')).closest('li');
+    // The shared row marks the user content (title and snippet), not the whole row.
+    const english = await screen.findByRole('heading', { name: 'Webhook reçu deux fois' });
     expect(english).toHaveAttribute('lang', 'en');
-    const french = screen.getByRole('link', { name: 'API Mobile Money' }).closest('li');
+    expect(screen.getByText('Le <b>webhook</b> arrive en double.')).toHaveAttribute('lang', 'en');
+    const french = screen.getByRole('heading', { name: 'API Mobile Money' });
     expect(french).not.toHaveAttribute('lang');
-    const unknown = screen.getByText('Premiers pas avec les paiements mobiles').closest('li');
+    const unknown = screen.getByRole('heading', {
+      name: 'Premiers pas avec les paiements mobiles',
+    });
     expect(unknown).not.toHaveAttribute('lang');
   });
 
@@ -152,11 +188,9 @@ describe('SearchPage', () => {
     setLanguages(['fr-FR']);
     mockApi(searchRoute(results));
     await renderApp('/recherche?q=momo');
-    const note = await screen.findByText(
-      'D’autres résultats existent. Affinez votre recherche pour les voir.',
-    );
+    const note = await screen.findByText('Affinez la recherche pour voir plus de résultats.');
     expect(note.closest('a')).toBeNull();
-    expect(screen.getAllByText(/D’autres résultats existent/)).toHaveLength(1);
+    expect(screen.getAllByText(/Affinez la recherche/)).toHaveLength(1);
   });
 
   it('suggests other words when every group is empty', async () => {
@@ -242,7 +276,7 @@ describe('SearchPage', () => {
     await renderApp('/recherche?q=momo');
     expect(await screen.findByRole('heading', { level: 2, name: 'Learn' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 2, name: 'Projects' })).toBeInTheDocument();
-    expect(screen.getByText(/There are more results/)).toBeInTheDocument();
-    expect(await screen.findByText(/Sign in to ask the assistant/)).toBeInTheDocument();
+    expect(screen.getByText(/Refine your search to see more/)).toBeInTheDocument();
+    expect(await screen.findByText(/Sign in to use the assistant/)).toBeInTheDocument();
   });
 });

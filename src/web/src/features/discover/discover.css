@@ -1,0 +1,111 @@
+/*
+ * Discover pages (prototype pages/discover.html and resource.html). The header, rows, pills,
+ * tiles, panels, facts and linked tiles are the shared pieces (src/components, styles/ui.css);
+ * only the filter grid, the limitations and the source rows are local. Astryx tokens only.
+ */
+
+/* Filters: one column on phones, two from 480px, three from 768px. */
+.discover-filters {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--spacing-3);
+  align-items: end;
+}
+@media (min-width: 480px) {
+  .discover-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (min-width: 768px) {
+  .discover-filters {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+.discover-filter {
+  display: grid;
+  gap: var(--spacing-1);
+  min-width: 0;
+}
+/* The type chips take a whole row so their labels fit; if still too narrow the strip scrolls, never truncates. */
+.discover-filter-type {
+  grid-column: 1 / -1;
+}
+.discover-filter-type > :last-child {
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.discover-filter-type > :last-child > * {
+  min-width: max-content;
+}
+.discover-filter-label {
+  font-size: var(--text-label-size);
+  font-weight: var(--text-label-weight);
+  line-height: var(--text-label-leading);
+  color: var(--color-text-primary);
+}
+
+.discover-inline-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-1) var(--spacing-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Limitations: warning-tinted lines with an icon (prototype "Pièges à éviter"). */
+.discover-limits {
+  display: grid;
+  gap: var(--spacing-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.discover-limits li {
+  display: flex;
+  gap: var(--spacing-2);
+  align-items: baseline;
+  padding: var(--spacing-2) var(--spacing-3);
+  border-radius: var(--radius-element);
+  background: var(--color-warning-muted);
+  color: var(--color-on-warning-muted);
+  font-size: 0.875rem;
+}
+.discover-limits li > svg,
+.discover-limits li > span:first-child {
+  align-self: center;
+  flex: none;
+}
+
+/* Sources: compact rows with a hairline; status and date on the right. */
+.discover-sources {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.discover-source {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-1) var(--spacing-3);
+  padding: var(--spacing-3) 0;
+}
+.discover-source + .discover-source {
+  border-top: 1px solid var(--color-border);
+}
+.discover-source-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-1) var(--spacing-2);
+  min-width: 0;
+}
+.discover-source-aside {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-1) var(--spacing-3);
+  font-size: 0.875rem;
+}

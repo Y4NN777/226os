@@ -10,18 +10,18 @@ description: 226os Go modular monolith rules and practices (Chi transport-only h
 
 ## Project rules (binding)
 - Stack: Go, Chi, `pgx`, `sqlc`, modular monolith, REST, OpenAPI 3.1 (`docs/DEV.md:7`; ACCEPTED as BASE-004 `docs/decisions/README.md:22`).
-- No general-purpose ORM, external search engine, microservices, Redis or Kubernetes without an approved ADR (`docs/DEV.md:10`, `docs/architecture/ARCHITECTURE.md:27`).
+- No general-purpose ORM, external search engine, microservices, Redis or Kubernetes without an approved ADR (`docs/DEV.md:10`, `docs/architecture/ARCHITECTURE.md §12`).
 - Business logic never lives in HTTP handlers (`docs/DEV.md:10`, `docs/RULES.md:12`); handlers carry transport concerns only, invariants live in the domain/service boundary.
 - Packages per domain: `domain`, `service`, `repository`, `transport`; interfaces at the boundary, dependencies point toward business logic (`docs/DEV.md:44`).
-- Modules: identity, solve, discover, build, community, connect, language, intelligence (`docs/architecture/ARCHITECTURE.md:10`); a module never imports a neighbour's HTTP transport, share through explicit interfaces and limited models (`docs/architecture/ARCHITECTURE.md:20`).
+- Modules built: identity (with the Connect directory), solve, discover, build, learn, search, assistant, moderation; community, wider connect and language are planned (`docs/architecture/ARCHITECTURE.md §3.1`); a module never imports a neighbour's HTTP transport, share through explicit interfaces and limited models (`docs/architecture/ARCHITECTURE.md §1`).
 - Do not materialize empty P1/P2 module folders (`docs/SPEC.md:96`).
 - Context with deadline on DB access, HTTP requests, external integrations; typed errors with wrapping; parameterized SQL only (`docs/DEV.md:45`, `docs/RULES.md:12`).
 - `go fmt`, `go vet`, `staticcheck`, `golangci-lint` at pinned versions; `go test -race`; PG integration on Docker (`docs/DEV.md:46`).
 - Separate configuration, application and handlers; never log secrets (`docs/DEV.md:48`, `docs/RULES.md:25`).
-- API owns invariants and permissions; access checks as close as possible to the business operation (`docs/architecture/ARCHITECTURE.md:19`, `:23`).
+- API owns invariants and permissions; access checks as close as possible to the business operation (`docs/architecture/ARCHITECTURE.md §1`, `:23`).
 - Multi-table mutations are transactional (`docs/SPEC.md:119`, `docs/archive/spec-kit/CONTRACTS.md:24`).
 - Health/readiness endpoints and structured logs without secrets are required (`docs/archive/spec-kit/CONTRACTS.md:57`).
-- GitHub public API access is limited, read-only, with quotas, timeouts and anti-SSRF (`docs/architecture/ARCHITECTURE.md:13`, `docs/SPEC.md:126`).
+- GitHub public API access is limited, read-only, with quotas, timeouts and anti-SSRF (`docs/architecture/ARCHITECTURE.md §1`, `docs/SPEC.md:126`).
 - Coverage: 100.00% of instrumentable first-party Go statements via `go test -covermode=atomic -coverprofile=coverage.out ./...` + `go tool cover -func` (`docs/TEST.md:6`, `AGENTS.md:48`). Run through `make coverage` (`scripts/coverage-go.sh`). Exclusions only via the `coverage-exclude-go` block of `docs/quality/COVERAGE_SCOPE.md`; read the block for what is excluded today. Never add an exclusion yourself: it is an owner-reviewed file.
 - Run only reviewed Make targets after reading their recipe (`AGENTS.md:120-121`). Go toolchain and linter versions are pinned in `go.mod`, `mk/00-config.mk` and the toolchain files (ADR-0006); do not restate them.
 
@@ -41,7 +41,7 @@ description: 226os Go modular monolith rules and practices (Chi transport-only h
 - Concurrency: every goroutine has a clear exit (ctx cancellation); prefer `errgroup` for fan-out with cancellation; guard shared state with `sync.Mutex` or confine it; run `-race`. [CodeReviewComments#goroutine-lifetimes](https://go.dev/wiki/CodeReviewComments#goroutine-lifetimes), [errgroup](https://pkg.go.dev/golang.org/x/sync/errgroup)
 - Don't `panic` for normal errors; Recoverer is the last line, not control flow. [CodeReviewComments#dont-panic](https://go.dev/wiki/CodeReviewComments#dont-panic)
 - Package names short, singular, meaningful; no `util`, `common`, `types`, `api`. [CodeReviewComments#package-names](https://go.dev/wiki/CodeReviewComments#package-names), [Effective Go](https://go.dev/doc/effective_go#names)
-- `internal/` only hides packages from code outside `src/api/`; it does NOT stop `internal/solve` importing `internal/identity/transport`. Enforce the module boundary (`docs/architecture/ARCHITECTURE.md:20`) with an import-boundary linter (golangci-lint depguard, configured in `.golangci.yml`) plus review. [Go internal packages](https://go.dev/doc/go1.4#internalpackages), [Go modules layout](https://go.dev/doc/modules/layout)
+- `internal/` only hides packages from code outside `src/api/`; it does NOT stop `internal/solve` importing `internal/identity/transport`. Enforce the module boundary (`docs/architecture/ARCHITECTURE.md §1`) with an import-boundary linter (golangci-lint depguard, configured in `.golangci.yml`) plus review. [Go internal packages](https://go.dev/doc/go1.4#internalpackages), [Go modules layout](https://go.dev/doc/modules/layout)
 
 ## SOLID / design notes for this layer
 - Layout as it exists today (check with `ls src/api/cmd src/api/internal` before adding anything):

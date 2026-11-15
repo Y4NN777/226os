@@ -1,21 +1,30 @@
-import { Badge } from '@astryxdesign/core/Badge';
 import { Breadcrumbs, BreadcrumbItem } from '@astryxdesign/core/Breadcrumbs';
 import { Button } from '@astryxdesign/core/Button';
 import { EmptyState } from '@astryxdesign/core/EmptyState';
-import { Heading } from '@astryxdesign/core/Heading';
-import { HStack } from '@astryxdesign/core/HStack';
+import { Icon } from '@astryxdesign/core/Icon';
 import { Link } from '@astryxdesign/core/Link';
-import { Text } from '@astryxdesign/core/Text';
+import { Markdown } from '@astryxdesign/core/Markdown';
+import { Outline, useOutlineFromMarkdown } from '@astryxdesign/core/Outline';
 import { VStack } from '@astryxdesign/core/VStack';
 import { useParams } from '@tanstack/react-router';
+import { useId } from 'react';
 import { ApiError } from '../../api/http';
 import { ErrorState } from '../../components/ErrorState';
 import { LoadingState } from '../../components/LoadingState';
 import { useI18n } from '../../i18n/I18nProvider';
 import type { MessageKey } from '../../i18n/messages';
-import { RichText } from '../solve/RichText';
 import { relatedPath } from '../related';
-import { AuthorLine, TagList } from './present';
+import {
+  BookIcon,
+  CompassIcon,
+  FileTextIcon,
+  HammerIcon,
+  HelpIcon,
+  LinkIcon,
+  type SvgIcon,
+} from './icons';
+import './learn.css';
+import { AuthorByline, CodeTags, KindBadge, LangCode, LevelBadge } from './present';
 import { useArticle, type Article } from './queries';
 
 type Related = Article['related'][number];
@@ -28,61 +37,102 @@ const relatedKey = {
   series: 'learn.related.series',
 } as const satisfies Record<Related['type'], MessageKey>;
 
-function Detail({ article }: { article: Article }) {
+const relatedIcon: Record<Related['type'], SvgIcon> = {
+  question: HelpIcon,
+  resource: CompassIcon,
+  project: HammerIcon,
+  article: FileTextIcon,
+  series: BookIcon,
+};
+
+function RelatedLinks({ links }: { links: Related[] }) {
   const { t } = useI18n();
+  const titleId = useId();
   return (
-    <VStack gap={5}>
-      <VStack gap={2}>
-        <Breadcrumbs label={t('learn.title')} variant="supporting">
-          <BreadcrumbItem href="/apprendre">{t('learn.title')}</BreadcrumbItem>
-          <BreadcrumbItem isCurrent>{article.title}</BreadcrumbItem>
-        </Breadcrumbs>
-        {/* The content keeps its own language, whatever the interface language is. */}
-        <article lang={article.lang}>
-          {/* A readable line length for long lessons. */}
-          <VStack gap={4} maxWidth={720}>
-            <VStack gap={2}>
-              <Heading level={1}>{article.title}</Heading>
-              {article.summary ? <Text as="p">{article.summary}</Text> : null}
+    <section className="learn-section">
+      <h2 className="learn-section-title" id={titleId}>
+        <Icon icon={LinkIcon} size="sm" />
+        <span>{t('learn.article.related')}</span>
+      </h2>
+      <ul className="learn-related" aria-labelledby={titleId}>
+        {links.map((link) => (
+          <li key={`${link.type}-${link.id}`} className="learn-linked">
+            <span className="learn-kind">
+              <Icon icon={relatedIcon[link.type]} size="xsm" />
+              {t(relatedKey[link.type])}
+            </span>
+            <span lang={link.lang}>
+              <Link href={relatedPath(link)}>{link.title}</Link>
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function Detail({ article }: { article: Article }) {
+  const { t, locale } = useI18n();
+  // The outline reads the same source as the body, so its links match the heading ids.
+  const outline = useOutlineFromMarkdown(article.body_md);
+  const hasOutline = outline.length > 1;
+  return (
+    <VStack gap={6}>
+      <Breadcrumbs label={t('learn.title')} variant="supporting">
+        <BreadcrumbItem href="/apprendre">{t('learn.title')}</BreadcrumbItem>
+        <BreadcrumbItem isCurrent>{article.title}</BreadcrumbItem>
+      </Breadcrumbs>
+      {/* The article keeps its own language whatever the interface language is; the interface
+          parts inside it say theirs. */}
+      <article lang={article.lang}>
+        <VStack gap={6}>
+          <header className="learn-art-head">
+            <div className="learn-pills" lang={locale}>
+              <KindBadge kind={article.type} />
+              <LevelBadge level={article.level} />
+              <LangCode lang={article.lang} />
+            </div>
+            <VStack gap={3}>
+              <h1 className="learn-art-title">{article.title}</h1>
+              {article.summary ? <p className="learn-lede">{article.summary}</p> : null}
             </VStack>
-            <RichText markdown={article.body_md} />
-          </VStack>
-        </article>
-        <HStack gap={3} wrap="wrap" vAlign="center">
-          <AuthorLine author={article.author} />
-          <Badge label={t(`learn.type.${article.type}`)} />
-          <Badge label={t(`learn.level.${article.level}`)} />
-        </HStack>
-        {article.tags.length > 0 ? <TagList tags={article.tags} /> : null}
-      </VStack>
-
-      <HStack>
-        <Button
-          variant="primary"
-          label={t('learn.article.askLesson')}
-          href={`/solve?link=article:${article.id}`}
-        />
-      </HStack>
-
-      {article.related.length > 0 ? (
-        <VStack gap={2}>
-          <Heading level={2} id="learn-related">
-            {t('learn.article.related')}
-          </Heading>
-          <VStack as="ul" gap={2} aria-labelledby="learn-related">
-            {article.related.map((link) => (
-              <li key={`${link.type}-${link.id}`}>
-                <HStack gap={2} wrap="wrap">
-                  <Text type="supporting">{t(relatedKey[link.type])}</Text>
-                  <span lang={link.lang}>
-                    <Link href={relatedPath(link)}>{link.title}</Link>
-                  </span>
-                </HStack>
-              </li>
-            ))}
-          </VStack>
+            <div lang={locale}>
+              <AuthorByline author={article.author} date={article.published_at} />
+            </div>
+          </header>
+          <div className={hasOutline ? 'learn-art-grid learn-has-toc' : 'learn-art-grid'}>
+            <div className="learn-body">
+              {/* Astryx Markdown: raw HTML never becomes elements, unsafe links stay text,
+                  fenced code is a CodeBlock with its copy button. */}
+              <div className="learn-prose">
+                {/* "## Section" is an h2 under the page h1, as the writing hint teaches. */}
+                <Markdown headingLevelStart={1} contentWidth="100%">
+                  {article.body_md}
+                </Markdown>
+              </div>
+              <div className="learn-body" lang={locale}>
+                {article.tags.length > 0 ? (
+                  <CodeTags tags={article.tags} label={t('learn.form.tags')} />
+                ) : null}
+                <div>
+                  <Button
+                    variant="primary"
+                    label={t('learn.article.askLesson')}
+                    href={`/solve?link=article:${article.id}`}
+                    icon={<Icon icon={HelpIcon} />}
+                  />
+                </div>
+                {article.related.length > 0 ? <RelatedLinks links={article.related} /> : null}
+              </div>
+            </div>
+            {hasOutline ? (
+              <aside className="learn-toc" lang={locale}>
+                <Outline items={outline} label={t('learn.article.toc')} density="compact" />
+              </aside>
+            ) : null}
+          </div>
         </VStack>
-      ) : null}
+      </article>
     </VStack>
   );
 }
@@ -99,7 +149,6 @@ export function ArticlePage() {
         <EmptyState
           headingLevel={1}
           title={t('learn.article.notFound.title')}
-          description={t('learn.article.notFound.body')}
           actions={<Button label={t('learn.article.back')} href="/apprendre" />}
         />
       );

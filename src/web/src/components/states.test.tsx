@@ -67,6 +67,6 @@ describe('LoadingState and DemoBadge', () => {
     );
     expect(screen.getAllByRole('status')[0]).toHaveTextContent('Chargement…');
     expect(screen.getByText('Démo')).toBeInTheDocument();
-    expect(screen.getByTitle('Donnée d’exemple, pas une activité réelle.')).toBeInTheDocument();
+    expect(screen.getByTitle('Données d’exemple.')).toBeInTheDocument();
   });
 });

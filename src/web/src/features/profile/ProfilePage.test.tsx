@@ -56,6 +56,13 @@ describe('ProfilePage view', () => {
     mockApi({ 'GET /profiles/awa': () => jsonResponse(publicProfile()) });
     await renderApp('/profils/awa');
     expect(await screen.findByRole('heading', { level: 1, name: 'Awa Traoré' })).toBeVisible();
+    const crumbs = screen.getByRole('navigation', { name: 'Fil d’Ariane' });
+    expect(within(crumbs).getByRole('link', { name: 'Accueil' })).toHaveAttribute('href', '/');
+    expect(within(crumbs).getByRole('link', { name: 'Connect' })).toHaveAttribute(
+      'href',
+      '/connect',
+    );
+    expect(within(crumbs).getByText('Awa Traoré')).toHaveAttribute('aria-current', 'page');
     expect(screen.getByText('@awa')).toBeVisible();
     expect(screen.getByText('Je construis des outils de paiement.')).toBeVisible();
     expect(screen.getByText('Burkina Faso')).toBeVisible();
@@ -65,6 +72,51 @@ describe('ProfilePage view', () => {
       'href',
       'https://github.com/awa-dev',
     );
+  });
+
+  it('shows the hero meta line: country code and name, languages and join date', async () => {
+    setLanguages(['fr-FR']);
+    mockApi({ 'GET /profiles/awa': () => jsonResponse(publicProfile()) });
+    await renderApp('/profils/awa');
+    const hero = await screen.findByRole('region', { name: 'Awa Traoré' });
+    // The code is decoration; the country name is what a screen reader hears.
+    expect(within(hero).getByText('BF').closest('[aria-hidden="true"]')).not.toBeNull();
+    expect(within(hero).getByText('Burkina Faso')).toBeVisible();
+    expect(within(hero).getByText('français, moré')).toBeVisible();
+    expect(within(hero).getByText('Membre depuis novembre 2026')).toBeVisible();
+    // Someone else's profile: no edit link and no privacy note.
+    expect(screen.queryByRole('link', { name: 'Modifier le profil' })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Votre e-mail n’est jamais public/)).not.toBeInTheDocument();
+  });
+
+  it('gives the member an edit link and the privacy note on their own profile', async () => {
+    setLanguages(['fr-FR']);
+    member({
+      'GET /profiles/awa': () => jsonResponse(publicProfile()),
+      'GET /me': () => jsonResponse({ account: memberAccount, profile: myProfile([]) }),
+    });
+    await renderApp('/profils/awa');
+    expect(await screen.findByRole('link', { name: 'Modifier le profil' })).toHaveAttribute(
+      'href',
+      '/parametres',
+    );
+    expect(screen.getByText('Votre e-mail n’est jamais public.')).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Confidentialité' })).toHaveAttribute(
+      'href',
+      '/parametres#confidentialite',
+    );
+  });
+
+  it('reads the hero in English', async () => {
+    setLanguages(['en-US']);
+    member({
+      'GET /profiles/awa': () => jsonResponse(publicProfile()),
+      'GET /me': () => jsonResponse({ account: memberAccount, profile: myProfile([]) }),
+    });
+    await renderApp('/profils/awa');
+    expect(await screen.findByRole('link', { name: 'Edit profile' })).toBeVisible();
+    expect(screen.getByText('Member since November 2026')).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Privacy' })).toBeVisible();
   });
 
   it('renders no GitHub link for a malformed github value', async () => {
@@ -205,6 +257,18 @@ describe('ProfilePage completion checklist', () => {
     expect(callsTo(signedIn, 'GET /me')).toHaveLength(0);
   });
 
+  it('counts done items next to the meter, as the prototype does', async () => {
+    setLanguages(['fr-FR']);
+    member({
+      ...profileRoutes,
+      'GET /me': () =>
+        jsonResponse({ account: memberAccount, profile: myProfile(['bio', 'github', 'country']) }),
+    });
+    await renderApp('/profils/awa');
+    const card = await screen.findByRole('region', { name: 'Complétez votre profil' });
+    expect(within(card).getByText('4/7')).toBeVisible();
+  });
+
   it('shows progress and one item per missing field, each with its value, on the own profile', async () => {
     setLanguages(['fr-FR']);
     member({
@@ -219,7 +283,7 @@ describe('ProfilePage completion checklist', () => {
       '57',
     );
     expect(within(card).getAllByRole('listitem')).toHaveLength(3);
-    expect(within(card).getByText(/Quelques lignes pour que les autres/)).toBeVisible();
+    expect(within(card).getByText(/Qui vous êtes, en quelques lignes/)).toBeVisible();
     expect(within(card).queryByRole('textbox', { name: /Compétences/ })).not.toBeInTheDocument();
   });
 
@@ -311,7 +375,7 @@ describe('ProfilePage completion checklist', () => {
 
     await user.type(within(card).getByRole('textbox', { name: /Langues parlées/ }), 'francais');
     await user.click(within(card).getByRole('button', { name: 'Enregistrer Langues parlées' }));
-    expect(await within(card).findByText(/Indiquez des codes de langue/)).toBeVisible();
+    expect(await within(card).findByText(/Codes de 2 ou 3 lettres/)).toBeVisible();
     expect(callsTo(fetchMock, 'PATCH /me/profile')).toHaveLength(0);
 
     await user.type(within(card).getByRole('textbox', { name: /Identifiant GitHub/ }), 'awa-dev');
