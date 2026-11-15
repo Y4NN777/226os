@@ -250,3 +250,28 @@ func TestListProfilesLimiterFailureFailsClosed(t *testing.T) {
 		t.Fatalf("code %v, want internal", ae.Code)
 	}
 }
+
+func TestListProfilesDemoProfilesAreOptIn(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		opts []Option
+		want bool
+	}{
+		{"default excludes demo", nil, false},
+		{"WithDemoProfiles(false)", []Option{WithDemoProfiles(false)}, false},
+		{"WithDemoProfiles(true)", []Option{WithDemoProfiles(true)}, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			svc, st := directorySvc(t)
+			for _, o := range tc.opts {
+				o(svc)
+			}
+			if _, err := svc.ListProfiles(context.Background(), DirectoryRequest{ClientIP: "198.51.100.7"}); err != nil {
+				t.Fatal(err)
+			}
+			if st.lastDir.IncludeDemo != tc.want {
+				t.Fatalf("IncludeDemo = %v, want %v", st.lastDir.IncludeDemo, tc.want)
+			}
+		})
+	}
+}

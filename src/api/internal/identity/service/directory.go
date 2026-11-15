@@ -69,6 +69,7 @@ func (s *Service) ListProfiles(ctx context.Context, req DirectoryRequest) (Direc
 	if err := s.allowDirectory(ctx, req); err != nil {
 		return DirectoryPage{}, err
 	}
+	q.IncludeDemo = s.demoProfiles
 	hash := lengthPrefixed("directory", q.Country, q.Language, q.Skill)
 	if req.Cursor != "" {
 		p, err := s.cursors.Decode(req.Cursor, hash)

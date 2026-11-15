@@ -10,7 +10,7 @@ Node : le plancher `engines.node` (`>=24`, vérifié par `make doctor`) et la ve
 ## 2. Topologie du dépôt
 ```text
 226os/
-├── src/api/{cmd,internal}/        # API Go : cmd/{api,aicheck,mailcheck,healthcheck}, internal/{app,platform}
+├── src/api/{cmd,internal}/        # API Go : cmd/{api,aicheck,mailcheck,healthcheck}, internal/{app,platform,identity,discover,search,solve,learn,build,assistant,moderation}
 ├── src/web/src/{app,api,features,i18n,styles,test,theme}/
 ├── api/openapi.yaml               # contrat, source des types Go et TypeScript générés
 ├── db/{migrations,queries}/ + db/sqlc.yaml
@@ -25,7 +25,7 @@ Node : le plancher `engines.node` (`>=24`, vérifié par `make doctor`) et la ve
 ```
 
 ## 3. Cibles Make
-`make help` est la source de vérité ; lisez une recette avec `make -n <cible>` avant de la lancer.
+`make help` est la source de vérité ; lisez une recette avec `make -n <cible>` avant de la lancer. Ce tableau est un résumé : `make help` liste toutes les cibles.
 
 | Cible | Rôle |
 | --- | --- |
@@ -41,17 +41,18 @@ Node : le plancher `engines.node` (`>=24`, vérifié par `make doctor`) et la ve
 | `migrate-up`, `migrate-status`, `migrate-new NAME=<slug>` | migrations goose, en avant seulement ; confirmation et preuve de sauvegarde hors `local-dev` |
 | `db-reset` | recrée la base, `APP_ENV=local-dev` uniquement |
 | `review`, `review-login` | revue IA locale et consultative ([open-code-review](https://github.com/alibaba/open-code-review), version fixée dans `scripts/review.sh`, lancée par `npx`) ; envoie le diff au fournisseur LLM configuré ; pas un gate. Sans clé : la commande `/delegate-review` de Claude Code |
-| `test-e2e` (G5), `perf` (G6), `seed` | **NOT IMPLEMENTED** ; `quality-full` échoue tant que G5 et G6 le sont |
+| `seed` | fixtures de démo de `db/seeds/` (`provenance = 'demo'`), avec `APP_ENV=local-dev` ou `APP_ENV=staging-test` ; refusé ailleurs, jamais en `production-live` |
+| `test-e2e` (G5), `perf` (G6) | **NOT IMPLEMENTED** ; `quality-full` échoue tant que G5 et G6 le sont |
 
-### Revue IA consultative (optionnelle)
+### Revue IA et fusion automatique
 
-La revue humaine de l'[ADR-0008](decisions/0008-team-work-areas-and-ownership.md) reste obligatoire ; la revue IA n'est qu'une aide, jamais un gate. Règles du projet : `.opencodereview/rule.json`.
+Une PR vers `develop` n'attend plus de relecture humaine ([ADR-0014](decisions/0014-ai-review-merges-develop.md), qui amende l'ADR-0008) : la fusion automatique la fusionne quand la CI est verte et que la revue IA ne laisse aucun finding ouvert. Le propriétaire intervient sur un CRITICAL, un HIGH resté ouvert, un chemin sensible, un chemin du pipeline de revue et la promotion vers `main`. Le détail des règles est dans [`REVIEW_CONTEXT.md`](quality/REVIEW_CONTEXT.md), section « Pipeline ». Règles du projet : `.opencodereview/rule.json`.
 
-- **Triage :** la revue classe le changement en CRITICAL, HIGH, MEDIUM ou NONE avec son périmètre d'impact (cette PR, une tranche, le travail des autres, toute l'équipe, la production), sur six axes (architecture, règles, planning et délai, sécurité, performance, cohérence). Elle ne mentionne le propriétaire que pour CRITICAL et ne bloque jamais.
-- **Review gate (un check requis, jamais pour attendre une relecture) :** `scripts/review-gate.py`, exécuté depuis la branche de base. Il ne bloque que (1) un verdict CRITICAL avec preuve OBSERVED (`fichier:ligne`) que le propriétaire n'a pas levé avec le label `owner-override` (posé par lui seul), ou (2) une PR qui touche un chemin sensible (`.github/sensitive-paths.txt`, lu sur la branche de base) sans l'approbation du propriétaire (ses propres PR passent). Il ne bloque jamais si la revue n'a pas tourné ou si GitHub est illisible. Mode : variable `CODE_REVIEW_GATE` = `off`, `report` (défaut, ne bloque rien) ou `enforce`.
+- **Triage :** la revue classe le changement en CRITICAL, HIGH, MEDIUM ou NONE avec son périmètre d'impact (cette PR, une tranche, le travail des autres, toute l'équipe, la production), sur six axes (architecture, règles, planning et délai, sécurité, performance, cohérence). Un CRITICAL ou un HIGH encore ouvert pose le label `needs-owner` et demande la revue du propriétaire (`scripts/review-ping.py`) ; la revue elle-même ne bloque pas, seul le Review gate le peut.
+- **Review gate (un check requis, jamais pour attendre une relecture) :** `scripts/review-gate.py`, exécuté depuis la branche de base. Il ne bloque que (1) un verdict CRITICAL avec preuve OBSERVED (`fichier:ligne`) que le propriétaire n'a pas levé avec le label `owner-override` (posé par lui seul), ou (2) une PR qui touche un chemin sensible (`.github/sensitive-paths.txt`, lu sur la branche de base) sans l'approbation du propriétaire (ses propres PR passent). Un verdict absent, périmé ou illisible compte comme NOT RUN, jamais comme un échec ; deux exceptions : un CRITICAL périmé, ou dont le label `owner-override` ne peut pas être lu, continue de bloquer, et la règle des chemins sensibles échoue (fail closed) si la liste des fichiers de la PR ne peut pas être lue. Mode : variable `CODE_REVIEW_GATE` = `off`, `report` (défaut, ne bloque rien ; valeur réglée sur le dépôt, lue le 2026-11-15) ou `enforce`.
 - **Avec Claude Code, sans clé d'API (recommandé) :** `/delegate-review` dans Claude Code (fichier `.claude/commands/delegate-review.md`). open-code-review choisit les fichiers et fournit les règles, Claude Code fait la revue avec votre connexion. Il propose des corrections et ne modifie rien.
 - **Avec l'outil seul :** `make review-login` une fois (connexion ChatGPT, aperçu réservé à un usage local par une seule personne), puis `make review`. Le diff part chez le fournisseur choisi : seulement du code que vous avez le droit d'envoyer.
-- **En CI :** le workflow `.github/workflows/code-review.yml` est désactivé tant que `CODE_REVIEW_ENABLED` n'est pas à `true`. Claude Code (action officielle d'Anthropic, jeton OAuth `CLAUDE_CODE_OAUTH_TOKEN` issu de `claude setup-token`) fait la revue en suivant `/delegate-review` ; consultatif, jamais un gate. Vérifiez les conditions d'Anthropic avant d'y mettre un jeton d'abonnement. La connexion ChatGPT ne doit pas servir en CI partagée : l'outil l'interdit.
+- **En CI :** le workflow `.github/workflows/code-review.yml` est actif : `CODE_REVIEW_ENABLED` vaut `true` (lu le 2026-11-15) ; à toute autre valeur, il est désactivé. Claude Code (action officielle d'Anthropic, jeton OAuth `CLAUDE_CODE_OAUTH_TOKEN` issu de `claude setup-token`) fait la revue en suivant `/delegate-review` ; ses verdicts alimentent la correction et la fusion automatiques (ADR-0014). Vérifiez les conditions d'Anthropic avant d'y mettre un jeton d'abonnement. La connexion ChatGPT ne doit pas servir en CI partagée : l'outil l'interdit.
 
 ## 4. Organisation du travail : vertical slices
 1. Décrire le problème et le critère d'acceptation (PRD + SPEC, ID stable).

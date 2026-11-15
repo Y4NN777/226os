@@ -28,6 +28,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 
 BOT_LOGINS = {"github-actions[bot]", "github-actions"}
 LEDGER = re.compile(r"<!--\s*review-ledger\s+(\{.*?\})\s*-->", re.S)
@@ -118,9 +119,74 @@ def run(argv):
     return done.stdout
 
 
-def gh_api(gh, endpoint):
+ERROR_DETAIL_MAX = 200
+NETWORK_ERROR = re.compile(r"timeout|timed out|connection reset|connection refused|temporary failure|unexpected eof|\beof\b|tls handshake", re.I)
+
+# The connection never reached GitHub, so the request was not applied (safe to retry even a POST).
+NOT_REACHED = re.compile(r"connection refused|no such host|name resolution|tls handshake", re.I)
+
+
+def retry_delay():
+    """Seconds to wait before the one retry of a GitHub call (GH_RETRY_DELAY lets tests use 0)."""
     try:
-        return parse_pages(run([gh, "api", endpoint, "--paginate"]))
+        return max(0.0, float(os.environ.get("GH_RETRY_DELAY", "2")))
+    except ValueError:
+        return 2.0
+
+
+def retryable(method, stderr):
+    """True when ONE more try is safe: any GET unless GitHub answered 4xx; PATCH, PUT and DELETE (idempotent) after a
+    5xx, a secondary rate limit, a network error, or a 429 whose Retry-After is 10 s at most. A POST is not
+    idempotent (a timeout or a 5xx can come after GitHub applied it: a retry would duplicate a comment or an issue), so
+    it is retried only when the request certainly was not applied: a secondary rate limit, a 429 as above, or a
+    connection that never reached GitHub (refused, DNS failure, TLS handshake). Never a 4xx otherwise.
+    Limits: gh rarely prints Retry-After, so a 429 is usually NOT retried; a timed-out GET waits about twice the 60 s
+    timeout (two tries plus the delay) before it fails."""
+    low = (stderr or "").lower()
+    found = re.search(r"\bhttp (\d{3})\b", low)
+    status = int(found.group(1)) if found else 0
+    if status == 429:
+        after = re.search(r"retry-after:?\s*(\d+)", low)
+        return bool(after) and int(after.group(1)) <= 10
+    if method == "POST":
+        return "secondary rate limit" in low or bool(NOT_REACHED.search(low))
+    if "secondary rate limit" in low or status >= 500 or NETWORK_ERROR.search(low):
+        return True
+    if 400 <= status < 500:
+        return False
+    return method == "GET"
+
+
+def error_detail(method, endpoint, code, stderr):
+    """`METHOD path: exit N: first line of stderr` (no query string, no request body, secret shapes redacted,
+    200 characters at most), safe to print in a job log or an issue comment."""
+    first = next((line.strip() for line in (stderr or "").splitlines() if line.strip()), "")
+    line = defuse(redact(first)[0], ERROR_DETAIL_MAX)
+    return "%s %s: exit %s%s" % (method, endpoint.split("?")[0], code, ": " + line if line else "")
+
+
+def gh_call(argv, method, endpoint):
+    """(exit code, stdout, stderr) of a gh command; retried ONCE after retry_delay() when retryable(). A timeout or a
+    missing binary is a result (124 / 127), not an exception."""
+    for attempt in (0, 1):
+        try:
+            done = subprocess.run(argv, capture_output=True, text=True, timeout=60, check=False)
+            code, out, err = done.returncode, done.stdout, done.stderr
+        except subprocess.TimeoutExpired:
+            code, out, err = 124, "", "timeout"
+        except (OSError, subprocess.SubprocessError) as exc:
+            code, out, err = 127, "", type(exc).__name__
+        if code == 0 or attempt or not retryable(method, err):
+            return code, out, err
+        time.sleep(retry_delay())
+
+
+def gh_api(gh, endpoint):
+    code, out, err = gh_call([gh, "api", endpoint, "--paginate"], "GET", endpoint)
+    if code != 0:
+        raise Unavailable(error_detail("GET", endpoint, code, err))
+    try:
+        return parse_pages(out)
     except ValueError as exc:
         raise Unavailable("unreadable answer for %s" % endpoint.split("?")[0]) from exc
 

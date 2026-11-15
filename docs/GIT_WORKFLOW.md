@@ -10,7 +10,7 @@
 | `develop` | Shared integration and staging branch | Staging/Preview (`staging-test`) | PR from work branches only |
 | Work branch | One bounded change | Local/CI checks | Created from the current target branch |
 
-**Default branch: `develop`** ([ADR-0013](decisions/0013-default-branch-develop.md), once the owner switches it). New clones check out `develop`, a pull request opens against `develop` by default, and the review pipeline (`workflow_run`, `schedule`, `workflow_dispatch`) runs from `develop`'s copy of the workflows. Promotion rules below are unchanged: `main` still takes only a promotion PR from `develop` (or a hotfix). GitHub closes `Closes #N` and `Fixes #N` on a merge into the default branch, so they now act natively on merges into `develop`, `needs-owner` issues included; `scripts/close-merged-issues.py` stays as the idempotent backstop. A pull request that touches `.github/pipeline-paths.txt` is merged by the owner only; auto-merge refuses it and teammates do not merge it.
+**Default branch: `develop`** ([ADR-0013](decisions/0013-default-branch-develop.md); switched by the owner, observed in the repository settings on 2026-11-15). New clones check out `develop`, a pull request opens against `develop` by default, and the review pipeline (`workflow_run`, `schedule`, `workflow_dispatch`) runs from `develop`'s copy of the workflows. Promotion rules below are unchanged: `main` still takes only a promotion PR from `develop` (or a hotfix). GitHub closes `Closes #N` and `Fixes #N` on a merge into the default branch, so they now act natively on merges into `develop`, `needs-owner` issues included; `scripts/close-merged-issues.py` stays as the idempotent backstop. A pull request that touches `.github/pipeline-paths.txt` is merged by the owner only; auto-merge refuses it and teammates do not merge it.
 
 Direct pushes to `develop` and `main` are prohibited. Reviewer rules for the four-person team are in [ADR-0008](decisions/0008-team-work-areas-and-ownership.md) and [`team/CONTRIBUTORS.md`](team/CONTRIBUTORS.md). Human approval is required for production, security, migration and other irreversible gates.
 
@@ -32,7 +32,7 @@ graph LR
 ```
 
 1. Create a work branch from `develop` and open a PR into `develop`. The PR identifies its slice, allowed paths, acceptance criteria, risks, owner, reviewer and evidence (`.github/PULL_REQUEST_TEMPLATE.md`).
-2. Merge after the checks and the review required by ADR-0008. `develop` is staging/preview.
+2. Merge after the checks; the AI review pipeline merges when no finding is open, and the owner handles CRITICAL, open HIGH, sensitive and pipeline changes ([ADR-0014](decisions/0014-ai-review-merges-develop.md)). `develop` is staging/preview.
 3. Validate the exact `develop` SHA (integration, contract, security, E2E, accessibility, performance, backup/restore, smoke) as far as each gate is implemented.
 4. Open a production PR from `develop` into `main` with G7 evidence and explicit approval. Before approving, the approver verifies that `git diff develop main` is empty; no automation does this today.
 5. Deploy the image digest built and tested from the `develop` SHA.
@@ -53,7 +53,7 @@ A critical production fix uses `hotfix/<domain>/<short-name>` from `main`, goes 
 
 ## GitHub branch protection
 
-Configured today (owner settings; `quality` added 2026-11-12): `develop` and `main` require the status checks "Validate branch promotion" and `quality` (strict), conversation resolution, no force-push, and apply to admins. `develop` requires no review; `main` requires 0 approvals.
+Configured today (owner settings; `quality` added 2026-11-12): `develop` and `main` require the status checks "Validate branch promotion" and `quality`, conversation resolution, no force-push, and apply to admins. On `develop` the checks are not strict: the branch does not have to be up to date with `develop` before merging (read from the settings on 2026-11-15); `main` was recorded as strict on 2026-11-12 and was not re-read. `develop` requires no review; `main` requires 0 approvals.
 
 Pipeline paths are protected by convention and by auto-merge, not by a ruleset or a code-owner review requirement ([ADR-0013](decisions/0013-default-branch-develop.md)).
 

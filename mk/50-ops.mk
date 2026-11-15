@@ -51,29 +51,30 @@ migrate-status: doctor ## Show goose migration status for DATABASE_URL (read-onl
 migrate-new: ## Create the next sequential forward-only migration: make migrate-new NAME=<slug>
 	scripts/migrate-new.sh "$(NAME)"
 
-# Demo fixtures (local-dev only). Every guard runs before the first Docker/Compose call: a missing, empty,
-# non-`local-dev`, whitespace-bearing or uppercase APP_ENV, a COMPOSE_PROFILES other than local-dev, and a
-# missing/empty db/seeds all refuse with exit 2. The *.sql files run in lexical order through one psql
-# transaction (-1, ON_ERROR_STOP=1), so a failure rolls the whole seed back.
-seed: ## Demo fixtures (local-dev only)
+# Demo fixtures (local-dev, staging-test). Every guard runs before the first Docker/Compose call: a missing,
+# empty, whitespace-bearing, uppercase or any other APP_ENV than local-dev or staging-test (production-live
+# included), a COMPOSE_PROFILES that is set and differs from APP_ENV, and a missing/empty db/seeds all refuse
+# with exit 2. The Compose profile is the APP_ENV value. The *.sql files run in lexical order through one
+# psql transaction (-1, ON_ERROR_STOP=1), so a failure rolls the whole seed back.
+seed: ## Demo fixtures (local-dev, staging-test)
 	@set -euo pipefail; \
 	app_env="$${APP_ENV-}"; \
 	if [ -z "$$app_env" ]; then \
-		echo "REFUSED: seed requires APP_ENV=local-dev (APP_ENV is unset or empty)" >&2; \
+		echo "REFUSED: seed requires APP_ENV=local-dev or APP_ENV=staging-test (APP_ENV is unset or empty)" >&2; \
 		exit 2; \
 	fi; \
-	if [ "$$app_env" != local-dev ]; then \
+	if [ "$$app_env" != local-dev ] && [ "$$app_env" != staging-test ]; then \
 		if [[ "$$app_env" =~ [[:space:]] ]]; then \
 			echo "REFUSED: APP_ENV must not contain whitespace (got '$$app_env')" >&2; \
-		elif [ "$${app_env,,}" = local-dev ]; then \
-			echo "REFUSED: APP_ENV is case-sensitive and must be exactly local-dev (got '$$app_env')" >&2; \
+		elif [ "$${app_env,,}" = local-dev ] || [ "$${app_env,,}" = staging-test ]; then \
+			echo "REFUSED: APP_ENV is case-sensitive and must be exactly local-dev or staging-test (got '$$app_env')" >&2; \
 		else \
-			echo "REFUSED: seed only runs with APP_ENV=local-dev (got '$$app_env')" >&2; \
+			echo "REFUSED: seed only runs with APP_ENV=local-dev or staging-test (got '$$app_env')" >&2; \
 		fi; \
 		exit 2; \
 	fi; \
-	if [ -n "$${COMPOSE_PROFILES+x}" ] && [ "$${COMPOSE_PROFILES-}" != local-dev ]; then \
-		echo "REFUSED: COMPOSE_PROFILES must be unset or local-dev (got '$${COMPOSE_PROFILES-}')" >&2; \
+	if [ -n "$${COMPOSE_PROFILES+x}" ] && [ "$${COMPOSE_PROFILES-}" != "$$app_env" ]; then \
+		echo "REFUSED: COMPOSE_PROFILES must be unset or $$app_env (got '$${COMPOSE_PROFILES-}')" >&2; \
 		exit 2; \
 	fi; \
 	if [ ! -d db/seeds ]; then \
@@ -86,7 +87,7 @@ seed: ## Demo fixtures (local-dev only)
 		echo "REFUSED: no db/seeds/*.sql files to run" >&2; \
 		exit 2; \
 	fi; \
-	cat "$${files[@]}" | scripts/compose.sh local-dev exec -T postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"'
+	cat "$${files[@]}" | scripts/compose.sh "$$app_env" exec -T postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"'
 
 # db-reset drops and recreates the database. The target checks APP_ENV itself and scripts/db-reset.sh repeats
 # that check and additionally requires a local Compose database host; the target must never weaken the script.

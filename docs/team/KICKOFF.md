@@ -41,7 +41,7 @@ Les relecteurs viennent de [ADR-0008](../decisions/0008-team-work-areas-and-owne
 ### `Y4NN777`
 
 - **Mission :** propriétaire, lead backend et ops. Tranches S0, S6, S8, S9 ; aide sur S2, S4, S5, E2.
-- **Premier test RED (S0) :** une route parasite, un nom de test absent et une route non listée font chacun passer le gate B1 au rouge ([TODO S0](../../TODO.md#s0--api-core)).
+- **Premier test RED (S0) :** une route parasite, un nom de test absent et une route non listée font chacun passer le gate B1 au rouge ([TODO S0](../../TODO.md#s0--api-core-done)).
 - **Chemins autorisés (S0) :** `src/api/cmd/**`, `src/api/internal/app/**`, `src/api/internal/platform/**` (apigen généré seulement), `scripts/**`, `compose.yaml`, `deploy/**`, `.env.example`, `mk/**` (un changement par PR).
 - **Relecteur :** `NICE-DEV226` pour S0 ; `mibienpanjoe` pour S6 et S9 ; `NICE-DEV226` ou `mibienpanjoe` pour S8. Tu relis le front et, avec `PANK4SS`, chaque PR de contrat.
 
@@ -61,8 +61,8 @@ Les relecteurs viennent de [ADR-0008](../decisions/0008-team-work-areas-and-owne
 
 ### `PANK4SS`
 
-- **Mission :** responsable du front. Tranches S7 (prototypes vers pages React), E4, interface E5, SEED. **Accepte l'invitation GitHub avant tout push.**
-- **Premier test RED (S7) :** changer de langue modifie les libellés, jamais le contenu d'origine. Pour SEED : `make seed` refuse hors `local-dev` ([TODO S7](../../TODO.md#s7--frontend-prototypes-become-react-pages), [TODO SEED](../../TODO.md#seed--original-demo-fixtures-and-make-seed)).
+- **Mission :** responsable du front. Tranches S7 (prototypes vers pages React), E4, interface E5, SEED. Invitation GitHub acceptée (H2, accès actif).
+- **Premier test RED (S7) :** changer de langue modifie les libellés, jamais le contenu d'origine. Pour SEED : `make seed` refuse tout autre environnement que `local-dev` et `staging-test` ([TODO S7](../../TODO.md#s7--frontend-prototypes-become-react-pages), [TODO SEED](../../TODO.md#seed--original-demo-fixtures-and-make-seed)).
 - **Chemins autorisés :** S7 : `src/web/**` et `DESIGN.md`. SEED : `db/seeds/**` et la cible `seed` de `mk/50-ops.mk`. `prototypes/html/**` est hors périmètre tant que le propriétaire ne l'a pas confirmé.
 - **Relecteur :** `Y4NN777` pour S7, E4 et l'interface E5 ; `mibienpanjoe` pour SEED (et `Y4NN777` pour `mk/50-ops.mk`).
 - **Depuis le 2026-11-13 (décision du propriétaire, TODO S7) :** `Y4NN777` porte S7 et en a construit les pages ; `PANK4SS` relit les PR S7 et suit l'issue #109.
@@ -82,7 +82,7 @@ Texte complet : [ROADMAP, section 5](../../ROADMAP.md#5-rules-for-every-slice-r1
 | R7 Fichiers partagés | `api/openapi.yaml`, `go.mod`/`go.sum`, `pnpm-lock.yaml`, `mk/**` : un seul éditeur à la fois, un changement par PR. Le contrat fusionne d'abord, relu par `Y4NN777` et `PANK4SS` |
 | R8 Branches | Une tranche, une branche depuis `develop`, PR vers `develop` ([GIT_WORKFLOW](../GIT_WORKFLOW.md#work-branch-naming)). Personne ne relit sa propre PR |
 | R9 Commits | Ton identité Git confirmée. Aucune attribution IA (pas de `Co-authored-by` d'agent, pas de pied « Generated with ») ; l'aide d'une IA se déclare dans un fichier de [docs/ai-usage/](../ai-usage/README.md), jamais en modifiant [AI_USAGE.md](../../AI_USAGE.md) |
-| R10 Données et secrets | Aucun secret dans Git, les logs, les fixtures, les prompts ou les captures. Les données de démo ne tournent jamais hors `local-dev` |
+| R10 Données et secrets | Aucun secret dans Git, les logs, les fixtures, les prompts ou les captures. Les données de démo ne tournent jamais en production (`local-dev` et `staging-test` seulement) |
 | R11 Statut honnête | Jamais de P1 ou P2 présenté comme fait. Un contrôle non lancé est `NOT RUN`, jamais `PASS` |
 
 Habitudes : un aide est nommé sur la PR et le propriétaire de la tranche reste responsable ; bloqué plus de 30 minutes, tu le dis sur le canal de l'équipe avec ce que tu as essayé ; moins de PR, mieux regroupées (une tranche par PR, les changements de docs ou de chore liés dans la même).
