@@ -28,7 +28,7 @@ describe('VerifyEmailPage', () => {
     expect(
       screen.getByRole('heading', { level: 1, name: 'Vérifiez votre boîte mail' }),
     ).toBeVisible();
-    expect(screen.getByText(/contenant un code de confirmation/)).toBeVisible();
+    expect(screen.getByText(/un code vous attend par e-mail/)).toBeVisible();
     expect(screen.getByLabelText('Code de confirmation')).toBeVisible();
     expect(screen.queryByRole('button', { name: /renvoyer/i })).not.toBeInTheDocument();
     expect(screen.queryByText(/renvoyer/i)).not.toBeInTheDocument();
@@ -41,9 +41,7 @@ describe('VerifyEmailPage', () => {
     await waitFor(() => expect(screen.getByLabelText('Code de confirmation')).toHaveFocus());
     await user.type(screen.getByLabelText('Code de confirmation'), 'short');
     await user.click(screen.getByRole('button', { name: 'Confirmer' }));
-    expect(
-      await screen.findAllByText('Le code doit contenir entre 16 et 256 caractères.'),
-    ).not.toHaveLength(0);
+    expect(await screen.findAllByText('Code non valide. Collez-le en entier.')).not.toHaveLength(0);
     expect(callsTo(fetchMock, VERIFY)).toHaveLength(0);
   });
 
@@ -81,7 +79,7 @@ describe('VerifyEmailPage', () => {
       expect(
         await screen.findByRole('heading', {
           level: 1,
-          name: 'Ce code n’est pas valide ou a expiré',
+          name: 'Code non valide ou expiré',
         }),
       ).toBeVisible();
       expect(screen.getByRole('link', { name: 'Créer un compte' })).toHaveAttribute(
@@ -152,7 +150,7 @@ describe('VerifyEmailPage', () => {
     expect(
       await screen.findByRole('heading', {
         level: 1,
-        name: 'Ce code n’est pas valide ou a expiré',
+        name: 'Code non valide ou expiré',
       }),
     ).toBeVisible();
     expect(window.location.hash).toBe('');

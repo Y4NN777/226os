@@ -30,11 +30,8 @@ describe('SignInPage', () => {
     await renderApp('/connexion?next=/recherche');
     // The card greets like the prototype; the document title stays « Connexion ».
     expect(
-      await screen.findByRole('heading', { level: 1, name: 'Content de vous revoir' }),
+      await screen.findByRole('heading', { level: 1, name: 'Connexion à 226os' }),
     ).toBeInTheDocument();
-    expect(
-      screen.getByText('Connectez-vous pour poser, répondre et suivre vos projets.'),
-    ).toBeVisible();
     expect(screen.getByLabelText('Adresse e-mail')).toHaveAttribute('autocomplete', 'username');
     expect(screen.getByLabelText('Mot de passe')).toHaveAttribute(
       'autocomplete',
@@ -75,9 +72,7 @@ describe('SignInPage', () => {
     await screen.findByRole('heading', { level: 1 });
     await fill(user, 'awa', 'x');
     await user.click(screen.getByRole('button', { name: 'Se connecter' }));
-    expect(await screen.findAllByText('Cette adresse e-mail semble incomplète.')).not.toHaveLength(
-      0,
-    );
+    expect(await screen.findAllByText('Vérifiez l’adresse e-mail.')).not.toHaveLength(0);
     expect(callsTo(fetchMock, SIGN_IN)).toHaveLength(0);
   });
 
@@ -270,7 +265,7 @@ describe('SignInPage', () => {
     const user = userEvent.setup({ delay: null });
     await renderApp('/connexion');
     expect(
-      await screen.findByRole('heading', { level: 1, name: 'Welcome back' }),
+      await screen.findByRole('heading', { level: 1, name: 'Sign in to 226os' }),
     ).toBeInTheDocument();
     await user.type(screen.getByLabelText('Email address'), 'awa@example.org');
     await user.type(screen.getByLabelText('Password'), 'wrong password!');

@@ -442,12 +442,6 @@
   margin: 0;
   font-size: var(--font-size-xl);
 }
-.learn-invite p {
-  margin: var(--spacing-1) 0 0;
-  max-width: 62ch;
-  color: var(--color-text-secondary);
-  text-wrap: pretty;
-}
 
 /* ---------- article: reading layout ---------- */
 .learn-art-head {

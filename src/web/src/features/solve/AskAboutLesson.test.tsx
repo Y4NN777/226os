@@ -6,7 +6,7 @@ import { jsonResponse, renderApp, setLanguages } from '../../test/render';
 import { article, articleId, series, seriesId } from '../learn/testFixtures';
 import { member, page, question } from './testFixtures';
 
-// E4: « Poser une question sur cette leçon », from the lesson to the published question.
+// E4: « Poser une question », from the lesson to the published question.
 const lessonRoutes = {
   [`GET /learn/articles/${articleId}`]: () => jsonResponse(article()),
   [`GET /learn/series/${seriesId}`]: () => jsonResponse(series()),
@@ -29,9 +29,7 @@ describe('E4 ask about a lesson', () => {
     });
     const user = userEvent.setup();
     const { router } = await renderApp(`/apprendre/articles/${articleId}`);
-    await user.click(
-      await screen.findByRole('link', { name: 'Poser une question sur cette leçon' }),
-    );
+    await user.click(await screen.findByRole('link', { name: 'Poser une question' }));
 
     await waitFor(() => {
       expect(router.state.location.pathname).toBe('/solve');
@@ -80,9 +78,7 @@ describe('E4 ask about a lesson', () => {
     const fetchMock = mockApi(lessonRoutes);
     const user = userEvent.setup();
     const { router } = await renderApp(`/apprendre/articles/${articleId}`);
-    await user.click(
-      await screen.findByRole('link', { name: 'Poser une question sur cette leçon' }),
-    );
+    await user.click(await screen.findByRole('link', { name: 'Poser une question' }));
     const invite = await screen.findByRole('link', {
       name: 'Se connecter pour poser une question',
     });

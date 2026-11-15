@@ -366,7 +366,6 @@ function Invite() {
       </span>
       <div>
         <h2 id={titleId}>{t('learn.invite.title')}</h2>
-        <p>{t('learn.invite.body')}</p>
       </div>
       <div>
         <Button
@@ -427,7 +426,6 @@ export function LearnPage() {
       <header className="learn-head">
         <div className="learn-head-text">
           <Heading level={1}>{t('learn.title')}</Heading>
-          <p className="learn-lede">{t('learn.lede')}</p>
         </div>
         {member ? (
           <Button
@@ -476,7 +474,7 @@ export function LearnPage() {
             description={
               filtered
                 ? search.q
-                  ? t('learn.empty.q', { q: search.q })
+                  ? t('learn.empty.q')
                   : t('learn.empty.body')
                 : t('learn.empty.none.body')
             }

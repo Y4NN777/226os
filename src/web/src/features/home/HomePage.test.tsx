@@ -133,7 +133,7 @@ describe('HomePage', () => {
       'Apprendre',
       'Connect',
       'Dernières questions',
-      'API du catalogue',
+      'API et outils',
       'Projets',
     ]);
   });
@@ -178,9 +178,9 @@ describe('HomePage', () => {
   });
 
   it.each([
-    ['Apprendre', 'articles', 'Aucun article pour l’instant.'],
-    ['Dernières questions', 'questions', 'Aucune question pour l’instant.'],
-    ['Projets', 'projects', 'Aucun projet pour l’instant.'],
+    ['Apprendre', 'articles', 'Aucun article.'],
+    ['Dernières questions', 'questions', 'Aucune question.'],
+    ['Projets', 'projects', 'Aucun projet.'],
   ] as const)('says so when %s is empty', async (name, key, text) => {
     setLanguages(['fr-FR']);
     signedIn(() => jsonResponse(page), {
@@ -221,7 +221,7 @@ describe('HomePage', () => {
     await learn.findByRole('link', { name: 'Recevoir un webhook sans doublon' });
     expect(learn.getByText('Tutoriel')).toBeVisible();
     expect(learn.getByText('Intermédiaire')).toBeVisible();
-    expect(learn.getByRole('link', { name: 'Tout apprendre' })).toHaveAttribute(
+    expect(learn.getByRole('link', { name: 'Tous les articles' })).toHaveAttribute(
       'href',
       '/apprendre',
     );
@@ -237,7 +237,7 @@ describe('HomePage', () => {
       '/solve',
     );
 
-    const catalogue = within(section('API du catalogue'));
+    const catalogue = within(section('API et outils'));
     await catalogue.findByRole('link', { name: 'Mobile Money Alpha' });
     expect(catalogue.getAllByText('Vérifié')).toHaveLength(2);
     expect(catalogue.getAllByText('le 1 nov. 2026')).toHaveLength(2);
@@ -259,7 +259,7 @@ describe('HomePage', () => {
     };
     signedIn(() => jsonResponse({ items: [unverified], next_cursor: null }));
     await renderApp('/');
-    const catalogue = within(await screen.findByRole('region', { name: 'API du catalogue' }));
+    const catalogue = within(await screen.findByRole('region', { name: 'API et outils' }));
     await catalogue.findByRole('link', { name: 'Carte Gamma' });
     expect(catalogue.getByText('Non vérifié')).toBeVisible();
     expect(catalogue.queryByText('Vérifié')).not.toBeInTheDocument();
@@ -272,7 +272,7 @@ describe('HomePage', () => {
     const link = await screen.findByRole('link', { name: 'Mobile Money Alpha' });
     expect(link).toHaveAttribute('href', '/discover/00000000-0000-4000-8000-000000000001');
     expect(screen.getByRole('link', { name: 'SMS Beta' })).toBeVisible();
-    expect(screen.getByRole('link', { name: 'Parcourir le catalogue' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Tout le catalogue' })).toHaveAttribute(
       'href',
       '/discover',
     );
@@ -289,7 +289,7 @@ describe('HomePage', () => {
     });
     await renderApp('/');
     const alert = await within(
-      await screen.findByRole('region', { name: 'API du catalogue' }),
+      await screen.findByRole('region', { name: 'API et outils' }),
     ).findByRole('alert');
     expect(alert).toHaveTextContent('Impossible de charger le contenu');
     await userEvent
@@ -302,14 +302,14 @@ describe('HomePage', () => {
     setLanguages(['fr-FR']);
     signedIn(() => jsonResponse({ items: [], next_cursor: null }));
     await renderApp('/');
-    expect(await findVisibleText('Le catalogue est vide pour l’instant.')).toBeVisible();
+    expect(await findVisibleText('Aucune fiche.')).toBeVisible();
   });
 
   it('shows a labelled loading indicator while the catalogue loads', async () => {
     setLanguages(['fr-FR']);
     signedIn(() => new Promise<Response>(() => undefined));
     await renderApp('/');
-    const region = await screen.findByRole('region', { name: 'API du catalogue' });
+    const region = await screen.findByRole('region', { name: 'API et outils' });
     expect(within(region).getAllByRole('status')[0]).toHaveTextContent('Chargement…');
   });
 

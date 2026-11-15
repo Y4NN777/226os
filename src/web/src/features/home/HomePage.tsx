@@ -37,7 +37,6 @@ interface LiveQuery<T> {
 function LiveSection<T>({
   icon,
   title,
-  sub,
   more,
   result,
   empty,
@@ -45,7 +44,6 @@ function LiveSection<T>({
 }: {
   icon: SvgIcon;
   title: string;
-  sub: string;
   more: { href: string; label: string };
   result: LiveQuery<T>;
   empty: string;
@@ -73,7 +71,6 @@ function LiveSection<T>({
           <Link href={more.href}>{more.label}</Link>
         </span>
       </div>
-      <p className="feed-sub">{sub}</p>
       {body}
     </section>
   );
@@ -149,7 +146,6 @@ export function HomePage() {
       <LiveSection
         icon={BookIcon}
         title={t('feed.learn.title')}
-        sub={t('feed.learn.sub')}
         more={{ href: '/apprendre', label: t('feed.learn.more') }}
         result={articles}
         empty={t('feed.learn.empty')}
@@ -161,7 +157,6 @@ export function HomePage() {
       <LiveSection
         icon={HelpIcon}
         title={t('feed.questions.title')}
-        sub={t('feed.questions.sub')}
         more={{ href: '/solve', label: t('feed.questions.more') }}
         result={questions}
         empty={t('feed.questions.empty')}
@@ -171,7 +166,6 @@ export function HomePage() {
       <LiveSection
         icon={CompassIcon}
         title={t('feed.catalog.title')}
-        sub={t('feed.catalog.sub')}
         more={{ href: '/discover', label: t('feed.catalog.more') }}
         result={resources}
         empty={t('feed.catalog.empty')}
@@ -181,7 +175,6 @@ export function HomePage() {
       <LiveSection
         icon={HammerIcon}
         title={t('feed.projects.title')}
-        sub={t('feed.projects.sub')}
         more={{ href: '/build', label: t('feed.projects.more') }}
         result={projects}
         empty={t('feed.projects.empty')}

@@ -39,9 +39,7 @@ afterEach(() => {
 describe('ResetPasswordPage', () => {
   it('shows the code and the new password with the live rule', async () => {
     const { user } = await open();
-    expect(
-      screen.getByRole('heading', { level: 1, name: 'Choisir un nouveau mot de passe' }),
-    ).toBeVisible();
+    expect(screen.getByRole('heading', { level: 1, name: 'Nouveau mot de passe' })).toBeVisible();
     expect(screen.getByLabelText('Nouveau mot de passe')).toHaveAttribute(
       'autocomplete',
       'new-password',
@@ -68,9 +66,7 @@ describe('ResetPasswordPage', () => {
     await user.type(screen.getByLabelText('Code de confirmation'), TOKEN);
     await user.type(screen.getByLabelText('Nouveau mot de passe'), 'short');
     await user.click(screen.getByRole('button', { name: 'Enregistrer' }));
-    expect(
-      await screen.findAllByText('Le mot de passe doit contenir au moins 12 caractères.'),
-    ).not.toHaveLength(0);
+    expect(await screen.findAllByText('12 caractères minimum.')).not.toHaveLength(0);
     await waitFor(() => expect(screen.getByLabelText('Nouveau mot de passe')).toHaveFocus());
     expect(callsTo(fetchMock, CONFIRM)).toHaveLength(0);
   });
@@ -81,7 +77,7 @@ describe('ResetPasswordPage', () => {
     expect(
       await screen.findByRole('heading', { level: 1, name: 'Mot de passe modifié' }),
     ).toBeVisible();
-    expect(screen.getByText(/Tous vos appareils ont été déconnectés/)).toBeVisible();
+    expect(screen.getByText(/Tous vos appareils sont déconnectés/)).toBeVisible();
     expect(screen.getByRole('link', { name: 'Se connecter' })).toHaveAttribute(
       'href',
       '/connexion',
@@ -133,7 +129,7 @@ describe('ResetPasswordPage', () => {
       expect(
         await screen.findByRole('heading', {
           level: 1,
-          name: 'Ce code n’est pas valide ou a expiré',
+          name: 'Code non valide ou expiré',
         }),
       ).toBeVisible();
       expect(screen.getByRole('link', { name: 'Demander un nouveau code' })).toHaveAttribute(
@@ -151,9 +147,7 @@ describe('ResetPasswordPage', () => {
         }),
     });
     await fillAndSubmit(user);
-    expect(
-      await screen.findAllByText('Le mot de passe doit contenir au moins 12 caractères.'),
-    ).not.toHaveLength(0);
+    expect(await screen.findAllByText('12 caractères minimum.')).not.toHaveLength(0);
     await waitFor(() => expect(screen.getByLabelText('Nouveau mot de passe')).toHaveFocus());
     expect(screen.getByLabelText('Code de confirmation')).toHaveValue(TOKEN);
   });
@@ -223,7 +217,7 @@ describe('ResetPasswordPage', () => {
 
   it('is available in English', async () => {
     const { user } = await open('en-US', { [CONFIRM]: noContent });
-    expect(screen.getByRole('heading', { level: 1, name: 'Choose a new password' })).toBeVisible();
+    expect(screen.getByRole('heading', { level: 1, name: 'New password' })).toBeVisible();
     await user.type(screen.getByLabelText('Confirmation code'), TOKEN);
     await user.type(screen.getByLabelText('New password'), 'a brand new passphrase');
     await user.click(screen.getByRole('button', { name: 'Save' }));

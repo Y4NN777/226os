@@ -70,10 +70,7 @@ export function WelcomePage() {
 
   return (
     <VStack gap={4}>
-      <CardHead
-        title={t('identity.welcome.title', { name: user.display_name || user.username })}
-        lede={t('identity.welcome.intro')}
-      />
+      <CardHead title={t('identity.welcome.title', { name: user.display_name || user.username })} />
       <ul className="acc-tiles">
         <WelcomeTile
           icon={BookIcon}

@@ -230,7 +230,6 @@ export function LandingPage() {
           <h2 id="landing-pillars" className="lp-h2">
             {t('landing.pillars.title')}
           </h2>
-          <p className="lp-sub">{t('landing.pillars.lede')}</p>
         </header>
         <ul className="lp-pillars">
           {pillars.map((pillar) => (
@@ -245,7 +244,6 @@ export function LandingPage() {
             <h2 id="landing-catalogue" className="lp-h2">
               {t('landing.catalogue.title')}
             </h2>
-            <p className="lp-sub">{t('landing.catalogue.lede')}</p>
           </div>
           <ArrowLink href="/discover" label={t('landing.catalogue.more')} />
         </header>

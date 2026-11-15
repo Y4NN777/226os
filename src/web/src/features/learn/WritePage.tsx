@@ -3,7 +3,6 @@ import { Button } from '@astryxdesign/core/Button';
 import { Heading } from '@astryxdesign/core/Heading';
 import { Icon } from '@astryxdesign/core/Icon';
 import { Link } from '@astryxdesign/core/Link';
-import { Text } from '@astryxdesign/core/Text';
 import { VStack } from '@astryxdesign/core/VStack';
 import { useLocation, useSearch } from '@tanstack/react-router';
 import { useId, useState } from 'react';
@@ -82,7 +81,6 @@ export function WritePage() {
     return (
       <VStack gap={3} hAlign="start" maxWidth={560}>
         <Heading level={1}>{t('learn.signIn.title')}</Heading>
-        <Text as="p">{t('learn.signIn.body')}</Text>
         <Button
           variant="primary"
           label={t('account.signIn')}
@@ -117,7 +115,6 @@ export function WritePage() {
       <Crumbs />
       <header className="learn-head-text">
         <Heading level={1}>{t('learn.write.title')}</Heading>
-        <p className="learn-lede">{t('learn.write.lede')}</p>
       </header>
       <div className="learn-write">
         <div className="learn-form">

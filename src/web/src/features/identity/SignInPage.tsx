@@ -75,7 +75,7 @@ export function SignInPage() {
 
   return (
     <VStack gap={5}>
-      <CardHead title={t('identity.signIn.heading')} lede={t('identity.signIn.lede')} />
+      <CardHead title={t('identity.signIn.heading')} />
       {failure ? <SignInNotice key={failure.n} error={failure.error} /> : null}
       <form
         method="post"
