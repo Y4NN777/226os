@@ -1732,8 +1732,8 @@ third_party_sources_consulted: []
 license_review: "NOT APPLICABLE: original text and code, no new dependency"
 closure: "open"
 human_reviewers: ["pending PR review"]
-tests_or_evidence: ["scripts/tests/seed_test.sh: RED 15/18 before the mk change, GREEN 18/18 after", "go test identity, app, dbgen: PASS; 100.0% statements on the touched packages (agent run); make lint-go PASS; sqlc vet PASS; sqlc regenerate shows no drift", "TestDirectoryHidesDemoAccountsByDefault on real PostgreSQL: FAIL with the filter removed (demo-person listed), PASS with it; go test -race -tags integration -run TestDirectory PASS"]
-open_risks: ["full make test-integration not run by hand (memory tight); the commit gate runs the configured checks", "seeding staging-test aborts the whole batch if a seeded tag or username already exists there (db/seeds/README.md section 12)", "C12 is left for the owner"]
+tests_or_evidence: ["scripts/tests/seed_test.sh: RED 15/18 before the mk change, GREEN 18/18 after", "go test identity, app, dbgen: PASS; 100.0% statements on the touched packages (agent run); make lint-go PASS; sqlc vet PASS; sqlc regenerate shows no drift", "TestDirectoryHidesDemoAccountsByDefault on real PostgreSQL: FAIL with the filter removed (demo-person listed), PASS with it; go test -race -tags integration -run TestDirectory PASS", "TestSeedReusesLiveTagsBySlug: FAIL before (tags_slug_uq 23505 on a live go tag), PASS after the tag links resolve by slug; all TestSeed* and seed_test.sh PASS"]
+open_risks: ["full make test-integration not run by hand (memory tight); the commit gate runs the configured checks", "C12 is left for the owner"]
 ```
 
 ## GitHub error detail and one retry in the review scripts

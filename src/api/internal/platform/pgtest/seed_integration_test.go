@@ -233,6 +233,39 @@ func TestSeedIsIdempotent(t *testing.T) {
 	}
 }
 
+// staging-test already holds live content when it is seeded: a live tag with a slug the seed also uses
+// (here `go` and `api`) must be reused, not collide on tags_slug_uq and roll the whole batch back.
+func TestSeedReusesLiveTagsBySlug(t *testing.T) {
+	ctx := t.Context()
+	conn := migratedDB(ctx, t)
+	const liveGo, liveAPI = "01900000-0000-7000-8000-00000000ff01", "01900000-0000-7000-8000-00000000ff02"
+	if _, err := conn.Exec(ctx, `INSERT INTO tags (id, slug, label) VALUES ($1, 'go', 'Go'), ($2, 'api', 'API')`, liveGo, liveAPI); err != nil {
+		t.Fatal(err)
+	}
+	_, batch := seedFiles(t)
+	if err := runSeed(ctx, t, conn, batch); err != nil {
+		t.Fatalf("seed over live tags: %v", err)
+	}
+	for _, tc := range []struct{ slug, id string }{{"go", liveGo}, {"api", liveAPI}} {
+		var id, provenance string
+		if err := conn.QueryRow(ctx, `SELECT id::text, provenance FROM tags WHERE slug = $1`, tc.slug).Scan(&id, &provenance); err != nil {
+			t.Fatal(err)
+		}
+		if id != tc.id || provenance != "live" {
+			t.Errorf("tag %s = (%s, %s), want the live row (%s, live)", tc.slug, id, provenance, tc.id)
+		}
+	}
+	if n := scalarInt(ctx, t, conn, `SELECT count(*) FROM resource_tags WHERE tag_id = '`+liveAPI+`'`); n == 0 {
+		t.Error("no demo resource is tagged with the live `api` tag")
+	}
+	if n := scalarInt(ctx, t, conn, `SELECT count(*) FROM tags WHERE provenance = 'demo' AND slug IN ('go', 'api')`); n != 0 {
+		t.Errorf("%d demo duplicates of a live slug", n)
+	}
+	if err := runSeed(ctx, t, conn, batch); err != nil {
+		t.Fatalf("second seed over live tags: %v", err)
+	}
+}
+
 func TestSeedSQLIsDeterministic(t *testing.T) {
 	names, _ := seedFiles(t)
 	forbidden := regexp.MustCompile(`(?i)now\s*\(|current_timestamp|uuidv7\s*\(|random\s*\(`)
