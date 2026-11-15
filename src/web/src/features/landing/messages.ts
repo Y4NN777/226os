@@ -4,7 +4,8 @@ export const fr = {
   'landing.title': 'Apprenez, échangez et construisez entre développeurs africains',
   'landing.lede':
     'Un espace pour progresser, rencontrer d’autres développeurs et trouver les API et les outils qui fonctionnent chez vous.',
-  'landing.positioning': 'Afrique de l’Ouest d’abord, puis toute l’Afrique',
+  'landing.positioning':
+    'Né au Burkina Faso, ouvert à l’Afrique de l’Ouest, puis à tout le continent',
   'landing.cta.signup': 'Créer un compte',
   'landing.cta.browse': 'Parcourir le catalogue',
   'landing.search.label': 'Rechercher dans le catalogue',
@@ -42,7 +43,7 @@ export const en: Record<keyof typeof fr, string> = {
   'landing.title': 'Learn, connect and build with African developers',
   'landing.lede':
     'A place to grow, meet other developers and find the APIs and tools that work where you are.',
-  'landing.positioning': 'West Africa first, then the whole continent',
+  'landing.positioning': 'Born in Burkina Faso, open to West Africa, then the whole continent',
   'landing.cta.signup': 'Create an account',
   'landing.cta.browse': 'Browse the catalogue',
   'landing.search.label': 'Search the catalogue',

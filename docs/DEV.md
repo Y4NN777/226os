@@ -42,7 +42,8 @@ Node : le plancher `engines.node` (`>=24`, vérifié par `make doctor`) et la ve
 | `db-reset` | recrée la base, `APP_ENV=local-dev` uniquement |
 | `review`, `review-login` | revue IA locale et consultative ([open-code-review](https://github.com/alibaba/open-code-review), version fixée dans `scripts/review.sh`, lancée par `npx`) ; envoie le diff au fournisseur LLM configuré ; pas un gate. Sans clé : la commande `/delegate-review` de Claude Code |
 | `seed` | fixtures de démo de `db/seeds/` (`provenance = 'demo'`), avec `APP_ENV=local-dev` ou `APP_ENV=staging-test` ; refusé ailleurs, jamais en `production-live` |
-| `test-e2e` (G5), `perf` (G6) | **NOT IMPLEMENTED** ; `quality-full` échoue tant que G5 et G6 le sont |
+| `test-e2e` (G5) | suite Playwright contre un site déployé : exige `E2E_BASE_URL`, sinon **NOT RUN** (voir [TEST](TEST.md), section 6 ter) |
+| `perf` (G6) | **NOT IMPLEMENTED** ; `quality-full` échoue tant que G6 l'est, ou que `E2E_BASE_URL` manque |
 
 ### Revue IA et fusion automatique
 
