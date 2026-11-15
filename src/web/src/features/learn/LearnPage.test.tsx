@@ -4,7 +4,15 @@ import { describe, expect, it } from 'vitest';
 import { callsTo, memberSession, mockApi, problemResponse } from '../../test/api';
 import { jsonResponse, renderApp, setLanguages } from '../../test/render';
 import { question } from '../solve/testFixtures';
-import { articleId, page, secondArticleId, seriesId, seriesSummary, summary } from './testFixtures';
+import {
+  articleId,
+  page,
+  secondArticleId,
+  series,
+  seriesId,
+  seriesSummary,
+  summary,
+} from './testFixtures';
 
 const second = summary({
   id: secondArticleId,
@@ -37,11 +45,65 @@ describe('LearnPage list', () => {
       name: 'Premiers pas avec une API de paiement',
     });
     expect(formation).toHaveAttribute('href', `/apprendre/formations/${seriesId}`);
+    // Dense rows as in the prototype: type badge, author, level, language, date.
     const articles = screen.getByRole('region', { name: 'Articles' });
-    expect(within(articles).getByText('Par Fatou Diallo')).toBeInTheDocument();
-    expect(within(articles).getByText('webhook')).toBeInTheDocument();
+    const row = within(articles).getByRole('listitem');
+    expect(within(row).getByText('Article')).toBeInTheDocument();
+    expect(within(row).getByText('Fatou Diallo')).toBeInTheDocument();
+    expect(within(row).getByText('Intermédiaire')).toBeInTheDocument();
+    expect(within(row).getByText('Français')).toBeInTheDocument();
+    expect(within(row).getByText('12 nov. 2026')).toHaveAttribute(
+      'datetime',
+      '2026-11-12T09:00:00Z',
+    );
+    expect(
+      within(row).getByText('Calculer le HMAC et comparer en temps constant.'),
+    ).toBeInTheDocument();
     const formations = screen.getByRole('region', { name: 'Formations' });
-    expect(within(formations).getByText('Leçons : 2')).toBeInTheDocument();
+    expect(within(formations).getByText('2 leçons')).toBeInTheDocument();
+    expect(within(formations).getByText('Formation proposée par Fatou Diallo')).toBeInTheDocument();
+    expect(within(formations).getByRole('link', { name: 'Voir le programme' })).toHaveAttribute(
+      'href',
+      `/apprendre/formations/${seriesId}`,
+    );
+  });
+
+  it('shows the lessons of the featured series and starts at the first one', async () => {
+    setLanguages(['fr-FR']);
+    mockApi({ ...base, [`GET /learn/series/${seriesId}`]: () => jsonResponse(series()) });
+    await renderApp('/apprendre');
+    const steps = await screen.findByRole('group', { name: 'Au programme' });
+    const lessons = within(steps).getAllByRole('link');
+    expect(lessons.map((link) => link.textContent)).toEqual([
+      '1Créer le paiement10 min',
+      '2Recevoir le webhook',
+    ]);
+    expect(lessons[0]).toHaveAttribute('href', `/apprendre/articles/${articleId}`);
+    expect(screen.getByRole('link', { name: 'Commencer la formation' })).toHaveAttribute(
+      'href',
+      `/apprendre/articles/${articleId}`,
+    );
+  });
+
+  it('lists the other series as rows with their lesson count', async () => {
+    setLanguages(['fr-FR']);
+    mockApi({
+      ...base,
+      'GET /learn/series': () =>
+        page([
+          seriesSummary(),
+          seriesSummary({
+            id: 'e0000000-0000-4000-8000-000000000002',
+            title: 'Déployer sur un VPS',
+            lesson_count: 1,
+          }),
+        ]),
+    });
+    await renderApp('/apprendre');
+    const link = await screen.findByRole('link', { name: 'Déployer sur un VPS' });
+    const row = link.closest('li') as HTMLElement;
+    expect(within(row).getByText('Formation')).toBeInTheDocument();
+    expect(within(row).getByText('1 leçon')).toBeInTheDocument();
   });
 
   it('is a live link in the navigation', async () => {
@@ -185,6 +247,11 @@ describe('LearnPage list', () => {
       '/ecrire',
     );
     expect(screen.getByRole('heading', { level: 1, name: 'Learn' })).toBeInTheDocument();
+    const invite = screen.getByRole('region', { name: 'Share what you know' });
+    expect(within(invite).getByRole('link', { name: 'Start writing' })).toHaveAttribute(
+      'href',
+      '/ecrire',
+    );
   });
 
   it('does not offer writing to a visitor', async () => {
@@ -193,6 +260,9 @@ describe('LearnPage list', () => {
     await renderApp('/apprendre');
     await screen.findByRole('link', { name: 'Vérifier un webhook signé' });
     expect(screen.queryByRole('link', { name: 'Écrire un article' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('region', { name: 'Partagez ce que vous savez' }),
+    ).not.toBeInTheDocument();
   });
 });
 
@@ -215,6 +285,22 @@ describe('LearnPage topic feed of questions', () => {
     );
     expect(within(region).queryByRole('button')).not.toBeInTheDocument();
     expect(params(callsTo(fetchMock, 'GET /questions')[0]).get('tag')).toBe('payments');
+    const row = link.closest('li') as HTMLElement;
+    expect(within(row).getByText('Sans réponse')).toBeInTheDocument();
+    expect(within(row).getByText('10 nov. 2026')).toBeInTheDocument();
+  });
+
+  it('counts the answers of an answered question', async () => {
+    setLanguages(['fr-FR']);
+    mockApi({
+      ...base,
+      'GET /questions': () => page([{ ...asked, state: 'answered', answer_count: 2 }]),
+    });
+    await renderApp('/apprendre?topic=payments');
+    const link = await screen.findByRole('link', { name: 'Quel SDK pour Wave ?' });
+    const row = link.closest('li') as HTMLElement;
+    expect(within(row).getByText('Répondue')).toBeInTheDocument();
+    expect(within(row).getByText('2 réponses')).toBeInTheDocument();
   });
 
   it('says so when no question carries the topic', async () => {
