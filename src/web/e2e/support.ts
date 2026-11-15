@@ -9,7 +9,7 @@ export const fr = {
     solve: 'Résoudre',
     discover: 'Découvrir',
   },
-  account: { signIn: 'Se connecter', signOut: 'Se déconnecter', more: 'Plus d’options' },
+  account: { signIn: 'Se connecter', signOut: 'Se déconnecter', prefs: 'Préférences' },
 } as const;
 
 /** Open `path`, then open the first card of the list region named `region` and check the detail heading. */

@@ -53,7 +53,7 @@ test.describe('Anonymous visitor', () => {
     const nav = page.getByRole('navigation', { name: fr.nav.label });
     await expect(nav.getByRole('link', { name: fr.nav.solve, exact: true })).toBeVisible();
 
-    await page.getByRole('button', { name: fr.account.more }).click();
+    await page.getByRole('button', { name: fr.account.prefs }).click();
     await page.getByRole('menuitemradio', { name: 'English' }).click();
     await expect(
       page
@@ -61,7 +61,7 @@ test.describe('Anonymous visitor', () => {
         .getByRole('link', { name: 'Solve', exact: true }),
     ).toBeVisible();
 
-    await page.getByRole('button', { name: 'More options' }).click();
+    await page.getByRole('button', { name: 'Preferences' }).click();
     await page.getByRole('menuitemradio', { name: 'Français' }).click();
     await expect(nav.getByRole('link', { name: fr.nav.solve, exact: true })).toBeVisible();
   });

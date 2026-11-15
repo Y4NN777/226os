@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Registry side of the deploy (ADR-0006: GHCR, immutable tag by commit SHA, deployment by digest).
 #
-#   deploy-images.sh push <tag> <local-tag>   (refuses an existing <tag>) tag the locally built 226os-{api,web,migrate}:<local-tag> as
+#   deploy-images.sh push <tag> <local-tag>   (keeps an existing <tag>) tag the locally built 226os-{api,web,migrate}:<local-tag> as
 #                                             <namespace>/226os-<name>:<tag> and push them (job needs packages: write)
 #   deploy-images.sh resolve <tag>            print API_IMAGE=, WEB_IMAGE= and MIGRATE_IMAGE= by registry digest
 #   deploy-images.sh tag <from> <to>          add the tag <to> to the digests that <from> points to (no rebuild)
@@ -36,19 +36,14 @@ case "$cmd" in
     [ $# -eq 2 ] || usage
     check_tag "$1"
     check_tag "$2"
-    # Immutable tags (ADR-0006): an existing tag is never overwritten with other content. A tag that already holds
-    # exactly this image (same config digest as the local image) is skipped, so a partial push can be completed.
+    # Immutable tags (ADR-0006): an existing tag is never overwritten. The <sha> tag is the image this workflow
+    # published for that commit, so an existing one is kept as is, even when a re-run rebuilt the image with other
+    # timestamps; only the missing tags are pushed. `resolve` then reads every digest from the registry.
     todo=()
     for n in "${names[@]}"; do
       ref="$ns/226os-$n:$1"
       if docker buildx imagetools inspect "$ref" >/dev/null 2>&1; then
-        remote_cfg="$(docker buildx imagetools inspect --raw "$ref" | jq -r '.config.digest // empty')"
-        local_id="$(docker image inspect "226os-$n:$2" --format '{{.Id}}')"
-        if [ -n "$remote_cfg" ] && [ "$remote_cfg" = "$local_id" ]; then
-          printf 'deploy-images: %s already holds this image, skipped\n' "$ref"
-        else
-          die "REFUSED: $ref already exists with different content and tags are immutable (to rebuild, push a new commit)"
-        fi
+        printf 'deploy-images: %s is already published for this commit, kept (tags are immutable)\n' "$ref"
       else
         todo+=("$n")
       fi

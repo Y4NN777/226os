@@ -74,19 +74,22 @@ run "$images" tag tested-t1 tested-tree
 if [ "$rc" -eq 0 ] && grep -q "buildx imagetools create --tag $ns/226os-api:tested-tree $ns/226os-api@$d_api" "$tmp/log" &&
   grep -q "create --tag $ns/226os-migrate:tested-tree $ns/226os-migrate@$d_mig" "$tmp/log"; then ok "tag re-tags the digests, it never rebuilds"; else ko "tag (rc=$rc out=$out log=$(cat "$tmp/log"))"; fi
 
-# abc123: api and web exist, with other content than the local images: refused, nothing pushed.
+# abc123: all three tags exist, api and web with other content than the local images (a rebuild on re-run):
+# every tag is kept, nothing is overwritten or pushed.
 printf '%s sha256:%s\n%s sha256:%s\n' "$ns/226os-api:abc123" "$(printf '9%.0s' {1..64})" "$ns/226os-web:abc123" "$(printf '9%.0s' {1..64})" >"$tmp/cfg"
 run "$images" push abc123 localtag
-if [ "$rc" -ne 0 ] && grep -q 'different content' <<<"$out" && ! grep -q '^push' "$tmp/log"; then ok "push refuses an existing tag that holds other content (immutable tags)"; else ko "existing tag (rc=$rc out=$out)"; fi
+if [ "$rc" -eq 0 ] && [ "$(grep -c 'kept (tags are immutable)' <<<"$out")" -eq 3 ] && ! grep -q '^push' "$tmp/log" && ! grep -q '^tag ' "$tmp/log"; then
+  ok "push never overwrites an existing tag, even with other content (immutable tags)"
+else ko "existing tags (rc=$rc out=$out log=$(cat "$tmp/log"))"; fi
 
-# Partial push: api already holds exactly the local image, web and migrate are missing: skip api, push the rest.
+# Partial push (a re-run after a push that failed half way): api exists, web and migrate are missing: keep api, push the rest.
 : >"$tmp/map"
 printf '%s %s\n' "$ns/226os-api:part1" "$d_api" >"$tmp/map"
 printf '%s sha256:%s\n' "$ns/226os-api:part1" "$(printf '1%.0s' {1..64})" >"$tmp/cfg"
 run "$images" push part1 localtag
-if [ "$rc" -eq 0 ] && grep -q 'already holds this image' <<<"$out" && ! grep -q "push $ns/226os-api:part1" "$tmp/log" &&
+if [ "$rc" -eq 0 ] && grep -q 'kept (tags are immutable)' <<<"$out" && ! grep -q "push $ns/226os-api:part1" "$tmp/log" &&
   grep -qx "push $ns/226os-web:part1" "$tmp/log" && grep -qx "push $ns/226os-migrate:part1" "$tmp/log"; then
-  ok "a partial push is completed: the tag with the same image is skipped, the others are pushed"
+  ok "a partial push is completed: the existing tag is kept, the missing ones are pushed"
 else ko "partial push (rc=$rc out=$out log=$(cat "$tmp/log"))"; fi
 cat >"$tmp/map" <<EOM
 $ns/226os-api:tested-t1 $d_api
