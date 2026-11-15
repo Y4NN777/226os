@@ -387,6 +387,7 @@ Open owner items outside CADEV (IDs and decisions in ROADMAP section 8, 10 and 1
 - 2026-11-15 (`Y4NN777`, `feature/web/data-gaps-wiring`, S7, data gaps): the web shows what API PR #238 serves: Build rows and project page carry stage, country and licence (owner edit with 422 on stage and country mapped to fields), Build filters (stage, country) and a sort select live in the URL, Solve and Discover get a sort select in the URL, every list count comes from `total` (no more « N premiers »), and the profile has activity tabs (Questions, Réponses, Projets). Search keeps its per-group counts (no total in `/search`). No captures: the shared local-dev API predates #238.
 - 2026-11-15 (`Y4NN777`, `feature/web/countries-create`, S7, PR #246): one shared list of the 54 African countries of the database (West Africa first) in the Build, Connect and Discover country selects and the project edit form; the creation form gets the optional stage, licence and country (only what is set is sent; 422 on stage, licence and country shown on the fields).
 - **Status:** IN REVIEW (demo gaps; pages and Connect are merged, remaining #109 gaps are in `fix/platform/demo-gaps`)
+- [x] Favicon : `src/web/public/` (favicon.ico 16/32/48, favicon.png, apple-touch-icon.png) découpé dans `docs/brand/226os-logo.png`, liens dans `src/web/index.html` (2026-11-15).
 
 ---
 

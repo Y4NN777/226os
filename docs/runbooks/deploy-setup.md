@@ -94,6 +94,25 @@ Le compte est dans l'environnement GitHub `staging-e2e`, pas dans le dépôt. Le
 3. Le propriétaire ajoute les deux secrets, sur une ligne chacun, la valeur étant saisie à l'invite : `gh secret set E2E_USER --env staging-e2e` puis `gh secret set E2E_PASSWORD --env staging-e2e`. **À faire avant le premier déploiement de staging qui exécute les E2E** : sans ces deux secrets, le job `e2e` échoue avec un message clair ; le groupe connecté n'est jamais ignoré. Ces valeurs ne vont ni dans le dépôt, ni sur le serveur.
 4. Tant que le script `test:e2e` n'existe pas sur le commit, le job `e2e` affiche « E2E NOT RUN » et les étiquettes `tested-<arbre>` ne sont pas posées. Chaque exécution publie une question et une réponse avec ce compte. Le dépôt est public : en CI, Playwright n'écrit ni trace, ni vidéo, ni capture, ni rapport HTML (ils contiendraient le mot de passe et le cookie), et seul le XML junit est publié. Les étiquettes `tested-<arbre>` ne sont posées que si le job `e2e` a réellement tourné, et chaque empreinte reçoit alors une attestation signée (arbre et commit) : la production vérifie l'attestation avec `gh attestation verify` et refuse une empreinte seulement étiquetée ou attestée pour un autre arbre.
 
+### Ordre réel pour staging (le compte E2E n'existe qu'après un premier déploiement)
+
+`secrets/staging-test.enc.env` ne contient pas encore `E2E_USER` ni `E2E_PASSWORD`. Le premier déploiement de staging va donc jusqu'à la fumée puis échoue à l'étape E2E, et ne pose pas d'étiquette `tested-<arbre>` : c'est attendu. Commandes du propriétaire, dans l'ordre :
+
+1. Sur le serveur de staging, neuf, en root, ports 80 et 443 libres (`ss -tlnp`) :
+   ```bash
+   bash server-bootstrap.sh --dry-run --ssh-fingerprint "SHA256:<empreinte de votre clé root>" "$(cat deploy_staging.pub)"
+   bash server-bootstrap.sh --ssh-fingerprint "SHA256:<empreinte de votre clé root>" "$(cat deploy_staging.pub)"
+   ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub   # doit afficher l'empreinte attendue
+   cat /etc/ssh/ssh_host_ed25519_key.pub              # la ligne à épingler
+   ```
+   `deploy_staging.pub` est la clé publique `ci-226os-staging`, dont la privée est le secret `DEPLOY_SSH_KEY` de l'environnement `staging`.
+2. DNS : `staging.226os.tech` en `A` vers l'IP du serveur ; vérifier avec `dig +short staging.226os.tech`.
+3. PR depuis `develop` (`scripts/worktree.sh new fix/deploy/staging-conf`) : dans `deploy/staging.conf`, `DEPLOY_HOST=staging.226os.tech` et `DEPLOY_KNOWN_HOSTS=staging.226os.tech ssh-ed25519 <clé lue à l'étape 1>`, puis `bash scripts/tests/deploy-conf_test.sh` et `scripts/deploy-conf.sh staging`.
+4. Avant la fusion, contrôler le fichier chiffré sans afficher de valeur : `SECRETS_OUT_DIR=$(mktemp -d /dev/shm/s.XXXX) scripts/secrets.sh decrypt staging-test >/dev/null` puis `scripts/compose-env-guard.sh staging-test <ce dossier>/.env.staging-test` (doit afficher OK ; `PUBLIC_HOST=staging.226os.tech`).
+5. Fusion : le workflow `Deploy` part sur `develop` après `Quality`. Approuver l'environnement `staging`. Attendu : déploiement, seeds et fumée OK, puis échec de l'étape E2E (« compte manquant »).
+6. Sur https://staging.226os.tech, créer le compte de test et vérifier son e-mail, puis `scripts/secrets.sh edit staging-test` pour ajouter `E2E_USER` et `E2E_PASSWORD`, et ouvrir la PR.
+7. Après sa fusion, le déploiement suivant de staging exécute les E2E et pose `tested-<arbre>`. La production peut alors partir de `main` (fusion `develop` vers `main` sans autre changement, puis approbation de l'environnement `production`).
+
 ## 8. Sauvegardes
 
 Avant chaque migration, `/opt/226os/backups` reçoit un dump chiffré avec age (`<profil>-<date>.dump.age`, pour les clés de `secrets/<profil>.recipients`) et son fichier de preuve ; le dump en clair est supprimé. Les dix derniers sont gardés. **Étape du détenteur de chaque serveur : aucune copie hors du serveur n'existe.** Copiez régulièrement ce dossier ailleurs (par exemple `rsync` depuis votre machine) : un disque perdu perd les sauvegardes avec la base. Déchiffrement : `age -d -i <votre clé age> fichier.dump.age > fichier.dump`, puis `scripts/restore-check.sh`.
