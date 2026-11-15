@@ -135,8 +135,17 @@
   border-radius: var(--radius-container);
   background: var(--color-background-surface);
 }
+.lp-pillar {
+  transition: background-color var(--duration-fast) var(--ease-standard);
+}
+.lp-pillar:hover {
+  background: color-mix(in srgb, var(--color-accent) 10%, var(--color-background-surface));
+}
 .lp-pillar-lead {
   background: color-mix(in srgb, var(--color-accent) 7%, var(--color-background-surface));
+}
+.lp-pillar-lead:hover {
+  background: color-mix(in srgb, var(--color-accent) 12%, var(--color-background-surface));
 }
 .lp-pillar p {
   margin: 0;
@@ -155,6 +164,72 @@
   margin-bottom: var(--spacing-1);
   border-radius: var(--radius-element);
   background: color-mix(in srgb, var(--color-accent) 14%, var(--color-background-surface));
+}
+
+/* ---------- Product screenshots: real captures in a light frame ---------- */
+.lp-shots {
+  display: grid;
+  gap: var(--spacing-6);
+  align-items: start;
+}
+@media (min-width: 768px) {
+  .lp-shots {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+  .lp-shot-article,
+  .lp-shot-question {
+    grid-column: span 3;
+  }
+  .lp-shot-search {
+    grid-column: span 4;
+  }
+  .lp-shot-mobile {
+    grid-column: span 2;
+    max-width: 16rem;
+    justify-self: center;
+  }
+}
+.lp-shot {
+  display: grid;
+  gap: var(--spacing-3);
+  margin: 0;
+  min-width: 0;
+}
+.lp-shot-img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-container);
+  background: var(--color-background-surface);
+  transition:
+    transform var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-fast) var(--ease-standard);
+}
+.lp-shot:hover .lp-shot-img {
+  transform: translateY(-2px);
+  box-shadow: 0 var(--spacing-2) var(--spacing-6)
+    color-mix(in srgb, var(--color-text-primary) 12%, transparent);
+}
+.lp-shot figcaption {
+  color: var(--color-text-secondary);
+  font-size: 0.9375rem;
+  line-height: 1.4;
+}
+
+/* ---------- Reveal on scroll (set by useReveal; absent without JS or IntersectionObserver) ---------- */
+[data-reveal] {
+  transition:
+    opacity 320ms ease-out,
+    transform 320ms ease-out;
+}
+[data-reveal='hidden'] {
+  opacity: 0;
+  transform: translateY(12px);
+}
+[data-reveal='shown'] {
+  opacity: 1;
+  transform: none;
 }
 
 /* ---------- Closing band: a tinted brand surface ---------- */
@@ -193,7 +268,19 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .lp-link:hover svg {
+  .lp-link svg,
+  .lp-pillar,
+  .lp-shot-img,
+  [data-reveal] {
+    transition: none;
+  }
+  .lp-link:hover svg,
+  .lp-shot:hover .lp-shot-img {
+    transform: none;
+    box-shadow: none;
+  }
+  [data-reveal='hidden'] {
+    opacity: 1;
     transform: none;
   }
 }
