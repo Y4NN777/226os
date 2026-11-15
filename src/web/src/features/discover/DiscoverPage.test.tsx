@@ -51,9 +51,7 @@ describe('DiscoverPage', () => {
       '/discover/a0000000-0000-4000-8000-000000000001',
     );
     expect(screen.getByRole('link', { name: 'Accra Gate' })).toBeInTheDocument();
-    expect(
-      screen.getByText('Afrique de l’Ouest d’abord, puis toute l’Afrique'),
-    ).toBeInTheDocument();
+    expect(screen.queryByText(/Afrique de l’Ouest d’abord/)).not.toBeInTheDocument();
     const params = listParams(fetchMock, 'first');
     expect(params.get('limit')).toBe('50');
     // One comma-separated parameter (form, explode false), as the contract requires.
@@ -453,10 +451,8 @@ describe('DiscoverPage', () => {
     setLanguages(['en-US']);
     mockApi({ 'GET /resources': () => page([senegal]) });
     await renderApp('/discover');
-    expect(
-      await screen.findByText('West Africa first, then the whole continent'),
-    ).toBeInTheDocument();
     const row = rowOf(await screen.findByRole('link', { name: 'Wave Pay' }));
+    expect(screen.queryByText(/West Africa first/)).not.toBeInTheDocument();
     expect(within(row).getByText('Exemple SA')).toBeInTheDocument();
     expect(within(row).getByText('Senegal')).toBeInTheDocument();
     expect(within(row).getByText('2 sources')).toBeInTheDocument();
