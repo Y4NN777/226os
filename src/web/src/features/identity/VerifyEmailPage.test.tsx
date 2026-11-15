@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
 import { callsTo, mockApi, problemResponse } from '../../test/api';
@@ -127,6 +127,21 @@ describe('VerifyEmailPage', () => {
     expect(window.location.href).not.toContain(TOKEN);
     expect(callsTo(fetchMock, VERIFY)).toHaveLength(1);
     expect(await callsTo(fetchMock, VERIFY)[0]?.clone().json()).toEqual({ token: TOKEN });
+  });
+
+  it('verifies a token that arrives by fragment change in a tab already on the page', async () => {
+    const { fetchMock } = await open('fr-FR', { [VERIFY]: noContent });
+    expect(callsTo(fetchMock, VERIFY)).toHaveLength(0);
+    act(() => {
+      window.location.hash = '#token=abc';
+      window.dispatchEvent(new HashChangeEvent('hashchange'));
+    });
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Adresse confirmée' }),
+    ).toBeVisible();
+    expect(callsTo(fetchMock, VERIFY)).toHaveLength(1);
+    expect(await callsTo(fetchMock, VERIFY)[0]?.clone().json()).toEqual({ token: 'abc' });
+    expect(window.location.hash).toBe('');
   });
 
   it('shows the invalid state when the fragment token is refused', async () => {
