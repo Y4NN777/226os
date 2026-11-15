@@ -32,6 +32,46 @@ describe('SeriesPage', () => {
     expect(screen.getByRole('link', { name: '@fatou' })).toHaveAttribute('href', '/profils/fatou');
   });
 
+  it('heads the course with its facts and starts at the first lesson', async () => {
+    setLanguages(['fr-FR']);
+    mockApi(route(series()));
+    await renderApp(`/apprendre/formations/${seriesId}`);
+    const heading = await screen.findByRole('heading', { level: 1 });
+    const hero = heading.closest('header') as HTMLElement;
+    expect(within(hero).getByText('Formation')).toBeInTheDocument();
+    expect(within(hero).getByText('2 leçons')).toBeInTheDocument();
+    expect(within(hero).getByText('Débutant')).toBeInTheDocument();
+    expect(within(hero).getByText('Français')).toBeInTheDocument();
+    expect(within(hero).getByRole('link', { name: 'Commencer la formation' })).toHaveAttribute(
+      'href',
+      `/apprendre/articles/${articleId}`,
+    );
+  });
+
+  it('says « 0 leçon » in the singular, as French does, for a course with no lesson yet', async () => {
+    setLanguages(['fr-FR']);
+    mockApi(route(series({ lessons: [] })));
+    await renderApp(`/apprendre/formations/${seriesId}`);
+    await screen.findByRole('heading', { level: 1 });
+    expect(screen.getByText('0 leçon')).toBeInTheDocument();
+  });
+
+  it('adds up the course duration when every lesson has one', async () => {
+    setLanguages(['fr-FR']);
+    const base = series();
+    mockApi(
+      route(
+        series({
+          lessons: base.lessons.map((lesson) => ({ ...lesson, duration_minutes: 45 })),
+        }),
+      ),
+    );
+    await renderApp(`/apprendre/formations/${seriesId}`);
+    const heading = await screen.findByRole('heading', { level: 1 });
+    const hero = heading.closest('header') as HTMLElement;
+    expect(within(hero).getByText('1 h 30')).toBeInTheDocument();
+  });
+
   it('offers to ask about the first lesson, which is the lowest position, not the first listed', async () => {
     setLanguages(['fr-FR']);
     mockApi(route(series()));

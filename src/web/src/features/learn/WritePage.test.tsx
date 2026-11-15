@@ -294,6 +294,18 @@ describe('ecrire page', () => {
     expect(await bodyOf(request as Request)).toMatchObject({ lang: 'en' });
   });
 
+  it('lays the form out as the prototype: breadcrumb, tips beside it, a way back', async () => {
+    setLanguages(['fr-FR']);
+    mockApi(member);
+    await renderApp('/ecrire');
+    await screen.findByRole('textbox', { name: /^Titre/ });
+    const crumbs = screen.getByRole('navigation', { name: 'Apprendre' });
+    expect(crumbs).toHaveTextContent('Écrire un article');
+    const tips = screen.getByRole('complementary', { name: 'Pour bien commencer' });
+    expect(tips).toHaveTextContent('Un seul sujet par article.');
+    expect(screen.getByRole('link', { name: 'Annuler' })).toHaveAttribute('href', '/apprendre');
+  });
+
   it('offers no draft, and says what publishing means', async () => {
     setLanguages(['fr-FR']);
     mockApi(member);

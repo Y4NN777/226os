@@ -21,6 +21,7 @@ import { useFailure } from '../identity/useFailure';
 import { useInvalidFocus } from '../identity/useInvalidFocus';
 import { errorStatus } from '../identity/validation';
 import { violationName } from '../identity/violations';
+import { SendIcon } from './icons';
 import type { LinkDraft } from './routeSearch';
 import { topicCodes, topicKey, type TopicCode } from './topics';
 import { checkBody, checkSummary, checkTags, checkTitle, parseTags } from './validate';
@@ -369,21 +370,23 @@ export function ArticleForm({
               {serverErrors.link ? <Text type="supporting">{t('learn.err.link')}</Text> : null}
             </VStack>
           ) : null}
-          <Text as="p" type="supporting">
-            {t('learn.form.publishNote')}
-          </Text>
-          <form.Subscribe selector={(state) => state.isSubmitting}>
-            {(isSubmitting) => (
-              <HStack gap={2}>
-                <Button
-                  type="submit"
-                  variant="primary"
-                  label={t('learn.form.publish')}
-                  isLoading={isSubmitting}
-                />
-              </HStack>
-            )}
-          </form.Subscribe>
+          <div className="learn-form-foot">
+            <p>{t('learn.form.publishNote')}</p>
+            <form.Subscribe selector={(state) => state.isSubmitting}>
+              {(isSubmitting) => (
+                <HStack gap={2}>
+                  <Button variant="ghost" label={t('learn.form.cancel')} href="/apprendre" />
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    label={t('learn.form.publish')}
+                    icon={<Icon icon={SendIcon} />}
+                    isLoading={isSubmitting}
+                  />
+                </HStack>
+              )}
+            </form.Subscribe>
+          </div>
         </VStack>
       </form>
     </VStack>
