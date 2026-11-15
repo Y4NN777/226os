@@ -289,3 +289,21 @@ describe('ConnectPage states', () => {
     expect(await screen.findByText('Too many requests. Wait a moment.')).toBeVisible();
   });
 });
+
+describe('ConnectPage photo from GitHub', () => {
+  it('shows the GitHub avatar when present and the initials when absent', async () => {
+    setLanguages(['fr-FR']);
+    mockApi(base);
+    await renderApp('/connect');
+    const awaCard = (await screen.findByRole('link', { name: 'Awa Traoré' })).closest(
+      'li',
+    ) as HTMLElement;
+    expect(awaCard.querySelector('img')).toHaveAttribute(
+      'src',
+      'https://avatars.githubusercontent.com/awa-dev?s=72',
+    );
+    const kofiCard = screen.getByRole('link', { name: 'Kofi Mensah' }).closest('li') as HTMLElement;
+    expect(kofiCard.querySelector('img')).toBeNull();
+    expect(kofiCard.querySelector('.astryx-avatar')).not.toBeNull();
+  });
+});
