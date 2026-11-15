@@ -164,9 +164,8 @@ function Filters({
 
 type CountT = (key: MessageKey, params?: { n: number }) => string;
 
-/** Results count: a total only once every shown list is fully loaded, since pages are cursor-based. */
-function countText(n: number, hasMore: boolean, singular: boolean, t: CountT) {
-  if (hasMore) return t('learn.count.first', { n });
+/** Results count from the API totals, which cover every page of the shown lists. */
+function countText(n: number, singular: boolean, t: CountT) {
   return t(singular ? 'learn.count.one' : 'learn.count.many', { n });
 }
 
@@ -415,7 +414,9 @@ export function LearnPage() {
   const articlesFailed = showArticles && articles.isError && !articles.data;
   const seriesFailed = showSeries && series.isError && !series.data;
   const settled = !pending && !articlesFailed && !seriesFailed;
-  const hasMore = (showArticles && articles.hasNextPage) || (showSeries && series.hasNextPage);
+  const total =
+    (showArticles ? (articles.data?.pages.at(-1)?.total ?? 0) : 0) +
+    (showSeries ? (series.data?.pages.at(-1)?.total ?? 0) : 0);
 
   const change = (patch: SearchPatch) =>
     void navigate({ to: '/apprendre', search: patched(search, patch) });
@@ -448,7 +449,7 @@ export function LearnPage() {
         <div className="learn-resultsbar">
           {/* Always mounted, so a count that appears later is announced. */}
           <p className="learn-count" role="status">
-            {settled && shown > 0 ? countText(shown, hasMore, isSingular(shown, locale), t) : null}
+            {settled && shown > 0 ? countText(total, isSingular(total, locale), t) : null}
           </p>
           {filtered && shown > 0 ? (
             <Button variant="ghost" size="sm" label={t('learn.reset')} onClick={reset} />

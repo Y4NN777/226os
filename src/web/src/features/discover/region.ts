@@ -35,6 +35,7 @@ export function listQuery(search: DiscoverSearch): ListQuery {
   if (search.q) query.q = search.q;
   if (search.type) query.type = search.type;
   if (search.category) query.category = search.category;
+  if (search.sort) query.sort = search.sort;
   if (search.country) query.country = [search.country];
   else if (search.region !== 'all') query.country = [...WEST_AFRICA];
   return query;
