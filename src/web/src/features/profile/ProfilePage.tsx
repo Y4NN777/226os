@@ -5,7 +5,7 @@ import { Text } from '@astryxdesign/core/Text';
 import { useParams } from '@tanstack/react-router';
 import { useId } from 'react';
 import { useSession } from '../../app/session';
-import { Avatar } from '../../components/Avatar';
+import { ProfilePhoto } from '../../components/ProfilePhoto';
 import { Breadcrumbs } from '../../components/Breadcrumbs';
 import { CountryCode } from '../../components/CountryCode';
 import { EmptyState } from '../../components/EmptyState';
@@ -59,7 +59,7 @@ function Hero({ profile, isOwn }: { profile: PublicProfile; isOwn: boolean }) {
       <PageHeader
         title={profile.display_name}
         headingId={headingId}
-        media={<Avatar name={profile.display_name} size="xl" />}
+        media={<ProfilePhoto name={profile.display_name} github={profile.github} size="xl" />}
         subtitle={`@${profile.username}`}
         meta={
           <>

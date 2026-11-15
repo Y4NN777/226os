@@ -1,9 +1,9 @@
 import { Link } from '@astryxdesign/core/Link';
-import { Avatar } from '../../components/Avatar';
 import { CountryCode } from '../../components/CountryCode';
 import { GitBranchIcon, LanguagesIcon, MapPinIcon } from '../../components/icons';
 import { ListRow } from '../../components/List';
 import { Meta, MetaItem } from '../../components/Meta';
+import { ProfilePhoto } from '../../components/ProfilePhoto';
 import { TagList } from '../../components/Tag';
 import { useI18n } from '../../i18n/I18nProvider';
 import { languageName } from '../discover/present';
@@ -28,7 +28,7 @@ export function PersonRow({ person }: { person: ProfileSummary }) {
       title={person.display_name}
       href={`/profils/${person.username}`}
       subtitle={`@${person.username}`}
-      lead={<Avatar name={person.display_name} />}
+      lead={<ProfilePhoto name={person.display_name} github={person.github} />}
       {...(hasMeta
         ? {
             meta: (
