@@ -115,6 +115,6 @@ describe('SeriesPage', () => {
     setLanguages(['en-US']);
     mockApi({ [`GET /learn/series/${seriesId}`]: () => problemResponse(500, 'INTERNAL_ERROR') });
     await renderApp(`/apprendre/formations/${seriesId}`);
-    expect(await screen.findByText('The content could not be loaded')).toBeVisible();
+    expect(await screen.findByText('Could not load the content')).toBeVisible();
   });
 });

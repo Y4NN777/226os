@@ -20,6 +20,7 @@ import { LoadingState } from '../../components/LoadingState';
 import { Meta, MetaItem } from '../../components/Meta';
 import { PageHeader } from '../../components/PageHeader';
 import { Section } from '../../components/Section';
+import { StatusBadge } from '../../components/StatusBadge';
 import { TagList } from '../../components/Tag';
 import { useI18n } from '../../i18n/I18nProvider';
 import { relatedPath } from '../related';
@@ -176,7 +177,7 @@ function AnswerItem({
     <li className="ui-panel">
       {answer.is_accepted ? (
         <div className="solve-answer-head">
-          <QuestionState state="resolved" />
+          <StatusBadge kind="accepted" />
         </div>
       ) : null}
       <div className="solve-post">
@@ -342,7 +343,6 @@ export function QuestionPage() {
         <EmptyState
           headingLevel={1}
           title={t('solve.question.notFound.title')}
-          description={t('solve.question.notFound.body')}
           actions={<Button label={t('solve.question.back')} href="/solve" />}
         />
       );
@@ -418,7 +418,6 @@ export function QuestionPage() {
           ) : session.isPending ? null : (
             <div className="solve-compose-cta">
               <MessageIcon width={20} height={20} />
-              <p>{t('solve.answer.signInNote')}</p>
               <Button
                 variant="primary"
                 label={t('solve.answer.signIn')}

@@ -297,7 +297,6 @@ export function ResourcePage() {
         <EmptyState
           headingLevel={1}
           title={t('discover.notFound.title')}
-          description={t('discover.notFound.body')}
           actions={<Button label={t('discover.back')} href="/discover" />}
         />
       );

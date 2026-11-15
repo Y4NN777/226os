@@ -323,11 +323,11 @@ describe('Shell', () => {
       '/discover',
     );
     // The top bar holds the search field itself (prototype shell), not a link to the page.
-    const search = screen.getByRole('search', { name: 'Rechercher sur 226os' });
+    const search = screen.getByRole('search', { name: 'Rechercher sur le site' });
     await userEvent
       .setup({ delay: null })
       .type(
-        within(search).getByRole('searchbox', { name: 'Rechercher sur 226os' }),
+        within(search).getByRole('searchbox', { name: 'Rechercher sur le site' }),
         ' webhook {Enter}',
       );
     await waitFor(() => {
@@ -343,7 +343,7 @@ describe('Shell', () => {
     await screen.findByRole('link', { name: 'Se connecter' });
     await userEvent
       .setup({ delay: null })
-      .type(screen.getByRole('searchbox', { name: 'Rechercher sur 226os' }), '{Enter}');
+      .type(screen.getByRole('searchbox', { name: 'Rechercher sur le site' }), '{Enter}');
     await waitFor(() => {
       expect(router.state.location.pathname).toBe('/recherche');
     });

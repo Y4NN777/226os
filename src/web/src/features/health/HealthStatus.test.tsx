@@ -14,7 +14,7 @@ describe('HealthStatus', () => {
     );
     renderWithProviders(<HealthStatus />);
     expect(
-      screen.getByText('Vérification de l’API en cours…').closest('[role="status"]'),
+      screen.getByText('Vérification de l’API…').closest('[role="status"]'),
     ).toBeInTheDocument();
     expect(await screen.findByText('API opérationnelle')).toBeInTheDocument();
     // Testing Library collapses U+00A0 into a plain space, so compare the raw text.

@@ -48,7 +48,7 @@ function SettingsSection({
       id={id}
       titleId={`${id}-titre`}
       title={t(`profile.settings.${sectionKey}`)}
-      lede={t(`profile.settings.${sectionKey}.lede`)}
+      {...(sectionKey === 'preferences' ? { lede: t('profile.settings.preferences.lede') } : {})}
       isPanel
     >
       {children}

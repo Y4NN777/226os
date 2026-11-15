@@ -110,7 +110,7 @@ describe('DiscoverPage', () => {
     await renderApp('/discover');
     for (const [n, text] of [
       [1, 'Vérifié'],
-      [2, 'Déclaré par le fournisseur'],
+      [2, 'Déclaré'],
       [3, 'Non vérifié'],
       [4, 'À revérifier'],
       [5, 'Contesté'],
@@ -189,13 +189,11 @@ describe('DiscoverPage', () => {
     const fetchMock = mockApi({ 'GET /resources': () => page([senegal]) });
     const { router } = await renderApp('/discover');
     await screen.findByRole('link', { name: 'Wave Pay' });
-    expect(
-      screen.queryByRole('button', { name: 'Réinitialiser les filtres' }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Effacer les filtres' })).not.toBeInTheDocument();
 
     await userEvent
       .setup({ delay: null })
-      .type(screen.getByRole('searchbox', { name: /Rechercher une API/ }), 'momo{Enter}');
+      .type(screen.getByRole('searchbox', { name: /Rechercher dans le catalogue/ }), 'momo{Enter}');
     await waitFor(() => {
       expect(listParams(fetchMock, 'last').get('q')).toBe('momo');
     });
@@ -207,11 +205,11 @@ describe('DiscoverPage', () => {
 
     await userEvent
       .setup({ delay: null })
-      .click(screen.getByRole('button', { name: 'Réinitialiser les filtres' }));
+      .click(screen.getByRole('button', { name: 'Effacer les filtres' }));
     await waitFor(() => {
       expect(router.state.location.search).toEqual({});
     });
-    expect(screen.getByRole('searchbox', { name: /Rechercher une API/ })).toHaveValue('');
+    expect(screen.getByRole('searchbox', { name: /Rechercher dans le catalogue/ })).toHaveValue('');
   });
 
   it('submits the search with the button too', async () => {
@@ -221,10 +219,10 @@ describe('DiscoverPage', () => {
     await screen.findByRole('link', { name: 'Wave Pay' });
     await userEvent
       .setup({ delay: null })
-      .type(screen.getByRole('searchbox', { name: /Rechercher une API/ }), 'ussd');
+      .type(screen.getByRole('searchbox', { name: /Rechercher dans le catalogue/ }), 'ussd');
     await userEvent
       .setup({ delay: null })
-      .click(screen.getByRole('button', { name: 'Lancer la recherche' }));
+      .click(screen.getByRole('button', { name: 'Rechercher' }));
     await waitFor(() => {
       expect(listParams(fetchMock, 'last').get('q')).toBe('ussd');
     });
@@ -282,7 +280,7 @@ describe('DiscoverPage', () => {
     expect(await findVisibleText('Aucune fiche ne correspond')).toBeInTheDocument();
     await userEvent
       .setup({ delay: null })
-      .click(screen.getByRole('button', { name: 'Réinitialiser les filtres' }));
+      .click(screen.getByRole('button', { name: 'Effacer les filtres' }));
     await waitFor(() => {
       expect(router.state.location.search).toEqual({});
     });

@@ -65,7 +65,7 @@ describe('BuildPage list', () => {
     setLanguages(['fr-FR']);
     mockApi({ 'GET /projects': () => page([]) });
     await renderApp('/build');
-    expect(await screen.findByText('Aucun projet pour le moment')).toBeInTheDocument();
+    expect(await screen.findByText('Aucun projet')).toBeInTheDocument();
   });
 
   it('shows a retryable error', async () => {
@@ -162,7 +162,7 @@ describe('BuildPage filters', () => {
     await screen.findByRole('link', { name: 'kora-sdk' });
 
     const search = screen.getByRole('search', { name: 'Rechercher un projet' });
-    await user.click(within(search).getByRole('checkbox', { name: /besoins ouverts seulement/ }));
+    await user.click(within(search).getByRole('checkbox', { name: /Besoins ouverts uniquement/ }));
     await waitFor(() => {
       const urls = callsTo(fetchMock, 'GET /projects').map((r) => new URL(r.url));
       expect(urls.some((url) => url.searchParams.get('open_needs') === 'true')).toBe(true);
@@ -174,12 +174,14 @@ describe('BuildPage filters', () => {
     expect(new URL(last?.url ?? '').searchParams.get('q')).toBe('zzz');
     expect(new URL(last?.url ?? '').searchParams.get('open_needs')).toBe('true');
 
-    await user.click(screen.getByRole('button', { name: 'Effacer les filtres' }));
+    // The empty state and the search bar both offer « Effacer les filtres »: use the empty state's.
+    const empty = screen.getByText('Aucun projet ne correspond').closest('section') as HTMLElement;
+    await user.click(within(empty).getByRole('button', { name: 'Effacer les filtres' }));
     expect(await screen.findByRole('link', { name: 'kora-sdk' })).toBeVisible();
     const cleared = screen.getByRole('search', { name: 'Rechercher un projet' });
     expect(within(cleared).getByRole('searchbox', { name: /Rechercher/ })).toHaveValue('');
     expect(
-      within(cleared).getByRole('checkbox', { name: /besoins ouverts seulement/ }),
+      within(cleared).getByRole('checkbox', { name: /Besoins ouverts uniquement/ }),
     ).not.toBeChecked();
   });
 });
@@ -204,7 +206,7 @@ describe('BuildPage create form', () => {
     });
     const user = await openForm();
     await user.type(
-      screen.getByRole('textbox', { name: /Adresse GitHub/ }),
+      screen.getByRole('textbox', { name: /Dépôt GitHub/ }),
       'https://github.com/kora-dev/kora-sdk',
     );
     await user.type(screen.getByRole('textbox', { name: /Technologies/ }), 'Go, mobile-money');
@@ -226,10 +228,7 @@ describe('BuildPage create form', () => {
     setLanguages(['fr-FR']);
     const fetchMock = member({ 'GET /projects': () => page([]) });
     const user = await openForm();
-    await user.type(
-      screen.getByRole('textbox', { name: /Adresse GitHub/ }),
-      'https://example.com/x',
-    );
+    await user.type(screen.getByRole('textbox', { name: /Dépôt GitHub/ }), 'https://example.com/x');
     await user.click(screen.getByRole('button', { name: 'Publier le projet' }));
     expect(await screen.findByText(/Indiquez l’adresse d’un dépôt GitHub/)).toBeVisible();
     expect(callsTo(fetchMock, 'POST /projects')).toHaveLength(0);
@@ -246,11 +245,11 @@ describe('BuildPage create form', () => {
     });
     const user = await openForm();
     await user.type(
-      screen.getByRole('textbox', { name: /Adresse GitHub/ }),
+      screen.getByRole('textbox', { name: /Dépôt GitHub/ }),
       'https://github.com/kora-dev/kora-sdk',
     );
     await user.click(screen.getByRole('button', { name: 'Publier le projet' }));
-    expect(await screen.findByText(/La description ne peut pas dépasser/)).toBeVisible();
+    expect(await screen.findByText(/1 000 caractères maximum/)).toBeVisible();
   });
 
   it('says on the URL field when the repository is unknown or already listed', async () => {
@@ -265,7 +264,7 @@ describe('BuildPage create form', () => {
     });
     const user = await openForm();
     await user.type(
-      screen.getByRole('textbox', { name: /Adresse GitHub/ }),
+      screen.getByRole('textbox', { name: /Dépôt GitHub/ }),
       'https://github.com/kora-dev/kora-sdk',
     );
     await user.click(screen.getByRole('button', { name: 'Publier le projet' }));
@@ -273,7 +272,7 @@ describe('BuildPage create form', () => {
     status = 409;
     await user.click(screen.getByRole('button', { name: 'Publier le projet' }));
     expect(await screen.findByText(/déjà présenté/)).toBeVisible();
-    expect(screen.getByRole('textbox', { name: /Adresse GitHub/ })).toBeInvalid();
+    expect(screen.getByRole('textbox', { name: /Dépôt GitHub/ })).toBeInvalid();
   });
 
   it('asks to retry later when GitHub is unavailable, reusing the same key', async () => {
@@ -284,7 +283,7 @@ describe('BuildPage create form', () => {
     });
     const user = await openForm();
     await user.type(
-      screen.getByRole('textbox', { name: /Adresse GitHub/ }),
+      screen.getByRole('textbox', { name: /Dépôt GitHub/ }),
       'https://github.com/kora-dev/kora-sdk',
     );
     await user.click(screen.getByRole('button', { name: 'Publier le projet' }));
@@ -305,7 +304,7 @@ describe('BuildPage create form', () => {
     });
     const user = await openForm();
     await user.type(
-      screen.getByRole('textbox', { name: /Adresse GitHub/ }),
+      screen.getByRole('textbox', { name: /Dépôt GitHub/ }),
       'https://github.com/kora-dev/kora-sdk',
     );
     await user.click(screen.getByRole('button', { name: 'Publier le projet' }));
@@ -329,7 +328,7 @@ describe('BuildPage create form', () => {
     });
     const user = await openForm();
     await user.type(
-      screen.getByRole('textbox', { name: /Adresse GitHub/ }),
+      screen.getByRole('textbox', { name: /Dépôt GitHub/ }),
       'https://github.com/kora-dev/kora-sdk',
     );
     await user.click(screen.getByRole('button', { name: 'Publier le projet' }));
@@ -360,7 +359,7 @@ describe('BuildPage create form', () => {
       const { router } = await renderApp('/build');
       await user.click(await screen.findByRole('button', { name: 'Proposer un projet' }));
       await user.type(
-        screen.getByRole('textbox', { name: /Adresse GitHub/ }),
+        screen.getByRole('textbox', { name: /Dépôt GitHub/ }),
         'https://github.com/kora-dev/kora-sdk',
       );
       await user.click(screen.getByRole('button', { name: 'Publier le projet' }));

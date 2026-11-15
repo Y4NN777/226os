@@ -166,7 +166,6 @@ function AskView({
         title={t('solve.ask.h1')}
         headingRef={heading}
         breadcrumbs={[{ label: t('nav.home'), href: '/' }, { label: t('nav.solve') }]}
-        lead={t('solve.ask.intro')}
         actions={
           <button type="button" className="solve-back" onClick={onClose}>
             <Icon icon="chevronLeft" size="sm" />
@@ -253,7 +252,6 @@ export function SolvePage() {
         title={t('solve.h1')}
         breadcrumbs={[{ label: t('nav.home'), href: '/' }, { label: t('nav.solve') }]}
         actions={askAction}
-        lead={t('solve.list.lede')}
       />
       <Filters key={`${search.q ?? ''}|${search.tag ?? ''}`} search={search} />
       <section aria-label={t('solve.results.label')} className="ui-section">

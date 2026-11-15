@@ -27,6 +27,11 @@ function member(routes = {}) {
   return mockApi({ 'GET /auth/session': () => jsonResponse(memberSession), ...routes });
 }
 
+// « Enregistrer » is also the display-name button, so scope to the privacy section.
+function privacySection() {
+  return within(screen.getByRole('region', { name: 'Confidentialité' }));
+}
+
 describe('Profile visibility setting (parametres)', () => {
   it('invites an anonymous visitor to sign in, coming back here after', async () => {
     setLanguages(['fr-FR']);
@@ -42,14 +47,12 @@ describe('Profile visibility setting (parametres)', () => {
     setLanguages(['fr-FR']);
     member({ 'GET /me': () => new Response(null, { status: 501 }) });
     await renderApp('/parametres');
-    expect(
-      await screen.findByText(/ce réglage s’activera dès que les profils seront en ligne/),
-    ).toBeInTheDocument();
+    expect(await screen.findByText('Bientôt disponible.')).toBeInTheDocument();
     const group = screen.getByRole('radiogroup', { name: /Qui peut voir votre profil/ });
     for (const radio of within(group).getAllByRole('radio')) {
       expect(radio).toBeDisabled();
     }
-    expect(screen.queryByRole('button', { name: 'Enregistrer la visibilité' })).toBeNull();
+    expect(privacySection().queryByRole('button', { name: 'Enregistrer' })).toBeNull();
   });
 
   it('says that bylines still show the name and username', async () => {
@@ -57,7 +60,7 @@ describe('Profile visibility setting (parametres)', () => {
     member({ 'GET /me': () => jsonResponse({ account: memberAccount, profile }) });
     await renderApp('/parametres');
     expect(
-      await screen.findByText(/your name and username still appear on what you publish/i),
+      await screen.findByText(/your name and username always show on what you publish/i),
     ).toBeInTheDocument();
   });
 
@@ -76,7 +79,7 @@ describe('Profile visibility setting (parametres)', () => {
     await userEvent.setup({ delay: null }).click(screen.getByRole('radio', { name: /Membres/ }));
     await userEvent
       .setup({ delay: null })
-      .click(screen.getByRole('button', { name: 'Enregistrer la visibilité' }));
+      .click(privacySection().getByRole('button', { name: 'Enregistrer' }));
     expect(await findVisibleText('Visibilité enregistrée.')).toBeInTheDocument();
     expect(saved).toEqual({ profile_visibility: 'members' });
     const [patch] = callsTo(fetchMock, 'PATCH /me/profile');
@@ -102,7 +105,7 @@ describe('Profile visibility setting (parametres)', () => {
     const optIn = await screen.findByRole('checkbox', { name: 'Visible dans l’annuaire' });
     await userEvent.click(optIn);
     expect(saved).toEqual({ open_to_collab: true });
-    expect(optIn).toHaveAccessibleDescription(/n’a pas été enregistrée/);
+    expect(optIn).toHaveAccessibleDescription(/Impossible d’enregistrer ce choix/);
   });
 
   it('keeps the choice and explains when saving fails', async () => {
@@ -117,7 +120,7 @@ describe('Profile visibility setting (parametres)', () => {
       .click(await screen.findByRole('radio', { name: /Privé/ }));
     await userEvent
       .setup({ delay: null })
-      .click(screen.getByRole('button', { name: 'Enregistrer la visibilité' }));
+      .click(privacySection().getByRole('button', { name: 'Enregistrer' }));
     await waitFor(() => {
       expect(screen.getByText(/Réessayez dans 20/)).toBeVisible();
     });

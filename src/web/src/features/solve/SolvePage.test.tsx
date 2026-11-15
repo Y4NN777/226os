@@ -42,7 +42,7 @@ describe('SolvePage list', () => {
     const results = screen.getByRole('region', { name: 'Questions' });
     expect(within(results).getByText('Sans réponse')).toBeInTheDocument();
     // The prototype's accepted pill; the answered-only state has no pill, its count says it.
-    expect(within(results).getByText('Réponse acceptée')).toBeInTheDocument();
+    expect(within(results).getByText('Résolue')).toBeInTheDocument();
     expect(within(results).getByText('go')).toBeInTheDocument();
     expect(within(results).getAllByText('Kofi Mensah')).toHaveLength(2);
     // Every row shows its counts, like the prototype (0 included), with a spoken label.
@@ -76,7 +76,7 @@ describe('SolvePage list', () => {
     const row = link.closest('li') as HTMLElement;
     expect(within(row).getByText(/^Score\s:\s14$/)).toBeInTheDocument();
     expect(within(row).getByText(/^Réponses\s:\s2$/)).toBeInTheDocument();
-    expect(within(row).queryByText('Réponse acceptée')).not.toBeInTheDocument();
+    expect(within(row).queryByText('Résolue')).not.toBeInTheDocument();
     expect(within(row).queryByText('Sans réponse')).not.toBeInTheDocument();
     // The excerpt is plain text: no Markdown marks, no link target.
     expect(within(row).getByText('Contexte Mon webhook ne répond pas depuis hier.')).toBeVisible();
@@ -167,15 +167,13 @@ describe('SolvePage list', () => {
 
     await user.type(screen.getByRole('searchbox', { name: 'Rechercher une question' }), 'cors');
     // The tag filter sits behind the filter toggle, like the prototype's filter panel.
-    expect(
-      screen.queryByRole('textbox', { name: 'Filtrer par étiquette' }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: 'Étiquette' })).not.toBeInTheDocument();
     const toggle = screen.getByRole('button', { name: 'Filtres' });
     expect(toggle).toHaveAttribute('aria-expanded', 'false');
     await user.click(toggle);
     expect(toggle).toHaveAttribute('aria-expanded', 'true');
-    await user.type(screen.getByRole('textbox', { name: 'Filtrer par étiquette' }), 'go');
-    await user.click(screen.getByRole('button', { name: 'Lancer la recherche' }));
+    await user.type(screen.getByRole('textbox', { name: 'Étiquette' }), 'go');
+    await user.click(screen.getByRole('button', { name: 'Rechercher' }));
 
     await waitFor(() => {
       const last = callsTo(fetchMock, 'GET /questions').at(-1);
@@ -183,8 +181,8 @@ describe('SolvePage list', () => {
       expect(params(last).get('tag')).toBe('go');
     });
     // A tag in the URL keeps the panel open, with a reset that clears every filter.
-    expect(await screen.findByRole('textbox', { name: 'Filtrer par étiquette' })).toHaveValue('go');
-    await user.click(screen.getByRole('button', { name: 'Réinitialiser les filtres' }));
+    expect(await screen.findByRole('textbox', { name: 'Étiquette' })).toHaveValue('go');
+    await user.click(screen.getByRole('button', { name: 'Effacer les filtres' }));
     await waitFor(() => {
       const last = callsTo(fetchMock, 'GET /questions').at(-1);
       expect(params(last).has('q')).toBe(false);
@@ -348,8 +346,8 @@ describe('SolvePage ask flow', () => {
     const user = userEvent.setup({ delay: null });
     await renderApp('/solve');
     await fillAndOpen(user);
-    await user.type(screen.getByRole('textbox', { name: /Langage de l’extrait/ }), 'go');
-    await user.type(screen.getByRole('textbox', { name: /Code de l’extrait/ }), 'fmt.Println(1)');
+    await user.type(screen.getByRole('textbox', { name: /Langage/ }), 'go');
+    await user.type(screen.getByRole('textbox', { name: /Extrait de code/ }), 'fmt.Println(1)');
     await user.click(screen.getByRole('button', { name: 'Publier la question' }));
 
     await waitFor(() => {
@@ -427,7 +425,7 @@ describe('SolvePage ask flow', () => {
     await user.type(screen.getByRole('textbox', { name: /Étiquettes/ }), 'a, b, c, d, e, f');
     await user.click(screen.getByRole('button', { name: 'Publier la question' }));
 
-    expect(await screen.findByText(/Indiquez de 1 à 5 étiquettes/)).toBeVisible();
+    expect(await screen.findByText(/De 1 à 5 étiquettes/)).toBeVisible();
     expect(callsTo(fetchMock, 'POST /questions')).toHaveLength(0);
   });
 
