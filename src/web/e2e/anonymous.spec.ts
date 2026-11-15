@@ -2,13 +2,18 @@ import { expect, test } from '@playwright/test';
 import { fr, openFirstItem } from './support';
 
 test.describe('Anonymous visitor', () => {
-  test('the landing page loads with its title and the pillars navigation', async ({ page }) => {
+  test('the landing page loads with its title and its own pillar links', async ({ page }) => {
+    // The landing carries no side navigation: only its own « Voir … » links are checked.
     await page.goto('/');
     await expect(page).toHaveTitle(/226os/);
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
-    const nav = page.getByRole('navigation', { name: fr.nav.label });
-    for (const name of [fr.nav.learn, fr.nav.solve, fr.nav.discover, 'Construire']) {
-      await expect(nav.getByRole('link', { name, exact: true })).toBeVisible();
+    for (const name of [
+      'Voir les articles',
+      'Voir les questions',
+      'Voir le catalogue',
+      'Voir les projets',
+    ]) {
+      await expect(page.getByRole('main').getByRole('link', { name, exact: true })).toBeVisible();
     }
   });
 
@@ -44,7 +49,7 @@ test.describe('Anonymous visitor', () => {
   });
 
   test('the language switches to English and back to French', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/discover');
     const nav = page.getByRole('navigation', { name: fr.nav.label });
     await expect(nav.getByRole('link', { name: fr.nav.solve, exact: true })).toBeVisible();
 

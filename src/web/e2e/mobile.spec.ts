@@ -6,7 +6,7 @@ const drawerTrigger = { name: /^(Plus|Ouvrir la navigation)$/ };
 
 test.describe('Mobile navigation', () => {
   test('the bottom bar reaches Résoudre and Découvrir', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/discover');
     const bar = page.getByRole('navigation', { name: 'Navigation rapide' });
     await expect(bar).toBeVisible();
 
@@ -20,7 +20,7 @@ test.describe('Mobile navigation', () => {
   });
 
   test('the drawer opens with the pillars and closes with Escape', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/discover');
     const trigger = page.getByRole('button', drawerTrigger);
     await expect(trigger).toHaveAttribute('aria-expanded', 'false');
 
@@ -33,8 +33,8 @@ test.describe('Mobile navigation', () => {
     await expect(page.getByRole('link', { name: 'Construire', exact: true })).toBeHidden();
   });
 
-  test('no horizontal scroll on the landing page', async ({ page }) => {
-    await page.goto('/');
+  test('no horizontal scroll on a catalogue page', async ({ page }) => {
+    await page.goto('/discover');
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
     const overflow = await page.evaluate(
       () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
