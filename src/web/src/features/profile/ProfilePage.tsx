@@ -26,6 +26,7 @@ import { TagList } from '../../components/Tag';
 import { useI18n } from '../../i18n/I18nProvider';
 import { languageName } from '../discover/present';
 import { USERNAME_RE } from '../identity/validation';
+import { Activity } from './Activity';
 import { Checklist } from './Checklist';
 import { githubProfileUrl } from './github';
 import { isProfileMissing, useProfile, type PublicProfile } from './queries';
@@ -155,6 +156,7 @@ export function ProfilePage() {
       <Hero profile={query.data} isOwn={isOwn} />
       {isOwn ? <PrivacyNote /> : null}
       {isOwn ? <Checklist username={username} /> : null}
+      <Activity username={username} />
     </div>
   );
 }

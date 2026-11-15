@@ -17,6 +17,8 @@ export interface SolveSearch {
   state?: QuestionState;
   /** "article:<uuid>": the content a question is about, set by the page that links here. */
   link?: string;
+  /** Absent means « new », the default order. */
+  sort?: 'votes' | 'unanswered';
 }
 
 const TAG_RE = /^[a-z0-9][a-z0-9.+#-]{0,31}$/;
@@ -35,6 +37,7 @@ export function validateSolveSearch(raw: Record<string, unknown>): SolveSearch {
   if (typeof raw.tag === 'string' && TAG_RE.test(raw.tag)) out.tag = raw.tag;
   const state = questionStates.find((candidate) => candidate === raw.state);
   if (state) out.state = state;
+  if (raw.sort === 'votes' || raw.sort === 'unanswered') out.sort = raw.sort;
   if (typeof raw.link === 'string' && parseLink(raw.link)) out.link = raw.link.toLowerCase();
   return out;
 }

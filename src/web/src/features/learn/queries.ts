@@ -55,7 +55,7 @@ export function useArticleList(filters: ArticleFilters, enabled = true) {
     queryFn: async ({ pageParam }) => {
       const query = { ...filters, ...(pageParam === null ? {} : { cursor: pageParam }) };
       const page = await api.call(() => api.client.GET('/learn/articles', { params: { query } }));
-      return { items: page.items, nextCursor: page.next_cursor };
+      return { items: page.items, nextCursor: page.next_cursor, total: page.total };
     },
     getNextPageParam: (last) => last.nextCursor,
   });
@@ -70,7 +70,7 @@ export function useSeriesList(filters: SeriesFilters, enabled = true) {
     queryFn: async ({ pageParam }) => {
       const query = { ...filters, ...(pageParam === null ? {} : { cursor: pageParam }) };
       const page = await api.call(() => api.client.GET('/learn/series', { params: { query } }));
-      return { items: page.items, nextCursor: page.next_cursor };
+      return { items: page.items, nextCursor: page.next_cursor, total: page.total };
     },
     getNextPageParam: (last) => last.nextCursor,
   });

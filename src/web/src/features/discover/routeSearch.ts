@@ -10,6 +10,8 @@ export interface DiscoverSearch {
   country?: string;
   category?: string;
   type?: ResourceType;
+  /** Absent means « name », the default order. */
+  sort?: 'verified';
 }
 
 export function validateDiscoverSearch(raw: Record<string, unknown>): DiscoverSearch {
@@ -21,5 +23,6 @@ export function validateDiscoverSearch(raw: Record<string, unknown>): DiscoverSe
     out.category = raw.category;
   }
   if (raw.type === 'api' || raw.type === 'sdk' || raw.type === 'tool') out.type = raw.type;
+  if (raw.sort === 'verified') out.sort = 'verified';
   return out;
 }

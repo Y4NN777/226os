@@ -13,6 +13,8 @@ import { PlusIcon } from '../../components/icons';
 import { List } from '../../components/List';
 import { LoadingState } from '../../components/LoadingState';
 import { PageHeader } from '../../components/PageHeader';
+import { ResultsMeta } from '../../components/ResultsMeta';
+import { SortSelect } from '../../components/SortSelect';
 import { useI18n } from '../../i18n/I18nProvider';
 import { useSession } from '../../app/session';
 import { AssistantPanel } from '../search/AssistantPanel';
@@ -20,7 +22,7 @@ import { useIdempotencyKey } from './idempotency';
 import { QuestionForm, type LinkDraft, type QuestionDraft } from './QuestionForm';
 import { QuestionRow } from './QuestionRow';
 import { useCreateQuestion, useQuestionList } from './queries';
-import { parseLink, questionStates, type SolveSearch } from './routeSearch';
+import { parseLink, questionStates, validateSolveSearch, type SolveSearch } from './routeSearch';
 import { signInHref } from './signIn';
 import './solve.css';
 
@@ -45,6 +47,7 @@ function Filters({ search }: { search: SolveSearch }) {
           ...(q.trim() ? { q: q.trim() } : {}),
           ...(tag.trim() ? { tag: tag.trim().toLowerCase() } : {}),
           ...(search.state ? { state: search.state } : {}),
+          ...(search.sort ? { sort: search.sort } : {}),
         };
         void navigate({ to: '/solve', search: next });
       }}
@@ -198,7 +201,8 @@ function AskView({
 
 export function SolvePage() {
   const { t } = useI18n();
-  const search = useSearch({ from: '/app/solve' });
+  // Router merges the raw search over the validated one: validate again so unknown values go.
+  const search = validateSolveSearch(useSearch({ from: '/app/solve' }));
   const hash = useLocation({ select: (location) => location.hash });
   const session = useSession();
   const prefilled = parseLink(search.link);
@@ -216,7 +220,12 @@ export function SolvePage() {
   const navigate = useNavigate();
   const list = useQuestionList(search);
   const items = list.data?.pages.flatMap((page) => page.items) ?? [];
+  const total = list.data?.pages.at(-1)?.total;
   const signedIn = session.data?.authenticated === true;
+  const sortOptions = (['new', 'votes', 'unanswered'] as const).map((sort) => ({
+    value: sort,
+    label: t(`solve.sort.${sort}`),
+  }));
 
   if (asking && signedIn) {
     return (
@@ -258,6 +267,28 @@ export function SolvePage() {
         actions={askAction}
       />
       <Filters key={`${search.q ?? ''}|${search.tag ?? ''}`} search={search} />
+      {/* Always mounted, so a count that appears later is announced. */}
+      <div>
+        <ResultsMeta
+          summary={
+            total === undefined || items.length === 0
+              ? null
+              : t(total === 1 ? 'solve.count.one' : 'solve.count.many', { n: total })
+          }
+        >
+          <SortSelect
+            label={t('solve.sort.label')}
+            options={sortOptions}
+            value={search.sort ?? 'new'}
+            onChange={(sort) => {
+              const next: SolveSearch = { ...search };
+              if (sort === 'new') delete next.sort;
+              else next.sort = sort;
+              void navigate({ to: '/solve', search: next });
+            }}
+          />
+        </ResultsMeta>
+      </div>
       <section aria-label={t('solve.results.label')} className="ui-section">
         {list.isPending ? <LoadingState rows={4} /> : null}
         {list.isError && !list.data ? (

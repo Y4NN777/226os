@@ -55,6 +55,14 @@ export const fr = {
   'profile.err.github': 'Indiquez votre identifiant GitHub, sans l’adresse.',
   'profile.err.bio': 'Écrivez de 1 à 500 caractères.',
   'profile.err.open_to_collab': 'Cette option n’a pas été enregistrée.',
+  'profile.tabs': 'Activité',
+  'profile.tab.questions': 'Questions',
+  'profile.tab.answers': 'Réponses',
+  'profile.tab.projects': 'Projets',
+  'profile.empty.questions': 'Aucune question',
+  'profile.empty.answers': 'Aucune réponse',
+  'profile.empty.projects': 'Aucun projet',
+  'profile.more': 'Afficher plus',
 } as const;
 
 export const en: Record<keyof typeof fr, string> = {
@@ -111,4 +119,12 @@ export const en: Record<keyof typeof fr, string> = {
   'profile.err.github': 'Give your GitHub username, without the address.',
   'profile.err.bio': 'Write 1 to 500 characters.',
   'profile.err.open_to_collab': 'This option was not saved.',
+  'profile.tabs': 'Activity',
+  'profile.tab.questions': 'Questions',
+  'profile.tab.answers': 'Answers',
+  'profile.tab.projects': 'Projects',
+  'profile.empty.questions': 'No questions',
+  'profile.empty.answers': 'No answers',
+  'profile.empty.projects': 'No projects',
+  'profile.more': 'Show more',
 };

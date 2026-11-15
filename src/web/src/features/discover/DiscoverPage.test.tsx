@@ -28,8 +28,12 @@ const ghana = resource({
   verification_status: 'disputed',
 });
 
-function page(items: ReturnType<typeof resource>[], next: string | null = null) {
-  return jsonResponse({ items, next_cursor: next });
+function page(
+  items: ReturnType<typeof resource>[],
+  next: string | null = null,
+  total = items.length,
+) {
+  return jsonResponse({ items, next_cursor: next, total });
 }
 
 function searchOf(request: Request) {
@@ -402,15 +406,17 @@ describe('DiscoverPage', () => {
     expect(within(row).getByText('payments')).toBeInTheDocument();
   });
 
-  it('counts the listings shown, without claiming a total while more pages exist', async () => {
+  it('counts the whole catalogue from the total, before and after loading more', async () => {
     setLanguages(['fr-FR']);
     mockApi({
       'GET /resources': (request) =>
-        searchOf(request).get('cursor') === null ? page([senegal, ghana], 'c1') : page([pan]),
+        searchOf(request).get('cursor') === null
+          ? page([senegal, ghana], 'c1', 3)
+          : page([pan], null, 3),
     });
     await renderApp('/discover');
     await screen.findByRole('link', { name: 'Wave Pay' });
-    expect(getVisibleText('Les 2 premières fiches')).toBeInTheDocument();
+    expect(getVisibleText('3 fiches')).toBeInTheDocument();
     await userEvent
       .setup({ delay: null })
       .click(screen.getByRole('button', { name: 'Afficher plus' }));

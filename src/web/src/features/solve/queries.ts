@@ -40,10 +40,31 @@ export function useQuestionList(search: SolveSearch) {
         ...(search.q ? { q: search.q } : {}),
         ...(search.tag ? { tag: search.tag } : {}),
         ...(search.state ? { state: search.state } : {}),
+        ...(search.sort ? { sort: search.sort } : {}),
         ...(pageParam === null ? {} : { cursor: pageParam }),
       };
       const page = await api.call(() => api.client.GET('/questions', { params: { query } }));
-      return { items: page.items, nextCursor: page.next_cursor };
+      return { items: page.items, nextCursor: page.next_cursor, total: page.total };
+    },
+    getNextPageParam: (last) => last.nextCursor,
+  });
+}
+
+/** A member's questions on the profile: the ones they asked (`author`) or answered (`answers_by`). */
+export function useMemberQuestions(
+  kind: 'author' | 'answers_by',
+  username: string,
+  enabled: boolean,
+) {
+  return useInfiniteQuery({
+    queryKey: ['questions', 'list', 'member', kind, username] as const,
+    enabled,
+    retry: retryOnce,
+    initialPageParam: null as string | null,
+    queryFn: async ({ pageParam }) => {
+      const query = { [kind]: username, ...(pageParam === null ? {} : { cursor: pageParam }) };
+      const page = await api.call(() => api.client.GET('/questions', { params: { query } }));
+      return { items: page.items, nextCursor: page.next_cursor, total: page.total };
     },
     getNextPageParam: (last) => last.nextCursor,
   });

@@ -2,6 +2,7 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tansta
 import { api, ApiError } from '../../api/http';
 import type { components } from '../../api/schema';
 import { useIdempotencyKey } from '../solve/idempotency';
+import type { BuildSearch } from './routeSearch';
 
 export type Project = components['schemas']['Project'];
 export type ProjectCreate = components['schemas']['ProjectCreate'];
@@ -11,14 +12,15 @@ export type NeedCreate = components['schemas']['NeedCreate'];
 export type Application = components['schemas']['Application'];
 export type ApplicationStatus = components['schemas']['ApplicationStatus'];
 
-/** The list filters the contract serves (listProjects: q, open_needs). Empty means no filter. */
-export type ProjectFilters = { q?: string; openNeeds?: boolean };
+/** The list filters the contract serves, as the address holds them. Empty means no filter. */
+export type ProjectFilters = BuildSearch;
 
 /** One key factory; every variable a query function reads is in its key. */
 export const buildKeys = {
   /** Prefix of every list key: invalidating it refreshes every filtered list too. */
   list: ['projects', 'list'] as const,
   listOf: (filters: ProjectFilters) => ['projects', 'list', filters] as const,
+  ownedBy: (username: string) => ['projects', 'list', 'owner', username] as const,
   detail: (id: string) => ['projects', 'detail', id] as const,
   needs: (id: string) => ['projects', 'needs', id] as const,
   applications: (id: string) => ['projects', 'applications', id] as const,
@@ -36,11 +38,30 @@ export function useProjectList(filters: ProjectFilters = {}) {
     queryFn: async ({ pageParam }) => {
       const query = {
         ...(filters.q ? { q: filters.q } : {}),
-        ...(filters.openNeeds ? { open_needs: true } : {}),
+        ...(filters.open ? { open_needs: true } : {}),
+        ...(filters.stage ? { stage: filters.stage } : {}),
+        ...(filters.country ? { country: filters.country } : {}),
+        ...(filters.sort ? { sort: filters.sort } : {}),
         ...(pageParam === null ? {} : { cursor: pageParam }),
       };
       const page = await api.call(() => api.client.GET('/projects', { params: { query } }));
-      return { items: page.items, nextCursor: page.next_cursor };
+      return { items: page.items, nextCursor: page.next_cursor, total: page.total };
+    },
+    getNextPageParam: (last) => last.nextCursor,
+  });
+}
+
+/** The projects a member owns (profile tab). A hidden profile answers an empty page. */
+export function useOwnedProjects(username: string, enabled: boolean) {
+  return useInfiniteQuery({
+    queryKey: buildKeys.ownedBy(username),
+    enabled,
+    retry: retryOnce,
+    initialPageParam: null as string | null,
+    queryFn: async ({ pageParam }) => {
+      const query = { owner: username, ...(pageParam === null ? {} : { cursor: pageParam }) };
+      const page = await api.call(() => api.client.GET('/projects', { params: { query } }));
+      return { items: page.items, nextCursor: page.next_cursor, total: page.total };
     },
     getNextPageParam: (last) => last.nextCursor,
   });

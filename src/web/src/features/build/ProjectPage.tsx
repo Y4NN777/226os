@@ -1,4 +1,6 @@
+import { Badge } from '@astryxdesign/core/Badge';
 import { Button } from '@astryxdesign/core/Button';
+import { Selector } from '@astryxdesign/core/Selector';
 import { HStack } from '@astryxdesign/core/HStack';
 import { Icon } from '@astryxdesign/core/Icon';
 import { IconButton } from '@astryxdesign/core/IconButton';
@@ -36,18 +38,38 @@ import { violationName } from '../identity/violations';
 import { Applications } from './Applications';
 import './build.css';
 import { Needs } from './Needs';
-import { DateText, needsKind, needsLabelKey, PersonLink } from './present';
+import {
+  countryOptions,
+  DateText,
+  needsKind,
+  needsLabelKey,
+  PersonLink,
+  stageKey,
+} from './present';
 import { useProject, useUpdateProject, type Project, type ProjectUpdate } from './queries';
-import { checkDescription, checkTechnologies, parseTags } from './validate';
+import { projectStages } from './routeSearch';
+import { checkDescription, checkLicense, checkTechnologies, parseTags } from './validate';
 
 type Visibility = components['schemas']['ProjectVisibility'];
 
 /** The merge patch holds only what changed. Links are never part of it: they are added, not removed. */
 function diffOf(
   project: Project,
-  draft: { description: string; technologies: string[]; visibility: Visibility },
+  draft: {
+    description: string;
+    technologies: string[];
+    visibility: Visibility;
+    stage: Project['stage'];
+    license: string;
+    country: string | null;
+  },
 ): ProjectUpdate {
   const patch: ProjectUpdate = {};
+  if (draft.stage !== project.stage) patch.stage = draft.stage;
+  // An emptied field clears the value (null); an untouched empty one stays out of the patch.
+  const license = draft.license === '' ? null : draft.license;
+  if (license !== project.license_spdx) patch.license_spdx = license;
+  if (draft.country !== project.country_code) patch.country_code = draft.country;
   if (draft.description !== project.description) patch.description = draft.description;
   if (draft.technologies.join(',') !== project.technologies.join(',')) {
     patch.technologies = draft.technologies;
@@ -57,18 +79,27 @@ function diffOf(
 }
 
 function EditProject({ project, onDone }: { project: Project; onDone: () => void }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const update = useUpdateProject(project.id);
   const { failure, report, clear } = useFailure();
   const [serverErrors, setServerErrors] = useState<
-    Partial<Record<'description' | 'technologies', MessageKey>>
+    Partial<Record<'description' | 'technologies' | 'stage' | 'country_code', MessageKey>>
   >({});
+
+  const forget = (field: keyof typeof serverErrors) => {
+    setServerErrors((current) =>
+      Object.fromEntries(Object.entries(current).filter(([name]) => name !== field)),
+    );
+  };
 
   const form = useForm({
     defaultValues: {
       description: project.description,
       technologies: project.technologies.join(', '),
       visibility: project.visibility,
+      stage: project.stage,
+      license: project.license_spdx ?? '',
+      country: project.country_code,
     },
     onSubmit: async ({ value }) => {
       clear();
@@ -77,6 +108,9 @@ function EditProject({ project, onDone }: { project: Project; onDone: () => void
         description: value.description.trim(),
         technologies: parseTags(value.technologies),
         visibility: value.visibility,
+        stage: value.stage,
+        license: value.license.trim(),
+        country: value.country,
       });
       if (Object.keys(patch).length === 0) {
         onDone();
@@ -92,6 +126,8 @@ function EditProject({ project, onDone }: { project: Project; onDone: () => void
             const head = violationName(violation.field).split('/')[0];
             if (head === 'description') fields.description = 'build.err.description';
             if (head === 'technologies') fields.technologies = 'build.err.technologies';
+            if (head === 'stage') fields.stage = 'build.err.stage';
+            if (head === 'country_code') fields.country_code = 'build.err.country';
           }
         }
         if (Object.keys(fields).length > 0) setServerErrors(fields);
@@ -146,6 +182,69 @@ function EditProject({ project, onDone }: { project: Project; onDone: () => void
                   hasAutoCorrect={false}
                   hasSpellCheck={false}
                   onChange={field.handleChange}
+                  {...errorStatus(key ? t(key) : undefined)}
+                />
+              );
+            }}
+          </form.Field>
+          <form.Field name="stage">
+            {(field) => {
+              const key = serverErrors.stage;
+              return (
+                <Selector
+                  label={t('build.form.stage')}
+                  options={projectStages.map((stage) => ({
+                    value: stage,
+                    label: t(stageKey(stage)),
+                  }))}
+                  value={field.state.value}
+                  onChange={(value) => {
+                    const stage = projectStages.find((candidate) => candidate === value);
+                    if (stage) field.handleChange(stage);
+                    forget('stage');
+                  }}
+                  {...errorStatus(key ? t(key) : undefined)}
+                />
+              );
+            }}
+          </form.Field>
+          <form.Field name="license" validators={{ onSubmit: ({ value }) => checkLicense(value) }}>
+            {(field) => {
+              const key = field.state.meta.errors[0];
+              return (
+                <TextInput
+                  label={t('build.form.license')}
+                  description={t('build.form.license.hint')}
+                  isOptional
+                  value={field.state.value}
+                  htmlName={field.name}
+                  autoCapitalize="none"
+                  hasAutoCorrect={false}
+                  hasSpellCheck={false}
+                  onChange={field.handleChange}
+                  {...errorStatus(key ? t(key) : undefined)}
+                />
+              );
+            }}
+          </form.Field>
+          <form.Field name="country">
+            {(field) => {
+              const key = serverErrors.country_code;
+              return (
+                <Selector
+                  label={t('build.form.country')}
+                  placeholder={t('build.filter.country.any')}
+                  hasClear
+                  hasSearch
+                  options={countryOptions(
+                    project.country_code ? [project.country_code] : [],
+                    locale,
+                  )}
+                  value={field.state.value}
+                  onChange={(value) => {
+                    field.handleChange(value);
+                    forget('country_code');
+                  }}
                   {...errorStatus(key ? t(key) : undefined)}
                 />
               );
@@ -227,6 +326,12 @@ function About({ project }: { project: Project }) {
       <dl className="ui-facts">
         <dt>{t('project.about.lang')}</dt>
         <dd>{t(project.lang === 'en' ? 'build.lang.en' : 'build.lang.fr')}</dd>
+        {project.license_spdx ? (
+          <>
+            <dt>{t('project.about.license')}</dt>
+            <dd>{project.license_spdx}</dd>
+          </>
+        ) : null}
         <dt>{t('project.about.visibility')}</dt>
         <dd>{t(project.visibility === 'private' ? 'build.private' : 'build.visibility.public')}</dd>
         <dt>{t('project.about.updated')}</dt>
@@ -304,6 +409,12 @@ export function ProjectPage() {
         media={<Avatar name={project.name} variant="tile" size="lg" />}
         meta={
           <>
+            <Badge variant="neutral" label={t(stageKey(project.stage))} />
+            {project.country_code ? (
+              <Text type="supporting">
+                <CountryCode code={project.country_code} withName />
+              </Text>
+            ) : null}
             <StatusBadge
               kind={needsKind(project.open_needs_count)}
               label={t(needsLabelKey(project.open_needs_count), { n: project.open_needs_count })}

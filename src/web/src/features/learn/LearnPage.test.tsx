@@ -448,12 +448,15 @@ describe('LearnPage filters', () => {
     const fetchMock = mockApi({
       ...base,
       'GET /learn/articles': (request) =>
-        params(request).get('cursor') === 'cur-2' ? page([second]) : page([summary()], 'cur-2'),
+        params(request).get('cursor') === 'cur-2'
+          ? page([second], null, 5)
+          : page([summary()], 'cur-2', 5),
     });
     const user = userEvent.setup({ delay: null });
     await renderApp('/apprendre');
     await screen.findByRole('link', { name: 'Vérifier un webhook signé' });
-    expect(screen.getByText('Les 2 premiers contenus')).toHaveAttribute('role', 'status');
+    // The total of both lists (5 articles + 1 training), not the two rows loaded so far.
+    expect(screen.getByText('6 contenus')).toHaveAttribute('role', 'status');
     await user.click(screen.getByRole('button', { name: 'Afficher plus' }));
     await screen.findByRole('link', { name: 'Mobile Money et faible débit' });
     expect(articleCalls(fetchMock).at(-1)?.get('cursor')).toBe('cur-2');

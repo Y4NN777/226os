@@ -17,6 +17,7 @@ import { List } from '../../components/List';
 import { LoadingState } from '../../components/LoadingState';
 import { PageHeader } from '../../components/PageHeader';
 import { ResultsMeta } from '../../components/ResultsMeta';
+import { SortSelect } from '../../components/SortSelect';
 import { useI18n } from '../../i18n/I18nProvider';
 import type { Locale, MessageKey } from '../../i18n/messages';
 import { categoryCodes, categoryKey, isCategoryCode } from './categories';
@@ -24,7 +25,7 @@ import { countryName } from './present';
 import { useResourceList } from './queries';
 import { WEST_AFRICA } from './region';
 import { ResourceRow } from './ResourceRow';
-import type { DiscoverSearch } from './routeSearch';
+import { validateDiscoverSearch, type DiscoverSearch } from './routeSearch';
 import './discover.css';
 
 type SearchPatch = { [K in keyof DiscoverSearch]?: DiscoverSearch[K] | undefined };
@@ -48,9 +49,8 @@ function countryOptions(extra: Iterable<string>, locale: Locale) {
   return [...sortedByName(west, locale), ...sortedByName(others, locale)];
 }
 
-/** Results count: a total only once the last page is loaded, since pages are cursor-based. */
-function countText(n: number, hasMore: boolean, t: (key: MessageKey, p?: { n: number }) => string) {
-  if (hasMore) return t('discover.count.first', { n });
+/** Results count from the API total, which covers every page. */
+function countText(n: number, t: (key: MessageKey, p?: { n: number }) => string) {
   return n === 1 ? t('discover.count.one') : t('discover.count.other', { n });
 }
 
@@ -171,12 +171,17 @@ function Filters({
 
 export function DiscoverPage() {
   const { t } = useI18n();
-  const search = useSearch({ from: '/app/discover' });
+  const search = validateDiscoverSearch(useSearch({ from: '/app/discover' }));
   const navigate = useNavigate();
   const list = useResourceList(search);
   const westView = search.region !== 'all' && search.country === undefined;
   const hasFilters = Object.keys(search).length > 0;
   const items = list.data?.pages.flatMap((page) => page.items) ?? [];
+  const total = list.data?.pages.at(-1)?.total;
+  const sortOptions = (['name', 'verified'] as const).map((sort) => ({
+    value: sort,
+    label: t(`discover.sort.${sort}`),
+  }));
 
   const change = (patch: SearchPatch) =>
     void navigate({ to: '/discover', search: patched(search, patch) });
@@ -212,9 +217,15 @@ export function DiscoverPage() {
           {t('discover.results.label')}
         </VisuallyHidden>
         {/* Always mounted, so a count that appears later is announced. */}
-        <ResultsMeta
-          summary={items.length > 0 ? countText(items.length, list.hasNextPage, t) : null}
-        >
+        <ResultsMeta summary={items.length > 0 && total !== undefined ? countText(total, t) : null}>
+          <SortSelect
+            label={t('discover.sort.label')}
+            options={sortOptions}
+            value={search.sort ?? 'name'}
+            onChange={(sort) => {
+              change({ sort: sort === 'name' ? undefined : sort });
+            }}
+          />
           {hasFilters && items.length > 0 ? resetButton('ghost') : null}
         </ResultsMeta>
         {list.isPending ? <LoadingState rows={4} /> : null}
