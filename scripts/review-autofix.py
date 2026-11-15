@@ -6,8 +6,8 @@ whether its commits may be pushed. The workflows only call this script; the mode
          ledger of the review comment has an OPEN finding (kind `finding`, not a note) of any severity but CRITICAL (a LOW one too: auto-merge refuses any open finding), for the
          pull request head the review looked at. Refused: a fork, a base other than develop, a head branch main or
          develop, a closed or draft pull request, a Code review run whose review job did not run (a label or review
-         event), a ledger or run for an older head. An open CRITICAL sends the whole pull request to the owner (label
-         needs-owner, no fix). ADR-0015 (phase 0): attempts count PER FINDING and per head SHA, at most 2, read from the
+         event), a ledger or run for an older head. An open CRITICAL is routed to the owner (label needs-owner)
+         and not fixed; the other findings still are. ADR-0015 (phase 0): attempts count PER FINDING and per head SHA, at most 2, read from the
          hidden state of the status comment (below), never from labels, and written by `record` when the run ENDS; a
          finding already attempted on this head is not attempted again; a finding whose file is outside the fixer's
          allowed paths (the same `forbidden()` as the guard), without a file, or with its attempts used goes to the owner
@@ -18,7 +18,7 @@ whether its commits may be pushed. The workflows only call this script; the mode
          INFORMATIONAL: set as soon as one open finding is routed to the owner, it blocks nothing (an old one is no stop).
          `autofix-stopped` BLOCKS the whole pull request and is set only by the PR-level fail-closed causes: the cap of 7 runs in
          total (MAX_PR_RUNS), a record that could not write, pending entries of two runs that died, a state too large; decide refuses
-         while it is there (verdict stop) and only a human removes it, which is a real RESET: the dead pending entries are cleared and the run cap restarts for 7 more runs (the state keeps `stopped` and `reset_at`; the status comment says so). (3) decide: stopped -> STOP;
+         while it is there (verdict stop) and only a human removes it, which is a real RESET: the dead pending entries are cleared and the run cap restarts for 7 more runs (the state keeps `stopped` and `reset_at`; the status comment says so). The stop marker is saved only with the label on the pull request; a label already there is never written again. A state too large is saved COMPACTED (owner routes, the marker, the attempts the caps need), with the label only, so its removal is a reset too; too large even compacted, the stored state is written back unchanged and its Fixer line (and the run) says what the owner does. (3) decide: stopped -> STOP;
          else the fixable findings (route fixer, not already attempted on this head) are fixed; none -> owner verdict when every
          finding is routed to the owner, NO-OP otherwise. (4) The status comment shows route and reason per finding and a
          line `Fixer: ACTIVE | STOPPED (cause)`. Before the fixer runs it
@@ -63,7 +63,7 @@ whether its commits may be pushed. The workflows only call this script; the mode
          ADD test files. Added lines (a new file included, markdown excepted) get a LEXICAL scan, best effort only (it cannot
          prove a new test is strong): skip, skipIf, only, fixme, todo, fails, xit, any `.Skip(`, `//go:build ignore`,
          nolint, eslint-disable, @ts-ignore, @ts-expect-error, a coverage exclusion, and in a test file a timeout option.
-         Also refused in a test file: TestMain, init(), os.Exit(, process.exit(, a mock of vitest or expect; in any Go file: an added //go:build or // +build line; skips are also looked for in the added text with white space removed (it, newline, .skip). Test infrastructure and configs (playwright.config, vitest.setup, vitest.workspace, jest.config, .mocharc, go.work, .golangci*) are owner paths, and directories named *test or *tests are locked. A .gitattributes change is refused (it can hide a diff).
+         Also refused in a test file: TestMain, init(), os.Exit(, process.exit(, a mock of vitest or expect; in any Go file: an added //go:build or // +build line; skips are also looked for in the added text with white space removed (it, newline, .skip). Test infrastructure and configs (playwright.config, vitest.setup, vitest.workspace, jest.config, .mocharc, go.work, .golangci*) are owner paths. Test directories are locked by a known name (tests, testdata, testutil, pgtest, aistest, smtptest, ...) or, under src/api/internal, by a FACT of the base commit read from git objects: a directory (and its subdirectories) holding a non-test Go file that imports "testing"; never by a name merely ending in test. A Go file that imports "testing" in the commit to push also gets the test-file scans. A .gitattributes change is refused (it can hide a diff).
          Exit 1 with the reason; the workflow then labels needs-owner.
   run    `run CMD ARGS...`, installed as `fixer-run` for the model: git status|diff|log|show with an allowlist of
          options, go test with an allowlist of flags (-run, -count, -race, -tags, -v, -timeout) and ./ package paths,
@@ -103,6 +103,8 @@ Fail OPEN for pr and batch (a GitHub error is NOT RUN with run=false, exit 0); f
 Environment: REPO, PR_NUMBER, RUN_ID, RUN_HEAD_SHA, HEAD_SHA, FINDINGS, FIX_RESULT, OUTCOME, PUSH (record), BATCH_RESULT, FORCE, TODAY (YYYY-MM-DD), BASE_SHA, WORKTREE,
 EXPECT_NAME, EXPECT_EMAIL, ISSUE, RESULT_JSON, GH_BIN (default gh), GIT_BIN (default git).
 """
+import ast
+import collections
 import datetime
 import fnmatch
 import importlib.util
@@ -247,6 +249,12 @@ class StateTooLarge(Exception):
     pass
 
 
+# What decide_pr hands to cmd_pr for the status comment: the state, the comment id, whether the label autofix-stopped was
+# already on the pull request (then it is never written again and its marker is kept), whether the state was compacted, and
+# whether it is the stored state left as it was (only its Fixer line and last event change: too large even compacted).
+Plan = collections.namedtuple("Plan", "state comment_id label_set compact frozen", defaults=(False, False))
+
+
 def empty_state():
     return {"v": 1, "sha": "", "run": "", "result": "", "attempts": {}, "pending": {}, "aborted": {}, "routes": {}, "fixer": "ACTIVE", "stopped": {}, "reset_at": 0, "rows": []}
 
@@ -297,6 +305,36 @@ def clean_state(raw):
         if isinstance(row, dict) and FINDING_ID.match(str(row.get("id", ""))):
             state["rows"].append({k: str(row.get(k, ""))[:300] for k in ROW_KEYS})
     return state
+
+
+def compact_state(state, keep_ids, head_sha, cause, result):
+    """The state of a stop for a state too large (#324 review): what the caps still need, so a human removal of the label
+    is a reset like any other stop. Kept: every owner route (code and a short reason: an owner finding is never fixed
+    again), the stop marker, the attempts of the findings of the ledger that are not routed (the 2 per finding), the aborts
+    of this head (the only head they count on). Dropped: pending entries (the reset clears them) and every other history.
+    Long row texts are cut, then the rows go. Raises StateTooLarge when even that does not fit. Saved ONLY with the label
+    on the pull request: the dropped run ids would otherwise read as fewer runs (free runs)."""
+    keep = set(keep_ids) - set(state["routes"])
+    small = dict(state, pending={}, result=result,
+                 attempts={f: dict(list(h.items())[-MAX_ATTEMPTS:]) for f, h in state["attempts"].items() if f in keep},
+                 aborted={f: {head_sha: h[head_sha]} for f, h in state["aborted"].items() if f in keep and h.get(head_sha)},
+                 routes={f: {"code": r["code"], "why": r["why"][:60]} for f, r in state["routes"].items()})
+    small["stopped"] = state["stopped"] or {"cause": cause[:200], "runs": len(pr_runs(small))}
+    small["reset_at"] = min(state["reset_at"], len(pr_runs(small)))
+    small["fixer"] = "STOPPED (%s)" % cause
+    rows = []
+    for r in state["rows"]:
+        r = {k: (v if k == "id" else v[:60]) for k, v in r.items()}
+        if r["route"] == "fixer":
+            r.update(state="STOPPED", next="a human removes %s" % STOP_LABEL, who="owner")
+        rows.append(r)
+    small["rows"] = rows
+    try:
+        render_status(small, head_sha)
+    except StateTooLarge:
+        small["rows"] = []  # the next decide recomputes them from the ledger
+        render_status(small, head_sha)
+    return small
 
 
 def find_status(ctx, comments):
@@ -398,7 +436,8 @@ def review_job_ran(ctx, gh, repo, run_id):
 
 def decide_pr(ctx, gh, repo, number, mode):
     """(verdict, detail, plan): verdict is refuse | nothing | owner | fix (detail for fix: (attempt, ids, head, owner reasons));
-    plan is (state, comment id) for the status comment, or None when there is nothing to show."""
+    plan is a Plan (state, comment id, label already set, compacted) for the status comment, or None when there is
+    nothing to show."""
     info = (ctx.gh_api(gh, "repos/%s/pulls/%s" % (repo, number)) or [{}])[0]
     head, base = info.get("head") or {}, info.get("base") or {}
     if (head.get("repo") or {}).get("full_name") != repo:
@@ -422,6 +461,7 @@ def decide_pr(ctx, gh, repo, number, mode):
     if not head_sha.startswith(ledger["sha"]):
         return "refuse", "the ledger is for %s, not for the pull request head: the review is stale" % ledger["sha"][:12], None
     comment_id, prior = find_status(ctx, comments)
+    stored = json.loads(json.dumps(prior))  # the state as it is stored: `state` below shares (and changes) prior's dicts
     state = dict(empty_state(), sha=head_sha if FULL_SHA.match(head_sha) else "", run=re.sub(r"\D", "", os.environ.get("RUN_ID", ""))[:20],
                  attempts=prior["attempts"], pending=prior["pending"], aborted=prior["aborted"], routes=prior["routes"],
                  stopped=prior["stopped"], reset_at=prior["reset_at"])
@@ -447,7 +487,9 @@ def decide_pr(ctx, gh, repo, number, mode):
         stop_cause = "pending attempts of two runs that died; %s" % restart
     else:
         stop_cause = ""
-    if stop_cause and not state["stopped"]:
+    if label_set and not state["stopped"]:
+        # The marker says "a human may reset": only ever with the label there. A computed cause gets its marker from cmd_pr,
+        # on the stop verdict and after the label was written.
         state["stopped"] = {"cause": stop_cause[:200], "runs": len(pr_runs(state))}
     fix_ids, skip_why, rows = [], [], []
     for f in entries:
@@ -491,9 +533,25 @@ def decide_pr(ctx, gh, repo, number, mode):
     try:
         render_status(state, head_sha)
     except StateTooLarge as exc:
-        return "stop", "the status state is too large to keep: %s" % exc, None
+        # Compacted, so that a human removal of the label is a reset (#324 review); saved by cmd_pr only with the label.
+        cause = "%s: compacted to the owner routes, the stop marker and the attempts the caps need; %s" % (exc, restart)
+        try:
+            small = compact_state(state, [safe_id(f["id"]) for f in entries], head_sha, cause, "run %s: STOPPED, %s" % (state["run"] or "?", cause))
+        except StateTooLarge as again:
+            # Never overwritten with a state that lost caps: the STORED state is written back as it is (it already fit), with
+            # only the Fixer line and the last event saying what the owner does. If even that does not render: the log only.
+            detail = ("%s even compacted: the fixer stays stopped; to restart it the owner deletes this status comment (every attempt "
+                      "and owner route of the pull request is forgotten), then removes the label %s" % (again, STOP_LABEL))
+            kept = dict(stored, sha=state["sha"], fixer="STOPPED (state too large even compacted: the owner deletes this status comment, then removes the label %s)" % STOP_LABEL,
+                        result="run %s: STOPPED, %s" % (state["run"] or "?", detail))
+            try:
+                render_status(kept, head_sha)
+            except StateTooLarge:
+                return "stop", detail, None
+            return "stop", detail, Plan(kept, comment_id, label_set, False, True)
+        return "stop", cause, Plan(small, comment_id, label_set, True)
     has_open = any(f["status"] == "open" for f in entries)
-    plan = (state, comment_id) if (has_open or comment_id) else None
+    plan = Plan(state, comment_id, label_set, False) if (has_open or comment_id) else None
     owner_rows = [r for r in rows if r["route"].startswith("owner")]
     if stop_cause and has_open:
         return "stop", stop_cause, plan
@@ -547,9 +605,24 @@ def cmd_pr():
     if verdict == "stop":
         # autofix-stopped BLOCKS the whole pull request; only a human removes it.
         print("autofix: STOPPED (%s)" % detail)
-        if writes and plan and not add_label(gh, repo, number, STOP_LABEL):
-            plan[0]["stopped"] = {}  # no label, no stop marker: a missing label would later read as a human reset
-        show("STOPPED, " + detail)
+        labelled = bool(plan and plan.label_set)
+        if labelled:
+            # Already there: never written again, and the marker decide_pr kept for it stays (a failed write would wipe it).
+            print("autofix: the label %s is already set" % STOP_LABEL)
+        else:
+            labelled = add_label(gh, repo, number, STOP_LABEL) if writes else False  # also when there is no status to write
+            if plan and not plan.frozen:
+                # The marker only with the label: a marker without it would read as a human reset and hand out free runs.
+                plan[0]["stopped"] = {"cause": detail[:200], "runs": len(pr_runs(plan[0]))} if labelled else {}
+        if not plan or plan.frozen:
+            print("::warning title=autofix STOPPED::%s" % detail)
+        if not plan:
+            print("autofix: status comment NOT RUN (%s)" % detail)
+        elif plan.compact and not labelled:
+            # The compacted state dropped run ids: without the label it would read as fewer runs. The old comment stays.
+            print("autofix: status comment NOT RUN (a compacted state is saved only with the label %s; the next run stops again)" % STOP_LABEL)
+        else:
+            show("STOPPED, " + detail)
         if writes:
             inform_owner()
         else:
@@ -871,7 +944,72 @@ def forbidden(path):
 # 2. A NEW file (and any added line, test or not) gets a LEXICAL scan: skip-like tokens, coverage exclusions and a timeout
 #    option. Best effort: it cannot prove a new test is a strong one. Markdown is documentation, never scanned.
 LOCKED_PATH = re.compile(r"_test\.go$|\.(?:test|spec)\.[cm]?[jt]sx?$|\.(?:golden|snap)$|^scripts/tests/"
-                         r"|(?:^|/)(?:__tests__|__snapshots__|e2e|tests?|testdata|testutil|fixtures?|mocks?|pgtest|aistest|smtptest)/|^src/api/internal/(?:[\w.-]+/)*[\w.-]+test/")
+                         r"|(?:^|/)(?:__tests__|__snapshots__|e2e|tests?|testdata|testutil|fixtures?|mocks?|pgtest|aistest|smtptest)/")
+# Test infrastructure by a FACT, not by a name (#324 review): a directory under src/api/internal is a test-helper package when,
+# at the BASE commit of the guard, it holds a non-test Go file that imports "testing" (aistest, smtptest and any helper added
+# later); its subdirectories are locked with it. Read from git objects of the base (never the worktree, never the fixer's
+# commits): the fixer cannot unlock a directory by dropping the import in the commit it pushes.
+TEST_INFRA_ROOT = "src/api/internal/"
+GO_TOKEN = re.compile(r"//[^\n]*|/\*.*?(?:\*/|\Z)|\"(?:\\.|[^\"\\\n])*\"?|`[^`]*`?|'(?:\\.|[^'\\\n])*'?|[A-Za-z_]\w*|\S", re.S)
+INFRA_CACHE = {}  # (base, directory) -> True | False; (base,) -> {directory: [blob ids of its non-test Go files]}
+
+
+def go_import_is_testing(token):
+    if token.startswith("`"):
+        return token.strip("`") == "testing"
+    if not token.startswith('"'):
+        return False
+    try:
+        return ast.literal_eval(token) == "testing"
+    except (ValueError, SyntaxError):
+        return "testing" in token  # an import path we cannot read: fail safe
+
+
+def go_imports_testing(text):
+    """True when Go source imports "testing" (grouped, aliased, dot, blank or raw-string import); comments are skipped."""
+    toks = [t for t in GO_TOKEN.findall(text) if not t.startswith(("//", "/*"))]
+    for i, tok in enumerate(toks):
+        if tok != "import":
+            continue
+        if i + 1 < len(toks) and toks[i + 1] == "(":
+            j = i + 2
+            while j < len(toks) and toks[j] != ")":
+                if go_import_is_testing(toks[j]):
+                    return True
+                j += 1
+        elif any(go_import_is_testing(t) for t in toks[i + 1:i + 3]):  # an optional name, then the path
+            return True
+    return False
+
+
+def git_blob(git, worktree, spec):
+    done = subprocess.run([git, "-C", worktree, "cat-file", "blob", spec], capture_output=True, timeout=60, check=False)
+    if done.returncode != 0:
+        raise RuntimeError("git cat-file failed")
+    return done.stdout.decode("utf-8", "replace")
+
+
+def test_infra(git, worktree, base, path):
+    """True when a directory of `path` under TEST_INFRA_ROOT is a test-helper package at `base` (see above)."""
+    if not path.startswith(TEST_INFRA_ROOT):
+        return False
+    if (base,) not in INFRA_CACHE:
+        dirs = {}
+        listing = git_out(git, worktree, "ls-tree", "-r", "-z", "--full-tree", base, "--", TEST_INFRA_ROOT)
+        for entry in listing.split("\x00"):
+            meta, _, name = entry.partition("\t")
+            fields = meta.split()
+            if len(fields) == 3 and fields[1] == "blob" and name.endswith(".go") and not name.endswith("_test.go"):
+                dirs.setdefault(name.rsplit("/", 1)[0], []).append(fields[2])
+        INFRA_CACHE[(base,)] = dirs
+    parts = path[len(TEST_INFRA_ROOT):].split("/")[:-1]
+    for i in range(1, len(parts) + 1):
+        directory = TEST_INFRA_ROOT + "/".join(parts[:i])
+        if (base, directory) not in INFRA_CACHE:
+            INFRA_CACHE[(base, directory)] = any(go_imports_testing(git_blob(git, worktree, blob)) for blob in INFRA_CACHE[(base,)].get(directory, []))
+        if INFRA_CACHE[(base, directory)]:
+            return True
+    return False
 SKIP_ADDED = re.compile(r"\b(?:it|test|describe|context|suite)\s*\.\s*(?:skip(?:If)?|only|fixme|todo|fails)\b|\b(?:xit|xdescribe|xtest)\s*\("
                         r"|\.Skip(?:f|Now)?\s*\(|\bpytest\.(?:mark\.)?(?:skip|xfail)\b|\bnolint\b|eslint-disable|@ts-ignore|@ts-expect-error"
                         r"|//\s*go:build\s+ignore|//\s*\+build\s+ignore")
@@ -908,10 +1046,15 @@ def weakening_of(git, worktree, base, status, path):
     """None, or the reason ONE changed file makes a test or a gate weaker (ADR-0015 point 4)."""
     if path.rsplit("/", 1)[-1] == ".gitattributes":
         return "test weakening refused: %s (a .gitattributes change can hide a diff from this guard)" % path
-    if status != "A" and LOCKED_PATH.search(path):
+    locked = bool(LOCKED_PATH.search(path)) or test_infra(git, worktree, base, path)
+    if status != "A" and locked:
         return "test weakening refused: %s changes, deletes or renames an existing test or fixture (read-only for the fixer: it may only add test files)" % path
     if path.endswith(".md"):
         return None
+    # The test-file scans (TestMain, init, os.Exit, timeouts) also cover a Go file that imports "testing" in the commit to
+    # push: a new helper, or a directory absent at the base (fail safe; such a directory holds only new files, so nothing in
+    # it is locked).
+    testish = locked or (path.endswith(".go") and status != "D" and go_imports_testing(git_blob(git, worktree, "HEAD:" + path)))
     text = git_out(git, worktree, "diff", "-U0", "--no-color", "--no-ext-diff", "--no-textconv", "--no-renames", base, "HEAD", "--", ":(literal)" + path)
     added = diff_lines(text)
     if path.endswith(".go"):
@@ -926,7 +1069,7 @@ def weakening_of(git, worktree, base, status, path):
     for line in added:
         if path.endswith(".go") and BUILD_ADDED.search(line):
             return "test weakening refused: %s adds a build constraint (`%s`): it can leave a file out of the build" % (path, line.strip())
-        m = DISABLE_ADDED.search(line) if LOCKED_PATH.search(path) else None
+        m = DISABLE_ADDED.search(line) if testish else None
         if m:
             return "test weakening refused: %s adds `%s`, which can switch tests off or replace the assertion library" % (path, m.group(0).strip())
         m = SKIP_ADDED.search(line)
@@ -935,7 +1078,7 @@ def weakening_of(git, worktree, base, status, path):
         m = COVERAGE_ADDED.search(line)
         if m:
             return "test weakening refused: %s adds a coverage exclusion (`%s`)" % (path, m.group(0).strip())
-        m = TIMEOUT_ADDED.search(line) if (LOCKED_PATH.search(path) or TEST_CONFIG.search(path)) else None
+        m = TIMEOUT_ADDED.search(line) if (testish or TEST_CONFIG.search(path)) else None
         if m:
             return "test weakening refused: %s sets a timeout (`%s`)" % (path, m.group(0).strip())
     return None
