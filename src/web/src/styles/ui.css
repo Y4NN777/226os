@@ -160,6 +160,7 @@
   font-size: 0.875rem;
   color: var(--color-text-secondary);
 }
+.ui-section h3,
 .ui-section h3.ui-section-title {
   font-size: 1rem;
   line-height: 1.35;
@@ -324,6 +325,11 @@
   font-weight: inherit;
   text-decoration: none;
 }
+/* Astryx Link sets its own weight on the inner text span: the title's weight wins. */
+.ui-row-title .ui-row-link *,
+.ui-linked-title a * {
+  font-weight: inherit;
+}
 /* The title link covers the whole row; other links sit above it in .ui-row-above. */
 .ui-row-title .ui-row-link::after {
   content: '';
@@ -424,6 +430,11 @@
   display: inline-flex;
   align-items: center;
   gap: var(--spacing-1);
+}
+/* A link in a meta line (owner, origin, GitHub) keeps the line's size. */
+.ui-meta a,
+.ui-meta a * {
+  font-size: inherit;
 }
 
 /* ---------- Status pill (icon + word on a neutral fill) ---------- */
