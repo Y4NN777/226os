@@ -47,6 +47,7 @@ CADEV rules checklist (added 2026-11-12 from the official rules; the rules text 
 Open owner items outside CADEV (IDs and decisions in ROADMAP section 8, 10 and 11):
 
 - [x] **H4 (DONE 2026-11-12):** `quality` is now a required status check on `develop` and `main`, next to "Validate branch promotion" (strict). Open sub-item: a review rule for `main` once the team pushes (with enforce-admins on, one required approval would block owner promotions until a teammate reviews).
+  - 2026-11-15 (`Y4NN777`): observed with `gh api`: `develop` requires `Validate branch promotion`, `quality` and `Review gate`; strict up-to-date checks are **off**.
 - [x] **AI review in CI (optional, owner):** `.github/workflows/code-review.yml` is added but OFF. To enable: run `claude setup-token`, store the result as the secret `CLAUDE_CODE_OAUTH_TOKEN`, set the variable `CODE_REVIEW_ENABLED=true` (check Anthropic's terms for a subscription token in shared CI first). Locally, everyone with Claude Code can run `/delegate-review`; `make review` needs an LLM provider.
   - 2026-11-15 (`Y4NN777`, repository settings read with `gh`): ON. `CODE_REVIEW_ENABLED=true`.
 - [ ] **Review gate (owner):** `.github/workflows/code-review.yml` job `gate` (check "Review gate") and `scripts/review-gate.py`; sensitive paths in `.github/sensitive-paths.txt`. After it is on `develop`: (1) add "Review gate" as a required check on `develop`, (2) watch it in `report` mode (variable `CODE_REVIEW_GATE`, default) over the next PRs, (3) switch to `enforce` once false alarms are known to be rare (before the Sat 14 Nov 18:00 freeze at the latest), `off` is the kill switch. Override a CRITICAL with the label `owner-override`.
@@ -88,7 +89,7 @@ Open owner items outside CADEV (IDs and decisions in ROADMAP section 8, 10 and 1
 - [ ] **Issue #46:** give each collaborator their own age key and re-encrypt `secrets/*.enc.env` for them (after the sync meeting). Owner.
 - [ ] **B4:** reviewed release workflow (protected `production` environment, exact `develop` SHA, image digests). The guard in `mk/50-ops.mk` is not weakened. Before Sunday.
 - [ ] **O4:** no resend-verification operation exists; the owner rules. **C3 to C10, C12, C13** are open (ROADMAP section 10).
-  - 2026-11-15 (`Y4NN777`, `chore/ops/staging-seeds-and-docs-refresh`): C8 and C13 are resolved (ROADMAP section 10); C3 to C7, C9, C10 and C12 keep their ROADMAP status.
+  - 2026-11-15 (`Y4NN777`, `chore/ops/staging-seeds-and-docs-refresh`): C8, C12 and C13 are resolved (ROADMAP section 10); C3 to C7, C9 and C10 keep their ROADMAP status.
 
 ## Shared pieces (O2: each is a proposal; the backend lead confirms or reassigns)
 
