@@ -222,8 +222,11 @@ function Answers({
   const { t } = useI18n();
   const answerCount = useAnswerCount();
   const answers = useAnswers(questionId);
-  // The server already sends the accepted answer first; sorting keeps it so across pages.
+  // The server already sends the accepted answer first; sorting keeps it so across pages. A vote between two pages can
+  // move an answer into the next page: it is shown once, at its first position (#155 note-answers-cursor-dup).
+  const seen = new Set<string>();
   const items = (answers.data?.pages.flatMap((page) => page.items) ?? [])
+    .filter((answer) => !seen.has(answer.id) && Boolean(seen.add(answer.id)))
     .map((answer, index) => ({ answer, index }))
     .sort(
       (a, b) => Number(b.answer.is_accepted) - Number(a.answer.is_accepted) || a.index - b.index,
