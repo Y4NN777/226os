@@ -116,7 +116,7 @@ export function SettingsPage() {
   const { t } = useI18n();
 
   return (
-    <div className="ui-page">
+    <div className="ui-page settings-page">
       <PageHeader
         title={t('settings.title')}
         breadcrumbs={[{ label: t('nav.home'), href: '/' }, { label: t('settings.title') }]}
@@ -134,7 +134,7 @@ export function SettingsPage() {
             ))}
           </ul>
         </nav>
-        <VStack gap={5} maxWidth={760}>
+        <VStack gap={5}>
           <SettingsSection id="profil" sectionKey="profile">
             <DisplayName />
           </SettingsSection>

@@ -436,7 +436,7 @@ export function LearnPage() {
   };
 
   return (
-    <VStack gap={6}>
+    <VStack className="learn-page" gap={6}>
       <header className="learn-head">
         <div className="learn-head-text">
           <Heading level={1}>{t('learn.title')}</Heading>

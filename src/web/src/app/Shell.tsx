@@ -359,7 +359,9 @@ function useSideNavCollapsed() {
 function useIsLanding() {
   const session = useSession();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
-  return pathname === '/' && !session.data?.authenticated;
+  if (pathname !== '/') return false;
+  if (session.isPending) return null;
+  return !session.data?.authenticated;
 }
 
 function PrimaryNav({
@@ -506,6 +508,15 @@ export function Shell() {
   const session = useSession();
   const isLanding = useIsLanding();
   const [isCollapsed, setCollapsed] = useSideNavCollapsed();
+  // The identity of `/` is intentionally undecided until the session is known. Rendering only
+  // the route's loading state inside this neutral frame prevents either chrome from flashing.
+  if (isLanding === null) {
+    return (
+      <main className="shell-neutral-frame">
+        <Outlet />
+      </main>
+    );
+  }
   // The public landing has its own header and footer, not the app's.
   if (isLanding) {
     return (

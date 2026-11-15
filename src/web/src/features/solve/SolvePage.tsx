@@ -167,7 +167,7 @@ function AskView({
   };
 
   return (
-    <div id="ask" className="ui-page">
+    <div id="ask" className="ui-page solve-page solve-ask-page">
       {/* The ask view is local state on /solve, so the way back is a button, not a crumb. */}
       <PageHeader
         title={t('solve.ask.h1')}
@@ -260,7 +260,7 @@ export function SolvePage() {
   );
 
   return (
-    <div className="ui-page">
+    <div className="ui-page solve-page solve-list-page">
       <PageHeader
         title={t('solve.h1')}
         breadcrumbs={[{ label: t('nav.home'), href: '/' }, { label: t('nav.solve') }]}

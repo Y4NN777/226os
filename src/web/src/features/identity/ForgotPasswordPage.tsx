@@ -46,7 +46,12 @@ export function ForgotPasswordPage() {
       <FocusRegion role="status">
         <VStack gap={4}>
           <CardHead title={t('identity.forgot.done.title')} lede={t('identity.forgot.done.body')} />
-          <Button variant="primary" href="/reinitialiser" label={t('identity.forgot.done.link')} />
+          <Button
+            className="acc-link-button"
+            variant="primary"
+            href="/reinitialiser"
+            label={t('identity.forgot.done.link')}
+          />
         </VStack>
       </FocusRegion>
     );

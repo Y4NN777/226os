@@ -174,7 +174,7 @@ function AnswerItem({
     questionId: answer.question_id,
   });
   return (
-    <li className="ui-panel">
+    <li className="ui-panel solve-answer-card">
       {answer.is_accepted ? (
         <div className="solve-answer-head">
           <StatusBadge kind="accepted" />
@@ -315,7 +315,7 @@ function QuestionPost({ question, interactive }: { question: Question; interacti
     questionId: question.id,
   });
   return (
-    <article className="ui-panel solve-post">
+    <article className="ui-panel solve-post solve-question-card">
       <VoteColumn vote={vote} interactive={interactive} />
       <div className="solve-post-main">
         <div lang={question.lang}>
@@ -339,18 +339,30 @@ export function QuestionPage() {
   const { available } = useInteractions();
   const interactive = user !== null && available;
 
-  if (query.isPending) return <LoadingState />;
+  if (query.isPending) {
+    return (
+      <div className="solve-page solve-page-state">
+        <LoadingState />
+      </div>
+    );
+  }
   if (query.isError) {
     if (query.error instanceof ApiError && query.error.status === 404) {
       return (
-        <EmptyState
-          headingLevel={1}
-          title={t('solve.question.notFound.title')}
-          actions={<Button label={t('solve.question.back')} href="/solve" />}
-        />
+        <div className="solve-page solve-page-state">
+          <EmptyState
+            headingLevel={1}
+            title={t('solve.question.notFound.title')}
+            actions={<Button label={t('solve.question.back')} href="/solve" />}
+          />
+        </div>
       );
     }
-    return <ErrorState error={query.error} onRetry={() => void query.refetch()} />;
+    return (
+      <div className="solve-page solve-page-state">
+        <ErrorState error={query.error} onRetry={() => void query.refetch()} />
+      </div>
+    );
   }
 
   const { question, etag } = query.data;
@@ -363,7 +375,7 @@ export function QuestionPage() {
   ];
 
   return (
-    <div className="ui-page">
+    <div className="ui-page solve-page solve-question-page">
       {editing ? (
         <>
           <Breadcrumbs items={crumbs} />

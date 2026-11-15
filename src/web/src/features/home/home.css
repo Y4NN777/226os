@@ -1,29 +1,38 @@
-/* Member home (prototype accueil.html): page-specific layout only. Rows, pills, tags, country
-   codes, meta and avatars come from src/components (styles/ui.css). Astryx tokens only. */
+/* Member home uses the landing foundations locally while retaining the shared product rows. */
 
 .feed-page {
   display: grid;
-  gap: var(--spacing-8);
+  gap: var(--sp-8);
+  width: 100%;
+  max-width: var(--content-max);
+  margin-inline: auto;
   min-width: 0;
+}
+.feed-page button,
+.feed-page .feed-link-button {
+  border-radius: var(--radius-button);
 }
 .feed-hero {
   display: grid;
 }
 .feed-hero .ui-page-header {
-  margin-bottom: var(--spacing-3);
+  margin-bottom: var(--sp-3);
+}
+.feed-page .ui-page-title {
+  font-weight: 700;
 }
 
 /* Section head: icon, h2, "see all" link at the end, one sub line (prototype .id-head). */
 .feed-section {
   display: grid;
-  gap: var(--spacing-3);
+  gap: var(--sp-3);
   min-width: 0;
 }
 .feed-head {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--spacing-2) var(--spacing-3);
+  gap: var(--sp-2) var(--sp-3);
 }
 .feed-head h2 {
   margin: 0;
@@ -37,7 +46,7 @@
   display: flex;
   flex-wrap: wrap;
   align-items: end;
-  gap: var(--spacing-2);
+  gap: var(--sp-2);
   max-width: 36rem;
 }
 .feed-search-field {
@@ -50,22 +59,24 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--spacing-3) var(--spacing-4);
-  padding: var(--spacing-5);
-  border-radius: var(--radius-container);
+  gap: var(--sp-3) var(--sp-4);
+  padding: var(--sp-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
   background: var(--color-background-surface);
+  box-shadow: none;
 }
 .feed-lead-icon {
   display: grid;
   place-items: center;
-  width: 3rem;
-  height: 3rem;
-  border-radius: var(--radius-element);
+  width: var(--sp-7);
+  height: var(--sp-7);
+  border-radius: var(--radius-card);
   background: color-mix(in srgb, var(--color-accent) 16%, var(--color-background-surface));
 }
 .feed-lead-text {
   display: grid;
-  gap: var(--spacing-1);
+  gap: var(--sp-1);
   flex: 1 1 16rem;
   min-width: 0;
 }
@@ -75,6 +86,30 @@
 }
 .feed-lead-text p {
   color: var(--color-text-secondary);
+}
+
+/* The shared list and state components keep their semantics; home supplies the new visual scale. */
+.feed-page .ui-list,
+.feed-page .ui-skeleton-list {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+}
+.feed-page .ui-row {
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+}
+.feed-page .ui-row-main,
+.feed-page .ui-row-aside {
+  gap: var(--sp-1);
+}
+.feed-page .ui-state {
+  gap: var(--sp-2);
+  padding: var(--sp-8) var(--sp-4);
+  border-radius: var(--radius-card);
+}
+.feed-page .ui-skeleton-row {
+  gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-4);
 }
 
 @media (forced-colors: active) {

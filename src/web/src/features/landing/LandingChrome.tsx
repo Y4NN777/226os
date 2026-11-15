@@ -279,12 +279,12 @@ export function LandingHeader({ ready }: { ready: boolean }) {
   );
 }
 
-const footerSpaces: readonly { id: string; label: MessageKey }[] = [
-  { id: 'learn', label: 'landing.pillar.learn.title' },
-  { id: 'solve', label: 'landing.pillar.solve.title' },
-  { id: 'discover', label: 'landing.pillar.discover.title' },
-  { id: 'build', label: 'landing.pillar.build.title' },
-  { id: 'connect', label: 'landing.pillar.connect.title' },
+const footerSpaces: readonly { href: string; label: MessageKey }[] = [
+  { href: '/apprendre', label: 'landing.pillar.learn.title' },
+  { href: '/solve', label: 'landing.pillar.solve.title' },
+  { href: '/discover', label: 'landing.pillar.discover.title' },
+  { href: '/build', label: 'landing.pillar.build.title' },
+  { href: '/connect', label: 'landing.pillar.connect.title' },
 ];
 
 function External({ href, children }: { href: string; children: ReactNode }) {
@@ -315,15 +315,8 @@ export function LandingFooter() {
           </p>
           <ul>
             {footerSpaces.map((space) => (
-              <li key={space.id}>
-                <a
-                  href="#espaces"
-                  onClick={(event) => {
-                    goTo(event, 'espaces');
-                  }}
-                >
-                  {t(space.label)}
-                </a>
+              <li key={space.href}>
+                <RouterAnchor href={space.href}>{t(space.label)}</RouterAnchor>
               </li>
             ))}
           </ul>
@@ -359,13 +352,6 @@ export function LandingFooter() {
 
 /** The page frame of `/` for a visitor: its own header and footer around the content. */
 export function LandingLayout({ ready, children }: { ready: boolean; children: ReactNode }) {
-  // No visible scrollbar on the landing; scrolling itself is untouched. Removed when leaving.
-  useEffect(() => {
-    document.documentElement.classList.add('lp-noscroll');
-    return () => {
-      document.documentElement.classList.remove('lp-noscroll');
-    };
-  }, []);
   return (
     <div className="lp">
       <LandingHeader ready={ready} />

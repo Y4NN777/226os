@@ -86,7 +86,12 @@ export function ResetPasswordPage() {
       <FocusRegion role="status">
         <VStack gap={4}>
           <CardHead title={t('identity.reset.done.title')} lede={t('identity.reset.done.body')} />
-          <Button variant="primary" href="/connexion" label={t('identity.reset.done.signIn')} />
+          <Button
+            className="acc-link-button"
+            variant="primary"
+            href="/connexion"
+            label={t('identity.reset.done.signIn')}
+          />
         </VStack>
       </FocusRegion>
     );
@@ -101,6 +106,7 @@ export function ResetPasswordPage() {
             lede={t('identity.reset.invalid.body')}
           />
           <Button
+            className="acc-link-button"
             variant="primary"
             href="/mot-de-passe-oublie"
             label={t('identity.reset.invalid.retry')}

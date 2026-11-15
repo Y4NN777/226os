@@ -83,7 +83,6 @@ export function Applications({ projectId }: { projectId: string }) {
                 {application.status === 'pending' ? (
                   <div className="build-app-actions">
                     <IconButton
-                      size="sm"
                       variant="ghost"
                       label={t('project.apps.accept', {
                         name: application.applicant.display_name,
@@ -95,7 +94,6 @@ export function Applications({ projectId }: { projectId: string }) {
                       }}
                     />
                     <IconButton
-                      size="sm"
                       variant="ghost"
                       label={t('project.apps.decline', {
                         name: application.applicant.display_name,

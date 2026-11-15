@@ -41,15 +41,6 @@
   white-space: nowrap;
 }
 
-/* No visible scrollbar while the landing is on screen (class on <html>, set and removed by the
-   landing); scrolling by keyboard, wheel and touch is unchanged. */
-html.lp-noscroll {
-  scrollbar-width: none;
-}
-html.lp-noscroll::-webkit-scrollbar {
-  display: none;
-}
-
 /* ---------- Dark scope ---------- */
 .lp-dark {
   color-scheme: dark;

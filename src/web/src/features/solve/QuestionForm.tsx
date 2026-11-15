@@ -396,12 +396,12 @@ export function QuestionForm({
     </VStack>
   );
 
-  if (!assistant) return <div className="ui-panel">{content}</div>;
+  if (!assistant) return <div className="ui-panel solve-card">{content}</div>;
   return (
     <div className="solve-ask-layout">
-      <div className="ui-panel">{content}</div>
+      <div className="ui-panel solve-card">{content}</div>
       {/* The prototype's side panel next to the ask form: the assistant, on its own surface. */}
-      <div className="ui-panel">
+      <div className="ui-panel solve-card solve-assistant-card">
         <form.Subscribe
           selector={(state) => ({ title: state.values.title, body: state.values.body })}
         >

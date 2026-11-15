@@ -623,6 +623,22 @@ describe('Tablet rail', () => {
 });
 
 describe('on the public landing page', () => {
+  it('shows a neutral frame while the session on / is still loading', async () => {
+    setLanguages(['fr-FR']);
+    mockApi({
+      'GET /auth/session': () => new Promise<Response>(() => undefined),
+    });
+    await renderApp('/');
+    expect(await screen.findByRole('main')).toHaveClass('shell-neutral-frame');
+    expect(screen.getByRole('progressbar', { name: 'Chargement…' })).toBeInTheDocument();
+    expect(screen.queryByRole('banner')).not.toBeInTheDocument();
+    expect(screen.queryByRole('contentinfo')).not.toBeInTheDocument();
+    expect(screen.queryByRole('navigation', { name: 'Barre du site' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('navigation', { name: 'Navigation principale' }),
+    ).not.toBeInTheDocument();
+  });
+
   it('has its own header and footer, and neither the app top bar nor a sidebar, for a visitor', async () => {
     setLanguages(['fr-FR']);
     mockApi({ 'GET /resources': () => jsonResponse({ items: [], next_cursor: null }) });

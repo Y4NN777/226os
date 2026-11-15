@@ -1,20 +1,106 @@
-/*
- * Solve pages (questions list, ask view, question detail), after prototypes/html/pages/solve.html
- * and question.html. Header, rows, pills, tags, panels, facts, linked tiles and the two-column
- * layout are the shared pieces (src/components, styles/ui.css); what stays here is specific to
- * solve: the search toolbar, the row's score column, the vote column, answers and their sources.
- */
+/* Résoudre keeps the shared app structure while using the landing's product foundations. */
+
+.solve-page {
+  width: 100%;
+  max-width: var(--content-max);
+  margin-inline: auto;
+  gap: var(--sp-6);
+  font-family: var(--font-product);
+}
+.solve-page .ui-page-header {
+  gap: var(--sp-3);
+}
+.solve-page .ui-page-title {
+  font-size: clamp(2rem, 1.7rem + 1.3vw, 2.5rem);
+  font-weight: var(--font-weight-bold);
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  text-wrap: balance;
+}
+.solve-page .ui-page-header-row,
+.solve-page .ui-page-header-actions {
+  gap: var(--sp-3);
+}
+.solve-page button,
+.solve-page a[role='button'] {
+  min-width: calc(var(--sp-7) - var(--sp-1));
+  min-height: calc(var(--sp-7) - var(--sp-1));
+  border-radius: var(--radius-button);
+}
+.solve-page .ui-panel {
+  min-width: 0;
+  padding: var(--sp-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-background-surface);
+  box-shadow: none;
+}
+.solve-page .ui-section {
+  gap: var(--sp-4);
+}
+.solve-page .ui-section-title {
+  font-weight: var(--font-weight-semibold);
+}
+.solve-page .ui-list,
+.solve-page .ui-skeleton-list {
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-background-surface);
+  box-shadow: none;
+}
+.solve-page .ui-row {
+  gap: var(--sp-4);
+  padding: var(--sp-4);
+}
+.solve-page .ui-row-main {
+  gap: var(--sp-2);
+}
+.solve-page .ui-row-title {
+  font-size: 1.125rem;
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: -0.01em;
+}
+.solve-page .ui-row-excerpt {
+  line-height: 1.55;
+}
+.solve-page .ui-state {
+  gap: var(--sp-2);
+  width: 100%;
+  padding: var(--sp-8) var(--sp-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-background-muted);
+}
+.solve-page .ui-state-actions {
+  gap: var(--sp-2);
+  margin-block-start: var(--sp-2);
+}
+.solve-page .ui-skeleton-row {
+  gap: var(--sp-2);
+  padding: var(--sp-4);
+}
+.solve-page .state-loading {
+  display: grid;
+  min-height: calc(var(--sp-9) + var(--sp-8));
+  place-items: center;
+}
+.solve-page-state {
+  display: grid;
+  min-height: calc(var(--sp-10) * 2);
+  place-items: center;
+}
 
 /* ---- search and toolbar ---- */
 .solve-search {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: var(--spacing-3);
+  gap: var(--sp-4);
 }
 .solve-searchbar {
   display: flex;
   align-items: center;
-  gap: var(--spacing-2);
+  gap: var(--sp-2);
 }
 .solve-searchbar > .solve-grow {
   flex: 1 1 auto;
@@ -25,12 +111,12 @@
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: var(--spacing-2) var(--spacing-3);
+  gap: var(--sp-2) var(--sp-3);
 }
 /* Four French labels do not fit at 360px: the control scrolls inside its own strip, the page never does. */
 .solve-seg {
   max-width: 100%;
-  padding: 2px;
+  padding: calc(var(--sp-1) / 2);
   overflow-x: auto;
   scrollbar-width: none;
 }
@@ -45,23 +131,23 @@
     font-size: 0.875rem;
   }
   .solve-seg button {
-    padding-inline: 6px;
+    padding-inline: var(--sp-2);
   }
 }
 .solve-toolbar-end {
   display: inline-flex;
   align-items: center;
-  gap: var(--spacing-1);
+  gap: var(--sp-1);
   margin-inline-start: auto;
 }
 .solve-filters {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
-  gap: var(--spacing-3);
-  padding: var(--spacing-4);
-  border-radius: var(--radius-container);
-  background: var(--color-background-surface);
+  gap: var(--sp-3);
+  padding: var(--sp-4);
+  border-radius: var(--radius-card);
+  background: var(--color-background-muted);
 }
 .solve-filters[hidden] {
   display: none;
@@ -75,13 +161,13 @@
 .solve-stats {
   display: grid;
   align-content: start;
-  gap: var(--spacing-2);
+  gap: var(--sp-2);
   min-width: 2.75rem;
 }
 .solve-stat {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--sp-2);
   color: var(--color-text-secondary);
   font-size: 0.875rem;
   line-height: 1;
@@ -102,12 +188,12 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--spacing-2);
+  gap: var(--sp-2);
 }
 .solve-person {
   display: inline-flex;
   align-items: center;
-  gap: var(--spacing-1-5);
+  gap: var(--sp-2);
   color: var(--color-text-primary);
 }
 
@@ -115,11 +201,11 @@
 .solve-back {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
-  min-height: 36px;
-  padding: 0 var(--spacing-3) 0 var(--spacing-1);
+  gap: var(--sp-1);
+  min-height: calc(var(--sp-7) - var(--sp-1));
+  padding: 0 var(--sp-4) 0 var(--sp-2);
   border: 0;
-  border-radius: var(--radius-element);
+  border-radius: var(--radius-button);
   background: transparent;
   color: var(--color-text-secondary);
   font: inherit;
@@ -132,21 +218,21 @@
   color: var(--color-text-primary);
 }
 .solve-back:focus-visible {
-  outline: 2px solid var(--focus-outline-color);
-  outline-offset: 1px;
+  outline: calc(var(--sp-1) / 2) solid var(--focus-outline-color);
+  outline-offset: calc(var(--sp-1) / 2);
 }
 
 /* ---- ask view: form and assistant side by side ---- */
 .solve-ask-layout {
   display: grid;
-  gap: var(--spacing-5);
+  gap: var(--sp-6);
   grid-template-columns: minmax(0, 1fr);
   align-items: start;
 }
 @media (min-width: 1024px) {
   .solve-ask-layout {
-    grid-template-columns: minmax(0, 1fr) 340px;
-    gap: var(--spacing-6);
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+    gap: var(--sp-6);
   }
 }
 
@@ -154,47 +240,47 @@
 .solve-post {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
-  gap: var(--spacing-3);
+  gap: var(--sp-3);
   align-items: start;
 }
 @media (min-width: 640px) {
   .solve-post {
-    gap: var(--spacing-5);
+    gap: var(--sp-5);
   }
 }
 .solve-post-main {
   display: grid;
-  gap: var(--spacing-4);
+  gap: var(--sp-4);
   min-width: 0;
 }
 .solve-answer-list {
   display: grid;
-  gap: var(--spacing-4);
+  gap: var(--sp-5);
   margin: 0;
   padding: 0;
   list-style: none;
 }
 .solve-answer-head {
-  margin-bottom: var(--spacing-3);
+  margin-block-end: var(--sp-3);
 }
 .solve-answer-foot {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: var(--spacing-2) var(--spacing-3);
+  gap: var(--sp-2) var(--sp-3);
 }
 .solve-sources {
   display: grid;
-  gap: var(--spacing-2);
-  padding: var(--spacing-3) var(--spacing-4);
-  border-radius: var(--radius-element);
+  gap: var(--sp-2);
+  padding: var(--sp-4);
+  border-radius: var(--radius-card);
   background: var(--color-background-muted);
 }
 .solve-sources-h {
   display: flex;
   align-items: center;
-  gap: var(--spacing-2);
+  gap: var(--sp-2);
   margin: 0;
   color: var(--color-text-secondary);
   font-size: 0.875rem;
@@ -202,7 +288,7 @@
 }
 .solve-sources ul {
   display: grid;
-  gap: var(--spacing-1);
+  gap: var(--sp-1);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -213,16 +299,15 @@
 .solve-vote {
   display: grid;
   justify-items: center;
-  gap: var(--spacing-1);
+  gap: var(--sp-1);
   min-width: 2.5rem;
 }
-/* Tinted square buttons, as the prototype's `.vote button`. */
 .solve-vote-btn {
   display: inline-grid;
   place-items: center;
-  width: 40px;
-  height: 36px;
-  border-radius: var(--radius-inner);
+  width: calc(var(--sp-7) - var(--sp-1));
+  height: calc(var(--sp-7) - var(--sp-1));
+  border-radius: var(--radius-button);
   background: var(--color-background-muted);
   color: var(--color-text-secondary);
 }
@@ -244,9 +329,9 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--spacing-3);
-  padding: var(--spacing-4);
-  border-radius: var(--radius-container);
+  gap: var(--sp-3);
+  padding: var(--sp-5);
+  border-radius: var(--radius-card);
   background: var(--color-background-muted);
 }
 .solve-compose-cta > svg {
@@ -257,4 +342,45 @@
   flex: 1 1 18ch;
   margin: 0;
   color: var(--color-text-secondary);
+}
+
+.solve-question-page .ui-columns,
+.solve-question-page .ui-columns-main {
+  gap: var(--sp-7);
+}
+.solve-question-page .ui-columns-aside {
+  gap: var(--sp-4);
+}
+.solve-question-page .ui-columns-aside .ui-panel {
+  padding: var(--sp-4);
+}
+.solve-question-card .solve-post-main > [lang],
+.solve-answer-card .solve-post-main > [lang] {
+  max-width: 80ch;
+}
+.solve-assistant-card {
+  align-self: start;
+}
+
+@media (min-width: 768px) {
+  .solve-page .ui-row,
+  .solve-page .ui-skeleton-row {
+    padding: var(--sp-5);
+  }
+}
+
+@media (max-width: 479px) {
+  .solve-page {
+    gap: var(--sp-5);
+  }
+  .solve-page .ui-panel {
+    padding: var(--sp-4);
+  }
+  .solve-page .ui-state {
+    padding: var(--sp-7) var(--sp-4);
+  }
+  .solve-question-page .ui-columns,
+  .solve-question-page .ui-columns-main {
+    gap: var(--sp-6);
+  }
 }

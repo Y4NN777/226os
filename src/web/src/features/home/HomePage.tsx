@@ -91,7 +91,12 @@ function ConnectLead() {
         </Heading>
         <p>{t('feed.connect.body')}</p>
       </div>
-      <Button variant="primary" href="/connect" label={t('feed.connect.link')} />
+      <Button
+        className="feed-link-button"
+        variant="primary"
+        href="/connect"
+        label={t('feed.connect.link')}
+      />
     </section>
   );
 }

@@ -79,7 +79,7 @@ export function WritePage() {
 
   if (!session.data.authenticated) {
     return (
-      <VStack gap={3} hAlign="start" maxWidth={560}>
+      <VStack className="learn-page learn-narrow-page" gap={3} hAlign="start" maxWidth={560}>
         <Heading level={1}>{t('learn.signIn.title')}</Heading>
         <Button
           variant="primary"
@@ -92,7 +92,7 @@ export function WritePage() {
 
   if (published !== null) {
     return (
-      <VStack gap={3} hAlign="start" maxWidth={560}>
+      <VStack className="learn-page learn-narrow-page" gap={3} hAlign="start" maxWidth={560}>
         <Published
           id={published.id}
           title={published.title}
@@ -111,7 +111,7 @@ export function WritePage() {
   };
 
   return (
-    <VStack gap={6}>
+    <VStack className="learn-page" gap={6}>
       <Crumbs />
       <header className="learn-head-text">
         <Heading level={1}>{t('learn.write.title')}</Heading>

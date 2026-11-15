@@ -77,7 +77,7 @@ function Detail({ article }: { article: Article }) {
   const outline = useOutlineFromMarkdown(article.body_md);
   const hasOutline = outline.length > 1;
   return (
-    <VStack gap={6}>
+    <VStack className="learn-page learn-reading-page" gap={6}>
       <Breadcrumbs label={t('learn.title')} variant="supporting">
         <BreadcrumbItem href="/apprendre">{t('learn.title')}</BreadcrumbItem>
         <BreadcrumbItem isCurrent>{article.title}</BreadcrumbItem>
