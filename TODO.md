@@ -91,7 +91,7 @@ Open owner items outside CADEV (IDs and decisions in ROADMAP section 8, 10 and 1
 - [ ] **H19:** run the reviewed S4 content script on `production-live` (see S4 and the release-day checklist).
 - [ ] **Issue #46:** give each collaborator their own age key and re-encrypt `secrets/*.enc.env` for them (after the sync meeting). Owner.
 - [ ] **B4:** reviewed release workflow (protected `production` environment, exact `develop` SHA, image digests). The guard in `mk/50-ops.mk` is not weakened. Before Sunday.
-- [ ] **O4:** no resend-verification operation exists; the owner rules. **C3 to C10, C12, C13** are open (ROADMAP section 10).
+- [x] **O4:** resend-verification built (`resendEmailVerification`, issue #248 item 1, contract approved by the owner R7, 2026-11-15, `mibienpanjoe`). **C3 to C10, C12, C13** are open (ROADMAP section 10).
   - 2026-11-15 (`Y4NN777`, `chore/ops/staging-seeds-and-docs-refresh`): C8, C12 and C13 are resolved (ROADMAP section 10); C3 to C7, C9 and C10 keep their ROADMAP status.
 
 ## Shared pieces (O2: each is a proposal; the backend lead confirms or reassigns)
@@ -140,6 +140,7 @@ Open owner items outside CADEV (IDs and decisions in ROADMAP section 8, 10 and 1
   - [x] `getSession` (never 401) — PR #89, 2026-11-13
   - [x] `verifyEmail` (single use, 24 h, 422 `INVALID_TOKEN`) — PR #89, 2026-11-13
   - [x] `requestPasswordReset` (always 202; 3/account and 10/IP per hour) — PR #89, 2026-11-13
+  - [x] `resendEmailVerification` (always 202; 3/account and 10/IP per hour, counted before the lookup; the new code burns every earlier open one; « Renvoyer le code » on `/verifier-email`) — issue #248 item 1, 2026-11-15, `mibienpanjoe`, branch `feature/identity/verification-resend`
   - [x] `confirmPasswordReset` (30 min; revokes all the user's sessions) — PR #89, 2026-11-13
   - [x] `getMe` (the only place the email is returned) — PR #94, 2026-11-13
   - [x] `updateMyProfile` (own profile; JSON Merge Patch; accepts `profile_visibility`, default `public`) — PR #94, 2026-11-13
@@ -150,12 +151,12 @@ Open owner items outside CADEV (IDs and decisions in ROADMAP section 8, 10 and 1
 - [ ] Bylines on published content keep showing username and display name whatever `profile_visibility` says; deleted accounts show "membre supprimé" (ADR-0005 point 15).
 - [x] Argon2id m=64 MiB, t=3, p=1 with a semaphore (implemented; the target-host benchmark stays with S8, K6 check pending there).
 - [x] Cookie flags per profile (ADR-0003). [x] CSRF with `X-CSRF-Token` plus an `Origin` / `Sec-Fetch-Site` check. [x] Session timeouts: 2 h idle, 7 days absolute.
-- [ ] O4: no resend-verification operation exists; ask the owner (flagged in the S1 PR description).
+- [x] O4: resend-verification built, see `resendEmailVerification` above (issue #248 item 1, 2026-11-15).
 - **Tables:** `users`, `user_credentials`, `profiles`, `user_skills`, `sessions`, `email_verifications`, `password_resets`, `rate_limit_buckets`; reads `countries`, `tags`.
 - **Acceptance:** `US-IDENTITY-001/2` (with S7); ADR-0003 "Evidence" (session expiry, rotation, revocation; CSRF cases; enumeration and timing; 429 with `Retry-After`; no token in logs). Negative authz per [AUTHORIZATION_MATRIX](docs/spec-kit/AUTHORIZATION_MATRIX.md) identity rows, plus `getProfile` per `profile_visibility` x caller (anonymous, member, owner, moderator) with identical 404 bodies.
 - **Prototype pages:** `connexion`, `inscription`, `verifier-email`, `mot-de-passe-oublie`, `reinitialiser`, `bienvenue`, `profile`, `parametres`.
 - **Allowed paths:** `src/api/internal/identity/**`, `db/queries/identity.sql`, `db/queries/platform.sql`, generated `dbgen` (via `make generate`), `scripts/public-routes.txt` (anonymous auth routes, with reasons). **DoD:** DoD-common plus cookie inspection per profile and a redacted email-flow log through Mailpit. **Stop:** if ADR-0003 values would need to change.
-- **Status:** OPERATIONS DONE — the 8 auth operations (PR #89, follow-ups #90 and #93) and the profile operations (PR #94) are merged (2026-11-13); issue #65 closed. Still open: the bylines item (Learn reads show username and display name whatever `profile_visibility` says, 2026-11-13, S4; deleted accounts are not handled yet) and O4 (owner ruling).
+- **Status:** OPERATIONS DONE — the 8 auth operations (PR #89, follow-ups #90 and #93) and the profile operations (PR #94) are merged (2026-11-13); issue #65 closed. Still open: the bylines item (Learn reads show username and display name whatever `profile_visibility` says, 2026-11-13, S4; deleted accounts are not handled yet). O4 is built (issue #248 item 1, 2026-11-15).
   - 2026-11-13 (`mibienpanjoe`): issue #91, the reset-mail race in `TestIdentitySignInRotationAndReset`, fixed on `fix/identity/reset-mail-race` (test-only: `mailToken` waits for the next mail instead of returning the latest).
   - 2026-11-14 (`Y4NN777`, `fix/identity/signin-limit-race`): issue #97, the per-account sign-in limit now holds under concurrency: one atomic hit on `signin:account` before the lookup (429 without a password check when over 5), given back on a successful sign-in (`GiveBackRateLimit`), so only failures stay counted (owner chose this option of ADR-0003). RED: 20 concurrent wrong passwords at one account reached the password check 20 times; GREEN: 5, the other 15 get 429. `signin:ip` was already a single atomic hit. Merged as PR #139 (2026-11-14); issue #97 closed.
 

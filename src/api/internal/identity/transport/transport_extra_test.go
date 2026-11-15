@@ -413,3 +413,20 @@ func TestResolverInternalError(t *testing.T) {
 		t.Fatal("store error swallowed")
 	}
 }
+
+func TestResendEmailVerificationHandler(t *testing.T) {
+	h, _, st, _ := testStack(t, false)
+	rec := doJSON(t, h.ResendEmailVerification, "/api/v1/auth/verify-email/resend", `{"email":"ghost@example.com"}`)
+	if rec.Code != http.StatusAccepted || !strings.Contains(rec.Body.String(), `"accepted"`) {
+		t.Fatalf("unknown address: %d %s", rec.Code, rec.Body.String())
+	}
+	rec = doJSON(t, h.ResendEmailVerification, "/api/v1/auth/verify-email/resend", `{"email":`)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("malformed: %d", rec.Code)
+	}
+	st.failHits = true
+	rec = doJSON(t, h.ResendEmailVerification, "/api/v1/auth/verify-email/resend", `{"email":"rl@example.com"}`)
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("limiter error: %d %s", rec.Code, rec.Body.String())
+	}
+}

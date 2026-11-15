@@ -382,6 +382,66 @@ func TestIdentityResetBurnsSiblingTokens(t *testing.T) {
 	}
 }
 
+// A resend mails a new code that burns the earlier one on real PostgreSQL; an unknown or already verified address
+// gets the same 202 and no mail; the 4th resend of one address in an hour is 429 with Retry-After.
+func TestIdentityVerificationResend(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 60*time.Second)
+	defer cancel()
+	s := newIdentityStack(ctx, t)
+	resend := func(email string) *httptest.ResponseRecorder {
+		cookie, csrf := s.csrfToken(t)
+		return s.do(t, http.MethodPost, "/api/v1/auth/verify-email/resend",
+			`{"email":"`+email+`"}`, map[string]string{"X-CSRF-Token": csrf}, cookie)
+	}
+	verify := func(token string) int {
+		cookie, csrf := s.csrfToken(t)
+		return s.do(t, http.MethodPost, "/api/v1/auth/verify-email",
+			`{"token":"`+token+`"}`, map[string]string{"X-CSRF-Token": csrf}, cookie).Code
+	}
+
+	s.signUp(t, "late@example.com", "lateuser")
+	first := s.mailToken(t, "late@example.com", 0)
+	rec := resend("late@example.com")
+	if rec.Code != http.StatusAccepted || !strings.Contains(rec.Body.String(), `"accepted"`) {
+		t.Fatalf("resend %d %s", rec.Code, rec.Body.String())
+	}
+	second := s.mailToken(t, "late@example.com", 1)
+	if first == second {
+		t.Fatal("the resend carries the old code")
+	}
+	var open int
+	if err := s.conn.QueryRow(ctx, `SELECT count(*) FROM email_verifications e JOIN users u ON u.id = e.user_id
+		WHERE u.email = 'late@example.com' AND e.consumed_at IS NULL`).Scan(&open); err != nil || open != 1 {
+		t.Fatalf("open codes = %d (%v), want 1", open, err)
+	}
+	if code := verify(first); code != http.StatusUnprocessableEntity {
+		t.Fatalf("the earlier code still verifies: %d", code)
+	}
+	if code := verify(second); code != http.StatusNoContent {
+		t.Fatalf("the new code: %d", code)
+	}
+
+	// Already verified and unknown: the same 202, no new mail.
+	before := len(s.mail.Sent())
+	for _, email := range []string{"late@example.com", "nobody@example.com"} {
+		if rec := resend(email); rec.Code != http.StatusAccepted {
+			t.Fatalf("%s: %d %s", email, rec.Code, rec.Body.String())
+		}
+	}
+	if after := len(s.mail.Sent()); after != before {
+		t.Fatalf("%d mails sent for nothing due", after-before)
+	}
+
+	// late@ has used 3 of its 3 resends this hour (1 + 1 verified + this one): the next is 429.
+	if rec := resend("late@example.com"); rec.Code != http.StatusAccepted {
+		t.Fatalf("3rd resend %d", rec.Code)
+	}
+	rec = resend("late@example.com")
+	if rec.Code != http.StatusTooManyRequests || rec.Header().Get("Retry-After") == "" {
+		t.Fatalf("4th resend: %d Retry-After=%q %s", rec.Code, rec.Header().Get("Retry-After"), rec.Body.String())
+	}
+}
+
 func TestIdentityRateLimitFailsClosed(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 120*time.Second)
 	defer cancel()

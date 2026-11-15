@@ -6,6 +6,12 @@ import { renderApp, setLanguages } from '../../test/render';
 import { findVisibleText, getVisibleText } from '../../test/visibleText';
 
 const VERIFY = 'POST /auth/verify-email';
+const RESEND = 'POST /auth/verify-email/resend';
+const accepted = () =>
+  new Response(JSON.stringify({ status: 'accepted' }), {
+    status: 202,
+    headers: { 'Content-Type': 'application/json' },
+  });
 const TOKEN = 'abcdefghijklmnopqrstuvwxyz012345';
 const noContent = () => new Response(null, { status: 204 });
 
@@ -23,15 +29,51 @@ afterEach(() => {
 });
 
 describe('VerifyEmailPage', () => {
-  it('explains where the code is and offers no resend', async () => {
+  it('explains where the code is and offers to resend it', async () => {
     await open();
     expect(
       screen.getByRole('heading', { level: 1, name: 'Vérifiez votre boîte mail' }),
     ).toBeVisible();
     expect(screen.getByText(/un code vous attend par e-mail/)).toBeVisible();
     expect(screen.getByLabelText('Code de confirmation')).toBeVisible();
-    expect(screen.queryByRole('button', { name: /renvoyer/i })).not.toBeInTheDocument();
-    expect(screen.queryByText(/renvoyer/i)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Renvoyer le code' })).toBeVisible();
+  });
+
+  it('resends a code to the address typed, then returns to the code field', async () => {
+    const { user, fetchMock } = await open('fr-FR', { [RESEND]: accepted });
+    await user.click(screen.getByRole('button', { name: 'Renvoyer le code' }));
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Recevoir un nouveau code' }),
+    ).toBeVisible();
+    await user.type(screen.getByLabelText('Adresse e-mail'), '  ada@example.com ');
+    await user.click(screen.getByRole('button', { name: 'Envoyer un nouveau code' }));
+    expect(await findVisibleText(/un nouveau code vient de partir/)).toBeInTheDocument();
+    const [request] = callsTo(fetchMock, RESEND);
+    expect(request?.headers.get('X-CSRF-Token')).toBeTruthy();
+    expect(await request?.clone().json()).toEqual({ email: 'ada@example.com' });
+    await user.click(screen.getByRole('button', { name: 'Saisir le code' }));
+    expect(await screen.findByLabelText('Code de confirmation')).toBeVisible();
+  });
+
+  it('validates the address before resending and can go back', async () => {
+    const { user, fetchMock } = await open('fr-FR', { [RESEND]: accepted });
+    await user.click(screen.getByRole('button', { name: 'Renvoyer le code' }));
+    await user.click(await screen.findByRole('button', { name: 'Envoyer un nouveau code' }));
+    await waitFor(() => expect(screen.getByLabelText('Adresse e-mail')).toHaveFocus());
+    expect(callsTo(fetchMock, RESEND)).toHaveLength(0);
+    await user.click(screen.getByRole('button', { name: 'J’ai déjà un code' }));
+    expect(await screen.findByLabelText('Code de confirmation')).toBeVisible();
+  });
+
+  it('waits on a 429 from the resend', async () => {
+    const { user } = await open('fr-FR', {
+      [RESEND]: () => problemResponse(429, 'RATE_LIMITED', { retryAfter: 30 }),
+    });
+    await user.click(screen.getByRole('button', { name: 'Renvoyer le code' }));
+    await user.type(await screen.findByLabelText('Adresse e-mail'), 'ada@example.com');
+    await user.click(screen.getByRole('button', { name: 'Envoyer un nouveau code' }));
+    expect(await screen.findByRole('button', { name: 'Réessayer dans 30 s' })).toBeInTheDocument();
+    expect(getVisibleText('Trop de tentatives')).toBeInTheDocument();
   });
 
   it('validates the code on submit and focuses the field', async () => {
@@ -86,7 +128,7 @@ describe('VerifyEmailPage', () => {
         'href',
         '/inscription',
       );
-      expect(screen.queryByRole('button', { name: /renvoyer/i })).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Renvoyer le code' })).toBeVisible();
       await user.click(screen.getByRole('button', { name: 'Saisir un autre code' }));
       expect(await screen.findByLabelText('Code de confirmation')).toBeVisible();
     },
@@ -199,6 +241,14 @@ describe('VerifyEmailPage', () => {
     await user.dblClick(screen.getByRole('button', { name: 'Confirmer' }));
     await new Promise((resolve) => setTimeout(resolve, 120));
     expect(callsTo(fetchMock, VERIFY)).toHaveLength(1);
+  });
+
+  it('offers the resend in English', async () => {
+    const { user } = await open('en-US', { [RESEND]: accepted });
+    await user.click(screen.getByRole('button', { name: 'Resend the code' }));
+    await user.type(await screen.findByLabelText('Email address'), 'ada@example.com');
+    await user.click(screen.getByRole('button', { name: 'Send a new code' }));
+    expect(await findVisibleText(/a new code is on its way/)).toBeInTheDocument();
   });
 
   it('is available in English', async () => {

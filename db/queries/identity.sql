@@ -57,7 +57,14 @@ WHERE user_id = $1 AND revoked_at IS NULL
 UPDATE sessions SET last_seen_at = $2, idle_expires_at = $3
 WHERE id = $1 AND revoked_at IS NULL;
 
+-- CreateEmailVerification stores a new code and burns every earlier open code of the account in one statement
+-- (a single statement is its own transaction), so after a resend only the latest mail can verify the account.
+-- The burn uses email_verifications_user_open_idx.
 -- name: CreateEmailVerification :exec
+WITH burned AS (
+  UPDATE email_verifications SET consumed_at = now()
+  WHERE email_verifications.user_id = $1 AND consumed_at IS NULL
+)
 INSERT INTO email_verifications (user_id, email, token_hash, expires_at)
 VALUES ($1, $2, $3, $4);
 

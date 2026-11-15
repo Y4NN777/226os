@@ -147,6 +147,12 @@ func (f *fakeStore) CreateEmailVerification(_ context.Context, userID, email str
 	if err := f.errs["CreateEmailVerification"]; err != nil {
 		return err
 	}
+	for k, r := range f.verif { // like the query: every earlier open code of the account is burned
+		if r.userID == userID && !r.consumed {
+			r.consumed = true
+			f.verif[k] = r
+		}
+	}
 	f.verif[h] = verifRow{userID: userID, email: email, expiresAt: exp}
 	return nil
 }

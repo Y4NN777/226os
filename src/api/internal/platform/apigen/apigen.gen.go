@@ -1446,6 +1446,11 @@ type Username = string
 // Uuid Opaque identifier; never an authorization control.
 type Uuid = openapi_types.UUID
 
+// VerificationResendRequest defines model for VerificationResendRequest.
+type VerificationResendRequest struct {
+	Email openapi_types.Email `json:"email"`
+}
+
 // VerificationStatus defines model for VerificationStatus.
 type VerificationStatus string
 
@@ -1837,6 +1842,9 @@ type SignUpJSONRequestBody = SignUpRequest
 // VerifyEmailJSONRequestBody defines body for VerifyEmail for application/json ContentType.
 type VerifyEmailJSONRequestBody = TokenRequest
 
+// ResendEmailVerificationJSONRequestBody defines body for ResendEmailVerification for application/json ContentType.
+type ResendEmailVerificationJSONRequestBody = VerificationResendRequest
+
 // CreateApplicationJSONRequestBody defines body for CreateApplication for application/json ContentType.
 type CreateApplicationJSONRequestBody = ApplicationCreate
 
@@ -2083,6 +2091,9 @@ type ServerInterface interface {
 	// VerifyEmail Confirm an email address
 	// (POST /auth/verify-email)
 	VerifyEmail(w http.ResponseWriter, r *http.Request)
+	// ResendEmailVerification Send a new email verification code
+	// (POST /auth/verify-email/resend)
+	ResendEmailVerification(w http.ResponseWriter, r *http.Request)
 	// CreateApplication Apply to a contribution need
 	// (POST /contribution-needs/{needId}/applications)
 	CreateApplication(w http.ResponseWriter, r *http.Request, needId NeedId, params CreateApplicationParams)
@@ -2263,6 +2274,12 @@ func (_ Unimplemented) SignUp(w http.ResponseWriter, r *http.Request) {
 // VerifyEmail Confirm an email address
 // (POST /auth/verify-email)
 func (_ Unimplemented) VerifyEmail(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ResendEmailVerification Send a new email verification code
+// (POST /auth/verify-email/resend)
+func (_ Unimplemented) ResendEmailVerification(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -2652,6 +2669,20 @@ func (siw *ServerInterfaceWrapper) VerifyEmail(w http.ResponseWriter, r *http.Re
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.VerifyEmail(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ResendEmailVerification operation middleware
+func (siw *ServerInterfaceWrapper) ResendEmailVerification(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ResendEmailVerification(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -4746,6 +4777,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/auth/verify-email", wrapper.VerifyEmail)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/auth/verify-email/resend", wrapper.ResendEmailVerification)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/auth/password-reset/request", wrapper.RequestPasswordReset)

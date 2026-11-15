@@ -48,6 +48,9 @@ const (
 	confirmWindow      = time.Hour
 	verifyIPLimit      = 10
 	verifyWindow       = time.Hour
+	resendAccountLimit = 3
+	resendIPLimit      = 10
+	resendWindow       = time.Hour
 )
 
 // Store is the persistence port. The repository implements it over sqlc;
@@ -62,6 +65,8 @@ type Store interface {
 	RevokeSession(ctx context.Context, id, reason string, now time.Time) error
 	TouchSession(ctx context.Context, id string, lastSeenAt, idleExpiresAt time.Time) error
 
+	// CreateEmailVerification stores a new code and burns every earlier open code of the account in one
+	// atomic write, so only the latest mail can verify it.
 	CreateEmailVerification(ctx context.Context, userID, email string, hash [32]byte, expiresAt time.Time) error
 	VerifyEmail(ctx context.Context, hash [32]byte, now time.Time) error
 
@@ -369,10 +374,15 @@ func (s *Service) sendVerification(ctx context.Context, acct domain.Account) {
 	if err := s.store.CreateEmailVerification(ctx, acct.ID, acct.Email, hash, s.now().Add(verifyTTL)); err != nil {
 		return
 	}
-	s.sendMail(ctx, mailer.Message{
-		To: []string{acct.Email}, Subject: "Verify your 226os e-mail",
+	s.sendMail(ctx, s.verificationMail(acct.Email, plain))
+}
+
+// verificationMail is the verification mail of a sign-up or a resend.
+func (s *Service) verificationMail(to, plain string) mailer.Message {
+	return mailer.Message{
+		To: []string{to}, Subject: "Verify your 226os e-mail",
 		Text: s.mailBody("Confirm your e-mail address:", "/verifier-email", plain, "24 hours"),
-	})
+	}
 }
 
 // mailBody is the text of a verification or reset mail. Without a base URL it is the intro, the bare code and
@@ -617,6 +627,39 @@ func (s *Service) VerifyEmail(ctx context.Context, plain string, clientIP ...str
 		}
 		return apperr.Wrap(apperr.CodeInternal, err)
 	}
+	return nil
+}
+
+// ResendEmailVerification always succeeds silently: it mails a new 24 h code, which invalidates every earlier
+// one, when the account exists, is active and still waits for verification, and does nothing otherwise. Both
+// limits are hit and the token is drawn before the lookup, so neither a 429 nor a 500 tells accounts apart;
+// the token write and the mail leave the request path together, like the reset request.
+func (s *Service) ResendEmailVerification(ctx context.Context, email, ip string) error {
+	if err := s.allow(ctx, "resend:ip", ipKey(ip), resendIPLimit, resendWindow); err != nil {
+		return err
+	}
+	normalized := normalizeEmail(email)
+	if err := s.allow(ctx, "resend:account", normalized, resendAccountLimit, resendWindow); err != nil {
+		return err
+	}
+	plain, hash, err := randToken()
+	if err != nil {
+		return apperr.Wrap(apperr.CodeInternal, err)
+	}
+	acct, err := s.store.AccountByEmail(ctx, normalized)
+	if err != nil || acct.Status != "active" || acct.EmailVerified || s.mail == nil {
+		return nil // unknown, inactive, already verified, lookup failure or no mailer: same silent 202
+	}
+	expires, msg := s.now().Add(verifyTTL), s.verificationMail(acct.Email, plain)
+	s.spawn(func() {
+		c, cancel := context.WithTimeout(context.WithoutCancel(ctx), mailTimeout)
+		defer cancel()
+		if err := s.store.CreateEmailVerification(c, acct.ID, acct.Email, hash, expires); err != nil {
+			slog.WarnContext(c, "identity verification resend token write failed", slog.String("error", err.Error()))
+			return
+		}
+		_ = s.mail.Send(c, msg)
+	})
 	return nil
 }
 
