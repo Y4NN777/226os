@@ -30,6 +30,15 @@ Until now each profile's secrets lived only in a git-ignored `.env.<profile>` on
 7. **Rotation and leaks.** Removing a person or a host: remove its line from `<profile>.recipients`, run `scripts/secrets.sh rotate <profile>`, and CHANGE the underlying secrets that person could read (re-encryption does not unsee what they already decrypted). A leaked private age key means rotating every secret of every profile it could decrypt.
 8. **Out of scope.** Cloud KMS, per-variable access control (a recipient decrypts the whole profile), automatic rotation, and storing the staging or production private key in CI.
 
+## Amendment 2026-11-15 (owner): deployment key in CI
+
+The owner decided on 2026-11-15 that each deployment environment's age private key lives in the GitHub environment secrets (`staging`, `production`) as `SOPS_AGE_KEY`. This replaces two lines above: point 6 (« The private key of the deployment host lives only on that host. CI never decrypts anything ») and point 8 (« storing the staging or production private key in CI » out of scope).
+
+- Only the `deploy` job of `.github/workflows/deploy.yml` sees the key. That job runs only for `develop` (staging) and `main` (production), never for a pull request, and the `production` environment requires the owner's approval.
+- Decryption happens in `/dev/shm` with the key read from the environment; no key file is written. The decrypted env file goes to the server over SSH with mode 600 and is never printed or uploaded.
+- Each environment has its own age keypair, added to `<profile>.recipients` and rotated (`docs/runbooks/deploy-setup.md`). A leaked environment key means rotating that profile (point 7).
+- Residual risk accepted by the owner: anyone who can change the workflow on `develop` or `main` can read the staging or production secrets. The workflow and scripts are sensitive paths (`.github/sensitive-paths.txt`), so such a change needs the owner's review.
+
 ## Consequences
 
 - **Security:** secrets are reviewable by name in diffs and recoverable from Git history, but the history is permanent: a value committed under a compromised key stays decryptable by whoever holds that key, so rotation is mandatory after any key loss. The recipient list is the access-control list; changing it is a security review item.

@@ -68,4 +68,4 @@ Planned owner setting: decide a review rule for `main` once the team pushes (wit
 
 ## Current state
 
-No deployment workflow exists yet. The application, the Compose profiles and CI exist. Deployment jobs and the `production` environment approval remain `NOT IMPLEMENTED` until the ops slice (TODO S8) is done.
+The deployment workflow `.github/workflows/deploy.yml` exists (staging on every green push to `develop`, production on every push to `main` after the `production` environment approval, by the digests tested on staging). It has not run yet: the environments, secrets, DNS and servers are set up by the owner ([deploy-setup](runbooks/deploy-setup.md)); G7 stays NOT RUN until then.

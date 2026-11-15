@@ -45,7 +45,7 @@ describe('LandingPage', () => {
     expect(screen.getAllByRole('banner')).toHaveLength(1);
   });
 
-  it('shows the promise, the positioning and the two calls to action', async () => {
+  it('shows the promise and the two calls to action, without a positioning badge', async () => {
     setLanguages(['fr-FR']);
     mockApi({ 'GET /resources': () => page([resource(1)]) });
     const { main } = await open();
@@ -55,7 +55,7 @@ describe('LandingPage', () => {
         name: 'Apprenez, échangez et construisez entre développeurs africains',
       }),
     ).toBeInTheDocument();
-    expect(main.getByText('Afrique de l’Ouest d’abord, puis toute l’Afrique')).toBeInTheDocument();
+    expect(main.queryByText(/Afrique de l’Ouest d’abord/)).not.toBeInTheDocument();
     const signups = main.getAllByRole('link', { name: 'Créer un compte' });
     expect(signups.length).toBeGreaterThanOrEqual(2);
     for (const link of signups) expect(link).toHaveAttribute('href', '/inscription');
@@ -198,7 +198,7 @@ describe('LandingPage', () => {
         name: 'Learn, connect and build with African developers',
       }),
     ).toBeInTheDocument();
-    expect(main.getByText('West Africa first, then the whole continent')).toBeInTheDocument();
+    expect(main.queryByText(/West Africa first/)).not.toBeInTheDocument();
     expect(main.getAllByRole('link', { name: 'Create an account' })[0]).toHaveAttribute(
       'href',
       '/inscription',

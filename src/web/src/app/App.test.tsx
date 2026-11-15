@@ -25,7 +25,7 @@ describe('App routing', () => {
     expect(document.title).toBe('Recherche · 226os');
   });
 
-  it('renders the shell and the public landing page at /', async () => {
+  it('renders the top bar and the public landing page, without navigation, at /', async () => {
     setLanguages(['fr-FR']);
     renderAt('/');
     expect(
@@ -34,7 +34,9 @@ describe('App routing', () => {
         name: 'Apprenez, échangez et construisez entre développeurs africains',
       }),
     ).toBeInTheDocument();
-    expect(screen.getByRole('navigation', { name: 'Navigation principale' })).toBeInTheDocument();
+    expect(
+      screen.queryByRole('navigation', { name: 'Navigation principale' }),
+    ).not.toBeInTheDocument();
     expect(await screen.findByRole('link', { name: 'Se connecter' })).toBeInTheDocument();
   });
 

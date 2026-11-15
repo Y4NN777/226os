@@ -186,11 +186,7 @@ export function DiscoverPage() {
         title={t('discover.title')}
         breadcrumbs={[{ label: t('nav.home'), href: '/' }, { label: t('discover.title') }]}
         lead={t('discover.lede')}
-      >
-        <Text as="p" type="supporting">
-          {t('discover.positioning')}
-        </Text>
-      </PageHeader>
+      />
       <Filters
         key={search.q ?? ''}
         search={search}

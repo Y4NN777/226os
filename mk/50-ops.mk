@@ -24,8 +24,9 @@ smoke: doctor ## Post-deploy smoke (read-only): make smoke PROFILE=local-dev|sta
 # up-production-live is never run from a developer machine (ADR-0006). Guard (_guard-production-up): the
 # documented deploy context is an automated release job, i.e. CI=true, no interactive terminal on stdin, and
 # an explicit PRODUCTION_UP_CONFIRM=production-live. scripts/compose.sh then still requires APP_ENV=production-live
-# in the env file (no CHANGE_ME, real PUBLIC_HOST and ACME_EMAIL). There is no deploy workflow yet (TASK-OPS-001),
-# so today no context satisfies the guard. It is a protection against mistakes, not against a determined caller.
+# in the env file (no CHANGE_ME, real PUBLIC_HOST and ACME_EMAIL). The deploy workflow (.github/workflows/deploy.yml)
+# does not use this target: the server has no Go toolchain for `doctor`, so scripts/deploy-remote.sh calls
+# scripts/compose.sh directly; no other context satisfies the guard. It is a protection against mistakes, not against a determined caller.
 up-production-live: _guard-production-up doctor ## Start production-live (refused outside the documented deploy context)
 	scripts/compose.sh production-live up -d --wait
 
