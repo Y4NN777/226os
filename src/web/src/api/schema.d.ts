@@ -1013,6 +1013,27 @@ export interface components {
             open_to_collab?: boolean;
             profile_visibility: components["schemas"]["ProfileVisibility"];
             joined_at: components["schemas"]["Timestamp"];
+            ranking?: components["schemas"]["GitHubRanking"];
+        };
+        /** @description committers.top rank of the profile's GitHub login (ADR-0016). Present only when the github field is visible to the caller, the login is ranked and has not opted out. */
+        GitHubRanking: {
+            country: components["schemas"]["CountryCode"];
+            rank: number;
+            generated_at: components["schemas"]["Timestamp"];
+        };
+        /** @description A public GitHub developer ranked by committers.top (ADR-0016). Not an account: only public GitHub data, labelled with its source. */
+        ExternalDeveloper: {
+            /** @description GitHub login. */
+            login: string;
+            name: string;
+            avatar_url: string;
+            country: components["schemas"]["CountryCode"];
+            rank: number;
+            contributions: number;
+            organizations: string[];
+            generated_at: components["schemas"]["Timestamp"];
+            /** @enum {string} */
+            source: "committers.top";
         };
         /** @description Directory entry, visibility-filtered for this caller: fields hidden by field_visibility are omitted. Never contains email. */
         ProfileSummary: {
@@ -1026,6 +1047,8 @@ export interface components {
         };
         ProfilePage: {
             items: components["schemas"]["ProfileSummary"][];
+            /** @description External GitHub developers (ADR-0016), after the members of the page; omitted when the page has none. items plus external hold at most limit entries. */
+            external?: components["schemas"]["ExternalDeveloper"][];
             /** @description Opaque, integrity-protected; null on the last page. */
             next_cursor: string | null;
         };
@@ -2071,6 +2094,8 @@ export interface operations {
                 language?: string;
                 /** @description Keep profiles whose visible skills contain this tag slug. */
                 skill?: components["schemas"]["TagSlug"];
+                /** @description Which entries to list. members is the opt-in member directory; github is the external committers.top entries; all (default) is the members first, then the external entries. */
+                source?: "all" | "members" | "github";
             };
             header?: never;
             path?: never;

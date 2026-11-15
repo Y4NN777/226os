@@ -3,6 +3,8 @@ export interface ConnectSearch {
   country?: string;
   language?: string;
   skill?: string;
+  /** members or github; absent means both (the API default `all`). */
+  source?: 'members' | 'github';
 }
 
 const COUNTRY_RE = /^[A-Z]{2}$/;
@@ -26,5 +28,6 @@ export function validateConnectSearch(raw: Record<string, unknown>): ConnectSear
     out.language = raw.language;
   }
   if (typeof raw.skill === 'string' && SKILL_RE.test(raw.skill)) out.skill = raw.skill;
+  if (raw.source === 'members' || raw.source === 'github') out.source = raw.source;
   return out;
 }

@@ -15,6 +15,7 @@ import (
 	"github.com/Y4NN777/226os/src/api/internal/build"
 	"github.com/Y4NN777/226os/src/api/internal/build/github"
 	"github.com/Y4NN777/226os/src/api/internal/discover"
+	"github.com/Y4NN777/226os/src/api/internal/identity/committers"
 	"github.com/Y4NN777/226os/src/api/internal/identity/repository"
 	"github.com/Y4NN777/226os/src/api/internal/identity/service"
 	identitytransport "github.com/Y4NN777/226os/src/api/internal/identity/transport"
@@ -94,7 +95,8 @@ func run(ctx context.Context, getenv func(string) string, out io.Writer, serve s
 	}
 	mail := newMailer(cfg, logger)
 	secureCookies := cfg.AppEnv != "local-dev"
-	identSvc := service.New(repository.New(pool), mail, cfg.CursorKey, service.WithBaseURL(cfg.AppBaseURL), service.WithCursors(codec), service.WithDemoProfiles(demoProfilesEnabled(cfg.AppEnv)))
+	identRepo := repository.New(pool)
+	identSvc := service.New(identRepo, mail, cfg.CursorKey, service.WithBaseURL(cfg.AppBaseURL), service.WithCursors(codec), service.WithDemoProfiles(demoProfilesEnabled(cfg.AppEnv)), service.WithGitHubDevelopers(identRepo))
 	authHandler := identitytransport.New(identSvc, secureCookies, logger)
 	limiter := ratelimit.New(pool, cfg.CursorKey, logger)
 	catalogue := discover.NewHandler(pool, codec, limiter, logger)
@@ -115,6 +117,8 @@ func run(ctx context.Context, getenv func(string) string, out io.Writer, serve s
 	// Deferred after pool.Close, so it runs first: the purge job stops before the pool closes.
 	stopPurge := startPurge(ctx, deps.Idempotency, logger)
 	defer stopPurge()
+	stopImport := startGitHubImport(ctx, cfg.GitHubImport, identRepo, logger)
+	defer stopImport()
 	ln, err := (&net.ListenConfig{}).Listen(ctx, "tcp", cfg.Addr)
 	if err != nil {
 		logger.Error("listen failed", "error", err)
@@ -138,6 +142,15 @@ func startPurge(ctx context.Context, store idempotency.Store, logger *slog.Logge
 		cancel()
 		wg.Wait()
 	}
+}
+
+// startGitHubImport runs the daily committers.top import (ADR-0016) when enabled, until the returned function
+// is called, which waits for it. Disabled, it starts nothing.
+func startGitHubImport(ctx context.Context, enabled bool, store committers.Store, logger *slog.Logger) (stop func()) {
+	if !enabled {
+		return func() {}
+	}
+	return committers.Start(ctx, committers.NewJob(committers.New(), store, logger))
 }
 
 // Main runs the API and calls exit only on failure (exit(0) would be a no-op).

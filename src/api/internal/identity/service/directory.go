@@ -45,6 +45,7 @@ type DirectoryRequest struct {
 	Country      *string
 	Language     *string
 	Skill        *string
+	Source       string // all (or empty), members or github (ADR-0016)
 	Cursor       string
 	Limit        *int
 }
@@ -53,6 +54,7 @@ type DirectoryRequest struct {
 // last page.
 type DirectoryPage struct {
 	Items      []domain.DirectoryEntry
+	External   []domain.GitHubDeveloper // after the members; nil when the page has none
 	NextCursor string
 }
 
@@ -66,35 +68,132 @@ func (s *Service) ListProfiles(ctx context.Context, req DirectoryRequest) (Direc
 	if err != nil {
 		return DirectoryPage{}, err
 	}
+	source, err := directorySource(req.Source)
+	if err != nil {
+		return DirectoryPage{}, err
+	}
 	if err := s.allowDirectory(ctx, req); err != nil {
 		return DirectoryPage{}, err
 	}
 	q.IncludeDemo = s.demoProfiles
-	hash := lengthPrefixed("directory", q.Country, q.Language, q.Skill)
+	hash := lengthPrefixed("directory", q.Country, q.Language, q.Skill, source)
+	var at externalPosition
 	if req.Cursor != "" {
 		p, err := s.cursors.Decode(req.Cursor, hash)
 		if err != nil {
 			return DirectoryPage{}, err
 		}
-		if _, err := uuid.Parse(p.ID); err != nil || p.Sort == "" {
-			return DirectoryPage{}, apperr.New(apperr.CodeInvalidCursor, "The cursor is invalid or expired.")
+		if at, err = decodePosition(p); err != nil {
+			return DirectoryPage{}, err
 		}
-		q.AfterUsername, q.AfterID = p.Sort, p.ID
+		if !at.github {
+			q.AfterUsername, q.AfterID = p.Sort, p.ID
+		}
 	}
 	size := q.Limit
-	q.Limit = size + 1 // one extra row tells whether another page exists
-	rows, err := s.store.ListProfiles(ctx, q)
+	page := DirectoryPage{Items: []domain.DirectoryEntry{}}
+	if source != sourceGitHub && !at.github {
+		q.Limit = size + 1 // one extra row tells whether another page exists
+		rows, err := s.store.ListProfiles(ctx, q)
+		if err != nil {
+			return DirectoryPage{}, apperr.Wrap(apperr.CodeInternal, err)
+		}
+		if len(rows) > size {
+			page.Items = rows[:size]
+			last := page.Items[size-1]
+			page.NextCursor = s.cursors.Encode(cursor.Payload{Sort: last.Username, ID: last.UserID, FilterHash: hash})
+			return page, nil
+		}
+		if rows != nil {
+			page.Items = rows
+		}
+	}
+	// External entries follow the members (ADR-0016). language and skill describe members only.
+	if s.github == nil || source == sourceMembers || q.Language != "" || q.Skill != "" {
+		return page, nil
+	}
+	return s.externalPage(ctx, page, q, at, size, hash)
+}
+
+const (
+	sourceAll     = "all"
+	sourceMembers = "members"
+	sourceGitHub  = "github"
+	// githubSortPrefix marks a cursor of the GitHub segment: "gh:" at its start, "gh:<rank>:<country>" with
+	// the login as ID after an entry. A username cannot hold ':', so no member cursor looks like one.
+	githubSortPrefix = "gh:"
+	maxExternalRank  = 500
+)
+
+// externalPosition is the decoded keyset of the GitHub segment; github is false in the member segment.
+type externalPosition struct {
+	github  bool
+	rank    int
+	country string
+	login   string
+}
+
+func directorySource(raw string) (string, error) {
+	switch raw {
+	case "", sourceAll:
+		return sourceAll, nil
+	case sourceMembers, sourceGitHub:
+		return raw, nil
+	default:
+		return "", directoryInvalid("source", "invalid_value", "source must be all, members or github.")
+	}
+}
+
+// decodePosition reads a signed cursor payload. Only the server writes payloads, so a malformed one is a
+// tampered or stale cursor: 400.
+func decodePosition(p cursor.Payload) (externalPosition, error) {
+	invalid := apperr.New(apperr.CodeInvalidCursor, "The cursor is invalid or expired.")
+	rest, ok := strings.CutPrefix(p.Sort, githubSortPrefix)
+	if !ok {
+		if _, err := uuid.Parse(p.ID); err != nil || p.Sort == "" {
+			return externalPosition{}, invalid
+		}
+		return externalPosition{}, nil
+	}
+	if rest == "" && p.ID == "" {
+		return externalPosition{github: true}, nil
+	}
+	rankText, country, ok := strings.Cut(rest, ":")
+	rank, err := strconv.Atoi(rankText)
+	if !ok || err != nil || rank < 1 || rank > maxExternalRank || !countryPattern.MatchString(country) ||
+		!githubLoginPattern.MatchString(p.ID) {
+		return externalPosition{}, invalid
+	}
+	return externalPosition{github: true, rank: rank, country: country, login: p.ID}, nil
+}
+
+// externalPage fills the rest of page with external entries. When the members filled it exactly, one probe
+// row tells whether a GitHub segment follows.
+func (s *Service) externalPage(ctx context.Context, page DirectoryPage, q domain.DirectoryQuery, at externalPosition, size int, hash string) (DirectoryPage, error) {
+	remaining := size - len(page.Items)
+	eq := domain.ExternalQuery{
+		Member: q.Member, IncludeDemo: q.IncludeDemo, Country: q.Country,
+		AfterRank: at.rank, AfterCountry: at.country, AfterLogin: at.login, Limit: remaining + 1,
+	}
+	rows, err := s.github.ListExternal(ctx, eq)
 	if err != nil {
 		return DirectoryPage{}, apperr.Wrap(apperr.CodeInternal, err)
 	}
-	page := DirectoryPage{Items: rows}
-	if len(rows) > size {
-		page.Items = rows[:size]
-		last := page.Items[size-1]
-		page.NextCursor = s.cursors.Encode(cursor.Payload{Sort: last.Username, ID: last.UserID, FilterHash: hash})
+	if remaining == 0 {
+		if len(rows) > 0 {
+			page.NextCursor = s.cursors.Encode(cursor.Payload{Sort: githubSortPrefix, FilterHash: hash})
+		}
+		return page, nil
 	}
-	if page.Items == nil {
-		page.Items = []domain.DirectoryEntry{}
+	if len(rows) > remaining {
+		rows = rows[:remaining]
+		last := rows[remaining-1]
+		page.NextCursor = s.cursors.Encode(cursor.Payload{
+			Sort: githubSortPrefix + strconv.Itoa(last.Rank) + ":" + last.Country, ID: last.Login, FilterHash: hash,
+		})
+	}
+	if len(rows) > 0 {
+		page.External = rows
 	}
 	return page, nil
 }

@@ -33,6 +33,8 @@ var (
 	githubPattern    = regexp.MustCompile(`^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$`)
 	countryPattern   = regexp.MustCompile(`^[A-Z]{2}$`)
 	skillSlugPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9.+#-]*$`)
+	// githubLoginPattern is github_developers_login_ck: a committers.top login in a directory cursor.
+	githubLoginPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9-]{0,38}$`)
 )
 
 var validIntents = map[string]bool{
@@ -134,12 +136,32 @@ func (s *Service) GetProfile(ctx context.Context, username, callerUserID string)
 	}
 	if rec.VisGitHub.Allows(anonymous, owner) {
 		out.GitHub = rec.GitHub
+		if err := s.addRanking(ctx, &out); err != nil {
+			return domain.PublicProfile{}, err
+		}
 	}
 	if rec.VisOpenCollab.Allows(anonymous, owner) {
 		v := rec.OpenToCollab
 		out.OpenToCollab = &v
 	}
 	return out, nil
+}
+
+// addRanking sets the committers.top rank of a visible GitHub login (ADR-0016). The caller has already
+// checked that the github field is visible, so a hidden login never reveals a rank.
+func (s *Service) addRanking(ctx context.Context, out *domain.PublicProfile) error {
+	if s.github == nil || out.GitHub == nil {
+		return nil
+	}
+	r, err := s.github.GitHubRank(ctx, *out.GitHub)
+	if errors.Is(err, domain.ErrNotFound) {
+		return nil
+	}
+	if err != nil {
+		return apperr.Wrap(apperr.CodeInternal, err)
+	}
+	out.Ranking = &r
+	return nil
 }
 
 // ---------- validation ----------

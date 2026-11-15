@@ -20,6 +20,9 @@ func (h *Handler) ListProfiles(w http.ResponseWriter, r *http.Request, params ap
 		Country: countryStr(params.Country), Language: params.Language, Skill: params.Skill,
 		Cursor: derefStr(params.Cursor), Limit: params.Limit,
 	}
+	if params.Source != nil {
+		req.Source = string(*params.Source)
+	}
 	page, err := h.svc.ListProfiles(r.Context(), req)
 	if err != nil {
 		writeErr(h.logger, w, r, err)
@@ -33,7 +36,28 @@ func (h *Handler) ListProfiles(w http.ResponseWriter, r *http.Request, params ap
 	if page.NextCursor != "" {
 		next = &page.NextCursor
 	}
-	writeJSON(w, http.StatusOK, apigen.ProfilePage{Items: items, NextCursor: next})
+	out := apigen.ProfilePage{Items: items, NextCursor: next}
+	if len(page.External) > 0 {
+		external := make([]apigen.ExternalDeveloper, len(page.External))
+		for i, d := range page.External {
+			external[i] = externalDeveloperJSON(d)
+		}
+		out.External = &external
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+// externalDeveloperJSON maps a committers.top entry (ADR-0016); source is always "committers.top".
+func externalDeveloperJSON(d domain.GitHubDeveloper) apigen.ExternalDeveloper {
+	orgs := d.Organizations
+	if orgs == nil {
+		orgs = []string{}
+	}
+	return apigen.ExternalDeveloper{
+		Login: d.Login, Name: d.Name, AvatarUrl: d.AvatarURL, Country: apigen.CountryCode(d.Country),
+		Rank: d.Rank, Contributions: d.Contributions, Organizations: orgs, GeneratedAt: d.GeneratedAt.UTC(),
+		Source: apigen.CommittersTop,
+	}
 }
 
 // profileSummaryJSON maps a listed entry: a hidden or unset field stays nil

@@ -26,6 +26,7 @@ import { TagList } from '../../components/Tag';
 import { useI18n } from '../../i18n/I18nProvider';
 import { languageName } from '../discover/present';
 import { USERNAME_RE } from '../identity/validation';
+import { inCountry } from '../connect/place';
 import { Activity } from './Activity';
 import { Checklist } from './Checklist';
 import { githubProfileUrl } from './github';
@@ -70,6 +71,14 @@ function Hero({ profile, isOwn }: { profile: PublicProfile; isOwn: boolean }) {
             ) : null}
             {languages ? <MetaItem icon={LanguagesIcon}>{languages}</MetaItem> : null}
             <MetaItem icon={ClockIcon}>{t('profile.joined', { date: joined })}</MetaItem>
+            {profile.ranking ? (
+              <MetaItem icon={GitBranchIcon}>
+                {t('profile.ranking', {
+                  rank: profile.ranking.rank,
+                  place: inCountry(profile.ranking.country, locale),
+                })}
+              </MetaItem>
+            ) : null}
           </>
         }
         actions={

@@ -26,6 +26,15 @@ export const fr = {
   'connect.space.tech': 'Par technologie',
   'connect.space.topic': 'Par thème',
   'connect.soon': 'Bientôt : mentorat, espaces et opportunités.',
+  'connect.source.label': 'Afficher',
+  'connect.source.all': 'Tous',
+  'connect.source.members': 'Membres',
+  'connect.source.github': 'GitHub',
+  'connect.external.title': 'Développeurs GitHub',
+  'connect.external.label': 'Profil GitHub public · n°\u00A0{rank} {place} (committers.top)',
+  'connect.external.join': 'C’est vous\u00A0? Rejoignez 226os',
+  'connect.external.footer': 'Source\u00A0: committers.top · généré le {date}',
+  'connect.external.optout': 'Demander le retrait',
 } as const;
 
 export const en: Record<keyof typeof fr, string> = {
@@ -54,4 +63,13 @@ export const en: Record<keyof typeof fr, string> = {
   'connect.space.country': 'By country',
   'connect.space.tech': 'By technology',
   'connect.space.topic': 'By topic',
+  'connect.source.label': 'Show',
+  'connect.source.all': 'All',
+  'connect.source.members': 'Members',
+  'connect.source.github': 'GitHub',
+  'connect.external.title': 'GitHub developers',
+  'connect.external.label': 'Public GitHub profile · No. {rank} {place} (committers.top)',
+  'connect.external.join': 'Is this you? Join 226os',
+  'connect.external.footer': 'Source: committers.top · generated on {date}',
+  'connect.external.optout': 'Ask to be removed',
 };
