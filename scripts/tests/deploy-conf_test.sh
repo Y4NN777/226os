@@ -148,4 +148,10 @@ st="$(grep -n 'scripts/deploy-conf.sh' "$wf" | head -1 | cut -d: -f1)"
 ! grep -qE '^  e2e:' "$wf" && grep -q 'e2e_ran' "$wf" && ! grep -q 'needs.e2e' "$wf" && ok "E2E runs inside the deploy job and promote needs the deploy job only" || ko "e2e job layout"
 grep -q -- '--masks' "$wf" && ok "the E2E values are masked before use" || ko "no masking"
 
+# The deploy secrets leave the runner before any npm code runs (a dependency install script or the E2E code must not
+# reach the SSH key, the deploy-ssh wrapper or the decrypted env).
+wipe="$(grep -n 'name: Wipe the deploy secrets' "$wf" | head -1 | cut -d: -f1 || true)"
+inst="$(grep -n 'name: Install from the lockfile' "$wf" | head -1 | cut -d: -f1 || true)"
+[ -n "$wipe" ] && [ -n "$inst" ] && [ "$wipe" -lt "$inst" ] && sed -n "${wipe},$((wipe+6))p" "$wf" | grep -q 'RUNNER_TEMP/ssh' && sed -n "${wipe},$((wipe+6))p" "$wf" | grep -q 'RUNNER_TEMP/bin/deploy-ssh' && sed -n "${wipe},$((wipe+6))p" "$wf" | grep -q 'DEPLOY_TMP' && ok "the SSH key, deploy-ssh and the decrypted env are wiped before pnpm install" || ko "deploy secrets still on the runner when npm code runs (wipe=$wipe install=$inst)"
+
 finish

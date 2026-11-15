@@ -181,7 +181,8 @@ jobs:
     name: deploy ${{ needs.plan.outputs.target }}
     needs: [plan, resolve]
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    # The deploy (45 min before) plus the E2E suite with its browser install (30 min before): one budget for both.
+    timeout-minutes: 75
     environment: ${{ needs.plan.outputs.target }}
     permissions:
       contents: read
@@ -317,6 +318,13 @@ jobs:
             echo "- migrate: \`${MIGRATE_IMAGE}\`"
           } >>"$GITHUB_STEP_SUMMARY"
 
+      # The deploy is done: the SSH key, the deploy-ssh wrapper and the decrypted profile env leave the runner NOW,
+      # before any npm code runs (dependency install scripts, Playwright, the E2E specs). A compromised package must find
+      # nothing that opens the server or reads its env. The final always() clean-up stays as a backstop on failure.
+      - name: Wipe the deploy secrets before any npm code
+        if: always()
+        run: rm -rf -- "${DEPLOY_TMP:-/nonexistent}" "$RUNNER_TEMP/ssh" "$RUNNER_TEMP/bin/deploy-ssh"
+
       # Staging only. The Playwright suite (src/web/e2e, script `test:e2e`, reads E2E_BASE_URL) against the staging URL,
       # run in THIS job after the deploy, smoke and seeds: one approval per deploy (the `staging` environment has
       # required reviewers, the owner or Rayan), and the E2E account (E2E_USER and E2E_PASSWORD in
@@ -394,7 +402,7 @@ jobs:
 
       - name: Clean up (plaintext env and SSH key on the runner)
         if: always()
-        run: rm -rf -- "${DEPLOY_TMP:-/nonexistent}" "$RUNNER_TEMP/ssh"
+        run: rm -rf -- "${DEPLOY_TMP:-/nonexistent}" "$RUNNER_TEMP/ssh" "$RUNNER_TEMP/bin/deploy-ssh"
 
   # Staging only. Marks the digests as tested for this tree: the only thing production will accept. Needs the deploy
   # (smoke and E2E included, both in the deploy job) to have succeeded. Holds packages: write and NO secret.
