@@ -285,3 +285,271 @@ func (q *Queries) SearchResources(ctx context.Context, arg SearchResourcesParams
 	}
 	return items, nil
 }
+
+const similarLearn = `-- name: SimilarLearn :many
+WITH i AS NOT MATERIALIZED (SELECT f_unaccent($2::text) AS q,
+  websearch_to_tsquery('simple', f_unaccent($2::text)) AS tsq),
+candidates AS (
+  SELECT a.id, a.title, COALESCE(NULLIF(a.summary, ''), a.body_md) AS excerpt_src, a.language, a.published_at, f_unaccent(a.title) AS key
+  FROM learn_articles a
+  CROSS JOIN i
+  WHERE querytree(i.tsq) NOT IN ('', 'T')
+    AND a.status = 'published'
+    AND f_unaccent(a.title) %> i.q
+    AND ($3::text IS NULL OR a.language = $3)
+  LIMIT 500
+)
+SELECT c.id, c.title, left(c.excerpt_src, 600)::text AS excerpt, c.language, c.published_at
+FROM candidates c CROSS JOIN i
+ORDER BY word_similarity(i.q, c.key) DESC, c.id
+LIMIT $1
+`
+
+type SimilarLearnParams struct {
+	RowLimit int32
+	Q        string
+	Lang     pgtype.Text
+}
+
+type SimilarLearnRow struct {
+	ID          pgtype.UUID
+	Title       string
+	Excerpt     string
+	Language    string
+	PublishedAt pgtype.Timestamptz
+}
+
+func (q *Queries) SimilarLearn(ctx context.Context, arg SimilarLearnParams) ([]SimilarLearnRow, error) {
+	rows, err := q.db.Query(ctx, similarLearn, arg.RowLimit, arg.Q, arg.Lang)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []SimilarLearnRow{}
+	for rows.Next() {
+		var i SimilarLearnRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.Excerpt,
+			&i.Language,
+			&i.PublishedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const similarProjects = `-- name: SimilarProjects :many
+WITH i AS NOT MATERIALIZED (SELECT f_unaccent($2::text) AS q,
+  websearch_to_tsquery('simple', f_unaccent($2::text)) AS tsq),
+candidates AS (
+  SELECT p.id, p.name AS title, p.summary AS excerpt_src, p.language, p.published_at, f_unaccent(p.name) AS key
+  FROM projects p
+  CROSS JOIN i
+  WHERE querytree(i.tsq) NOT IN ('', 'T')
+    AND p.status = 'published' AND p.visibility = 'public'
+    AND f_unaccent(p.name) %> i.q
+    AND ($3::text IS NULL OR p.country_code = $3)
+    AND ($4::text IS NULL OR p.language = $4)
+  LIMIT 500
+)
+SELECT c.id, c.title, left(c.excerpt_src, 600)::text AS excerpt, c.language, c.published_at
+FROM candidates c CROSS JOIN i
+ORDER BY word_similarity(i.q, c.key) DESC, c.id
+LIMIT $1
+`
+
+type SimilarProjectsParams struct {
+	RowLimit int32
+	Q        string
+	Country  pgtype.Text
+	Lang     pgtype.Text
+}
+
+type SimilarProjectsRow struct {
+	ID          pgtype.UUID
+	Title       string
+	Excerpt     string
+	Language    string
+	PublishedAt pgtype.Timestamptz
+}
+
+func (q *Queries) SimilarProjects(ctx context.Context, arg SimilarProjectsParams) ([]SimilarProjectsRow, error) {
+	rows, err := q.db.Query(ctx, similarProjects,
+		arg.RowLimit,
+		arg.Q,
+		arg.Country,
+		arg.Lang,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []SimilarProjectsRow{}
+	for rows.Next() {
+		var i SimilarProjectsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.Excerpt,
+			&i.Language,
+			&i.PublishedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const similarQuestions = `-- name: SimilarQuestions :many
+
+WITH i AS NOT MATERIALIZED (SELECT f_unaccent($2::text) AS q,
+  websearch_to_tsquery('simple', f_unaccent($2::text)) AS tsq),
+candidates AS (
+  SELECT q.id, q.title, q.body_md AS excerpt_src, q.language, q.published_at, f_unaccent(q.title) AS key
+  FROM questions q
+  CROSS JOIN i
+  WHERE querytree(i.tsq) NOT IN ('', 'T')
+    AND q.status = 'published'
+    AND f_unaccent(q.title) %> i.q
+    AND ($3::text IS NULL OR q.country_code = $3)
+    AND ($4::text IS NULL OR q.language = $4)
+  LIMIT 500
+)
+SELECT c.id, c.title, left(c.excerpt_src, 600)::text AS excerpt, c.language, c.published_at
+FROM candidates c CROSS JOIN i
+ORDER BY word_similarity(i.q, c.key) DESC, c.id
+LIMIT $1
+`
+
+type SimilarQuestionsParams struct {
+	RowLimit int32
+	Q        string
+	Country  pgtype.Text
+	Lang     pgtype.Text
+}
+
+type SimilarQuestionsRow struct {
+	ID          pgtype.UUID
+	Title       string
+	Excerpt     string
+	Language    string
+	PublishedAt pgtype.Timestamptz
+}
+
+// Typo tolerance (SPEC 6, issue #248 item 2). The service runs these only when the full-text query of the
+// group found nothing, for GET /search (never for the assistant's retrieval) and for a query of at least 3
+// characters. A row matches when its title or name holds a word close to the query: pg_trgm word similarity
+// above pg_trgm.word_similarity_threshold (default 0.6), written `f_unaccent(title) %> q` (the commutator of
+// `q <% title`) so the partial trigram GIN index of migration 00010 on f_unaccent(title|name) serves it.
+// Same predicates and filters as the full-text query of the group; at most 500 candidates are ranked by
+// word_similarity DESC, then id. Like full text, a query with no positive term (only negations) reads none.
+func (q *Queries) SimilarQuestions(ctx context.Context, arg SimilarQuestionsParams) ([]SimilarQuestionsRow, error) {
+	rows, err := q.db.Query(ctx, similarQuestions,
+		arg.RowLimit,
+		arg.Q,
+		arg.Country,
+		arg.Lang,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []SimilarQuestionsRow{}
+	for rows.Next() {
+		var i SimilarQuestionsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.Excerpt,
+			&i.Language,
+			&i.PublishedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const similarResources = `-- name: SimilarResources :many
+WITH i AS NOT MATERIALIZED (SELECT f_unaccent($2::text) AS q,
+  websearch_to_tsquery('simple', f_unaccent($2::text)) AS tsq),
+candidates AS (
+  SELECT r.id, r.name AS title, r.summary AS excerpt_src, r.summary_language AS language, r.published_at, f_unaccent(r.name) AS key
+  FROM resources r
+  JOIN providers p ON p.id = r.provider_id AND p.status = 'published' AND p.removed_at IS NULL
+  CROSS JOIN i
+  WHERE querytree(i.tsq) NOT IN ('', 'T')
+    AND r.status = 'published'
+    AND f_unaccent(r.name) %> i.q
+    AND ($3::text IS NULL OR EXISTS (
+          SELECT 1 FROM resource_countries c
+          WHERE c.resource_id = r.id AND c.country_code = $3))
+    AND ($4::text IS NULL OR r.summary_language = $4)
+  LIMIT 500
+)
+SELECT c.id, c.title, left(c.excerpt_src, 600)::text AS excerpt, c.language, c.published_at
+FROM candidates c CROSS JOIN i
+ORDER BY word_similarity(i.q, c.key) DESC, c.id
+LIMIT $1
+`
+
+type SimilarResourcesParams struct {
+	RowLimit int32
+	Q        string
+	Country  pgtype.Text
+	Lang     pgtype.Text
+}
+
+type SimilarResourcesRow struct {
+	ID          pgtype.UUID
+	Title       string
+	Excerpt     string
+	Language    string
+	PublishedAt pgtype.Timestamptz
+}
+
+func (q *Queries) SimilarResources(ctx context.Context, arg SimilarResourcesParams) ([]SimilarResourcesRow, error) {
+	rows, err := q.db.Query(ctx, similarResources,
+		arg.RowLimit,
+		arg.Q,
+		arg.Country,
+		arg.Lang,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []SimilarResourcesRow{}
+	for rows.Next() {
+		var i SimilarResourcesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.Excerpt,
+			&i.Language,
+			&i.PublishedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}

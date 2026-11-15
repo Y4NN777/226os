@@ -89,3 +89,14 @@ func explainPlan(ctx context.Context, t *testing.T, conn *pgx.Conn, sql string, 
 	}
 	return plan.String()
 }
+
+// last returns the last recorded statement.
+func (r *recordingDB) last(t *testing.T) recordedQuery {
+	t.Helper()
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if len(r.calls) == 0 {
+		t.Fatal("no statement was recorded")
+	}
+	return r.calls[len(r.calls)-1]
+}

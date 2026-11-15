@@ -25,6 +25,25 @@ type fakeReader struct {
 	calls []call
 	rows  map[domain.Group]int
 	err   map[domain.Group]error
+
+	similar      map[domain.Group]int   // rows the trigram fallback returns per group
+	similarErr   map[domain.Group]error // errors of the trigram fallback per group
+	similarCalls []call
+}
+
+func (f *fakeReader) Similar(_ context.Context, g domain.Group, q domain.Query) ([]domain.Hit, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.similarCalls = append(f.similarCalls, call{g, q})
+	if err := f.similarErr[g]; err != nil {
+		return nil, err
+	}
+	n := min(f.similar[g], q.Limit)
+	hits := make([]domain.Hit, n)
+	for i := range hits {
+		hits[i] = domain.Hit{Type: g, ID: fmt.Sprintf("near-%s-%d", g, i), Title: "near"}
+	}
+	return hits, nil
 }
 
 func (f *fakeReader) Search(_ context.Context, g domain.Group, q domain.Query) ([]domain.Hit, error) {
@@ -295,6 +314,10 @@ type titledReader struct{}
 
 func (titledReader) Search(_ context.Context, g domain.Group, _ domain.Query) ([]domain.Hit, error) {
 	return []domain.Hit{{Type: g, ID: "id", Title: "re\u202etset\u0007 ok"}}, nil
+}
+
+func (titledReader) Similar(context.Context, domain.Group, domain.Query) ([]domain.Hit, error) {
+	return nil, nil
 }
 
 // The title is returned as plain text (#118): bidi overrides and control characters are dropped.

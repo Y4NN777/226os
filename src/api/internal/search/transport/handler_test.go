@@ -20,11 +20,19 @@ import (
 const hitID = "00000000-0000-7000-8000-0000000000a1"
 
 type fakeReader struct {
-	search func(domain.Group, domain.Query) ([]domain.Hit, error)
+	search  func(domain.Group, domain.Query) ([]domain.Hit, error)
+	similar func(domain.Group, domain.Query) ([]domain.Hit, error) // nil: the fallback finds nothing
 }
 
 func (f fakeReader) Search(_ context.Context, g domain.Group, q domain.Query) ([]domain.Hit, error) {
 	return f.search(g, q)
+}
+
+func (f fakeReader) Similar(_ context.Context, g domain.Group, q domain.Query) ([]domain.Hit, error) {
+	if f.similar == nil {
+		return nil, nil
+	}
+	return f.similar(g, q)
 }
 
 type fakeLimiter struct {
@@ -203,5 +211,22 @@ func TestMemberSearchIsNeverLimited(t *testing.T) {
 	rec := limited(t, l, subject.Subject{UserID: "00000000-0000-7000-8000-0000000000a1"}, "")
 	if rec.Code != http.StatusOK || len(l.values) != 0 {
 		t.Fatalf("status %d, limiter calls %v; want 200 and no limiter call for a member", rec.Code, l.values)
+	}
+}
+
+// GET /search is typo tolerant: a group whose full text finds nothing is served by the trigram fallback.
+func TestSearchFallsBackToNearSpellings(t *testing.T) {
+	h := handler(fakeReader{
+		search: func(domain.Group, domain.Query) ([]domain.Hit, error) { return nil, nil },
+		similar: func(g domain.Group, _ domain.Query) ([]domain.Hit, error) {
+			if g != domain.Learn {
+				return nil, nil
+			}
+			return []domain.Hit{{Type: g, ID: hitID, Title: "Paiement mobile", Snippet: "x", Lang: "fr"}}, nil
+		},
+	})
+	rec := call(t, h, apigen.SearchParams{Q: "paiemnt"})
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "Paiement mobile") {
+		t.Fatalf("%d %s", rec.Code, rec.Body.String())
 	}
 }
