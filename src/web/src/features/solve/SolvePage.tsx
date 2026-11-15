@@ -55,13 +55,17 @@ function Filters({ search }: { search: SolveSearch }) {
             type="search"
             label={t('solve.search.label')}
             isLabelHidden
+            size="lg"
+            startIcon={<Icon icon="search" />}
             placeholder={t('solve.search.placeholder')}
             value={q}
             onChange={setQ}
+            enterKeyHint="search"
             width="100%"
           />
         </div>
-        <IconButton type="submit" label={t('solve.search.submit')} icon={<Icon icon="search" />} />
+        {/* Enter submits, from this field and from the tag filter: the icon sits in the field. */}
+        <button type="submit" hidden tabIndex={-1} aria-hidden="true" />
       </div>
       <div className="solve-toolbar">
         <div className="solve-seg">

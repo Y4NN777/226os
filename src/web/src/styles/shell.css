@@ -366,6 +366,11 @@
   .shell-topnav > :last-child {
     margin-inline-start: auto;
   }
+  /* Signed out, the sign-in row wraps under the logo and starts at the start edge, as in the
+     prototype; a member's icons stay at the end of the bar. */
+  .shell-topnav > :last-child:has(.shell-auth) {
+    margin-inline-start: 0;
+  }
 }
 @media (max-width: 479px) {
   /* As in the prototype: the theme switch stays in the preferences menu on a narrow phone. */

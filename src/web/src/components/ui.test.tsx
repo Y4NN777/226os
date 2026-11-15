@@ -37,6 +37,55 @@ describe('Breadcrumbs', () => {
     );
     expect(within(nav).queryByRole('link', { name: 'Sahel Pay Devkit' })).not.toBeInTheDocument();
   });
+
+  it('on a phone keeps only the parent as a back link, so a long title never repeats or wraps', () => {
+    setLanguages(['fr-FR']);
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn((query: string) => ({
+        matches: true,
+        media: query,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      })),
+    );
+    renderWithProviders(
+      <Breadcrumbs
+        items={[
+          { label: 'Accueil', href: '/' },
+          { label: 'Résoudre', href: '/solve' },
+          { label: 'Un titre de question très long qui reviendrait sur trois lignes' },
+        ]}
+      />,
+    );
+    const nav = screen.getByRole('navigation', { name: 'Fil d’Ariane' });
+    const back = within(nav).getByRole('link', { name: 'Résoudre' });
+    expect(back).toHaveAttribute('href', '/solve');
+    expect(back).toHaveClass('ui-breadcrumbs-back');
+    expect(within(nav).queryByRole('link', { name: 'Accueil' })).not.toBeInTheDocument();
+    expect(within(nav).queryByText(/Un titre de question/)).not.toBeInTheDocument();
+  });
+
+  it('on a phone leaves a two-level trail as it is', () => {
+    setLanguages(['fr-FR']);
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn((query: string) => ({
+        matches: true,
+        media: query,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      })),
+    );
+    renderWithProviders(
+      <Breadcrumbs items={[{ label: 'Accueil', href: '/' }, { label: 'Découvrir' }]} />,
+    );
+    const nav = screen.getByRole('navigation', { name: 'Fil d’Ariane' });
+    expect(within(nav).getByRole('link', { name: 'Accueil' })).not.toHaveClass(
+      'ui-breadcrumbs-back',
+    );
+    expect(within(nav).getByText('Découvrir')).toBeInTheDocument();
+  });
 });
 
 describe('PageHeader', () => {
@@ -246,6 +295,23 @@ describe('List and ListRow', () => {
     expect(
       screen.getByRole('heading', { level: 2, name: 'Erreur CORS sur Go' }),
     ).toBeInTheDocument();
+  });
+
+  it('keeps a small corner tag at the top right of the row, even in a narrow list', () => {
+    renderWithProviders(
+      <List label="Questions">
+        <ListRow
+          title="Erreur CORS sur Go"
+          href="/questions/q-1"
+          lead={<span>3</span>}
+          aside={<span>FR</span>}
+          asideCorner
+        />
+      </List>,
+    );
+    const row = screen.getByRole('link', { name: 'Erreur CORS sur Go' }).closest('li');
+    expect(row).toHaveClass('has-corner');
+    expect(screen.getByText('FR').parentElement).toHaveClass('ui-row-aside', 'is-corner');
   });
 
   it('marks the language of the user content on the title and the excerpt', () => {

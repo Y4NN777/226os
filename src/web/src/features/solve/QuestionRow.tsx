@@ -80,6 +80,7 @@ export function QuestionRow({ question }: { question: Question }) {
         </Meta>
       }
       aside={<LangCode lang={question.lang} />}
+      asideCorner
     />
   );
 }

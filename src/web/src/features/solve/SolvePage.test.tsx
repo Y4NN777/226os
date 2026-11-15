@@ -87,6 +87,8 @@ describe('SolvePage list', () => {
       '2026-11-10T09:00:00Z',
     );
     expect(within(row).getByText('FR')).toBeInTheDocument();
+    // The language tag stays in the row's top-right corner, also on a phone.
+    expect(row).toHaveClass('has-corner');
     expect(link.closest('[lang]')).toHaveAttribute('lang', 'fr');
   });
 
@@ -165,6 +167,8 @@ describe('SolvePage list', () => {
     await renderApp('/solve');
     await screen.findByRole('link', { name: 'Webhook non reçu après un paiement' });
 
+    // The icon sits inside the field: there is no separate search button, Enter submits.
+    expect(screen.queryByRole('button', { name: 'Lancer la recherche' })).not.toBeInTheDocument();
     await user.type(screen.getByRole('searchbox', { name: 'Rechercher une question' }), 'cors');
     // The tag filter sits behind the filter toggle, like the prototype's filter panel.
     expect(
@@ -175,7 +179,7 @@ describe('SolvePage list', () => {
     await user.click(toggle);
     expect(toggle).toHaveAttribute('aria-expanded', 'true');
     await user.type(screen.getByRole('textbox', { name: 'Filtrer par étiquette' }), 'go');
-    await user.click(screen.getByRole('button', { name: 'Lancer la recherche' }));
+    await user.type(screen.getByRole('textbox', { name: 'Filtrer par étiquette' }), '{Enter}');
 
     await waitFor(() => {
       const last = callsTo(fetchMock, 'GET /questions').at(-1);

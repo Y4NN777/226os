@@ -78,6 +78,7 @@ export function VoteColumn({ vote, interactive }: { vote: Vote; interactive: boo
         <IconButton
           size="sm"
           variant="ghost"
+          className="solve-vote-btn"
           label={t(`solve.vote.up.${vote.target}`)}
           icon={<Icon icon="arrowUp" />}
           isDisabled={vote.pending}
@@ -85,7 +86,9 @@ export function VoteColumn({ vote, interactive }: { vote: Vote; interactive: boo
           onClick={() => void vote.press(1)}
         />
       ) : (
-        <Icon icon="arrowUp" size="sm" color="secondary" />
+        <span className="solve-vote-btn" aria-hidden="true">
+          <Icon icon="arrowUp" size="sm" color="secondary" />
+        </span>
       )}
       <span className="solve-vote-score">
         <span aria-hidden="true">{vote.score}</span>
@@ -95,6 +98,7 @@ export function VoteColumn({ vote, interactive }: { vote: Vote; interactive: boo
         <IconButton
           size="sm"
           variant="ghost"
+          className="solve-vote-btn"
           label={t(`solve.vote.down.${vote.target}`)}
           icon={<Icon icon="arrowDown" />}
           isDisabled={vote.pending}

@@ -1,6 +1,7 @@
 import { Button } from '@astryxdesign/core/Button';
 import { Heading } from '@astryxdesign/core/Heading';
 import { Icon } from '@astryxdesign/core/Icon';
+import { Link } from '@astryxdesign/core/Link';
 import { TextInput } from '@astryxdesign/core/TextInput';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
@@ -58,6 +59,7 @@ function SearchForm({ initial }: { initial: string }) {
           type="search"
           label={t('search.label')}
           isLabelHidden
+          placeholder={t('search.placeholder')}
           startIcon={<Icon icon="search" />}
           size="lg"
           value={value}
@@ -73,6 +75,31 @@ function SearchForm({ initial }: { initial: string }) {
         <Button type="submit" variant="primary" size="lg" label={t('search.submit')} />
       </span>
     </form>
+  );
+}
+
+/** Tags of the demo data, so a suggestion always finds something (no counts: none are served). */
+const topics = ['mobile-money', 'webhooks', 'ussd', 'sms', 'api', 'go', 'python'] as const;
+
+/** No query yet (prototype `recherche.html`): a heading, one line and topic chips, left-aligned. */
+function Start() {
+  const { t } = useI18n();
+  return (
+    <section className="srch-start" aria-labelledby="search-start-h">
+      <Heading level={2} id="search-start-h">
+        {t('search.start.title')}
+      </Heading>
+      <p>{t('search.start.body')}</p>
+      <ul className="srch-topics" aria-label={t('search.topics')}>
+        {topics.map((topic) => (
+          <li key={topic}>
+            <Link href={`/recherche?q=${topic}`} className="srch-topic">
+              {topic}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
@@ -163,11 +190,7 @@ export function SearchPage() {
       <PageHeader title={searchable ? t('search.results.title', { q }) : t('search.title')} />
       <SearchForm key={q} initial={q} />
       {q === '' ? (
-        <EmptyState
-          icon={SearchIcon}
-          title={t('search.start.title')}
-          description={t('search.start.body')}
-        />
+        <Start />
       ) : !searchable ? (
         <EmptyState
           icon={SearchIcon}

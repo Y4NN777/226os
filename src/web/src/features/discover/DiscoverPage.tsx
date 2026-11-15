@@ -81,26 +81,18 @@ function Filters({
           onChange({ q: draft.trim() || undefined });
         }}
       >
-        <HStack gap={2} vAlign="end" wrap="nowrap">
-          <TextInput
-            type="search"
-            size="lg"
-            startIcon="search"
-            label={t('discover.search.label')}
-            isLabelHidden
-            placeholder={t('discover.search.placeholder')}
-            value={draft}
-            onChange={setDraft}
-            width="100%"
-          />
-          <IconButton
-            type="submit"
-            size="lg"
-            variant="ghost"
-            label={t('discover.search.submit')}
-            icon={<Icon icon="search" />}
-          />
-        </HStack>
+        <TextInput
+          type="search"
+          size="lg"
+          startIcon={<Icon icon="search" />}
+          label={t('discover.search.label')}
+          isLabelHidden
+          placeholder={t('discover.search.placeholder')}
+          value={draft}
+          onChange={setDraft}
+          enterKeyHint="search"
+          width="100%"
+        />
       </form>
       <SegmentedControl
         label={t('discover.region.label')}

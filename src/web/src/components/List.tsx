@@ -47,6 +47,8 @@ export interface ListRowProps {
   meta?: ReactNode;
   /** Badges and dates at the end of the row. */
   aside?: ReactNode;
+  /** The aside is a small tag (a language code): it keeps the top-right corner on a phone. */
+  asideCorner?: boolean;
   /** Other links or controls; they stay clickable above the row link. */
   above?: ReactNode;
   /** Language of the user content (title and excerpt) when it is known. */
@@ -64,6 +66,7 @@ export function ListRow({
   tags,
   meta,
   aside,
+  asideCorner = false,
   above,
   lang,
 }: ListRowProps) {
@@ -71,7 +74,11 @@ export function ListRow({
   const contentLang = titleLang ?? lang;
   const langProps = contentLang ? { lang: contentLang } : {};
   return (
-    <li className={lead ? 'ui-row has-lead' : 'ui-row'}>
+    <li
+      className={['ui-row', lead ? 'has-lead' : '', aside && asideCorner ? 'has-corner' : '']
+        .filter(Boolean)
+        .join(' ')}
+    >
       {lead ? <div className="ui-row-lead">{lead}</div> : null}
       <div className="ui-row-main">
         <Title className="ui-row-title" {...langProps}>
@@ -89,7 +96,9 @@ export function ListRow({
         {meta}
         {above ? <div className="ui-row-above">{above}</div> : null}
       </div>
-      {aside ? <div className="ui-row-aside">{aside}</div> : null}
+      {aside ? (
+        <div className={asideCorner ? 'ui-row-aside is-corner' : 'ui-row-aside'}>{aside}</div>
+      ) : null}
     </li>
   );
 }
