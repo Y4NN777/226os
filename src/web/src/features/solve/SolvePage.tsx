@@ -102,22 +102,21 @@ function Filters({ search }: { search: SolveSearch }) {
           />
         </div>
       </div>
-      {panelOpen ? (
-        <div id="solve-filters" className="solve-filters">
-          <div className="solve-grow">
-            <TextInput
-              label={t('solve.tag.label')}
-              placeholder={t('solve.tag.placeholder')}
-              value={tag}
-              onChange={setTag}
-              autoCapitalize="none"
-              hasAutoCorrect={false}
-              hasSpellCheck={false}
-              width="100%"
-            />
-          </div>
+      {/* Always in the DOM so aria-controls always points at it; hidden while collapsed. */}
+      <div id="solve-filters" className="solve-filters" hidden={!panelOpen}>
+        <div className="solve-grow">
+          <TextInput
+            label={t('solve.tag.label')}
+            placeholder={t('solve.tag.placeholder')}
+            value={tag}
+            onChange={setTag}
+            autoCapitalize="none"
+            hasAutoCorrect={false}
+            hasSpellCheck={false}
+            width="100%"
+          />
         </div>
-      ) : null}
+      </div>
     </form>
   );
 }

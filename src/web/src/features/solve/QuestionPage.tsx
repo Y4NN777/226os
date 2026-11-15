@@ -106,6 +106,15 @@ function EditQuestion({
   );
 }
 
+/** `new URL` in a try: URL.canParse is missing from Safari before 17. */
+function parseUrl(value: string): URL | null {
+  try {
+    return new URL(value);
+  } catch {
+    return null;
+  }
+}
+
 /** Answer sources: http(s) addresses become external links, anything else stays plain text. */
 function Sources({ sources }: { sources: readonly string[] }) {
   const { t } = useI18n();
@@ -119,7 +128,7 @@ function Sources({ sources }: { sources: readonly string[] }) {
       </p>
       <ul aria-labelledby={id}>
         {sources.map((source) => {
-          const url = URL.canParse(source) ? new URL(source) : null;
+          const url = parseUrl(source);
           const safe = url !== null && (url.protocol === 'https:' || url.protocol === 'http:');
           const label = safe ? `${url.host}${url.pathname === '/' ? '' : url.pathname}` : source;
           return (

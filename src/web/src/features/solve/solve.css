@@ -80,6 +80,9 @@
   border-radius: var(--radius-container);
   background: var(--color-background-surface);
 }
+.solve-filters[hidden] {
+  display: none;
+}
 .solve-filters > .solve-grow {
   flex: 1 1 200px;
   min-width: 0;
