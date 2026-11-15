@@ -173,7 +173,7 @@ func questionRow(snippet, country string, accepted pgtype.UUID) []any {
 // listRow is questionRow plus the relevance rank the list query adds.
 func listRow(snippet, country string, accepted pgtype.UUID, rank float32) []any {
 	row := questionRow(snippet, country, accepted)
-	return append(row[:len(row)-1], rank, row[len(row)-1])
+	return append(row[:len(row)-1], rank, int32(-2), row[len(row)-1])
 }
 
 func lockRow() []any {
@@ -207,8 +207,8 @@ func TestListQuestionsAttachesTagsAndLinks(t *testing.T) {
 	if q.ViewerVote != -1 {
 		t.Fatalf("viewer vote %d, want the -1 the row carries", q.ViewerVote)
 	}
-	if q.Rank != 0.25 || got[1].Rank != 0 {
-		t.Fatalf("ranks %v %v", q.Rank, got[1].Rank)
+	if q.Rank != 0.25 || got[1].Rank != 0 || q.SortKey != -2 {
+		t.Fatalf("ranks %v %v, sort key %d", q.Rank, got[1].Rank, q.SortKey)
 	}
 	if q.ID != qID || q.Author.Username != "alice" || q.Author.Country != "BF" || q.Country != "BF" || q.AcceptedAnswerID != aID || q.AnswerCount != 2 ||
 		q.VoteScore != 3 || len(q.Snippets) != 1 || q.Snippets[0].Code != "code" || q.Snippets[0].Language != "go" ||

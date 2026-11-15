@@ -22,15 +22,17 @@ func TestSolveQueries(t *testing.T) {
 	text := pgtype.Text{String: "go", Valid: true}
 
 	questionRow := []any{id, "Titre", "Corps", "fr", "code", "go", "BF", int32(2), int32(3), other, ts, ts, id, "alice", "Alice", "BF", int32(-1)}
-	listRow := append(append([]any(nil), questionRow[:len(questionRow)-1]...), float32(0.5), int32(-1))
+	listRow := append(append([]any(nil), questionRow[:len(questionRow)-1]...), float32(0.5), int32(-2), int32(-1))
 	answerRow := []any{id, other, "Corps", "fr", int32(4), ts, ts, true, id, "alice", "Alice", "", int32(1)}
 
 	db := &fakeDB{many: [][]any{listRow}}
-	list, err := dbgen.New(db).ListSolveQuestions(ctx, dbgen.ListSolveQuestionsParams{Tag: text, AfterCreated: ts, AfterID: id, ViewerID: other, RowLimit: 21})
-	if err != nil || len(list) != 1 || list[0].AnswerCount != 2 || list[0].AuthorCountry != "BF" || list[0].Rank != 0.5 || list[0].ViewerVote != -1 {
+	list, err := dbgen.New(db).ListSolveQuestions(ctx, dbgen.ListSolveQuestionsParams{Tag: text, AfterCreated: ts, AfterID: id, ViewerID: other, RowLimit: 21,
+		Sort: "unanswered", AfterSortKey: -2})
+	if err != nil || len(list) != 1 || list[0].AnswerCount != 2 || list[0].AuthorCountry != "BF" || list[0].Rank != 0.5 || list[0].SortKey != -2 || list[0].ViewerVote != -1 {
 		t.Fatalf("ListSolveQuestions = %+v, %v", list, err)
 	}
-	assertCall(t, db, "ORDER BY c.rank DESC, c.created_at DESC, c.id DESC", []any{other, ts, float32(0), id, int32(21), pgtype.Text{}, text, pgtype.Text{}, pgtype.Text{}, pgtype.Text{}})
+	assertCall(t, db, "ORDER BY c.rank DESC, c.sort_key DESC, c.created_at DESC, c.id DESC",
+		[]any{other, ts, float32(0), int32(-2), id, int32(21), pgtype.Text{}, "unanswered", text, pgtype.Text{}, pgtype.Text{}, pgtype.Text{}})
 
 	if sql := db.calls[0].sql; !strings.Contains(sql, "THEN NULL ELSE 500 END") {
 		t.Errorf("ListSolveQuestions does not cap the ranked candidates at 500: %s", sql)

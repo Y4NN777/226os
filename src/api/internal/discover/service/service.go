@@ -44,8 +44,10 @@ type Cursors interface {
 // ListRequest is the public list. Nil Q means no text filter. Nil Limit means 20.
 type ListRequest struct {
 	Q, Category, Type, SDK, Provider, Doclang *string
-	Anonymous                                 bool
-	ClientIP                                  string
+	// Sort is "verified" or, by default, the name order.
+	Sort      *string
+	Anonymous bool
+	ClientIP  string
 	// Countries is the raw list from the request. Nil means no country filter.
 	Countries []string
 	Cursor    string
@@ -99,7 +101,10 @@ func (s *Service) List(ctx context.Context, req ListRequest) (Page, error) {
 	filters := domain.Query{
 		Q: q, Countries: countries, Category: deref(req.Category), Type: deref(req.Type),
 		SDK: deref(req.SDK), Provider: deref(req.Provider), Doclang: deref(req.Doclang),
-		Limit: size + 1,
+		Sort: domain.SortName, Limit: size + 1,
+	}
+	if deref(req.Sort) == domain.SortVerified {
+		filters.Sort = domain.SortVerified
 	}
 	hash := filterHash(filters)
 	counted := filters
@@ -109,10 +114,9 @@ func (s *Service) List(ctx context.Context, req ListRequest) (Page, error) {
 		if err != nil {
 			return Page{}, err
 		}
-		if _, err := uuid.Parse(p.ID); err != nil || p.Sort == "" {
-			return Page{}, invalidCursor()
+		if err := afterKey(&filters, p); err != nil {
+			return Page{}, err
 		}
-		filters.AfterName, filters.AfterID = p.Sort, p.ID
 	}
 	rows, err := s.store.List(ctx, filters)
 	if err != nil {
@@ -126,12 +130,43 @@ func (s *Service) List(ctx context.Context, req ListRequest) (Page, error) {
 	if len(rows) > size {
 		page.Items = rows[:size]
 		last := page.Items[len(page.Items)-1]
-		page.NextCursor = s.cursors.Encode(cursor.Payload{Sort: last.Name, ID: last.ID, FilterHash: hash})
+		page.NextCursor = s.cursors.Encode(cursor.Payload{Sort: sortKey(last, filters.Sort), ID: last.ID, FilterHash: hash})
 	}
 	if page.Items == nil {
 		page.Items = []domain.Resource{}
 	}
 	return page, nil
+}
+
+// sortKey is what the cursor carries for the last row: its name, or its verification time
+// (domain.NeverVerified when it was never verified).
+func sortKey(r domain.Resource, sort string) string {
+	if sort == domain.SortName {
+		return r.Name
+	}
+	at := domain.NeverVerified
+	if r.LastVerifiedAt != nil {
+		at = *r.LastVerifiedAt
+	}
+	return at.UTC().Format(time.RFC3339Nano)
+}
+
+// afterKey sets the keyset of q from a verified cursor; a position the sort cannot read is invalid.
+func afterKey(q *domain.Query, p cursor.Payload) error {
+	if _, err := uuid.Parse(p.ID); err != nil || p.Sort == "" {
+		return invalidCursor()
+	}
+	q.AfterID = p.ID
+	if q.Sort == domain.SortName {
+		q.AfterName = p.Sort
+		return nil
+	}
+	at, err := time.Parse(time.RFC3339Nano, p.Sort)
+	if err != nil {
+		return invalidCursor()
+	}
+	q.AfterVerified = &at
+	return nil
 }
 
 // Get returns one published resource.
@@ -206,7 +241,7 @@ func pageSize(v *int) (int, error) {
 // imitate a boundary (a plain separator join let two different filter sets share one hash).
 func filterHash(q domain.Query) string {
 	var b strings.Builder
-	for _, f := range []string{q.Q, strings.Join(q.Countries, ","), q.Category, q.Type, q.SDK, q.Provider, q.Doclang} {
+	for _, f := range []string{q.Q, strings.Join(q.Countries, ","), q.Category, q.Type, q.SDK, q.Provider, q.Doclang, q.Sort} {
 		b.WriteString(strconv.Itoa(len(f)))
 		b.WriteByte(':')
 		b.WriteString(f)

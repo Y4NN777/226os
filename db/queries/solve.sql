@@ -12,8 +12,11 @@
 -- websearch_to_tsquery('simple', f_unaccent(q)), a query with no positive term reads none), then newest,
 -- then id. Bounded like S2 search (ADR-0005): only the 500 newest matches are ranked, so ts_rank never
 -- scores every row of a very common term and the candidate set is the same on every page. Without q the
--- rank is 0, there is no cap, and the order is newest first. The keyset is (rank, created_at, id), all
--- descending; rank is the same real the cursor carried, so the comparison is exact.
+-- rank is 0, there is no cap, and the order is newest first. The keyset is (rank, sort_key, created_at, id),
+-- all descending; rank is the same real the cursor carried, so the comparison is exact. listQuestions sort:
+-- new ranks as above with sort_key 0; votes and unanswered set rank to 0 and sort_key to vote_score or
+-- -answer_count (fewest answers first), so every order stays one descending row comparison. The 500 cap
+-- with q keeps the newest matches whatever the sort; the sort is bound to the cursor.
 WITH i AS NOT MATERIALIZED (
   SELECT CASE WHEN sqlc.narg('q')::text IS NULL THEN NULL
          ELSE websearch_to_tsquery('simple', f_unaccent(sqlc.narg('q')::text)) END AS tsq
@@ -21,7 +24,10 @@ WITH i AS NOT MATERIALIZED (
 candidates AS (
   SELECT q.id, q.title, q.body_md, q.language, q.snippet, q.snippet_language, q.country_code,
          q.answer_count, q.vote_score, q.accepted_answer_id, q.created_at, q.updated_at, q.author_id,
-         (CASE WHEN i.tsq IS NULL THEN 0 ELSE ts_rank(q.search_document, i.tsq) END)::real AS rank
+         (CASE WHEN i.tsq IS NULL OR sqlc.arg('sort')::text <> 'new' THEN 0
+               ELSE ts_rank(q.search_document, i.tsq) END)::real AS rank,
+         (CASE sqlc.arg('sort')::text WHEN 'votes' THEN q.vote_score
+                                      WHEN 'unanswered' THEN -q.answer_count ELSE 0 END)::int AS sort_key
   FROM questions q
   CROSS JOIN i
   WHERE q.status = 'published'
@@ -49,14 +55,15 @@ SELECT c.id, c.title, c.body_md, c.language, COALESCE(c.snippet, '')::text AS sn
        c.author_id, pr.username AS author_username, pr.display_name AS author_display_name,
        COALESCE(CASE WHEN pr.profile_visibility = 'public' AND pr.country_visibility = 'public'
              THEN pr.country_code END, '')::text AS author_country,
-       c.rank,
+       c.rank, c.sort_key,
        COALESCE((SELECT v.value FROM votes v WHERE v.user_id = sqlc.narg('viewer_id')::uuid AND v.target_type = 'question' AND v.target_id = c.id), 0)::int AS viewer_vote
 FROM candidates c
 JOIN profiles pr ON pr.user_id = c.author_id
 WHERE (sqlc.narg('after_created')::timestamptz IS NULL
-       OR (c.rank, c.created_at, c.id)
-          < (sqlc.arg('after_rank')::real, sqlc.narg('after_created')::timestamptz, sqlc.narg('after_id')::uuid))
-ORDER BY c.rank DESC, c.created_at DESC, c.id DESC
+       OR (c.rank, c.sort_key, c.created_at, c.id)
+          < (sqlc.arg('after_rank')::real, sqlc.arg('after_sort_key')::int, sqlc.narg('after_created')::timestamptz,
+             sqlc.narg('after_id')::uuid))
+ORDER BY c.rank DESC, c.sort_key DESC, c.created_at DESC, c.id DESC
 LIMIT sqlc.arg('row_limit');
 
 -- name: CountSolveQuestions :one

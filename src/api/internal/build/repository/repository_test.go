@@ -370,7 +370,7 @@ func TestGetProject(t *testing.T) {
 func TestListProjects(t *testing.T) {
 	at := ts().Time
 	list, err := New(db(t, rows(projectRow(nil)), none)).ListProjects(t.Context(), domain.ProjectQuery{
-		ViewerID: userID, Q: "pay", Technology: "go", Skill: "go", OpenNeeds: true, AfterPublished: &at, AfterID: projID, Limit: 21,
+		ViewerID: userID, Q: "pay", Technology: "go", Skill: "go", OpenNeeds: true, Sort: domain.SortNeeds, AfterNeeds: 2, AfterAt: &at, AfterID: projID, Limit: 21,
 		Stage: "active", Country: "BF", License: "MIT",
 	})
 	if err != nil || len(list) != 1 || list[0].Related == nil {

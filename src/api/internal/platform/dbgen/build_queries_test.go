@@ -79,11 +79,12 @@ func TestBuildQueries(t *testing.T) {
 	assertCall(t, db, "p.owner_id = $2::uuid", []any{id, other})
 
 	db = &fakeDB{many: [][]any{projectRow}}
-	list, err := dbgen.New(db).ListProjects(ctx, dbgen.ListProjectsParams{ViewerID: other, Stage: text, Country: bf, License: mit, Technology: text, OpenNeeds: true, AfterPublished: ts, AfterID: id, RowLimit: 21})
+	list, err := dbgen.New(db).ListProjects(ctx, dbgen.ListProjectsParams{ViewerID: other, Stage: text, Country: bf, License: mit, Technology: text, OpenNeeds: true,
+		AfterAt: ts, Sort: "needs", AfterNeeds: 3, AfterID: id, RowLimit: 21})
 	if err != nil || len(list) != 1 || list[0].Username != "alice" || list[0].CountryCode != "BF" {
 		t.Fatalf("ListProjects = %+v, %v", list, err)
 	}
-	assertCall(t, db, "ORDER BY p.published_at DESC, p.id DESC", []any{other, text, bf, mit, pgtype.Text{}, text, pgtype.Text{}, true, ts, id, int32(21)})
+	assertCall(t, db, "p.id DESC", []any{other, text, bf, mit, pgtype.Text{}, text, pgtype.Text{}, true, ts, "needs", int32(3), id, int32(21)})
 
 	db = &fakeDB{many: [][]any{{id, "question", other, "Q", "fr"}}}
 	related, err := dbgen.New(db).ProjectRelated(ctx, []pgtype.UUID{id})

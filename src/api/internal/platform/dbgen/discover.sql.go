@@ -417,23 +417,35 @@ WHERE r.status = 'published'
         WHERE k.resource_id = r.id AND k.language = $5))
   AND ($6::text IS NULL OR $6 = ANY (r.doc_languages))
   AND ($7::text IS NULL OR r.search_document @@ websearch_to_tsquery('simple', f_unaccent($7::text)))
+  -- Keyset per sort (listResources sort): name = (name, id) ascending; verified = last verification time
+  -- descending, never verified last (NULL read as 0001-01-01, the service encodes the same instant), then
+  -- id ascending. The sort is bound to the cursor, so only the matching branch ever has an after value.
   AND ($8::text IS NULL
        OR (r.name, r.id) > ($8::text, $9::uuid))
-ORDER BY r.name, r.id
-LIMIT $10
+  AND ($10::timestamptz IS NULL
+       OR COALESCE(r.verified_at, '0001-01-01 00:00:00+00'::timestamptz) < $10::timestamptz
+       OR (COALESCE(r.verified_at, '0001-01-01 00:00:00+00'::timestamptz) = $10::timestamptz
+           AND r.id > $9::uuid))
+ORDER BY CASE WHEN $11::text = 'verified'
+              THEN COALESCE(r.verified_at, '0001-01-01 00:00:00+00'::timestamptz) END DESC,
+         CASE WHEN $11::text = 'verified' THEN NULL ELSE r.name END,
+         r.id
+LIMIT $12
 `
 
 type ListCatalogueParams struct {
-	Category     pgtype.Text
-	ResourceType pgtype.Text
-	Provider     pgtype.Text
-	Countries    []string
-	Sdk          pgtype.Text
-	Doclang      pgtype.Text
-	Q            pgtype.Text
-	AfterName    pgtype.Text
-	AfterID      pgtype.UUID
-	RowLimit     int32
+	Category      pgtype.Text
+	ResourceType  pgtype.Text
+	Provider      pgtype.Text
+	Countries     []string
+	Sdk           pgtype.Text
+	Doclang       pgtype.Text
+	Q             pgtype.Text
+	AfterName     pgtype.Text
+	AfterID       pgtype.UUID
+	AfterVerified pgtype.Timestamptz
+	Sort          string
+	RowLimit      int32
 }
 
 type ListCatalogueRow struct {
@@ -473,6 +485,8 @@ func (q *Queries) ListCatalogue(ctx context.Context, arg ListCatalogueParams) ([
 		arg.Q,
 		arg.AfterName,
 		arg.AfterID,
+		arg.AfterVerified,
+		arg.Sort,
 		arg.RowLimit,
 	)
 	if err != nil {

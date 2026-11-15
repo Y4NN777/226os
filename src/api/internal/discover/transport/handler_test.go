@@ -204,4 +204,13 @@ func TestListResourcesPassesTheCountryList(t *testing.T) {
 	if rec.Code != http.StatusOK || got.Countries != nil {
 		t.Fatalf("status %d countries %v, want none", rec.Code, got.Countries)
 	}
+	if got.Sort != domain.SortName {
+		t.Fatalf("default sort %q", got.Sort)
+	}
+	verified := apigen.ResourceSortVerified
+	rec = httptest.NewRecorder()
+	h.ListResources(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil), apigen.ListResourcesParams{Sort: &verified})
+	if rec.Code != http.StatusOK || got.Sort != domain.SortVerified {
+		t.Fatalf("status %d sort %q", rec.Code, got.Sort)
+	}
 }

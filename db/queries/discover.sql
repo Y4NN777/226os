@@ -24,9 +24,19 @@ WHERE r.status = 'published'
         WHERE k.resource_id = r.id AND k.language = sqlc.narg('sdk')))
   AND (sqlc.narg('doclang')::text IS NULL OR sqlc.narg('doclang') = ANY (r.doc_languages))
   AND (sqlc.narg('q')::text IS NULL OR r.search_document @@ websearch_to_tsquery('simple', f_unaccent(sqlc.narg('q')::text)))
+  -- Keyset per sort (listResources sort): name = (name, id) ascending; verified = last verification time
+  -- descending, never verified last (NULL read as 0001-01-01, the service encodes the same instant), then
+  -- id ascending. The sort is bound to the cursor, so only the matching branch ever has an after value.
   AND (sqlc.narg('after_name')::text IS NULL
        OR (r.name, r.id) > (sqlc.narg('after_name')::text, sqlc.narg('after_id')::uuid))
-ORDER BY r.name, r.id
+  AND (sqlc.narg('after_verified')::timestamptz IS NULL
+       OR COALESCE(r.verified_at, '0001-01-01 00:00:00+00'::timestamptz) < sqlc.narg('after_verified')::timestamptz
+       OR (COALESCE(r.verified_at, '0001-01-01 00:00:00+00'::timestamptz) = sqlc.narg('after_verified')::timestamptz
+           AND r.id > sqlc.narg('after_id')::uuid))
+ORDER BY CASE WHEN sqlc.arg('sort')::text = 'verified'
+              THEN COALESCE(r.verified_at, '0001-01-01 00:00:00+00'::timestamptz) END DESC,
+         CASE WHEN sqlc.arg('sort')::text = 'verified' THEN NULL ELSE r.name END,
+         r.id
 LIMIT sqlc.arg('row_limit');
 
 -- name: CountCatalogue :one

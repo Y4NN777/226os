@@ -67,6 +67,7 @@ func (r *Repository) ListQuestions(ctx context.Context, q domain.QuestionQuery) 
 	rows, err := r.q.ListSolveQuestions(ctx, dbgen.ListSolveQuestionsParams{
 		Tag: text(q.Tag), State: text(q.State), Country: text(q.Country), Lang: text(q.Lang), Q: text(q.Q),
 		AfterCreated: timestamp(q.AfterCreated), AfterRank: q.AfterRank, AfterID: after, ViewerID: viewer,
+		Sort: q.Sort, AfterSortKey: int32(q.AfterSortKey), //nolint:gosec // a column int4 the cursor carried back
 		RowLimit: int32(q.Limit), //nolint:gosec // page size is at most 51
 	})
 	if err != nil {
@@ -83,7 +84,7 @@ func (r *Repository) ListQuestions(ctx context.Context, q domain.QuestionQuery) 
 			UpdatedAt: row.UpdatedAt, AuthorID: row.AuthorID, AuthorUsername: row.AuthorUsername,
 			AuthorDisplayName: row.AuthorDisplayName, AuthorCountry: row.AuthorCountry, ViewerVote: row.ViewerVote,
 		})
-		out[i].Rank = row.Rank
+		out[i].Rank, out[i].SortKey = row.Rank, int(row.SortKey)
 	}
 	if err := r.attach(ctx, r.q, out, ids); err != nil {
 		return nil, err

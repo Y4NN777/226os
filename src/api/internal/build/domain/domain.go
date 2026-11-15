@@ -97,10 +97,21 @@ type ProjectQuery struct {
 	ViewerID, Q, Technology, Skill string
 	Stage, Country, License        string
 	OpenNeeds                      bool
-	AfterPublished                 *time.Time
-	AfterID                        string
-	Limit                          int
+	// Sort is SortUpdated, SortCreated or SortNeeds. The keyset is (AfterNeeds, AfterAt, AfterID):
+	// AfterNeeds is 0 outside SortNeeds, AfterAt is created_at for SortCreated and updated_at otherwise.
+	Sort       string
+	AfterNeeds int
+	AfterAt    *time.Time
+	AfterID    string
+	Limit      int
 }
+
+// Orders of listProjects.
+const (
+	SortUpdated = "updated"
+	SortCreated = "created"
+	SortNeeds   = "needs"
+)
 
 // NewProject is a validated createProject.
 type NewProject struct {

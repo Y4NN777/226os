@@ -37,7 +37,7 @@ func (h *Handler) ListResources(w http.ResponseWriter, r *http.Request, params a
 	sub := subject.From(r.Context())
 	page, err := h.svc.List(r.Context(), service.ListRequest{
 		Q: params.Q, Countries: derefList(params.Country), Category: params.Category, Type: defined(params.Type),
-		SDK: params.Sdk, Provider: params.Provider, Doclang: lang(params.Doclang),
+		SDK: params.Sdk, Provider: params.Provider, Doclang: lang(params.Doclang), Sort: (*string)(params.Sort),
 		Cursor: deref(params.Cursor), Limit: params.Limit, Anonymous: sub.Anonymous(), ClientIP: httpx.ClientIPKey(r),
 	})
 	if err != nil {

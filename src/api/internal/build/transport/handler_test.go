@@ -340,6 +340,12 @@ func TestProjectFactsOnTheWire(t *testing.T) {
 	if rec.Code != http.StatusOK || st.query.Stage != "active" || st.query.Country != "BF" || st.query.License != "MIT" {
 		t.Fatalf("list %d %s %+v", rec.Code, rec.Body.String(), st.query)
 	}
+	needs := apigen.ProjectSortNeeds
+	rec = httptest.NewRecorder()
+	handler(t, st).ListProjects(rec, req(t, subject.Subject{}, http.MethodGet, ""), apigen.ListProjectsParams{Sort: &needs})
+	if rec.Code != http.StatusOK || st.query.Sort != "needs" {
+		t.Fatalf("sort %d %+v", rec.Code, st.query)
+	}
 }
 
 func TestListContributionNeeds(t *testing.T) {

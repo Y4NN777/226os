@@ -581,11 +581,14 @@ SELECT p.id, p.name, COALESCE(p.github_url, '')::text AS github_url,
        p.language, p.visibility, p.owner_id, pr.username, pr.display_name,
        ARRAY(SELECT t.slug FROM project_tags pt JOIN tags t ON t.id = pt.tag_id
              WHERE pt.project_id = p.id AND t.status = 'active' ORDER BY t.slug)::text[] AS technologies,
-       (SELECT count(*) FROM contribution_needs n WHERE n.project_id = p.id AND n.status = 'open')::int AS open_needs,
+       nc.open_needs,
        p.published_at, p.created_at, p.updated_at,
        p.stage, COALESCE(p.license_spdx, '')::text AS license_spdx, COALESCE(p.country_code, '')::text AS country_code
 FROM projects p
 JOIN profiles pr ON pr.user_id = p.owner_id
+CROSS JOIN LATERAL (
+  SELECT count(*)::int AS open_needs FROM contribution_needs n WHERE n.project_id = p.id AND n.status = 'open'
+) nc
 WHERE p.status = 'published'
   AND (p.visibility = 'public' OR p.owner_id = $1::uuid)
   AND ($2::text IS NULL OR p.stage = $2::text)
@@ -604,23 +607,29 @@ WHERE p.status = 'published'
   AND (NOT $8::boolean OR EXISTS (
        SELECT 1 FROM contribution_needs n WHERE n.project_id = p.id AND n.status = 'open'))
   AND ($9::timestamptz IS NULL
-       OR (p.published_at, p.id) < ($9::timestamptz, $10::uuid))
-ORDER BY p.published_at DESC, p.id DESC
-LIMIT $11
+       OR (CASE WHEN $10::text = 'needs' THEN nc.open_needs ELSE 0 END,
+           CASE WHEN $10::text = 'created' THEN p.created_at ELSE p.updated_at END, p.id)
+          < ($11::int, $9::timestamptz, $12::uuid))
+ORDER BY CASE WHEN $10::text = 'needs' THEN nc.open_needs ELSE 0 END DESC,
+         CASE WHEN $10::text = 'created' THEN p.created_at ELSE p.updated_at END DESC,
+         p.id DESC
+LIMIT $13
 `
 
 type ListProjectsParams struct {
-	ViewerID       pgtype.UUID
-	Stage          pgtype.Text
-	Country        pgtype.Text
-	License        pgtype.Text
-	Q              pgtype.Text
-	Technology     pgtype.Text
-	Skill          pgtype.Text
-	OpenNeeds      bool
-	AfterPublished pgtype.Timestamptz
-	AfterID        pgtype.UUID
-	RowLimit       int32
+	ViewerID   pgtype.UUID
+	Stage      pgtype.Text
+	Country    pgtype.Text
+	License    pgtype.Text
+	Q          pgtype.Text
+	Technology pgtype.Text
+	Skill      pgtype.Text
+	OpenNeeds  bool
+	AfterAt    pgtype.Timestamptz
+	Sort       string
+	AfterNeeds int32
+	AfterID    pgtype.UUID
+	RowLimit   int32
 }
 
 type ListProjectsRow struct {
@@ -643,8 +652,10 @@ type ListProjectsRow struct {
 	CountryCode  string
 }
 
-// Newest first with a UUID tie-breaker (keyset). Public projects use projects_browse_idx; the viewer's
-// own private projects come from projects_owner_idx.
+// Keyset over (needs_key, time_key, id), all descending (listProjects sort): updated = updated_at,
+// created = created_at, needs = open needs count then updated_at; needs_key is 0 outside the needs order.
+// The sort is bound to the cursor. The open-needs count is one lateral aggregate per row, read by the
+// projection, the order and the keyset alike.
 func (q *Queries) ListProjects(ctx context.Context, arg ListProjectsParams) ([]ListProjectsRow, error) {
 	rows, err := q.db.Query(ctx, listProjects,
 		arg.ViewerID,
@@ -655,7 +666,9 @@ func (q *Queries) ListProjects(ctx context.Context, arg ListProjectsParams) ([]L
 		arg.Technology,
 		arg.Skill,
 		arg.OpenNeeds,
-		arg.AfterPublished,
+		arg.AfterAt,
+		arg.Sort,
+		arg.AfterNeeds,
 		arg.AfterID,
 		arg.RowLimit,
 	)

@@ -189,7 +189,7 @@ func ptr[T any](v T) *T { return &v }
 func projects(n int) []domain.Project {
 	out := make([]domain.Project, n)
 	for i := range out {
-		out[i] = domain.Project{ID: projID, PublishedAt: at}
+		out[i] = domain.Project{ID: projID, PublishedAt: at, UpdatedAt: at}
 	}
 	return out
 }
@@ -203,14 +203,14 @@ func TestListProjectsPagesAndBindsTheCursor(t *testing.T) {
 	if err != nil || len(page.Items) != 2 || page.NextCursor == "" {
 		t.Fatalf("page %+v %v", page, err)
 	}
-	if st.query != (domain.ProjectQuery{ViewerID: aliceID, Q: "paiement", Technology: "go", Skill: "sql", OpenNeeds: true, Limit: 3}) {
+	if st.query != (domain.ProjectQuery{ViewerID: aliceID, Q: "paiement", Technology: "go", Skill: "sql", OpenNeeds: true, Sort: domain.SortUpdated, Limit: 3}) {
 		t.Fatalf("query %+v", st.query)
 	}
 	st.list = projects(1)
 	page2, err := svc.ListProjects(t.Context(), alice, ProjectListRequest{
 		Q: ptr("paiement"), Technology: ptr("go"), Skill: ptr("sql"), OpenNeeds: ptr(true), Limit: ptr(2), Cursor: page.NextCursor,
 	})
-	if err != nil || page2.NextCursor != "" || st.query.AfterID != projID || !st.query.AfterPublished.Equal(at) {
+	if err != nil || page2.NextCursor != "" || st.query.AfterID != projID || !st.query.AfterAt.Equal(at) || st.query.AfterNeeds != 0 {
 		t.Fatalf("page2 %+v %v %+v", page2, err, st.query)
 	}
 	// The cursor is bound to the viewer and the filters.
@@ -224,6 +224,49 @@ func TestListProjectsPagesAndBindsTheCursor(t *testing.T) {
 	}
 }
 
+// sort: updated (default) keys on updated_at, created on created_at, needs on the open-needs count then
+// updated_at; each cursor carries its own key and is refused under another sort.
+func TestListProjectsSort(t *testing.T) {
+	created, updated := at.Add(-time.Hour), at
+	rows := []domain.Project{
+		{ID: projID, OpenNeeds: 4, CreatedAt: created, UpdatedAt: updated},
+		{ID: projID, OpenNeeds: 1, CreatedAt: created, UpdatedAt: updated},
+	}
+	st := &fakeStore{list: rows}
+	svc := newSvc(t, st, nil, nil)
+	cursors := map[string]string{}
+	for _, tc := range []struct {
+		sort      *string
+		want      string
+		wantNeeds int
+		wantAt    time.Time
+	}{
+		{nil, domain.SortUpdated, 0, updated},
+		{ptr("updated"), domain.SortUpdated, 0, updated},
+		{ptr("created"), domain.SortCreated, 0, created},
+		{ptr("needs"), domain.SortNeeds, 4, updated},
+	} {
+		page, err := svc.ListProjects(t.Context(), anon, ProjectListRequest{Sort: tc.sort, Limit: ptr(1)})
+		if err != nil || st.query.Sort != tc.want || page.NextCursor == "" {
+			t.Fatalf("%s: %+v %v %+v", tc.want, page, err, st.query)
+		}
+		if _, err := svc.ListProjects(t.Context(), anon, ProjectListRequest{Sort: tc.sort, Limit: ptr(1), Cursor: page.NextCursor}); err != nil ||
+			st.query.AfterNeeds != tc.wantNeeds || !st.query.AfterAt.Equal(tc.wantAt) || st.query.AfterID != projID {
+			t.Fatalf("%s page 2: %v %+v", tc.want, err, st.query)
+		}
+		cursors[tc.want] = page.NextCursor
+	}
+	for from, token := range cursors {
+		for _, to := range []string{"created", "needs", "updated"} {
+			if to == from {
+				continue
+			}
+			_, err := svc.ListProjects(t.Context(), anon, ProjectListRequest{Sort: ptr(to), Cursor: token})
+			wantCode(t, err, apperr.CodeInvalidCursor)
+		}
+	}
+}
+
 // total counts with the same filters and viewer as the page, and does not depend on the cursor.
 func TestListProjectsTotal(t *testing.T) {
 	st := &fakeStore{list: projects(3), total: 9}
@@ -234,13 +277,13 @@ func TestListProjectsTotal(t *testing.T) {
 		t.Fatalf("page %+v %v", page, err)
 	}
 	want := st.query
-	want.Limit, want.AfterPublished, want.AfterID = 0, nil, ""
+	want.Limit, want.AfterAt, want.AfterID = 0, nil, ""
 	st.countQuery.Limit = 0
 	if st.countQuery != want {
 		t.Fatalf("count query %+v, want %+v", st.countQuery, want)
 	}
 	req.Cursor = page.NextCursor
-	if page2, err := svc.ListProjects(t.Context(), alice, req); err != nil || page2.Total != 9 || st.countQuery.AfterPublished != nil || st.countQuery.AfterID != "" {
+	if page2, err := svc.ListProjects(t.Context(), alice, req); err != nil || page2.Total != 9 || st.countQuery.AfterAt != nil || st.countQuery.AfterID != "" {
 		t.Fatalf("page2 %+v %v %+v", page2, err, st.countQuery)
 	}
 	_, err = newSvc(t, &fakeStore{countErr: errDB}, nil, nil).ListProjects(t.Context(), alice, ProjectListRequest{})
@@ -263,7 +306,7 @@ func TestListProjectsAnonymousQueryUsesSearchBudget(t *testing.T) {
 
 func TestListProjectsRejects(t *testing.T) {
 	c := codec(t)
-	hash := lengthPrefixed("project", "", "", "", "", "false", "", "", "")
+	hash := lengthPrefixed("project", "", "", "", "", "false", "", "", "", domain.SortUpdated)
 	tests := []struct {
 		name string
 		req  ProjectListRequest
@@ -276,7 +319,11 @@ func TestListProjectsRejects(t *testing.T) {
 		{name: "limit 51", req: ProjectListRequest{Limit: ptr(51)}, code: apperr.CodeValidation},
 		{name: "forged cursor", req: ProjectListRequest{Cursor: "x"}, code: apperr.CodeInvalidCursor},
 		{name: "bad sort", req: ProjectListRequest{Cursor: c.Encode(cursor.Payload{Sort: "x", ID: projID, FilterHash: hash})}, code: apperr.CodeInvalidCursor},
-		{name: "bad id", req: ProjectListRequest{Cursor: c.Encode(cursor.Payload{Sort: at.Format(time.RFC3339Nano), ID: "x", FilterHash: hash})}, code: apperr.CodeInvalidCursor},
+		{name: "bad id", req: ProjectListRequest{Cursor: c.Encode(cursor.Payload{Sort: "0:" + at.Format(time.RFC3339Nano), ID: "x", FilterHash: hash})}, code: apperr.CodeInvalidCursor},
+		{name: "no needs count", req: ProjectListRequest{Cursor: c.Encode(cursor.Payload{Sort: at.Format(time.RFC3339Nano), ID: projID, FilterHash: hash})}, code: apperr.CodeInvalidCursor},
+		{name: "negative needs", req: ProjectListRequest{Cursor: c.Encode(cursor.Payload{Sort: "-1:" + at.Format(time.RFC3339Nano), ID: projID, FilterHash: hash})}, code: apperr.CodeInvalidCursor},
+		{name: "needs overflow", req: ProjectListRequest{Cursor: c.Encode(cursor.Payload{Sort: "2147483648:" + at.Format(time.RFC3339Nano), ID: projID, FilterHash: hash})}, code: apperr.CodeInvalidCursor},
+		{name: "bad time", req: ProjectListRequest{Cursor: c.Encode(cursor.Payload{Sort: "0:x", ID: projID, FilterHash: hash})}, code: apperr.CodeInvalidCursor},
 		{name: "store", req: ProjectListRequest{}, code: apperr.CodeInternal, err: errDB},
 	}
 	for _, tc := range tests {
@@ -520,6 +567,23 @@ func needs(n int) []domain.Need {
 		out[i] = domain.Need{ID: projID, CreatedAt: at}
 	}
 	return out
+}
+
+// A signed need cursor whose position cannot be read is still INVALID_CURSOR (the project list has its
+// own key since the sort, so the time-and-id decoder is exercised here).
+func TestListNeedsRejectsAnUnreadablePosition(t *testing.T) {
+	c := codec(t)
+	hash := lengthPrefixed("need", projID)
+	for name, p := range map[string]cursor.Payload{
+		"bad time": {Sort: "x", ID: projID, FilterHash: hash},
+		"bad id":   {Sort: at.Format(time.RFC3339Nano), ID: "x", FilterHash: hash},
+	} {
+		t.Run(name, func(t *testing.T) {
+			st := &fakeStore{access: domain.Access{OwnerID: aliceID, Visibility: "public"}}
+			_, err := newSvc(t, st, nil, nil).ListNeeds(t.Context(), anon, projID, NeedListRequest{Cursor: c.Encode(p)})
+			wantCode(t, err, apperr.CodeInvalidCursor)
+		})
+	}
 }
 
 func TestListNeedsFollowsProjectVisibility(t *testing.T) {

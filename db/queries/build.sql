@@ -68,18 +68,23 @@ WHERE p.id = sqlc.arg('id')::uuid AND p.status = 'published'
   AND (p.visibility = 'public' OR p.owner_id = sqlc.narg('viewer_id')::uuid);
 
 -- name: ListProjects :many
--- Newest first with a UUID tie-breaker (keyset). Public projects use projects_browse_idx; the viewer's
--- own private projects come from projects_owner_idx.
+-- Keyset over (needs_key, time_key, id), all descending (listProjects sort): updated = updated_at,
+-- created = created_at, needs = open needs count then updated_at; needs_key is 0 outside the needs order.
+-- The sort is bound to the cursor. The open-needs count is one lateral aggregate per row, read by the
+-- projection, the order and the keyset alike.
 SELECT p.id, p.name, COALESCE(p.github_url, '')::text AS github_url,
        left(COALESCE(p.description_md, p.summary), 1000)::text AS description,
        p.language, p.visibility, p.owner_id, pr.username, pr.display_name,
        ARRAY(SELECT t.slug FROM project_tags pt JOIN tags t ON t.id = pt.tag_id
              WHERE pt.project_id = p.id AND t.status = 'active' ORDER BY t.slug)::text[] AS technologies,
-       (SELECT count(*) FROM contribution_needs n WHERE n.project_id = p.id AND n.status = 'open')::int AS open_needs,
+       nc.open_needs,
        p.published_at, p.created_at, p.updated_at,
        p.stage, COALESCE(p.license_spdx, '')::text AS license_spdx, COALESCE(p.country_code, '')::text AS country_code
 FROM projects p
 JOIN profiles pr ON pr.user_id = p.owner_id
+CROSS JOIN LATERAL (
+  SELECT count(*)::int AS open_needs FROM contribution_needs n WHERE n.project_id = p.id AND n.status = 'open'
+) nc
 WHERE p.status = 'published'
   AND (p.visibility = 'public' OR p.owner_id = sqlc.narg('viewer_id')::uuid)
   AND (sqlc.narg('stage')::text IS NULL OR p.stage = sqlc.narg('stage')::text)
@@ -97,9 +102,13 @@ WHERE p.status = 'published'
        WHERE n.project_id = p.id AND n.status = 'open' AND t.slug = sqlc.narg('skill')::text AND t.status = 'active'))
   AND (NOT sqlc.arg('open_needs')::boolean OR EXISTS (
        SELECT 1 FROM contribution_needs n WHERE n.project_id = p.id AND n.status = 'open'))
-  AND (sqlc.narg('after_published')::timestamptz IS NULL
-       OR (p.published_at, p.id) < (sqlc.narg('after_published')::timestamptz, sqlc.narg('after_id')::uuid))
-ORDER BY p.published_at DESC, p.id DESC
+  AND (sqlc.narg('after_at')::timestamptz IS NULL
+       OR (CASE WHEN sqlc.arg('sort')::text = 'needs' THEN nc.open_needs ELSE 0 END,
+           CASE WHEN sqlc.arg('sort')::text = 'created' THEN p.created_at ELSE p.updated_at END, p.id)
+          < (sqlc.arg('after_needs')::int, sqlc.narg('after_at')::timestamptz, sqlc.narg('after_id')::uuid))
+ORDER BY CASE WHEN sqlc.arg('sort')::text = 'needs' THEN nc.open_needs ELSE 0 END DESC,
+         CASE WHEN sqlc.arg('sort')::text = 'created' THEN p.created_at ELSE p.updated_at END DESC,
+         p.id DESC
 LIMIT sqlc.arg('row_limit');
 
 -- name: CountProjects :one

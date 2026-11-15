@@ -315,6 +315,51 @@ func TestListQuestionsCursorCarriesTheRank(t *testing.T) {
 		t.Fatalf("after rank %v id %s, %v", st.listQ.AfterRank, st.listQ.AfterID, err)
 	}
 }
+
+// sort: new (default), votes, unanswered; the cursor carries the sort key and is refused under another
+// sort; an unreadable key is INVALID_CURSOR.
+func TestListQuestionsSort(t *testing.T) {
+	rows := []domain.Question{question(qID, when), question(aID, when.Add(-time.Hour))}
+	rows[0].SortKey = -3
+	st := &fakeStore{questions: rows}
+	svc, _ := newSvc(t, st)
+	limit := 1
+	cursors := map[string]string{}
+	for _, tc := range []struct {
+		sort *string
+		want string
+	}{{nil, domain.SortNew}, {ptr("new"), domain.SortNew}, {ptr("votes"), domain.SortVotes}, {ptr("unanswered"), domain.SortUnanswered}} {
+		page, err := svc.ListQuestions(t.Context(), subject.Subject{}, service.QuestionListRequest{Sort: tc.sort, Limit: &limit})
+		if err != nil || st.listQ.Sort != tc.want || page.NextCursor == "" {
+			t.Fatalf("%s: %+v %v %+v", tc.want, page, err, st.listQ)
+		}
+		if _, err := svc.ListQuestions(t.Context(), subject.Subject{}, service.QuestionListRequest{Sort: tc.sort, Limit: &limit, Cursor: page.NextCursor}); err != nil ||
+			st.listQ.AfterSortKey != -3 || st.listQ.AfterID != qID || !st.listQ.AfterCreated.Equal(when) {
+			t.Fatalf("%s page 2: %v %+v", tc.want, err, st.listQ)
+		}
+		cursors[tc.want] = page.NextCursor
+	}
+	for from, token := range cursors {
+		for _, to := range []string{"new", "votes", "unanswered"} {
+			if to != from {
+				_, err := svc.ListQuestions(t.Context(), subject.Subject{}, service.QuestionListRequest{Sort: ptr(to), Cursor: token})
+				wantCode(t, err, apperr.CodeInvalidCursor)
+			}
+		}
+	}
+	c := codec(t)
+	hash := "8:question0:0:0:0:0:3:new"
+	for name, key := range map[string]string{
+		"no sort key":    "0:" + when.Format(time.RFC3339Nano),
+		"bad sort key":   "0:x:" + when.Format(time.RFC3339Nano),
+		"sort key range": "0:2147483648:" + when.Format(time.RFC3339Nano),
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := svc.ListQuestions(t.Context(), subject.Subject{}, service.QuestionListRequest{Cursor: c.Encode(cursor.Payload{Sort: key, ID: qID, FilterHash: hash})})
+			wantCode(t, err, apperr.CodeInvalidCursor)
+		})
+	}
+}
 func createReq() service.CreateQuestionRequest {
 	return service.CreateQuestionRequest{
 		Title: "  Comment encaisser ?  ", BodyMD: "Corps\r\n", Lang: "fr", Country: ptr("BF"), Tags: []string{"go", "go", "api"},

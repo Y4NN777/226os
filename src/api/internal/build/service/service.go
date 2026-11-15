@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 	"errors"
+	"math"
 	"slices"
 	"strconv"
 	"strings"
@@ -78,6 +79,7 @@ type Limiter interface {
 type ProjectListRequest struct {
 	Q, Technology, Skill    *string
 	Stage, Country, License *string
+	Sort                    *string // updated (default), created or needs
 	OpenNeeds               *bool
 	Cursor                  string
 	Limit                   *int
@@ -159,18 +161,22 @@ func (s *Service) ListProjects(ctx context.Context, sub subject.Subject, req Pro
 	query := domain.ProjectQuery{
 		ViewerID: sub.UserID, Q: q, Technology: deref(req.Technology), Skill: deref(req.Skill),
 		Stage: deref(req.Stage), Country: deref(req.Country), License: deref(req.License),
-		OpenNeeds: req.OpenNeeds != nil && *req.OpenNeeds, Limit: size + 1,
+		OpenNeeds: req.OpenNeeds != nil && *req.OpenNeeds, Sort: projectSort(req.Sort), Limit: size + 1,
 	}
 	hash := lengthPrefixed("project", query.ViewerID, query.Q, query.Technology, query.Skill, strconv.FormatBool(query.OpenNeeds),
-		query.Stage, query.Country, query.License)
+		query.Stage, query.Country, query.License, query.Sort)
 	filters := query
 	filters.Limit = 0
 	if req.Cursor != "" {
-		at, id, err := s.decode(req.Cursor, hash)
+		p, err := s.cursors.Decode(req.Cursor, hash)
 		if err != nil {
 			return ProjectPage{}, err
 		}
-		query.AfterPublished, query.AfterID = &at, id
+		needs, at, ok := decodeProjectKey(p.Sort)
+		if _, idErr := uuid.Parse(p.ID); !ok || idErr != nil {
+			return ProjectPage{}, invalidCursor()
+		}
+		query.AfterNeeds, query.AfterAt, query.AfterID = needs, &at, p.ID
 	}
 	rows, err := s.store.ListProjects(ctx, query)
 	if err != nil {
@@ -184,12 +190,45 @@ func (s *Service) ListProjects(ctx context.Context, sub subject.Subject, req Pro
 	if len(rows) > size {
 		page.Items = rows[:size]
 		last := page.Items[size-1]
-		page.NextCursor = s.encode(last.PublishedAt, last.ID, hash)
+		page.NextCursor = s.cursors.Encode(cursor.Payload{Sort: encodeProjectKey(last, query.Sort), ID: last.ID, FilterHash: hash})
 	}
 	if page.Items == nil {
 		page.Items = []domain.Project{}
 	}
 	return page, nil
+}
+
+// projectSort is the order of a listProjects request: created or needs when asked, updated otherwise.
+func projectSort(v *string) string {
+	switch s := deref(v); s {
+	case domain.SortCreated, domain.SortNeeds:
+		return s
+	default:
+		return domain.SortUpdated
+	}
+}
+
+// encodeProjectKey packs the keyset of the last row: the open-needs count (0 outside the needs order)
+// and the time of the order (created_at for created, updated_at otherwise).
+func encodeProjectKey(p domain.Project, sort string) string {
+	needs, at := 0, p.UpdatedAt
+	switch sort {
+	case domain.SortNeeds:
+		needs = p.OpenNeeds
+	case domain.SortCreated:
+		at = p.CreatedAt
+	}
+	return strconv.Itoa(needs) + ":" + at.UTC().Format(time.RFC3339Nano)
+}
+
+func decodeProjectKey(key string) (int, time.Time, bool) {
+	n, rest, found := strings.Cut(key, ":")
+	needs, errNeeds := strconv.Atoi(n)
+	at, errAt := time.Parse(time.RFC3339Nano, rest)
+	if !found || errNeeds != nil || errAt != nil || needs < 0 || needs > math.MaxInt32 {
+		return 0, time.Time{}, false
+	}
+	return needs, at, true
 }
 
 // GetProject returns a published project; a private one only to its owner (404 otherwise).

@@ -54,7 +54,8 @@ func (r *Repository) List(ctx context.Context, q domain.Query) ([]domain.Resourc
 	rows, err := r.q.ListCatalogue(ctx, dbgen.ListCatalogueParams{
 		Category: text(q.Category), ResourceType: text(q.Type), Provider: text(q.Provider),
 		Countries: q.Countries, Sdk: text(q.SDK), Doclang: text(q.Doclang), Q: text(q.Q),
-		AfterName: text(q.AfterName), AfterID: after, RowLimit: int32(q.Limit), //nolint:gosec // page size is at most 51
+		AfterName: text(q.AfterName), AfterID: after, AfterVerified: timestamp(q.AfterVerified), Sort: q.Sort,
+		RowLimit: int32(q.Limit), //nolint:gosec // page size is at most 51
 	})
 	if err != nil {
 		return nil, fmt.Errorf("catalogue list: %w", err)
@@ -271,6 +272,13 @@ func textPtr(v pgtype.Text) *string {
 	}
 	s := v.String
 	return &s
+}
+
+func timestamp(t *time.Time) pgtype.Timestamptz {
+	if t == nil {
+		return pgtype.Timestamptz{}
+	}
+	return pgtype.Timestamptz{Time: *t, Valid: true}
 }
 
 func timePtr(v pgtype.Timestamptz) *time.Time {

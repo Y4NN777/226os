@@ -79,6 +79,9 @@ type Question struct {
 	CreatedAt, UpdatedAt time.Time
 	// Rank is the search relevance of a listed question (0 without a query); it only feeds the cursor.
 	Rank float32
+	// SortKey is the listQuestions sort value of a listed question (vote_score for votes, -answer_count for
+	// unanswered, 0 for new); it only feeds the cursor.
+	SortKey int
 }
 
 // State is open without answers, answered with answers and none accepted, resolved with an accepted one.
@@ -116,10 +119,21 @@ type QuestionQuery struct {
 	AfterCreated                 *time.Time
 	AfterRank                    float32
 	AfterID                      string
+	// Sort is SortNew, SortVotes or SortUnanswered; AfterSortKey is the keyset value of the last row's
+	// SortKey.
+	Sort         string
+	AfterSortKey int
 	// ViewerID is the session subject whose vote ViewerVote reads; empty means anonymous.
 	ViewerID string
 	Limit    int
 }
+
+// Orders of listQuestions.
+const (
+	SortNew        = "new"
+	SortVotes      = "votes"
+	SortUnanswered = "unanswered"
+)
 
 // Answer is a published answer. Snippets are always empty at P0 (no column, migration 00005).
 type Answer struct {
