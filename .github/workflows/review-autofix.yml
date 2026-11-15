@@ -141,6 +141,7 @@ jobs:
       issues: read
     outputs:
       outcome: ${{ steps.patch.outputs.outcome }}
+      owners: ${{ steps.patch.outputs.owners }}
     steps:
       # First step, before any pull request code exists on the runner: a later step (make setup, lockfile installs)
       # could otherwise change the apt configuration before this root install.
@@ -346,6 +347,13 @@ jobs:
             outcome=nothing
           fi
           [ "$outcome" = needs-owner ] && outcome=owner
+          # The finding ids the fixer answered OWNER for (plain id characters only): the record step routes only those.
+          owners="$(python3 -I -c 'import json,os,re
+          try: rows = json.loads(os.environ.get("RESULT_JSON") or "{}").get("results") or []
+          except ValueError: rows = []
+          ids = [re.sub(r"[^\w.-]+", "-", str(r.get("item", ""))).strip("-")[:40] for r in rows if isinstance(r, dict) and " ".join(str(r.get("verdict", "")).upper().split()) in ("OWNER", "AFTER FREEZE")]
+          print(",".join(i for i in ids if i))')"
+          echo "owners=$owners" >>"$GITHUB_OUTPUT"
           echo "fixer outcome: $outcome" | tee -a "$GITHUB_STEP_SUMMARY"
           echo "outcome=$outcome" >>"$GITHUB_OUTPUT"
 
@@ -369,6 +377,7 @@ jobs:
       contents: read
     outputs:
       push: ${{ steps.push.outputs.outcome }}
+      refused: ${{ steps.push.outputs.refused }}
     steps:
       - name: Download the patch
         if: needs.fix.outputs.outcome == 'fixed'
@@ -469,6 +478,8 @@ jobs:
           FIX_RESULT: ${{ needs.fix.result }}
           OUTCOME: ${{ needs.fix.outputs.outcome }}
           PUSH: ${{ needs.publish.outputs.push }}
+          REFUSED: ${{ needs.publish.outputs.refused }}
+          OWNER_IDS: ${{ needs.fix.outputs.owners }}
           PREFLIGHT_TOKEN: ${{ needs.preflight.outputs.token }}
         run: |
           if [ ! -f scripts/review-autofix.py ]; then

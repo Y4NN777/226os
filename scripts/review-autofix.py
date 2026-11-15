@@ -13,12 +13,12 @@ whether its commits may be pushed. The workflows only call this script; the mode
          allowed paths (the same `forbidden()` as the guard), without a file, or with its attempts used goes to the owner
          BEFORE any attempt, with the reason, and the others are still fixed. At most 7 fix runs in TOTAL (MAX_PR_RUNS: completed, pending and aborted) per
          pull request (distinct run ids). DECISION TABLE: (1) ROUTING is per finding, `fixer` or `owner` with a reason code (critical,
-         no-file, outside-repository, outside-allowlist, exhausted, aborts-cap, guard-refused, fixer-owner), kept in the state:
-         an owner finding is never fixed again, the fixer findings keep being fixed with their own caps. (2) `needs-owner` is
+         no-file, outside-repository, outside-allowlist, exhausted, guard-refused, fixer-owner), kept in the state:
+         an owner finding is never fixed again, the fixer findings keep being fixed with their own caps. Only lasting reasons are kept as routes: aborted runs are PER HEAD (2 skip the finding on that head, a new head tries again). `record` routes to the owner only the findings the guard's refusal concerns (the refused paths, matched to the file of each finding) or the ids the fixer answered OWNER for; the other findings of the run consumed an attempt and are retried; a refusal that names no finding's file sends the whole run to the owner, and says so. (2) `needs-owner` is
          INFORMATIONAL: set as soon as one open finding is routed to the owner, it blocks nothing (an old one is no stop).
          `autofix-stopped` BLOCKS the whole pull request and is set only by the PR-level fail-closed causes: the cap of 7 runs in
          total (MAX_PR_RUNS), a record that could not write, pending entries of two runs that died, a state too large; decide refuses
-         while it is there (verdict stop) and only a human removes it (the status comment says so). (3) decide: stopped -> STOP;
+         while it is there (verdict stop) and only a human removes it, which is a real RESET: the dead pending entries are cleared and the run cap restarts for 7 more runs (the state keeps `stopped` and `reset_at`; the status comment says so). (3) decide: stopped -> STOP;
          else the fixable findings (route fixer, not already attempted on this head) are fixed; none -> owner verdict when every
          finding is routed to the owner, NO-OP otherwise. (4) The status comment shows route and reason per finding and a
          line `Fixer: ACTIVE | STOPPED (cause)`. Before the fixer runs it
@@ -221,6 +221,7 @@ def add_label(gh, repo, number, label):
     done = subprocess.run([gh, "api", "-X", "POST", "repos/%s/issues/%s/labels" % (repo, number), "-f", "labels[]=%s" % label],
                           capture_output=True, text=True, timeout=60, check=False)
     print("autofix: labelled %s" % label if done.returncode == 0 else "autofix: could not label %s" % label)
+    return done.returncode == 0
 
 
 # ---- ADR-0015 points 8 and 10: the status comment. ONE comment of the Actions bot per pull request, edited in place. It
@@ -247,7 +248,7 @@ class StateTooLarge(Exception):
 
 
 def empty_state():
-    return {"v": 1, "sha": "", "run": "", "result": "", "attempts": {}, "pending": {}, "aborted": {}, "routes": {}, "fixer": "ACTIVE", "rows": []}
+    return {"v": 1, "sha": "", "run": "", "result": "", "attempts": {}, "pending": {}, "aborted": {}, "routes": {}, "fixer": "ACTIVE", "stopped": {}, "reset_at": 0, "rows": []}
 
 
 def used_heads(state, fid):
@@ -283,6 +284,10 @@ def clean_state(raw):
         if FINDING_ID.match(str(fid)) and isinstance(r, dict) and re.match(r"^[\w-]{1,40}$", str(r.get("code", ""))):
             state["routes"][str(fid)] = {"code": str(r["code"]), "why": str(r.get("why", ""))[:200]}
     state["fixer"] = str(raw.get("fixer", "ACTIVE"))[:200] or "ACTIVE"
+    stopped = raw.get("stopped")
+    if isinstance(stopped, dict) and stopped:
+        state["stopped"] = {"cause": str(stopped.get("cause", ""))[:200], "runs": int(stopped["runs"]) if str(stopped.get("runs", "")).isdigit() else 0}
+    state["reset_at"] = int(raw["reset_at"]) if str(raw.get("reset_at", "")).isdigit() and int(raw["reset_at"]) < 100000 else 0
     aborted = raw.get("aborted")
     for fid, heads in (aborted.items() if isinstance(aborted, dict) else []):
         if FINDING_ID.match(str(fid)) and isinstance(heads, dict):
@@ -418,22 +423,32 @@ def decide_pr(ctx, gh, repo, number, mode):
         return "refuse", "the ledger is for %s, not for the pull request head: the review is stale" % ledger["sha"][:12], None
     comment_id, prior = find_status(ctx, comments)
     state = dict(empty_state(), sha=head_sha if FULL_SHA.match(head_sha) else "", run=re.sub(r"\D", "", os.environ.get("RUN_ID", ""))[:20],
-                 attempts=prior["attempts"], pending=prior["pending"], aborted=prior["aborted"], routes=prior["routes"])
+                 attempts=prior["attempts"], pending=prior["pending"], aborted=prior["aborted"], routes=prior["routes"],
+                 stopped=prior["stopped"], reset_at=prior["reset_at"])
     entries = [f for f in ledger["findings"] if f["kind"] == "finding" and safe_id(f["id"])]
     # ---- the decision table (ADR-0015, owner 2026-11-15) ----
     # ROUTING is per finding: `fixer` or `owner` with a reason code, kept in the state (an owner route is never fixed again).
-    #   owner codes: critical, no-file, outside-repository, outside-allowlist, exhausted (2 attempts), aborts-cap.
+    #   owner codes: critical, no-file, outside-repository, outside-allowlist, exhausted (2 attempts). Aborted runs are per head, never a route.
     # needs-owner is INFORMATIONAL: set as soon as one open finding is routed to the owner, it never blocks.
     # autofix-stopped BLOCKS the whole pull request; set only by the PR-level fail-closed causes: 7 runs in total, a failed
     # record, pending entries of two dead runs, a state too large. decide refuses while it is there; only a human removes it.
-    if STOP_LABEL in label_names(info.get("labels")):
-        stop_cause = "the label %s is set (a human removes it: the fixer stays off until then)" % STOP_LABEL
-    elif len(pr_runs(state)) >= MAX_PR_RUNS:
-        stop_cause = "%d runs in total on this pull request (completed and aborted; remove the label %s to let the fixer continue)" % (MAX_PR_RUNS, STOP_LABEL)
+    restart = "removing the label %s restarts the fixer for %d more runs" % (STOP_LABEL, MAX_PR_RUNS)
+    label_set = STOP_LABEL in label_names(info.get("labels"))
+    if state["stopped"] and not label_set:
+        # A human removed the label: a real RESET. The dead pending entries are cleared and the run cap restarts from here.
+        state["pending"] = {}
+        state["reset_at"], state["stopped"] = len(pr_runs(state)), {}
+    runs_since_reset = len(pr_runs(state)) - state["reset_at"]
+    if label_set:
+        stop_cause = "the label %s is set; only a human removes it, and %s" % (STOP_LABEL, restart)
+    elif runs_since_reset >= MAX_PR_RUNS:
+        stop_cause = "%d runs in total on this pull request (completed and aborted); %s" % (MAX_PR_RUNS, restart)
     elif len({r for heads in state["pending"].values() for r in heads.values()}) >= 2:
-        stop_cause = "pending attempts of two runs that died (remove the label %s once the cause is known)" % STOP_LABEL
+        stop_cause = "pending attempts of two runs that died; %s" % restart
     else:
         stop_cause = ""
+    if stop_cause and not state["stopped"]:
+        state["stopped"] = {"cause": stop_cause[:200], "runs": len(pr_runs(state))}
     fix_ids, skip_why, rows = [], [], []
     for f in entries:
         fid = safe_id(f["id"])
@@ -454,14 +469,16 @@ def decide_pr(ctx, gh, repo, number, mode):
                 route = {"code": refusal[0], "why": refusal[1]}
             elif len(used) >= MAX_ATTEMPTS:
                 route = {"code": "exhausted", "why": "%d attempts already made" % MAX_ATTEMPTS}
-            elif len(state["aborted"].get(fid, {}).get(head_sha, [])) >= MAX_ABORT_SAME_HEAD:
-                route = {"code": "aborts-cap", "why": "%d aborted runs on this head (cancelled or infrastructure, none used an attempt)" % MAX_ABORT_SAME_HEAD}
             if route:
                 state["routes"][fid] = route
         if route:
             row.update(route="owner (%s)" % route["code"], state="NEEDS_OWNER", next=route["why"], who="owner")
         elif stop_cause:
             row.update(state="STOPPED", next="the fixer is stopped for this pull request; a human removes %s" % STOP_LABEL, who="owner")
+        elif len(state["aborted"].get(fid, {}).get(head_sha, [])) >= MAX_ABORT_SAME_HEAD:
+            # per HEAD, so never a persisted route: a new head tries again
+            row.update(state="SKIPPED (aborts)", next="%d aborted runs on this head (cancelled or infrastructure, none used an attempt): waits for a new push" % MAX_ABORT_SAME_HEAD, who="author")
+            skip_why.append("%s: %d aborted runs on this head" % (fid, MAX_ABORT_SAME_HEAD))
         elif head_sha in used:
             row.update(state="FAILED (attempt %d)" % len(used), next="waits for a new push: this head was already attempted", who="author")
             skip_why.append("%s already attempted on this head (run %s)" % (fid, used[head_sha]))
@@ -530,9 +547,10 @@ def cmd_pr():
     if verdict == "stop":
         # autofix-stopped BLOCKS the whole pull request; only a human removes it.
         print("autofix: STOPPED (%s)" % detail)
+        if writes and plan and not add_label(gh, repo, number, STOP_LABEL):
+            plan[0]["stopped"] = {}  # no label, no stop marker: a missing label would later read as a human reset
         show("STOPPED, " + detail)
         if writes:
-            add_label(gh, repo, number, STOP_LABEL)
             inform_owner()
         else:
             print("autofix: report mode, nothing written")
@@ -595,6 +613,8 @@ def cmd_record():
         return noop("REPO, PR_NUMBER, RUN_ID, HEAD_SHA and FINDINGS are required", "NOT RUN")
     fix_result, outcome, push = (os.environ.get(k, "") for k in ("FIX_RESULT", "OUTCOME", "PUSH"))
     pushed = fix_result == "success" and outcome == "fixed" and push == "pushed"
+    refused = {p for p in os.environ.get("REFUSED", "").split(",") if re.match(r"^[\w./-]{1,200}$", p)}
+    fixer_owner = {i for i in (safe_id(x) for x in os.environ.get("OWNER_IDS", "").split(",")) if i} & set(ids)
     no_token = os.environ.get("PREFLIGHT_TOKEN") == "false"
     try:
         ctx = load_context_module()
@@ -608,6 +628,18 @@ def cmd_record():
                 consumed, kind, why = False, "SUPERSEDED", "the head moved while the fixer ran"
         comment_id, state = find_status(ctx, ctx.gh_api(gh, "repos/%s/issues/%s/comments" % (repo, number)))
         rows = {r["id"]: r for r in state["rows"]}
+        # Routing to the owner is per finding: the ids the guard's refusal concerns (by the file of their row), or the ids the
+        # fixer answered OWNER for. A refusal or an answer that names none concerns the whole run, and the row says so.
+        to_owner, blanket = set(fixer_owner), ""
+        if consumed and kind == "NEEDS_OWNER":
+            if outcome == "fixed":
+                hit = {r["id"] for r in state["rows"] if r["id"] in ids and r["where"].rsplit(":", 1)[0] in refused}
+                if refused and hit:
+                    to_owner |= hit
+                else:
+                    to_owner, blanket = set(ids), "the refusal names no finding's file: every finding of the run goes to the owner"
+            elif not fixer_owner:
+                to_owner, blanket = set(ids), "the fixer named no finding: every finding of the run goes to the owner"
         for fid in ids:
             used = state["attempts"].setdefault(fid, {})
             state["pending"].get(fid, {}).pop(head_sha, None)  # settled below: an attempt, an abort, or nothing (no token)
@@ -637,12 +669,12 @@ def cmd_record():
                            next="the next review decides again", who="pipeline")
                 continue
             fact = "attempt %d: run %s on %s, %s" % (n, run_id, head_sha[:12], why)
-            if kind == "PUSHED":
+            if fid in to_owner:
+                code = "guard-refused" if outcome == "fixed" and kind == "NEEDS_OWNER" else "fixer-owner"
+                state["routes"][fid] = {"code": code, "why": blanket or why}
+                row.update(route="owner (%s)" % code, state="NEEDS_OWNER", fact=fact, next=blanket or "the owner decides", who="owner")
+            elif kind == "PUSHED":
                 row.update(state="PUSHED (attempt %d)" % n, fact=fact, next="the review and CI run again on the new head", who="pipeline")
-            elif kind == "NEEDS_OWNER":
-                code = "guard-refused" if outcome == "fixed" else "fixer-owner"
-                state["routes"][fid] = {"code": code, "why": why}
-                row.update(route="owner (%s)" % code, state="NEEDS_OWNER", fact=fact, next="the owner decides", who="owner")
             elif n >= MAX_ATTEMPTS:
                 state["routes"][fid] = {"code": "exhausted", "why": "%d attempts already made" % MAX_ATTEMPTS}
                 row.update(route="owner (exhausted)", state="NEEDS_OWNER", fact=fact, next="%d attempts used: the owner decides" % MAX_ATTEMPTS, who="owner")
@@ -839,7 +871,7 @@ def forbidden(path):
 # 2. A NEW file (and any added line, test or not) gets a LEXICAL scan: skip-like tokens, coverage exclusions and a timeout
 #    option. Best effort: it cannot prove a new test is a strong one. Markdown is documentation, never scanned.
 LOCKED_PATH = re.compile(r"_test\.go$|\.(?:test|spec)\.[cm]?[jt]sx?$|\.(?:golden|snap)$|^scripts/tests/"
-                         r"|(?:^|/)(?:__tests__|__snapshots__|e2e|tests?|testdata|testutil|fixtures?|mocks?|pgtest|aistest|smtptest)/")
+                         r"|(?:^|/)(?:__tests__|__snapshots__|e2e|tests?|testdata|testutil|fixtures?|mocks?|pgtest|aistest|smtptest)/|^src/api/internal/(?:[\w.-]+/)*[\w.-]+test/")
 SKIP_ADDED = re.compile(r"\b(?:it|test|describe|context|suite)\s*\.\s*(?:skip(?:If)?|only|fixme|todo|fails)\b|\b(?:xit|xdescribe|xtest)\s*\("
                         r"|\.Skip(?:f|Now)?\s*\(|\bpytest\.(?:mark\.)?(?:skip|xfail)\b|\bnolint\b|eslint-disable|@ts-ignore|@ts-expect-error"
                         r"|//\s*go:build\s+ignore|//\s*\+build\s+ignore")
@@ -869,43 +901,53 @@ def diff_lines(text):
     return added
 
 
-def weakening(git, worktree, base, entries):
-    """None, or the reason a diff makes a test or a gate weaker (ADR-0015 point 4). `entries` are (status, path)."""
-    for status, path in entries:
-        if not path:
-            continue
-        if path.rsplit("/", 1)[-1] == ".gitattributes":
-            return "test weakening refused: %s (a .gitattributes change can hide a diff from this guard)" % path
-        if status != "A" and LOCKED_PATH.search(path):
-            return "test weakening refused: %s changes, deletes or renames an existing test or fixture (read-only for the fixer: it may only add test files)" % path
-        if path.endswith(".md"):
-            continue
-        text = git_out(git, worktree, "diff", "-U0", "--no-color", "--no-ext-diff", "--no-textconv", "--no-renames", base, "HEAD", "--", ":(literal)" + path)
-        added = diff_lines(text)
-        if path.endswith(".go"):
-            joined = re.sub(r"\s+", "", "\n".join(added))
-            if not path.endswith("_test.go") and "testing.Testing(" in joined:
-                return "test weakening refused: %s adds testing.Testing() (production code that detects the test run)" % path
-            if re.search(r"funcinit\(\)\{[^}]*os\.Exit\(", joined):
-                return "test weakening refused: %s adds os.Exit( inside func init() (it ends the process, tests included)" % path
-        m = SKIP_JOINED.search(re.sub(r"\s+", "", "\n".join(added)))
+REFUSED = []  # the paths the last refusal concerns, for the record step (a refusal that names none concerns the whole run)
+
+
+def weakening_of(git, worktree, base, status, path):
+    """None, or the reason ONE changed file makes a test or a gate weaker (ADR-0015 point 4)."""
+    if path.rsplit("/", 1)[-1] == ".gitattributes":
+        return "test weakening refused: %s (a .gitattributes change can hide a diff from this guard)" % path
+    if status != "A" and LOCKED_PATH.search(path):
+        return "test weakening refused: %s changes, deletes or renames an existing test or fixture (read-only for the fixer: it may only add test files)" % path
+    if path.endswith(".md"):
+        return None
+    text = git_out(git, worktree, "diff", "-U0", "--no-color", "--no-ext-diff", "--no-textconv", "--no-renames", base, "HEAD", "--", ":(literal)" + path)
+    added = diff_lines(text)
+    if path.endswith(".go"):
+        joined = re.sub(r"\s+", "", "\n".join(added))
+        if not path.endswith("_test.go") and "testing.Testing(" in joined:
+            return "test weakening refused: %s adds testing.Testing() (production code that detects the test run)" % path
+        if re.search(r"funcinit\(\)\{[^}]*os\.Exit\(", joined):
+            return "test weakening refused: %s adds os.Exit( inside func init() (it ends the process, tests included)" % path
+    m = SKIP_JOINED.search(re.sub(r"\s+", "", "\n".join(added)))
+    if m:
+        return "test weakening refused: %s adds `%s` (also when split over lines)" % (path, m.group(0))
+    for line in added:
+        if path.endswith(".go") and BUILD_ADDED.search(line):
+            return "test weakening refused: %s adds a build constraint (`%s`): it can leave a file out of the build" % (path, line.strip())
+        m = DISABLE_ADDED.search(line) if LOCKED_PATH.search(path) else None
         if m:
-            return "test weakening refused: %s adds `%s` (also when split over lines)" % (path, m.group(0))
-        for line in added:
-            if path.endswith(".go") and BUILD_ADDED.search(line):
-                return "test weakening refused: %s adds a build constraint (`%s`): it can leave a file out of the build" % (path, line.strip())
-            m = DISABLE_ADDED.search(line) if LOCKED_PATH.search(path) else None
-            if m:
-                return "test weakening refused: %s adds `%s`, which can switch tests off or replace the assertion library" % (path, m.group(0).strip())
-            m = SKIP_ADDED.search(line)
-            if m:
-                return "test weakening refused: %s adds `%s`" % (path, m.group(0).strip())
-            m = COVERAGE_ADDED.search(line)
-            if m:
-                return "test weakening refused: %s adds a coverage exclusion (`%s`)" % (path, m.group(0).strip())
-            m = TIMEOUT_ADDED.search(line) if (LOCKED_PATH.search(path) or TEST_CONFIG.search(path)) else None
-            if m:
-                return "test weakening refused: %s sets a timeout (`%s`)" % (path, m.group(0).strip())
+            return "test weakening refused: %s adds `%s`, which can switch tests off or replace the assertion library" % (path, m.group(0).strip())
+        m = SKIP_ADDED.search(line)
+        if m:
+            return "test weakening refused: %s adds `%s`" % (path, m.group(0).strip())
+        m = COVERAGE_ADDED.search(line)
+        if m:
+            return "test weakening refused: %s adds a coverage exclusion (`%s`)" % (path, m.group(0).strip())
+        m = TIMEOUT_ADDED.search(line) if (LOCKED_PATH.search(path) or TEST_CONFIG.search(path)) else None
+        if m:
+            return "test weakening refused: %s sets a timeout (`%s`)" % (path, m.group(0).strip())
+    return None
+
+
+def weakening(git, worktree, base, entries):
+    """None, or the first reason a diff makes a test or a gate weaker; the file it concerns goes to REFUSED."""
+    for status, path in entries:
+        reason = weakening_of(git, worktree, base, status, path) if path else None
+        if reason:
+            REFUSED.append(path)
+            return reason
     return None
 
 
@@ -949,6 +991,7 @@ def check_commits(git, worktree, base, name, email):
             return "a binary change: %s" % entry[4:]
     bad = [p for p in paths if p and forbidden(p)]
     if bad:
+        REFUSED.extend(bad)
         return "owner paths changed: %s" % ", ".join(bad[:10])
     generated = [p for p in paths if DBGEN_GENERATED.match(p)]
     if generated and not any(p.startswith("db/queries/") for p in paths):
@@ -968,6 +1011,10 @@ def cmd_check():
         reason = "git could not be read (%s)" % exc
     if reason:
         print("autofix check: FAILED (%s)" % reason)
+        # The files the refusal concerns (plain path characters only), so `record` can route only their findings to the owner.
+        safe = sorted({p for p in REFUSED if re.match(r"^[\w./-]{1,200}$", p)})[:20]
+        if safe and len(safe) == len(set(REFUSED)):
+            emit(refused=",".join(safe))
         return 1
     count = git_out(git, worktree, "rev-list", "--count", "%s..HEAD" % base).strip()
     print("autofix check: PASS (%s commit(s), human identity, no owner path, no test weakening)" % count)

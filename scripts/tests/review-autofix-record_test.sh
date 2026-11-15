@@ -153,7 +153,7 @@ record FAKE_GH_FAIL_WRITE=comments
 [ "$rc" -ne 0 ] && grep -q 'labels\[\]=autofix-stopped' "$tmp/st/log" && grep -q 'FAILED' <<<"$out" && ok "a pushed patch whose status cannot be written: FAILED, exit 1, autofix-stopped" || ko "pushed write failure (rc=$rc $out / $(cat "$tmp/st/log"))"
 fresh
 record FAKE_GH_FAIL_WRITE=comments OUTCOME=nothing PUSH=
-[ "$rc" -ne 0 ] && grep -q 'labels\[\]=autofix-stopped' "$tmp/st/log" && grep -q 'FAILED' <<<"$out" && ok "no patch pushed: a write failure still fails closed (an abort or an attempt would be lost): FAILED, exit 1, needs-owner" || ko "nothing write failure (rc=$rc $out)"
+[ "$rc" -ne 0 ] && grep -q 'labels\[\]=autofix-stopped' "$tmp/st/log" && grep -q 'FAILED' <<<"$out" && ok "no patch pushed: a write failure still fails closed (an abort or an attempt would be lost): FAILED, exit 1, autofix-stopped" || ko "nothing write failure (rc=$rc $out)"
 # A state too large to keep is never truncated: fail closed after a push.
 python3 -I - "$tmp/st/comments.json" <<'EOT'
 import json, sys
@@ -164,6 +164,29 @@ json.dump([{"id": 55, "user": {"login": "github-actions[bot]", "type": "Bot"}, "
 EOT
 record
 [ "$rc" -ne 0 ] && grep -qi 'too large' <<<"$out" && grep -q 'labels\[\]=autofix-stopped' "$tmp/st/log" && ok "a state too large to keep fails closed after a push (autofix-stopped), never truncated" || ko "large state (rc=$rc $out)"
+
+# ---- routing to the owner is per finding: only the findings the guard or the fixer names ----
+ROWS2='[{"id":"f1","where":"src/a.go:3","class":"prose","route":"fixer","state":"READY","fact":"","next":"","who":""},{"id":"f2","where":"src/b.go:9","class":"prose","route":"fixer","state":"READY","fact":"","next":"","who":""}]'
+two() { status '{"v":1,"sha":"'$HEAD'","run":"90","attempts":{},"rows":'"$ROWS2"'}'; pr_head "$HEAD"; }
+routes_of() { python3 -I -c '
+import json, re, sys
+st = json.loads(re.search(r"<!-- autofix-state (\{.*?\}) -->", open(sys.argv[1]).read(), re.S).group(1))
+print(",".join(sorted("%s:%s" % (k, v["code"]) for k, v in st["routes"].items())), "|", ",".join(sorted(st["attempts"])))' "$tmp/st/body-last"; }
+two
+record FINDINGS=f1,f2 PUSH=owner REFUSED=src/b.go
+[ "$(routes_of)" = "f2:guard-refused | f1,f2" ] && grep -q '| f1 | .*FAILED (attempt 1)' <<<"$body" && grep -q '| f2 | .*owner (guard-refused)' <<<"$body" && ok "a guard refusal caused by f2's file: f2 goes to the owner, f1 consumed an attempt and is retried on the next head" || ko "guard attribution ($(routes_of) $body)"
+two
+record FINDINGS=f1,f2 PUSH=owner REFUSED=docs/elsewhere.go
+[ "$(routes_of)" = "f1:guard-refused,f2:guard-refused | f1,f2" ] && grep -qi 'names no finding' <<<"$out$body" && ok "a refusal that names no finding's file: every finding of the run goes to the owner, and it is said" || ko "unattributable ($(routes_of) $out)"
+two
+record FINDINGS=f1,f2 PUSH=owner
+[ "$(routes_of)" = "f1:guard-refused,f2:guard-refused | f1,f2" ] && ok "a refusal with no path (identity, link...): all ids to the owner" || ko "no path ($(routes_of))"
+two
+record FINDINGS=f1,f2 OWNER_IDS=f1
+[ "$(routes_of)" = "f1:fixer-owner | f1,f2" ] && grep -q '| f1 | .*owner (fixer-owner)' <<<"$body" && grep -q '| f2 | .*PUSHED' <<<"$body" && ok "the fixer answered OWNER for f1 and FIXED f2: f1 goes to the owner, f2 is pushed" || ko "fixer owner ids ($(routes_of) $body)"
+two
+record FINDINGS=f1,f2 OUTCOME=owner PUSH= OWNER_IDS=f2
+[ "$(routes_of)" = "f2:fixer-owner | f1,f2" ] && grep -q '| f1 | .*FAILED' <<<"$body" && ok "fixer outcome owner naming f2: only f2 goes to the owner" || ko "outcome owner ids ($(routes_of) $body)"
 
 # ---- pending attempts (written by decide before the fixer) are settled here ----
 status '{"v":1,"sha":"'$HEAD'","run":"90","pending":{"f1":{"'$HEAD'":"31"}},"attempts":{},"rows":'"$ROWS"'}'; pr_head "$HEAD"
@@ -226,6 +249,8 @@ assert "environment: review-agent" in pre and "secrets.REVIEW_AGENT_TOKEN" in pr
 fix = s[s.index("\n  fix:"):s.index("\n  publish:")]
 assert "preflight" in fix.split("steps:")[0] and "needs.preflight.outputs.token == 'true'" in fix.split("steps:")[0]
 assert "REVIEW_AGENT_TOKEN" not in fix
+assert "REFUSED: ${{ needs.publish.outputs.refused }}" in label and "OWNER_IDS: ${{ needs.fix.outputs.owners }}" in label
+assert "refused: ${{ steps.push.outputs.refused }}" in s and "owners: ${{ steps.patch.outputs.owners }}" in s
 assert "needs.preflight.outputs.token == 'true'" not in label.split("steps:")[0], "the end job must also run when the token is missing, to say NOT RUN"
 assert "PREFLIGHT_TOKEN: ${{ needs.preflight.outputs.token }}" in label
 assert "give the attempt back" not in label.lower() and "DELETE" not in label, "no attempt is written before the run, so none is given back"

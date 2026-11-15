@@ -258,15 +258,56 @@ status '{"attempts":{"f1":{"'$OLD2'":"41","'$OLD'":"42"}}}'
 run pr AUTO_FIX=on
 grep -q 'attempt 2: run 42 on 444444444444' <<<"$(cat "$tmp/st/body-last")" && ok "status: the last fact is the newest attempt, in recorded order" || ko "last fact order ($(cat "$tmp/st/body-last"))"
 
-# Aborted runs consume no attempt but are bounded: 2 on one head, or 4 in all, send the finding to the owner.
+# Aborted runs consume no attempt but are bounded PER HEAD: 2 on one head skip the finding on that head, never persisted as a route.
 ledger "f1:finding:MEDIUM:open"
 status '{"aborted":{"f1":{"'$HEAD'":["1","2"]}}}'
 run pr
-grep -qx 'run=false' <<<"$outputs" && grep -q 'labels\[\]=needs-owner' "$tmp/st/log" && grep -qi 'aborted' <<<"$out" && ok "two aborted runs on this head send the finding to the owner, with the reason" || ko "aborted same head ($out)"
+grep -qx 'run=false' <<<"$outputs" && grep -qi 'aborted' <<<"$out" && ! grep -q 'labels\[\]=needs-owner' "$tmp/st/log" && ok "two aborted runs on this head: the finding is skipped on this head (not sent to the owner), with the reason" || ko "aborted same head ($out)"
+python3 -I - "$tmp/st/body-last" <<'EOT'
+import json, re, sys
+st = json.loads(re.search(r"<!-- autofix-state (\{.*?\}) -->", open(sys.argv[1]).read(), re.S).group(1))
+assert st["routes"] == {}, st
+EOT
+[ $? -eq 0 ] && ok "the aborts of one head are never persisted as an owner route" || ko "aborts route persisted"
+status '{"aborted":{"f1":{"'$OLD'":["1","2"]}}}'
+run pr
+grep -qx 'run=true' <<<"$outputs" && grep -qx 'attempt=1' <<<"$outputs" && ok "two aborts on head A, a new head B: the finding is fixed again with 0 attempts used" || ko "aborts on another head ($out)"
 status '{"aborted":{"f1":{"'$HEAD'":["1"],"'$OLD'":["2"]}}}'
 run pr
 grep -qx 'run=true' <<<"$outputs" && ok "one abort here and one on an older head: still fixed" || ko "aborted below the cap ($out)"
 
+
+# A human who removes autofix-stopped RESETS the run cap: 7 more runs from that point; the dead pending entries are cleared.
+many() { python3 -I - "$1" <<'EOT'
+import json, sys
+n = int(sys.argv[1]); a = {}
+for i in range(n):
+    f = "g%d" % (i // 2)
+    a.setdefault(f, {})["%040x" % (0xabc0000 + i)] = "%d" % (700 + i)
+print(json.dumps(a))
+EOT
+}
+ledger "f1:finding:MEDIUM:open"
+status '{"attempts":'"$(many 7)"',"pending":{"gx":{"'$OLD'":"31"}},"stopped":{"cause":"7 runs","runs":7}}'
+pr ""
+run pr
+python3 -I - "$tmp/st/body-last" <<'EOT'
+import json, re, sys
+st = json.loads(re.search(r"<!-- autofix-state (\{.*?\}) -->", open(sys.argv[1]).read(), re.S).group(1))
+assert "gx" not in st["pending"] and st["reset_at"] == 7 and not st["stopped"], st
+EOT
+grep -qx 'run=true' <<<"$outputs" && [ $? -eq 0 ] && ok "stopped at 7, label removed by a human: the next run fixes, the cap restarts at 7 and the dead pending entries are cleared" || ko "reset ($out / $outputs)"
+status '{"attempts":'"$(many 14)"',"reset_at":7}'
+run pr
+grep -qx 'run=false' <<<"$outputs" && grep -q 'labels\[\]=autofix-stopped' "$tmp/st/log" && grep -q '7 runs' <<<"$out" && ok "7 more runs after the reset stop the fixer again" || ko "second stop ($out)"
+status '{"attempts":'"$(many 13)"',"reset_at":7}'
+run pr
+grep -qx 'run=true' <<<"$outputs" && ok "6 runs after the reset: still allowed" || ko "below second cap ($out)"
+grep -q 'removing the label' <<<"$(cat "$tmp/st/body-last")" || true
+ledger "f1:finding:MEDIUM:open"
+status '{"attempts":'"$(many 7)"'}'
+run pr
+grep -q 'restarts the fixer for 7 more runs' <<<"$(cat "$tmp/st/body-last")" && ok "status: removing the label restarts the fixer for 7 more runs (said in the reason and the next action)" || ko "status reset text ($(cat "$tmp/st/body-last"))"
 
 # Per finding: an exhausted finding goes to the owner, the others are still fixed.
 ledger "f1:finding:MEDIUM:open f2:finding:LOW:open"
@@ -706,6 +747,17 @@ printf 'func more() bool { return testing.Testing() }\n' >>"$w5/src/plain.go"; g
 check5
 [ "$rc" -ne 0 ] && grep -q "testing.Testing" <<<"$out" && ok "weakening guard: testing.Testing() added to an existing Go file is refused" || ko "Testing in edit (rc=$rc $out)"
 reset5
+# A test-helper package added later under src/api/internal (clocktest/) is locked by its name, wherever it is there.
+mkdir -p "$w5/src/api/internal/platform/clocktest"; printf 'package clocktest\n' >"$w5/src/api/internal/platform/clocktest/c.go"; g5 add -A; g5 commit -qm base3; base5="$(git -C "$w5" rev-parse HEAD)"
+printf 'func more() {}\n' >>"$w5/src/api/internal/platform/clocktest/c.go"; g5 add -A; g5 commit -qm "fix: clocktest"
+check5
+[ "$rc" -ne 0 ] && grep -qi "existing test or fixture" <<<"$out" && ok "locked paths: a helper package named *test under src/api/internal (clocktest/) is locked" || ko "clocktest (rc=$rc $out)"
+git -C "$w5" reset -q --hard "$base5"
+# The refusal names the files it concerns, for the status comment (so only the finding of that file goes to the owner).
+printf 'x\n' >>"$w5/src/api/internal/platform/clocktest/c.go"; g5 add -A; g5 commit -qm "fix: x"
+check5
+grep -q '^output: refused=src/api/internal/platform/clocktest/c.go$' <<<"$out" && ok "check: a refusal emits the refused paths (output refused=) for the record step" || ko "refused output ($out)"
+git -C "$w5" reset -q --hard "$base5"
 # Only the real test directories are locked: a directory merely ENDING in test is an ordinary directory.
 mkdir -p "$w5/src/contest"; printf 'package contest\n' >"$w5/src/contest/c.go"; g5 add -A; g5 commit -qm base2; base5="$(git -C "$w5" rev-parse HEAD)"
 printf 'func more() {}\n' >>"$w5/src/contest/c.go"; g5 add -A; g5 commit -qm "fix: contest"
