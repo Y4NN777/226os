@@ -1,6 +1,7 @@
 import { Button } from '@astryxdesign/core/Button';
 import { Icon } from '@astryxdesign/core/Icon';
 import { Link } from '@astryxdesign/core/Link';
+import { Text } from '@astryxdesign/core/Text';
 import { useParams } from '@tanstack/react-router';
 import { useId } from 'react';
 import { useSession } from '../../app/session';
@@ -82,11 +83,13 @@ function Hero({ profile, isOwn }: { profile: PublicProfile; isOwn: boolean }) {
             />
           ) : undefined
         }
-        lead={
-          // A visitor sees why the page is bare; the member sees the checklist instead.
-          isEmpty && !isOwn ? t('profile.empty', { name: profile.display_name }) : undefined
-        }
       >
+        {/* A visitor sees why the page is bare; the member sees the checklist instead. */}
+        {isEmpty && !isOwn ? (
+          <Text as="p" type="supporting">
+            {t('profile.empty', { name: profile.display_name })}
+          </Text>
+        ) : null}
         {profile.bio ? <p>{profile.bio}</p> : null}
         {profile.skills && profile.skills.length > 0 ? <TagList tags={profile.skills} /> : null}
         {profile.open_to_collab || githubUrl ? (

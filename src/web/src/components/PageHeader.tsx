@@ -25,7 +25,7 @@ export interface PageHeaderProps {
   subtitle?: ReactNode;
   /** Pills and facts under the title (state, author, dates). */
   meta?: ReactNode;
-  /** More header content after the lead (skills, links). */
+  /** More header content (skills, links): after the lead, or in the title column beside `media`. */
   children?: ReactNode;
 }
 
@@ -71,6 +71,8 @@ export function PageHeader({
               {titleLang ? <div lang={titleLang}>{heading}</div> : heading}
               {subtitle ? <p className="ui-page-header-subtitle">{subtitle}</p> : null}
               {meta ? <div className="ui-page-header-meta">{meta}</div> : null}
+              {/* Beside a tile or avatar, extra content lines up with the title (profile hero). */}
+              {media ? children : null}
             </div>
           </div>
         ) : titleLang ? (
@@ -85,7 +87,7 @@ export function PageHeader({
           {lead}
         </Text>
       ) : null}
-      {children}
+      {media ? null : children}
     </header>
   );
 }
