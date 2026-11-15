@@ -36,7 +36,7 @@ func TestLoadGitHubImport(t *testing.T) {
 func TestLoadCarriesGitHubImport(t *testing.T) {
 	env := map[string]string{
 		"APP_ENV": "staging-test", "DATABASE_URL": "postgres://u@h/db",
-		"CURSOR_KEY": "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY", "SMTP_HOST": "", "APP_BASE_URL": "https://staging.example",
+		"CURSOR_KEY": keyURL, "SMTP_HOST": "", "APP_BASE_URL": "https://staging.example",
 	}
 	cfg, err := config.Load(func(k string) string { return env[k] })
 	if err != nil || !cfg.GitHubImport {
