@@ -551,6 +551,7 @@ Open owner items outside CADEV (IDs and decisions in ROADMAP section 8, 10 and 1
 
 - [ ] `develop` SHA frozen at Sat 18:00. `make quality-full` run on it, with its result (G1 to G6).
   - 2026-11-15 (`Y4NN777`): the freeze moved to Sat 22:00 GMT (ROADMAP section 1 and section 14); merges after it (#215, #229) are recorded in the Done log.
+  - 2026-11-15 (CI fixer, batch 334): `phase-doc-sync` fixed: the freeze moved to Sun 15 Nov 12:00 GMT at the latest (owner decision 2026-11-15, ROADMAP section 14 and `docs/quality/REVIEW_CONTEXT.md`); the Sat 22:00 line above is superseded.
 - [ ] `staging-test` deployed from that SHA by digest (`make build`, then `make up-staging-test`); DNS resolves for `226os.tech` and the staging subdomain first (H7).
 - [ ] Staging smoke per `docs/SHIP.md` section 4: HTTPS, `/healthz` at the edge, `/readyz` inside the container (B2), auth, Q&A, vote, search, resource, project, application, anonymous reads, denied mutations, FR/EN, mobile, no secrets in logs.
 - [ ] Spoofed `X-Forwarded-For` through the real Traefik on `staging-test` (#117, `Y4NN777`): an anonymous search with a forged leading entry must still be keyed on the real client network (`httpx.ClientIPKey`). Traefik pins `forwardedHeaders.insecure=false` on every entrypoint and trusts no upstream proxy (`scripts/verify-containers.sh` enforces it, 2026-11-13, `chore/ops/traefik-forwarded-headers`); a CDN in front would need a reviewed `trustedIPs`.
