@@ -127,31 +127,23 @@ done
 grep -qx 'PUBLIC_HOST=staging.226os.tech' "$root/deploy/staging.conf" && grep -qx 'PUBLIC_HOST=226os.tech' "$root/deploy/production.conf" && ok "the public hosts are the ones of the encrypted files" || ko "public hosts"
 
 # deploy.yml: the settings come from the file, only two secrets remain, no fallback to the old sources.
-for pat in 'vars\.DEPLOY_HOST' 'vars\.DEPLOY_USER' 'vars\.PUBLIC_HOST' 'secrets\.DEPLOY_KNOWN_HOSTS' 'secrets\.E2E_USER' 'secrets\.E2E_PASSWORD'; do
+for pat in 'vars\.DEPLOY_HOST' 'vars\.DEPLOY_USER' 'vars\.PUBLIC_HOST' 'secrets\.DEPLOY_KNOWN_HOSTS'; do
   ! grep -qE "$pat" "$wf" && ok "deploy.yml no longer references $pat" || ko "deploy.yml still references $pat"
 done
 ! grep -qE 'vars\.' "$wf" && ok "deploy.yml reads no repository or environment variable" || ko "deploy.yml reads a variable"
 mapfile -t secs < <(grep -oE 'secrets\.[A-Z0-9_]+' "$wf" | sort -u)
-[ "${secs[*]}" = "secrets.DEPLOY_SSH_KEY secrets.SOPS_AGE_KEY" ] && ok "deploy.yml reads exactly two secrets: DEPLOY_SSH_KEY and SOPS_AGE_KEY" || ko "secrets read: ${secs[*]}"
+[ "${secs[*]}" = "secrets.DEPLOY_SSH_KEY secrets.E2E_PASSWORD secrets.E2E_USER secrets.SOPS_AGE_KEY" ] && ok "deploy.yml reads four secrets: DEPLOY_SSH_KEY and SOPS_AGE_KEY (deploy), E2E_USER and E2E_PASSWORD (e2e job, own environment)" || ko "secrets read: ${secs[*]}"
 grep -q 'scripts/deploy-conf.sh' "$wf" && ok "deploy.yml reads the settings with scripts/deploy-conf.sh" || ko "deploy-conf.sh not used"
 grep -q 'StrictHostKeyChecking=yes' "$wf" && ! grep -q 'StrictHostKeyChecking=no' "$wf" && ok "host key checking stays strict" || ko "host key checking"
-grep -q 'scripts/e2e-env.sh' "$wf" && ok "the e2e job reads the account from the sops file" || ko "e2e-env.sh not used"
+grep -q 'scripts/e2e-env.sh' "$wf" && ok "the e2e job checks and masks the account with scripts/e2e-env.sh" || ko "e2e-env.sh not used"
 # The settings step must come after the checkout of the commit to deploy (the file is read from that commit).
 co="$(grep -n 'Check out the commit to deploy' "$wf" | head -1 | cut -d: -f1)"
 st="$(grep -n 'scripts/deploy-conf.sh' "$wf" | head -1 | cut -d: -f1)"
 [ -n "$co" ] && [ -n "$st" ] && [ "$st" -gt "$co" ] && ok "the settings are read after the checkout of the commit to deploy" || ko "order checkout/settings ($co/$st)"
 
-# The E2E account is read in the step that runs the suite: no GITHUB_ENV for it, no second approval (no e2e job
-# with an environment), the promote job needs only the deploy job.
+# The E2E account lives in its own environment (staging-e2e) and job: see e2e-ci-config_test.sh for the layout checks
+# (no deploy secret in the e2e job, no npm code in the deploy job, promote needs e2e).
 ! grep -qE 'GITHUB_ENV' <(grep -B2 -A12 'e2e-env.sh' "$wf") && ok "the E2E account is not written to GITHUB_ENV" || ko "E2E account in GITHUB_ENV"
-[ "$(grep -c '^    environment:' "$wf")" -eq 1 ] && ok "only the deploy job has an environment (one approval per deploy)" || ko "more than one job with an environment"
-! grep -qE '^  e2e:' "$wf" && grep -q 'e2e_ran' "$wf" && ! grep -q 'needs.e2e' "$wf" && ok "E2E runs inside the deploy job and promote needs the deploy job only" || ko "e2e job layout"
-grep -q -- '--masks' "$wf" && ok "the E2E values are masked before use" || ko "no masking"
-
-# The deploy secrets leave the runner before any npm code runs (a dependency install script or the E2E code must not
-# reach the SSH key, the deploy-ssh wrapper or the decrypted env).
-wipe="$(grep -n 'name: Wipe the deploy secrets' "$wf" | head -1 | cut -d: -f1 || true)"
-inst="$(grep -n 'name: Install from the lockfile' "$wf" | head -1 | cut -d: -f1 || true)"
-[ -n "$wipe" ] && [ -n "$inst" ] && [ "$wipe" -lt "$inst" ] && sed -n "${wipe},$((wipe+6))p" "$wf" | grep -q 'RUNNER_TEMP/ssh' && sed -n "${wipe},$((wipe+6))p" "$wf" | grep -q 'RUNNER_TEMP/bin/deploy-ssh' && sed -n "${wipe},$((wipe+6))p" "$wf" | grep -q 'DEPLOY_TMP' && ok "the SSH key, deploy-ssh and the decrypted env are wiped before pnpm install" || ko "deploy secrets still on the runner when npm code runs (wipe=$wipe install=$inst)"
+[ "$(grep -c '^    environment:' "$wf")" -eq 2 ] && ok "two jobs have an environment: deploy (one approval per deploy) and e2e (staging-e2e, no reviewer)" || ko "environments"
 
 finish
