@@ -21,6 +21,9 @@
 #   `check`, then the push and the pull request with REVIEW_AGENT_TOKEN from the environment `review-agent`, the only
 #   job of this workflow that reads it (ADR-0013 lists the three); every commit carries a `Review-Pipeline:` trailer; with GITHUB_TOKEN no CI would run on the pull request).
 #   The pull request then goes through review, deep review and auto-merge like any other.
+#   No commit (outcome "nothing"): `publish` applies the verdicts itself (review-autofix.py `nothing`, GITHUB_TOKEN with
+#   issues: write and pull-requests: read): the same rules as settle, one table comment on the batch issue, the items with a
+#   verdict ticked and the batch closed (marker batch-handled); those items stay out of new batches until they change.
 #   Same switch as stage 3: AUTO_FIX = off | report (default) | on; without the token, "autofix: NOT RUN
 #   (REVIEW_AGENT_TOKEN missing)". The prompt carries the repository, the issue number and the item keys only.
 # No job is a required check, so none blocks a merge. The script fails CLOSED: a GitHub error makes the run
@@ -350,10 +353,14 @@ jobs:
     if: always() && needs.plan.outputs.run == 'true' && needs.fix.outputs.outcome != ''
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # issues: write and pull-requests: read (GITHUB_TOKEN) are for the no-commit path only: its verdicts are posted on the
+    # batch issue and the sources, and a FIXED ELSEWHERE is checked against the named pull request.
     permissions:
       contents: read
+      issues: write
+      pull-requests: read
     steps:
-      # Checked out, never executed: no make, no npm; the only script is the guard, copied before the patch applies.
+      # Checked out, never executed: no make, no npm; the only scripts are the trusted ones, copied before the patch applies.
       - name: Checkout develop at the planned commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -367,6 +374,32 @@ jobs:
         with:
           name: batch-fix
           path: ${{ runner.temp }}/batch-fix
+
+      # No commit (outcome "nothing", run 43633446506 on #226): without this, no pull request settles anything and the
+      # frozen batch never ends. The verdicts are applied like `findings.py settle` does on a merged batch pull request (the
+      # batch issue's own items only; FIXED ELSEWHERE closes only on a merged pull request; NOT A DEFECT, DECIDED, OWNER and
+      # AFTER FREEZE comment; FIXED without a commit is OWNER), one table comment goes on the batch issue, and the batch
+      # closes so the next run moves on. The three scripts are git objects of the planned develop commit; GITHUB_TOKEN only.
+      - name: Apply the verdicts when the fixer made no commit (trusted)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE: ${{ needs.plan.outputs.issue }}
+          ITEMS: ${{ needs.plan.outputs.items }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          dir="$RUNNER_TEMP/batch-fix"
+          if [ -n "$(find "$dir/patches" -type f 2>/dev/null | head -n 1)" ]; then
+            echo "autofix nothing: the fixer made commits: its verdicts settle when the batch pull request is merged" | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          base_sha="$(git -C work rev-parse HEAD)"
+          mkdir -p "$RUNNER_TEMP/trusted"
+          for module in review-autofix findings review-context; do
+            git -C work cat-file blob "$base_sha:scripts/$module.py" >"$RUNNER_TEMP/trusted/$module.py"
+          done
+          RESULT_JSON="$(head -c 200000 "$dir/result.json" 2>/dev/null || true)" python3 -I "$RUNNER_TEMP/trusted/review-autofix.py" nothing \
+            | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Apply, check, push and open the pull request
         env:

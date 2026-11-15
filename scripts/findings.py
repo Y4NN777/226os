@@ -20,6 +20,9 @@ dashboard says what to fix next. Nobody files a finding by hand: classifying one
              scope of ONE fix pull request (branch fix/review/batch-YYYY-MM-DD, its body names the batch issue). An
              update never unticks a box; when that pull request is merged into develop, or every source is closed or
              decided, the batch is closed as completed and the next run starts a new one. It never writes to a source issue and never mentions anyone. `--print` writes nothing.
+             A batch closed by the no-commit path (review-autofix.py `nothing`, marker batch-handled) holds its ticked
+             items: they got a verdict and stay open for the owner, so they stay out of new batches (and never join one as
+             urgent) while their row text is unchanged; the next batch moves on to the waiting items.
   settle PR  when the batch fix pull request PR (fix/review/batch-*) is merged into develop, its results table settles
              each source. Only FIXED and FIXED ELSEWHERE act: they close a finding issue as completed or tick a note's
              box. NOT A DEFECT and DECIDED never close or tick anything (a model verdict is not a decision): their
@@ -514,7 +517,30 @@ def group_items(items):
     return sorted(rows, key=lambda r: (r["rank"], r["key"]))
 
 
-def render_batch(title, lines, rest):
+BATCH_HANDLED = "<!-- batch-handled -->"
+HANDLED_LINE = re.compile(r"^<!-- batch-handled -->$", re.M)
+
+
+def held_items(batch_issues):
+    """{source key: row text} of the items that got a verdict and stay open for the owner: the ticked rows of the CLOSED
+    batch issues that `review-autofix.py nothing` closed (the marker on a line of its own, which no row can forge). A later
+    batch records over an earlier one. Such an item stays out of new batches while its row text is the same (title,
+    severity, area, sources); when it changes, or when it is closed, it is no longer held."""
+    held = {}
+    for b in sorted(batch_issues, key=lambda i: i.get("number", 0)):
+        body = b.get("body") or ""
+        if b.get("state") != "closed" or BATCH_MARK not in body or not HANDLED_LINE.search(body):
+            continue
+        for line in body.splitlines():
+            m = BATCH_LINE.match(line)
+            if m and m.group(1) != " ":
+                also = ALSO.search(line)
+                for src in [m.group(3)] + [k for k in (also.group(1).split(",") if also else []) if ITEM_KEY_RE.match(k)]:
+                    held[src] = ALSO.sub("", m.group(2))
+    return held
+
+
+def render_batch(title, lines, rest, held=0):
     day = title.rsplit(" ", 1)[-1]
     out = [BATCH_MARK, "# " + title, "",
            "Ranked by severity, then area, then age: work from the top. This batch is the scope of exactly ONE fix pull "
@@ -527,6 +553,8 @@ def render_batch(title, lines, rest):
     out += ["- [%s] %s%s <!-- batch-item:%s -->" % ("x" if ticked else " ", text, " <!-- batch-also:%s -->" % ",".join(also) if also else "", key)
             for key, ticked, text, also in lines]
     out += ["", "%d more open items wait for the next batch." % rest if rest else "Nothing else is waiting."]
+    if held:
+        out.append("%d items with a verdict wait for the owner (ticked in a closed batch); each comes back when it changes." % held)
     return "\n".join(out) + "\n"
 
 
@@ -589,10 +617,24 @@ def settle_text(decision, reason, pr):
 PR_REF = re.compile(r"#(\d+)")
 
 
-def unverified(ctx, binary, repo, pr, files, decision, reason, cited):
+ORIGIN_TITLE = re.compile(r"^PR(\d+)\b")
+
+
+def origin_pr(issue):
+    """The pull request a source issue was raised on: PR<N> of its finding marker, else of its title ("PR<N> notes",
+    "PR<N> follow-ups", "PR<N> <id>: ..."); "" when neither says."""
+    m = MARK.search(issue.get("body") or "")
+    if m:
+        return m.group(1).partition("#")[0][2:]
+    t = ORIGIN_TITLE.match(issue.get("title") or "")
+    return t.group(1) if t else ""
+
+
+def unverified(ctx, binary, repo, pr, files, decision, reason, cited, created="", origin=""):
     """None when a FIXED or FIXED ELSEWHERE row is backed by the facts, else the one-line comment that leaves the source open
     (the fixer's verdict is its own opinion): FIXED needs the merged batch pull request's diff (`files`) to touch the file
-    the finding cites; FIXED ELSEWHERE needs the pull request named in the reason (#N) to be merged and to have touched the cited file too."""
+    the finding cites; FIXED ELSEWHERE needs the pull request named in the reason (#N) to be another one than the source's
+    own (`origin`), merged after the source was created (`created`), and to have touched the cited file too."""
     if decision == "FIXED":
         if not cited or cited == "?":
             return "marked FIXED but the finding cites no file: a human checks"
@@ -603,12 +645,17 @@ def unverified(ctx, binary, repo, pr, files, decision, reason, cited):
         m = PR_REF.search(re.sub("[\u200b\u200c\u200d\u2060\ufeff]", "", reason or ""))  # the batch body was disarmed: #<ZWSP>N
         if not m:
             return "marked FIXED ELSEWHERE but names no pull request: a human checks"
+        if origin and m.group(1) == origin:
+            return "names its own source PR #%s: a human checks" % origin
         try:
             info = (ctx.gh_api(binary, "repos/%s/pulls/%s" % (repo, m.group(1))) or [{}])[0]
         except Exception:  # not a pull request, or unreadable: never close on it
             info = {}
         if not info.get("merged_at"):
             return "named PR #%s is not merged: a human checks" % m.group(1)
+        # The PR the finding was raised on (merged before the source existed) fixes nothing "elsewhere".
+        if not created or info["merged_at"] <= created:
+            return "named PR #%s was merged before this source was created (or its creation time is unknown): a human checks" % m.group(1)
         try:
             named = set()
             for f in ctx.gh_api(binary, "repos/%s/pulls/%s/files?per_page=100" % (repo, m.group(1))):
@@ -620,10 +667,12 @@ def unverified(ctx, binary, repo, pr, files, decision, reason, cited):
     return None
 
 
-def settle_issue(ctx, binary, repo, pr, batch_no, number, entries, files=None):
+def settle_issue(ctx, binary, repo, pr, batch_no, number, entries, files=None, mark=None, by=None):
     """Settle one source issue (a finding issue, or a notes issue with its boxes). Idempotent: an issue that carries
-    the settling comment of this pull request is not touched again; the comment is written last."""
-    mark = SETTLE_MARK % pr
+    the settling comment of this pull request (or of `mark`, the batch run of the no-commit path) is not touched again;
+    the comment is written last. `by` names who settles it in the comment (default: #PR)."""
+    mark = mark or SETTLE_MARK % pr
+    by = by or "#%s" % pr
     issue = (ctx.gh_api(binary, "repos/%s/issues/%s" % (repo, number)) or [{}])[0]
     if "pull_request" in issue:
         return
@@ -634,8 +683,8 @@ def settle_issue(ctx, binary, repo, pr, batch_no, number, entries, files=None):
     held = [l for l in ("needs-owner", BATCH_LABEL) if l in names(issue.get("labels"))]
     if held:
         detail = "; ".join("%s%s" % ("`%s` " % one_line(n, 40) if n else "", d) for n, d, _ in entries)
-        text = "%s\nSettled by #%s (review batch #%s): %s; left open because it is labelled %s." % (
-            mark, pr, batch_no or "?", detail, held[0])
+        text = "%s\nSettled by %s (review batch #%s): %s; left open because it is labelled %s." % (
+            mark, by, batch_no or "?", detail, held[0])
         batch_write(binary, "POST", endpoint + "/comments", [("body", text)])
         print("findings settle: #%s is labelled %s: commented, left open" % (number, held[0]))
         return
@@ -649,7 +698,7 @@ def settle_issue(ctx, binary, repo, pr, batch_no, number, entries, files=None):
                 w = NOTE_WHERE.match(mm.group(4))
                 cited_by[slug(mm.group(2))] = w.group(1) if w else ""
         for key, (d, r) in list(notes.items()):
-            bad = unverified(ctx, binary, repo, pr, files, d, r, cited_by.get(key, ""))
+            bad = unverified(ctx, binary, repo, pr, files, d, r, cited_by.get(key, ""), issue.get("created_at") or "", origin_pr(issue))
             if bad:
                 notes[key] = ("NOT VERIFIED", bad)
         entries = [(n, *notes.get(slug(n), (d, r))) if n else (n, d, r) for n, d, r in entries]
@@ -670,17 +719,18 @@ def settle_issue(ctx, binary, repo, pr, batch_no, number, entries, files=None):
         if seen and ticked_all and issue.get("state") == "open":
             batch_write(binary, "PATCH", endpoint, [("state", "closed"), ("state_reason", "completed")])
         detail = "; ".join("`%s` %s" % (one_line(n, 40), d if d in CLOSE_AS else "%s (%s)%s" % (
-            d, STAYS_OPEN[d], ": " + one_line(r, 200) if d in ("NOT A DEFECT", "DECIDED", "NOT VERIFIED") else "")) for n, d, r in entries if n)
+            d, STAYS_OPEN[d], ": " + one_line(r, 200) if r else "")) for n, d, r in entries if n)
     else:
         _, decision, reason = entries[0]
         w = WHERE.search(issue.get("body") or "")
-        bad = unverified(ctx, binary, repo, pr, files, decision, reason, w.group(1) if w else "")
+        bad = unverified(ctx, binary, repo, pr, files, decision, reason, w.group(1) if w else "", issue.get("created_at") or "",
+                         origin_pr(issue))
         if bad:
             decision, reason = "NOT VERIFIED", bad
         if decision in CLOSE_AS and issue.get("state") == "open":
             batch_write(binary, "PATCH", endpoint, [("state", "closed"), ("state_reason", CLOSE_AS[decision])])
         detail = "%s%s. %s" % (decision, ": " + STAYS_OPEN[decision] if decision in STAYS_OPEN else "", one_line(reason, 200))
-    text = "%s\nSettled by #%s (review batch #%s): %s" % (mark, pr, batch_no or "?", detail)
+    text = "%s\nSettled by %s (review batch #%s): %s" % (mark, by, batch_no or "?", detail)
     batch_write(binary, "POST", endpoint + "/comments", [("body", text)])
     print("findings settle: #%s settled" % number)
 
@@ -759,25 +809,30 @@ def batch(ctx, binary, repo, write):
     """Create, update or close the one open review batch. Returns the exit code."""
     findings = list_issues(ctx, binary, repo)
     notes = list_issues(ctx, binary, repo, "kind:note")
-    batches = sorted((i for i in list_issues(ctx, binary, repo, BATCH_LABEL)
-                      if i.get("state") == "open" and BATCH_MARK in (i.get("body") or "")), key=lambda i: i.get("number", 0))
+    all_batches = list_issues(ctx, binary, repo, BATCH_LABEL)
+    batches = sorted((i for i in all_batches if i.get("state") == "open" and BATCH_MARK in (i.get("body") or "")), key=lambda i: i.get("number", 0))
     ranked = group_items(batch_items(findings, notes))
     current = {it["key"]: it for it in ranked}
     by_source = {src: it["key"] for it in ranked for src in it["sources"]}
+    # Items with a verdict left open for the owner by a no-commit batch (batch-handled) never block the next batch: they
+    # stay out of new batches (and never join one as urgent) until they change.
+    record = held_items(all_batches)
+    waiting = [it for it in ranked if not any(record.get(src) == it["text"] for src in it["sources"])]
+    held = len(ranked) - len(waiting)
     if len(batches) > 1:
         print("findings batch: %d open batch issues, the oldest (#%s) is kept up to date" % (len(batches), batches[0].get("number")))
     if not batches:
-        if not ranked:
-            print("findings batch: nothing open, no batch")
+        if not waiting:
+            print("findings batch: nothing open%s, no batch" % (" but %d item(s) with a verdict held for the owner" % held if held else ""))
             return 0
         title = "Review batch %s" % now().strftime("%Y-%m-%d")
-        members = ranked[:BATCH_SIZE]
-        body = render_batch(title, [(it["key"], False, it["text"], it["also"]) for it in members], len(ranked) - len(members))
+        members = waiting[:BATCH_SIZE]
+        body = render_batch(title, [(it["key"], False, it["text"], it["also"]) for it in members], len(waiting) - len(members), held)
         if not write:
-            print("findings batch: would create \"%s\" (%d items, %d more)\n\n%s" % (title, len(members), len(ranked) - len(members), body))
+            print("findings batch: would create \"%s\" (%d items, %d more)\n\n%s" % (title, len(members), len(waiting) - len(members), body))
             return 0
         batch_write(binary, "POST", "repos/%s/issues" % repo, [("title", title), ("body", body), ("labels[]", BATCH_LABEL)])
-        print("findings batch: created \"%s\" (%d items, %d more)" % (title, len(members), len(ranked) - len(members)))
+        print("findings batch: created \"%s\" (%d items, %d more)" % (title, len(members), len(waiting) - len(members)))
         return 0
 
     issue = batches[0]
@@ -792,7 +847,7 @@ def batch(ctx, binary, repo, write):
     known = {src for key, _, _, also in previous for src in [key] + also}
     # Membership is frozen when the batch is created, so a batch can finish; only an urgent item joins it later. A row
     # follows its sources: when the oldest source of a grouped row closes, the row is keyed by the next one.
-    joined = [it for it in ranked if not known.intersection(it["sources"]) and it["rank"][1] <= SEV_RANK["HIGH"]]
+    joined = [it for it in waiting if not known.intersection(it["sources"]) and it["rank"][1] <= SEV_RANK["HIGH"]]
     open_map, done_lines = {}, []
     for key, ticked, text, also in previous:
         target = next((by_source[src] for src in [key] + also if src in by_source), None)
@@ -806,8 +861,8 @@ def batch(ctx, binary, repo, write):
                         key=lambda row: (row[0], row[1]))
     lines = [(key, ticked, text, also) for _, key, ticked, text, also in open_lines] + done_lines
     members = {key for key, _, _, _ in lines}
-    rest = sum(1 for key in current if key not in members)
-    body = render_batch(title, lines, rest)
+    rest = sum(1 for it in waiting if it["key"] not in members)
+    body = render_batch(title, lines, rest, sum(1 for it in ranked if it not in waiting and it["key"] not in members))
     endpoint = "repos/%s/issues/%s" % (repo, number)
     fix_pr = merged_fix(ctx, binary, repo, issue) if open_lines else None
     fix = fix_pr.get("number") if fix_pr else None
