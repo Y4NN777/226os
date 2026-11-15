@@ -8,6 +8,7 @@ import { SegmentedControl, SegmentedControlItem } from '@astryxdesign/core/Segme
 import { Selector } from '@astryxdesign/core/Selector';
 import { Text } from '@astryxdesign/core/Text';
 import { TextInput } from '@astryxdesign/core/TextInput';
+import { VisuallyHidden } from '@astryxdesign/core/VisuallyHidden';
 import { VStack } from '@astryxdesign/core/VStack';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { useState } from 'react';
@@ -111,7 +112,10 @@ function Filters({
       <div className="discover-filters">
         <Selector
           label={t('discover.country.label')}
-          placeholder={t('discover.country.placeholder')}
+          placeholder={t(
+            // The default view is West Africa only, so « Tous les pays » would overstate it.
+            wholeContinent ? 'discover.country.placeholder.all' : 'discover.country.placeholder',
+          )}
           options={options}
           hasClear
           hasSearch
@@ -207,15 +211,18 @@ export function DiscoverPage() {
         seenCountries={items.flatMap((item) => item.countries)}
         onChange={change}
       />
-      <section aria-label={t('discover.results.label')} className="discover-results">
-        {items.length > 0 ? (
-          <div className="discover-results-bar">
-            <p className="discover-count" role="status">
-              {countText(items.length, list.hasNextPage, t)}
-            </p>
-            {hasFilters ? resetButton('ghost') : null}
-          </div>
-        ) : null}
+      <section aria-labelledby="discover-results-h" className="discover-results">
+        {/* Prototype `h2.visually-hidden`: keeps the outline h1 > h2 > h3 for the rows. */}
+        <VisuallyHidden as="h2" id="discover-results-h">
+          {t('discover.results.label')}
+        </VisuallyHidden>
+        <div className="discover-results-bar">
+          {/* Always mounted, so a count that appears later is announced. */}
+          <p className="discover-count" role="status">
+            {items.length > 0 ? countText(items.length, list.hasNextPage, t) : null}
+          </p>
+          {hasFilters && items.length > 0 ? resetButton('ghost') : null}
+        </div>
         {list.isPending ? <LoadingState /> : null}
         {list.isError && !list.data ? (
           <ErrorState error={list.error} onRetry={() => void list.refetch()} />
@@ -223,7 +230,7 @@ export function DiscoverPage() {
         {list.data && items.length === 0 ? (
           <div className="discover-panel">
             <EmptyState
-              headingLevel={2}
+              headingLevel={3}
               icon={<Icon icon="search" />}
               title={t('discover.empty.title')}
               description={t(westView ? 'discover.empty.west' : 'discover.empty.other')}

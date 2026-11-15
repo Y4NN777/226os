@@ -215,11 +215,23 @@ export function ErrorReportToggle({
   );
 }
 
-/** « Signaler une erreur » panel: sign-in prompt, form, then thanks, in place. */
-export function ErrorReport({ resourceId, id }: { resourceId: string; id: string }) {
+/**
+ * « Signaler une erreur » panel: sign-in prompt, form, then thanks, in place. The page owns
+ * `sent`, so closing and reopening the panel keeps the thanks instead of a fresh form.
+ */
+export function ErrorReport({
+  resourceId,
+  id,
+  sent,
+  onSent,
+}: {
+  resourceId: string;
+  id: string;
+  sent: boolean;
+  onSent: () => void;
+}) {
   const { t } = useI18n();
   const session = useSession();
-  const [sent, setSent] = useState(false);
 
   return (
     <section id={id} aria-label={t('discover.report.action')} className="discover-panel">
@@ -238,12 +250,7 @@ export function ErrorReport({ resourceId, id }: { resourceId: string; id: string
         </HStack>
       ) : null}
       {!sent && session.data?.authenticated === true ? (
-        <Form
-          resourceId={resourceId}
-          onSent={() => {
-            setSent(true);
-          }}
-        />
+        <Form resourceId={resourceId} onSent={onSent} />
       ) : null}
     </section>
   );

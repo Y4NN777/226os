@@ -361,6 +361,32 @@ describe('DiscoverPage', () => {
     expect(within(row).getByText('2 sources')).toBeInTheDocument();
   });
 
+  it('keeps the heading outline: h1, a hidden « Résultats » h2, then one h3 per row', async () => {
+    setLanguages(['fr-FR']);
+    mockApi({ 'GET /resources': () => page([senegal]) });
+    await renderApp('/discover');
+    await screen.findByRole('link', { name: 'Wave Pay' });
+    const results = screen.getByRole('region', { name: 'Résultats' });
+    expect(
+      within(results).getByRole('heading', { level: 2, name: 'Résultats' }),
+    ).toBeInTheDocument();
+    expect(
+      within(results).getByRole('heading', { level: 3, name: 'Wave Pay' }),
+    ).toBeInTheDocument();
+  });
+
+  it('says « Choisir un pays » in the West Africa view and « Tous les pays » for the continent', async () => {
+    setLanguages(['fr-FR']);
+    mockApi({ 'GET /resources': () => page([senegal]) });
+    await renderApp('/discover');
+    await screen.findByRole('link', { name: 'Wave Pay' });
+    expect(screen.getByRole('button', { name: /^Pays/ })).toHaveTextContent('Choisir un pays');
+    await selectSegment(screen.getByRole('radio', { name: 'Toute l’Afrique' }));
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /^Pays/ })).toHaveTextContent('Tous les pays');
+    });
+  });
+
   it('shows the raw category code when the label is unknown', async () => {
     setLanguages(['fr-FR']);
     mockApi({ 'GET /resources': () => page([senegal]) });

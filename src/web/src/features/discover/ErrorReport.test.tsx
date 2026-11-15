@@ -84,6 +84,21 @@ describe('Error report on a resource', () => {
     expect(screen.queryByRole('textbox', { name: /Que faut-il corriger/ })).not.toBeInTheDocument();
   });
 
+  it('keeps the thanks after closing and reopening, so the same report is not sent twice', async () => {
+    routes({ ...member, [`POST /resources/${id}/error-reports`]: created });
+    await open();
+    await chooseKind('Lien cassé');
+    await describeError('Lien mort.');
+    await submit();
+    await screen.findByText(/Merci, votre signalement/);
+    const toggle = screen.getByRole('button', { name: 'Signaler une erreur' });
+    await userEvent.click(toggle);
+    expect(screen.queryByText(/Merci, votre signalement/)).not.toBeInTheDocument();
+    await userEvent.click(toggle);
+    expect(screen.getByText(/Merci, votre signalement/)).toBeVisible();
+    expect(screen.queryByRole('textbox', { name: /Que faut-il corriger/ })).not.toBeInTheDocument();
+  });
+
   it('omits the source when none is chosen', async () => {
     const fetchMock = routes({ ...member, [`POST /resources/${id}/error-reports`]: created });
     await open();

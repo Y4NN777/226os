@@ -50,7 +50,6 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--spacing-2);
-  min-height: 36px;
 }
 .discover-count {
   margin: 0;

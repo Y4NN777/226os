@@ -265,6 +265,7 @@ function Related({ links }: { links: Resource['related'] }) {
 
 function Detail({ resource }: { resource: Resource }) {
   const [isReportOpen, setReportOpen] = useState(false);
+  const [isReportSent, setReportSent] = useState(false);
   return (
     <VStack gap={5}>
       <Header
@@ -274,7 +275,16 @@ function Detail({ resource }: { resource: Resource }) {
           setReportOpen((open) => !open);
         }}
       />
-      {isReportOpen ? <ErrorReport id={REPORT_PANEL} resourceId={resource.id} /> : null}
+      {isReportOpen ? (
+        <ErrorReport
+          id={REPORT_PANEL}
+          resourceId={resource.id}
+          sent={isReportSent}
+          onSent={() => {
+            setReportSent(true);
+          }}
+        />
+      ) : null}
       <Coverage resource={resource} />
       {resource.limitations && resource.limitations.length > 0 ? (
         <Limitations items={resource.limitations} />
