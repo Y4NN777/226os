@@ -135,6 +135,9 @@
 }
 
 /* ---------- « Poser une question » (prototype .header-create) ---------- */
+.shell-ask-label {
+  font-size: 0.875rem;
+}
 /* Below 1024px only the plus icon shows; the label stays the accessible name. */
 @media (max-width: 1023px) {
   .shell-ask {
@@ -259,6 +262,20 @@
 
 /* ---------- Phone ---------- */
 @media (max-width: 767px) {
+  /* The search reads as the second line of the top bar (prototype phone header): the same
+     surface, flush under the bar, with the one hairline under both. */
+  .shell .astryx-app-shell-header {
+    box-shadow: none;
+  }
+  .shell-page > .shell-search {
+    box-sizing: border-box;
+    width: auto;
+    max-width: none;
+    margin: calc(-1 * var(--spacing-6)) calc(-1 * var(--shell-gutter)) var(--spacing-6);
+    padding: 0 var(--shell-gutter) var(--spacing-2);
+    background: var(--color-background-surface);
+    box-shadow: inset 0 -1px 0 var(--color-border);
+  }
   /* Room for the fixed bottom bar: the last content and the footer stay above it, focus included
      (WCAG 2.4.11). */
   .shell-footer {
