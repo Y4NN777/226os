@@ -9,7 +9,8 @@
 3. **Une porte humaine pour la production** : l'environnement `production` (relecteur requis, réglé par le propriétaire).
 4. **Sauvegarde avant migration.** `scripts/backup.sh` puis `scripts/migrate-up.sh` avec `BACKUP_EVIDENCE` ; une migration sans preuve est refusée.
 5. **Fumée après déploiement** (`scripts/smoke.sh`), avec reprises pour laisser le temps au premier certificat ; un échec fait échouer le déploiement.
-6. **Secrets** : la clé age de l'environnement (`SOPS_AGE_KEY`) déchiffre `secrets/<profil>.enc.env` dans la RAM du runner ; le fichier est copié par SSH en mode 600, jamais affiché ni archivé. Hôte SSH épinglé (`DEPLOY_KNOWN_HOSTS`), pas de `StrictHostKeyChecking=no`.
+6. **Sauvegardes chiffrées et serveur lié à un profil.** Le dump d'avant migration est chiffré avec age (clés publiques de `secrets/<profil>.recipients`) ; chaque serveur refuse un autre profil que celui de son premier déploiement ; un échec affiche l'étape, l'état des migrations, la sauvegarde et l'indication de retour arrière. Le jeton du registre n'est utilisé que dans un répertoire temporaire supprimé après le pull.
+7. **Secrets** : la clé age de l'environnement (`SOPS_AGE_KEY`) déchiffre `secrets/<profil>.enc.env` dans la RAM du runner ; le fichier est copié par SSH en mode 600, jamais affiché ni archivé. Hôte SSH épinglé (`DEPLOY_KNOWN_HOSTS`), pas de `StrictHostKeyChecking=no`.
 
 ## Étapes
 

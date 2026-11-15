@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Registry side of the deploy (ADR-0006: GHCR, immutable tag by commit SHA, deployment by digest).
 #
-#   deploy-images.sh push <tag> <local-tag>   tag the locally built 226os-{api,web,migrate}:<local-tag> as
+#   deploy-images.sh push <tag> <local-tag>   (refuses an existing <tag>) tag the locally built 226os-{api,web,migrate}:<local-tag> as
 #                                             <namespace>/226os-<name>:<tag> and push them (job needs packages: write)
 #   deploy-images.sh resolve <tag>            print API_IMAGE=, WEB_IMAGE= and MIGRATE_IMAGE= by registry digest
 #   deploy-images.sh tag <from> <to>          add the tag <to> to the digests that <from> points to (no rebuild)
@@ -36,6 +36,12 @@ case "$cmd" in
     [ $# -eq 2 ] || usage
     check_tag "$1"
     check_tag "$2"
+    # Immutable tags (ADR-0006): a tag that already exists is never overwritten, for any of the three images.
+    for n in "${names[@]}"; do
+      if docker buildx imagetools inspect "$ns/226os-$n:$1" >/dev/null 2>&1; then
+        die "REFUSED: $ns/226os-$n:$1 already exists and tags are immutable (re-run only the failed jobs; to rebuild, push a new commit)"
+      fi
+    done
     for n in "${names[@]}"; do
       docker tag "226os-$n:$2" "$ns/226os-$n:$1"
       docker push "$ns/226os-$n:$1"

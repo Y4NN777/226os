@@ -2,36 +2,42 @@
 # One-time preparation of a FRESH Ubuntu or Debian server for the 226os deploy workflow (docs/runbooks/deploy-setup.md).
 # Run once by the owner, as root, on the server. Idempotent: running it again changes nothing that is already right.
 #
-# Usage: server-bootstrap.sh [--dry-run] [--yes] "<ssh public key of the CI deploy key>"
-#   --dry-run  print the steps and change nothing (works without root)
-#   --yes      do not ask before hardening sshd (needed without a terminal)
+# Usage: server-bootstrap.sh [--dry-run] [--ssh-fingerprint SHA256:...] "<ssh public key of the CI deploy key>"
+#   --dry-run                      print the steps and change nothing (works without root)
+#   --ssh-fingerprint SHA256:...   the fingerprint of YOUR key that logs in as root (`ssh-keygen -lf` of your public
+#                                  key). Without it (or an interactive answer naming it) sshd is not touched.
 #
 # What it does:
 #   1. Docker Engine and the compose plugin, from Docker's official apt repository
-#   2. make and curl (the deploy runs `make seed` and the smoke test on the server)
+#   2. make, curl and age (the deploy runs `make seed`, the smoke test and the backup encryption on the server) (the deploy runs `make seed` and the smoke test on the server)
 #   3. the `deploy` user, in the docker group, with ONLY the CI public key
-#   4. ufw: deny incoming except 22, 80 and 443
+#   4. ufw: deny incoming except the sshd port (rate limited), 80 and 443
 #   5. unattended security upgrades
 #   6. /opt/226os owned by deploy (env/, backups/, state/ inside)
 #   7. sshd: no password login (a drop-in file, checked with sshd -t, then a reload: open sessions keep working).
-#      Skipped, with a warning, when root has no authorized key, or when you do not confirm.
+#      Skipped, with a warning, unless the fingerprint you give is one of the keys in /root/.ssh/authorized_keys.
+#      After the reload `sshd -T` must report passwordauthentication no, or the change is rolled back.
 # Note: the `docker` group is root-equivalent; ufw does not filter ports that Docker publishes itself (here only
 # Traefik publishes 80 and 443). Nothing prints the key material or any secret.
 set -euo pipefail
 
 usage() {
-  printf 'usage: %s [--dry-run] [--yes] "<ssh public key>"\n' "$0" >&2
+  printf 'usage: %s [--dry-run] [--ssh-fingerprint SHA256:...] "<ssh public key>"\n' "$0" >&2
   exit 64
 }
 refuse() { printf 'REFUSED: %s\n' "$*" >&2; exit 2; }
 
 dry=0
-assume_yes=0
+fingerprint=""
 key=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --dry-run) dry=1 ;;
-    --yes) assume_yes=1 ;;
+    --ssh-fingerprint)
+      [ $# -ge 2 ] || usage
+      fingerprint="$2"
+      shift
+      ;;
     -*) usage ;;
     *)
       [ -z "$key" ] || usage
@@ -41,6 +47,7 @@ while [ $# -gt 0 ]; do
   shift
 done
 [ -n "$key" ] || usage
+[ -z "$fingerprint" ] || [[ "$fingerprint" =~ ^SHA256:[A-Za-z0-9+/]{43}$ ]] || { printf 'server-bootstrap: --ssh-fingerprint must look like SHA256:<43 characters> (ssh-keygen -lf of your public key)\n' >&2; exit 64; }
 
 # Arguments are checked before the root check: a wrong argument is a usage error whoever runs the script.
 # The value is never echoed (a private key pasted by mistake must not reach a terminal log).
@@ -64,18 +71,24 @@ step() {
 # --- 1. Docker ---------------------------------------------------------------------------------------------------
 step "Docker Engine and the compose plugin (Docker's official apt repository)"
 if [ "$dry" -eq 1 ]; then
-  printf '    (dry run) install ca-certificates curl gnupg, add https://download.docker.com/linux/<distro>, install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin\n'
+  printf '    (dry run) install ca-certificates curl gnupg make age, verify the pinned Docker key fingerprint, add https://download.docker.com/linux/<distro>, install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin\n'
 else
   # shellcheck disable=SC1091 # /etc/os-release exists on the target
   . /etc/os-release
   case "${ID-}" in ubuntu | debian) ;; *) refuse "only Ubuntu and Debian are supported (found '${ID-unknown}')" ;; esac
   export DEBIAN_FRONTEND=noninteractive
   apt-get update -qq
-  apt-get install -y -qq ca-certificates curl gnupg make
+  apt-get install -y -qq ca-certificates curl gnupg make age
   install -m 0755 -d /etc/apt/keyrings
   if [ ! -s /etc/apt/keyrings/docker.asc ]; then
-    curl -fsSL "https://download.docker.com/linux/$ID/gpg" -o /etc/apt/keyrings/docker.asc
-    chmod a+r /etc/apt/keyrings/docker.asc
+    # The key is pinned: it is used only if its fingerprint is Docker's published one.
+    docker_fpr="9DC858229FC7DD38854AE2D88D81803C0EBFCD88"
+    keytmp="$(mktemp)"
+    curl -fsSL "https://download.docker.com/linux/$ID/gpg" -o "$keytmp"
+    gpg --show-keys --with-colons "$keytmp" | awk -F: '/^fpr:/ {print $10}' | grep -qx "$docker_fpr" ||
+      { rm -f "$keytmp"; refuse "the Docker apt key does not have the pinned fingerprint $docker_fpr: nothing installed"; }
+    install -m 0644 "$keytmp" /etc/apt/keyrings/docker.asc
+    rm -f "$keytmp"
   fi
   arch="$(dpkg --print-architecture)"
   codename="${UBUNTU_CODENAME:-${VERSION_CODENAME:-}}"
@@ -90,28 +103,32 @@ fi
 # --- 2. deploy user -----------------------------------------------------------------------------------------------
 step "the deploy user (docker group, the CI public key only)"
 if [ "$dry" -eq 1 ]; then
-  printf '    (dry run) create user deploy (no password), add it to the docker group, write ~deploy/.ssh/authorized_keys with the CI key\n'
+  printf '    (dry run) create user deploy (no password), add it to the docker group, write ~deploy/.ssh/authorized_keys with the CI key as "restrict <key>"\n'
 else
   id deploy >/dev/null 2>&1 || adduser --disabled-password --gecos "" deploy
   usermod -aG docker deploy
   home="$(getent passwd deploy | cut -d: -f6)"
   install -d -m 700 -o deploy -g deploy "$home/.ssh"
   touch "$home/.ssh/authorized_keys"
-  grep -qxF -- "$key" "$home/.ssh/authorized_keys" || printf '%s\n' "$key" >>"$home/.ssh/authorized_keys"
+  # `restrict`: no port forwarding, agent forwarding, X11 or pty for the CI key (it only runs commands).
+  grep -qxF -- "restrict $key" "$home/.ssh/authorized_keys" || printf 'restrict %s\n' "$key" >>"$home/.ssh/authorized_keys"
   chown deploy:deploy "$home/.ssh/authorized_keys"
   chmod 600 "$home/.ssh/authorized_keys"
 fi
 
 # --- 3. firewall ----------------------------------------------------------------------------------------------------
-step "ufw: deny incoming, allow 22, 80 and 443 only"
+step "ufw: deny incoming, allow the sshd port (limited), 80 and 443 only"
 if [ "$dry" -eq 1 ]; then
-  printf '    (dry run) install ufw; default deny incoming, allow outgoing; allow 22/tcp 80/tcp 443/tcp; enable\n'
+  printf '    (dry run) install ufw; default deny incoming, allow outgoing; read the sshd port from sshd -T and `ufw limit` it; allow 80/tcp 443/tcp; enable\n'
 else
   apt-get install -y -qq ufw
   ufw default deny incoming
   ufw default allow outgoing
-  # SSH first: enabling the firewall must never cut the session this script runs in.
-  ufw allow 22/tcp
+  # SSH first: enabling the firewall must never cut the session this script runs in. The port is the one sshd really
+  # listens on (not an assumed 22); `limit` also rate-limits repeated connection attempts.
+  ssh_port="$(sshd -T 2>/dev/null | awk '$1 == "port" {print $2; exit}')"
+  [[ "$ssh_port" =~ ^[0-9]+$ ]] || refuse "cannot read the sshd port from sshd -T: the firewall was not enabled"
+  ufw limit "$ssh_port/tcp"
   ufw allow 80/tcp
   ufw allow 443/tcp
   ufw --force enable
@@ -138,32 +155,39 @@ fi
 # --- 6. sshd -----------------------------------------------------------------------------------------------------------------
 step "sshd: no password login"
 if [ "$dry" -eq 1 ]; then
-  printf '    (dry run) warn, then write /etc/ssh/sshd_config.d/50-226os.conf (PasswordAuthentication no), sshd -t, reload sshd\n'
+  printf '    (dry run) warn; require --ssh-fingerprint (or the typed answer) to be a key of /root/.ssh/authorized_keys; write /etc/ssh/sshd_config.d/50-226os.conf (PasswordAuthentication no), sshd -t, reload sshd, verify sshd -T, roll back if it does not say passwordauthentication no\n'
 else
   echo "    WARNING: after this, only SSH keys can log in. Keep THIS session open and test a key login from another terminal."
   if [ ! -s /root/.ssh/authorized_keys ]; then
     printf '    SKIPPED: /root/.ssh/authorized_keys is empty or missing: disabling passwords could lock you out. Add your key, then run this script again.\n'
   else
-    answer=no
-    if [ "$assume_yes" -eq 1 ]; then
-      answer=yes
-    elif [ -t 0 ]; then
-      read -r -p "    Disable SSH password login now? [yes/no] " answer
-    else
-      printf '    SKIPPED: no terminal to confirm; run again with --yes to disable password login.\n'
+    fp="$fingerprint"
+    if [ -z "$fp" ] && [ -t 0 ]; then
+      echo "    Keys that can log in as root:"
+      ssh-keygen -lf /root/.ssh/authorized_keys | sed 's/^/      /'
+      read -r -p "    Type the SHA256 fingerprint of the key YOU use, to disable password login (empty to skip): " fp
     fi
-    if [ "$answer" = yes ]; then
+    if [ -z "$fp" ]; then
+      printf '    SKIPPED: no fingerprint given (run again with --ssh-fingerprint SHA256:...).\n'
+    elif ! ssh-keygen -lf /root/.ssh/authorized_keys | awk '{print $2}' | grep -qxF -- "$fp"; then
+      printf '    SKIPPED: that fingerprint is not a key of /root/.ssh/authorized_keys: password login stays enabled.\n'
+    else
       install -d -m 755 /etc/ssh/sshd_config.d
       printf 'PasswordAuthentication no\nKbdInteractiveAuthentication no\nPermitRootLogin prohibit-password\n' >/etc/ssh/sshd_config.d/50-226os.conf
+      reload_sshd() { systemctl reload ssh 2>/dev/null || systemctl reload sshd; }
       if sshd -t; then
-        systemctl reload ssh 2>/dev/null || systemctl reload sshd
-        echo "    password login disabled (sshd reloaded, existing sessions kept)"
+        reload_sshd
+        if sshd -T | grep -qi '^passwordauthentication no'; then
+          echo "    password login disabled (sshd reloaded, existing sessions kept, verified with sshd -T)"
+        else
+          rm -f /etc/ssh/sshd_config.d/50-226os.conf
+          reload_sshd
+          refuse "sshd -T does not report passwordauthentication no after the reload (another file wins?): the change was removed"
+        fi
       else
         rm -f /etc/ssh/sshd_config.d/50-226os.conf
         refuse "sshd -t rejected the configuration: the change was removed, sshd is untouched"
       fi
-    else
-      printf '    SKIPPED: not confirmed.\n'
     fi
   fi
 fi

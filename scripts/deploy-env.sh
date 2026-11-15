@@ -27,7 +27,10 @@ for pair in "API_IMAGE:api" "WEB_IMAGE:web" "MIGRATE_IMAGE:migrate"; do
     refuse "$var must be <registry>/<owner>/226os-$name@sha256:<digest> (an image by digest, never by tag)"
 done
 
-tmp="$(mktemp "${TMPDIR:-/tmp}/deploy-env.XXXXXX")"
+# The plaintext env goes to RAM when there is any (/dev/shm), like scripts/compose.sh and scripts/secrets.sh.
+base="${TMPDIR:-/tmp}"
+[ -d /dev/shm ] && [ -w /dev/shm ] && base=/dev/shm
+tmp="$(mktemp "$base/deploy-env.XXXXXX")"
 trap 'rm -f "$tmp"' EXIT
 chmod 600 "$tmp"
 {

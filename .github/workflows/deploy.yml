@@ -15,7 +15,7 @@ name: Deploy
 #
 # Safety: no pull_request trigger and no pull_request_target, so no fork code ever runs here. The code deployed is
 # develop or main, already merged. Secrets exist only in the `deploy` job (environment secrets); the job that holds
-# `packages: write` has no secret; nothing untrusted is interpolated in a `run:` (values go through `env`). The SSH
+# `packages: write` has no secret; the server's registry login lives in a temporary directory deleted after the pull; nothing untrusted is interpolated in a `run:` (values go through `env`). The SSH
 # host key is pinned (DEPLOY_KNOWN_HOSTS, StrictHostKeyChecking=yes). The age key lives in the environment secret
 # SOPS_AGE_KEY and is read from the environment by sops (never written to disk, never printed).
 # Fail closed: a missing setting, an unexpected event, a missing digest or a failed step stops the run.
@@ -46,13 +46,16 @@ jobs:
   # production for a main push, nothing otherwise. Reads no secret.
   plan:
     name: plan
-    if: github.event_name == 'push' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    if: >-
+      github.event_name == 'push' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == 'develop' &&
+       github.event.workflow_run.head_repository.full_name == github.repository)
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
       proceed: ${{ steps.plan.outputs.proceed }}
       target: ${{ steps.plan.outputs.target }}
-      profile: ${{ steps.plan.outputs.profile }}
       sha: ${{ steps.plan.outputs.sha }}
       tree: ${{ steps.plan.outputs.tree }}
     steps:
@@ -184,7 +187,8 @@ jobs:
     outputs:
       base_url: ${{ steps.config.outputs.base_url }}
     env:
-      PROFILE: ${{ needs.plan.outputs.profile }}
+      # Derived from the target here, not taken from a script output.
+      PROFILE: ${{ needs.plan.outputs.target == 'production' && 'production-live' || 'staging-test' }}
       DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
       DEPLOY_USER: ${{ vars.DEPLOY_USER }}
       PUBLIC_HOST: ${{ vars.PUBLIC_HOST }}
@@ -264,17 +268,13 @@ jobs:
           scripts/deploy-env.sh "$PROFILE" "$PUBLIC_HOST" <"$tmp/.env.$PROFILE" >"$tmp/deploy.env"
           rm -f "$tmp/.env.$PROFILE"
 
-      - name: Let the server pull the images (short-lived token, logged out at the end)
-        env:
-          REGISTRY_TOKEN: ${{ github.token }}
+      - name: Copy the release (compose file, Traefik routes, scripts, recipients, staging seeds) to the server
         run: |
           set -euo pipefail
-          printf '%s' "$REGISTRY_TOKEN" | "$RUNNER_TEMP/bin/deploy-ssh" 'docker login ghcr.io --username github-actions --password-stdin'
-
-      - name: Copy the release (compose file, Traefik routes, scripts, seeds) to the server
-        run: |
-          set -euo pipefail
-          tar -czf - --exclude='scripts/tests' compose.yaml deploy/traefik scripts Makefile mk db/seeds |
+          paths=(compose.yaml deploy/traefik scripts Makefile mk "secrets/${PROFILE}.recipients")
+          # Production never receives the demo seeds.
+          [ "$PROFILE" = production-live ] || paths+=(db/seeds)
+          tar -czf - --exclude='scripts/tests' "${paths[@]}" |
             "$RUNNER_TEMP/bin/deploy-ssh" 'set -e; d=/opt/226os; rm -rf "$d/app.new"; mkdir -p "$d/app.new"; tar -xzf - -C "$d/app.new"; rm -rf "$d/app.old"; if [ -d "$d/app" ]; then mv "$d/app" "$d/app.old"; fi; mv "$d/app.new" "$d/app"'
 
       - name: Copy the env file to the server (mode 600)
@@ -282,10 +282,14 @@ jobs:
           set -euo pipefail
           "$RUNNER_TEMP/bin/deploy-ssh" "umask 077; install -d -m 700 /opt/226os/env; cat >/opt/226os/env/.env.${PROFILE}.new && mv /opt/226os/env/.env.${PROFILE}.new /opt/226os/env/.env.${PROFILE}" <"$DEPLOY_TMP/deploy.env"
 
-      - name: Deploy (backup, migrate, up by digest, seeds on staging, smoke)
+      # The short-lived job token goes through stdin to deploy-remote.sh, which uses it with a private DOCKER_CONFIG
+      # directory and deletes that directory right after the pull: no registry login stays on the server.
+      - name: Deploy (pull, backup, migrate, up by digest, seeds on staging, smoke)
+        env:
+          REGISTRY_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          "$RUNNER_TEMP/bin/deploy-ssh" "cd /opt/226os/app && scripts/deploy-remote.sh ${PROFILE} https://${PUBLIC_HOST}"
+          printf '%s' "$REGISTRY_TOKEN" | "$RUNNER_TEMP/bin/deploy-ssh" "cd /opt/226os/app && REGISTRY_TOKEN_STDIN=1 scripts/deploy-remote.sh ${PROFILE} https://${PUBLIC_HOST}"
 
       - name: Record
         run: |
@@ -299,13 +303,9 @@ jobs:
             echo "- migrate: \`${MIGRATE_IMAGE}\`"
           } >>"$GITHUB_STEP_SUMMARY"
 
-      - name: Clean up (plaintext env, keys, registry login on the server)
+      - name: Clean up (plaintext env and SSH key on the runner)
         if: always()
-        run: |
-          rm -rf -- "${DEPLOY_TMP:-/nonexistent}" "$RUNNER_TEMP/ssh"
-          if [ -x "$RUNNER_TEMP/bin/deploy-ssh" ]; then
-            "$RUNNER_TEMP/bin/deploy-ssh" 'docker logout ghcr.io' >/dev/null 2>&1 || echo "::warning::could not log the server out of ghcr.io; run docker logout ghcr.io there"
-          fi
+        run: rm -rf -- "${DEPLOY_TMP:-/nonexistent}" "$RUNNER_TEMP/ssh"
 
   # Staging only. The Playwright suite (src/web/e2e, script `test:e2e`, reads E2E_BASE_URL) against the staging URL,
   # signed in with a real staging account (environment secrets E2E_USER and E2E_PASSWORD; the environment has no
@@ -320,6 +320,8 @@ jobs:
     environment: staging
     permissions:
       contents: read
+    outputs:
+      ran: ${{ steps.detect.outputs.present }}
     steps:
       - name: Check out the deployed SHA
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -386,12 +388,15 @@ jobs:
           E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
         run: pnpm --filter web run test:e2e
 
-      - name: Upload the Playwright HTML report (no secrets in it)
-        if: failure() && steps.detect.outputs.present == 'true'
+      # Only the junit XML (test names, durations, failure messages). In CI the Playwright config turns traces,
+      # videos, screenshots and the HTML report off: a trace would hold the E2E password, the sign-in body and the
+      # session cookie, and this repository is public. Never upload anything else from this job.
+      - name: Upload the junit report
+        if: always() && steps.detect.outputs.present == 'true'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: e2e-report-${{ github.run_id }}
-          path: src/web/playwright-report/
+          name: e2e-junit-${{ github.run_id }}
+          path: src/web/test-results/junit.xml
           if-no-files-found: ignore
           retention-days: 14
 
@@ -400,7 +405,8 @@ jobs:
   promote:
     name: mark the digests as tested
     needs: [plan, deploy, e2e]
-    if: needs.plan.outputs.target == 'staging'
+    # Only an E2E suite that really RAN can mark digests as tested (a missing test:e2e script means NOT RUN).
+    if: needs.plan.outputs.target == 'staging' && needs.e2e.outputs.ran == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:

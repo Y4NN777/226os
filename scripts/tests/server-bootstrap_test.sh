@@ -31,6 +31,21 @@ if [ "$rc" -eq 64 ] && ! grep -q 'BEGIN' <<<"$out"; then ok "a private key is re
 run --bogus "$key"
 [ "$rc" -eq 64 ] && ok "an unknown option is a usage error" || ko "unknown option (rc=$rc)"
 
+run --ssh-fingerprint 'SHA256:short' --dry-run "$key"
+[ "$rc" -eq 64 ] && grep -q 'ssh-fingerprint' <<<"$out" && ok "a malformed --ssh-fingerprint is refused" || ko "bad fingerprint (rc=$rc)"
+
+run --ssh-fingerprint
+[ "$rc" -eq 64 ] && ok "--ssh-fingerprint without a value is a usage error" || ko "fingerprint value (rc=$rc)"
+
+run --yes "$key"
+[ "$rc" -eq 64 ] && ok "the old --yes option is gone (a fingerprint is required instead)" || ko "--yes (rc=$rc)"
+
+fp="SHA256:$(printf 'A%.0s' {1..43})"
+run --ssh-fingerprint "$fp" --dry-run "$key"
+if [ "$rc" -eq 0 ] && grep -q 'sshd -T' <<<"$out" && grep -q 'ufw limit' <<<"$out" && grep -q 'restrict' <<<"$out" && grep -q 'fingerprint' <<<"$out" && grep -q 'age' <<<"$out"; then
+  ok "--dry-run describes the sshd port, ufw limit, restricted key, fingerprint check and age"
+else ko "dry run details (rc=$rc out=$out)"; fi
+
 run --dry-run "$key"
 if [ "$rc" -eq 0 ] && grep -q 'dry run' <<<"$out" && grep -q 'Docker Engine' <<<"$out" && grep -q 'ufw' <<<"$out" &&
   grep -q 'unattended-upgrades' <<<"$out" && grep -q '/opt/226os' <<<"$out" && grep -q 'deploy' <<<"$out"; then

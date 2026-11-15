@@ -90,12 +90,11 @@ run_make make test-e2e E2E_BASE_URL=
 if [ "$rc" -ne 0 ] && grep -q 'E2E_BASE_URL' <<<"$out" && grep -q 'NOT RUN' <<<"$out" && ! grep -q 'PASS' <<<"$out"; then
   ok "make test-e2e without E2E_BASE_URL exits non-zero with NOT RUN (rc=$rc)"
 else ko "make test-e2e without E2E_BASE_URL (rc=$rc, out=$out)"; fi
-for t in perf; do
-  run_make make "$t"
-  if [ "$rc" -ne 0 ] && grep -q 'NOT IMPLEMENTED' <<<"$out" && grep -q 'NOT RUN' <<<"$out" && ! grep -q 'PASS' <<<"$out"; then
-    ok "make $t exits non-zero with NOT IMPLEMENTED / NOT RUN (rc=$rc)"
-  else ko "make $t (rc=$rc, out=$out)"; fi
-done
+t=perf
+run_make make "$t"
+if [ "$rc" -ne 0 ] && grep -q 'NOT IMPLEMENTED' <<<"$out" && grep -q 'NOT RUN' <<<"$out" && ! grep -q 'PASS' <<<"$out"; then
+  ok "make $t exits non-zero with NOT IMPLEMENTED / NOT RUN (rc=$rc)"
+else ko "make $t (rc=$rc, out=$out)"; fi
 
 # --- 4. db-reset refuses before touching Docker -----------------------------------------------
 db_url='postgres://app:x@postgres:5432/app226'

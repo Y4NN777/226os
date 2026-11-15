@@ -61,7 +61,9 @@ if [ "$rc" -eq 0 ] && grep -q "buildx imagetools create --tag $ns/226os-api:test
   grep -q "create --tag $ns/226os-migrate:tested-tree $ns/226os-migrate@$d_mig" "$tmp/log"; then ok "tag re-tags the digests, it never rebuilds"; else ko "tag (rc=$rc out=$out log=$(cat "$tmp/log"))"; fi
 
 run "$images" push abc123 localtag
-if [ "$rc" -eq 0 ] && grep -qx "tag 226os-api:localtag $ns/226os-api:abc123" "$tmp/log" && grep -qx "push $ns/226os-web:abc123" "$tmp/log"; then
+if [ "$rc" -ne 0 ] && grep -q 'already exists' <<<"$out" && ! grep -q '^push' "$tmp/log"; then ok "push refuses to overwrite an existing tag (immutable tags)"; else ko "existing tag (rc=$rc out=$out)"; fi
+run "$images" push fresh1 localtag
+if [ "$rc" -eq 0 ] && grep -qx "tag 226os-api:localtag $ns/226os-api:fresh1" "$tmp/log" && grep -qx "push $ns/226os-web:fresh1" "$tmp/log"; then
   ok "push tags the local image and pushes it under the commit tag"
 else ko "push (rc=$rc log=$(cat "$tmp/log"))"; fi
 

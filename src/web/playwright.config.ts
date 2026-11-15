@@ -17,12 +17,18 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: isCI,
   retries: isCI ? 1 : 0,
-  reporter: [['list'], ['html', { outputFolder: 'playwright-report', open: 'never' }]],
+  // CI (a public repository uploads the report): no HTML report, trace, video or screenshot. A trace records
+  // fill(password), the sign-in body and Set-Cookie. Only the junit XML (names, durations, messages) is uploaded.
+  reporter: isCI
+    ? [['list'], ['junit', { outputFile: 'test-results/junit.xml' }]]
+    : [['list'], ['html', { outputFolder: 'playwright-report', open: 'never' }]],
   outputDir: 'test-results',
   use: {
     baseURL,
     locale: 'fr-FR',
-    trace: 'on-first-retry',
+    trace: isCI ? 'off' : 'on-first-retry',
+    video: 'off',
+    screenshot: 'off',
   },
   projects: [
     {

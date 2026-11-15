@@ -21,10 +21,12 @@ Un enregistrement `A` (et `AAAA` si IPv6) par hôte public, vers l'IP du serveur
 ```bash
 sudo -i
 # copier scripts/server-bootstrap.sh sur le serveur, puis :
-bash server-bootstrap.sh "ssh-ed25519 AAAA... ci-226os"
+bash server-bootstrap.sh --ssh-fingerprint "SHA256:..." "ssh-ed25519 AAAA... ci-226os"
 ```
 
-L'option `--dry-run` montre les étapes sans rien changer. Le script installe Docker et le plugin compose, crée l'utilisateur `deploy` (groupe `docker`, clé CI seule), règle `ufw` (22, 80, 443), active les mises à jour de sécurité, prépare `/opt/226os` et désactive le mot de passe SSH (il demande confirmation ; gardez votre session ouverte et testez une connexion par clé dans un autre terminal). À la fin il affiche la ligne à mettre dans `DEPLOY_KNOWN_HOSTS`.
+`--ssh-fingerprint` est l'empreinte (`ssh-keygen -lf` de votre clé publique) de la clé avec laquelle **vous** vous connectez en root : sans elle, ou si elle n'est pas dans `/root/.ssh/authorized_keys`, le mot de passe SSH reste activé (pas de verrouillage possible). Le script lit le port de sshd, le limite dans `ufw`, enregistre la clé CI en `restrict`, vérifie l'empreinte de la clé APT de Docker, installe `age` et contrôle avec `sshd -T` que le mot de passe est bien désactivé.
+
+L'option `--dry-run` montre les étapes sans rien changer. Le script installe Docker et le plugin compose, crée l'utilisateur `deploy` (groupe `docker`, clé CI seule), règle `ufw` (port SSH, 80, 443), active les mises à jour de sécurité, prépare `/opt/226os` et désactive le mot de passe SSH (gardez votre session ouverte et testez une connexion par clé dans un autre terminal). Un serveur est lié au profil de son premier déploiement : staging ne peut pas être déployé sur le serveur de production, ni l'inverse. À la fin il affiche la ligne à mettre dans `DEPLOY_KNOWN_HOSTS`.
 
 ## 5. Environnements GitHub
 
@@ -53,9 +55,13 @@ Réglages du dépôt, Environments, créer `staging` et `production`.
 
 1. Sur le site de staging, créez un vrai compte et vérifiez son e-mail.
 2. Dans l'environnement `staging`, créez les secrets `E2E_USER` et `E2E_PASSWORD`.
-3. Sans eux, le job `e2e` échoue avec un message clair ; le groupe connecté n'est jamais ignoré. Chaque exécution publie une question et une réponse avec ce compte.
+3. Sans eux, le job `e2e` échoue avec un message clair ; le groupe connecté n'est jamais ignoré. Chaque exécution publie une question et une réponse avec ce compte. Le dépôt est public : en CI, Playwright n'écrit ni trace, ni vidéo, ni capture, ni rapport HTML (ils contiendraient le mot de passe et le cookie), et seul le XML junit est publié. Les étiquettes `tested-<arbre>` ne sont posées que si ce job a réellement tourné.
 
-## 8. Après coup
+## 8. Sauvegardes
+
+Avant chaque migration, `/opt/226os/backups` reçoit un dump chiffré avec age (`<profil>-<date>.dump.age`, pour les clés de `secrets/<profil>.recipients`) et son fichier de preuve ; le dump en clair est supprimé. Les dix derniers sont gardés. **Étape propriétaire : aucune copie hors du serveur n'existe.** Copiez régulièrement ce dossier ailleurs (par exemple `rsync` depuis votre machine) : un disque perdu perd les sauvegardes avec la base. Déchiffrement : `age -d -i <votre clé age> fichier.dump.age > fichier.dump`, puis `scripts/restore-check.sh`.
+
+## 9. Après coup
 
 - Demandez l'amendement du point 8 de l'ADR-0009 (la clé de la CI est stockée dans GitHub, par décision du 2026-11-15).
 - `ufw` ne filtre pas les ports publiés par Docker : ici seul Traefik publie 80 et 443.
