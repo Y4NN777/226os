@@ -12,10 +12,10 @@ function languageName(code: string, locale: string): string {
  * The original language of a piece of user content ("FR", "EN") as a small mono code, like the
  * country chip; the language name is its hint. The page also sets `lang` on the content itself.
  */
-export function LangCode({ lang }: { lang: string }) {
+export function LangCode({ lang, title }: { lang: string; title?: string }) {
   const { t, locale } = useI18n();
   return (
-    <span className="ui-lang" title={t('lang.hint', { lang: languageName(lang, locale) })}>
+    <span className="ui-lang" title={title ?? t('lang.hint', { lang: languageName(lang, locale) })}>
       {lang.toUpperCase()}
     </span>
   );

@@ -29,6 +29,9 @@ describe('BuildPage list', () => {
     expect(
       await screen.findByRole('heading', { level: 1, name: 'Construire' }),
     ).toBeInTheDocument();
+    const crumbs = screen.getByRole('navigation', { name: 'Fil d’Ariane' });
+    expect(within(crumbs).getByRole('link', { name: 'Accueil' })).toHaveAttribute('href', '/');
+    expect(within(crumbs).getByText('Construire')).toHaveAttribute('aria-current', 'page');
     const link = await screen.findByRole('link', { name: 'kora-sdk' });
     expect(link).toHaveAttribute('href', `/build/${projectId}`);
     const results = screen.getByRole('region', { name: 'Projets' });

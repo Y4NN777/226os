@@ -1,30 +1,29 @@
 import { Button } from '@astryxdesign/core/Button';
 import { CheckboxInput } from '@astryxdesign/core/CheckboxInput';
-import { EmptyState } from '@astryxdesign/core/EmptyState';
-import { Heading } from '@astryxdesign/core/Heading';
 import { HStack } from '@astryxdesign/core/HStack';
 import { Icon } from '@astryxdesign/core/Icon';
 import { IconButton } from '@astryxdesign/core/IconButton';
 import { Link } from '@astryxdesign/core/Link';
-import { Text } from '@astryxdesign/core/Text';
 import { TextInput } from '@astryxdesign/core/TextInput';
+import { VisuallyHidden } from '@astryxdesign/core/VisuallyHidden';
 import { useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import { useSession } from '../../app/session';
+import { Avatar } from '../../components/Avatar';
+import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
+import { LinkIcon, PlusIcon } from '../../components/icons';
+import { List, ListRow } from '../../components/List';
 import { LoadingState } from '../../components/LoadingState';
+import { Meta, MetaItem } from '../../components/Meta';
+import { PageHeader } from '../../components/PageHeader';
+import { StatusBadge } from '../../components/StatusBadge';
+import { TagList } from '../../components/Tag';
 import { useI18n } from '../../i18n/I18nProvider';
 import { relatedPath } from '../related';
 import { signInHref } from '../solve/signIn';
 import './build.css';
-import {
-  BuildBreadcrumbs,
-  DateText,
-  MetaBadge,
-  Monogram,
-  needsLabelKey,
-  StatePill,
-} from './present';
+import { DateText, needsKind, needsLabelKey } from './present';
 import { ProjectForm } from './ProjectForm';
 import { useCreateProject, useProjectList, type Project, type ProjectFilters } from './queries';
 
@@ -32,9 +31,9 @@ import { useCreateProject, useProjectList, type Project, type ProjectFilters } f
 const ROW_TAGS = 3;
 
 /**
- * One dense project row (prototype `build.html`, `.list > .row`): monogram, title link, excerpt,
- * technologies, a meta line, and the open-needs pill at the end. Only the title is a link, so the
- * owner and origin-question links keep their own names.
+ * One dense project row (prototype `build.html`, `.list > .row`) on the shared ListRow: monogram
+ * tile, title link, excerpt, technologies, a meta line, and the open-needs pill at the end. The
+ * owner and origin-question links sit above the row link and keep their own names.
  */
 export function ProjectRow({ project }: { project: Project }) {
   const { t } = useI18n();
@@ -42,69 +41,53 @@ export function ProjectRow({ project }: { project: Project }) {
   const more = project.technologies.length - shown.length;
   const origin = project.related.find((link) => link.type === 'question');
   return (
-    <li className="build-row">
-      <Monogram name={project.name} size="lg" />
-      <div className="build-row-main">
-        <h3 className="build-row-title">
-          <span lang={project.lang}>
-            <Link href={`/build/${project.id}`} weight="semibold" color="primary" size="lg">
-              {project.name}
-            </Link>
-          </span>
-        </h3>
-        {project.description ? (
-          <p className="build-row-excerpt" lang={project.lang}>
-            {project.description}
-          </p>
-        ) : null}
-        {shown.length > 0 ? (
-          <ul className="build-tags">
-            {shown.map((item) => (
-              <li key={item} className="build-tag">
-                {item}
-              </li>
-            ))}
-            {more > 0 ? (
-              <li className="build-tag-more">
-                <span aria-hidden="true">+{more}</span>
-                <span className="build-visually-hidden">
-                  {t('build.row.moreTags', { n: more })}
-                </span>
-              </li>
-            ) : null}
-          </ul>
-        ) : null}
-        <div className="build-meta">
-          <span className="build-meta-item">
-            <Link href={`/profils/${project.owner.username}`} size="sm">
-              {project.owner.display_name}
-            </Link>
-          </span>
-          <span className="build-meta-item">
-            <span className="build-visually-hidden">{t('build.row.updated')} </span>
+    <ListRow
+      title={project.name}
+      href={`/build/${project.id}`}
+      titleLang={project.lang}
+      lead={<Avatar name={project.name} variant="tile" />}
+      {...(project.description ? { excerpt: project.description } : {})}
+      {...(shown.length > 0
+        ? {
+            tags: (
+              <TagList
+                tags={shown}
+                more={{ count: more, label: t('build.row.moreTags', { n: more }) }}
+              />
+            ),
+          }
+        : {})}
+      meta={
+        <Meta>
+          <MetaItem>
+            <Link href={`/profils/${project.owner.username}`}>{project.owner.display_name}</Link>
+          </MetaItem>
+          <MetaItem>
+            <VisuallyHidden>{`${t('build.row.updated')} `}</VisuallyHidden>
             <DateText iso={project.updated_at} />
-          </span>
-          {project.visibility === 'private' ? <MetaBadge label={t('build.private')} /> : null}
+          </MetaItem>
           {origin ? (
-            <span className="build-meta-item build-meta-origin">
-              <Icon icon="info" size="xsm" color="secondary" />
-              <span className="build-visually-hidden">{t('build.row.origin')} </span>
-              <span lang={origin.lang}>
-                <Link href={relatedPath(origin)} size="sm" color="secondary" hasUnderline>
-                  {origin.title}
-                </Link>
+            <MetaItem icon={LinkIcon}>
+              <VisuallyHidden>{`${t('build.row.origin')} `}</VisuallyHidden>
+              <span lang={origin.lang} className="build-origin">
+                <Link href={relatedPath(origin)}>{origin.title}</Link>
               </span>
-            </span>
+            </MetaItem>
           ) : null}
-        </div>
-      </div>
-      <div className="build-row-aside">
-        <StatePill
-          tone={project.open_needs_count > 0 ? 'open' : 'muted'}
-          label={t(needsLabelKey(project.open_needs_count), { n: project.open_needs_count })}
-        />
-      </div>
-    </li>
+        </Meta>
+      }
+      aside={
+        <>
+          <StatusBadge
+            kind={needsKind(project.open_needs_count)}
+            label={t(needsLabelKey(project.open_needs_count), { n: project.open_needs_count })}
+          />
+          {project.visibility === 'private' ? (
+            <StatusBadge kind="private" label={t('build.private')} />
+          ) : null}
+        </>
+      }
+    />
   );
 }
 
@@ -213,35 +196,32 @@ export function BuildPage() {
   };
 
   return (
-    <div className="build-page">
-      <BuildBreadcrumbs
-        items={[{ label: t('build.crumb.home'), href: '/' }, { label: t('build.title') }]}
-      />
-      <header className="build-header">
-        <div className="build-header-row">
-          <Heading level={1}>{t('build.title')}</Heading>
-          {proposing && signedIn ? null : signedIn ? (
+    <div className="ui-page">
+      <PageHeader
+        title={t('build.title')}
+        breadcrumbs={[{ label: t('nav.home'), href: '/' }, { label: t('build.title') }]}
+        lead={t('build.lede')}
+        actions={
+          proposing && signedIn ? undefined : signedIn ? (
             <Button
               variant="primary"
               label={t('build.propose')}
+              icon={<Icon icon={PlusIcon} />}
               onClick={() => {
                 setProposing(true);
               }}
             />
-          ) : session.isPending ? null : (
+          ) : session.isPending ? undefined : (
             <Button
               variant="primary"
               label={t('build.propose.signIn')}
               href={signInHref('/build')}
             />
-          )}
-        </div>
-        <Text as="p" color="secondary">
-          {t('build.lede')}
-        </Text>
-      </header>
+          )
+        }
+      />
       {proposing && signedIn ? (
-        <div className="build-panel">
+        <div className="ui-panel">
           <ProposeForm
             onClose={() => {
               setProposing(false);
@@ -256,13 +236,12 @@ export function BuildPage() {
           setFilters(normalize(next));
         }}
       />
-      <section aria-labelledby="build-results-heading" className="build-results">
-        <div className="build-results-head">
-          <Heading level={2} id="build-results-heading">
-            {t('build.results.label')}
-          </Heading>
-        </div>
-        {list.isPending ? <LoadingState /> : null}
+      <section aria-labelledby="build-results-heading" className="ui-section">
+        {/* Prototype `h2.visually-hidden`, as on Découvrir: the outline stays h1 > h2 > h3. */}
+        <VisuallyHidden as="h2" id="build-results-heading">
+          {t('build.results.label')}
+        </VisuallyHidden>
+        {list.isPending ? <LoadingState rows={4} /> : null}
         {list.isError && !list.data ? (
           <ErrorState error={list.error} onRetry={() => void list.refetch()} />
         ) : null}
@@ -284,11 +263,11 @@ export function BuildPage() {
         ) : null}
         {items.length > 0 ? (
           <>
-            <ul className="build-list">
+            <List label={t('build.results.label')}>
               {items.map((project) => (
                 <ProjectRow key={project.id} project={project} />
               ))}
-            </ul>
+            </List>
             {list.isError ? (
               <ErrorState error={list.error} onRetry={() => void list.fetchNextPage()} />
             ) : null}
