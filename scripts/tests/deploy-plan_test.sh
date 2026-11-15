@@ -76,6 +76,43 @@ run EVENT_NAME=push PUSH_REF=refs/heads/feature/x PUSH_SHA="$sha2"
 run EVENT_NAME=workflow_dispatch
 [ "$rc" -ne 0 ] && ok "an unexpected event is refused" || ko "unexpected event (rc=$rc)"
 
+# Emergency path: a manual dispatch on main, explicit opt-in and a reason; production without the staging digests.
+ed() { printf 'EVENT_NAME=workflow_dispatch DISPATCH_REF=refs/heads/main DISPATCH_SHA=%s EMERGENCY=true' "$1"; }
+
+# shellcheck disable=SC2046
+run $(ed "$sha2") 'EMERGENCY_REASON=hotfix login broken'
+if [ "$rc" -eq 0 ] && [ "$(val proceed)" = true ] && [ "$(val target)" = production ] && [ "$(val profile)" = production-live ] &&
+  [ "$(val emergency)" = true ] && [ "$(val sha)" = "$sha2" ] && [ "$(val tree)" = "$tree" ]; then
+  ok "an emergency dispatch on main with a reason targets production-live, flagged emergency"
+else ko "emergency (rc=$rc $msg)"; fi
+
+# shellcheck disable=SC2046
+run $(ed "$sha2") EMERGENCY=false 'EMERGENCY_REASON=x'
+[ "$rc" -ne 0 ] && ok "a dispatch without emergency=true is refused" || ko "dispatch without opt-in (rc=$rc)"
+
+# shellcheck disable=SC2046
+run $(ed "$sha2") DISPATCH_REF=refs/heads/develop 'EMERGENCY_REASON=x'
+[ "$rc" -ne 0 ] && ok "an emergency dispatch from another ref than main is refused" || ko "dispatch from develop (rc=$rc)"
+
+# shellcheck disable=SC2046
+run $(ed "$sha2")
+[ "$rc" -ne 0 ] && ok "an emergency dispatch without a reason is refused" || ko "no reason (rc=$rc)"
+
+# shellcheck disable=SC2046
+run $(ed "$sha2") "EMERGENCY_REASON=$(printf 'x%.0s' $(seq 201))"
+[ "$rc" -ne 0 ] && ok "a reason longer than 200 characters is refused" || ko "long reason (rc=$rc)"
+
+# shellcheck disable=SC2046
+run $(ed "$sha2") "EMERGENCY_REASON=$(printf 'a\nb')"
+[ "$rc" -ne 0 ] && ok "a reason with a control character is refused" || ko "control char reason (rc=$rc)"
+
+run EVENT_NAME=push PUSH_REF=refs/heads/main PUSH_SHA="$sha2"
+[ "$(val emergency)" = false ] && ok "a push to main is never an emergency deploy" || ko "push emergency flag ($(val emergency))"
+
+# shellcheck disable=SC2046
+run $(wr "$sha2")
+[ "$(val emergency)" = false ] && ok "a staging deploy is never an emergency deploy" || ko "staging emergency flag ($(val emergency))"
+
 # shellcheck disable=SC2046
 run $(wr "$sha2") 'RUN_SHA=abc; echo injected'
 [ "$rc" -ne 0 ] && ok "a malformed SHA is refused" || ko "malformed sha (rc=$rc)"
