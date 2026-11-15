@@ -3,3 +3,5 @@ src/api/schema.d.ts
 coverage
 dist
 node_modules
+playwright-report
+test-results
