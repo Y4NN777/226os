@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { components } from '../../api/schema';
 import { mockApi, problemResponse } from '../../test/api';
 import { jsonResponse, renderApp, setLanguages } from '../../test/render';
@@ -204,5 +204,127 @@ describe('LandingPage', () => {
       '/inscription',
     );
     expect(main.queryByText('Soon')).not.toBeInTheDocument();
+  });
+
+  it('offers both calls to action in English', async () => {
+    setLanguages(['en-US']);
+    mockApi({ 'GET /resources': () => page([resource(1)]) });
+    const { main } = await open();
+    await main.findByRole('heading', { level: 1 });
+    for (const link of main.getAllByRole('link', { name: 'Create an account' })) {
+      expect(link).toHaveAttribute('href', '/inscription');
+    }
+    expect(main.getByRole('link', { name: 'Browse the catalogue' })).toHaveAttribute(
+      'href',
+      '/discover',
+    );
+  });
+
+  describe('product screenshots', () => {
+    const shots = (root: HTMLElement) =>
+      Array.from(root.querySelectorAll<HTMLImageElement>('img[src^="/landing/"]'));
+
+    it('shows four real screenshots, each with an alt, its size, a caption and lazy loading', async () => {
+      setLanguages(['fr-FR']);
+      mockApi({ 'GET /resources': () => page([resource(1)]) });
+      const { main } = await open();
+      const region = within(await main.findByRole('region', { name: 'Un aperçu de 226os' }));
+      expect(region.getAllByRole('figure')).toHaveLength(4);
+      const images = shots(region.getAllByRole('figure')[0]?.parentElement as HTMLElement);
+      expect(images).toHaveLength(4);
+      for (const img of images) {
+        expect(img.getAttribute('alt')?.length).toBeGreaterThan(20);
+        expect(Number(img.getAttribute('width'))).toBeGreaterThan(0);
+        expect(Number(img.getAttribute('height'))).toBeGreaterThan(0);
+        expect(img).toHaveAttribute('loading', 'lazy');
+        expect(img).toHaveAttribute('decoding', 'async');
+        expect(img.getAttribute('src')).toMatch(/\.jpg$/);
+      }
+    });
+
+    it('describes the screenshots in English', async () => {
+      setLanguages(['en-US']);
+      mockApi({ 'GET /resources': () => page([resource(1)]) });
+      const { main } = await open();
+      const region = await main.findByRole('region', { name: 'A look inside 226os' });
+      const alts = shots(region).map((img) => img.getAttribute('alt') ?? '');
+      expect(alts).toHaveLength(4);
+      for (const alt of alts) expect(alt).toMatch(/^Screenshot/);
+    });
+  });
+
+  describe('reveal on scroll', () => {
+    class FakeObserver {
+      static instances: FakeObserver[] = [];
+      targets: Element[] = [];
+      constructor(readonly callback: IntersectionObserverCallback) {
+        FakeObserver.instances.push(this);
+      }
+      observe(target: Element) {
+        this.targets.push(target);
+      }
+      unobserve() {}
+      disconnect() {}
+      takeRecords() {
+        return [];
+      }
+    }
+
+    async function openWith(setup: () => void) {
+      setLanguages(['fr-FR']);
+      mockApi({ 'GET /resources': () => page([resource(1)]) });
+      FakeObserver.instances = [];
+      setup();
+      const view = await open();
+      await view.main.findByRole('heading', { level: 1 });
+      return view;
+    }
+
+    it('keeps everything visible when IntersectionObserver is not supported', async () => {
+      const { main } = await openWith(() => {
+        vi.stubGlobal('IntersectionObserver', undefined);
+      });
+      const region = await main.findByRole('region', { name: 'Un aperçu de 226os' });
+      expect(document.querySelector('[data-reveal]')).toBeNull();
+      expect(region).toBeVisible();
+      expect(within(region).getAllByRole('figure')).toHaveLength(4);
+    });
+
+    it('hides a section until it is seen, then shows it', async () => {
+      const { main } = await openWith(() => {
+        vi.stubGlobal('IntersectionObserver', FakeObserver);
+      });
+      const region = await main.findByRole('region', { name: 'Un aperçu de 226os' });
+      const hidden = document.querySelectorAll('[data-reveal="hidden"]');
+      expect(hidden.length).toBeGreaterThan(0);
+      expect(region.querySelector('[data-reveal="hidden"]')).not.toBeNull();
+      for (const observer of FakeObserver.instances) {
+        observer.callback(
+          observer.targets.map((target) => ({ isIntersecting: true, target })) as never,
+          observer as never,
+        );
+      }
+      expect(document.querySelector('[data-reveal="hidden"]')).toBeNull();
+      expect(document.querySelectorAll('[data-reveal="shown"]').length).toBe(hidden.length);
+    });
+
+    it('applies no animation state when the visitor prefers reduced motion', async () => {
+      await openWith(() => {
+        vi.stubGlobal('IntersectionObserver', FakeObserver);
+        vi.stubGlobal(
+          'matchMedia',
+          vi.fn((query: string) => ({
+            matches: query.includes('prefers-reduced-motion'),
+            media: query,
+            addEventListener: vi.fn(),
+            removeEventListener: vi.fn(),
+            addListener: vi.fn(),
+            removeListener: vi.fn(),
+          })),
+        );
+      });
+      expect(document.querySelector('[data-reveal]')).toBeNull();
+      expect(FakeObserver.instances).toHaveLength(0);
+    });
   });
 });
