@@ -96,6 +96,8 @@ Le compte n'est plus un secret GitHub : il est dans `secrets/staging-test.enc.en
 
 `secrets/staging-test.enc.env` ne contient pas encore `E2E_USER` ni `E2E_PASSWORD`. Le premier déploiement de staging va donc jusqu'à la fumée puis échoue à l'étape E2E, et ne pose pas d'étiquette `tested-<arbre>` : c'est attendu. Commandes du propriétaire, dans l'ordre :
 
+Le serveur de staging peut héberger d'autres applications, mais les ports 80 et 443 appartiennent au Traefik de 226os. Note : noma, s'il est présent, doit être servi derrière le Traefik de 226os (route dynamique), et non sur 80/443.
+
 1. Sur le serveur de staging, neuf, en root, ports 80 et 443 libres (`ss -tlnp`) :
    ```bash
    bash server-bootstrap.sh --dry-run --ssh-fingerprint "SHA256:<empreinte de votre clé root>" "$(cat deploy_staging.pub)"
