@@ -140,6 +140,24 @@ if [ "$rc" -eq 0 ] && grep -qx "API_IMAGE=$ns/226os-api@$d_api" <<<"$out" && ! g
   ok "an existing tag with the same content is kept; the missing ones are pushed"
 else ko "same content (rc=$rc out=$out log=$(cat "$tmp/log"))"; fi
 
+# Emergency tag (deploy-emergency.yml): emergency-<sha>-<run id>-<attempt>, under the same immutability rule.
+etag="emergency-$(printf 'a%.0s' {1..40})-123456789-1"
+printf '%s %s@%s\n%s %s@%s\n%s %s@%s\n' "$ns/226os-api:$etag" "$ns/226os-api" "$d_api" "$ns/226os-web:$etag" "$ns/226os-web" "$d_web" "$ns/226os-migrate:$etag" "$ns/226os-migrate" "$d_mig" >"$tmp/repo"
+: >"$tmp/map"
+: >"$tmp/cfg"
+run "$images" push "$etag" localtag
+if [ "$rc" -eq 0 ] && grep -qx "push $ns/226os-api:$etag" "$tmp/log" && grep -qx "API_IMAGE=$ns/226os-api@$d_api" <<<"$out" &&
+  grep -qx "MIGRATE_IMAGE=$ns/226os-migrate@$d_mig" <<<"$out"; then
+  ok "an emergency-<sha>-<run>-<attempt> tag is pushed and its digests printed"
+else ko "emergency push (rc=$rc out=$out log=$(cat "$tmp/log"))"; fi
+
+printf '%s %s\n' "$ns/226os-api:$etag" "$d_web" >"$tmp/map"
+printf '%s sha256:%s\n' "$ns/226os-api:$etag" "$(printf '9%.0s' {1..64})" >"$tmp/cfg"
+run "$images" push "$etag" localtag
+if [ "$rc" -ne 0 ] && grep -q 'immutable' <<<"$out" && ! grep -q '^push' "$tmp/log" && ! grep -q '_IMAGE=' <<<"$out"; then
+  ok "a pre-existing emergency tag with other content fails too (same immutability rule)"
+else ko "emergency pre-existing (rc=$rc out=$out log=$(cat "$tmp/log"))"; fi
+
 # a push that leaves no registry digest locally is an error, not a guess.
 : >"$tmp/map"
 : >"$tmp/cfg"
