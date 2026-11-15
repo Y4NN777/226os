@@ -22,6 +22,14 @@ export const fr = {
   'connect.empty.filtered.body': 'Retirez un filtre ou changez de pays pour voir plus de monde.',
   'connect.rate': 'Trop de requêtes, réessayez dans {seconds} s',
   'connect.rate.now': 'Trop de requêtes, réessayez dans un instant',
+  'connect.spaces.title': 'Espaces d’échange',
+  'connect.spaces.badge': 'Bientôt',
+  'connect.space.country': 'Par pays',
+  'connect.space.country.body': 'Retrouver les développeurs d’un même pays.',
+  'connect.space.tech': 'Par technologie',
+  'connect.space.tech.body': 'Échanger autour d’une même stack.',
+  'connect.space.topic': 'Par thème',
+  'connect.space.topic.body': 'Apprentissage, open source, carrière.',
   'connect.soon': 'Bientôt : mentorat, espaces et opportunités.',
 } as const;
 
@@ -47,4 +55,12 @@ export const en: Record<keyof typeof fr, string> = {
   'connect.rate': 'Too many requests, try again in {seconds} s',
   'connect.rate.now': 'Too many requests, try again shortly',
   'connect.soon': 'Coming soon: mentoring, spaces and opportunities.',
+  'connect.spaces.title': 'Discussion spaces',
+  'connect.spaces.badge': 'Coming soon',
+  'connect.space.country': 'By country',
+  'connect.space.country.body': 'Find developers from the same country.',
+  'connect.space.tech': 'By technology',
+  'connect.space.tech.body': 'Talk around a shared stack.',
+  'connect.space.topic': 'By topic',
+  'connect.space.topic.body': 'Learning, open source, careers.',
 };

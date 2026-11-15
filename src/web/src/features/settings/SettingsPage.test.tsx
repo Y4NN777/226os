@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import type { components } from '../../api/schema';
@@ -170,6 +170,48 @@ describe('SettingsPage display-name form (live profile)', () => {
     });
     expect(document.documentElement).toHaveAttribute('data-theme', 'dark');
     expect(localStorage.getItem('226os.theme')).toBe('dark');
+  });
+});
+
+describe('SettingsPage layout', () => {
+  it('groups the settings in named sections, each reachable from the section nav', async () => {
+    setLanguages(['fr-FR']);
+    member();
+    await renderApp('/parametres');
+    const nav = await screen.findByRole('navigation', { name: 'Sections des réglages' });
+    const anchors = [
+      ['Profil', 'profil'],
+      ['Préférences', 'preferences'],
+      ['Confidentialité', 'confidentialite'],
+    ] as const;
+    for (const [name, id] of anchors) {
+      expect(within(nav).getByRole('link', { name })).toHaveAttribute('href', `#${id}`);
+      expect(screen.getByRole('region', { name })).toHaveAttribute('id', id);
+    }
+    expect(
+      within(screen.getByRole('region', { name: 'Préférences' })).getByText('Thème'),
+    ).toBeVisible();
+    expect(
+      await within(screen.getByRole('region', { name: 'Profil' })).findByLabelText(
+        /Nom d’affichage/,
+      ),
+    ).toBeVisible();
+    expect(
+      await within(screen.getByRole('region', { name: 'Confidentialité' })).findByRole(
+        'radiogroup',
+        { name: /Qui peut voir votre profil/ },
+      ),
+    ).toBeVisible();
+  });
+
+  it('names the sections in English too', async () => {
+    setLanguages(['en-US']);
+    member();
+    await renderApp('/parametres');
+    const nav = await screen.findByRole('navigation', { name: 'Settings sections' });
+    expect(within(nav).getByRole('link', { name: 'Profile' })).toBeVisible();
+    expect(within(nav).getByRole('link', { name: 'Preferences' })).toBeVisible();
+    expect(within(nav).getByRole('link', { name: 'Privacy' })).toBeVisible();
   });
 });
 

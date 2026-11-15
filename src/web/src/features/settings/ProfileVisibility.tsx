@@ -57,7 +57,8 @@ export function ProfileVisibility() {
 
   const heading = (
     <VStack gap={1}>
-      <Heading level={2}>{t('settings.visibility.title')}</Heading>
+      {/* Level 3: the page's « Confidentialité » section holds it. */}
+      <Heading level={3}>{t('settings.visibility.title')}</Heading>
       <Text as="p" type="supporting">
         {t('settings.visibility.bylines')}
       </Text>
