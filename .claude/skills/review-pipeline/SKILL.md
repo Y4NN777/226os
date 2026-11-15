@@ -20,7 +20,7 @@ that implements it. Never describe a gate, a check or a review rule from memory 
 | Stage | Workflow | Script(s) | Owns |
 |---|---|---|---|
 | 1 review | `code-review.yml` job `review` | `review-context.py` (context pack), `review-comment.py` (pin, carry forward, write) | one comment per run, line 1 `Triage: <LEVEL>`, line 2 `<!-- 226os-ai-review -->`, a fenced JSON ledger in `<details>` |
-| 2 deep | `code-review.yml` job `deep` | `.claude/commands/deep-review.md`, merged by `review-comment.py` | P0 paths (`.github/sensitive-paths.txt`, `.github/deep-review-paths.txt`), `"source":"deep"`, `Deep: PASS|PENDING` line, `deep.status/sha` in the ledger |
+| 2 deep | `code-review.yml` job `deep` | `.claude/commands/deep-review.md`, merged by `review-comment.py` | P0 paths (`.github/sensitive-paths.txt`, `.github/deep-review-paths.txt`), `"source":"deep"`, `Deep: PASS|PENDING|NOT RUN` line, `deep.status/sha` in the ledger |
 | gate | `code-review.yml` job `gate` | `review-gate.py` | the required check `Review gate`: ledger sha = PR head, no blocking finding, CRITICAL rules |
 | harvest | `code-review.yml` job `harvest` | `findings.py` | finding issues (`finding`, `sev:*`, `area:*`, `due:*`), `PR<N> notes` issues, `PR<N> follow-ups`, dashboard #119 |
 | 3 auto-fix | `review-autofix.yml` (`decide`, `preflight`, `fix`, `publish`, end job) | `review-autofix.py` (`pr`, `context`, `check`, `record`, `nothing`), `.claude/commands/review-fix.md` | attempts, routing, the trusted push guard, the status comment |
@@ -34,7 +34,7 @@ Path lists read from `develop` through the API: `.github/pipeline-paths.txt` (ne
 ## Ledger entry (read `review-comment.py` and the deep JSON schema in `code-review.yml` for the exact set)
 `id`, `kind` (`finding` | `note`), `evidence` (`OBSERVED` | `INFERRED`), `sev` (`CRITICAL` | `HIGH` | `MEDIUM` | `LOW`),
 `file`, `line`, `scenario`, `detail`, `fix`, `status` (`open` | `answered` | `accepted` | `fixed`), `source`
-(`review` | `deep`), `first_sha`, `location` (`verified` | `unverified`). The ledger `sha` must be the PR head
+(`review` | `deep`), `first_sha`, `location` (`verified` | `mismatch` with a `probable` file:line | `unverified`). The ledger `sha` must be the PR head
 (`PR_HEAD_SHA`), never the checkout HEAD. A declared CRITICAL without OBSERVED evidence and a real `file:line` counts as
 HIGH. A stale ledger is NOT RUN, and a stale CRITICAL keeps blocking. Notes never block.
 

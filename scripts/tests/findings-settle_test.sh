@@ -3,7 +3,7 @@
 # (fix/review/batch-*) is merged into develop, the results table of its body settles each source. Only FIXED and FIXED
 # ELSEWHERE act: they close a finding issue as completed or tick a note's box. NOT A DEFECT and DECIDED only post the
 # reason as a comment on a finding, or on a note without a verifiable reference (independent review of #187, H5: a model verdict never closes a finding; a human does; notes with a verified reference: findings-settle-notes_test.sh);
-# OWNER and AFTER FREEZE stay open. One comment per touched source, once. A notes issue whose boxes are all ticked is
+# OWNER stays open (an old AFTER FREEZE table is still read, like OWNER). One comment per touched source, once. A notes issue whose boxes are all ticked is
 # closed. The batch issue closes last. A second run changes nothing; no human comment is edited; no mention.
 # Usage: scripts/tests/findings-settle_test.sh
 set -euo pipefail
@@ -131,7 +131,7 @@ field 20 'x["body"]' | grep -q -- '- \[ \] `n1` [^—]*$' && field 20 'x["body"]
 field 20 'x["comments"][-1]["body"]' | grep -q '`n1` DECIDED.*REVIEW_CONTEXT says so' && ok "notes: the DECIDED reason is posted in the comment" || ko "notes decided reason ($(field 20 'x["comments"]'))"
 [ "$(field 20 'x["state"], x["state_reason"]')" = "('open', None)" ] && ok "a notes issue with a box left unticked (DECIDED) stays open" || ko "notes stay open ($(field 20 'x["state"]'))"
 [ "$(bot_comments 20)" -eq 1 ] && ok "ONE comment per touched source issue (two notes, one comment)" || ko "notes comments ($(bot_comments 20))"
-field 21 'x["body"]' | grep -q -- '- \[ \] `n3`' && [ "$(field 21 'x["state"]')" = "open" ] && ok "AFTER FREEZE: the box stays unticked and the issue open" || ko "after freeze ($(field 21 'x["body"]'))"
+field 21 'x["body"]' | grep -q -- '- \[ \] `n3`' && [ "$(field 21 'x["state"]')" = "open" ] && ok "an OLD table with AFTER FREEZE is still read, like OWNER: the box stays unticked and the issue open" || ko "after freeze ($(field 21 'x["body"]'))"
 [ "$(field 40 'x["state"], x["state_reason"]')" = "('closed', 'completed')" ] && ok "the batch issue is closed" || ko "batch close ($(field 40 'x["state"]'))"
 [ "$(field 16 'x["state"]')" = "open" ] && field 16 'x["comments"][-1]["body"]' | grep -q 'needs-owner' && ok "a needs-owner source gets a comment and stays open" || ko "needs-owner source ($(field 16 'x["state"], x["comments"]'))"
 last="$(tail -1 "$tmp/st/log")"

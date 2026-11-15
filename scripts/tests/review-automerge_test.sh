@@ -123,7 +123,7 @@ reset; pull closed; refused 'not open' "the pull request is not open"
 reset; pull open main; refused 'base is main' "the base is not develop (never main)"
 reset; pull open develop fork/r; refused 'head repository' "a fork"
 reset; pull open develop o/r true; refused 'draft' "a draft"
-for l in needs-owner do-not-merge owner-override-pending; do reset; pull open develop o/r false "[{\"name\":\"$l\"}]"; refused "label $l" "the label $l"; done
+for l in needs-owner autofix-stopped do-not-merge owner-override-pending; do reset; pull open develop o/r false "[{\"name\":\"$l\"}]"; refused "label $l" "the label $l"; done
 reset; files .github/workflows/x.yml; pull open develop o/r false '[]' Y4NN777; run on
 grep -q 'REFUSE #7.*workflow' <<<"$out" && ! grep -q 'pr merge' <<<"$calls" && ok "refused: a change to .github/workflows (the bot never merges one)" || ko "workflows ($out)"
 reset; checks "Validate branch promotion:completed:success" "quality:completed:failure" "Review gate:completed:success"; refused 'quality' "a required check failed"

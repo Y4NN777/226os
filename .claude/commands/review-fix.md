@@ -47,15 +47,14 @@ For each finding or item, one verdict with a one-line reason grounded in the cod
 | FIXED | a real defect, fixed here with a test that failed before the fix |
 | NOT A DEFECT | the code is right; say what the review missed |
 | DECIDED | `REVIEW_CONTEXT.md`, an ADR or a `TODO.md` decision already settles it (quote the line) |
-| OWNER | a fix needs an owner path or an owner decision (below), or you could not make it safely |
+| OWNER | a fix needs an owner path or an owner decision (below), or you could not make it safely; a finding that is real but not urgent also goes here, with that said in the reason |
 | FIXED ELSEWHERE | already fixed by another merged pull request (name it, `#N`, in the reason) |
-| AFTER FREEZE | real but not a fix for a failing gate or a P0 path, and the freeze is on |
 
 When a batch fix pull request merges, `scripts/findings.py settle` acts on these verdicts: FIXED and FIXED ELSEWHERE
 close the finding issue (or tick the note's box). NOT A DEFECT and DECIDED on a note outside the P0 paths (`.github/sensitive-paths.txt`, `.github/deep-review-paths.txt`) tick its box, and close the notes
 issue as not planned once all its boxes are settled, only when your reason cites a reference that exists on `develop`
 (a `docs/decisions/NNNN-*.md` file whose Status line says ACCEPTED and whose text names the note's own file AND the note's own id written as code, exactly `id` between backticks (the id in the results table, outside the mentions of the file, case-sensitive; a plain word never counts, as the notes issue wrote it; an ADR that merely mentions the file does not tick it); a `path:line` citation never ticks a note by itself, not even inside the note's own file, since a line that exists proves nothing; every reference you cite, ADR or line, must exist, or nothing is ticked; the script checks it); on a finding, or without
-such a reference, they only post your reason and a human decides. OWNER and AFTER FREEZE stay open. So a verdict is a decision on the source: be exact.
+such a reference, they only post your reason and a human decides. OWNER stays open. So a verdict is a decision on the source: be exact.
 
 Fix rules (binding):
 - Test first: write the failing test, run it and see it fail for the right reason, then the smallest fix, then run it
@@ -136,7 +135,7 @@ verdict OWNER.
 ## 5. Result
 
 Return a structured result (CI) or print it (local):
-`{"outcome": "fixed" | "nothing" | "needs-owner", "reason": "<one line>", "results": [{"item": "<id or key>", "verdict": "FIXED|FIXED ELSEWHERE|NOT A DEFECT|DECIDED|OWNER|AFTER FREEZE", "reason": "<one line, file:line>"}]}`.
+`{"outcome": "fixed" | "nothing" | "needs-owner", "reason": "<one line>", "results": [{"item": "<id or key>", "verdict": "FIXED|FIXED ELSEWHERE|NOT A DEFECT|DECIDED|OWNER", "reason": "<one line, file:line>"}]}`.
 `fixed` when at least one commit was made, `needs-owner` when any item is OWNER and nothing else could be done,
 `nothing` otherwise. One entry per given item, in the given order. No secret, e-mail address or quotation of a comment
 in it.

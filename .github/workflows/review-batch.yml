@@ -5,7 +5,7 @@
 # issue); the batch closes as completed when that pull request is merged or when every source is closed or decided,
 # and the next run opens a new one (docs/quality/REVIEW_CONTEXT.md).
 #
-# Job `batch` (schedule every 2 hours, manual dispatch): writes the batch issue (issues: write, GITHUB_TOKEN only) and
+# Job `batch` (after a merge into develop has been settled by "Review merged", schedule every 2 hours as the fallback, manual dispatch): writes the batch issue (issues: write, GITHUB_TOKEN only) and
 #   reads the merged pull requests into develop (pull-requests: read).
 #   A scheduled run uses the workflow and the script of the DEFAULT branch (develop, ADR-0013).
 # Job `report` (pull requests into main, promotions): writes the ranked batch to the job summary only, from the BASE
@@ -13,7 +13,7 @@
 # Job `fix` (stage 5, after `batch` on a schedule or a manual run): when the batch issue was created or updated (a manual
 #   run always tries), Claude Code works the batch with .claude/commands/review-fix.md as a normal project session, on a
 #   new branch fix/review/batch-YYYY-MM-DD from develop, and this workflow opens ONE pull request into develop whose body
-#   names the batch issue and holds the results table (FIXED, NOT A DEFECT, DECIDED, OWNER, AFTER FREEZE, each with a
+#   names the batch issue and holds the results table (FIXED, NOT A DEFECT, DECIDED, OWNER, each with a
 #   reason). The decision, the guard before the push and the body are scripts/review-autofix.py (`batch`, `check`,
 #   `body`); it is skipped while a batch pull request is open. Three jobs: `plan` (decides, no repository code runs),
 #   `fix` (UNTRUSTED: the model and make on the code it wrote, NO write token, git reads through `fixer-run`; its
@@ -31,9 +31,18 @@
 name: Review batch
 
 on:
+  # Fallback: GitHub schedules are best effort (a run can be delayed or dropped), so they cannot be the only trigger.
   schedule:
     - cron: "0 */2 * * *"
   workflow_dispatch:
+  # The trigger the pipeline controls (ADR-0015 phase 0): after "Review merged" has settled a merge into develop, the batch
+  # is rebuilt from what is on develop NOW. workflow_run runs the copy of this file on the default branch and uses nothing
+  # from the event (no value of it reaches a script); it never forces a fixer run (FORCE is a manual dispatch only). The event
+  # does not say whether the pull request was merged: "Review merged" skips its job for a closed, unmerged one, so the filter is on
+  # its conclusion (success or failure, never skipped or cancelled). UNVERIFIED on GitHub: the conclusion of an all-skipped run.
+  workflow_run:
+    workflows: ["Review merged"]
+    types: [completed]
   pull_request:
     branches: [main]
 
@@ -48,10 +57,16 @@ defaults:
 jobs:
   batch:
     name: Review batch
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    if: >-
+      github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+      || (github.event_name == 'workflow_run'
+      && github.event.workflow_run.event == 'pull_request'
+      && github.event.workflow_run.head_repository.full_name == github.repository
+      && (github.event.workflow_run.conclusion == 'success' || github.event.workflow_run.conclusion == 'failure'))
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    # One writer at a time; a run is never cancelled in the middle of a write.
+    # One writer at a time (cron, merge trigger and manual run share it); a run is never cancelled in the middle of a write.
+    # While one runs, a burst of merges leaves ONE pending run (a newer pending run replaces the older one).
     concurrency:
       group: review-batch-write
       cancel-in-progress: false
@@ -84,7 +99,8 @@ jobs:
   plan:
     name: Review batch (plan the fix)
     needs: batch
-    if: (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && vars.AUTO_FIX != 'off'
+    # One line on purpose: review-agent-triggers_test.sh reads only a single-line if: as a guard for the publish job below.
+    if: (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_run') && vars.AUTO_FIX != 'off' && (github.event_name != 'workflow_run' || (github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.head_repository.full_name == github.repository && (github.event.workflow_run.conclusion == 'success' || github.event.workflow_run.conclusion == 'failure')))
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -377,8 +393,8 @@ jobs:
 
       # No commit (outcome "nothing", run 43633446506 on #226): without this, no pull request settles anything and the
       # frozen batch never ends. The verdicts are applied like `findings.py settle` does on a merged batch pull request (the
-      # batch issue's own items only; FIXED ELSEWHERE closes only on a merged pull request; NOT A DEFECT, DECIDED, OWNER and
-      # AFTER FREEZE comment; FIXED without a commit is OWNER), one table comment goes on the batch issue, and the batch
+      # batch issue's own items only; FIXED ELSEWHERE closes only on a merged pull request; NOT A DEFECT, DECIDED and OWNER
+      # comment; FIXED without a commit is OWNER), one table comment goes on the batch issue, and the batch
       # closes so the next run moves on. The three scripts are git objects of the planned develop commit; GITHUB_TOKEN only.
       - name: Apply the verdicts when the fixer made no commit (trusted)
         env:
