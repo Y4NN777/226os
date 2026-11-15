@@ -1,25 +1,46 @@
 /* Search page layout after prototypes/html/pages/recherche.html: title, wide search field,
-   grouped sections of dense rows (rows and heads come from features/home/home.css).
+   grouped sections of the shared dense rows (src/components/List). Page layout only.
    The assistant keeps its own internals; only its container is styled here. */
 
 .srch-page {
   display: grid;
   gap: var(--spacing-6);
-  max-width: 62rem;
   min-width: 0;
+}
+.srch-page .ui-page-header {
+  margin-bottom: 0;
+}
+/* The query sits in the title with no-break spaces: let a long one wrap on a phone. */
+.srch-page .ui-page-header h1 {
+  overflow-wrap: anywhere;
 }
 .srch-form {
   display: flex;
+  flex-wrap: wrap;
   align-items: end;
   gap: var(--spacing-2);
 }
 .srch-field {
-  flex: 1 1 auto;
+  flex: 1 1 14rem;
   min-width: 0;
 }
 .srch-groups {
   display: grid;
   gap: var(--spacing-8);
+}
+.srch-section {
+  display: grid;
+  gap: var(--spacing-3);
+  min-width: 0;
+}
+.srch-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-2) var(--spacing-3);
+}
+.srch-head h2 {
+  margin: 0;
 }
 .srch-count {
   color: var(--color-text-secondary);

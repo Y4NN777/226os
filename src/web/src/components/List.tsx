@@ -45,6 +45,8 @@ export interface ListRowProps {
   aside?: ReactNode;
   /** Other links or controls; they stay clickable above the row link. */
   above?: ReactNode;
+  /** Language of the user content (title and excerpt) when it is known. */
+  lang?: string | undefined;
 }
 
 export function ListRow({
@@ -57,18 +59,24 @@ export function ListRow({
   meta,
   aside,
   above,
+  lang,
 }: ListRowProps) {
   const Title = `h${String(headingLevel)}` as 'h2' | 'h3' | 'h4';
+  const langProps = lang ? { lang } : {};
   return (
     <li className={lead ? 'ui-row has-lead' : 'ui-row'}>
       {lead ? <div className="ui-row-lead">{lead}</div> : null}
       <div className="ui-row-main">
-        <Title className="ui-row-title">
+        <Title className="ui-row-title" {...langProps}>
           <Link href={href} className="ui-row-link">
             {title}
           </Link>
         </Title>
-        {excerpt ? <p className="ui-row-excerpt">{excerpt}</p> : null}
+        {excerpt ? (
+          <p className="ui-row-excerpt" {...langProps}>
+            {excerpt}
+          </p>
+        ) : null}
         {tags ? <div className="ui-row-above">{tags}</div> : null}
         {meta}
         {above ? <div className="ui-row-above">{above}</div> : null}

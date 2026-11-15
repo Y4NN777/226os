@@ -1,19 +1,26 @@
 import { Button } from '@astryxdesign/core/Button';
-import { EmptyState } from '@astryxdesign/core/EmptyState';
 import { Heading } from '@astryxdesign/core/Heading';
 import { Icon } from '@astryxdesign/core/Icon';
-import { Link } from '@astryxdesign/core/Link';
 import { TextInput } from '@astryxdesign/core/TextInput';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { useState } from 'react';
 import type { components } from '../../api/schema';
+import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
+import {
+  BookIcon,
+  CompassIcon,
+  HammerIcon,
+  HelpIcon,
+  SearchIcon,
+  type SvgIcon,
+} from '../../components/icons';
+import { List, ListRow } from '../../components/List';
 import { LoadingState } from '../../components/LoadingState';
+import { PageHeader } from '../../components/PageHeader';
 import { useI18n } from '../../i18n/I18nProvider';
 import type { MessageKey } from '../../i18n/messages';
-import { FeedIcon, type FeedIconName } from '../home/FeedIcon';
-import { RowList, Thumb } from '../home/rows';
 import { AssistantPanel } from './AssistantPanel';
 import { isSearchable, normalizeQuery, searchQuery } from './searchQuery';
 import './search.css';
@@ -23,11 +30,11 @@ type SearchHit = components['schemas']['SearchHit'];
 type GroupName = keyof SearchResults['groups'];
 
 const groupOrder = [
-  ['resources', 'search.group.resources', 'compass'],
-  ['questions', 'search.group.questions', 'help'],
-  ['learn', 'search.group.learn', 'book'],
-  ['projects', 'search.group.projects', 'hammer'],
-] as const satisfies readonly (readonly [GroupName, MessageKey, FeedIconName])[];
+  ['resources', 'search.group.resources', CompassIcon],
+  ['questions', 'search.group.questions', HelpIcon],
+  ['learn', 'search.group.learn', BookIcon],
+  ['projects', 'search.group.projects', HammerIcon],
+] as const satisfies readonly (readonly [GroupName, MessageKey, SvgIcon])[];
 
 function SearchForm({ initial }: { initial: string }) {
   const { t } = useI18n();
@@ -76,24 +83,17 @@ const pathByGroup: Record<GroupName, (id: string) => string> = {
   projects: (id) => `/build/${id}`,
 };
 
-/** One hit as a dense row: the group glyph, the title link, the plain-text snippet. */
-function Hit({ hit, group, icon }: { hit: SearchHit; group: GroupName; icon: FeedIconName }) {
+/** One hit as a shared dense row: the title link and the plain-text snippet. */
+function Hit({ hit, group }: { hit: SearchHit; group: GroupName }) {
   const { locale } = useI18n();
   const lang = hit.lang && hit.lang !== locale ? hit.lang : undefined;
   return (
-    <li className="feed-row" lang={lang}>
-      <div className="feed-row-lead">
-        <Thumb icon={icon} />
-      </div>
-      <div className="feed-row-main">
-        <h3 className="feed-row-title">
-          <Link href={pathByGroup[group](hit.id)} color="primary" weight="semibold">
-            {hit.title}
-          </Link>
-        </h3>
-        {hit.snippet ? <p className="feed-row-excerpt">{hit.snippet}</p> : null}
-      </div>
-    </li>
+    <ListRow
+      title={hit.title}
+      href={pathByGroup[group](hit.id)}
+      lang={lang}
+      excerpt={hit.snippet || undefined}
+    />
   );
 }
 
@@ -104,14 +104,20 @@ function Results({ q, data }: { q: string; data: SearchResults }) {
     return group && group.items.length > 0 ? [{ name, label, icon, group }] : [];
   });
   if (groups.length === 0) {
-    return <EmptyState title={t('search.none.title', { q })} description={t('search.none.body')} />;
+    return (
+      <EmptyState
+        icon={SearchIcon}
+        title={t('search.none.title', { q })}
+        description={t('search.none.body')}
+      />
+    );
   }
   return (
     <div className="srch-groups">
       {groups.map(({ name, label, icon, group }) => (
-        <section key={name} className="feed-section" aria-labelledby={`search-group-${name}`}>
-          <div className="feed-head">
-            <FeedIcon name={icon} />
+        <section key={name} className="srch-section" aria-labelledby={`search-group-${name}`}>
+          <div className="srch-head">
+            <Icon icon={icon} color="secondary" />
             <Heading level={2} id={`search-group-${name}`}>
               {t(label)}
             </Heading>
@@ -120,11 +126,11 @@ function Results({ q, data }: { q: string; data: SearchResults }) {
               <span className="srch-count">{String(group.items.length)}</span>
             )}
           </div>
-          <RowList>
+          <List label={t(label)}>
             {group.items.map((hit) => (
-              <Hit key={hit.id} hit={hit} group={name} icon={icon} />
+              <Hit key={hit.id} hit={hit} group={name} />
             ))}
-          </RowList>
+          </List>
           {group.has_more ? <p className="srch-more">{t('search.more')}</p> : null}
         </section>
       ))}
@@ -154,14 +160,20 @@ export function SearchPage() {
   const searchable = q !== '' && isSearchable(q);
   return (
     <div className="srch-page">
-      <Heading level={1}>
-        {searchable ? t('search.results.title', { q }) : t('search.title')}
-      </Heading>
+      <PageHeader title={searchable ? t('search.results.title', { q }) : t('search.title')} />
       <SearchForm key={q} initial={q} />
       {q === '' ? (
-        <EmptyState title={t('search.start.title')} description={t('search.start.body')} />
+        <EmptyState
+          icon={SearchIcon}
+          title={t('search.start.title')}
+          description={t('search.start.body')}
+        />
       ) : !searchable ? (
-        <EmptyState title={t('search.short.title')} description={t('search.short.body')} />
+        <EmptyState
+          icon={SearchIcon}
+          title={t('search.short.title')}
+          description={t('search.short.body')}
+        />
       ) : (
         <>
           <Outcome q={q} />
