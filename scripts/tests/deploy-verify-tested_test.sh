@@ -82,6 +82,7 @@ run "$verify" "$tree" "$tmp/images.env"
 setup_all "$tree"
 run FAKE_GH_RC=4 "$verify" "$tree" "$tmp/images.env"
 [ "$rc" -ne 0 ] && ok "a gh error is refused (fail closed)" || ko "gh error (rc=$rc)"
+grep -q 'gh: boom' <<<"$out" && ok "the gh error itself is shown (an infrastructure error is not read as a missing attestation)" || ko "gh stderr hidden (out=$out)"
 
 echo '[]' >"$tmp/out/api.json"
 run "$verify" "$tree" "$tmp/images.env"

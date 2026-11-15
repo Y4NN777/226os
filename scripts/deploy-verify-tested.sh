@@ -34,6 +34,9 @@ for var in API_IMAGE WEB_IMAGE MIGRATE_IMAGE; do
   [[ "$ref" =~ $ref_re ]] || refuse "${var} is missing or is not an image reference by digest, so it cannot be verified."
   if ! json="$(gh attestation verify "oci://$ref" --repo "$repo" --signer-workflow "$signer" \
     --source-ref "$source_ref" --predicate-type "$predicate_type" --format json 2>"${RUNNER_TEMP:-${TMPDIR:-/tmp}}/attest.err")"; then
+    # Show gh's own error (it holds no secret) so an auth or registry failure is not read as a missing attestation.
+    # Leading "::" is neutralised so the text cannot become a workflow command.
+    tail -n 5 -- "${RUNNER_TEMP:-${TMPDIR:-/tmp}}/attest.err" 2>/dev/null | sed 's/^::/: :/; s/^/gh: /' || true
     refuse "${ref} has no valid attestation from the deploy workflow on develop (the tag tested-${tree} alone is not proof: it can be re-pointed). Staging must promote this tree again."
   fi
   if ! jq -e --arg tree "$tree" --arg pt "$predicate_type" \

@@ -44,9 +44,10 @@ Un enregistrement `A` (et `AAAA` si IPv6) par hôte public, vers l'IP du serveur
 ## 4. Amorcer chaque serveur (neuf, Ubuntu ou Debian, en root)
 
 ```bash
-sudo -i
-# copier scripts/server-bootstrap.sh sur le serveur, puis :
-bash server-bootstrap.sh --ssh-fingerprint "SHA256:..." "ssh-ed25519 AAAA... ci-226os"
+# depuis votre poste, à la racine du dépôt :
+scp scripts/server-bootstrap.sh root@<hôte>:/root/
+# puis, sur le serveur, en root :
+bash /root/server-bootstrap.sh --ssh-fingerprint "SHA256:..." "ssh-ed25519 AAAA... ci-226os"
 ```
 
 `--ssh-fingerprint` est l'empreinte (`ssh-keygen -lf` de votre clé publique) de la clé avec laquelle **vous** vous connectez en root : sans elle, ou si elle n'est pas dans `/root/.ssh/authorized_keys`, le mot de passe SSH reste activé (pas de verrouillage possible). Le script lit le port de sshd, le limite dans `ufw`, enregistre la clé CI en `restrict`, vérifie l'empreinte de la clé APT de Docker, installe `age` et contrôle avec `sshd -T` que le mot de passe est bien désactivé.
