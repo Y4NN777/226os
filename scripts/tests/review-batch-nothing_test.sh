@@ -39,7 +39,7 @@ path = endpoint.split("?")[0]
 parts = path.split("/")
 # FAKE_GH_FAILS=N: the first N calls of kind FAKE_GH_KIND (write or get) fail with FAKE_GH_STDERR; each failure is counted in $ST/attempts.
 kind = "get" if method == "GET" else "write"
-if os.environ.get("FAKE_GH_FAILS") and kind == os.environ.get("FAKE_GH_KIND", "write"):
+if os.environ.get("FAKE_GH_FAILS") and kind == os.environ.get("FAKE_GH_KIND", "write") and method in os.environ.get("FAKE_GH_METHODS", "GET POST PATCH PUT DELETE").split():
     cf = os.path.join(st, "attempts")
     n = int(open(cf).read()) if os.path.exists(cf) else 0
     if n < int(os.environ["FAKE_GH_FAILS"]):
@@ -227,6 +227,45 @@ setup; rm -f "$tmp/st/attempts"
 FAKE_GH_FAILS=5 FAKE_GH_STDERR='gh: Not Found (HTTP 404)' FAKE_GH_KIND=get run
 [ "$rc" -ne 0 ] && [ "$(attempts)" -eq 1 ] && grep -q 'GET repos/o/r/issues/40: exit 1: gh: Not Found (HTTP 404)' <<<"$out" \
   && ok "a GET 404 is not retried and names the call (no query string)" || ko "get 404 (rc=$rc attempts=$(attempts) $out)"
+
+# A POST is not idempotent: a timeout or a 5xx may come after GitHub applied it, so a retry could duplicate a comment or
+# the batch issue. It is retried only when the request certainly was not applied (secondary rate limit, 429, a
+# connection that never reached GitHub); PATCH, PUT and DELETE keep the 5xx and network rule.
+setup; rm -f "$tmp/st/attempts"
+FAKE_GH_FAILS=5 FAKE_GH_METHODS=POST FAKE_GH_STDERR='gh: Bad Gateway (HTTP 502)' run
+[ "$rc" -ne 0 ] && [ "$(attempts)" -eq 1 ] && grep -qF 'POST repos/o/r/issues/12/comments: exit 1: gh: Bad Gateway (HTTP 502)' <<<"$out" \
+  && ok "a POST that gets a 502 is NOT retried (it may have been applied): FAILED with the detail" || ko "POST 502 (rc=$rc attempts=$(attempts) $out)"
+setup; rm -f "$tmp/st/attempts"
+FAKE_GH_FAILS=5 FAKE_GH_METHODS=POST FAKE_GH_STDERR='timeout' run
+[ "$rc" -ne 0 ] && [ "$(attempts)" -eq 1 ] && ok "a POST that times out is NOT retried" || ko "POST timeout (rc=$rc attempts=$(attempts) $out)"
+setup; rm -f "$tmp/st/attempts"
+FAKE_GH_FAILS=1 FAKE_GH_METHODS=POST FAKE_GH_STDERR='dial tcp 140.82.0.1:443: connect: connection refused' run
+[ "$rc" -eq 0 ] && [ "$(attempts)" -eq 1 ] && [ "$(bot_comments 40)" -eq 1 ] && ok "a POST whose connection was refused is retried once and settles" || ko "POST refused (rc=$rc attempts=$(attempts) $out)"
+setup; rm -f "$tmp/st/attempts"
+FAKE_GH_FAILS=5 FAKE_GH_METHODS=PATCH FAKE_GH_STDERR='gh: Bad Gateway (HTTP 502)' run
+[ "$rc" -ne 0 ] && [ "$(attempts)" -eq 2 ] && ok "a PATCH that gets a 502 is retried once" || ko "PATCH 502 (rc=$rc attempts=$(attempts) $out)"
+
+# The retry rule itself, branch by branch: chk METHOD STDERR yes|no.
+rule() {
+  python3 -I -c '
+import importlib.util, sys
+spec = importlib.util.spec_from_file_location("rc", sys.argv[1]); m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+print("yes" if m.retryable(sys.argv[2], sys.argv[3]) else "no")' "$root/scripts/review-context.py" "$1" "$2"
+}
+chk() { [ "$(rule "$1" "$2")" = "$3" ] && ok "retry rule: $1 '$2' -> $3" || ko "retry rule: $1 '$2' (got $(rule "$1" "$2"), want $3)"; }
+chk PATCH 'gh: Too Many Requests (HTTP 429) Retry-After: 3' yes
+chk POST 'gh: Too Many Requests (HTTP 429) Retry-After: 3' yes
+chk PATCH 'gh: Too Many Requests (HTTP 429) Retry-After: 30' no
+chk PATCH 'gh: Too Many Requests (HTTP 429)' no
+chk PATCH 'gh: You have exceeded a secondary rate limit (HTTP 403)' yes
+chk POST 'gh: You have exceeded a secondary rate limit (HTTP 403)' yes
+chk GET 'gh: You have exceeded a secondary rate limit (HTTP 403)' yes
+chk POST 'dial tcp: lookup api.github.com: no such host' yes
+chk POST 'tls handshake failure' yes
+chk POST 'read tcp: connection reset by peer' no
+chk PATCH 'read tcp: connection reset by peer' yes
+chk DELETE 'gh: Service Unavailable (HTTP 503)' yes
+chk PUT 'gh: Unprocessable Entity (HTTP 422)' no
 
 # ---------- workflow wiring (static): the trusted publish job runs it, from the planned develop commit ----------
 wf="$root/.github/workflows/review-batch.yml"

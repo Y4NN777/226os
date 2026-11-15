@@ -122,6 +122,9 @@ def run(argv):
 ERROR_DETAIL_MAX = 200
 NETWORK_ERROR = re.compile(r"timeout|timed out|connection reset|connection refused|temporary failure|unexpected eof|\beof\b|tls handshake", re.I)
 
+# The connection never reached GitHub, so the request was not applied (safe to retry even a POST).
+NOT_REACHED = re.compile(r"connection refused|no such host|name resolution|tls handshake", re.I)
+
 
 def retry_delay():
     """Seconds to wait before the one retry of a GitHub call (GH_RETRY_DELAY lets tests use 0)."""
@@ -132,14 +135,21 @@ def retry_delay():
 
 
 def retryable(method, stderr):
-    """True when ONE more try is safe: any GET unless GitHub answered 4xx; a write only after a 5xx, a secondary rate
-    limit, a network error, or a 429 whose Retry-After is 10 s at most. Never a 4xx otherwise."""
+    """True when ONE more try is safe: any GET unless GitHub answered 4xx; PATCH, PUT and DELETE (idempotent) after a
+    5xx, a secondary rate limit, a network error, or a 429 whose Retry-After is 10 s at most. A POST is not
+    idempotent (a timeout or a 5xx can come after GitHub applied it: a retry would duplicate a comment or an issue), so
+    it is retried only when the request certainly was not applied: a secondary rate limit, a 429 as above, or a
+    connection that never reached GitHub (refused, DNS failure, TLS handshake). Never a 4xx otherwise.
+    Limits: gh rarely prints Retry-After, so a 429 is usually NOT retried; a timed-out GET waits about twice the 60 s
+    timeout (two tries plus the delay) before it fails."""
     low = (stderr or "").lower()
     found = re.search(r"\bhttp (\d{3})\b", low)
     status = int(found.group(1)) if found else 0
     if status == 429:
         after = re.search(r"retry-after:?\s*(\d+)", low)
         return bool(after) and int(after.group(1)) <= 10
+    if method == "POST":
+        return "secondary rate limit" in low or bool(NOT_REACHED.search(low))
     if "secondary rate limit" in low or status >= 500 or NETWORK_ERROR.search(low):
         return True
     if 400 <= status < 500:
