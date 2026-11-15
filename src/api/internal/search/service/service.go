@@ -160,16 +160,17 @@ func (s *Service) Search(ctx context.Context, req Request) (Results, error) {
 }
 
 // hasNegation reports whether text negates a word in websearch_to_tsquery syntax: a field that starts
-// with "-" (after any leading quote or parenthesis) right before a letter or digit. pg_trgm ignores
-// the "-", so the fallback would return exactly the titles the caller excluded. "e-commerce" and
-// "a - b" are not negations.
+// with "-" (after any leading quote or operator character) right before a letter or digit (again
+// after any such character, so a phrase or group is negated too). pg_trgm ignores the "-", so the
+// fallback would return exactly the titles the caller excluded. "e-commerce" and "a - b" are not negations.
 func hasNegation(text string) bool {
+	const operators = `"()!&|<`
 	for _, field := range strings.Fields(text) {
-		rest, ok := strings.CutPrefix(strings.TrimLeft(field, `"(`), "-")
+		rest, ok := strings.CutPrefix(strings.TrimLeft(field, operators), "-")
 		if !ok {
 			continue
 		}
-		r, _ := utf8.DecodeRuneInString(rest)
+		r, _ := utf8.DecodeRuneInString(strings.TrimLeft(rest, operators))
 		if unicode.IsLetter(r) || unicode.IsDigit(r) {
 			return true
 		}
