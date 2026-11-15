@@ -137,6 +137,9 @@ const core = {
   'error.VALIDATION_ERROR': 'Corrigez les champs signalés.',
   'error.SERVICE_UNAVAILABLE': 'Service indisponible. Réessayez plus tard.',
   'error.generic': 'Une erreur est survenue. Réessayez.',
+  'view.label': 'Affichage',
+  'view.cards': 'Cartes',
+  'view.list': 'Liste',
 } as const;
 
 const coreEn: Record<keyof typeof core, string> = {
@@ -252,6 +255,9 @@ const coreEn: Record<keyof typeof core, string> = {
   'error.VALIDATION_ERROR': 'Fix the highlighted fields.',
   'error.SERVICE_UNAVAILABLE': 'Service unavailable. Try again later.',
   'error.generic': 'Something went wrong. Try again.',
+  'view.label': 'View',
+  'view.cards': 'Cards',
+  'view.list': 'List',
 };
 
 const fr = {
