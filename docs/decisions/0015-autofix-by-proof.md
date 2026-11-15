@@ -1,6 +1,6 @@
 # ADR-0015: auto-fix by proof. A finding becomes a test, a fix is accepted on facts, a human merges it
 
-- **Status:** PROPOSED (owner `Y4NN777` validated the direction on 2026-11-15; one point is still open, listed below)
+- **Status:** ACCEPTED (owner `Y4NN777`, 2026-11-15)
 - **Date:** 2026-11-15
 - **Approver:** `Y4NN777`, repository owner
 - **Scope:** stage 3 (auto-fix on a pull request) and stage 5 (batch) of the review pipeline, and how a finding is marked fixed. Amends [ADR-0014](0014-ai-review-merges-develop.md) on one point: a pull request whose only change is an auto-fix commit no longer merges without a human review.
@@ -46,7 +46,7 @@ The research behind this ADR found the same pattern in every deployed system: Me
    - the reproducers run again on the merge result before the merge.
 
    This proves the fix is **plausible**, not correct.
-6. **A plausible fix waits for a human review before it merges** (owner, 2026-11-15). Stage 4 does not auto-merge a pull request while an auto-fix commit on it has not been reviewed. The auto-fix prepares the change and its proof; it does not land it.
+6. **A plausible fix waits for a human review before it merges** (owner, 2026-11-15). The reviewer is the owner (`Y4NN777`) or Joseph (`mibienpanjoe`); an approval from either one, on the head commit, is enough. Stage 4 does not auto-merge a pull request while an auto-fix commit on it has not been reviewed. The auto-fix prepares the change and its proof; it does not land it.
 7. **Prose findings go to the batch** (owner, 2026-11-15). They no longer block the merge of the pull request where they were found. The batch tries to fix them, and point 6 applies to the batch pull request.
 8. **Attempts count per finding, and only when they happened.**
    - The key is `(pr, finding, head SHA)`, written when the run ends, never before. A run whose head moved, that was cancelled, or that the infrastructure aborted is `SUPERSEDED` and uses up nothing.
@@ -91,13 +91,11 @@ A new push recomputes every state from the facts on the new head.
 
 Each phase is one pull request on pipeline paths, so the owner merges it.
 
-## Open points (owner)
+## Defaults (owner may revisit)
 
-1. **Who reviews a plausible fix (point 6):** only the owner, or any team member?
-2. Smaller points, defaults proposed:
-   - reproducers stay as ordinary tests next to the code they cover;
-   - three reruns;
-   - an intermittently red reproducer is `NOT_REPRODUCIBLE` and opens a flaky-test note.
+- reproducers stay as ordinary tests next to the code they cover;
+- three reruns;
+- an intermittently red reproducer is `NOT_REPRODUCIBLE` and opens a flaky-test note.
 
 ## Sources
 
