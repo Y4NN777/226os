@@ -71,7 +71,7 @@ compliance_review: "CLOSED par le propriétaire le 2026-11-13 : confirmation con
 
 | Sujet | 225 Open Source (observé) | 226os |
 |---|---|---|
-| Portée | Côte d'Ivoire | Afrique de l'Ouest d'abord, puis toute l'Afrique ; interface FR/EN |
+| Portée | Côte d'Ivoire | Né au Burkina Faso, ouvert à l'Afrique de l'Ouest, puis à tout le continent ; interface FR/EN |
 | Projets GitHub | Répertoire par pays ; l'auteur déclare son URL GitHub | **Ressemblance reconnue** : Build permet aussi de publier un projet par URL GitHub, avec un pays. Notre apport : besoins de contributeurs, candidatures et liens vers questions, ressources et articles |
 | Tableau de lancement de produits | Oui | Hors périmètre du concours ; pas une priorité |
 | Cofondateur, mentor, investisseur | Oui | Non au P0 : le mentorat reste P1/P2 et s'affiche « bientôt » |
@@ -94,7 +94,7 @@ compliance_review: "CLOSED par le propriétaire le 2026-11-13 : confirmation con
 ### Constats du propriétaire (consignés le 2026-11-12)
 
 - Le nom **226os** se lit **« 226 Open Stack »** ; 226 est l'indicatif téléphonique **+226 du Burkina Faso**.
-- Positionnement : **Afrique de l'Ouest d'abord, puis toute l'Afrique**.
+- Positionnement : **né au Burkina Faso, ouvert à l'Afrique de l'Ouest, puis à tout le continent** (PRD, amendement 3.3).
 - Les références servent d'**inspiration** : comportements et principes étudiés, jamais de code, de texte, de visuels, de marque ni de données copiés.
 - Aucun contact avec 225 Open Source n'est jugé nécessaire.
 - Le propriétaire a approuvé cette démarche et confirme que le projet respecte la règle de création pendant la période du concours (à joindre à la revue CADEV, **non vérifié par le dépôt**).
