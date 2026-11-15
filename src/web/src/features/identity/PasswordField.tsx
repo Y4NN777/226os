@@ -1,7 +1,7 @@
 import { Icon } from '@astryxdesign/core/Icon';
 import { IconButton } from '@astryxdesign/core/IconButton';
 import { TextInput } from '@astryxdesign/core/TextInput';
-import { useLayoutEffect, useRef, useState, type SVGProps } from 'react';
+import { useLayoutEffect, useRef, useState, type ReactNode, type SVGProps } from 'react';
 import { useI18n } from '../../i18n/I18nProvider';
 import { errorStatus } from './validation';
 
@@ -33,6 +33,8 @@ interface PasswordFieldProps {
   onBlur: () => void;
   description?: string;
   error?: string | undefined;
+  /** A link shown at the end of the label line (« Mot de passe oublié ? » on sign-in). */
+  labelEnd?: ReactNode;
 }
 
 /**
@@ -50,6 +52,7 @@ export function PasswordField({
   onBlur,
   description,
   error,
+  labelEnd,
 }: PasswordFieldProps) {
   const { t } = useI18n();
   const [visible, setVisible] = useState(false);
@@ -97,6 +100,8 @@ export function PasswordField({
           }}
         />
       </span>
+      {/* After the input in the DOM, so Tab goes e-mail, password, then the link. */}
+      {labelEnd ? <span className="acc-label-end">{labelEnd}</span> : null}
     </div>
   );
 }

@@ -53,7 +53,7 @@ async function fillRequired(title = 'Vérifier un webhook signé') {
     screen.getByRole('textbox', { name: /^Contenu/ }),
     'Calculez le HMAC puis comparez.',
   );
-  await fillIn(screen.getByRole('textbox', { name: /^Mots-clés/ }), 'go, webhook');
+  await fillIn(screen.getByRole('textbox', { name: /^Étiquettes/ }), 'go, webhook');
 }
 
 async function publish() {
@@ -72,7 +72,7 @@ describe('ecrire page', () => {
     await fillRequired();
     await publish();
 
-    expect(await screen.findByRole('heading', { name: 'Votre article est publié' })).toBeVisible();
+    expect(await screen.findByRole('heading', { name: 'Article publié' })).toBeVisible();
     const [request] = callsTo(fetchMock, 'POST /learn/articles');
     expect(request).toBeDefined();
     expect(request?.headers.get('Content-Type')).toContain('application/json');
@@ -102,7 +102,7 @@ describe('ecrire page', () => {
     await publish();
     expect(await findVisibleAlert()).toBeVisible();
     await publish();
-    await screen.findByRole('heading', { name: 'Votre article est publié' });
+    await screen.findByRole('heading', { name: 'Article publié' });
 
     const keys = callsTo(fetchMock, 'POST /learn/articles').map((r) =>
       r.headers.get('Idempotency-Key'),
@@ -126,7 +126,7 @@ describe('ecrire page', () => {
     await fillRequired();
     // Default delay on purpose: the guard is asserted for two clicks a tick apart, as a user makes.
     await userEvent.dblClick(screen.getByRole('button', { name: 'Publier' }));
-    await screen.findByRole('heading', { name: 'Votre article est publié' });
+    await screen.findByRole('heading', { name: 'Article publié' });
     expect(callsTo(fetchMock, 'POST /learn/articles')).toHaveLength(1);
   });
 
@@ -144,7 +144,7 @@ describe('ecrire page', () => {
     await findVisibleAlert();
     await fillIn(screen.getByRole('textbox', { name: /^Titre/ }), ' (suite)');
     await publish();
-    await screen.findByRole('heading', { name: 'Votre article est publié' });
+    await screen.findByRole('heading', { name: 'Article publié' });
 
     const keys = callsTo(fetchMock, 'POST /learn/articles').map((r) =>
       r.headers.get('Idempotency-Key'),
@@ -172,7 +172,7 @@ describe('ecrire page', () => {
     await fillRequired();
     await publish();
 
-    expect(await screen.findByRole('heading', { name: 'Votre article est publié' })).toBeVisible();
+    expect(await screen.findByRole('heading', { name: 'Article publié' })).toBeVisible();
     expect(screen.getByText(/Vérifier un webhook signé/)).toBeVisible();
     expect(callsTo(fetchMock, `GET /learn/articles/${articleId}`)).toHaveLength(1);
   });
@@ -223,10 +223,10 @@ describe('ecrire page', () => {
 
     expect(await screen.findByText('Le titre doit faire entre 5 et 200 caractères.')).toBeVisible();
     expect(screen.getByText('Le résumé ne doit pas dépasser 500 caractères.')).toBeVisible();
-    expect(screen.getByText(/^Ajoutez entre 1 et 5 mots-clés/)).toBeVisible();
+    expect(screen.getByText(/^Indiquez de 1 à 5 étiquettes/)).toBeVisible();
     expect(screen.getByText('Choisissez un sujet de la liste.')).toBeVisible();
-    expect(screen.queryByText('La publication a échoué')).not.toBeInTheDocument();
-    expect(screen.queryByRole('heading', { name: 'Votre article est publié' })).toBeNull();
+    expect(screen.queryByText('Impossible de publier l’article')).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Article publié' })).toBeNull();
   });
 
   it('checks the contract bounds before sending anything', async () => {
@@ -237,8 +237,8 @@ describe('ecrire page', () => {
     await publish();
 
     expect(await screen.findByText('Le titre doit faire entre 5 et 200 caractères.')).toBeVisible();
-    expect(screen.getByText(/^Écrivez le contenu de l’article/)).toBeVisible();
-    expect(screen.getByText(/^Ajoutez entre 1 et 5 mots-clés/)).toBeVisible();
+    expect(screen.getByText(/^Écrivez l’article/)).toBeVisible();
+    expect(screen.getByText(/^Indiquez de 1 à 5 étiquettes/)).toBeVisible();
     expect(callsTo(fetchMock, 'POST /learn/articles')).toHaveLength(0);
   });
 
@@ -253,9 +253,9 @@ describe('ecrire page', () => {
     await userEvent.setup({ delay: null }).click(screen.getByRole('combobox', { name: /Sujet/ }));
     await userEvent
       .setup({ delay: null })
-      .click(await screen.findByRole('option', { name: 'Construire et évaluer des agents' }));
+      .click(await screen.findByRole('option', { name: 'Agents IA' }));
     await publish();
-    await screen.findByRole('heading', { name: 'Votre article est publié' });
+    await screen.findByRole('heading', { name: 'Article publié' });
 
     const [request] = callsTo(fetchMock, 'POST /learn/articles');
     expect(await bodyOf(request as Request)).toMatchObject({
@@ -286,12 +286,24 @@ describe('ecrire page', () => {
     ).toBeVisible();
     await fillIn(screen.getByRole('textbox', { name: /^Title/ }), 'Verify a signed webhook');
     await fillIn(screen.getByRole('textbox', { name: /^Content/ }), 'Compute the HMAC.');
-    await fillIn(screen.getByRole('textbox', { name: /^Keywords/ }), 'go');
+    await fillIn(screen.getByRole('textbox', { name: /^Tags/ }), 'go');
     await userEvent.setup({ delay: null }).click(screen.getByRole('button', { name: 'Publish' }));
-    await screen.findByRole('heading', { name: 'Your article is published' });
+    await screen.findByRole('heading', { name: 'Article published' });
 
     const [request] = callsTo(fetchMock, 'POST /learn/articles');
     expect(await bodyOf(request as Request)).toMatchObject({ lang: 'en' });
+  });
+
+  it('lays the form out as the prototype: breadcrumb, tips beside it, a way back', async () => {
+    setLanguages(['fr-FR']);
+    mockApi(member);
+    await renderApp('/ecrire');
+    await screen.findByRole('textbox', { name: /^Titre/ });
+    const crumbs = screen.getByRole('navigation', { name: 'Apprendre' });
+    expect(crumbs).toHaveTextContent('Écrire un article');
+    const tips = screen.getByRole('complementary', { name: 'Conseils' });
+    expect(tips).toHaveTextContent('Un seul sujet par article.');
+    expect(screen.getByRole('link', { name: 'Annuler' })).toHaveAttribute('href', '/apprendre');
   });
 
   it('offers no draft, and says what publishing means', async () => {
@@ -301,7 +313,7 @@ describe('ecrire page', () => {
     await screen.findByRole('textbox', { name: /^Titre/ });
     expect(screen.queryByText(/brouillon/i)).not.toBeInTheDocument();
     expect(screen.queryByRole('radio', { name: /brouillon|draft/i })).not.toBeInTheDocument();
-    expect(screen.getByText(/publié immédiatement/)).toBeVisible();
+    expect(screen.getByText(/Publié aussitôt/)).toBeVisible();
   });
 
   describe('links', () => {
@@ -313,7 +325,7 @@ describe('ecrire page', () => {
       expect(screen.queryByText(/^Lié à/)).not.toBeInTheDocument();
       expect(screen.queryByRole('textbox', { name: /lien|link|id|uuid/i })).not.toBeInTheDocument();
       await publish();
-      await screen.findByRole('heading', { name: 'Votre article est publié' });
+      await screen.findByRole('heading', { name: 'Article publié' });
 
       const [request] = callsTo(fetchMock, 'POST /learn/articles');
       expect(await bodyOf(request as Request)).not.toHaveProperty('links');
@@ -327,7 +339,7 @@ describe('ecrire page', () => {
       expect(screen.getByText('Question')).toBeVisible();
       expect(screen.queryByText(questionId)).not.toBeInTheDocument();
       await publish();
-      await screen.findByRole('heading', { name: 'Votre article est publié' });
+      await screen.findByRole('heading', { name: 'Article publié' });
 
       const [request] = callsTo(fetchMock, 'POST /learn/articles');
       expect(await bodyOf(request as Request)).toMatchObject({
@@ -342,10 +354,10 @@ describe('ecrire page', () => {
       await fillRequired();
       await userEvent
         .setup({ delay: null })
-        .click(screen.getByRole('button', { name: 'Retirer le lien « API ou outil »' }));
-      expect(screen.queryByText('API ou outil')).not.toBeInTheDocument();
+        .click(screen.getByRole('button', { name: 'Retirer le lien « Fiche »' }));
+      expect(screen.queryByText('Fiche')).not.toBeInTheDocument();
       await publish();
-      await screen.findByRole('heading', { name: 'Votre article est publié' });
+      await screen.findByRole('heading', { name: 'Article publié' });
 
       const [request] = callsTo(fetchMock, 'POST /learn/articles');
       expect(await bodyOf(request as Request)).not.toHaveProperty('links');
@@ -361,7 +373,7 @@ describe('ecrire page', () => {
         await fillRequired();
         expect(screen.queryByText(/^Lié à/)).not.toBeInTheDocument();
         await publish();
-        await screen.findByRole('heading', { name: 'Votre article est publié' });
+        await screen.findByRole('heading', { name: 'Article publié' });
 
         const [request] = callsTo(fetchMock, 'POST /learn/articles');
         expect(await bodyOf(request as Request)).not.toHaveProperty('links');
@@ -381,9 +393,7 @@ describe('ecrire page', () => {
       await fillRequired();
       await publish();
 
-      expect(
-        await findVisibleText('Ce lien n’est pas accepté. Retirez-le, puis publiez à nouveau.'),
-      ).toBeVisible();
+      expect(await findVisibleText('Lien non valide. Retirez-le.')).toBeVisible();
     });
   });
 
@@ -417,7 +427,7 @@ describe('ecrire page', () => {
       await fillRequired();
       await publish();
 
-      expect(await screen.findByText('La publication a échoué')).toBeVisible();
+      expect(await screen.findByText('Impossible de publier l’article')).toBeVisible();
       expect(screen.getByText('Confirmez d’abord votre adresse e-mail.')).toBeVisible();
       expect(screen.getByRole('textbox', { name: /^Titre/ })).toHaveValue(
         'Vérifier un webhook signé',
@@ -444,7 +454,7 @@ describe('ecrire page', () => {
     await renderApp('/ecrire');
     await fillRequired();
     await publish();
-    await screen.findByRole('heading', { name: 'Votre article est publié' });
+    await screen.findByRole('heading', { name: 'Article publié' });
     expect(screen.getByRole('link', { name: 'Lire l’article' })).toHaveAttribute(
       'href',
       `/apprendre/articles/${articleId}`,

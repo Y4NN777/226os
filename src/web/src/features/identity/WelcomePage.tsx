@@ -1,12 +1,37 @@
 import { Button } from '@astryxdesign/core/Button';
-import { Heading } from '@astryxdesign/core/Heading';
 import { HStack } from '@astryxdesign/core/HStack';
-import { Text } from '@astryxdesign/core/Text';
+import { Icon } from '@astryxdesign/core/Icon';
+import { Link } from '@astryxdesign/core/Link';
 import { VStack } from '@astryxdesign/core/VStack';
 import { useSession } from '../../app/session';
 import { ErrorState } from '../../components/ErrorState';
 import { LoadingState } from '../../components/LoadingState';
 import { useI18n } from '../../i18n/I18nProvider';
+import { BookIcon, NetworkIcon, UserIcon, type SvgIcon } from '../../components/icons';
+import { CardHead } from './AuthCard';
+
+/** The prototype's choice tile (bienvenue.html): icon, title, one line; the title link covers it. */
+function WelcomeTile({
+  icon,
+  href,
+  title,
+  text,
+}: {
+  icon: SvgIcon;
+  href: string;
+  title: string;
+  text: string;
+}) {
+  return (
+    <li className="acc-tile">
+      <Icon icon={icon} size="lg" />
+      <Link href={href} weight="semibold" color="primary">
+        {title}
+      </Link>
+      <span className="acc-tile-text">{text}</span>
+    </li>
+  );
+}
 
 export function WelcomePage() {
   const { t } = useI18n();
@@ -27,8 +52,10 @@ export function WelcomePage() {
   if (!session.data.authenticated || !user) {
     return (
       <VStack gap={4}>
-        <Heading level={1}>{t('identity.welcome.anonymous.title')}</Heading>
-        <Text as="p">{t('identity.welcome.anonymous.body')}</Text>
+        <CardHead
+          title={t('identity.welcome.anonymous.title')}
+          lede={t('identity.welcome.anonymous.body')}
+        />
         <HStack gap={3} wrap="wrap">
           <Button
             variant="primary"
@@ -43,15 +70,27 @@ export function WelcomePage() {
 
   return (
     <VStack gap={4}>
-      <Heading level={1}>
-        {t('identity.welcome.title', { name: user.display_name || user.username })}
-      </Heading>
-      <Text as="p">{t('identity.welcome.intro')}</Text>
-      <HStack gap={3} wrap="wrap">
-        <Button variant="primary" href="/apprendre" label={t('identity.welcome.learn')} />
-        <Button href="/connect" label={t('identity.welcome.connect')} />
-        <Button href={`/profils/${user.username}`} label={t('identity.welcome.profile')} />
-      </HStack>
+      <CardHead title={t('identity.welcome.title', { name: user.display_name || user.username })} />
+      <ul className="acc-tiles">
+        <WelcomeTile
+          icon={BookIcon}
+          href="/apprendre"
+          title={t('identity.welcome.learn')}
+          text={t('identity.welcome.learn.text')}
+        />
+        <WelcomeTile
+          icon={NetworkIcon}
+          href="/connect"
+          title={t('identity.welcome.connect')}
+          text={t('identity.welcome.connect.text')}
+        />
+        <WelcomeTile
+          icon={UserIcon}
+          href={`/profils/${user.username}`}
+          title={t('identity.welcome.profile')}
+          text={t('identity.welcome.profile.text')}
+        />
+      </ul>
     </VStack>
   );
 }

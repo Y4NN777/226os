@@ -43,7 +43,7 @@ describe('App routing', () => {
     renderAt('/');
     await userEvent
       .setup({ delay: null })
-      .click(await screen.findByRole('button', { name: 'More options' }));
+      .click(await screen.findByRole('button', { name: 'Preferences' }));
     await userEvent
       .setup({ delay: null })
       .click(await screen.findByRole('menuitem', { name: 'Settings' }));

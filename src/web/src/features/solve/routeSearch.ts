@@ -1,11 +1,24 @@
+import type { components } from '../../api/schema';
 import { linkTypes, isValidLinkId, type LinkType } from './validate';
+
+type QuestionState = components['schemas']['QuestionState'];
+
+export const questionStates = [
+  'open',
+  'answered',
+  'resolved',
+] as const satisfies readonly QuestionState[];
 
 /** Solve filters kept in the URL (shareable, back-button friendly), plus an optional pre-filled link. */
 export interface SolveSearch {
   q?: string;
   tag?: string;
+  /** The derived solve state the list is filtered on (listQuestions `state`). */
+  state?: QuestionState;
   /** "article:<uuid>": the content a question is about, set by the page that links here. */
   link?: string;
+  /** Absent means « new », the default order. */
+  sort?: 'votes' | 'unanswered';
 }
 
 const TAG_RE = /^[a-z0-9][a-z0-9.+#-]{0,31}$/;
@@ -22,6 +35,9 @@ export function validateSolveSearch(raw: Record<string, unknown>): SolveSearch {
   const out: SolveSearch = {};
   if (typeof raw.q === 'string' && raw.q.trim()) out.q = raw.q.trim().slice(0, 200);
   if (typeof raw.tag === 'string' && TAG_RE.test(raw.tag)) out.tag = raw.tag;
+  const state = questionStates.find((candidate) => candidate === raw.state);
+  if (state) out.state = state;
+  if (raw.sort === 'votes' || raw.sort === 'unanswered') out.sort = raw.sort;
   if (typeof raw.link === 'string' && parseLink(raw.link)) out.link = raw.link.toLowerCase();
   return out;
 }

@@ -4075,7 +4075,7 @@ components:
           enum:
           - live
           - demo
-          description: live = real content; demo = local-dev SEED fixture, shown with a visible badge (C15).
+          description: live = real content; demo = SEED fixture, loaded in local-dev and staging-test only (never production-live), shown with a visible badge (C15).
         category:
           $ref: '#/components/schemas/Slug'
         provider:

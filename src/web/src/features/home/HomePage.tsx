@@ -1,33 +1,30 @@
 import { Button } from '@astryxdesign/core/Button';
-import { Card } from '@astryxdesign/core/Card';
-import { Grid } from '@astryxdesign/core/Grid';
-import { HStack } from '@astryxdesign/core/HStack';
 import { Heading } from '@astryxdesign/core/Heading';
+import { Icon } from '@astryxdesign/core/Icon';
 import { Link } from '@astryxdesign/core/Link';
-import { Text } from '@astryxdesign/core/Text';
 import { TextInput } from '@astryxdesign/core/TextInput';
-import { VStack } from '@astryxdesign/core/VStack';
 import { useNavigate } from '@tanstack/react-router';
 import { useId, useState, type SyntheticEvent, type ReactNode } from 'react';
 import { useSession } from '../../app/session';
+import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
+import {
+  BookIcon,
+  CompassIcon,
+  HammerIcon,
+  HelpIcon,
+  NetworkIcon,
+  type SvgIcon,
+} from '../../components/icons';
+import { List } from '../../components/List';
 import { LoadingState } from '../../components/LoadingState';
+import { PageHeader } from '../../components/PageHeader';
 import { useI18n } from '../../i18n/I18nProvider';
 import { useHomeArticles, useHomeProjects, useHomeQuestions, useHomeResources } from './queries';
+import { ArticleRow, ProjectRow, QuestionRow, ResourceRow } from './rows';
+import './home.css';
 
 const SEARCH_MAX_LENGTH = 100;
-
-function Section({ title, children }: { title: string; children: ReactNode }) {
-  const headingId = useId();
-  return (
-    <VStack as="section" aria-labelledby={headingId} gap={3}>
-      <Heading level={2} id={headingId}>
-        {title}
-      </Heading>
-      {children}
-    </VStack>
-  );
-}
 
 interface LiveQuery<T> {
   data: { items: readonly T[] } | undefined;
@@ -36,72 +33,66 @@ interface LiveQuery<T> {
   refetch: () => unknown;
 }
 
-/** One section on live data: loading, error with its own retry, empty, then the entries. */
+/** One section on live data: head with its "see all" link, then loading, error, empty or rows. */
 function LiveSection<T>({
+  icon,
   title,
+  more,
   result,
   empty,
-  more,
   render,
 }: {
+  icon: SvgIcon;
   title: string;
+  more: { href: string; label: string };
   result: LiveQuery<T>;
   empty: string;
-  more?: ReactNode;
   render: (item: T) => ReactNode;
 }) {
+  const headingId = useId();
   let body: ReactNode;
   if (result.isPending) {
     body = <LoadingState />;
   } else if (result.error || !result.data) {
     body = <ErrorState error={result.error} onRetry={() => void result.refetch()} />;
   } else if (result.data.items.length === 0) {
-    body = (
-      <Text as="p" type="supporting">
-        {empty}
-      </Text>
-    );
+    body = <EmptyState title={empty} icon={icon} headingLevel={3} />;
   } else {
-    body = (
-      <Grid columns={{ minWidth: 240 }} gap={4}>
-        {result.data.items.map(render)}
-      </Grid>
-    );
+    body = <List label={title}>{result.data.items.map(render)}</List>;
   }
   return (
-    <Section title={title}>
+    <section className="feed-section" aria-labelledby={headingId}>
+      <div className="feed-head">
+        <Icon icon={icon} color="secondary" />
+        <Heading level={2} id={headingId}>
+          {title}
+        </Heading>
+        <span className="feed-head-more">
+          <Link href={more.href}>{more.label}</Link>
+        </span>
+      </div>
       {body}
-      {more}
-    </Section>
+    </section>
   );
 }
 
-function EntryCard({
-  href,
-  title,
-  lines,
-  lang,
-}: {
-  href: string;
-  title: string;
-  lines: readonly (string | undefined)[];
-  lang?: string;
-}) {
+/** Connect: the prototype's lead band, one sentence and one action. */
+function ConnectLead() {
+  const { t } = useI18n();
+  const headingId = useId();
   return (
-    <Card>
-      <div {...(lang ? { lang } : {})}>
-        <VStack gap={2}>
-          <Link href={href}>{title}</Link>
-          {lines.map((line) =>
-            line ? (
-              <Text key={line} as="p" type="supporting">
-                {line}
-              </Text>
-            ) : null,
-          )}
-        </VStack>
+    <section className="feed-lead" aria-labelledby={headingId}>
+      <span className="feed-lead-icon" aria-hidden="true">
+        <Icon icon={NetworkIcon} color="accent" size="lg" />
+      </span>
+      <div className="feed-lead-text">
+        <Heading level={2} id={headingId}>
+          {t('feed.connect.title')}
+        </Heading>
+        <p>{t('feed.connect.body')}</p>
       </div>
-    </Card>
+      <Button variant="primary" href="/connect" label={t('feed.connect.link')} />
+    </section>
   );
 }
 
@@ -117,18 +108,21 @@ function SearchForm() {
   }
 
   return (
-    <form onSubmit={submit} role="search">
-      <HStack gap={2} align="end" wrap="wrap">
+    <form onSubmit={submit} role="search" className="feed-search">
+      <span className="feed-search-field">
         <TextInput
           type="search"
           label={t('feed.search.label')}
+          isLabelHidden
+          startIcon={<Icon icon="search" />}
+          placeholder={t('feed.search.placeholder')}
           value={value}
           onChange={setValue}
           enterKeyHint="search"
-          width="min(100%, 28rem)"
+          width="100%"
         />
-        <Button type="submit" label={t('feed.search.submit')} />
-      </HStack>
+      </span>
+      <Button type="submit" label={t('feed.search.submit')} />
     </form>
   );
 }
@@ -143,92 +137,49 @@ export function HomePage() {
   const projects = useHomeProjects();
 
   return (
-    <VStack gap={8}>
-      <VStack gap={4}>
-        <Heading level={1}>{t('feed.hello', { name })}</Heading>
+    <div className="feed-page">
+      <header className="feed-hero">
+        <PageHeader title={t('feed.hello', { name })} />
         <SearchForm />
-      </VStack>
+      </header>
 
       <LiveSection
+        icon={BookIcon}
         title={t('feed.learn.title')}
+        more={{ href: '/apprendre', label: t('feed.learn.more') }}
         result={articles}
         empty={t('feed.learn.empty')}
-        render={(article) => (
-          <EntryCard
-            key={article.id}
-            href={`/apprendre/articles/${article.id}`}
-            title={article.title}
-            lang={article.lang}
-            lines={[
-              article.summary,
-              t(`feed.level.${article.level}`),
-              t('feed.by', { name: article.author.display_name }),
-            ]}
-          />
-        )}
+        render={(article) => <ArticleRow key={article.id} article={article} />}
       />
 
-      <Section title={t('feed.connect.title')}>
-        <Text as="p" type="supporting">
-          {t('feed.connect.body')}
-        </Text>
-        <HStack>
-          <Link href="/connect">{t('feed.connect.link')}</Link>
-        </HStack>
-      </Section>
+      <ConnectLead />
 
       <LiveSection
+        icon={HelpIcon}
         title={t('feed.questions.title')}
+        more={{ href: '/solve', label: t('feed.questions.more') }}
         result={questions}
         empty={t('feed.questions.empty')}
-        render={(question) => (
-          <EntryCard
-            key={question.id}
-            href={`/questions/${question.id}`}
-            title={question.title}
-            lang={question.lang}
-            lines={[question.tags.join(', '), t('feed.by', { name: question.author.display_name })]}
-          />
-        )}
+        render={(question) => <QuestionRow key={question.id} question={question} />}
       />
 
       <LiveSection
+        icon={CompassIcon}
         title={t('feed.catalog.title')}
+        more={{ href: '/discover', label: t('feed.catalog.more') }}
         result={resources}
         empty={t('feed.catalog.empty')}
-        more={
-          <HStack>
-            <Button href="/discover" label={t('feed.catalog.more')} />
-          </HStack>
-        }
-        render={(item) => (
-          <EntryCard
-            key={item.id}
-            href={`/discover/${item.id}`}
-            title={item.name}
-            lines={[item.summary, t('feed.catalog.provider', { name: item.provider.name })]}
-          />
-        )}
+        render={(item) => <ResourceRow key={item.id} resource={item} />}
       />
 
       <LiveSection
+        icon={HammerIcon}
         title={t('feed.projects.title')}
+        more={{ href: '/build', label: t('feed.projects.more') }}
         result={projects}
         empty={t('feed.projects.empty')}
-        render={(project) => (
-          <EntryCard
-            key={project.id}
-            href={`/build/${project.id}`}
-            title={project.name}
-            lang={project.lang}
-            lines={[
-              project.description,
-              project.technologies.join(', '),
-              t('feed.by', { name: project.owner.display_name }),
-            ]}
-          />
-        )}
+        render={(project) => <ProjectRow key={project.id} project={project} />}
       />
-    </VStack>
+    </div>
   );
 }

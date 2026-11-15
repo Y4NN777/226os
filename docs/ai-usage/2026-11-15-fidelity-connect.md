@@ -1,0 +1,16 @@
+## Page fidelity pass: Connect, profile and settings
+
+```yaml
+date: "2026-11-15"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code, Claude Opus (web-implementer subagent of the lead session)"
+purpose: "The owner asked that every page match its HTML prototype. The AI rebuilt the look of /connect (prototype filter bar, dense people rows with avatar, country code and name, languages, skills and GitHub; the spaces block kept and labelled « Bientôt » once, per the DISCLAIMER), /profils/<username> (profile hero with avatar, handle, icon meta line, bio, skills, collaboration pill and GitHub; own profile: edit link, privacy note and checklist meter with a done/total count) and /parametres (section nav and one panel per section: Profil, Préférences, Confidentialité). Tests first for each new visible element; behaviour, routes, visibility rules and the checklist forms are unchanged."
+repository_or_source_context: "branch feature/web/fidelity-connect; S7 web pages; prototypes/html/pages/{connect,profile,parametres}.html"
+files_or_sections_affected: ["src/web/src/features/connect/ConnectPage.tsx", "src/web/src/features/connect/PersonRow.tsx", "src/web/src/features/connect/messages.ts", "src/web/src/features/connect/ConnectPage.test.tsx", "src/web/src/features/profile/ProfilePage.tsx", "src/web/src/features/profile/Checklist.tsx", "src/web/src/features/profile/icons.tsx", "src/web/src/features/profile/messages.ts", "src/web/src/features/profile/ProfilePage.test.tsx", "src/web/src/features/settings/SettingsPage.tsx", "src/web/src/features/settings/ProfileVisibility.tsx", "src/web/src/features/settings/settings.css", "src/web/src/features/settings/SettingsPage.test.tsx", "TODO.md", "docs/ai-usage/2026-11-15-fidelity-connect.md"]
+third_party_sources_consulted: ["@astryxdesign/core installed docs and sources (List, Item, Stack, StackItem, Card, Badge, Avatar, Icon, ProgressBar, Button), read from node_modules", "icon paths copied from the repository's own prototypes/html/assets/css/icons.css"]
+license_review: "NOT APPLICABLE: original code and in-repository icon paths, no new dependency"
+closure: "open"
+human_reviewers: ["pending PR review"]
+tests_or_evidence: ["Order: RED tests first for the Connect rows and spaces block, the profile hero (meta line, edit link, privacy note, English) and the settings sections (nav anchors, named regions, English), then the code", "pnpm --filter web typecheck, lint and format:check exit 0; the full suite (vitest run in src/web, the script behind pnpm test) exits 0 with 519 tests, while the pnpm wrapper itself was stopped by SIGTERM on the shared machine before any test ran", "captures in the lead's scratchpad: prototype light at 1280 and 375; app signed out, light at 1280 and 375, dark at 1280"]
+open_risks: ["signed-in views (own profile with checklist, settings forms) were checked by tests only, not captured in a browser", "settings strings live in profile/messages.ts under profile.settings.* because settings has no catalogue of its own and src/i18n/messages.ts was out of scope", "the settings nav has no current-section highlight (all sections are on the page; no scroll spy)", "page title stays « Réglages » (prototype « Paramètres »)"]
+```

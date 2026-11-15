@@ -35,6 +35,9 @@ describe('ConnectPage list', () => {
     mockApi(base);
     await renderApp('/connect');
     expect(await screen.findByRole('heading', { level: 1, name: 'Connect' })).toBeVisible();
+    const crumbs = screen.getByRole('navigation', { name: 'Fil d’Ariane' });
+    expect(within(crumbs).getByRole('link', { name: 'Accueil' })).toHaveAttribute('href', '/');
+    expect(within(crumbs).getByText('Connect')).toHaveAttribute('aria-current', 'page');
     const link = await screen.findByRole('link', { name: 'Awa Traoré' });
     expect(link).toHaveAttribute('href', '/profils/awa');
     expect(screen.getByText('@awa')).toBeVisible();
@@ -80,7 +83,7 @@ describe('ConnectPage list', () => {
       'li',
     ) as HTMLElement;
     expect(within(card).getByText('French, English')).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Reset filters' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Clear filters' })).toBeVisible();
   });
 
   it('shows a quiet « Bientôt » line for mentoring, spaces and opportunities, without links', async () => {
@@ -89,6 +92,42 @@ describe('ConnectPage list', () => {
     await renderApp('/connect');
     await screen.findByRole('link', { name: 'Awa Traoré' });
     expect(screen.getByText('Bientôt : mentorat, espaces et opportunités.')).toBeVisible();
+  });
+
+  it('lays people out as rows under a Membres heading, the country code next to its name', async () => {
+    setLanguages(['fr-FR']);
+    mockApi(base);
+    await renderApp('/connect');
+    const results = await screen.findByRole('region', { name: 'Membres' });
+    expect(within(results).getByRole('heading', { level: 2, name: 'Membres' })).toBeVisible();
+    const card = (await within(results).findByRole('link', { name: 'Awa Traoré' })).closest(
+      'li',
+    ) as HTMLElement;
+    // The code is decoration; the country name is the text a screen reader hears.
+    expect(within(card).getByText('BF').closest('[aria-hidden="true"]')).not.toBeNull();
+    expect(within(card).getByText('Burkina Faso')).toBeVisible();
+  });
+
+  it('shows the spaces block labelled « Bientôt », with no link or action', async () => {
+    setLanguages(['fr-FR']);
+    mockApi(base);
+    await renderApp('/connect');
+    const spaces = await screen.findByRole('region', { name: 'Espaces d’échange' });
+    expect(within(spaces).getByText('Bientôt')).toBeVisible();
+    expect(within(spaces).getByText('Par pays')).toBeVisible();
+    expect(within(spaces).getByText('Par technologie')).toBeVisible();
+    expect(within(spaces).getByText('Par thème')).toBeVisible();
+    expect(within(spaces).queryByRole('link')).not.toBeInTheDocument();
+    expect(within(spaces).queryByRole('button')).not.toBeInTheDocument();
+  });
+
+  it('names the spaces block in English too', async () => {
+    setLanguages(['en-US']);
+    mockApi(base);
+    await renderApp('/connect');
+    const spaces = await screen.findByRole('region', { name: 'Discussion spaces' });
+    expect(within(spaces).getByText('Coming soon')).toBeVisible();
+    expect(within(spaces).getByText('By technology')).toBeVisible();
   });
 });
 
@@ -173,7 +212,7 @@ describe('ConnectPage filters', () => {
     const user = userEvent.setup();
     const { router } = await renderApp('/connect?country=BF&skill=go');
     await screen.findByRole('link', { name: 'Awa Traoré' });
-    await user.click(screen.getByRole('button', { name: 'Réinitialiser les filtres' }));
+    await user.click(screen.getByRole('button', { name: 'Effacer les filtres' }));
     await waitFor(() => {
       expect(params(callsTo(fetchMock, 'GET /profiles').at(-1)).has('country')).toBe(false);
     });
@@ -203,7 +242,7 @@ describe('ConnectPage states', () => {
     setLanguages(['fr-FR']);
     mockApi({ 'GET /profiles': () => page([]) });
     await renderApp('/connect');
-    expect(await screen.findByText('Aucun profil pour l’instant')).toBeVisible();
+    expect(await screen.findByText('Aucun profil')).toBeVisible();
   });
 
   it('offers a reset when filters match nobody', async () => {
@@ -211,11 +250,9 @@ describe('ConnectPage states', () => {
     mockApi({ 'GET /profiles': () => page([]) });
     const user = userEvent.setup();
     const { router } = await renderApp('/connect?skill=cobol');
-    expect(await screen.findByText('Personne ne correspond à ces filtres')).toBeVisible();
-    const empty = screen
-      .getByText('Personne ne correspond à ces filtres')
-      .closest('section') as HTMLElement;
-    await user.click(within(empty).getByRole('button', { name: 'Réinitialiser les filtres' }));
+    expect(await screen.findByText('Aucun profil ne correspond')).toBeVisible();
+    const empty = screen.getByText('Aucun profil ne correspond').closest('section') as HTMLElement;
+    await user.click(within(empty).getByRole('button', { name: 'Effacer les filtres' }));
     await waitFor(() => {
       expect(router.state.location.search).toEqual({});
     });
@@ -241,7 +278,7 @@ describe('ConnectPage states', () => {
       'GET /profiles': () => problemResponse(429, 'RATE_LIMITED', { retryAfter: 12 }),
     });
     await renderApp('/connect');
-    expect(await screen.findByText('Trop de requêtes, réessayez dans 12 s')).toBeVisible();
+    expect(await screen.findByText('Trop de demandes. Réessayez dans 12 s.')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Réessayer' })).toBeVisible();
   });
 
@@ -249,6 +286,6 @@ describe('ConnectPage states', () => {
     setLanguages(['en-US']);
     mockApi({ 'GET /profiles': () => problemResponse(429, 'RATE_LIMITED') });
     await renderApp('/connect');
-    expect(await screen.findByText('Too many requests, try again shortly')).toBeVisible();
+    expect(await screen.findByText('Too many requests. Wait a moment.')).toBeVisible();
   });
 });

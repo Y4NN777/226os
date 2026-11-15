@@ -18,6 +18,7 @@
 - Keep the jargon developers use (webhook, API, SDK, pull request, open source); use French where natural French exists (Résoudre, Découvrir, Construire, Communauté, Mentorat).
 - No inclusive-writing median dots (« Candidat·e »): rephrase neutrally.
 - French typography: a non-breaking space before `:` `;` `?` `!` and inside « ».
+- Fewest words, no explanatory sentences (owner, 2026-11-15). Length limits, glossary and examples: [`COPY_STYLE.md`](COPY_STYLE.md).
 - One form of address across the whole product.
 
 ## Interface (minimal, premium)

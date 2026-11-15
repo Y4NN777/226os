@@ -438,7 +438,7 @@ Les modules P1/P2 ne doivent pas être artificiellement matérialisés en code v
 
 ## 6. PostgreSQL et recherche
 - PostgreSQL 18 est l'unique moteur initial ; migrations SQL goose **forward-only** (sans section Down), séquentielles, immuables après merge, avec restauration comme repli ; accès `pgx` + `sqlc` ; transaction pour mutations multi-tables.
-- Full-text : `tsvector` alimenté explicitement ou via colonne générée selon vérification SQL ; index GIN ; `websearch_to_tsquery` en configuration `simple` avec `unaccent` (fonction wrapper immuable) ; `pg_trgm` pour tolérance aux fautes ; index et plans vérifiés par `EXPLAIN (ANALYZE, BUFFERS)` sur données représentatives.
+- Full-text : `tsvector` alimenté explicitement ou via colonne générée selon vérification SQL ; index GIN ; `websearch_to_tsquery` en configuration `simple` avec `unaccent` (fonction wrapper immuable) ; `pg_trgm` : index trigrammes créés (migration 00010), tolérance aux fautes dans les requêtes planifiée (aucune requête ne les utilise au 2026-11-15) ; index et plans vérifiés par `EXPLAIN (ANALYZE, BUFFERS)` sur données représentatives.
 - Recherche combinée des `questions`, `resources`, `projects` et des articles/tutoriels Learn via requêtes explicitement bornées ; filtres pays, tags, type et langues ; tri stable ; protection contre requêtes coûteuses.
 - Français et anglais : stratégies de tokenisation documentées ; aucune promesse de traduction automatique du contenu au P0.
 

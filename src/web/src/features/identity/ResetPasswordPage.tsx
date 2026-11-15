@@ -1,6 +1,4 @@
 import { Button } from '@astryxdesign/core/Button';
-import { Heading } from '@astryxdesign/core/Heading';
-import { Text } from '@astryxdesign/core/Text';
 import { TextInput } from '@astryxdesign/core/TextInput';
 import { VStack } from '@astryxdesign/core/VStack';
 import { useForm } from '@tanstack/react-form';
@@ -10,6 +8,7 @@ import { api, ApiError } from '../../api/http';
 import { bumpSessionEpoch, forgetPrivateData, sessionQueryKey } from '../../app/session';
 import { useI18n } from '../../i18n/I18nProvider';
 import type { MessageKey } from '../../i18n/messages';
+import { CardHead } from './AuthCard';
 import { FailureNotice, FocusRegion, RateLimitNotice } from './notices';
 import { PasswordField } from './PasswordField';
 import { PasswordRule } from './PasswordRule';
@@ -86,8 +85,7 @@ export function ResetPasswordPage() {
     return (
       <FocusRegion role="status">
         <VStack gap={4}>
-          <Heading level={1}>{t('identity.reset.done.title')}</Heading>
-          <Text as="p">{t('identity.reset.done.body')}</Text>
+          <CardHead title={t('identity.reset.done.title')} lede={t('identity.reset.done.body')} />
           <Button variant="primary" href="/connexion" label={t('identity.reset.done.signIn')} />
         </VStack>
       </FocusRegion>
@@ -98,8 +96,10 @@ export function ResetPasswordPage() {
     return (
       <FocusRegion role="alert">
         <VStack gap={4}>
-          <Heading level={1}>{t('identity.code.invalid.title')}</Heading>
-          <Text as="p">{t('identity.reset.invalid.body')}</Text>
+          <CardHead
+            title={t('identity.code.invalid.title')}
+            lede={t('identity.reset.invalid.body')}
+          />
           <Button
             variant="primary"
             href="/mot-de-passe-oublie"
@@ -112,8 +112,7 @@ export function ResetPasswordPage() {
 
   return (
     <VStack gap={5}>
-      <Heading level={1}>{t('identity.reset.title')}</Heading>
-      <Text as="p">{t('identity.reset.intro')}</Text>
+      <CardHead title={t('identity.reset.title')} lede={t('identity.reset.intro')} />
       {failure ? (
         failure.error instanceof ApiError && failure.error.code === 'RATE_LIMITED' ? (
           <RateLimitNotice key={failure.n} />

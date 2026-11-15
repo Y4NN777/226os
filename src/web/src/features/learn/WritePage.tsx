@@ -1,10 +1,14 @@
+import { Breadcrumbs, BreadcrumbItem } from '@astryxdesign/core/Breadcrumbs';
 import { Button } from '@astryxdesign/core/Button';
 import { Heading } from '@astryxdesign/core/Heading';
+import { Icon } from '@astryxdesign/core/Icon';
 import { Link } from '@astryxdesign/core/Link';
-import { Text } from '@astryxdesign/core/Text';
 import { VStack } from '@astryxdesign/core/VStack';
 import { useLocation, useSearch } from '@tanstack/react-router';
-import { useState } from 'react';
+import { useId, useState } from 'react';
+import type { MessageKey } from '../../i18n/messages';
+import { CheckCircleIcon, EditIcon, EyeIcon } from './icons';
+import './learn.css';
 import type { components } from '../../api/schema';
 import { useSession } from '../../app/session';
 import { ErrorState } from '../../components/ErrorState';
@@ -27,14 +31,30 @@ function Published({ id, title, onAnother }: { id: string; title: string; onAnot
   const { t } = useI18n();
   return (
     <FocusRegion role="status">
-      <VStack gap={3} hAlign="start">
+      <div className="learn-done-card">
+        <span className="learn-icon-badge" aria-hidden="true">
+          <Icon icon={CheckCircleIcon} size="lg" />
+        </span>
         <Heading level={1}>{t('learn.done.title')}</Heading>
-        <Text as="p">{t('learn.done.body', { title })}</Text>
-        <Button variant="primary" label={t('learn.done.another')} onClick={onAnother} />
-        <Link href={`/apprendre/articles/${id}`} isStandalone>
-          {t('learn.done.view')}
-        </Link>
-      </VStack>
+        <p>{t('learn.done.body', { title })}</p>
+        <div className="learn-actions">
+          <Button
+            variant="primary"
+            label={t('learn.done.view')}
+            href={`/apprendre/articles/${id}`}
+            icon={<Icon icon={EyeIcon} />}
+          />
+          <Button
+            variant="secondary"
+            label={t('learn.done.another')}
+            onClick={onAnother}
+            icon={<Icon icon={EditIcon} />}
+          />
+          <Link href="/apprendre" isStandalone>
+            {t('learn.series.back')}
+          </Link>
+        </div>
+      </div>
     </FocusRegion>
   );
 }
@@ -61,7 +81,6 @@ export function WritePage() {
     return (
       <VStack gap={3} hAlign="start" maxWidth={560}>
         <Heading level={1}>{t('learn.signIn.title')}</Heading>
-        <Text as="p">{t('learn.signIn.body')}</Text>
         <Button
           variant="primary"
           label={t('account.signIn')}
@@ -92,14 +111,53 @@ export function WritePage() {
   };
 
   return (
-    <VStack gap={4} hAlign="stretch" maxWidth={720}>
-      <VStack gap={1} hAlign="start">
+    <VStack gap={6}>
+      <Crumbs />
+      <header className="learn-head-text">
         <Heading level={1}>{t('learn.write.title')}</Heading>
-        <Text as="p" color="secondary">
-          {t('learn.write.lede')}
-        </Text>
-      </VStack>
-      <ArticleForm key={round} initialLink={parseLink(search.link)} onSubmit={submit} />
+      </header>
+      <div className="learn-write">
+        <div className="learn-form">
+          <ArticleForm key={round} initialLink={parseLink(search.link)} onSubmit={submit} />
+        </div>
+        <Tips />
+      </div>
     </VStack>
+  );
+}
+
+function Crumbs() {
+  const { t } = useI18n();
+  return (
+    <Breadcrumbs label={t('learn.title')} variant="supporting">
+      <BreadcrumbItem href="/apprendre">{t('learn.title')}</BreadcrumbItem>
+      <BreadcrumbItem isCurrent>{t('learn.write.title')}</BreadcrumbItem>
+    </Breadcrumbs>
+  );
+}
+
+const tipKeys = [
+  'learn.write.tip.1',
+  'learn.write.tip.2',
+  'learn.write.tip.3',
+  'learn.write.tip.4',
+] as const satisfies readonly MessageKey[];
+
+/** The prototype's writing advice, beside the form on a wide screen. */
+function Tips() {
+  const { t } = useI18n();
+  const titleId = useId();
+  return (
+    <aside className="learn-write-aside learn-aside-card" aria-labelledby={titleId}>
+      <h2 id={titleId}>{t('learn.write.tips.title')}</h2>
+      <ul className="learn-checks">
+        {tipKeys.map((key) => (
+          <li key={key}>
+            <Icon icon="check" size="sm" />
+            <span>{t(key)}</span>
+          </li>
+        ))}
+      </ul>
+    </aside>
   );
 }

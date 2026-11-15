@@ -40,7 +40,7 @@ describe('I18nProvider', () => {
   it('falls back to French for unsupported languages', () => {
     setLanguages(['de-DE']);
     renderProbe();
-    expect(screen.getByText('fr|Réglages')).toBeInTheDocument();
+    expect(screen.getByText('fr|Paramètres')).toBeInTheDocument();
     expect(document.documentElement.lang).toBe('fr');
   });
 

@@ -29,6 +29,40 @@ Beaucoup de solutions techniques africaines existent déjà, mais restent peu co
 - **Modération** : « Signaler une erreur » sur une fiche Découvrir ; les modérateurs masquent ou rétablissent un contenu et traitent les signalements par l'API ([runbook](docs/runbooks/moderation.md)).
 - **Assistant sourcé** : il répond uniquement à partir des contenus publiés et cite ses sources ; sans source, il le dit. Désactivé par défaut.
 
+## Aperçu
+
+Captures du 15 novembre 2026 sur les données de démonstration. Les autres pages et la comparaison avec les maquettes sont dans le [rapport de fidélité](docs/quality/PROTOTYPE_FIDELITY.md).
+
+### Accueil
+
+![Page d’accueil de 226os pour un visiteur](docs/quality/evidence/fidelity/2026-11-15/landing-app-1280-light.png)
+
+### Découvrir
+
+![Catalogue Découvrir avec les fiches d’API et d’outils, leurs pays et leur statut de vérification](docs/quality/evidence/fidelity/2026-11-15/discover-app-1280-light.png)
+
+### Résoudre
+
+![Liste des questions de Résoudre avec leur état, leurs étiquettes et leur langue](docs/quality/evidence/fidelity/2026-11-15/solve-app-1280-light.png)
+
+### Question
+
+![Page d’une question avec la réponse acceptée et les votes](docs/quality/evidence/fidelity/2026-11-15/question-app-1280-light.png)
+
+### Construire
+
+![Liste des projets open source de Construire avec leurs besoins ouverts](docs/quality/evidence/fidelity/2026-11-15/build-app-1280-light.png)
+
+### Apprendre
+
+![Page Apprendre avec les filtres par type, sujet, niveau et langue](docs/quality/evidence/fidelity/2026-11-15/apprendre-app-1280-light.png)
+
+### Sur téléphone
+
+| Découvrir | Résoudre | Question |
+|---|---|---|
+| <img src="docs/quality/evidence/fidelity/2026-11-15/discover-app-375-light.png" alt="Découvrir sur téléphone" width="240"> | <img src="docs/quality/evidence/fidelity/2026-11-15/solve-app-375-light.png" alt="Résoudre sur téléphone" width="240"> | <img src="docs/quality/evidence/fidelity/2026-11-15/question-app-375-light.png" alt="Une question sur téléphone" width="240"> |
+
 ## Ce qui distingue 226os
 
 - **Des intégrations africaines documentées** : chaque API ou SDK est relié aux pays couverts, à ses sources et aux questions qui en parlent.

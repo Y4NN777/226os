@@ -1,5 +1,12 @@
 import { Theme } from '@astryxdesign/core/theme';
-import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
+import {
+  createContext,
+  useContext,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+} from 'react';
 import { readStorage, writeStorage } from '../app/storage';
 import { theme226os } from './theme226os';
 
@@ -46,4 +53,28 @@ export function useThemePreference(): ThemePreference {
   const value = useContext(ThemePreferenceContext);
   if (!value) throw new Error('useThemePreference must be used inside <ThemePreferenceProvider>');
   return value;
+}
+
+const DARK_QUERY = '(prefers-color-scheme: dark)';
+
+function darkQuery(): MediaQueryList | null {
+  return typeof window.matchMedia === 'function' ? window.matchMedia(DARK_QUERY) : null;
+}
+
+function subscribeToSystemTheme(onChange: () => void) {
+  const query = darkQuery();
+  query?.addEventListener('change', onChange);
+  return () => query?.removeEventListener('change', onChange);
+}
+
+function systemPrefersDark() {
+  return darkQuery()?.matches ?? false;
+}
+
+/** The theme actually shown: the stored choice, or the system one when the choice is "system". */
+export function useResolvedTheme(): 'light' | 'dark' {
+  const { mode } = useThemePreference();
+  const systemDark = useSyncExternalStore(subscribeToSystemTheme, systemPrefersDark, () => false);
+  if (mode !== 'system') return mode;
+  return systemDark ? 'dark' : 'light';
 }

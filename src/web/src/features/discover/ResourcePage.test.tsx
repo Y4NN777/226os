@@ -63,7 +63,11 @@ describe('ResourcePage', () => {
     await renderApp(`/discover/${id}`);
     expect(await screen.findByRole('heading', { level: 1, name: 'Wave Pay' })).toBeInTheDocument();
     expect(screen.getByText('Encaissement mobile money.')).toBeInTheDocument();
-    expect(screen.getByText('Sénégal, Côte d’Ivoire')).toBeInTheDocument();
+    // Coverage lists each country as its code then its name, as in the prototype.
+    const coverage = screen.getByRole('region', { name: 'Couverture' });
+    expect(within(coverage).getByText('SN')).toBeInTheDocument();
+    expect(within(coverage).getByText('Sénégal')).toBeInTheDocument();
+    expect(within(coverage).getByText('Côte d’Ivoire')).toBeInTheDocument();
     expect(screen.getByText('français, anglais')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Exemple SA/ })).toHaveAttribute(
       'href',
@@ -81,6 +85,44 @@ describe('ResourcePage', () => {
     const limits = screen.getByRole('list', { name: 'Limites connues' });
     expect(within(limits).getAllByRole('listitem')).toHaveLength(2);
     expect(screen.getByText(/Vérifié le 10 nov/)).toBeInTheDocument();
+  });
+
+  it('heads the page like the prototype: kind and category, provider, status pill and dates, actions', async () => {
+    setLanguages(['fr-FR']);
+    routes({
+      [`GET /resources/${id}`]: () =>
+        jsonResponse({ ...detail, category: 'mobile-money', updated_at: '2026-11-12T09:00:00Z' }),
+    });
+    await renderApp(`/discover/${id}`);
+    const header = (
+      await screen.findByRole('heading', { level: 1, name: 'Wave Pay' })
+    ).closest<HTMLElement>('.ui-page-header');
+    if (header === null) throw new Error('the title is not inside the page header');
+    expect(within(header).getByText('API · Paiements Mobile Money')).toBeInTheDocument();
+    expect(within(header).getByText('Vérifié')).toBeInTheDocument();
+    expect(within(header).getByText('Vérifié le 10 nov. 2026')).toBeInTheDocument();
+    expect(within(header).getByText('Mis à jour le 12 nov. 2026')).toBeInTheDocument();
+    expect(within(header).getByRole('link', { name: /Lire la documentation/ })).toBeInTheDocument();
+    expect(within(header).getByRole('button', { name: 'Signaler une erreur' })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+    const crumbs = within(header).getByRole('navigation', { name: 'Fil d’Ariane' });
+    expect(within(crumbs).getByRole('link', { name: 'Accueil' })).toHaveAttribute('href', '/');
+    expect(within(crumbs).getByRole('link', { name: 'Découvrir' })).toHaveAttribute(
+      'href',
+      '/discover',
+    );
+    expect(within(crumbs).getByText('Wave Pay')).toHaveAttribute('aria-current', 'page');
+  });
+
+  it('shows each related link as a tile with its kind outside the link name', async () => {
+    setLanguages(['fr-FR']);
+    routes();
+    await renderApp(`/discover/${id}`);
+    const related = await screen.findByRole('region', { name: 'Contenus liés' });
+    const question = within(related).getByRole('link', { name: 'Webhook non reçu' });
+    expect(rowOf(question)).toHaveTextContent('Question');
   });
 
   it('opens every external link safely in a new tab', async () => {
@@ -126,7 +168,7 @@ describe('ResourcePage', () => {
 
     const claim = rowOf(screen.getByRole('link', { name: /provider\.example/ }));
     expect(within(claim).getByText('Déclaration du fournisseur')).toBeInTheDocument();
-    expect(within(claim).getByText('Déclaré par le fournisseur')).toBeInTheDocument();
+    expect(within(claim).getByText('Déclaré')).toBeInTheDocument();
     expect(within(claim).queryByText('Vérifié')).not.toBeInTheDocument();
 
     const pricing = rowOf(screen.getByRole('link', { name: /Grille tarifaire/ }));
@@ -138,7 +180,7 @@ describe('ResourcePage', () => {
     setLanguages(['fr-FR']);
     routes({ [`GET /resources/${id}/sources`]: () => jsonResponse({ items: [] }) });
     await renderApp(`/discover/${id}`);
-    expect(await findVisibleText('Aucune source enregistrée pour le moment.')).toBeInTheDocument();
+    expect(await findVisibleText('Aucune source.')).toBeInTheDocument();
   });
 
   it('keeps the listing readable when only the sources fail, with a retry', async () => {
@@ -174,7 +216,7 @@ describe('ResourcePage', () => {
     expect(screen.queryByRole('link', { name: /Sans Site/ })).not.toBeInTheDocument();
     expect(screen.getByText('Non précisé')).toBeInTheDocument();
     expect(screen.queryByText('Limites connues')).not.toBeInTheDocument();
-    expect(screen.queryByText('À voir aussi')).not.toBeInTheDocument();
+    expect(screen.queryByText('Contenus liés')).not.toBeInTheDocument();
     expect(screen.queryByText('SDK officiels')).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /Lire la documentation/ })).not.toBeInTheDocument();
   });
@@ -213,7 +255,8 @@ describe('ResourcePage', () => {
     routes();
     await renderApp(`/discover/${id}`);
     expect(await screen.findByRole('heading', { level: 1, name: 'Wave Pay' })).toBeInTheDocument();
-    expect(screen.getByText('Senegal, Côte d’Ivoire')).toBeInTheDocument();
+    expect(screen.getByText('Senegal')).toBeInTheDocument();
+    expect(screen.getByText('Côte d’Ivoire')).toBeInTheDocument();
     expect(screen.getByText('French, English')).toBeInTheDocument();
     expect(await screen.findByText('Official documentation')).toBeInTheDocument();
     expect(screen.getByText(/Verified on Nov 10, 2026/)).toBeInTheDocument();

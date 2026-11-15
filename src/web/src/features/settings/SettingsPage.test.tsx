@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import type { components } from '../../api/schema';
@@ -55,9 +55,11 @@ describe('SettingsPage display-name form (live profile)', () => {
     const fetchMock = member();
     await renderApp('/parametres');
     await userEvent.setup({ delay: null }).clear(await screen.findByLabelText(/Nom d’affichage/));
-    await userEvent
-      .setup({ delay: null })
-      .click(screen.getByRole('button', { name: 'Enregistrer' }));
+    await userEvent.setup({ delay: null }).click(
+      within(screen.getByRole('region', { name: 'Profil' })).getByRole('button', {
+        name: 'Enregistrer',
+      }),
+    );
     await waitFor(() => {
       expect(screen.getByRole('alert')).toHaveTextContent('Saisissez un nom d’affichage.');
     });
@@ -77,7 +79,11 @@ describe('SettingsPage display-name form (live profile)', () => {
     // Astryx keeps an aria-live region with role "alert" between tests, so check the field itself.
     expect(input).toBeValid();
     expect(screen.queryByText(/at least|Enter a display name/)).not.toBeInTheDocument();
-    await userEvent.setup({ delay: null }).click(screen.getByRole('button', { name: 'Save' }));
+    await userEvent.setup({ delay: null }).click(
+      within(screen.getByRole('region', { name: 'Profile' })).getByRole('button', {
+        name: 'Save',
+      }),
+    );
     await waitFor(() => {
       expect(callsTo(fetchMock, 'PATCH /me/profile')).toHaveLength(1);
     });
@@ -96,9 +102,11 @@ describe('SettingsPage display-name form (live profile)', () => {
     const input = await screen.findByLabelText(/Nom d’affichage/);
     await userEvent.setup({ delay: null }).clear(input);
     await userEvent.setup({ delay: null }).type(input, '  Awa K.  ');
-    await userEvent
-      .setup({ delay: null })
-      .click(screen.getByRole('button', { name: 'Enregistrer' }));
+    await userEvent.setup({ delay: null }).click(
+      within(screen.getByRole('region', { name: 'Profil' })).getByRole('button', {
+        name: 'Enregistrer',
+      }),
+    );
     expect(await findVisibleText('Nom enregistré.')).toBeInTheDocument();
     expect(sent).toEqual({ display_name: 'Awa K.' });
     const [patch] = callsTo(fetchMock, 'PATCH /me/profile');
@@ -115,9 +123,11 @@ describe('SettingsPage display-name form (live profile)', () => {
     const input = await screen.findByLabelText(/Nom d’affichage/);
     await userEvent.setup({ delay: null }).clear(input);
     await userEvent.setup({ delay: null }).type(input, 'Awa K.');
-    await userEvent
-      .setup({ delay: null })
-      .click(screen.getByRole('button', { name: 'Enregistrer' }));
+    await userEvent.setup({ delay: null }).click(
+      within(screen.getByRole('region', { name: 'Profil' })).getByRole('button', {
+        name: 'Enregistrer',
+      }),
+    );
     await findVisibleText('Nom enregistré.');
     expect(await screen.findByRole('button', { name: 'Awa K.' })).toBeInTheDocument();
     expect(localStorage.getItem('226os.displayName')).toBeNull();
@@ -135,9 +145,11 @@ describe('SettingsPage display-name form (live profile)', () => {
     const input = await screen.findByLabelText(/Nom d’affichage/);
     await userEvent.setup({ delay: null }).clear(input);
     await userEvent.setup({ delay: null }).type(input, 'Awa');
-    await userEvent
-      .setup({ delay: null })
-      .click(screen.getByRole('button', { name: 'Enregistrer' }));
+    await userEvent.setup({ delay: null }).click(
+      within(screen.getByRole('region', { name: 'Profil' })).getByRole('button', {
+        name: 'Enregistrer',
+      }),
+    );
     await waitFor(() => {
       expect(screen.getByRole('alert')).toHaveTextContent(
         'Le nom doit contenir 80 caractères au plus.',
@@ -170,6 +182,51 @@ describe('SettingsPage display-name form (live profile)', () => {
     });
     expect(document.documentElement).toHaveAttribute('data-theme', 'dark');
     expect(localStorage.getItem('226os.theme')).toBe('dark');
+  });
+});
+
+describe('SettingsPage layout', () => {
+  it('groups the settings in named sections, each reachable from the section nav', async () => {
+    setLanguages(['fr-FR']);
+    member();
+    await renderApp('/parametres');
+    const nav = await screen.findByRole('navigation', { name: 'Sections des paramètres' });
+    const crumbs = screen.getByRole('navigation', { name: 'Fil d’Ariane' });
+    expect(within(crumbs).getByRole('link', { name: 'Accueil' })).toHaveAttribute('href', '/');
+    expect(within(crumbs).getByText('Paramètres')).toHaveAttribute('aria-current', 'page');
+    const anchors = [
+      ['Profil', 'profil'],
+      ['Préférences', 'preferences'],
+      ['Confidentialité', 'confidentialite'],
+    ] as const;
+    for (const [name, id] of anchors) {
+      expect(within(nav).getByRole('link', { name })).toHaveAttribute('href', `#${id}`);
+      expect(screen.getByRole('region', { name })).toHaveAttribute('id', id);
+    }
+    expect(
+      within(screen.getByRole('region', { name: 'Préférences' })).getByText('Thème'),
+    ).toBeVisible();
+    expect(
+      await within(screen.getByRole('region', { name: 'Profil' })).findByLabelText(
+        /Nom d’affichage/,
+      ),
+    ).toBeVisible();
+    expect(
+      await within(screen.getByRole('region', { name: 'Confidentialité' })).findByRole(
+        'radiogroup',
+        { name: /Qui peut voir votre profil/ },
+      ),
+    ).toBeVisible();
+  });
+
+  it('names the sections in English too', async () => {
+    setLanguages(['en-US']);
+    member();
+    await renderApp('/parametres');
+    const nav = await screen.findByRole('navigation', { name: 'Settings sections' });
+    expect(within(nav).getByRole('link', { name: 'Profile' })).toBeVisible();
+    expect(within(nav).getByRole('link', { name: 'Preferences' })).toBeVisible();
+    expect(within(nav).getByRole('link', { name: 'Privacy' })).toBeVisible();
   });
 });
 

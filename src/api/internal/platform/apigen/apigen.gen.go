@@ -1196,7 +1196,7 @@ type Resource struct {
 	Limitations    *[]string  `json:"limitations,omitempty"`
 	Name           string     `json:"name"`
 
-	// Provenance live = real content; demo = local-dev SEED fixture, shown with a visible badge (C15).
+	// Provenance live = real content; demo = SEED fixture, loaded in local-dev and staging-test only (never production-live), shown with a visible badge (C15).
 	Provenance ResourceProvenance `json:"provenance"`
 	Provider   struct {
 		Name string  `json:"name"`
@@ -1225,7 +1225,7 @@ type Resource struct {
 	VerificationStatus VerificationStatus `json:"verification_status"`
 }
 
-// ResourceProvenance live = real content; demo = local-dev SEED fixture, shown with a visible badge (C15).
+// ResourceProvenance live = real content; demo = SEED fixture, loaded in local-dev and staging-test only (never production-live), shown with a visible badge (C15).
 type ResourceProvenance string
 
 // ResourcePage defines model for ResourcePage.

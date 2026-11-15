@@ -48,8 +48,9 @@ export function answer(overrides: Partial<Answer> = {}): Answer {
   };
 }
 
-export function page(items: unknown[], next: string | null = null) {
-  return jsonResponse({ items, next_cursor: next });
+/** A contract page; `total` defaults to the items given, a test passes a larger one for a long list. */
+export function page(items: unknown[], next: string | null = null, total = items.length) {
+  return jsonResponse({ items, next_cursor: next, total });
 }
 
 /** A 200 that also carries the entity tag the edit sends back in If-Match. */

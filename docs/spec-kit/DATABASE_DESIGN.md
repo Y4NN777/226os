@@ -349,7 +349,7 @@ DDL: see `db/migrations/00008_learn.sql`.
 
 (`UNIQUE (series_id, position)` already provides the `series_id` FK index.) Note: a unique constraint that is `DEFERRABLE` cannot be used as an `ON CONFLICT` arbiter; no upsert on position is planned.
 
-**`learn_progress`** (**P1**, created in a later migration, not in the P0 bootstrap per ADR-0005) - lesson completion per user.
+**`learn_progress`** (**P1**, created in a later migration, not in the P0 bootstrap per ADR-0005) - lesson completion per user. No migration creates it yet (2026-11-15); the header of `00008_learn.sql` names `00011`, but `00011` only changes the taxonomy, and migrations are immutable, so this line is the reference.
 
 ```sql
 CREATE TABLE learn_progress (

@@ -35,9 +35,7 @@ describe('ForgotPasswordPage', () => {
     await waitFor(() => expect(screen.getByLabelText('Adresse e-mail')).toHaveFocus());
     await user.type(screen.getByLabelText('Adresse e-mail'), 'awa');
     await user.click(screen.getByRole('button', { name: 'Envoyer le code' }));
-    expect(await screen.findAllByText('Cette adresse e-mail semble incomplète.')).not.toHaveLength(
-      0,
-    );
+    expect(await screen.findAllByText('Vérifiez l’adresse e-mail.')).not.toHaveLength(0);
     expect(callsTo(fetchMock, REQUEST)).toHaveLength(0);
   });
 
@@ -46,12 +44,10 @@ describe('ForgotPasswordPage', () => {
     await user.type(screen.getByLabelText('Adresse e-mail'), ' awa@example.org ');
     await user.click(screen.getByRole('button', { name: 'Envoyer le code' }));
     expect(
-      await screen.findByRole('heading', { level: 1, name: 'Consultez votre boîte mail' }),
+      await screen.findByRole('heading', { level: 1, name: 'Vérifiez votre boîte mail' }),
     ).toBeVisible();
     expect(
-      screen.getByText(
-        'Si un compte existe pour cette adresse, un code vient de partir. Il expire dans 30 minutes.',
-      ),
+      screen.getByText('Si un compte existe, un code vient de partir. Il expire dans 30 minutes.'),
     ).toBeVisible();
     expect(screen.getByRole('link', { name: 'Saisir le code' })).toHaveAttribute(
       'href',

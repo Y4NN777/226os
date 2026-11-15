@@ -1,0 +1,76 @@
+/* Account pages after prototypes/html/pages/connexion.html and layout.css (.account-card,
+   .acc-head, .acc-label-row, .acc-switch). Astryx and Graphite & Lime tokens only. */
+
+.acc-head {
+  display: grid;
+  gap: var(--spacing-1-5);
+}
+/* One h1 per card, at the prototype's card size (h2 scale). */
+.acc-head h1 {
+  margin: 0;
+  font-size: 1.5rem;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+}
+.acc-lede {
+  margin: 0;
+  color: var(--color-text-secondary);
+  line-height: 1.55;
+}
+.acc-switch {
+  margin: 0;
+  text-align: center;
+  color: var(--color-text-secondary);
+}
+
+/* Welcome: choice tiles (bienvenue.html), the title link stretched over the tile. */
+.acc-tiles {
+  display: grid;
+  gap: var(--spacing-3);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+@media (min-width: 420px) {
+  .acc-tiles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.acc-tile {
+  position: relative;
+  display: grid;
+  gap: var(--spacing-1);
+  align-content: start;
+  padding: var(--spacing-4);
+  border-radius: var(--radius-container);
+  background: var(--color-background-muted);
+}
+.acc-tile:hover {
+  background: color-mix(in srgb, var(--color-accent) 12%, var(--color-background-muted));
+}
+.acc-tile > svg {
+  margin-bottom: var(--spacing-1);
+}
+.acc-tile a::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+.acc-tile-text {
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+}
+@media (forced-colors: active) {
+  .acc-tile {
+    border: 1px solid CanvasText;
+  }
+}
+
+/* « Mot de passe oublié ? » on the label line, at the end, like the prototype's .acc-label-row. */
+.acc-label-end {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-end: 0;
+  font-size: 0.875rem;
+}

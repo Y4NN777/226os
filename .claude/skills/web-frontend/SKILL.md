@@ -69,7 +69,7 @@ description: 226os frontend rules for React 19 + strict TypeScript + Vite + TanS
 - Every state-changing request sends the synchronizer CSRF token (`docs/spec-kit/AUTHORIZATION_MATRIX.md:12`, `docs/spec-kit/AUTHORIZATION_MATRIX.md:50`, `docs/archive/spec-kit/G0_DECISIONS.md:10`). How the token is delivered and its header name are `OPEN`.
 - No bearer tokens (`docs/spec-kit/API_CONTRACT.md:11`).
 - Retried creates (applications, votes, relations) send an `Idempotency-Key` that is reused across retries (`docs/spec-kit/API_CONTRACT.md:12`).
-- Authorization is enforced on the server only. UI hiding is cosmetic (`docs/architecture/ARCHITECTURE.md:19`, `docs/spec-kit/AUTHORIZATION_MATRIX.md:46`).
+- Authorization is enforced on the server only. UI hiding is cosmetic (`docs/architecture/ARCHITECTURE.md §1`, `docs/spec-kit/AUTHORIZATION_MATRIX.md:46`).
 - Sanitize untrusted Markdown and snippets. Never execute user code (`DESIGN.md:200`, `docs/SPEC.md:126`, `docs/TEST.md:37`).
 - External avatars, logos and links need privacy and performance review (`DESIGN.md:201`).
 

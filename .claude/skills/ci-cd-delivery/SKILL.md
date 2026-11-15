@@ -16,7 +16,7 @@ description: 226os delivery pipeline (G1-G7 wiring). Covers fail-closed Make tar
 - Scan secrets and dependencies on every PR, plus a runtime licence report. A high or critical exploitable vulnerability blocks release. `docs/TEST.md:38`, `docs/RULES.md:26`. The G4 steps are the `security-*` targets in `mk/30-security.mk` and `make licenses`.
 - Linter versions are pinned in the toolchain files (ADR-0006); run sqlc drift. `docs/DEV.md:46-47`. G1 covers format/lint/types/reproducible OpenAPI+sqlc generation. `AGENTS.md:47`.
 - Images: multi-stage, non-root where possible, pinned versions and digests, healthchecks, resource limits, structured logs, secrets via secure config. `docs/SHIP.md:9`, `docs/RULES.md:31`, `docs/archive/spec-kit/CONTRACTS.md:56-57`.
-- Topology: separate dev and prod Compose files; Traefik is the only public edge with Let's Encrypt TLS; the DB is never public. `docs/SHIP.md:6-7`, `docs/architecture/ARCHITECTURE.md:24`. Expose `/healthz` (liveness) and `/readyz` (readiness). `docs/SHIP.md:32`.
+- Topology: separate dev and prod Compose files; Traefik is the only public edge with Let's Encrypt TLS; the DB is never public. `docs/SHIP.md:6-7`, `docs/architecture/ARCHITECTURE.md §1`. Expose `/healthz` (liveness) and `/readyz` (readiness). `docs/SHIP.md:32`.
 - Flow: work branch -> PR develop -> staging smoke -> PR main -> approval -> backup -> migrations -> deploy -> smoke -> monitor. `docs/SHIP.md:13-15`, `docs/GIT_WORKFLOW.md:51-56`.
 - `branch-policy.yml:27-41` enforces that work branches target develop and that only `develop` or `hotfix/*` may target main.
 - Keep the tested SHA unchanged during promotion and do not rebuild a different revision. `AGENTS.md:22`, `docs/SHIP.md:20`.

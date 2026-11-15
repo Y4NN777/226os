@@ -13,6 +13,7 @@ import { useI18n } from '../i18n/I18nProvider';
 import type { MessageKey } from '../i18n/messages';
 import { BuildPage } from '../features/build/BuildPage';
 import { ProjectPage } from '../features/build/ProjectPage';
+import { validateBuildSearch } from '../features/build/routeSearch';
 import { ConnectPage } from '../features/connect/ConnectPage';
 import { validateConnectSearch } from '../features/connect/routeSearch';
 import { DiscoverPage } from '../features/discover/DiscoverPage';
@@ -162,6 +163,7 @@ const buildRoute = createRoute({
   getParentRoute: () => appLayout,
   path: '/build',
   component: BuildPage,
+  validateSearch: validateBuildSearch,
 });
 const projectRoute = createRoute({
   getParentRoute: () => appLayout,

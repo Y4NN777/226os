@@ -1,5 +1,7 @@
 @import '@astryxdesign/core/reset.css';
 @import '@astryxdesign/core/astryx.css';
+@import './shell.css';
+@import './ui.css';
 
 /* Graphite & Lime tokens live in src/theme/theme226os.ts (Astryx token slots). */
 body {

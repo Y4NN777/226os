@@ -1,100 +1,123 @@
-import { Badge } from '@astryxdesign/core/Badge';
 import { Button } from '@astryxdesign/core/Button';
-import { EmptyState } from '@astryxdesign/core/EmptyState';
-import { Heading } from '@astryxdesign/core/Heading';
-import { HStack } from '@astryxdesign/core/HStack';
+import { Icon } from '@astryxdesign/core/Icon';
 import { Link } from '@astryxdesign/core/Link';
 import { Text } from '@astryxdesign/core/Text';
-import { VStack } from '@astryxdesign/core/VStack';
 import { useParams } from '@tanstack/react-router';
-import type { ReactNode } from 'react';
+import { useId } from 'react';
 import { useSession } from '../../app/session';
+import { Avatar } from '../../components/Avatar';
+import { Breadcrumbs } from '../../components/Breadcrumbs';
+import { CountryCode } from '../../components/CountryCode';
+import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
+import {
+  ClockIcon,
+  EditIcon,
+  GitBranchIcon,
+  LanguagesIcon,
+  LockIcon,
+  MapPinIcon,
+} from '../../components/icons';
 import { LoadingState } from '../../components/LoadingState';
+import { Meta, MetaItem } from '../../components/Meta';
+import { PageHeader } from '../../components/PageHeader';
+import { StatusBadge } from '../../components/StatusBadge';
+import { TagList } from '../../components/Tag';
 import { useI18n } from '../../i18n/I18nProvider';
-import type { Locale } from '../../i18n/messages';
+import { languageName } from '../discover/present';
 import { USERNAME_RE } from '../identity/validation';
+import { Activity } from './Activity';
 import { Checklist } from './Checklist';
 import { githubProfileUrl } from './github';
 import { isProfileMissing, useProfile, type PublicProfile } from './queries';
 
-function displayName(type: 'region' | 'language', code: string, locale: Locale): string {
-  try {
-    return new Intl.DisplayNames([locale], { type }).of(code) ?? code;
-  } catch {
-    return code;
-  }
-}
-
-function Row({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <VStack gap={0.5}>
-      <Text type="label" color="secondary">
-        {label}
-      </Text>
-      {children}
-    </VStack>
-  );
-}
-
-function Details({ profile, isOwn }: { profile: PublicProfile; isOwn: boolean }) {
+/**
+ * The prototype's profile hero: avatar, name and handle, one meta line (country, languages, join
+ * date), the bio, skills, then the collaboration pill and GitHub. Only what the server returned
+ * for this caller is drawn; a hidden field leaves no label or placeholder.
+ */
+function Hero({ profile, isOwn }: { profile: PublicProfile; isOwn: boolean }) {
   const { t, locale } = useI18n();
+  const headingId = useId();
   const githubUrl = profile.github ? githubProfileUrl(profile.github) : null;
+  const languages =
+    profile.languages && profile.languages.length > 0
+      ? profile.languages.map((code) => languageName(code, locale)).join(', ')
+      : null;
   const isEmpty =
     !profile.bio &&
     !profile.country &&
     !githubUrl &&
-    !(profile.languages && profile.languages.length > 0) &&
+    languages === null &&
     !(profile.skills && profile.skills.length > 0);
   const joined = new Intl.DateTimeFormat(locale, { year: 'numeric', month: 'long' }).format(
     new Date(profile.joined_at),
   );
   return (
-    <VStack gap={4} hAlign="start">
-      <VStack gap={1}>
-        <Heading level={1}>{profile.display_name}</Heading>
-        <HStack gap={2} wrap="wrap" vAlign="center">
-          <Text type="supporting">@{profile.username}</Text>
-          <Text type="supporting">{t('profile.joined', { date: joined })}</Text>
-          {profile.open_to_collab ? <Badge variant="success" label={t('profile.collab')} /> : null}
-        </HStack>
-      </VStack>
-      {/* A visitor sees why the page is bare; the member sees the checklist instead. */}
-      {isEmpty && !isOwn ? (
-        <Text as="p" type="supporting">
-          {t('profile.empty', { name: profile.display_name })}
-        </Text>
-      ) : null}
-      {profile.bio ? <Text as="p">{profile.bio}</Text> : null}
-      {profile.country ? (
-        <Row label={t('profile.country')}>
-          <Text>{displayName('region', profile.country, locale)}</Text>
-        </Row>
-      ) : null}
-      {profile.languages && profile.languages.length > 0 ? (
-        <Row label={t('profile.languages')}>
-          <Text>
-            {profile.languages.map((code) => displayName('language', code, locale)).join(', ')}
+    // The prototype's hero card (`.id-hero`): the shared header on the panel surface.
+    <section aria-labelledby={headingId} className="ui-panel profile-hero">
+      <PageHeader
+        title={profile.display_name}
+        headingId={headingId}
+        media={<Avatar name={profile.display_name} size="xl" />}
+        subtitle={`@${profile.username}`}
+        meta={
+          <>
+            {profile.country ? (
+              <MetaItem icon={MapPinIcon}>
+                <CountryCode code={profile.country} withName />
+              </MetaItem>
+            ) : null}
+            {languages ? <MetaItem icon={LanguagesIcon}>{languages}</MetaItem> : null}
+            <MetaItem icon={ClockIcon}>{t('profile.joined', { date: joined })}</MetaItem>
+          </>
+        }
+        actions={
+          isOwn ? (
+            <Button
+              href="/parametres"
+              variant="ghost"
+              label={t('profile.edit')}
+              icon={<Icon icon={EditIcon} />}
+              isIconOnly
+              tooltip={t('profile.edit')}
+            />
+          ) : undefined
+        }
+      >
+        {/* A visitor sees why the page is bare; the member sees the checklist instead. */}
+        {isEmpty && !isOwn ? (
+          <Text as="p" type="supporting">
+            {t('profile.empty', { name: profile.display_name })}
           </Text>
-        </Row>
-      ) : null}
-      {profile.skills && profile.skills.length > 0 ? (
-        <Row label={t('profile.skills')}>
-          <HStack gap={1} wrap="wrap">
-            {profile.skills.map((skill) => (
-              <Badge key={skill} variant="blue" label={skill} />
-            ))}
-          </HStack>
-        </Row>
-      ) : null}
-      {githubUrl ? (
-        <Row label={t('profile.github')}>
-          <Link href={githubUrl} isExternalLink newTabLabel={t('discover.newTab')}>
-            {profile.github}
-          </Link>
-        </Row>
-      ) : null}
-    </VStack>
+        ) : null}
+        {profile.bio ? <p>{profile.bio}</p> : null}
+        {profile.skills && profile.skills.length > 0 ? <TagList tags={profile.skills} /> : null}
+        {profile.open_to_collab || githubUrl ? (
+          <Meta>
+            {profile.open_to_collab ? (
+              <StatusBadge kind="open" label={t('profile.collab')} />
+            ) : null}
+            {githubUrl ? (
+              <Link href={githubUrl} isExternalLink newTabLabel={t('discover.newTab')}>
+                <MetaItem icon={GitBranchIcon}>{profile.github}</MetaItem>
+              </Link>
+            ) : null}
+          </Meta>
+        ) : null}
+      </PageHeader>
+    </section>
+  );
+}
+
+/** Own profile only: the email is never public, and the visibility settings are one link away. */
+function PrivacyNote() {
+  const { t } = useI18n();
+  return (
+    <Meta>
+      <MetaItem icon={LockIcon}>{t('profile.privacy')}</MetaItem>
+      <Link href="/parametres#confidentialite">{t('profile.privacy.link')}</Link>
+    </Meta>
   );
 }
 
@@ -121,10 +144,19 @@ export function ProfilePage() {
   if (query.isError) return <ErrorState error={query.error} onRetry={() => void query.refetch()} />;
 
   return (
-    <VStack gap={6} maxWidth={640}>
+    <div className="ui-page">
+      <Breadcrumbs
+        items={[
+          { label: t('nav.home'), href: '/' },
+          { label: t('connect.title'), href: '/connect' },
+          { label: query.data.display_name },
+        ]}
+      />
       {/* Who the page is about first; the member's own checklist follows. */}
-      <Details profile={query.data} isOwn={isOwn} />
+      <Hero profile={query.data} isOwn={isOwn} />
+      {isOwn ? <PrivacyNote /> : null}
       {isOwn ? <Checklist username={username} /> : null}
-    </VStack>
+      <Activity username={username} />
+    </div>
   );
 }
