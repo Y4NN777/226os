@@ -1,0 +1,544 @@
+/*
+ * Solve pages (questions list, ask view, question detail), after prototypes/html/pages/solve.html
+ * and question.html. Astryx tokens only (light and dark come from the same slots), no borders on
+ * cards or lists (layers instead: body < surface < muted), one hairline between list rows.
+ * Classes are prefixed `solve-` so the lead can swap them for the shared ui/ pieces later.
+ */
+
+.solve-page {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--spacing-5);
+  max-width: 1040px;
+  min-width: 0;
+}
+.solve-page-wide {
+  max-width: 1200px;
+}
+
+/* ---- page header ---- */
+.solve-head {
+  display: grid;
+  gap: var(--spacing-2);
+}
+.solve-head-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--spacing-3);
+}
+.solve-lede {
+  margin: 0;
+  color: var(--color-text-secondary);
+}
+
+/* ---- search and toolbar ---- */
+.solve-search {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--spacing-3);
+}
+.solve-searchbar {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+}
+.solve-searchbar > .solve-grow {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.solve-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-2) var(--spacing-3);
+}
+/* Four French labels do not fit at 360px: the control scrolls inside its own strip, the page never does. */
+.solve-seg {
+  max-width: 100%;
+  padding: 2px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.solve-seg > * {
+  min-width: max-content;
+}
+.solve-toolbar-end {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-1);
+  margin-inline-start: auto;
+}
+.solve-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--spacing-3);
+  padding: var(--spacing-4);
+  border-radius: var(--radius-container);
+  background: var(--color-background-surface);
+}
+.solve-filters[hidden] {
+  display: none;
+}
+.solve-filters > .solve-grow {
+  flex: 1 1 200px;
+  min-width: 0;
+}
+
+/* ---- list rows ---- */
+.solve-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-radius: var(--radius-container);
+  background: var(--color-background-surface);
+  overflow: hidden;
+}
+.solve-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: var(--spacing-4);
+  padding: var(--spacing-4) var(--spacing-5);
+}
+.solve-row + .solve-row {
+  border-top: 1px solid var(--color-border);
+}
+.solve-row:hover {
+  background: var(--color-background-muted);
+}
+.solve-row:focus-within {
+  background: var(--color-background-muted);
+}
+.solve-row-lead {
+  display: grid;
+  align-content: start;
+  gap: var(--spacing-2);
+  min-width: 2.75rem;
+  padding-top: 2px;
+}
+.solve-row-main {
+  display: grid;
+  gap: var(--spacing-2);
+  min-width: 0;
+}
+.solve-row-title {
+  margin: 0;
+  font-size: 1.0625rem;
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+}
+.solve-row-title a {
+  color: var(--color-text-primary);
+  text-decoration: none;
+}
+.solve-row-title a:hover {
+  text-decoration: underline;
+}
+/* The title link covers the whole row: the row is one target, the link stays the only stop. */
+.solve-row-title a::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+}
+.solve-row-title a:focus-visible {
+  outline: none;
+}
+.solve-row-title a:focus-visible::after {
+  outline: 2px solid var(--focus-outline-color);
+  outline-offset: -2px;
+}
+.solve-row-excerpt {
+  margin: 0;
+  color: var(--color-text-secondary);
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+.solve-row-aside {
+  padding-top: 2px;
+}
+@media (min-width: 768px) {
+  .solve-row-excerpt {
+    -webkit-line-clamp: 1;
+    line-clamp: 1;
+  }
+}
+@media (max-width: 479px) {
+  .solve-row {
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: var(--spacing-3);
+    padding: var(--spacing-4) var(--spacing-3);
+  }
+  .solve-row-aside {
+    display: none;
+  }
+}
+
+/* score and answer counts in the row lead */
+.solve-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-text-secondary);
+  line-height: 1;
+}
+.solve-stat strong {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+.solve-stat-accepted,
+.solve-stat-accepted strong {
+  color: var(--color-text-success);
+}
+.solve-stat-none svg {
+  opacity: 0.55;
+}
+
+/* ---- meta: pills, tags, person, date, language ---- */
+.solve-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-2) var(--spacing-3);
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+.solve-meta > * {
+  position: relative;
+}
+.solve-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-1);
+  padding: 2px var(--spacing-2);
+  border-radius: var(--radius-full);
+  background: var(--color-background-muted);
+  color: var(--color-text-primary);
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+.solve-pill-resolved svg {
+  color: var(--color-text-success);
+}
+.solve-pill-open svg {
+  color: var(--color-text-secondary);
+}
+.solve-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-1) var(--spacing-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.solve-tag {
+  color: var(--color-text-secondary);
+  font-family: var(--font-family-code);
+  font-size: 0.8125rem;
+}
+.solve-tag::before {
+  content: '#';
+  opacity: 0.55;
+}
+.solve-person {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-1-5);
+  color: var(--color-text-primary);
+}
+.solve-country {
+  display: inline-block;
+  padding: 0 var(--spacing-1-5);
+  border-radius: var(--radius-inner);
+  background: var(--color-background-muted);
+  color: var(--color-text-secondary);
+  font-family: var(--font-family-code);
+  font-size: 0.75rem;
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.6;
+}
+.solve-lang {
+  color: var(--color-text-secondary);
+  font-size: 0.75rem;
+  font-weight: var(--font-weight-medium);
+  letter-spacing: 0.06em;
+}
+.solve-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-1);
+}
+
+/* ---- back link ---- */
+.solve-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  justify-self: start;
+  min-height: 36px;
+  padding: 0 var(--spacing-3) 0 var(--spacing-1);
+  margin-inline-start: calc(var(--spacing-2) * -1);
+  border: 0;
+  border-radius: var(--radius-element);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-weight: var(--font-weight-medium);
+  text-decoration: none;
+  cursor: pointer;
+}
+.solve-back:hover {
+  background: var(--color-background-muted);
+  color: var(--color-text-primary);
+}
+.solve-back:focus-visible {
+  outline: 2px solid var(--focus-outline-color);
+  outline-offset: 1px;
+}
+
+/* ---- ask view ---- */
+.solve-ask {
+  display: grid;
+  gap: var(--spacing-5);
+}
+.solve-ask-head {
+  display: grid;
+  gap: var(--spacing-2);
+  max-width: 62ch;
+}
+.solve-ask-head h1:focus {
+  outline: none;
+}
+.solve-ask-layout {
+  display: grid;
+  gap: var(--spacing-5);
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+}
+@media (min-width: 1024px) {
+  .solve-ask-layout {
+    grid-template-columns: minmax(0, 1fr) 340px;
+    gap: var(--spacing-8);
+  }
+}
+
+/* ---- surfaces ---- */
+.solve-surface {
+  min-width: 0;
+  padding: var(--spacing-4);
+  border-radius: var(--radius-container);
+  background: var(--color-background-surface);
+}
+@media (min-width: 640px) {
+  .solve-surface {
+    padding: var(--spacing-5);
+  }
+}
+
+/* ---- question page ---- */
+.solve-qhead {
+  display: grid;
+  gap: var(--spacing-3);
+}
+.solve-qhead-title {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-2);
+}
+.solve-qhead-title > :first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 44rem;
+  text-wrap: balance;
+}
+.solve-detail {
+  display: grid;
+  gap: var(--spacing-6);
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+}
+@media (min-width: 1024px) {
+  .solve-detail {
+    grid-template-columns: minmax(0, 1fr) 300px;
+    gap: var(--spacing-8);
+  }
+}
+.solve-detail-main {
+  display: grid;
+  gap: var(--spacing-6);
+  min-width: 0;
+}
+.solve-post {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--spacing-3);
+  align-items: start;
+}
+@media (min-width: 640px) {
+  .solve-post {
+    gap: var(--spacing-5);
+  }
+}
+.solve-post-main {
+  display: grid;
+  gap: var(--spacing-4);
+  min-width: 0;
+}
+.solve-answer-list {
+  display: grid;
+  gap: var(--spacing-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.solve-answer-head {
+  margin-bottom: var(--spacing-3);
+}
+.solve-answer-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-2) var(--spacing-3);
+}
+.solve-sources {
+  display: grid;
+  gap: var(--spacing-2);
+  padding: var(--spacing-3) var(--spacing-4);
+  border-radius: var(--radius-element);
+  background: var(--color-background-muted);
+}
+.solve-sources-h {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 0.8125rem;
+  font-weight: var(--font-weight-medium);
+}
+.solve-sources ul {
+  display: grid;
+  gap: var(--spacing-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-wrap: anywhere;
+}
+
+/* vote column: up, score, down */
+.solve-vote {
+  display: grid;
+  justify-items: center;
+  gap: var(--spacing-1);
+  min-width: 2.5rem;
+}
+.solve-vote-score {
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+.solve-vote [aria-pressed='true'] {
+  color: var(--color-text-accent);
+}
+
+/* signed-out answer invitation */
+.solve-compose-cta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-3);
+  padding: var(--spacing-4);
+  border-radius: var(--radius-container);
+  background: var(--color-background-muted);
+}
+.solve-compose-cta > svg {
+  flex: none;
+  color: var(--color-text-accent);
+}
+.solve-compose-cta p {
+  flex: 1 1 18ch;
+  margin: 0;
+  color: var(--color-text-secondary);
+}
+
+/* aside blocks: context and linked items */
+.solve-aside {
+  display: grid;
+  gap: var(--spacing-4);
+  min-width: 0;
+}
+.solve-aside-block {
+  display: grid;
+  gap: var(--spacing-3);
+  padding: var(--spacing-4);
+  border-radius: var(--radius-container);
+  background: var(--color-background-surface);
+}
+.solve-aside-h {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+  font-weight: var(--font-weight-semibold);
+}
+.solve-context {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--spacing-1) var(--spacing-4);
+  margin: 0;
+}
+.solve-context dt {
+  color: var(--color-text-secondary);
+}
+.solve-context dd {
+  margin: 0;
+}
+.solve-linked {
+  display: grid;
+  gap: var(--spacing-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+/* The kind label is read before the title; the title link covers the whole item. */
+.solve-linked li {
+  position: relative;
+  display: grid;
+  gap: 2px;
+  padding: var(--spacing-3);
+  border-radius: var(--radius-element);
+  background: var(--color-background-muted);
+}
+.solve-linked a {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+}
+.solve-linked a::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-element);
+}
+.solve-linked a:hover {
+  text-decoration: underline;
+}
+.solve-linked a:focus-visible {
+  outline: none;
+}
+.solve-linked a:focus-visible::after {
+  outline: 2px solid var(--focus-outline-color);
+  outline-offset: 1px;
+}
+.solve-linked-kind {
+  color: var(--color-text-secondary);
+  font-size: 0.75rem;
+}

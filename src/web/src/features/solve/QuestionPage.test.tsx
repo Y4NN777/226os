@@ -59,7 +59,7 @@ describe('QuestionPage reading', () => {
     expect(
       await screen.findByRole('heading', { level: 1, name: 'Webhook non reçu après un paiement' }),
     ).toBeInTheDocument();
-    expect(screen.getAllByText('Par Kofi Mensah').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Kofi Mensah').length).toBeGreaterThan(0);
     expect(screen.getByText('webhook')).toBeInTheDocument();
     // The code block splits the code into highlighted spans: read the text as a whole.
     expect(document.body.textContent).toContain('http.ListenAndServe(":80", nil)');
@@ -78,6 +78,97 @@ describe('QuestionPage reading', () => {
     expect(items[0]).toHaveTextContent('Réponse acceptée');
     expect(items[1]).toHaveTextContent('Une autre piste.');
     expect(items[1]).not.toHaveTextContent('Réponse acceptée');
+  });
+
+  it('lays out the header meta, the context and linked items, and the answer meta like the prototype', async () => {
+    setLanguages(['fr-FR']);
+    mockApi(
+      readRoutes({
+        [`GET ${key()}`]: () =>
+          withEtag(
+            question({
+              state: 'resolved',
+              answer_count: 2,
+              vote_score: 14,
+              country: 'SN',
+              author: {
+                id: 'b0000000-0000-4000-8000-0000000000aa',
+                username: 'kofi',
+                display_name: 'Kofi Mensah',
+                country: 'BF',
+              },
+              related: [
+                { type: 'resource', id: 'd0000000-0000-4000-8000-000000000001', title: 'Wave Pay' },
+                {
+                  type: 'question',
+                  id: 'd0000000-0000-4000-8000-000000000003',
+                  title: 'Une question voisine',
+                },
+              ],
+            }),
+            '"v1"',
+          ),
+        [`GET ${key('/answers')}`]: () =>
+          page([
+            answer({
+              id: 'c0000000-0000-4000-8000-000000000005',
+              body_md: 'Signez le corps brut.',
+              lang: 'en',
+              is_accepted: true,
+              sources: ['https://example.org/docs/webhooks', 'javascript:alert(1)'],
+              created_at: '2026-11-11T08:00:00Z',
+            }),
+          ]),
+      }),
+    );
+    await renderApp(base);
+
+    const title = await screen.findByRole('heading', {
+      level: 1,
+      name: 'Webhook non reçu après un paiement',
+    });
+    expect(title.closest('[lang]')).toHaveAttribute('lang', 'fr');
+    expect(screen.getByRole('link', { name: 'Questions' })).toHaveAttribute('href', '/solve');
+    const header = title.closest('header') as HTMLElement;
+    expect(within(header).getByText('Réponse acceptée')).toBeInTheDocument();
+    expect(within(header).getByText('Kofi Mensah')).toBeInTheDocument();
+    expect(within(header).getByText('BF')).toBeInTheDocument();
+    expect(within(header).getByText('10 nov. 2026').closest('time')).toHaveAttribute(
+      'datetime',
+      '2026-11-10T09:00:00Z',
+    );
+    expect(within(header).getByText('2 réponses')).toBeInTheDocument();
+    expect(within(header).getByText('FR')).toBeInTheDocument();
+    expect(screen.getAllByText(/^Score\s:\s14$/).length).toBeGreaterThan(0);
+
+    const context = screen.getByRole('complementary', { name: 'Contexte' });
+    expect(within(context).getByText('Pays')).toBeInTheDocument();
+    expect(within(context).getByText('Sénégal')).toBeInTheDocument();
+    const linked = screen.getByRole('complementary', { name: 'Liens associés' });
+    expect(within(linked).getByText('Fiche')).toBeInTheDocument();
+    expect(within(linked).getByText('Question liée')).toBeInTheDocument();
+    expect(within(linked).getByRole('link', { name: /Une question voisine/ })).toHaveAttribute(
+      'href',
+      '/questions/d0000000-0000-4000-8000-000000000003',
+    );
+
+    const list = await screen.findByRole('list', { name: 'Réponses' });
+    expect(screen.getByRole('heading', { level: 2, name: '2 réponses' })).toBeInTheDocument();
+    const item = within(list).getAllByRole('listitem')[0] as HTMLElement;
+    expect(within(item).getByText('Réponse acceptée')).toBeInTheDocument();
+    expect(within(item).getByText('Sources')).toBeInTheDocument();
+    expect(
+      within(item).getByRole('link', { name: /example\.org\/docs\/webhooks/ }),
+    ).toHaveAttribute('href', 'https://example.org/docs/webhooks');
+    // A source that is not an http(s) URL is shown as text, never as a link.
+    expect(within(item).queryByRole('link', { name: /javascript/ })).not.toBeInTheDocument();
+    expect(within(item).getByText('Fatou Diallo')).toBeInTheDocument();
+    expect(within(item).getByText('11 nov. 2026')).toBeInTheDocument();
+    expect(within(item).getByText('EN')).toBeInTheDocument();
+    expect(within(item).getByText('Signez le corps brut.').closest('[lang]')).toHaveAttribute(
+      'lang',
+      'en',
+    );
   });
 
   it('never turns raw HTML in a body into elements', async () => {
@@ -134,6 +225,9 @@ describe('QuestionPage answering', () => {
     await renderApp(base);
     const link = await screen.findByRole('link', { name: 'Se connecter pour répondre' });
     expect(link).toHaveAttribute('href', `/connexion?next=${encodeURIComponent(base)}`);
+    expect(
+      screen.getByText('La connexion vous est demandée, puis vous revenez ici.'),
+    ).toBeInTheDocument();
     expect(
       screen.queryByRole('textbox', { name: 'Rédigez votre réponse' }),
     ).not.toBeInTheDocument();
