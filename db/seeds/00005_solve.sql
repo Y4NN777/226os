@@ -28,9 +28,11 @@ Comparez les empreintes en temps constant, sans fractionner la comparaison ni so
 ON CONFLICT (id) DO NOTHING;
 
 -- 21. question_tags (join table, no id column)
-INSERT INTO question_tags (question_id, tag_id) VALUES
-  ('01900000-0000-7000-8000-000000000901', '01900000-0000-7000-8000-000000000108'),
-  ('01900000-0000-7000-8000-000000000901', '01900000-0000-7000-8000-000000000107'),
-  ('01900000-0000-7000-8000-000000000902', '01900000-0000-7000-8000-000000000108'),
-  ('01900000-0000-7000-8000-000000000902', '01900000-0000-7000-8000-000000000109')
+INSERT INTO question_tags (question_id, tag_id)
+SELECT v.question_id, t.id FROM (VALUES
+  ('01900000-0000-7000-8000-000000000901'::uuid, 'webhooks'),
+  ('01900000-0000-7000-8000-000000000901'::uuid, 'api'),
+  ('01900000-0000-7000-8000-000000000902'::uuid, 'webhooks'),
+  ('01900000-0000-7000-8000-000000000902'::uuid, 'securite')
+) AS v(question_id, slug) JOIN tags t ON t.slug = v.slug
 ON CONFLICT DO NOTHING;

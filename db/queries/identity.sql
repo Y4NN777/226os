@@ -139,14 +139,15 @@ FROM profiles p
 WHERE p.user_id = $1;
 
 -- GetProfileByUsername adds the account status and join date the visibility
--- decision needs: non-active accounts must answer like unknown usernames.
+-- decision needs: non-active accounts must answer like unknown usernames. provenance lets the service
+-- hide demo seed accounts the same way outside local-dev.
 -- name: GetProfileByUsername :one
 SELECT p.user_id, p.username, p.display_name, p.intent, p.country_code,
        p.languages, p.github_username, p.bio, p.bio_language, p.open_to_collab,
        p.country_visibility, p.languages_visibility, p.skills_visibility,
        p.github_visibility, p.bio_visibility, p.open_to_collab_visibility,
        p.profile_visibility, p.created_at, p.updated_at,
-       u.status AS account_status, u.created_at AS joined_at,
+       u.status AS account_status, u.created_at AS joined_at, u.provenance,
        COALESCE((SELECT array_agg(t.slug ORDER BY t.slug)
                  FROM user_skills us JOIN tags t ON t.id = us.tag_id
                  WHERE us.user_id = p.user_id AND t.status = 'active'), '{}'::text[])::text[] AS skills
