@@ -46,6 +46,23 @@ candidates AS (
                   WHEN q.answer_count > 0 THEN 'answered' ELSE 'open' END) = sqlc.narg('state')::text)
     AND (sqlc.narg('country')::text IS NULL OR q.country_code = sqlc.narg('country')::text)
     AND (sqlc.narg('lang')::text IS NULL OR q.language = sqlc.narg('lang')::text)
+    -- author / answers_by: the username resolves only under the getProfile rule (active account;
+    -- profile_visibility public, members for a member, or the viewer's own profile), else to NULL, which
+    -- matches nothing: a hidden profile looks unknown.
+    AND (sqlc.narg('author')::text IS NULL OR q.author_id = (
+          SELECT ap.user_id FROM profiles ap JOIN users au ON au.id = ap.user_id AND au.status = 'active'
+          WHERE ap.username = sqlc.narg('author')::text
+            AND (ap.profile_visibility = 'public'
+                 OR (sqlc.narg('viewer_id')::uuid IS NOT NULL AND ap.profile_visibility = 'members')
+                 OR ap.user_id = sqlc.narg('viewer_id')::uuid)))
+    AND (sqlc.narg('answers_by')::text IS NULL OR EXISTS (
+          SELECT 1 FROM answers a
+          WHERE a.question_id = q.id AND a.status = 'published' AND a.author_id = (
+            SELECT bp.user_id FROM profiles bp JOIN users bu ON bu.id = bp.user_id AND bu.status = 'active'
+            WHERE bp.username = sqlc.narg('answers_by')::text
+              AND (bp.profile_visibility = 'public'
+                   OR (sqlc.narg('viewer_id')::uuid IS NOT NULL AND bp.profile_visibility = 'members')
+                   OR bp.user_id = sqlc.narg('viewer_id')::uuid))))
   ORDER BY q.created_at DESC, q.id DESC
   LIMIT (SELECT CASE WHEN tsq IS NULL THEN NULL ELSE 500 END FROM i)
 )
@@ -91,6 +108,23 @@ candidates AS (
                   WHEN q.answer_count > 0 THEN 'answered' ELSE 'open' END) = sqlc.narg('state')::text)
     AND (sqlc.narg('country')::text IS NULL OR q.country_code = sqlc.narg('country')::text)
     AND (sqlc.narg('lang')::text IS NULL OR q.language = sqlc.narg('lang')::text)
+    -- author / answers_by: the username resolves only under the getProfile rule (active account;
+    -- profile_visibility public, members for a member, or the viewer's own profile), else to NULL, which
+    -- matches nothing: a hidden profile looks unknown.
+    AND (sqlc.narg('author')::text IS NULL OR q.author_id = (
+          SELECT ap.user_id FROM profiles ap JOIN users au ON au.id = ap.user_id AND au.status = 'active'
+          WHERE ap.username = sqlc.narg('author')::text
+            AND (ap.profile_visibility = 'public'
+                 OR (sqlc.narg('viewer_id')::uuid IS NOT NULL AND ap.profile_visibility = 'members')
+                 OR ap.user_id = sqlc.narg('viewer_id')::uuid)))
+    AND (sqlc.narg('answers_by')::text IS NULL OR EXISTS (
+          SELECT 1 FROM answers a
+          WHERE a.question_id = q.id AND a.status = 'published' AND a.author_id = (
+            SELECT bp.user_id FROM profiles bp JOIN users bu ON bu.id = bp.user_id AND bu.status = 'active'
+            WHERE bp.username = sqlc.narg('answers_by')::text
+              AND (bp.profile_visibility = 'public'
+                   OR (sqlc.narg('viewer_id')::uuid IS NOT NULL AND bp.profile_visibility = 'members')
+                   OR bp.user_id = sqlc.narg('viewer_id')::uuid))))
   ORDER BY q.created_at DESC, q.id DESC
   LIMIT (SELECT CASE WHEN tsq IS NULL THEN NULL ELSE 500 END FROM i)
 )

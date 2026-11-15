@@ -53,7 +53,7 @@ const (
 // and domain.ErrUnknownCountry when a link target or the country is not usable.
 type Store interface {
 	ListQuestions(ctx context.Context, q domain.QuestionQuery) ([]domain.Question, error)
-	// CountQuestions ignores the cursor, the limit and the viewer of q.
+	// CountQuestions ignores the cursor and the limit of q.
 	CountQuestions(ctx context.Context, q domain.QuestionQuery) (int, error)
 	GetQuestion(ctx context.Context, id, viewerID string) (domain.Question, error)
 	CreateQuestion(ctx context.Context, in domain.NewQuestion) (domain.Question, error)
@@ -87,6 +87,7 @@ type Limiter interface {
 type QuestionListRequest struct {
 	Q, Tag, State, Country, Lang *string
 	Sort                         *string // new (default), votes or unanswered
+	Author, AnswersBy            *string // usernames
 	Cursor                       string
 	Limit                        *int
 	Anonymous                    bool
@@ -186,9 +187,11 @@ func (s *Service) ListQuestions(ctx context.Context, sub subject.Subject, req Qu
 	}
 	query := domain.QuestionQuery{
 		Q: q, Tag: deref(req.Tag), State: deref(req.State), Country: deref(req.Country), Lang: deref(req.Lang),
-		ViewerID: sub.UserID, Sort: questionSort(req.Sort), Limit: size + 1,
+		ViewerID: sub.UserID, Sort: questionSort(req.Sort), Author: deref(req.Author), AnswersBy: deref(req.AnswersBy),
+		Limit: size + 1,
 	}
-	hash := lengthPrefixed("question", query.Q, query.Tag, query.State, query.Country, query.Lang, query.Sort)
+	hash := lengthPrefixed("question", query.Q, query.Tag, query.State, query.Country, query.Lang, query.Sort,
+		query.Author, query.AnswersBy)
 	counted := query
 	counted.Limit = 0
 	if req.Cursor != "" {

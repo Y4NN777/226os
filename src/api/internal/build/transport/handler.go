@@ -36,6 +36,7 @@ func (h *Handler) ListProjects(w http.ResponseWriter, r *http.Request, params ap
 	page, err := h.svc.ListProjects(r.Context(), subject.From(r.Context()), service.ProjectListRequest{
 		Q: params.Q, Technology: params.Technology, Skill: params.Skill, OpenNeeds: params.OpenNeeds,
 		Stage: (*string)(params.Stage), Country: params.Country, License: params.License, Sort: (*string)(params.Sort),
+		Owner:  params.Owner,
 		Cursor: deref(params.Cursor), Limit: params.Limit, ClientIP: httpx.ClientIPKey(r),
 	})
 	if err != nil {

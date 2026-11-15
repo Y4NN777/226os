@@ -267,6 +267,20 @@ func TestListProjectsSort(t *testing.T) {
 	}
 }
 
+// owner reaches the page and the count (the store applies the profile rule) and binds the cursor.
+func TestListProjectsOwnerFilter(t *testing.T) {
+	st := &fakeStore{list: projects(2)}
+	svc := newSvc(t, st, nil, nil)
+	page, err := svc.ListProjects(t.Context(), bob, ProjectListRequest{Owner: ptr("alice"), Limit: ptr(1)})
+	if err != nil || st.query.Owner != "alice" || st.countQuery.Owner != "alice" || st.query.ViewerID != bobID || page.NextCursor == "" {
+		t.Fatalf("page %+v %v %+v", page, err, st.query)
+	}
+	_, err = svc.ListProjects(t.Context(), bob, ProjectListRequest{Owner: ptr("carol"), Cursor: page.NextCursor})
+	wantCode(t, err, apperr.CodeInvalidCursor)
+	_, err = svc.ListProjects(t.Context(), bob, ProjectListRequest{Cursor: page.NextCursor})
+	wantCode(t, err, apperr.CodeInvalidCursor)
+}
+
 // total counts with the same filters and viewer as the page, and does not depend on the cursor.
 func TestListProjectsTotal(t *testing.T) {
 	st := &fakeStore{list: projects(3), total: 9}
@@ -306,7 +320,7 @@ func TestListProjectsAnonymousQueryUsesSearchBudget(t *testing.T) {
 
 func TestListProjectsRejects(t *testing.T) {
 	c := codec(t)
-	hash := lengthPrefixed("project", "", "", "", "", "false", "", "", "", domain.SortUpdated)
+	hash := lengthPrefixed("project", "", "", "", "", "false", "", "", "", domain.SortUpdated, "")
 	tests := []struct {
 		name string
 		req  ProjectListRequest

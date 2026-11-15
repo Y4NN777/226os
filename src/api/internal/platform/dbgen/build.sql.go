@@ -20,17 +20,25 @@ WHERE p.status = 'published'
   AND ($2::text IS NULL OR p.stage = $2::text)
   AND ($3::text IS NULL OR p.country_code = $3::text)
   AND ($4::text IS NULL OR p.license_spdx = $4::text)
-  AND ($5::text IS NULL
-       OR p.search_document @@ websearch_to_tsquery('simple', f_unaccent($5::text)))
-  AND ($6::text IS NULL OR EXISTS (
-       SELECT 1 FROM project_tags pt JOIN tags t ON t.id = pt.tag_id
-       WHERE pt.project_id = p.id AND t.slug = $6::text AND t.status = 'active'))
+  -- owner: the username resolves only under the getProfile rule (active account; profile_visibility
+  -- public, members for a member, or the viewer's own profile), else to NULL, which matches nothing.
+  AND ($5::text IS NULL OR p.owner_id = (
+       SELECT op.user_id FROM profiles op JOIN users ou ON ou.id = op.user_id AND ou.status = 'active'
+       WHERE op.username = $5::text
+         AND (op.profile_visibility = 'public'
+              OR ($1::uuid IS NOT NULL AND op.profile_visibility = 'members')
+              OR op.user_id = $1::uuid)))
+  AND ($6::text IS NULL
+       OR p.search_document @@ websearch_to_tsquery('simple', f_unaccent($6::text)))
   AND ($7::text IS NULL OR EXISTS (
+       SELECT 1 FROM project_tags pt JOIN tags t ON t.id = pt.tag_id
+       WHERE pt.project_id = p.id AND t.slug = $7::text AND t.status = 'active'))
+  AND ($8::text IS NULL OR EXISTS (
        SELECT 1 FROM contribution_needs n
        JOIN need_skills ns ON ns.need_id = n.id
        JOIN tags t ON t.id = ns.tag_id
-       WHERE n.project_id = p.id AND n.status = 'open' AND t.slug = $7::text AND t.status = 'active'))
-  AND (NOT $8::boolean OR EXISTS (
+       WHERE n.project_id = p.id AND n.status = 'open' AND t.slug = $8::text AND t.status = 'active'))
+  AND (NOT $9::boolean OR EXISTS (
        SELECT 1 FROM contribution_needs n WHERE n.project_id = p.id AND n.status = 'open'))
 `
 
@@ -39,6 +47,7 @@ type CountProjectsParams struct {
 	Stage      pgtype.Text
 	Country    pgtype.Text
 	License    pgtype.Text
+	Owner      pgtype.Text
 	Q          pgtype.Text
 	Technology pgtype.Text
 	Skill      pgtype.Text
@@ -53,6 +62,7 @@ func (q *Queries) CountProjects(ctx context.Context, arg CountProjectsParams) (i
 		arg.Stage,
 		arg.Country,
 		arg.License,
+		arg.Owner,
 		arg.Q,
 		arg.Technology,
 		arg.Skill,
@@ -594,26 +604,34 @@ WHERE p.status = 'published'
   AND ($2::text IS NULL OR p.stage = $2::text)
   AND ($3::text IS NULL OR p.country_code = $3::text)
   AND ($4::text IS NULL OR p.license_spdx = $4::text)
-  AND ($5::text IS NULL
-       OR p.search_document @@ websearch_to_tsquery('simple', f_unaccent($5::text)))
-  AND ($6::text IS NULL OR EXISTS (
-       SELECT 1 FROM project_tags pt JOIN tags t ON t.id = pt.tag_id
-       WHERE pt.project_id = p.id AND t.slug = $6::text AND t.status = 'active'))
+  -- owner: the username resolves only under the getProfile rule (active account; profile_visibility
+  -- public, members for a member, or the viewer's own profile), else to NULL, which matches nothing.
+  AND ($5::text IS NULL OR p.owner_id = (
+       SELECT op.user_id FROM profiles op JOIN users ou ON ou.id = op.user_id AND ou.status = 'active'
+       WHERE op.username = $5::text
+         AND (op.profile_visibility = 'public'
+              OR ($1::uuid IS NOT NULL AND op.profile_visibility = 'members')
+              OR op.user_id = $1::uuid)))
+  AND ($6::text IS NULL
+       OR p.search_document @@ websearch_to_tsquery('simple', f_unaccent($6::text)))
   AND ($7::text IS NULL OR EXISTS (
+       SELECT 1 FROM project_tags pt JOIN tags t ON t.id = pt.tag_id
+       WHERE pt.project_id = p.id AND t.slug = $7::text AND t.status = 'active'))
+  AND ($8::text IS NULL OR EXISTS (
        SELECT 1 FROM contribution_needs n
        JOIN need_skills ns ON ns.need_id = n.id
        JOIN tags t ON t.id = ns.tag_id
-       WHERE n.project_id = p.id AND n.status = 'open' AND t.slug = $7::text AND t.status = 'active'))
-  AND (NOT $8::boolean OR EXISTS (
+       WHERE n.project_id = p.id AND n.status = 'open' AND t.slug = $8::text AND t.status = 'active'))
+  AND (NOT $9::boolean OR EXISTS (
        SELECT 1 FROM contribution_needs n WHERE n.project_id = p.id AND n.status = 'open'))
-  AND ($9::timestamptz IS NULL
-       OR (CASE WHEN $10::text = 'needs' THEN nc.open_needs ELSE 0 END,
-           CASE WHEN $10::text = 'created' THEN p.created_at ELSE p.updated_at END, p.id)
-          < ($11::int, $9::timestamptz, $12::uuid))
-ORDER BY CASE WHEN $10::text = 'needs' THEN nc.open_needs ELSE 0 END DESC,
-         CASE WHEN $10::text = 'created' THEN p.created_at ELSE p.updated_at END DESC,
+  AND ($10::timestamptz IS NULL
+       OR (CASE WHEN $11::text = 'needs' THEN nc.open_needs ELSE 0 END,
+           CASE WHEN $11::text = 'created' THEN p.created_at ELSE p.updated_at END, p.id)
+          < ($12::int, $10::timestamptz, $13::uuid))
+ORDER BY CASE WHEN $11::text = 'needs' THEN nc.open_needs ELSE 0 END DESC,
+         CASE WHEN $11::text = 'created' THEN p.created_at ELSE p.updated_at END DESC,
          p.id DESC
-LIMIT $13
+LIMIT $14
 `
 
 type ListProjectsParams struct {
@@ -621,6 +639,7 @@ type ListProjectsParams struct {
 	Stage      pgtype.Text
 	Country    pgtype.Text
 	License    pgtype.Text
+	Owner      pgtype.Text
 	Q          pgtype.Text
 	Technology pgtype.Text
 	Skill      pgtype.Text
@@ -662,6 +681,7 @@ func (q *Queries) ListProjects(ctx context.Context, arg ListProjectsParams) ([]L
 		arg.Stage,
 		arg.Country,
 		arg.License,
+		arg.Owner,
 		arg.Q,
 		arg.Technology,
 		arg.Skill,

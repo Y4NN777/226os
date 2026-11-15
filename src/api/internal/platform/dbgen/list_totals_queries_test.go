@@ -25,8 +25,8 @@ func TestListTotalQueries(t *testing.T) {
 		args     []any
 	}{
 		{"CountProjects", func(db *fakeDB) (int32, error) {
-			return dbgen.New(db).CountProjects(ctx, dbgen.CountProjectsParams{ViewerID: id, Stage: a, Country: b, Q: a, OpenNeeds: true})
-		}, "FROM projects p", []any{id, a, b, none, a, none, none, true}},
+			return dbgen.New(db).CountProjects(ctx, dbgen.CountProjectsParams{ViewerID: id, Stage: a, Country: b, Owner: b, Q: a, OpenNeeds: true})
+		}, "FROM projects p", []any{id, a, b, none, b, a, none, none, true}},
 		{"CountCatalogue", func(db *fakeDB) (int32, error) {
 			return dbgen.New(db).CountCatalogue(ctx, dbgen.CountCatalogueParams{Category: a, Countries: []string{"BF"}, Q: b})
 		}, "FROM resources r", []any{a, none, none, []string{"BF"}, none, none, b}},
@@ -37,8 +37,8 @@ func TestListTotalQueries(t *testing.T) {
 			return dbgen.New(db).CountTrainingSeries(ctx, dbgen.CountTrainingSeriesParams{Topic: a, Lang: b})
 		}, "FROM training_series s", []any{a, none, b}},
 		{"CountSolveQuestions", func(db *fakeDB) (int32, error) {
-			return dbgen.New(db).CountSolveQuestions(ctx, dbgen.CountSolveQuestionsParams{Q: a, Tag: b})
-		}, "LIMIT (SELECT CASE WHEN tsq IS NULL THEN NULL ELSE 500 END FROM i)", []any{a, b, none, none, none}},
+			return dbgen.New(db).CountSolveQuestions(ctx, dbgen.CountSolveQuestionsParams{Q: a, Tag: b, Author: a, ViewerID: id, AnswersBy: b})
+		}, "LIMIT (SELECT CASE WHEN tsq IS NULL THEN NULL ELSE 500 END FROM i)", []any{a, b, none, none, none, a, id, b}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

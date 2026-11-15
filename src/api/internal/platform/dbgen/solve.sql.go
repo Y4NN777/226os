@@ -49,6 +49,23 @@ candidates AS (
                   WHEN q.answer_count > 0 THEN 'answered' ELSE 'open' END) = $3::text)
     AND ($4::text IS NULL OR q.country_code = $4::text)
     AND ($5::text IS NULL OR q.language = $5::text)
+    -- author / answers_by: the username resolves only under the getProfile rule (active account;
+    -- profile_visibility public, members for a member, or the viewer's own profile), else to NULL, which
+    -- matches nothing: a hidden profile looks unknown.
+    AND ($6::text IS NULL OR q.author_id = (
+          SELECT ap.user_id FROM profiles ap JOIN users au ON au.id = ap.user_id AND au.status = 'active'
+          WHERE ap.username = $6::text
+            AND (ap.profile_visibility = 'public'
+                 OR ($7::uuid IS NOT NULL AND ap.profile_visibility = 'members')
+                 OR ap.user_id = $7::uuid)))
+    AND ($8::text IS NULL OR EXISTS (
+          SELECT 1 FROM answers a
+          WHERE a.question_id = q.id AND a.status = 'published' AND a.author_id = (
+            SELECT bp.user_id FROM profiles bp JOIN users bu ON bu.id = bp.user_id AND bu.status = 'active'
+            WHERE bp.username = $8::text
+              AND (bp.profile_visibility = 'public'
+                   OR ($7::uuid IS NOT NULL AND bp.profile_visibility = 'members')
+                   OR bp.user_id = $7::uuid))))
   ORDER BY q.created_at DESC, q.id DESC
   LIMIT (SELECT CASE WHEN tsq IS NULL THEN NULL ELSE 500 END FROM i)
 )
@@ -58,11 +75,14 @@ JOIN profiles pr ON pr.user_id = c.author_id
 `
 
 type CountSolveQuestionsParams struct {
-	Q       pgtype.Text
-	Tag     pgtype.Text
-	State   pgtype.Text
-	Country pgtype.Text
-	Lang    pgtype.Text
+	Q         pgtype.Text
+	Tag       pgtype.Text
+	State     pgtype.Text
+	Country   pgtype.Text
+	Lang      pgtype.Text
+	Author    pgtype.Text
+	ViewerID  pgtype.UUID
+	AnswersBy pgtype.Text
 }
 
 // listQuestions total: the candidates of ListSolveQuestions (same filters, same 500 cap with q) joined to
@@ -74,6 +94,9 @@ func (q *Queries) CountSolveQuestions(ctx context.Context, arg CountSolveQuestio
 		arg.State,
 		arg.Country,
 		arg.Lang,
+		arg.Author,
+		arg.ViewerID,
+		arg.AnswersBy,
 	)
 	var total int32
 	err := row.Scan(&total)
@@ -449,6 +472,23 @@ candidates AS (
                   WHEN q.answer_count > 0 THEN 'answered' ELSE 'open' END) = $10::text)
     AND ($11::text IS NULL OR q.country_code = $11::text)
     AND ($12::text IS NULL OR q.language = $12::text)
+    -- author / answers_by: the username resolves only under the getProfile rule (active account;
+    -- profile_visibility public, members for a member, or the viewer's own profile), else to NULL, which
+    -- matches nothing: a hidden profile looks unknown.
+    AND ($13::text IS NULL OR q.author_id = (
+          SELECT ap.user_id FROM profiles ap JOIN users au ON au.id = ap.user_id AND au.status = 'active'
+          WHERE ap.username = $13::text
+            AND (ap.profile_visibility = 'public'
+                 OR ($1::uuid IS NOT NULL AND ap.profile_visibility = 'members')
+                 OR ap.user_id = $1::uuid)))
+    AND ($14::text IS NULL OR EXISTS (
+          SELECT 1 FROM answers a
+          WHERE a.question_id = q.id AND a.status = 'published' AND a.author_id = (
+            SELECT bp.user_id FROM profiles bp JOIN users bu ON bu.id = bp.user_id AND bu.status = 'active'
+            WHERE bp.username = $14::text
+              AND (bp.profile_visibility = 'public'
+                   OR ($1::uuid IS NOT NULL AND bp.profile_visibility = 'members')
+                   OR bp.user_id = $1::uuid))))
   ORDER BY q.created_at DESC, q.id DESC
   LIMIT (SELECT CASE WHEN tsq IS NULL THEN NULL ELSE 500 END FROM i)
 )
@@ -483,6 +523,8 @@ type ListSolveQuestionsParams struct {
 	State        pgtype.Text
 	Country      pgtype.Text
 	Lang         pgtype.Text
+	Author       pgtype.Text
+	AnswersBy    pgtype.Text
 }
 
 type ListSolveQuestionsRow struct {
@@ -538,6 +580,8 @@ func (q *Queries) ListSolveQuestions(ctx context.Context, arg ListSolveQuestions
 		arg.State,
 		arg.Country,
 		arg.Lang,
+		arg.Author,
+		arg.AnswersBy,
 	)
 	if err != nil {
 		return nil, err

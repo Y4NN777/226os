@@ -346,6 +346,12 @@ func TestProjectFactsOnTheWire(t *testing.T) {
 	if rec.Code != http.StatusOK || st.query.Sort != "needs" {
 		t.Fatalf("sort %d %+v", rec.Code, st.query)
 	}
+	owner := "alice"
+	rec = httptest.NewRecorder()
+	handler(t, st).ListProjects(rec, req(t, bob, http.MethodGet, ""), apigen.ListProjectsParams{Owner: &owner})
+	if rec.Code != http.StatusOK || st.query.Owner != "alice" || st.query.ViewerID != bobID {
+		t.Fatalf("owner %d %+v", rec.Code, st.query)
+	}
 }
 
 func TestListContributionNeeds(t *testing.T) {

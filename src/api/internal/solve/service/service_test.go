@@ -67,6 +67,29 @@ func (f *fakeStore) CountQuestions(_ context.Context, q domain.QuestionQuery) (i
 	return f.total, f.countErr
 }
 
+// author and answers_by reach the page and the count with the viewer (the store applies the profile
+// rule) and bind the cursor.
+func TestListQuestionsProfileFilters(t *testing.T) {
+	st := &fakeStore{questions: []domain.Question{question(qID, when), question(aID, when)}}
+	svc, _ := newSvc(t, st)
+	limit := 1
+	req := service.QuestionListRequest{Author: ptr("alice"), AnswersBy: ptr("bob"), Limit: &limit}
+	page, err := svc.ListQuestions(t.Context(), member, req)
+	if err != nil || st.listQ.Author != "alice" || st.listQ.AnswersBy != "bob" || st.countQ.Author != "alice" ||
+		st.countQ.AnswersBy != "bob" || st.countQ.ViewerID != userID || page.NextCursor == "" {
+		t.Fatalf("page %+v %v list %+v count %+v", page, err, st.listQ, st.countQ)
+	}
+	for _, other := range []service.QuestionListRequest{
+		{Author: ptr("carol"), AnswersBy: ptr("bob")},
+		{Author: ptr("alice")},
+		{AnswersBy: ptr("bob")},
+	} {
+		other.Cursor = page.NextCursor
+		_, err := svc.ListQuestions(t.Context(), member, other)
+		wantCode(t, err, apperr.CodeInvalidCursor)
+	}
+}
+
 // total counts with the page filters and no cursor; a count failure fails the page.
 func TestListQuestionsTotal(t *testing.T) {
 	st := &fakeStore{questions: []domain.Question{{ID: qID, CreatedAt: when}, {ID: qID, CreatedAt: when}}, total: 8}
@@ -348,7 +371,7 @@ func TestListQuestionsSort(t *testing.T) {
 		}
 	}
 	c := codec(t)
-	hash := "8:question0:0:0:0:0:3:new"
+	hash := "8:question0:0:0:0:0:3:new0:0:"
 	for name, key := range map[string]string{
 		"no sort key":    "0:" + when.Format(time.RFC3339Nano),
 		"bad sort key":   "0:x:" + when.Format(time.RFC3339Nano),

@@ -80,6 +80,7 @@ type ProjectListRequest struct {
 	Q, Technology, Skill    *string
 	Stage, Country, License *string
 	Sort                    *string // updated (default), created or needs
+	Owner                   *string // a username
 	OpenNeeds               *bool
 	Cursor                  string
 	Limit                   *int
@@ -160,11 +161,11 @@ func (s *Service) ListProjects(ctx context.Context, sub subject.Subject, req Pro
 	}
 	query := domain.ProjectQuery{
 		ViewerID: sub.UserID, Q: q, Technology: deref(req.Technology), Skill: deref(req.Skill),
-		Stage: deref(req.Stage), Country: deref(req.Country), License: deref(req.License),
+		Stage: deref(req.Stage), Country: deref(req.Country), License: deref(req.License), Owner: deref(req.Owner),
 		OpenNeeds: req.OpenNeeds != nil && *req.OpenNeeds, Sort: projectSort(req.Sort), Limit: size + 1,
 	}
 	hash := lengthPrefixed("project", query.ViewerID, query.Q, query.Technology, query.Skill, strconv.FormatBool(query.OpenNeeds),
-		query.Stage, query.Country, query.License, query.Sort)
+		query.Stage, query.Country, query.License, query.Sort, query.Owner)
 	filters := query
 	filters.Limit = 0
 	if req.Cursor != "" {

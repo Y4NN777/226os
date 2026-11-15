@@ -35,7 +35,7 @@ func (h *Handler) ListQuestions(w http.ResponseWriter, r *http.Request, params a
 	sub := subject.From(r.Context())
 	page, err := h.svc.ListQuestions(r.Context(), sub, service.QuestionListRequest{
 		Q: params.Q, Tag: params.Tag, State: str(params.State), Country: params.Country, Lang: str(params.Lang),
-		Sort: str(params.Sort), Cursor: deref(params.Cursor), Limit: params.Limit, Anonymous: sub.Anonymous(), ClientIP: httpx.ClientIPKey(r),
+		Sort: str(params.Sort), Author: params.Author, AnswersBy: params.AnswersBy, Cursor: deref(params.Cursor), Limit: params.Limit, Anonymous: sub.Anonymous(), ClientIP: httpx.ClientIPKey(r),
 	})
 	if err != nil {
 		h.fail(w, r, err)

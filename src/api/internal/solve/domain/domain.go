@@ -123,7 +123,10 @@ type QuestionQuery struct {
 	// SortKey.
 	Sort         string
 	AfterSortKey int
-	// ViewerID is the session subject whose vote ViewerVote reads; empty means anonymous.
+	// Author and AnswersBy are usernames; the store matches them only when the viewer may see that profile.
+	Author, AnswersBy string
+	// ViewerID is the session subject whose vote ViewerVote reads (and whose profile rule the username
+	// filters apply); empty means anonymous.
 	ViewerID string
 	Limit    int
 }

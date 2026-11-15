@@ -96,7 +96,9 @@ type Project struct {
 type ProjectQuery struct {
 	ViewerID, Q, Technology, Skill string
 	Stage, Country, License        string
-	OpenNeeds                      bool
+	// Owner is a username; the store matches it only when the viewer may see that profile.
+	Owner     string
+	OpenNeeds bool
 	// Sort is SortUpdated, SortCreated or SortNeeds. The keyset is (AfterNeeds, AfterAt, AfterID):
 	// AfterNeeds is 0 outside SortNeeds, AfterAt is created_at for SortCreated and updated_at otherwise.
 	Sort       string

@@ -207,7 +207,7 @@ func (r *Repository) ListProjects(ctx context.Context, q domain.ProjectQuery) ([
 	}
 	rows, err := r.q.ListProjects(ctx, dbgen.ListProjectsParams{
 		ViewerID: viewer, Q: text(q.Q), Technology: text(q.Technology), Skill: text(q.Skill),
-		Stage: text(q.Stage), Country: text(q.Country), License: text(q.License),
+		Stage: text(q.Stage), Country: text(q.Country), License: text(q.License), Owner: text(q.Owner),
 		OpenNeeds: q.OpenNeeds, Sort: q.Sort, AfterNeeds: int32(q.AfterNeeds), //nolint:gosec // a count of needs read from an int column
 		AfterAt: timestamp(q.AfterAt), AfterID: after,
 		RowLimit: int32(q.Limit), //nolint:gosec // page size is at most 51
@@ -241,7 +241,7 @@ func (r *Repository) CountProjects(ctx context.Context, q domain.ProjectQuery) (
 	}
 	n, err := r.q.CountProjects(ctx, dbgen.CountProjectsParams{
 		ViewerID: viewer, Q: text(q.Q), Technology: text(q.Technology), Skill: text(q.Skill),
-		Stage: text(q.Stage), Country: text(q.Country), License: text(q.License), OpenNeeds: q.OpenNeeds,
+		Stage: text(q.Stage), Country: text(q.Country), License: text(q.License), Owner: text(q.Owner), OpenNeeds: q.OpenNeeds,
 	})
 	if err != nil {
 		return 0, fmt.Errorf("build count projects: %w", err)

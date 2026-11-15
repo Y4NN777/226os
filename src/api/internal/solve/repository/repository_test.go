@@ -246,6 +246,9 @@ func TestCountQuestions(t *testing.T) {
 	if _, err := New(db(t, fail(errDB))).CountQuestions(t.Context(), domain.QuestionQuery{}); !errors.Is(err, errDB) {
 		t.Fatalf("err %v", err)
 	}
+	if _, err := New(db(t)).CountQuestions(t.Context(), domain.QuestionQuery{ViewerID: "bad"}); err == nil {
+		t.Fatal("bad viewer id accepted")
+	}
 }
 
 func TestGetQuestion(t *testing.T) {

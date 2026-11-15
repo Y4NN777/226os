@@ -44,8 +44,13 @@ func New(db Beginner) *Repository { return &Repository{db: db, q: dbgen.New(db)}
 func (r *Repository) CountQuestions(ctx context.Context, q domain.QuestionQuery) (int, error) {
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
+	viewer, err := optionalID(q.ViewerID)
+	if err != nil {
+		return 0, err
+	}
 	n, err := r.q.CountSolveQuestions(ctx, dbgen.CountSolveQuestionsParams{
 		Tag: text(q.Tag), State: text(q.State), Country: text(q.Country), Lang: text(q.Lang), Q: text(q.Q),
+		Author: text(q.Author), AnswersBy: text(q.AnswersBy), ViewerID: viewer,
 	})
 	if err != nil {
 		return 0, fmt.Errorf("solve count questions: %w", err)
@@ -68,6 +73,7 @@ func (r *Repository) ListQuestions(ctx context.Context, q domain.QuestionQuery) 
 		Tag: text(q.Tag), State: text(q.State), Country: text(q.Country), Lang: text(q.Lang), Q: text(q.Q),
 		AfterCreated: timestamp(q.AfterCreated), AfterRank: q.AfterRank, AfterID: after, ViewerID: viewer,
 		Sort: q.Sort, AfterSortKey: int32(q.AfterSortKey), //nolint:gosec // a column int4 the cursor carried back
+		Author: text(q.Author), AnswersBy: text(q.AnswersBy),
 		RowLimit: int32(q.Limit), //nolint:gosec // page size is at most 51
 	})
 	if err != nil {

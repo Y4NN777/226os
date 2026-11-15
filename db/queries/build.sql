@@ -90,6 +90,14 @@ WHERE p.status = 'published'
   AND (sqlc.narg('stage')::text IS NULL OR p.stage = sqlc.narg('stage')::text)
   AND (sqlc.narg('country')::text IS NULL OR p.country_code = sqlc.narg('country')::text)
   AND (sqlc.narg('license')::text IS NULL OR p.license_spdx = sqlc.narg('license')::text)
+  -- owner: the username resolves only under the getProfile rule (active account; profile_visibility
+  -- public, members for a member, or the viewer's own profile), else to NULL, which matches nothing.
+  AND (sqlc.narg('owner')::text IS NULL OR p.owner_id = (
+       SELECT op.user_id FROM profiles op JOIN users ou ON ou.id = op.user_id AND ou.status = 'active'
+       WHERE op.username = sqlc.narg('owner')::text
+         AND (op.profile_visibility = 'public'
+              OR (sqlc.narg('viewer_id')::uuid IS NOT NULL AND op.profile_visibility = 'members')
+              OR op.user_id = sqlc.narg('viewer_id')::uuid)))
   AND (sqlc.narg('q')::text IS NULL
        OR p.search_document @@ websearch_to_tsquery('simple', f_unaccent(sqlc.narg('q')::text)))
   AND (sqlc.narg('technology')::text IS NULL OR EXISTS (
@@ -122,6 +130,14 @@ WHERE p.status = 'published'
   AND (sqlc.narg('stage')::text IS NULL OR p.stage = sqlc.narg('stage')::text)
   AND (sqlc.narg('country')::text IS NULL OR p.country_code = sqlc.narg('country')::text)
   AND (sqlc.narg('license')::text IS NULL OR p.license_spdx = sqlc.narg('license')::text)
+  -- owner: the username resolves only under the getProfile rule (active account; profile_visibility
+  -- public, members for a member, or the viewer's own profile), else to NULL, which matches nothing.
+  AND (sqlc.narg('owner')::text IS NULL OR p.owner_id = (
+       SELECT op.user_id FROM profiles op JOIN users ou ON ou.id = op.user_id AND ou.status = 'active'
+       WHERE op.username = sqlc.narg('owner')::text
+         AND (op.profile_visibility = 'public'
+              OR (sqlc.narg('viewer_id')::uuid IS NOT NULL AND op.profile_visibility = 'members')
+              OR op.user_id = sqlc.narg('viewer_id')::uuid)))
   AND (sqlc.narg('q')::text IS NULL
        OR p.search_document @@ websearch_to_tsquery('simple', f_unaccent(sqlc.narg('q')::text)))
   AND (sqlc.narg('technology')::text IS NULL OR EXISTS (
