@@ -128,6 +128,21 @@ describe('SearchPage', () => {
     expect(callsTo(fetchMock, 'GET /search')).toHaveLength(1);
   });
 
+  it('titles the page with the query and counts a group only when it is complete', async () => {
+    setLanguages(['fr-FR']);
+    mockApi(searchRoute(results));
+    await renderApp('/recherche?q=momo');
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Résultats pour « momo »' }),
+    ).toBeInTheDocument();
+    const catalogue = (await screen.findByRole('heading', { level: 2, name: 'Catalogue' }))
+      .parentElement;
+    expect(catalogue).toHaveTextContent(/^Catalogue1$/);
+    // Questions has more results than shown: a count would be false.
+    const questions = screen.getByRole('heading', { level: 2, name: 'Questions' }).parentElement;
+    expect(questions).toHaveTextContent(/^Questions$/);
+  });
+
   it('renders snippets as plain text, never as HTML', async () => {
     setLanguages(['fr-FR']);
     mockApi(searchRoute(results));

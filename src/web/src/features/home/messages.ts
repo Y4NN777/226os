@@ -23,7 +23,7 @@ export const fr = {
   'feed.questions.more': 'Toutes les questions',
   'feed.catalog.title': 'API du catalogue',
   'feed.catalog.sub': 'Des fiches sourcées, avec leur état de vérification.',
-  'feed.catalog.provider': 'Fournisseur : {name}',
+  'feed.catalog.provider': 'Fournisseur : {name}',
   'feed.catalog.more': 'Parcourir le catalogue',
   'feed.catalog.empty': 'Le catalogue est vide pour l’instant.',
   'feed.projects.title': 'Projets',

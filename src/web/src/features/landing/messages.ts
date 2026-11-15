@@ -38,9 +38,9 @@ export const fr = {
   'landing.catalogue.title': 'Dans le catalogue',
   'landing.catalogue.lede': 'Chaque fiche dit ce qui a été vérifié, et quand.',
   'landing.catalogue.more': 'Tout le catalogue',
-  'landing.catalogue.checked': 'Dernière vérification : {date}',
+  'landing.catalogue.checked': 'Dernière vérification : {date}',
   'landing.catalogue.empty': 'Le catalogue est vide pour le moment. Revenez bientôt.',
-  'landing.end.title': 'Prêt à commencer ?',
+  'landing.end.title': 'Prêt à commencer ?',
   'landing.end.text': 'Créez votre compte gratuitement. Tout se lit aussi sans compte.',
 } as const;
 
