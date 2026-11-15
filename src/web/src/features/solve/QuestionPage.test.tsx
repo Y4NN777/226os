@@ -139,7 +139,7 @@ describe('QuestionPage reading', () => {
       'aria-current',
       'page',
     );
-    const header = title.closest('.ui-page-header') as HTMLElement;
+    const header = title.closest<HTMLElement>('.ui-page-header') as HTMLElement;
     expect(within(header).getByText('Réponse acceptée')).toBeInTheDocument();
     expect(within(header).getByText('Kofi Mensah')).toBeInTheDocument();
     expect(within(header).getByText('BF')).toBeInTheDocument();

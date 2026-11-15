@@ -369,7 +369,9 @@ describe('DiscoverPage', () => {
     expect(within(crumbs).getByRole('link', { name: 'Accueil' })).toHaveAttribute('href', '/');
     expect(within(crumbs).getByText('Découvrir')).toHaveAttribute('aria-current', 'page');
     expect(
-      screen.getByRole('heading', { level: 1, name: 'Découvrir' }).closest('.ui-page-header'),
+      screen
+        .getByRole('heading', { level: 1, name: 'Découvrir' })
+        .closest<HTMLElement>('.ui-page-header'),
     ).toContainElement(crumbs);
   });
 

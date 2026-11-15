@@ -94,9 +94,9 @@ describe('ResourcePage', () => {
         jsonResponse({ ...detail, category: 'mobile-money', updated_at: '2026-11-12T09:00:00Z' }),
     });
     await renderApp(`/discover/${id}`);
-    const header = (await screen.findByRole('heading', { level: 1, name: 'Wave Pay' })).closest(
-      '.ui-page-header',
-    );
+    const header = (
+      await screen.findByRole('heading', { level: 1, name: 'Wave Pay' })
+    ).closest<HTMLElement>('.ui-page-header');
     if (header === null) throw new Error('the title is not inside the page header');
     expect(within(header).getByText('API · Paiements Mobile Money')).toBeInTheDocument();
     expect(within(header).getByText('Vérifié')).toBeInTheDocument();

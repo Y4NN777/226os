@@ -148,7 +148,7 @@ describe('ProjectPage layout', () => {
       '/build',
     );
     expect(within(crumbs).getByText('kora-sdk')).toHaveAttribute('aria-current', 'page');
-    const header = heading.closest('.ui-page-header');
+    const header = heading.closest<HTMLElement>('.ui-page-header');
     expect(header).not.toBeNull();
     expect(within(header as HTMLElement).getByText('2 besoins ouverts')).toBeVisible();
     expect(within(header as HTMLElement).getByText('Privé')).toBeVisible();

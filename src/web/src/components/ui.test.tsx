@@ -110,7 +110,7 @@ describe('PageHeader', () => {
     const heading = screen.getByRole('heading', { level: 1, name: 'Wave Pay' });
     expect(heading).toHaveAttribute('id', 'resource-title');
     expect(heading.closest('[lang]')).toHaveAttribute('lang', 'fr');
-    const header = heading.closest('.ui-page-header');
+    const header = heading.closest<HTMLElement>('.ui-page-header');
     if (header === null) throw new Error('the title is not inside the page header');
     expect(screen.queryByRole('banner')).toBeNull();
     expect(within(header).getByText('API · Paiements')).toBeInTheDocument();
