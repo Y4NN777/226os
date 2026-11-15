@@ -88,6 +88,7 @@ seed: ## Demo fixtures (local-dev, staging-test)
 		echo "REFUSED: no db/seeds/*.sql files to run" >&2; \
 		exit 2; \
 	fi; \
+	if [ "$$app_env" = local-dev ]; then files+=(db/seeds/local-dev/*.sql); fi; \
 	cat "$${files[@]}" | scripts/compose.sh "$$app_env" exec -T postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"'
 
 # db-reset drops and recreates the database. The target checks APP_ENV itself and scripts/db-reset.sh repeats

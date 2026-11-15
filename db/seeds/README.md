@@ -4,6 +4,8 @@ Ce document est le contrat des fixtures de démo du slice SEED #75. Il fixe les 
 
 Les fixtures sont fictives, déterministes et idempotentes. Elles ne tournent qu'en `local-dev` et en `staging-test`, jamais en production (décision du propriétaire du 2026-11-15, ROADMAP section 14). Toute ligne racine porte `provenance = 'demo'` et l'interface affiche un badge de démo.
 
+**Exception, `db/seeds/local-dev/` (décision du propriétaire du 2026-11-15)** : ces fichiers ne sont pas fictifs. `00001_connect_committers.sql` contient de vrais développeurs GitHub publics (login, nom affiché, pays) classés par committers.top (dépôt `ashkulz/committers.top`, licence MIT, branche `gh-pages`, liste `users` de `_data/locations/<pays>.yml`), pour peupler l'annuaire Connect en démonstration. Ils ne tournent **qu'en `local-dev`** : `make seed` ajoute `db/seeds/local-dev/*.sql` après les fichiers communs pour `APP_ENV=local-dev` seulement, jamais en `staging-test` ni en production. Comptes `provenance = 'demo'`, sans identifiants de connexion, UUID dans le bloc A01-AFF. Un nom d'utilisateur ou un login GitHub déjà pris est ignoré, jamais une erreur. Le fichier est généré par `scripts/content/committers-seed.py` (sans réseau au moment du seed) ; son en-tête donne la source et la date de génération de chaque pays.
+
 Les chiffres de ce document sont contractuels. Une fois la PR mergée, les UUID et les valeurs naturelles listées ici ne changent plus.
 
 ## 1. Convention des UUID
