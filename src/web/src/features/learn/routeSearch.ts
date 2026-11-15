@@ -1,4 +1,5 @@
 import type { components } from '../../api/schema';
+import { parseView, type ListView } from '../../components/useListView';
 import { topicCodes, type TopicCode } from './topics';
 
 /**
@@ -54,6 +55,8 @@ export interface LearnSearch {
   topic?: TopicCode;
   level?: LearnLevel;
   lang?: LearnLang;
+  /** Cards or list; absent means the browser's remembered choice, then cards. Not a filter. */
+  view?: ListView;
 }
 
 function pick<T extends string>(values: readonly T[], raw: unknown): T | undefined {
@@ -73,5 +76,7 @@ export function validateLearnSearch(raw: Record<string, unknown>): LearnSearch {
   if (level) out.level = level;
   const lang = pick(learnLangs, raw.lang);
   if (lang) out.lang = lang;
+  const view = parseView(raw.view);
+  if (view) out.view = view;
   return out;
 }

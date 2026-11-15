@@ -10,7 +10,7 @@ import { Selector } from '@astryxdesign/core/Selector';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { useState } from 'react';
 import { useSession } from '../../app/session';
-import { Avatar } from '../../components/Avatar';
+import { CardGrid } from '../../components/CardGrid';
 import { countryOptions } from '../../components/countries';
 import { CountryCode } from '../../components/CountryCode';
 import { ResultsMeta } from '../../components/ResultsMeta';
@@ -25,12 +25,15 @@ import { PageHeader } from '../../components/PageHeader';
 import { Section } from '../../components/Section';
 import { StatusBadge } from '../../components/StatusBadge';
 import { TagList } from '../../components/Tag';
+import { useListView, type ListView } from '../../components/useListView';
+import { ViewToggle } from '../../components/ViewToggle';
 import { useI18n } from '../../i18n/I18nProvider';
 import { relatedPath } from '../related';
 import { signInHref } from '../solve/signIn';
 import './build.css';
 import { DateText, needsKind, needsLabelKey, stageKey } from './present';
 import { ProjectForm } from './ProjectForm';
+import { ProjectThumb } from './ProjectThumb';
 import { useCreateProject, useProjectList, type Project, type ProjectFilters } from './queries';
 import { projectSorts, projectStages, validateBuildSearch, type BuildSearch } from './routeSearch';
 
@@ -38,11 +41,18 @@ import { projectSorts, projectStages, validateBuildSearch, type BuildSearch } fr
 const ROW_TAGS = 3;
 
 /**
- * One dense project row (prototype `build.html`, `.list > .row`) on the shared ListRow: monogram
- * tile, title link, excerpt, technologies, a meta line, and the open-needs pill at the end. The
+ * One dense project row (prototype `build.html`, `.list > .row`) on the shared ListRow: the
+ * repository preview (monogram tile when there is none), title link, excerpt, technologies, a meta line, and the open-needs pill at the end. The
  * owner and origin-question links sit above the row link and keep their own names.
  */
-export function ProjectRow({ project }: { project: Project }) {
+export function ProjectRow({
+  project,
+  view = 'list',
+}: {
+  project: Project;
+  /** In the card view the preview takes the card's width, 2:1, at the top. */
+  view?: ListView;
+}) {
   const { t } = useI18n();
   const shown = project.technologies.slice(0, ROW_TAGS);
   const more = project.technologies.length - shown.length;
@@ -52,7 +62,13 @@ export function ProjectRow({ project }: { project: Project }) {
       title={project.name}
       href={`/build/${project.id}`}
       titleLang={project.lang}
-      lead={<Avatar name={project.name} variant="tile" />}
+      lead={
+        <ProjectThumb
+          name={project.name}
+          githubUrl={project.github_url}
+          size={view === 'cards' ? 'card' : 'md'}
+        />
+      }
       {...(project.description ? { excerpt: project.description } : {})}
       {...(shown.length > 0
         ? {
@@ -228,7 +244,8 @@ export function BuildPage() {
   const session = useSession();
   const navigate = useNavigate();
   // Router merges the raw parent search over the validated one: validate again here.
-  const filters = validateBuildSearch(useSearch({ from: '/app/build' }));
+  const { view: addressView, ...filters } = validateBuildSearch(useSearch({ from: '/app/build' }));
+  const { view, remember } = useListView('build', addressView);
   const [proposing, setProposing] = useState(false);
   const list = useProjectList(filters);
   const items = list.data?.pages.flatMap((page) => page.items) ?? [];
@@ -239,8 +256,13 @@ export function BuildPage() {
     filters.open !== undefined ||
     filters.stage !== undefined ||
     filters.country !== undefined;
+  // The view stays in the address when the address already holds it.
   const go = (next: BuildSearch) => {
-    void navigate({ to: '/build', search: next });
+    void navigate({ to: '/build', search: addressView ? { ...next, view: addressView } : next });
+  };
+  const switchView = (next: ListView) => {
+    remember(next);
+    void navigate({ to: '/build', search: { ...filters, view: next } });
   };
   const clearFilters = () => {
     go({});
@@ -303,6 +325,7 @@ export function BuildPage() {
               go(sort === 'updated' ? without(filters, 'sort') : { ...filters, sort });
             }}
           />
+          <ViewToggle value={view} onChange={switchView} />
         </ResultsMeta>
         {list.isPending ? <LoadingState rows={4} /> : null}
         {list.isError && !list.data ? (
@@ -326,11 +349,19 @@ export function BuildPage() {
         ) : null}
         {items.length > 0 ? (
           <>
-            <List label={t('build.results.label')}>
-              {items.map((project) => (
-                <ProjectRow key={project.id} project={project} />
-              ))}
-            </List>
+            {view === 'cards' ? (
+              <CardGrid label={t('build.results.label')}>
+                {items.map((project) => (
+                  <ProjectRow key={project.id} project={project} view="cards" />
+                ))}
+              </CardGrid>
+            ) : (
+              <List label={t('build.results.label')}>
+                {items.map((project) => (
+                  <ProjectRow key={project.id} project={project} />
+                ))}
+              </List>
+            )}
             {list.isError ? (
               <ErrorState error={list.error} onRetry={() => void list.fetchNextPage()} />
             ) : null}

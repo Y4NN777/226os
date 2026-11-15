@@ -178,7 +178,7 @@ export function ItemRow({
 }) {
   return (
     <li className={lead ? 'learn-row' : 'learn-row learn-row-plain'}>
-      {lead ? <div>{lead}</div> : null}
+      {lead ? <div className="learn-row-lead">{lead}</div> : null}
       <div className="learn-row-main">
         {top ? <div className="learn-row-top">{top}</div> : null}
         <h3 className="learn-row-title" lang={lang}>
