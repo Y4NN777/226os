@@ -461,6 +461,12 @@ a.ui-tag:hover {
   letter-spacing: 0.04em;
   color: var(--color-text-secondary);
 }
+.ui-countries {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-1) var(--spacing-2);
+}
 .ui-country {
   display: inline-flex;
   align-items: center;

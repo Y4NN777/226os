@@ -1,23 +1,24 @@
-import { Breadcrumbs, BreadcrumbItem } from '@astryxdesign/core/Breadcrumbs';
 import { Button } from '@astryxdesign/core/Button';
-import { EmptyState } from '@astryxdesign/core/EmptyState';
-import { Heading } from '@astryxdesign/core/Heading';
 import { Icon } from '@astryxdesign/core/Icon';
 import { Link } from '@astryxdesign/core/Link';
 import { Text } from '@astryxdesign/core/Text';
 import { VisuallyHidden } from '@astryxdesign/core/VisuallyHidden';
-import { VStack } from '@astryxdesign/core/VStack';
 import { useParams } from '@tanstack/react-router';
 import { useState, type ReactNode } from 'react';
 import { ApiError } from '../../api/http';
-import { DemoBadge } from '../../components/DemoBadge';
+import { Avatar } from '../../components/Avatar';
+import { CountryCode } from '../../components/CountryCode';
+import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
+import { LinkedItems } from '../../components/LinkedItems';
 import { LoadingState } from '../../components/LoadingState';
+import { PageHeader } from '../../components/PageHeader';
+import { Section } from '../../components/Section';
+import { StatusBadge } from '../../components/StatusBadge';
 import { useI18n } from '../../i18n/I18nProvider';
 import type { MessageKey } from '../../i18n/messages';
 import { relatedPath } from '../related';
 import { categoryLabel } from './categories';
-import { CountryCodes } from './CountryCodes';
 import { ErrorReport, ErrorReportToggle } from './ErrorReport';
 import {
   formatDate,
@@ -26,12 +27,13 @@ import {
   languageName,
   showsVerifiedDate,
   sourceStatus,
+  statusKey,
+  statusKind,
   typeKey,
+  type VerificationStatus,
 } from './present';
 import { useResource, useResourceSources } from './queries';
 import type { Resource } from './region';
-import { ResourceThumb } from './ResourceThumb';
-import { VerificationBadge } from './VerificationBadge';
 import './discover.css';
 
 const REPORT_PANEL = 'discover-report';
@@ -51,17 +53,9 @@ function DateText({ iso, labelKey }: { iso: string; labelKey: MessageKey }) {
   return <time dateTime={iso}>{t(labelKey, { date: formatDate(iso, locale) })}</time>;
 }
 
-/** A titled panel (prototype `.card.res-card`) labelled by its heading. */
-function Panel({ id, title, children }: { id: string; title: string; children: ReactNode }) {
-  return (
-    <section className="discover-panel" aria-labelledby={id}>
-      {/* Prototype `h2.h3`: a section heading at a smaller visual size. */}
-      <Heading level={4} accessibilityLevel={2} id={id}>
-        {title}
-      </Heading>
-      {children}
-    </section>
-  );
+function Verification({ status }: { status: VerificationStatus }) {
+  const { t } = useI18n();
+  return <StatusBadge kind={statusKind[status]} label={t(statusKey[status])} />;
 }
 
 const relatedKey = {
@@ -84,29 +78,34 @@ function Header({
   const { t } = useI18n();
   const docsLabel = `${t('discover.detail.docs')} ${t('discover.newTab')}`;
   return (
-    <header className="discover-head">
-      <Breadcrumbs label={t('discover.breadcrumb')} variant="supporting">
-        <BreadcrumbItem href="/discover">{t('discover.title')}</BreadcrumbItem>
-        <BreadcrumbItem isCurrent>{resource.name}</BreadcrumbItem>
-      </Breadcrumbs>
-      <div className="discover-head-row">
-        <div className="discover-head-id">
-          <ResourceThumb name={resource.name} size="lg" />
-          <div className="discover-head-text">
-            <p className="discover-eyebrow">
-              {`${t(typeKey[resource.type])} · ${categoryLabel(resource.category, t)}`}
-            </p>
-            <Heading level={1}>{resource.name}</Heading>
-            <Text type="supporting">
-              {resource.provider.url ? (
-                <ExternalLink href={resource.provider.url}>{resource.provider.name}</ExternalLink>
-              ) : (
-                resource.provider.name
-              )}
-            </Text>
-          </div>
-        </div>
-        <div className="discover-head-actions">
+    <PageHeader
+      title={resource.name}
+      breadcrumbs={[
+        { label: t('nav.home'), href: '/' },
+        { label: t('discover.title'), href: '/discover' },
+        { label: resource.name },
+      ]}
+      media={<Avatar name={resource.name} variant="tile" size="lg" />}
+      eyebrow={`${t(typeKey[resource.type])} · ${categoryLabel(resource.category, t)}`}
+      subtitle={
+        resource.provider.url ? (
+          <ExternalLink href={resource.provider.url}>{resource.provider.name}</ExternalLink>
+        ) : (
+          resource.provider.name
+        )
+      }
+      meta={
+        <>
+          <Verification status={resource.verification_status} />
+          {resource.provenance === 'demo' ? <StatusBadge kind="demo" /> : null}
+          {resource.last_verified_at && showsVerifiedDate(resource.verification_status) ? (
+            <DateText iso={resource.last_verified_at} labelKey="discover.verifiedOn" />
+          ) : null}
+          <DateText iso={resource.updated_at} labelKey="discover.updatedOn" />
+        </>
+      }
+      actions={
+        <>
           {resource.docs_url ? (
             <Button
               variant="primary"
@@ -125,18 +124,10 @@ function Header({
             panelId={REPORT_PANEL}
             onToggle={onToggleReport}
           />
-        </div>
-      </div>
-      <div className="discover-facts">
-        <VerificationBadge status={resource.verification_status} />
-        {resource.provenance === 'demo' ? <DemoBadge /> : null}
-        {resource.last_verified_at && showsVerifiedDate(resource.verification_status) ? (
-          <DateText iso={resource.last_verified_at} labelKey="discover.verifiedOn" />
-        ) : null}
-        <DateText iso={resource.updated_at} labelKey="discover.updatedOn" />
-      </div>
-      <p className="discover-lede">{resource.summary}</p>
-    </header>
+        </>
+      }
+      lead={resource.summary}
+    />
   );
 }
 
@@ -144,12 +135,16 @@ function Coverage({ resource }: { resource: Resource }) {
   const { t, locale } = useI18n();
   const languages = resource.doc_languages.map((code) => languageName(code, locale)).join(', ');
   return (
-    <Panel id="discover-coverage" title={t('discover.detail.coverage')}>
-      <dl className="discover-dl">
+    <Section title={t('discover.detail.coverage')} isPanel>
+      <dl className="ui-facts">
         <dt>{t('discover.detail.countries')}</dt>
         <dd>
           {resource.countries.length > 0 ? (
-            <CountryCodes codes={resource.countries} withNames />
+            <span className="ui-countries">
+              {resource.countries.map((code) => (
+                <CountryCode key={code} code={code} withName />
+              ))}
+            </span>
           ) : (
             t('discover.detail.countries.none')
           )}
@@ -179,14 +174,14 @@ function Coverage({ resource }: { resource: Resource }) {
           </>
         ) : null}
       </dl>
-    </Panel>
+    </Section>
   );
 }
 
 function Limitations({ items }: { items: readonly string[] }) {
   const { t } = useI18n();
   return (
-    <Panel id="discover-limitations" title={t('discover.detail.limitations')}>
+    <Section title={t('discover.detail.limitations')} titleId="discover-limitations" isPanel>
       <ul className="discover-limits" aria-labelledby="discover-limitations">
         {items.map((limit) => (
           <li key={limit}>
@@ -195,7 +190,7 @@ function Limitations({ items }: { items: readonly string[] }) {
           </li>
         ))}
       </ul>
-    </Panel>
+    </Section>
   );
 }
 
@@ -203,7 +198,7 @@ function Sources({ id }: { id: string }) {
   const { t } = useI18n();
   const sources = useResourceSources(id);
   return (
-    <Panel id="discover-sources" title={t('discover.sources.title')}>
+    <Section title={t('discover.sources.title')} titleId="discover-sources" isPanel>
       {sources.isPending ? <LoadingState /> : null}
       {sources.isError ? (
         <ErrorState error={sources.error} onRetry={() => void sources.refetch()} />
@@ -226,7 +221,7 @@ function Sources({ id }: { id: string }) {
                   <Text type="supporting">{t(kindKey[source.kind])}</Text>
                 </span>
                 <span className="discover-source-aside">
-                  <VerificationBadge status={status} />
+                  <Verification status={status} />
                   {source.verified_at && showsVerifiedDate(status) ? (
                     <Text type="supporting">
                       <DateText iso={source.verified_at} labelKey="discover.verifiedOn" />
@@ -238,28 +233,23 @@ function Sources({ id }: { id: string }) {
           })}
         </ul>
       ) : null}
-    </Panel>
+    </Section>
   );
 }
 
 function Related({ links }: { links: Resource['related'] }) {
   const { t } = useI18n();
   return (
-    <section className="discover-results" aria-labelledby="discover-related">
-      <Heading level={4} accessibilityLevel={2} id="discover-related">
-        {t('discover.detail.related')}
-      </Heading>
-      <ul className="discover-linked">
-        {links.map((link) => (
-          <li key={`${link.type}-${link.id}`} className="discover-linked-item">
-            <span className="discover-linked-kind">{t(relatedKey[link.type])}</span>
-            <Link href={relatedPath(link)} weight="semibold">
-              {link.title}
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </section>
+    <Section title={t('discover.detail.related')}>
+      <LinkedItems
+        items={links.map((link) => ({
+          key: `${link.type}-${link.id}`,
+          kind: t(relatedKey[link.type]),
+          title: link.title,
+          href: relatedPath(link),
+        }))}
+      />
+    </Section>
   );
 }
 
@@ -267,7 +257,7 @@ function Detail({ resource }: { resource: Resource }) {
   const [isReportOpen, setReportOpen] = useState(false);
   const [isReportSent, setReportSent] = useState(false);
   return (
-    <VStack gap={5}>
+    <div className="ui-page">
       <Header
         resource={resource}
         isReportOpen={isReportOpen}
@@ -291,7 +281,7 @@ function Detail({ resource }: { resource: Resource }) {
       ) : null}
       <Sources id={resource.id} />
       {resource.related.length > 0 ? <Related links={resource.related} /> : null}
-    </VStack>
+    </div>
   );
 }
 

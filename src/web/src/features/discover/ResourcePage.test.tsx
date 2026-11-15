@@ -107,6 +107,13 @@ describe('ResourcePage', () => {
       'aria-expanded',
       'false',
     );
+    const crumbs = within(header).getByRole('navigation', { name: 'Fil d’Ariane' });
+    expect(within(crumbs).getByRole('link', { name: 'Accueil' })).toHaveAttribute('href', '/');
+    expect(within(crumbs).getByRole('link', { name: 'Découvrir' })).toHaveAttribute(
+      'href',
+      '/discover',
+    );
+    expect(within(crumbs).getByText('Wave Pay')).toHaveAttribute('aria-current', 'page');
   });
 
   it('shows each related link as a tile with its kind outside the link name', async () => {
