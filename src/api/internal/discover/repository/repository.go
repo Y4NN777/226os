@@ -66,6 +66,20 @@ func (r *Repository) List(ctx context.Context, q domain.Query) ([]domain.Resourc
 	return r.finish(ctx, entries)
 }
 
+// Count counts the published resources List would page through for q, ignoring the cursor.
+func (r *Repository) Count(ctx context.Context, q domain.Query) (int, error) {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+	n, err := r.q.CountCatalogue(ctx, dbgen.CountCatalogueParams{
+		Category: text(q.Category), ResourceType: text(q.Type), Provider: text(q.Provider),
+		Countries: q.Countries, Sdk: text(q.SDK), Doclang: text(q.Doclang), Q: text(q.Q),
+	})
+	if err != nil {
+		return 0, fmt.Errorf("catalogue count: %w", err)
+	}
+	return int(n), nil
+}
+
 // Get returns one published resource.
 func (r *Repository) Get(ctx context.Context, id string) (domain.Resource, error) {
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)

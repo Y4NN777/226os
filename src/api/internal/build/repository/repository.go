@@ -230,6 +230,24 @@ func (r *Repository) ListProjects(ctx context.Context, q domain.ProjectQuery) ([
 	return out, nil
 }
 
+// CountProjects counts the projects ListProjects would page through for q, ignoring the cursor.
+func (r *Repository) CountProjects(ctx context.Context, q domain.ProjectQuery) (int, error) {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+	viewer, err := optionalID(q.ViewerID)
+	if err != nil {
+		return 0, err
+	}
+	n, err := r.q.CountProjects(ctx, dbgen.CountProjectsParams{
+		ViewerID: viewer, Q: text(q.Q), Technology: text(q.Technology), Skill: text(q.Skill),
+		Stage: text(q.Stage), Country: text(q.Country), License: text(q.License), OpenNeeds: q.OpenNeeds,
+	})
+	if err != nil {
+		return 0, fmt.Errorf("build count projects: %w", err)
+	}
+	return int(n), nil
+}
+
 // ProjectAccess returns the owner and visibility of a published project.
 func (r *Repository) ProjectAccess(ctx context.Context, id string) (domain.Access, error) {
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)

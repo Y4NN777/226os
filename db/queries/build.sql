@@ -102,6 +102,30 @@ WHERE p.status = 'published'
 ORDER BY p.published_at DESC, p.id DESC
 LIMIT sqlc.arg('row_limit');
 
+-- name: CountProjects :one
+-- listProjects total: the WHERE of ListProjects without the keyset, so it never counts a row the pages
+-- cannot return (another user's private project included). Keep both predicates identical.
+SELECT count(*)::int AS total
+FROM projects p
+JOIN profiles pr ON pr.user_id = p.owner_id
+WHERE p.status = 'published'
+  AND (p.visibility = 'public' OR p.owner_id = sqlc.narg('viewer_id')::uuid)
+  AND (sqlc.narg('stage')::text IS NULL OR p.stage = sqlc.narg('stage')::text)
+  AND (sqlc.narg('country')::text IS NULL OR p.country_code = sqlc.narg('country')::text)
+  AND (sqlc.narg('license')::text IS NULL OR p.license_spdx = sqlc.narg('license')::text)
+  AND (sqlc.narg('q')::text IS NULL
+       OR p.search_document @@ websearch_to_tsquery('simple', f_unaccent(sqlc.narg('q')::text)))
+  AND (sqlc.narg('technology')::text IS NULL OR EXISTS (
+       SELECT 1 FROM project_tags pt JOIN tags t ON t.id = pt.tag_id
+       WHERE pt.project_id = p.id AND t.slug = sqlc.narg('technology')::text AND t.status = 'active'))
+  AND (sqlc.narg('skill')::text IS NULL OR EXISTS (
+       SELECT 1 FROM contribution_needs n
+       JOIN need_skills ns ON ns.need_id = n.id
+       JOIN tags t ON t.id = ns.tag_id
+       WHERE n.project_id = p.id AND n.status = 'open' AND t.slug = sqlc.narg('skill')::text AND t.status = 'active'))
+  AND (NOT sqlc.arg('open_needs')::boolean OR EXISTS (
+       SELECT 1 FROM contribution_needs n WHERE n.project_id = p.id AND n.status = 'open'));
+
 -- name: ProjectRelated :many
 -- The visible links of a page of projects, at most 20 per project (a window per project, so one
 -- project cannot starve the others): questions and resources that point to it, articles it points to.

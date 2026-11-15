@@ -239,6 +239,15 @@ func TestListQuestionsEmptyAndErrors(t *testing.T) {
 	}
 }
 
+func TestCountQuestions(t *testing.T) {
+	if n, err := New(db(t, rows([]any{int32(3)}))).CountQuestions(t.Context(), domain.QuestionQuery{Q: "pay", Tag: "go"}); err != nil || n != 3 {
+		t.Fatalf("count %d %v", n, err)
+	}
+	if _, err := New(db(t, fail(errDB))).CountQuestions(t.Context(), domain.QuestionQuery{}); !errors.Is(err, errDB) {
+		t.Fatalf("err %v", err)
+	}
+}
+
 func TestGetQuestion(t *testing.T) {
 	got, err := New(db(t, rows(questionRow("code", "", pgtype.UUID{})), tagRows(), rows())).GetQuestion(t.Context(), qID, userID)
 	if err != nil || got.ID != qID || len(got.Related) != 0 || got.Related == nil || len(got.Tags) != 2 {

@@ -22,6 +22,18 @@ WHERE a.status = 'published'
 ORDER BY a.published_at DESC, a.id DESC
 LIMIT sqlc.arg('row_limit');
 
+-- name: CountLearnArticles :one
+-- listLearnArticles total: the WHERE of ListLearnArticles without the keyset. Keep both identical.
+SELECT count(*)::int AS total
+FROM learn_articles a
+JOIN profiles pr ON pr.user_id = a.author_id
+WHERE a.status = 'published'
+  AND (sqlc.narg('kind')::text IS NULL OR a.kind = sqlc.narg('kind'))
+  AND (sqlc.narg('topic')::text IS NULL OR a.topic_code = sqlc.narg('topic'))
+  AND (sqlc.narg('level')::text IS NULL OR a.level = sqlc.narg('level'))
+  AND (sqlc.narg('lang')::text IS NULL OR a.language = sqlc.narg('lang'))
+  AND (sqlc.narg('q')::text IS NULL OR a.search_document @@ websearch_to_tsquery('simple', f_unaccent(sqlc.narg('q')::text)));
+
 -- name: GetLearnArticle :one
 -- A published article, or the viewer's own draft or archived article. Removed is never returned.
 SELECT a.id, a.kind, a.title, COALESCE(a.summary, '')::text AS summary, a.body_md, a.language, a.level,
@@ -126,6 +138,16 @@ WHERE s.status = 'published'
        OR (s.published_at, s.id) < (sqlc.narg('after_published')::timestamptz, sqlc.narg('after_id')::uuid))
 ORDER BY s.published_at DESC, s.id DESC
 LIMIT sqlc.arg('row_limit');
+
+-- name: CountTrainingSeries :one
+-- listTrainingSeries total: the WHERE of ListTrainingSeries without the keyset. Keep both identical.
+SELECT count(*)::int AS total
+FROM training_series s
+JOIN profiles pr ON pr.user_id = s.author_id
+WHERE s.status = 'published'
+  AND (sqlc.narg('topic')::text IS NULL OR s.topic_code = sqlc.narg('topic'))
+  AND (sqlc.narg('level')::text IS NULL OR s.level = sqlc.narg('level'))
+  AND (sqlc.narg('lang')::text IS NULL OR s.language = sqlc.narg('lang'));
 
 -- name: GetTrainingSeries :one
 SELECT s.id, s.title, s.summary, s.language, s.level, s.published_at,

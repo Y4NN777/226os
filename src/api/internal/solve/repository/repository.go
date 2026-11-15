@@ -39,6 +39,20 @@ type Repository struct {
 func New(db Beginner) *Repository { return &Repository{db: db, q: dbgen.New(db)} }
 
 // ListQuestions returns published questions with their active tags and visible links.
+// CountQuestions counts the published questions ListQuestions would page through for q, ignoring the
+// cursor (with q, inside the same 500-match bound).
+func (r *Repository) CountQuestions(ctx context.Context, q domain.QuestionQuery) (int, error) {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+	n, err := r.q.CountSolveQuestions(ctx, dbgen.CountSolveQuestionsParams{
+		Tag: text(q.Tag), State: text(q.State), Country: text(q.Country), Lang: text(q.Lang), Q: text(q.Q),
+	})
+	if err != nil {
+		return 0, fmt.Errorf("solve count questions: %w", err)
+	}
+	return int(n), nil
+}
+
 func (r *Repository) ListQuestions(ctx context.Context, q domain.QuestionQuery) ([]domain.Question, error) {
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()

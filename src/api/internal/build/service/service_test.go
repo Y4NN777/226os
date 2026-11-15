@@ -50,6 +50,9 @@ type fakeStore struct {
 	needsErr   error
 	needQuery  domain.NeedQuery
 	apps       appFake
+	total      int
+	countErr   error
+	countQuery domain.ProjectQuery
 }
 
 func (f *fakeStore) URLTaken(context.Context, string) (bool, error) { return f.taken, f.takenErr }
@@ -79,6 +82,11 @@ func (f *fakeStore) GetProject(context.Context, string, string) (domain.Project,
 func (f *fakeStore) ListProjects(_ context.Context, q domain.ProjectQuery) ([]domain.Project, error) {
 	f.query = q
 	return f.list, f.listErr
+}
+
+func (f *fakeStore) CountProjects(_ context.Context, q domain.ProjectQuery) (int, error) {
+	f.countQuery = q
+	return f.total, f.countErr
 }
 
 func (f *fakeStore) ProjectAccess(context.Context, string) (domain.Access, error) {
@@ -214,6 +222,29 @@ func TestListProjectsPagesAndBindsTheCursor(t *testing.T) {
 	if err != nil || empty.Items == nil || st.query.Limit != defaultLimit+1 || st.query.OpenNeeds {
 		t.Fatalf("empty %+v %v", empty, err)
 	}
+}
+
+// total counts with the same filters and viewer as the page, and does not depend on the cursor.
+func TestListProjectsTotal(t *testing.T) {
+	st := &fakeStore{list: projects(3), total: 9}
+	svc := newSvc(t, st, nil, nil)
+	req := ProjectListRequest{Q: ptr("pay"), Stage: ptr("active"), Limit: ptr(2)}
+	page, err := svc.ListProjects(t.Context(), alice, req)
+	if err != nil || page.Total != 9 {
+		t.Fatalf("page %+v %v", page, err)
+	}
+	want := st.query
+	want.Limit, want.AfterPublished, want.AfterID = 0, nil, ""
+	st.countQuery.Limit = 0
+	if st.countQuery != want {
+		t.Fatalf("count query %+v, want %+v", st.countQuery, want)
+	}
+	req.Cursor = page.NextCursor
+	if page2, err := svc.ListProjects(t.Context(), alice, req); err != nil || page2.Total != 9 || st.countQuery.AfterPublished != nil || st.countQuery.AfterID != "" {
+		t.Fatalf("page2 %+v %v %+v", page2, err, st.countQuery)
+	}
+	_, err = newSvc(t, &fakeStore{countErr: errDB}, nil, nil).ListProjects(t.Context(), alice, ProjectListRequest{})
+	wantCode(t, err, apperr.CodeInternal)
 }
 
 func TestListProjectsAnonymousQueryUsesSearchBudget(t *testing.T) {

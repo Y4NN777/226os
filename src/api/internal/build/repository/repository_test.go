@@ -400,6 +400,19 @@ func TestListProjects(t *testing.T) {
 	}
 }
 
+func TestCountProjects(t *testing.T) {
+	q := domain.ProjectQuery{ViewerID: userID, Q: "pay", Technology: "go", Skill: "go", OpenNeeds: true, Stage: "active", Country: "BF", License: "MIT"}
+	if n, err := New(db(t, rows([]any{int32(7)}))).CountProjects(t.Context(), q); err != nil || n != 7 {
+		t.Fatalf("count %d %v", n, err)
+	}
+	if _, err := New(db(t)).CountProjects(t.Context(), domain.ProjectQuery{ViewerID: "x"}); err == nil {
+		t.Fatal("bad viewer accepted")
+	}
+	if _, err := New(db(t, fail(errDB))).CountProjects(t.Context(), q); !errors.Is(err, errDB) {
+		t.Fatalf("err %v", err)
+	}
+}
+
 func TestProjectAccess(t *testing.T) {
 	a, err := New(db(t, rows([]any{uid(userID), "private"}))).ProjectAccess(t.Context(), projID)
 	if err != nil || a != (domain.Access{OwnerID: userID, Visibility: "private"}) {

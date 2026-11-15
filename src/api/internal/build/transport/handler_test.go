@@ -72,6 +72,10 @@ func (f *fakeStore) ListProjects(_ context.Context, q domain.ProjectQuery) ([]do
 	return f.projects, f.err
 }
 
+func (f *fakeStore) CountProjects(context.Context, domain.ProjectQuery) (int, error) {
+	return len(f.projects), nil
+}
+
 func (f *fakeStore) ProjectAccess(context.Context, string) (domain.Access, error) {
 	return f.access, f.err
 }
@@ -151,7 +155,7 @@ func TestListProjectsEncodesThePage(t *testing.T) {
 	two := []domain.Project{project(), project()}
 	handler(t, &fakeStore{projects: two}).ListProjects(rec, req(t, subject.Subject{}, http.MethodGet, ""), apigen.ListProjectsParams{Limit: ptr(1)})
 	page := decode[apigen.ProjectPage](t, rec)
-	if rec.Code != http.StatusOK || len(page.Items) != 1 || page.NextCursor == nil {
+	if rec.Code != http.StatusOK || len(page.Items) != 1 || page.NextCursor == nil || page.Total != 2 {
 		t.Fatalf("%d %s", rec.Code, rec.Body.String())
 	}
 	p := page.Items[0]
@@ -161,7 +165,7 @@ func TestListProjectsEncodesThePage(t *testing.T) {
 	}
 	rec = httptest.NewRecorder()
 	handler(t, &fakeStore{}).ListProjects(rec, req(t, subject.Subject{}, http.MethodGet, ""), apigen.ListProjectsParams{})
-	if !strings.Contains(rec.Body.String(), `"next_cursor":null`) || !strings.Contains(rec.Body.String(), `"items":[]`) {
+	if !strings.Contains(rec.Body.String(), `"next_cursor":null`) || !strings.Contains(rec.Body.String(), `"items":[]`) || !strings.Contains(rec.Body.String(), `"total":0`) {
 		t.Fatalf("empty %s", rec.Body.String())
 	}
 	rec = httptest.NewRecorder()

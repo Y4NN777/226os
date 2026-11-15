@@ -55,6 +55,11 @@ type fakeStore struct {
 func (f *fakeStore) ListQuestions(context.Context, domain.QuestionQuery) ([]domain.Question, error) {
 	return f.questions, f.err
 }
+
+// CountQuestions is the number of scripted rows, so the encoder is seen copying it.
+func (f *fakeStore) CountQuestions(context.Context, domain.QuestionQuery) (int, error) {
+	return len(f.questions), nil
+}
 func (f *fakeStore) GetQuestion(context.Context, string, string) (domain.Question, error) {
 	return f.question, f.err
 }
@@ -146,7 +151,7 @@ func TestListQuestionsEncodesThePage(t *testing.T) {
 	handler(t, st).ListQuestions(rec, req(t, subject.Subject{}, http.MethodGet, "/api/v1/questions", ""),
 		apigen.ListQuestionsParams{Limit: &limit, Tag: &tag, Q: &q, State: &state, Country: &country, Lang: &lang})
 	page := decode[apigen.QuestionPage](t, rec)
-	if rec.Code != http.StatusOK || len(page.Items) != 1 || page.NextCursor == nil {
+	if rec.Code != http.StatusOK || len(page.Items) != 1 || page.NextCursor == nil || page.Total != 2 {
 		t.Fatalf("%d %s", rec.Code, rec.Body.String())
 	}
 	got := page.Items[0]

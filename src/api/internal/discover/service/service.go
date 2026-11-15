@@ -29,6 +29,8 @@ const (
 // Reader loads published catalogue rows. The service owns this port.
 type Reader interface {
 	List(ctx context.Context, q domain.Query) ([]domain.Resource, error)
+	// Count ignores the cursor and the limit of q.
+	Count(ctx context.Context, q domain.Query) (int, error)
 	Get(ctx context.Context, id string) (domain.Resource, error)
 	Sources(ctx context.Context, id string) ([]domain.Source, error)
 }
@@ -50,10 +52,12 @@ type ListRequest struct {
 	Limit     *int
 }
 
-// Page is one catalogue page. NextCursor is empty on the last page.
+// Page is one catalogue page. NextCursor is empty on the last page; Total counts every resource the same
+// filters match, whatever the cursor.
 type Page struct {
 	Items      []domain.Resource
 	NextCursor string
+	Total      int
 }
 
 // Service reads the published catalogue.
@@ -98,6 +102,8 @@ func (s *Service) List(ctx context.Context, req ListRequest) (Page, error) {
 		Limit: size + 1,
 	}
 	hash := filterHash(filters)
+	counted := filters
+	counted.Limit = 0
 	if req.Cursor != "" {
 		p, err := s.cursors.Decode(req.Cursor, hash)
 		if err != nil {
@@ -112,7 +118,11 @@ func (s *Service) List(ctx context.Context, req ListRequest) (Page, error) {
 	if err != nil {
 		return Page{}, err
 	}
-	page := Page{Items: rows}
+	total, err := s.store.Count(ctx, counted)
+	if err != nil {
+		return Page{}, err
+	}
+	page := Page{Items: rows, Total: total}
 	if len(rows) > size {
 		page.Items = rows[:size]
 		last := page.Items[len(page.Items)-1]

@@ -196,6 +196,18 @@ func TestListPassesTheCountryListAsAnArray(t *testing.T) {
 	}
 }
 
+func TestCountReadsOneRow(t *testing.T) {
+	s := &script{t: t, steps: [][][]any{{row(int32(12))}}, errs: []error{nil}}
+	if n, err := New(s).Count(t.Context(), domain.Query{Q: "pay", Countries: []string{"BF"}}); err != nil || n != 12 {
+		t.Fatalf("count %d %v", n, err)
+	}
+	boom := errors.New("boom")
+	s = &script{t: t, steps: [][][]any{nil}, errs: []error{boom}}
+	if _, err := New(s).Count(t.Context(), domain.Query{}); !errors.Is(err, boom) {
+		t.Fatalf("err %v", err)
+	}
+}
+
 func TestListEmptySkipsChildQueries(t *testing.T) {
 	repo := New(&script{t: t, steps: [][][]any{nil}, errs: []error{nil}})
 	got, err := repo.List(t.Context(), domain.Query{Limit: 21})

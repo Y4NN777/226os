@@ -46,7 +46,7 @@ func (h *Handler) ListProjects(w http.ResponseWriter, r *http.Request, params ap
 	for i, p := range page.Items {
 		items[i] = projectJSON(p)
 	}
-	writeJSON(w, http.StatusOK, apigen.ProjectPage{Items: items, NextCursor: next(page.NextCursor)})
+	writeJSON(w, http.StatusOK, apigen.ProjectPage{Items: items, NextCursor: next(page.NextCursor), Total: page.Total})
 }
 
 // CreateProject serves POST /projects. The owner is the session subject; Idempotency-Key is handled

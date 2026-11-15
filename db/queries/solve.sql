@@ -59,6 +59,38 @@ WHERE (sqlc.narg('after_created')::timestamptz IS NULL
 ORDER BY c.rank DESC, c.created_at DESC, c.id DESC
 LIMIT sqlc.arg('row_limit');
 
+-- name: CountSolveQuestions :one
+-- listQuestions total: the candidates of ListSolveQuestions (same filters, same 500 cap with q) joined to
+-- the byline like the page, without the keyset. Keep both predicates identical.
+WITH i AS NOT MATERIALIZED (
+  SELECT CASE WHEN sqlc.narg('q')::text IS NULL THEN NULL
+         ELSE websearch_to_tsquery('simple', f_unaccent(sqlc.narg('q')::text)) END AS tsq
+),
+candidates AS (
+  SELECT q.id, q.author_id
+  FROM questions q
+  CROSS JOIN i
+  WHERE q.status = 'published'
+    AND (i.tsq IS NULL OR (querytree(i.tsq) NOT IN ('', 'T') AND q.search_document @@ i.tsq))
+    AND (sqlc.narg('tag')::text IS NULL OR EXISTS (
+          SELECT 1 FROM question_tags qt JOIN tags t ON t.id = qt.tag_id AND t.status = 'active'
+          WHERE qt.question_id = q.id AND t.slug = sqlc.narg('tag')::text
+            AND (SELECT count(*) FROM (
+                   SELECT 1 FROM question_tags qt2
+                   JOIN tags t2 ON t2.id = qt2.tag_id AND t2.status = 'active'
+                   WHERE qt2.question_id = q.id AND t2.slug < t.slug LIMIT 5) lower_slugs) < 5))
+    AND (sqlc.narg('state')::text IS NULL
+         OR (CASE WHEN q.accepted_answer_id IS NOT NULL THEN 'resolved'
+                  WHEN q.answer_count > 0 THEN 'answered' ELSE 'open' END) = sqlc.narg('state')::text)
+    AND (sqlc.narg('country')::text IS NULL OR q.country_code = sqlc.narg('country')::text)
+    AND (sqlc.narg('lang')::text IS NULL OR q.language = sqlc.narg('lang')::text)
+  ORDER BY q.created_at DESC, q.id DESC
+  LIMIT (SELECT CASE WHEN tsq IS NULL THEN NULL ELSE 500 END FROM i)
+)
+SELECT count(*)::int AS total
+FROM candidates c
+JOIN profiles pr ON pr.user_id = c.author_id;
+
 -- name: GetSolveQuestion :one
 -- viewer_vote is the caller's own vote (0 without a vote or without a caller): one primary-key probe of
 -- votes_pk, scoped to the viewer id the service takes from the session.

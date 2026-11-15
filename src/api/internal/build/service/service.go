@@ -48,6 +48,7 @@ type Store interface {
 	UpdateProject(ctx context.Context, id, actorID string, p domain.ProjectPatch, authorize func(domain.Access) error) error
 	GetProject(ctx context.Context, id, viewerID string) (domain.Project, error)
 	ListProjects(ctx context.Context, q domain.ProjectQuery) ([]domain.Project, error)
+	CountProjects(ctx context.Context, q domain.ProjectQuery) (int, error)
 	ProjectAccess(ctx context.Context, id string) (domain.Access, error)
 	CreateNeed(ctx context.Context, in domain.NewNeed, authorize func(domain.Access) error) (domain.Need, error)
 	ListNeeds(ctx context.Context, q domain.NeedQuery) ([]domain.Need, error)
@@ -112,10 +113,12 @@ type CreateNeedRequest struct {
 	Skills                   []string
 }
 
-// ProjectPage is one project page. NextCursor is empty on the last page.
+// ProjectPage is one project page. NextCursor is empty on the last page; Total counts every project the
+// same filters and viewer match, whatever the cursor.
 type ProjectPage struct {
 	Items      []domain.Project
 	NextCursor string
+	Total      int
 }
 
 // NeedPage is one need page. NextCursor is empty on the last page.
@@ -160,6 +163,8 @@ func (s *Service) ListProjects(ctx context.Context, sub subject.Subject, req Pro
 	}
 	hash := lengthPrefixed("project", query.ViewerID, query.Q, query.Technology, query.Skill, strconv.FormatBool(query.OpenNeeds),
 		query.Stage, query.Country, query.License)
+	filters := query
+	filters.Limit = 0
 	if req.Cursor != "" {
 		at, id, err := s.decode(req.Cursor, hash)
 		if err != nil {
@@ -171,7 +176,11 @@ func (s *Service) ListProjects(ctx context.Context, sub subject.Subject, req Pro
 	if err != nil {
 		return ProjectPage{}, apperr.Wrap(apperr.CodeInternal, err)
 	}
-	page := ProjectPage{Items: rows}
+	total, err := s.store.CountProjects(ctx, filters)
+	if err != nil {
+		return ProjectPage{}, apperr.Wrap(apperr.CodeInternal, err)
+	}
+	page := ProjectPage{Items: rows, Total: total}
 	if len(rows) > size {
 		page.Items = rows[:size]
 		last := page.Items[size-1]

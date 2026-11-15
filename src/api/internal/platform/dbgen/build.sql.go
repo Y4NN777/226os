@@ -11,6 +11,58 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countProjects = `-- name: CountProjects :one
+SELECT count(*)::int AS total
+FROM projects p
+JOIN profiles pr ON pr.user_id = p.owner_id
+WHERE p.status = 'published'
+  AND (p.visibility = 'public' OR p.owner_id = $1::uuid)
+  AND ($2::text IS NULL OR p.stage = $2::text)
+  AND ($3::text IS NULL OR p.country_code = $3::text)
+  AND ($4::text IS NULL OR p.license_spdx = $4::text)
+  AND ($5::text IS NULL
+       OR p.search_document @@ websearch_to_tsquery('simple', f_unaccent($5::text)))
+  AND ($6::text IS NULL OR EXISTS (
+       SELECT 1 FROM project_tags pt JOIN tags t ON t.id = pt.tag_id
+       WHERE pt.project_id = p.id AND t.slug = $6::text AND t.status = 'active'))
+  AND ($7::text IS NULL OR EXISTS (
+       SELECT 1 FROM contribution_needs n
+       JOIN need_skills ns ON ns.need_id = n.id
+       JOIN tags t ON t.id = ns.tag_id
+       WHERE n.project_id = p.id AND n.status = 'open' AND t.slug = $7::text AND t.status = 'active'))
+  AND (NOT $8::boolean OR EXISTS (
+       SELECT 1 FROM contribution_needs n WHERE n.project_id = p.id AND n.status = 'open'))
+`
+
+type CountProjectsParams struct {
+	ViewerID   pgtype.UUID
+	Stage      pgtype.Text
+	Country    pgtype.Text
+	License    pgtype.Text
+	Q          pgtype.Text
+	Technology pgtype.Text
+	Skill      pgtype.Text
+	OpenNeeds  bool
+}
+
+// listProjects total: the WHERE of ListProjects without the keyset, so it never counts a row the pages
+// cannot return (another user's private project included). Keep both predicates identical.
+func (q *Queries) CountProjects(ctx context.Context, arg CountProjectsParams) (int32, error) {
+	row := q.db.QueryRow(ctx, countProjects,
+		arg.ViewerID,
+		arg.Stage,
+		arg.Country,
+		arg.License,
+		arg.Q,
+		arg.Technology,
+		arg.Skill,
+		arg.OpenNeeds,
+	)
+	var total int32
+	err := row.Scan(&total)
+	return total, err
+}
+
 const decideApplication = `-- name: DecideApplication :execrows
 UPDATE applications SET
   status = $1::text,

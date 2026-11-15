@@ -26,6 +26,60 @@ func (q *Queries) BumpSolveAnswerCount(ctx context.Context, id pgtype.UUID) (pgt
 	return id_2, err
 }
 
+const countSolveQuestions = `-- name: CountSolveQuestions :one
+WITH i AS NOT MATERIALIZED (
+  SELECT CASE WHEN $1::text IS NULL THEN NULL
+         ELSE websearch_to_tsquery('simple', f_unaccent($1::text)) END AS tsq
+),
+candidates AS (
+  SELECT q.id, q.author_id
+  FROM questions q
+  CROSS JOIN i
+  WHERE q.status = 'published'
+    AND (i.tsq IS NULL OR (querytree(i.tsq) NOT IN ('', 'T') AND q.search_document @@ i.tsq))
+    AND ($2::text IS NULL OR EXISTS (
+          SELECT 1 FROM question_tags qt JOIN tags t ON t.id = qt.tag_id AND t.status = 'active'
+          WHERE qt.question_id = q.id AND t.slug = $2::text
+            AND (SELECT count(*) FROM (
+                   SELECT 1 FROM question_tags qt2
+                   JOIN tags t2 ON t2.id = qt2.tag_id AND t2.status = 'active'
+                   WHERE qt2.question_id = q.id AND t2.slug < t.slug LIMIT 5) lower_slugs) < 5))
+    AND ($3::text IS NULL
+         OR (CASE WHEN q.accepted_answer_id IS NOT NULL THEN 'resolved'
+                  WHEN q.answer_count > 0 THEN 'answered' ELSE 'open' END) = $3::text)
+    AND ($4::text IS NULL OR q.country_code = $4::text)
+    AND ($5::text IS NULL OR q.language = $5::text)
+  ORDER BY q.created_at DESC, q.id DESC
+  LIMIT (SELECT CASE WHEN tsq IS NULL THEN NULL ELSE 500 END FROM i)
+)
+SELECT count(*)::int AS total
+FROM candidates c
+JOIN profiles pr ON pr.user_id = c.author_id
+`
+
+type CountSolveQuestionsParams struct {
+	Q       pgtype.Text
+	Tag     pgtype.Text
+	State   pgtype.Text
+	Country pgtype.Text
+	Lang    pgtype.Text
+}
+
+// listQuestions total: the candidates of ListSolveQuestions (same filters, same 500 cap with q) joined to
+// the byline like the page, without the keyset. Keep both predicates identical.
+func (q *Queries) CountSolveQuestions(ctx context.Context, arg CountSolveQuestionsParams) (int32, error) {
+	row := q.db.QueryRow(ctx, countSolveQuestions,
+		arg.Q,
+		arg.Tag,
+		arg.State,
+		arg.Country,
+		arg.Lang,
+	)
+	var total int32
+	err := row.Scan(&total)
+	return total, err
+}
+
 const deleteSolveQuestionLinks = `-- name: DeleteSolveQuestionLinks :exec
 DELETE FROM content_relations
 WHERE source_type = 'question' AND src_question_id = $1::uuid

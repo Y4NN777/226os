@@ -53,6 +53,8 @@ const (
 // and domain.ErrUnknownCountry when a link target or the country is not usable.
 type Store interface {
 	ListQuestions(ctx context.Context, q domain.QuestionQuery) ([]domain.Question, error)
+	// CountQuestions ignores the cursor, the limit and the viewer of q.
+	CountQuestions(ctx context.Context, q domain.QuestionQuery) (int, error)
 	GetQuestion(ctx context.Context, id, viewerID string) (domain.Question, error)
 	CreateQuestion(ctx context.Context, in domain.NewQuestion) (domain.Question, error)
 	UpdateQuestion(ctx context.Context, id string, patch domain.QuestionPatch, guard func(domain.Question) error) (domain.Question, error)
@@ -128,10 +130,12 @@ type VoteRequest struct {
 	Value                int
 }
 
-// QuestionPage is one question page. NextCursor is empty on the last page.
+// QuestionPage is one question page. NextCursor is empty on the last page; Total counts every question
+// the same filters match (inside the 500-match bound with q), whatever the cursor.
 type QuestionPage struct {
 	Items      []domain.Question
 	NextCursor string
+	Total      int
 }
 
 // AnswerPage is one answer page. NextCursor is empty on the last page.
@@ -184,6 +188,8 @@ func (s *Service) ListQuestions(ctx context.Context, sub subject.Subject, req Qu
 		ViewerID: sub.UserID, Limit: size + 1,
 	}
 	hash := lengthPrefixed("question", query.Q, query.Tag, query.State, query.Country, query.Lang)
+	counted := query
+	counted.Limit = 0
 	if req.Cursor != "" {
 		p, err := s.cursors.Decode(req.Cursor, hash)
 		if err != nil {
@@ -199,7 +205,11 @@ func (s *Service) ListQuestions(ctx context.Context, sub subject.Subject, req Qu
 	if err != nil {
 		return QuestionPage{}, apperr.Wrap(apperr.CodeInternal, err)
 	}
-	page := QuestionPage{Items: rows}
+	total, err := s.store.CountQuestions(ctx, counted)
+	if err != nil {
+		return QuestionPage{}, apperr.Wrap(apperr.CodeInternal, err)
+	}
+	page := QuestionPage{Items: rows, Total: total}
 	if len(rows) > size {
 		page.Items = rows[:size]
 		last := page.Items[size-1]

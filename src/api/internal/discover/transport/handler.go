@@ -57,7 +57,7 @@ func (h *Handler) ListResources(w http.ResponseWriter, r *http.Request, params a
 	if page.NextCursor != "" {
 		next = &page.NextCursor
 	}
-	writeJSON(w, apigen.ResourcePage{Items: items, NextCursor: next})
+	writeJSON(w, apigen.ResourcePage{Items: items, NextCursor: next, Total: page.Total})
 }
 
 // GetResource serves GET /resources/{resourceId}.

@@ -51,11 +51,38 @@ type fakeStore struct {
 	// viewerSeen is the viewer id GetQuestion was called with.
 	viewerSeen string
 	gotChange  domain.AcceptChange
+
+	total    int
+	countErr error
+	countQ   domain.QuestionQuery
 }
 
 func (f *fakeStore) ListQuestions(_ context.Context, q domain.QuestionQuery) ([]domain.Question, error) {
 	f.listQ = q
 	return f.questions, f.err
+}
+
+func (f *fakeStore) CountQuestions(_ context.Context, q domain.QuestionQuery) (int, error) {
+	f.countQ = q
+	return f.total, f.countErr
+}
+
+// total counts with the page filters and no cursor; a count failure fails the page.
+func TestListQuestionsTotal(t *testing.T) {
+	st := &fakeStore{questions: []domain.Question{{ID: qID, CreatedAt: when}, {ID: qID, CreatedAt: when}}, total: 8}
+	svc := service.New(st, codec(t), nil)
+	one := 1
+	req := service.QuestionListRequest{Tag: ptr("go"), Limit: &one}
+	page, err := svc.ListQuestions(t.Context(), subject.Subject{}, req)
+	if err != nil || page.Total != 8 || st.countQ.Tag != "go" || st.countQ.Limit != 0 {
+		t.Fatalf("page %+v %v %+v", page, err, st.countQ)
+	}
+	req.Cursor = page.NextCursor
+	if _, err := svc.ListQuestions(t.Context(), subject.Subject{}, req); err != nil || st.countQ.AfterCreated != nil || st.countQ.AfterID != "" {
+		t.Fatalf("page 2 %v %+v", err, st.countQ)
+	}
+	_, err = service.New(&fakeStore{countErr: errDB}, codec(t), nil).ListQuestions(t.Context(), subject.Subject{}, service.QuestionListRequest{})
+	wantCode(t, err, apperr.CodeInternal)
 }
 
 func (f *fakeStore) GetQuestion(_ context.Context, _, viewer string) (domain.Question, error) {

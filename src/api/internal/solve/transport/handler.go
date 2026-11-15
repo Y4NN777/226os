@@ -46,7 +46,7 @@ func (h *Handler) ListQuestions(w http.ResponseWriter, r *http.Request, params a
 		items[i] = questionJSON(q)
 	}
 	httpx.ViewerScoped(w)
-	writeJSON(w, http.StatusOK, apigen.QuestionPage{Items: items, NextCursor: next(page.NextCursor)})
+	writeJSON(w, http.StatusOK, apigen.QuestionPage{Items: items, NextCursor: next(page.NextCursor), Total: page.Total})
 }
 
 // CreateQuestion serves POST /questions. The author is the session subject; Idempotency-Key is handled

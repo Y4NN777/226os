@@ -29,6 +29,24 @@ WHERE r.status = 'published'
 ORDER BY r.name, r.id
 LIMIT sqlc.arg('row_limit');
 
+-- name: CountCatalogue :one
+-- listResources total: the WHERE of ListCatalogue without the keyset. Keep both predicates identical.
+SELECT count(*)::int AS total
+FROM resources r
+JOIN providers p ON p.id = r.provider_id AND p.status = 'published' AND p.removed_at IS NULL
+WHERE r.status = 'published'
+  AND (sqlc.narg('category')::text IS NULL OR r.category_code = sqlc.narg('category'))
+  AND (sqlc.narg('resource_type')::text IS NULL OR r.type = sqlc.narg('resource_type'))
+  AND (sqlc.narg('provider')::text IS NULL OR p.slug = sqlc.narg('provider'))
+  AND (sqlc.narg('countries')::text[] IS NULL OR EXISTS (
+        SELECT 1 FROM resource_countries c
+        WHERE c.resource_id = r.id AND c.country_code = ANY (sqlc.narg('countries')::text[])))
+  AND (sqlc.narg('sdk')::text IS NULL OR EXISTS (
+        SELECT 1 FROM resource_sdk_languages k
+        WHERE k.resource_id = r.id AND k.language = sqlc.narg('sdk')))
+  AND (sqlc.narg('doclang')::text IS NULL OR sqlc.narg('doclang') = ANY (r.doc_languages))
+  AND (sqlc.narg('q')::text IS NULL OR r.search_document @@ websearch_to_tsquery('simple', f_unaccent(sqlc.narg('q')::text)));
+
 -- name: GetCatalogueEntry :one
 SELECT r.id, r.slug, r.name, r.type, r.category_code, r.summary, r.doc_languages,
        r.docs_url, r.verification_status, r.verified_at, r.updated_at, r.verified_source_id, r.provenance,

@@ -198,6 +198,50 @@ func (q *Queries) CatalogueSDKs(ctx context.Context, ids []pgtype.UUID) ([]Catal
 	return items, nil
 }
 
+const countCatalogue = `-- name: CountCatalogue :one
+SELECT count(*)::int AS total
+FROM resources r
+JOIN providers p ON p.id = r.provider_id AND p.status = 'published' AND p.removed_at IS NULL
+WHERE r.status = 'published'
+  AND ($1::text IS NULL OR r.category_code = $1)
+  AND ($2::text IS NULL OR r.type = $2)
+  AND ($3::text IS NULL OR p.slug = $3)
+  AND ($4::text[] IS NULL OR EXISTS (
+        SELECT 1 FROM resource_countries c
+        WHERE c.resource_id = r.id AND c.country_code = ANY ($4::text[])))
+  AND ($5::text IS NULL OR EXISTS (
+        SELECT 1 FROM resource_sdk_languages k
+        WHERE k.resource_id = r.id AND k.language = $5))
+  AND ($6::text IS NULL OR $6 = ANY (r.doc_languages))
+  AND ($7::text IS NULL OR r.search_document @@ websearch_to_tsquery('simple', f_unaccent($7::text)))
+`
+
+type CountCatalogueParams struct {
+	Category     pgtype.Text
+	ResourceType pgtype.Text
+	Provider     pgtype.Text
+	Countries    []string
+	Sdk          pgtype.Text
+	Doclang      pgtype.Text
+	Q            pgtype.Text
+}
+
+// listResources total: the WHERE of ListCatalogue without the keyset. Keep both predicates identical.
+func (q *Queries) CountCatalogue(ctx context.Context, arg CountCatalogueParams) (int32, error) {
+	row := q.db.QueryRow(ctx, countCatalogue,
+		arg.Category,
+		arg.ResourceType,
+		arg.Provider,
+		arg.Countries,
+		arg.Sdk,
+		arg.Doclang,
+		arg.Q,
+	)
+	var total int32
+	err := row.Scan(&total)
+	return total, err
+}
+
 const createErrorReport = `-- name: CreateErrorReport :one
 WITH visible AS (
   SELECT r.id

@@ -14,6 +14,7 @@ import (
 
 type fakeReader struct {
 	list    func(domain.Query) ([]domain.Resource, error)
+	count   func(domain.Query) (int, error)
 	get     func(string) (domain.Resource, error)
 	sources func(string) ([]domain.Source, error)
 }
@@ -38,8 +39,42 @@ func (f *catalogueLimiter) Hit(_ context.Context, scope, value string, limit int
 func (f fakeReader) List(_ context.Context, q domain.Query) ([]domain.Resource, error) {
 	return f.list(q)
 }
+
+// Count answers 0 unless the test scripts it.
+func (f fakeReader) Count(_ context.Context, q domain.Query) (int, error) {
+	if f.count == nil {
+		return 0, nil
+	}
+	return f.count(q)
+}
 func (f fakeReader) Get(_ context.Context, id string) (domain.Resource, error) {
 	return f.get(id)
+}
+
+// total counts with the page filters and no cursor; a count failure fails the page.
+func TestListTotal(t *testing.T) {
+	var counted domain.Query
+	rows := []domain.Resource{{ID: "00000000-0000-7000-8000-0000000000a1", Name: "A"}, {ID: "00000000-0000-7000-8000-0000000000a2", Name: "B"}}
+	svc := New(fakeReader{
+		list:  func(domain.Query) ([]domain.Resource, error) { return rows, nil },
+		count: func(q domain.Query) (int, error) { counted = q; return 5, nil },
+	}, codec(t))
+	one := 1
+	page, err := svc.List(t.Context(), ListRequest{Q: str("pay"), Countries: []string{"CI", "BF"}, Limit: &one})
+	if err != nil || page.Total != 5 || counted.Q != "pay" || strings.Join(counted.Countries, ",") != "BF,CI" || counted.Limit != 0 {
+		t.Fatalf("page %+v %v counted %+v", page, err, counted)
+	}
+	if _, err := svc.List(t.Context(), ListRequest{Q: str("pay"), Countries: []string{"CI", "BF"}, Limit: &one, Cursor: page.NextCursor}); err != nil || counted.AfterID != "" || counted.AfterName != "" {
+		t.Fatalf("page 2 %v counted %+v", err, counted)
+	}
+	boom := errors.New("boom")
+	failing := New(fakeReader{
+		list:  func(domain.Query) ([]domain.Resource, error) { return nil, nil },
+		count: func(domain.Query) (int, error) { return 0, boom },
+	}, codec(t))
+	if _, err := failing.List(t.Context(), ListRequest{}); !errors.Is(err, boom) {
+		t.Fatalf("err %v", err)
+	}
 }
 func (f fakeReader) Sources(_ context.Context, id string) ([]domain.Source, error) {
 	return f.sources(id)
