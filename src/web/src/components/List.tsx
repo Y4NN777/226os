@@ -33,6 +33,10 @@ export interface ListRowProps {
   href: string;
   /** Heading level of the title in the page outline (h3 under a section h2 by default). */
   headingLevel?: 2 | 3 | 4;
+  /** Original language of the title and excerpt when they are user content. */
+  titleLang?: string;
+  /** A short line right under the title (provider · category, @handle). */
+  subtitle?: ReactNode;
   /** Leading avatar, initials or thumbnail; decorative next to the title. */
   lead?: ReactNode;
   /** One or two lines of summary, clamped. */
@@ -51,6 +55,8 @@ export function ListRow({
   title,
   href,
   headingLevel = 3,
+  titleLang,
+  subtitle,
   lead,
   excerpt,
   tags,
@@ -63,12 +69,17 @@ export function ListRow({
     <li className={lead ? 'ui-row has-lead' : 'ui-row'}>
       {lead ? <div className="ui-row-lead">{lead}</div> : null}
       <div className="ui-row-main">
-        <Title className="ui-row-title">
+        <Title className="ui-row-title" lang={titleLang}>
           <Link href={href} className="ui-row-link">
             {title}
           </Link>
         </Title>
-        {excerpt ? <p className="ui-row-excerpt">{excerpt}</p> : null}
+        {subtitle ? <p className="ui-row-subtitle">{subtitle}</p> : null}
+        {excerpt ? (
+          <p className="ui-row-excerpt" lang={titleLang}>
+            {excerpt}
+          </p>
+        ) : null}
         {tags ? <div className="ui-row-above">{tags}</div> : null}
         {meta}
         {above ? <div className="ui-row-above">{above}</div> : null}

@@ -116,3 +116,63 @@ export const InboxIcon = stroke(
     <path d="M5.5 5h13L22 12v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-6z" />
   </>,
 );
+/* Page glyphs, gathered from the solve and people pages' local sets (same prototype paths). */
+export const CircleDotIcon = stroke(
+  <>
+    <circle cx="12" cy="12" r="10" />
+    <circle cx="12" cy="12" r="1.5" fill="currentColor" />
+  </>,
+);
+export const EditIcon = stroke(<path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" />);
+export const PlusIcon = stroke(<path d="M12 5v14M5 12h14" />);
+export const LinkIcon = stroke(
+  <>
+    <path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7" />
+    <path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7" />
+  </>,
+);
+export const LockIcon = stroke(
+  <>
+    <rect x="4" y="11" width="16" height="10" rx="2" />
+    <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+  </>,
+);
+export const MapPinIcon = stroke(
+  <>
+    <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z" />
+    <circle cx="12" cy="10" r="3" />
+  </>,
+);
+export const LanguagesIcon = stroke(
+  <path d="M4 5h8M8 3v2M5 5c0 4 3 7 6 8M11 5c0 3-3 7-7 8M13 21l4-10 4 10M14.5 18h5" />,
+);
+export const GitBranchIcon = stroke(
+  <>
+    <circle cx="6" cy="5" r="2.5" />
+    <circle cx="6" cy="19" r="2.5" />
+    <circle cx="18" cy="8" r="2.5" />
+    <path d="M6 7.5v9M18 10.5c0 4-6 3-11 7" />
+  </>,
+);
+export const UserIcon = stroke(
+  <>
+    <circle cx="12" cy="8" r="4" />
+    <path d="M4 21a8 8 0 0 1 16 0" />
+  </>,
+);
+export const UsersIcon = stroke(
+  <>
+    <circle cx="9" cy="8" r="3.5" />
+    <path d="M2 21a7 7 0 0 1 14 0M17 4.5a3.5 3.5 0 0 1 0 7M22 21a7 7 0 0 0-4-6.3" />
+  </>,
+);
+export const SlidersIcon = stroke(
+  <path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6" />,
+);
+export const EyeIcon = stroke(
+  <>
+    <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" />
+    <circle cx="12" cy="12" r="3" />
+  </>,
+);
+export const CodeIcon = stroke(<path d="m16 18 6-6-6-6M8 6l-6 6 6 6" />);

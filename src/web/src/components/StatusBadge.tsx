@@ -3,20 +3,36 @@ import { Icon } from '@astryxdesign/core/Icon';
 import { useI18n } from '../i18n/I18nProvider';
 import type { MessageKey } from '../i18n/messages';
 import {
+  AlertCircleIcon,
   CheckCircleIcon,
+  CircleDotIcon,
   ClockIcon,
   HelpIcon,
   InfoIcon,
+  LockIcon,
   MessageIcon,
   ShieldCheckIcon,
   type SvgIcon,
 } from './icons';
 
 export type StatusKind =
-  'verified' | 'stale' | 'unverified' | 'accepted' | 'answered' | 'later' | 'demo';
+  | 'verified'
+  | 'stale'
+  | 'unverified'
+  | 'accepted'
+  | 'answered'
+  | 'later'
+  | 'demo'
+  | 'open'
+  | 'closed'
+  | 'claimed'
+  | 'disputed'
+  | 'pending'
+  | 'private';
 
-type Tint = 'info' | 'warning' | 'secondary' | 'success';
+type Tint = 'info' | 'warning' | 'secondary' | 'success' | 'error';
 
+// Icons and tints follow the prototype's App.statePill (assets/js/app.js, components.css).
 const kinds: Record<StatusKind, { icon: SvgIcon; tint: Tint; label: MessageKey }> = {
   verified: { icon: ShieldCheckIcon, tint: 'info', label: 'status.verified' },
   stale: { icon: ClockIcon, tint: 'warning', label: 'status.stale' },
@@ -25,14 +41,28 @@ const kinds: Record<StatusKind, { icon: SvgIcon; tint: Tint; label: MessageKey }
   answered: { icon: MessageIcon, tint: 'success', label: 'status.answered' },
   later: { icon: ClockIcon, tint: 'secondary', label: 'status.later' },
   demo: { icon: InfoIcon, tint: 'secondary', label: 'state.demo' },
+  open: { icon: CircleDotIcon, tint: 'success', label: 'status.open' },
+  closed: { icon: LockIcon, tint: 'secondary', label: 'status.closed' },
+  claimed: { icon: InfoIcon, tint: 'info', label: 'status.claimed' },
+  disputed: { icon: AlertCircleIcon, tint: 'error', label: 'status.disputed' },
+  pending: { icon: ClockIcon, tint: 'warning', label: 'status.pending' },
+  private: { icon: LockIcon, tint: 'secondary', label: 'status.private' },
 };
 
 /**
  * A state as icon + word on a neutral pill (prototype `.state-pill`): the word carries the
  * meaning, the tinted icon only reinforces it, never colour alone. `label` replaces the default
- * word when the page needs its own (grammar, a more precise status).
+ * word when the page needs its own (grammar, a more precise status); `title` adds a hint.
  */
-export function StatusBadge({ kind, label }: { kind: StatusKind; label?: string }) {
+export function StatusBadge({
+  kind,
+  label,
+  title,
+}: {
+  kind: StatusKind;
+  label?: string;
+  title?: string;
+}) {
   const { t } = useI18n();
   const { icon, tint, label: key } = kinds[kind];
   const badge = (
@@ -44,5 +74,12 @@ export function StatusBadge({ kind, label }: { kind: StatusKind; label?: string 
     />
   );
   // Demo data says why it is marked, like DemoBadge (ROADMAP C15).
-  return kind === 'demo' ? <span title={t('state.demo.hint')}>{badge}</span> : badge;
+  const hint = title ?? (kind === 'demo' ? t('state.demo.hint') : undefined);
+  return hint ? (
+    <span className="ui-status-wrap" title={hint}>
+      {badge}
+    </span>
+  ) : (
+    badge
+  );
 }
