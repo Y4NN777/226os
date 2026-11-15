@@ -58,12 +58,16 @@ export function VerifyEmailPage() {
     },
   });
 
-  const autoSubmitted = useRef(false);
+  // Once per token: the first one at mount, a later one when a mail link only changes the fragment.
+  const submittedToken = useRef<string | null>(null);
+  const { setFieldValue } = form;
   useEffect(() => {
-    if (hashToken === null || autoSubmitted.current) return;
-    autoSubmitted.current = true;
+    if (hashToken === null || submittedToken.current === hashToken) return;
+    submittedToken.current = hashToken;
+    setFieldValue('token', hashToken);
+    setPhase('checking');
     void confirm(hashToken.trim());
-  }, [hashToken, confirm]);
+  }, [hashToken, confirm, setFieldValue]);
 
   if (phase === 'checking') {
     return (
