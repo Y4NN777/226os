@@ -17,6 +17,8 @@
 #   -s LIST   sizes WxH              CAPTURE_SIZES     default "1280x800 375x812"
 #   -f        full-page screenshots  CAPTURE_FULL=1    default: the viewport only
 #   -w MS     settle time per page   CAPTURE_SETTLE_MS default 1200 (prototype lists load after a fake delay)
+#   -p STATE  prototype session      CAPTURE_PROTO_SESSION default out (in|out); member-only
+#             prototype pages (accueil.html, parametres.html) redirect to sign-in when out
 #
 # Output: DIR/<slug>-<app|proto>-<width>-<theme>.png, slug = the route made file-safe ("/" is "home").
 #
@@ -26,8 +28,8 @@
 #   BROWSE_SESSION (default "capture-fidelity").
 # Language and theme: the prototypes read ?lang=fr&theme=..., the app does not. For the app the
 # script writes the app's own preferences in localStorage (226os.locale=fr, 226os.theme=<theme>)
-# on the app origin, then loads the route. The prototype is loaded with ?session=out so both
-# show the signed-out header (the app is captured without a session).
+# on the app origin, then loads the route. The app is captured without a session; the prototype
+# is loaded with ?session=out by default so both show the signed-out header (see -p).
 set -euo pipefail
 
 base_url="${CAPTURE_BASE_URL:-http://127.0.0.1:8088}"
@@ -36,10 +38,11 @@ themes="${CAPTURE_THEMES:-light}"
 sizes="${CAPTURE_SIZES:-1280x800 375x812}"
 full="${CAPTURE_FULL:-0}"
 settle_ms="${CAPTURE_SETTLE_MS:-1200}"
+proto_session="${CAPTURE_PROTO_SESSION:-out}"
 
-usage() { sed -n '2,21p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,23p' "$0" | sed 's/^# \{0,1\}//'; }
 
-while getopts 'b:o:t:s:fw:h' opt; do
+while getopts 'b:o:t:s:fw:p:h' opt; do
   case "$opt" in
     b) base_url="$OPTARG" ;;
     o) out_dir="$OPTARG" ;;
@@ -47,6 +50,7 @@ while getopts 'b:o:t:s:fw:h' opt; do
     s) sizes="$OPTARG" ;;
     f) full=1 ;;
     w) settle_ms="$OPTARG" ;;
+    p) proto_session="$OPTARG" ;;
     h) usage; exit 0 ;;
     *) usage >&2; exit 2 ;;
   esac
@@ -57,6 +61,7 @@ if [ "$#" -eq 0 ]; then
   exit 2
 fi
 case "$settle_ms" in '' | *[!0-9]*) echo "capture-fidelity: -w needs a number of milliseconds" >&2; exit 2 ;; esac
+case "$proto_session" in in | out) ;; *) echo "capture-fidelity: -p takes in or out" >&2; exit 2 ;; esac
 
 browse="${BROWSE_BIN:-$HOME/.claude/skills/gstack/browse/dist/browse}"
 if [ ! -x "$browse" ]; then
@@ -105,7 +110,7 @@ for pair in "$@"; do
       settle
       shoot "$out_dir/$slug-app-$width-$theme.png"
       # Prototype: the same language, theme and signed-out state through its query string.
-      b goto "file://$pages_dir/$page?lang=fr&theme=$theme&session=out"
+      b goto "file://$pages_dir/$page?lang=fr&theme=$theme&session=$proto_session"
       settle
       shoot "$out_dir/$slug-proto-$width-$theme.png"
     done

@@ -100,7 +100,7 @@ function ThemeToggle() {
       className="shell-theme-toggle"
       label={t('shell.darkTheme')}
       aria-pressed={isDark}
-      icon={<Icon icon={isDark ? MoonIcon : SunIcon} />}
+      icon={<Icon icon={isDark ? MoonIcon : SunIcon} size="md" />}
       onClick={() => {
         setMode(isDark ? 'light' : 'dark');
       }}
@@ -168,7 +168,7 @@ function AccountArea({ onSignOut }: { onSignOut: () => void }) {
           <IconButton
             {...props}
             variant="ghost"
-            label={t('account.menu', { name: user.display_name })}
+            label={user.display_name}
             icon={<Avatar name={user.display_name} size="sm" tooltip={false} />}
           />
         )}
@@ -195,7 +195,7 @@ function AccountArea({ onSignOut }: { onSignOut: () => void }) {
             {...props}
             variant="ghost"
             label={t('account.prefs')}
-            icon={<Icon icon={GlobeIcon} />}
+            icon={<Icon icon={GlobeIcon} size="md" />}
           />
         )}
       >

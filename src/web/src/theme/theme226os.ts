@@ -12,6 +12,8 @@ export const tokens: Record<string, Token> = {
   '--color-text-primary': ['#1D2420', '#F4F7EF'],
   '--color-text-secondary': ['#576454', '#C1CCB9'],
   '--color-border': ['#DCE3D6', '#43503C'],
+  // Input, select and textarea outlines: the strong border (3:1 or more on every surface).
+  '--color-border-emphasized': ['#6F7C6B', '#7E8E75'],
   '--color-accent': ['#4D721D', '#BDE874'],
   '--color-on-accent': ['#FFFFFF', '#16220E'],
   '--color-text-accent': ['#4D721D', '#BDE874'],

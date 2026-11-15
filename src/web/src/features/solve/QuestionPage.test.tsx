@@ -93,10 +93,11 @@ describe('QuestionPage reading', () => {
           ),
       }),
     );
-    const { container } = await renderApp(base);
+    await renderApp(base);
     await screen.findByRole('heading', { level: 1 });
     await screen.findByRole('list', { name: 'Réponses' });
-    expect(container.querySelector('img, script, [onerror]')).toBeNull();
+    // The page content, not the shell: the top bar's logo is a legitimate image.
+    expect(screen.getByRole('main').querySelector('img, script, [onerror]')).toBeNull();
   });
 
   it('shows a not-found state for an unknown question', async () => {
