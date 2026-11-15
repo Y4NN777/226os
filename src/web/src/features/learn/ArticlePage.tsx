@@ -149,7 +149,6 @@ export function ArticlePage() {
         <EmptyState
           headingLevel={1}
           title={t('learn.article.notFound.title')}
-          description={t('learn.article.notFound.body')}
           actions={<Button label={t('learn.article.back')} href="/apprendre" />}
         />
       );

@@ -30,9 +30,8 @@ const FR = ['Nom d’utilisateur', 'Adresse e-mail', 'Mot de passe'];
 describe('SignUpPage', () => {
   it('shows the form with an h1 and the username rule', async () => {
     await open();
-    expect(screen.getByRole('heading', { level: 1, name: 'Créer votre compte' })).toBeVisible();
-    expect(screen.getByText(/Quelques champs, aucune fiche à remplir/)).toBeVisible();
-    expect(screen.getByText(/Identifiant public/)).toBeVisible();
+    expect(screen.getByRole('heading', { level: 1, name: 'Créer un compte' })).toBeVisible();
+    expect(screen.getByText(/Public. Minuscules, chiffres/)).toBeVisible();
     expect(screen.getByLabelText('Mot de passe')).toHaveAttribute('autocomplete', 'new-password');
     expect(screen.getByLabelText('Adresse e-mail')).toHaveAttribute('autocomplete', 'email');
     expect(screen.getByRole('link', { name: 'Se connecter' })).toHaveAttribute(
@@ -56,12 +55,10 @@ describe('SignUpPage', () => {
     await user.type(screen.getByLabelText('Adresse e-mail'), 'awa@example.org');
     await user.type(screen.getByLabelText('Mot de passe'), 'short');
     await user.click(screen.getByRole('button', { name: 'Créer mon compte' }));
-    expect(
-      await screen.findAllByText(/lettres minuscules, chiffres, - et _, en commençant/),
-    ).not.toHaveLength(0);
-    expect(
-      screen.getAllByText('Le mot de passe doit contenir au moins 12 caractères.'),
-    ).not.toHaveLength(0);
+    expect(await screen.findAllByText(/a-z, 0-9, - et _. Pas de - ni _ au début/)).not.toHaveLength(
+      0,
+    );
+    expect(screen.getAllByText('12 caractères minimum.')).not.toHaveLength(0);
     expect(callsTo(fetchMock, SIGN_UP)).toHaveLength(0);
   });
 
@@ -73,9 +70,7 @@ describe('SignUpPage', () => {
     await user.type(screen.getByLabelText('Adresse e-mail'), 'awa@example.org');
     await user.type(screen.getByLabelText('Mot de passe'), 'a long passphrase');
     await user.click(screen.getByRole('button', { name: 'Créer mon compte' }));
-    expect(
-      await screen.findAllByText('Le nom ne peut pas dépasser 80 caractères.'),
-    ).not.toHaveLength(0);
+    expect(await screen.findAllByText('80 caractères maximum.')).not.toHaveLength(0);
     expect(callsTo(fetchMock, SIGN_UP)).toHaveLength(0);
   });
 
@@ -151,14 +146,12 @@ describe('SignUpPage', () => {
     });
     await fillAll(user, FR);
     await user.click(screen.getByRole('button', { name: 'Créer mon compte' }));
-    expect(
-      await screen.findAllByText(/lettres minuscules, chiffres, - et _, en commençant/),
-    ).not.toHaveLength(0);
-    expect(
-      screen.getAllByText('Le mot de passe doit contenir au moins 12 caractères.'),
-    ).not.toHaveLength(0);
-    expect(screen.getAllByText('Cette adresse e-mail semble incomplète.')).not.toHaveLength(0);
-    expect(screen.getAllByText('Le nom ne peut pas dépasser 80 caractères.')).not.toHaveLength(0);
+    expect(await screen.findAllByText(/a-z, 0-9, - et _. Pas de - ni _ au début/)).not.toHaveLength(
+      0,
+    );
+    expect(screen.getAllByText('12 caractères minimum.')).not.toHaveLength(0);
+    expect(screen.getAllByText('Vérifiez l’adresse e-mail.')).not.toHaveLength(0);
+    expect(screen.getAllByText('80 caractères maximum.')).not.toHaveLength(0);
     await waitFor(() => expect(screen.getByLabelText(/^Nom d’affichage/)).toHaveFocus());
   });
 
@@ -171,9 +164,7 @@ describe('SignUpPage', () => {
     });
     await fillAll(user, FR);
     await user.click(screen.getByRole('button', { name: 'Créer mon compte' }));
-    expect(
-      await screen.findAllByText('Le mot de passe ne peut pas dépasser 128 caractères.'),
-    ).not.toHaveLength(0);
+    expect(await screen.findAllByText('128 caractères maximum.')).not.toHaveLength(0);
   });
 
   it('shows a generic notice when a 422 names no known field', async () => {

@@ -90,7 +90,7 @@ describe('SearchPage', () => {
     setLanguages(['fr-FR']);
     const fetchMock = mockApi();
     await renderApp('/recherche?q=a');
-    expect(await screen.findByText('Saisissez au moins deux caractères.')).toBeInTheDocument();
+    expect(await screen.findByText('2 caractères minimum.')).toBeInTheDocument();
     expect(callsTo(fetchMock, 'GET /search')).toHaveLength(0);
   });
 
@@ -171,11 +171,9 @@ describe('SearchPage', () => {
     setLanguages(['fr-FR']);
     mockApi(searchRoute(results));
     await renderApp('/recherche?q=momo');
-    const note = await screen.findByText(
-      'D’autres résultats existent. Affinez votre recherche pour les voir.',
-    );
+    const note = await screen.findByText('Affinez la recherche pour voir plus de résultats.');
     expect(note.closest('a')).toBeNull();
-    expect(screen.getAllByText(/D’autres résultats existent/)).toHaveLength(1);
+    expect(screen.getAllByText(/Affinez la recherche/)).toHaveLength(1);
   });
 
   it('suggests other words when every group is empty', async () => {
@@ -261,7 +259,7 @@ describe('SearchPage', () => {
     await renderApp('/recherche?q=momo');
     expect(await screen.findByRole('heading', { level: 2, name: 'Learn' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 2, name: 'Projects' })).toBeInTheDocument();
-    expect(screen.getByText(/There are more results/)).toBeInTheDocument();
-    expect(await screen.findByText(/Sign in to ask the assistant/)).toBeInTheDocument();
+    expect(screen.getByText(/Refine your search to see more/)).toBeInTheDocument();
+    expect(await screen.findByText(/Sign in to use the assistant/)).toBeInTheDocument();
   });
 });

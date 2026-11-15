@@ -132,7 +132,6 @@ export function SeriesPage() {
         <EmptyState
           headingLevel={1}
           title={t('learn.series.notFound.title')}
-          description={t('learn.series.notFound.body')}
           actions={<Button label={t('learn.series.back')} href="/apprendre" />}
         />
       );

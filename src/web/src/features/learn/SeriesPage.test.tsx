@@ -42,7 +42,7 @@ describe('SeriesPage', () => {
     expect(within(hero).getByText('2 leçons')).toBeInTheDocument();
     expect(within(hero).getByText('Débutant')).toBeInTheDocument();
     expect(within(hero).getByText('Français')).toBeInTheDocument();
-    expect(within(hero).getByRole('link', { name: 'Commencer la formation' })).toHaveAttribute(
+    expect(within(hero).getByRole('link', { name: 'Commencer' })).toHaveAttribute(
       'href',
       `/apprendre/articles/${articleId}`,
     );
@@ -97,7 +97,7 @@ describe('SeriesPage', () => {
     await renderApp(`/apprendre/formations/${seriesId}`);
     await screen.findByRole('heading', { level: 1 });
     expect(screen.queryByRole('heading', { name: 'Contenus liés' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('list', { name: 'Mots-clés' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('list', { name: 'Étiquettes' })).not.toBeInTheDocument();
   });
 
   it('says the series does not exist on a 404', async () => {

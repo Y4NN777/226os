@@ -89,7 +89,7 @@ describe('ArticlePage', () => {
     ).toBeGreaterThan(0);
     expect(screen.getByRole('button', { name: 'Copier le code' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 2, name: 'Lire le corps brut' })).toBeVisible();
-    const tags = screen.getByRole('list', { name: 'Mots-clés' });
+    const tags = screen.getByRole('list', { name: 'Étiquettes' });
     expect(within(tags).getByText('webhook')).toBeInTheDocument();
     const outline = screen.getByRole('navigation', { name: 'Sur cette page' });
     expect(within(outline).getByRole('link', { name: 'Comparer' })).toBeInTheDocument();
@@ -148,9 +148,10 @@ describe('ArticlePage', () => {
     setLanguages(['fr-FR']);
     mockApi(route(article()));
     await renderApp(`/apprendre/articles/${articleId}`);
-    expect(
-      await screen.findByRole('link', { name: 'Poser une question sur cette leçon' }),
-    ).toHaveAttribute('href', `/solve?link=article:${articleId}`);
+    expect(await screen.findByRole('link', { name: 'Poser une question' })).toHaveAttribute(
+      'href',
+      `/solve?link=article:${articleId}`,
+    );
   });
 
   it('says the article does not exist on a 404', async () => {

@@ -71,7 +71,7 @@ describe('LearnPage list', () => {
       name: 'Premiers pas avec une API de paiement',
     });
     expect(within(formations).getByText('2 leçons')).toBeInTheDocument();
-    expect(within(formations).getByText('Formation proposée par Fatou Diallo')).toBeInTheDocument();
+    expect(within(formations).getByText('Formation de Fatou Diallo')).toBeInTheDocument();
     expect(within(formations).getByRole('link', { name: 'Voir le programme' })).toHaveAttribute(
       'href',
       `/apprendre/formations/${seriesId}`,
@@ -89,7 +89,7 @@ describe('LearnPage list', () => {
       '2Recevoir le webhook',
     ]);
     expect(lessons[0]).toHaveAttribute('href', `/apprendre/articles/${articleId}`);
-    expect(screen.getByRole('link', { name: 'Commencer la formation' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Commencer' })).toHaveAttribute(
       'href',
       `/apprendre/articles/${articleId}`,
     );
@@ -137,13 +137,11 @@ describe('LearnPage list', () => {
     const user = userEvent.setup({ delay: null });
     await renderApp('/apprendre');
     await screen.findByRole('link', { name: 'Vérifier un webhook signé' });
-    await user.click(screen.getByRole('button', { name: 'Afficher plus d’articles' }));
+    await user.click(screen.getByRole('button', { name: 'Afficher plus' }));
 
     expect(await screen.findByRole('link', { name: 'Mobile Money et faible débit' })).toBeVisible();
     expect(callsTo(fetchMock, 'GET /learn/articles')).toHaveLength(2);
-    expect(
-      screen.queryByRole('button', { name: 'Afficher plus d’articles' }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Afficher plus' })).not.toBeInTheDocument();
   });
 
   it('loads the next page of series with the opaque cursor', async () => {
@@ -163,7 +161,7 @@ describe('LearnPage list', () => {
     const user = userEvent.setup({ delay: null });
     await renderApp('/apprendre');
     await screen.findAllByRole('link', { name: 'Premiers pas avec une API de paiement' });
-    await user.click(screen.getByRole('button', { name: 'Afficher plus de formations' }));
+    await user.click(screen.getByRole('button', { name: 'Afficher plus' }));
     expect(await screen.findByRole('link', { name: 'Déployer sur un VPS' })).toBeVisible();
     expect(callsTo(fetchMock, 'GET /learn/series')).toHaveLength(2);
   });
@@ -210,7 +208,7 @@ describe('LearnPage list', () => {
     const { router } = await renderApp('/apprendre?topic=mobile');
     await screen.findByRole('link', { name: 'Vérifier un webhook signé' });
     // One reset for every filter, as in the prototype (owner decision, 15 Nov 2026).
-    await user.click(screen.getByRole('button', { name: 'Réinitialiser' }));
+    await user.click(screen.getByRole('button', { name: 'Effacer' }));
     await waitFor(() => {
       expect(router.state.location.search).not.toHaveProperty('topic');
     });
@@ -221,9 +219,9 @@ describe('LearnPage list', () => {
     mockApi({ 'GET /learn/articles': () => page([]), 'GET /learn/series': () => page([]) });
     await renderApp('/apprendre');
     // Articles and series share one list now, so the empty state speaks of both.
-    expect(await screen.findByText('Aucun contenu pour le moment')).toBeVisible();
+    expect(await screen.findByText('Aucun contenu')).toBeVisible();
     expect(screen.queryByRole('link', { name: 'Voir le programme' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Réinitialiser/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Effacer/ })).not.toBeInTheDocument();
   });
 
   it('shows a readable error with a retry when the articles fail to load', async () => {
@@ -255,13 +253,13 @@ describe('LearnPage list', () => {
     setLanguages(['en-US']);
     mockApi({ ...base, ...member });
     await renderApp('/apprendre');
-    expect(await screen.findByRole('link', { name: 'Write an article' })).toHaveAttribute(
-      'href',
-      '/ecrire',
-    );
+    // The header action and the invitation carry the same label.
+    const writeLinks = await screen.findAllByRole('link', { name: 'Write an article' });
+    expect(writeLinks).toHaveLength(2);
+    for (const link of writeLinks) expect(link).toHaveAttribute('href', '/ecrire');
     expect(screen.getByRole('heading', { level: 1, name: 'Learn' })).toBeInTheDocument();
     const invite = screen.getByRole('region', { name: 'Share what you know' });
-    expect(within(invite).getByRole('link', { name: 'Start writing' })).toHaveAttribute(
+    expect(within(invite).getByRole('link', { name: 'Write an article' })).toHaveAttribute(
       'href',
       '/ecrire',
     );
@@ -307,7 +305,7 @@ describe('LearnPage filters', () => {
     expect(within(browse).getByRole('combobox', { name: 'Langue' })).toBeInTheDocument();
     // One series and one article, no further page: a total, announced politely.
     expect(within(browse).getByText('2 contenus')).toHaveAttribute('role', 'status');
-    expect(screen.queryByRole('button', { name: 'Réinitialiser' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Effacer' })).not.toBeInTheDocument();
   });
 
   it('sends the tutorial type to the articles and leaves the series out', async () => {
@@ -364,9 +362,7 @@ describe('LearnPage filters', () => {
     expect(router.state.location.search).toEqual({ q: 'webhook' });
     expect(seriesCalls(fetchMock).every((call) => !call.has('q'))).toBe(true);
     expect(seriesCalls(fetchMock)).toHaveLength(1);
-    expect(
-      await screen.findByText('La recherche porte sur les articles et les tutoriels.'),
-    ).toBeVisible();
+    expect(await screen.findByText('Articles et tutoriels uniquement.')).toBeVisible();
   });
 
   it('sends the level and the language to both lists, keeping the other filters', async () => {
@@ -429,7 +425,7 @@ describe('LearnPage filters', () => {
     expect([...(articleCalls(fetchMock)[0]?.keys() ?? [])]).toEqual([]);
     expect([...(seriesCalls(fetchMock)[0]?.keys() ?? [])]).toEqual([]);
     expect(screen.getByRole('radio', { name: 'Tout' })).toBeChecked();
-    expect(screen.queryByRole('button', { name: 'Réinitialiser' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Effacer' })).not.toBeInTheDocument();
     expect(router.state.location.pathname).toBe('/apprendre');
   });
 
@@ -439,7 +435,7 @@ describe('LearnPage filters', () => {
     const user = userEvent.setup({ delay: null });
     const { router } = await renderApp('/apprendre?type=tutorial&level=beginner&lang=fr&q=go');
     await screen.findByRole('link', { name: 'Vérifier un webhook signé' });
-    await user.click(screen.getByRole('button', { name: 'Réinitialiser' }));
+    await user.click(screen.getByRole('button', { name: 'Effacer' }));
     await waitFor(() => {
       expect(router.state.location.search).toEqual({});
     });
@@ -458,7 +454,7 @@ describe('LearnPage filters', () => {
     await renderApp('/apprendre');
     await screen.findByRole('link', { name: 'Vérifier un webhook signé' });
     expect(screen.getByText('Les 2 premiers contenus')).toHaveAttribute('role', 'status');
-    await user.click(screen.getByRole('button', { name: 'Afficher plus d’articles' }));
+    await user.click(screen.getByRole('button', { name: 'Afficher plus' }));
     await screen.findByRole('link', { name: 'Mobile Money et faible débit' });
     expect(articleCalls(fetchMock).at(-1)?.get('cursor')).toBe('cur-2');
 
@@ -478,10 +474,10 @@ describe('LearnPage filters', () => {
     expect(
       screen.getByText(
         // Testing Library folds the no-break spaces of « » into plain spaces.
-        'Rien pour « kotlin ». Essayez d’autres mots, retirez un filtre, ou écrivez vous-même ce qui manque.',
+        'Essayez d’autres mots ou retirez un filtre.',
       ),
     ).toBeVisible();
-    await user.click(screen.getByRole('button', { name: 'Réinitialiser les filtres' }));
+    await user.click(screen.getByRole('button', { name: 'Effacer les filtres' }));
     await waitFor(() => {
       expect(router.state.location.search).toEqual({});
     });
@@ -492,9 +488,7 @@ describe('LearnPage filters', () => {
     mockApi({ ...base, 'GET /learn/series': () => page([]) });
     await renderApp('/apprendre?type=series&level=advanced');
     expect(await screen.findByText('Aucune formation ne correspond')).toBeVisible();
-    expect(
-      screen.getByText('Retirez un filtre, ou écrivez vous-même ce qui manque.'),
-    ).toBeVisible();
+    expect(screen.getByText('Retirez un filtre.')).toBeVisible();
   });
 
   it('names a tutorial filter in its empty state', async () => {
@@ -537,12 +531,8 @@ describe('LearnPage filters', () => {
     expect(screen.getByRole('combobox', { name: 'Level' })).toBeInTheDocument();
     expect(screen.getByRole('combobox', { name: 'Language' })).toBeInTheDocument();
     expect(await screen.findByText('No article matches')).toBeVisible();
-    expect(
-      screen.getByText(
-        'Nothing for “go”. Try other words, remove a filter, or write what is missing yourself.',
-      ),
-    ).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Reset filters' })).toBeVisible();
+    expect(screen.getByText('Try other words or remove a filter.')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Clear filters' })).toBeVisible();
   });
 });
 
@@ -559,7 +549,7 @@ describe('LearnPage topic feed of questions', () => {
     const region = await screen.findByRole('region', { name: 'Questions sur ce sujet' });
     const link = await within(region).findByRole('link', { name: 'Quel SDK pour Wave ?' });
     expect(link).toHaveAttribute('href', '/questions/b0000000-0000-4000-8000-0000000000f1');
-    expect(within(region).getByRole('link', { name: 'Voir toutes les questions' })).toHaveAttribute(
+    expect(within(region).getByRole('link', { name: 'Toutes les questions' })).toHaveAttribute(
       'href',
       '/solve?tag=payments',
     );
@@ -588,9 +578,7 @@ describe('LearnPage topic feed of questions', () => {
     mockApi({ ...base, 'GET /questions': () => page([]) });
     await renderApp('/apprendre?topic=payments');
     const region = await screen.findByRole('region', { name: 'Questions sur ce sujet' });
-    expect(
-      await within(region).findByText('Aucune question sur ce sujet pour le moment.'),
-    ).toBeVisible();
+    expect(await within(region).findByText('Aucune question sur ce sujet.')).toBeVisible();
   });
 
   it('keeps the articles when the questions fail, with a retry for the questions', async () => {

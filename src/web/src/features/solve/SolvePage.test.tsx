@@ -464,9 +464,7 @@ describe('SolvePage assistant panel', () => {
     expect(inPanel.getByText(/envoyée à Google \(AI Studio\)/)).toBeInTheDocument();
     const ask = inPanel.getByRole('button', { name: 'Demander à l’assistant' });
     expect(ask).toHaveAttribute('aria-disabled', 'true');
-    expect(
-      inPanel.getByText('Saisissez au moins 3 caractères pour interroger l’assistant.'),
-    ).toBeVisible();
+    expect(inPanel.getByText('3 caractères minimum.')).toBeVisible();
     await user.type(screen.getByRole('textbox', { name: 'Titre' }), 'ab');
     expect(inPanel.getByRole('button', { name: 'Demander à l’assistant' })).toHaveAttribute(
       'aria-disabled',
@@ -558,7 +556,7 @@ describe('SolvePage assistant panel', () => {
     await user.type(screen.getByRole('textbox', { name: /Étiquettes/ }), 'go');
     const inPanel = await panel();
     await user.click(inPanel.getByRole('button', { name: 'Demander à l’assistant' }));
-    expect(await inPanel.findByText(/L’assistant est indisponible/)).toBeInTheDocument();
+    expect(await inPanel.findByText(/Assistant indisponible/)).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Publier la question' }));
     await waitFor(() => {
       expect(router.state.location.pathname).toBe(`/questions/${questionId}`);

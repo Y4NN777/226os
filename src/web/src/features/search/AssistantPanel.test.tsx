@@ -67,7 +67,7 @@ describe('AssistantPanel', () => {
     await renderApp('/recherche?q=momo');
     const inPanel = await panel();
     expect(await inPanel.findByText(/envoyée à Google \(AI Studio\)/)).toBeInTheDocument();
-    expect(inPanel.getByText(/Seuls la question et des contenus publics/)).toBeInTheDocument();
+    expect(inPanel.getByText(/avec des contenus publics uniquement/)).toBeInTheDocument();
     expect(callsTo(fetchMock, 'POST /assistant/answers')).toHaveLength(0);
   });
 
@@ -93,9 +93,7 @@ describe('AssistantPanel', () => {
     const inPanel = await panel();
     const ask = await inPanel.findByRole('button', { name: 'Demander à l’assistant' });
     expect(ask).toHaveAttribute('aria-disabled', 'true');
-    expect(
-      inPanel.getByText('Saisissez au moins 3 caractères pour interroger l’assistant.'),
-    ).toBeVisible();
+    expect(inPanel.getByText('3 caractères minimum.')).toBeVisible();
     await userEvent.setup({ delay: null }).click(ask);
     expect(callsTo(fetchMock, 'POST /assistant/answers')).toHaveLength(0);
     await userEvent
@@ -231,7 +229,7 @@ describe('AssistantPanel', () => {
       .setup({ delay: null })
       .click(await inPanel.findByRole('button', { name: 'Demander à l’assistant' }));
     expect(await inPanel.findByText(/Aucune source pour répondre/)).toBeInTheDocument();
-    expect(inPanel.getByRole('link', { name: 'Voir les résultats de recherche' })).toHaveAttribute(
+    expect(inPanel.getByRole('link', { name: 'Voir les résultats' })).toHaveAttribute(
       'href',
       '/recherche?q=momo',
     );
@@ -263,7 +261,7 @@ describe('AssistantPanel', () => {
     await userEvent
       .setup({ delay: null })
       .click(await inPanel.findByRole('button', { name: 'Demander à l’assistant' }));
-    expect(await inPanel.findByText(/L’assistant est indisponible/)).toBeInTheDocument();
+    expect(await inPanel.findByText(/Assistant indisponible/)).toBeInTheDocument();
     expect(inPanel.queryByRole('button', { name: 'Demander à l’assistant' })).toBeNull();
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(callsTo(fetchMock, 'POST /assistant/answers')).toHaveLength(1);
@@ -287,7 +285,7 @@ describe('AssistantPanel', () => {
     await userEvent
       .setup({ delay: null })
       .click(await inPanel.findByRole('button', { name: 'Demander à l’assistant' }));
-    await inPanel.findByText(/L’assistant est indisponible/);
+    await inPanel.findByText(/Assistant indisponible/);
 
     const now = Date.now();
     vi.spyOn(Date, 'now').mockReturnValue(now + 31_000);

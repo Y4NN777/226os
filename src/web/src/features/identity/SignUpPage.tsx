@@ -121,7 +121,7 @@ export function SignUpPage() {
 
   return (
     <VStack gap={5}>
-      <CardHead title={t('identity.signUp.title')} lede={t('identity.signUp.lede')} />
+      <CardHead title={t('identity.signUp.title')} />
       {failure ? (
         failure.error instanceof ApiError && failure.error.code === 'RATE_LIMITED' ? (
           <RateLimitNotice key={failure.n} />

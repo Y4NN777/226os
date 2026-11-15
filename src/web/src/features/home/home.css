@@ -31,10 +31,6 @@
 .feed-head-more {
   margin-inline-start: auto;
 }
-.feed-sub {
-  margin: calc(var(--spacing-2) * -1) 0 0;
-  color: var(--color-text-secondary);
-}
 
 /* Search field with the glyph inside, like the prototype's .search-field. */
 .feed-search {

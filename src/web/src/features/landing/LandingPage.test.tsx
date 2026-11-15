@@ -70,12 +70,12 @@ describe('LandingPage', () => {
       'Découvrir',
       'Construire',
     ]);
-    const link = main.getByRole('link', { name: 'Ouvrir le catalogue' });
+    const link = main.getByRole('link', { name: 'Voir le catalogue' });
     expect(link).toHaveAttribute('href', '/discover');
     // Every built pillar links to its page.
     for (const [name, href] of [
-      ['Lire les articles et les formations', '/apprendre'],
-      ['Trouver des développeurs', '/connect'],
+      ['Voir les articles', '/apprendre'],
+      ['Voir l’annuaire', '/connect'],
       ['Voir les questions', '/solve'],
       ['Voir les projets', '/build'],
     ] as const) {
@@ -147,9 +147,7 @@ describe('LandingPage', () => {
       'href',
       '/discover',
     );
-    expect(
-      main.getByText('Tout se lit sans compte. Il ne sert qu’au moment d’agir.'),
-    ).toBeVisible();
+    expect(main.getByText('Lecture libre, sans compte.')).toBeVisible();
   });
 
   it('shows a loading state while the catalogue loads', async () => {
@@ -180,9 +178,7 @@ describe('LandingPage', () => {
     setLanguages(['fr-FR']);
     mockApi({ 'GET /resources': () => page([]) });
     const { main } = await open();
-    expect(
-      await main.findByText('Le catalogue est vide pour le moment. Revenez bientôt.'),
-    ).toBeInTheDocument();
+    expect(await main.findByText('Aucune fiche.')).toBeInTheDocument();
   });
 
   it('reads in English when the browser asks for it', async () => {

@@ -40,11 +40,6 @@
   font-weight: 700;
   color: var(--color-text-primary);
 }
-.lp-sub {
-  margin: var(--spacing-2) 0 0;
-  max-width: 56ch;
-  color: var(--color-text-secondary);
-}
 
 /* ---------- Hero ---------- */
 .lp-hero {
