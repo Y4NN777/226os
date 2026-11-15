@@ -9,8 +9,8 @@ repository_or_source_context: "branch fix/review/gh-error-detail; owner-approved
 files_or_sections_affected: ["scripts/review-context.py", "scripts/findings.py", "scripts/tests/review-batch-nothing_test.sh", "TODO.md", "docs/ai-usage/2026-11-15-gh-error-detail.md"]
 third_party_sources_consulted: []
 license_review: "NOT APPLICABLE: original code, no new dependency"
-closure: "open"
-human_reviewers: ["pending PR review"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-15; merged in #232)"]
 tests_or_evidence: ["RED first: six new cases in review-batch-nothing_test.sh failed before the change (502 once, GET once, 502 twice, 403, secret in stderr, GET 404)", "GREEN: review-batch-nothing_test.sh, findings-settle_test.sh, findings_test.sh, findings-batch_test.sh, review-autofix_test.sh, review-context_test.sh"]
 open_risks: ["not run against the real GitHub API: the exact stderr wording of gh for 5xx and rate limits is matched on `HTTP <status>` and a few phrases", "a write retried after a 5xx may already have gone through: the comment writes stay idempotent by marker on the next run, but a retry inside one run can duplicate a comment"]
 ```

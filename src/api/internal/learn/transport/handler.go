@@ -50,7 +50,7 @@ func (h *Handler) ListLearnArticles(w http.ResponseWriter, r *http.Request, para
 			Author: authorJSON(a.Author), PublishedAt: a.PublishedAt.UTC(),
 		}
 	}
-	writeJSON(w, http.StatusOK, apigen.ArticlePage{Items: items, NextCursor: next(page.NextCursor)})
+	writeJSON(w, http.StatusOK, apigen.ArticlePage{Items: items, NextCursor: next(page.NextCursor), Total: page.Total})
 }
 
 // GetLearnArticle serves GET /learn/articles/{articleId}.
@@ -110,7 +110,7 @@ func (h *Handler) ListTrainingSeries(w http.ResponseWriter, r *http.Request, par
 			Tags: []string{}, Author: authorJSON(s.Author), LessonCount: s.LessonCount,
 		}
 	}
-	writeJSON(w, http.StatusOK, apigen.SeriesPage{Items: items, NextCursor: next(page.NextCursor)})
+	writeJSON(w, http.StatusOK, apigen.SeriesPage{Items: items, NextCursor: next(page.NextCursor), Total: page.Total})
 }
 
 // GetTrainingSeries serves GET /learn/series/{seriesId}. Series carry no tags and no relations at P0

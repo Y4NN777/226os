@@ -9,8 +9,8 @@ repository_or_source_context: "branch chore/review/notes-in-register; owner requ
 files_or_sections_affected: ["scripts/findings.py", "scripts/review-context.py", "scripts/review-ping.py", "scripts/tests/findings_test.sh", "scripts/tests/review-context_test.sh", "scripts/tests/review-ping_test.sh", ".claude/commands/delegate-review.md", "docs/quality/REVIEW_CONTEXT.md", "TODO.md"]
 third_party_sources_consulted: []
 license_review: "NOT APPLICABLE: original code, no new dependency"
-closure: "open"
-human_reviewers: ["pending PR review"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-15; merged in #133)"]
 tests_or_evidence: ["RED: the new cases in findings_test.sh, review-context_test.sh and review-ping_test.sh failed before the change", "GREEN: findings 40 passed, review-context 50 passed, review-ping 13 passed"]
 open_risks: ["NOT RUN end to end until the first merged pull request after this PR: the model must actually write kind and evidence in the ledger (an entry without them is read as a finding, so nothing breaks, but no note is filed)", "the kind:note label is created by the issue API on first use; the board 4 Auto-add filter stays label:finding, so notes are not on the board"]
 ```

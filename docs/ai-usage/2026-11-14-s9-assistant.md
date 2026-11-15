@@ -9,8 +9,8 @@ repository_or_source_context: "branch feature/intelligence/assistant; TODO S9 bl
 files_or_sections_affected: ["src/api/internal/assistant/**", "src/api/internal/app/** (wiring)", "src/api/internal/platform/pgtest/** (golden set)", "scripts/unimplemented-routes.txt", "scripts/authz-tests.txt", "docs/decisions/0012-ai-assistant-integration.md", "docs/decisions/README.md", "TODO.md"]
 third_party_sources_consulted: []
 license_review: "NOT APPLICABLE: original code, no new dependency"
-closure: "open"
-human_reviewers: ["mibienpanjoe (S9 backend reviewer, pending)"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-15; merged in #161)"]
 tests_or_evidence: ["RED: the wiring test and every review fix (17 redaction cases, nested delimiters, links in output, malformed markers, Retry-After)", "GREEN: make generate, test-unit, coverage (Go 100.0%), test-integration-go, security exit 0"]
 open_risks: ["real provider not run (V2, V4)", "unit tests of the first commit written after the code", "no UI panel yet, so the 'sent to Google' notice does not exist"]
 ```

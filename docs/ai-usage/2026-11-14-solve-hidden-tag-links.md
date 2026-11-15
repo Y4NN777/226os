@@ -9,8 +9,8 @@ repository_or_source_context: "branch fix/solve/hidden-tag-links from develop 22
 files_or_sections_affected: ["db/queries/solve.sql", "src/api/internal/platform/dbgen/solve.sql.go (regenerated, not hand-edited)", "src/api/internal/platform/pgtest/solve_integration_test.go", "TODO.md"]
 third_party_sources_consulted: []
 license_review: "NOT APPLICABLE: original code, no new dependency"
-closure: "open"
-human_reviewers: ["pending PR review"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-15; merged in #160)"]
 tests_or_evidence: ["RED: TestSolveEditKeepsAHiddenTagLink FAILS on the pre-fix query (0 link rows left)", "GREEN: same test PASS with the scoped delete; TestSolveEditKeepsAHiddenLinkHidden still PASS; go test -race -tags integration on real PostgreSQL"]
 open_risks: ["InsertSolveQuestionTags still has no status filter: a client that guesses a hidden slug can re-link it; reads filter it anyway, same exposure as build's InsertProjectTags — accepted, noted in issue #156"]
 ```

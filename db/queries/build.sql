@@ -9,10 +9,14 @@ SELECT EXISTS (
 )::boolean;
 
 -- name: InsertProject :one
-INSERT INTO projects (owner_id, name, summary, description_md, language, github_url, visibility)
+-- stage, license_spdx and country_code are bounded by projects_stage_ck, projects_license_ck and
+-- projects_country_fk; the repository maps a violation to a domain error.
+INSERT INTO projects (owner_id, name, summary, description_md, language, github_url, visibility,
+                      stage, license_spdx, country_code)
 VALUES (sqlc.arg('owner_id')::uuid, sqlc.arg('name')::text, sqlc.arg('summary')::text,
         sqlc.narg('description_md')::text, sqlc.arg('language')::text, sqlc.arg('github_url')::text,
-        sqlc.arg('visibility')::text)
+        sqlc.arg('visibility')::text, sqlc.arg('stage')::text, sqlc.narg('license_spdx')::text,
+        sqlc.narg('country_code')::text)
 RETURNING id;
 
 -- name: InsertProjectTags :exec
@@ -42,6 +46,9 @@ WHERE id = sqlc.arg('id')::uuid AND status = 'published';
 UPDATE projects SET
   description_md = CASE WHEN sqlc.arg('set_description')::boolean THEN sqlc.narg('description_md')::text ELSE description_md END,
   visibility = COALESCE(sqlc.narg('visibility')::text, visibility),
+  stage = COALESCE(sqlc.narg('stage')::text, stage),
+  license_spdx = CASE WHEN sqlc.arg('set_license')::boolean THEN sqlc.narg('license_spdx')::text ELSE license_spdx END,
+  country_code = CASE WHEN sqlc.arg('set_country')::boolean THEN sqlc.narg('country_code')::text ELSE country_code END,
   updated_at = now()
 WHERE id = sqlc.arg('id')::uuid;
 
@@ -53,26 +60,44 @@ SELECT p.id, p.name, COALESCE(p.github_url, '')::text AS github_url,
        ARRAY(SELECT t.slug FROM project_tags pt JOIN tags t ON t.id = pt.tag_id
              WHERE pt.project_id = p.id AND t.status = 'active' ORDER BY t.slug)::text[] AS technologies,
        (SELECT count(*) FROM contribution_needs n WHERE n.project_id = p.id AND n.status = 'open')::int AS open_needs,
-       p.published_at, p.created_at, p.updated_at
+       p.published_at, p.created_at, p.updated_at,
+       p.stage, COALESCE(p.license_spdx, '')::text AS license_spdx, COALESCE(p.country_code, '')::text AS country_code
 FROM projects p
 JOIN profiles pr ON pr.user_id = p.owner_id
 WHERE p.id = sqlc.arg('id')::uuid AND p.status = 'published'
   AND (p.visibility = 'public' OR p.owner_id = sqlc.narg('viewer_id')::uuid);
 
 -- name: ListProjects :many
--- Newest first with a UUID tie-breaker (keyset). Public projects use projects_browse_idx; the viewer's
--- own private projects come from projects_owner_idx.
+-- Keyset over (needs_key, time_key, id), all descending (listProjects sort): updated = updated_at,
+-- created = created_at, needs = open needs count then updated_at; needs_key is 0 outside the needs order.
+-- The sort is bound to the cursor. The open-needs count is one lateral aggregate per row, read by the
+-- projection, the order and the keyset alike.
 SELECT p.id, p.name, COALESCE(p.github_url, '')::text AS github_url,
        left(COALESCE(p.description_md, p.summary), 1000)::text AS description,
        p.language, p.visibility, p.owner_id, pr.username, pr.display_name,
        ARRAY(SELECT t.slug FROM project_tags pt JOIN tags t ON t.id = pt.tag_id
              WHERE pt.project_id = p.id AND t.status = 'active' ORDER BY t.slug)::text[] AS technologies,
-       (SELECT count(*) FROM contribution_needs n WHERE n.project_id = p.id AND n.status = 'open')::int AS open_needs,
-       p.published_at, p.created_at, p.updated_at
+       nc.open_needs,
+       p.published_at, p.created_at, p.updated_at,
+       p.stage, COALESCE(p.license_spdx, '')::text AS license_spdx, COALESCE(p.country_code, '')::text AS country_code
 FROM projects p
 JOIN profiles pr ON pr.user_id = p.owner_id
+CROSS JOIN LATERAL (
+  SELECT count(*)::int AS open_needs FROM contribution_needs n WHERE n.project_id = p.id AND n.status = 'open'
+) nc
 WHERE p.status = 'published'
   AND (p.visibility = 'public' OR p.owner_id = sqlc.narg('viewer_id')::uuid)
+  AND (sqlc.narg('stage')::text IS NULL OR p.stage = sqlc.narg('stage')::text)
+  AND (sqlc.narg('country')::text IS NULL OR p.country_code = sqlc.narg('country')::text)
+  AND (sqlc.narg('license')::text IS NULL OR p.license_spdx = sqlc.narg('license')::text)
+  -- owner: the username resolves only under the getProfile rule (active account; profile_visibility
+  -- public, members for a member, or the viewer's own profile), else to NULL, which matches nothing.
+  AND (sqlc.narg('owner')::text IS NULL OR p.owner_id = (
+       SELECT op.user_id FROM profiles op JOIN users ou ON ou.id = op.user_id AND ou.status = 'active'
+       WHERE op.username = sqlc.narg('owner')::text
+         AND (op.profile_visibility = 'public'
+              OR (sqlc.narg('viewer_id')::uuid IS NOT NULL AND op.profile_visibility = 'members')
+              OR op.user_id = sqlc.narg('viewer_id')::uuid)))
   AND (sqlc.narg('q')::text IS NULL
        OR p.search_document @@ websearch_to_tsquery('simple', f_unaccent(sqlc.narg('q')::text)))
   AND (sqlc.narg('technology')::text IS NULL OR EXISTS (
@@ -85,10 +110,46 @@ WHERE p.status = 'published'
        WHERE n.project_id = p.id AND n.status = 'open' AND t.slug = sqlc.narg('skill')::text AND t.status = 'active'))
   AND (NOT sqlc.arg('open_needs')::boolean OR EXISTS (
        SELECT 1 FROM contribution_needs n WHERE n.project_id = p.id AND n.status = 'open'))
-  AND (sqlc.narg('after_published')::timestamptz IS NULL
-       OR (p.published_at, p.id) < (sqlc.narg('after_published')::timestamptz, sqlc.narg('after_id')::uuid))
-ORDER BY p.published_at DESC, p.id DESC
+  AND (sqlc.narg('after_at')::timestamptz IS NULL
+       OR (CASE WHEN sqlc.arg('sort')::text = 'needs' THEN nc.open_needs ELSE 0 END,
+           CASE WHEN sqlc.arg('sort')::text = 'created' THEN p.created_at ELSE p.updated_at END, p.id)
+          < (sqlc.arg('after_needs')::int, sqlc.narg('after_at')::timestamptz, sqlc.narg('after_id')::uuid))
+ORDER BY CASE WHEN sqlc.arg('sort')::text = 'needs' THEN nc.open_needs ELSE 0 END DESC,
+         CASE WHEN sqlc.arg('sort')::text = 'created' THEN p.created_at ELSE p.updated_at END DESC,
+         p.id DESC
 LIMIT sqlc.arg('row_limit');
+
+-- name: CountProjects :one
+-- listProjects total: the WHERE of ListProjects without the keyset, so it never counts a row the pages
+-- cannot return (another user's private project included). Keep both predicates identical.
+SELECT count(*)::int AS total
+FROM projects p
+JOIN profiles pr ON pr.user_id = p.owner_id
+WHERE p.status = 'published'
+  AND (p.visibility = 'public' OR p.owner_id = sqlc.narg('viewer_id')::uuid)
+  AND (sqlc.narg('stage')::text IS NULL OR p.stage = sqlc.narg('stage')::text)
+  AND (sqlc.narg('country')::text IS NULL OR p.country_code = sqlc.narg('country')::text)
+  AND (sqlc.narg('license')::text IS NULL OR p.license_spdx = sqlc.narg('license')::text)
+  -- owner: the username resolves only under the getProfile rule (active account; profile_visibility
+  -- public, members for a member, or the viewer's own profile), else to NULL, which matches nothing.
+  AND (sqlc.narg('owner')::text IS NULL OR p.owner_id = (
+       SELECT op.user_id FROM profiles op JOIN users ou ON ou.id = op.user_id AND ou.status = 'active'
+       WHERE op.username = sqlc.narg('owner')::text
+         AND (op.profile_visibility = 'public'
+              OR (sqlc.narg('viewer_id')::uuid IS NOT NULL AND op.profile_visibility = 'members')
+              OR op.user_id = sqlc.narg('viewer_id')::uuid)))
+  AND (sqlc.narg('q')::text IS NULL
+       OR p.search_document @@ websearch_to_tsquery('simple', f_unaccent(sqlc.narg('q')::text)))
+  AND (sqlc.narg('technology')::text IS NULL OR EXISTS (
+       SELECT 1 FROM project_tags pt JOIN tags t ON t.id = pt.tag_id
+       WHERE pt.project_id = p.id AND t.slug = sqlc.narg('technology')::text AND t.status = 'active'))
+  AND (sqlc.narg('skill')::text IS NULL OR EXISTS (
+       SELECT 1 FROM contribution_needs n
+       JOIN need_skills ns ON ns.need_id = n.id
+       JOIN tags t ON t.id = ns.tag_id
+       WHERE n.project_id = p.id AND n.status = 'open' AND t.slug = sqlc.narg('skill')::text AND t.status = 'active'))
+  AND (NOT sqlc.arg('open_needs')::boolean OR EXISTS (
+       SELECT 1 FROM contribution_needs n WHERE n.project_id = p.id AND n.status = 'open'));
 
 -- name: ProjectRelated :many
 -- The visible links of a page of projects, at most 20 per project (a window per project, so one

@@ -12,8 +12,11 @@
 -- websearch_to_tsquery('simple', f_unaccent(q)), a query with no positive term reads none), then newest,
 -- then id. Bounded like S2 search (ADR-0005): only the 500 newest matches are ranked, so ts_rank never
 -- scores every row of a very common term and the candidate set is the same on every page. Without q the
--- rank is 0, there is no cap, and the order is newest first. The keyset is (rank, created_at, id), all
--- descending; rank is the same real the cursor carried, so the comparison is exact.
+-- rank is 0, there is no cap, and the order is newest first. The keyset is (rank, sort_key, created_at, id),
+-- all descending; rank is the same real the cursor carried, so the comparison is exact. listQuestions sort:
+-- new ranks as above with sort_key 0; votes and unanswered set rank to 0 and sort_key to vote_score or
+-- -answer_count (fewest answers first), so every order stays one descending row comparison. The 500 cap
+-- with q keeps the newest matches whatever the sort; the sort is bound to the cursor.
 WITH i AS NOT MATERIALIZED (
   SELECT CASE WHEN sqlc.narg('q')::text IS NULL THEN NULL
          ELSE websearch_to_tsquery('simple', f_unaccent(sqlc.narg('q')::text)) END AS tsq
@@ -21,7 +24,10 @@ WITH i AS NOT MATERIALIZED (
 candidates AS (
   SELECT q.id, q.title, q.body_md, q.language, q.snippet, q.snippet_language, q.country_code,
          q.answer_count, q.vote_score, q.accepted_answer_id, q.created_at, q.updated_at, q.author_id,
-         (CASE WHEN i.tsq IS NULL THEN 0 ELSE ts_rank(q.search_document, i.tsq) END)::real AS rank
+         (CASE WHEN i.tsq IS NULL OR sqlc.arg('sort')::text <> 'new' THEN 0
+               ELSE ts_rank(q.search_document, i.tsq) END)::real AS rank,
+         (CASE sqlc.arg('sort')::text WHEN 'votes' THEN q.vote_score
+                                      WHEN 'unanswered' THEN -q.answer_count ELSE 0 END)::int AS sort_key
   FROM questions q
   CROSS JOIN i
   WHERE q.status = 'published'
@@ -40,6 +46,23 @@ candidates AS (
                   WHEN q.answer_count > 0 THEN 'answered' ELSE 'open' END) = sqlc.narg('state')::text)
     AND (sqlc.narg('country')::text IS NULL OR q.country_code = sqlc.narg('country')::text)
     AND (sqlc.narg('lang')::text IS NULL OR q.language = sqlc.narg('lang')::text)
+    -- author / answers_by: the username resolves only under the getProfile rule (active account;
+    -- profile_visibility public, members for a member, or the viewer's own profile), else to NULL, which
+    -- matches nothing: a hidden profile looks unknown.
+    AND (sqlc.narg('author')::text IS NULL OR q.author_id = (
+          SELECT ap.user_id FROM profiles ap JOIN users au ON au.id = ap.user_id AND au.status = 'active'
+          WHERE ap.username = sqlc.narg('author')::text
+            AND (ap.profile_visibility = 'public'
+                 OR (sqlc.narg('viewer_id')::uuid IS NOT NULL AND ap.profile_visibility = 'members')
+                 OR ap.user_id = sqlc.narg('viewer_id')::uuid)))
+    AND (sqlc.narg('answers_by')::text IS NULL OR EXISTS (
+          SELECT 1 FROM answers a
+          WHERE a.question_id = q.id AND a.status = 'published' AND a.author_id = (
+            SELECT bp.user_id FROM profiles bp JOIN users bu ON bu.id = bp.user_id AND bu.status = 'active'
+            WHERE bp.username = sqlc.narg('answers_by')::text
+              AND (bp.profile_visibility = 'public'
+                   OR (sqlc.narg('viewer_id')::uuid IS NOT NULL AND bp.profile_visibility = 'members')
+                   OR bp.user_id = sqlc.narg('viewer_id')::uuid))))
   ORDER BY q.created_at DESC, q.id DESC
   LIMIT (SELECT CASE WHEN tsq IS NULL THEN NULL ELSE 500 END FROM i)
 )
@@ -49,15 +72,65 @@ SELECT c.id, c.title, c.body_md, c.language, COALESCE(c.snippet, '')::text AS sn
        c.author_id, pr.username AS author_username, pr.display_name AS author_display_name,
        COALESCE(CASE WHEN pr.profile_visibility = 'public' AND pr.country_visibility = 'public'
              THEN pr.country_code END, '')::text AS author_country,
-       c.rank,
+       c.rank, c.sort_key,
        COALESCE((SELECT v.value FROM votes v WHERE v.user_id = sqlc.narg('viewer_id')::uuid AND v.target_type = 'question' AND v.target_id = c.id), 0)::int AS viewer_vote
 FROM candidates c
 JOIN profiles pr ON pr.user_id = c.author_id
 WHERE (sqlc.narg('after_created')::timestamptz IS NULL
-       OR (c.rank, c.created_at, c.id)
-          < (sqlc.arg('after_rank')::real, sqlc.narg('after_created')::timestamptz, sqlc.narg('after_id')::uuid))
-ORDER BY c.rank DESC, c.created_at DESC, c.id DESC
+       OR (c.rank, c.sort_key, c.created_at, c.id)
+          < (sqlc.arg('after_rank')::real, sqlc.arg('after_sort_key')::int, sqlc.narg('after_created')::timestamptz,
+             sqlc.narg('after_id')::uuid))
+ORDER BY c.rank DESC, c.sort_key DESC, c.created_at DESC, c.id DESC
 LIMIT sqlc.arg('row_limit');
+
+-- name: CountSolveQuestions :one
+-- listQuestions total: the candidates of ListSolveQuestions (same filters, same 500 cap with q) joined to
+-- the byline like the page, without the keyset. Keep both predicates identical.
+WITH i AS NOT MATERIALIZED (
+  SELECT CASE WHEN sqlc.narg('q')::text IS NULL THEN NULL
+         ELSE websearch_to_tsquery('simple', f_unaccent(sqlc.narg('q')::text)) END AS tsq
+),
+candidates AS (
+  SELECT q.id, q.author_id
+  FROM questions q
+  CROSS JOIN i
+  WHERE q.status = 'published'
+    AND (i.tsq IS NULL OR (querytree(i.tsq) NOT IN ('', 'T') AND q.search_document @@ i.tsq))
+    AND (sqlc.narg('tag')::text IS NULL OR EXISTS (
+          SELECT 1 FROM question_tags qt JOIN tags t ON t.id = qt.tag_id AND t.status = 'active'
+          WHERE qt.question_id = q.id AND t.slug = sqlc.narg('tag')::text
+            AND (SELECT count(*) FROM (
+                   SELECT 1 FROM question_tags qt2
+                   JOIN tags t2 ON t2.id = qt2.tag_id AND t2.status = 'active'
+                   WHERE qt2.question_id = q.id AND t2.slug < t.slug LIMIT 5) lower_slugs) < 5))
+    AND (sqlc.narg('state')::text IS NULL
+         OR (CASE WHEN q.accepted_answer_id IS NOT NULL THEN 'resolved'
+                  WHEN q.answer_count > 0 THEN 'answered' ELSE 'open' END) = sqlc.narg('state')::text)
+    AND (sqlc.narg('country')::text IS NULL OR q.country_code = sqlc.narg('country')::text)
+    AND (sqlc.narg('lang')::text IS NULL OR q.language = sqlc.narg('lang')::text)
+    -- author / answers_by: the username resolves only under the getProfile rule (active account;
+    -- profile_visibility public, members for a member, or the viewer's own profile), else to NULL, which
+    -- matches nothing: a hidden profile looks unknown.
+    AND (sqlc.narg('author')::text IS NULL OR q.author_id = (
+          SELECT ap.user_id FROM profiles ap JOIN users au ON au.id = ap.user_id AND au.status = 'active'
+          WHERE ap.username = sqlc.narg('author')::text
+            AND (ap.profile_visibility = 'public'
+                 OR (sqlc.narg('viewer_id')::uuid IS NOT NULL AND ap.profile_visibility = 'members')
+                 OR ap.user_id = sqlc.narg('viewer_id')::uuid)))
+    AND (sqlc.narg('answers_by')::text IS NULL OR EXISTS (
+          SELECT 1 FROM answers a
+          WHERE a.question_id = q.id AND a.status = 'published' AND a.author_id = (
+            SELECT bp.user_id FROM profiles bp JOIN users bu ON bu.id = bp.user_id AND bu.status = 'active'
+            WHERE bp.username = sqlc.narg('answers_by')::text
+              AND (bp.profile_visibility = 'public'
+                   OR (sqlc.narg('viewer_id')::uuid IS NOT NULL AND bp.profile_visibility = 'members')
+                   OR bp.user_id = sqlc.narg('viewer_id')::uuid))))
+  ORDER BY q.created_at DESC, q.id DESC
+  LIMIT (SELECT CASE WHEN tsq IS NULL THEN NULL ELSE 500 END FROM i)
+)
+SELECT count(*)::int AS total
+FROM candidates c
+JOIN profiles pr ON pr.user_id = c.author_id;
 
 -- name: GetSolveQuestion :one
 -- viewer_vote is the caller's own vote (0 without a vote or without a caller): one primary-key probe of

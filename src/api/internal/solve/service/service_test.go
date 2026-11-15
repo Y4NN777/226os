@@ -51,11 +51,61 @@ type fakeStore struct {
 	// viewerSeen is the viewer id GetQuestion was called with.
 	viewerSeen string
 	gotChange  domain.AcceptChange
+
+	total    int
+	countErr error
+	countQ   domain.QuestionQuery
 }
 
 func (f *fakeStore) ListQuestions(_ context.Context, q domain.QuestionQuery) ([]domain.Question, error) {
 	f.listQ = q
 	return f.questions, f.err
+}
+
+func (f *fakeStore) CountQuestions(_ context.Context, q domain.QuestionQuery) (int, error) {
+	f.countQ = q
+	return f.total, f.countErr
+}
+
+// author and answers_by reach the page and the count with the viewer (the store applies the profile
+// rule) and bind the cursor.
+func TestListQuestionsProfileFilters(t *testing.T) {
+	st := &fakeStore{questions: []domain.Question{question(qID, when), question(aID, when)}}
+	svc, _ := newSvc(t, st)
+	limit := 1
+	req := service.QuestionListRequest{Author: ptr("alice"), AnswersBy: ptr("bob"), Limit: &limit}
+	page, err := svc.ListQuestions(t.Context(), member, req)
+	if err != nil || st.listQ.Author != "alice" || st.listQ.AnswersBy != "bob" || st.countQ.Author != "alice" ||
+		st.countQ.AnswersBy != "bob" || st.countQ.ViewerID != userID || page.NextCursor == "" {
+		t.Fatalf("page %+v %v list %+v count %+v", page, err, st.listQ, st.countQ)
+	}
+	for _, other := range []service.QuestionListRequest{
+		{Author: ptr("carol"), AnswersBy: ptr("bob")},
+		{Author: ptr("alice")},
+		{AnswersBy: ptr("bob")},
+	} {
+		other.Cursor = page.NextCursor
+		_, err := svc.ListQuestions(t.Context(), member, other)
+		wantCode(t, err, apperr.CodeInvalidCursor)
+	}
+}
+
+// total counts with the page filters and no cursor; a count failure fails the page.
+func TestListQuestionsTotal(t *testing.T) {
+	st := &fakeStore{questions: []domain.Question{{ID: qID, CreatedAt: when}, {ID: qID, CreatedAt: when}}, total: 8}
+	svc := service.New(st, codec(t), nil)
+	one := 1
+	req := service.QuestionListRequest{Tag: ptr("go"), Limit: &one}
+	page, err := svc.ListQuestions(t.Context(), subject.Subject{}, req)
+	if err != nil || page.Total != 8 || st.countQ.Tag != "go" || st.countQ.Limit != 0 {
+		t.Fatalf("page %+v %v %+v", page, err, st.countQ)
+	}
+	req.Cursor = page.NextCursor
+	if _, err := svc.ListQuestions(t.Context(), subject.Subject{}, req); err != nil || st.countQ.AfterCreated != nil || st.countQ.AfterID != "" {
+		t.Fatalf("page 2 %v %+v", err, st.countQ)
+	}
+	_, err = service.New(&fakeStore{countErr: errDB}, codec(t), nil).ListQuestions(t.Context(), subject.Subject{}, service.QuestionListRequest{})
+	wantCode(t, err, apperr.CodeInternal)
 }
 
 func (f *fakeStore) GetQuestion(_ context.Context, _, viewer string) (domain.Question, error) {
@@ -286,6 +336,51 @@ func TestListQuestionsCursorCarriesTheRank(t *testing.T) {
 	}
 	if _, err := svc.ListQuestions(t.Context(), subject.Subject{}, service.QuestionListRequest{Q: ptr("paiement"), Limit: &limit, Cursor: page.NextCursor}); err != nil || st.listQ.AfterRank != 0.0607927 || st.listQ.AfterID != qID {
 		t.Fatalf("after rank %v id %s, %v", st.listQ.AfterRank, st.listQ.AfterID, err)
+	}
+}
+
+// sort: new (default), votes, unanswered; the cursor carries the sort key and is refused under another
+// sort; an unreadable key is INVALID_CURSOR.
+func TestListQuestionsSort(t *testing.T) {
+	rows := []domain.Question{question(qID, when), question(aID, when.Add(-time.Hour))}
+	rows[0].SortKey = -3
+	st := &fakeStore{questions: rows}
+	svc, _ := newSvc(t, st)
+	limit := 1
+	cursors := map[string]string{}
+	for _, tc := range []struct {
+		sort *string
+		want string
+	}{{nil, domain.SortNew}, {ptr("new"), domain.SortNew}, {ptr("votes"), domain.SortVotes}, {ptr("unanswered"), domain.SortUnanswered}} {
+		page, err := svc.ListQuestions(t.Context(), subject.Subject{}, service.QuestionListRequest{Sort: tc.sort, Limit: &limit})
+		if err != nil || st.listQ.Sort != tc.want || page.NextCursor == "" {
+			t.Fatalf("%s: %+v %v %+v", tc.want, page, err, st.listQ)
+		}
+		if _, err := svc.ListQuestions(t.Context(), subject.Subject{}, service.QuestionListRequest{Sort: tc.sort, Limit: &limit, Cursor: page.NextCursor}); err != nil ||
+			st.listQ.AfterSortKey != -3 || st.listQ.AfterID != qID || !st.listQ.AfterCreated.Equal(when) {
+			t.Fatalf("%s page 2: %v %+v", tc.want, err, st.listQ)
+		}
+		cursors[tc.want] = page.NextCursor
+	}
+	for from, token := range cursors {
+		for _, to := range []string{"new", "votes", "unanswered"} {
+			if to != from {
+				_, err := svc.ListQuestions(t.Context(), subject.Subject{}, service.QuestionListRequest{Sort: ptr(to), Cursor: token})
+				wantCode(t, err, apperr.CodeInvalidCursor)
+			}
+		}
+	}
+	c := codec(t)
+	hash := "8:question0:0:0:0:0:3:new0:0:"
+	for name, key := range map[string]string{
+		"no sort key":    "0:" + when.Format(time.RFC3339Nano),
+		"bad sort key":   "0:x:" + when.Format(time.RFC3339Nano),
+		"sort key range": "0:2147483648:" + when.Format(time.RFC3339Nano),
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := svc.ListQuestions(t.Context(), subject.Subject{}, service.QuestionListRequest{Cursor: c.Encode(cursor.Payload{Sort: key, ID: qID, FilterHash: hash})})
+			wantCode(t, err, apperr.CodeInvalidCursor)
+		})
 	}
 }
 func createReq() service.CreateQuestionRequest {

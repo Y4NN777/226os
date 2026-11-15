@@ -32,7 +32,20 @@ var (
 	ErrDuplicateApplication = errors.New("build: application already exists")
 	// ErrStateConflict is a transition from a state that does not allow it.
 	ErrStateConflict = errors.New("build: state conflict")
+	// ErrUnknownCountry is a country code absent from the reference table (projects_country_fk).
+	ErrUnknownCountry = errors.New("build: unknown country")
+	// ErrStageNeedsRepo is a stage other than idea on a project without a GitHub repository
+	// (projects_github_required_ck).
+	ErrStageNeedsRepo = errors.New("build: stage needs a github repository")
 )
+
+// StageIdea is the default stage of a project (projects.stage DEFAULT).
+const StageIdea = "idea"
+
+// Clearable is a nullable member of a merge patch once present: a nil Value clears it.
+type Clearable struct {
+	Value *string
+}
 
 // Need and application status values (contribution_needs_status_ck, applications_status_ck).
 const (
@@ -75,29 +88,48 @@ type Project struct {
 	OpenNeeds                                          int
 	Related                                            []Related
 	PublishedAt, CreatedAt, UpdatedAt                  time.Time
+	// Stage is always set; License and Country are empty when not declared.
+	Stage, License, Country string
 }
 
-// ProjectQuery is one listProjects page request. Limit is the page size plus one.
+// ProjectQuery is one listProjects page request. Limit is the page size plus one. Empty filters are unset.
 type ProjectQuery struct {
 	ViewerID, Q, Technology, Skill string
-	OpenNeeds                      bool
-	AfterPublished                 *time.Time
-	AfterID                        string
-	Limit                          int
+	Stage, Country, License        string
+	// Owner is a username; the store matches it only when the viewer may see that profile.
+	Owner     string
+	OpenNeeds bool
+	// Sort is SortUpdated, SortCreated or SortNeeds. The keyset is (AfterNeeds, AfterAt, AfterID):
+	// AfterNeeds is 0 outside SortNeeds, AfterAt is created_at for SortCreated and updated_at otherwise.
+	Sort       string
+	AfterNeeds int
+	AfterAt    *time.Time
+	AfterID    string
+	Limit      int
 }
+
+// Orders of listProjects.
+const (
+	SortUpdated = "updated"
+	SortCreated = "created"
+	SortNeeds   = "needs"
+)
 
 // NewProject is a validated createProject.
 type NewProject struct {
 	OwnerID, Name, Summary, Description, Lang, GitHubURL, Visibility string
 	Technologies                                                     []string
 	Links                                                            []LinkRef
+	// Stage is always set; empty License or Country stores NULL.
+	Stage, License, Country string
 }
 
 // ProjectPatch is a validated updateProject; nil means unchanged. Links are added, never removed.
 type ProjectPatch struct {
-	Description, Visibility *string
-	Technologies            *[]string
-	Links                   []LinkRef
+	Description, Visibility, Stage *string
+	Technologies                   *[]string
+	Links                          []LinkRef
+	License, Country               *Clearable
 }
 
 // Access is what an authorization decision needs to know about a project.

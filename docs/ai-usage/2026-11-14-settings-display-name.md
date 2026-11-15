@@ -9,8 +9,8 @@ repository_or_source_context: "branch feature/identity/web-settings-profile; iss
 files_or_sections_affected: ["src/web/src/features/settings/**", "src/web/src/app/storage.ts", "src/web/src/main.tsx", "src/web/src/i18n/messages.ts", "TODO.md"]
 third_party_sources_consulted: []
 license_review: "NOT APPLICABLE: original code, no new dependency"
-closure: "open"
-human_reviewers: ["PANK4SS (S7 reviewer, pending)"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-15; merged in #144)"]
 tests_or_evidence: ["RED: 7 tests failed first (load from the API, sign-in invite, PATCH with CSRF and JSON body, header refresh with no storage copy, server violation on the field, legacy key removal, storage unavailable)", "GREEN: pnpm lint, format:check, typecheck, coverage exit 0 (97.63/91.59/98.94/98.83)"]
 open_risks: ["the client keeps a 2-character minimum while the contract allows 1", "the start-up cleanup call in main.tsx has no test (the function it calls is tested)"]
 ```

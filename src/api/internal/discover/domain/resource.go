@@ -17,8 +17,22 @@ type Query struct {
 	// when it supports any of them.
 	Countries          []string
 	AfterName, AfterID string
-	Limit              int
+	// Sort is SortName or SortVerified. AfterVerified is the keyset of SortVerified (NeverVerified for a
+	// resource never verified), AfterName the keyset of SortName.
+	Sort          string
+	AfterVerified *time.Time
+	Limit         int
 }
+
+// Sort orders of listResources.
+const (
+	SortName     = "name"
+	SortVerified = "verified"
+)
+
+// NeverVerified stands for a missing verification time in the SortVerified order, which puts it last.
+// The list query reads a NULL verified_at as the same instant.
+var NeverVerified = time.Date(1, time.January, 1, 0, 0, 0, 0, time.UTC)
 
 // Resource is one published catalogue entry.
 type Resource struct {
