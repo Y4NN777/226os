@@ -84,7 +84,8 @@ grep -qE '^\.PHONY:.*\bquality\b' <<<"$db" || rc=$?
 [ "$rc" -eq 0 ] && ok "targets are .PHONY" || ko "targets are .PHONY"
 
 # --- 3. Unimplemented targets fail closed ---------------------------------------------------
-for t in test-e2e perf seed; do
+# seed is implemented (SEED #75); its fail-closed refusals live in scripts/tests/seed_test.sh.
+for t in test-e2e perf; do
   run_make make "$t"
   if [ "$rc" -ne 0 ] && grep -q 'NOT IMPLEMENTED' <<<"$out" && grep -q 'NOT RUN' <<<"$out" && ! grep -q 'PASS' <<<"$out"; then
     ok "make $t exits non-zero with NOT IMPLEMENTED / NOT RUN (rc=$rc)"
