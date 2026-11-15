@@ -5,7 +5,7 @@ import { TextInput } from '@astryxdesign/core/TextInput';
 import { VStack } from '@astryxdesign/core/VStack';
 import { useForm } from '@tanstack/react-form';
 import { useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { api, ApiError } from '../../api/http';
 import { bumpSessionEpoch, forgetPrivateData, sessionQueryKey } from '../../app/session';
 import { useI18n } from '../../i18n/I18nProvider';
@@ -75,6 +75,12 @@ export function ResetPasswordPage() {
       }
     },
   });
+
+  // A mail link opened in a tab already on this page only changes the fragment.
+  const { setFieldValue } = form;
+  useEffect(() => {
+    if (hashToken !== null) setFieldValue('token', hashToken);
+  }, [hashToken, setFieldValue]);
 
   if (phase === 'done') {
     return (
