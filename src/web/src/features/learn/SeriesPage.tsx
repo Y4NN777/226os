@@ -11,7 +11,7 @@ import { LoadingState } from '../../components/LoadingState';
 import { useI18n } from '../../i18n/I18nProvider';
 import { ArrowRightIcon, BookIcon, HelpIcon } from './icons';
 import './learn.css';
-import { AuthorLine, formatMinutes, KindBadge, LangCode } from './present';
+import { AuthorLine, formatMinutes, isSingular, KindBadge, LangCode } from './present';
 import { useSeries, type TrainingSeries } from './queries';
 
 type Lesson = TrainingSeries['lessons'][number];
@@ -32,8 +32,9 @@ function Detail({ series }: { series: TrainingSeries }) {
   const lessons = [...series.lessons].sort((a, b) => a.position - b.position);
   const firstLesson = lessons[0];
   const total = totalMinutes(lessons);
-  const count =
-    lessons.length === 1 ? t('learn.lessons.one') : t('learn.lessons.many', { n: lessons.length });
+  const count = t(isSingular(lessons.length, locale) ? 'learn.lessons.one' : 'learn.lessons.many', {
+    n: lessons.length,
+  });
   return (
     <VStack gap={6}>
       <Breadcrumbs label={t('learn.title')} variant="supporting">

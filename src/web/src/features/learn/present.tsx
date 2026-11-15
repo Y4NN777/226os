@@ -74,7 +74,8 @@ export function AuthorByline({ author, date }: { author: Author; date?: string |
   return (
     <div className="learn-by">
       <span className="learn-by-who">
-        <Avatar name={author.display_name} size={32} tooltip={false} />
+        {/* Decorative: the name follows in text, so it is not read twice. */}
+        <Avatar name={author.display_name} size={32} tooltip={false} aria-hidden="true" />
         <AuthorLine author={author} />
       </span>
       {author.country ? (
@@ -119,6 +120,11 @@ export function KindBadge({ kind }: { kind: LearnKind }) {
 export function LevelBadge({ level }: { level: Level }) {
   const { t } = useI18n();
   return <Badge label={t(`learn.level.${level}`)} />;
+}
+
+/** French puts 0 and 1 in the singular (« 0 leçon »), English only 1. */
+export function isSingular(n: number, locale: string): boolean {
+  return locale === 'fr' ? n <= 1 : n === 1;
 }
 
 /** "25 min", "1 h", "3 h 05": the prototype's duration format, the same in both languages. */

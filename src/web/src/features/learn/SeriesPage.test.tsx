@@ -48,6 +48,14 @@ describe('SeriesPage', () => {
     );
   });
 
+  it('says « 0 leçon » in the singular, as French does, for a course with no lesson yet', async () => {
+    setLanguages(['fr-FR']);
+    mockApi(route(series({ lessons: [] })));
+    await renderApp(`/apprendre/formations/${seriesId}`);
+    await screen.findByRole('heading', { level: 1 });
+    expect(screen.getByText('0 leçon')).toBeInTheDocument();
+  });
+
   it('adds up the course duration when every lesson has one', async () => {
     setLanguages(['fr-FR']);
     const base = series();

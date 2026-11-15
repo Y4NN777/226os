@@ -19,7 +19,7 @@ import type { MessageKey } from '../../i18n/messages';
 import { formatDate } from '../discover/present';
 import { ArrowRightIcon, BookIcon, EditIcon, HelpIcon, SparklesIcon } from './icons';
 import './learn.css';
-import { formatMinutes, ItemRow, KindBadge, KindThumb, LangCode } from './present';
+import { formatMinutes, isSingular, ItemRow, KindBadge, KindThumb, LangCode } from './present';
 import {
   useArticleList,
   useSeries,
@@ -42,10 +42,12 @@ const stateKey = {
 const stateVariant = { open: 'neutral', answered: 'blue', resolved: 'success' } as const;
 
 function useCount() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   return {
-    lessons: (n: number) => (n === 1 ? t('learn.lessons.one') : t('learn.lessons.many', { n })),
-    answers: (n: number) => (n === 1 ? t('learn.answers.one') : t('learn.answers.many', { n })),
+    lessons: (n: number) =>
+      t(isSingular(n, locale) ? 'learn.lessons.one' : 'learn.lessons.many', { n }),
+    answers: (n: number) =>
+      t(isSingular(n, locale) ? 'learn.answers.one' : 'learn.answers.many', { n }),
   };
 }
 
