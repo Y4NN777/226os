@@ -10,6 +10,7 @@
     {"skill": "tdd-unit", "paths": ["**/*_test.go", "**/*.test.ts", "**/*.test.tsx", "**/*.spec.ts", "**/*.spec.tsx", "**/vitest.config.*"]},
     {"skill": "bdd-acceptance", "paths": ["tests/e2e/**", "e2e/**", "src/web/e2e/**", "**/*.feature", "**/playwright.config.*"]},
     {"skill": "integration-testing", "paths": ["**/integration/**", "**/*_integration_test.go", "tests/contract/**", "**/testdata/**"]},
-    {"skill": "ci-cd-delivery", "paths": ["Makefile", "**/*.mk", ".github/workflows/**", "infra/**", "docker/**", "**/Dockerfile", "**/Dockerfile.*", "compose*.yml", "compose*.yaml", "docker-compose*.yml", "**/traefik*/**"]}
+    {"skill": "ci-cd-delivery", "paths": ["Makefile", "**/*.mk", ".github/workflows/**", "infra/**", "docker/**", "**/Dockerfile", "**/Dockerfile.*", "compose*.yml", "compose*.yaml", "docker-compose*.yml", "**/traefik*/**"]},
+    {"skill": "review-pipeline", "paths": ["scripts/review-*.py", "scripts/findings.py", "scripts/close-merged-issues.py", ".github/workflows/code-review.yml", ".github/workflows/review-*.yml", ".github/pipeline-paths.txt", ".github/sensitive-paths.txt", ".github/deep-review-paths.txt", ".claude/commands/review-fix.md", ".claude/commands/deep-review.md", ".claude/commands/delegate-review.md", "scripts/tests/review-*", "scripts/tests/findings*", "docs/quality/REVIEW_CONTEXT.md"]}
   ]
 }
