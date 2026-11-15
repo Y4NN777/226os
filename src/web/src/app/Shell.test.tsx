@@ -219,16 +219,20 @@ describe('Shell', () => {
     await screen.findByRole('link', { name: 'Se connecter' });
     const footer = screen.getByRole('contentinfo');
     expect(within(footer).getByText('226os')).toBeInTheDocument();
-    expect(within(footer).getByRole('link', { name: 'Licence' })).toHaveAttribute(
+    expect(within(footer).getByRole('link', { name: /^Licence/ })).toHaveAttribute(
       'href',
       'https://github.com/Y4NN777/226os/blob/main/LICENSE',
     );
-    expect(within(footer).getByRole('link', { name: 'Contribuer' })).toHaveAttribute(
+    expect(within(footer).getByRole('link', { name: /^Contribuer/ })).toHaveAttribute(
       'href',
       'https://github.com/Y4NN777/226os/blob/main/CONTRIBUTING.md',
     );
+    // Like every external link of the app: a new tab, said in the link text, no opener.
     for (const link of within(footer).getAllByRole('link')) {
-      expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+      expect(link).toHaveAttribute('target', '_blank');
+      expect(link.getAttribute('rel')).toMatch(/noopener/);
+      expect(link.getAttribute('rel')).toMatch(/noreferrer/);
+      expect(link).toHaveTextContent(/nouvel onglet/);
     }
     // No code of conduct or privacy page exists yet: the prototype's links to them are left out.
     expect(within(footer).queryByRole('link', { name: /conduite|Confidentialité/ })).toBeNull();

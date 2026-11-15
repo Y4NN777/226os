@@ -12,6 +12,7 @@ import {
 } from '@astryxdesign/core/DropdownMenu';
 import { Icon } from '@astryxdesign/core/Icon';
 import { IconButton } from '@astryxdesign/core/IconButton';
+import { Link } from '@astryxdesign/core/Link';
 import { MobileNav } from '@astryxdesign/core/MobileNav';
 import {
   SideNav,
@@ -383,9 +384,9 @@ function SiteFooter() {
       <ul className="shell-footer-links" aria-label={t('shell.footer')}>
         {projectLinks.map((link) => (
           <li key={link.href}>
-            <a href={link.href} rel="noopener noreferrer">
+            <Link href={link.href} isExternalLink newTabLabel={t('shell.newTab')}>
               {t(link.label)}
-            </a>
+            </Link>
           </li>
         ))}
       </ul>
