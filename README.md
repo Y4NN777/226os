@@ -6,7 +6,7 @@
 
 226os (« 226 Open Stack », 226 étant l'indicatif téléphonique du Burkina Faso) est une plateforme qui relie l'entraide technique, les ressources utiles aux développeurs africains, les projets open source et l'apprentissage. Le but n'est pas d'ajouter un forum, un annuaire d'API ou un réseau professionnel de plus, mais de raccourcir le chemin entre un problème rencontré, une solution documentée et une contribution que d'autres peuvent réutiliser.
 
-Positionnement : **Afrique de l'Ouest d'abord, puis toute l'Afrique.**
+Positionnement : **né au Burkina Faso, ouvert à l'Afrique de l'Ouest, puis à tout le continent.** 226os veut d'abord être la référence des développeurs, ingénieurs et techies burkinabè, puis s'étendre dans la sous-région par des partenariats.
 
 **État** : le MVP tourne sur `develop` et la mise en production se prépare. Plan dans [ROADMAP.md](ROADMAP.md), suivi dans [TODO.md](TODO.md).
 

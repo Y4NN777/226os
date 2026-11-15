@@ -1,7 +1,18 @@
 # 226os — Product Requirements Document
 
-**Version :** 3.2 (amendement 3.2 approuvé le 2026-11-12 ; version 3.1 approuvée le 2026-11-11). **Statut :** périmètre produit approuvé, plan de réalisation adaptable. **Date :** 2026-11-12.  
+**Version :** 3.3 (amendement 3.3 approuvé le 2026-11-15 ; amendement 3.2 approuvé le 2026-11-12 ; version 3.1 approuvée le 2026-11-11). **Statut :** périmètre produit approuvé, plan de réalisation adaptable. **Date :** 2026-11-15.  
 **Équipe :** 7's (4 membres, inscrits à CADEV ; voir la section 12). **Produit :** 226os. **Domaine :** 226os.tech (réservé par le propriétaire, rien n'y est encore déployé).
+
+## Amendement 3.3 — Positionnement : né au Burkina Faso
+
+**Date :** 2026-11-15. **Version :** 3.2 → 3.3. **Statut :** APPROUVÉ par le propriétaire du dépôt (`Y4NN777`) le 2026-11-15, décision consignée dans le journal des décisions de [ROADMAP.md](../ROADMAP.md) (section 14). Ce changement porte sur le positionnement seulement : le périmètre, les piliers, le modèle de données et l'interface FR/EN ne changent pas.
+
+- **Positionnement : né au Burkina Faso, ouvert à l'Afrique de l'Ouest, puis à tout le continent.** Il remplace « l'Afrique de l'Ouest d'abord, puis toute l'Afrique » de l'amendement 3.2. 226 est l'indicatif du Burkina Faso : 226os vise d'abord à devenir la référence des développeurs, ingénieurs et techies burkinabè, puis à s'étendre dans la sous-région par des partenariats (communautés tech, hubs, écoles), puis à l'Afrique.
+- **Trois cercles.** Le cœur, le Burkina Faso : les membres, les solutions faites au Burkina (paiement mobile, agritech, services publics numériques) et le contenu de lancement. La sous-région : chaque partenariat apporte une communauté, du contenu et des solutions. L'Afrique : l'horizon.
+- **Ce qui ne change pas dans le produit.** La plateforme reste ouverte à tous ; la région « Afrique de l'Ouest » (16 pays, `TODO.md` S7) reste le filtre par défaut de Découvrir, avec « Toute l'Afrique » en un clic. L'ordre Burkina, sous-région, Afrique guide le contenu de lancement, l'effort communautaire et les partenariats, pas l'accès.
+- **Mesure.** La première question est : un développeur burkinabè trouve-t-il sur 226os une réponse, une API ou un projet qu'il ne trouvait pas ailleurs ?
+
+**Impact documentaire :** README, ROADMAP (journal des décisions), TODO (S7), `docs/research/REFERENCES.md`. Les textes de positionnement de l'interface (accueil et Découvrir, FR et EN) suivent dans une pull request web.
 
 ## Amendement 3.2 — Apprendre et Connect mis en avant, assistant sourcé au P0
 
@@ -34,7 +45,7 @@ Documents liés : [SPEC](SPEC.md) (comportements et contrats), [DEV](DEV.md) (mi
 
 ## 1. Résumé exécutif
 
-226os est une plateforme construite pour et par les développeurs, qui part de l'Afrique de l'Ouest et s'ouvre à toute l'Afrique (amendement 3.2). Elle réunit l'entraide technique, les connaissances vérifiables, la découverte d'API/SDK et de services locaux, les projets open source, la collaboration et les opportunités de carrière dans un écosystème commun. Elle vise à franchir les barrières géographiques, linguistiques et de connectivité.
+226os est une plateforme construite pour et par les développeurs, née au Burkina Faso, qui s'ouvre à l'Afrique de l'Ouest puis à toute l'Afrique (amendement 3.3). Elle réunit l'entraide technique, les connaissances vérifiables, la découverte d'API/SDK et de services locaux, les projets open source, la collaboration et les opportunités de carrière dans un écosystème commun. Elle vise à franchir les barrières géographiques, linguistiques et de connectivité.
 
 **Positionnement :** « L'écosystème où les développeurs africains partagent leurs connaissances, résolvent leurs défis et construisent ensemble. »
 
