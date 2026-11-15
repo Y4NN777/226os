@@ -6,6 +6,7 @@ import { HammerIcon, HelpIcon } from '../components/icons';
 import { callsTo, memberAccount, memberSession, mockApi, problemResponse } from '../test/api';
 import { jsonResponse, renderApp, renderWithProviders, setLanguages } from '../test/render';
 import { NavSections } from './Shell';
+import { railQuery } from './navigation';
 
 function primaryNav() {
   return screen.getByRole('navigation', { name: 'Navigation principale' });
@@ -547,5 +548,76 @@ describe('NavSections', () => {
     expect(screen.queryByRole('link', { name: /Construire/ })).not.toBeInTheDocument();
     expect(screen.getByText('Construire')).toBeInTheDocument();
     expect(screen.getByText('Bientôt')).toBeInTheDocument();
+  });
+});
+
+/** Between 768 and 1023px only: the prototype's icon rail. Every other query stays unmatched. */
+function stubTablet() {
+  vi.stubGlobal(
+    'matchMedia',
+    vi.fn((query: string) => ({
+      matches: query === railQuery,
+      media: query,
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })),
+  );
+}
+
+describe('Tablet rail', () => {
+  it('shows the areas as icons with their short label, in the sidebar order', async () => {
+    setLanguages(['fr-FR']);
+    mockApi();
+    stubTablet();
+    await renderApp('/discover');
+    const nav = await screen.findByRole('navigation', { name: 'Navigation principale' });
+    const links = within(nav).getAllByRole('link');
+    expect(links.map((link) => [link.textContent, link.getAttribute('href')])).toEqual([
+      ['Accueil', '/'],
+      ['Apprendre', '/apprendre'],
+      ['Connect', '/connect'],
+      ['Résoudre', '/solve'],
+      ['Découvrir', '/discover'],
+      ['Construire', '/build'],
+    ]);
+    for (const link of links) {
+      expect(link.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
+    }
+    // The rail has no group titles: it is a single list of areas.
+    expect(within(nav).queryByText('Progresser')).not.toBeInTheDocument();
+  });
+
+  it('marks only the current area with aria-current="page"', async () => {
+    setLanguages(['fr-FR']);
+    mockApi();
+    stubTablet();
+    await renderApp('/discover');
+    const nav = await screen.findByRole('navigation', { name: 'Navigation principale' });
+    const current = within(nav)
+      .getAllByRole('link')
+      .filter((link) => link.getAttribute('aria-current') === 'page');
+    expect(current.map((link) => link.textContent)).toEqual(['Découvrir']);
+  });
+
+  it('renders one primary navigation, and no phone bottom bar', async () => {
+    setLanguages(['fr-FR']);
+    mockApi();
+    stubTablet();
+    await renderApp('/');
+    await screen.findByRole('navigation', { name: 'Navigation principale' });
+    expect(screen.getAllByRole('navigation', { name: 'Navigation principale' })).toHaveLength(1);
+    expect(screen.queryByRole('navigation', { name: 'Navigation rapide' })).not.toBeInTheDocument();
+  });
+
+  it('keeps the full sidebar with its group titles above 1023px', async () => {
+    setLanguages(['fr-FR']);
+    mockApi();
+    await renderApp('/');
+    const nav = await screen.findByRole('navigation', { name: 'Navigation principale' });
+    expect(nav.className).not.toContain('shell-rail');
   });
 });

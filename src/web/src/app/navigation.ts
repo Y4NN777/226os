@@ -54,6 +54,9 @@ export const navSections: NavSection[] = [
   },
 ];
 
+/** The prototype's tablet range, where the sidebar becomes an icon rail (92px). */
+export const railQuery = '(min-width: 768px) and (max-width: 1023px)';
+
 /**
  * The phone bottom bar (prototype `.bottom-nav`: four areas, then « Plus »). Mapped to our
  * navigation: Accueil, Apprendre, Résoudre, Découvrir; Connect and Construire stay in the drawer.

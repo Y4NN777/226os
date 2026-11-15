@@ -23,7 +23,7 @@ import {
 import { TextInput } from '@astryxdesign/core/TextInput';
 import { TopNav } from '@astryxdesign/core/TopNav';
 import { Outlet, useNavigate, useRouterState } from '@tanstack/react-router';
-import { useState } from 'react';
+import { useState, useSyncExternalStore } from 'react';
 import { Brand } from '../components/Brand';
 import { RouterAnchor } from '../components/RouterAnchor';
 import {
@@ -49,6 +49,7 @@ import {
   isCurrent,
   navSections,
   projectLinks,
+  railQuery,
   type NavItem,
   type NavSection,
 } from './navigation';
@@ -285,9 +286,60 @@ export function NavSections({
   );
 }
 
+function subscribeRail(notify: () => void) {
+  const query = window.matchMedia(railQuery);
+  query.addEventListener('change', notify);
+  return () => {
+    query.removeEventListener('change', notify);
+  };
+}
+
+/** Whether the viewport is in the tablet range, where the navigation is an icon rail. */
+function useIsRail() {
+  return useSyncExternalStore(
+    subscribeRail,
+    () => window.matchMedia(railQuery).matches,
+    () => false,
+  );
+}
+
+/** Tablet rail (prototype `.nav-item` from 768px): the areas as icons over a short label. */
+function RailNav({ pathname }: { pathname: string }) {
+  const { t } = useI18n();
+  return (
+    <nav aria-label={t('nav.label')} className="shell-rail">
+      {[homeItem, ...navSections.flatMap((section) => section.items)].map((item) => {
+        const Glyph = item.icon;
+        const label = <span>{t(item.label)}</span>;
+        if (!item.to) {
+          return (
+            <span key={item.label} className="shell-rail-item" aria-disabled="true">
+              <Glyph />
+              {label}
+            </span>
+          );
+        }
+        return (
+          <RouterAnchor
+            key={item.label}
+            href={item.to}
+            className="shell-rail-item"
+            aria-current={isCurrent(pathname, item.to) ? 'page' : undefined}
+          >
+            <Glyph />
+            {label}
+          </RouterAnchor>
+        );
+      })}
+    </nav>
+  );
+}
+
 function PrimaryNav({ isDrawer = false }: { isDrawer?: boolean }) {
   const { t } = useI18n();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const isRail = useIsRail();
+  if (isRail && !isDrawer) return <RailNav pathname={pathname} />;
   const sections = (
     <>
       <SideNavSection title={t(homeItem.label)} isHeaderHidden>

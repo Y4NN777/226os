@@ -9,6 +9,7 @@
   --shell-gutter: var(--spacing-4);
   --shell-header-height: 56px;
   --shell-sidebar-width: 232px;
+  --shell-rail-width: 92px;
   --shell-content-max: 1200px;
   --shell-bottom-nav-height: 60px;
 }
@@ -46,6 +47,12 @@
   display: block;
   height: 32px;
   width: auto;
+}
+@media (min-width: 768px) and (max-width: 1023px) {
+  /* Aligned with the rail, as in the prototype. */
+  .shell-topnav .shell-brand {
+    min-width: calc(var(--shell-rail-width) - var(--shell-gutter) * 2 + 40px);
+  }
 }
 @media (min-width: 1024px) {
   /* The search starts where the content column starts, as in the prototype. */
@@ -121,6 +128,53 @@
   color: var(--color-text-secondary);
 }
 
+/* ---------- Tablet rail, 768-1023px (prototype .nav-item as a rail) ---------- */
+.shell-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  box-sizing: border-box;
+  width: var(--shell-rail-width);
+  padding: var(--spacing-3) var(--spacing-2);
+}
+.shell-rail-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: 44px;
+  padding: var(--spacing-2) var(--spacing-1);
+  border-radius: var(--radius-element);
+  color: var(--color-text-secondary);
+  font-size: 0.6875rem;
+  font-weight: var(--font-weight-medium);
+  line-height: 1.15;
+  text-align: center;
+  text-decoration: none;
+}
+.shell-rail-item svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+.shell-rail-item:hover {
+  background: var(--color-background-muted);
+  color: var(--color-text-primary);
+}
+.shell-rail-item[aria-current='page'] {
+  background: var(--color-background-muted);
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-bold);
+}
+.shell-rail-item[aria-disabled='true'] {
+  cursor: default;
+}
+.shell-rail-item[aria-disabled='true']:hover {
+  background: none;
+  color: var(--color-text-secondary);
+}
+
 /* ---------- Content column ---------- */
 .shell-page {
   box-sizing: border-box;
@@ -167,7 +221,13 @@
   font-size: 0.875rem;
 }
 @media (min-width: 768px) {
-  /* Under the content column, beside the sidebar, as in the prototype grid. */
+  /* Under the content column, beside the rail, as in the prototype grid. */
+  .shell-footer {
+    padding-inline-start: calc(var(--shell-rail-width) + var(--shell-gutter));
+  }
+}
+@media (min-width: 1024px) {
+  /* ... and beside the sidebar. */
   .shell-footer {
     padding-inline-start: calc(var(--shell-sidebar-width) + var(--shell-gutter));
   }
