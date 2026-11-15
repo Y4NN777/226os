@@ -54,7 +54,8 @@ func (r *Repository) List(ctx context.Context, q domain.Query) ([]domain.Resourc
 	rows, err := r.q.ListCatalogue(ctx, dbgen.ListCatalogueParams{
 		Category: text(q.Category), ResourceType: text(q.Type), Provider: text(q.Provider),
 		Countries: q.Countries, Sdk: text(q.SDK), Doclang: text(q.Doclang), Q: text(q.Q),
-		AfterName: text(q.AfterName), AfterID: after, RowLimit: int32(q.Limit), //nolint:gosec // page size is at most 51
+		AfterName: text(q.AfterName), AfterID: after, AfterVerified: timestamp(q.AfterVerified), Sort: q.Sort,
+		RowLimit: int32(q.Limit), //nolint:gosec // page size is at most 51
 	})
 	if err != nil {
 		return nil, fmt.Errorf("catalogue list: %w", err)
@@ -64,6 +65,20 @@ func (r *Repository) List(ctx context.Context, q domain.Query) ([]domain.Resourc
 		entries[i] = entryFromList(row)
 	}
 	return r.finish(ctx, entries)
+}
+
+// Count counts the published resources List would page through for q, ignoring the cursor.
+func (r *Repository) Count(ctx context.Context, q domain.Query) (int, error) {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+	n, err := r.q.CountCatalogue(ctx, dbgen.CountCatalogueParams{
+		Category: text(q.Category), ResourceType: text(q.Type), Provider: text(q.Provider),
+		Countries: q.Countries, Sdk: text(q.SDK), Doclang: text(q.Doclang), Q: text(q.Q),
+	})
+	if err != nil {
+		return 0, fmt.Errorf("catalogue count: %w", err)
+	}
+	return int(n), nil
 }
 
 // Get returns one published resource.
@@ -257,6 +272,13 @@ func textPtr(v pgtype.Text) *string {
 	}
 	s := v.String
 	return &s
+}
+
+func timestamp(t *time.Time) pgtype.Timestamptz {
+	if t == nil {
+		return pgtype.Timestamptz{}
+	}
+	return pgtype.Timestamptz{Time: *t, Valid: true}
 }
 
 func timePtr(v pgtype.Timestamptz) *time.Time {

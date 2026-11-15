@@ -57,6 +57,15 @@ func (f *fakeStore) ListSeries(context.Context, domain.SeriesQuery) ([]domain.Se
 
 func (f *fakeStore) GetSeries(context.Context, string) (domain.Series, error) { return f.one, f.err }
 
+// The counts are the number of scripted rows, so the encoder is seen copying them.
+func (f *fakeStore) CountArticles(context.Context, domain.ArticleQuery) (int, error) {
+	return len(f.articles), nil
+}
+
+func (f *fakeStore) CountSeries(context.Context, domain.SeriesQuery) (int, error) {
+	return len(f.series), nil
+}
+
 type allowAll struct{}
 
 func (allowAll) Hit(context.Context, string, string, int, time.Duration) (bool, time.Duration, error) {
@@ -108,7 +117,7 @@ func TestListLearnArticlesEncodesThePage(t *testing.T) {
 	limit := 1
 	handler(t, st).ListLearnArticles(rec, get(t, subject.Subject{}), apigen.ListLearnArticlesParams{Type: &typ, Level: &level, Lang: &lang, Limit: &limit})
 	page := decode[apigen.ArticlePage](t, rec)
-	if rec.Code != http.StatusOK || len(page.Items) != 1 || page.NextCursor == nil {
+	if rec.Code != http.StatusOK || len(page.Items) != 1 || page.NextCursor == nil || page.Total != len(st.articles) {
 		t.Fatalf("%d %s", rec.Code, rec.Body.String())
 	}
 	if it := page.Items[0]; it.Author.Country != nil || it.PublishedAt.Location() != time.UTC || it.Title != "Titre" {
@@ -232,7 +241,7 @@ func TestListTrainingSeriesEncodesThePage(t *testing.T) {
 	rec := httptest.NewRecorder()
 	handler(t, st).ListTrainingSeries(rec, get(t, subject.Subject{}), apigen.ListTrainingSeriesParams{Topic: &topic, Level: &level, Lang: &lang})
 	page := decode[apigen.SeriesPage](t, rec)
-	if rec.Code != http.StatusOK || len(page.Items) != 1 || page.Items[0].LessonCount != 3 || page.Items[0].Tags == nil || page.NextCursor != nil {
+	if rec.Code != http.StatusOK || len(page.Items) != 1 || page.Items[0].LessonCount != 3 || page.Items[0].Tags == nil || page.NextCursor != nil || page.Total != 1 {
 		t.Fatalf("%d %s", rec.Code, rec.Body.String())
 	}
 	rec = httptest.NewRecorder()

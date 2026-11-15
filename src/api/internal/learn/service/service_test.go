@@ -41,6 +41,11 @@ type fakeStore struct {
 	lastQuery   domain.ArticleQuery
 	lastSeriesQ domain.SeriesQuery
 	viewer      string
+
+	total           int
+	countErr        error
+	countedArticles domain.ArticleQuery
+	countedSeries   domain.SeriesQuery
 }
 
 func (f *fakeStore) ListArticles(_ context.Context, q domain.ArticleQuery) ([]domain.ArticleSummary, error) {
@@ -65,6 +70,52 @@ func (f *fakeStore) ListSeries(_ context.Context, q domain.SeriesQuery) ([]domai
 
 func (f *fakeStore) GetSeries(context.Context, string) (domain.Series, error) {
 	return f.oneSeries, f.seriesErr
+}
+
+func (f *fakeStore) CountArticles(_ context.Context, q domain.ArticleQuery) (int, error) {
+	f.countedArticles = q
+	return f.total, f.countErr
+}
+
+func (f *fakeStore) CountSeries(_ context.Context, q domain.SeriesQuery) (int, error) {
+	f.countedSeries = q
+	return f.total, f.countErr
+}
+
+// total counts with the page filters and no cursor; a count failure fails the page.
+func TestListTotals(t *testing.T) {
+	st := &fakeStore{
+		articles: []domain.ArticleSummary{{ID: articleID, PublishedAt: when}, {ID: articleID, PublishedAt: when}},
+		series:   []domain.SeriesSummary{{ID: seriesID, PublishedAt: when}, {ID: seriesID, PublishedAt: when}},
+		total:    6,
+	}
+	svc := New(st, codec(t), &fakeLimiter{allow: true})
+	one := 1
+	areq := ArticleListRequest{Type: ptr("tutorial"), Limit: &one}
+	page, err := svc.ListArticles(t.Context(), areq)
+	if err != nil || page.Total != 6 || st.countedArticles.Kind != "tutorial" || st.countedArticles.Limit != 0 {
+		t.Fatalf("articles %+v %v %+v", page, err, st.countedArticles)
+	}
+	areq.Cursor = page.NextCursor
+	if _, err := svc.ListArticles(t.Context(), areq); err != nil || st.countedArticles.AfterPublished != nil || st.countedArticles.AfterID != "" {
+		t.Fatalf("articles page 2 %v %+v", err, st.countedArticles)
+	}
+	sreq := SeriesListRequest{Topic: ptr("payments"), Limit: &one}
+	spage, err := svc.ListSeries(t.Context(), sreq)
+	if err != nil || spage.Total != 6 || st.countedSeries.Topic != "payments" || st.countedSeries.Limit != 0 {
+		t.Fatalf("series %+v %v %+v", spage, err, st.countedSeries)
+	}
+	sreq.Cursor = spage.NextCursor
+	if _, err := svc.ListSeries(t.Context(), sreq); err != nil || st.countedSeries.AfterPublished != nil || st.countedSeries.AfterID != "" {
+		t.Fatalf("series page 2 %v %+v", err, st.countedSeries)
+	}
+	failing := New(&fakeStore{countErr: errDB}, codec(t), &fakeLimiter{allow: true})
+	if _, err := failing.ListArticles(t.Context(), ArticleListRequest{}); !errors.Is(err, errDB) {
+		t.Fatalf("articles err %v", err)
+	}
+	if _, err := failing.ListSeries(t.Context(), SeriesListRequest{}); !errors.Is(err, errDB) {
+		t.Fatalf("series err %v", err)
+	}
 }
 
 type fakeLimiter struct {

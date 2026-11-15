@@ -9,8 +9,8 @@ repository_or_source_context: "branch feature/intelligence/web-solve-assistant; 
 files_or_sections_affected: ["src/web/src/features/search/**", "src/web/src/features/solve/**", "docs/SPEC.md", "docs/spec-kit/AUTHORIZATION_MATRIX.md", "TODO.md"]
 third_party_sources_consulted: []
 license_review: "NOT APPLICABLE: original code and text, no new dependency"
-closure: "open"
-human_reviewers: ["PANK4SS (S7 reviewer, pending)", "Y4NN777 (SPEC and matrix, H13)"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (SPEC and matrix, H13)", "Y4NN777 (owner closure, 2026-11-15; merged in #176)"]
 tests_or_evidence: ["RED: 6 tests failed before the code (recherche short query; solve notice, request, no_source, 503, English)", "GREEN: pnpm lint, format:check, typecheck, coverage exit 0 (345 tests; 96.72/90.29/96.79/97.78)"]
 open_risks: ["SPEC owner items: the disabled and limiter-failure 503 send no Retry-After although TODO S9 says 30; AI-3 and AI-5 are enforced by the prompt only; published_at never filled; series in the source enum never retrieved; ADR-0012 still PROPOSED"]
 ```

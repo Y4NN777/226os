@@ -20,6 +20,7 @@ Feature: Entraide technique
     And Bob peut répondre en étant authentifié
     And Alice peut accepter une seule réponse à sa question
     And un tiers peut retrouver la question via la recherche
+    And la liste des questions se trie par date, par votes ou sans réponse d'abord, et donne le nombre total de questions trouvées
 
   Scenario: Interdire une acceptation non autorisée
     Given Bob n'est pas l'autrice de la question
@@ -37,6 +38,7 @@ Feature: Annuaire des ressources
     Then les fiches correspondant aux filtres sont affichées
     And chaque fiche expose sa provenance documentaire
     And les relations vers les discussions associées sont consultables
+    And la liste se trie par nom ou par dernière vérification et donne le nombre total de fiches trouvées
 ```
 
 ### US-BUILD-001 — Collaborer sur un projet open source
@@ -48,6 +50,8 @@ Feature: Collaboration
     When Bob manifeste son intérêt pour ce besoin
     Then Alice peut consulter la candidature
     And une nouvelle demande identique n'est pas créée par un second clic
+    And le projet indique son stade, sa licence et son pays, trois critères de filtre de la liste
+    And la liste des projets se trie par mise à jour, par création ou par besoins ouverts et donne le nombre total de projets visibles pour l'appelant
 
   Scenario: Empêcher une lecture non autorisée des candidatures
     Given Charlie n'est pas responsable du projet
@@ -160,6 +164,12 @@ Feature: Visibilité du profil
     Given le profil d'Alice est privé
     When Bob demande le profil d'Alice, puis celui d'un nom d'utilisateur qui n'existe pas
     Then les deux réponses sont des 404 au corps identique, à request_id et instance près
+
+  Scenario: L'activité d'un profil masqué reste introuvable
+    Given le profil d'Alice est privé
+    When Bob filtre les projets par propriétaire, ou les questions par autrice ou par réponses, avec le nom d'utilisateur d'Alice
+    Then il reçoit une liste vide avec un total de 0, comme pour un nom d'utilisateur inconnu
+    And Alice, elle, retrouve son activité, ses projets privés compris
 
   Scenario: La signature d'auteur reste visible
     Given le profil d'Alice est privé

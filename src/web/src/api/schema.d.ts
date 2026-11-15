@@ -765,6 +765,41 @@ export interface components {
          * @example BF
          */
         CountryCode: string;
+        /**
+         * @description SPDX license identifier. Matches the database check projects_license_ck.
+         * @example MIT
+         * @example Apache-2.0
+         */
+        LicenseSpdx: string;
+        /**
+         * @description Maturity of a project (projects_stage_ck). A project with a GitHub repository may take any stage.
+         * @example prototype
+         * @enum {string}
+         */
+        ProjectStage: "idea" | "prototype" | "active" | "maintained";
+        /**
+         * @description updated = last updated first; created = newest first; needs = most open contribution needs first, then last updated. UUID tie-breaker.
+         * @default updated
+         * @enum {string}
+         */
+        ProjectSort: "updated" | "created" | "needs";
+        /**
+         * @description name = name ascending; verified = most recently verified first, never-verified entries last. UUID tie-breaker.
+         * @default name
+         * @enum {string}
+         */
+        ResourceSort: "name" | "verified";
+        /**
+         * @description new = newest first (relevance first when q is set); votes = highest vote_score first, then newest; unanswered = fewest answers first, then newest. UUID tie-breaker.
+         * @default new
+         * @enum {string}
+         */
+        QuestionSort: "new" | "votes" | "unanswered";
+        /**
+         * @description Number of items matching the same filters and visibility as the page, independent of the cursor.
+         * @example 42
+         */
+        ListTotal: number;
         Username: string;
         /** @description Markdown source. Raw HTML is neutralised on output; code is never executed. */
         Markdown: string;
@@ -1043,6 +1078,7 @@ export interface components {
             items: components["schemas"]["Question"][];
             /** @description Opaque, integrity-protected; null on the last page. */
             next_cursor: string | null;
+            total: components["schemas"]["ListTotal"];
         };
         Answer: {
             readonly id: components["schemas"]["Uuid"];
@@ -1146,6 +1182,7 @@ export interface components {
             items: components["schemas"]["Resource"][];
             /** @description Opaque, integrity-protected; null on the last page. */
             next_cursor: string | null;
+            total: components["schemas"]["ListTotal"];
         };
         ErrorReportCreate: {
             /** @enum {string} */
@@ -1192,6 +1229,11 @@ export interface components {
             visibility: components["schemas"]["ProjectVisibility"];
             owner: components["schemas"]["AuthorRef"];
             open_needs_count: number;
+            stage: components["schemas"]["ProjectStage"];
+            /** @description SPDX license identifier; null when not declared. */
+            license_spdx: components["schemas"]["LicenseSpdx"] | null;
+            /** @description Country the project serves first; null when not declared. */
+            country_code: components["schemas"]["CountryCode"] | null;
             related: components["schemas"]["RelatedLink"][];
             created_at: components["schemas"]["Timestamp"];
             updated_at: components["schemas"]["Timestamp"];
@@ -1204,11 +1246,20 @@ export interface components {
             visibility?: components["schemas"]["ProjectVisibility"];
             technologies?: components["schemas"]["TagSlug"][];
             links?: components["schemas"]["LinkRef"][];
+            /** @description Defaults to idea. */
+            stage?: components["schemas"]["ProjectStage"];
+            license_spdx?: components["schemas"]["LicenseSpdx"];
+            /** @description Must be a known country (422 otherwise). */
+            country_code?: components["schemas"]["CountryCode"];
         };
-        /** @description JSON Merge Patch. github_url immutable. */
+        /** @description JSON Merge Patch. github_url immutable. null clears license_spdx or country_code. */
         ProjectUpdate: {
             description?: string;
             visibility?: components["schemas"]["ProjectVisibility"];
+            stage?: components["schemas"]["ProjectStage"];
+            license_spdx?: components["schemas"]["LicenseSpdx"] | null;
+            /** @description Must be a known country (422 otherwise); null clears it. */
+            country_code?: components["schemas"]["CountryCode"] | null;
             technologies?: components["schemas"]["TagSlug"][];
             links?: components["schemas"]["LinkRef"][];
         };
@@ -1216,6 +1267,7 @@ export interface components {
             items: components["schemas"]["Project"][];
             /** @description Opaque, integrity-protected; null on the last page. */
             next_cursor: string | null;
+            total: components["schemas"]["ListTotal"];
         };
         ContributionNeed: {
             id: components["schemas"]["Uuid"];
@@ -1317,6 +1369,7 @@ export interface components {
             items: components["schemas"]["ArticleSummary"][];
             /** @description Opaque, integrity-protected; null on the last page. */
             next_cursor: string | null;
+            total: components["schemas"]["ListTotal"];
         };
         /** @enum {string} */
         LessonProgressStatus: "not_started" | "in_progress" | "completed";
@@ -1363,6 +1416,7 @@ export interface components {
             items: components["schemas"]["SeriesSummary"][];
             /** @description Opaque, integrity-protected; null on the last page. */
             next_cursor: string | null;
+            total: components["schemas"]["ListTotal"];
         };
         SearchHit: {
             type: components["schemas"]["SearchGroup"];
@@ -2029,6 +2083,12 @@ export interface operations {
                 country?: components["parameters"]["Country"];
                 /** @description Original language of the content. */
                 lang?: components["parameters"]["LangFilter"];
+                /** @description Keep the questions asked by this username (profile visibility applies; hidden means no match). */
+                author?: components["schemas"]["Username"];
+                /** @description Keep the questions this username answered (profile visibility applies; hidden means no match). */
+                answers_by?: components["schemas"]["Username"];
+                /** @description Order of the page; the cursor is bound to it. */
+                sort?: components["schemas"]["QuestionSort"];
             };
             header?: never;
             path?: never;
@@ -2375,6 +2435,8 @@ export interface operations {
                 cursor?: components["parameters"]["Cursor"];
                 /** @description Page size, 1..50 (above 50 -> 422). */
                 limit?: components["parameters"]["Limit"];
+                /** @description Order of the page; the cursor is bound to it. */
+                sort?: components["schemas"]["ResourceSort"];
                 q?: string;
                 /** @description One or more ISO 3166-1 alpha-2 codes, comma separated (BF,CI,SN); a resource matches when it supports any of them. */
                 country?: components["schemas"]["CountryCode"][];
@@ -2578,6 +2640,16 @@ export interface operations {
                 /** @description Skill needed by an open contribution need. */
                 skill?: components["schemas"]["Slug"];
                 open_needs?: boolean;
+                /** @description Keep projects at this stage. */
+                stage?: components["schemas"]["ProjectStage"];
+                /** @description Keep projects whose country is this ISO 3166-1 alpha-2 code. */
+                country?: components["schemas"]["CountryCode"];
+                /** @description Keep projects under this SPDX license identifier (exact match). */
+                license?: components["schemas"]["LicenseSpdx"];
+                /** @description Keep projects owned by this username (profile visibility applies; hidden means no match). */
+                owner?: components["schemas"]["Username"];
+                /** @description Order of the page; the cursor is bound to it. */
+                sort?: components["schemas"]["ProjectSort"];
             };
             header?: never;
             path?: never;

@@ -198,6 +198,50 @@ func (q *Queries) CatalogueSDKs(ctx context.Context, ids []pgtype.UUID) ([]Catal
 	return items, nil
 }
 
+const countCatalogue = `-- name: CountCatalogue :one
+SELECT count(*)::int AS total
+FROM resources r
+JOIN providers p ON p.id = r.provider_id AND p.status = 'published' AND p.removed_at IS NULL
+WHERE r.status = 'published'
+  AND ($1::text IS NULL OR r.category_code = $1)
+  AND ($2::text IS NULL OR r.type = $2)
+  AND ($3::text IS NULL OR p.slug = $3)
+  AND ($4::text[] IS NULL OR EXISTS (
+        SELECT 1 FROM resource_countries c
+        WHERE c.resource_id = r.id AND c.country_code = ANY ($4::text[])))
+  AND ($5::text IS NULL OR EXISTS (
+        SELECT 1 FROM resource_sdk_languages k
+        WHERE k.resource_id = r.id AND k.language = $5))
+  AND ($6::text IS NULL OR $6 = ANY (r.doc_languages))
+  AND ($7::text IS NULL OR r.search_document @@ websearch_to_tsquery('simple', f_unaccent($7::text)))
+`
+
+type CountCatalogueParams struct {
+	Category     pgtype.Text
+	ResourceType pgtype.Text
+	Provider     pgtype.Text
+	Countries    []string
+	Sdk          pgtype.Text
+	Doclang      pgtype.Text
+	Q            pgtype.Text
+}
+
+// listResources total: the WHERE of ListCatalogue without the keyset. Keep both predicates identical.
+func (q *Queries) CountCatalogue(ctx context.Context, arg CountCatalogueParams) (int32, error) {
+	row := q.db.QueryRow(ctx, countCatalogue,
+		arg.Category,
+		arg.ResourceType,
+		arg.Provider,
+		arg.Countries,
+		arg.Sdk,
+		arg.Doclang,
+		arg.Q,
+	)
+	var total int32
+	err := row.Scan(&total)
+	return total, err
+}
+
 const createErrorReport = `-- name: CreateErrorReport :one
 WITH visible AS (
   SELECT r.id
@@ -373,23 +417,35 @@ WHERE r.status = 'published'
         WHERE k.resource_id = r.id AND k.language = $5))
   AND ($6::text IS NULL OR $6 = ANY (r.doc_languages))
   AND ($7::text IS NULL OR r.search_document @@ websearch_to_tsquery('simple', f_unaccent($7::text)))
+  -- Keyset per sort (listResources sort): name = (name, id) ascending; verified = last verification time
+  -- descending, never verified last (NULL read as 0001-01-01, the service encodes the same instant), then
+  -- id ascending. The sort is bound to the cursor, so only the matching branch ever has an after value.
   AND ($8::text IS NULL
        OR (r.name, r.id) > ($8::text, $9::uuid))
-ORDER BY r.name, r.id
-LIMIT $10
+  AND ($10::timestamptz IS NULL
+       OR COALESCE(r.verified_at, '0001-01-01 00:00:00+00'::timestamptz) < $10::timestamptz
+       OR (COALESCE(r.verified_at, '0001-01-01 00:00:00+00'::timestamptz) = $10::timestamptz
+           AND r.id > $9::uuid))
+ORDER BY CASE WHEN $11::text = 'verified'
+              THEN COALESCE(r.verified_at, '0001-01-01 00:00:00+00'::timestamptz) END DESC,
+         CASE WHEN $11::text = 'verified' THEN NULL ELSE r.name END,
+         r.id
+LIMIT $12
 `
 
 type ListCatalogueParams struct {
-	Category     pgtype.Text
-	ResourceType pgtype.Text
-	Provider     pgtype.Text
-	Countries    []string
-	Sdk          pgtype.Text
-	Doclang      pgtype.Text
-	Q            pgtype.Text
-	AfterName    pgtype.Text
-	AfterID      pgtype.UUID
-	RowLimit     int32
+	Category      pgtype.Text
+	ResourceType  pgtype.Text
+	Provider      pgtype.Text
+	Countries     []string
+	Sdk           pgtype.Text
+	Doclang       pgtype.Text
+	Q             pgtype.Text
+	AfterName     pgtype.Text
+	AfterID       pgtype.UUID
+	AfterVerified pgtype.Timestamptz
+	Sort          string
+	RowLimit      int32
 }
 
 type ListCatalogueRow struct {
@@ -429,6 +485,8 @@ func (q *Queries) ListCatalogue(ctx context.Context, arg ListCatalogueParams) ([
 		arg.Q,
 		arg.AfterName,
 		arg.AfterID,
+		arg.AfterVerified,
+		arg.Sort,
 		arg.RowLimit,
 	)
 	if err != nil {

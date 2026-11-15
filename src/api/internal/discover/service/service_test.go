@@ -14,6 +14,7 @@ import (
 
 type fakeReader struct {
 	list    func(domain.Query) ([]domain.Resource, error)
+	count   func(domain.Query) (int, error)
 	get     func(string) (domain.Resource, error)
 	sources func(string) ([]domain.Source, error)
 }
@@ -38,8 +39,42 @@ func (f *catalogueLimiter) Hit(_ context.Context, scope, value string, limit int
 func (f fakeReader) List(_ context.Context, q domain.Query) ([]domain.Resource, error) {
 	return f.list(q)
 }
+
+// Count answers 0 unless the test scripts it.
+func (f fakeReader) Count(_ context.Context, q domain.Query) (int, error) {
+	if f.count == nil {
+		return 0, nil
+	}
+	return f.count(q)
+}
 func (f fakeReader) Get(_ context.Context, id string) (domain.Resource, error) {
 	return f.get(id)
+}
+
+// total counts with the page filters and no cursor; a count failure fails the page.
+func TestListTotal(t *testing.T) {
+	var counted domain.Query
+	rows := []domain.Resource{{ID: "00000000-0000-7000-8000-0000000000a1", Name: "A"}, {ID: "00000000-0000-7000-8000-0000000000a2", Name: "B"}}
+	svc := New(fakeReader{
+		list:  func(domain.Query) ([]domain.Resource, error) { return rows, nil },
+		count: func(q domain.Query) (int, error) { counted = q; return 5, nil },
+	}, codec(t))
+	one := 1
+	page, err := svc.List(t.Context(), ListRequest{Q: str("pay"), Countries: []string{"CI", "BF"}, Limit: &one})
+	if err != nil || page.Total != 5 || counted.Q != "pay" || strings.Join(counted.Countries, ",") != "BF,CI" || counted.Limit != 0 {
+		t.Fatalf("page %+v %v counted %+v", page, err, counted)
+	}
+	if _, err := svc.List(t.Context(), ListRequest{Q: str("pay"), Countries: []string{"CI", "BF"}, Limit: &one, Cursor: page.NextCursor}); err != nil || counted.AfterID != "" || counted.AfterName != "" {
+		t.Fatalf("page 2 %v counted %+v", err, counted)
+	}
+	boom := errors.New("boom")
+	failing := New(fakeReader{
+		list:  func(domain.Query) ([]domain.Resource, error) { return nil, nil },
+		count: func(domain.Query) (int, error) { return 0, boom },
+	}, codec(t))
+	if _, err := failing.List(t.Context(), ListRequest{}); !errors.Is(err, boom) {
+		t.Fatalf("err %v", err)
+	}
 }
 func (f fakeReader) Sources(_ context.Context, id string) ([]domain.Source, error) {
 	return f.sources(id)
@@ -145,7 +180,7 @@ func TestListCursorIsBoundToTheFilters(t *testing.T) {
 
 func TestListRejectsACursorWithNoPosition(t *testing.T) {
 	c := codec(t)
-	token := c.Encode(cursor.Payload{FilterHash: filterHash(domain.Query{})})
+	token := c.Encode(cursor.Payload{FilterHash: filterHash(domain.Query{Sort: domain.SortName})})
 	svc := New(fakeReader{list: func(domain.Query) ([]domain.Resource, error) {
 		t.Fatal("store should not be called")
 		return nil, nil
@@ -154,6 +189,62 @@ func TestListRejectsACursorWithNoPosition(t *testing.T) {
 	var ae *apperr.Error
 	if !errors.As(err, &ae) || ae.Code != apperr.CodeInvalidCursor {
 		t.Fatalf("err = %v", err)
+	}
+}
+
+// sort=verified: newest verification first, never verified last (the NeverVerified instant), the cursor
+// carries that time and is bound to the sort (a name cursor is refused, and the reverse).
+func TestListSortVerified(t *testing.T) {
+	at := time.Date(2026, 11, 10, 8, 0, 0, 500, time.UTC)
+	var got domain.Query
+	page := []domain.Resource{
+		{ID: "00000000-0000-7000-8000-0000000000a1", Name: "A", LastVerifiedAt: &at},
+		{ID: "00000000-0000-7000-8000-0000000000a2", Name: "B"},
+		{ID: "00000000-0000-7000-8000-0000000000a3", Name: "C"},
+	}
+	c := codec(t)
+	svc := New(fakeReader{list: func(q domain.Query) ([]domain.Resource, error) { got = q; return page, nil }}, c)
+	one, two := 1, 2
+	verified := str("verified")
+	first, err := svc.List(t.Context(), ListRequest{Sort: verified, Limit: &one})
+	if err != nil || got.Sort != domain.SortVerified || got.AfterVerified != nil || first.NextCursor == "" {
+		t.Fatalf("first %+v %v %+v", first, err, got)
+	}
+	if _, err := svc.List(t.Context(), ListRequest{Sort: verified, Limit: &one, Cursor: first.NextCursor}); err != nil ||
+		got.AfterVerified == nil || !got.AfterVerified.Equal(at) || got.AfterID != page[0].ID || got.AfterName != "" {
+		t.Fatalf("after verified %v %+v", err, got)
+	}
+	second, err := svc.List(t.Context(), ListRequest{Sort: verified, Limit: &two})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.List(t.Context(), ListRequest{Sort: verified, Limit: &two, Cursor: second.NextCursor}); err != nil ||
+		!got.AfterVerified.Equal(domain.NeverVerified) {
+		t.Fatalf("never verified %v %+v", err, got)
+	}
+	// Default (and explicit) name order keeps the name keyset.
+	byName, err := svc.List(t.Context(), ListRequest{Limit: &one})
+	if err != nil || got.Sort != domain.SortName {
+		t.Fatalf("name %v %+v", err, got)
+	}
+	if _, err := svc.List(t.Context(), ListRequest{Sort: str("name"), Limit: &one, Cursor: byName.NextCursor}); err != nil || got.AfterName != "A" || got.AfterVerified != nil {
+		t.Fatalf("explicit name %v %+v", err, got)
+	}
+	for _, tc := range []struct {
+		name string
+		req  ListRequest
+	}{
+		{"name cursor on verified", ListRequest{Sort: verified, Cursor: byName.NextCursor}},
+		{"verified cursor on name", ListRequest{Cursor: first.NextCursor}},
+		{"verified cursor without a time", ListRequest{Sort: verified, Cursor: c.Encode(cursor.Payload{Sort: "x", ID: page[0].ID, FilterHash: filterHash(domain.Query{Sort: domain.SortVerified})})}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := svc.List(t.Context(), tc.req)
+			var ae *apperr.Error
+			if !errors.As(err, &ae) || ae.Code != apperr.CodeInvalidCursor {
+				t.Fatalf("err = %v", err)
+			}
+		})
 	}
 }
 

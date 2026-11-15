@@ -9,8 +9,8 @@ repository_or_source_context: "issue #116 (PR #94 audit follow-ups), branch fix/
 files_or_sections_affected: ["src/api/internal/identity/service/profile.go", "src/api/internal/identity/service/profile_test.go", "src/api/internal/platform/pgtest/identity_integration_test.go", "TODO.md", "docs/ai-usage/2026-11-13-issue-116-profile-validation.md"]
 third_party_sources_consulted: []
 license_review: "NOT APPLICABLE: original code, no new dependency"
-closure: "open"
-human_reviewers: ["pending PR review"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-15; merged in #127)"]
 tests_or_evidence: ["go test -race -count=1 ./internal/identity/... PASS (new TestUpdateMyProfileViolationsUseContractCodesAndPointers: 16 cases)", "go test -race -count=1 -tags integration -run 'TestIdentityProfiles|TestIdentityProfile' ./internal/platform/pgtest/ PASS on real PostgreSQL (NUL bio -> 422, assertProblemViolations on unknown skill/country)", "go vet clean, gofmt clean"]
 open_risks: ["the three after-freeze items of issue #116 stay open: skills DELETE removes hidden-tag links, the C14b matrix lacks a moderator row and a byte-for-byte 404 body comparison, and the Cache-Control/Vary + resolveSkills-outside-transaction notes", "invalid UTF-8 cannot arrive through encoding/json (it coerces to U+FFFD); the utf8.ValidString half of validText is defence in depth for non-HTTP callers"]
 ```
