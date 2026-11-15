@@ -49,9 +49,11 @@ case "$cmd" in
       if docker buildx imagetools inspect "$ref" >/dev/null 2>&1; then
         # Immutable tags (ADR-0006): a tag that exists is never overwritten and never trusted. It is accepted only when
         # it holds exactly the image built here (same config digest); anything else was pushed by someone else, or by
-        # another build of this commit, and fails the build.
+        # another build of this commit, and fails the build. The local Id is the config digest with the classic image
+        # store and the manifest digest with the containerd store: either match is the same image.
         remote_cfg="$(docker buildx imagetools inspect --raw "$ref" 2>/dev/null | jq -r '.config.digest // empty')" || remote_cfg=""
-        [ "$remote_cfg" = "$local_id" ] || die "$ref already exists with other content (tags are immutable): refusing to deploy an image this run did not build; push a new commit"
+        remote_manifest="$(digest_of "$1" "$n" 2>/dev/null)" || remote_manifest=""
+        [ "$remote_cfg" = "$local_id" ] || [ "$remote_manifest" = "$local_id" ] || die "$ref already exists with other content (tags are immutable): refusing to deploy an image this run did not build; push a new commit"
         printf 'deploy-images: %s is already published with this exact content, kept\n' "$ref" >&2
         d="$(digest_of "$1" "$n")"
       else

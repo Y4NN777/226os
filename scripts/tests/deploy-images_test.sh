@@ -107,6 +107,21 @@ if [ "$rc" -eq 0 ] && grep -qx "tag 226os-api:localtag $ns/226os-api:fresh1" "$t
 else ko "push (rc=$rc out=$out log=$(cat "$tmp/log"))"; fi
 ! grep -q 'imagetools inspect.*fresh1.*--format' "$tmp/log" && ok "push never reads its digests back from the tag" || ko "push re-read the tag"
 
+# containerd image store: the local Id is the manifest digest, not the config digest. An existing tag whose manifest
+# digest equals the local Id is the same image: kept. One whose manifest and config both differ still fails (above/below).
+cat >>"$tmp/ids" <<EOM
+226os-api:ctrtag $d_api
+226os-web:ctrtag sha256:$(printf '2%.0s' {1..64})
+226os-migrate:ctrtag sha256:$(printf '3%.0s' {1..64})
+EOM
+printf '%s %s\n' "$ns/226os-api:ctr1" "$d_api" >"$tmp/map"
+printf '%s sha256:%s\n' "$ns/226os-api:ctr1" "$(printf '8%.0s' {1..64})" >"$tmp/cfg"
+printf '%s %s@%s\n%s %s@%s\n' "$ns/226os-web:ctr1" "$ns/226os-web" "$d_web" "$ns/226os-migrate:ctr1" "$ns/226os-migrate" "$d_mig" >"$tmp/repo"
+run "$images" push ctr1 ctrtag
+if [ "$rc" -eq 0 ] && grep -qx "API_IMAGE=$ns/226os-api@$d_api" <<<"$out" && ! grep -qx "push $ns/226os-api:ctr1" "$tmp/log"; then
+  ok "containerd store: an existing tag whose manifest digest is the local Id is the same image, kept"
+else ko "containerd (rc=$rc out=$out log=$(cat "$tmp/log"))"; fi
+
 # a tag pushed by someone else BEFORE the build (other content): the build fails, nothing is pushed or printed.
 printf '%s %s\n' "$ns/226os-api:abc123" "$d_web" >"$tmp/map"
 printf '%s sha256:%s\n' "$ns/226os-api:abc123" "$(printf '9%.0s' {1..64})" >"$tmp/cfg"
