@@ -6,11 +6,15 @@
 #   workflow_run (Quality completed)   -> staging, only for a successful push run of this repository on develop,
 #                                         and only for the develop tip (an older commit is superseded)
 #   push to main                       -> production, for the tree of that commit
+#   workflow_dispatch (EMERGENCY)      -> production WITHOUT the staging digests: only on refs/heads/main, only with
+#                                         CONFIRM=EMERGENCY and a reason (1 to 200 printable characters). Output
+#                                         emergency=true; the workflow then builds and scans its own images, never tags
+#                                         them tested-*, and the `production` environment approval still applies.
 #
 # Environment (set by the workflow through `env:`, never inlined in a script):
 #   EVENT_NAME, THIS_REPO; workflow_run: RUN_CONCLUSION, RUN_EVENT, RUN_BRANCH, RUN_REPO, RUN_SHA;
-#   push: PUSH_REF, PUSH_SHA. Needs a checkout with origin/develop fetched (staging only).
-# Output (GITHUB_OUTPUT, or stdout when unset): proceed, reason, target, profile, sha, tree.
+#   push: PUSH_REF, PUSH_SHA; workflow_dispatch: DISPATCH_REF, DISPATCH_SHA, CONFIRM, EMERGENCY_REASON. Needs a checkout with origin/develop fetched (staging only).
+# Output (GITHUB_OUTPUT, or stdout when unset): proceed, reason, target, profile, sha, tree, emergency.
 set -euo pipefail
 
 die() { printf 'deploy-plan: REFUSED: %s\n' "$*" >&2; exit 2; }
@@ -39,6 +43,7 @@ case "${EVENT_NAME-}" in
     [ "$sha" = "$tip" ] || skip "superseded: $sha is behind the develop tip $tip, which has its own deploy"
     emit target staging
     emit profile staging-test
+    emit emergency false
     ;;
   push)
     [ "${PUSH_REF-}" = refs/heads/main ] || die "a push deploys only from refs/heads/main (got '${PUSH_REF-}')"
@@ -47,8 +52,24 @@ case "${EVENT_NAME-}" in
     git cat-file -e "$sha^{commit}" 2>/dev/null || die "commit $sha is not in this checkout"
     emit target production
     emit profile production-live
+    emit emergency false
     ;;
-  *) die "unexpected event '${EVENT_NAME-}' (workflow_run or push expected)" ;;
+  workflow_dispatch)
+    [ "${CONFIRM-}" = EMERGENCY ] || die "a manual run deploys only as a confirmed emergency (CONFIRM=EMERGENCY)"
+    [ "${DISPATCH_REF-}" = refs/heads/main ] || die "an emergency deploy runs only from refs/heads/main (got '${DISPATCH_REF-}')"
+    reason="${EMERGENCY_REASON-}"
+    [ -n "$reason" ] || die "an emergency deploy needs a reason"
+    [ "${#reason}" -le 200 ] || die "the emergency reason is longer than 200 characters"
+    [[ ! "$reason" =~ [[:cntrl:]] ]] || die "the emergency reason contains a control character"
+    sha="${DISPATCH_SHA-}"
+    [[ "$sha" =~ $sha_re ]] || die "DISPATCH_SHA is not a 40-character commit SHA"
+    git cat-file -e "$sha^{commit}" 2>/dev/null || die "commit $sha is not in this checkout"
+    emit target production
+    emit profile production-live
+    emit emergency true
+    printf 'deploy-plan: EMERGENCY deploy to production without staging digests\n' >&2
+    ;;
+  *) die "unexpected event '${EVENT_NAME-}' (workflow_run, push or workflow_dispatch expected)" ;;
 esac
 
 emit proceed true

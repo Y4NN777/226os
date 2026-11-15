@@ -114,6 +114,14 @@ Le compte est dans l'environnement GitHub `staging-e2e`, pas dans le dépôt. Le
 6. Sur https://staging.226os.tech, créer le compte de test et vérifier son e-mail, puis `scripts/secrets.sh edit staging-test` pour ajouter `E2E_USER` et `E2E_PASSWORD`, et ouvrir la PR.
 7. Après sa fusion, le déploiement suivant de staging exécute les E2E et pose `tested-<arbre>`. La production peut alors partir de `main` (fusion `develop` vers `main` sans autre changement, puis approbation de l'environnement `production`).
 
+## Déploiement d'urgence (sans staging)
+
+Décision du propriétaire du 2026-11-15. Quand la production ne peut pas attendre staging : GitHub, Actions, **Deploy (emergency)**, « Run workflow » sur `main`, avec une raison (200 caractères au plus) et `EMERGENCY` dans le champ de confirmation. Le workflow construit et scanne ses propres images (`emergency-<sha>-<run>-<tentative>`), attend l'approbation de l'environnement `production`, puis sauvegarde, migre, démarre et lance la fumée. Ni seeds, ni E2E, ni étiquette `tested-*`. Il partage le groupe de concurrence `deploy-production` avec `Deploy`.
+
+Ensuite, le prochain push sur `main` exige toujours des empreintes `tested-<arbre>` : le correctif repasse par `develop` et staging.
+
+File d'attente : GitHub ne garde qu'une exécution en attente par groupe de concurrence. Une exécution d'urgence qui attend derrière un déploiement en cours peut donc être remplacée par un push sur `main` arrivé après elle ; elle apparaît alors « cancelled ». Relancez-la dans ce cas. Les étapes de déploiement sont partagées dans `.github/workflows/deploy-production.yml` (`workflow_call`, environnement `production`).
+
 ## 8. Sauvegardes
 
 Avant chaque migration, `/opt/226os/backups` reçoit un dump chiffré avec age (`<profil>-<date>.dump.age`, pour les clés de `secrets/<profil>.recipients`) et son fichier de preuve ; le dump en clair est supprimé. Les dix derniers sont gardés. **Étape du détenteur de chaque serveur : aucune copie hors du serveur n'existe.** Copiez régulièrement ce dossier ailleurs (par exemple `rsync` depuis votre machine) : un disque perdu perd les sauvegardes avec la base. Déchiffrement : `age -d -i <votre clé age> fichier.dump.age > fichier.dump`, puis `scripts/restore-check.sh`.
