@@ -19,7 +19,8 @@ func TestBuildQueries(t *testing.T) {
 	other := pgtype.UUID{Bytes: [16]byte{2}, Valid: true}
 	ts := pgtype.Timestamptz{Time: time.Unix(10, 0).UTC(), Valid: true}
 	text := pgtype.Text{String: "go", Valid: true}
-	projectRow := []any{id, "Repo", "https://github.com/o/r", "D", "fr", "public", other, "alice", "Alice", []string{"go"}, int32(2), ts, ts, ts}
+	projectRow := []any{id, "Repo", "https://github.com/o/r", "D", "fr", "public", other, "alice", "Alice", []string{"go"}, int32(2), ts, ts, ts, "active", "MIT", "BF"}
+	mit, bf := pgtype.Text{String: "MIT", Valid: true}, pgtype.Text{String: "BF", Valid: true}
 
 	db := &fakeDB{rowVals: []any{true}}
 	taken, err := dbgen.New(db).ProjectURLTaken(ctx, "https://github.com/o/r")
@@ -31,11 +32,12 @@ func TestBuildQueries(t *testing.T) {
 	db = &fakeDB{rowVals: []any{id}}
 	newID, err := dbgen.New(db).InsertProject(ctx, dbgen.InsertProjectParams{
 		OwnerID: other, Name: "Repo", Summary: "S", DescriptionMd: text, Language: "fr", GithubUrl: "u", Visibility: "public",
+		Stage: "active", LicenseSpdx: mit, CountryCode: bf,
 	})
 	if err != nil || newID != id {
 		t.Fatalf("InsertProject = %v, %v", newID, err)
 	}
-	assertCall(t, db, "INSERT INTO projects", []any{other, "Repo", "S", text, "fr", "u", "public"})
+	assertCall(t, db, "INSERT INTO projects", []any{other, "Repo", "S", text, "fr", "u", "public", "active", mit, bf})
 
 	db = &fakeDB{}
 	if err := dbgen.New(db).InsertProjectTags(ctx, dbgen.InsertProjectTagsParams{ProjectID: id, Slugs: []string{"go"}}); err != nil {
@@ -62,24 +64,26 @@ func TestBuildQueries(t *testing.T) {
 	assertCall(t, db, "status = 'published'", []any{id})
 
 	db = &fakeDB{}
-	if err := dbgen.New(db).UpdateProject(ctx, dbgen.UpdateProjectParams{SetDescription: true, DescriptionMd: text, ID: id}); err != nil {
+	if err := dbgen.New(db).UpdateProject(ctx, dbgen.UpdateProjectParams{
+		SetDescription: true, DescriptionMd: text, Stage: text, SetLicense: true, LicenseSpdx: mit, SetCountry: true, ID: id,
+	}); err != nil {
 		t.Fatal(err)
 	}
-	assertCall(t, db, "UPDATE projects SET", []any{true, text, pgtype.Text{}, id})
+	assertCall(t, db, "UPDATE projects SET", []any{true, text, pgtype.Text{}, text, true, mit, true, pgtype.Text{}, id})
 
 	db = &fakeDB{rowVals: projectRow}
 	p, err := dbgen.New(db).GetProject(ctx, dbgen.GetProjectParams{ID: id, ViewerID: other})
-	if err != nil || p.Name != "Repo" || p.OpenNeeds != 2 || p.Technologies[0] != "go" {
+	if err != nil || p.Name != "Repo" || p.OpenNeeds != 2 || p.Technologies[0] != "go" || p.Stage != "active" || p.LicenseSpdx != "MIT" || p.CountryCode != "BF" {
 		t.Fatalf("GetProject = %+v, %v", p, err)
 	}
 	assertCall(t, db, "p.owner_id = $2::uuid", []any{id, other})
 
 	db = &fakeDB{many: [][]any{projectRow}}
-	list, err := dbgen.New(db).ListProjects(ctx, dbgen.ListProjectsParams{ViewerID: other, Technology: text, OpenNeeds: true, AfterPublished: ts, AfterID: id, RowLimit: 21})
-	if err != nil || len(list) != 1 || list[0].Username != "alice" {
+	list, err := dbgen.New(db).ListProjects(ctx, dbgen.ListProjectsParams{ViewerID: other, Stage: text, Country: bf, License: mit, Technology: text, OpenNeeds: true, AfterPublished: ts, AfterID: id, RowLimit: 21})
+	if err != nil || len(list) != 1 || list[0].Username != "alice" || list[0].CountryCode != "BF" {
 		t.Fatalf("ListProjects = %+v, %v", list, err)
 	}
-	assertCall(t, db, "ORDER BY p.published_at DESC, p.id DESC", []any{other, pgtype.Text{}, text, pgtype.Text{}, true, ts, id, int32(21)})
+	assertCall(t, db, "ORDER BY p.published_at DESC, p.id DESC", []any{other, text, bf, mit, pgtype.Text{}, text, pgtype.Text{}, true, ts, id, int32(21)})
 
 	db = &fakeDB{many: [][]any{{id, "question", other, "Q", "fr"}}}
 	related, err := dbgen.New(db).ProjectRelated(ctx, []pgtype.UUID{id})

@@ -75,26 +75,29 @@ type Limiter interface {
 
 // ProjectListRequest is listProjects. Nil means unset; nil Limit means 20.
 type ProjectListRequest struct {
-	Q, Technology, Skill *string
-	OpenNeeds            *bool
-	Cursor               string
-	Limit                *int
-	ClientIP             string
+	Q, Technology, Skill    *string
+	Stage, Country, License *string
+	OpenNeeds               *bool
+	Cursor                  string
+	Limit                   *int
+	ClientIP                string
 }
 
-// CreateProjectRequest is the createProject body. Nil Visibility means public.
+// CreateProjectRequest is the createProject body. Nil Visibility means public, nil Stage means idea.
 type CreateProjectRequest struct {
 	GitHubURL, Lang         string
 	Description, Visibility *string
+	Stage, License, Country *string
 	Technologies            []string
 	Links                   []domain.LinkRef
 }
 
 // UpdateProjectRequest is the updateProject merge patch; nil means unchanged.
 type UpdateProjectRequest struct {
-	Description, Visibility *string
-	Technologies            *[]string
-	Links                   []domain.LinkRef
+	Description, Visibility, Stage *string
+	License, Country               *domain.Clearable
+	Technologies                   *[]string
+	Links                          []domain.LinkRef
 }
 
 // NeedListRequest is listContributionNeeds. Nil Limit means 20.
@@ -152,9 +155,11 @@ func (s *Service) ListProjects(ctx context.Context, sub subject.Subject, req Pro
 	}
 	query := domain.ProjectQuery{
 		ViewerID: sub.UserID, Q: q, Technology: deref(req.Technology), Skill: deref(req.Skill),
+		Stage: deref(req.Stage), Country: deref(req.Country), License: deref(req.License),
 		OpenNeeds: req.OpenNeeds != nil && *req.OpenNeeds, Limit: size + 1,
 	}
-	hash := lengthPrefixed("project", query.ViewerID, query.Q, query.Technology, query.Skill, strconv.FormatBool(query.OpenNeeds))
+	hash := lengthPrefixed("project", query.ViewerID, query.Q, query.Technology, query.Skill, strconv.FormatBool(query.OpenNeeds),
+		query.Stage, query.Country, query.License)
 	if req.Cursor != "" {
 		at, id, err := s.decode(req.Cursor, hash)
 		if err != nil {
@@ -211,6 +216,10 @@ func (s *Service) CreateProject(ctx context.Context, sub subject.Subject, req Cr
 	if req.Visibility != nil {
 		visibility = *req.Visibility
 	}
+	stage := domain.StageIdea
+	if req.Stage != nil {
+		stage = *req.Stage
+	}
 	if err := s.hit(ctx, writeScope, sub.UserID, writeLimit, writeWindow); err != nil {
 		return domain.Project{}, err
 	}
@@ -235,6 +244,7 @@ func (s *Service) CreateProject(ctx context.Context, sub subject.Subject, req Cr
 	id, err := s.store.CreateProject(ctx, domain.NewProject{
 		OwnerID: sub.UserID, Name: repo.Name, Summary: summary(repo), Description: description, Lang: req.Lang,
 		GitHubURL: url, Visibility: visibility, Technologies: dedupe(req.Technologies), Links: links,
+		Stage: stage, License: deref(req.License), Country: deref(req.Country),
 	})
 	if err != nil {
 		return domain.Project{}, storeErr(err)
@@ -255,7 +265,10 @@ func (s *Service) UpdateProject(ctx context.Context, sub subject.Subject, id str
 	if err != nil {
 		return domain.Project{}, err
 	}
-	patch := domain.ProjectPatch{Description: req.Description, Visibility: req.Visibility, Links: links}
+	patch := domain.ProjectPatch{
+		Description: req.Description, Visibility: req.Visibility, Stage: req.Stage, Links: links,
+		License: req.License, Country: req.Country,
+	}
 	if req.Technologies != nil {
 		techs := dedupe(*req.Technologies)
 		patch.Technologies = &techs
@@ -494,6 +507,10 @@ func storeErr(err error) error {
 		return stateConflict("The application is no longer pending.")
 	case errors.Is(err, domain.ErrLinkTarget):
 		return invalid("/links", "invalid_value", "each link must point to a published, public item.")
+	case errors.Is(err, domain.ErrUnknownCountry):
+		return invalid("/country_code", "invalid_value", "country_code must be a known country.")
+	case errors.Is(err, domain.ErrStageNeedsRepo):
+		return invalid("/stage", "invalid_value", "a project without a GitHub repository stays at the idea stage.")
 	default:
 		return apperr.Wrap(apperr.CodeInternal, err)
 	}

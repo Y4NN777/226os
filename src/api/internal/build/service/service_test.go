@@ -232,7 +232,7 @@ func TestListProjectsAnonymousQueryUsesSearchBudget(t *testing.T) {
 
 func TestListProjectsRejects(t *testing.T) {
 	c := codec(t)
-	hash := lengthPrefixed("project", "", "", "", "", "false")
+	hash := lengthPrefixed("project", "", "", "", "", "false", "", "", "")
 	tests := []struct {
 		name string
 		req  ProjectListRequest
@@ -253,6 +253,72 @@ func TestListProjectsRejects(t *testing.T) {
 			_, err := newSvc(t, &fakeStore{listErr: tc.err}, nil, nil).ListProjects(t.Context(), anon, tc.req)
 			wantCode(t, err, tc.code)
 		})
+	}
+}
+
+// Project facts (owner decision 2026-11-15): stage, license_spdx and country_code are written on create
+// and update, filter the list, and bind the cursor.
+func TestProjectFacts(t *testing.T) {
+	st := &fakeStore{}
+	svc := newSvc(t, st, nil, nil)
+	if _, err := svc.CreateProject(t.Context(), alice, createReq()); err != nil {
+		t.Fatal(err)
+	}
+	if st.created.Stage != domain.StageIdea || st.created.License != "" || st.created.Country != "" {
+		t.Fatalf("defaults %+v", st.created)
+	}
+	req := createReq()
+	req.Stage, req.License, req.Country = ptr("prototype"), ptr("MIT"), ptr("BF")
+	if _, err := svc.CreateProject(t.Context(), alice, req); err != nil {
+		t.Fatal(err)
+	}
+	if st.created.Stage != "prototype" || st.created.License != "MIT" || st.created.Country != "BF" {
+		t.Fatalf("facts %+v", st.created)
+	}
+
+	st = &fakeStore{access: domain.Access{OwnerID: aliceID, Visibility: "public"}}
+	clear := &domain.Clearable{}
+	if _, err := newSvc(t, st, nil, nil).UpdateProject(t.Context(), alice, projID, UpdateProjectRequest{
+		Stage: ptr("active"), License: clear, Country: &domain.Clearable{Value: ptr("SN")},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if *st.patch.Stage != "active" || st.patch.License != clear || *st.patch.Country.Value != "SN" {
+		t.Fatalf("patch %+v", st.patch)
+	}
+
+	for name, tc := range map[string]struct {
+		err   error
+		field string
+	}{"unknown country": {domain.ErrUnknownCountry, "/country_code"}, "stage without repository": {domain.ErrStageNeedsRepo, "/stage"}} {
+		t.Run(name, func(t *testing.T) {
+			_, err := newSvc(t, &fakeStore{createErr: tc.err}, nil, nil).CreateProject(t.Context(), alice, createReq())
+			if p := problemOf(t, err, apperr.CodeValidation); len(p.Violations) != 1 || p.Violations[0].Field != tc.field {
+				t.Fatalf("create violations %+v", p.Violations)
+			}
+			_, err = newSvc(t, &fakeStore{updateErr: tc.err}, nil, nil).UpdateProject(t.Context(), alice, projID, UpdateProjectRequest{Stage: ptr("active")})
+			if p := problemOf(t, err, apperr.CodeValidation); len(p.Violations) != 1 || p.Violations[0].Field != tc.field {
+				t.Fatalf("update violations %+v", p.Violations)
+			}
+		})
+	}
+
+	st = &fakeStore{list: projects(2)}
+	svc = newSvc(t, st, nil, nil)
+	filters := ProjectListRequest{Stage: ptr("active"), Country: ptr("BF"), License: ptr("MIT"), Limit: ptr(1)}
+	page, err := svc.ListProjects(t.Context(), anon, filters)
+	if err != nil || st.query.Stage != "active" || st.query.Country != "BF" || st.query.License != "MIT" || page.NextCursor == "" {
+		t.Fatalf("list %+v %v %+v", page, err, st.query)
+	}
+	// The cursor is bound to each fact filter.
+	for _, other := range []ProjectListRequest{
+		{Stage: ptr("idea"), Country: ptr("BF"), License: ptr("MIT")},
+		{Stage: ptr("active"), Country: ptr("SN"), License: ptr("MIT")},
+		{Stage: ptr("active"), Country: ptr("BF"), License: ptr("GPL-3.0")},
+	} {
+		other.Cursor = page.NextCursor
+		_, err := svc.ListProjects(t.Context(), anon, other)
+		wantCode(t, err, apperr.CodeInvalidCursor)
 	}
 }
 

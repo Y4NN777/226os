@@ -35,6 +35,7 @@ func New(svc *service.Service, logger *slog.Logger) *Handler {
 func (h *Handler) ListProjects(w http.ResponseWriter, r *http.Request, params apigen.ListProjectsParams) {
 	page, err := h.svc.ListProjects(r.Context(), subject.From(r.Context()), service.ProjectListRequest{
 		Q: params.Q, Technology: params.Technology, Skill: params.Skill, OpenNeeds: params.OpenNeeds,
+		Stage: (*string)(params.Stage), Country: params.Country, License: params.License,
 		Cursor: deref(params.Cursor), Limit: params.Limit, ClientIP: httpx.ClientIPKey(r),
 	})
 	if err != nil {
@@ -59,6 +60,7 @@ func (h *Handler) CreateProject(w http.ResponseWriter, r *http.Request, _ apigen
 	p, err := h.svc.CreateProject(r.Context(), subject.From(r.Context()), service.CreateProjectRequest{
 		GitHubURL: body.GithubUrl, Lang: string(body.Lang), Description: body.Description,
 		Visibility: (*string)(body.Visibility), Technologies: slice(body.Technologies), Links: links(body.Links),
+		Stage: (*string)(body.Stage), License: body.LicenseSpdx, Country: body.CountryCode,
 	})
 	if err != nil {
 		h.fail(w, r, err)
@@ -80,14 +82,15 @@ func (h *Handler) GetProject(w http.ResponseWriter, r *http.Request, projectID a
 
 // UpdateProject serves PATCH /projects/{projectId} (JSON Merge Patch).
 func (h *Handler) UpdateProject(w http.ResponseWriter, r *http.Request, projectID apigen.ProjectId) {
-	var body apigen.ProjectUpdate
+	var body projectPatch
 	if err := httpx.DecodeJSON(w, r, &body); err != nil {
 		h.fail(w, r, err)
 		return
 	}
 	p, err := h.svc.UpdateProject(r.Context(), subject.From(r.Context()), projectID.String(), service.UpdateProjectRequest{
 		Description: body.Description, Visibility: (*string)(body.Visibility), Technologies: body.Technologies,
-		Links: links(body.Links),
+		Links: links(body.Links), Stage: (*string)(body.Stage),
+		License: body.License.patch(), Country: body.Country.patch(),
 	})
 	if err != nil {
 		h.fail(w, r, err)
@@ -136,6 +139,33 @@ func (h *Handler) CreateContributionNeed(w http.ResponseWriter, r *http.Request,
 	writeJSON(w, http.StatusCreated, needJSON(n))
 }
 
+// projectPatch is the updateProject body: the generated ProjectUpdate, with the two nullable members
+// shadowed so a merge patch can tell null (clear) from absent (unchanged).
+type projectPatch struct {
+	apigen.ProjectUpdate
+	License nullable `json:"license_spdx"`
+	Country nullable `json:"country_code"`
+}
+
+// nullable records whether a JSON member was present and its value, nil for null.
+type nullable struct {
+	present bool
+	value   *string
+}
+
+// UnmarshalJSON is only called for a present member, null included.
+func (n *nullable) UnmarshalJSON(b []byte) error {
+	n.present = true
+	return json.Unmarshal(b, &n.value)
+}
+
+func (n nullable) patch() *domain.Clearable {
+	if !n.present {
+		return nil
+	}
+	return &domain.Clearable{Value: n.value}
+}
+
 func projectJSON(p domain.Project) apigen.Project {
 	related := make([]apigen.RelatedLink, len(p.Related))
 	for i, l := range p.Related {
@@ -147,7 +177,16 @@ func projectJSON(p domain.Project) apigen.Project {
 		Technologies: p.Technologies, Visibility: apigen.ProjectVisibility(p.Visibility),
 		Owner:          apigen.AuthorRef{Id: mustID(p.Owner.ID), Username: p.Owner.Username, DisplayName: p.Owner.DisplayName},
 		OpenNeedsCount: p.OpenNeeds, Related: related, CreatedAt: p.CreatedAt.UTC(), UpdatedAt: p.UpdatedAt.UTC(),
+		Stage: apigen.ProjectStage(p.Stage), LicenseSpdx: orNull(p.License), CountryCode: orNull(p.Country),
 	}
+}
+
+// orNull is nil for an undeclared (empty) value, so the wire shows null.
+func orNull(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
 }
 
 func needJSON(n domain.Need) apigen.ContributionNeed {

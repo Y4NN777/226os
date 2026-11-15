@@ -22,7 +22,27 @@ const (
 	writeTimeout = 5 * time.Second
 
 	githubURLUnique = "projects_github_url_uq"
+	countryFK       = "projects_country_fk"
+	githubRequired  = "projects_github_required_ck"
 )
+
+// constraintErr maps the project constraints a validated write can still hit to domain errors; nil
+// means err is not one of them.
+func constraintErr(err error) error {
+	var pe *pgconn.PgError
+	if !errors.As(err, &pe) {
+		return nil
+	}
+	switch {
+	case pe.Code == "23505" && pe.ConstraintName == githubURLUnique:
+		return domain.ErrDuplicateURL
+	case pe.Code == "23503" && pe.ConstraintName == countryFK:
+		return domain.ErrUnknownCountry
+	case pe.Code == "23514" && pe.ConstraintName == githubRequired:
+		return domain.ErrStageNeedsRepo
+	}
+	return nil
+}
 
 // Beginner is a DBTX that can also open a transaction (*pgxpool.Pool, *pgx.Conn).
 type Beginner interface {
@@ -69,11 +89,11 @@ func (r *Repository) CreateProject(ctx context.Context, in domain.NewProject) (s
 	id, err := q.InsertProject(ctx, dbgen.InsertProjectParams{
 		OwnerID: owner, Name: in.Name, Summary: in.Summary, DescriptionMd: text(in.Description),
 		Language: in.Lang, GithubUrl: in.GitHubURL, Visibility: in.Visibility,
+		Stage: in.Stage, LicenseSpdx: text(in.License), CountryCode: text(in.Country),
 	})
 	if err != nil {
-		var pe *pgconn.PgError
-		if errors.As(err, &pe) && pe.Code == "23505" && pe.ConstraintName == githubURLUnique {
-			return "", domain.ErrDuplicateURL
+		if mapped := constraintErr(err); mapped != nil {
+			return "", mapped
 		}
 		return "", fmt.Errorf("build insert project: %w", err)
 	}
@@ -120,7 +140,15 @@ func (r *Repository) UpdateProject(ctx context.Context, id, actorID string, p do
 	if p.Visibility != nil {
 		params.Visibility = text(*p.Visibility)
 	}
+	if p.Stage != nil {
+		params.Stage = text(*p.Stage)
+	}
+	params.SetLicense, params.LicenseSpdx = clearable(p.License)
+	params.SetCountry, params.CountryCode = clearable(p.Country)
 	if err := q.UpdateProject(ctx, params); err != nil {
+		if mapped := constraintErr(err); mapped != nil {
+			return mapped
+		}
 		return fmt.Errorf("build update project: %w", err)
 	}
 	if p.Technologies != nil {
@@ -179,6 +207,7 @@ func (r *Repository) ListProjects(ctx context.Context, q domain.ProjectQuery) ([
 	}
 	rows, err := r.q.ListProjects(ctx, dbgen.ListProjectsParams{
 		ViewerID: viewer, Q: text(q.Q), Technology: text(q.Technology), Skill: text(q.Skill),
+		Stage: text(q.Stage), Country: text(q.Country), License: text(q.License),
 		OpenNeeds: q.OpenNeeds, AfterPublished: timestamp(q.AfterPublished), AfterID: after,
 		RowLimit: int32(q.Limit), //nolint:gosec // page size is at most 51
 	})
@@ -379,7 +408,20 @@ func project(row dbgen.ListProjectsRow) domain.Project {
 		Owner:       domain.Owner{ID: idString(row.OwnerID), Username: row.Username, DisplayName: row.DisplayName},
 		OpenNeeds:   int(row.OpenNeeds),
 		PublishedAt: row.PublishedAt.Time, CreatedAt: row.CreatedAt.Time, UpdatedAt: row.UpdatedAt.Time,
+		Stage: row.Stage, License: row.LicenseSpdx, Country: row.CountryCode,
 	}
+}
+
+// clearable turns a nullable merge-patch member into the (set, value) pair of the UPDATE: absent is
+// not set, a nil value clears the column.
+func clearable(c *domain.Clearable) (bool, pgtype.Text) {
+	if c == nil {
+		return false, pgtype.Text{}
+	}
+	if c.Value == nil {
+		return true, pgtype.Text{}
+	}
+	return true, text(*c.Value)
 }
 
 func text(s string) pgtype.Text {

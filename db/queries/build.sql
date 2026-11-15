@@ -9,10 +9,14 @@ SELECT EXISTS (
 )::boolean;
 
 -- name: InsertProject :one
-INSERT INTO projects (owner_id, name, summary, description_md, language, github_url, visibility)
+-- stage, license_spdx and country_code are bounded by projects_stage_ck, projects_license_ck and
+-- projects_country_fk; the repository maps a violation to a domain error.
+INSERT INTO projects (owner_id, name, summary, description_md, language, github_url, visibility,
+                      stage, license_spdx, country_code)
 VALUES (sqlc.arg('owner_id')::uuid, sqlc.arg('name')::text, sqlc.arg('summary')::text,
         sqlc.narg('description_md')::text, sqlc.arg('language')::text, sqlc.arg('github_url')::text,
-        sqlc.arg('visibility')::text)
+        sqlc.arg('visibility')::text, sqlc.arg('stage')::text, sqlc.narg('license_spdx')::text,
+        sqlc.narg('country_code')::text)
 RETURNING id;
 
 -- name: InsertProjectTags :exec
@@ -42,6 +46,9 @@ WHERE id = sqlc.arg('id')::uuid AND status = 'published';
 UPDATE projects SET
   description_md = CASE WHEN sqlc.arg('set_description')::boolean THEN sqlc.narg('description_md')::text ELSE description_md END,
   visibility = COALESCE(sqlc.narg('visibility')::text, visibility),
+  stage = COALESCE(sqlc.narg('stage')::text, stage),
+  license_spdx = CASE WHEN sqlc.arg('set_license')::boolean THEN sqlc.narg('license_spdx')::text ELSE license_spdx END,
+  country_code = CASE WHEN sqlc.arg('set_country')::boolean THEN sqlc.narg('country_code')::text ELSE country_code END,
   updated_at = now()
 WHERE id = sqlc.arg('id')::uuid;
 
@@ -53,7 +60,8 @@ SELECT p.id, p.name, COALESCE(p.github_url, '')::text AS github_url,
        ARRAY(SELECT t.slug FROM project_tags pt JOIN tags t ON t.id = pt.tag_id
              WHERE pt.project_id = p.id AND t.status = 'active' ORDER BY t.slug)::text[] AS technologies,
        (SELECT count(*) FROM contribution_needs n WHERE n.project_id = p.id AND n.status = 'open')::int AS open_needs,
-       p.published_at, p.created_at, p.updated_at
+       p.published_at, p.created_at, p.updated_at,
+       p.stage, COALESCE(p.license_spdx, '')::text AS license_spdx, COALESCE(p.country_code, '')::text AS country_code
 FROM projects p
 JOIN profiles pr ON pr.user_id = p.owner_id
 WHERE p.id = sqlc.arg('id')::uuid AND p.status = 'published'
@@ -68,11 +76,15 @@ SELECT p.id, p.name, COALESCE(p.github_url, '')::text AS github_url,
        ARRAY(SELECT t.slug FROM project_tags pt JOIN tags t ON t.id = pt.tag_id
              WHERE pt.project_id = p.id AND t.status = 'active' ORDER BY t.slug)::text[] AS technologies,
        (SELECT count(*) FROM contribution_needs n WHERE n.project_id = p.id AND n.status = 'open')::int AS open_needs,
-       p.published_at, p.created_at, p.updated_at
+       p.published_at, p.created_at, p.updated_at,
+       p.stage, COALESCE(p.license_spdx, '')::text AS license_spdx, COALESCE(p.country_code, '')::text AS country_code
 FROM projects p
 JOIN profiles pr ON pr.user_id = p.owner_id
 WHERE p.status = 'published'
   AND (p.visibility = 'public' OR p.owner_id = sqlc.narg('viewer_id')::uuid)
+  AND (sqlc.narg('stage')::text IS NULL OR p.stage = sqlc.narg('stage')::text)
+  AND (sqlc.narg('country')::text IS NULL OR p.country_code = sqlc.narg('country')::text)
+  AND (sqlc.narg('license')::text IS NULL OR p.license_spdx = sqlc.narg('license')::text)
   AND (sqlc.narg('q')::text IS NULL
        OR p.search_document @@ websearch_to_tsquery('simple', f_unaccent(sqlc.narg('q')::text)))
   AND (sqlc.narg('technology')::text IS NULL OR EXISTS (
