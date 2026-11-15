@@ -4,22 +4,28 @@ name: Deploy
 #
 #   staging (profile staging-test)   every push to develop, once the Quality workflow is green on that exact SHA
 #                                    (workflow_run). Builds the three images, scans them, pushes them to GHCR by SHA,
-#                                    deploys by digest (backup, migrate, up, seeds, smoke), then runs the E2E suite
-#                                    against the staging URL. Only when all of that passed, the digests are tagged
-#                                    `tested-<tree>`.
+#                                    deploys by digest (backup, migrate, up, seeds, smoke). The `e2e` job then runs the
+#                                    E2E suite against the staging URL, in its own environment `staging-e2e` (no deploy
+#                                    secret). Only when all of that passed, the digests are tagged
+#                                    `tested-<tree>` and each gets a signed attestation (actions/attest, predicate
+#                                    tree + sha) made by the `promote` job: the tag is mutable, the attestation is the proof.
 #   production (profile production-live)  every push to main, held by the GitHub environment `production` (owner
 #                                    approval). It NEVER builds: it deploys the digests tagged `tested-<tree>` for the
 #                                    tree of the pushed commit (a develop to main merge commit has the tree of the
-#                                    develop tip tested on staging). No tested digest for that tree: it fails, with a
-#                                    message, before asking for approval. No seeds, ever.
+#                                    develop tip tested on staging). A digest is accepted only when `gh attestation verify`
+#                                    (signer: this workflow on develop) shows an attestation for that tree
+#                                    (scripts/deploy-verify-tested.sh). No tested digest, or no attestation, for that
+#                                    tree: it fails, with a message, before asking for approval. No seeds, ever.
 #
 # Safety: no pull_request trigger and no pull_request_target, so no fork code ever runs here. The code deployed is
-# develop or main, already merged. Secrets exist only in the `deploy` job (environment secrets); the job that holds
-# `packages: write` has no secret; the server's registry login lives in a temporary directory deleted after the pull; nothing untrusted is interpolated in a `run:` (values go through `env`). The SSH
-# host key is pinned (DEPLOY_KNOWN_HOSTS from deploy/<env>.conf, StrictHostKeyChecking=yes). The owner sets exactly
-# two secrets per environment, DEPLOY_SSH_KEY and SOPS_AGE_KEY; the host, user, public host and host key line are in
-# deploy/staging.conf and deploy/production.conf (changed by pull request), the E2E account in the sops file. The age
-# key is read from the environment by sops (never written to disk, never printed).
+# develop or main, already merged. The deploy secrets exist only in the `deploy` job (environment secrets), which runs
+# no npm code; the E2E account (E2E_USER, E2E_PASSWORD) exists only in the `e2e` job (environment `staging-e2e`), which
+# never gets a deploy secret; the job that holds `packages: write` has no secret; the server's registry login lives in a
+# temporary directory deleted after the pull; nothing untrusted is interpolated in a `run:` (values go through `env`).
+# The SSH host key is pinned (DEPLOY_KNOWN_HOSTS from deploy/<env>.conf, StrictHostKeyChecking=yes). The owner sets
+# exactly two secrets per deploy environment, DEPLOY_SSH_KEY and SOPS_AGE_KEY, and two in `staging-e2e`; the host, user,
+# public host and host key line are in deploy/staging.conf and deploy/production.conf (changed by pull request). The
+# age key is read from the environment by sops (never written to disk, never printed).
 # Fail closed: a missing setting, an unexpected event, a missing digest or a failed step stops the run.
 on:
   workflow_run:
@@ -95,6 +101,10 @@ jobs:
     permissions:
       contents: read
       packages: write
+    outputs:
+      api_image: ${{ steps.push.outputs.api_image }}
+      web_image: ${{ steps.push.outputs.web_image }}
+      migrate_image: ${{ steps.push.outputs.migrate_image }}
     steps:
       - name: Check out the SHA that Quality validated
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -108,18 +118,25 @@ jobs:
       - name: Scan the images (scripts/image-scan.sh)
         run: scripts/image-scan.sh
 
+      # The digests of the images THIS job built and pushed (scripts/deploy-images.sh push prints them from the push
+      # itself). A <sha> tag that already exists with other content fails here. Everything after this job deploys,
+      # tests and attests these digests, never what the tag points to later.
       - name: Push to GHCR by SHA
+        id: push
         env:
           REGISTRY_TOKEN: ${{ github.token }}
           SHA: ${{ needs.plan.outputs.sha }}
         run: |
           set -euo pipefail
           printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username github-actions --password-stdin
-          scripts/deploy-images.sh push "$SHA" "$(scripts/image-tag.sh)"
+          scripts/deploy-images.sh push "$SHA" "$(scripts/image-tag.sh)" >"$RUNNER_TEMP/pushed.env"
           docker logout ghcr.io
+          # Lower-case output names: API_IMAGE=... becomes api_image=...
+          sed -E 's/^([A-Z_]+)=/\L\1=/' "$RUNNER_TEMP/pushed.env" >>"$GITHUB_OUTPUT"
 
-  # The images to deploy, by registry digest. Staging: the ones just pushed for the SHA. Production: the ones that
-  # passed staging for the TREE of the pushed commit, or a clear failure (before the approval is requested).
+  # The images to deploy, by registry digest. Staging: the ones the build job of this run pushed. Production: the ones
+  # that passed staging for the TREE of the pushed commit and carry its attestation, or a clear failure (before the
+  # approval is requested).
   resolve:
     name: resolve image digests
     needs: [plan, build]
@@ -131,6 +148,7 @@ jobs:
     permissions:
       contents: read
       packages: read
+      attestations: read
     outputs:
       api_image: ${{ steps.resolve.outputs.api_image }}
       web_image: ${{ steps.resolve.outputs.web_image }}
@@ -142,29 +160,47 @@ jobs:
           ref: ${{ needs.plan.outputs.sha }}
           persist-credentials: false
 
-      - name: Resolve the digests
-        id: resolve
+      # Staging: the digests built and pushed by the build job of this run. The <sha> tag is NOT read back (it is
+      # mutable: anyone with packages: write could have moved it since the push).
+      - name: Take the digests built by this run (staging)
+        if: needs.plan.outputs.target == 'staging'
+        env:
+          API_IMAGE: ${{ needs.build.outputs.api_image }}
+          WEB_IMAGE: ${{ needs.build.outputs.web_image }}
+          MIGRATE_IMAGE: ${{ needs.build.outputs.migrate_image }}
+        run: |
+          set -euo pipefail
+          for v in API WEB MIGRATE; do
+            n="${v}_IMAGE"
+            lower="$(tr '[:upper:]' '[:lower:]' <<<"$v")"
+            [[ "${!n}" =~ ^ghcr\.io/[a-z0-9._-]+/226os-${lower}@sha256:[0-9a-f]{64}$ ]] || { echo "::error title=Image digests not found::The build job did not give a digest reference for ${n}."; exit 1; }
+            echo "${n}=${!n}" >>"$RUNNER_TEMP/images.env"
+          done
+
+      # Production: the digests that passed staging for this tree. The tag is mutable, so each digest also needs the
+      # signed attestation of the promote job for this tree. Fail closed, before the approval is requested.
+      - name: Resolve the tested digests and verify their attestations (production)
+        if: needs.plan.outputs.target == 'production'
         env:
           REGISTRY_TOKEN: ${{ github.token }}
-          TARGET: ${{ needs.plan.outputs.target }}
-          SHA: ${{ needs.plan.outputs.sha }}
+          GH_TOKEN: ${{ github.token }}
           TREE: ${{ needs.plan.outputs.tree }}
         run: |
           set -euo pipefail
           printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username github-actions --password-stdin
-          if [ "$TARGET" = production ]; then
-            tag="tested-$TREE"
-          else
-            tag="$SHA"
-          fi
-          if ! scripts/deploy-images.sh resolve "$tag" >"$RUNNER_TEMP/images.env"; then
-            if [ "$TARGET" = production ]; then
-              echo "::error title=No tested image for this tree::No image tagged ${tag} exists. Production deploys only the digests that passed staging (deploy, smoke and E2E) for this exact tree: merge develop into main without any other change, and wait for the staging deploy of the develop tip to finish. A hotfix on main needs the same path through develop."
-            else
-              echo "::error title=Image digests not found::The images pushed for ${tag} cannot be read back from GHCR."
-            fi
+          if ! scripts/deploy-images.sh resolve "tested-$TREE" >"$RUNNER_TEMP/images.env"; then
+            echo "::error title=No tested image for this tree::No image tagged tested-${TREE} exists. Production deploys only the digests that passed staging (deploy, smoke and E2E) for this exact tree: merge develop into main without any other change, and wait for the staging deploy of the develop tip to finish. A hotfix on main needs the same path through develop."
             exit 1
           fi
+          scripts/deploy-verify-tested.sh "$TREE" "$RUNNER_TEMP/images.env"
+          docker logout ghcr.io
+
+      - name: Publish the digests
+        id: resolve
+        env:
+          TARGET: ${{ needs.plan.outputs.target }}
+        run: |
+          set -euo pipefail
           # Lower-case output names: API_IMAGE=... becomes api_image=...
           sed -E 's/^([A-Z_]+)=/\L\1=/' "$RUNNER_TEMP/images.env" >>"$GITHUB_OUTPUT"
           {
@@ -172,25 +208,23 @@ jobs:
             echo
             sed 's/^/- /' "$RUNNER_TEMP/images.env"
           } >>"$GITHUB_STEP_SUMMARY"
-          docker logout ghcr.io
 
-  # The only job with the environment (`staging`: required reviewers, the owner or Rayan; `production`: the owner's
-  # approval): ONE approval per deploy, E2E included (staging only, last steps of this job). Decrypts the profile's env file with sops, copies it and the release over SSH, runs
-  # scripts/deploy-remote.sh on the server.
+  # The only job that holds the deploy secrets, with the environment `staging` (required reviewers, the owner or Rayan)
+  # or `production` (the owner's approval): ONE approval per deploy. Decrypts the profile's env file with sops, copies it
+  # and the release over SSH, runs scripts/deploy-remote.sh on the server. It runs no npm or Playwright code (the E2E
+  # suite is the e2e job, in its own environment).
   deploy:
     name: deploy ${{ needs.plan.outputs.target }}
     needs: [plan, resolve]
     runs-on: ubuntu-latest
-    # The deploy (45 min before) plus the E2E suite with its browser install (30 min before): one budget for both.
-    timeout-minutes: 75
+    # The deploy budget only: the E2E suite has its own job (e2e).
+    timeout-minutes: 45
     environment: ${{ needs.plan.outputs.target }}
     permissions:
       contents: read
       packages: read
     outputs:
       base_url: ${{ steps.config.outputs.base_url }}
-      # true only when the E2E suite really ran and passed in this job (NOT RUN otherwise).
-      e2e_ran: ${{ steps.detect.outputs.present }}
     env:
       # Derived from the target here, not taken from a script output.
       PROFILE: ${{ needs.plan.outputs.target == 'production' && 'production-live' || 'staging-test' }}
@@ -318,22 +352,40 @@ jobs:
             echo "- migrate: \`${MIGRATE_IMAGE}\`"
           } >>"$GITHUB_STEP_SUMMARY"
 
-      # The deploy is done: the SSH key, the deploy-ssh wrapper and the decrypted profile env leave the runner NOW,
-      # before any npm code runs (dependency install scripts, Playwright, the E2E specs). A compromised package must find
-      # nothing that opens the server or reads its env. The final always() clean-up stays as a backstop on failure.
-      - name: Wipe the deploy secrets before any npm code
+      # The SSH key, the deploy-ssh wrapper and the decrypted profile env leave the runner whatever happened. This job
+      # runs no npm code; the one clean-up is always().
+      - name: Clean up (plaintext env and SSH key on the runner)
         if: always()
         run: rm -rf -- "${DEPLOY_TMP:-/nonexistent}" "$RUNNER_TEMP/ssh" "$RUNNER_TEMP/bin/deploy-ssh"
 
-      # Staging only. The Playwright suite (src/web/e2e, script `test:e2e`, reads E2E_BASE_URL) against the staging URL,
-      # run in THIS job after the deploy, smoke and seeds: one approval per deploy (the `staging` environment has
-      # required reviewers, the owner or Rayan), and the E2E account (E2E_USER and E2E_PASSWORD in
-      # secrets/staging-test.enc.env) never leaves this job. Production runs no E2E. While the script does not exist
-      # on the SHA the suite is NOT RUN and says so; once it exists, a missing account FAILS the job (the signed-in
-      # group is never skipped).
+  # Staging only. The Playwright suite (src/web/e2e, script `test:e2e`, reads E2E_BASE_URL) against the staging URL,
+  # once the deploy job (smoke and seeds included) succeeded. A job of its own, in its own environment `staging-e2e`
+  # (branch develop only, no reviewer: the approval already happened for the deploy). That environment holds exactly
+  # E2E_USER and E2E_PASSWORD; this job never sees DEPLOY_SSH_KEY or SOPS_AGE_KEY, so the npm and Playwright code
+  # (dependency install scripts, the specs) cannot reach the server or the profile's secrets. Permissions: contents
+  # read only. While the script does not exist on the SHA the suite is NOT RUN and says so; once it exists, a missing
+  # or empty account FAILS the job (the signed-in group is never skipped).
+  e2e:
+    name: end-to-end tests on staging
+    needs: [plan, deploy]
+    if: needs.plan.outputs.target == 'staging'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: staging-e2e
+    permissions:
+      contents: read
+    outputs:
+      # true only when the E2E suite really ran and passed in this job (NOT RUN otherwise).
+      e2e_ran: ${{ steps.detect.outputs.present }}
+    steps:
+      - name: Check out the deployed commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.plan.outputs.sha }}
+          persist-credentials: false
+
       - name: Is there an E2E script on this SHA?
         id: detect
-        if: needs.plan.outputs.target == 'staging'
         run: |
           set -euo pipefail
           if jq -e '.scripts["test:e2e"]' src/web/package.json >/dev/null; then
@@ -343,6 +395,17 @@ jobs:
             echo "::notice title=E2E NOT RUN::src/web/package.json has no test:e2e script on this SHA, so the E2E suite was NOT RUN (not a pass)."
             echo "E2E: NOT RUN (no test:e2e script on this SHA)" >>"$GITHUB_STEP_SUMMARY"
           fi
+
+      # Before any npm code: the two values are checked (missing or empty fails the job) and masked (workflow-command
+      # escaped). The mask lasts for the whole job; the values are not written to GITHUB_ENV.
+      - name: Check and mask the E2E account
+        if: steps.detect.outputs.present == 'true'
+        env:
+          E2E_USER: ${{ secrets.E2E_USER }}
+          E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+        run: |
+          set -euo pipefail
+          scripts/e2e-env.sh
 
       - name: Set up pnpm (version from the packageManager field)
         if: steps.detect.outputs.present == 'true'
@@ -366,33 +429,34 @@ jobs:
         if: steps.detect.outputs.present == 'true'
         run: pnpm --filter web exec playwright install --with-deps chromium
 
-      # The account is decrypted (RAM only), masked (workflow-command escaped) and exported in this step only: it is
-      # not written to GITHUB_ENV, and the test process does not get SOPS_AGE_KEY.
-      - name: Run the E2E suite against staging (account read from the sops file, in this step only)
+      # The account reaches the test process through the environment of this step only.
+      - name: Run the E2E suite against staging
         if: steps.detect.outputs.present == 'true'
         env:
           CI: "true"
-          E2E_BASE_URL: ${{ steps.config.outputs.base_url }}
-          SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY }}
+          E2E_BASE_URL: ${{ needs.deploy.outputs.base_url }}
+          E2E_USER: ${{ secrets.E2E_USER }}
+          E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
         run: |
           set -euo pipefail
-          umask 077
-          tmp="$(mktemp -d /dev/shm/e2e.XXXXXX)"
-          trap 'rm -rf "$tmp"' EXIT
-          SECRETS_OUT_DIR="$tmp" scripts/secrets.sh decrypt staging-test >/dev/null
-          scripts/e2e-env.sh <"$tmp/.env.staging-test" >"$tmp/e2e.env"
-          rm -f "$tmp/.env.staging-test"
-          scripts/e2e-env.sh --masks <"$tmp/e2e.env"
-          E2E_USER="$(sed -n 's/^E2E_USER=//p' "$tmp/e2e.env")"
-          E2E_PASSWORD="$(sed -n 's/^E2E_PASSWORD=//p' "$tmp/e2e.env")"
-          export E2E_USER E2E_PASSWORD
-          env -u SOPS_AGE_KEY pnpm --filter web run test:e2e
+          pnpm --filter web run test:e2e
+
+      # The report is checked for the E2E account before it can be uploaded: a leaking file fails the job and is deleted.
+      - name: Check the junit report for the E2E account
+        id: junit
+        if: always() && steps.detect.outputs.present == 'true'
+        env:
+          E2E_USER: ${{ secrets.E2E_USER }}
+          E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+        run: |
+          set -euo pipefail
+          scripts/e2e-junit-check.sh src/web/test-results/junit.xml
 
       # Only the junit XML (test names, durations, failure messages). In CI the Playwright config turns traces,
       # videos, screenshots and the HTML report off: a trace would hold the E2E password, the sign-in body and the
       # session cookie, and this repository is public. Never upload anything else from this job.
       - name: Upload the junit report
-        if: always() && steps.detect.outputs.present == 'true'
+        if: always() && steps.detect.outputs.present == 'true' && steps.junit.outcome == 'success'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: e2e-junit-${{ github.run_id }}
@@ -400,28 +464,84 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
-      - name: Clean up (plaintext env and SSH key on the runner)
-        if: always()
-        run: rm -rf -- "${DEPLOY_TMP:-/nonexistent}" "$RUNNER_TEMP/ssh" "$RUNNER_TEMP/bin/deploy-ssh"
-
-  # Staging only. Marks the digests as tested for this tree: the only thing production will accept. Needs the deploy
-  # (smoke and E2E included, both in the deploy job) to have succeeded. Holds packages: write and NO secret.
+  # Staging only. Marks the digests as tested for this tree: signs one attestation per digest (tree and commit), then
+  # tags them tested-<tree>; production accepts a digest only with that attestation. Needs the deploy (smoke) and
+  # the e2e job to have succeeded. Holds packages: write and NO secret.
   promote:
     name: mark the digests as tested
-    needs: [plan, deploy]
+    needs: [plan, resolve, deploy, e2e]
     # Only an E2E suite that really RAN can mark digests as tested (a missing test:e2e script means NOT RUN).
-    if: needs.plan.outputs.target == 'staging' && needs.deploy.outputs.e2e_ran == 'true'
+    if: needs.plan.outputs.target == 'staging' && needs.e2e.outputs.e2e_ran == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
       contents: read
       packages: write
+      # Only this job signs: the attestations are what production verifies (id-token for the Sigstore certificate).
+      id-token: write
+      attestations: write
     steps:
       - name: Check out (the scripts of the deployed commit)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.plan.outputs.sha }}
           persist-credentials: false
+
+      # The digests deployed by the deploy job and tested by the e2e job: the ones the resolve job gave (built and pushed
+      # by this run). No tag is read here: the <sha> tag and `tested-<tree>` are mutable, anyone with packages: write
+      # could have moved them since the build. The proof production relies on is a signed attestation per digest, made
+      # below by this job only (scripts/deploy-verify-tested.sh); the tag is set last, so a tag implies an attestation.
+      - name: Build the predicate for the deployed digests
+        id: subjects
+        env:
+          API_IMAGE: ${{ needs.resolve.outputs.api_image }}
+          WEB_IMAGE: ${{ needs.resolve.outputs.web_image }}
+          MIGRATE_IMAGE: ${{ needs.resolve.outputs.migrate_image }}
+          SHA: ${{ needs.plan.outputs.sha }}
+          TREE: ${{ needs.plan.outputs.tree }}
+        run: |
+          set -euo pipefail
+          : >"$RUNNER_TEMP/tested.env"
+          for v in API WEB MIGRATE; do
+            n="${v}_IMAGE"
+            ref="${!n}"
+            [[ "$ref" =~ ^[a-z0-9./:_-]+@sha256:[0-9a-f]{64}$ ]] || { echo "::error title=Unexpected image reference::${n} is not a digest reference."; exit 1; }
+            lower="$(tr '[:upper:]' '[:lower:]' <<<"$v")"
+            echo "${lower}_name=${ref%@*}" >>"$GITHUB_OUTPUT"
+            echo "${lower}_digest=${ref#*@}" >>"$GITHUB_OUTPUT"
+            echo "${n}=${ref}" >>"$RUNNER_TEMP/tested.env"
+          done
+          echo "predicate=$(jq -cn --arg tree "$TREE" --arg sha "$SHA" '{tree: $tree, sha: $sha}')" >>"$GITHUB_OUTPUT"
+
+      - name: Attest the api image as tested on staging
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-name: ${{ steps.subjects.outputs.api_name }}
+          subject-digest: ${{ steps.subjects.outputs.api_digest }}
+          predicate-type: https://226os.tech/attestations/tested-on-staging/v1
+          predicate: ${{ steps.subjects.outputs.predicate }}
+          # `gh attestation verify` reads the attestations API: nothing goes to the registry (the default).
+          create-storage-record: false
+
+      - name: Attest the web image as tested on staging
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-name: ${{ steps.subjects.outputs.web_name }}
+          subject-digest: ${{ steps.subjects.outputs.web_digest }}
+          predicate-type: https://226os.tech/attestations/tested-on-staging/v1
+          predicate: ${{ steps.subjects.outputs.predicate }}
+          # `gh attestation verify` reads the attestations API: nothing goes to the registry (the default).
+          create-storage-record: false
+
+      - name: Attest the migrate image as tested on staging
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-name: ${{ steps.subjects.outputs.migrate_name }}
+          subject-digest: ${{ steps.subjects.outputs.migrate_digest }}
+          predicate-type: https://226os.tech/attestations/tested-on-staging/v1
+          predicate: ${{ steps.subjects.outputs.predicate }}
+          # `gh attestation verify` reads the attestations API: nothing goes to the registry (the default).
+          create-storage-record: false
 
       - name: Tag the digests tested-<tree>
         env:
@@ -431,6 +551,6 @@ jobs:
         run: |
           set -euo pipefail
           printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username github-actions --password-stdin
-          scripts/deploy-images.sh tag "$SHA" "tested-$TREE"
+          scripts/deploy-images.sh tag "tested-$TREE" "$RUNNER_TEMP/tested.env"
           docker logout ghcr.io
           echo "Tested on staging: tree ${TREE} (commit ${SHA}). Production can deploy it." | tee -a "$GITHUB_STEP_SUMMARY"

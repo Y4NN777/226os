@@ -7,7 +7,7 @@
 Rayan (`PANK4SS`) détient le serveur de **staging**. Azael (`NICE-DEV226`) achète le produit Datacloud et détient le serveur de **production** (décision du propriétaire, 2026-11-15). Le propriétaire (`Y4NN777`) détient le dépôt GitHub, les clés et la zone DNS `226os.tech`. Le dépôt est personnel : seul le propriétaire peut poser des secrets ou des variables d'environnement GitHub. Il n'en pose donc que **deux par environnement**, une fois : `DEPLOY_SSH_KEY` et `SOPS_AGE_KEY`. Tout le reste est dans le dépôt, et Rayan et Azael le modifient par PR avec leur droit d'écriture :
 
 - `deploy/staging.conf` et `deploy/production.conf` : `DEPLOY_HOST`, `DEPLOY_USER`, `PUBLIC_HOST` et `DEPLOY_KNOWN_HOSTS` (la ligne de clé d'hôte du serveur, publique). Le workflow lit le fichier dans le commit déployé (`develop` pour staging, `main` pour production), jamais dans une PR, et refuse toute valeur mal formée ou encore à `FILL-ME`.
-- `secrets/staging-test.enc.env` : `E2E_USER` et `E2E_PASSWORD` (compte de test), chiffrés avec sops.
+- Le compte des tests E2E (`E2E_USER`, `E2E_PASSWORD`) n'est pas dans le dépôt : ce sont les deux secrets de l'environnement GitHub `staging-e2e` (section 7).
 
 | Étape | Qui | Remis à l'autre |
 |---|---|---|
@@ -20,7 +20,7 @@ Rayan (`PANK4SS`) détient le serveur de **staging**. Azael (`NICE-DEV226`) ach�
 | 5. `deploy/production.conf` (hôte, ligne de clé d'hôte) | Azael, par PR après l'amorçage | — |
 | 6. Les 2 secrets de chaque environnement GitHub | propriétaire (administrateur du dépôt) | — |
 | 7. Premier déploiement de staging | propriétaire ; Rayan suit le serveur (`docker compose ps`, `docker compose logs`) | — |
-| 8. Compte des tests E2E dans le fichier sops | Rayan, une fois sa clé age publique ajoutée comme destinataire de `staging-test` par le propriétaire | sa clé **publique** au propriétaire |
+| 8. Environnement `staging-e2e` et compte des tests E2E (2 secrets) | propriétaire, avec un compte de staging vérifié créé par Rayan ou lui | l'identifiant et le mot de passe du compte, jamais par message |
 | 9. Copie des sauvegardes hors du serveur | chacun pour le serveur qu'il détient | — |
 
 Aucune clé privée ne circule : Rayan et Azael ne reçoivent que la clé publique de déploiement de leur serveur, le propriétaire ne reçoit que des informations publiques (clé age publique de Rayan). L'IP et la clé d'hôte passent par la PR.
@@ -77,6 +77,8 @@ Les fichiers livrés contiennent `FILL-ME` pour l'hôte et la clé d'hôte : le 
 
 Supprimez ensuite les fichiers `*.key` locaux (gardez une copie hors ligne des clés age).
 
+Un troisième environnement, `staging-e2e`, porte le compte des tests E2E (section 7) : branche autorisée `develop`, aucun relecteur requis (l'approbation a eu lieu pour le déploiement), et exactement deux secrets, `E2E_USER` et `E2E_PASSWORD`. Il ne contient ni `DEPLOY_SSH_KEY` ni `SOPS_AGE_KEY`.
+
 ## 6. Premier déploiement
 
 - `workflow_run` ne part que depuis la copie du workflow sur `develop` ; le déclencheur `push` sur `main` ne fonctionne qu'une fois le fichier arrivé sur `main` (premier passage de `develop` vers `main`, merge commit, sans autre changement).
@@ -85,12 +87,12 @@ Supprimez ensuite les fichiers `*.key` locaux (gardez une copie hors ligne des c
 
 ## 7. Compte des tests E2E (après le premier déploiement de staging)
 
-Le compte n'est plus un secret GitHub : il est dans `secrets/staging-test.enc.env` (`E2E_USER`, `E2E_PASSWORD`). Les tests E2E tournent à la fin du job `deploy` de staging (donc une seule approbation par déploiement, par le propriétaire ou Rayan). Ce job déchiffre le fichier avec `SOPS_AGE_KEY`, dans `/dev/shm`, ne garde que ces deux clés, les masque et ne les donne qu'au processus des tests : elles ne sont ni écrites dans l'environnement du job, ni transmises à un autre job.
+Le compte est dans l'environnement GitHub `staging-e2e`, pas dans le dépôt. Les tests E2E tournent dans un job `e2e` à part, après le déploiement de staging : ce job ne reçoit jamais `DEPLOY_SSH_KEY` ni `SOPS_AGE_KEY`, donc le code npm et Playwright (scripts d'installation des dépendances, specs) ne peut atteindre ni le serveur ni les secrets du profil. L'approbation de `staging` reste la seule par déploiement.
 
 1. Sur le site de staging, créez un vrai compte et vérifiez son e-mail.
-2. Le propriétaire ajoute la clé age publique de Rayan à `secrets/staging-test.recipients` et lance `scripts/secrets.sh rotate staging-test` (PR). Pour éviter que Rayan attende, le propriétaire peut aussi saisir les deux clés lui-même.
-3. Rayan (ou le propriétaire) ajoute `E2E_USER` et `E2E_PASSWORD` avec `scripts/secrets.sh edit staging-test`, et ouvre la PR. **À faire avant le premier déploiement de staging qui exécute les E2E** : sans ces deux clés, le déploiement de staging échoue à la dernière étape. Ces deux clés ne sont jamais envoyées au serveur (`scripts/deploy-env.sh` les retire).
-4. Sans elles, le job `deploy` de staging échoue avec un message clair ; le groupe connecté n'est jamais ignoré. Chaque exécution publie une question et une réponse avec ce compte. Le dépôt est public : en CI, Playwright n'écrit ni trace, ni vidéo, ni capture, ni rapport HTML (ils contiendraient le mot de passe et le cookie), et seul le XML junit est publié. Les étiquettes `tested-<arbre>` ne sont posées que si ce job a réellement tourné.
+2. Le propriétaire crée l'environnement `staging-e2e` (Réglages, Environments) : branche autorisée `develop`, aucun relecteur requis.
+3. Le propriétaire ajoute les deux secrets, sur une ligne chacun, la valeur étant saisie à l'invite : `gh secret set E2E_USER --env staging-e2e` puis `gh secret set E2E_PASSWORD --env staging-e2e`. **À faire avant le premier déploiement de staging qui exécute les E2E** : sans ces deux secrets, le job `e2e` échoue avec un message clair ; le groupe connecté n'est jamais ignoré. Ces valeurs ne vont ni dans le dépôt, ni sur le serveur.
+4. Tant que le script `test:e2e` n'existe pas sur le commit, le job `e2e` affiche « E2E NOT RUN » et les étiquettes `tested-<arbre>` ne sont pas posées. Chaque exécution publie une question et une réponse avec ce compte. Le dépôt est public : en CI, Playwright n'écrit ni trace, ni vidéo, ni capture, ni rapport HTML (ils contiendraient le mot de passe et le cookie), et seul le XML junit est publié. Les étiquettes `tested-<arbre>` ne sont posées que si le job `e2e` a réellement tourné, et chaque empreinte reçoit alors une attestation signée (arbre et commit) : la production vérifie l'attestation avec `gh attestation verify` et refuse une empreinte seulement étiquetée ou attestée pour un autre arbre.
 
 ## 8. Sauvegardes
 
