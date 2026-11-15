@@ -212,20 +212,13 @@ describe('DiscoverPage', () => {
     expect(screen.getByRole('searchbox', { name: /Rechercher dans le catalogue/ })).toHaveValue('');
   });
 
-  it('submits the search with the button too', async () => {
+  it('keeps the search icon inside the field: no separate search button', async () => {
     setLanguages(['fr-FR']);
-    const fetchMock = mockApi({ 'GET /resources': () => page([senegal]) });
+    mockApi({ 'GET /resources': () => page([senegal]) });
     await renderApp('/discover');
     await screen.findByRole('link', { name: 'Wave Pay' });
-    await userEvent
-      .setup({ delay: null })
-      .type(screen.getByRole('searchbox', { name: /Rechercher dans le catalogue/ }), 'ussd');
-    await userEvent
-      .setup({ delay: null })
-      .click(screen.getByRole('button', { name: 'Rechercher' }));
-    await waitFor(() => {
-      expect(listParams(fetchMock, 'last').get('q')).toBe('ussd');
-    });
+    expect(screen.getByRole('searchbox', { name: /Rechercher dans le catalogue/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Rechercher' })).not.toBeInTheDocument();
   });
 
   it('shows and removes an active category filter coming from the URL', async () => {

@@ -38,6 +38,11 @@ export const tokens: Record<string, Token> = {
   '--color-icon-warning': ['#8A540D', '#F3C46F'],
   '--color-icon-error': ['#B42318', '#FFB0A8'],
   '--color-skeleton': ['#E3EADC', '#2C3926'],
+  // Control heights (prototype tokens.css: --target 44, .btn-sm 36, .search-field-lg 52). Astryx
+  // reads these for buttons, inputs, selectors and tabs, so one change sets every page.
+  '--size-element-sm': '36px',
+  '--size-element-md': '44px',
+  '--size-element-lg': '52px',
   '--font-family-body':
     'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
   '--font-family-heading':

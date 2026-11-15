@@ -1,4 +1,4 @@
-import { act, screen, waitFor } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import type { components } from '../../api/schema';
@@ -84,6 +84,23 @@ describe('SearchPage', () => {
     expect(screen.getByRole('heading', { name: /Que cherchez-vous/ })).toBeInTheDocument();
     expect(screen.getByRole('searchbox', { name: 'Votre recherche' })).toHaveValue('');
     expect(callsTo(fetchMock, 'GET /search')).toHaveLength(0);
+  });
+
+  it('without a query suggests topics from the demo data, each a search link', async () => {
+    setLanguages(['fr-FR']);
+    mockApi();
+    await renderApp('/recherche');
+    const field = await screen.findByRole('searchbox', { name: 'Votre recherche' });
+    expect(field).toHaveAttribute('placeholder', 'Ex. webhook, USSD, Go');
+    const topics = screen.getByRole('list', { name: 'Sujets' });
+    expect(within(topics).getByRole('link', { name: 'mobile-money' })).toHaveAttribute(
+      'href',
+      '/recherche?q=mobile-money',
+    );
+    expect(within(topics).getByRole('link', { name: 'webhooks' })).toHaveAttribute(
+      'href',
+      '/recherche?q=webhooks',
+    );
   });
 
   it('does not search for a single character', async () => {

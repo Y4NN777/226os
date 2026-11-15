@@ -62,6 +62,12 @@ describe('Graphite & Lime theme tokens', () => {
     expect(css).toMatch(/--_scaled-font-size-base:\s*min\(calc\(1rem /);
   });
 
+  it('sizes controls like the prototype: 44px by default, 36px small, 52px large', () => {
+    expect(tokens['--size-element-md']).toBe('44px');
+    expect(tokens['--size-element-sm']).toBe('36px');
+    expect(tokens['--size-element-lg']).toBe('52px');
+  });
+
   it('uses system font stacks only (no remote font)', () => {
     for (const token of ['--font-family-body', '--font-family-heading', '--font-family-code']) {
       expect(tokens[token]).toEqual(expect.stringMatching(/^[^@]*$/));

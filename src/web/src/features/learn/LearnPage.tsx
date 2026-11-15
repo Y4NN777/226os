@@ -110,7 +110,7 @@ function Filters({
           >
             <TextInput
               type="search"
-              startIcon="search"
+              startIcon={<Icon icon="search" />}
               label={t('learn.filter.q')}
               placeholder={t('learn.filter.q.placeholder')}
               value={draft}

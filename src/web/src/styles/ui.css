@@ -10,6 +10,13 @@
  * padding, panels 20px padding on the container radius, 24px between page blocks.
  */
 
+/* Field labels (prototype `.label`): 14px, medium, in the text colour, not the muted tone. */
+.astryx-field-label {
+  color: var(--color-text-primary);
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
 /* ---------- Page header ---------- */
 .ui-page-header {
   display: grid;
@@ -97,6 +104,21 @@
 }
 .ui-breadcrumbs {
   margin-bottom: var(--spacing-1);
+}
+/* Phone: the parent crumb alone, as a back link with a 44px target. */
+.ui-breadcrumbs-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 44px;
+  margin-inline-start: calc(var(--spacing-1) * -1);
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+  text-decoration: none;
+}
+.ui-breadcrumbs-back:hover {
+  color: var(--color-text-primary);
+  text-decoration: underline;
 }
 @media (max-width: 479px) {
   .ui-page-header-id {
@@ -378,11 +400,15 @@
   font-variant-numeric: tabular-nums;
 }
 @container (max-width: 480px) {
-  .ui-row.has-lead {
+  .ui-row.has-lead:not(.has-corner) {
     grid-template-columns: auto minmax(0, 1fr);
   }
-  .ui-row.has-lead > .ui-row-aside {
+  .ui-row.has-lead:not(.has-corner) > .ui-row-aside {
     grid-column: 1 / -1;
+  }
+  /* A small tag (language code) stays in the top-right corner instead of taking its own row. */
+  .ui-row-aside.is-corner {
+    align-items: flex-start;
   }
   .ui-row-aside {
     flex-direction: row;

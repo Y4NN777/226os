@@ -23,6 +23,50 @@
 .srch-field {
   flex: 1 1 14rem;
   min-width: 0;
+  max-width: 40rem;
+}
+/* No query yet: left-aligned heading, one line, topic chips (prototype `recherche.html`). */
+.srch-start {
+  display: grid;
+  gap: var(--spacing-2);
+  justify-items: start;
+}
+.srch-start h2 {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.35;
+}
+.srch-start p {
+  margin: 0;
+  color: var(--color-text-secondary);
+}
+.srch-topics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-2);
+  margin: var(--spacing-1) 0 0;
+  padding: 0;
+  list-style: none;
+}
+.srch-topic {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 var(--spacing-3);
+  border-radius: var(--radius-full);
+  background: var(--color-background-muted);
+  color: var(--color-text-primary);
+  font-size: 0.875rem;
+  font-weight: var(--font-weight-medium);
+  text-decoration: none;
+}
+/* Astryx Link sets its own size on the inner text. */
+.srch-topic * {
+  font-size: inherit;
+  font-weight: inherit;
+}
+.srch-topic:hover {
+  text-decoration: underline;
 }
 .srch-groups {
   display: grid;
