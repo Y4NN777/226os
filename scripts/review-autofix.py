@@ -46,14 +46,16 @@ whether its commits may be pushed. The workflows only call this script; the mode
          exit 0, no items.
   body   the batch pull request body from the fixer's structured result (RESULT_JSON): it names the batch issue
          (#ISSUE, which closes the batch on merge) and has one table row per item (item, source, decision, reason): FIXED,
-         FIXED ELSEWHERE, NOT A DEFECT, DECIDED, OWNER or AFTER FREEZE. `findings.py settle` reads it on merge: only
-         FIXED and FIXED ELSEWHERE close or tick a source; the others get a comment and stay open for a human. Model
+         FIXED ELSEWHERE, NOT A DEFECT, DECIDED, OWNER or AFTER FREEZE. `findings.py settle` reads it on merge:
+         FIXED and FIXED ELSEWHERE close or tick a source; NOT A DEFECT and DECIDED tick a NOTE with a verified reference
+         (see findings.verified_reference); the others get a comment and stay open for a human. Model
          text is data: @-mentions and every issue reference form (#N, owner/repo#N, GH-N, issue and pull URLs, so
          closing keywords) are neutralised, pipes escaped.
   nothing  the trusted publish job when the fixer made no commit: its verdicts (RESULT_JSON) for the planned ITEMS that are
          items of the batch issue ISSUE (its batch-item markers) are applied with `findings.settle_issue`, the rules of
-         `settle`: FIXED ELSEWHERE closes or ticks only when the named pull request is merged; NOT A DEFECT, DECIDED, OWNER
-         and AFTER FREEZE only comment; FIXED without a commit is OWNER. ONE comment on the batch issue holds the verdict
+         `settle`: FIXED ELSEWHERE closes or ticks only when the named pull request is merged; NOT A DEFECT and DECIDED tick a
+         note with a verified reference and otherwise only comment, like OWNER and AFTER FREEZE; FIXED without a commit is
+         OWNER. ONE comment on the batch issue holds the verdict
          table (neutralised like the body cells); the items with a verdict are ticked and the batch closes with the marker
          batch-handled, so `findings.py batch` starts a new batch without them (until they change). Idempotent per RUN_ID.
          Fails CLOSED on a GitHub error; an unreadable result writes nothing.
@@ -655,7 +657,9 @@ def cmd_body():
         out.append("| %s | %s | %s | %s |" % (key, key.split("/", 1)[0], verdict if verdict in VERDICTS else "OWNER", cell(r.get("reason"))))
     out += ["", "Outcome: %s. %s" % (cell(data.get("outcome"), 20), cell(data.get("reason"))), "",
             "Written by the CI fixer (`.claude/commands/review-fix.md`). On merge, FIXED and FIXED ELSEWHERE close or tick "
-            "their source; every other decision is only a comment: a human closes or ticks that source with the reason. "
+            "their source; NOT A DEFECT and DECIDED tick a note outside the P0 paths whose reason cites an ADR "
+            "(Status ACCEPTED, naming the note's own file and the note's own id in backticks); a path:line citation never ticks, every citation must exist on develop; every other decision is only a comment: a human "
+            "closes or ticks that source with the reason. "
             "This pull request goes through review like any other."]
     print("\n".join(out))
     return 0
@@ -727,8 +731,10 @@ def nothing_settle(ctx, findings, gh, repo, number, run_id, verdicts):
                  "source got the verdict below as a comment." % run_id, "", "| Item | Verdict | Reason |", "|---|---|---|"]
         table += ["| %s | %s | %s |" % (key, verdict, cell(reason)) for key, verdict, reason in accepted]
         table += ["", "FIXED ELSEWHERE closed or ticked its source only when the named pull request is merged, touched the cited "
-                  "file and is not the source's own; every other verdict is only a comment and the source stays open for a "
-                  "human. The items above are ticked and this batch is closed: the next run starts a new batch without them "
+                  "file and is not the source's own. A NOTE outside the P0 paths judged NOT A DEFECT or DECIDED is ticked when the verdict cites an ADR with "
+                  "Status ACCEPTED that names the note's own file and the note's own id in backticks (a path:line citation never ticks), every citation existing at the tip of develop; its "
+                  "issue then closes as not planned once every box is settled. Every other verdict is only a comment and "
+                  "the source stays open for a human. The items above are ticked and this batch is closed: the next run starts a new batch without them "
                   "until they change. An unticked item had no verdict and goes back to the next batch."]
         findings.batch_write(gh, "POST", endpoint + "/comments", [("body", "\n".join(table))])
     done = {key for key, _, _ in accepted}

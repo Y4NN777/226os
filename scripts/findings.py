@@ -25,10 +25,12 @@ dashboard says what to fix next. Nobody files a finding by hand: classifying one
              urgent) while their row text is unchanged; the next batch moves on to the waiting items.
   settle PR  when the batch fix pull request PR (fix/review/batch-*) is merged into develop, its results table settles
              each source. Only FIXED and FIXED ELSEWHERE act: they close a finding issue as completed or tick a note's
-             box. NOT A DEFECT and DECIDED never close or tick anything (a model verdict is not a decision): their
-             reason is posted as a comment and a human closes the issue as not planned or ticks the box; OWNER and AFTER
-             FREEZE stay open. One comment per touched source ("Settled by #PR (review batch #N): ..."), once (marker); a
-             notes issue whose boxes are all ticked is closed as completed; the batch issue closes last. Fails CLOSED like
+             box. NOT A DEFECT and DECIDED never close a finding (a model verdict is not a decision): their reason is
+             posted as a comment and a human closes it. For a NOTE outside the P0 paths (sensitive and deep-review lists) they tick its box when the reason cites a reference
+             that the script checks at the tip of develop: a docs/decisions/NNNN-*.md file whose Status line says ACCEPTED and whose text names the
+             note's own file as a whole path AND the note's own ledger id written as code, `id` in backticks (as written in the notes issue, outside the file mentions) (a `path:line` citation must exist but never counts, not even in the note's own file); without it they only comment. OWNER and AFTER FREEZE stay open. One comment per touched source ("Settled by #PR (review batch #N): ..."), once (marker); a
+             notes issue whose boxes are all ticked is closed (as not planned when a verdict ticked one, else as completed);
+             the batch issue closes last. Fails CLOSED like
              `batch`.
 
 Every issue is self-contained: the ledger entry's `detail` (proof and reasoning), `fix`, `source` (review or deep), a
@@ -44,7 +46,9 @@ fails a workflow. Fail CLOSED (batch): a GitHub error is printed as FAILED and t
 from a partial read would lie about what is left.
 Environment: REPO (owner/name), PR_NUMBER (harvest), PR_AUTHOR, GH_BIN (default gh, GH_TOKEN auth).
 """
+import base64
 import datetime
+import fnmatch
 import importlib.util
 import os
 import re
@@ -589,7 +593,8 @@ def merged_fix(ctx, binary, repo, issue):
 
 SETTLE_MARK = "<!-- settled-by:PR%s -->"
 DECISIONS = ("FIXED", "FIXED ELSEWHERE", "NOT A DEFECT", "DECIDED", "OWNER", "AFTER FREEZE")
-# Only a fix closes or ticks by itself; NOT A DEFECT and DECIDED are the fixer's opinion: a human closes or ticks them.
+# Only a fix closes or ticks by itself; NOT A DEFECT and DECIDED are the fixer's opinion: a human closes a finding; a note is
+# ticked only with a reference the script verified (verified_reference).
 CLOSE_AS = {"FIXED": "completed", "FIXED ELSEWHERE": "completed"}
 STAYS_OPEN = {"NOT VERIFIED": "stays open: a human checks", "OWNER": "stays open for the owner", "AFTER FREEZE": "stays open until after the freeze",
               "NOT A DEFECT": "stays open: a human closes it as not planned if they agree",
@@ -620,6 +625,139 @@ def settle_text(decision, reason, pr):
 
 
 PR_REF = re.compile(r"#(\d+)")
+# A reference a NOT A DEFECT or DECIDED verdict of a NOTE must cite to tick it: an ACCEPTED ADR that names the note's file
+# and names the note's own id in backticks, `id` (a `path:line` citation must exist but never counts by itself).
+# A path with a directory or an extension; a bare name (Makefile, Dockerfile) counts only when it is the note's own file,
+# so a word such as "Retry:3" in the reason is never read as a citation.
+CITE_LINE = re.compile(r"(?<![\w./-])((?:[\w.-]+/)*[\w.-]+):(\d+)(?:-(\d+))?(?!\d)")
+CITE_ADR = re.compile(r"(?<![\w./-])(docs/decisions/\d{4}-[\w.-]+\.md)(?![\w.-])")
+TRUNK = "develop"
+
+
+def trunk_file(ctx, binary, repo, path):
+    """The text of `path` at the tip of develop, or None (missing, a directory, too large, unreadable: never a guess)."""
+    if ".." in path.split("/") or path.startswith("/"):
+        return None
+    try:
+        items = ctx.gh_api(binary, "repos/%s/contents/%s?ref=%s" % (repo, urllib.parse.quote(path), TRUNK))
+        item = items[0]
+        if item.get("type") != "file" or item.get("encoding") != "base64":
+            return None
+        return base64.b64decode(item.get("content") or "").decode("utf-8")
+    except Exception as exc:  # any failure leaves the note open, which is today's behaviour; never silent
+        print("findings: contents read failed for %s at %s (%s): the note stays open" % (path, TRUNK, type(exc).__name__), file=sys.stderr)
+        return None
+
+
+def repo_path(path):
+    """A note's recorded path as a repository path: no leading ./ or pr/ (the review's checkout), no doubled slashes."""
+    path = re.sub(r"/{2,}", "/", (path or "").strip())
+    while True:
+        if path.startswith("./"):
+            path = path[2:]
+        elif path.startswith("pr/"):
+            path = path[3:]
+        else:
+            return path
+
+
+def line_range(text):
+    """(first, last) of "a" or "a-b" (leading zeros allowed), else None."""
+    m = re.match(r"^\s*0*(\d+)(?:\s*-\s*0*(\d+))?\s*$", text or "")
+    return (int(m.group(1)), int(m.group(2) or m.group(1))) if m else None
+
+
+# The FIRST Status line of an ADR decides, and its value must be ACCEPTED alone or followed by a parenthesis
+# ("ACCEPTED (owner ..., date)"): "ACCEPTED, superseded", "accepted-pending" or "Accepted?" are not ACCEPTED.
+ADR_STATUS_LINE = re.compile(r"^[\s>*_-]*\*{0,2}status:?\*{0,2}:?\s*\**\s*(.*)$", re.IGNORECASE | re.MULTILINE)
+ADR_ACCEPTED = re.compile(r"^accepted\*{0,2}\s*(?:\(.*\))?\s*$", re.IGNORECASE)
+
+
+def adr_accepted(text):
+    m = ADR_STATUS_LINE.search(text)
+    return m is not None and ADR_ACCEPTED.match(m.group(1).strip()) is not None
+
+
+def file_pattern(path):
+    return r"(?<![\w./:-])" + re.escape(path) + r"(?![\w/-]|\.\w)"
+
+
+def names_file(text, path):
+    """True when TEXT names PATH as a whole path: not inside a longer path (old/src/a.go, src/a.go.bak) or a URL."""
+    return re.search(file_pattern(path), text) is not None
+
+
+def names_id(text, note_id):
+    """True when TEXT writes NOTE_ID as code, exactly `note_id` between backticks, case-sensitive. A plain word equal to
+    the id is a passing mention, not a decision, and never counts (owner, 2026-11-15); `note-x-2`, `a-note-x`, `n1.go`
+    and `n1.2` are other tokens and never match `note-x` or `n1`."""
+    return bool(note_id) and ("`%s`" % note_id) in text
+
+
+def adr_counts(text, own_file, note_id=""):
+    """True when an ADR's TEXT decides this note: its first Status line says ACCEPTED (any case), it names OWN_FILE as a
+    whole repository path AND it names NOTE_ID, the ledger id of the note, in backticks (`id`) OUTSIDE every mention of
+    OWN_FILE (the path itself never supplies the id: `handler` in src/api/handler.go). A missing id counts nothing."""
+    if not (bool(own_file) and own_file != "?" and bool(note_id) and adr_accepted(text) and names_file(text, own_file)):
+        return False
+    return names_id(re.sub(file_pattern(own_file), " ", text), note_id)
+
+
+def verified_reference(ctx, binary, repo, reason, own_file, own_line="", note_id=""):
+    """The reference that lets a NOTE verdict tick its box, else None. Checked here, never by the model.
+
+    Every reference the verdict cites must exist at the tip of develop: one missing ADR, missing file or line past the
+    end of its file and nothing is accepted (a valid ADR cannot carry a wrong line). Then at least one ADR must count:
+    a `docs/decisions/NNNN-*.md` file read at the tip of develop whose FIRST Status line says ACCEPTED (case-insensitive,
+    alone or followed by a parenthesis) and whose text names OWN_FILE, the file the note points at, as a whole repository
+    path (repo_path form; not inside a longer path or a URL) AND names NOTE_ID, the note's ledger id (raw, before slug), written
+    as code, exactly `id` between backticks, case-sensitive (a plain word never counts; `note-x` is not `note-x-2`). An ADR that does not name the file and the id
+    proves nothing about the note; an empty NOTE_ID counts nothing (fail closed). A `path:line` citation never counts, in the note's own file or any other: it only
+    has to exist (existence is not evidence; owner, 2026-11-15). A note whose own file is missing or "?" is never ticked.
+    OWN_LINE is not used: no line citation counts, so an unparsable own line cannot let one through."""
+    own_file = repo_path(own_file)
+    if not own_file or own_file == "?":
+        return None
+    text = re.sub("[\u200b\u200c\u200d\u2060\ufeff]", "", reason or "")
+    accepted = None
+    for m in CITE_ADR.finditer(text):
+        adr = trunk_file(ctx, binary, repo, m.group(1))
+        if adr is None:
+            return None
+        if adr_counts(adr, own_file, note_id):
+            accepted = accepted or m.group(1)
+    for m in CITE_LINE.finditer(text):
+        if "/" not in m.group(1) and "." not in m.group(1) and repo_path(m.group(1)) != own_file:
+            continue
+        first, last = int(m.group(2)), int(m.group(3) or m.group(2))
+        body = trunk_file(ctx, binary, repo, m.group(1))
+        if body is None:
+            return None
+        total = body.count("\n") + (1 if body and not body.endswith("\n") else 0)
+        if not 1 <= first <= last <= total:
+            return None
+    return accepted
+
+
+P0_LISTS = (".github/sensitive-paths.txt", ".github/deep-review-paths.txt")
+
+
+def p0_path(ctx, binary, repo, path):
+    """True when PATH matches a P0 pattern (sensitive or deep-review paths, read at the tip of develop), or when a list
+    cannot be read (fails closed), or when PATH itself is not a file at the tip of develop (a note on a path we cannot
+    place is treated as P0). A note there is never closed by a model verdict: a human decides (#266 review)."""
+    path = repo_path(path)
+    if not path or trunk_file(ctx, binary, repo, path) is None:
+        return True
+    for name in P0_LISTS:
+        text = trunk_file(ctx, binary, repo, name)
+        if text is None:
+            return True
+        for line in text.splitlines():
+            pattern = line.strip()
+            if pattern and not pattern.startswith("#") and fnmatch.fnmatchcase(path, pattern):
+                return True
+    return False
 
 
 ORIGIN_TITLE = re.compile(r"^PR(\d+)\b")
@@ -696,25 +834,45 @@ def settle_issue(ctx, binary, repo, pr, batch_no, number, entries, files=None, m
     notes = {slug(n): (d, r) for n, d, r in entries if n}
     if notes:
         old = issue.get("body") or ""
-        cited_by = {}
+        cited_by, where, raw_ids = {}, {}, {}
         for line in old.split("\n"):
             mm = NOTE_ITEM.match(line)
             if mm:
+                raw_ids[slug(mm.group(2))] = mm.group(2)
                 w = NOTE_WHERE.match(mm.group(4))
                 cited_by[slug(mm.group(2))] = w.group(1) if w else ""
+                where[slug(mm.group(2))] = w.group(2) if w else ""
         for key, (d, r) in list(notes.items()):
             bad = unverified(ctx, binary, repo, pr, files, d, r, cited_by.get(key, ""), issue.get("created_at") or "", origin_pr(issue))
             if bad:
                 notes[key] = ("NOT VERIFIED", bad)
+        # A NOTE is not a defect: a NOT A DEFECT or DECIDED verdict that cites a reference which exists at the tip of develop
+        # ticks its box (and the issue closes as not planned when every box is settled). Findings never do.
+        cites = {}
+        for key, (d, r) in notes.items():
+            own = repo_path(cited_by.get(key, ""))
+            if d in ("NOT A DEFECT", "DECIDED") and not p0_path(ctx, binary, repo, own):
+                ref = verified_reference(ctx, binary, repo, r, own, where.get(key, ""), raw_ids.get(key, ""))
+                if ref:
+                    cites[key] = ref
         entries = [(n, *notes.get(slug(n), (d, r))) if n else (n, d, r) for n, d, r in entries]
-        out, ticked_all, seen = [], True, 0
+        # The issue closes as not planned only when this run settled every box by verdict; a box ticked before this run
+        # (by a human or a fix) or by a fix in this run keeps the old reason, completed.
+        out, ticked_all, seen, by_verdict, by_fix, ticked_now = [], True, 0, False, False, set()
         for line in old.split("\n"):
             m = NOTE_ITEM.match(line)
             if m:
                 seen += 1
                 hit = notes.get(slug(m.group(2)))
-                if m.group(1) == " " and hit and hit[0] in CLOSE_AS:
+                if m.group(1) != " ":
+                    by_fix = True
+                elif hit and hit[0] in CLOSE_AS:
                     line = line.replace("- [ ]", "- [x]", 1) + " \u2014 " + settle_text(hit[0], hit[1], pr)
+                    by_fix = True
+                elif hit and slug(m.group(2)) in cites:
+                    line = line.replace("- [ ]", "- [x]", 1) + " \u2014 " + settle_text(hit[0], hit[1], pr)
+                    by_verdict = True
+                    ticked_now.add(slug(m.group(2)))
                 elif m.group(1) == " ":
                     ticked_all = False
             out.append(line)
@@ -722,8 +880,9 @@ def settle_issue(ctx, binary, repo, pr, batch_no, number, entries, files=None, m
         if new != old:
             batch_write(binary, "PATCH", endpoint, [("body", new)])
         if seen and ticked_all and issue.get("state") == "open":
-            batch_write(binary, "PATCH", endpoint, [("state", "closed"), ("state_reason", "completed")])
-        detail = "; ".join("`%s` %s" % (one_line(n, 40), d if d in CLOSE_AS else "%s (%s)%s" % (
+            batch_write(binary, "PATCH", endpoint, [("state", "closed"), ("state_reason", "not_planned" if by_verdict and not by_fix else "completed")])
+        detail = "; ".join("`%s` %s" % (one_line(n, 40), d if d in CLOSE_AS else "%s ticked (reference `%s` exists)%s" % (
+            d, one_line(cites[slug(n)], 80), ": " + one_line(r, 200) if r else "") if slug(n) in ticked_now else "%s (%s)%s" % (
             d, STAYS_OPEN[d], ": " + one_line(r, 200) if r else "")) for n, d, r in entries if n)
     else:
         _, decision, reason = entries[0]
