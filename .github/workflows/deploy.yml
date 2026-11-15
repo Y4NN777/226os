@@ -256,6 +256,14 @@ jobs:
           deploy-ssh() { "$RUNNER_TEMP/bin/deploy-ssh" "$@"; }
           deploy-ssh 'echo "ssh ok on $(hostname)"'
 
+      # A server belongs to the profile of its first deploy (state/profile, written by scripts/deploy-remote.sh).
+      # Checked BEFORE anything is copied: a wrong DEPLOY_HOST must not receive a release or an env file.
+      - name: The server must belong to this environment
+        run: |
+          set -euo pipefail
+          bound="$("$RUNNER_TEMP/bin/deploy-ssh" 'cat /opt/226os/state/profile 2>/dev/null || true')"
+          scripts/deploy-check-bound.sh "$PROFILE" "$bound"
+
       - name: Decrypt the profile env and set the image digests (RAM only, never printed)
         env:
           SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY }}

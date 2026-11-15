@@ -36,13 +36,24 @@ case "$cmd" in
     [ $# -eq 2 ] || usage
     check_tag "$1"
     check_tag "$2"
-    # Immutable tags (ADR-0006): a tag that already exists is never overwritten, for any of the three images.
+    # Immutable tags (ADR-0006): an existing tag is never overwritten with other content. A tag that already holds
+    # exactly this image (same config digest as the local image) is skipped, so a partial push can be completed.
+    todo=()
     for n in "${names[@]}"; do
-      if docker buildx imagetools inspect "$ns/226os-$n:$1" >/dev/null 2>&1; then
-        die "REFUSED: $ns/226os-$n:$1 already exists and tags are immutable (re-run only the failed jobs; to rebuild, push a new commit)"
+      ref="$ns/226os-$n:$1"
+      if docker buildx imagetools inspect "$ref" >/dev/null 2>&1; then
+        remote_cfg="$(docker buildx imagetools inspect --raw "$ref" | jq -r '.config.digest // empty')"
+        local_id="$(docker image inspect "226os-$n:$2" --format '{{.Id}}')"
+        if [ -n "$remote_cfg" ] && [ "$remote_cfg" = "$local_id" ]; then
+          printf 'deploy-images: %s already holds this image, skipped\n' "$ref"
+        else
+          die "REFUSED: $ref already exists with different content and tags are immutable (to rebuild, push a new commit)"
+        fi
+      else
+        todo+=("$n")
       fi
     done
-    for n in "${names[@]}"; do
+    for n in ${todo[@]+"${todo[@]}"}; do
       docker tag "226os-$n:$2" "$ns/226os-$n:$1"
       docker push "$ns/226os-$n:$1"
     done

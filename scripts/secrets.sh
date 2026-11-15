@@ -26,7 +26,14 @@ root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 secrets_dir="${SECRETS_DIR:-$root/secrets}"
 out_dir="${SECRETS_OUT_DIR:-$root}"
 template="${SECRETS_ENV_TEMPLATE:-$root/.env.example}"
-export SOPS_AGE_KEY_FILE="${SOPS_AGE_KEY_FILE:-${XDG_CONFIG_HOME:-$HOME/.config}/sops/age/keys.txt}"
+# The default key file is exported only when it exists or when no SOPS_AGE_KEY is given (CI holds the key in the
+# environment, and a path to a missing file must not be handed to sops next to it).
+default_key_file="${XDG_CONFIG_HOME:-$HOME/.config}/sops/age/keys.txt"
+if [ -n "${SOPS_AGE_KEY_FILE:-}" ]; then
+  export SOPS_AGE_KEY_FILE
+elif [ -f "$default_key_file" ] || [ -z "${SOPS_AGE_KEY:-}" ]; then
+  export SOPS_AGE_KEY_FILE="$default_key_file"
+fi
 
 die() { printf 'secrets: %s\n' "$*" >&2; exit 1; }
 usage() {

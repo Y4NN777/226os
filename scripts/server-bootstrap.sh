@@ -126,8 +126,11 @@ else
   ufw default allow outgoing
   # SSH first: enabling the firewall must never cut the session this script runs in. The port is the one sshd really
   # listens on (not an assumed 22); `limit` also rate-limits repeated connection attempts.
-  ssh_port="$(sshd -T 2>/dev/null | awk '$1 == "port" {print $2; exit}')"
+  sshd_conf="$(sshd -T 2>/dev/null)" || refuse "sshd -T failed: the firewall was not enabled"
+  ssh_port="$(awk '$1 == "port" {print $2; exit}' <<<"$sshd_conf")"
   [[ "$ssh_port" =~ ^[0-9]+$ ]] || refuse "cannot read the sshd port from sshd -T: the firewall was not enabled"
+  # An older plain `allow 22` would keep port 22 open without the rate limit (and when sshd listens elsewhere).
+  ufw delete allow 22/tcp >/dev/null 2>&1 || true
   ufw limit "$ssh_port/tcp"
   ufw allow 80/tcp
   ufw allow 443/tcp
@@ -177,7 +180,8 @@ else
       reload_sshd() { systemctl reload ssh 2>/dev/null || systemctl reload sshd; }
       if sshd -t; then
         reload_sshd
-        if sshd -T | grep -qi '^passwordauthentication no'; then
+        sshd_after="$(sshd -T)"
+        if grep -qi '^passwordauthentication no' <<<"$sshd_after"; then
           echo "    password login disabled (sshd reloaded, existing sessions kept, verified with sshd -T)"
         else
           rm -f /etc/ssh/sshd_config.d/50-226os.conf

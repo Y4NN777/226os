@@ -161,4 +161,21 @@ if [ "$rc" -eq 0 ] && [ "$(cat "$tmp/token")" = sekret-token ] && [ -n "$cfg" ] 
 else ko "registry login (rc=$rc cfg=$cfg out=$out)"; fi
 [ "$(grep -n 'docker login' "$log" | cut -d: -f1)" -lt "$(grep -n 'pull' "$log" | cut -d: -f1)" ] && ok "login happens before the pull" || ko "login order"
 
+# Review round 3: age is checked before anything runs; the failure report never claims a backup that is not encrypted;
+# leftover plaintext dumps are pruned, the evidence of the encrypted dump stays.
+run AGE_BIN=no-such-age-binary "$deploy" staging-test https://staging.example.test
+[ "$rc" -eq 2 ] && grep -q 'age is not installed' <<<"$out" && [ ! -s "$log" ] && ok "a missing age is refused before the pull, the backup or any change" || ko "age preflight (rc=$rc out=$out)"
+
+printf 'PGDMP leftover\n' >"$dr/backups/staging-test-left.dump"
+run "$deploy" staging-test https://staging.example.test
+[ "$rc" -eq 0 ] && [ ! -e "$dr/backups/staging-test-left.dump" ] && [ -f "$dr/backups/staging-test-t.dump.evidence.txt" ] && [ -f "$dr/backups/staging-test-t.dump.age" ] && ok "leftover plaintext dumps are pruned, the encrypted dump and its evidence stay" || ko "plaintext prune (rc=$rc)"
+
+printf '#!/usr/bin/env bash\nexit 1\n' >"$tmp/bin/failage"
+chmod +x "$tmp/bin/failage"
+run AGE_BIN="$tmp/bin/failage" "$deploy" staging-test https://staging.example.test
+if [ "$rc" -ne 0 ] && grep -q 'encryption of' <<<"$out" && ! grep -q 'backup (age-encrypted): .*\.dump\.age$' <<<"$out"; then
+  ok "when encryption fails the report does not name a backup that does not exist"
+else ko "backup_file claim (rc=$rc out=$out)"; fi
+rm -f "$dr/backups/staging-test-t.dump"
+
 finish

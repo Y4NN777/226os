@@ -60,4 +60,7 @@ else
   [ "$rc" -eq 2 ] && grep -q 'REFUSED' <<<"$out" && grep -q 'root' <<<"$out" && ok "a real run refuses to start as non-root" || ko "non-root (rc=$rc out=$out)"
 fi
 
+# The root-only parts cannot run here; these static checks pin the review fixes.
+! grep -E 'sshd -T[^"]*\|' "$script" | grep -v '^[[:space:]]*#' | grep -vq 'printf' && ok "sshd -T is never piped (pipefail and SIGPIPE): its output is captured first" || ko "sshd -T piped"
+awk '/ufw delete allow 22\/tcp/ {d=NR} /ufw limit "\$ssh_port/ {l=NR} END {exit !(d && l && d<l)}' "$script" && ok "the old plain allow 22 rule is deleted before the limit rule is added" || ko "ufw delete before limit"
 finish
