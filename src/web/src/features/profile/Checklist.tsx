@@ -167,16 +167,26 @@ export function Checklist({ username }: { username: string }) {
   if (!me.data) return null;
   const missing = checklistItems.filter((item) => me.data.profile.checklist_missing.includes(item));
   if (missing.length === 0) return null;
-  const percent = Math.round(
-    ((checklistItems.length - missing.length) / checklistItems.length) * 100,
-  );
+  const done = checklistItems.length - missing.length;
+  const percent = Math.round((done / checklistItems.length) * 100);
 
   return (
     <section aria-label={t('profile.checklist.title')}>
       <Card variant="muted">
         <VStack gap={4}>
-          <Heading level={2}>{t('profile.checklist.title')}</Heading>
-          <ProgressBar label={t('profile.checklist.progress')} value={percent} hasValueLabel />
+          {/* The prototype's setup header: the title, and the meter with its done/total count. */}
+          <HStack gap={4} vAlign="center" justify="between" wrap="wrap">
+            <Heading level={2}>{t('profile.checklist.title')}</Heading>
+            <VStack width={200}>
+              <ProgressBar
+                label={t('profile.checklist.progress')}
+                isLabelHidden
+                value={percent}
+                hasValueLabel
+                formatValueLabel={() => `${String(done)}/${String(checklistItems.length)}`}
+              />
+            </VStack>
+          </HStack>
           <VStack as="ul" gap={4}>
             {missing.map((item) => (
               <li key={item}>

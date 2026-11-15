@@ -90,6 +90,42 @@ describe('ConnectPage list', () => {
     await screen.findByRole('link', { name: 'Awa Traoré' });
     expect(screen.getByText('Bientôt : mentorat, espaces et opportunités.')).toBeVisible();
   });
+
+  it('lays people out as rows under a Membres heading, the country code next to its name', async () => {
+    setLanguages(['fr-FR']);
+    mockApi(base);
+    await renderApp('/connect');
+    const results = await screen.findByRole('region', { name: 'Membres' });
+    expect(within(results).getByRole('heading', { level: 2, name: 'Membres' })).toBeVisible();
+    const card = (await within(results).findByRole('link', { name: 'Awa Traoré' })).closest(
+      'li',
+    ) as HTMLElement;
+    // The code is decoration; the country name is the text a screen reader hears.
+    expect(within(card).getByText('BF').closest('[aria-hidden="true"]')).not.toBeNull();
+    expect(within(card).getByText('Burkina Faso')).toBeVisible();
+  });
+
+  it('shows the spaces block labelled « Bientôt », with no link or action', async () => {
+    setLanguages(['fr-FR']);
+    mockApi(base);
+    await renderApp('/connect');
+    const spaces = await screen.findByRole('region', { name: 'Espaces d’échange' });
+    expect(within(spaces).getByText('Bientôt')).toBeVisible();
+    expect(within(spaces).getByText('Par pays')).toBeVisible();
+    expect(within(spaces).getByText('Par technologie')).toBeVisible();
+    expect(within(spaces).getByText('Par thème')).toBeVisible();
+    expect(within(spaces).queryByRole('link')).not.toBeInTheDocument();
+    expect(within(spaces).queryByRole('button')).not.toBeInTheDocument();
+  });
+
+  it('names the spaces block in English too', async () => {
+    setLanguages(['en-US']);
+    mockApi(base);
+    await renderApp('/connect');
+    const spaces = await screen.findByRole('region', { name: 'Discussion spaces' });
+    expect(within(spaces).getByText('Coming soon')).toBeVisible();
+    expect(within(spaces).getByText('By technology')).toBeVisible();
+  });
 });
 
 describe('ConnectPage filters', () => {

@@ -1,28 +1,29 @@
-import { Avatar } from '@astryxdesign/core/Avatar';
+import { Badge } from '@astryxdesign/core/Badge';
 import { Banner } from '@astryxdesign/core/Banner';
 import { Button } from '@astryxdesign/core/Button';
+import { Card } from '@astryxdesign/core/Card';
+import { Divider } from '@astryxdesign/core/Divider';
 import { EmptyState } from '@astryxdesign/core/EmptyState';
 import { Heading } from '@astryxdesign/core/Heading';
 import { HStack } from '@astryxdesign/core/HStack';
 import { Icon } from '@astryxdesign/core/Icon';
 import { IconButton } from '@astryxdesign/core/IconButton';
-import { Link } from '@astryxdesign/core/Link';
 import { Selector } from '@astryxdesign/core/Selector';
 import { Text } from '@astryxdesign/core/Text';
 import { TextInput } from '@astryxdesign/core/TextInput';
 import { VStack } from '@astryxdesign/core/VStack';
 import { useNavigate, useSearch } from '@tanstack/react-router';
-import { useState } from 'react';
+import { useId, useState, type ComponentType, type SVGProps } from 'react';
 import { ApiError } from '../../api/http';
 import { ErrorState } from '../../components/ErrorState';
 import { LoadingState } from '../../components/LoadingState';
 import { useI18n } from '../../i18n/I18nProvider';
 import type { Locale } from '../../i18n/messages';
-import { countryName, languageName } from '../discover/present';
+import { countryName } from '../discover/present';
 import { WEST_AFRICA } from '../discover/region';
-import { TagList } from '../learn/present';
-import { githubProfileUrl } from '../profile/github';
-import { useProfileDirectory, type ProfileSummary } from './queries';
+import { CodeIcon, GlobeIcon, UsersIcon } from '../profile/icons';
+import { PersonRow } from './PersonRow';
+import { useProfileDirectory } from './queries';
 import { languageTag, skillTag, validateConnectSearch, type ConnectSearch } from './routeSearch';
 
 /** West Africa first (Discover's list), then any other country the page has seen. */
@@ -64,85 +65,53 @@ function Filters({
         go(next);
       }}
     >
-      <HStack gap={2} vAlign="end" wrap="wrap">
-        <Selector
-          label={t('connect.country.label')}
-          placeholder={t('connect.country.placeholder')}
-          hasClear
-          options={countryOptions([...seenCountries, ...(country ? [country] : [])], locale)}
-          value={country ?? null}
-          onChange={(value) => {
-            const next: ConnectSearch = { ...search };
-            if (value) next.country = value;
-            else delete next.country;
-            go(next);
-          }}
-        />
-        <TextInput
-          label={t('connect.language.label')}
-          placeholder={t('connect.language.placeholder')}
-          value={language}
-          onChange={setLanguage}
-          autoCapitalize="none"
-          hasAutoCorrect={false}
-          hasSpellCheck={false}
-        />
-        <TextInput
-          label={t('connect.skill.label')}
-          placeholder={t('connect.skill.placeholder')}
-          value={skill}
-          onChange={setSkill}
-          autoCapitalize="none"
-          hasAutoCorrect={false}
-          hasSpellCheck={false}
-        />
-        <IconButton type="submit" label={t('connect.apply')} icon={<Icon icon="search" />} />
-        {active ? (
-          <Button
-            variant="ghost"
-            label={t('connect.reset')}
-            onClick={() => {
-              go({});
+      {/* The prototype's filter bar: one borderless panel holding the three filters. */}
+      <Card variant="muted" padding={3}>
+        <HStack gap={3} vAlign="end" wrap="wrap">
+          <Selector
+            label={t('connect.country.label')}
+            placeholder={t('connect.country.placeholder')}
+            hasClear
+            options={countryOptions([...seenCountries, ...(country ? [country] : [])], locale)}
+            value={country ?? null}
+            onChange={(value) => {
+              const next: ConnectSearch = { ...search };
+              if (value) next.country = value;
+              else delete next.country;
+              go(next);
             }}
           />
-        ) : null}
-      </HStack>
-    </form>
-  );
-}
-
-function PersonCard({ person }: { person: ProfileSummary }) {
-  const { t, locale } = useI18n();
-  const githubUrl = person.github ? githubProfileUrl(person.github) : null;
-  const facts = [
-    person.country ? countryName(person.country, locale) : undefined,
-    person.languages && person.languages.length > 0
-      ? person.languages.map((code) => languageName(code, locale)).join(', ')
-      : undefined,
-  ].filter((fact): fact is string => fact !== undefined);
-  return (
-    <HStack gap={3} vAlign="start" wrap="nowrap">
-      <Avatar name={person.display_name} size="md" />
-      <VStack gap={1}>
-        <HStack gap={2} wrap="wrap" vAlign="center">
-          <Link href={`/profils/${person.username}`} type="large" weight="semibold">
-            {person.display_name}
-          </Link>
-          <Text type="supporting">@{person.username}</Text>
+          <TextInput
+            label={t('connect.language.label')}
+            placeholder={t('connect.language.placeholder')}
+            value={language}
+            onChange={setLanguage}
+            autoCapitalize="none"
+            hasAutoCorrect={false}
+            hasSpellCheck={false}
+          />
+          <TextInput
+            label={t('connect.skill.label')}
+            placeholder={t('connect.skill.placeholder')}
+            value={skill}
+            onChange={setSkill}
+            autoCapitalize="none"
+            hasAutoCorrect={false}
+            hasSpellCheck={false}
+          />
+          <IconButton type="submit" label={t('connect.apply')} icon={<Icon icon="search" />} />
+          {active ? (
+            <Button
+              variant="ghost"
+              label={t('connect.reset')}
+              onClick={() => {
+                go({});
+              }}
+            />
+          ) : null}
         </HStack>
-        {facts.map((fact) => (
-          <Text key={fact} type="supporting">
-            {fact}
-          </Text>
-        ))}
-        {person.skills && person.skills.length > 0 ? <TagList tags={person.skills} /> : null}
-        {githubUrl ? (
-          <Link href={githubUrl} aria-label={t('connect.github', { name: person.display_name })}>
-            GitHub
-          </Link>
-        ) : null}
-      </VStack>
-    </HStack>
+      </Card>
+    </form>
   );
 }
 
@@ -168,9 +137,61 @@ function LoadFailure({ error, onRetry }: { error: unknown; onRetry: () => void }
   );
 }
 
+const spaces: readonly {
+  key: 'country' | 'tech' | 'topic';
+  icon: ComponentType<SVGProps<SVGSVGElement>>;
+}[] = [
+  { key: 'country', icon: GlobeIcon },
+  { key: 'tech', icon: CodeIcon },
+  { key: 'topic', icon: UsersIcon },
+];
+
+/**
+ * The spaces block the DISCLAIMER keeps on Connect, labelled « Bientôt » once: plain rows with no
+ * link or action, so nothing looks usable before it is.
+ */
+function SpacesSoon() {
+  const { t } = useI18n();
+  const headingId = useId();
+  return (
+    <section aria-labelledby={headingId}>
+      <VStack gap={3}>
+        <VStack gap={1}>
+          <HStack gap={2} vAlign="center" wrap="wrap">
+            <Heading level={2} id={headingId}>
+              {t('connect.spaces.title')}
+            </Heading>
+            <Badge variant="neutral" label={t('connect.spaces.badge')} />
+          </HStack>
+          <Text as="p" type="supporting">
+            {t('connect.soon')}
+          </Text>
+        </VStack>
+        <Card variant="muted" padding={3}>
+          <VStack as="ul" gap={0}>
+            {spaces.map((space, index) => (
+              <li key={space.key}>
+                <HStack gap={3} vAlign="start" wrap="nowrap" paddingBlock={2}>
+                  <Icon icon={space.icon} color="secondary" />
+                  <VStack gap={0.5}>
+                    <Text weight="semibold">{t(`connect.space.${space.key}`)}</Text>
+                    <Text type="supporting">{t(`connect.space.${space.key}.body`)}</Text>
+                  </VStack>
+                </HStack>
+                {index < spaces.length - 1 ? <Divider variant="subtle" /> : null}
+              </li>
+            ))}
+          </VStack>
+        </Card>
+      </VStack>
+    </section>
+  );
+}
+
 /** `connect`: the people directory (real members open to collaboration), filtered by the URL. */
 export function ConnectPage() {
   const { t } = useI18n();
+  const resultsId = useId();
   // Router merges the raw parent search over the validated one, so invalid values are dropped again here.
   const search = validateConnectSearch(useSearch({ from: '/app/connect' }));
   const list = useProfileDirectory(search);
@@ -180,65 +201,74 @@ export function ConnectPage() {
   const filtered = Object.keys(search).length > 0;
 
   return (
-    <VStack gap={5}>
-      <VStack gap={1} hAlign="start">
-        <Heading level={1}>{t('connect.title')}</Heading>
-        <Text as="p">{t('connect.lede')}</Text>
+    <VStack gap={8}>
+      <VStack gap={5}>
+        <VStack gap={1} hAlign="start">
+          <Heading level={1}>{t('connect.title')}</Heading>
+          <Text as="p" type="supporting">
+            {t('connect.lede')}
+          </Text>
+        </VStack>
+        <Filters
+          key={`${search.country ?? ''}|${search.language ?? ''}|${search.skill ?? ''}`}
+          search={search}
+          seenCountries={seenCountries}
+        />
       </VStack>
-      <Filters
-        key={`${search.country ?? ''}|${search.language ?? ''}|${search.skill ?? ''}`}
-        search={search}
-        seenCountries={seenCountries}
-      />
-      <section aria-label={t('connect.results.label')}>
-        {list.isPending ? <LoadingState /> : null}
-        {list.isError && !list.data ? (
-          <LoadFailure error={list.error} onRetry={() => void list.refetch()} />
-        ) : null}
-        {list.data && items.length === 0 ? (
-          <EmptyState
-            headingLevel={2}
-            title={t(filtered ? 'connect.empty.filtered.title' : 'connect.empty.title')}
-            description={t(filtered ? 'connect.empty.filtered.body' : 'connect.empty.body')}
-            {...(filtered
-              ? {
-                  actions: (
-                    <Button
-                      label={t('connect.reset')}
-                      onClick={() => void navigate({ to: '/connect', search: {} })}
-                    />
-                  ),
-                }
-              : {})}
-          />
-        ) : null}
-        {items.length > 0 ? (
-          <VStack gap={4}>
-            <VStack as="ul" gap={4}>
-              {items.map((person) => (
-                <li key={person.username}>
-                  <PersonCard person={person} />
-                </li>
-              ))}
+      <section aria-labelledby={resultsId}>
+        <VStack gap={2}>
+          <Heading level={2} id={resultsId}>
+            {t('connect.results.label')}
+          </Heading>
+          {list.isPending ? <LoadingState /> : null}
+          {list.isError && !list.data ? (
+            <LoadFailure error={list.error} onRetry={() => void list.refetch()} />
+          ) : null}
+          {list.data && items.length === 0 ? (
+            <EmptyState
+              headingLevel={2}
+              title={t(filtered ? 'connect.empty.filtered.title' : 'connect.empty.title')}
+              description={t(filtered ? 'connect.empty.filtered.body' : 'connect.empty.body')}
+              {...(filtered
+                ? {
+                    actions: (
+                      <Button
+                        label={t('connect.reset')}
+                        onClick={() => void navigate({ to: '/connect', search: {} })}
+                      />
+                    ),
+                  }
+                : {})}
+            />
+          ) : null}
+          {items.length > 0 ? (
+            <VStack gap={4}>
+              <VStack as="ul" gap={0}>
+                {items.map((person, index) => (
+                  <PersonRow
+                    key={person.username}
+                    person={person}
+                    isLast={index === items.length - 1}
+                  />
+                ))}
+              </VStack>
+              {list.isError ? (
+                <LoadFailure error={list.error} onRetry={() => void list.fetchNextPage()} />
+              ) : null}
+              {list.hasNextPage ? (
+                <HStack hAlign="center">
+                  <Button
+                    label={t('connect.more')}
+                    isLoading={list.isFetchingNextPage}
+                    onClick={() => void list.fetchNextPage()}
+                  />
+                </HStack>
+              ) : null}
             </VStack>
-            {list.isError ? (
-              <LoadFailure error={list.error} onRetry={() => void list.fetchNextPage()} />
-            ) : null}
-            {list.hasNextPage ? (
-              <HStack hAlign="center">
-                <Button
-                  label={t('connect.more')}
-                  isLoading={list.isFetchingNextPage}
-                  onClick={() => void list.fetchNextPage()}
-                />
-              </HStack>
-            ) : null}
-          </VStack>
-        ) : null}
+          ) : null}
+        </VStack>
       </section>
-      <Text as="p" type="supporting">
-        {t('connect.soon')}
-      </Text>
+      <SpacesSoon />
     </VStack>
   );
 }

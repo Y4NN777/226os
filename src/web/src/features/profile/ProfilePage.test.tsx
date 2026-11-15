@@ -67,6 +67,55 @@ describe('ProfilePage view', () => {
     );
   });
 
+  it('shows the hero meta line: country code and name, languages and join date', async () => {
+    setLanguages(['fr-FR']);
+    mockApi({ 'GET /profiles/awa': () => jsonResponse(publicProfile()) });
+    await renderApp('/profils/awa');
+    const hero = await screen.findByRole('region', { name: 'Awa Traoré' });
+    // The code is decoration; the country name is what a screen reader hears.
+    expect(within(hero).getByText('BF').closest('[aria-hidden="true"]')).not.toBeNull();
+    expect(within(hero).getByText('Burkina Faso')).toBeVisible();
+    expect(within(hero).getByText('français, moré')).toBeVisible();
+    expect(within(hero).getByText('Membre depuis novembre 2026')).toBeVisible();
+    // Someone else's profile: no edit link and no privacy note.
+    expect(screen.queryByRole('link', { name: 'Modifier le profil' })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Votre e-mail n’est jamais public/)).not.toBeInTheDocument();
+  });
+
+  it('gives the member an edit link and the privacy note on their own profile', async () => {
+    setLanguages(['fr-FR']);
+    member({
+      'GET /profiles/awa': () => jsonResponse(publicProfile()),
+      'GET /me': () => jsonResponse({ account: memberAccount, profile: myProfile([]) }),
+    });
+    await renderApp('/profils/awa');
+    expect(await screen.findByRole('link', { name: 'Modifier le profil' })).toHaveAttribute(
+      'href',
+      '/parametres',
+    );
+    expect(
+      screen.getByText(
+        'Votre e-mail n’est jamais public. Vous choisissez ce que les autres voient.',
+      ),
+    ).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Confidentialité' })).toHaveAttribute(
+      'href',
+      '/parametres#confidentialite',
+    );
+  });
+
+  it('reads the hero in English', async () => {
+    setLanguages(['en-US']);
+    member({
+      'GET /profiles/awa': () => jsonResponse(publicProfile()),
+      'GET /me': () => jsonResponse({ account: memberAccount, profile: myProfile([]) }),
+    });
+    await renderApp('/profils/awa');
+    expect(await screen.findByRole('link', { name: 'Edit profile' })).toBeVisible();
+    expect(screen.getByText('Member since November 2026')).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Privacy' })).toBeVisible();
+  });
+
   it('renders no GitHub link for a malformed github value', async () => {
     setLanguages(['fr-FR']);
     mockApi({
@@ -203,6 +252,18 @@ describe('ProfilePage completion checklist', () => {
     await screen.findByRole('heading', { level: 1, name: 'Kofi' });
     expect(screen.queryByText('Complétez votre profil')).not.toBeInTheDocument();
     expect(callsTo(signedIn, 'GET /me')).toHaveLength(0);
+  });
+
+  it('counts done items next to the meter, as the prototype does', async () => {
+    setLanguages(['fr-FR']);
+    member({
+      ...profileRoutes,
+      'GET /me': () =>
+        jsonResponse({ account: memberAccount, profile: myProfile(['bio', 'github', 'country']) }),
+    });
+    await renderApp('/profils/awa');
+    const card = await screen.findByRole('region', { name: 'Complétez votre profil' });
+    expect(within(card).getByText('4/7')).toBeVisible();
   });
 
   it('shows progress and one item per missing field, each with its value, on the own profile', async () => {

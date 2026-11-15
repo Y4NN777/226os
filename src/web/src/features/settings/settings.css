@@ -1,0 +1,79 @@
+/*
+ * Settings layout from the prototype (parametres.html): a section nav, then one borderless panel
+ * per section. Phone: the nav is a row of pills above the panels. Wide screens: the nav is a
+ * column on the left that stays in view. Astryx tokens only; no border, no shadow.
+ */
+.settings-layout {
+  display: grid;
+  gap: var(--spacing-5);
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.settings-nav ul {
+  display: flex;
+  gap: var(--spacing-2);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.settings-nav a {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  min-height: 44px;
+  padding: 0 var(--spacing-4);
+  border-radius: var(--radius-full);
+  background: var(--color-background-muted);
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-medium);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.settings-nav a:hover {
+  color: var(--color-text-primary);
+}
+
+.settings-nav a:focus-visible {
+  outline: var(--focus-outline-width, 2px) var(--focus-outline-style, solid)
+    var(--focus-outline-color);
+  outline-offset: var(--focus-outline-offset, 2px);
+}
+
+/* A section reached from the nav keeps its heading clear of the top edge. */
+.settings-layout section[id] {
+  scroll-margin-top: var(--spacing-6);
+}
+
+@media (min-width: 900px) {
+  .settings-layout {
+    grid-template-columns: 200px minmax(0, 1fr);
+    gap: var(--spacing-8);
+    align-items: start;
+  }
+
+  .settings-nav {
+    position: sticky;
+    top: var(--spacing-6);
+  }
+
+  .settings-nav ul {
+    flex-direction: column;
+    gap: var(--spacing-0-5);
+    overflow: visible;
+  }
+
+  .settings-nav a {
+    width: 100%;
+    box-sizing: border-box;
+    border-radius: var(--radius-element);
+    background: transparent;
+  }
+
+  .settings-nav a:hover {
+    background: var(--color-background-muted);
+  }
+}
