@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
 import { callsTo, memberSession, mockApi, problemResponse } from '../../test/api';
@@ -174,6 +174,17 @@ describe('ResetPasswordPage', () => {
     expect(
       await screen.findByRole('heading', { level: 1, name: 'Mot de passe modifié' }),
     ).toBeVisible();
+  });
+
+  it('prefills the code when a fragment arrives in a tab already on the page', async () => {
+    await open();
+    expect(screen.getByLabelText('Code de confirmation')).toHaveValue('');
+    act(() => {
+      window.location.hash = '#token=abc';
+      window.dispatchEvent(new HashChangeEvent('hashchange'));
+    });
+    await waitFor(() => expect(screen.getByLabelText('Code de confirmation')).toHaveValue('abc'));
+    expect(window.location.hash).toBe('');
   });
 
   it('is calm on a 429 and counts down on the button', async () => {

@@ -72,13 +72,18 @@ def load_context_module():
     return module
 
 
-def gh_write(binary, method, endpoint, fields):
-    """(ok, stdout) of `gh api -X METHOD endpoint -f k=v ...`."""
+def gh_write_result(binary, method, endpoint, fields):
+    """(exit code, stdout, stderr) of `gh api -X METHOD endpoint -f k=v ...`, retried once when that is safe."""
     argv = [binary, "api", "-X", method, endpoint]
     for key, value in fields:
         argv += ["-f", "%s=%s" % (key, value)]
-    done = subprocess.run(argv, capture_output=True, text=True, timeout=60, check=False)
-    return done.returncode == 0, done.stdout
+    return rc_module().gh_call(argv, method, endpoint)
+
+
+def gh_write(binary, method, endpoint, fields):
+    """(ok, stdout) of `gh api -X METHOD endpoint -f k=v ...`."""
+    code, out, _ = gh_write_result(binary, method, endpoint, fields)
+    return code == 0, out
 
 
 def names(labels):
@@ -559,9 +564,9 @@ def render_batch(title, lines, rest, held=0):
 
 
 def batch_write(binary, method, endpoint, fields):
-    ok, _ = gh_write(binary, method, endpoint, fields)
-    if not ok:
-        raise BatchError("GitHub refused %s %s" % (method, endpoint.split("?")[0]))
+    code, _, err = gh_write_result(binary, method, endpoint, fields)
+    if code != 0:
+        raise BatchError("GitHub refused %s" % rc_module().error_detail(method, endpoint, code, err))
 
 
 def merged_fix(ctx, binary, repo, issue):
