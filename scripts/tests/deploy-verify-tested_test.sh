@@ -31,7 +31,7 @@ EOF
 cat >"$tmp/bin/gh" <<'EOF'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >>"$FAKE_GH_LOG"
-[ -z "${FAKE_GH_RC:-}" ] || { echo "gh: boom" >&2; exit "$FAKE_GH_RC"; }
+[ -z "${FAKE_GH_RC:-}" ] || { printf "%s\n" "${FAKE_GH_MSG:-gh: boom}" >&2; exit "$FAKE_GH_RC"; }
 case "$1 $2" in "attestation verify") ;; *) echo "unexpected gh call" >&2; exit 99 ;; esac
 name="${3#oci://*/226os-}"
 name="${name%%@*}"
@@ -83,6 +83,8 @@ setup_all "$tree"
 run FAKE_GH_RC=4 "$verify" "$tree" "$tmp/images.env"
 [ "$rc" -ne 0 ] && ok "a gh error is refused (fail closed)" || ko "gh error (rc=$rc)"
 grep -q 'gh: boom' <<<"$out" && ok "the gh error itself is shown (an infrastructure error is not read as a missing attestation)" || ko "gh stderr hidden (out=$out)"
+run FAKE_GH_RC=4 FAKE_GH_MSG='::error::forged' "$verify" "$tree" "$tmp/images.env"
+if [ "$rc" -ne 0 ] && ! grep -q '^::error::forged' <<<"$out" && grep -q '^gh: ' <<<"$out"; then ok "gh's error cannot inject a workflow command (prefixed, leading :: neutralised)"; else ko "gh err injection (out=$out)"; fi
 
 echo '[]' >"$tmp/out/api.json"
 run "$verify" "$tree" "$tmp/images.env"
@@ -162,4 +164,6 @@ sq '.resolve.steps | map(select((.["if"] // "") | contains("staging"))) | map((.
 if grep -q 'needs.build.outputs.api_image' "$tmp/staging-resolve.txt" && ! grep -q 'deploy-images.sh resolve' "$tmp/staging-resolve.txt"; then ok "staging resolve takes the digests from build and does not re-read the tag"; else ko "staging resolve: $(cat "$tmp/staging-resolve.txt")"; fi
 sq '.resolve.steps | map(select((.["if"] // "") | contains("production"))) | map(.run // "") | join("\n")' >"$tmp/prod-resolve.txt"
 if grep -q 'deploy-images.sh resolve "tested-' "$tmp/prod-resolve.txt" && grep -q 'scripts/deploy-verify-tested.sh' "$tmp/prod-resolve.txt"; then ok "production resolve reads tested-<tree> and runs the verifier"; else ko "production resolve"; fi
+sq '.build.steps | map(.run // "") | join("\n")' >"$tmp/build.txt"
+if grep -q 'deploy-images.sh push "$SHA-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"' "$tmp/build.txt"; then ok "build pushes under a per-run tag (a re-run never collides with its own earlier push)"; else ko "build push tag: $(grep 'images.sh push' "$tmp/build.txt")"; fi
 finish

@@ -119,8 +119,9 @@ jobs:
         run: scripts/image-scan.sh
 
       # The digests of the images THIS job built and pushed (scripts/deploy-images.sh push prints them from the push
-      # itself). A <sha> tag that already exists with other content fails here. Everything after this job deploys,
-      # tests and attests these digests, never what the tag points to later.
+      # itself). The tag is per run (<sha>-<run id>-<attempt>), so a re-run never collides with its own earlier push;
+      # a tag that already exists with other content still fails here. Everything after this job deploys, tests and
+      # attests these digests, never what the tag points to later.
       - name: Push to GHCR by SHA
         id: push
         env:
@@ -129,7 +130,7 @@ jobs:
         run: |
           set -euo pipefail
           printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username github-actions --password-stdin
-          scripts/deploy-images.sh push "$SHA" "$(scripts/image-tag.sh)" >"$RUNNER_TEMP/pushed.env"
+          scripts/deploy-images.sh push "$SHA-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" "$(scripts/image-tag.sh)" >"$RUNNER_TEMP/pushed.env"
           docker logout ghcr.io
           # Lower-case output names: API_IMAGE=... becomes api_image=...
           sed -E 's/^([A-Z_]+)=/\L\1=/' "$RUNNER_TEMP/pushed.env" >>"$GITHUB_OUTPUT"
@@ -160,7 +161,7 @@ jobs:
           ref: ${{ needs.plan.outputs.sha }}
           persist-credentials: false
 
-      # Staging: the digests built and pushed by the build job of this run. The <sha> tag is NOT read back (it is
+      # Staging: the digests built and pushed by the build job of this run. The per-run tag is NOT read back (it is
       # mutable: anyone with packages: write could have moved it since the push).
       - name: Take the digests built by this run (staging)
         if: needs.plan.outputs.target == 'staging'
@@ -488,7 +489,7 @@ jobs:
           persist-credentials: false
 
       # The digests deployed by the deploy job and tested by the e2e job: the ones the resolve job gave (built and pushed
-      # by this run). No tag is read here: the <sha> tag and `tested-<tree>` are mutable, anyone with packages: write
+      # by this run). No tag is read here: the per-run tag and `tested-<tree>` are mutable, anyone with packages: write
       # could have moved them since the build. The proof production relies on is a signed attestation per digest, made
       # below by this job only (scripts/deploy-verify-tested.sh); the tag is set last, so a tag implies an attestation.
       - name: Build the predicate for the deployed digests
