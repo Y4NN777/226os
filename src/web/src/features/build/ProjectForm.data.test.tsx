@@ -12,7 +12,9 @@ async function openForm() {
   const user = userEvent.setup({ delay: null });
   await renderApp('/build');
   await user.click(await screen.findByRole('button', { name: 'Proposer un projet' }));
-  await user.type(screen.getByRole('textbox', { name: /Dépôt GitHub/ }), url);
+  // Paste, not type: typing a long URL one key at a time is slow under coverage in CI.
+  await user.click(screen.getByRole('textbox', { name: /Dépôt GitHub/ }));
+  await user.paste(url);
   return user;
 }
 
@@ -45,7 +47,8 @@ describe('BuildPage create form: stage, licence and country', () => {
     const fetchMock = member(routes(() => jsonResponse(created, { status: 201 })));
     const user = await openForm();
     await pick(user, /^Étape/, 'Prototype');
-    await user.type(screen.getByRole('textbox', { name: /Licence/ }), 'Apache-2.0');
+    await user.click(screen.getByRole('textbox', { name: /Licence/ }));
+    await user.paste('Apache-2.0');
     await pick(user, /^Pays/, 'Kenya');
     await user.click(screen.getByRole('button', { name: 'Publier le projet' }));
     await waitFor(() => {
@@ -57,7 +60,8 @@ describe('BuildPage create form: stage, licence and country', () => {
       license_spdx: 'Apache-2.0',
       country_code: 'KE',
     });
-  });
+    // Two menus, one with the 54 countries: about 8 s locally, more under coverage in CI.
+  }, 30_000);
 
   it('sends none of the three when they are left alone', async () => {
     setLanguages(['fr-FR']);
@@ -77,7 +81,8 @@ describe('BuildPage create form: stage, licence and country', () => {
     setLanguages(['fr-FR']);
     const fetchMock = member(routes(() => jsonResponse(created, { status: 201 })));
     const user = await openForm();
-    await user.type(screen.getByRole('textbox', { name: /Licence/ }), 'not valid!');
+    await user.click(screen.getByRole('textbox', { name: /Licence/ }));
+    await user.paste('not valid!');
     await user.click(screen.getByRole('button', { name: 'Publier le projet' }));
     expect(await screen.findByText(/Identifiant SPDX non valide/)).toBeVisible();
     expect(callsTo(fetchMock, 'POST /projects')).toHaveLength(0);
