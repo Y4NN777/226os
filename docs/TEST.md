@@ -45,7 +45,7 @@
 | G2 Unit + coverage | Go 100 % mesuré, frontend >70 % ×4 | coverage par SHA |
 | G3 Integration + contract | PG réel, API conformes, tests permissions | logs suite + OpenAPI diff |
 | G4 Security | scans + tests négatifs passés; pas de secret | rapports horodatés |
-| G5 E2E/UX (**NOT IMPLEMENTED**) | parcours P0 fonctionnels, FR/EN, responsive, a11y | traces Playwright/captures |
+| G5 E2E/UX (**partiel**) | parcours P0 fonctionnels, FR/EN, responsive, a11y ; la suite de fumée existe, axe et le 360 px restent à faire | traces Playwright/captures |
 | G6 Perf (**NOT IMPLEMENTED**) | budgets validés, baseline et absence de régression non acceptée | rapport + dataset/config |
 | G7 Release (manuel, **NOT RUN**) | SHA, image digest, smoke, backup/rollback | checklist SHIP |
 
@@ -55,9 +55,35 @@
 - Une tâche de fan-in, `quality`, vérifie que chaque étape attendue (`make -s ci-steps`) a un PASS pour le commit testé.
 - Une PR qui ne touche que la documentation exécute seulement le groupe `repo` ; les gates de code sont alors **NOT RUN**, et le check l'indique.
 - `make docs-check` (`scripts/check-docs.py`) garde la documentation honnête : liens relatifs valides, aucun chemin privé, nombre d'opérations cité égal à celui du contrat, ADR tous indexés. Il tourne dans le groupe `repo`, donc aussi pour une PR de documentation seule.
-- G5, G6 et le E2E sont NOT IMPLEMENTED ; G7 est manuel et NOT RUN (voir [SHIP](SHIP.md)).
+- G6 est NOT IMPLEMENTED. La suite E2E existe (section 6 ter) mais ne tourne pas dans `make quality` : elle vise un site déployé ; G7 est manuel et NOT RUN (voir [SHIP](SHIP.md)).
 
 Aucune étape ne peut être sautée tacitement. Exception documentée uniquement par décision humaine datée, avec durée et risque ; **pas d'exception pour secret exposé, vulnérabilité critique avérée ou perte de données probable**.
+
+## 6 ter. Suite E2E contre le site déployé
+
+Playwright (Chromium seulement) tourne contre un site déjà déployé, par exemple le staging après chaque déploiement. Elle vit dans `src/web/e2e/`, la configuration dans `src/web/playwright.config.ts`. Elle ne fait **pas** partie de `pnpm test` (Vitest n'inclut que `src/**/*.test.*`) ni de `make quality`.
+
+```
+E2E_BASE_URL=https://<site> make test-e2e
+# ou : E2E_BASE_URL=https://<site> pnpm --filter web test:e2e
+```
+
+Première fois : `pnpm --filter web exec playwright install chromium` (navigateur non commité).
+
+| Variable | Rôle |
+|---|---|
+| `E2E_BASE_URL` | **Obligatoire.** URL du site (sans chemin). Sans elle, `make test-e2e` sort en échec avec NOT RUN. |
+| `E2E_USER`, `E2E_PASSWORD` | Optionnelles. Compte de staging dont l'e-mail est vérifié (publier l'exige). Les comptes de démo des fixtures n'ont pas de mot de passe (`db/seeds/README.md`, section 1.1) : sans ces variables, le groupe « connecté » est ignoré avec un message. |
+| `CI` | Si présente : 1 nouvelle tentative, `forbidOnly`. |
+
+Contenu : un projet `desktop` (1280 × 800) et un projet `mobile` (375 × 667, tactile), interface en français.
+
+- Visiteur anonyme : accueil, Découvrir, Résoudre, Construire et Apprendre (liste puis page de détail), recherche, bascule FR → EN → FR.
+- Mobile : barre du bas (Résoudre, Découvrir), tiroir fermé par Échap, pas de défilement horizontal. La barre du bas arrive avec la coque du prototype ; avant, ce test échoue.
+- Connecté : connexion, question au titre unique (horodaté), réponse, déconnexion. Elle **écrit** sur le site visé : à réserver au staging.
+- Sécurité : un `POST` sans en-tête CSRF est refusé en 403 `CSRF_FAILED` ; les lectures anonymes de `/api/v1` ne posent aucun `Set-Cookie`.
+
+Le rapport HTML va dans `src/web/playwright-report/` et les traces (au premier rejeu) dans `src/web/test-results/`, deux dossiers ignorés par Git. Les libellés viennent des catalogues `messages.ts` : un libellé renommé fait échouer la suite, c'est voulu.
 
 ## 7. Test evidence record
 Pour chaque PR : `story`, `commit`, `environment`, `commands`, `result`, `coverage backend/frontend`, `security checks`, `performance measurements`, `reviewer`, `known risks`. Si l'exécution était impossible, écrire **NOT RUN** et bloquer le gate concerné.
