@@ -1,4 +1,5 @@
 import type { components } from '../../api/schema';
+import { parseView, type ListView } from '../../components/useListView';
 
 type ProjectStage = components['schemas']['ProjectStage'];
 type ProjectSort = components['schemas']['ProjectSort'];
@@ -26,6 +27,8 @@ export interface BuildSearch {
   country?: string;
   /** Absent means « updated », the default. */
   sort?: Exclude<ProjectSort, 'updated'>;
+  /** Cards or list; absent means the browser's remembered choice, then cards. Not a filter. */
+  view?: ListView;
 }
 
 export function validateBuildSearch(raw: Record<string, unknown>): BuildSearch {
@@ -36,5 +39,7 @@ export function validateBuildSearch(raw: Record<string, unknown>): BuildSearch {
   if (stage) out.stage = stage;
   if (typeof raw.country === 'string' && /^[A-Z]{2}$/.test(raw.country)) out.country = raw.country;
   if (raw.sort === 'created' || raw.sort === 'needs') out.sort = raw.sort;
+  const view = parseView(raw.view);
+  if (view) out.view = view;
   return out;
 }

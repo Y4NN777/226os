@@ -442,6 +442,90 @@
   justify-content: flex-start;
 }
 
+/* ---------- Card view (CardGrid) ---------- */
+/* The same rows as the list, as cards: 1 column on a phone, 2 from 768px, 3 from 1024px. Rows are
+   `.ui-row` (ListRow) or `.learn-row` (Learn); the title link still covers the whole card. */
+.ui-card-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--spacing-4);
+  grid-template-columns: minmax(0, 1fr);
+}
+@media (min-width: 768px) {
+  .ui-card-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (min-width: 1024px) {
+  .ui-card-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+/* Doubled class: beats the phone container rule `.ui-row.has-lead:not(.has-corner)` (0,3,0), so a card
+   stays one column at every width. */
+ul.ui-card-grid.ui-card-grid > .ui-row,
+ul.ui-card-grid.ui-card-grid > .learn-row {
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  gap: var(--spacing-3);
+  padding: var(--spacing-4);
+  background: var(--color-background-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-container);
+  transition:
+    transform 150ms ease,
+    box-shadow 150ms ease;
+}
+ul.ui-card-grid > .ui-row + .ui-row,
+ul.ui-card-grid > .learn-row + .learn-row {
+  border-top: 1px solid var(--color-border);
+}
+ul.ui-card-grid > .ui-row:hover,
+ul.ui-card-grid > .learn-row:hover {
+  background: var(--color-background-muted);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-low);
+}
+ul.ui-card-grid > .ui-row:focus-within,
+ul.ui-card-grid > .learn-row:focus-within {
+  outline: var(--focus-outline-width, 2px) var(--focus-outline-style, solid)
+    var(--focus-outline-color);
+  outline-offset: 2px;
+}
+ul.ui-card-grid > .ui-row > .ui-row-lead,
+ul.ui-card-grid > .learn-row > .learn-row-lead {
+  display: block;
+  padding-top: 0;
+}
+ul.ui-card-grid > .ui-row > .ui-row-aside,
+ul.ui-card-grid > .learn-row > .learn-row-aside {
+  /* The list layouts place the aside in column 2 on a phone; a card has a single column. */
+  grid-column: 1 / -1;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-start;
+  white-space: normal;
+}
+@media (prefers-reduced-motion: reduce) {
+  ul.ui-card-grid > .ui-row,
+  ul.ui-card-grid > .learn-row {
+    transition: none;
+  }
+  ul.ui-card-grid > .ui-row:hover,
+  ul.ui-card-grid > .learn-row:hover {
+    transform: none;
+  }
+}
+
+/* The cards / list switch: 44px targets (the Astryx button is 36px at its largest size). */
+.ui-view-toggle button {
+  min-height: 44px;
+  min-width: 44px;
+}
+
 /* ---------- Meta ---------- */
 .ui-meta {
   display: flex;
@@ -646,6 +730,8 @@ a.ui-tag:hover {
 /* Increased contrast: the borderless pieces get an outline back. */
 @media (prefers-contrast: more) {
   .ui-list,
+  .ui-card-grid > .ui-row,
+  .ui-card-grid > .learn-row,
   .ui-panel,
   .ui-linked-item,
   .ui-tile,

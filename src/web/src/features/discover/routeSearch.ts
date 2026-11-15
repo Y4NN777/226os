@@ -1,4 +1,5 @@
 import type { components } from '../../api/schema';
+import { parseView, type ListView } from '../../components/useListView';
 
 type ResourceType = components['schemas']['ResourceType'];
 
@@ -12,6 +13,8 @@ export interface DiscoverSearch {
   type?: ResourceType;
   /** Absent means « name », the default order. */
   sort?: 'verified';
+  /** Cards or list; absent means the browser's remembered choice, then cards. Not a filter. */
+  view?: ListView;
 }
 
 export function validateDiscoverSearch(raw: Record<string, unknown>): DiscoverSearch {
@@ -24,5 +27,7 @@ export function validateDiscoverSearch(raw: Record<string, unknown>): DiscoverSe
   }
   if (raw.type === 'api' || raw.type === 'sdk' || raw.type === 'tool') out.type = raw.type;
   if (raw.sort === 'verified') out.sort = 'verified';
+  const view = parseView(raw.view);
+  if (view) out.view = view;
   return out;
 }

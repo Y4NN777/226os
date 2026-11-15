@@ -160,3 +160,38 @@
     justify-content: space-between;
   }
 }
+
+/* Repository preview (GitHub social image, 2:1). Fixed box so nothing shifts while it loads; the
+   monogram tile replaces it when there is no preview or it fails. */
+.build-thumb {
+  flex: none;
+  display: block;
+  width: 96px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: var(--radius-element);
+  background: var(--color-background-muted);
+}
+.build-thumb-lg {
+  width: 100%;
+  max-width: 320px;
+  height: auto;
+  aspect-ratio: 2 / 1;
+  border-radius: var(--radius-container);
+}
+
+/* Card view: the preview takes the card's width at 2:1; without one, the tile sits in the same box. */
+.build-thumb-card {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 2 / 1;
+  border-radius: var(--radius-element);
+}
+.build-thumb-fallback {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  aspect-ratio: 2 / 1;
+  border-radius: var(--radius-element);
+  background: var(--color-background-muted);
+}
