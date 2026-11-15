@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>226os · Dossier de présentation</title>
+<meta name="description" content="226os, dossier de présentation CADEV 2026 : vision, positionnement, périmètre, architecture et qualité.">
+<link rel="icon" href="../../prototypes/html/assets/brand/favicon-32.png">
+<style>
+/* Graphite & Lime, semantic tokens from DESIGN.md section 2.1 (contrast audit in prototypes/html/assets/css/tokens.css). */
+:root {
+  color-scheme: light;
+  --bg: #F6F7F4;
+  --surface: #FFFFFF;
+  --surface-subtle: #EDF2E7;
+  --text: #1D2420;
+  --text-muted: #576454;
+  --border: #DCE3D6;
+  --action: #4D721D;
+  --forest: #2B440E;
+  --lime: #BDE874;
+  --accent: #C67C35;
+  --on-accent: #1D2420;
+  --focus: #275DCA;
+  --code-bg: #1D2420;
+  --code-text: #E8EEE0;
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #111710; --surface: #1B241A; --surface-subtle: #2C3926;
+    --text: #F4F7EF; --text-muted: #C1CCB9; --border: #43503C;
+    --action: #BDE874; --accent: #E6AA66; --focus: #9CC4FF; --code-bg: #0C110B;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #111710; --surface: #1B241A; --surface-subtle: #2C3926;
+  --text: #F4F7EF; --text-muted: #C1CCB9; --border: #43503C;
+  --action: #BDE874; --accent: #E6AA66; --focus: #9CC4FF; --code-bg: #0C110B;
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font: 16px/1.55 var(--font);
+}
+a { color: var(--action); }
+a:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+.page {
+  max-width: 820px; margin: 24px auto; padding: 48px 56px 40px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+  position: relative;
+}
+.page::before {
+  content: ""; position: absolute; inset: 0 0 auto 0; height: 8px;
+  background: var(--forest); border-radius: 16px 16px 0 0;
+}
+.folio {
+  display: flex; justify-content: space-between; gap: 16px;
+  margin-top: 40px; padding-top: 12px; border-top: 1px solid var(--border);
+  font-size: 12px; color: var(--text-muted);
+}
+
+/* Cover */
+.cover { padding: 0; overflow: hidden; }
+.cover::before { display: none; }
+.hero {
+  background: var(--forest); color: #FFFFFF; padding: 48px 56px 40px;
+}
+.hero .kicker { color: #BDE874; font-weight: 700; font-size: 14px; letter-spacing: .02em; margin: 0 0 32px; }
+.hero img { display: block; height: 64px; width: auto; margin-bottom: 24px; }
+.hero h1 { font-size: 40px; line-height: 1.15; margin: 0 0 12px; }
+.hero .tagline { font-size: 20px; margin: 0 0 24px; color: #FFFFFF; }
+.hero .position {
+  display: inline-block; margin: 0; padding: 8px 14px; border-radius: 999px;
+  background: #BDE874; color: #1D2420; font-weight: 700; font-size: 15px;
+}
+.cover-body { padding: 32px 56px 40px; }
+.cover-body .lead { font-size: 18px; color: var(--text); margin: 0 0 24px; }
+.toc { list-style: none; margin: 0; padding: 0; columns: 2; column-gap: 32px; }
+.toc li { break-inside: avoid; padding: 6px 0; border-bottom: 1px solid var(--border); }
+.toc .n { color: var(--action); font-weight: 700; margin-right: 8px; font-variant-numeric: tabular-nums; }
+.note { font-size: 14px; color: var(--text-muted); }
+
+/* Sections */
+h2 { font-size: 26px; line-height: 1.25; margin: 32px 0 12px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+h2:first-child { margin-top: 0; }
+h2 .n { color: var(--action); margin-right: 10px; }
+h3 { font-size: 18px; margin: 20px 0 8px; color: var(--action); }
+p { margin: 0 0 12px; }
+ul.points { margin: 0 0 12px; padding-left: 20px; }
+ul.points li { margin: 0 0 8px; }
+ul.points strong { color: var(--text); }
+
+table { width: 100%; border-collapse: collapse; margin: 8px 0 16px; font-size: 15px; }
+th, td { text-align: left; vertical-align: top; padding: 10px 14px; border-bottom: 1px solid var(--border); }
+th { background: var(--surface-subtle); font-weight: 700; }
+td:first-child { font-weight: 600; width: 30%; }
+
+.circles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 12px 0 16px; }
+.circle { border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+.circle .tag { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); }
+.circle h3 { margin: 6px 0 6px; }
+.circle.core { background: var(--surface-subtle); border-color: var(--action); }
+
+.pillars { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin: 12px 0 16px; }
+.pillar { border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+.pillar h3 { margin: 0 0 6px; }
+.pillar p { margin: 0; font-size: 15px; }
+.pillar.featured { border-color: var(--action); background: var(--surface-subtle); }
+.badge {
+  display: inline-block; font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 999px;
+  background: var(--accent); color: var(--on-accent); margin-left: 6px; vertical-align: middle;
+  white-space: nowrap;
+}
+.pillar h3 { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.pillar h3 .badge { margin-left: 0; }
+
+.flow {
+  font-family: var(--mono); font-size: 14px; background: var(--code-bg); color: var(--code-text);
+  padding: 14px 16px; border-radius: 10px; overflow-x: auto; margin: 8px 0 16px;
+}
+.flow b { color: #BDE874; font-weight: 600; }
+
+.callout {
+  background: var(--surface-subtle);
+  padding: 12px 16px; border-radius: 10px; margin: 12px 0 16px; font-size: 15px;
+}
+.colophon { font-size: 14px; }
+.colophon p { margin: 0 0 6px; }
+
+@media (max-width: 720px) {
+  .page { margin: 0; border-radius: 0; border-left: 0; border-right: 0; padding: 32px 16px 24px; }
+  .page::before { border-radius: 0; }
+  .hero { padding: 32px 16px 28px; }
+  .hero h1 { font-size: 32px; }
+  .cover-body { padding: 24px 16px 28px; }
+  .toc { columns: 1; }
+  .circles { grid-template-columns: 1fr; }
+  td:first-child { width: auto; }
+  th, td { padding: 8px 10px; }
+}
+
+@page { size: A4; margin: 12mm 14mm 12mm; }
+@media print {
+  :root { color-scheme: light; }
+  body { background: #FFFFFF; font-size: 9.5pt; line-height: 1.45; }
+  .page { max-width: none; margin: 0; padding: 0; border: 0; border-radius: 0; break-after: page; }
+  .page:last-child { break-after: auto; }
+  .page::before { position: static; display: block; height: 5px; margin-bottom: 7mm; border-radius: 0; }
+  .cover::before { display: none; }
+  .hero { padding: 10mm 12mm 9mm; }
+  .hero .kicker { margin-bottom: 8mm; }
+  .hero img { height: 44px; margin-bottom: 6mm; }
+  .hero h1 { font-size: 24pt; }
+  .hero .tagline { font-size: 13pt; margin-bottom: 5mm; }
+  .cover-body { padding: 8mm 12mm 0; }
+  .cover-body .lead { font-size: 11.5pt; }
+  h2 { font-size: 15pt; margin: 6mm 0 3mm; padding-bottom: 2mm; }
+  h3 { font-size: 11pt; margin: 4mm 0 2mm; }
+  p, ul.points li { margin-bottom: 2mm; }
+  table { font-size: 9pt; margin: 2mm 0 3mm; }
+  th, td { padding: 5px 8px; }
+  .circles, .pillars { gap: 3mm; margin: 2mm 0 3mm; }
+  .circle, .pillar { padding: 3mm 4mm; border-radius: 8px; }
+  .pillars { grid-template-columns: repeat(3, 1fr); }
+  .pillar p, .circle p { font-size: 9pt; }
+  .callout { padding: 2.5mm 4mm; margin: 2mm 0 3mm; font-size: 9.5pt; }
+  .flow { font-size: 8.5pt; padding: 3mm 4mm; margin: 2mm 0 3mm; }
+  .toc li { padding: 1.5mm 0; }
+  .colophon { margin-top: 5mm !important; padding-top: 3mm !important; font-size: 9pt; }
+  .hero, .circle.core, .pillar.featured, th, .callout, .flow, .hero .position, .badge {
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  .folio { margin-top: 16px; }
+  a { color: #4D721D; text-decoration: none; }
+}
+</style>
+</head>
+<body>
+
+<!-- Page 1: cover -->
+<section class="page cover" aria-labelledby="cover-title">
+  <header class="hero">
+    <p class="kicker">CADEV 2026 · Équipe 7's</p>
+    <img src="../brand/226os-logo-white.png" alt="226os">
+    <h1 id="cover-title">Apprendre, se connecter, résoudre, découvrir et construire, entre développeurs africains</h1>
+    <p class="tagline">226 Open Stack&nbsp;: 226, l'indicatif du Burkina Faso.</p>
+    <p class="position">Né au Burkina Faso, ouvert à l'Afrique de l'Ouest, puis à tout le continent</p>
+  </header>
+  <div class="cover-body">
+    <p class="lead">Dossier de présentation du projet&nbsp;: vision, positionnement, périmètre, architecture et qualité. Il s'adresse au jury et à l'équipe, et ne remplace pas les spécifications détaillées.</p>
+    <h2>Sommaire</h2>
+    <ol class="toc">
+      <li><span class="n">01</span>Contexte et problème</li>
+      <li><span class="n">02</span>Positionnement</li>
+      <li><span class="n">03</span>Pourquoi 226os</li>
+      <li><span class="n">04</span>Cinq espaces</li>
+      <li><span class="n">05</span>Fonctionnalités transversales</li>
+      <li><span class="n">06</span>Ce qui distingue 226os</li>
+      <li><span class="n">07</span>Architecture</li>
+      <li><span class="n">08</span>Stack technique</li>
+      <li><span class="n">09</span>Qualité et livraison</li>
+    </ol>
+    <p class="note" style="margin-top:24px">Référence produit&nbsp;: PRD version 3.3 du 15 novembre 2026 (amendement 3.3, positionnement).</p>
+    <footer class="folio"><span>226os · Dossier de présentation · CADEV 2026</span><span>01</span></footer>
+  </div>
+</section>
+
+<!-- Page 2 -->
+<section class="page" aria-labelledby="s01">
+  <h2 id="s01"><span class="n">01</span>Contexte et problème</h2>
+  <p>Les connaissances techniques, les ressources locales, les projets et les occasions de collaborer sont dispersés entre forums, dépôts GitHub, groupes de discussion et réseaux sociaux. Les développeurs peinent à retrouver des solutions documentées, à savoir quelles API existent dans leur pays, à rendre leur travail visible et à trouver des collaborateurs. La diversité des langues et les connexions limitées compliquent encore ces usages.</p>
+  <p>Beaucoup de solutions techniques africaines existent déjà, mais restent peu connues de ceux qui pourraient s'en servir.</p>
+
+  <h2 id="s02"><span class="n">02</span>Positionnement</h2>
+  <p>226 est l'indicatif du Burkina Faso. 226os veut d'abord devenir la référence des développeurs, ingénieurs et techies burkinabè, puis s'étendre dans la sous-région par des partenariats, puis à l'Afrique.</p>
+  <div class="circles">
+    <div class="circle core">
+      <span class="tag">Le cœur</span>
+      <h3>Burkina Faso</h3>
+      <p>Les membres, les solutions faites au Burkina (paiement mobile, agritech, services publics numériques) et le contenu de lancement.</p>
+    </div>
+    <div class="circle">
+      <span class="tag">Ensuite</span>
+      <h3>La sous-région</h3>
+      <p>Chaque partenariat (communauté tech, hub, école) apporte ses membres, son contenu et ses solutions.</p>
+    </div>
+    <div class="circle">
+      <span class="tag">L'horizon</span>
+      <h3>L'Afrique</h3>
+      <p>Une plateforme ouverte à tous dès le premier jour.</p>
+    </div>
+  </div>
+  <p>La plateforme reste ouverte à tous&nbsp;: l'ordre Burkina, sous-région, Afrique guide le contenu de lancement, l'effort communautaire et les partenariats, pas l'accès. Découvrir affiche l'Afrique de l'Ouest par défaut, et toute l'Afrique en un clic.</p>
+  <div class="callout"><strong>Première mesure du succès&nbsp;:</strong> un développeur burkinabè trouve-t-il sur 226os une réponse, une API ou un projet qu'il ne trouvait pas ailleurs&nbsp;?</div>
+
+  <h2 id="s03"><span class="n">03</span>Pourquoi 226os</h2>
+  <ul class="points">
+    <li><strong>Faire connaître les solutions africaines</strong> à la communauté tech du continent&nbsp;: API de paiement mobile, SMS et USSD, cartographie, outils et SDK conçus pour nos marchés.</li>
+    <li><strong>Donner de la visibilité aux projets open source africains</strong> et aider leurs mainteneurs à trouver des contributeurs.</li>
+    <li><strong>Faire grandir la culture open source en Afrique</strong>&nbsp;: contribuer, documenter, citer ses sources et partager ce qu'on sait, avec des formations ouvertes à tous.</li>
+  </ul>
+  <p>Le but n'est pas d'ajouter un forum, un annuaire d'API ou un réseau professionnel de plus, mais de raccourcir le chemin entre un problème rencontré, une solution documentée et une contribution que d'autres peuvent réutiliser.</p>
+  <footer class="folio"><span>226os · Dossier de présentation · CADEV 2026</span><span>02</span></footer>
+</section>
+
+<!-- Page 3 -->
+<section class="page" aria-labelledby="s04">
+  <h2 id="s04"><span class="n">04</span>Cinq espaces</h2>
+  <p>Apprendre et Connect sont mis en avant&nbsp;; Résoudre, Découvrir et Construire restent des piliers à part entière, dans la même navigation.</p>
+  <div class="pillars">
+    <div class="pillar featured">
+      <h3>Apprendre <span class="badge">mis en avant</span></h3>
+      <p>Articles et tutoriels écrits par des développeurs, formations gratuites lisibles sans compte, filtre par sujet&nbsp;; publication ouverte aux membres.</p>
+    </div>
+    <div class="pillar featured">
+      <h3>Connect <span class="badge">mis en avant</span></h3>
+      <p>Annuaire des développeurs par pays, langue et compétence&nbsp;; chacun choisit ce que son profil montre.</p>
+    </div>
+    <div class="pillar">
+      <h3>Résoudre</h3>
+      <p>Une question avec son code, des réponses, des votes, et la réponse qui a débloqué marquée par l'auteur.</p>
+    </div>
+    <div class="pillar">
+      <h3>Découvrir</h3>
+      <p>Les API et outils africains avec leurs pays, leur catégorie et leurs sources.</p>
+    </div>
+    <div class="pillar">
+      <h3>Construire</h3>
+      <p>Un projet open source publié depuis son dépôt GitHub, ses besoins de contribution et les candidatures reçues.</p>
+    </div>
+  </div>
+
+  <h2 id="s05"><span class="n">05</span>Fonctionnalités transversales</h2>
+  <ul class="points">
+    <li><strong>Recherche</strong>&nbsp;: une seule recherche plein texte couvre les questions, les ressources, les projets et Apprendre.</li>
+    <li><strong>Assistant sourcé</strong>&nbsp;: il répond uniquement à partir des contenus publiés et cite ses sources&nbsp;; sans source, il le dit. Il est désactivé par défaut.</li>
+    <li><strong>Profils et visibilité</strong>&nbsp;: identité publique, compétences, pays, lien GitHub, et un réglage de visibilité champ par champ.</li>
+    <li><strong>Modération</strong>&nbsp;: «&nbsp;Signaler une erreur&nbsp;» sur une fiche Découvrir&nbsp;; les modérateurs masquent ou rétablissent un contenu et traitent les signalements.</li>
+    <li><strong>Langues et accès</strong>&nbsp;: interface en français et en anglais qui ne touche jamais au contenu d'origine, pensée pour le mobile, l'accessibilité et les connexions lentes.</li>
+  </ul>
+  <p class="note">Mentorat, espaces communautaires et opportunités sont prévus après ce socle et sont affichés «&nbsp;Bientôt&nbsp;» dans l'interface.</p>
+
+  <h2 id="s06"><span class="n">06</span>Ce qui distingue 226os</h2>
+  <ul class="points">
+    <li><strong>Des intégrations africaines documentées</strong>&nbsp;: chaque API ou SDK est relié aux pays couverts, à ses sources et aux questions qui en parlent.</li>
+    <li><strong>Du problème au projet</strong>&nbsp;: une question renvoie vers la ressource et le projet liés, et un besoin de contribution peut en naître.</li>
+    <li><strong>Des collaborations au-delà des frontières</strong>&nbsp;: on trouve des contributeurs par compétence et par pays.</li>
+    <li><strong>Des connaissances vérifiables</strong>&nbsp;: sources, versions et dates passent avant le nombre de votes.</li>
+  </ul>
+  <footer class="folio"><span>226os · Dossier de présentation · CADEV 2026</span><span>03</span></footer>
+</section>
+
+<!-- Page 4 -->
+<section class="page" aria-labelledby="s07">
+  <h2 id="s07"><span class="n">07</span>Architecture</h2>
+  <p>226os est une application client-serveur avec un backend en monolithe modulaire&nbsp;: les domaines métier sont séparés dans le code mais livrés comme une seule API REST, décrite par un contrat OpenAPI. Une seule base PostgreSQL porte les données et la recherche.</p>
+  <table>
+    <thead><tr><th scope="col">Composant</th><th scope="col">Rôle</th></tr></thead>
+    <tbody>
+      <tr><td>Client web</td><td>Parcours publics et connectés, traductions français et anglais&nbsp;; il appelle l'API par un client typé, généré depuis le contrat.</td></tr>
+      <tr><td>Point d'entrée</td><td>Traefik en HTTPS&nbsp;: routage et TLS. C'est le seul service exposé&nbsp;; la base reste sur un réseau privé.</td></tr>
+      <tr><td>API métier</td><td>Monolithe Go. Les modules <code>identity</code> (dont l'annuaire Connect), <code>learn</code>, <code>solve</code>, <code>discover</code>, <code>build</code>, <code>search</code>, <code>assistant</code> et <code>moderation</code> existent&nbsp;; chacun suit les couches domaine, service, dépôt et transport. Validation et droits d'accès sont vérifiés côté serveur.</td></tr>
+      <tr><td>Base de données</td><td>PostgreSQL&nbsp;: comptes, contenus, liens entre contenus, droits et transactions&nbsp;; recherche plein texte indexée et migrations versionnées.</td></tr>
+      <tr><td>Intégrations</td><td>GitHub pour les métadonnées des dépôts publics&nbsp;; un fournisseur de modèle de langage pour l'assistant, derrière un port interchangeable.</td></tr>
+      <tr><td>Exploitation</td><td>Conteneurs Docker, configuration reproductible, secrets chiffrés, sauvegarde et restauration, procédure de déploiement et de retour arrière.</td></tr>
+    </tbody>
+  </table>
+  <h3>Flux principal</h3>
+  <div class="flow" role="img" aria-label="Navigateur, puis HTTPS et Traefik, puis l'application web et l'API REST, puis les modules métier, puis PostgreSQL">Navigateur <b>→</b> HTTPS · Traefik <b>→</b> web + API REST <b>→</b> modules métier <b>→</b> PostgreSQL</div>
+  <p>Les intégrations externes sont appelées par le backend seulement. Les droits d'accès ne dépendent jamais de la seule interface.</p>
+
+  <h2 id="s08"><span class="n">08</span>Stack technique</h2>
+  <table>
+    <thead><tr><th scope="col">Couche</th><th scope="col">Technologies</th></tr></thead>
+    <tbody>
+      <tr><td>Frontend</td><td>React 19, TypeScript, Vite, TanStack Router, Query et Form, Meta Astryx avec la direction Graphite &amp; Lime.</td></tr>
+      <tr><td>Backend et contrat</td><td>Go, Chi, pgx, sqlc&nbsp;; API REST décrite en OpenAPI 3.1.</td></tr>
+      <tr><td>Données et recherche</td><td>PostgreSQL, recherche plein texte, index GIN, extension <code>pg_trgm</code>.</td></tr>
+      <tr><td>Assistant</td><td>Google AI Studio, famille Gemma&nbsp;4, derrière un port indépendant du fournisseur.</td></tr>
+      <tr><td>Infrastructure</td><td>Docker, Docker Compose, Traefik, HTTPS&nbsp;; hébergement visé&nbsp;: Datacloud.</td></tr>
+      <tr><td>Automatisation</td><td>Make pour les commandes communes, GitHub Actions pour la CI et la revue.</td></tr>
+    </tbody>
+  </table>
+  <footer class="folio"><span>226os · Dossier de présentation · CADEV 2026</span><span>04</span></footer>
+</section>
+
+<!-- Page 5 -->
+<section class="page" aria-labelledby="s09">
+  <h2 id="s09"><span class="n">09</span>Qualité et livraison</h2>
+  <p>Chaque pull request passe les mêmes contrôles en CI, et <code>make quality</code> les lance en local&nbsp;:</p>
+  <ul class="points">
+    <li><strong>Code propre</strong>&nbsp;: formatage, lint, types, et code généré (client d'API, requêtes SQL) à jour.</li>
+    <li><strong>Tests unitaires</strong>&nbsp;: 100&nbsp;% des instructions couvertes côté Go, plus de 70&nbsp;% côté web.</li>
+    <li><strong>Intégration</strong>&nbsp;: tests sur une vraie base PostgreSQL, réponses de l'API conformes au contrat, contrôles d'accès testés rôle par rôle.</li>
+    <li><strong>Sécurité</strong>&nbsp;: analyse statique du code, failles connues des dépendances et des images, recherche de secrets, et tests des accès refusés sur chaque route.</li>
+  </ul>
+  <p>Une revue par IA lit chaque pull request&nbsp;; une pull request propre est fusionnée automatiquement, et le propriétaire du dépôt intervient sur les cas critiques, les chemins sensibles et la mise en production. L'usage de l'IA est déclaré, fiche par fiche, dans le dépôt.</p>
+
+  <h3>État au 15 novembre 2026</h3>
+  <p>Le MVP tourne sur la branche d'intégration et la mise en production se prépare. Les tests de bout en bout dans le navigateur et les tests de performance ne sont pas encore en place.</p>
+  <div class="callout">Principe&nbsp;: une fonctionnalité prévue n'est jamais présentée comme livrée&nbsp;; la démonstration repose sur des parcours réellement vérifiés.</div>
+
+  <h3>Attendus CADEV</h3>
+  <p>Dépôt Git, application réellement utilisable avec une démo en ligne, déploiement sur au moins un service Datacloud, traçabilité des composants tiers et de l'usage de l'IA.</p>
+
+  <div class="colophon" style="margin-top:28px; padding-top:16px; border-top:1px solid var(--border)">
+    <p><strong>Produit&nbsp;:</strong> 226os · <strong>Équipe&nbsp;:</strong> 7's · <strong>Concours&nbsp;:</strong> CADEV 2026</p>
+    <p><strong>Dépôt&nbsp;:</strong> <a href="https://github.com/Y4NN777/226os">github.com/Y4NN777/226os</a></p>
+    <p><strong>Document de référence&nbsp;:</strong> PRD version 3.3, 15 novembre 2026</p>
+    <p><strong>Domaine&nbsp;:</strong> 226os.tech</p>
+  </div>
+  <footer class="folio"><span>226os · Dossier de présentation · CADEV 2026</span><span>05</span></footer>
+</section>
+
+</body>
+</html>
