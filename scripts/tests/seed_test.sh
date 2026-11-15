@@ -125,4 +125,22 @@ run_seed "$scratch" APP_ENV=staging-test COMPOSE_PROFILES=staging-test COMPOSE_E
 run_seed "$scratch" APP_ENV=production-live COMPOSE_ENV_FILE="$tmp/env.staging-test" --
 refused "APP_ENV=production-live is refused even with seeds present"
 
+# db/seeds/local-dev/*.sql (real public data, e.g. committers.top): local-dev only, after the shared files, in
+# lexical order; staging-test never receives them.
+mkdir "$scratch/db/seeds/local-dev"
+printf 'SELECT 4;\n' >"$scratch/db/seeds/local-dev/00002_d.sql"
+printf 'SELECT 3;\n' >"$scratch/db/seeds/local-dev/00001_c.sql"
+run_seed "$scratch" APP_ENV=local-dev COMPOSE_ENV_FILE="$tmp/env.local-dev" --
+if [ "$rc" -eq 0 ] && [ "$(cat "$tmp/stdin.log" 2>/dev/null)" = $'SELECT 1;\nSELECT 2;\nSELECT 3;\nSELECT 4;' ]; then
+  ok "local-dev also runs db/seeds/local-dev/*.sql, after the shared files, in lexical order"
+else
+  ko "local-dev seeds (rc=$rc stdin=$(cat "$tmp/stdin.log" 2>/dev/null))"
+fi
+run_seed "$scratch" APP_ENV=staging-test COMPOSE_ENV_FILE="$tmp/env.staging-test" --
+if [ "$rc" -eq 0 ] && [ "$(cat "$tmp/stdin.log" 2>/dev/null)" = $'SELECT 1;\nSELECT 2;' ]; then
+  ok "staging-test never runs db/seeds/local-dev/*.sql"
+else
+  ko "staging-test ran local-dev seeds (rc=$rc stdin=$(cat "$tmp/stdin.log" 2>/dev/null))"
+fi
+
 finish
