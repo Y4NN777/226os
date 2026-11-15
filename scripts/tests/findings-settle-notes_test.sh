@@ -19,6 +19,7 @@ mkdir -p "$tmp/bin" "$tmp/st/tree/src" "$tmp/st/tree/docs/decisions"
 printf 'l1\nl2\nl3\nl4\nl5\n' >"$tmp/st/tree/src/a.go"
 printf '# ADR\n' >"$tmp/st/tree/docs/decisions/0014-review.md"
 printf 'r1\nr2\n' >"$tmp/st/tree/README.md"
+printf 'm1\nm2\nm3\n' >"$tmp/st/tree/Makefile"
 
 # Fake gh: issues in $ST/issues.json, the pull request in $ST/pr.json, the tip of develop in $ST/tree.
 cat >"$tmp/bin/gh" <<'PY'
@@ -74,10 +75,14 @@ def notes(n, pr, items):
         "- [ ] `%s` [OBSERVED] `src/a.go:1` remark %s" % (k, k) for k in items)
     return {"number": n, "state": "open", "state_reason": None, "title": "PR%d notes" % pr, "created_at": "2026-11-13T00:00:00Z",
             "labels": [{"name": "kind:note"}], "body": body, "comments": []}
+def mk(n, pr):
+    x = notes(n, pr, ["n1"])
+    x["body"] = x["body"].replace("`src/a.go:1`", "`Makefile:1`")
+    return x
 finding = {"number": 39, "state": "open", "state_reason": None, "title": "a finding", "created_at": "2026-11-13T00:00:00Z",
            "labels": [{"name": "finding"}], "body": "<!-- finding:PR90#f39 -->\n\n- Where: `src/a.go:1`\n", "comments": []}
 issues = [notes(30, 91, ["n1", "n2"]), notes(31, 92, ["n1"]), notes(32, 93, ["n1"]), notes(33, 94, ["n1"]), notes(34, 95, ["n1", "n2"]),
-          notes(35, 96, ["n1", "n2"]), notes(36, 97, ["n1", "n2"]), notes(37, 98, ["n1"]), notes(41, 99, ["n1"]), notes(42, 100, ["n1"]), notes(43, 101, ["n1", "n2"]), finding]
+          notes(35, 96, ["n1", "n2"]), notes(36, 97, ["n1", "n2"]), notes(37, 98, ["n1"]), notes(41, 99, ["n1"]), notes(42, 100, ["n1"]), notes(43, 101, ["n1", "n2"]), mk(44, 102), finding]
 rows = [("#30/n1", "#30", "NOT A DEFECT", "the guard sits at src/a.go:3, the review missed it"),
         ("#30/n2", "#30", "DECIDED", "docs/decisions/0014-review.md settles it"),
         ("#31/n1", "#31", "NOT A DEFECT", "see src/gone.go:1"),
@@ -91,6 +96,7 @@ rows = [("#30/n1", "#30", "NOT A DEFECT", "the guard sits at src/a.go:3, the rev
         ("#41/n1", "#41", "NOT A DEFECT", "src/a.go:1 is fine"),
         ("#42/n1", "#42", "DECIDED", "docs/decisions/0014-review.md, see src/a.go:99"),
         ("#43/n1", "#43", "NOT A DEFECT", "src/a.go:4 shows it"),
+        ("#44/n1", "#44", "NOT A DEFECT", "Makefile:3 guards it; Retry:3 is a word, not a file"),
         ("#43/n2", "#43", "NOT A DEFECT", "src/a.go:2-3 handles it"),
         ("#39", "#39", "NOT A DEFECT", "src/a.go:3 proves it")]
 issues.append({"number": 40, "state": "open", "state_reason": None, "title": "Review batch 2026-11-15", "labels": [{"name": "review-batch"}],
@@ -131,6 +137,7 @@ field 30 'x["comments"][-1]["body"]' | grep -q 'the guard sits at src/a.go:3' &&
 [ "$(state 42)" = "('open', None)" ] && [ "$(unticked 42)" -eq 1 ] && ok "a valid ADR next to a line past the end: one bad citation keeps the note open" || ko "42 ($(state 42))"
 [ "$(state 43)" = "('closed', 'completed')" ] && ok "a notes issue with a box ticked before this run closes as completed, not not planned" || ko "43 ($(state 43))"
 field 43 'x["comments"][-1]["body"]' | grep -q '`n1` NOT A DEFECT ticked' && ko "43: the comment claims n1 was ticked by this run ($(field 43 'x["comments"][-1]["body"]'))" || ok "the comment never says ticked for a note this run did not tick (n1 was ticked before)"
+[ "$(state 44)" = "('closed', 'not_planned')" ] && ok "a note on a file without an extension (Makefile) closes on a line of that file; a word like Retry:3 is not read as a file" || ko "44 ($(state 44) $(field 44 'x["comments"]'))"
 [ "$(state 39)" = "('open', None)" ] && field 39 'x["comments"][-1]["body"]' | grep -q 'stays open: a human closes it as not planned' && ok "a FINDING with NOT A DEFECT and a valid reference stays open (a human closes it)" || ko "39 ($(state 39))"
 [ "$(state 40)" = "('closed', 'completed')" ] && ok "the batch issue still closes last" || ko "40 ($(state 40))"
 

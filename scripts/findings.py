@@ -626,7 +626,9 @@ def settle_text(decision, reason, pr):
 PR_REF = re.compile(r"#(\d+)")
 # A reference a NOT A DEFECT or DECIDED verdict of a NOTE must cite to tick it: `path:line` or `path:a-b` in the note's own
 # file, or an ADR file.
-CITE_LINE = re.compile(r"(?<![\w./-])((?:[\w.-]+/)*[\w.-]+\.\w+):(\d+)(?:-(\d+))?(?!\d)")
+# A path with a directory or an extension; a bare name (Makefile, Dockerfile) counts only when it is the note's own file,
+# so a word such as "Retry:3" in the reason is never read as a citation.
+CITE_LINE = re.compile(r"(?<![\w./-])((?:[\w.-]+/)*[\w.-]+):(\d+)(?:-(\d+))?(?!\d)")
 CITE_ADR = re.compile(r"(?<![\w./-])(docs/decisions/\d{4}-[\w.-]+\.md)(?![\w.-])")
 TRUNK = "develop"
 
@@ -660,6 +662,8 @@ def verified_reference(ctx, binary, repo, reason, own_file, own_line=""):
             return None
         accepted = accepted or m.group(1)
     for m in CITE_LINE.finditer(text):
+        if "/" not in m.group(1) and "." not in m.group(1) and m.group(1) != own_file:
+            continue
         first, last = int(m.group(2)), int(m.group(3) or m.group(2))
         body = trunk_file(ctx, binary, repo, m.group(1))
         if body is None:
