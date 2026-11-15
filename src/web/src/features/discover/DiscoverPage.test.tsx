@@ -217,7 +217,9 @@ describe('DiscoverPage', () => {
     mockApi({ 'GET /resources': () => page([senegal]) });
     await renderApp('/discover');
     await screen.findByRole('link', { name: 'Wave Pay' });
-    expect(screen.getByRole('searchbox', { name: /Rechercher dans le catalogue/ })).toBeInTheDocument();
+    expect(
+      screen.getByRole('searchbox', { name: /Rechercher dans le catalogue/ }),
+    ).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Rechercher' })).not.toBeInTheDocument();
   });
 
