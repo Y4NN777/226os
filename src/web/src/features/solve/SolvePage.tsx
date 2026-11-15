@@ -123,7 +123,15 @@ function Filters({ search }: { search: SolveSearch }) {
 }
 
 /** The prototype's #ask view: back to the list, a heading, the form and the assistant beside it. */
-function AskView({ onClose, link }: { onClose: () => void; link: LinkDraft | undefined }) {
+function AskView({
+  onClose,
+  link,
+  focusField,
+}: {
+  onClose: () => void;
+  link: LinkDraft | undefined;
+  focusField: boolean;
+}) {
   const { t, locale } = useI18n();
   const navigate = useNavigate();
   const create = useCreateQuestion();
@@ -131,9 +139,11 @@ function AskView({ onClose, link }: { onClose: () => void; link: LinkDraft | und
   const heading = useRef<HTMLHeadingElement>(null);
 
   // The view replaces the list: move focus to its heading, as a route change would.
+  // Opened by a link while already on the list, it goes straight to the first field.
   useEffect(() => {
-    heading.current?.focus();
-  }, []);
+    if (focusField) document.querySelector<HTMLElement>('#ask input, #ask textarea')?.focus();
+    else heading.current?.focus();
+  }, [focusField]);
 
   const submit = async (draft: QuestionDraft) => {
     const body = {
@@ -190,6 +200,17 @@ export function SolvePage() {
   const session = useSession();
   const prefilled = parseLink(search.link);
   const [asking, setAsking] = useState(prefilled !== undefined || hash === 'ask');
+  const [fromLink, setFromLink] = useState(false);
+  const firstHash = useRef<string | undefined>(hash);
+  // « Poser une question » links to /solve#ask: it must also work from the list itself.
+  useEffect(() => {
+    if (hash === 'ask' && hash !== firstHash.current) {
+      setAsking(true);
+      setFromLink(true);
+    }
+    firstHash.current = undefined;
+  }, [hash]);
+  const navigate = useNavigate();
   const list = useQuestionList(search);
   const items = list.data?.pages.flatMap((page) => page.items) ?? [];
   const signedIn = session.data?.authenticated === true;
@@ -198,8 +219,12 @@ export function SolvePage() {
     return (
       <AskView
         link={prefilled}
+        focusField={fromLink}
         onClose={() => {
+          setFromLink(false);
           setAsking(false);
+          // Leaving #ask lets the shell link open the view again.
+          if (hash === 'ask') void navigate({ to: '/solve', search, hash: '', replace: true });
         }}
       />
     );

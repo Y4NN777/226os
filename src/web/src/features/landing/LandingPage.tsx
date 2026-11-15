@@ -226,11 +226,11 @@ export function LandingPage() {
       </section>
 
       <section className="lp-section" aria-labelledby="landing-pillars">
-        <header className="lp-head">
+        <div className="lp-head">
           <h2 id="landing-pillars" className="lp-h2">
             {t('landing.pillars.title')}
           </h2>
-        </header>
+        </div>
         <ul className="lp-pillars">
           {pillars.map((pillar) => (
             <PillarCard key={pillar.id} pillar={pillar} />
@@ -239,14 +239,14 @@ export function LandingPage() {
       </section>
 
       <section className="lp-section" aria-labelledby="landing-catalogue">
-        <header className="lp-head lp-head-row">
+        <div className="lp-head lp-head-row">
           <div>
             <h2 id="landing-catalogue" className="lp-h2">
               {t('landing.catalogue.title')}
             </h2>
           </div>
           <ArrowLink href="/discover" label={t('landing.catalogue.more')} />
-        </header>
+        </div>
         <Catalogue />
       </section>
 

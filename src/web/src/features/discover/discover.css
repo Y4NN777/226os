@@ -26,6 +26,18 @@
   gap: var(--spacing-1);
   min-width: 0;
 }
+/* The type chips take a whole row so their labels fit; if still too narrow the strip scrolls, never truncates. */
+.discover-filter-type {
+  grid-column: 1 / -1;
+}
+.discover-filter-type > :last-child {
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.discover-filter-type > :last-child > * {
+  min-width: max-content;
+}
 .discover-filter-label {
   font-size: var(--text-label-size);
   font-weight: var(--text-label-weight);
