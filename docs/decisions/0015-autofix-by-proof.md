@@ -1,6 +1,6 @@
 # ADR-0015: auto-fix by proof. A finding becomes a test, a fix is accepted on facts, a human merges it
 
-- **Status:** PROPOSED (owner `Y4NN777` validated the direction on 2026-11-15; two points are still open, listed below)
+- **Status:** PROPOSED (owner `Y4NN777` validated the direction on 2026-11-15; one point is still open, listed below)
 - **Date:** 2026-11-15
 - **Approver:** `Y4NN777`, repository owner
 - **Scope:** stage 3 (auto-fix on a pull request) and stage 5 (batch) of the review pipeline, and how a finding is marked fixed. Amends [ADR-0014](0014-ai-review-merges-develop.md) on one point: a pull request whose only change is an auto-fix commit no longer merges without a human review.
@@ -55,6 +55,8 @@ The research behind this ADR found the same pattern in every deployed system: Me
 9. **Routing by path.** A route table, read from `develop`, maps a path to the fixer agent: `src/web` to web-implementer, `src/api` and `db/queries` to go-implementer, `scripts` and `.github` to ci-implementer. Sensitive paths (`.github/sensitive-paths.txt`) get a prepared patch and its proof as a run artefact, never a push.
 10. **One computed status per pull request.** A single comment is recomputed from facts on every event. It has one row per finding: class, state, last fact (run id, SHA), next action, who acts. A run with nothing to do ends `NO-OP` or `NOT RUN`, never as a green success.
 
+11. **`develop` moves to the GitHub merge queue in phase 2** (owner, 2026-11-15). A ready pull request enters the queue, and GitHub builds the merge commit with what is ahead of it (`merge_group`). The reproducers and gates run on that exact commit, which is what lands. This replaces the "exact evaluated head" check of `review-automerge.py`. It needs the branch setting and a `merge_group` trigger on the required workflows.
+
 ### Per-finding states
 
 ```
@@ -84,7 +86,7 @@ A new push recomputes every state from the facts on the new head.
 |---|---|---|
 | 0 | Points 8 and 10, the guard of point 4, and the path prefilter. No new model work. This fixes failures 1, 2, 3 and 5. | 2 to 3 session-days |
 | 1 | Points 2 and 3: classes in the ledger, the reproducer job, static findings through the gate tools. | 4 to 6 session-days |
-| 2 | Points 1, 5, 6 and 9: acceptance by proof, rerun on the merge result, routing, the review gate on auto-fix commits. | 3 to 4 session-days |
+| 2 | Points 1, 5, 6, 9 and 11: acceptance by proof, the merge queue, routing, the review gate on auto-fix commits. | 3 to 4 session-days |
 | 3, optional | A diff-scoped mutation check on P0 paths and precision tracking per finding category. These need new dependencies and an ADR. | 3 to 5 session-days |
 
 Each phase is one pull request on pipeline paths, so the owner merges it.
@@ -92,8 +94,7 @@ Each phase is one pull request on pipeline paths, so the owner merges it.
 ## Open points (owner)
 
 1. **Who reviews a plausible fix (point 6):** only the owner, or any team member?
-2. **Merge queue:** move `develop` to the GitHub merge queue (`merge_group`), instead of the "exact evaluated head" check of `review-automerge.py`?
-3. Smaller points, defaults proposed:
+2. Smaller points, defaults proposed:
    - reproducers stay as ordinary tests next to the code they cover;
    - three reruns;
    - an intermittently red reproducer is `NOT_REPRODUCIBLE` and opens a flaky-test note.
