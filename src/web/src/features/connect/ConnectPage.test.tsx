@@ -35,6 +35,9 @@ describe('ConnectPage list', () => {
     mockApi(base);
     await renderApp('/connect');
     expect(await screen.findByRole('heading', { level: 1, name: 'Connect' })).toBeVisible();
+    const crumbs = screen.getByRole('navigation', { name: 'Fil d’Ariane' });
+    expect(within(crumbs).getByRole('link', { name: 'Accueil' })).toHaveAttribute('href', '/');
+    expect(within(crumbs).getByText('Connect')).toHaveAttribute('aria-current', 'page');
     const link = await screen.findByRole('link', { name: 'Awa Traoré' });
     expect(link).toHaveAttribute('href', '/profils/awa');
     expect(screen.getByText('@awa')).toBeVisible();

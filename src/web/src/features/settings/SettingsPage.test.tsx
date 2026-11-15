@@ -179,6 +179,9 @@ describe('SettingsPage layout', () => {
     member();
     await renderApp('/parametres');
     const nav = await screen.findByRole('navigation', { name: 'Sections des réglages' });
+    const crumbs = screen.getByRole('navigation', { name: 'Fil d’Ariane' });
+    expect(within(crumbs).getByRole('link', { name: 'Accueil' })).toHaveAttribute('href', '/');
+    expect(within(crumbs).getByText('Paramètres')).toHaveAttribute('aria-current', 'page');
     const anchors = [
       ['Profil', 'profil'],
       ['Préférences', 'preferences'],

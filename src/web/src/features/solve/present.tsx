@@ -1,63 +1,22 @@
-import { Avatar } from '@astryxdesign/core/Avatar';
-import { Icon } from '@astryxdesign/core/Icon';
-import { VisuallyHidden } from '@astryxdesign/core/VisuallyHidden';
+import { Avatar } from '../../components/Avatar';
+import { CountryCode } from '../../components/CountryCode';
+import { StatusBadge } from '../../components/StatusBadge';
 import { useI18n } from '../../i18n/I18nProvider';
-import type { MessageKey } from '../../i18n/messages';
-import { CheckCircleGlyph, CircleDotGlyph } from './icons';
 import type { Question } from './queries';
 
 type Author = Question['author'];
 
-const pillKey = {
-  open: 'solve.pill.open',
-  resolved: 'solve.pill.resolved',
-} as const satisfies Partial<Record<Question['state'], MessageKey>>;
-
 /**
- * Icon and word on a neutral fill (the prototype's state pill). Only the two states the
- * prototype labels get one: "answered" is already told by the answer count next to it.
+ * The state pill (shared StatusBadge). Only the two states the prototype labels get one:
+ * "answered" is already told by the answer count next to it.
  */
-export function StatePill({ state }: { state: Question['state'] }) {
+export function QuestionState({ state }: { state: Question['state'] }) {
   const { t } = useI18n();
   if (state === 'answered') return null;
-  return (
-    <span className={`solve-pill solve-pill-${state}`}>
-      <Icon icon={state === 'resolved' ? CheckCircleGlyph : CircleDotGlyph} size="sm" />
-      {t(pillKey[state])}
-    </span>
-  );
-}
-
-/** Technical tags as quiet monospace words; the "#" comes from CSS, so it is not read out. */
-export function TagList({ tags }: { tags: readonly string[] }) {
-  if (tags.length === 0) return null;
-  return (
-    <ul className="solve-tags">
-      {tags.map((tag) => (
-        <li key={tag} className="solve-tag">
-          {tag}
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-export function countryName(code: string, locale: string): string {
-  try {
-    return new Intl.DisplayNames([locale], { type: 'region' }).of(code) ?? code;
-  } catch {
-    return code;
-  }
-}
-
-/** The country as its text code (never a flag), with the full name for screen readers. */
-export function CountryCode({ code }: { code: string }) {
-  const { locale } = useI18n();
-  return (
-    <span className="solve-country">
-      <span aria-hidden="true">{code}</span>
-      <VisuallyHidden>{countryName(code, locale)}</VisuallyHidden>
-    </span>
+  return state === 'resolved' ? (
+    <StatusBadge kind="accepted" label={t('solve.pill.resolved')} />
+  ) : (
+    <StatusBadge kind="open" label={t('solve.pill.open')} />
   );
 }
 
@@ -65,11 +24,8 @@ export function CountryCode({ code }: { code: string }) {
 export function Person({ author }: { author: Author }) {
   return (
     <span className="solve-person">
-      {/* The name is written next to it: the avatar is decorative, with no name tooltip. */}
-      <span aria-hidden="true" className="solve-person-avatar">
-        <Avatar name={author.display_name} size="xsm" tooltip={false} />
-      </span>
-      <span className="solve-person-name">{author.display_name}</span>
+      <Avatar name={author.display_name} size="xs" />
+      <span>{author.display_name}</span>
       {author.country ? <CountryCode code={author.country} /> : null}
     </span>
   );
@@ -85,11 +41,6 @@ export function DateText({ iso }: { iso: string }) {
     timeZone: 'UTC',
   }).format(new Date(iso));
   return <time dateTime={iso}>{label}</time>;
-}
-
-/** The original language of a piece of user content ("FR", "EN"). */
-export function LangMark({ lang }: { lang: string }) {
-  return <span className="solve-lang">{lang.toUpperCase()}</span>;
 }
 
 /**

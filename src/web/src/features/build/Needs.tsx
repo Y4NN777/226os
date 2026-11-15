@@ -1,6 +1,5 @@
 import { Banner } from '@astryxdesign/core/Banner';
 import { Button } from '@astryxdesign/core/Button';
-import { Heading } from '@astryxdesign/core/Heading';
 import { HStack } from '@astryxdesign/core/HStack';
 import { Icon } from '@astryxdesign/core/Icon';
 import { Link } from '@astryxdesign/core/Link';
@@ -24,7 +23,9 @@ import { useInvalidFocus } from '../identity/useInvalidFocus';
 import { errorStatus } from '../identity/validation';
 import { violationName } from '../identity/violations';
 import { signInHref } from '../solve/signIn';
-import { StatePill, Technologies, type PillTone } from './present';
+import { Section } from '../../components/Section';
+import { StatusBadge, type StatusKind } from '../../components/StatusBadge';
+import { TagList } from '../../components/Tag';
 import {
   useCreateApplication,
   useCreateNeed,
@@ -48,10 +49,10 @@ const statusKey = {
   closed: 'project.need.status.closed',
 } as const satisfies Record<Need['status'], MessageKey>;
 
-const statusTone: Record<Need['status'], PillTone> = {
+const statusKind: Record<Need['status'], StatusKind> = {
   open: 'open',
-  filled: 'done',
-  closed: 'muted',
+  filled: 'accepted',
+  closed: 'closed',
 };
 
 const settledKey = {
@@ -255,12 +256,12 @@ function NeedItem({
     <li className={classes.join(' ')}>
       <div className="build-need-head">
         <h3 lang={need.lang}>{need.title}</h3>
-        <StatePill tone={statusTone[need.status]} label={t(statusKey[need.status])} />
+        <StatusBadge kind={statusKind[need.status]} label={t(statusKey[need.status])} />
       </div>
       <p className="build-need-body" lang={need.lang}>
         {need.description}
       </p>
-      <Technologies items={need.skills} />
+      {need.skills.length > 0 ? <TagList tags={need.skills} /> : null}
       {open && viewer === 'member' ? (
         applying || sent ? (
           <ApplyForm need={need} projectId={projectId} />
@@ -481,12 +482,12 @@ export function Needs({
   const items = needs.data?.pages.flatMap((page) => page.items) ?? [];
   const anyOpen = items.some((need) => need.status === 'open');
   return (
-    <section id="besoins" className="build-section" aria-labelledby="project-needs-heading">
-      <div className="build-section-head">
-        <Heading level={2} id="project-needs-heading">
-          {t('project.needs.title')}
-        </Heading>
-        {viewer === 'owner' && !adding ? (
+    <Section
+      id="besoins"
+      title={t('project.needs.title')}
+      titleId="project-needs-heading"
+      actions={
+        viewer === 'owner' && !adding ? (
           <Button
             variant="secondary"
             size="sm"
@@ -495,10 +496,11 @@ export function Needs({
               setAdding(true);
             }}
           />
-        ) : null}
-      </div>
+        ) : undefined
+      }
+    >
       {viewer === 'owner' && adding ? (
-        <div className="build-panel">
+        <div className="ui-panel">
           <NeedForm
             projectId={projectId}
             onClose={() => {
@@ -533,6 +535,6 @@ export function Needs({
           />
         </HStack>
       ) : null}
-    </section>
+    </Section>
   );
 }

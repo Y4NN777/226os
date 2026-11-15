@@ -95,7 +95,7 @@ describe('ResourcePage', () => {
     });
     await renderApp(`/discover/${id}`);
     const header = (await screen.findByRole('heading', { level: 1, name: 'Wave Pay' })).closest(
-      'header',
+      '.ui-page-header',
     );
     if (header === null) throw new Error('the title is not inside the page header');
     expect(within(header).getByText('API · Paiements Mobile Money')).toBeInTheDocument();
@@ -107,6 +107,13 @@ describe('ResourcePage', () => {
       'aria-expanded',
       'false',
     );
+    const crumbs = within(header).getByRole('navigation', { name: 'Fil d’Ariane' });
+    expect(within(crumbs).getByRole('link', { name: 'Accueil' })).toHaveAttribute('href', '/');
+    expect(within(crumbs).getByRole('link', { name: 'Découvrir' })).toHaveAttribute(
+      'href',
+      '/discover',
+    );
+    expect(within(crumbs).getByText('Wave Pay')).toHaveAttribute('aria-current', 'page');
   });
 
   it('shows each related link as a tile with its kind outside the link name', async () => {

@@ -1,14 +1,14 @@
-import { Card } from '@astryxdesign/core/Card';
-import { Heading } from '@astryxdesign/core/Heading';
 import { Icon } from '@astryxdesign/core/Icon';
 import { SegmentedControl, SegmentedControlItem } from '@astryxdesign/core/SegmentedControl';
 import { Text } from '@astryxdesign/core/Text';
 import { VStack } from '@astryxdesign/core/VStack';
-import type { ComponentProps, ReactNode } from 'react';
+import type { ReactNode } from 'react';
+import { EyeIcon, SlidersIcon, UserIcon, type SvgIcon } from '../../components/icons';
+import { PageHeader } from '../../components/PageHeader';
+import { Section } from '../../components/Section';
 import { useI18n } from '../../i18n/I18nProvider';
 import { isLocale, locales } from '../../i18n/messages';
 import { useThemePreference, type ThemeMode } from '../../theme/ThemeProvider';
-import { EyeIcon, SlidersIcon, UserIcon } from '../profile/icons';
 import { DisplayName } from './DisplayName';
 import { ProfileVisibility } from './ProfileVisibility';
 import './settings.css';
@@ -27,7 +27,7 @@ const sections = [
 ] as const satisfies readonly {
   id: string;
   key: string;
-  icon: ComponentProps<typeof Icon>['icon'];
+  icon: SvgIcon;
 }[];
 
 type SectionKey = (typeof sections)[number]['key'];
@@ -43,23 +43,16 @@ function SettingsSection({
   children: ReactNode;
 }) {
   const { t } = useI18n();
-  const headingId = `${id}-titre`;
   return (
-    <section id={id} aria-labelledby={headingId}>
-      <Card variant="muted" padding={6}>
-        <VStack gap={5}>
-          <VStack gap={1}>
-            <Heading level={2} id={headingId}>
-              {t(`profile.settings.${sectionKey}`)}
-            </Heading>
-            <Text as="p" type="supporting">
-              {t(`profile.settings.${sectionKey}.lede`)}
-            </Text>
-          </VStack>
-          {children}
-        </VStack>
-      </Card>
-    </section>
+    <Section
+      id={id}
+      titleId={`${id}-titre`}
+      title={t(`profile.settings.${sectionKey}`)}
+      lede={t(`profile.settings.${sectionKey}.lede`)}
+      isPanel
+    >
+      {children}
+    </Section>
   );
 }
 
@@ -123,8 +116,11 @@ export function SettingsPage() {
   const { t } = useI18n();
 
   return (
-    <VStack gap={6}>
-      <Heading level={1}>{t('settings.title')}</Heading>
+    <div className="ui-page">
+      <PageHeader
+        title={t('settings.title')}
+        breadcrumbs={[{ label: t('nav.home'), href: '/' }, { label: t('settings.title') }]}
+      />
       <div className="settings-layout">
         <nav className="settings-nav" aria-label={t('profile.settings.nav')}>
           <ul>
@@ -150,6 +146,6 @@ export function SettingsPage() {
           </SettingsSection>
         </VStack>
       </div>
-    </VStack>
+    </div>
   );
 }

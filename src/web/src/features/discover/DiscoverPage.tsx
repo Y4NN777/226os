@@ -1,6 +1,4 @@
 import { Button } from '@astryxdesign/core/Button';
-import { EmptyState } from '@astryxdesign/core/EmptyState';
-import { Heading } from '@astryxdesign/core/Heading';
 import { HStack } from '@astryxdesign/core/HStack';
 import { Icon } from '@astryxdesign/core/Icon';
 import { IconButton } from '@astryxdesign/core/IconButton';
@@ -12,8 +10,13 @@ import { VisuallyHidden } from '@astryxdesign/core/VisuallyHidden';
 import { VStack } from '@astryxdesign/core/VStack';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { useState } from 'react';
+import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
+import { SearchIcon } from '../../components/icons';
+import { List } from '../../components/List';
 import { LoadingState } from '../../components/LoadingState';
+import { PageHeader } from '../../components/PageHeader';
+import { ResultsMeta } from '../../components/ResultsMeta';
 import { useI18n } from '../../i18n/I18nProvider';
 import type { Locale, MessageKey } from '../../i18n/messages';
 import { categoryCodes, categoryKey, isCategoryCode } from './categories';
@@ -195,70 +198,67 @@ export function DiscoverPage() {
   );
 
   return (
-    <VStack gap={5}>
-      <header className="discover-page-header">
-        <Heading level={1}>{t('discover.title')}</Heading>
-        <Text as="p" color="secondary">
-          {t('discover.lede')}
-        </Text>
+    <div className="ui-page">
+      <PageHeader
+        title={t('discover.title')}
+        breadcrumbs={[{ label: t('nav.home'), href: '/' }, { label: t('discover.title') }]}
+        lead={t('discover.lede')}
+      >
         <Text as="p" type="supporting">
           {t('discover.positioning')}
         </Text>
-      </header>
+      </PageHeader>
       <Filters
         key={search.q ?? ''}
         search={search}
         seenCountries={items.flatMap((item) => item.countries)}
         onChange={change}
       />
-      <section aria-labelledby="discover-results-h" className="discover-results">
+      <section aria-labelledby="discover-results-h" className="ui-section">
         {/* Prototype `h2.visually-hidden`: keeps the outline h1 > h2 > h3 for the rows. */}
         <VisuallyHidden as="h2" id="discover-results-h">
           {t('discover.results.label')}
         </VisuallyHidden>
-        <div className="discover-results-bar">
-          {/* Always mounted, so a count that appears later is announced. */}
-          <p className="discover-count" role="status">
-            {items.length > 0 ? countText(items.length, list.hasNextPage, t) : null}
-          </p>
+        {/* Always mounted, so a count that appears later is announced. */}
+        <ResultsMeta
+          summary={items.length > 0 ? countText(items.length, list.hasNextPage, t) : null}
+        >
           {hasFilters && items.length > 0 ? resetButton('ghost') : null}
-        </div>
-        {list.isPending ? <LoadingState /> : null}
+        </ResultsMeta>
+        {list.isPending ? <LoadingState rows={4} /> : null}
         {list.isError && !list.data ? (
           <ErrorState error={list.error} onRetry={() => void list.refetch()} />
         ) : null}
         {list.data && items.length === 0 ? (
-          <div className="discover-panel">
-            <EmptyState
-              headingLevel={3}
-              icon={<Icon icon="search" />}
-              title={t('discover.empty.title')}
-              description={t(westView ? 'discover.empty.west' : 'discover.empty.other')}
-              actions={
-                westView || hasFilters ? (
-                  <HStack gap={2} hAlign="center" wrap="wrap">
-                    {westView ? (
-                      <Button
-                        label={t('discover.empty.west.action')}
-                        onClick={() => {
-                          change({ region: 'all' });
-                        }}
-                      />
-                    ) : null}
-                    {hasFilters ? resetButton('secondary') : null}
-                  </HStack>
-                ) : undefined
-              }
-            />
-          </div>
+          <EmptyState
+            headingLevel={3}
+            icon={SearchIcon}
+            title={t('discover.empty.title')}
+            description={t(westView ? 'discover.empty.west' : 'discover.empty.other')}
+            actions={
+              westView || hasFilters ? (
+                <HStack gap={2} hAlign="center" wrap="wrap">
+                  {westView ? (
+                    <Button
+                      label={t('discover.empty.west.action')}
+                      onClick={() => {
+                        change({ region: 'all' });
+                      }}
+                    />
+                  ) : null}
+                  {hasFilters ? resetButton('secondary') : null}
+                </HStack>
+              ) : undefined
+            }
+          />
         ) : null}
         {items.length > 0 ? (
           <VStack gap={3}>
-            <ul className="discover-rows">
+            <List label={t('discover.results.label')}>
               {items.map((resource) => (
                 <ResourceRow key={resource.id} resource={resource} />
               ))}
-            </ul>
+            </List>
             {list.isError ? (
               <ErrorState error={list.error} onRetry={() => void list.fetchNextPage()} />
             ) : null}
@@ -274,6 +274,6 @@ export function DiscoverPage() {
           </VStack>
         ) : null}
       </section>
-    </VStack>
+    </div>
   );
 }

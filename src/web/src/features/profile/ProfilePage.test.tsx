@@ -56,6 +56,13 @@ describe('ProfilePage view', () => {
     mockApi({ 'GET /profiles/awa': () => jsonResponse(publicProfile()) });
     await renderApp('/profils/awa');
     expect(await screen.findByRole('heading', { level: 1, name: 'Awa Traoré' })).toBeVisible();
+    const crumbs = screen.getByRole('navigation', { name: 'Fil d’Ariane' });
+    expect(within(crumbs).getByRole('link', { name: 'Accueil' })).toHaveAttribute('href', '/');
+    expect(within(crumbs).getByRole('link', { name: 'Connect' })).toHaveAttribute(
+      'href',
+      '/connect',
+    );
+    expect(within(crumbs).getByText('Awa Traoré')).toHaveAttribute('aria-current', 'page');
     expect(screen.getByText('@awa')).toBeVisible();
     expect(screen.getByText('Je construis des outils de paiement.')).toBeVisible();
     expect(screen.getByText('Burkina Faso')).toBeVisible();

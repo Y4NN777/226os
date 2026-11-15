@@ -1,6 +1,4 @@
 import { Button } from '@astryxdesign/core/Button';
-import { EmptyState } from '@astryxdesign/core/EmptyState';
-import { Heading } from '@astryxdesign/core/Heading';
 import { HStack } from '@astryxdesign/core/HStack';
 import { Icon } from '@astryxdesign/core/Icon';
 import { IconButton } from '@astryxdesign/core/IconButton';
@@ -9,12 +7,15 @@ import { TextInput } from '@astryxdesign/core/TextInput';
 import { VStack } from '@astryxdesign/core/VStack';
 import { useLocation, useNavigate, useSearch } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
+import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
+import { PlusIcon } from '../../components/icons';
+import { List } from '../../components/List';
 import { LoadingState } from '../../components/LoadingState';
+import { PageHeader } from '../../components/PageHeader';
 import { useI18n } from '../../i18n/I18nProvider';
 import { useSession } from '../../app/session';
 import { AssistantPanel } from '../search/AssistantPanel';
-import { PlusGlyph } from './icons';
 import { useIdempotencyKey } from './idempotency';
 import { QuestionForm, type LinkDraft, type QuestionDraft } from './QuestionForm';
 import { QuestionRow } from './QuestionRow';
@@ -149,17 +150,20 @@ function AskView({ onClose, link }: { onClose: () => void; link: LinkDraft | und
   };
 
   return (
-    <div id="ask" className="solve-page solve-ask">
-      <button type="button" className="solve-back" onClick={onClose}>
-        <Icon icon="chevronLeft" size="sm" />
-        {t('solve.back')}
-      </button>
-      <header className="solve-ask-head">
-        <Heading level={1} ref={heading} tabIndex={-1}>
-          {t('solve.ask.h1')}
-        </Heading>
-        <p className="solve-lede">{t('solve.ask.intro')}</p>
-      </header>
+    <div id="ask" className="ui-page">
+      {/* The ask view is local state on /solve, so the way back is a button, not a crumb. */}
+      <PageHeader
+        title={t('solve.ask.h1')}
+        headingRef={heading}
+        breadcrumbs={[{ label: t('nav.home'), href: '/' }, { label: t('nav.solve') }]}
+        lead={t('solve.ask.intro')}
+        actions={
+          <button type="button" className="solve-back" onClick={onClose}>
+            <Icon icon="chevronLeft" size="sm" />
+            {t('solve.back')}
+          </button>
+        }
+      />
       <QuestionForm
         mode="create"
         initial={{ title: '', body: '', tags: [], lang: locale }}
@@ -205,7 +209,7 @@ export function SolvePage() {
     <Button
       variant="primary"
       label={t('solve.ask')}
-      icon={<Icon icon={PlusGlyph} />}
+      icon={<Icon icon={PlusIcon} />}
       onClick={() => {
         setAsking(true);
       }}
@@ -219,17 +223,16 @@ export function SolvePage() {
   );
 
   return (
-    <div className="solve-page">
-      <header className="solve-head">
-        <div className="solve-head-row">
-          <Heading level={1}>{t('solve.h1')}</Heading>
-          {askAction}
-        </div>
-        <p className="solve-lede">{t('solve.list.lede')}</p>
-      </header>
+    <div className="ui-page">
+      <PageHeader
+        title={t('solve.h1')}
+        breadcrumbs={[{ label: t('nav.home'), href: '/' }, { label: t('nav.solve') }]}
+        actions={askAction}
+        lead={t('solve.list.lede')}
+      />
       <Filters key={`${search.q ?? ''}|${search.tag ?? ''}`} search={search} />
-      <section aria-label={t('solve.results.label')}>
-        {list.isPending ? <LoadingState /> : null}
+      <section aria-label={t('solve.results.label')} className="ui-section">
+        {list.isPending ? <LoadingState rows={4} /> : null}
         {list.isError && !list.data ? (
           <ErrorState error={list.error} onRetry={() => void list.refetch()} />
         ) : null}
@@ -242,11 +245,11 @@ export function SolvePage() {
         ) : null}
         {items.length > 0 ? (
           <VStack gap={4}>
-            <ul className="solve-list">
+            <List label={t('solve.results.label')}>
               {items.map((question) => (
                 <QuestionRow key={question.id} question={question} />
               ))}
-            </ul>
+            </List>
             {list.isError ? (
               <ErrorState error={list.error} onRetry={() => void list.fetchNextPage()} />
             ) : null}

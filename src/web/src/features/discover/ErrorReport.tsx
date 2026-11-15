@@ -234,7 +234,7 @@ export function ErrorReport({
   const session = useSession();
 
   return (
-    <section id={id} aria-label={t('discover.report.action')} className="discover-panel">
+    <section id={id} aria-label={t('discover.report.action')} className="ui-section ui-panel">
       {sent ? (
         <FocusRegion role="status">
           <Text as="p">{t('discover.report.thanks')}</Text>

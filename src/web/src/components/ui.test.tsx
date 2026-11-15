@@ -3,12 +3,15 @@ import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { renderWithProviders, setLanguages } from '../test/render';
-import { Avatar } from './Avatar';
+import { Avatar, initials, tone } from './Avatar';
 import { Breadcrumbs } from './Breadcrumbs';
 import { CountryCode } from './CountryCode';
 import { EmptyState } from './EmptyState';
 import { ClockIcon } from './icons';
+import { LangCode } from './LangCode';
+import { LinkedItems } from './LinkedItems';
 import { List, ListRow } from './List';
+import { Section } from './Section';
 import { LoadingState } from './LoadingState';
 import { Meta, MetaItem } from './Meta';
 import { PageHeader } from './PageHeader';
@@ -90,6 +93,95 @@ describe('PageHeader', () => {
     expect(screen.getByRole('heading', { level: 1, name: 'Construire' })).toBeInTheDocument();
     expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
   });
+
+  it('is the page header (not a banner landmark), with the item’s tile, eyebrow, subtitle and facts', () => {
+    setLanguages(['fr-FR']);
+    renderWithProviders(
+      <PageHeader
+        title="Wave Pay"
+        titleLang="fr"
+        headingId="resource-title"
+        media={<Avatar name="Wave Pay" variant="tile" size="lg" />}
+        eyebrow="API · Paiements"
+        subtitle="Wave"
+        meta={<StatusBadge kind="verified" />}
+      />,
+    );
+    const heading = screen.getByRole('heading', { level: 1, name: 'Wave Pay' });
+    expect(heading).toHaveAttribute('id', 'resource-title');
+    expect(heading.closest('[lang]')).toHaveAttribute('lang', 'fr');
+    const header = heading.closest('.ui-page-header');
+    if (header === null) throw new Error('the title is not inside the page header');
+    expect(screen.queryByRole('banner')).toBeNull();
+    expect(within(header).getByText('API · Paiements')).toBeInTheDocument();
+    expect(within(header).getByText('Wave')).toBeInTheDocument();
+    expect(within(header).getByText('Vérifié')).toBeInTheDocument();
+    expect(within(header).getByText('WP')).toHaveAttribute('aria-hidden', 'true');
+  });
+});
+
+describe('Section', () => {
+  it('is a region named by its title, with the title at the given level', () => {
+    renderWithProviders(
+      <Section title="Sources" isPanel>
+        <p>Une source</p>
+      </Section>,
+    );
+    const region = screen.getByRole('region', { name: 'Sources' });
+    expect(within(region).getByRole('heading', { level: 2, name: 'Sources' })).toBeInTheDocument();
+    expect(within(region).getByText('Une source')).toBeInTheDocument();
+  });
+
+  it('puts its one-sentence lede under the title', () => {
+    renderWithProviders(
+      <Section title="Préférences" lede="Thème et langue de l’interface.">
+        <p>Contenu</p>
+      </Section>,
+    );
+    const region = screen.getByRole('region', { name: 'Préférences' });
+    expect(within(region).getByText('Thème et langue de l’interface.')).toBeInTheDocument();
+  });
+
+  it('can be a complementary block with its own heading level and a note beside the title', () => {
+    renderWithProviders(
+      <Section as="aside" title="Contexte" headingLevel={3} titleAside={<Tag label="FR" />}>
+        <p>Burkina Faso</p>
+      </Section>,
+    );
+    const aside = screen.getByRole('complementary', { name: 'Contexte' });
+    expect(within(aside).getByRole('heading', { level: 3, name: 'Contexte' })).toBeInTheDocument();
+    expect(within(aside).getByText('FR')).toBeInTheDocument();
+  });
+});
+
+describe('LinkedItems', () => {
+  it('lists linked content as tiles whose link is named by the title alone', () => {
+    renderWithProviders(
+      <LinkedItems
+        label="À voir aussi"
+        items={[
+          { key: 'q-1', kind: 'Question', title: 'Webhook non reçu', href: '/questions/q-1' },
+          { key: 'p-1', kind: 'Projet', title: 'kora-sdk', href: '/build/p-1', lang: 'en' },
+        ]}
+      />,
+    );
+    const list = screen.getByRole('list', { name: 'À voir aussi' });
+    const link = within(list).getByRole('link', { name: 'Webhook non reçu' });
+    expect(link).toHaveAttribute('href', '/questions/q-1');
+    expect(link.closest('li')).toHaveTextContent('Question');
+    expect(within(list).getByRole('link', { name: 'kora-sdk' }).closest('[lang]')).toHaveAttribute(
+      'lang',
+      'en',
+    );
+  });
+});
+
+describe('LangCode', () => {
+  it('shows the content language code, with its name as a hint', () => {
+    setLanguages(['fr-FR']);
+    renderWithProviders(<LangCode lang="fr" />);
+    expect(screen.getByText('FR')).toHaveAttribute('title', 'Langue : français');
+  });
 });
 
 describe('ResultsMeta', () => {
@@ -170,6 +262,17 @@ describe('List and ListRow', () => {
     expect(screen.getByRole('heading', { name: 'CORS error in Go' })).toHaveAttribute('lang', 'en');
     expect(screen.getByText('Preflight fails.')).toHaveAttribute('lang', 'en');
   });
+
+  it('carries the content language on the title and a subtitle line under it', () => {
+    renderWithProviders(
+      <List label="Personnes">
+        <ListRow title="Awa Traoré" href="/profils/awa" titleLang="fr" subtitle="@awa" />
+      </List>,
+    );
+    const link = screen.getByRole('link', { name: 'Awa Traoré' });
+    expect(link.closest('[lang]')).toHaveAttribute('lang', 'fr');
+    expect(link.closest('li')).toHaveTextContent('@awa');
+  });
 });
 
 describe('StatusBadge', () => {
@@ -182,6 +285,11 @@ describe('StatusBadge', () => {
     ['later', 'Bientôt'],
     ['demo', 'Démo'],
     ['open', 'Ouvert'],
+    ['closed', 'Fermé'],
+    ['claimed', 'Déclaré'],
+    ['disputed', 'Contesté'],
+    ['pending', 'En attente'],
+    ['private', 'Privé'],
   ])('%s carries its meaning in text, with a decorative icon', (kind, text) => {
     setLanguages(['fr-FR']);
     const { container } = renderWithProviders(<StatusBadge kind={kind} />);
@@ -238,6 +346,37 @@ describe('Avatar', () => {
     renderWithProviders(<Avatar name="Awa Traoré" isDecorative={false} />);
     expect(screen.getByRole('img', { name: 'Awa Traoré' })).toBeInTheDocument();
   });
+
+  it('draws an item as a decorative monogram tile', () => {
+    renderWithProviders(<Avatar name="Kalimba Pay API" variant="tile" />);
+    expect(screen.getByText('KP')).toHaveAttribute('aria-hidden', 'true');
+    expect(screen.queryByRole('img')).not.toBeInTheDocument();
+  });
+});
+
+// Moved from features/discover/ResourceThumb.test.ts with the tile itself.
+describe('Avatar tile initials and tone', () => {
+  it('takes the first letter of the first two words', () => {
+    expect(initials('Kalimba Pay API')).toBe('KP');
+    expect(initials('geojson-lint')).toBe('G');
+    expect(initials('Éclair SMS')).toBe('ÉS');
+  });
+
+  it('ignores a trailing parenthesis such as « (démo) »', () => {
+    expect(initials('Nimba Maps Studio (démo)')).toBe('NM');
+    expect(tone('Nimba Maps Studio (démo)')).toBe(tone('Nimba Maps Studio'));
+  });
+
+  it('falls back to a placeholder when the name has no letter or digit', () => {
+    expect(initials('—')).toBe('?');
+  });
+
+  it('keeps the tone within the five token pairs', () => {
+    for (const name of ['A', 'Wave Pay', 'SDK SMS Baobab', '']) {
+      expect(tone(name)).toBeGreaterThanOrEqual(0);
+      expect(tone(name)).toBeLessThan(5);
+    }
+  });
 });
 
 describe('CountryCode', () => {
@@ -245,6 +384,14 @@ describe('CountryCode', () => {
     renderWithProviders(<CountryCode code="BF" name="Burkina Faso" />);
     expect(screen.getByText('BF')).toHaveAttribute('aria-hidden', 'true');
     expect(screen.getByText('Burkina Faso')).toBeInTheDocument();
+  });
+
+  it('names the country in the UI language when no name is given, shown once when visible', () => {
+    setLanguages(['fr-FR']);
+    renderWithProviders(<CountryCode code="CI" withName />);
+    expect(screen.getByText('CI')).toHaveAttribute('aria-hidden', 'true');
+    expect(screen.getAllByText('Côte d’Ivoire')).toHaveLength(1);
+    expect(screen.getByText('Côte d’Ivoire')).toBeVisible();
   });
 });
 
@@ -266,6 +413,14 @@ describe('Tag and TagList', () => {
     renderWithProviders(<Tag label="webhook" />);
     expect(screen.getByText('webhook')).toBeInTheDocument();
     expect(screen.queryByRole('link')).not.toBeInTheDocument();
+  });
+
+  it('says how many tags it left out', () => {
+    renderWithProviders(
+      <TagList tags={['go', 'sql']} more={{ count: 2, label: '2 autres technologies' }} />,
+    );
+    expect(screen.getByText('+2')).toHaveAttribute('aria-hidden', 'true');
+    expect(screen.getByText('2 autres technologies')).toBeInTheDocument();
   });
 });
 

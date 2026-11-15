@@ -361,6 +361,18 @@ describe('DiscoverPage', () => {
     expect(within(row).getByText('2 sources')).toBeInTheDocument();
   });
 
+  it('heads the page with the shared breadcrumbs: Accueil, then Découvrir as the current page', async () => {
+    setLanguages(['fr-FR']);
+    mockApi({ 'GET /resources': () => page([senegal]) });
+    await renderApp('/discover');
+    const crumbs = await screen.findByRole('navigation', { name: 'Fil d’Ariane' });
+    expect(within(crumbs).getByRole('link', { name: 'Accueil' })).toHaveAttribute('href', '/');
+    expect(within(crumbs).getByText('Découvrir')).toHaveAttribute('aria-current', 'page');
+    expect(
+      screen.getByRole('heading', { level: 1, name: 'Découvrir' }).closest('.ui-page-header'),
+    ).toContainElement(crumbs);
+  });
+
   it('keeps the heading outline: h1, a hidden « Résultats » h2, then one h3 per row', async () => {
     setLanguages(['fr-FR']);
     mockApi({ 'GET /resources': () => page([senegal]) });
