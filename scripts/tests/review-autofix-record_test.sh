@@ -165,6 +165,28 @@ EOT
 record
 [ "$rc" -ne 0 ] && grep -qi 'too large' <<<"$out" && grep -q 'labels\[\]=needs-owner' "$tmp/st/log" && ok "a state too large to keep fails closed after a push (needs-owner), never truncated" || ko "large state (rc=$rc $out)"
 
+# ---- pending attempts (written by decide before the fixer) are settled here ----
+status '{"v":1,"sha":"'$HEAD'","run":"90","pending":{"f1":{"'$HEAD'":"31"}},"attempts":{},"rows":'"$ROWS"'}'; pr_head "$HEAD"
+record
+python3 -I -c '
+import json, re, sys
+st = json.loads(re.search(r"<!-- autofix-state (\{.*?\}) -->", open(sys.argv[1]).read(), re.S).group(1))
+assert st["pending"] in ({}, {"f1": {}}) and list(st["attempts"]["f1"]) == ["'$HEAD'"], st' "$tmp/st/body-last" && ok "a completed run settles its pending entry into an attempt" || ko "pending settled ($body)"
+status '{"v":1,"sha":"'$HEAD'","run":"90","pending":{"f1":{"'$HEAD'":"31"}},"attempts":{},"rows":'"$ROWS"'}'
+record FIX_RESULT=cancelled OUTCOME= PUSH=
+python3 -I -c '
+import json, re, sys
+st = json.loads(re.search(r"<!-- autofix-state (\{.*?\}) -->", open(sys.argv[1]).read(), re.S).group(1))
+assert st["pending"] in ({}, {"f1": {}}) and st["attempts"] == {"f1": {}} and st["aborted"]["f1"]["'$HEAD'"] == ["99"], st' "$tmp/st/body-last" && ok "an aborted run clears its pending entry and counts as an abort, not an attempt" || ko "pending aborted ($body)"
+# No push token: the row says NOT RUN instead of leaving "fix queued".
+status '{"v":1,"sha":"'$HEAD'","run":"90","pending":{"f1":{"'$HEAD'":"31"}},"attempts":{},"rows":'"$ROWS"'}'
+record PREFLIGHT_TOKEN=false FIX_RESULT=skipped OUTCOME= PUSH=
+grep -q '| f1 | .*NOT RUN' <<<"$body" && grep -qi 'REVIEW_AGENT_TOKEN missing' <<<"$body" && [ "$attempts" = '{}' ] && ok "no push token: the row says NOT RUN (token missing), no attempt and no abort" || ko "no token row ($attempts $body)"
+python3 -I -c '
+import json, re, sys
+st = json.loads(re.search(r"<!-- autofix-state (\{.*?\}) -->", sys.argv[1], re.S).group(1))
+assert st["pending"] in ({}, {"f1": {}}) and not st["aborted"].get("f1"), st' "$body" && ok "no push token: the pending entry is cleared" || ko "no token pending"
+
 # ---- the state is read only from a bot, at its expected place ----
 python3 -I - "$tmp/st/comments.json" <<'EOT'
 import json, sys
@@ -204,7 +226,8 @@ assert "environment: review-agent" in pre and "secrets.REVIEW_AGENT_TOKEN" in pr
 fix = s[s.index("\n  fix:"):s.index("\n  publish:")]
 assert "preflight" in fix.split("steps:")[0] and "needs.preflight.outputs.token == 'true'" in fix.split("steps:")[0]
 assert "REVIEW_AGENT_TOKEN" not in fix
-assert "needs.preflight.outputs.token == 'true'" in label.split("steps:")[0]
+assert "needs.preflight.outputs.token == 'true'" not in label.split("steps:")[0], "the end job must also run when the token is missing, to say NOT RUN"
+assert "PREFLIGHT_TOKEN: ${{ needs.preflight.outputs.token }}" in label
 assert "give the attempt back" not in label.lower() and "DELETE" not in label, "no attempt is written before the run, so none is given back"
 # values reach the script through env, never interpolated in run:
 for run in re.findall(r"run: \|\n((?:\s{10,}.*\n)+)", label):

@@ -11,7 +11,10 @@ whether its commits may be pushed. The workflows only call this script; the mode
          hidden state of the status comment (below), never from labels, and written by `record` when the run ENDS; a
          finding already attempted on this head is not attempted again; a finding whose file is outside the fixer's
          allowed paths (the same `forbidden()` as the guard), without a file, or with its attempts used goes to the owner
-         BEFORE any attempt, with the reason, and the others are still fixed. It also writes the status comment.
+         BEFORE any attempt, with the reason, and the others are still fixed. At most 4 completed or pending fix runs per
+         pull request (distinct run ids), and a pull request that carries needs-owner is not fixed. Before the fixer runs it
+         writes a PENDING attempt (finding, head, run) into the status comment, which `record` settles; a pending entry left by a
+         run that died counts as an attempt, and if it cannot be written the fixer does not run. It also writes the status comment.
   record the end job of review-autofix.yml (trusted, GITHUB_TOKEN): records the attempt for (pull request, finding, head
          SHA) in the status comment ONLY when the run happened: the fixer job must have succeeded (FIX_RESULT), and a patch
          that was not pushed (PUSH moved, notoken, or the publish job did not finish) or a head that moved without our own
@@ -219,6 +222,7 @@ MAX_COMMENT = 60000      # GitHub allows 65536 characters; the table is cut firs
 MAX_ABORT_SAME_HEAD = 2  # aborted runs (no attempt used) on one head, per finding
 MAX_ABORT_TOTAL = 4      # aborted runs in all, per pull request
 MAX_RUN_IDS = 10
+MAX_PR_RUNS = 4          # completed (or pending) fix runs per pull request, over every finding
 
 
 class StateTooLarge(Exception):
@@ -226,7 +230,17 @@ class StateTooLarge(Exception):
 
 
 def empty_state():
-    return {"v": 1, "sha": "", "run": "", "result": "", "attempts": {}, "aborted": {}, "rows": []}
+    return {"v": 1, "sha": "", "run": "", "result": "", "attempts": {}, "pending": {}, "aborted": {}, "rows": []}
+
+
+def used_heads(state, fid):
+    """{head: run} of the attempts of a finding, the pending ones (a run that may have died) included: fail closed."""
+    return dict(state["attempts"].get(fid, {}), **{h: r for h, r in state["pending"].get(fid, {}).items() if h not in state["attempts"].get(fid, {})})
+
+
+def pr_runs(state):
+    """Distinct run ids that completed or are pending on the whole pull request."""
+    return {r for key in ("attempts", "pending") for heads in state[key].values() for r in heads.values() if r}
 
 
 def abort_total(state):
@@ -247,6 +261,10 @@ def clean_state(raw):
     for fid, heads in (attempts.items() if isinstance(attempts, dict) else []):
         if FINDING_ID.match(str(fid)) and isinstance(heads, dict):
             state["attempts"][str(fid)] = {h: re.sub(r"\D", "", str(r))[:20] for h, r in heads.items() if FULL_SHA.match(str(h))}
+    pending = raw.get("pending")
+    for fid, heads in (pending.items() if isinstance(pending, dict) else []):
+        if FINDING_ID.match(str(fid)) and isinstance(heads, dict):
+            state["pending"][str(fid)] = {h: re.sub(r"\D", "", str(r))[:20] for h, r in heads.items() if FULL_SHA.match(str(h))}
     aborted = raw.get("aborted")
     for fid, heads in (aborted.items() if isinstance(aborted, dict) else []):
         if FINDING_ID.match(str(fid)) and isinstance(heads, dict):
@@ -277,7 +295,7 @@ def find_status(ctx, comments):
 
 def render_status(state, head_sha):
     """The comment text. The table is cut to fit; the hidden state never is: too large means StateTooLarge."""
-    hidden = json.dumps(state, separators=(",", ":"), sort_keys=True).replace("<", "\\u003c").replace(">", "\\u003e")
+    hidden = json.dumps(state, separators=(",", ":")).replace("<", "\\u003c").replace(">", "\\u003e")
     if len(hidden) > MAX_STATE_JSON:
         raise StateTooLarge("the status state is too large to keep (%d characters)" % len(hidden))
     budget, shown = MAX_COMMENT - len(hidden) - 1500, []
@@ -313,8 +331,10 @@ def write_status(gh, repo, number, comment_id, state, head_sha):
     try:
         upsert_status(load_findings_module(), gh, repo, number, comment_id, state, head_sha)
         print("autofix: status comment %s" % ("updated" if comment_id else "created"))
+        return True
     except Exception as exc:
         print("autofix: status comment NOT RUN (%s)" % type(exc).__name__)
+        return False
 
 
 def path_refusal(path):
@@ -380,13 +400,15 @@ def decide_pr(ctx, gh, repo, number, mode):
         return "refuse", "the ledger is for %s, not for the pull request head: the review is stale" % ledger["sha"][:12], None
     comment_id, prior = find_status(ctx, comments)
     state = dict(empty_state(), sha=head_sha if FULL_SHA.match(head_sha) else "", run=re.sub(r"\D", "", os.environ.get("RUN_ID", ""))[:20],
-                 attempts=prior["attempts"], aborted=prior["aborted"])
+                 attempts=prior["attempts"], pending=prior["pending"], aborted=prior["aborted"])
     entries = [f for f in ledger["findings"] if f["kind"] == "finding" and safe_id(f["id"])]
     critical = any(f["sev"] == "CRITICAL" and f["status"] == "open" for f in entries)
+    owner_label = OWNER_LABEL in label_names(info.get("labels"))  # the owner decides (a failed record sets it too)
+    pr_capped = len(pr_runs(state)) >= MAX_PR_RUNS
     fix_ids, owner_why, rows = [], [], []
     for f in entries:
         fid = safe_id(f["id"])
-        used = state["attempts"].get(fid, {})
+        used = used_heads(state, fid)
         last = list(used.items())[-1] if used else None  # the newest attempt was recorded last
         row = {"id": fid, "where": ("%s:%s" % (f["file"], f["line"]))[:120], "class": "prose", "state": "", "next": "", "who": "",
                "fact": "attempt %d: run %s on %s" % (len(used), last[1], last[0][:12]) if last else "no attempt yet"}
@@ -395,6 +417,10 @@ def decide_pr(ctx, gh, repo, number, mode):
             row.update(state="CLOSED (%s)" % f["status"], next="none", who="-")
         elif critical:
             why = "an open CRITICAL sends the pull request to the owner"
+        elif owner_label:
+            why = "the pull request carries needs-owner: the owner decides"
+        elif pr_capped:
+            why = "%d completed fix runs on this pull request: the owner decides" % MAX_PR_RUNS
         elif path_refusal(f["file"]):
             why = path_refusal(f["file"])
         elif len(used) >= MAX_ATTEMPTS:
@@ -423,10 +449,14 @@ def decide_pr(ctx, gh, repo, number, mode):
     owner_ids = [w for kind, w in owner_why if kind == "owner"]
     if critical:
         return "owner", "an open CRITICAL goes to the owner, the pull request is not fixed", plan
+    if owner_label and has_open:
+        return "owner", "the pull request carries needs-owner: not fixed, the owner decides", plan
+    if pr_capped and has_open:
+        return "owner", "%d completed fix runs on this pull request (needs-owner): the owner decides" % MAX_PR_RUNS, plan
     if not has_open:
         return "nothing", "no open finding (notes are never fixed)", plan
     if fix_ids:
-        attempt = max(len(state["attempts"].get(i, {})) for i in fix_ids) + 1
+        attempt = max(len(used_heads(state, i)) for i in fix_ids) + 1
         return "fix", (attempt, fix_ids, head, owner_ids), plan
     if owner_ids:
         return "owner", "no finding can be fixed: " + "; ".join(owner_ids), plan
@@ -451,12 +481,12 @@ def cmd_pr():
     def show(result):
         """Record the facts of this run in the status comment (ADR-0015 point 10): written only in mode on."""
         if not plan:
-            return
+            return True
         plan[0]["result"] = "run %s: %s" % (plan[0]["run"] or "?", result)
         if writes:
-            write_status(gh, repo, number, plan[1], plan[0], head_sha)
-        else:
-            print("autofix: report mode, status comment not written")
+            return write_status(gh, repo, number, plan[1], plan[0], head_sha)
+        print("autofix: report mode, status comment not written")
+        return True
 
     if verdict in ("refuse", "nothing"):
         show("NO-OP, " + detail)
@@ -479,7 +509,12 @@ def cmd_pr():
         show("report mode, would fix %s" % ",".join(ids))
         return stop("autofix: report mode: would fix %s on %s (attempt %d of %d)" % (",".join(ids), head.get("ref"), attempt, MAX_ATTEMPTS))
     # Nothing counts yet: the attempt is recorded by `record` when the run ENDS (ADR-0015 point 8), never before.
-    show("fix queued for %s (attempt %d of %d)" % (",".join(ids), attempt, MAX_ATTEMPTS))
+    # A PENDING attempt is written BEFORE the fixer runs (record settles it); one left by a run that died counts as an
+    # attempt (fail closed). If it cannot be written, the fixer does not run.
+    for fid in ids:
+        plan[0]["pending"].setdefault(fid, {})[head.get("sha")] = plan[0]["run"] or "0"
+    if not show("fix queued for %s (attempt %d of %d)" % (",".join(ids), attempt, MAX_ATTEMPTS)):
+        return noop("the pending attempt could not be written, so the fixer does not run", "NOT RUN")
     if owner_ids:
         add_label(gh, repo, number, OWNER_LABEL)
     print("autofix: fixing %d finding(s) on %s (attempt %d of %d)" % (len(ids), head.get("ref"), attempt, MAX_ATTEMPTS))
@@ -516,9 +551,12 @@ def cmd_record():
         return noop("REPO, PR_NUMBER, RUN_ID, HEAD_SHA and FINDINGS are required", "NOT RUN")
     fix_result, outcome, push = (os.environ.get(k, "") for k in ("FIX_RESULT", "OUTCOME", "PUSH"))
     pushed = fix_result == "success" and outcome == "fixed" and push == "pushed"
+    no_token = os.environ.get("PREFLIGHT_TOKEN") == "false"
     try:
         ctx = load_context_module()
         consumed, kind, why = record_outcome(fix_result, outcome, push)
+        if no_token:
+            consumed, kind, why = False, "NOTOKEN", "REVIEW_AGENT_TOKEN missing: the model was not called"
         if consumed and push != "pushed":
             # No push: the head must still be the one the fixer worked on. (After our own push it has moved by design.)
             info = (ctx.gh_api(gh, "repos/%s/pulls/%s" % (repo, number)) or [{}])[0]
@@ -528,8 +566,14 @@ def cmd_record():
         rows = {r["id"]: r for r in state["rows"]}
         for fid in ids:
             used = state["attempts"].setdefault(fid, {})
+            state["pending"].get(fid, {}).pop(head_sha, None)  # settled below: an attempt, an abort, or nothing (no token)
+            if not state["pending"].get(fid, True):
+                del state["pending"][fid]
             if consumed:
+                used.pop(head_sha, None)  # re-recorded: it becomes the newest
                 used[head_sha] = run_id
+            elif kind == "NOTOKEN":
+                pass
             else:  # an aborted run uses no attempt, but is counted so it cannot repeat for ever (one entry per run id)
                 runs = state["aborted"].setdefault(fid, {}).setdefault(head_sha, [])
                 if run_id not in runs:
@@ -540,6 +584,10 @@ def cmd_record():
                 row = {"id": fid, "where": "", "class": "prose", "state": "", "fact": "", "next": "", "who": ""}
                 state["rows"].append(row)
                 rows[fid] = row
+            if kind == "NOTOKEN":
+                row.update(state="NOT RUN (no push token)", fact="run %s on %s: %s" % (run_id, head_sha[:12], why),
+                           next="the owner sets REVIEW_AGENT_TOKEN; nothing was counted", who="owner")
+                continue
             if not consumed:
                 row.update(state="SUPERSEDED", fact="run %s on %s: %s; attempt not used" % (run_id, head_sha[:12], why),
                            next="the next review decides again", who="pipeline")
@@ -554,7 +602,7 @@ def cmd_record():
             else:
                 row.update(state="FAILED (attempt %d)" % n, fact=fact, next="attempt %d of %d on the next head" % (n + 1, MAX_ATTEMPTS), who="pipeline")
         state["sha"], state["run"] = head_sha, run_id
-        state["result"] = "run %s: %s" % (run_id, ("attempt recorded, " if consumed else "SUPERSEDED, no attempt used, ") + why)
+        state["result"] = "run %s: %s" % (run_id, ("attempt recorded, " if consumed else "NOT RUN, " if kind == "NOTOKEN" else "SUPERSEDED, no attempt used, ") + why)
         state["rows"] = state["rows"][:MAX_ROWS]
         upsert_status(load_findings_module(), gh, repo, number, comment_id, state, head_sha)
         if consumed and kind == "PUSHED":
@@ -744,7 +792,7 @@ def forbidden(path):
 # 2. A NEW file (and any added line, test or not) gets a LEXICAL scan: skip-like tokens, coverage exclusions and a timeout
 #    option. Best effort: it cannot prove a new test is a strong one. Markdown is documentation, never scanned.
 LOCKED_PATH = re.compile(r"_test\.go$|\.(?:test|spec)\.[cm]?[jt]sx?$|\.(?:golden|snap)$|^scripts/tests/"
-                         r"|(?:^|/)(?:__tests__|__snapshots__|e2e|[\w.-]*tests?|testdata|testutil|fixtures?|mocks?)/")
+                         r"|(?:^|/)(?:__tests__|__snapshots__|e2e|tests?|testdata|testutil|fixtures?|mocks?|pgtest|aistest|smtptest)/")
 SKIP_ADDED = re.compile(r"\b(?:it|test|describe|context|suite)\s*\.\s*(?:skip(?:If)?|only|fixme|todo|fails)\b|\b(?:xit|xdescribe|xtest)\s*\("
                         r"|\.Skip(?:f|Now)?\s*\(|\bpytest\.(?:mark\.)?(?:skip|xfail)\b|\bnolint\b|eslint-disable|@ts-ignore|@ts-expect-error"
                         r"|//\s*go:build\s+ignore|//\s*\+build\s+ignore")
@@ -787,6 +835,12 @@ def weakening(git, worktree, base, entries):
             continue
         text = git_out(git, worktree, "diff", "-U0", "--no-color", "--no-ext-diff", "--no-textconv", "--no-renames", base, "HEAD", "--", ":(literal)" + path)
         added = diff_lines(text)
+        if path.endswith(".go"):
+            joined = re.sub(r"\s+", "", "\n".join(added))
+            if not path.endswith("_test.go") and "testing.Testing(" in joined:
+                return "test weakening refused: %s adds testing.Testing() (production code that detects the test run)" % path
+            if re.search(r"funcinit\(\)\{[^}]*os\.Exit\(", joined):
+                return "test weakening refused: %s adds os.Exit( inside func init() (it ends the process, tests included)" % path
         m = SKIP_JOINED.search(re.sub(r"\s+", "", "\n".join(added)))
         if m:
             return "test weakening refused: %s adds `%s` (also when split over lines)" % (path, m.group(0))

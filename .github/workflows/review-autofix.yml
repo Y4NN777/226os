@@ -444,7 +444,7 @@ jobs:
   label:
     name: Record the attempt and label (no pull request code)
     needs: [decide, preflight, fix, publish]
-    if: always() && needs.decide.outputs.run == 'true' && needs.preflight.outputs.token == 'true'
+    if: always() && needs.decide.outputs.run == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -469,6 +469,7 @@ jobs:
           FIX_RESULT: ${{ needs.fix.result }}
           OUTCOME: ${{ needs.fix.outputs.outcome }}
           PUSH: ${{ needs.publish.outputs.push }}
+          PREFLIGHT_TOKEN: ${{ needs.preflight.outputs.token }}
         run: |
           if [ ! -f scripts/review-autofix.py ]; then
             echo "autofix record: NOT RUN (scripts/review-autofix.py is not on the default branch)" | tee -a "$GITHUB_STEP_SUMMARY"

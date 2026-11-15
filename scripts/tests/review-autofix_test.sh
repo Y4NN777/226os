@@ -33,6 +33,8 @@ while i < len(args):
     elif args[i] == "--paginate": i += 1
     else: endpoint = args[i]; i += 1
 if method != "GET":
+    if os.environ.get("FAKE_GH_FAIL_WRITE"):
+        sys.stderr.write("gh: refused\n"); sys.exit(1)
     open(os.path.join(st, "log"), "a").write("%s %s %s\n" % (method, endpoint, " ".join(args).replace("\n", " / ")))
     print("{}"); sys.exit(0)
 path, _, query = endpoint.partition("?")
@@ -163,6 +165,50 @@ ledger "f1:finding:MEDIUM:open"
 status '{"attempts":{"f1":{"'$HEAD'":"11"}}}'
 run pr
 grep -qx 'run=false' <<<"$outputs" && grep -qi 'already attempted' <<<"$out" && ok "a finding already attempted on this head is not attempted again" || ko "same head ($out / $outputs)"
+
+# Deep review of #309: at most 4 COMPLETED fix runs per pull request (distinct run ids over every finding), then the owner.
+R1=1000000000000000000000000000000000000001; R2=1000000000000000000000000000000000000002; R3=1000000000000000000000000000000000000003; R4=1000000000000000000000000000000000000004
+ledger "f1:finding:MEDIUM:open f2:finding:MEDIUM:open f3:finding:MEDIUM:open"
+status '{"attempts":{"f1":{"'$R1'":"21","'$R2'":"22"},"f2":{"'$R3'":"23"}}}'
+run pr
+grep -qx 'run=true' <<<"$outputs" && ok "three completed runs on the pull request: the fourth is allowed" || ko "per-PR cap below ($out)"
+status '{"attempts":{"f1":{"'$R1'":"21","'$R2'":"22"},"f2":{"'$R3'":"23","'$R4'":"24"}}}'
+run pr
+grep -qx 'run=false' <<<"$outputs" && grep -q 'labels\[\]=needs-owner' "$tmp/st/log" && grep -qi '4 completed' <<<"$out" && ok "a fifth run on the pull request (chain of new run ids) is refused: the whole PR goes to the owner, with the reason" || ko "per-PR cap ($out / $outputs)"
+
+# Deep review of #309: a pull request that carries needs-owner is not fixed (a record that could not write sets it).
+ledger "f1:finding:MEDIUM:open"
+pr "needs-owner"
+run pr
+grep -qx 'run=false' <<<"$outputs" && grep -qi 'needs-owner' <<<"$out" && ok "the needs-owner label stops the fixer: the owner decides" || ko "owner label ($out)"
+pr ""
+
+# Deep review of #309: before the fixer runs, a PENDING attempt is written; one left by a run that died counts as an attempt.
+ledger "f1:finding:MEDIUM:open"
+run pr
+body="$(cat "$tmp/st/body-last")"
+python3 -I -c '
+import json, re, sys
+st = json.loads(re.search(r"<!-- autofix-state (\{.*?\}) -->", sys.argv[1], re.S).group(1))
+assert list(st["pending"]["f1"]) == ["'$HEAD'"] and st["attempts"] == {}, st' "$body" && ok "before the fixer runs, the decide step writes a pending attempt (finding, head, run) into the state" || ko "pending written ($body)"
+status '{"pending":{"f1":{"'$OLD'":"31"}}}'
+run pr
+grep -qx 'attempt=2' <<<"$outputs" && ok "a pending entry left by a dead run counts as an attempt" || ko "pending counted ($outputs)"
+status '{"pending":{"f1":{"'$OLD'":"31","'$OLD2'":"32"}}}'
+run pr
+grep -qx 'run=false' <<<"$outputs" && grep -qi 'attempts' <<<"$out" && ok "two pending entries exhaust a finding (fail closed)" || ko "pending cap ($out)"
+status '{"pending":{"f1":{"'$HEAD'":"31"}}}'
+run pr
+grep -qx 'run=false' <<<"$outputs" && grep -qi 'already attempted' <<<"$out" && ok "a pending entry for this head counts as attempted on this head" || ko "pending head ($out)"
+ledger "f1:finding:MEDIUM:open"
+run pr FAKE_GH_FAIL_WRITE=1
+[ "$rc" -eq 0 ] && grep -qx 'run=false' <<<"$outputs" && ok "if the pending attempt cannot be written, the fixer does not run" || ko "pending write failure ($out / $outputs)"
+
+# Deep review of #309: the last fact is the NEWEST attempt, not the one whose sha sorts last.
+ledger "f1:finding:MEDIUM:open"
+status '{"attempts":{"f1":{"'$OLD2'":"41","'$OLD'":"42"}}}'
+run pr AUTO_FIX=on
+grep -q 'attempt 2: run 42 on 444444444444' <<<"$(cat "$tmp/st/body-last")" && ok "status: the last fact is the newest attempt, in recorded order" || ko "last fact order ($(cat "$tmp/st/body-last"))"
 
 # Aborted runs consume no attempt but are bounded: 2 on one head, or 4 in all, send the finding to the owner.
 ledger "f1:finding:MEDIUM:open"
@@ -604,6 +650,22 @@ printf "describe.\nonly(\n 'x', () => {})\n" >"$w5/src/web/src/m.test.ts"; g5 ad
 check5
 [ "$rc" -ne 0 ] && grep -qi "only" <<<"$out" && ok "weakening guard (new file): describe.only split over lines is caught" || ko "multi-line only (rc=$rc $out)"
 reset5
+# Deep review of #309: a production file cannot detect the test run, nor exit from init().
+new5 src/e.go 'var _ = func() bool { return testing.Testing() }' "testing.Testing() in a non-test file" "testing.Testing"
+printf 'package a\nfunc init() {\n\tif x() {\n\t\tos.Exit(0)\n\t}\n}\n' >"$w5/src/e.go"; g5 add -A; g5 commit -qm "fix: init exit"
+check5
+[ "$rc" -ne 0 ] && grep -qi "init" <<<"$out" && ok "weakening guard: os.Exit inside a multi-line func init() of any Go file is refused" || ko "init exit (rc=$rc $out)"
+reset5
+printf 'func more() bool { return testing.Testing() }\n' >>"$w5/src/plain.go"; g5 add -A; g5 commit -qm "fix: edit"
+check5
+[ "$rc" -ne 0 ] && grep -q "testing.Testing" <<<"$out" && ok "weakening guard: testing.Testing() added to an existing Go file is refused" || ko "Testing in edit (rc=$rc $out)"
+reset5
+# Only the real test directories are locked: a directory merely ENDING in test is an ordinary directory.
+mkdir -p "$w5/src/contest"; printf 'package contest\n' >"$w5/src/contest/c.go"; g5 add -A; g5 commit -qm base2; base5="$(git -C "$w5" rev-parse HEAD)"
+printf 'func more() {}\n' >>"$w5/src/contest/c.go"; g5 add -A; g5 commit -qm "fix: contest"
+check5
+[ "$rc" -eq 0 ] && ok "locked paths: src/contest/ (a name that only ends in test) is not locked" || ko "contest (rc=$rc $out)"
+git -C "$w5" reset -q --hard "$base5"
 # A change to a NON-test file is not locked: only the token scan applies (removing a nolint is a good change).
 edit_ok() {
   python3 -I - "$w5/src/a.go" <<'EOT'
