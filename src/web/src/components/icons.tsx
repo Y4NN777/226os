@@ -112,6 +112,7 @@ export const AlertCircleIcon = stroke(
 );
 export const PlusIcon = stroke(<path d="M12 5v14M5 12h14" />);
 export const MenuIcon = stroke(<path d="M4 6h16M4 12h16M4 18h16" />);
+export const XIcon = stroke(<path d="M18 6 6 18M6 6l12 12" />);
 export const ArrowRightIcon = stroke(<path d="M5 12h14M12 5l7 7-7 7" />);
 export const UsersIcon = stroke(
   <>

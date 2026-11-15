@@ -25,24 +25,27 @@ describe('App routing', () => {
     expect(document.title).toBe('Recherche · 226os');
   });
 
-  it('renders the top bar and the public landing page, without navigation, at /', async () => {
+  it('renders the landing header and the public landing page, without navigation, at /', async () => {
     setLanguages(['fr-FR']);
     renderAt('/');
     expect(
       await screen.findByRole('heading', {
         level: 1,
-        name: 'Apprenez, échangez et construisez entre développeurs africains',
+        name: 'Les projets avancent mieux à plusieurs',
       }),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole('navigation', { name: 'Navigation principale' }),
     ).not.toBeInTheDocument();
-    expect(await screen.findByRole('link', { name: 'Se connecter' })).toBeInTheDocument();
+    expect((await screen.findAllByRole('link', { name: 'Se connecter' })).length).toBeGreaterThan(
+      0,
+    );
   });
 
   it('navigates to settings from the account menu without a full reload', async () => {
     setLanguages(['en-US']);
-    renderAt('/');
+    // Not on `/`: the visitor's landing has its own header, without the preferences menu.
+    renderAt('/discover');
     await userEvent
       .setup({ delay: null })
       .click(await screen.findByRole('button', { name: 'Preferences' }));
@@ -64,7 +67,7 @@ describe('App routing', () => {
     expect(
       await screen.findByRole('heading', {
         level: 1,
-        name: 'Apprenez, échangez et construisez entre développeurs africains',
+        name: 'Les projets avancent mieux à plusieurs',
       }),
     ).toBeInTheDocument();
   });
@@ -76,7 +79,7 @@ describe('App routing', () => {
     expect(
       await screen.findByRole('heading', {
         level: 1,
-        name: 'Apprenez, échangez et construisez entre développeurs africains',
+        name: 'Les projets avancent mieux à plusieurs',
       }),
     ).toBeInTheDocument();
   });
