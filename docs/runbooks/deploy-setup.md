@@ -1,6 +1,23 @@
-# Mise en place du déploiement (propriétaire)
+# Mise en place du déploiement
 
 À faire une fois, dans cet ordre. Le workflow est décrit dans [RELEASE_DRAFT](../RELEASE_DRAFT.md) ; la stratégie dans [SHIP](../SHIP.md).
+
+## Qui fait quoi
+
+Rayan (`PANK4SS`) détient les deux serveurs ; le propriétaire (`Y4NN777`) détient le dépôt GitHub et les clés.
+
+| Étape | Qui | Remis à l'autre |
+|---|---|---|
+| 1. Clés age de la CI, valeurs réelles des fichiers chiffrés | propriétaire | — |
+| 2. Clé SSH de déploiement | propriétaire | la clé **publique** à Rayan |
+| 3. DNS | qui gère la zone `226os.tech` | — |
+| 4. Amorçage de chaque serveur | Rayan | au propriétaire : l'IP ou le nom de chaque serveur et la ligne `DEPLOY_KNOWN_HOSTS` affichée à la fin |
+| 5. Environnements GitHub | propriétaire (administrateur du dépôt) | — |
+| 6. Premier déploiement | propriétaire, Rayan suit les journaux sur le serveur (`docker compose ps`, `docker compose logs`) | — |
+| 7. Compte des tests E2E | propriétaire | — |
+| 8. Copie des sauvegardes hors du serveur | Rayan | — |
+
+Aucune clé privée ne circule entre les deux : Rayan ne reçoit que la clé publique de déploiement, le propriétaire ne reçoit que des informations publiques (IP, empreinte d'hôte).
 
 ## 1. Clés age de la CI (une par environnement)
 
@@ -59,10 +76,10 @@ Réglages du dépôt, Environments, créer `staging` et `production`.
 
 ## 8. Sauvegardes
 
-Avant chaque migration, `/opt/226os/backups` reçoit un dump chiffré avec age (`<profil>-<date>.dump.age`, pour les clés de `secrets/<profil>.recipients`) et son fichier de preuve ; le dump en clair est supprimé. Les dix derniers sont gardés. **Étape propriétaire : aucune copie hors du serveur n'existe.** Copiez régulièrement ce dossier ailleurs (par exemple `rsync` depuis votre machine) : un disque perdu perd les sauvegardes avec la base. Déchiffrement : `age -d -i <votre clé age> fichier.dump.age > fichier.dump`, puis `scripts/restore-check.sh`.
+Avant chaque migration, `/opt/226os/backups` reçoit un dump chiffré avec age (`<profil>-<date>.dump.age`, pour les clés de `secrets/<profil>.recipients`) et son fichier de preuve ; le dump en clair est supprimé. Les dix derniers sont gardés. **Étape de Rayan : aucune copie hors du serveur n'existe.** Copiez régulièrement ce dossier ailleurs (par exemple `rsync` depuis votre machine) : un disque perdu perd les sauvegardes avec la base. Déchiffrement : `age -d -i <votre clé age> fichier.dump.age > fichier.dump`, puis `scripts/restore-check.sh`.
 
 ## 9. Après coup
 
-- Demandez l'amendement du point 8 de l'ADR-0009 (la clé de la CI est stockée dans GitHub, par décision du 2026-11-15).
+- La clé age de la CI est stockée dans GitHub : amendement de l'ADR-0009 du 2026-11-15.
 - `ufw` ne filtre pas les ports publiés par Docker : ici seul Traefik publie 80 et 443.
 - Retour arrière : voir [SHIP](../SHIP.md) section 5.
