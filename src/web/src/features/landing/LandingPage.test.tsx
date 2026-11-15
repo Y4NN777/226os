@@ -127,6 +127,30 @@ describe('LandingPage', () => {
     expect(main.getByText('Résumé de la passerelle 3.')).toBeInTheDocument();
   });
 
+  it('shows each catalogue card with its state, checked date, countries and a "see all" link', async () => {
+    setLanguages(['fr-FR']);
+    const items = [
+      resource(1, { countries: ['BF', 'CI'] }),
+      resource(2, { verification_status: 'unverified', last_verified_at: null }),
+    ];
+    mockApi({ 'GET /resources': () => page(items) });
+    const { main } = await open();
+    const catalogue = within(await main.findByRole('region', { name: 'Dans le catalogue' }));
+    await catalogue.findByRole('link', { name: 'Passerelle 1' });
+    expect(catalogue.getByText('Vérifié')).toBeVisible();
+    expect(catalogue.getByText('Non vérifié')).toBeVisible();
+    // Only a verified entry shows a checked date.
+    expect(catalogue.getAllByText('Dernière vérification : 1 nov. 2026')).toHaveLength(1);
+    expect(catalogue.getByTitle('Côte d’Ivoire')).toHaveTextContent('CI');
+    expect(catalogue.getByRole('link', { name: 'Tout le catalogue' })).toHaveAttribute(
+      'href',
+      '/discover',
+    );
+    expect(
+      main.getByText('Tout se lit sans compte. Il ne sert qu’au moment d’agir.'),
+    ).toBeVisible();
+  });
+
   it('shows a loading state while the catalogue loads', async () => {
     setLanguages(['fr-FR']);
     mockApi({ 'GET /resources': () => new Promise<Response>(() => undefined) });

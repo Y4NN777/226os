@@ -2,16 +2,19 @@
 // French typography rules are enforced by src/i18n/translate.test.ts.
 export const fr = {
   'landing.title': 'Apprenez, échangez et construisez entre développeurs africains',
+  'landing.hero.a': 'Apprenez, échangez et construisez',
+  'landing.hero.b': 'entre développeurs africains',
   'landing.lede':
     'Un espace pour progresser, rencontrer d’autres développeurs et trouver les API et les outils qui fonctionnent chez vous.',
   'landing.positioning': 'Afrique de l’Ouest d’abord, puis toute l’Afrique',
+  'landing.note': 'Tout se lit sans compte. Il ne sert qu’au moment d’agir.',
   'landing.cta.signup': 'Créer un compte',
   'landing.cta.browse': 'Parcourir le catalogue',
   'landing.search.label': 'Rechercher dans le catalogue',
   'landing.search.placeholder': 'Une API, un fournisseur, un outil',
   'landing.search.submit': 'Rechercher',
-  'landing.soon': 'Bientôt',
   'landing.pillars.title': 'Cinq piliers, une seule plateforme',
+  'landing.pillars.lede': 'Chacun a sa place, et tous sont reliés entre eux.',
   'landing.pillar.learn.title': 'Apprendre',
   'landing.pillar.learn.text':
     'Des tutoriels et des parcours écrits par des développeurs, pour des problèmes d’ici.',
@@ -33,23 +36,29 @@ export const fr = {
   'landing.pillar.build.text':
     'Rejoignez des projets open source ou publiez le vôtre pour trouver des contributeurs.',
   'landing.catalogue.title': 'Dans le catalogue',
+  'landing.catalogue.lede': 'Chaque fiche dit ce qui a été vérifié, et quand.',
+  'landing.catalogue.more': 'Tout le catalogue',
+  'landing.catalogue.checked': 'Dernière vérification : {date}',
   'landing.catalogue.empty': 'Le catalogue est vide pour le moment. Revenez bientôt.',
-  'landing.end.title': 'Prêt à commencer ?',
+  'landing.end.title': 'Prêt à commencer ?',
   'landing.end.text': 'Créez votre compte gratuitement. Tout se lit aussi sans compte.',
 } as const;
 
 export const en: Record<keyof typeof fr, string> = {
   'landing.title': 'Learn, connect and build with African developers',
+  'landing.hero.a': 'Learn, connect and build',
+  'landing.hero.b': 'with African developers',
   'landing.lede':
     'A place to grow, meet other developers and find the APIs and tools that work where you are.',
   'landing.positioning': 'West Africa first, then the whole continent',
+  'landing.note': 'Everything is readable without an account. You only need one to take action.',
   'landing.cta.signup': 'Create an account',
   'landing.cta.browse': 'Browse the catalogue',
   'landing.search.label': 'Search the catalogue',
   'landing.search.placeholder': 'An API, a provider, a tool',
   'landing.search.submit': 'Search',
-  'landing.soon': 'Soon',
   'landing.pillars.title': 'Five pillars, one platform',
+  'landing.pillars.lede': 'Each has its place, and all of them are linked.',
   'landing.pillar.learn.title': 'Learn',
   'landing.pillar.learn.text':
     'Tutorials and learning paths written by developers, about problems from here.',
@@ -69,6 +78,9 @@ export const en: Record<keyof typeof fr, string> = {
   'landing.pillar.build.text':
     'Join open-source projects or publish your own to find contributors.',
   'landing.catalogue.title': 'In the catalogue',
+  'landing.catalogue.lede': 'Every listing says what was verified, and when.',
+  'landing.catalogue.more': 'The whole catalogue',
+  'landing.catalogue.checked': 'Last checked: {date}',
   'landing.catalogue.empty': 'The catalogue is empty for now. Check back soon.',
   'landing.end.title': 'Ready to start?',
   'landing.end.text': 'Create your account for free. Everything is also readable without one.',
