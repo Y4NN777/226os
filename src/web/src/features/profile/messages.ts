@@ -39,7 +39,8 @@ export const fr = {
   'profile.item.languages.value': 'Pour échanger dans votre langue.',
   'profile.item.languages.hint': 'Codes séparés par des virgules. Ex. fr, en, mos',
   'profile.item.github': 'Identifiant GitHub',
-  'profile.item.github.value': 'Les projets voient votre travail.',
+  'profile.item.github.value':
+    'Votre photo de profil vient de votre compte GitHub (si ce champ est public).',
   'profile.item.github.hint': 'Nom d’utilisateur seul. Ex. octocat',
   'profile.item.bio': 'Présentation',
   'profile.item.bio.value': 'Qui vous êtes, en quelques lignes.',
@@ -103,7 +104,8 @@ export const en: Record<keyof typeof fr, string> = {
   'profile.item.languages.value': 'To talk in your language.',
   'profile.item.languages.hint': 'Comma-separated codes. e.g. fr, en, mos',
   'profile.item.github': 'GitHub username',
-  'profile.item.github.value': 'Projects can see your work.',
+  'profile.item.github.value':
+    'Your profile photo comes from your GitHub account (if this field is public).',
   'profile.item.github.hint': 'Username only. e.g. octocat',
   'profile.item.bio': 'About you',
   'profile.item.bio.value': 'Who you are, in a few lines.',
