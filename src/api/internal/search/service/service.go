@@ -19,6 +19,8 @@ const (
 	maxPerGroup     = 20
 	minQuery        = 2
 	maxQuery        = 200
+	// A trigram needs 3 characters (DATABASE_DESIGN section 7): a shorter query never falls back.
+	minFuzzy = 3
 
 	// Anonymous search is limited to 60 requests per client network per minute (ADR-0003).
 	limitScope = "search:ip"
@@ -29,6 +31,9 @@ const (
 // Reader runs the bounded ranked search of one group. The service owns this port.
 type Reader interface {
 	Search(ctx context.Context, group domain.Group, q domain.Query) ([]domain.Hit, error)
+	// Similar is the typo-tolerant fallback: titles or names that hold a word close to the query
+	// (pg_trgm word similarity), best first, bounded like Search.
+	Similar(ctx context.Context, group domain.Group, q domain.Query) ([]domain.Hit, error)
 }
 
 // Limiter is the fixed-window rate limiter. The service owns this port.
@@ -38,10 +43,12 @@ type Limiter interface {
 
 // Request is the validated shape of GET /search. Nil optional fields mean "not given".
 // Anonymous and Client come from the transport: the resolved subject and the rate-limit key of
-// the caller's network.
+// the caller's network. Fuzzy turns on the typo-tolerant fallback; GET /search sets it, the assistant's
+// retrieval does not, so the assistant never grounds an answer on a near match (AI-1).
 type Request struct {
 	Anonymous bool
 	Client    string
+	Fuzzy     bool
 	Q         string
 	Types     []string
 	PerGroup  *int
@@ -95,6 +102,7 @@ func (s *Service) allow(ctx context.Context, req Request) error {
 }
 
 // Search runs one query per requested group (all four by default), each fetching per_group+1 rows.
+// With Fuzzy, a group whose full text finds nothing runs the trigram fallback instead (SPEC 6).
 // The text sent to the reader is truncated by C4 DECIDED option 1 (ADR-0005 point 6); the
 // response still echoes the original q.
 func (s *Service) Search(ctx context.Context, req Request) (Results, error) {
@@ -123,11 +131,17 @@ func (s *Service) Search(ctx context.Context, req Request) (Results, error) {
 		return Results{}, err
 	}
 	query := domain.Query{Text: domain.TruncateQuery(req.Q), Country: deref(req.Country), Lang: deref(req.Lang), Limit: size + 1}
+	fuzzy := req.Fuzzy && utf8.RuneCountInString(strings.TrimSpace(req.Q)) >= minFuzzy
 	out := Results{Query: req.Q, Groups: make(map[domain.Group]GroupResult, len(groups))}
 	for _, g := range groups {
 		hits, err := s.store.Search(ctx, g, query)
 		if err != nil {
 			return Results{}, err
+		}
+		if len(hits) == 0 && fuzzy { // full text found nothing in this group: try near spellings
+			if hits, err = s.store.Similar(ctx, g, query); err != nil {
+				return Results{}, err
+			}
 		}
 		for i := range hits {
 			hits[i].Title = domain.PlainText(hits[i].Title)

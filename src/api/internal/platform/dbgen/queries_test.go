@@ -350,6 +350,66 @@ func TestSearchQueriesBindArgumentsScanAndReject(t *testing.T) {
 	}
 }
 
+func TestSimilarQueriesBindArgumentsScanAndReject(t *testing.T) {
+	id := pgtype.UUID{Bytes: [16]byte{1}, Valid: true}
+	country := pgtype.Text{String: "BF", Valid: true}
+	lang := pgtype.Text{String: "fr", Valid: true}
+	row := []any{id, "Titre", "Extrait", "fr", pgtype.Timestamptz{}}
+	type similarCall func(*fakeDB) ([]string, error)
+	calls := map[string]similarCall{
+		"questions": func(db *fakeDB) ([]string, error) {
+			rows, err := dbgen.New(db).SimilarQuestions(t.Context(), dbgen.SimilarQuestionsParams{Q: "mto", Country: country, Lang: lang, RowLimit: 6})
+			return titles(len(rows), func(i int) string { return rows[i].Title }), err
+		},
+		"resources": func(db *fakeDB) ([]string, error) {
+			rows, err := dbgen.New(db).SimilarResources(t.Context(), dbgen.SimilarResourcesParams{Q: "mto", Country: country, Lang: lang, RowLimit: 6})
+			return titles(len(rows), func(i int) string { return rows[i].Title }), err
+		},
+		"projects": func(db *fakeDB) ([]string, error) {
+			rows, err := dbgen.New(db).SimilarProjects(t.Context(), dbgen.SimilarProjectsParams{Q: "mto", Country: country, Lang: lang, RowLimit: 6})
+			return titles(len(rows), func(i int) string { return rows[i].Title }), err
+		},
+		"learn": func(db *fakeDB) ([]string, error) {
+			rows, err := dbgen.New(db).SimilarLearn(t.Context(), dbgen.SimilarLearnParams{Q: "mto", Lang: lang, RowLimit: 6})
+			return titles(len(rows), func(i int) string { return rows[i].Title }), err
+		},
+	}
+	for name, run := range calls {
+		t.Run(name, func(t *testing.T) {
+			db := &fakeDB{many: [][]any{row}}
+			got, err := run(db)
+			if err != nil || len(got) != 1 || got[0] != "Titre" {
+				t.Fatalf("rows %v err %v", got, err)
+			}
+			sql := db.calls[0].sql
+			// Typo tolerance (#248): the trigram operator on the indexed expression, ranked by word similarity,
+			// no positive term reads nothing, at most 500 candidates.
+			for _, want := range []string{"%> i.q", "ORDER BY word_similarity(i.q, c.key) DESC, c.id", "querytree(i.tsq) NOT IN ('', 'T')", "LIMIT 500"} {
+				if !strings.Contains(sql, want) {
+					t.Fatalf("similar query lacks %q:\n%s", want, sql)
+				}
+			}
+			wantArgs := []any{int32(6), "mto", country, lang}
+			if name == "learn" {
+				wantArgs = []any{int32(6), "mto", lang}
+			}
+			if !reflect.DeepEqual(db.calls[0].args, wantArgs) {
+				t.Fatalf("args = %#v, want %#v", db.calls[0].args, wantArgs)
+			}
+			boom := errors.New("db down")
+			if _, err := run(&fakeDB{manyErr: boom}); err == nil {
+				t.Fatal("expected query error")
+			}
+			if _, err := run(&fakeDB{scanErr: boom, many: [][]any{nil}}); err == nil {
+				t.Fatal("expected scan error")
+			}
+			if _, err := run(&fakeDB{rowsErr: boom}); err == nil {
+				t.Fatal("expected rows error")
+			}
+		})
+	}
+}
+
 func titles(n int, at func(int) string) []string {
 	out := make([]string, n)
 	for i := range out {

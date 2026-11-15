@@ -250,7 +250,7 @@ Les règles qui croisent des tables (pas d'auto-vote, mainteneur différent du p
 - Pondération A et B : titre et corps pour les questions, nom et résumé pour les fiches et les projets, titre et résumé pour les articles ; les réponses ne sont pas pondérées.
 - Index GIN partiels sur le contenu publié, et public pour les projets ; les requêtes répètent le prédicat de l'index.
 - `GET /search` : une requête bornée par groupe (questions, fiches, projets, articles), `websearch_to_tsquery`, 100 caractères au plus, 500 candidats avant `ts_rank`, tri `ts_rank DESC` puis `id`, extraits de 300 caractères. Une requête sans terme positif ne lit rien.
-- Index trigrammes (titres et noms) créés ; aucune requête ne les utilise encore. Tolérance aux fautes de frappe : planifiée.
+- Tolérance aux fautes de frappe (2026-11-15, #248) : quand le plein texte ne trouve rien dans un groupe, `GET /search` cherche les titres et noms qui contiennent un mot proche de la requête (`pg_trgm`, similarité de mot au-dessus de 0,6, opérateur `%>` servi par l'index trigramme partiel du groupe), mêmes prédicats et filtres, 500 candidats au plus, tri par similarité puis `id`. Il faut 3 caractères ; une requête sans terme positif ne lit rien. Une lettre manquante ou en trop est trouvée (« paiemnt »), deux lettres inversées non (« pyhton »). La récupération de l'assistant n'utilise pas ce repli : sans source exacte, il répond sans source (AI-1).
 - Aucun contenu n'est traduit automatiquement ; chaque élément garde sa langue (`fr` ou `en`).
 
 ## 6. Web

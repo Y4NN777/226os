@@ -34,7 +34,7 @@ func New(svc *service.Service, logger *slog.Logger) *Handler {
 // Search serves GET /search.
 func (h *Handler) Search(w http.ResponseWriter, r *http.Request, params apigen.SearchParams) {
 	req := service.Request{
-		Q: params.Q, PerGroup: params.PerGroup, Country: params.Country,
+		Q: params.Q, PerGroup: params.PerGroup, Country: params.Country, Fuzzy: true,
 		Anonymous: subject.From(r.Context()).Anonymous(), Client: httpx.ClientIPKey(r),
 	}
 	if params.Types != nil {

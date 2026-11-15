@@ -71,6 +71,60 @@ func (r *Repository) Search(ctx context.Context, group domain.Group, q domain.Qu
 	return hits, nil
 }
 
+// Similar is the typo-tolerant fallback of one group: titles or names holding a word close to q.Text
+// (pg_trgm word similarity over the trigram indexes of migration 00010), best first, with the same
+// visibility predicates and filters as Search. Its rows have the shape of the full-text rows.
+func (r *Repository) Similar(ctx context.Context, group domain.Group, q domain.Query) ([]domain.Hit, error) {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+	country, lang := text(q.Country), text(q.Lang)
+	limit := int32(q.Limit) //nolint:gosec // the limit is at most 21
+	var rows []dbgen.SearchQuestionsRow
+	var err error
+	switch group {
+	case domain.Questions:
+		var got []dbgen.SimilarQuestionsRow
+		got, err = r.q.SimilarQuestions(ctx, dbgen.SimilarQuestionsParams{Q: q.Text, Country: country, Lang: lang, RowLimit: limit})
+		rows = convert(got)
+	case domain.Resources:
+		var got []dbgen.SimilarResourcesRow
+		got, err = r.q.SimilarResources(ctx, dbgen.SimilarResourcesParams{Q: q.Text, Country: country, Lang: lang, RowLimit: limit})
+		rows = convert(got)
+	case domain.Projects:
+		var got []dbgen.SimilarProjectsRow
+		got, err = r.q.SimilarProjects(ctx, dbgen.SimilarProjectsParams{Q: q.Text, Country: country, Lang: lang, RowLimit: limit})
+		rows = convert(got)
+	case domain.Learn:
+		var got []dbgen.SimilarLearnRow
+		got, err = r.q.SimilarLearn(ctx, dbgen.SimilarLearnParams{Q: q.Text, Lang: lang, RowLimit: limit})
+		rows = convert(got)
+	default:
+		return nil, fmt.Errorf("similar: unknown group %q", group)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("similar %s: %w", group, err)
+	}
+	hits := make([]domain.Hit, 0, len(rows))
+	for _, row := range rows {
+		hits = append(hits, hit(group, row.ID, row.Title, row.Excerpt, row.Language, row.PublishedAt))
+	}
+	return hits, nil
+}
+
+// similarRow is any of the four trigram rows: sqlc gives each query its own type, all with the fields of
+// SearchQuestionsRow, so each converts to it.
+type similarRow interface {
+	dbgen.SimilarQuestionsRow | dbgen.SimilarResourcesRow | dbgen.SimilarProjectsRow | dbgen.SimilarLearnRow
+}
+
+func convert[R similarRow](rows []R) []dbgen.SearchQuestionsRow {
+	out := make([]dbgen.SearchQuestionsRow, len(rows))
+	for i, row := range rows {
+		out[i] = dbgen.SearchQuestionsRow(row)
+	}
+	return out
+}
+
 // hit maps one row. A NULL published_at (a learn article that was never published cannot match, but the
 // column is nullable) is the zero Timestamptz, whose Time is already the zero time.
 func hit(group domain.Group, id pgtype.UUID, title, excerpt, lang string, publishedAt pgtype.Timestamptz) domain.Hit {

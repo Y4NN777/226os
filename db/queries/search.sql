@@ -90,3 +90,89 @@ SELECT c.id, c.title, left(c.excerpt_src, 600)::text AS excerpt, c.language, c.p
 FROM candidates c CROSS JOIN i
 ORDER BY ts_rank(c.search_document, i.tsq) DESC, c.id
 LIMIT sqlc.arg('row_limit');
+
+-- Typo tolerance (SPEC 6, issue #248 item 2). The service runs these only when the full-text query of the
+-- group found nothing, for GET /search (never for the assistant's retrieval) and for a query of at least 3
+-- characters. A row matches when its title or name holds a word close to the query: pg_trgm word similarity
+-- above pg_trgm.word_similarity_threshold (default 0.6), written `f_unaccent(title) %> q` (the commutator of
+-- `q <% title`) so the partial trigram GIN index of migration 00010 on f_unaccent(title|name) serves it.
+-- Same predicates and filters as the full-text query of the group; at most 500 candidates are ranked by
+-- word_similarity DESC, then id. Like full text, a query with no positive term (only negations) reads none.
+
+-- name: SimilarQuestions :many
+WITH i AS NOT MATERIALIZED (SELECT f_unaccent(sqlc.arg('q')::text) AS q,
+  websearch_to_tsquery('simple', f_unaccent(sqlc.arg('q')::text)) AS tsq),
+candidates AS (
+  SELECT q.id, q.title, q.body_md AS excerpt_src, q.language, q.published_at, f_unaccent(q.title) AS key
+  FROM questions q
+  CROSS JOIN i
+  WHERE querytree(i.tsq) NOT IN ('', 'T')
+    AND q.status = 'published'
+    AND f_unaccent(q.title) %> i.q
+    AND (sqlc.narg('country')::text IS NULL OR q.country_code = sqlc.narg('country'))
+    AND (sqlc.narg('lang')::text IS NULL OR q.language = sqlc.narg('lang'))
+  LIMIT 500
+)
+SELECT c.id, c.title, left(c.excerpt_src, 600)::text AS excerpt, c.language, c.published_at
+FROM candidates c CROSS JOIN i
+ORDER BY word_similarity(i.q, c.key) DESC, c.id
+LIMIT sqlc.arg('row_limit');
+
+-- name: SimilarResources :many
+WITH i AS NOT MATERIALIZED (SELECT f_unaccent(sqlc.arg('q')::text) AS q,
+  websearch_to_tsquery('simple', f_unaccent(sqlc.arg('q')::text)) AS tsq),
+candidates AS (
+  SELECT r.id, r.name AS title, r.summary AS excerpt_src, r.summary_language AS language, r.published_at, f_unaccent(r.name) AS key
+  FROM resources r
+  JOIN providers p ON p.id = r.provider_id AND p.status = 'published' AND p.removed_at IS NULL
+  CROSS JOIN i
+  WHERE querytree(i.tsq) NOT IN ('', 'T')
+    AND r.status = 'published'
+    AND f_unaccent(r.name) %> i.q
+    AND (sqlc.narg('country')::text IS NULL OR EXISTS (
+          SELECT 1 FROM resource_countries c
+          WHERE c.resource_id = r.id AND c.country_code = sqlc.narg('country')))
+    AND (sqlc.narg('lang')::text IS NULL OR r.summary_language = sqlc.narg('lang'))
+  LIMIT 500
+)
+SELECT c.id, c.title, left(c.excerpt_src, 600)::text AS excerpt, c.language, c.published_at
+FROM candidates c CROSS JOIN i
+ORDER BY word_similarity(i.q, c.key) DESC, c.id
+LIMIT sqlc.arg('row_limit');
+
+-- name: SimilarProjects :many
+WITH i AS NOT MATERIALIZED (SELECT f_unaccent(sqlc.arg('q')::text) AS q,
+  websearch_to_tsquery('simple', f_unaccent(sqlc.arg('q')::text)) AS tsq),
+candidates AS (
+  SELECT p.id, p.name AS title, p.summary AS excerpt_src, p.language, p.published_at, f_unaccent(p.name) AS key
+  FROM projects p
+  CROSS JOIN i
+  WHERE querytree(i.tsq) NOT IN ('', 'T')
+    AND p.status = 'published' AND p.visibility = 'public'
+    AND f_unaccent(p.name) %> i.q
+    AND (sqlc.narg('country')::text IS NULL OR p.country_code = sqlc.narg('country'))
+    AND (sqlc.narg('lang')::text IS NULL OR p.language = sqlc.narg('lang'))
+  LIMIT 500
+)
+SELECT c.id, c.title, left(c.excerpt_src, 600)::text AS excerpt, c.language, c.published_at
+FROM candidates c CROSS JOIN i
+ORDER BY word_similarity(i.q, c.key) DESC, c.id
+LIMIT sqlc.arg('row_limit');
+
+-- name: SimilarLearn :many
+WITH i AS NOT MATERIALIZED (SELECT f_unaccent(sqlc.arg('q')::text) AS q,
+  websearch_to_tsquery('simple', f_unaccent(sqlc.arg('q')::text)) AS tsq),
+candidates AS (
+  SELECT a.id, a.title, COALESCE(NULLIF(a.summary, ''), a.body_md) AS excerpt_src, a.language, a.published_at, f_unaccent(a.title) AS key
+  FROM learn_articles a
+  CROSS JOIN i
+  WHERE querytree(i.tsq) NOT IN ('', 'T')
+    AND a.status = 'published'
+    AND f_unaccent(a.title) %> i.q
+    AND (sqlc.narg('lang')::text IS NULL OR a.language = sqlc.narg('lang'))
+  LIMIT 500
+)
+SELECT c.id, c.title, left(c.excerpt_src, 600)::text AS excerpt, c.language, c.published_at
+FROM candidates c CROSS JOIN i
+ORDER BY word_similarity(i.q, c.key) DESC, c.id
+LIMIT sqlc.arg('row_limit');
