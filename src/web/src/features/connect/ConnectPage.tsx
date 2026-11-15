@@ -226,7 +226,7 @@ export function ConnectPage() {
           ) : null}
           {list.data && items.length === 0 ? (
             <EmptyState
-              headingLevel={2}
+              headingLevel={3}
               title={t(filtered ? 'connect.empty.filtered.title' : 'connect.empty.title')}
               description={t(filtered ? 'connect.empty.filtered.body' : 'connect.empty.body')}
               {...(filtered
