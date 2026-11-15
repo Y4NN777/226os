@@ -1,7 +1,5 @@
 import { Button } from '@astryxdesign/core/Button';
-import { Heading } from '@astryxdesign/core/Heading';
 import { Link } from '@astryxdesign/core/Link';
-import { Text } from '@astryxdesign/core/Text';
 import { TextInput } from '@astryxdesign/core/TextInput';
 import { VStack } from '@astryxdesign/core/VStack';
 import { useForm } from '@tanstack/react-form';
@@ -10,6 +8,7 @@ import { useState } from 'react';
 import { api, ApiError } from '../../api/http';
 import { useI18n } from '../../i18n/I18nProvider';
 import type { MessageKey } from '../../i18n/messages';
+import { CardHead, SwitchLine } from './AuthCard';
 import { FailureNotice, RateLimitNotice } from './notices';
 import { PasswordField } from './PasswordField';
 import { PasswordRule } from './PasswordRule';
@@ -122,7 +121,7 @@ export function SignUpPage() {
 
   return (
     <VStack gap={5}>
-      <Heading level={1}>{t('identity.signUp.title')}</Heading>
+      <CardHead title={t('identity.signUp.title')} lede={t('identity.signUp.lede')} />
       {failure ? (
         failure.error instanceof ApiError && failure.error.code === 'RATE_LIMITED' ? (
           <RateLimitNotice key={failure.n} />
@@ -267,12 +266,12 @@ export function SignUpPage() {
           </form.Subscribe>
         </VStack>
       </form>
-      <Text as="p">
+      <SwitchLine>
         {t('identity.signUp.hasAccount')}{' '}
         <Link href={next ? `/connexion?next=${encodeURIComponent(next)}` : '/connexion'}>
           {t('identity.signUp.signIn')}
         </Link>
-      </Text>
+      </SwitchLine>
     </VStack>
   );
 }

@@ -2,6 +2,7 @@
 // French typography rules are enforced by src/i18n/translate.test.ts.
 export const fr = {
   'search.title': 'Recherche',
+  'search.results.title': 'Résultats pour « {q} »',
   'search.label': 'Votre recherche',
   'search.submit': 'Rechercher',
   'search.start.title': 'Que cherchez-vous ?',
@@ -44,6 +45,7 @@ export const fr = {
 
 export const en: Record<keyof typeof fr, string> = {
   'search.title': 'Search',
+  'search.results.title': 'Results for “{q}”',
   'search.label': 'Your search',
   'search.submit': 'Search',
   'search.start.title': 'What are you looking for?',

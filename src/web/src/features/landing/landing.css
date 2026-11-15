@@ -1,0 +1,323 @@
+/* Public landing, after prototypes/html/index.html + assets/css/pages/landing.css.
+   Astryx and Graphite & Lime tokens only. Layers, not edges: surfaces on the body background,
+   no borders on cards. The closing band is the one strong brand moment. */
+
+.lp {
+  display: grid;
+  gap: clamp(3.5rem, 8vw, 6rem);
+  max-width: 72rem;
+  min-width: 0;
+  padding-block-end: var(--spacing-8);
+}
+
+/* ---------- Type ---------- */
+.lp-h1 {
+  margin: 0;
+  font-family: var(--font-family-heading);
+  font-size: clamp(2.25rem, 1.4rem + 3.5vw, 3.75rem);
+  line-height: 1.05;
+  letter-spacing: -0.035em;
+  font-weight: 700;
+  text-wrap: balance;
+  color: var(--color-text-primary);
+}
+.lp-h1-em {
+  color: var(--color-text-accent);
+}
+.lp-lede {
+  margin: 0;
+  max-width: 50ch;
+  font-size: clamp(1.0625rem, 1rem + 0.35vw, 1.25rem);
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+  text-wrap: pretty;
+}
+.lp-h2 {
+  margin: 0;
+  font-family: var(--font-family-heading);
+  font-size: clamp(1.75rem, 1.2rem + 1.9vw, 2.5rem);
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+.lp-sub {
+  margin: var(--spacing-2) 0 0;
+  max-width: 56ch;
+  color: var(--color-text-secondary);
+}
+.lp-muted {
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+}
+
+/* ---------- Hero ---------- */
+.lp-hero {
+  display: grid;
+  gap: var(--spacing-5);
+  justify-items: start;
+  padding-block-start: clamp(1rem, 4vw, 3rem);
+}
+.lp-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  margin: 0;
+  padding: var(--spacing-1-5) var(--spacing-4) var(--spacing-1-5) var(--spacing-3);
+  border-radius: var(--radius-full);
+  background: var(--color-background-surface);
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+.lp-eyebrow .feed-icon {
+  width: 1rem;
+  height: 1rem;
+  color: var(--color-text-accent);
+}
+.lp-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-2) var(--spacing-6);
+  margin-top: var(--spacing-2);
+}
+.lp-note {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+}
+.lp-note .feed-icon {
+  width: 1rem;
+  height: 1rem;
+}
+.lp-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  min-height: 2.75rem;
+  color: var(--color-text-accent);
+}
+.lp-link .feed-icon {
+  width: 1rem;
+  height: 1rem;
+  transition: transform var(--duration-fast) var(--ease-standard);
+}
+.lp-link:hover .feed-icon {
+  transform: translateX(3px);
+}
+.lp-search {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: var(--spacing-2);
+  width: 100%;
+  max-width: 32rem;
+}
+.lp-search-field {
+  flex: 1 1 14rem;
+  min-width: 0;
+}
+
+/* ---------- Sections ---------- */
+.lp-section {
+  display: grid;
+  gap: var(--spacing-8);
+  min-width: 0;
+}
+.lp-head-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--spacing-3) var(--spacing-6);
+}
+
+/* ---------- Pillars: icon badge, title, text, arrow link ---------- */
+.lp-pillars,
+.lp-cards {
+  display: grid;
+  gap: var(--spacing-4);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+@media (min-width: 640px) {
+  .lp-pillars {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (min-width: 1024px) {
+  .lp-pillars {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: var(--spacing-5);
+  }
+  .lp-pillar {
+    grid-column: span 2;
+  }
+  .lp-pillar-lead {
+    grid-column: span 3;
+  }
+}
+.lp-pillar {
+  display: grid;
+  gap: var(--spacing-3);
+  align-content: start;
+  padding: var(--spacing-6);
+  border-radius: var(--radius-page);
+  background: var(--color-background-surface);
+}
+.lp-pillar-lead {
+  background: color-mix(in srgb, var(--color-accent) 7%, var(--color-background-surface));
+}
+.lp-pillar p {
+  margin: 0;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+.lp-pillar .lp-link {
+  min-height: 2rem;
+  font-size: 0.9375rem;
+}
+.lp-pillar-icon {
+  display: grid;
+  place-items: center;
+  width: 3rem;
+  height: 3rem;
+  margin-bottom: var(--spacing-2);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--color-accent) 14%, var(--color-background-surface));
+  color: var(--color-text-accent);
+}
+.lp-pillar-icon .feed-icon {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+/* ---------- Catalogue cards ---------- */
+@media (min-width: 640px) {
+  .lp-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (min-width: 1024px) {
+  .lp-cards {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--spacing-5);
+  }
+}
+.lp-card {
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+  gap: var(--spacing-4);
+  min-width: 0;
+  padding: var(--spacing-6);
+  border-radius: var(--radius-page);
+  background: var(--color-background-surface);
+}
+.lp-card-head {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-4);
+  min-width: 0;
+}
+.lp-card-id {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.lp-card-name {
+  margin: 0;
+  font-size: 1.0625rem;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+.lp-card-pills {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-2);
+}
+.lp-card-text {
+  margin: 0;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+}
+.lp-card-foot {
+  display: grid;
+  gap: var(--spacing-3);
+  align-self: end;
+}
+.lp-checked {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-1-5);
+}
+.lp-checked .feed-icon {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+.lp-countries {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-1);
+}
+.lp-empty {
+  margin: 0;
+  padding: var(--spacing-6);
+  border-radius: var(--radius-page);
+  background: var(--color-background-surface);
+  color: var(--color-text-secondary);
+}
+
+/* ---------- Closing band: the one strong brand moment ---------- */
+.lp-final {
+  display: grid;
+  justify-items: center;
+  gap: var(--spacing-4);
+  padding: clamp(3rem, 8vw, 5rem) var(--spacing-6);
+  border-radius: 32px;
+  /* A tinted brand surface: the primary action keeps its own contrast in light and dark. */
+  background: color-mix(in srgb, var(--color-accent) 16%, var(--color-background-surface));
+  color: var(--color-text-primary);
+  text-align: center;
+}
+.lp-final-h {
+  margin: 0;
+  max-width: 20ch;
+  font-family: var(--font-family-heading);
+  font-size: clamp(1.875rem, 1.2rem + 2.8vw, 3.25rem);
+  line-height: 1.08;
+  letter-spacing: -0.035em;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  text-wrap: balance;
+}
+.lp-final-sub {
+  margin: 0 0 var(--spacing-4);
+  max-width: 44ch;
+  font-size: 1.125rem;
+  color: var(--color-text-secondary);
+}
+
+@media (forced-colors: active) {
+  .lp-pillar,
+  .lp-card,
+  .lp-final,
+  .lp-eyebrow {
+    border: 1px solid CanvasText;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lp-link:hover .feed-icon {
+    transform: none;
+  }
+}

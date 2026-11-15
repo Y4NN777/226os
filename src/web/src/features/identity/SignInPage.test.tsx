@@ -28,16 +28,26 @@ describe('SignInPage', () => {
     setLanguages(['fr-FR']);
     mockApi();
     await renderApp('/connexion?next=/recherche');
-    expect(await screen.findByRole('heading', { level: 1, name: 'Connexion' })).toBeInTheDocument();
+    // The card greets like the prototype; the document title stays « Connexion ».
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Content de vous revoir' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('Connectez-vous pour poser, répondre et suivre vos projets.'),
+    ).toBeVisible();
     expect(screen.getByLabelText('Adresse e-mail')).toHaveAttribute('autocomplete', 'username');
     expect(screen.getByLabelText('Mot de passe')).toHaveAttribute(
       'autocomplete',
       'current-password',
     );
-    expect(screen.getByRole('link', { name: /Mot de passe oublié/ })).toHaveAttribute(
-      'href',
-      '/mot-de-passe-oublie',
-    );
+    const forgot = screen.getByRole('link', { name: /Mot de passe oublié/ });
+    expect(forgot).toHaveAttribute('href', '/mot-de-passe-oublie');
+    // On the password label line, after the field in the tab order.
+    const password = screen.getByLabelText('Mot de passe');
+    expect(password.closest('.password-field')).toContainElement(forgot);
+    expect(
+      password.compareDocumentPosition(forgot) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Créer un compte' })).toHaveAttribute(
       'href',
       '/inscription?next=%2Frecherche',
@@ -259,7 +269,9 @@ describe('SignInPage', () => {
     mockApi({ [SIGN_IN]: () => problemResponse(401, 'INVALID_CREDENTIALS') });
     const user = userEvent.setup({ delay: null });
     await renderApp('/connexion');
-    expect(await screen.findByRole('heading', { level: 1, name: 'Sign in' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Welcome back' }),
+    ).toBeInTheDocument();
     await user.type(screen.getByLabelText('Email address'), 'awa@example.org');
     await user.type(screen.getByLabelText('Password'), 'wrong password!');
     await user.click(screen.getByRole('button', { name: 'Sign in' }));

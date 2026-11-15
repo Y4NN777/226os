@@ -1,0 +1,43 @@
+/* Search page layout after prototypes/html/pages/recherche.html: title, wide search field,
+   grouped sections of dense rows (rows and heads come from features/home/home.css).
+   The assistant keeps its own internals; only its container is styled here. */
+
+.srch-page {
+  display: grid;
+  gap: var(--spacing-6);
+  max-width: 62rem;
+  min-width: 0;
+}
+.srch-form {
+  display: flex;
+  align-items: end;
+  gap: var(--spacing-2);
+}
+.srch-field {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.srch-groups {
+  display: grid;
+  gap: var(--spacing-8);
+}
+.srch-count {
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+}
+.srch-more {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+}
+.srch-assistant {
+  padding: var(--spacing-5);
+  border-radius: var(--radius-container);
+  background: var(--color-background-surface);
+}
+@media (forced-colors: active) {
+  .srch-assistant {
+    border: 1px solid CanvasText;
+  }
+}
