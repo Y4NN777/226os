@@ -18,7 +18,10 @@ import { LoadingState } from '../../components/LoadingState';
 import { countryOptions } from '../../components/countries';
 import { PageHeader } from '../../components/PageHeader';
 import { ResultsMeta } from '../../components/ResultsMeta';
+import { CardGrid } from '../../components/CardGrid';
 import { SortSelect } from '../../components/SortSelect';
+import { useListView, type ListView } from '../../components/useListView';
+import { ViewToggle } from '../../components/ViewToggle';
 import { useI18n } from '../../i18n/I18nProvider';
 import type { MessageKey } from '../../i18n/messages';
 import { categoryCodes, categoryKey, isCategoryCode } from './categories';
@@ -157,7 +160,10 @@ function Filters({
 
 export function DiscoverPage() {
   const { t } = useI18n();
-  const search = validateDiscoverSearch(useSearch({ from: '/app/discover' }));
+  const { view: addressView, ...search } = validateDiscoverSearch(
+    useSearch({ from: '/app/discover' }),
+  );
+  const { view, remember } = useListView('discover', addressView);
   const navigate = useNavigate();
   const list = useResourceList(search);
   const westView = search.region !== 'all' && search.country === undefined;
@@ -169,14 +175,21 @@ export function DiscoverPage() {
     label: t(`discover.sort.${sort}`),
   }));
 
+  // The view stays in the address when the address already holds it.
+  const keepView = (next: DiscoverSearch): DiscoverSearch =>
+    addressView ? { ...next, view: addressView } : next;
   const change = (patch: SearchPatch) =>
-    void navigate({ to: '/discover', search: patched(search, patch) });
+    void navigate({ to: '/discover', search: keepView(patched(search, patch)) });
+  const switchView = (next: ListView) => {
+    remember(next);
+    void navigate({ to: '/discover', search: { ...search, view: next } });
+  };
   const resetButton = (variant: 'ghost' | 'secondary') => (
     <Button
       variant={variant}
       size={variant === 'ghost' ? 'sm' : 'md'}
       label={t('discover.reset')}
-      onClick={() => void navigate({ to: '/discover', search: {} })}
+      onClick={() => void navigate({ to: '/discover', search: keepView({}) })}
     />
   );
 
@@ -209,6 +222,7 @@ export function DiscoverPage() {
             }}
           />
           {hasFilters && items.length > 0 ? resetButton('ghost') : null}
+          <ViewToggle value={view} onChange={switchView} />
         </ResultsMeta>
         {list.isPending ? <LoadingState rows={4} /> : null}
         {list.isError && !list.data ? (
@@ -239,11 +253,19 @@ export function DiscoverPage() {
         ) : null}
         {items.length > 0 ? (
           <VStack gap={3}>
-            <List label={t('discover.results.label')}>
-              {items.map((resource) => (
-                <ResourceRow key={resource.id} resource={resource} />
-              ))}
-            </List>
+            {view === 'cards' ? (
+              <CardGrid label={t('discover.results.label')}>
+                {items.map((resource) => (
+                  <ResourceRow key={resource.id} resource={resource} />
+                ))}
+              </CardGrid>
+            ) : (
+              <List label={t('discover.results.label')}>
+                {items.map((resource) => (
+                  <ResourceRow key={resource.id} resource={resource} />
+                ))}
+              </List>
+            )}
             {list.isError ? (
               <ErrorState error={list.error} onRetry={() => void list.fetchNextPage()} />
             ) : null}

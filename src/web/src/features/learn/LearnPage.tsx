@@ -14,9 +14,12 @@ import { useNavigate, useSearch } from '@tanstack/react-router';
 import { useId, useState } from 'react';
 import type { components } from '../../api/schema';
 import { useSession } from '../../app/session';
+import { CardGrid } from '../../components/CardGrid';
 import { ErrorState } from '../../components/ErrorState';
 import { LoadingState } from '../../components/LoadingState';
 import { RouterAnchor } from '../../components/RouterAnchor';
+import { useListView, type ListView } from '../../components/useListView';
+import { ViewToggle } from '../../components/ViewToggle';
 import { useI18n } from '../../i18n/I18nProvider';
 import type { MessageKey } from '../../i18n/messages';
 import { formatDate } from '../discover/present';
@@ -392,7 +395,10 @@ function patched(base: LearnSearch, patch: SearchPatch): LearnSearch {
 export function LearnPage() {
   const { t, locale } = useI18n();
   // Router merges the raw parent search over the validated one, so unknown values are dropped again here.
-  const search = validateLearnSearch(useSearch({ from: '/app/apprendre' }));
+  const { view: addressView, ...search } = validateLearnSearch(
+    useSearch({ from: '/app/apprendre' }),
+  );
+  const { view, remember } = useListView('learn', addressView);
   const navigate = useNavigate();
   const browseId = useId();
   const session = useSession();
@@ -418,9 +424,16 @@ export function LearnPage() {
     (showArticles ? (articles.data?.pages.at(-1)?.total ?? 0) : 0) +
     (showSeries ? (series.data?.pages.at(-1)?.total ?? 0) : 0);
 
+  // The view stays in the address when the address already holds it.
+  const keepView = (next: LearnSearch): LearnSearch =>
+    addressView ? { ...next, view: addressView } : next;
   const change = (patch: SearchPatch) =>
-    void navigate({ to: '/apprendre', search: patched(search, patch) });
-  const reset = () => void navigate({ to: '/apprendre', search: {} });
+    void navigate({ to: '/apprendre', search: keepView(patched(search, patch)) });
+  const reset = () => void navigate({ to: '/apprendre', search: keepView({}) });
+  const switchView = (next: ListView) => {
+    remember(next);
+    void navigate({ to: '/apprendre', search: { ...search, view: next } });
+  };
 
   return (
     <VStack gap={6}>
@@ -451,9 +464,12 @@ export function LearnPage() {
           <p className="learn-count" role="status">
             {settled && shown > 0 ? countText(total, isSingular(total, locale), t) : null}
           </p>
-          {filtered && shown > 0 ? (
-            <Button variant="ghost" size="sm" label={t('learn.reset')} onClick={reset} />
-          ) : null}
+          <div className="ui-results-meta-controls">
+            {filtered && shown > 0 ? (
+              <Button variant="ghost" size="sm" label={t('learn.reset')} onClick={reset} />
+            ) : null}
+            <ViewToggle value={view} onChange={switchView} />
+          </div>
         </div>
         {search.q && !search.type ? (
           <Text as="p" type="supporting">
@@ -487,14 +503,25 @@ export function LearnPage() {
           />
         ) : null}
         {shown > 0 ? (
-          <ul className="learn-list">
-            {seriesItems.map((item) => (
-              <SeriesRow key={item.id} series={item} />
-            ))}
-            {articleItems.map((item) => (
-              <ArticleRow key={item.id} article={item} />
-            ))}
-          </ul>
+          view === 'cards' ? (
+            <CardGrid label={t('learn.browse.label')}>
+              {seriesItems.map((item) => (
+                <SeriesRow key={item.id} series={item} />
+              ))}
+              {articleItems.map((item) => (
+                <ArticleRow key={item.id} article={item} />
+              ))}
+            </CardGrid>
+          ) : (
+            <ul className="learn-list" aria-label={t('learn.browse.label')}>
+              {seriesItems.map((item) => (
+                <SeriesRow key={item.id} series={item} />
+              ))}
+              {articleItems.map((item) => (
+                <ArticleRow key={item.id} article={item} />
+              ))}
+            </ul>
+          )
         ) : null}
         {showArticles && articles.isError && articles.data ? (
           <ErrorState error={articles.error} onRetry={() => void articles.fetchNextPage()} />

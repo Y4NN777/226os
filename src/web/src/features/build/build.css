@@ -179,3 +179,19 @@
   aspect-ratio: 2 / 1;
   border-radius: var(--radius-container);
 }
+
+/* Card view: the preview takes the card's width at 2:1; without one, the tile sits in the same box. */
+.build-thumb-card {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 2 / 1;
+  border-radius: var(--radius-element);
+}
+.build-thumb-fallback {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  aspect-ratio: 2 / 1;
+  border-radius: var(--radius-element);
+  background: var(--color-background-muted);
+}

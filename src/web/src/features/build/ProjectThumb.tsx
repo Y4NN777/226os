@@ -15,6 +15,12 @@ export function repoPreviewUrl(githubUrl: string): string | null {
   return `https://opengraph.githubassets.com/1/${owner ?? ''}/${repo ?? ''}`;
 }
 
+const dimensions = {
+  md: { width: 96, height: 48 },
+  lg: { width: 320, height: 160 },
+  card: { width: 400, height: 200 },
+} as const;
+
 /**
  * A project's thumbnail: the repository's GitHub preview, loaded lazily with no referrer, or the
  * monogram tile when there is no preview or it fails to load (offline, private repository, slow
@@ -27,11 +33,20 @@ export function ProjectThumb({
 }: {
   name: string;
   githubUrl: string;
-  size?: 'md' | 'lg';
+  /** `card` fills the width of a card, 2:1. */
+  size?: 'md' | 'lg' | 'card';
 }) {
   const [failed, setFailed] = useState(false);
   const src = repoPreviewUrl(githubUrl);
-  if (!src || failed) return <Avatar name={name} variant="tile" size={size} />;
+  if (!src || failed) {
+    return size === 'card' ? (
+      <span className="build-thumb-fallback">
+        <Avatar name={name} variant="tile" size="lg" />
+      </span>
+    ) : (
+      <Avatar name={name} variant="tile" size={size} />
+    );
+  }
   return (
     <img
       className={`build-thumb build-thumb-${size}`}
@@ -40,8 +55,8 @@ export function ProjectThumb({
       loading="lazy"
       decoding="async"
       referrerPolicy="no-referrer"
-      width={size === 'lg' ? 320 : 96}
-      height={size === 'lg' ? 160 : 48}
+      width={dimensions[size].width}
+      height={dimensions[size].height}
       onError={() => {
         setFailed(true);
       }}
