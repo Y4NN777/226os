@@ -26,7 +26,7 @@ dashboard says what to fix next. Nobody files a finding by hand: classifying one
   settle PR  when the batch fix pull request PR (fix/review/batch-*) is merged into develop, its results table settles
              each source. Only FIXED and FIXED ELSEWHERE act: they close a finding issue as completed or tick a note's
              box. NOT A DEFECT and DECIDED never close a finding (a model verdict is not a decision): their reason is
-             posted as a comment and a human closes it. For a NOTE they tick its box when the reason cites a reference
+             posted as a comment and a human closes it. For a NOTE outside the P0 paths (sensitive and deep-review lists) they tick its box when the reason cites a reference
              that exists at the tip of develop (`path:line` or `path:a-b` inside the note's own file, or a
              docs/decisions/NNNN-*.md file; checked by the script); without such a reference they only comment. OWNER and AFTER FREEZE stay open. One comment per touched source ("Settled by #PR (review batch #N): ..."), once (marker); a
              notes issue whose boxes are all ticked is closed (as not planned when a verdict ticked one, else as completed);
@@ -48,6 +48,7 @@ Environment: REPO (owner/name), PR_NUMBER (harvest), PR_AUTHOR, GH_BIN (default 
 """
 import base64
 import datetime
+import fnmatch
 import importlib.util
 import os
 import re
@@ -677,6 +678,25 @@ def verified_reference(ctx, binary, repo, reason, own_file, own_line=""):
     return accepted
 
 
+P0_LISTS = (".github/sensitive-paths.txt", ".github/deep-review-paths.txt")
+
+
+def p0_path(ctx, binary, repo, path):
+    """True when PATH matches a P0 pattern (sensitive or deep-review paths, read at the tip of develop), or when a list
+    cannot be read (fails closed). A note there is never closed by a model verdict: a human decides (#266 review)."""
+    if not path:
+        return True
+    for name in P0_LISTS:
+        text = trunk_file(ctx, binary, repo, name)
+        if text is None:
+            return True
+        for line in text.splitlines():
+            pattern = line.strip()
+            if pattern and not pattern.startswith("#") and fnmatch.fnmatchcase(path, pattern):
+                return True
+    return False
+
+
 ORIGIN_TITLE = re.compile(r"^PR(\d+)\b")
 
 
@@ -766,7 +786,7 @@ def settle_issue(ctx, binary, repo, pr, batch_no, number, entries, files=None, m
         # ticks its box (and the issue closes as not planned when every box is settled). Findings never do.
         cites = {}
         for key, (d, r) in notes.items():
-            if d in ("NOT A DEFECT", "DECIDED"):
+            if d in ("NOT A DEFECT", "DECIDED") and not p0_path(ctx, binary, repo, cited_by.get(key, "")):
                 ref = verified_reference(ctx, binary, repo, r, cited_by.get(key, ""), where.get(key, ""))
                 if ref:
                     cites[key] = ref
