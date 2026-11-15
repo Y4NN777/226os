@@ -384,7 +384,7 @@ func TestSimilarQueriesBindArgumentsScanAndReject(t *testing.T) {
 			sql := db.calls[0].sql
 			// Typo tolerance (#248): the trigram operator on the indexed expression, ranked by word similarity,
 			// no positive term reads nothing, at most 500 candidates.
-			for _, want := range []string{"%> i.q", "ORDER BY word_similarity(i.q, c.key) DESC, c.id", "querytree(i.tsq) NOT IN ('', 'T')", "LIMIT 500"} {
+			for _, want := range []string{"%> i.q", "ORDER BY word_similarity(i.q, c.key) DESC, c.id", "querytree(i.tsq) NOT IN ('', 'T') AND strpos(i.tsq::text, '!') = 0", "LIMIT 500"} {
 				if !strings.Contains(sql, want) {
 					t.Fatalf("similar query lacks %q:\n%s", want, sql)
 				}

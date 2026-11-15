@@ -128,3 +128,38 @@ func TestSearchTypoFallbackUsesTheTrigramIndexes(t *testing.T) {
 		}
 	}
 }
+
+// pg_trgm ignores "-", so a fallback on a negated query would return the very titles the caller excluded.
+// PostgreSQL's own parse decides what a negation is (#292): the fallback runs only when
+// websearch_to_tsquery holds no NOT. Each case is what the parser returns for it.
+func TestSearchTypoFallbackFollowsThePostgreSQLNegation(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 60*time.Second)
+	defer cancel()
+	e := newSearchEnv(ctx, t)
+	e.exec(ctx, t, fmt.Sprintf(`INSERT INTO questions (id, author_id, title, body_md, language) VALUES
+	  ('%s', '%s', 'Paiement mobile en Afrique', 'x', 'fr')`, sid(600), sid(sUser)))
+	for _, tc := range []struct {
+		q        string
+		wantHits bool
+	}{
+		{"paiemnt -mobile", false},       // 'paiemnt' & !'mobile'
+		{"-mobile paiemnt", false},       // !'mobile' & 'paiemnt'
+		{"paiemnt - mobile", false},      // a lone hyphen still negates
+		{`paiemnt "x"-mobile`, false},    // 'paiemnt' & 'x' & !'mobile'
+		{"paiemnt -_mobile", false},      // the parser drops "_": !'mobile'
+		{`paiemnt -"mobile app"`, false}, // a negated phrase
+		{"paiemnt or -mobile", false},    // 'paiemnt' | !'mobile'
+		{`paiemnt "-mobile"`, true},      // inside quotes the hyphen is dropped: 'paiemnt' & 'mobile'
+		{"paiemnt -+ mobile", true},      // 'paiemnt' & 'mobile'
+		{"e-commerce paiemnt", false},    // no negation, but no title is close to e-commerce: nothing either way
+		{"paiemnt mobile", true},
+	} {
+		res, rec := e.search(ctx, t, apigen.SearchParams{Q: tc.q, Types: only(apigen.SearchGroupQuestions)})
+		if rec.Code != http.StatusOK {
+			t.Fatalf("%q: %d", tc.q, rec.Code)
+		}
+		if got := len(res.Groups.Questions.Items) > 0; got != tc.wantHits {
+			t.Errorf("%q: hits %v (%v), want %v", tc.q, got, titlesOf(res.Groups.Questions), tc.wantHits)
+		}
+	}
+}

@@ -1,8 +1,12 @@
 package service
 
 import (
+	"bytes"
 	"context"
+	"errors"
 	"fmt"
+	"log/slog"
+	"strings"
 	"testing"
 
 	"github.com/Y4NN777/226os/src/api/internal/platform/apperr"
@@ -150,5 +154,29 @@ func TestResendEmailVerificationErrorsStaySilent(t *testing.T) {
 		if err := svc.ResendEmailVerification(context.Background(), email, "10.23.0.3"); apperrCode(t, err) != apperr.CodeInternal {
 			t.Fatalf("%s: rand error = %v, want INTERNAL", email, err)
 		}
+	}
+}
+
+// A failed resend mail is logged (#291): the earlier code is already burned, so an operator must see why the
+// member got nothing. The log names the error type only, never the code, the address or the mail text.
+// slog.SetDefault is process-wide, so this test is not parallel.
+func TestResendEmailVerificationLogsAFailedMail(t *testing.T) {
+	var logs bytes.Buffer
+	prev := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&logs, nil)))
+	t.Cleanup(func() { slog.SetDefault(prev) })
+
+	svc, st, mail := linkSvc(t)
+	seedAccount(t, st, "lost@example.com")
+	mail.FailWith(errors.New("smtp down to lost@example.com"))
+	if err := svc.ResendEmailVerification(t.Context(), "lost@example.com", "10.24.0.1"); err != nil {
+		t.Fatalf("a mail failure must stay silent to the caller: %v", err)
+	}
+	out := logs.String()
+	if !strings.Contains(out, "identity verification resend mail failed") {
+		t.Fatalf("no warning for the failed mail:\n%s", out)
+	}
+	if strings.Contains(out, "lost@example.com") || strings.Contains(out, "smtp down") {
+		t.Fatalf("the warning leaks the address or the error text:\n%s", out)
 	}
 }

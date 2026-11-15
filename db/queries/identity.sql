@@ -58,7 +58,9 @@ UPDATE sessions SET last_seen_at = $2, idle_expires_at = $3
 WHERE id = $1 AND revoked_at IS NULL;
 
 -- CreateEmailVerification stores a new code and burns every earlier open code of the account in one statement
--- (a single statement is its own transaction), so after a resend only the latest mail can verify the account.
+-- (a single statement is its own transaction), so after a resend the earlier mails no longer verify the account.
+-- Two resends at the same instant each burn only the rows their snapshot sees, so both codes can stay open: accepted
+-- (#291), bounded by 3 per account per hour, and both go to the account's own address.
 -- The burn uses email_verifications_user_open_idx.
 -- name: CreateEmailVerification :exec
 WITH burned AS (

@@ -440,7 +440,7 @@ All search indexes are **partial on `status = 'published'`** (plus `visibility =
 
 DDL: see `db/migrations/00010_search_indexes.sql`.
 
-GIN trigram indexes serve `%`, `ILIKE` and `~`; they cannot serve `<->` `ORDER BY ... LIMIT` (that needs GiST), so typo tolerance is a bounded candidate set. As built (2026-11-15, #248): when full text finds nothing in a group, `WHERE f_unaccent(title) %> f_unaccent($q)` (word similarity above `pg_trgm.word_similarity_threshold`, default 0.6, served by the partial trigram GIN index) with the full-text predicates and filters, at most 500 candidates, `ORDER BY word_similarity DESC, id LIMIT n` (`db/queries/search.sql`, `Similar*`). Word similarity, not `%`, because a short query against a long title has a low whole-string similarity.
+GIN trigram indexes serve `%`, `ILIKE` and `~`; they cannot serve `<->` `ORDER BY ... LIMIT` (that needs GiST), so typo tolerance is a bounded candidate set. As built (2026-11-15, #248): when full text finds nothing in a group, `WHERE f_unaccent(title) %> f_unaccent($q)` (word similarity above `pg_trgm.word_similarity_threshold`, default 0.6, served by the partial trigram GIN index) with the full-text predicates and filters, at most 500 candidates, `ORDER BY word_similarity DESC, id LIMIT n` (`db/queries/search.sql`, `Similar*`). Word similarity, not `%`, because a short query against a long title has a low whole-string similarity. A query whose tsquery holds a NOT reads nothing (#292), since `pg_trgm` ignores `-`.
 
 ### 3.10 FK self-check
 
