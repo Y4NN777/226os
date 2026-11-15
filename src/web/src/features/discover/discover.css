@@ -1,0 +1,401 @@
+/*
+ * Discover pages (prototype pages/discover.html and resource.html, Direction v2): one layered
+ * panel per list, one hairline between rows, quiet metadata, state on the right. Astryx tokens
+ * only, so dark mode follows the theme. Class names are prefixed `discover-`; the lead may swap
+ * these local pieces for the shared ones later.
+ */
+
+.discover-page-header {
+  display: grid;
+  gap: var(--spacing-1);
+}
+
+/* Filters: one column on phones, two from 480px, three from 768px. */
+.discover-filters {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--spacing-3);
+  align-items: end;
+}
+@media (min-width: 480px) {
+  .discover-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (min-width: 768px) {
+  .discover-filters {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+.discover-filter {
+  display: grid;
+  gap: var(--spacing-1);
+  min-width: 0;
+}
+.discover-filter-label {
+  font-size: var(--text-label-size);
+  font-weight: var(--text-label-weight);
+  line-height: var(--text-label-leading);
+  color: var(--color-text-primary);
+}
+
+/* Results bar: count on the left, reset on the right. */
+.discover-results {
+  display: grid;
+  gap: var(--spacing-3);
+}
+.discover-results-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-2);
+}
+.discover-count {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Rows: one panel, a hairline between rows, no card per row. */
+.discover-rows {
+  list-style: none;
+  margin: 0;
+  padding: var(--spacing-1) 0;
+  background: var(--color-background-surface);
+  border-radius: var(--radius-container);
+}
+.discover-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: var(--spacing-1) var(--spacing-3);
+  align-items: start;
+  padding: var(--spacing-4);
+}
+.discover-row + .discover-row {
+  border-top: 1px solid var(--color-border);
+}
+.discover-row:hover {
+  background: var(--color-tint-hover);
+}
+.discover-row-main {
+  display: grid;
+  gap: var(--spacing-0-5);
+  min-width: 0;
+}
+.discover-row-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-2);
+  margin: 0;
+  font-size: var(--font-size-base);
+  line-height: 1.35;
+}
+/* The title link covers the row; the badge stays above it for its hint. */
+.discover-row-title a::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+}
+.discover-row-title > span {
+  position: relative;
+}
+.discover-sub,
+.discover-excerpt,
+.discover-meta {
+  margin: 0;
+}
+.discover-sub {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+.discover-excerpt {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+}
+.discover-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-1) var(--spacing-3);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+.discover-meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-1);
+}
+.discover-row-aside {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--spacing-1);
+}
+.discover-when {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+@media (max-width: 639px) {
+  .discover-row {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .discover-row-aside {
+    grid-column: 2;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-1) var(--spacing-3);
+  }
+}
+
+/* Monogram tiles (prototype App.thumb): five token pairs, never a remote image. */
+.discover-thumb {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-element);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.02em;
+  user-select: none;
+}
+.discover-thumb-lg {
+  width: 72px;
+  height: 72px;
+  border-radius: var(--radius-container);
+  font-size: var(--font-size-xl);
+}
+.discover-tone-0 {
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+.discover-tone-1 {
+  background: var(--color-background-green);
+  color: var(--color-text-green);
+}
+.discover-tone-2 {
+  background: var(--color-background-muted);
+  color: var(--color-text-primary);
+}
+.discover-tone-3 {
+  background: var(--color-background-orange);
+  color: var(--color-text-orange);
+}
+.discover-tone-4 {
+  background: var(--color-neutral);
+  color: var(--color-text-primary);
+}
+
+/* Country codes as text (prototype .country-code), never flags. */
+.discover-countries {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-1) var(--spacing-2);
+}
+.discover-country {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-1);
+}
+.discover-country-code {
+  padding: 0 var(--spacing-1);
+  border-radius: var(--radius-inner);
+  background: var(--color-background-muted);
+  color: var(--color-text-primary);
+  font-family: var(--font-family-code);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.6;
+}
+
+/* Resource header: monogram, eyebrow, title, provider; actions on the right. */
+.discover-head {
+  display: grid;
+  gap: var(--spacing-3);
+}
+.discover-head-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--spacing-3);
+}
+.discover-head-id {
+  display: flex;
+  gap: var(--spacing-4);
+  align-items: center;
+  min-width: 0;
+}
+.discover-head-text {
+  display: grid;
+  gap: var(--spacing-0-5);
+  min-width: 0;
+}
+.discover-eyebrow {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+.discover-head-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-1);
+}
+.discover-facts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-2) var(--spacing-4);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+.discover-lede {
+  margin: 0;
+  max-width: 68ch;
+  font-size: var(--font-size-base);
+  color: var(--color-text-primary);
+}
+
+/* Detail sections as layered panels. */
+.discover-panel {
+  display: grid;
+  gap: var(--spacing-3);
+  padding: var(--spacing-5);
+  background: var(--color-background-surface);
+  border-radius: var(--radius-container);
+}
+.discover-dl {
+  display: grid;
+  grid-template-columns: minmax(0, 12rem) minmax(0, 1fr);
+  gap: var(--spacing-2) var(--spacing-4);
+  margin: 0;
+  font-size: var(--font-size-sm);
+}
+.discover-dl dt {
+  color: var(--color-text-secondary);
+}
+.discover-dl dd {
+  margin: 0;
+  min-width: 0;
+}
+@media (max-width: 479px) {
+  .discover-dl {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+  .discover-dl dd {
+    margin-bottom: var(--spacing-2);
+  }
+}
+.discover-inline-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-1) var(--spacing-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Limitations: warning-tinted lines with an icon (prototype "Pièges à éviter"). */
+.discover-limits {
+  display: grid;
+  gap: var(--spacing-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.discover-limits li {
+  display: flex;
+  gap: var(--spacing-2);
+  align-items: baseline;
+  padding: var(--spacing-2) var(--spacing-3);
+  border-radius: var(--radius-element);
+  background: var(--color-warning-muted);
+  color: var(--color-on-warning-muted);
+  font-size: var(--font-size-sm);
+}
+.discover-limits li > svg,
+.discover-limits li > span:first-child {
+  align-self: center;
+  flex: none;
+}
+
+/* Sources: compact rows with a hairline; status and date on the right. */
+.discover-sources {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.discover-source {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-1) var(--spacing-3);
+  padding: var(--spacing-3) 0;
+}
+.discover-source + .discover-source {
+  border-top: 1px solid var(--color-border);
+}
+.discover-source-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-1) var(--spacing-2);
+  min-width: 0;
+}
+.discover-source-aside {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-1) var(--spacing-3);
+}
+
+/* Related links (prototype .linked-items): small tiles, kind above the title. */
+.discover-linked {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(16rem, 100%), 1fr));
+  gap: var(--spacing-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.discover-linked-item {
+  position: relative;
+  display: grid;
+  gap: var(--spacing-1);
+  padding: var(--spacing-3);
+  background: var(--color-background-surface);
+  border-radius: var(--radius-container);
+}
+.discover-linked-item:hover {
+  background: var(--color-tint-hover);
+}
+.discover-linked-kind {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-1);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+.discover-linked-item a::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+}
