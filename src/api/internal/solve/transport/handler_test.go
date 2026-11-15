@@ -88,6 +88,10 @@ func (f *fakeStore) CreateAnswer(_ context.Context, in domain.NewAnswer) (domain
 
 type allowLimiter struct{}
 
+func (allowLimiter) GiveBack(context.Context, string, string, time.Duration, time.Time) error {
+	return nil
+}
+
 func (allowLimiter) Hit(context.Context, string, string, int, time.Duration) (bool, time.Duration, error) {
 	return true, 0, nil
 }

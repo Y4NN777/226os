@@ -150,12 +150,37 @@ type fakeLimiter struct {
 	limit   int
 	window  time.Duration
 	value   string
+
+	// byScope counts the hits of each scope; errScope and denyScope make one scope fail or refuse.
+	byScope   map[string]int
+	errScope  map[string]error
+	denyScope map[string]bool
+	// gave records the give-backs: scope, value, window and the hit time they were told.
+	gave    []string
+	gaveAt  []time.Time
+	giveErr error
 }
 
 func (l *fakeLimiter) Hit(_ context.Context, scope, value string, limit int, window time.Duration) (bool, time.Duration, error) {
 	l.hits++
 	l.scope, l.value, l.limit, l.window = scope, value, limit, window
+	if l.byScope == nil {
+		l.byScope = map[string]int{}
+	}
+	l.byScope[scope]++
+	if err := l.errScope[scope]; err != nil {
+		return false, 0, err
+	}
+	if l.denyScope[scope] {
+		return false, l.retry, nil
+	}
 	return l.allowed, l.retry, l.err
+}
+
+func (l *fakeLimiter) GiveBack(_ context.Context, scope, value string, window time.Duration, hitAt time.Time) error {
+	l.gave = append(l.gave, scope+"|"+value+"|"+window.String())
+	l.gaveAt = append(l.gaveAt, hitAt)
+	return l.giveErr
 }
 
 func codec(t *testing.T) *cursor.Codec {
