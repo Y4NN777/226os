@@ -93,7 +93,14 @@ Un monolithe Go modulaire (Chi, pgx, sqlc) expose une API REST décrite en OpenA
 
 ## Qualité
 
-`make quality` lance G1 à G4, aussi en CI. Le détail est dans [docs/TEST.md](docs/TEST.md).
+Chaque pull request passe les mêmes contrôles en CI, et `make quality` les lance en local :
+
+- **Code propre** : formatage, lint, types, et code généré (client d'API, requêtes SQL) à jour.
+- **Tests unitaires** : 100 % des instructions couvertes côté Go, plus de 70 % côté web.
+- **Intégration** : tests sur une vraie base PostgreSQL, réponses de l'API conformes au contrat OpenAPI, contrôles d'accès testés rôle par rôle.
+- **Sécurité** : analyse statique du code, failles connues des dépendances et des images Docker, recherche de secrets, et tests des accès refusés sur chaque route.
+
+Les tests de bout en bout dans le navigateur et les tests de performance ne sont pas encore en place. Le détail est dans [docs/TEST.md](docs/TEST.md).
 
 ## Documentation
 

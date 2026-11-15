@@ -60,6 +60,7 @@ type ProfileRecord struct {
 	Profile
 	AccountStatus string    // users.status; only "active" profiles are served
 	JoinedAt      time.Time // users.created_at, exposed as joined_at
+	Demo          bool      // users.provenance = 'demo'; the zero value hides, fail closed
 }
 
 // PublicProfile is the getProfile result after visibility filtering: fields

@@ -53,6 +53,7 @@ func (r *Repository) ProfileByUsername(ctx context.Context, username string) (do
 		row.ProfileVisibility, row.CreatedAt, row.UpdatedAt, row.Skills)
 	return domain.ProfileRecord{
 		Profile: p, AccountStatus: row.AccountStatus, JoinedAt: row.JoinedAt.Time,
+		Demo: row.Provenance == "demo",
 	}, nil
 }
 

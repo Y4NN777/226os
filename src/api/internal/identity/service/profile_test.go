@@ -28,6 +28,45 @@ func seedProfile(st *fakeStore, username, userID string, vis domain.Visibility) 
 
 func strp(s string) *string { return &s }
 
+// A demo seed account answers GetProfile exactly like an unknown username
+// unless the service opted in to demo profiles (local-dev only): fail closed.
+func TestGetProfileDemoAccountsAreOptIn(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		opts     []Option
+		wantFind bool
+	}{
+		{"default hides demo", nil, false},
+		{"WithDemoProfiles(false) hides demo", []Option{WithDemoProfiles(false)}, false},
+		{"WithDemoProfiles(true) serves demo", []Option{WithDemoProfiles(true)}, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			svc, st, _ := testSvc(t)
+			for _, o := range tc.opts {
+				o(svc)
+			}
+			rec := seedProfile(st, "demo-ann", "u-demo", domain.VisibilityPublic)
+			rec.Demo = true
+			st.profiles["demo-ann"] = rec
+			got, err := svc.GetProfile(context.Background(), "demo-ann", "")
+			if tc.wantFind {
+				if err != nil || got.Username != "demo-ann" {
+					t.Fatalf("GetProfile = %+v, %v; want the demo profile", got, err)
+				}
+				return
+			}
+			_, unknownErr := svc.GetProfile(context.Background(), "ghost", "")
+			if err == nil || unknownErr == nil || err.Error() != unknownErr.Error() {
+				t.Fatalf("demo err = %v, unknown err = %v; want the same not found", err, unknownErr)
+			}
+			var ae *apperr.Error
+			if !errors.As(err, &ae) || ae.Code != apperr.CodeNotFound {
+				t.Fatalf("demo err = %v, want not found", err)
+			}
+		})
+	}
+}
+
 // ---------- GetMe ----------
 
 func TestGetMeReturnsAccountAndProfile(t *testing.T) {

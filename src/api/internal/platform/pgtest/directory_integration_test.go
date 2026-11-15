@@ -462,6 +462,35 @@ func TestDirectoryHidesDemoAccountsByDefault(t *testing.T) {
 	}
 }
 
+// A demo seed account's page is hidden like an unknown username outside local-dev: same 404, no hint.
+func TestProfileHidesDemoAccountsByDefault(t *testing.T) {
+	ctx := t.Context()
+	s := newS2Stack(ctx, t, nil)
+	seedTags(ctx, t, s.conn)
+	newPerson(1, "live-person").insert(ctx, t, s.conn)
+	newPerson(2, "demo-person").insert(ctx, t, s.conn)
+	if _, err := s.conn.Exec(ctx, `UPDATE users SET provenance = 'demo' WHERE id = $1`, personID(2)); err != nil {
+		t.Fatal(err)
+	}
+	viewer := s.signIn(t, "prof-demo-viewer", true, 61)
+	for _, who := range []*member{nil, &viewer} {
+		if rec := s.read(t, who, "/api/v1/profiles/live-person"); rec.Code != http.StatusOK {
+			t.Fatalf("live profile: %d %s", rec.Code, rec.Body.String())
+		}
+		demo := s.read(t, who, "/api/v1/profiles/demo-person")
+		ghost := s.read(t, who, "/api/v1/profiles/ghost-person")
+		if demo.Code != http.StatusNotFound || demo.Code != ghost.Code {
+			t.Fatalf("demo profile: %d %s, unknown: %d", demo.Code, demo.Body.String(), ghost.Code)
+		}
+		// Only instance (the request path) and request_id differ from the unknown username's problem.
+		for _, want := range []string{`"code":"NOT_FOUND"`, `"detail":"Not found."`, `"title":"Not found"`} {
+			if !strings.Contains(demo.Body.String(), want) || !strings.Contains(ghost.Body.String(), want) {
+				t.Fatalf("demo %s and unknown %s differ on %s", demo.Body.String(), ghost.Body.String(), want)
+			}
+		}
+	}
+}
+
 func TestDirectoryRateLimit(t *testing.T) {
 	ctx := t.Context()
 	s := newS2Stack(ctx, t, nil)

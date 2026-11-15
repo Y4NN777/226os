@@ -60,7 +60,7 @@ Valeurs communes aux trois lignes `profiles` :
 - `intent` : `learn` pour Aïcha, `contribute` pour Kofi, `help` pour Nadia.
 - `languages` : `{fr,mos}` pour Aïcha, `{fr,en}` pour Kofi, `{fr,wo}` pour Nadia.
 - `github_username = NULL`, `bio = NULL`, `bio_language = NULL`.
-- `open_to_collab = true`. L'annuaire ne liste ces comptes qu'en `local-dev` : en `staging-test` et en production, ils n'y apparaissent pas.
+- `open_to_collab = true`. L'annuaire ne liste ces comptes qu'en `local-dev`, et leur page de profil n'existe qu'en `local-dev` : en `staging-test` et en production, ils n'apparaissent pas dans l'annuaire et `GET /profiles/{username}` répond 404.
 - Toutes les colonnes de visibilité à `public`.
 - `created_at = updated_at = '2026-11-14T08:10:00Z'`.
 
@@ -469,7 +469,7 @@ Tout écart avec ce contrat doit être signalé au orchestrateur avant écriture
 
 ## 12. Lancer et vérifier les seeds
 
-Sur une base `local-dev` démarrée et migrée (`make up-local-dev`), neuve ou réinitialisée (`make db-reset`, réservé à `local-dev`). L'idempotence ne porte que sur les clés primaires : si la base contient déjà un tag, un nom d'utilisateur ou un email qu'utilisent les fixtures (par exemple le tag `api` ou `go`), une contrainte d'unicité échoue et tout le lot est annulé, sans écriture partielle.
+Sur une base `local-dev` ou `staging-test` démarrée et migrée (`make up-local-dev`), neuve, réinitialisée (`make db-reset`, réservé à `local-dev`) ou qui contient déjà du contenu réel. Un tag dont le slug existe déjà (par exemple `api` ou `go` créé par un vrai article) est réutilisé : le seed n'en crée pas de doublon de démo et y rattache ses contenus, car les tables de liaison retrouvent les tags par leur slug. Les comptes de démo ne peuvent pas entrer en conflit (préfixe `demo-`, emails en `@demo.226os.invalid`). Toute autre violation d'unicité annule tout le lot, sans écriture partielle. Relancer le seed remet à jour les noms et résumés des fournisseurs et ressources Découvrir et le titre de leurs sources (lignes de démo seulement) : une base déjà seedée suit le texte actuel sans être recréée.
 
 ```sh
 APP_ENV=local-dev make seed   # 107 lignes la première fois

@@ -233,6 +233,67 @@ func TestSeedIsIdempotent(t *testing.T) {
 	}
 }
 
+// staging-test already holds live content when it is seeded: a live tag with a slug the seed also uses
+// (here `go` and `api`) must be reused, not collide on tags_slug_uq and roll the whole batch back.
+func TestSeedReusesLiveTagsBySlug(t *testing.T) {
+	ctx := t.Context()
+	conn := migratedDB(ctx, t)
+	const liveGo, liveAPI = "01900000-0000-7000-8000-00000000ff01", "01900000-0000-7000-8000-00000000ff02"
+	if _, err := conn.Exec(ctx, `INSERT INTO tags (id, slug, label) VALUES ($1, 'go', 'Go'), ($2, 'api', 'API')`, liveGo, liveAPI); err != nil {
+		t.Fatal(err)
+	}
+	_, batch := seedFiles(t)
+	if err := runSeed(ctx, t, conn, batch); err != nil {
+		t.Fatalf("seed over live tags: %v", err)
+	}
+	for _, tc := range []struct{ slug, id string }{{"go", liveGo}, {"api", liveAPI}} {
+		var id, provenance string
+		if err := conn.QueryRow(ctx, `SELECT id::text, provenance FROM tags WHERE slug = $1`, tc.slug).Scan(&id, &provenance); err != nil {
+			t.Fatal(err)
+		}
+		if id != tc.id || provenance != "live" {
+			t.Errorf("tag %s = (%s, %s), want the live row (%s, live)", tc.slug, id, provenance, tc.id)
+		}
+	}
+	if n := scalarInt(ctx, t, conn, `SELECT count(*) FROM resource_tags WHERE tag_id = '`+liveAPI+`'`); n == 0 {
+		t.Error("no demo resource is tagged with the live `api` tag")
+	}
+	if n := scalarInt(ctx, t, conn, `SELECT count(*) FROM tags WHERE provenance = 'demo' AND slug IN ('go', 'api')`); n != 0 {
+		t.Errorf("%d demo duplicates of a live slug", n)
+	}
+	if err := runSeed(ctx, t, conn, batch); err != nil {
+		t.Fatalf("second seed over live tags: %v", err)
+	}
+}
+
+// A database seeded with an older text (the « (démo) » suffix and long summaries) picks up the current
+// Discover names, summaries and source titles on the next run, so staging needs no reset.
+func TestSeedRefreshesDiscoverText(t *testing.T) {
+	ctx, conn, batch := seededDB(t)
+	const provider, resource, source = "01900000-0000-7000-8000-000000000201", "01900000-0000-7000-8000-000000000301", "01900000-0000-7000-8000-000000000401"
+	for _, stmt := range []string{
+		`UPDATE providers SET name = 'Sahel Pay (démo)', summary = 'ancien résumé' WHERE id = '` + provider + `'`,
+		`UPDATE resources SET name = 'Sahel Pay Mobile Money (démo)', summary = 'ancien résumé' WHERE id = '` + resource + `'`,
+		`UPDATE resource_sources SET title = 'Documentation publique Sahel Pay (démo)' WHERE id = '` + source + `'`,
+	} {
+		if _, err := conn.Exec(ctx, stmt); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := runSeed(ctx, t, conn, batch); err != nil {
+		t.Fatalf("reseed: %v", err)
+	}
+	if n := scalarInt(ctx, t, conn, `SELECT count(*) FROM providers WHERE name LIKE '%(démo)%' OR summary = 'ancien résumé'`); n != 0 {
+		t.Errorf("%d providers keep the old text", n)
+	}
+	if n := scalarInt(ctx, t, conn, `SELECT count(*) FROM resources WHERE name LIKE '%(démo)%' OR summary = 'ancien résumé'`); n != 0 {
+		t.Errorf("%d resources keep the old text", n)
+	}
+	if n := scalarInt(ctx, t, conn, `SELECT count(*) FROM resource_sources WHERE title LIKE '%(démo)%'`); n != 0 {
+		t.Errorf("%d sources keep the old title", n)
+	}
+}
+
 func TestSeedSQLIsDeterministic(t *testing.T) {
 	names, _ := seedFiles(t)
 	forbidden := regexp.MustCompile(`(?i)now\s*\(|current_timestamp|uuidv7\s*\(|random\s*\(`)
