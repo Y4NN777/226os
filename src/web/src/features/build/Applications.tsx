@@ -1,6 +1,5 @@
-import { Badge } from '@astryxdesign/core/Badge';
+import { Avatar } from '@astryxdesign/core/Avatar';
 import { Button } from '@astryxdesign/core/Button';
-import { Card } from '@astryxdesign/core/Card';
 import { Heading } from '@astryxdesign/core/Heading';
 import { HStack } from '@astryxdesign/core/HStack';
 import { Icon } from '@astryxdesign/core/Icon';
@@ -14,7 +13,7 @@ import { useI18n } from '../../i18n/I18nProvider';
 import type { MessageKey } from '../../i18n/messages';
 import { FocusRegion } from '../identity/notices';
 import { Banner } from '@astryxdesign/core/Banner';
-import { PersonLink } from './present';
+import { DateText, PersonLink, StatePill, type PillTone } from './present';
 import { useApplications, useDecideApplication, type Application } from './queries';
 
 const statusKey = {
@@ -24,12 +23,12 @@ const statusKey = {
   withdrawn: 'project.apps.status.withdrawn',
 } as const satisfies Record<Application['status'], MessageKey>;
 
-const statusVariant = {
-  pending: 'neutral',
-  accepted: 'success',
-  declined: 'neutral',
-  withdrawn: 'neutral',
-} as const;
+const statusTone: Record<Application['status'], PillTone> = {
+  pending: 'pending',
+  accepted: 'open',
+  declined: 'muted',
+  withdrawn: 'muted',
+};
 
 /**
  * The owner's inbox. It is only mounted for the owner, so a third party never calls
@@ -63,55 +62,59 @@ export function Applications({ projectId }: { projectId: string }) {
           <Text as="p">{t('project.apps.none')}</Text>
         ) : null}
         {items.length > 0 ? (
-          <VStack as="ul" gap={3}>
+          <ul className="build-apps">
             {items.map((application) => (
-              <li key={application.id}>
-                <Card variant="muted">
-                  <VStack gap={2}>
-                    <HStack gap={2} wrap="wrap" vAlign="center">
-                      <PersonLink
-                        username={application.applicant.username}
-                        name={application.applicant.display_name}
+              <li key={application.id} className="build-app">
+                <span aria-hidden="true">
+                  <Avatar name={application.applicant.display_name} size="md" />
+                </span>
+                <div className="build-app-main">
+                  <PersonLink
+                    username={application.applicant.username}
+                    name={application.applicant.display_name}
+                  />
+                  <p className="build-app-quote">{application.message}</p>
+                  <div className="build-meta">
+                    <DateText iso={application.created_at} />
+                  </div>
+                </div>
+                <div className="build-app-aside">
+                  <StatePill
+                    tone={statusTone[application.status]}
+                    label={t(statusKey[application.status])}
+                  />
+                  {application.status === 'pending' ? (
+                    <div className="build-app-actions">
+                      <IconButton
+                        size="sm"
+                        variant="ghost"
+                        label={t('project.apps.accept', {
+                          name: application.applicant.display_name,
+                        })}
+                        icon={<Icon icon="check" />}
+                        isDisabled={decide.isPending}
+                        onClick={() => {
+                          decide.mutate({ id: application.id, status: 'accepted' });
+                        }}
                       />
-                      <Badge
-                        variant={statusVariant[application.status]}
-                        label={t(statusKey[application.status])}
+                      <IconButton
+                        size="sm"
+                        variant="ghost"
+                        label={t('project.apps.decline', {
+                          name: application.applicant.display_name,
+                        })}
+                        icon={<Icon icon="close" />}
+                        isDisabled={decide.isPending}
+                        onClick={() => {
+                          decide.mutate({ id: application.id, status: 'declined' });
+                        }}
                       />
-                      {application.status === 'pending' ? (
-                        <HStack gap={1}>
-                          <IconButton
-                            size="sm"
-                            variant="ghost"
-                            label={t('project.apps.accept', {
-                              name: application.applicant.display_name,
-                            })}
-                            icon={<Icon icon="check" />}
-                            isDisabled={decide.isPending}
-                            onClick={() => {
-                              decide.mutate({ id: application.id, status: 'accepted' });
-                            }}
-                          />
-                          <IconButton
-                            size="sm"
-                            variant="ghost"
-                            label={t('project.apps.decline', {
-                              name: application.applicant.display_name,
-                            })}
-                            icon={<Icon icon="close" />}
-                            isDisabled={decide.isPending}
-                            onClick={() => {
-                              decide.mutate({ id: application.id, status: 'declined' });
-                            }}
-                          />
-                        </HStack>
-                      ) : null}
-                    </HStack>
-                    <Text as="p">{application.message}</Text>
-                  </VStack>
-                </Card>
+                    </div>
+                  ) : null}
+                </div>
               </li>
             ))}
-          </VStack>
+          </ul>
         ) : null}
         {applications.hasNextPage ? (
           <HStack hAlign="center">

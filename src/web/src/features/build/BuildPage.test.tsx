@@ -98,6 +98,89 @@ describe('BuildPage list', () => {
   });
 });
 
+describe('BuildPage rows', () => {
+  it('shows a dense row: state pill, private badge, update date and the origin question', async () => {
+    setLanguages(['fr-FR']);
+    mockApi({
+      'GET /projects': () =>
+        page([
+          project({
+            visibility: 'private',
+            updated_at: '2026-11-08T12:00:00Z',
+            related: [
+              {
+                type: 'question',
+                id: 'b1000000-0000-4000-8000-000000000001',
+                title: 'Signer un webhook en Go',
+              },
+            ],
+          }),
+          second,
+        ]),
+    });
+    await renderApp('/build');
+    const row = (await screen.findByRole('link', { name: 'kora-sdk' })).closest('li');
+    expect(row).not.toBeNull();
+    const scope = within(row as HTMLElement);
+    expect(scope.getByText('Privé')).toBeVisible();
+    expect(scope.getByText('1 besoin ouvert')).toBeVisible();
+    expect(scope.getByText('8 nov. 2026').closest('time')).toHaveAttribute(
+      'datetime',
+      '2026-11-08T12:00:00Z',
+    );
+    expect(scope.getByRole('link', { name: 'Signer un webhook en Go' })).toHaveAttribute(
+      'href',
+      '/questions/b1000000-0000-4000-8000-000000000001',
+    );
+    expect(scope.getByText('Un SDK pour les paiements mobiles.')).toHaveAttribute('lang', 'fr');
+  });
+
+  it('words the open-needs pill in English', async () => {
+    setLanguages(['en-US']);
+    mockApi({ 'GET /projects': () => page([project({ open_needs_count: 3 }), second]) });
+    await renderApp('/build');
+    const results = await screen.findByRole('region', { name: 'Projects' });
+    expect(await within(results).findByText('3 open needs')).toBeVisible();
+    expect(within(results).getByText('No open need')).toBeVisible();
+  });
+});
+
+describe('BuildPage filters', () => {
+  it('searches with q and open_needs, then resets to the full list', async () => {
+    setLanguages(['fr-FR']);
+    const fetchMock = mockApi({
+      'GET /projects': (request) => {
+        const params = new URL(request.url).searchParams;
+        return params.get('q') === 'zzz' ? page([]) : page([project()]);
+      },
+    });
+    const user = userEvent.setup({ delay: null });
+    await renderApp('/build');
+    await screen.findByRole('link', { name: 'kora-sdk' });
+
+    const search = screen.getByRole('search', { name: 'Rechercher un projet' });
+    await user.click(within(search).getByRole('checkbox', { name: /besoins ouverts seulement/ }));
+    await waitFor(() => {
+      const urls = callsTo(fetchMock, 'GET /projects').map((r) => new URL(r.url));
+      expect(urls.some((url) => url.searchParams.get('open_needs') === 'true')).toBe(true);
+    });
+
+    await user.type(within(search).getByRole('searchbox', { name: /Rechercher/ }), 'zzz{Enter}');
+    expect(await screen.findByText('Aucun projet ne correspond')).toBeVisible();
+    const last = callsTo(fetchMock, 'GET /projects').at(-1);
+    expect(new URL(last?.url ?? '').searchParams.get('q')).toBe('zzz');
+    expect(new URL(last?.url ?? '').searchParams.get('open_needs')).toBe('true');
+
+    await user.click(screen.getByRole('button', { name: 'Effacer les filtres' }));
+    expect(await screen.findByRole('link', { name: 'kora-sdk' })).toBeVisible();
+    const cleared = screen.getByRole('search', { name: 'Rechercher un projet' });
+    expect(within(cleared).getByRole('searchbox', { name: /Rechercher/ })).toHaveValue('');
+    expect(
+      within(cleared).getByRole('checkbox', { name: /besoins ouverts seulement/ }),
+    ).not.toBeChecked();
+  });
+});
+
 const created = project({ id: 'e0000000-0000-4000-8000-0000000000bb' });
 
 async function openForm() {

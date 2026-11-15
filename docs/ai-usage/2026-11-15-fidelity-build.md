@@ -1,0 +1,16 @@
+## Build pages follow their prototypes (fidelity pass)
+
+```yaml
+date: "2026-11-15"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code, Claude Opus 5.5 (web-implementer subagent of the lead session)"
+purpose: "The owner asked every page to match its HTML prototype visually. The AI rebuilt /build and /build/<id> after prototypes/html/pages/build.html and project.html, on Astryx components and Graphite & Lime tokens, using only contract fields: dense project rows (monogram, title link, two-line excerpt, technology tags with +n, meta line with owner, update date, private badge and origin question, open-needs state pill), the q and open_needs filters with a filtered empty state, local breadcrumbs, a project header with monogram and pills, related-content cards, the description with its language badge, needs as cards with state pills and one sign-in hint for visitors, owner applications with status pills and icon decisions, and side cards (about, technologies, maintainer). Behaviour, routes, viewer_application, idempotency and CSRF are unchanged."
+repository_or_source_context: "branch feature/web/fidelity-build; S7 web pages; owner fidelity brief of 2026-11-15"
+files_or_sections_affected: ["src/web/src/features/build/BuildPage.tsx", "src/web/src/features/build/ProjectPage.tsx", "src/web/src/features/build/Needs.tsx", "src/web/src/features/build/Applications.tsx", "src/web/src/features/build/present.tsx", "src/web/src/features/build/queries.ts", "src/web/src/features/build/messages.ts", "src/web/src/features/build/build.css", "src/web/src/features/build/BuildPage.test.tsx", "src/web/src/features/build/ProjectPage.test.tsx", "TODO.md", "docs/ai-usage/2026-11-15-fidelity-build.md"]
+third_party_sources_consulted: ["@astryxdesign/core installed type declarations (List, Badge, Icon registry, Breadcrumbs, TextInput, CheckboxInput, Link, Heading, Avatar), read from node_modules", "prototypes/html (pages, CSS, JS, CONVENTIONS.md, DISCLAIMER.md)"]
+license_review: "NOT APPLICABLE: original code, no new dependency"
+closure: "open"
+human_reviewers: ["pending PR review"]
+tests_or_evidence: ["Order: RED tests first (5 failing for the missing rows, filters, header, related cards and sign-in hint), then the pages", "new tests: row pill, private badge, update date, origin question link and content language; English pill; q and open_needs sent and reset; project header pill, private badge and jump link; description language; about, technologies and maintainer cards with country name; related kind outside the link name; no repository link without a GitHub address; one sign-in hint for visitors; breadcrumbs", "no existing test was changed", "captures of prototype and app at 1280x800 and 375x812, light and dark, kept in the lead session scratchpad"]
+open_risks: ["filters are local state, not in the URL: /build has no validateSearch and router.tsx is outside the area", "the panels are white surfaces meant for the new shell that puts content on the page background; on the old white content panel they do not stand out", "owner and member views were checked by tests only (no seeded credentials for a browser capture)", "local breadcrumbs, pills, rows and monograms duplicate what the shared src/ui pieces will provide"]
+```

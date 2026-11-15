@@ -1,8 +1,10 @@
-import { Badge } from '@astryxdesign/core/Badge';
+import { Avatar } from '@astryxdesign/core/Avatar';
 import { Button } from '@astryxdesign/core/Button';
 import { EmptyState } from '@astryxdesign/core/EmptyState';
 import { Heading } from '@astryxdesign/core/Heading';
 import { HStack } from '@astryxdesign/core/HStack';
+import { Icon } from '@astryxdesign/core/Icon';
+import { IconButton } from '@astryxdesign/core/IconButton';
 import { Link } from '@astryxdesign/core/Link';
 import { SegmentedControl, SegmentedControlItem } from '@astryxdesign/core/SegmentedControl';
 import { Text } from '@astryxdesign/core/Text';
@@ -25,8 +27,19 @@ import { useFailure } from '../identity/useFailure';
 import { errorStatus } from '../identity/validation';
 import { violationName } from '../identity/violations';
 import { Applications } from './Applications';
+import './build.css';
 import { Needs } from './Needs';
-import { OwnerByline, Technologies } from './present';
+import {
+  BuildBreadcrumbs,
+  countryName,
+  DateText,
+  MetaBadge,
+  Monogram,
+  needsLabelKey,
+  PersonLink,
+  StatePill,
+  Technologies,
+} from './present';
 import { useProject, useUpdateProject, type Project, type ProjectUpdate } from './queries';
 import { checkDescription, checkTechnologies, parseTags } from './validate';
 
@@ -174,24 +187,90 @@ function EditProject({ project, onDone }: { project: Project; onDone: () => void
   );
 }
 
+const kindKey = {
+  question: 'project.kind.question',
+  resource: 'project.kind.resource',
+  project: 'project.kind.project',
+  article: 'project.kind.article',
+  series: 'project.kind.series',
+} as const satisfies Record<Project['related'][number]['type'], MessageKey>;
+
+/**
+ * Linked context (prototype `.linked-items`): each card shows its kind above the title. The title is
+ * the link and covers the card, so the link's name is the title alone.
+ */
 function Related({ links }: { links: Project['related'] }) {
   const { t } = useI18n();
   if (links.length === 0) return null;
   return (
-    <VStack gap={1}>
-      <Text type="label" color="secondary">
+    <section className="build-section" aria-labelledby="project-related-heading">
+      <Heading level={2} id="project-related-heading">
         {t('project.related')}
-      </Text>
-      <VStack as="ul" gap={1}>
-        {links.map((link) => {
-          return (
-            <li key={`${link.type}-${link.id}`}>
+      </Heading>
+      <ul className="build-linked">
+        {links.map((link) => (
+          <li key={`${link.type}-${link.id}`} className="build-linked-item">
+            <span className="build-linked-kind">{t(kindKey[link.type])}</span>
+            <span className="build-linked-title" lang={link.lang}>
               <Link href={relatedPath(link)}>{link.title}</Link>
-            </li>
-          );
-        })}
-      </VStack>
-    </VStack>
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+/** Side facts: repository link (github.com only), language, visibility and dates. */
+function About({ project }: { project: Project }) {
+  const { t } = useI18n();
+  return (
+    <section className="build-panel build-section" aria-labelledby="project-about-heading">
+      <Heading level={2} id="project-about-heading">
+        {t('project.about')}
+      </Heading>
+      {project.github_url.startsWith('https://github.com/') ? (
+        <Link href={project.github_url} isExternalLink newTabLabel={t('discover.newTab')}>
+          {t('project.github')}
+        </Link>
+      ) : null}
+      <dl className="build-facts">
+        <dt>{t('project.about.lang')}</dt>
+        <dd>{t(project.lang === 'en' ? 'build.lang.en' : 'build.lang.fr')}</dd>
+        <dt>{t('project.about.visibility')}</dt>
+        <dd>{t(project.visibility === 'private' ? 'build.private' : 'build.visibility.public')}</dd>
+        <dt>{t('project.about.updated')}</dt>
+        <dd>
+          <DateText iso={project.updated_at} />
+        </dd>
+        <dt>{t('project.about.created')}</dt>
+        <dd>
+          <DateText iso={project.created_at} />
+        </dd>
+      </dl>
+    </section>
+  );
+}
+
+function Maintainer({ owner }: { owner: Project['owner'] }) {
+  const { t, locale } = useI18n();
+  return (
+    <section className="build-panel build-section" aria-labelledby="project-maintainer-heading">
+      <Heading level={2} id="project-maintainer-heading">
+        {t('project.maintainer')}
+      </Heading>
+      <div className="build-maintainer">
+        <span aria-hidden="true">
+          <Avatar name={owner.display_name} size="md" />
+        </span>
+        <div className="build-maintainer-text">
+          <PersonLink username={owner.username} name={owner.display_name} />
+          {owner.country ? (
+            <Text type="supporting">{countryName(owner.country, locale)}</Text>
+          ) : null}
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -221,51 +300,96 @@ export function ProjectPage() {
   const project = query.data;
   const isOwner = user !== null && user.id === project.owner.id;
   const viewer = isOwner ? 'owner' : user ? 'member' : session.isPending ? 'none' : 'anonymous';
+  const done = () => {
+    setEditing(false);
+  };
 
   return (
-    <VStack gap={6}>
-      <VStack gap={3} hAlign="start">
-        <Link href="/build">{t('project.back')}</Link>
-        <HStack gap={2} vAlign="center" wrap="wrap">
-          <Heading level={1}>{project.name}</Heading>
-          {project.visibility === 'private' ? (
-            <Badge variant="neutral" label={t('build.private')} />
+    <div className="build-project">
+      <BuildBreadcrumbs
+        items={[
+          { label: t('build.crumb.home'), href: '/' },
+          { label: t('build.title'), href: '/build' },
+          { label: project.name },
+        ]}
+      />
+      <header className="build-project-head">
+        <div className="build-header-row">
+          <div className="build-project-id">
+            <Monogram name={project.name} size="lg" />
+            <div className="build-project-id-text">
+              <div lang={project.lang}>
+                <Heading level={1}>{project.name}</Heading>
+              </div>
+              <div className="build-meta">
+                <StatePill
+                  tone={project.open_needs_count > 0 ? 'open' : 'muted'}
+                  label={t(needsLabelKey(project.open_needs_count), {
+                    n: project.open_needs_count,
+                  })}
+                />
+                {project.visibility === 'private' ? <MetaBadge label={t('build.private')} /> : null}
+              </div>
+            </div>
+          </div>
+          <div className="build-project-actions">
+            {isOwner && !editing ? (
+              <IconButton
+                variant="ghost"
+                label={t('project.edit')}
+                icon={<Icon icon="wrench" />}
+                onClick={() => {
+                  setEditing(true);
+                }}
+              />
+            ) : null}
+            {viewer === 'none' ? null : (
+              <Button variant="primary" label={t('project.jump')} href="#besoins" />
+            )}
+          </div>
+        </div>
+      </header>
+      <div className="build-columns">
+        <div className="build-main">
+          <Related links={project.related} />
+          {editing ? (
+            <div className="build-panel">
+              <EditProject project={project} onDone={done} />
+            </div>
+          ) : project.description ? (
+            <section className="build-panel build-section" aria-labelledby="project-desc-heading">
+              <div className="build-title-cluster">
+                <Heading level={2} id="project-desc-heading">
+                  {t('project.description')}
+                </Heading>
+                <MetaBadge
+                  label={project.lang.toUpperCase()}
+                  title={t('project.lang.label', {
+                    lang: t(project.lang === 'en' ? 'build.lang.en' : 'build.lang.fr'),
+                  })}
+                />
+              </div>
+              <p className="build-prose" lang={project.lang}>
+                {project.description}
+              </p>
+            </section>
           ) : null}
-          {isOwner && !editing ? (
-            <Button
-              variant="ghost"
-              label={t('project.edit')}
-              onClick={() => {
-                setEditing(true);
-              }}
-            />
+          {viewer === 'none' ? null : <Needs projectId={project.id} viewer={viewer} />}
+          {isOwner ? <Applications projectId={project.id} /> : null}
+        </div>
+        <aside className="build-aside">
+          <About project={project} />
+          {project.technologies.length > 0 ? (
+            <section className="build-panel build-section" aria-labelledby="project-tech-heading">
+              <Heading level={2} id="project-tech-heading">
+                {t('project.technologies')}
+              </Heading>
+              <Technologies items={project.technologies} />
+            </section>
           ) : null}
-        </HStack>
-        {editing ? (
-          <EditProject
-            project={project}
-            onDone={() => {
-              setEditing(false);
-            }}
-          />
-        ) : (
-          <>
-            {project.description ? <Text as="p">{project.description}</Text> : null}
-            <Technologies items={project.technologies} />
-          </>
-        )}
-        <HStack gap={3} wrap="wrap" vAlign="center">
-          <OwnerByline username={project.owner.username} name={project.owner.display_name} />
-          {project.github_url.startsWith('https://github.com/') ? (
-            <Link href={project.github_url} isExternalLink newTabLabel={t('discover.newTab')}>
-              {t('project.github')}
-            </Link>
-          ) : null}
-        </HStack>
-        <Related links={project.related} />
-      </VStack>
-      {viewer === 'none' ? null : <Needs projectId={project.id} viewer={viewer} />}
-      {isOwner ? <Applications projectId={project.id} /> : null}
-    </VStack>
+          <Maintainer owner={project.owner} />
+        </aside>
+      </div>
+    </div>
   );
 }
