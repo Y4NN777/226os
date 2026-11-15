@@ -15,8 +15,8 @@ Positionnement : **Afrique de l'Ouest d'abord, puis toute l'Afrique.**
 
 | Sujet | État |
 | --- | --- |
-| Produit | P0 : identité, Apprendre, Résoudre, Découvrir, Construire et l'assistant sont livrés sur `develop`. Restent la modération, la page Connect, les données de démo locales et la livraison. Les canaux en direct sont reportés en P2. État par lot dans [TODO.md](TODO.md), plan dans [ROADMAP.md](ROADMAP.md) |
-| Web et API | Pages en ligne détaillées ci-dessous. La modération et les quatre opérations P1 répondent encore 501 |
+| Produit | P0 livré sur `develop` : identité, Apprendre, Connect, Résoudre, Découvrir, Construire, l'assistant, la modération (API) et les données de démo locales. Reste la livraison. Les canaux en direct sont reportés en P2. État par lot dans [TODO.md](TODO.md), plan dans [ROADMAP.md](ROADMAP.md) |
+| Web et API | Pages en ligne détaillées ci-dessous. Seules les quatre opérations P1 (progression des leçons, avis sur les ressources) répondent encore 501 |
 | Gates G1 à G4 | Exécutées par la CI en groupes parallèles ; `make quality` en est la définition locale |
 | Gates G5 (e2e) et G6 (performance) | NOT IMPLEMENTED |
 | Gate G7 (livraison) | NOT RUN |
@@ -33,12 +33,13 @@ La navigation a deux groupes : « Progresser » (Apprendre, Connect) et « Pilie
 | Résoudre | `/solve` (questions), `/questions/<id>` (réponses, votes, réponse acceptée) | En ligne |
 | Découvrir | `/discover` (API et outils africains, Afrique de l'Ouest par défaut), `/discover/<id>` | En ligne |
 | Construire | `/build` (projets), `/build/<id>` (besoins de contribution, candidatures) | En ligne |
-| Connect | annuaire de développeurs | « Bientôt » : l'API `GET /api/v1/profiles` est prête, la page ne l'est pas |
+| Connect | `/connect` (annuaire des développeurs ouverts à la collaboration, filtres pays, langue et compétence) | En ligne : un membre y apparaît seulement s'il coche « Visible dans l'annuaire » ; mentorat et espaces restent « Bientôt » |
 
 Autour des piliers :
 
 - `/recherche` : recherche plein texte et assistant IA qui répond seulement à partir de sources publiées et citées, sinon il refuse. Le même panneau existe dans le formulaire de question de Résoudre. L'interface prévient que la question part chez le fournisseur (Google AI Studio). L'assistant est désactivé par défaut.
 - `/profils/<username>` : profil d'un membre ; `/parametres` : nom affiché et visibilité du profil.
+- Sur une fiche Découvrir, « Signaler une erreur » transmet une correction à l'équipe ; les modérateurs masquent ou rétablissent un contenu et traitent ces signalements par l'API (voir [le runbook de modération](docs/runbooks/moderation.md)).
 - `/` : page d'accueil publique pour les visiteurs, accueil membre une fois connecté.
 - Pages de compte sans chrome : `/connexion`, `/inscription`, `/verifier-email`, `/mot-de-passe-oublie`, `/reinitialiser`, `/bienvenue`.
 
@@ -56,6 +57,7 @@ scripts/secrets.sh keygen          # une fois : crée votre clé age et affiche 
 # ajoutez cette clé publique à secrets/local-dev.recipients (voir secrets/README.md)
 scripts/secrets.sh init local-dev  # une fois : mot de passe de la base, DATABASE_URL et CURSOR_KEY générés
 make up-local-dev                  # construit les images, applique les migrations, démarre local-dev
+APP_ENV=local-dev make seed        # facultatif : données de démo, local-dev uniquement (refusé ailleurs)
 make down-local-dev                # arrête le profil (les volumes sont conservés)
 make help                          # liste les cibles ; `make -n <cible>` affiche une recette sans l'exécuter
 ```
@@ -114,6 +116,7 @@ Lisez d'abord [CONTRIBUTING.md](CONTRIBUTING.md) et la [page d'accueil de l'équ
 - Une branche `feature|fix|docs|chore/<domaine>/<nom>` part de `develop` et y revient par PR ; `main` ne reçoit que des promotions depuis `develop`, hotfix mis à part ([GIT_WORKFLOW](docs/GIT_WORKFLOW.md)).
 - La PR suit le modèle [.github/PULL_REQUEST_TEMPLATE.md](.github/PULL_REQUEST_TEMPLATE.md) et met à jour [TODO.md](TODO.md) dans le même changement.
 - Une PR vers `develop` fusionne quand la CI est verte et que la revue IA n'a plus de finding ouvert ; les simples notes ne bloquent jamais ([préférences du propriétaire](docs/team/OWNER_PREFERENCES.md)). Le périmètre, le contrat d'API, les migrations, les ADR, les exceptions de sécurité et les secrets restent des décisions du propriétaire.
+- La revue est automatisée ([REVIEW_CONTEXT](docs/quality/REVIEW_CONTEXT.md), [ADR-0013](docs/decisions/0013-default-branch-develop.md)) : une revue IA à chaque push, une revue approfondie sur les chemins sensibles, une correction automatique des findings (hors CRITICAL, qui reviennent au propriétaire), une fusion automatique des PR propres, et toutes les deux heures un lot qui corrige ou tranche les notes ouvertes en une seule PR. Les PR qui touchent la chaîne de revue ou un chemin sensible attendent le clic du propriétaire.
 - Chaque contribution est signée par la personne qui en répond. Aucun agent IA n'apparaît comme auteur ni en `Co-authored-by`. L'aide d'une IA se déclare dans un fichier de [docs/ai-usage/](docs/ai-usage/README.md), repris dans [AI_USAGE.md](AI_USAGE.md).
 
 ## Documentation
