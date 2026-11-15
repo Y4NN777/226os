@@ -98,6 +98,9 @@ LIMIT sqlc.arg('row_limit');
 -- `q <% title`) so the partial trigram GIN index of migration 00010 on f_unaccent(title|name) serves it.
 -- Same predicates and filters as the full-text query of the group; at most 500 candidates are ranked by
 -- word_similarity DESC, then id. Like full text, a query with no positive term (only negations) reads none.
+-- A query that negates anything reads none either (#292): pg_trgm ignores "-", so a fallback would return the
+-- titles the caller excluded. PostgreSQL's own parse decides what a negation is: a NOT ('!') in the tsquery text
+-- (a lexeme of the simple parser never holds '!').
 
 -- name: SimilarQuestions :many
 WITH i AS NOT MATERIALIZED (SELECT f_unaccent(sqlc.arg('q')::text) AS q,
@@ -106,7 +109,7 @@ candidates AS (
   SELECT q.id, q.title, q.body_md AS excerpt_src, q.language, q.published_at, f_unaccent(q.title) AS key
   FROM questions q
   CROSS JOIN i
-  WHERE querytree(i.tsq) NOT IN ('', 'T')
+  WHERE querytree(i.tsq) NOT IN ('', 'T') AND strpos(i.tsq::text, '!') = 0
     AND q.status = 'published'
     AND f_unaccent(q.title) %> i.q
     AND (sqlc.narg('country')::text IS NULL OR q.country_code = sqlc.narg('country'))
@@ -126,7 +129,7 @@ candidates AS (
   FROM resources r
   JOIN providers p ON p.id = r.provider_id AND p.status = 'published' AND p.removed_at IS NULL
   CROSS JOIN i
-  WHERE querytree(i.tsq) NOT IN ('', 'T')
+  WHERE querytree(i.tsq) NOT IN ('', 'T') AND strpos(i.tsq::text, '!') = 0
     AND r.status = 'published'
     AND f_unaccent(r.name) %> i.q
     AND (sqlc.narg('country')::text IS NULL OR EXISTS (
@@ -147,7 +150,7 @@ candidates AS (
   SELECT p.id, p.name AS title, p.summary AS excerpt_src, p.language, p.published_at, f_unaccent(p.name) AS key
   FROM projects p
   CROSS JOIN i
-  WHERE querytree(i.tsq) NOT IN ('', 'T')
+  WHERE querytree(i.tsq) NOT IN ('', 'T') AND strpos(i.tsq::text, '!') = 0
     AND p.status = 'published' AND p.visibility = 'public'
     AND f_unaccent(p.name) %> i.q
     AND (sqlc.narg('country')::text IS NULL OR p.country_code = sqlc.narg('country'))
@@ -166,7 +169,7 @@ candidates AS (
   SELECT a.id, a.title, COALESCE(NULLIF(a.summary, ''), a.body_md) AS excerpt_src, a.language, a.published_at, f_unaccent(a.title) AS key
   FROM learn_articles a
   CROSS JOIN i
-  WHERE querytree(i.tsq) NOT IN ('', 'T')
+  WHERE querytree(i.tsq) NOT IN ('', 'T') AND strpos(i.tsq::text, '!') = 0
     AND a.status = 'published'
     AND f_unaccent(a.title) %> i.q
     AND (sqlc.narg('lang')::text IS NULL OR a.language = sqlc.narg('lang'))

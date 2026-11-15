@@ -15,6 +15,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/netip"
 	"strings"
@@ -66,7 +67,8 @@ type Store interface {
 	TouchSession(ctx context.Context, id string, lastSeenAt, idleExpiresAt time.Time) error
 
 	// CreateEmailVerification stores a new code and burns every earlier open code of the account in one
-	// atomic write, so only the latest mail can verify it.
+	// atomic write. Two resends at the same instant can both leave their code open (#291, bounded by the
+	// account limit, both mailed to the account's own address).
 	CreateEmailVerification(ctx context.Context, userID, email string, hash [32]byte, expiresAt time.Time) error
 	VerifyEmail(ctx context.Context, hash [32]byte, now time.Time) error
 
@@ -658,7 +660,11 @@ func (s *Service) ResendEmailVerification(ctx context.Context, email, ip string)
 			slog.WarnContext(c, "identity verification resend token write failed", slog.String("error", err.Error()))
 			return
 		}
-		_ = s.mail.Send(c, msg)
+		// The earlier codes are already burned, so a lost mail is worth a warning (#291). The type only: a mailer
+		// error can carry the address.
+		if err := s.mail.Send(c, msg); err != nil {
+			slog.WarnContext(c, "identity verification resend mail failed", slog.String("error_type", fmt.Sprintf("%T", err)))
+		}
 	})
 	return nil
 }
