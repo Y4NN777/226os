@@ -1,0 +1,16 @@
+## Learn pages match their HTML prototypes (fidelity pass)
+
+```yaml
+date: "2026-11-15"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code, Claude Opus 5.5 (web-implementer subagent of the lead session)"
+purpose: "The owner asked that every page match its HTML prototype visually. The AI rebuilt the layout of apprendre, article, formation and ecrire from prototypes/html/pages/{apprendre,article,formation,ecrire}.html on Astryx components and theme tokens, with contract fields only: featured course with its lessons, dense rows with type badge and icon, author, level, language code and date, topic questions as rows, an invitation for members; article pills, byline with avatar, country and date, Markdown body with copyable code and an outline; course hero with facts and numbered lessons; ecrire breadcrumb, form card, tips and footer. RED tests first, then the markup. Learn-local icons, row pieces and learn.css, to be swapped for the shared ones by the lead."
+repository_or_source_context: "branch feature/web/fidelity-learn; S7 web pages; owner fidelity brief of 2026-11-15"
+files_or_sections_affected: ["src/web/src/features/learn/LearnPage.tsx", "src/web/src/features/learn/ArticlePage.tsx", "src/web/src/features/learn/SeriesPage.tsx", "src/web/src/features/learn/WritePage.tsx", "src/web/src/features/learn/ArticleForm.tsx", "src/web/src/features/learn/present.tsx", "src/web/src/features/learn/icons.tsx", "src/web/src/features/learn/learn.css", "src/web/src/features/learn/messages.ts", "src/web/src/features/learn/*.test.tsx", "TODO.md", "docs/ai-usage/2026-11-15-fidelity-learn.md"]
+third_party_sources_consulted: ["@astryxdesign/core installed docs and sources (Badge, Avatar, Icon, Link, Button, Markdown, Outline, CodeBlock, VisuallyHidden), read from node_modules", "icon paths from the project's own prototypes/html/assets/css/icons.css"]
+license_review: "NOT APPLICABLE: original code, no new dependency"
+closure: "open"
+human_reviewers: ["pending PR review"]
+tests_or_evidence: ["RED then GREEN per page: new tests failed on the old pages, pass on the new ones", "changed tests: apprendre rows show the author name without « Par » and no tags (prototype row), « Leçons : 2 » became « 2 leçons »", "captures prototype vs app at 1280 and 375 px in the session scratchpad"]
+open_risks: ["the current shell paints the content area with the surface colour, so the surface cards and lists read flat until the new shell puts the page on the body colour", "progress ticks left out although the contract has Lesson.my_progress and a progress endpoint (a write flow, out of a visual pass)", "type, level and language filters left out (contract-backed, new behaviour)", "no real screen reader run"]
+```
