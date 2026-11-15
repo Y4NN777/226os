@@ -1702,6 +1702,23 @@ tests_or_evidence: ["Order: the fixes were written first, the tests after; the t
 open_risks: ["the search button, the landing field width, the primary sign-in prompt and the article width have no automated test (layout only, checked on screenshots)", "the open drawer's content is not asserted in jsdom (no modal dialog there); it was checked in the browser", "checked on the Vite dev server, not on the built image behind nginx and Traefik; English pages not re-captured after the fixes"]
 ```
 
+## Accessibility pass fixes (#109 §6)
+
+```yaml
+date: "2026-11-15"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code, Claude Sonnet 5.5 (web-implementer subagent of the lead session)"
+purpose: "The owner asked to fix the three defects found by the manual keyboard and accessibility-tree pass for issue #109 §6. The AI wrote RED tests first, then the fixes: useHashToken follows hashchange so a mail link opened in a tab already on the page verifies the token (VerifyEmailPage, once per token) or pre-fills the code (ResetPasswordPage); the language items of the account menu and the anonymous options menu are menuitemradio with the current language checked (Astryx DropdownMenuRadioGroup); the mobile navigation drawer is an Astryx MobileNav with aria-modal true. It also added two TODO.md lines (S5 updateProject without If-Match, S7 summary of the pass)."
+repository_or_source_context: "branch fix/web/a11y-pass-109; S7 web pages; issue #109"
+files_or_sections_affected: ["src/web/src/features/identity/useHashToken.ts", "src/web/src/features/identity/VerifyEmailPage.tsx", "src/web/src/features/identity/ResetPasswordPage.tsx", "src/web/src/features/identity/VerifyEmailPage.test.tsx", "src/web/src/features/identity/ResetPasswordPage.test.tsx", "src/web/src/app/Shell.tsx", "src/web/src/app/Shell.test.tsx", "TODO.md", "docs/ai-usage/2026-11-15-a11y-pass-109.md"]
+third_party_sources_consulted: ["@astryxdesign/core installed type declarations and sources (DropdownMenu radio group and item, MobileNav, SideNav render context, AppShell mobileNav config), read from node_modules"]
+license_review: "NOT APPLICABLE: original code, no new dependency"
+closure: "open"
+human_reviewers: ["pending PR review"]
+tests_or_evidence: ["Order: RED tests first (failing for the missing behaviour), then the fixes", "new tests: verify and reset pages react to a fragment set in a tab already open; language menuitemradio checked in both menus; drawer dialog Navigation has aria-modal true", "changed test: the English language item is now a menuitemradio", "pnpm --filter web typecheck, lint, format:check and test all exit 0 (510 tests)"]
+open_risks: ["the drawer was not re-checked in a real browser: jsdom has no showModal, so the test stands one in; focus trap and Escape rely on Astryx MobileNav, unchanged", "the drawer is now built from our own MobileNav content instead of the AppShell auto drawer; its links reuse the SideNav drawer-content mode", "no real screen reader run"]
+```
+
 ## Docs refresh, shorter README, demo seeds on staging-test
 
 ```yaml
@@ -1717,6 +1734,23 @@ closure: "open"
 human_reviewers: ["pending PR review"]
 tests_or_evidence: ["scripts/tests/seed_test.sh: RED 15/18 before the mk change, GREEN 18/18 after", "go test identity, app, dbgen: PASS; 100.0% statements on the touched packages (agent run); make lint-go PASS; sqlc vet PASS; sqlc regenerate shows no drift", "TestDirectoryHidesDemoAccountsByDefault on real PostgreSQL: FAIL with the filter removed (demo-person listed), PASS with it; go test -race -tags integration -run TestDirectory PASS"]
 open_risks: ["full make test-integration not run by hand (memory tight); the commit gate runs the configured checks", "seeding staging-test aborts the whole batch if a seeded tag or username already exists there (db/seeds/README.md section 12)", "C12 is left for the owner"]
+```
+
+## GitHub error detail and one retry in the review scripts
+
+```yaml
+date: "2026-11-15"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code, Claude Sonnet 5.5 (ci-implementer subagent)"
+purpose: "Batch run 43673158317 failed in the publish step with only `FAILED (gh failed)`: no status, no message, a transient error that a rerun cleared. A failed gh call now reports the method, the endpoint without query string, the exit code and the first line of stderr (200 characters at most, secret shapes redacted, no request body), and is retried once after a short delay when that is safe (any GET except a 4xx; a write only after a 5xx, a secondary rate limit, a network error, or a 429 with Retry-After of 10 s at most)."
+repository_or_source_context: "branch fix/review/gh-error-detail; owner-approved pipeline improvement"
+files_or_sections_affected: ["scripts/review-context.py", "scripts/findings.py", "scripts/tests/review-batch-nothing_test.sh", "TODO.md", "docs/ai-usage/2026-11-15-gh-error-detail.md"]
+third_party_sources_consulted: []
+license_review: "NOT APPLICABLE: original code, no new dependency"
+closure: "open"
+human_reviewers: ["pending PR review"]
+tests_or_evidence: ["RED first: six new cases in review-batch-nothing_test.sh failed before the change (502 once, GET once, 502 twice, 403, secret in stderr, GET 404)", "GREEN: review-batch-nothing_test.sh, findings-settle_test.sh, findings_test.sh, findings-batch_test.sh, review-autofix_test.sh, review-context_test.sh"]
+open_risks: ["not run against the real GitHub API: the exact stderr wording of gh for 5xx and rate limits is matched on `HTTP <status>` and a few phrases", "a write retried after a 5xx may already have gone through: the comment writes stay idempotent by marker on the next run, but a retry inside one run can duplicate a comment"]
 ```
 
 <!-- ai-usage:generated:end -->

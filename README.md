@@ -18,6 +18,7 @@ Positionnement : **Afrique de l'Ouest d'abord, puis toute l'Afrique.**
 - **Construire** : publiez votre projet open source depuis son dépôt GitHub, dites de quelle aide vous avez besoin et recevez des candidatures.
 - **Connect** : trouvez des développeurs par pays, langue et compétence ; chacun choisit ce que son profil montre.
 - **Recherche** : une seule recherche plein texte couvre les questions, les ressources, les projets et Apprendre.
+- **Modération** : « Signaler une erreur » sur une fiche Découvrir ; les modérateurs masquent ou rétablissent un contenu et traitent les signalements par l'API ([runbook](docs/runbooks/moderation.md)).
 - **Assistant sourcé** : il répond uniquement à partir des contenus publiés et cite ses sources ; sans source, il le dit. Désactivé par défaut.
 
 ## Ce qui distingue 226os
@@ -64,7 +65,7 @@ Un monolithe Go modulaire (Chi, pgx, sqlc) expose une API REST décrite en OpenA
 
 ## Contribuer
 
-Lisez [CONTRIBUTING.md](CONTRIBUTING.md) et le [workflow Git](docs/GIT_WORKFLOW.md) avant votre première branche ; la page d'accueil de l'équipe est [KICKOFF.md](docs/team/KICKOFF.md).
+Lisez [CONTRIBUTING.md](CONTRIBUTING.md) et le [workflow Git](docs/GIT_WORKFLOW.md) avant votre première branche ; la page d'accueil de l'équipe est [KICKOFF.md](docs/team/KICKOFF.md). La revue est automatisée : une revue IA à chaque push, une correction automatique des findings et une fusion automatique des PR propres ; le propriétaire intervient sur un CRITICAL, un chemin sensible ou la chaîne de revue ([ADR-0014](docs/decisions/0014-ai-review-merges-develop.md)).
 
 ## Licence et originalité
 

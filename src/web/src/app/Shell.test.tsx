@@ -26,13 +26,25 @@ describe('Shell', () => {
         dispatchEvent: vi.fn(),
       })),
     );
+    // jsdom has no <dialog>.showModal(); a stand-in lets the drawer open so its tree can be read.
+    HTMLDialogElement.prototype.showModal = function showModal(this: HTMLDialogElement) {
+      this.setAttribute('open', '');
+    };
+    HTMLDialogElement.prototype.close = function close(this: HTMLDialogElement) {
+      this.removeAttribute('open');
+    };
     await renderApp('/');
     const toggle = await screen.findByRole('button', { name: 'Ouvrir la navigation' });
     // Closed: the pillar links are not laid out in the page under the content.
     expect(screen.queryByRole('link', { name: 'Résoudre' })).not.toBeInTheDocument();
     await userEvent.click(toggle);
-    // jsdom has no modal dialog, so the open drawer's content is checked in the browser, not here.
     expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    // The drawer is a modal dialog in the accessibility tree, not only a native top-layer one.
+    const drawer = screen.getByRole('dialog', { name: 'Navigation', hidden: true });
+    expect(drawer).toHaveAttribute('aria-modal', 'true');
+    expect(
+      within(drawer).getByRole('link', { name: 'Résoudre', hidden: true }),
+    ).toBeInTheDocument();
   });
 
   it('offers sign-in and sign-up to an anonymous visitor', async () => {
@@ -154,11 +166,41 @@ describe('Shell', () => {
       .click(await screen.findByRole('button', { name: 'Plus d’options' }));
     await userEvent
       .setup({ delay: null })
-      .click(await screen.findByRole('menuitem', { name: 'English' }));
+      .click(await screen.findByRole('menuitemradio', { name: 'English' }));
     await waitFor(() => {
       expect(screen.getByRole('link', { name: 'Sign in' })).toBeInTheDocument();
     });
     expect(screen.getByRole('navigation', { name: 'Main navigation' })).toBeInTheDocument();
+  });
+
+  it('exposes the current language as a checked radio in the anonymous menu', async () => {
+    setLanguages(['fr-FR']);
+    mockApi();
+    await renderApp('/');
+    await userEvent
+      .setup({ delay: null })
+      .click(await screen.findByRole('button', { name: 'Plus d’options' }));
+    expect(
+      await screen.findByRole('menuitemradio', { name: 'Français', checked: true }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('menuitemradio', { name: 'English', checked: false }),
+    ).toBeInTheDocument();
+  });
+
+  it('exposes the current language as a checked radio in the account menu', async () => {
+    setLanguages(['en-US']);
+    mockApi({ 'GET /auth/session': () => jsonResponse(memberSession) });
+    await renderApp('/');
+    await userEvent
+      .setup({ delay: null })
+      .click(await screen.findByRole('button', { name: /Awa Traoré/ }));
+    expect(
+      await screen.findByRole('menuitemradio', { name: 'English', checked: true }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('menuitemradio', { name: 'Français', checked: false }),
+    ).toBeInTheDocument();
   });
 
   it('still offers sign-in when the session cannot be read', async () => {
