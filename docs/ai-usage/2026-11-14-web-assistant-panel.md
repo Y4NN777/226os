@@ -9,8 +9,8 @@ repository_or_source_context: "branch feature/intelligence/web-assistant-panel; 
 files_or_sections_affected: ["src/web/src/features/search/**", "TODO.md"]
 third_party_sources_consulted: []
 license_review: "NOT APPLICABLE: original code, no new dependency"
-closure: "open"
-human_reviewers: ["PANK4SS (S7 reviewer, pending)"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-15; merged in #169)"]
 tests_or_evidence: ["RED: 10 AssistantPanel tests failed against the demo panel", "GREEN: pnpm lint, format:check, typecheck, coverage exit 0 (338 tests; 96.76/90.2/96.77/97.77)"]
 open_risks: ["the solve ask-flow panel is not built", "the real provider stays NOT RUN (V2, V4); the assistant is off until AI_ENABLED is set"]
 ```

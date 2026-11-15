@@ -9,8 +9,8 @@ repository_or_source_context: "branch fix/review/batch-2026-11-14; issues #157, 
 files_or_sections_affected: ["db/queries/solve.sql", "db/queries/discover.sql", "src/api/internal/platform/dbgen/solve.sql.go (generated)", "src/api/internal/platform/dbgen/discover.sql.go (generated)", "src/api/internal/platform/pgtest/solve_integration_test.go", "src/api/internal/platform/pgtest/catalogue_read_integration_test.go", "TODO.md"]
 third_party_sources_consulted: []
 license_review: "NOT APPLICABLE: original change, no new dependency"
-closure: "open"
-human_reviewers: ["pending PR review"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-15; merged in #163)"]
 tests_or_evidence: ["RED: TestSolveEditKeepsALinkToAHiddenTag failed on the old query (tags after the restore [go], want [go tag-cache])", "RED: TestCatalogueRelatedShowsPublicProjectsOnly failed on the old query (private project shown on the public resource)", "GREEN: both pass with -race -tags integration after the query changes"]
 open_risks: ["the other batch items are decisions or owner questions, not code changes; humans tick or close each source"]
 ```

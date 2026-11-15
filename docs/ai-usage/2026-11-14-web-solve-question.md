@@ -9,8 +9,8 @@ repository_or_source_context: "branch feature/solve/web-solve-question; TODO S7 
 files_or_sections_affected: ["src/web/src/features/solve/**", "src/web/src/app/router.tsx", "src/web/src/app/navigation.ts", "src/web/src/app/Shell.test.tsx", "src/web/src/i18n/messages.ts", "src/web/vite.config.ts", "TODO.md"]
 third_party_sources_consulted: []
 license_review: "NOT APPLICABLE: original code, no new dependency"
-closure: "open"
-human_reviewers: ["PANK4SS (S7 reviewer, pending)"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-15; merged in #149)"]
 tests_or_evidence: ["RED: 30 failing tests before the routes existed", "GREEN: pnpm lint, format:check, typecheck, coverage exit 0 (301 tests; 97.17/90.92/96.95/98.07)"]
 open_risks: ["the home feed's question items are demo fixtures and do not link to the question page yet", "the edit form covers title, body and tags only"]
 ```

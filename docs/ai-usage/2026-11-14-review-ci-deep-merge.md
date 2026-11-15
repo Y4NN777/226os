@@ -9,8 +9,8 @@ repository_or_source_context: "branch chore/review/ci-deep-review-merge, stacked
 files_or_sections_affected: ["scripts/review-comment.py", "scripts/review-gate.py", "scripts/review-automerge.py", ".github/pipeline-paths.txt", "scripts/review-strip-pr.sh", "scripts/review-context.py", ".claude/commands/delegate-review.md", "scripts/tests/review-strip-pr_test.sh", "scripts/tests/review-comment_test.sh", "scripts/tests/review-gate_test.sh", "scripts/tests/review-automerge_test.sh", ".github/workflows/code-review.yml", ".github/workflows/review-automerge.yml", ".github/deep-review-paths.txt", ".claude/commands/deep-review.md", "docs/quality/REVIEW_CONTEXT.md", "TODO.md"]
 third_party_sources_consulted: []
 license_review: "NOT APPLICABLE: original code, no new dependency"
-closure: "open"
-human_reviewers: ["Y4NN777 (owner, pending)"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-15; merged in #168)"]
 tests_or_evidence: ["RED: review-comment 16 of 28 fail, review-gate 1 of 49, review-automerge 34 of 38 (no script)", "GREEN: review-comment 30, review-gate 50, review-automerge 44 passed (after merging the PR 159 hardening)", "PR 168 review (4 MEDIUM): RED review-comment 4 of 39, review-automerge 12 of 50, review-strip-pr 1 of 4 failed; GREEN 39, 50 and 4 passed", "PR 168 second review (2 MEDIUM): RED review-comment 3 of 41, review-automerge 13 of 53; GREEN 41 and 53 passed", "one comment per run (owner decision): RED review-comment 11 of 46, review-context 1 of 73, review-gate 1 of 51; GREEN 46, 73, 51, review-automerge 54"]
 open_risks: ["auto-merge runs from main (workflow_run uses the default branch): NOT RUN end to end before the promotion", "the deep job and the NOT RUN fallback run only once their scripts are on develop (they are read from the base commit)", "a CRITICAL replaced by a later NOT RUN no longer fails the gate (the gate fails open on NOT RUN); auto-merge still refuses", "update-branch after each merge costs one CI run and one review per open pull request"]
 ```

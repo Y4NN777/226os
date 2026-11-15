@@ -9,8 +9,8 @@ repository_or_source_context: "branch fix/review/ledger-head-sha; runs 435782793
 files_or_sections_affected: ["scripts/review-context.py", "scripts/review-comment.py", "scripts/review-gate.py", "scripts/tests/review-context_test.sh", "scripts/tests/review-comment_test.sh", "scripts/tests/review-gate_test.sh", ".github/workflows/code-review.yml", ".github/sensitive-paths.txt", ".claude/commands/delegate-review.md", "docs/quality/REVIEW_CONTEXT.md", "TODO.md"]
 third_party_sources_consulted: []
 license_review: "NOT APPLICABLE: original code, no new dependency"
-closure: "open"
-human_reviewers: ["Y4NN777 (owner, pending)"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-15; merged in #159)"]
 tests_or_evidence: ["RED: 13 of 59 tests fail against the previous script", "GREEN: bash scripts/tests/review-context_test.sh exit 0 (59 passed)", "RED then GREEN: review-context 8 new failures, review-gate 3, review-comment (no script); GREEN 68, 48 and 13 passed", "PR 159 review fixes: RED 4 (context), 3 (comment), 1 (gate); GREEN 72, 16, 49"]
 open_risks: ["each open pull request gets one more full review, since its old ledger points at a vanished merge commit", "this pull request's own review run uses develop's scripts, so it posts no comment (no review-comment.py on the base yet)", "structured output and the CI preview are NOT RUN in CI until merged"]
 ```

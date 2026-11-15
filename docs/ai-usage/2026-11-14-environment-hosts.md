@@ -9,8 +9,8 @@ repository_or_source_context: "branch chore/ops/environment-hosts; issue #109 se
 files_or_sections_affected: ["secrets/staging-test.enc.env (encrypted)", "secrets/production-live.enc.env (encrypted, new)", "TODO.md", ".claude/settings.json (deny list: reading the encrypted secrets/*.enc.env is allowed, ciphertext and SOPS metadata only, so the session can check names and recipients; the age key directory **/sops/age/** and /dev/shm/** are denied; every Edit deny on secrets stays)"]
 third_party_sources_consulted: []
 license_review: "NOT APPLICABLE: configuration, no dependency"
-closure: "open"
-human_reviewers: ["Y4NN777 (owner, secrets)"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (owner, secrets)", "Y4NN777 (owner closure, 2026-11-15; merged in #180)"]
 tests_or_evidence: ["scripts/secrets.sh check: check-secrets-encrypted PASS", "make security-secrets: no leaks found (working tree and history of HEAD)", "no secret value was displayed: sops set and init print nothing but a 'Created' line"]
 open_risks: ["226os.tech and staging.226os.tech have no DNS A record yet", "AI_API_KEY stays empty until the owner fills it; ACME_EMAIL (both files) and production SMTP were set by the owner with hidden input, never seen by the session", "production secrets are encrypted to the current recipients only: add the host age key, rotate, and regenerate POSTGRES_PASSWORD and CURSOR_KEY before deploying"]
 ```

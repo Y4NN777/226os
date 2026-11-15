@@ -9,8 +9,8 @@ repository_or_source_context: "branch feature/platform/web-home-settings; lane b
 files_or_sections_affected: ["src/web/src/features/{landing,home,settings}/**", "src/web/src/app/**", "src/web/src/i18n/**", "TODO.md", "AI_USAGE.md"]
 third_party_sources_consulted: ["installed @astryxdesign/cli 0.7.14 component docs"]
 license_review: "NOT APPLICABLE: original code and text, no new dependency"
-closure: "open"
-human_reviewers: ["PANK4SS (pending)"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-15; merged in #102)"]
 tests_or_evidence: ["RED then GREEN (ProfileVisibility.test.tsx, LandingPage.test.tsx, HomePage.test.tsx, translate.test.ts key-collision check)", "Real-browser journeys on make up-local-dev with Mailpit: sign-up, verify, sign-in, sign-out, wrong password, reset, sign-in with the new password; axe on 13 pages; no horizontal scroll at 360/768/1024/1440 and 200% zoom (56/56)"]
 open_risks: ["Demo examples on the member home stay until listLearnArticles, listQuestions and listProjects are live.", "The local display-name field on parametres is a prototype leftover kept for now (owner decision)."]
 ```

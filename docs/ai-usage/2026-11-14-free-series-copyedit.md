@@ -9,8 +9,8 @@ repository_or_source_context: "issue #125; branch docs/learn/free-series-copyedi
 files_or_sections_affected: ["scripts/content/free-series.sql", "TODO.md"]
 third_party_sources_consulted: []
 license_review: "NOT APPLICABLE: edits to original team text, no new content or dependency"
-closure: "open"
-human_reviewers: ["pending PR review", "owner approval of the final text still open on #125"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["owner approval of the final text still open on #125", "Y4NN777 (owner closure, 2026-11-15; merged in #204)"]
 tests_or_evidence: ["bash scripts/tests/free-series_test.sh: 13 passed, 0 failed", "read-through of all four lessons; edits confined to lesson 1"]
 open_risks: ["text remains AI-drafted under mibienpanjoe's direction with this copy-edit; PANK4SS's read pass and the owner's final approval are still open on #125"]
 ```
