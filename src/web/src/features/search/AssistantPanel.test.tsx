@@ -67,7 +67,7 @@ describe('AssistantPanel', () => {
     await renderApp('/recherche?q=momo');
     const inPanel = await panel();
     expect(await inPanel.findByText(/envoyée à Google \(AI Studio\)/)).toBeInTheDocument();
-    expect(inPanel.getByText(/avec des contenus publics uniquement/)).toBeInTheDocument();
+    expect(inPanel.getByText(/avec des contenus publics, rien d’autre/)).toBeInTheDocument();
     expect(callsTo(fetchMock, 'POST /assistant/answers')).toHaveLength(0);
   });
 

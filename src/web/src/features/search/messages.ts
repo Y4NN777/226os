@@ -20,7 +20,7 @@ export const fr = {
   'search.assistant.title': 'Assistant',
   'search.assistant.ai': 'IA',
   'search.assistant.notice':
-    'Votre question est envoyée à Google (AI Studio) pour générer la réponse, avec des contenus publics uniquement.',
+    'Votre question est envoyée à Google (AI Studio) avec des contenus publics, rien d’autre.',
   'search.assistant.field': 'Votre question (facultatif)',
   'search.assistant.hint': 'Sans question, l’assistant utilise «\u00A0{q}\u00A0».',
   'search.assistant.ask': 'Demander à l’assistant',
@@ -61,7 +61,7 @@ export const en: Record<keyof typeof fr, string> = {
   'search.assistant.title': 'Assistant',
   'search.assistant.ai': 'AI',
   'search.assistant.notice':
-    'Your question is sent to Google (AI Studio) to generate the answer, with public content only.',
+    'Your question is sent to Google (AI Studio) with public content, nothing else.',
   'search.assistant.field': 'Your question (optional)',
   'search.assistant.hint': 'If empty, the assistant uses “{q}”.',
   'search.assistant.ask': 'Ask the assistant',
