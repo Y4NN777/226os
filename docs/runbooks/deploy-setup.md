@@ -120,6 +120,8 @@ Décision du propriétaire du 2026-11-15. Quand la production ne peut pas attend
 
 Ensuite, le prochain push sur `main` exige toujours des empreintes `tested-<arbre>` : le correctif repasse par `develop` et staging.
 
+File d'attente : GitHub ne garde qu'une exécution en attente par groupe de concurrence. Une exécution d'urgence qui attend derrière un déploiement en cours peut donc être remplacée par un push sur `main` arrivé après elle ; elle apparaît alors « cancelled ». Relancez-la dans ce cas. Les étapes de déploiement sont partagées dans `.github/workflows/deploy-production.yml` (`workflow_call`, environnement `production`).
+
 ## 8. Sauvegardes
 
 Avant chaque migration, `/opt/226os/backups` reçoit un dump chiffré avec age (`<profil>-<date>.dump.age`, pour les clés de `secrets/<profil>.recipients`) et son fichier de preuve ; le dump en clair est supprimé. Les dix derniers sont gardés. **Étape du détenteur de chaque serveur : aucune copie hors du serveur n'existe.** Copiez régulièrement ce dossier ailleurs (par exemple `rsync` depuis votre machine) : un disque perdu perd les sauvegardes avec la base. Déchiffrement : `age -d -i <votre clé age> fichier.dump.age > fichier.dump`, puis `scripts/restore-check.sh`.
