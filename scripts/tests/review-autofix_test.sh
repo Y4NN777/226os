@@ -334,12 +334,99 @@ ledger "f1:finding:MEDIUM:open"
 status '{"attempts":'"$(many 7)"'}'
 run pr
 python3 -I -c 'import json,sys; sys.exit(0 if json.loads(sys.argv[1])["stopped"] else 1)' "$(state_of)" && ok "a stop whose label is written saves the marker (so a human removal is a reset)" || ko "no marker after a real stop ($(state_of))"
+# #324 review (relabel-clears-marker): the label already there with a valid marker is not written again, and a failed label
+# write never wipes the marker of a label that is present (else the owner's next removal is not a reset).
+marker_is() { python3 -I -c 'import json,sys; sys.exit(0 if json.loads(sys.argv[1])["stopped"].get("cause") == sys.argv[2] else 1)' "$(state_of)" "$1"; }
+ledger "f1:finding:MEDIUM:open"
+status '{"attempts":'"$(many 7)"',"stopped":{"cause":"7 runs earlier","runs":7}}'
+pr "autofix-stopped"
+run pr
+grep -qx 'run=false' <<<"$outputs" && ! grep -q 'labels\[\]=autofix-stopped' "$tmp/st/log" && marker_is "7 runs earlier" && ok "label already set with a valid marker: the label is not written again and the marker is kept" || ko "relabel ($out / $(cat "$tmp/st/log") / $(state_of))"
+run pr FAKE_GH_FAIL_LABEL=1
+grep -qx 'run=false' <<<"$outputs" && marker_is "7 runs earlier" && ok "label already set: a failing label endpoint never wipes the marker" || ko "relabel failure wipes the marker ($out / $(state_of))"
+pr ""
 # A state too large to keep still sets autofix-stopped (the owner is told) and the status says NOT RUN.
 big="$(python3 -I -c 'import json; print(json.dumps({"attempts": {"x%d" % i: {"%040x" % i: "1"} for i in range(900)}}))')"
 ledger "f1:finding:MEDIUM:open"
 status "$big"
 run pr
 grep -qx 'run=false' <<<"$outputs" && grep -q 'labels\[\]=autofix-stopped' "$tmp/st/log" && grep -qi 'too large' <<<"$out" && ok "a state too large: the fixer is stopped and the label autofix-stopped is set" || ko "too large ($out / $(cat "$tmp/st/log" | cut -c1-200))"
+# #324 review (too-large-no-reset): a state too large is saved COMPACTED (owner routes, the stop marker, the attempts of the
+# ledger's findings and the aborts of this head; the history the caps no longer need is dropped), with the label, so a human
+# removal is a reset like any other stop.
+hist="$(python3 -I - "$OLD" <<'EOT'
+import json, sys
+st = {"attempts": {"f1": {sys.argv[1]: "11"}}, "routes": {"f2": {"code": "outside-allowlist", "why": "scripts/review-gate.py is outside the fixer's allowed paths"}},
+      "aborted": {"f1": {"%040x" % (0xd00000 + i): ["%d" % (100 + i), "%d" % (2000 + i)] for i in range(500)}},
+      "pending": {"gx": {"%040x" % 0xe00001: "301"}}}
+st["attempts"].update({"gone%d" % i: {"%040x" % (0xf00000 + i): "%d" % (400 + i)} for i in range(200)})
+print(json.dumps(st))
+EOT
+)"
+compact_ok() { python3 -I - "$tmp/st/body-last" "$OLD" "${1:-too large}" <<'EOT'
+import json, re, sys
+body = open(sys.argv[1]).read()
+raw = re.search(r"<!-- autofix-state (\{.*?\}) -->", body, re.S).group(1)
+st = json.loads(raw)
+assert len(raw) <= 30000, len(raw)
+assert st["stopped"] and sys.argv[3] in st["stopped"]["cause"], st["stopped"]
+assert st["routes"]["f2"]["code"] == "outside-allowlist", st["routes"]
+assert st["attempts"] == {"f1": {sys.argv[2]: "11"}}, st["attempts"]
+assert st["aborted"] == {} and st["pending"] == {}, (st["aborted"], st["pending"])
+assert "Fixer: STOPPED" in body
+EOT
+}
+ledger "f1:finding:MEDIUM:open f2:finding:MEDIUM:open:scripts/review-gate.py"
+status "$hist"
+run pr
+if grep -qx 'run=false' <<<"$outputs" && grep -q 'labels\[\]=autofix-stopped' "$tmp/st/log" && [ -f "$tmp/st/body-last" ] && compact_ok; then ok "a state too large: label set and a COMPACT state saved with the stop marker (routes and the caps' attempts kept)"; else ko "too large compact ($out / $(cut -c1-300 "$tmp/st/body-last" 2>/dev/null))"; fi
+compacted="$(state_of 2>/dev/null || true)"
+status "$compacted"
+pr ""
+run pr
+grep -qx 'run=true' <<<"$outputs" && grep -qx 'findings=f1' <<<"$outputs" && grep -qx 'attempt=2' <<<"$outputs" && ok "...the human removes the label: a reset, the fixer runs again and f1 keeps its first attempt (attempt 2)" || ko "reset after compact ($out / $outputs)"
+# The compacted state drops run ids: never saved without the label (the next run would read fewer runs: free runs).
+status "$hist"
+run pr FAKE_GH_FAIL_LABEL=1
+grep -qx 'run=false' <<<"$outputs" && [ ! -f "$tmp/st/body-last" ] && ! grep -q 'comments' "$tmp/st/log" && ok "a state too large whose label write fails: the compacted state is NOT saved (the old comment stays)" || ko "compact without label ($out / $(cat "$tmp/st/log"))"
+# The label already set (by a human or a failed record): not written again, the compacted state keeps the existing marker.
+status "$(python3 -I -c 'import json,sys; d=json.loads(sys.argv[1]); d["stopped"]={"cause":"a record that could not write","runs":3}; print(json.dumps(d))' "$hist")"
+pr "autofix-stopped"
+run pr
+grep -qx 'run=false' <<<"$outputs" && ! grep -q 'labels\[\]=autofix-stopped' "$tmp/st/log" && marker_is "a record that could not write" && ok "a state too large with the label already set: compacted, the existing marker kept, no label write" || ko "compact label set ($out / $(state_of 2>/dev/null | cut -c1-300))"
+# The label set by a record that could not write (no marker): the next decide saves the compacted state with a marker.
+status "$hist"
+pr "autofix-stopped"
+run pr
+grep -qx 'run=false' <<<"$outputs" && ! grep -q 'labels\[\]=autofix-stopped' "$tmp/st/log" && compact_ok "label autofix-stopped is set" && ok "a state too large with the label set and no marker (a failed record): compacted and saved with a marker" || ko "compact label no marker ($out / $(state_of 2>/dev/null | cut -c1-300))"
+pr ""
+# Too large even compacted, from a stored state that fit (many owner routes, then many new findings outside the allowlist):
+# the STORED state is written back unchanged (routes, attempts), only its Fixer line and last event say what the owner does.
+stored="$(python3 -I - "$OLD" <<'EOT'
+import json, sys
+print(json.dumps({"attempts": {"f1": {sys.argv[1]: "11"}},
+                  "routes": {"r%d" % i: {"code": "outside-allowlist", "why": "scripts/review-gate.py is outside the fixer's allowed paths"} for i in range(250)}}))
+EOT
+)"
+ledger "f1:finding:MEDIUM:open $(for i in $(seq 1 120); do printf 'n%d:finding:LOW:open:scripts/review-gate.py ' "$i"; done)"
+status "$stored"
+run pr
+frozen_ok() { python3 -I - "$tmp/st/body-last" "$stored" <<'EOT'
+import json, re, sys
+body = open(sys.argv[1]).read()
+st, before = json.loads(re.search(r"<!-- autofix-state (\{.*?\}) -->", body, re.S).group(1)), json.loads(sys.argv[2])
+assert st["routes"] == before["routes"] and st["attempts"] == before["attempts"] and st["stopped"] == {}, "state changed"
+assert re.search(r"^Fixer: STOPPED \(state too large even compacted: the owner deletes this status comment", body, re.M), body[:400]
+EOT
+}
+grep -qx 'run=false' <<<"$outputs" && grep -q 'labels\[\]=autofix-stopped' "$tmp/st/log" && [ -f "$tmp/st/body-last" ] && frozen_ok && grep -q '::warning' <<<"$out" && ok "too large even compacted: the stored state is written back unchanged, the Fixer line says the owner deletes the status comment, label set" || ko "frozen ($out / $(cut -c1-300 "$tmp/st/body-last" 2>/dev/null))"
+# Too large even compacted and the stored state cannot be rendered either: nothing is overwritten (a state without its routes
+# would hand out free attempts), the label is set and the run says exactly what the owner does.
+huge="$(python3 -I -c 'import json; print(json.dumps({"routes": {"r%d" % i: {"code": "outside-allowlist", "why": "x"} for i in range(1500)}}))')"
+ledger "f1:finding:MEDIUM:open"
+status "$huge"
+run pr
+grep -qx 'run=false' <<<"$outputs" && grep -q 'labels\[\]=autofix-stopped' "$tmp/st/log" && [ ! -f "$tmp/st/body-last" ] && grep -q 'even compacted' <<<"$out" && grep -qi 'deletes this status comment' <<<"$out" && grep -q '::warning' <<<"$out" && ok "too large even compacted: label set, the comment left as is, the owner's action said in the run (annotation)" || ko "cannot fit ($out / $(cat "$tmp/st/log" | cut -c1-200))"
 
 # Per finding: an exhausted finding goes to the owner, the others are still fixed.
 ledger "f1:finding:MEDIUM:open f2:finding:LOW:open"
@@ -670,7 +757,7 @@ edit5 src/testutil/h.go 'if a != b { t.Fatalf("x") }' '' "a helper in testutil/ 
 edit5 src/web/src/__snapshots__/x.snap '1' '2' "a snapshot"
 edit5 src/web/e2e/flow.spec.ts "await go()" "" "an e2e spec"
 edit5 scripts/tests/x_test.sh 'ok "two"' '' "a script test that loses an ok line"
-edit5 src/pgtest/h.go "func Open() {}" "func Open() { panic(1) }" "a helper in a directory named pgtest/ (every directory ending in test or tests is locked)"
+edit5 src/pgtest/h.go "func Open() {}" "func Open() { panic(1) }" "a helper in a directory named pgtest/ (a known test-directory name, locked anywhere)"
 # Test infrastructure and test configuration belong to the owner (the allowlist), whatever the diff.
 owner5() { # FILE OLD NEW WHAT
   python3 -I - "$w5/$1" "$2" "$3" <<'EOT'
@@ -779,11 +866,12 @@ printf 'func more() bool { return testing.Testing() }\n' >>"$w5/src/plain.go"; g
 check5
 [ "$rc" -ne 0 ] && grep -q "testing.Testing" <<<"$out" && ok "weakening guard: testing.Testing() added to an existing Go file is refused" || ko "Testing in edit (rc=$rc $out)"
 reset5
-# A test-helper package added later under src/api/internal (clocktest/) is locked by its name, wherever it is there.
-mkdir -p "$w5/src/api/internal/platform/clocktest"; printf 'package clocktest\n' >"$w5/src/api/internal/platform/clocktest/c.go"; g5 add -A; g5 commit -qm base3; base5="$(git -C "$w5" rev-parse HEAD)"
+# A test-helper package added later under src/api/internal (clocktest/) is locked: at the base commit it holds a non-test Go
+# file that imports "testing" (a fact read from git objects, not a name: #324 review, note locked-path-suffix-names).
+mkdir -p "$w5/src/api/internal/platform/clocktest"; printf 'package clocktest\n\nimport "testing"\n\nfunc Fixed(t *testing.T) {}\n' >"$w5/src/api/internal/platform/clocktest/c.go"; g5 add -A; g5 commit -qm base3; base5="$(git -C "$w5" rev-parse HEAD)"
 printf 'func more() {}\n' >>"$w5/src/api/internal/platform/clocktest/c.go"; g5 add -A; g5 commit -qm "fix: clocktest"
 check5
-[ "$rc" -ne 0 ] && grep -qi "existing test or fixture" <<<"$out" && ok "locked paths: a helper package named *test under src/api/internal (clocktest/) is locked" || ko "clocktest (rc=$rc $out)"
+[ "$rc" -ne 0 ] && grep -qi "existing test or fixture" <<<"$out" && ok "locked paths: a helper package under src/api/internal whose base file imports testing (clocktest/) is locked" || ko "clocktest (rc=$rc $out)"
 git -C "$w5" reset -q --hard "$base5"
 # The refusal names the files it concerns, for the status comment (so only the finding of that file goes to the owner).
 printf 'x\n' >>"$w5/src/api/internal/platform/clocktest/c.go"; g5 add -A; g5 commit -qm "fix: x"
@@ -807,6 +895,73 @@ printf 'func more() {}\n' >>"$w5/src/contest/c.go"; g5 add -A; g5 commit -qm "fi
 check5
 [ "$rc" -eq 0 ] && ok "locked paths: src/contest/ (a name that only ends in test) is not locked" || ko "contest (rc=$rc $out)"
 git -C "$w5" reset -q --hard "$base5"
+
+# #324 review (locked-path-suffix-names): under src/api/internal a directory is test infrastructure by a FACT of the base
+# commit (one of its non-test Go files imports "testing"), or by a known name (pgtest, aistest, smtptest, testutil, testdata...),
+# never because its name ends in test. The fact is read from the base commit's git objects: the fixer's own commits cannot
+# change it.
+fi5="$w5/src/api/internal"
+mkdir -p "$fi5/greatest" "$fi5/platform/fakes/sub" "$fi5/platform/xyztest" "$fi5/platform/pgtest" "$fi5/platform/rawtest"
+printf 'package greatest\n\nimport (\n\t"fmt"\n\t"strings"\n)\n\n// testing is a word here, not an import: "testing"\nfunc Max() string { return fmt.Sprint(strings.ToUpper("testing")) }\n' >"$fi5/greatest/g.go"
+printf 'package greatest\n\nimport "testing"\n\nfunc TestMax(t *testing.T) {}\n' >"$fi5/greatest/g_test.go"
+printf 'package fakes\n\nimport (\n\t"context"\n\tt "testing"\n)\n\nfunc Must(tb t.TB, _ context.Context) {}\n' >"$fi5/platform/fakes/f.go"
+printf 'package sub\n\nfunc Data() int { return 1 }\n' >"$fi5/platform/fakes/sub/d.go"
+printf 'package xyztest\n\nimport ("fmt"; _ "testing")\n\nfunc Helper() { fmt.Println() }\n' >"$fi5/platform/xyztest/h.go"
+printf 'package pgtest\n' >"$fi5/platform/pgtest/doc.go"
+printf 'package rawtest\n\nimport `testing`\n\nfunc R(t *testing.T) {}\n' >"$fi5/platform/rawtest/r.go"
+g5 add -A; g5 commit -qm base6; base5="$(git -C "$w5" rev-parse HEAD)"
+fact5() { # FILE WHAT EXPECT(locked|free): append a function to an existing file
+  printf 'func more() {}\n' >>"$w5/$1"; g5 add -A; g5 commit -qm "fix: fact"
+  check5
+  if [ "$3" = locked ]; then
+    [ "$rc" -ne 0 ] && grep -qi "existing test or fixture" <<<"$out" && grep -q "$1" <<<"$out" && ok "locked paths (fact): $2" || ko "fact $2 (rc=$rc $out)"
+  else
+    [ "$rc" -eq 0 ] && grep -q PASS <<<"$out" && ok "locked paths (fact): $2" || ko "fact $2 (rc=$rc $out)"
+  fi
+  git -C "$w5" reset -q --hard "$base5"; git -C "$w5" clean -qfd
+}
+fact5 src/api/internal/greatest/g.go "greatest/ holds ordinary code (the word testing only in a string and a comment): not locked" free
+fact5 src/api/internal/platform/fakes/f.go "fakes/ (no test in its name) imports testing under an alias at the base: locked" locked
+fact5 src/api/internal/platform/fakes/sub/d.go "a subdirectory of a test-helper directory is locked too" locked
+fact5 src/api/internal/platform/xyztest/h.go "xyztest/ imports testing (blank import, one-line group) at the base: locked" locked
+fact5 src/api/internal/platform/rawtest/r.go "rawtest/ imports testing as a raw string at the base: locked" locked
+fact5 src/api/internal/platform/pgtest/doc.go "pgtest/ (a known name, no testing import) is still locked" locked
+# The fact is the BASE: removing the import in the same commit as the edit does not unlock the directory.
+python3 -I - "$fi5/platform/fakes/f.go" <<'EOT'
+import sys
+p = sys.argv[1]; t = open(p).read(); open(p, "w").write(t.replace('\tt "testing"\n', "").replace("tb t.TB", "tb any") + "func more() {}\n")
+EOT
+g5 add -A; g5 commit -qm "fix: unimport"
+check5
+[ "$rc" -ne 0 ] && grep -qi "existing test or fixture" <<<"$out" && ok "locked paths (fact): dropping the testing import in the same commit keeps fakes/ locked (read at the base)" || ko "unimport (rc=$rc $out)"
+git -C "$w5" reset -q --hard "$base5"
+git -C "$w5" rm -q src/api/internal/platform/fakes/f.go; g5 commit -qm "fix: delete"
+check5
+[ "$rc" -ne 0 ] && grep -qi "existing test or fixture" <<<"$out" && ok "locked paths (fact): deleting the helper file of a test-helper directory is refused" || ko "delete helper (rc=$rc $out)"
+git -C "$w5" reset -q --hard "$base5"
+# A directory ABSENT at the base holds only new files: never locked (nothing exists to protect), whatever its name. Fail-safe
+# extra: a Go file that imports testing (in the commit to push) gets the test-file scans (TestMain, init, os.Exit...).
+new5 src/api/internal/platform/newtest/n.go 'package newtest
+
+func init() { register() }' "a new directory ending in test, absent at the base, ordinary code with init(): not locked, passes"
+new5 src/api/internal/platform/newtest/n.go 'package newtest
+
+import "testing"
+
+func init() { testing.Init() }' "a new Go file that imports testing gets the test-file scans (init)" "init"
+new5 src/api/internal/greatest/zz.go 'package greatest
+
+import "testing"
+
+func init() { testing.Init() }' "a new file importing testing in an ordinary directory (greatest/) gets the test-file scans (init)" "init"
+new5 src/api/internal/solve/zz.go 'package solve
+
+import (
+	"os"
+	"testing"
+)
+
+func init() { testing.Init(); _ = os.Args }' "a new file importing testing in a directory whose name has no test (solve/) gets the test-file scans (init)" "init"
 # A change to a NON-test file is not locked: only the token scan applies (removing a nolint is a good change).
 edit_ok() {
   python3 -I - "$w5/src/a.go" <<'EOT'
