@@ -80,7 +80,7 @@ describe('ConnectPage list', () => {
       'li',
     ) as HTMLElement;
     expect(within(card).getByText('French, English')).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Reset filters' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Clear filters' })).toBeVisible();
   });
 
   it('shows a quiet « Bientôt » line for mentoring, spaces and opportunities, without links', async () => {
@@ -209,7 +209,7 @@ describe('ConnectPage filters', () => {
     const user = userEvent.setup();
     const { router } = await renderApp('/connect?country=BF&skill=go');
     await screen.findByRole('link', { name: 'Awa Traoré' });
-    await user.click(screen.getByRole('button', { name: 'Réinitialiser les filtres' }));
+    await user.click(screen.getByRole('button', { name: 'Effacer les filtres' }));
     await waitFor(() => {
       expect(params(callsTo(fetchMock, 'GET /profiles').at(-1)).has('country')).toBe(false);
     });
@@ -239,7 +239,7 @@ describe('ConnectPage states', () => {
     setLanguages(['fr-FR']);
     mockApi({ 'GET /profiles': () => page([]) });
     await renderApp('/connect');
-    expect(await screen.findByText('Aucun profil pour l’instant')).toBeVisible();
+    expect(await screen.findByText('Aucun profil')).toBeVisible();
   });
 
   it('offers a reset when filters match nobody', async () => {
@@ -247,11 +247,9 @@ describe('ConnectPage states', () => {
     mockApi({ 'GET /profiles': () => page([]) });
     const user = userEvent.setup();
     const { router } = await renderApp('/connect?skill=cobol');
-    expect(await screen.findByText('Personne ne correspond à ces filtres')).toBeVisible();
-    const empty = screen
-      .getByText('Personne ne correspond à ces filtres')
-      .closest('section') as HTMLElement;
-    await user.click(within(empty).getByRole('button', { name: 'Réinitialiser les filtres' }));
+    expect(await screen.findByText('Aucun profil ne correspond')).toBeVisible();
+    const empty = screen.getByText('Aucun profil ne correspond').closest('section') as HTMLElement;
+    await user.click(within(empty).getByRole('button', { name: 'Effacer les filtres' }));
     await waitFor(() => {
       expect(router.state.location.search).toEqual({});
     });
@@ -277,7 +275,7 @@ describe('ConnectPage states', () => {
       'GET /profiles': () => problemResponse(429, 'RATE_LIMITED', { retryAfter: 12 }),
     });
     await renderApp('/connect');
-    expect(await screen.findByText('Trop de requêtes, réessayez dans 12 s')).toBeVisible();
+    expect(await screen.findByText('Trop de demandes. Réessayez dans 12 s.')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Réessayer' })).toBeVisible();
   });
 
@@ -285,6 +283,6 @@ describe('ConnectPage states', () => {
     setLanguages(['en-US']);
     mockApi({ 'GET /profiles': () => problemResponse(429, 'RATE_LIMITED') });
     await renderApp('/connect');
-    expect(await screen.findByText('Too many requests, try again shortly')).toBeVisible();
+    expect(await screen.findByText('Too many requests. Wait a moment.')).toBeVisible();
   });
 });

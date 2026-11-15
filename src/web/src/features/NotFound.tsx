@@ -13,7 +13,6 @@ export function NotFound() {
           headingLevel={1}
           icon={CompassIcon}
           title={t('notFound.title')}
-          description={t('notFound.body')}
           actions={
             <Link to="/" className="app-nav-link">
               {t('notFound.back')}

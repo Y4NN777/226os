@@ -93,11 +93,7 @@ describe('ProfilePage view', () => {
       'href',
       '/parametres',
     );
-    expect(
-      screen.getByText(
-        'Votre e-mail n’est jamais public. Vous choisissez ce que les autres voient.',
-      ),
-    ).toBeVisible();
+    expect(screen.getByText('Votre e-mail n’est jamais public.')).toBeVisible();
     expect(screen.getByRole('link', { name: 'Confidentialité' })).toHaveAttribute(
       'href',
       '/parametres#confidentialite',
@@ -280,7 +276,7 @@ describe('ProfilePage completion checklist', () => {
       '57',
     );
     expect(within(card).getAllByRole('listitem')).toHaveLength(3);
-    expect(within(card).getByText(/Quelques lignes pour que les autres/)).toBeVisible();
+    expect(within(card).getByText(/Qui vous êtes, en quelques lignes/)).toBeVisible();
     expect(within(card).queryByRole('textbox', { name: /Compétences/ })).not.toBeInTheDocument();
   });
 
@@ -372,7 +368,7 @@ describe('ProfilePage completion checklist', () => {
 
     await user.type(within(card).getByRole('textbox', { name: /Langues parlées/ }), 'francais');
     await user.click(within(card).getByRole('button', { name: 'Enregistrer Langues parlées' }));
-    expect(await within(card).findByText(/Indiquez des codes de langue/)).toBeVisible();
+    expect(await within(card).findByText(/Codes de 2 ou 3 lettres/)).toBeVisible();
     expect(callsTo(fetchMock, 'PATCH /me/profile')).toHaveLength(0);
 
     await user.type(within(card).getByRole('textbox', { name: /Identifiant GitHub/ }), 'awa-dev');

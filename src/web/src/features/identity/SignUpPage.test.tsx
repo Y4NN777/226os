@@ -176,7 +176,7 @@ describe('SignUpPage', () => {
     });
     await fillAll(user, FR);
     await user.click(screen.getByRole('button', { name: 'Créer mon compte' }));
-    expect(await screen.findByText(/Certains champs sont à corriger/)).toBeInTheDocument();
+    expect(await screen.findByText(/Corrigez les champs signalés/)).toBeInTheDocument();
   });
 
   it('is calm on a 429 and counts down on the button', async () => {

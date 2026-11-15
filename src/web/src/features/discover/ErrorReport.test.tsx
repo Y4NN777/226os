@@ -42,19 +42,16 @@ async function chooseKind(name: string) {
 }
 
 async function describeError(text: string) {
-  await userEvent.type(screen.getByRole('textbox', { name: /Que faut-il corriger/ }), text);
+  await userEvent.type(screen.getByRole('textbox', { name: /Description de l’erreur/ }), text);
 }
 
-const submit = () =>
-  userEvent.click(screen.getByRole('button', { name: 'Envoyer le signalement' }));
+const submit = () => userEvent.click(screen.getByRole('button', { name: 'Envoyer' }));
 
 describe('Error report on a resource', () => {
   it('asks an anonymous visitor to sign in, without showing the form', async () => {
     routes();
     await open();
-    expect(
-      screen.getByText('Connectez-vous pour signaler une erreur sur cette fiche.'),
-    ).toBeVisible();
+    expect(screen.getByText('Connectez-vous pour signaler une erreur.')).toBeVisible();
     const hrefs = screen
       .getAllByRole('link', { name: 'Se connecter' })
       .map((link) => link.getAttribute('href'));
@@ -71,9 +68,7 @@ describe('Error report on a resource', () => {
     await userEvent.click(await screen.findByRole('option', { name: 'Documentation Wave' }));
     await submit();
 
-    expect(
-      await screen.findByText('Merci, votre signalement a été envoyé. L’équipe va le vérifier.'),
-    ).toBeVisible();
+    expect(await screen.findByText('Merci, signalement envoyé.')).toBeVisible();
     const [request] = callsTo(fetchMock, `POST /resources/${id}/error-reports`);
     expect(request?.headers.get('X-CSRF-Token')).toBe('csrf-member');
     expect(await request?.json()).toEqual({
@@ -81,7 +76,9 @@ describe('Error report on a resource', () => {
       body: 'Le lien de la documentation renvoie une 404.',
       source_id: sourceId,
     });
-    expect(screen.queryByRole('textbox', { name: /Que faut-il corriger/ })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('textbox', { name: /Description de l’erreur/ }),
+    ).not.toBeInTheDocument();
   });
 
   it('keeps the thanks after closing and reopening, so the same report is not sent twice', async () => {
@@ -90,13 +87,15 @@ describe('Error report on a resource', () => {
     await chooseKind('Lien cassé');
     await describeError('Lien mort.');
     await submit();
-    await screen.findByText(/Merci, votre signalement/);
+    await screen.findByText(/Merci, signalement/);
     const toggle = screen.getByRole('button', { name: 'Signaler une erreur' });
     await userEvent.click(toggle);
-    expect(screen.queryByText(/Merci, votre signalement/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Merci, signalement/)).not.toBeInTheDocument();
     await userEvent.click(toggle);
-    expect(screen.getByText(/Merci, votre signalement/)).toBeVisible();
-    expect(screen.queryByRole('textbox', { name: /Que faut-il corriger/ })).not.toBeInTheDocument();
+    expect(screen.getByText(/Merci, signalement/)).toBeVisible();
+    expect(
+      screen.queryByRole('textbox', { name: /Description de l’erreur/ }),
+    ).not.toBeInTheDocument();
   });
 
   it('omits the source when none is chosen', async () => {
@@ -105,7 +104,7 @@ describe('Error report on a resource', () => {
     await chooseKind('Autre');
     await describeError('  Tarif périmé  ');
     await submit();
-    await screen.findByText(/Merci, votre signalement/);
+    await screen.findByText(/Merci, signalement/);
     const [request] = callsTo(fetchMock, `POST /resources/${id}/error-reports`);
     expect(await request?.json()).toEqual({ kind: 'other', body: 'Tarif périmé' });
   });
@@ -115,7 +114,7 @@ describe('Error report on a resource', () => {
     await open();
     await submit();
     expect(await screen.findByText('Choisissez un type d’erreur.')).toBeVisible();
-    expect(screen.getByText('Décrivez l’erreur en 2 000 caractères au plus.')).toBeVisible();
+    expect(screen.getByText('Décrivez l’erreur, 2 000 caractères maximum.')).toBeVisible();
     expect(callsTo(fetchMock, `POST /resources/${id}/error-reports`)).toHaveLength(0);
   });
 
@@ -131,7 +130,7 @@ describe('Error report on a resource', () => {
     await chooseKind('Information périmée');
     await describeError('x');
     await submit();
-    expect(await screen.findByText('Décrivez l’erreur en 2 000 caractères au plus.')).toBeVisible();
+    expect(await screen.findByText('Décrivez l’erreur, 2 000 caractères maximum.')).toBeVisible();
   });
 
   it('says the listing is gone on a 404 and keeps the form', async () => {
@@ -143,10 +142,8 @@ describe('Error report on a resource', () => {
     await chooseKind('Information incorrecte');
     await describeError('Faux');
     await submit();
-    expect(
-      await screen.findByText('Ce contenu n’existe pas ou n’est plus disponible.'),
-    ).toBeVisible();
-    expect(screen.getByRole('textbox', { name: /Que faut-il corriger/ })).toHaveValue('Faux');
+    expect(await screen.findByText('Contenu introuvable.')).toBeVisible();
+    expect(screen.getByRole('textbox', { name: /Description de l’erreur/ })).toHaveValue('Faux');
   });
 
   it('is available in English', async () => {
@@ -154,6 +151,6 @@ describe('Error report on a resource', () => {
     setLanguages(['en-US']);
     await renderApp(`/discover/${id}`);
     await userEvent.click(await screen.findByRole('button', { name: 'Report an error' }));
-    expect(screen.getByText('Sign in to report an error on this listing.')).toBeVisible();
+    expect(screen.getByText('Sign in to report an error.')).toBeVisible();
   });
 });

@@ -201,13 +201,13 @@ describe('StatusBadge', () => {
   it('explains demo data, as DemoBadge does', () => {
     setLanguages(['fr-FR']);
     renderWithProviders(<StatusBadge kind="demo" />);
-    expect(screen.getByTitle('Donnée d’exemple, pas une activité réelle.')).toBeInTheDocument();
+    expect(screen.getByTitle('Données d’exemple.')).toBeInTheDocument();
   });
 
   it('speaks English too', () => {
     setLanguages(['en-US']);
     renderWithProviders(<StatusBadge kind="stale" />);
-    expect(screen.getByText('Needs re-checking')).toBeInTheDocument();
+    expect(screen.getByText('Needs recheck')).toBeInTheDocument();
   });
 });
 

@@ -52,9 +52,11 @@ function SettingsSection({
             <Heading level={2} id={headingId}>
               {t(`profile.settings.${sectionKey}`)}
             </Heading>
-            <Text as="p" type="supporting">
-              {t(`profile.settings.${sectionKey}.lede`)}
-            </Text>
+            {sectionKey === 'preferences' ? (
+              <Text as="p" type="supporting">
+                {t('profile.settings.preferences.lede')}
+              </Text>
+            ) : null}
           </VStack>
           {children}
         </VStack>

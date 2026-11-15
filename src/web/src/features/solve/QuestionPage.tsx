@@ -351,7 +351,6 @@ export function QuestionPage() {
         <EmptyState
           headingLevel={1}
           title={t('solve.question.notFound.title')}
-          description={t('solve.question.notFound.body')}
           actions={<Button label={t('solve.question.back')} href="/solve" />}
         />
       );
@@ -426,7 +425,6 @@ export function QuestionPage() {
           ) : session.isPending ? null : (
             <div className="solve-compose-cta">
               <ChatGlyph width={20} height={20} />
-              <p>{t('solve.answer.signInNote')}</p>
               <Button
                 variant="primary"
                 label={t('solve.answer.signIn')}

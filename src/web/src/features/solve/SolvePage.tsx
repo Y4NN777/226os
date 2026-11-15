@@ -158,7 +158,6 @@ function AskView({ onClose, link }: { onClose: () => void; link: LinkDraft | und
         <Heading level={1} ref={heading} tabIndex={-1}>
           {t('solve.ask.h1')}
         </Heading>
-        <p className="solve-lede">{t('solve.ask.intro')}</p>
       </header>
       <QuestionForm
         mode="create"
@@ -225,7 +224,6 @@ export function SolvePage() {
           <Heading level={1}>{t('solve.h1')}</Heading>
           {askAction}
         </div>
-        <p className="solve-lede">{t('solve.list.lede')}</p>
       </header>
       <Filters key={`${search.q ?? ''}|${search.tag ?? ''}`} search={search} />
       <section aria-label={t('solve.results.label')}>

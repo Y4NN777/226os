@@ -28,10 +28,6 @@
   justify-content: space-between;
   gap: var(--spacing-3);
 }
-.solve-lede {
-  margin: 0;
-  color: var(--color-text-secondary);
-}
 
 /* ---- search and toolbar ---- */
 .solve-search {
@@ -463,11 +459,6 @@
 .solve-compose-cta > svg {
   flex: none;
   color: var(--color-text-accent);
-}
-.solve-compose-cta p {
-  flex: 1 1 18ch;
-  margin: 0;
-  color: var(--color-text-secondary);
 }
 
 /* aside blocks: context and linked items */

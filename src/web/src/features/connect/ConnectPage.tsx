@@ -173,10 +173,7 @@ function SpacesSoon() {
               <li key={space.key}>
                 <HStack gap={3} vAlign="start" wrap="nowrap" paddingBlock={2}>
                   <Icon icon={space.icon} color="secondary" />
-                  <VStack gap={0.5}>
-                    <Text weight="semibold">{t(`connect.space.${space.key}`)}</Text>
-                    <Text type="supporting">{t(`connect.space.${space.key}.body`)}</Text>
-                  </VStack>
+                  <Text weight="semibold">{t(`connect.space.${space.key}`)}</Text>
                 </HStack>
                 {index < spaces.length - 1 ? <Divider variant="subtle" /> : null}
               </li>
@@ -228,9 +225,9 @@ export function ConnectPage() {
             <EmptyState
               headingLevel={3}
               title={t(filtered ? 'connect.empty.filtered.title' : 'connect.empty.title')}
-              description={t(filtered ? 'connect.empty.filtered.body' : 'connect.empty.body')}
               {...(filtered
                 ? {
+                    description: t('connect.empty.filtered.body'),
                     actions: (
                       <Button
                         label={t('connect.reset')}

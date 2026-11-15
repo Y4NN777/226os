@@ -113,7 +113,7 @@ describe('ResourcePage', () => {
     setLanguages(['fr-FR']);
     routes();
     await renderApp(`/discover/${id}`);
-    const related = await screen.findByRole('region', { name: 'À voir aussi' });
+    const related = await screen.findByRole('region', { name: 'Contenus liés' });
     const question = within(related).getByRole('link', { name: 'Webhook non reçu' });
     expect(rowOf(question)).toHaveTextContent('Question');
   });
@@ -161,7 +161,7 @@ describe('ResourcePage', () => {
 
     const claim = rowOf(screen.getByRole('link', { name: /provider\.example/ }));
     expect(within(claim).getByText('Déclaration du fournisseur')).toBeInTheDocument();
-    expect(within(claim).getByText('Déclaré par le fournisseur')).toBeInTheDocument();
+    expect(within(claim).getByText('Déclaré')).toBeInTheDocument();
     expect(within(claim).queryByText('Vérifié')).not.toBeInTheDocument();
 
     const pricing = rowOf(screen.getByRole('link', { name: /Grille tarifaire/ }));
@@ -173,7 +173,7 @@ describe('ResourcePage', () => {
     setLanguages(['fr-FR']);
     routes({ [`GET /resources/${id}/sources`]: () => jsonResponse({ items: [] }) });
     await renderApp(`/discover/${id}`);
-    expect(await findVisibleText('Aucune source enregistrée pour le moment.')).toBeInTheDocument();
+    expect(await findVisibleText('Aucune source.')).toBeInTheDocument();
   });
 
   it('keeps the listing readable when only the sources fail, with a retry', async () => {
@@ -209,7 +209,7 @@ describe('ResourcePage', () => {
     expect(screen.queryByRole('link', { name: /Sans Site/ })).not.toBeInTheDocument();
     expect(screen.getByText('Non précisé')).toBeInTheDocument();
     expect(screen.queryByText('Limites connues')).not.toBeInTheDocument();
-    expect(screen.queryByText('À voir aussi')).not.toBeInTheDocument();
+    expect(screen.queryByText('Contenus liés')).not.toBeInTheDocument();
     expect(screen.queryByText('SDK officiels')).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /Lire la documentation/ })).not.toBeInTheDocument();
   });

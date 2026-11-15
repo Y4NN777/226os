@@ -75,9 +75,9 @@ describe('QuestionPage reading', () => {
     const list = await screen.findByRole('list', { name: 'Réponses' });
     const items = within(list).getAllByRole('listitem');
     expect(items[0]).toHaveTextContent('La réponse retenue.');
-    expect(items[0]).toHaveTextContent('Réponse acceptée');
+    expect(items[0]).toHaveTextContent('Résolue');
     expect(items[1]).toHaveTextContent('Une autre piste.');
-    expect(items[1]).not.toHaveTextContent('Réponse acceptée');
+    expect(items[1]).not.toHaveTextContent('Résolue');
   });
 
   it('lays out the header meta, the context and linked items, and the answer meta like the prototype', async () => {
@@ -130,7 +130,7 @@ describe('QuestionPage reading', () => {
     expect(title.closest('[lang]')).toHaveAttribute('lang', 'fr');
     expect(screen.getByRole('link', { name: 'Questions' })).toHaveAttribute('href', '/solve');
     const header = title.closest('header') as HTMLElement;
-    expect(within(header).getByText('Réponse acceptée')).toBeInTheDocument();
+    expect(within(header).getByText('Résolue')).toBeInTheDocument();
     expect(within(header).getByText('Kofi Mensah')).toBeInTheDocument();
     expect(within(header).getByText('BF')).toBeInTheDocument();
     expect(within(header).getByText('10 nov. 2026').closest('time')).toHaveAttribute(
@@ -144,9 +144,9 @@ describe('QuestionPage reading', () => {
     const context = screen.getByRole('complementary', { name: 'Contexte' });
     expect(within(context).getByText('Pays')).toBeInTheDocument();
     expect(within(context).getByText('Sénégal')).toBeInTheDocument();
-    const linked = screen.getByRole('complementary', { name: 'Liens associés' });
+    const linked = screen.getByRole('complementary', { name: 'Contenus liés' });
     expect(within(linked).getByText('Fiche')).toBeInTheDocument();
-    expect(within(linked).getByText('Question liée')).toBeInTheDocument();
+    expect(within(linked).getByText('Question')).toBeInTheDocument();
     expect(within(linked).getByRole('link', { name: /Une question voisine/ })).toHaveAttribute(
       'href',
       '/questions/d0000000-0000-4000-8000-000000000003',
@@ -155,7 +155,7 @@ describe('QuestionPage reading', () => {
     const list = await screen.findByRole('list', { name: 'Réponses' });
     expect(screen.getByRole('heading', { level: 2, name: '2 réponses' })).toBeInTheDocument();
     const item = within(list).getAllByRole('listitem')[0] as HTMLElement;
-    expect(within(item).getByText('Réponse acceptée')).toBeInTheDocument();
+    expect(within(item).getByText('Résolue')).toBeInTheDocument();
     expect(within(item).getByText('Sources')).toBeInTheDocument();
     expect(
       within(item).getByRole('link', { name: /example\.org\/docs\/webhooks/ }),
@@ -206,7 +206,7 @@ describe('QuestionPage reading', () => {
     setLanguages(['fr-FR']);
     mockApi(readRoutes({ [`GET ${key('/answers')}`]: () => page([]) }));
     await renderApp(base);
-    expect(await findVisibleText(/Aucune réponse pour le moment/)).toBeInTheDocument();
+    expect(await findVisibleText(/Aucune réponse/)).toBeInTheDocument();
   });
 
   it('is written in English when the browser asks for it', async () => {
@@ -225,12 +225,7 @@ describe('QuestionPage answering', () => {
     await renderApp(base);
     const link = await screen.findByRole('link', { name: 'Se connecter pour répondre' });
     expect(link).toHaveAttribute('href', `/connexion?next=${encodeURIComponent(base)}`);
-    expect(
-      screen.getByText('La connexion vous est demandée, puis vous revenez ici.'),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByRole('textbox', { name: 'Rédigez votre réponse' }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: 'Votre réponse' })).not.toBeInTheDocument();
   });
 
   it('posts an answer with an Idempotency-Key and shows it after the refresh', async () => {
@@ -259,7 +254,7 @@ describe('QuestionPage answering', () => {
     const user = userEvent.setup({ delay: null });
     await renderApp(base);
     await user.type(
-      await screen.findByRole('textbox', { name: 'Rédigez votre réponse' }),
+      await screen.findByRole('textbox', { name: 'Votre réponse' }),
       'Ma contribution.',
     );
     await user.click(screen.getByRole('button', { name: 'Publier la réponse' }));
@@ -269,7 +264,7 @@ describe('QuestionPage answering', () => {
     expect(post?.headers.get('Idempotency-Key')).toBeTruthy();
     expect(post?.headers.get('X-CSRF-Token')).toBe('csrf-member');
     expect(await post?.clone().json()).toEqual({ body_md: 'Ma contribution.', lang: 'fr' });
-    expect(screen.getByRole('textbox', { name: 'Rédigez votre réponse' })).toHaveValue('');
+    expect(screen.getByRole('textbox', { name: 'Votre réponse' })).toHaveValue('');
   });
 
   it('shows the 403 EMAIL_NOT_VERIFIED message and keeps the text', async () => {
@@ -279,13 +274,10 @@ describe('QuestionPage answering', () => {
     );
     const user = userEvent.setup({ delay: null });
     await renderApp(base);
-    await user.type(
-      await screen.findByRole('textbox', { name: 'Rédigez votre réponse' }),
-      'Brouillon',
-    );
+    await user.type(await screen.findByRole('textbox', { name: 'Votre réponse' }), 'Brouillon');
     await user.click(screen.getByRole('button', { name: 'Publier la réponse' }));
     await expectAlert('Confirmez d’abord votre adresse e-mail.');
-    expect(screen.getByRole('textbox', { name: 'Rédigez votre réponse' })).toHaveValue('Brouillon');
+    expect(screen.getByRole('textbox', { name: 'Votre réponse' })).toHaveValue('Brouillon');
   });
 
   it('puts a 422 violation on the answer field', async () => {
@@ -300,10 +292,10 @@ describe('QuestionPage answering', () => {
     );
     const user = userEvent.setup({ delay: null });
     await renderApp(base);
-    await user.type(await screen.findByRole('textbox', { name: 'Rédigez votre réponse' }), 'Trop');
+    await user.type(await screen.findByRole('textbox', { name: 'Votre réponse' }), 'Trop');
     await user.click(screen.getByRole('button', { name: 'Publier la réponse' }));
-    expect(await screen.findByText(/20 000 caractères au maximum/)).toBeVisible();
-    expect(screen.getByRole('textbox', { name: 'Rédigez votre réponse' })).toBeInvalid();
+    expect(await screen.findByText(/20 000 caractères maximum/)).toBeVisible();
+    expect(screen.getByRole('textbox', { name: 'Votre réponse' })).toBeInvalid();
   });
 });
 
@@ -425,9 +417,7 @@ describe('QuestionPage editing', () => {
     await user.click(screen.getByRole('button', { name: 'Enregistrer' }));
 
     expect(
-      await screen.findByText(
-        'Une des étiquettes n’est plus disponible. Retirez-la ou remplacez-la.',
-      ),
+      await screen.findByText('Une étiquette n’est plus disponible. Retirez-la.'),
     ).toBeVisible();
     expect(screen.getByRole('textbox', { name: /Étiquettes/ })).toBeInvalid();
   });
@@ -543,7 +533,7 @@ describe('QuestionPage votes and acceptance', () => {
     const fetchMock = member(readRoutes());
     await renderApp(base);
     expect(
-      (await screen.findAllByRole('button', { name: 'Vote positif sur cette réponse' })).length,
+      (await screen.findAllByRole('button', { name: 'Voter pour la réponse' })).length,
     ).toBeGreaterThan(0);
     expect(callsTo(fetchMock, 'DELETE /votes')).toHaveLength(0);
     expect(callsTo(fetchMock, 'POST /votes')).toHaveLength(0);
@@ -554,14 +544,14 @@ describe('QuestionPage votes and acceptance', () => {
     member(ownedRoutes({ 'POST /votes': () => new Response(null, { status: 501 }) }));
     const user = userEvent.setup({ delay: null });
     await renderApp(base);
-    const up = await screen.findAllByRole('button', { name: 'Vote positif sur cette réponse' });
+    const up = await screen.findAllByRole('button', { name: 'Voter pour la réponse' });
     expect(
       screen.getAllByRole('button', { name: 'Accepter cette réponse' }).length,
     ).toBeGreaterThan(0);
     await user.click(up[0] as HTMLElement);
 
     await waitFor(() => {
-      expect(screen.queryByRole('button', { name: /Vote positif/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /Voter pour/ })).not.toBeInTheDocument();
     });
     expect(
       screen.queryByRole('button', { name: /Accepter cette réponse/ }),
@@ -583,7 +573,7 @@ describe('QuestionPage votes and acceptance', () => {
     const buttons = await screen.findAllByRole('button', { name: 'Accepter cette réponse' });
     await user.click(buttons[0] as HTMLElement);
     await waitFor(() => {
-      expect(screen.queryByRole('button', { name: /Vote positif/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /Voter pour/ })).not.toBeInTheDocument();
     });
     expect(
       screen.queryByRole('button', { name: /Accepter cette réponse/ }),
@@ -607,7 +597,7 @@ describe('QuestionPage votes and acceptance', () => {
     const user = userEvent.setup({ delay: null });
     await renderApp(base);
     await screen.findByText('Une autre piste.');
-    const up = await screen.findAllByRole('button', { name: 'Vote positif sur cette réponse' });
+    const up = await screen.findAllByRole('button', { name: 'Voter pour la réponse' });
     await user.click(up[1] as HTMLElement);
 
     expect(await screen.findByText('Score : 5')).toBeInTheDocument();
@@ -637,9 +627,7 @@ describe('QuestionPage votes and acceptance', () => {
     const user = userEvent.setup({ delay: null });
     await renderApp(base);
     await screen.findByText('Une autre piste.');
-    const up = (
-      await screen.findAllByRole('button', { name: 'Vote positif sur cette réponse' })
-    )[1];
+    const up = (await screen.findAllByRole('button', { name: 'Voter pour la réponse' }))[1];
     expect(up).toHaveAttribute('aria-pressed', 'true');
 
     await user.click(up as HTMLElement);
@@ -661,10 +649,11 @@ describe('QuestionPage votes and acceptance', () => {
       }),
     );
     await renderApp(base);
-    expect(
-      await screen.findByRole('button', { name: 'Vote négatif sur la question' }),
-    ).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByRole('button', { name: 'Vote positif sur la question' })).toHaveAttribute(
+    expect(await screen.findByRole('button', { name: 'Voter contre la question' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    expect(screen.getByRole('button', { name: 'Voter pour la question' })).toHaveAttribute(
       'aria-pressed',
       'false',
     );
@@ -697,7 +686,7 @@ describe('QuestionPage votes and acceptance', () => {
     setLanguages(['fr-FR']);
     member(readRoutes());
     await renderApp(base);
-    await screen.findAllByRole('button', { name: 'Vote positif sur cette réponse' });
+    await screen.findAllByRole('button', { name: 'Voter pour la réponse' });
     expect(
       screen.queryByRole('button', { name: /Accepter cette réponse/ }),
     ).not.toBeInTheDocument();
@@ -708,7 +697,7 @@ describe('QuestionPage votes and acceptance', () => {
     member(readRoutes({ 'POST /votes': () => problemResponse(403, 'SELF_VOTE_FORBIDDEN') }));
     const user = userEvent.setup({ delay: null });
     await renderApp(base);
-    const up = await screen.findAllByRole('button', { name: 'Vote positif sur cette réponse' });
+    const up = await screen.findAllByRole('button', { name: 'Voter pour la réponse' });
     await user.click(up[0] as HTMLElement);
     await expectAlert('Vous ne pouvez pas voter pour votre propre contenu.');
   });
