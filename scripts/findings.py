@@ -644,8 +644,27 @@ def trunk_file(ctx, binary, repo, path):
         if item.get("type") != "file" or item.get("encoding") != "base64":
             return None
         return base64.b64decode(item.get("content") or "").decode("utf-8")
-    except Exception:  # any failure leaves the note open, which is today's behaviour
+    except Exception as exc:  # any failure leaves the note open, which is today's behaviour; never silent
+        print("findings: contents read failed for %s at %s (%s): the note stays open" % (path, TRUNK, type(exc).__name__), file=sys.stderr)
         return None
+
+
+def repo_path(path):
+    """A note's recorded path as a repository path: no leading ./ or pr/ (the review's checkout), no doubled slashes."""
+    path = re.sub(r"/{2,}", "/", (path or "").strip())
+    while True:
+        if path.startswith("./"):
+            path = path[2:]
+        elif path.startswith("pr/"):
+            path = path[3:]
+        else:
+            return path
+
+
+def line_range(text):
+    """(first, last) of "a" or "a-b" (leading zeros allowed), else None."""
+    m = re.match(r"^\s*0*(\d+)(?:\s*-\s*0*(\d+))?\s*$", text or "")
+    return (int(m.group(1)), int(m.group(2) or m.group(1))) if m else None
 
 
 def verified_reference(ctx, binary, repo, reason, own_file, own_line=""):
@@ -654,7 +673,8 @@ def verified_reference(ctx, binary, repo, reason, own_file, own_line=""):
     Every reference the verdict cites must exist at the tip of develop: one missing ADR, missing file or line past the
     end of its file and nothing is accepted (a valid ADR cannot carry a wrong line). Then at least one must count: a
     `docs/decisions/NNNN-*.md` file, or `path:line` / `path:a-b` within OWN_FILE, the file the note itself points at, other
-    than the note's own location OWN_LINE (citing the place the note already names proves nothing). A line of another
+    than a range that holds the note's own line OWN_LINE (citing the place the note already names proves nothing; leading
+    zeros and ranges are compared as numbers). Paths are compared after repo_path (no ./ or pr/ prefix). A line of another
     file proves nothing about this note (owner, 2026-11-15)."""
     text = re.sub("[\u200b\u200c\u200d\u2060\ufeff]", "", reason or "")
     accepted = None
@@ -663,7 +683,7 @@ def verified_reference(ctx, binary, repo, reason, own_file, own_line=""):
             return None
         accepted = accepted or m.group(1)
     for m in CITE_LINE.finditer(text):
-        if "/" not in m.group(1) and "." not in m.group(1) and m.group(1) != own_file:
+        if "/" not in m.group(1) and "." not in m.group(1) and repo_path(m.group(1)) != own_file:
             continue
         first, last = int(m.group(2)), int(m.group(3) or m.group(2))
         body = trunk_file(ctx, binary, repo, m.group(1))
@@ -672,8 +692,9 @@ def verified_reference(ctx, binary, repo, reason, own_file, own_line=""):
         total = body.count("\n") + (1 if body and not body.endswith("\n") else 0)
         if not 1 <= first <= last <= total:
             return None
-        cited = m.group(2) + ("-" + m.group(3) if m.group(3) else "")
-        if own_file and m.group(1) == own_file and cited != own_line:
+        own = line_range(own_line)
+        overlaps = own is not None and first <= own[1] and own[0] <= last  # a range that holds the note's own line
+        if own_file and repo_path(m.group(1)) == own_file and not overlaps:
             accepted = accepted or m.group(0)
     return accepted
 
@@ -683,8 +704,10 @@ P0_LISTS = (".github/sensitive-paths.txt", ".github/deep-review-paths.txt")
 
 def p0_path(ctx, binary, repo, path):
     """True when PATH matches a P0 pattern (sensitive or deep-review paths, read at the tip of develop), or when a list
-    cannot be read (fails closed). A note there is never closed by a model verdict: a human decides (#266 review)."""
-    if not path:
+    cannot be read (fails closed), or when PATH itself is not a file at the tip of develop (a note on a path we cannot
+    place is treated as P0). A note there is never closed by a model verdict: a human decides (#266 review)."""
+    path = repo_path(path)
+    if not path or trunk_file(ctx, binary, repo, path) is None:
         return True
     for name in P0_LISTS:
         text = trunk_file(ctx, binary, repo, name)
@@ -786,8 +809,9 @@ def settle_issue(ctx, binary, repo, pr, batch_no, number, entries, files=None, m
         # ticks its box (and the issue closes as not planned when every box is settled). Findings never do.
         cites = {}
         for key, (d, r) in notes.items():
-            if d in ("NOT A DEFECT", "DECIDED") and not p0_path(ctx, binary, repo, cited_by.get(key, "")):
-                ref = verified_reference(ctx, binary, repo, r, cited_by.get(key, ""), where.get(key, ""))
+            own = repo_path(cited_by.get(key, ""))
+            if d in ("NOT A DEFECT", "DECIDED") and not p0_path(ctx, binary, repo, own):
+                ref = verified_reference(ctx, binary, repo, r, own, where.get(key, ""))
                 if ref:
                     cites[key] = ref
         entries = [(n, *notes.get(slug(n), (d, r))) if n else (n, d, r) for n, d, r in entries]

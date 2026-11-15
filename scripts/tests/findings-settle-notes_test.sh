@@ -23,6 +23,8 @@ printf 'm1\nm2\nm3\n' >"$tmp/st/tree/Makefile"
 printf '# sensitive\n.github/*\n' >"$tmp/st/tree/.github/sensitive-paths.txt"
 printf '# P0\nsrc/api/internal/solve/*\n*auth*\n' >"$tmp/st/tree/.github/deep-review-paths.txt"
 printf 'v1\nv2\nv3\n' >"$tmp/st/tree/src/api/internal/solve/votes.go"
+mkdir -p "$tmp/st/tree/.github/workflows"
+printf 'w1\nw2\nw3\n' >"$tmp/st/tree/.github/workflows/a.yml"
 
 # Fake gh: issues in $ST/issues.json, the pull request in $ST/pr.json, the tip of develop in $ST/tree.
 cat >"$tmp/bin/gh" <<'PY'
@@ -78,6 +80,10 @@ def notes(n, pr, items):
         "- [ ] `%s` [OBSERVED] `src/a.go:1` remark %s" % (k, k) for k in items)
     return {"number": n, "state": "open", "state_reason": None, "title": "PR%d notes" % pr, "created_at": "2026-11-13T00:00:00Z",
             "labels": [{"name": "kind:note"}], "body": body, "comments": []}
+def at(n, pr, where):
+    x = notes(n, pr, ["n1"])
+    x["body"] = x["body"].replace("`src/a.go:1`", where)
+    return x
 def p0(n, pr):
     x = notes(n, pr, ["n1"])
     x["body"] = x["body"].replace("`src/a.go:1`", "`src/api/internal/solve/votes.go:1`")
@@ -89,7 +95,7 @@ def mk(n, pr):
 finding = {"number": 39, "state": "open", "state_reason": None, "title": "a finding", "created_at": "2026-11-13T00:00:00Z",
            "labels": [{"name": "finding"}], "body": "<!-- finding:PR90#f39 -->\n\n- Where: `src/a.go:1`\n", "comments": []}
 issues = [notes(30, 91, ["n1", "n2"]), notes(31, 92, ["n1"]), notes(32, 93, ["n1"]), notes(33, 94, ["n1"]), notes(34, 95, ["n1", "n2"]),
-          notes(35, 96, ["n1", "n2"]), notes(36, 97, ["n1", "n2"]), notes(37, 98, ["n1"]), notes(41, 99, ["n1"]), notes(42, 100, ["n1"]), notes(43, 101, ["n1", "n2"]), mk(44, 102), p0(45, 103), finding]
+          notes(35, 96, ["n1", "n2"]), notes(36, 97, ["n1", "n2"]), notes(37, 98, ["n1"]), notes(41, 99, ["n1"]), notes(42, 100, ["n1"]), notes(43, 101, ["n1", "n2"]), mk(44, 102), p0(45, 103), at(46, 104, "`./src/api/internal/solve/votes.go:1`"), at(47, 105, "`pr/src/api/internal/solve/votes.go:1`"), at(48, 106, "`src/gone/x.go:1`"), at(49, 107, "`.github/workflows/a.yml:1`"), notes(50, 108, ["n1"]), notes(51, 109, ["n1"]), at(52, 110, "remark without a location"), finding]
 rows = [("#30/n1", "#30", "NOT A DEFECT", "the guard sits at src/a.go:3, the review missed it"),
         ("#30/n2", "#30", "DECIDED", "docs/decisions/0014-review.md settles it"),
         ("#31/n1", "#31", "NOT A DEFECT", "see src/gone.go:1"),
@@ -105,6 +111,13 @@ rows = [("#30/n1", "#30", "NOT A DEFECT", "the guard sits at src/a.go:3, the rev
         ("#43/n1", "#43", "NOT A DEFECT", "src/a.go:4 shows it"),
         ("#44/n1", "#44", "NOT A DEFECT", "Makefile:3 guards it; Retry:3 is a word, not a file"),
         ("#45/n1", "#45", "NOT A DEFECT", "src/api/internal/solve/votes.go:3 handles it"),
+        ("#46/n1", "#46", "DECIDED", "docs/decisions/0014-review.md"),
+        ("#47/n1", "#47", "DECIDED", "docs/decisions/0014-review.md"),
+        ("#48/n1", "#48", "DECIDED", "docs/decisions/0014-review.md"),
+        ("#49/n1", "#49", "NOT A DEFECT", ".github/workflows/a.yml:3 handles it"),
+        ("#50/n1", "#50", "NOT A DEFECT", "src/a.go:1-2 is fine"),
+        ("#51/n1", "#51", "NOT A DEFECT", "src/a.go:01 is fine"),
+        ("#52/n1", "#52", "DECIDED", "docs/decisions/0014-review.md"),
         ("#43/n2", "#43", "NOT A DEFECT", "src/a.go:2-3 handles it"),
         ("#39", "#39", "NOT A DEFECT", "src/a.go:3 proves it")]
 issues.append({"number": 40, "state": "open", "state_reason": None, "title": "Review batch 2026-11-15", "labels": [{"name": "review-batch"}],
@@ -147,6 +160,13 @@ field 30 'x["comments"][-1]["body"]' | grep -q 'the guard sits at src/a.go:3' &&
 field 43 'x["comments"][-1]["body"]' | grep -q '`n1` NOT A DEFECT ticked' && ko "43: the comment claims n1 was ticked by this run ($(field 43 'x["comments"][-1]["body"]'))" || ok "the comment never says ticked for a note this run did not tick (n1 was ticked before)"
 [ "$(state 44)" = "('closed', 'not_planned')" ] && ok "a note on a file without an extension (Makefile) closes on a line of that file; a word like Retry:3 is not read as a file" || ko "44 ($(state 44) $(field 44 'x["comments"]'))"
 [ "$(state 45)" = "('open', None)" ] && [ "$(unticked 45)" -eq 1 ] && ok "a note on a P0 path (deep-review-paths) is never ticked by a verdict, even with a valid own-file line" || ko "45 ($(state 45))"
+for n in 46 47; do [ "$(state $n)" = "('open', None)" ] && ok "a P0 note recorded as ./ or pr/ path is normalised and stays open ($n)" || ko "$n ($(state $n))"; done
+[ "$(state 48)" = "('open', None)" ] && ok "a note whose file is not on develop fails closed (stays open)" || ko "48 ($(state 48))"
+[ "$(state 49)" = "('open', None)" ] && ok "a note on a sensitive path (sensitive-paths.txt) stays open" || ko "49 ($(state 49))"
+[ "$(state 50)" = "('open', None)" ] && ok "a range that contains the note's own line does not count (1-2 on a note at line 1)" || ko "50 ($(state 50))"
+[ "$(state 51)" = "('open', None)" ] && ok "a padded own line (01) does not count" || ko "51 ($(state 51))"
+[ "$(state 52)" = "('open', None)" ] && ok "a note with no location is never ticked, even with a valid ADR" || ko "52 ($(state 52))"
+grep -q 'contents read failed' <<<"$out" && ok "a failed contents read is logged, not silent" || ko "no log of the failed read ($out)"
 [ "$(state 39)" = "('open', None)" ] && field 39 'x["comments"][-1]["body"]' | grep -q 'stays open: a human closes it as not planned' && ok "a FINDING with NOT A DEFECT and a valid reference stays open (a human closes it)" || ko "39 ($(state 39))"
 [ "$(state 40)" = "('closed', 'completed')" ] && ok "the batch issue still closes last" || ko "40 ($(state 40))"
 
@@ -154,5 +174,11 @@ before="$(cat "$tmp/st/issues.json")"
 : >"$tmp/st/log"
 run 170
 [ "$rc" -eq 0 ] && [ ! -s "$tmp/st/log" ] && [ "$before" = "$(cat "$tmp/st/issues.json")" ] && ok "a second run changes nothing (idempotent)" || ko "idempotent (rc=$rc)"
+
+# An unreadable P0 list fails closed: without deep-review-paths.txt, a note that would close stays open.
+setup
+rm "$tmp/st/tree/.github/deep-review-paths.txt"
+run 170
+[ "$(state 30)" = "('open', None)" ] && ok "an unreadable P0 list keeps every note open (fails closed)" || ko "missing list ($(state 30))"
 
 finish
