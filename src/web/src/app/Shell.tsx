@@ -21,35 +21,40 @@ import {
 } from '@astryxdesign/core/SideNav';
 import { TextInput } from '@astryxdesign/core/TextInput';
 import { TopNav } from '@astryxdesign/core/TopNav';
-import { Link, Outlet, useNavigate, useRouterState } from '@tanstack/react-router';
+import { Outlet, useNavigate, useRouterState } from '@tanstack/react-router';
 import { useState } from 'react';
-import logoDark from '../assets/brand/226os-logo-white.png';
-import logoLight from '../assets/brand/226os-logo.png';
-import { GlobeIcon, MoonIcon, SearchIcon, SunIcon } from '../components/icons';
+import { Brand } from '../components/Brand';
+import { RouterAnchor } from '../components/RouterAnchor';
+import {
+  EditIcon,
+  GlobeIcon,
+  LogInIcon,
+  LogOutIcon,
+  MenuIcon,
+  MoonIcon,
+  PlusIcon,
+  SearchIcon,
+  SettingsIcon,
+  SunIcon,
+  UserIcon,
+  UserPlusIcon,
+} from '../components/icons';
 import { useI18n } from '../i18n/I18nProvider';
 import { locales, type Locale } from '../i18n/messages';
 import { useResolvedTheme, useThemePreference, type ThemeMode } from '../theme/ThemeProvider';
-import { homeItem, navSections, type NavItem, type NavSection } from './navigation';
+import {
+  bottomNavItems,
+  homeItem,
+  isCurrent,
+  navSections,
+  projectLinks,
+  type NavItem,
+  type NavSection,
+} from './navigation';
 import { useSession, useSignOut } from './session';
 
 const endonyms: Record<Locale, string> = { fr: 'Français', en: 'English' };
 const themeModes: readonly ThemeMode[] = ['light', 'dark', 'system'];
-
-/** The 226os logo, linking home; the white variant on the dark theme. */
-function Brand() {
-  const theme = useResolvedTheme();
-  return (
-    <Link to="/" className="shell-brand">
-      <img
-        src={theme === 'dark' ? logoDark : logoLight}
-        alt="226os"
-        width={92}
-        height={32}
-        className="shell-brand-logo"
-      />
-    </Link>
-  );
-}
 
 /** Site-wide search: submitting goes to the search page with the query (`/recherche?q=`). */
 function HeaderSearch() {
@@ -213,8 +218,25 @@ function AccountArea({ onSignOut }: { onSignOut: () => void }) {
   );
 }
 
-function isCurrent(pathname: string, to: string) {
-  return to === '/' ? pathname === '/' : pathname === to || pathname.startsWith(`${to}/`);
+/**
+ * « Poser une question » for members (prototype `.header-create`): the solve page opens its ask
+ * view on `#ask`. Below 1024px only the plus icon shows; the label stays the accessible name.
+ */
+function AskButton() {
+  const { t } = useI18n();
+  const session = useSession();
+  if (!session.data?.authenticated) return null;
+  return (
+    <Button
+      label={t('shell.ask')}
+      href="/solve#ask"
+      variant="primary"
+      className="shell-ask"
+      icon={<Icon icon={PlusIcon} size="md" />}
+    >
+      <span className="shell-ask-label">{t('shell.ask')}</span>
+    </Button>
+  );
 }
 
 function NavEntry({ item, pathname }: { item: NavItem; pathname: string }) {
@@ -283,53 +305,151 @@ function PrimaryNav({ isDrawer = false }: { isDrawer?: boolean }) {
   );
 }
 
+/** The account entries at the end of the phone drawer: the top bar has no room for them. */
+function DrawerAccount({ onSignOut }: { onSignOut: () => void }) {
+  const { t } = useI18n();
+  const session = useSession();
+  if (session.isPending) return null;
+  const user = session.data?.authenticated ? session.data.user : null;
+  return (
+    <SideNavSection title={t('account.prefs')} isHeaderHidden>
+      {user ? (
+        <>
+          <SideNavItem
+            label={t('account.profile')}
+            icon={UserIcon}
+            href={`/profils/${user.username}`}
+          />
+          <SideNavItem label={t('account.write')} icon={EditIcon} href="/ecrire" />
+          <SideNavItem label={t('account.settings')} icon={SettingsIcon} href="/parametres" />
+          <SideNavItem label={t('account.signOut')} icon={LogOutIcon} onClick={onSignOut} />
+        </>
+      ) : (
+        <>
+          <SideNavItem label={t('account.signIn')} icon={LogInIcon} href="/connexion" />
+          <SideNavItem label={t('account.signUp')} icon={UserPlusIcon} href="/inscription" />
+          <SideNavItem label={t('account.settings')} icon={SettingsIcon} href="/parametres" />
+        </>
+      )}
+    </SideNavSection>
+  );
+}
+
+/**
+ * Phone bottom bar (prototype `.bottom-nav`): Accueil, Apprendre, Résoudre, Découvrir, then
+ * « Plus », which opens the drawer with the rest. Only below the shell's phone breakpoint.
+ */
+function BottomNav() {
+  const { t } = useI18n();
+  const { isMobile, isMobileNavOpen, mobileNavId, toggleMobileNav } = useAppShellMobile();
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  if (!isMobile) return null;
+  return (
+    <nav aria-label={t('shell.bottomNav')} className="shell-bottom-nav">
+      {bottomNavItems.map((item) => {
+        const Glyph = item.icon;
+        return (
+          <RouterAnchor
+            key={item.to}
+            href={item.to}
+            className="shell-bottom-item"
+            aria-current={isCurrent(pathname, item.to) ? 'page' : undefined}
+          >
+            <Glyph />
+            <span>{t(item.label)}</span>
+          </RouterAnchor>
+        );
+      })}
+      <button
+        type="button"
+        className="shell-bottom-item"
+        aria-expanded={isMobileNavOpen}
+        aria-controls={mobileNavId}
+        onClick={toggleMobileNav}
+      >
+        <MenuIcon />
+        <span>{t('shell.more')}</span>
+      </button>
+    </nav>
+  );
+}
+
+/** « 226os » and links to the project documents that exist (prototype `.app-footer`). */
+function SiteFooter() {
+  const { t } = useI18n();
+  return (
+    <footer className="shell-footer">
+      <span className="shell-footer-name">{t('app.name')}</span>
+      <ul className="shell-footer-links" aria-label={t('shell.footer')}>
+        {projectLinks.map((link) => (
+          <li key={link.href}>
+            <a href={link.href} rel="noopener noreferrer">
+              {t(link.label)}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </footer>
+  );
+}
+
 /** App chrome for every page except the standalone account pages (prototype shell). */
 export function Shell() {
   const { t } = useI18n();
   const signOut = useSignOut();
+  const onSignOut = () => {
+    signOut.mutate();
+  };
   return (
-    <AppShell
-      height="auto"
-      variant="wash"
-      contentPadding={0}
-      className="shell"
-      banner={
-        signOut.isError ? (
-          <Banner status="error" title={t('account.signOutFailed')} container="section" />
-        ) : undefined
-      }
-      topNav={
-        <TopNav
-          label={t('nav.top')}
-          className="shell-topnav"
-          heading={<Brand />}
-          centerContent={<HeaderSearch />}
-          endContent={
-            <span className="shell-actions">
-              <ThemeToggle />
-              <AccountArea
-                onSignOut={() => {
-                  signOut.mutate();
-                }}
-              />
-            </span>
-          }
-        />
-      }
-      sideNav={<PrimaryNav />}
-      mobileNav={{
-        // The same links in a drawer that is a modal dialog for assistive technology as well.
-        content: (
-          <MobileNav aria-modal="true" header={<Brand />}>
-            <PrimaryNav isDrawer />
-          </MobileNav>
-        ),
-      }}
-    >
-      <div className="shell-page">
-        <MobileSearch />
-        <Outlet />
-      </div>
-    </AppShell>
+    <>
+      <AppShell
+        height="auto"
+        variant="wash"
+        contentPadding={0}
+        className="shell"
+        banner={
+          signOut.isError ? (
+            <Banner status="error" title={t('account.signOutFailed')} container="section" />
+          ) : undefined
+        }
+        topNav={
+          <TopNav
+            label={t('nav.top')}
+            className="shell-topnav"
+            heading={<Brand />}
+            centerContent={<HeaderSearch />}
+            endContent={
+              <span className="shell-actions">
+                <ThemeToggle />
+                <AccountArea onSignOut={onSignOut} />
+                <AskButton />
+              </span>
+            }
+          />
+        }
+        sideNav={<PrimaryNav />}
+        mobileNav={{
+          // No top-bar hamburger on a phone: « Plus » in the bottom bar opens the drawer.
+          hasToggle: false,
+          // The same links in a drawer that is a modal dialog for assistive technology as well,
+          // sliding in from the left as in the prototype.
+          content: (
+            <MobileNav aria-modal="true" side="start" header={<Brand />}>
+              <PrimaryNav isDrawer />
+              <SideNavRenderContext value="drawer-content">
+                <DrawerAccount onSignOut={onSignOut} />
+              </SideNavRenderContext>
+            </MobileNav>
+          ),
+        }}
+      >
+        <div className="shell-page">
+          <MobileSearch />
+          <Outlet />
+        </div>
+        <BottomNav />
+      </AppShell>
+      <SiteFooter />
+    </>
   );
 }

@@ -22,7 +22,15 @@ export interface NavSection {
   items: NavItem[];
 }
 
-export const homeItem: NavItem = { label: 'nav.home', icon: HomeIcon, to: '/' };
+/** A live navigation entry: one with a route. */
+export type LiveNavItem = NavItem & { to: string };
+
+export const homeItem: LiveNavItem = { label: 'nav.home', icon: HomeIcon, to: '/' };
+
+/** Whether `to` is the current area: the home only on `/`, any other area on its subpaths too. */
+export function isCurrent(pathname: string, to: string) {
+  return to === '/' ? pathname === '/' : pathname === to || pathname.startsWith(`${to}/`);
+}
 
 /**
  * Pillar emphasis (O7): Apprendre and Connect come first; Solve, Discover and Build stay
@@ -44,4 +52,26 @@ export const navSections: NavSection[] = [
       { label: 'nav.build', icon: HammerIcon, to: '/build' },
     ],
   },
+];
+
+/**
+ * The phone bottom bar (prototype `.bottom-nav`: four areas, then « Plus »). Mapped to our
+ * navigation: Accueil, Apprendre, Résoudre, Découvrir; Connect and Construire stay in the drawer.
+ */
+export const bottomNavItems: readonly LiveNavItem[] = [
+  homeItem,
+  { label: 'nav.learn', icon: BookIcon, to: '/apprendre' },
+  { label: 'nav.solve', icon: HelpIcon, to: '/solve' },
+  { label: 'nav.discover', icon: CompassIcon, to: '/discover' },
+];
+
+const repository = 'https://github.com/Y4NN777/226os/blob/main';
+
+/**
+ * Footer links (prototype `footer.*`) that point at a document that exists in the public
+ * repository. The prototype's code of conduct and privacy links have no document yet: left out.
+ */
+export const projectLinks: readonly { label: MessageKey; href: string }[] = [
+  { label: 'shell.footer.licence', href: `${repository}/LICENSE` },
+  { label: 'shell.footer.contribute', href: `${repository}/CONTRIBUTING.md` },
 ];

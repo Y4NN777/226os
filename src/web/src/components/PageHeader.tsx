@@ -13,7 +13,14 @@ export interface PageHeaderProps {
   actions?: ReactNode;
 }
 
-/** Top of a page: breadcrumbs, the h1 with its actions, and the lead (prototype `.page-header`). */
+/**
+ * Top of a page: breadcrumbs, the h1 with its actions, and the lead (prototype `.page-header`,
+ * `.page-header-row`, `.lede`).
+ *
+ * Convention: a page renders its breadcrumbs only through this header (`breadcrumbs`), never a
+ * `Breadcrumbs` of its own, so every trail sits in the same place with the same look. The last
+ * crumb is the current page, as text.
+ */
 export function PageHeader({ title, lead, breadcrumbs, actions }: PageHeaderProps) {
   return (
     <div className="ui-page-header">
