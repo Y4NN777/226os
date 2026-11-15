@@ -8,6 +8,7 @@ import (
 	"slices"
 	"strings"
 	"time"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/Y4NN777/226os/src/api/internal/platform/apperr"
@@ -131,7 +132,7 @@ func (s *Service) Search(ctx context.Context, req Request) (Results, error) {
 		return Results{}, err
 	}
 	query := domain.Query{Text: domain.TruncateQuery(req.Q), Country: deref(req.Country), Lang: deref(req.Lang), Limit: size + 1}
-	fuzzy := req.Fuzzy && utf8.RuneCountInString(strings.TrimSpace(req.Q)) >= minFuzzy
+	fuzzy := req.Fuzzy && utf8.RuneCountInString(strings.TrimSpace(req.Q)) >= minFuzzy && !hasNegation(query.Text)
 	out := Results{Query: req.Q, Groups: make(map[domain.Group]GroupResult, len(groups))}
 	for _, g := range groups {
 		hits, err := s.store.Search(ctx, g, query)
@@ -156,6 +157,24 @@ func (s *Service) Search(ctx context.Context, req Request) (Results, error) {
 		out.Groups[g] = result
 	}
 	return out, nil
+}
+
+// hasNegation reports whether text negates a word in websearch_to_tsquery syntax: a field that starts
+// with "-" (after any leading quote or parenthesis) right before a letter or digit. pg_trgm ignores
+// the "-", so the fallback would return exactly the titles the caller excluded. "e-commerce" and
+// "a - b" are not negations.
+func hasNegation(text string) bool {
+	for _, field := range strings.Fields(text) {
+		rest, ok := strings.CutPrefix(strings.TrimLeft(field, `"(`), "-")
+		if !ok {
+			continue
+		}
+		r, _ := utf8.DecodeRuneInString(rest)
+		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+			return true
+		}
+	}
+	return false
 }
 
 // groupsOf validates types: each must be a known group, with no repeats. None means all groups.

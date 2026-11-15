@@ -64,6 +64,38 @@ func TestFuzzySearchNeedsThreeCharacters(t *testing.T) {
 	}
 }
 
+// pg_trgm ignores "-", so the fallback would return the very titles a negated word excludes. A query
+// that negates a word in websearch_to_tsquery syntax never falls back; a hyphen inside a word or
+// standing alone is not a negation.
+func TestFuzzySearchSkipsTheFallbackWhenTheQueryNegatesAWord(t *testing.T) {
+	tests := []struct {
+		name         string
+		q            string
+		wantFallback bool
+	}{
+		{"trailing negation", "paiemnt -mobile", false},
+		{"leading negation", "-mobile paiemnt", false},
+		{"negated quoted word", `paiemnt "-mobile"`, false},
+		{"negated word in parentheses", "paiemnt (-mobile", false},
+		{"negated digit", "paiemnt -3d", false},
+		{"hyphen inside a word", "e-commerce paiemnt", true},
+		{"lone hyphen", "paiemnt - mobile", true},
+		{"hyphen before a symbol", "paiemnt -+ mobile", true},
+		{"no hyphen", "paiemnt", true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			r := &fakeReader{similar: map[domain.Group]int{domain.Questions: 3}}
+			if _, err := New(r, allow, nil).Search(t.Context(), Request{Q: tc.q, Fuzzy: true}); err != nil {
+				t.Fatal(err)
+			}
+			if got := len(r.similarCalls) > 0; got != tc.wantFallback {
+				t.Fatalf("q %q: fallback ran = %v (%d calls), want %v", tc.q, got, len(r.similarCalls), tc.wantFallback)
+			}
+		})
+	}
+}
+
 func TestFuzzySearchFallbackErrorIsReturned(t *testing.T) {
 	boom := errors.New("db down")
 	r := &fakeReader{similarErr: map[domain.Group]error{domain.Learn: boom}}

@@ -66,8 +66,8 @@ func TestSearchToleratesTypos(t *testing.T) {
 		t.Errorf("country GH: questions %v projects %v learn %v", ids(res.Groups.Questions), ids(res.Groups.Projects), ids(res.Groups.Learn))
 	}
 
-	// Far from every word, a negation only, and 2 characters: nothing.
-	for _, q := range []string{"zzzqqq", "-paiemnt", "pq"} {
+	// Far from every word, a negation only, a negated word (no fallback: pg_trgm ignores "-") and 2 characters: nothing.
+	for _, q := range []string{"zzzqqq", "-paiemnt", "paiemnt -mobile", "pq"} {
 		res, rec := e.search(ctx, t, apigen.SearchParams{Q: q})
 		if rec.Code != http.StatusOK {
 			t.Fatalf("%q: %d", q, rec.Code)
