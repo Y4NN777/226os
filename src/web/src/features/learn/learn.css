@@ -349,11 +349,64 @@
 }
 
 /* ---------- apprendre: toolbar, sections, invitation ---------- */
+/* Prototype `.ln-toolbar`: chips, then search + selects side by side from 960px. */
 .learn-toolbar {
+  display: grid;
+  gap: var(--spacing-3);
+}
+.learn-seg {
+  max-width: 100%;
+  padding: 2px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.learn-seg > * {
+  min-width: max-content;
+}
+.learn-toolbar-main {
+  display: grid;
+  gap: var(--spacing-3);
+}
+@media (min-width: 960px) {
+  .learn-toolbar-main {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
+    gap: var(--spacing-4);
+    align-items: end;
+  }
+  .learn-toolbar-main.learn-no-search {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.learn-search {
   display: flex;
-  flex-wrap: wrap;
   align-items: end;
   gap: var(--spacing-2);
+  min-width: 0;
+}
+.learn-selects {
+  display: grid;
+  gap: var(--spacing-3);
+  grid-template-columns: minmax(0, 1fr);
+  align-items: end;
+}
+@media (min-width: 480px) {
+  .learn-selects {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+.learn-resultsbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-2);
+  min-height: 32px;
+}
+.learn-count {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
 }
 .learn-section {
   display: grid;
