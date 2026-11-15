@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { callsTo, memberSession, mockApi, problemResponse } from '../../test/api';
 import { jsonResponse, renderApp, setLanguages } from '../../test/render';
+import { selectSegment } from '../../test/segmented';
 import { question } from '../solve/testFixtures';
 import {
   articleId,
@@ -41,13 +42,19 @@ describe('LearnPage list', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'Apprendre' })).toBeInTheDocument();
     const article = await screen.findByRole('link', { name: 'Vérifier un webhook signé' });
     expect(article).toHaveAttribute('href', `/apprendre/articles/${articleId}`);
-    const formation = await screen.findByRole('link', {
+    // As in the prototype, the featured training heads the page and is listed with the rest.
+    const formationLinks = await screen.findAllByRole('link', {
       name: 'Premiers pas avec une API de paiement',
     });
-    expect(formation).toHaveAttribute('href', `/apprendre/formations/${seriesId}`);
+    expect(formationLinks).toHaveLength(2);
+    for (const formation of formationLinks) {
+      expect(formation).toHaveAttribute('href', `/apprendre/formations/${seriesId}`);
+    }
     // Dense rows as in the prototype: type badge, author, level, language, date.
-    const articles = screen.getByRole('region', { name: 'Articles' });
-    const row = within(articles).getByRole('listitem');
+    const browse = screen.getByRole('region', { name: 'Tous les contenus' });
+    const row = within(browse)
+      .getByRole('link', { name: 'Vérifier un webhook signé' })
+      .closest('li') as HTMLElement;
     expect(within(row).getByText('Article')).toBeInTheDocument();
     expect(within(row).getByText('Fatou Diallo')).toBeInTheDocument();
     expect(within(row).getByText('Intermédiaire')).toBeInTheDocument();
@@ -59,7 +66,10 @@ describe('LearnPage list', () => {
     expect(
       within(row).getByText('Calculer le HMAC et comparer en temps constant.'),
     ).toBeInTheDocument();
-    const formations = screen.getByRole('region', { name: 'Formations' });
+    // The featured training is its own region, named by its title (prototype `.ln-feature`).
+    const formations = screen.getByRole('region', {
+      name: 'Premiers pas avec une API de paiement',
+    });
     expect(within(formations).getByText('2 leçons')).toBeInTheDocument();
     expect(within(formations).getByText('Formation proposée par Fatou Diallo')).toBeInTheDocument();
     expect(within(formations).getByRole('link', { name: 'Voir le programme' })).toHaveAttribute(
@@ -152,7 +162,7 @@ describe('LearnPage list', () => {
     });
     const user = userEvent.setup({ delay: null });
     await renderApp('/apprendre');
-    await screen.findByRole('link', { name: 'Premiers pas avec une API de paiement' });
+    await screen.findAllByRole('link', { name: 'Premiers pas avec une API de paiement' });
     await user.click(screen.getByRole('button', { name: 'Afficher plus de formations' }));
     expect(await screen.findByRole('link', { name: 'Déployer sur un VPS' })).toBeVisible();
     expect(callsTo(fetchMock, 'GET /learn/series')).toHaveLength(2);
@@ -193,24 +203,27 @@ describe('LearnPage list', () => {
     expect(params(callsTo(other, 'GET /learn/articles')[0]).has('topic')).toBe(false);
   });
 
-  it('clears the topic filter with its reset button', async () => {
+  it('clears the topic filter with the reset button', async () => {
     setLanguages(['fr-FR']);
     mockApi(base);
     const user = userEvent.setup({ delay: null });
     const { router } = await renderApp('/apprendre?topic=mobile');
     await screen.findByRole('link', { name: 'Vérifier un webhook signé' });
-    await user.click(screen.getByRole('button', { name: 'Tous les sujets' }));
+    // One reset for every filter, as in the prototype (owner decision, 15 Nov 2026).
+    await user.click(screen.getByRole('button', { name: 'Réinitialiser' }));
     await waitFor(() => {
       expect(router.state.location.search).not.toHaveProperty('topic');
     });
   });
 
-  it('says so when no article matches', async () => {
+  it('says so when nothing is published yet, without a reset', async () => {
     setLanguages(['fr-FR']);
     mockApi({ 'GET /learn/articles': () => page([]), 'GET /learn/series': () => page([]) });
     await renderApp('/apprendre');
-    expect(await screen.findByText('Aucun article pour le moment')).toBeVisible();
-    expect(screen.queryByRole('region', { name: 'Formations' })).not.toBeInTheDocument();
+    // Articles and series share one list now, so the empty state speaks of both.
+    expect(await screen.findByText('Aucun contenu pour le moment')).toBeVisible();
+    expect(screen.queryByRole('link', { name: 'Voir le programme' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Réinitialiser/ })).not.toBeInTheDocument();
   });
 
   it('shows a readable error with a retry when the articles fail to load', async () => {
@@ -263,6 +276,273 @@ describe('LearnPage list', () => {
     expect(
       screen.queryByRole('region', { name: 'Partagez ce que vous savez' }),
     ).not.toBeInTheDocument();
+  });
+});
+
+describe('LearnPage filters', () => {
+  const articleCalls = (fetchMock: ReturnType<typeof mockApi>) =>
+    callsTo(fetchMock, 'GET /learn/articles').map(params);
+  const seriesCalls = (fetchMock: ReturnType<typeof mockApi>) =>
+    callsTo(fetchMock, 'GET /learn/series').map(params);
+
+  it('groups the type chips, the search and the three selects in one filter area', async () => {
+    setLanguages(['fr-FR']);
+    mockApi(base);
+    await renderApp('/apprendre');
+    await screen.findByRole('link', { name: 'Vérifier un webhook signé' });
+    const browse = screen.getByRole('region', { name: 'Tous les contenus' });
+    const chips = within(browse).getByRole('radiogroup', { name: 'Filtrer par type' });
+    expect(
+      within(chips)
+        .getAllByRole('radio')
+        .map((radio) => radio.textContent),
+    ).toEqual(['Tout', 'Articles', 'Tutoriels', 'Formations']);
+    expect(within(chips).getByRole('radio', { name: 'Tout' })).toBeChecked();
+    // No counts on the chips: the API returns no totals.
+    expect(within(chips).queryByText(/\d/)).not.toBeInTheDocument();
+    const field = within(browse).getByRole('searchbox', { name: 'Rechercher' });
+    expect(field).toHaveAttribute('placeholder', 'Un mot, un sujet');
+    expect(within(browse).getByRole('combobox', { name: 'Sujet' })).toBeInTheDocument();
+    expect(within(browse).getByRole('combobox', { name: 'Niveau' })).toBeInTheDocument();
+    expect(within(browse).getByRole('combobox', { name: 'Langue' })).toBeInTheDocument();
+    // One series and one article, no further page: a total, announced politely.
+    expect(within(browse).getByText('2 contenus')).toHaveAttribute('role', 'status');
+    expect(screen.queryByRole('button', { name: 'Réinitialiser' })).not.toBeInTheDocument();
+  });
+
+  it('sends the tutorial type to the articles and leaves the series out', async () => {
+    setLanguages(['fr-FR']);
+    const fetchMock = mockApi({
+      ...base,
+      'GET /learn/series': () =>
+        page([
+          seriesSummary(),
+          seriesSummary({ id: 'e0000000-0000-4000-8000-000000000002', title: 'Déployer' }),
+        ]),
+    });
+    const { router } = await renderApp('/apprendre');
+    await screen.findByRole('link', { name: 'Déployer' });
+    await selectSegment(screen.getByRole('radio', { name: 'Tutoriels' }));
+
+    await waitFor(() => {
+      expect(articleCalls(fetchMock).at(-1)?.get('type')).toBe('tutorial');
+    });
+    expect(router.state.location.search).toEqual({ type: 'tutorial' });
+    await waitFor(() => {
+      expect(screen.queryByRole('link', { name: 'Déployer' })).not.toBeInTheDocument();
+    });
+    // The featured training stays; the series list is not asked for with a type it cannot serve.
+    expect(seriesCalls(fetchMock)).toHaveLength(1);
+    expect(screen.getByRole('link', { name: 'Voir le programme' })).toBeVisible();
+  });
+
+  it('lists only the series under Formations, without asking for articles or offering a search', async () => {
+    setLanguages(['fr-FR']);
+    const fetchMock = mockApi(base);
+    await renderApp('/apprendre?type=series&q=hmac');
+    const browse = await screen.findByRole('region', { name: 'Tous les contenus' });
+    expect(
+      await within(browse).findByRole('link', { name: 'Premiers pas avec une API de paiement' }),
+    ).toBeVisible();
+    expect(callsTo(fetchMock, 'GET /learn/articles')).toHaveLength(0);
+    // The series endpoint has no text search, so the field is not offered and q is dropped.
+    expect(within(browse).queryByRole('searchbox')).not.toBeInTheDocument();
+    expect(within(browse).getByRole('radio', { name: 'Formations' })).toBeChecked();
+  });
+
+  it('searches the articles on submit and says the series are not searched', async () => {
+    setLanguages(['fr-FR']);
+    const fetchMock = mockApi(base);
+    const user = userEvent.setup({ delay: null });
+    const { router } = await renderApp('/apprendre');
+    await screen.findByRole('link', { name: 'Vérifier un webhook signé' });
+    await user.type(screen.getByRole('searchbox', { name: 'Rechercher' }), '  webhook {Enter}');
+
+    await waitFor(() => {
+      expect(articleCalls(fetchMock).at(-1)?.get('q')).toBe('webhook');
+    });
+    expect(router.state.location.search).toEqual({ q: 'webhook' });
+    expect(seriesCalls(fetchMock).every((call) => !call.has('q'))).toBe(true);
+    expect(seriesCalls(fetchMock)).toHaveLength(1);
+    expect(
+      await screen.findByText('La recherche porte sur les articles et les tutoriels.'),
+    ).toBeVisible();
+  });
+
+  it('sends the level and the language to both lists, keeping the other filters', async () => {
+    setLanguages(['fr-FR']);
+    const fetchMock = mockApi(base);
+    const user = userEvent.setup({ delay: null });
+    const { router } = await renderApp('/apprendre?topic=mobile');
+    await screen.findByRole('link', { name: 'Vérifier un webhook signé' });
+
+    await user.click(screen.getByRole('combobox', { name: 'Niveau' }));
+    await user.click(await screen.findByRole('option', { name: 'Débutant' }));
+    await waitFor(() => {
+      expect(router.state.location.search).toEqual({ topic: 'mobile', level: 'beginner' });
+    });
+    await user.click(screen.getByRole('combobox', { name: 'Langue' }));
+    await user.click(await screen.findByRole('option', { name: 'English' }));
+
+    await waitFor(() => {
+      expect(router.state.location.search).toEqual({
+        topic: 'mobile',
+        level: 'beginner',
+        lang: 'en',
+      });
+    });
+    await waitFor(() => {
+      const last = articleCalls(fetchMock).at(-1);
+      expect(last?.get('level')).toBe('beginner');
+      expect(last?.get('lang')).toBe('en');
+      expect(last?.get('topic')).toBe('mobile');
+    });
+    const series = seriesCalls(fetchMock).at(-1);
+    expect(series?.get('level')).toBe('beginner');
+    expect(series?.get('lang')).toBe('en');
+  });
+
+  it('reads every filter from the address and shows it in the controls', async () => {
+    setLanguages(['fr-FR']);
+    const fetchMock = mockApi(base);
+    await renderApp('/apprendre?type=article&q=hmac&topic=mobile&level=advanced&lang=en');
+    await screen.findByRole('link', { name: 'Vérifier un webhook signé' });
+    const call = articleCalls(fetchMock)[0];
+    expect(Object.fromEntries(call?.entries() ?? [])).toEqual({
+      type: 'article',
+      q: 'hmac',
+      topic: 'mobile',
+      level: 'advanced',
+      lang: 'en',
+    });
+    expect(screen.getByRole('radio', { name: 'Articles' })).toBeChecked();
+    expect(screen.getByRole('searchbox', { name: 'Rechercher' })).toHaveValue('hmac');
+    expect(screen.getByRole('combobox', { name: 'Niveau' })).toHaveTextContent('Avancé');
+    expect(screen.getByRole('combobox', { name: 'Langue' })).toHaveTextContent('English');
+  });
+
+  it('drops unknown filter values from the address', async () => {
+    setLanguages(['fr-FR']);
+    const fetchMock = mockApi(base);
+    const { router } = await renderApp('/apprendre?type=video&level=expert&lang=de&q=%20%20');
+    await screen.findByRole('link', { name: 'Vérifier un webhook signé' });
+    expect([...(articleCalls(fetchMock)[0]?.keys() ?? [])]).toEqual([]);
+    expect([...(seriesCalls(fetchMock)[0]?.keys() ?? [])]).toEqual([]);
+    expect(screen.getByRole('radio', { name: 'Tout' })).toBeChecked();
+    expect(screen.queryByRole('button', { name: 'Réinitialiser' })).not.toBeInTheDocument();
+    expect(router.state.location.pathname).toBe('/apprendre');
+  });
+
+  it('resets every filter at once', async () => {
+    setLanguages(['fr-FR']);
+    mockApi(base);
+    const user = userEvent.setup({ delay: null });
+    const { router } = await renderApp('/apprendre?type=tutorial&level=beginner&lang=fr&q=go');
+    await screen.findByRole('link', { name: 'Vérifier un webhook signé' });
+    await user.click(screen.getByRole('button', { name: 'Réinitialiser' }));
+    await waitFor(() => {
+      expect(router.state.location.search).toEqual({});
+    });
+    expect(await screen.findByRole('radio', { name: 'Tout' })).toBeChecked();
+    expect(screen.getByRole('searchbox', { name: 'Rechercher' })).toHaveValue('');
+  });
+
+  it('starts again from the first page when a filter changes', async () => {
+    setLanguages(['fr-FR']);
+    const fetchMock = mockApi({
+      ...base,
+      'GET /learn/articles': (request) =>
+        params(request).get('cursor') === 'cur-2' ? page([second]) : page([summary()], 'cur-2'),
+    });
+    const user = userEvent.setup({ delay: null });
+    await renderApp('/apprendre');
+    await screen.findByRole('link', { name: 'Vérifier un webhook signé' });
+    expect(screen.getByText('Les 2 premiers contenus')).toHaveAttribute('role', 'status');
+    await user.click(screen.getByRole('button', { name: 'Afficher plus d’articles' }));
+    await screen.findByRole('link', { name: 'Mobile Money et faible débit' });
+    expect(articleCalls(fetchMock).at(-1)?.get('cursor')).toBe('cur-2');
+
+    await selectSegment(screen.getByRole('radio', { name: 'Articles' }));
+    await waitFor(() => {
+      expect(articleCalls(fetchMock).at(-1)?.get('type')).toBe('article');
+    });
+    expect(articleCalls(fetchMock).at(-1)?.has('cursor')).toBe(false);
+  });
+
+  it('says nothing matches the search, with a reset in the empty state', async () => {
+    setLanguages(['fr-FR']);
+    mockApi({ ...base, 'GET /learn/articles': () => page([]) });
+    const user = userEvent.setup({ delay: null });
+    const { router } = await renderApp('/apprendre?q=kotlin');
+    expect(await screen.findByText('Aucun contenu ne correspond')).toBeVisible();
+    expect(
+      screen.getByText(
+        // Testing Library folds the no-break spaces of « » into plain spaces.
+        'Rien pour « kotlin ». Essayez d’autres mots, retirez un filtre, ou écrivez vous-même ce qui manque.',
+      ),
+    ).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Réinitialiser les filtres' }));
+    await waitFor(() => {
+      expect(router.state.location.search).toEqual({});
+    });
+  });
+
+  it('names the type in the empty state of a type filter', async () => {
+    setLanguages(['fr-FR']);
+    mockApi({ ...base, 'GET /learn/series': () => page([]) });
+    await renderApp('/apprendre?type=series&level=advanced');
+    expect(await screen.findByText('Aucune formation ne correspond')).toBeVisible();
+    expect(
+      screen.getByText('Retirez un filtre, ou écrivez vous-même ce qui manque.'),
+    ).toBeVisible();
+  });
+
+  it('names a tutorial filter in its empty state', async () => {
+    setLanguages(['fr-FR']);
+    mockApi({ ...base, 'GET /learn/articles': () => page([]) });
+    await renderApp('/apprendre?type=tutorial');
+    expect(await screen.findByText('Aucun tutoriel ne correspond')).toBeVisible();
+  });
+
+  it('lists the featured series again when a filter matches it', async () => {
+    setLanguages(['fr-FR']);
+    mockApi(base);
+    await renderApp('/apprendre?level=beginner');
+    const browse = await screen.findByRole('region', { name: 'Tous les contenus' });
+    expect(
+      await within(browse).findByRole('link', { name: 'Premiers pas avec une API de paiement' }),
+    ).toBeVisible();
+    expect(within(browse).getByText('2 contenus')).toHaveAttribute('role', 'status');
+  });
+
+  it('speaks English', async () => {
+    setLanguages(['en-US']);
+    mockApi({
+      ...base,
+      'GET /learn/articles': () => page([]),
+      'GET /learn/series': () => page([]),
+    });
+    await renderApp('/apprendre?type=article&q=go');
+    const chips = await screen.findByRole('radiogroup', { name: 'Filter by type' });
+    expect(
+      within(chips)
+        .getAllByRole('radio')
+        .map((radio) => radio.textContent),
+    ).toEqual(['All', 'Articles', 'Tutorials', 'Courses']);
+    expect(screen.getByRole('searchbox', { name: 'Search' })).toHaveAttribute(
+      'placeholder',
+      'A word, a topic',
+    );
+    expect(screen.getByRole('combobox', { name: 'Topic' })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Level' })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Language' })).toBeInTheDocument();
+    expect(await screen.findByText('No article matches')).toBeVisible();
+    expect(
+      screen.getByText(
+        'Nothing for “go”. Try other words, remove a filter, or write what is missing yourself.',
+      ),
+    ).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Reset filters' })).toBeVisible();
   });
 });
 

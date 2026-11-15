@@ -112,6 +112,13 @@ export const AlertCircleIcon = stroke(
 );
 export const PlusIcon = stroke(<path d="M12 5v14M5 12h14" />);
 export const MenuIcon = stroke(<path d="M4 6h16M4 12h16M4 18h16" />);
+export const ArrowRightIcon = stroke(<path d="M5 12h14M12 5l7 7-7 7" />);
+export const UsersIcon = stroke(
+  <>
+    <circle cx="9" cy="8" r="3.5" />
+    <path d="M2 21a7 7 0 0 1 14 0M17 4.5a3.5 3.5 0 0 1 0 7M22 21a7 7 0 0 0-4-6.3" />
+  </>,
+);
 export const UserIcon = stroke(
   <>
     <circle cx="12" cy="8" r="4" />
@@ -137,6 +144,28 @@ export const LogInIcon = stroke(
 );
 export const LogOutIcon = stroke(
   <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />,
+);
+export const SparklesIcon = stroke(
+  <path d="m12 3 1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9zM19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z" />,
+);
+export const EyeIcon = stroke(
+  <>
+    <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" />
+    <circle cx="12" cy="12" r="3" />
+  </>,
+);
+export const CodeIcon = stroke(<path d="m16 18 6-6-6-6M8 6l-6 6 6 6" />);
+export const FileTextIcon = stroke(
+  <>
+    <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5z" />
+    <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" />
+  </>,
+);
+export const CircleDotIcon = stroke(
+  <>
+    <circle cx="12" cy="12" r="10" />
+    <circle cx="12" cy="12" r="1" />
+  </>,
 );
 export const InboxIcon = stroke(
   <>

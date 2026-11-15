@@ -1,17 +1,19 @@
-/* Home-auth pages: dense rows, pills, thumbs and section heads after the HTML prototype
-   (prototypes/html/assets/css/components.css: .list, .row, .state-pill, .thumb, .meta).
-   Astryx and Graphite & Lime tokens only. Layers, not edges: the list is a surface on the body
-   background, one hairline between rows, no shadows. Local until the shared ui/ rows land. */
+/* Member home (prototype accueil.html): page-specific layout only. Rows, pills, tags, country
+   codes, meta and avatars come from src/components (styles/ui.css). Astryx tokens only. */
 
-.feed-icon {
-  display: inline-block;
-  flex: none;
-  width: 1.25em;
-  height: 1.25em;
-  vertical-align: -0.2em;
+.feed-page {
+  display: grid;
+  gap: var(--spacing-8);
+  min-width: 0;
+}
+.feed-hero {
+  display: grid;
+}
+.feed-hero .ui-page-header {
+  margin-bottom: var(--spacing-3);
 }
 
-/* ---------- Section head: icon, h2, "see all" link on the right, one sub line ---------- */
+/* Section head: icon, h2, "see all" link at the end, one sub line (prototype .id-head). */
 .feed-section {
   display: grid;
   gap: var(--spacing-3);
@@ -23,9 +25,6 @@
   align-items: center;
   gap: var(--spacing-2) var(--spacing-3);
 }
-.feed-head > .feed-icon {
-  color: var(--color-text-secondary);
-}
 .feed-head h2 {
   margin: 0;
 }
@@ -35,204 +34,6 @@
 .feed-sub {
   margin: calc(var(--spacing-2) * -1) 0 0;
   color: var(--color-text-secondary);
-}
-
-/* ---------- List and row ---------- */
-.feed-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  background: var(--color-background-surface);
-  border-radius: var(--radius-container);
-  overflow: hidden;
-}
-.feed-row {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  gap: var(--spacing-1) var(--spacing-4);
-  align-items: start;
-  padding: var(--spacing-4);
-}
-.feed-row-nolead {
-  grid-template-columns: minmax(0, 1fr) auto;
-}
-.feed-row + .feed-row {
-  border-top: 1px solid var(--color-border);
-}
-.feed-row-lead {
-  display: flex;
-}
-.feed-row-main {
-  display: grid;
-  gap: var(--spacing-1);
-  min-width: 0;
-}
-.feed-row-above {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--spacing-2);
-}
-.feed-row-title {
-  margin: 0;
-  font-size: 1rem;
-  line-height: 1.35;
-  overflow-wrap: anywhere;
-}
-.feed-row-excerpt {
-  margin: 0;
-  color: var(--color-text-secondary);
-  line-height: 1.5;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  overflow: hidden;
-}
-.feed-row-aside {
-  display: grid;
-  justify-items: end;
-  gap: var(--spacing-2);
-  color: var(--color-text-secondary);
-  font-size: 0.875rem;
-  font-variant-numeric: tabular-nums;
-  text-align: end;
-}
-.feed-aside-text {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--spacing-1);
-  white-space: nowrap;
-}
-/* Phones: the aside drops under the text, aligned with it. */
-@media (max-width: 599px) {
-  .feed-row {
-    grid-template-columns: auto minmax(0, 1fr);
-  }
-  .feed-row-nolead {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .feed-row-aside {
-    grid-column: -2 / -1;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-items: start;
-    text-align: start;
-  }
-}
-
-/* ---------- Meta line: tags, country code, date ---------- */
-.feed-meta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--spacing-1) var(--spacing-3);
-  color: var(--color-text-secondary);
-  font-size: 0.875rem;
-  font-variant-numeric: tabular-nums;
-}
-.feed-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--spacing-1);
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-.feed-tag,
-.feed-country abbr,
-.feed-lang {
-  display: inline-block;
-  padding: 0 var(--spacing-2);
-  border-radius: var(--radius-inner);
-  background: var(--color-background-muted);
-  color: var(--color-text-primary);
-  font-family: var(--font-family-code);
-  font-size: 0.75rem;
-  line-height: 1.6rem;
-}
-.feed-country abbr {
-  text-decoration: none;
-  font-weight: 600;
-}
-.feed-lang {
-  font-family: var(--font-family-body);
-}
-.feed-kind {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--spacing-1);
-  padding: 0 var(--spacing-2);
-  border-radius: var(--radius-inner);
-  background: var(--color-background-muted);
-  color: var(--color-text-secondary);
-  font-size: 0.75rem;
-  line-height: 1.6rem;
-}
-
-/* ---------- State pill: icon + word on a neutral fill ---------- */
-.feed-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--spacing-1);
-  padding: 0 var(--spacing-2);
-  border-radius: var(--radius-full);
-  background: var(--color-background-muted);
-  color: var(--color-text-primary);
-  font-size: 0.8125rem;
-  line-height: 1.75rem;
-  white-space: nowrap;
-}
-.feed-pill .feed-icon {
-  width: 1rem;
-  height: 1rem;
-}
-.feed-pill-accepted .feed-icon,
-.feed-pill-open .feed-icon {
-  color: var(--color-text-success);
-}
-.feed-pill-verified .feed-icon {
-  color: var(--color-text-accent);
-}
-.feed-pill-stale .feed-icon {
-  color: var(--color-text-warning);
-}
-.feed-pill-unverified .feed-icon {
-  color: var(--color-text-secondary);
-}
-
-/* ---------- Thumb: square tinted lead with a glyph ---------- */
-.feed-thumb {
-  display: grid;
-  place-items: center;
-  width: 2.75rem;
-  height: 2.75rem;
-  border-radius: var(--radius-element);
-  background: color-mix(in srgb, var(--color-accent) 16%, var(--color-background-surface));
-  color: var(--color-text-accent);
-}
-.feed-thumb-strong {
-  background: var(--color-accent);
-  color: var(--color-on-accent);
-}
-.feed-thumb .feed-icon {
-  width: 1.375rem;
-  height: 1.375rem;
-}
-
-/* ---------- Home page layout ---------- */
-.feed-page {
-  display: grid;
-  gap: var(--spacing-8);
-  max-width: 56rem;
-  min-width: 0;
-}
-.feed-hero {
-  display: grid;
-  gap: var(--spacing-4);
-}
-.feed-hero h1 {
-  margin: 0;
 }
 
 /* Search field with the glyph inside, like the prototype's .search-field. */
@@ -265,11 +66,6 @@
   height: 3rem;
   border-radius: var(--radius-element);
   background: color-mix(in srgb, var(--color-accent) 16%, var(--color-background-surface));
-  color: var(--color-text-accent);
-}
-.feed-lead-icon .feed-icon {
-  width: 1.5rem;
-  height: 1.5rem;
 }
 .feed-lead-text {
   display: grid;
@@ -285,20 +81,8 @@
   color: var(--color-text-secondary);
 }
 
-.feed-empty {
-  margin: 0;
-  padding: var(--spacing-5);
-  border-radius: var(--radius-container);
-  background: var(--color-background-surface);
-  color: var(--color-text-secondary);
-}
-
 @media (forced-colors: active) {
-  .feed-list,
-  .feed-lead,
-  .feed-pill,
-  .feed-tag,
-  .feed-thumb {
+  .feed-lead {
     border: 1px solid CanvasText;
   }
 }

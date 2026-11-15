@@ -6,12 +6,22 @@ import { TextInput } from '@astryxdesign/core/TextInput';
 import { useNavigate } from '@tanstack/react-router';
 import { useId, useState, type SyntheticEvent, type ReactNode } from 'react';
 import { useSession } from '../../app/session';
+import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
+import {
+  BookIcon,
+  CompassIcon,
+  HammerIcon,
+  HelpIcon,
+  NetworkIcon,
+  type SvgIcon,
+} from '../../components/icons';
+import { List } from '../../components/List';
 import { LoadingState } from '../../components/LoadingState';
+import { PageHeader } from '../../components/PageHeader';
 import { useI18n } from '../../i18n/I18nProvider';
-import { FeedIcon, type FeedIconName } from './FeedIcon';
 import { useHomeArticles, useHomeProjects, useHomeQuestions, useHomeResources } from './queries';
-import { ArticleRow, ProjectRow, QuestionRow, ResourceRow, RowList } from './rows';
+import { ArticleRow, ProjectRow, QuestionRow, ResourceRow } from './rows';
 import './home.css';
 
 const SEARCH_MAX_LENGTH = 100;
@@ -33,7 +43,7 @@ function LiveSection<T>({
   empty,
   render,
 }: {
-  icon: FeedIconName;
+  icon: SvgIcon;
   title: string;
   sub: string;
   more: { href: string; label: string };
@@ -48,14 +58,14 @@ function LiveSection<T>({
   } else if (result.error || !result.data) {
     body = <ErrorState error={result.error} onRetry={() => void result.refetch()} />;
   } else if (result.data.items.length === 0) {
-    body = <p className="feed-empty">{empty}</p>;
+    body = <EmptyState title={empty} icon={icon} headingLevel={3} />;
   } else {
-    body = <RowList>{result.data.items.map(render)}</RowList>;
+    body = <List label={title}>{result.data.items.map(render)}</List>;
   }
   return (
     <section className="feed-section" aria-labelledby={headingId}>
       <div className="feed-head">
-        <FeedIcon name={icon} />
+        <Icon icon={icon} color="secondary" />
         <Heading level={2} id={headingId}>
           {title}
         </Heading>
@@ -76,7 +86,7 @@ function ConnectLead() {
   return (
     <section className="feed-lead" aria-labelledby={headingId}>
       <span className="feed-lead-icon" aria-hidden="true">
-        <FeedIcon name="users" />
+        <Icon icon={NetworkIcon} color="accent" size="lg" />
       </span>
       <div className="feed-lead-text">
         <Heading level={2} id={headingId}>
@@ -132,12 +142,12 @@ export function HomePage() {
   return (
     <div className="feed-page">
       <header className="feed-hero">
-        <Heading level={1}>{t('feed.hello', { name })}</Heading>
+        <PageHeader title={t('feed.hello', { name })} />
         <SearchForm />
       </header>
 
       <LiveSection
-        icon="book"
+        icon={BookIcon}
         title={t('feed.learn.title')}
         sub={t('feed.learn.sub')}
         more={{ href: '/apprendre', label: t('feed.learn.more') }}
@@ -149,7 +159,7 @@ export function HomePage() {
       <ConnectLead />
 
       <LiveSection
-        icon="help"
+        icon={HelpIcon}
         title={t('feed.questions.title')}
         sub={t('feed.questions.sub')}
         more={{ href: '/solve', label: t('feed.questions.more') }}
@@ -159,7 +169,7 @@ export function HomePage() {
       />
 
       <LiveSection
-        icon="compass"
+        icon={CompassIcon}
         title={t('feed.catalog.title')}
         sub={t('feed.catalog.sub')}
         more={{ href: '/discover', label: t('feed.catalog.more') }}
@@ -169,7 +179,7 @@ export function HomePage() {
       />
 
       <LiveSection
-        icon="hammer"
+        icon={HammerIcon}
         title={t('feed.projects.title')}
         sub={t('feed.projects.sub')}
         more={{ href: '/build', label: t('feed.projects.more') }}

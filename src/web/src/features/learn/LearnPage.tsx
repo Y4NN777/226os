@@ -4,11 +4,14 @@ import { EmptyState } from '@astryxdesign/core/EmptyState';
 import { Heading } from '@astryxdesign/core/Heading';
 import { Icon } from '@astryxdesign/core/Icon';
 import { Link } from '@astryxdesign/core/Link';
+import { SegmentedControl, SegmentedControlItem } from '@astryxdesign/core/SegmentedControl';
 import { Selector } from '@astryxdesign/core/Selector';
 import { Text } from '@astryxdesign/core/Text';
+import { TextInput } from '@astryxdesign/core/TextInput';
+import { VisuallyHidden } from '@astryxdesign/core/VisuallyHidden';
 import { VStack } from '@astryxdesign/core/VStack';
 import { useNavigate, useSearch } from '@tanstack/react-router';
-import { useId } from 'react';
+import { useId, useState } from 'react';
 import type { components } from '../../api/schema';
 import { useSession } from '../../app/session';
 import { ErrorState } from '../../components/ErrorState';
@@ -21,6 +24,8 @@ import { ArrowRightIcon, BookIcon, EditIcon, HelpIcon, SparklesIcon } from './ic
 import './learn.css';
 import { formatMinutes, isSingular, ItemRow, KindBadge, KindThumb, LangCode } from './present';
 import {
+  articleFilters,
+  seriesFilters,
   useArticleList,
   useSeries,
   useSeriesList,
@@ -28,15 +33,23 @@ import {
   type ArticleSummary,
   type SeriesSummary,
 } from './queries';
-import { validateLearnSearch, type LearnSearch } from './routeSearch';
+import {
+  learnLangs,
+  learnLevels,
+  learnTypes,
+  validateLearnSearch,
+  type LearnSearch,
+  type LearnType,
+} from './routeSearch';
 import { topicCodes, topicKey, type TopicCode } from './topics';
 
 type QuestionState = components['schemas']['QuestionState'];
 
+// The solve pass replaced its solve.state.* words with the state pills and status words.
 const stateKey = {
-  open: 'solve.state.open',
-  answered: 'solve.state.answered',
-  resolved: 'solve.state.resolved',
+  open: 'solve.pill.open',
+  answered: 'status.answered',
+  resolved: 'solve.pill.resolved',
 } as const satisfies Record<QuestionState, MessageKey>;
 
 const stateVariant = { open: 'neutral', answered: 'blue', resolved: 'success' } as const;
@@ -51,33 +64,118 @@ function useCount() {
   };
 }
 
-function Filter({ search }: { search: LearnSearch }) {
+type SearchPatch = { [K in keyof LearnSearch]?: LearnSearch[K] | undefined };
+
+const ALL = 'all';
+
+/** The prototype's filter area: type chips, then the text search and the Sujet, Niveau, Langue selects. */
+function Filters({
+  search,
+  onChange,
+}: {
+  search: LearnSearch;
+  onChange: (patch: SearchPatch) => void;
+}) {
   const { t } = useI18n();
-  const navigate = useNavigate();
+  const [draft, setDraft] = useState(search.q ?? '');
+  const searchable = search.type !== 'series';
   return (
     <div className="learn-toolbar">
-      <Selector
-        label={t('learn.topic.label')}
-        isLabelHidden
-        hasClear
-        placeholder={t('learn.form.topic.placeholder')}
-        options={topicCodes.map((code) => ({ value: code, label: t(topicKey(code)) }))}
-        value={search.topic ?? null}
-        onChange={(value) => {
-          const topic = topicCodes.find((code) => code === value);
-          void navigate({ to: '/apprendre', search: topic ? { topic } : {} });
-        }}
-      />
-      {search.topic ? (
-        <Button
-          variant="ghost"
-          label={t('learn.topic.reset')}
-          onClick={() => void navigate({ to: '/apprendre', search: {} })}
-        />
-      ) : null}
+      {/* Prototype chips wrap; segments truncate, so the row scrolls on its own instead at 375px. */}
+      <div className="learn-seg">
+        <SegmentedControl
+          label={t('learn.filter.type')}
+          value={search.type ?? ALL}
+          onChange={(value) => {
+            const type = learnTypes.find((candidate) => candidate === value);
+            // The series endpoint has no text search, so the Formations chip leaves q behind.
+            onChange(type === 'series' ? { type, q: undefined } : { type });
+          }}
+        >
+          <SegmentedControlItem value={ALL} label={t('learn.filter.all')} />
+          {learnTypes.map((type) => (
+            <SegmentedControlItem key={type} value={type} label={t(`learn.filter.${type}`)} />
+          ))}
+        </SegmentedControl>
+      </div>
+      <div className={searchable ? 'learn-toolbar-main' : 'learn-toolbar-main learn-no-search'}>
+        {searchable ? (
+          <form
+            role="search"
+            className="learn-search"
+            onSubmit={(event) => {
+              event.preventDefault();
+              onChange({ q: draft.trim().slice(0, 200) || undefined });
+            }}
+          >
+            <TextInput
+              type="search"
+              startIcon="search"
+              label={t('learn.filter.q')}
+              placeholder={t('learn.filter.q.placeholder')}
+              value={draft}
+              onChange={setDraft}
+              width="100%"
+            />
+          </form>
+        ) : null}
+        <div className="learn-selects">
+          <Selector
+            label={t('learn.topic.label')}
+            hasClear
+            width="100%"
+            placeholder={t('learn.form.topic.placeholder')}
+            options={topicCodes.map((code) => ({ value: code, label: t(topicKey(code)) }))}
+            value={search.topic ?? null}
+            onChange={(value) => {
+              onChange({ topic: topicCodes.find((code) => code === value) });
+            }}
+          />
+          <Selector
+            label={t('learn.filter.level')}
+            hasClear
+            width="100%"
+            placeholder={t('learn.filter.level.any')}
+            options={learnLevels.map((level) => ({
+              value: level,
+              label: t(`learn.level.${level}`),
+            }))}
+            value={search.level ?? null}
+            onChange={(value) => {
+              onChange({ level: learnLevels.find((level) => level === value) });
+            }}
+          />
+          <Selector
+            label={t('learn.filter.lang')}
+            hasClear
+            width="100%"
+            placeholder={t('learn.filter.lang.any')}
+            options={learnLangs.map((lang) => ({ value: lang, label: t(`learn.lang.${lang}`) }))}
+            value={search.lang ?? null}
+            onChange={(value) => {
+              onChange({ lang: learnLangs.find((lang) => lang === value) });
+            }}
+          />
+        </div>
+      </div>
     </div>
   );
 }
+
+type CountT = (key: MessageKey, params?: { n: number }) => string;
+
+/** Results count: a total only once every shown list is fully loaded, since pages are cursor-based. */
+function countText(n: number, hasMore: boolean, singular: boolean, t: CountT) {
+  if (hasMore) return t('learn.count.first', { n });
+  return t(singular ? 'learn.count.one' : 'learn.count.many', { n });
+}
+
+const emptyKey = {
+  all: 'learn.empty.all',
+  article: 'learn.empty.article',
+  tutorial: 'learn.empty.tutorial',
+  series: 'learn.empty.series',
+} as const satisfies Record<LearnType | typeof ALL, MessageKey>;
 
 function ArticleRow({ article }: { article: ArticleSummary }) {
   const { t, locale } = useI18n();
@@ -140,7 +238,10 @@ function FeaturedSeries({ series }: { series: SeriesSummary }) {
   const first = lessons[0];
   const href = `/apprendre/formations/${series.id}`;
   return (
-    <div className={lessons.length > 0 ? 'learn-feature learn-has-steps' : 'learn-feature'}>
+    <section
+      className={lessons.length > 0 ? 'learn-feature learn-has-steps' : 'learn-feature'}
+      aria-labelledby={titleId}
+    >
       <div className="learn-feature-main">
         <p className="learn-kicker">
           <Icon icon={SparklesIcon} size="sm" />
@@ -203,7 +304,7 @@ function FeaturedSeries({ series }: { series: SeriesSummary }) {
           </ol>
         </div>
       ) : null}
-    </div>
+    </section>
   );
 }
 
@@ -279,17 +380,47 @@ function Invite() {
   );
 }
 
-/** `apprendre`: the published articles and the training series, filtered by topic. */
+/** Applies a patch to the URL filters; an undefined value removes the filter. */
+function patched(base: LearnSearch, patch: SearchPatch): LearnSearch {
+  const entries = Object.entries({ ...base, ...patch }).filter(([, value]) => value !== undefined);
+  return Object.fromEntries(entries);
+}
+
+/**
+ * `apprendre`: the featured training, then one filter area over the series and the articles.
+ * Each list keeps its own cursor (two endpoints), so the series rows come first, then the
+ * articles, as the prototype orders formations before the rest; nothing is merged or re-sorted.
+ */
 export function LearnPage() {
-  const { t } = useI18n();
-  // Router merges the raw parent search over the validated one, so an unknown topic is dropped again here.
+  const { t, locale } = useI18n();
+  // Router merges the raw parent search over the validated one, so unknown values are dropped again here.
   const search = validateLearnSearch(useSearch({ from: '/app/apprendre' }));
+  const navigate = useNavigate();
+  const browseId = useId();
   const session = useSession();
   const member = session.data?.authenticated === true;
-  const articles = useArticleList(search);
-  const series = useSeriesList(search);
-  const articleItems = articles.data?.pages.flatMap((page) => page.items) ?? [];
-  const [featured, ...otherSeries] = series.data?.pages.flatMap((page) => page.items) ?? [];
+  const filtered = Object.keys(search).length > 0;
+  const showArticles = search.type !== 'series';
+  // listTrainingSeries has no type and no text search: series rows only under Tout or Formations, without q.
+  const showSeries = (search.type === undefined || search.type === 'series') && !search.q;
+  const articles = useArticleList(articleFilters(search), showArticles);
+  const series = useSeriesList(seriesFilters(search), showSeries);
+  // The featured training ignores the filters, as in the prototype; unfiltered, it shares the list's cache entry.
+  const [featured] = useSeriesList({}).data?.pages.flatMap((page) => page.items) ?? [];
+  const seriesItems = showSeries ? (series.data?.pages.flatMap((page) => page.items) ?? []) : [];
+  const articleItems = showArticles
+    ? (articles.data?.pages.flatMap((page) => page.items) ?? [])
+    : [];
+  const shown = seriesItems.length + articleItems.length;
+  const pending = (showArticles && articles.isPending) || (showSeries && series.isPending);
+  const articlesFailed = showArticles && articles.isError && !articles.data;
+  const seriesFailed = showSeries && series.isError && !series.data;
+  const settled = !pending && !articlesFailed && !seriesFailed;
+  const hasMore = (showArticles && articles.hasNextPage) || (showSeries && series.hasNextPage);
+
+  const change = (patch: SearchPatch) =>
+    void navigate({ to: '/apprendre', search: patched(search, patch) });
+  const reset = () => void navigate({ to: '/apprendre', search: {} });
 
   return (
     <VStack gap={6}>
@@ -308,59 +439,77 @@ export function LearnPage() {
         ) : null}
       </header>
 
-      {series.isError && !series.data ? (
-        <ErrorState error={series.error} onRetry={() => void series.refetch()} />
-      ) : null}
-      {featured ? (
-        <section className="learn-section" aria-label={t('learn.series.label')}>
-          <FeaturedSeries key={featured.id} series={featured} />
-          {otherSeries.length > 0 ? (
-            <ul className="learn-list">
-              {otherSeries.map((item) => (
-                <SeriesRow key={item.id} series={item} />
-              ))}
-            </ul>
-          ) : null}
-          {series.hasNextPage ? (
-            <div className="learn-more">
-              <Button
-                label={t('learn.series.more')}
-                isLoading={series.isFetchingNextPage}
-                onClick={() => void series.fetchNextPage()}
-              />
-            </div>
-          ) : null}
-        </section>
-      ) : null}
+      {featured ? <FeaturedSeries key={featured.id} series={featured} /> : null}
 
-      <Filter key={search.topic ?? ''} search={search} />
-
-      <section className="learn-section" aria-label={t('learn.articles.label')}>
-        <div className="learn-section-head">
-          <Heading level={2}>{t('learn.articles.label')}</Heading>
+      <section className="learn-section learn-browse" aria-labelledby={browseId}>
+        {/* Keeps the outline h1 > h2 > row titles, as the prototype's labelled browse section. */}
+        <VisuallyHidden as="h2" id={browseId}>
+          {t('learn.browse.label')}
+        </VisuallyHidden>
+        <Filters key={search.q ?? ''} search={search} onChange={change} />
+        <div className="learn-resultsbar">
+          {/* Always mounted, so a count that appears later is announced. */}
+          <p className="learn-count" role="status">
+            {settled && shown > 0 ? countText(shown, hasMore, isSingular(shown, locale), t) : null}
+          </p>
+          {filtered && shown > 0 ? (
+            <Button variant="ghost" size="sm" label={t('learn.reset')} onClick={reset} />
+          ) : null}
         </div>
-        {articles.isPending ? <LoadingState /> : null}
-        {articles.isError && !articles.data ? (
+        {search.q && !search.type ? (
+          <Text as="p" type="supporting">
+            {t('learn.filter.q.note')}
+          </Text>
+        ) : null}
+        {pending ? <LoadingState /> : null}
+        {seriesFailed ? (
+          <ErrorState error={series.error} onRetry={() => void series.refetch()} />
+        ) : null}
+        {articlesFailed ? (
           <ErrorState error={articles.error} onRetry={() => void articles.refetch()} />
         ) : null}
-        {articles.data && articleItems.length === 0 ? (
+        {settled && shown === 0 ? (
           <EmptyState
             headingLevel={3}
-            title={t('learn.articles.empty.title')}
-            description={t('learn.articles.empty.body')}
+            icon={<Icon icon="search" />}
+            title={t(filtered ? emptyKey[search.type ?? ALL] : 'learn.empty.none.title')}
+            description={
+              filtered
+                ? search.q
+                  ? t('learn.empty.q', { q: search.q })
+                  : t('learn.empty.body')
+                : t('learn.empty.none.body')
+            }
+            actions={
+              filtered ? (
+                <Button variant="secondary" label={t('learn.reset.all')} onClick={reset} />
+              ) : undefined
+            }
           />
         ) : null}
-        {articleItems.length > 0 ? (
+        {shown > 0 ? (
           <ul className="learn-list">
+            {seriesItems.map((item) => (
+              <SeriesRow key={item.id} series={item} />
+            ))}
             {articleItems.map((item) => (
               <ArticleRow key={item.id} article={item} />
             ))}
           </ul>
         ) : null}
-        {articles.isError && articles.data ? (
+        {showArticles && articles.isError && articles.data ? (
           <ErrorState error={articles.error} onRetry={() => void articles.fetchNextPage()} />
         ) : null}
-        {articles.hasNextPage ? (
+        {showSeries && series.hasNextPage ? (
+          <div className="learn-more">
+            <Button
+              label={t('learn.series.more')}
+              isLoading={series.isFetchingNextPage}
+              onClick={() => void series.fetchNextPage()}
+            />
+          </div>
+        ) : null}
+        {showArticles && articles.hasNextPage ? (
           <div className="learn-more">
             <Button
               label={t('learn.articles.more')}

@@ -155,11 +155,15 @@ describe('SearchPage', () => {
     setLanguages(['fr-FR']);
     mockApi(searchRoute(results));
     await renderApp('/recherche?q=momo');
-    const english = (await screen.findByText('Webhook reçu deux fois')).closest('li');
+    // The shared row marks the user content (title and snippet), not the whole row.
+    const english = await screen.findByRole('heading', { name: 'Webhook reçu deux fois' });
     expect(english).toHaveAttribute('lang', 'en');
-    const french = screen.getByRole('link', { name: 'API Mobile Money' }).closest('li');
+    expect(screen.getByText('Le <b>webhook</b> arrive en double.')).toHaveAttribute('lang', 'en');
+    const french = screen.getByRole('heading', { name: 'API Mobile Money' });
     expect(french).not.toHaveAttribute('lang');
-    const unknown = screen.getByText('Premiers pas avec les paiements mobiles').closest('li');
+    const unknown = screen.getByRole('heading', {
+      name: 'Premiers pas avec les paiements mobiles',
+    });
     expect(unknown).not.toHaveAttribute('lang');
   });
 

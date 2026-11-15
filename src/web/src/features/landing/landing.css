@@ -1,16 +1,15 @@
-/* Public landing, after prototypes/html/index.html + assets/css/pages/landing.css.
-   Astryx and Graphite & Lime tokens only. Layers, not edges: surfaces on the body background,
-   no borders on cards. The closing band is the one strong brand moment. */
+/* Public landing, after prototypes/html/index.html + assets/css/pages/landing.css: the hero,
+   the pillar cards and the closing band are landing-only. The catalogue cards are the shared
+   grid rows (src/components/List). Astryx and Graphite & Lime tokens only. */
 
 .lp {
   display: grid;
   gap: clamp(3.5rem, 8vw, 6rem);
-  max-width: 72rem;
   min-width: 0;
   padding-block-end: var(--spacing-8);
 }
 
-/* ---------- Type ---------- */
+/* ---------- Type (the landing keeps the prototype's display scale) ---------- */
 .lp-h1 {
   margin: 0;
   font-family: var(--font-family-heading);
@@ -35,9 +34,9 @@
 .lp-h2 {
   margin: 0;
   font-family: var(--font-family-heading);
-  font-size: clamp(1.75rem, 1.2rem + 1.9vw, 2.5rem);
-  line-height: 1.1;
-  letter-spacing: -0.03em;
+  font-size: clamp(1.5rem, 1.2rem + 1.2vw, 2rem);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
   font-weight: 700;
   color: var(--color-text-primary);
 }
@@ -45,10 +44,6 @@
   margin: var(--spacing-2) 0 0;
   max-width: 56ch;
   color: var(--color-text-secondary);
-}
-.lp-muted {
-  color: var(--color-text-secondary);
-  font-size: 0.875rem;
 }
 
 /* ---------- Hero ---------- */
@@ -70,11 +65,6 @@
   font-size: 0.875rem;
   font-weight: 500;
 }
-.lp-eyebrow .feed-icon {
-  width: 1rem;
-  height: 1rem;
-  color: var(--color-text-accent);
-}
 .lp-actions {
   display: flex;
   flex-wrap: wrap;
@@ -90,10 +80,6 @@
   color: var(--color-text-secondary);
   font-size: 0.875rem;
 }
-.lp-note .feed-icon {
-  width: 1rem;
-  height: 1rem;
-}
 .lp-link {
   display: inline-flex;
   align-items: center;
@@ -101,12 +87,10 @@
   min-height: 2.75rem;
   color: var(--color-text-accent);
 }
-.lp-link .feed-icon {
-  width: 1rem;
-  height: 1rem;
+.lp-link svg {
   transition: transform var(--duration-fast) var(--ease-standard);
 }
-.lp-link:hover .feed-icon {
+.lp-link:hover svg {
   transform: translateX(3px);
 }
 .lp-search {
@@ -125,7 +109,7 @@
 /* ---------- Sections ---------- */
 .lp-section {
   display: grid;
-  gap: var(--spacing-8);
+  gap: var(--spacing-6);
   min-width: 0;
 }
 .lp-head-row {
@@ -137,10 +121,9 @@
 }
 
 /* ---------- Pillars: icon badge, title, text, arrow link ---------- */
-.lp-pillars,
-.lp-cards {
+.lp-pillars {
   display: grid;
-  gap: var(--spacing-4);
+  gap: var(--spacing-3);
   list-style: none;
   margin: 0;
   padding: 0;
@@ -153,7 +136,6 @@
 @media (min-width: 1024px) {
   .lp-pillars {
     grid-template-columns: repeat(6, minmax(0, 1fr));
-    gap: var(--spacing-5);
   }
   .lp-pillar {
     grid-column: span 2;
@@ -164,10 +146,10 @@
 }
 .lp-pillar {
   display: grid;
-  gap: var(--spacing-3);
+  gap: var(--spacing-2);
   align-content: start;
-  padding: var(--spacing-6);
-  border-radius: var(--radius-page);
+  padding: var(--spacing-5);
+  border-radius: var(--radius-container);
   background: var(--color-background-surface);
 }
 .lp-pillar-lead {
@@ -187,105 +169,18 @@
   place-items: center;
   width: 3rem;
   height: 3rem;
-  margin-bottom: var(--spacing-2);
-  border-radius: 14px;
+  margin-bottom: var(--spacing-1);
+  border-radius: var(--radius-element);
   background: color-mix(in srgb, var(--color-accent) 14%, var(--color-background-surface));
-  color: var(--color-text-accent);
-}
-.lp-pillar-icon .feed-icon {
-  width: 1.5rem;
-  height: 1.5rem;
 }
 
-/* ---------- Catalogue cards ---------- */
-@media (min-width: 640px) {
-  .lp-cards {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-@media (min-width: 1024px) {
-  .lp-cards {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: var(--spacing-5);
-  }
-}
-.lp-card {
-  display: grid;
-  grid-template-rows: auto auto 1fr auto;
-  gap: var(--spacing-4);
-  min-width: 0;
-  padding: var(--spacing-6);
-  border-radius: var(--radius-page);
-  background: var(--color-background-surface);
-}
-.lp-card-head {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-4);
-  min-width: 0;
-}
-.lp-card-id {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-}
-.lp-card-name {
-  margin: 0;
-  font-size: 1.0625rem;
-  line-height: 1.25;
-  overflow-wrap: anywhere;
-}
-.lp-card-pills {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--spacing-2);
-}
-.lp-card-text {
-  margin: 0;
-  color: var(--color-text-secondary);
-  line-height: 1.5;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
-  line-clamp: 3;
-  overflow: hidden;
-}
-.lp-card-foot {
-  display: grid;
-  gap: var(--spacing-3);
-  align-self: end;
-}
-.lp-checked {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--spacing-1-5);
-}
-.lp-checked .feed-icon {
-  width: 0.875rem;
-  height: 0.875rem;
-}
-.lp-countries {
-  display: inline-flex;
-  flex-wrap: wrap;
-  gap: var(--spacing-1);
-}
-.lp-empty {
-  margin: 0;
-  padding: var(--spacing-6);
-  border-radius: var(--radius-page);
-  background: var(--color-background-surface);
-  color: var(--color-text-secondary);
-}
-
-/* ---------- Closing band: the one strong brand moment ---------- */
+/* ---------- Closing band: a tinted brand surface ---------- */
 .lp-final {
   display: grid;
   justify-items: center;
   gap: var(--spacing-4);
   padding: clamp(3rem, 8vw, 5rem) var(--spacing-6);
-  border-radius: 32px;
-  /* A tinted brand surface: the primary action keeps its own contrast in light and dark. */
+  border-radius: var(--radius-page);
   background: color-mix(in srgb, var(--color-accent) 16%, var(--color-background-surface));
   color: var(--color-text-primary);
   text-align: center;
@@ -294,9 +189,9 @@
   margin: 0;
   max-width: 20ch;
   font-family: var(--font-family-heading);
-  font-size: clamp(1.875rem, 1.2rem + 2.8vw, 3.25rem);
-  line-height: 1.08;
-  letter-spacing: -0.035em;
+  font-size: clamp(1.75rem, 1.2rem + 2vw, 2.5rem);
+  line-height: 1.1;
+  letter-spacing: -0.03em;
   font-weight: 700;
   color: var(--color-text-primary);
   text-wrap: balance;
@@ -310,14 +205,13 @@
 
 @media (forced-colors: active) {
   .lp-pillar,
-  .lp-card,
   .lp-final,
   .lp-eyebrow {
     border: 1px solid CanvasText;
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .lp-link:hover .feed-icon {
+  .lp-link:hover svg {
     transform: none;
   }
 }

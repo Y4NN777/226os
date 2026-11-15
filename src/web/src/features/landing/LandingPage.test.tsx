@@ -141,7 +141,8 @@ describe('LandingPage', () => {
     expect(catalogue.getByText('Non vérifié')).toBeVisible();
     // Only a verified entry shows a checked date.
     expect(catalogue.getAllByText('Dernière vérification : 1 nov. 2026')).toHaveLength(1);
-    expect(catalogue.getByTitle('Côte d’Ivoire')).toHaveTextContent('CI');
+    // Shared CountryCode: the code is shown, screen readers get the full name.
+    expect(catalogue.getByText('Côte d’Ivoire').closest('.ui-country')).toHaveTextContent('CI');
     expect(catalogue.getByRole('link', { name: 'Tout le catalogue' })).toHaveAttribute(
       'href',
       '/discover',
