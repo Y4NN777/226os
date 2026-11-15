@@ -57,10 +57,13 @@ describe('ConnectPage GitHub developers', () => {
     expect(
       screen.getByText(/^Source\s: committers\.top · généré le 14 novembre 2026$/),
     ).toBeVisible();
-    expect(screen.getByRole('link', { name: /^Demander le retrait/ })).toHaveAttribute(
+    // A private channel: a mail to support, never a public issue.
+    const optout = screen.getByRole('link', { name: /^Demander le retrait/ });
+    expect(optout).toHaveAttribute(
       'href',
-      'https://github.com/Y4NN777/226os/issues/new',
+      'mailto:support@226os.tech?subject=Retrait%20de%20l%E2%80%99annuaire%20Connect',
     );
+    expect(optout).not.toHaveAttribute('target');
     // Members keep their own list, first.
     expect(screen.getByRole('list', { name: 'Membres' })).toContainElement(
       screen.getByRole('link', { name: 'Awa Traoré' }),

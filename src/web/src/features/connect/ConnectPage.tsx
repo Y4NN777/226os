@@ -197,15 +197,13 @@ function ExternalFooter({ generatedAt }: { generatedAt: string }) {
   return (
     <Text as="p" type="supporting">
       <span>{t('connect.external.footer', { date })}</span> ·{' '}
-      <Link href={OPT_OUT_URL} isExternalLink newTabLabel={t('discover.newTab')}>
-        {t('connect.external.optout')}
-      </Link>
+      <Link href={OPT_OUT_URL}>{t('connect.external.optout')}</Link>
     </Text>
   );
 }
 
-// Opt-out requests (ADR-0016 point 6) go to the repository's issue tracker.
-const OPT_OUT_URL = 'https://github.com/Y4NN777/226os/issues/new';
+// Opt-out requests (ADR-0016 point 6) go privately to support, never to a public issue (owner, 2026-11-15).
+const OPT_OUT_URL = `mailto:support@226os.tech?subject=${encodeURIComponent('Retrait de l’annuaire Connect')}`;
 
 /**
  * `connect`: the people directory, filtered by the URL. Members open to collaboration come first; public
