@@ -119,7 +119,7 @@ describe('LearnPage list', () => {
   it('is a live link in the navigation', async () => {
     setLanguages(['fr-FR']);
     mockApi(base);
-    await renderApp('/');
+    await renderApp('/apprendre');
     const nav = await screen.findByRole('navigation', { name: 'Navigation principale' });
     expect(within(nav).getByRole('link', { name: 'Apprendre' })).toHaveAttribute(
       'href',

@@ -48,18 +48,6 @@
   justify-items: start;
   padding-block-start: clamp(1rem, 4vw, 3rem);
 }
-.lp-eyebrow {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--spacing-2);
-  margin: 0;
-  padding: var(--spacing-1-5) var(--spacing-4) var(--spacing-1-5) var(--spacing-3);
-  border-radius: var(--radius-full);
-  background: var(--color-background-surface);
-  color: var(--color-text-secondary);
-  font-size: 0.875rem;
-  font-weight: 500;
-}
 .lp-actions {
   display: flex;
   flex-wrap: wrap;
@@ -200,8 +188,7 @@
 
 @media (forced-colors: active) {
   .lp-pillar,
-  .lp-final,
-  .lp-eyebrow {
+  .lp-final {
     border: 1px solid CanvasText;
   }
 }
