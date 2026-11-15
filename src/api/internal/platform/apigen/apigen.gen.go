@@ -222,6 +222,21 @@ const (
 	ProfileVisibilityPublic  ProfileVisibility = "public"
 )
 
+// Defines values for ProjectSort.
+const (
+	ProjectSortCreated ProjectSort = "created"
+	ProjectSortNeeds   ProjectSort = "needs"
+	ProjectSortUpdated ProjectSort = "updated"
+)
+
+// Defines values for ProjectStage.
+const (
+	ProjectStageActive     ProjectStage = "active"
+	ProjectStageIdea       ProjectStage = "idea"
+	ProjectStageMaintained ProjectStage = "maintained"
+	ProjectStagePrototype  ProjectStage = "prototype"
+)
+
 // Defines values for ProjectVisibility.
 const (
 	ProjectVisibilityPrivate ProjectVisibility = "private"
@@ -233,6 +248,13 @@ const (
 	QuestionLinkRefTypeArticle  QuestionLinkRefType = "article"
 	QuestionLinkRefTypeProject  QuestionLinkRefType = "project"
 	QuestionLinkRefTypeResource QuestionLinkRefType = "resource"
+)
+
+// Defines values for QuestionSort.
+const (
+	QuestionSortNew        QuestionSort = "new"
+	QuestionSortUnanswered QuestionSort = "unanswered"
+	QuestionSortVotes      QuestionSort = "votes"
 )
 
 // Defines values for QuestionState.
@@ -255,6 +277,12 @@ const (
 const (
 	Demo ResourceProvenance = "demo"
 	Live ResourceProvenance = "live"
+)
+
+// Defines values for ResourceSort.
+const (
+	ResourceSortName     ResourceSort = "name"
+	ResourceSortVerified ResourceSort = "verified"
 )
 
 // Defines values for ResourceSourceKind.
@@ -521,6 +549,11 @@ type ArticlePage struct {
 
 	// NextCursor Opaque, integrity-protected; null on the last page.
 	NextCursor *string `json:"next_cursor"`
+
+	// Total Number of items matching the same filters and visibility as the page, independent of the cursor.
+	//
+	// Examples: 42
+	Total ListTotal `json:"total"`
 }
 
 // ArticleStatus Publication lifecycle. Only published articles are public; drafts are visible to their author.
@@ -733,6 +766,11 @@ type LessonProgressUpdate struct {
 // Level defines model for Level.
 type Level string
 
+// LicenseSpdx SPDX license identifier. Matches the database check projects_license_ck.
+//
+// Examples: MIT, Apache-2.0
+type LicenseSpdx = string
+
 // LinkRef Typed contextual link (write side). The server accepts only the source and target pairs it can store; an unsupported pair (for example an article linking to an article) is 422 with the field pointer of the link.
 type LinkRef struct {
 	// Id Opaque identifier; never an authorization control.
@@ -742,6 +780,11 @@ type LinkRef struct {
 
 // LinkRefType defines model for LinkRef.Type.
 type LinkRefType string
+
+// ListTotal Number of items matching the same filters and visibility as the page, independent of the cursor.
+//
+// Examples: 42
+type ListTotal = int
 
 // Markdown Markdown source. Raw HTML is neutralised on output; code is never executed.
 type Markdown = string
@@ -908,6 +951,9 @@ type ProfileVisibility string
 
 // Project defines model for Project.
 type Project struct {
+	// CountryCode Country the project serves first; null when not declared.
+	CountryCode *CountryCode `json:"country_code"`
+
 	// CreatedAt RFC 3339, UTC (suffix Z).
 	//
 	// Examples: 2026-11-11T09:30:00Z
@@ -919,12 +965,20 @@ type Project struct {
 	Id Uuid `json:"id"`
 
 	// Lang Language of user content (original language preserved, never auto-translated).
-	Lang           Lang          `json:"lang"`
+	Lang Lang `json:"lang"`
+
+	// LicenseSpdx SPDX license identifier; null when not declared.
+	LicenseSpdx    *LicenseSpdx  `json:"license_spdx"`
 	Name           string        `json:"name"`
 	OpenNeedsCount int           `json:"open_needs_count"`
 	Owner          AuthorRef     `json:"owner"`
 	Related        []RelatedLink `json:"related"`
-	Technologies   []TagSlug     `json:"technologies"`
+
+	// Stage Maturity of a project (projects_stage_ck). A project with a GitHub repository may take any stage.
+	//
+	// Examples: prototype
+	Stage        ProjectStage `json:"stage"`
+	Technologies []TagSlug    `json:"technologies"`
 
 	// UpdatedAt RFC 3339, UTC (suffix Z).
 	//
@@ -935,12 +989,26 @@ type Project struct {
 
 // ProjectCreate defines model for ProjectCreate.
 type ProjectCreate struct {
-	Description *string `json:"description,omitempty"`
-	GithubUrl   string  `json:"github_url"`
+	// CountryCode Must be a known country (422 otherwise).
+	//
+	// Examples: BF
+	CountryCode *CountryCode `json:"country_code,omitempty"`
+	Description *string      `json:"description,omitempty"`
+	GithubUrl   string       `json:"github_url"`
 
 	// Lang Language of user content (original language preserved, never auto-translated).
-	Lang         Lang               `json:"lang"`
-	Links        *[]LinkRef         `json:"links,omitempty"`
+	Lang Lang `json:"lang"`
+
+	// LicenseSpdx SPDX license identifier. Matches the database check projects_license_ck.
+	//
+	// Examples: MIT, Apache-2.0
+	LicenseSpdx *LicenseSpdx `json:"license_spdx,omitempty"`
+	Links       *[]LinkRef   `json:"links,omitempty"`
+
+	// Stage Defaults to idea.
+	//
+	// Examples: prototype
+	Stage        *ProjectStage      `json:"stage,omitempty"`
 	Technologies *[]TagSlug         `json:"technologies,omitempty"`
 	Visibility   *ProjectVisibility `json:"visibility,omitempty"`
 }
@@ -951,12 +1019,33 @@ type ProjectPage struct {
 
 	// NextCursor Opaque, integrity-protected; null on the last page.
 	NextCursor *string `json:"next_cursor"`
+
+	// Total Number of items matching the same filters and visibility as the page, independent of the cursor.
+	//
+	// Examples: 42
+	Total ListTotal `json:"total"`
 }
 
-// ProjectUpdate JSON Merge Patch. github_url immutable.
+// ProjectSort updated = last updated first; created = newest first; needs = most open contribution needs first, then last updated. UUID tie-breaker.
+type ProjectSort string
+
+// ProjectStage Maturity of a project (projects_stage_ck). A project with a GitHub repository may take any stage.
+//
+// Examples: prototype
+type ProjectStage string
+
+// ProjectUpdate JSON Merge Patch. github_url immutable. null clears license_spdx or country_code.
 type ProjectUpdate struct {
-	Description  *string            `json:"description,omitempty"`
-	Links        *[]LinkRef         `json:"links,omitempty"`
+	// CountryCode Must be a known country (422 otherwise); null clears it.
+	CountryCode *CountryCode `json:"country_code,omitempty"`
+	Description *string      `json:"description,omitempty"`
+	LicenseSpdx *LicenseSpdx `json:"license_spdx,omitempty"`
+	Links       *[]LinkRef   `json:"links,omitempty"`
+
+	// Stage Maturity of a project (projects_stage_ck). A project with a GitHub repository may take any stage.
+	//
+	// Examples: prototype
+	Stage        *ProjectStage      `json:"stage,omitempty"`
 	Technologies *[]TagSlug         `json:"technologies,omitempty"`
 	Visibility   *ProjectVisibility `json:"visibility,omitempty"`
 }
@@ -1056,7 +1145,15 @@ type QuestionPage struct {
 
 	// NextCursor Opaque, integrity-protected; null on the last page.
 	NextCursor *string `json:"next_cursor"`
+
+	// Total Number of items matching the same filters and visibility as the page, independent of the cursor.
+	//
+	// Examples: 42
+	Total ListTotal `json:"total"`
 }
+
+// QuestionSort new = newest first (relevance first when q is set); votes = highest vote_score first, then newest; unanswered = fewest answers first, then newest. UUID tie-breaker.
+type QuestionSort string
 
 // QuestionState Derived, never stored or client-set. open = no answers; answered = has answers, none accepted; resolved = an accepted answer is set.
 type QuestionState string
@@ -1137,7 +1234,15 @@ type ResourcePage struct {
 
 	// NextCursor Opaque, integrity-protected; null on the last page.
 	NextCursor *string `json:"next_cursor"`
+
+	// Total Number of items matching the same filters and visibility as the page, independent of the cursor.
+	//
+	// Examples: 42
+	Total ListTotal `json:"total"`
 }
+
+// ResourceSort name = name ascending; verified = most recently verified first, never-verified entries last. UUID tie-breaker.
+type ResourceSort string
 
 // ResourceSource defines model for ResourceSource.
 type ResourceSource struct {
@@ -1238,6 +1343,11 @@ type SeriesPage struct {
 
 	// NextCursor Opaque, integrity-protected; null on the last page.
 	NextCursor *string `json:"next_cursor"`
+
+	// Total Number of items matching the same filters and visibility as the page, independent of the cursor.
+	//
+	// Examples: 42
+	Total ListTotal `json:"total"`
 }
 
 // SeriesSummary defines model for SeriesSummary.
@@ -1546,6 +1656,21 @@ type ListProjectsParams struct {
 	// Skill Skill needed by an open contribution need.
 	Skill     *Slug `form:"skill,omitempty" json:"skill,omitempty"`
 	OpenNeeds *bool `form:"open_needs,omitempty" json:"open_needs,omitempty"`
+
+	// Stage Keep projects at this stage.
+	Stage *ProjectStage `form:"stage,omitempty" json:"stage,omitempty"`
+
+	// Country Keep projects whose country is this ISO 3166-1 alpha-2 code.
+	Country *CountryCode `form:"country,omitempty" json:"country,omitempty"`
+
+	// License Keep projects under this SPDX license identifier (exact match).
+	License *LicenseSpdx `form:"license,omitempty" json:"license,omitempty"`
+
+	// Owner Keep projects owned by this username (profile visibility applies; hidden means no match).
+	Owner *Username `form:"owner,omitempty" json:"owner,omitempty"`
+
+	// Sort Order of the page; the cursor is bound to it.
+	Sort *ProjectSort `form:"sort,omitempty" json:"sort,omitempty"`
 }
 
 // CreateProjectParams defines parameters for CreateProject.
@@ -1597,6 +1722,15 @@ type ListQuestionsParams struct {
 
 	// Lang Original language of the content.
 	Lang *LangFilter `form:"lang,omitempty" json:"lang,omitempty"`
+
+	// Author Keep the questions asked by this username (profile visibility applies; hidden means no match).
+	Author *Username `form:"author,omitempty" json:"author,omitempty"`
+
+	// AnswersBy Keep the questions this username answered (profile visibility applies; hidden means no match).
+	AnswersBy *Username `form:"answers_by,omitempty" json:"answers_by,omitempty"`
+
+	// Sort Order of the page; the cursor is bound to it.
+	Sort *QuestionSort `form:"sort,omitempty" json:"sort,omitempty"`
 }
 
 // CreateQuestionParams defines parameters for CreateQuestion.
@@ -1632,8 +1766,11 @@ type ListResourcesParams struct {
 	Cursor *Cursor `form:"cursor,omitempty" json:"cursor,omitempty"`
 
 	// Limit Page size, 1..50 (above 50 -> 422).
-	Limit *Limit  `form:"limit,omitempty" json:"limit,omitempty"`
-	Q     *string `form:"q,omitempty" json:"q,omitempty"`
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Sort Order of the page; the cursor is bound to it.
+	Sort *ResourceSort `form:"sort,omitempty" json:"sort,omitempty"`
+	Q    *string       `form:"q,omitempty" json:"q,omitempty"`
 
 	// Country One or more ISO 3166-1 alpha-2 codes, comma separated (BF,CI,SN); a resource matches when it supports any of them.
 	Country  *[]CountryCode `form:"country,omitempty" json:"country,omitempty"`
@@ -3255,6 +3392,71 @@ func (siw *ServerInterfaceWrapper) ListProjects(w http.ResponseWriter, r *http.R
 		return
 	}
 
+	// ------------- Optional query parameter "stage" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "stage", r.URL.Query(), &params.Stage, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "stage"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "stage", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "country" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "country", r.URL.Query(), &params.Country, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "country"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "country", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "license" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "license", r.URL.Query(), &params.License, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "license"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "license", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "owner" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "owner", r.URL.Query(), &params.Owner, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "owner"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "owner", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "sort" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "sort", r.URL.Query(), &params.Sort, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "sort"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sort", Err: err})
+		}
+		return
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListProjects(w, r, params)
 	}))
@@ -3632,6 +3834,45 @@ func (siw *ServerInterfaceWrapper) ListQuestions(w http.ResponseWriter, r *http.
 		return
 	}
 
+	// ------------- Optional query parameter "author" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "author", r.URL.Query(), &params.Author, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "author"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "author", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "answers_by" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "answers_by", r.URL.Query(), &params.AnswersBy, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "answers_by"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "answers_by", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "sort" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "sort", r.URL.Query(), &params.Sort, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "sort"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sort", Err: err})
+		}
+		return
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListQuestions(w, r, params)
 	}))
@@ -3952,6 +4193,19 @@ func (siw *ServerInterfaceWrapper) ListResources(w http.ResponseWriter, r *http.
 			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
 		} else {
 			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "sort" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "sort", r.URL.Query(), &params.Sort, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "sort"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sort", Err: err})
 		}
 		return
 	}
