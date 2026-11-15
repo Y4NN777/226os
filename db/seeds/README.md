@@ -2,7 +2,7 @@
 
 Ce document est le contrat des fixtures de démo du slice SEED #75. Il fixe les identifiants, les comptes, les tags, le contenu et le découpage SQL. Il ne contient aucun SQL : les fichiers sont écrits par les agents T3a à T3e.
 
-Les fixtures sont fictives, déterministes et idempotentes. Elles ne tournent qu'en `local-dev`, jamais en staging ni en production. Toute ligne racine porte `provenance = 'demo'` et l'interface affiche un badge de démo.
+Les fixtures sont fictives, déterministes et idempotentes. Elles ne tournent qu'en `local-dev` et en `staging-test`, jamais en production (décision du propriétaire du 2026-11-15, ROADMAP section 14). Toute ligne racine porte `provenance = 'demo'` et l'interface affiche un badge de démo.
 
 Les chiffres de ce document sont contractuels. Une fois la PR mergée, les UUID et les valeurs naturelles listées ici ne changent plus.
 
@@ -60,7 +60,7 @@ Valeurs communes aux trois lignes `profiles` :
 - `intent` : `learn` pour Aïcha, `contribute` pour Kofi, `help` pour Nadia.
 - `languages` : `{fr,mos}` pour Aïcha, `{fr,en}` pour Kofi, `{fr,wo}` pour Nadia.
 - `github_username = NULL`, `bio = NULL`, `bio_language = NULL`.
-- `open_to_collab = true`.
+- `open_to_collab = true`. L'annuaire ne liste ces comptes qu'en `local-dev` : en `staging-test` et en production, ils n'y apparaissent pas.
 - Toutes les colonnes de visibilité à `public`.
 - `created_at = updated_at = '2026-11-14T08:10:00Z'`.
 
@@ -445,7 +445,7 @@ Solve, deux questions optionnelles :
 - Ne pas utiliser de vrais emails, de vraies entreprises, de vrais dépôts GitHub ou de vraies URLs.
 - Ne pas copier du texte externe.
 - Ne pas écrire `BEGIN` ou `COMMIT` dans les fichiers de seed.
-- Ne pas lancer les seeds hors `APP_ENV=local-dev`.
+- Ne pas lancer les seeds hors `APP_ENV=local-dev` ou `APP_ENV=staging-test`.
 - Ne pas contourner le hook Git avec `--no-verify`.
 - Ne pas ajouter de trailer `Co-authored-by` ni de mention « Generated with ».
 
@@ -476,7 +476,7 @@ APP_ENV=local-dev make seed   # 107 lignes la première fois
 APP_ENV=local-dev make seed   # 0 ligne ensuite : idempotent
 ```
 
-Toute autre valeur de `APP_ENV`, ou un `COMPOSE_PROFILES` différent de `local-dev`, est refusée avec le code 2 avant le moindre appel à Docker.
+`APP_ENV=staging-test` est aussi accepté. Toute autre valeur de `APP_ENV` (dont `production-live`), ou un `COMPOSE_PROFILES` différent de `APP_ENV`, est refusée avec le code 2 avant le moindre appel à Docker.
 
 Les preuves automatiques :
 

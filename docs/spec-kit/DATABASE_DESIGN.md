@@ -2,7 +2,7 @@
 
 **Status:** ACCEPTED design (ADR-0005, 2026-11-11, approver `Y4NN777`). The DDL is owned by `db/migrations/00001` to `00012`, and `00013` since 2026-11-13 (immutable once merged). A statement-by-statement diff of this document's former DDL against those migrations was done on 2026-11-12: identical for the 38 P0 tables (names, constraints, indexes); the only differences were the 3 P1 tables below (no migration) and the reference `INSERT`s in `00002`. This document keeps the rationale, the rules SQL cannot express, and the DDL of what has no migration. Items with no migration yet are marked **PLANNED**.
 **Target engine:** **PostgreSQL 18** with native `uuidv7()`. **Tooling:** goose forward-only SQL migrations under root `db/migrations/`, sqlc queries under `db/queries/`, `pgx` v5.
-**Decision owner:** `Y4NN777` (interim owner, ADR-0002). Migrations `00001` to `00013` run on a **fresh** PostgreSQL 18 database in the integration suite `src/api/internal/platform/pgtest` (`TestFreshMigrationToHead` expects 13), and `TestUpgradeFromVersion10KeepsExistingRows` applies `00011` to `00013` on top of version 10. Both run under `make test-integration`, which `make quality` and CI include. sqlc queries exist for identity, platform, rate limits, reference data, discover, search, learn, build and solve (`db/queries/`).
+**Decision owner:** `Y4NN777` (interim owner, ADR-0002). Migrations `00001` to `00013` run on a **fresh** PostgreSQL 18 database in the integration suite `src/api/internal/platform/pgtest` (`TestFreshMigrationToHead` expects 13), and `TestUpgradeFromVersion10KeepsExistingRows` applies `00011` to `00013` on top of version 10. Both run under `make test-integration`, which `make quality` and CI include. sqlc queries exist for identity, platform, rate limits, reference data, discover, search, learn, build, solve and moderation (`db/queries/`).
 
 References to other documents cite section names or IDs, not line numbers.
 
@@ -163,9 +163,9 @@ DDL: see `db/migrations/00002_reference_taxonomy.sql`.
 
 DDL: see `db/migrations/00002_reference_taxonomy.sql`.
 
-**`learn_topics`** - small reference list for Learn so new topics are data, not constraint changes. The current rows are the 9 owner-approved topics inserted by `db/migrations/00002_reference_taxonomy.sql:112-121` (`ai`, `payments`, `ussd-messaging`, `mobile`, `api-integration`, `security-privacy`, `cloud-devops`, `geo-data`, `open-source`); the prototype list that used to be cited here is superseded.
+**`learn_topics`** - small reference list for Learn so new topics are data, not constraint changes. The current rows are the 14 topics of `00002` plus E2 (`00011_taxonomy_ai_topics`, PR #80); `00002` inserted the 9 owner-approved topics at `db/migrations/00002_reference_taxonomy.sql:112-121` (`ai`, `payments`, `ussd-messaging`, `mobile`, `api-integration`, `security-privacy`, `cloud-devops`, `geo-data`, `open-source`); the prototype list that used to be cited here is superseded.
 
-**PLANNED (E2, owner decision 2026-11-12; new migration, not in 00002, which is immutable):** one new forward-only migration, numbered by `make migrate-new` and written by the single migration writer (`ROADMAP.md` R6), adds 5 topics (`learn-to-learn`, `ai-assisted-dev`, `ai-agents`, `open-models`, `african-languages`) and relabels `ai`, `mobile` and `open-source` (same codes, new `name_fr`/`name_en`), for **14 topics**. No row is deleted; removals are deferred and need explicit human approval. The exact labels are in `TODO.md`, section E2. The same PR updates the exact lists and counts in `src/api/internal/platform/pgtest/migrate_integration_test.go`.
+**DONE (E2, owner decision 2026-11-12; migration `00011_taxonomy_ai_topics`, PR #80, not in 00002, which is immutable):** one new forward-only migration, numbered by `make migrate-new` and written by the single migration writer (`ROADMAP.md` R6), adds 5 topics (`learn-to-learn`, `ai-assisted-dev`, `ai-agents`, `open-models`, `african-languages`) and relabels `ai`, `mobile` and `open-source` (same codes, new `name_fr`/`name_en`), for **14 topics**. No row is deleted; removals are deferred and need explicit human approval. The exact labels are in `TODO.md`, section E2. The same PR updates the exact lists and counts in `src/api/internal/platform/pgtest/migrate_integration_test.go`.
 
 DDL: see `db/migrations/00002_reference_taxonomy.sql`.
 
@@ -192,7 +192,7 @@ Semantics (`ROADMAP.md` section 10, C14):
 
 - `GET /profiles/{username}`: `public` is visible to everyone, `members` to authenticated members only, `private` to the owner only. Everyone else gets a 404 whose body is identical to an unknown or deleted username. Moderators get no special profile access.
 - Author bylines on published content keep showing the username and display name whatever `profile_visibility` says; deleted accounts still show "membre supprimé" (1.1).
-- People directory (E5): a profile is listed for a caller only if the user is `active`, `profile_visibility` allows that caller, `open_to_collab = true` and `open_to_collab_visibility` allows that caller. Listed fields and filters use only fields visible to the caller. Email is never selected.
+- People directory (E5): a profile is listed for a caller only if the user is `active`, `profile_visibility` allows that caller, `open_to_collab = true` and `open_to_collab_visibility` allows that caller. Demo seed accounts (`provenance = 'demo'`) are listed only in `local-dev` (`include_demo`, set from `APP_ENV`). Listed fields and filters use only fields visible to the caller. Email is never selected.
 - Not decided: how suspended users are treated by `GET /profiles/{username}`.
 
 Once this migration merges, decision 8 in section 10 ("only `projects` and profile fields carry visibility") also covers this profile-level column.
@@ -251,9 +251,9 @@ DDL: see `db/migrations/00005_solve.sql`.
 
 ### 3.4 Discover (`00006`)
 
-**`resource_categories`** - controlled category codes with FR/EN labels. The current rows are the 15 owner-approved categories inserted by `db/migrations/00002_reference_taxonomy.sql:124-139`, `sort_order` in steps of 10 (`mobile-money` through `dev-tools`).
+**`resource_categories`** - controlled category codes with FR/EN labels. The current rows are the 18 categories of `00002` plus E2 (`00011_taxonomy_ai_topics`, PR #80); `00002` inserted the 15 owner-approved categories at `db/migrations/00002_reference_taxonomy.sql:124-139`, `sort_order` in steps of 10 (`mobile-money` through `dev-tools`).
 
-**PLANNED (E2, owner decision 2026-11-12; new migration, not in 00002, which is immutable):** the same E2 migration as for `learn_topics` adds `ai-models`, `ai-tooling` and `ai-datasets` (each with an explicit `sort_order`) and relabels `cloud-hosting`, for **18 categories**. `mobile-money` and `sms-ussd` stay (differentiator 1). No row is deleted.
+**DONE (E2, owner decision 2026-11-12; migration `00011_taxonomy_ai_topics`, PR #80, not in 00002, which is immutable):** the same E2 migration as for `learn_topics` adds `ai-models`, `ai-tooling` and `ai-datasets` (each with an explicit `sort_order`) and relabels `cloud-hosting`, for **18 categories**. `mobile-money` and `sms-ussd` stay (differentiator 1). No row is deleted.
 
 DDL: see `db/migrations/00002_reference_taxonomy.sql`.
 
@@ -502,7 +502,7 @@ Migration headers document purpose, tables/indexes, lock risk, data volume, tran
 
 ## 6. Seed policy
 
-**PLANNED:** `db/seeds/` does not exist yet (`mk/50-ops.mk` has no seed implementation); the rules below are the accepted design for when it is written.
+**IMPLEMENTED (PR #215, 2026-11-15):** `db/seeds/` holds the demo fixtures (contract in `db/seeds/README.md`) and `make seed` runs them; the rules below are the accepted design they follow. Owner decision 2026-11-15: seeds run in `local-dev` and `staging-test`, never in `production-live` (ROADMAP section 14).
 
 - Seeds live in `db/seeds/`, **separate from migrations**, as deterministic SQL with **fixed UUIDs** (no `now()` or random values; timestamps are literal) so two runs on an empty database produce identical rows. Reference data (countries, topics, categories) is a migration, not a seed.
 - Everything seeded is **fictional and clearly marked**: every root row carries `provenance = 'demo'` (`users`, `tags`, `providers`, `resources`, `questions`, `answers`, `projects`, `learn_articles`, `training_series`); demo accounts use the reserved `@demo.226os.invalid` email domain and `demo-` usernames; URLs point only to `example.org`; the UI shows a demo badge for `provenance = 'demo'`. No real person, company, provider endorsement, contribution, price/quota/benchmark or verification is implied. A demo resource may be `verified` only against a visibly fictional `example.org` source; demo data must never be presented as real activity or reputation.

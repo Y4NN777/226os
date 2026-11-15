@@ -1,5 +1,5 @@
 -- Demo fixtures 226os: solve (questions, answers, question_tags).
--- Contract: db/seeds/README.md. Deterministic, idempotent, local-dev only.
+-- Contract: db/seeds/README.md. Deterministic, idempotent, local-dev and staging-test only.
 -- Optional Solve block: two questions, two answers, no votes, no accepted answer.
 -- No BEGIN/COMMIT: make seed wraps every file in one psql -1 transaction.
 

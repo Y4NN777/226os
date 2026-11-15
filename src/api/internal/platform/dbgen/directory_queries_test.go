@@ -21,14 +21,14 @@ func TestListDirectoryProfilesQuery(t *testing.T) {
 	row := []any{id, "ada", "Ada", "BF", true, []string{"fr"}, true, []string{"go"}, "ada-gh"}
 	db := &fakeDB{many: [][]any{row}}
 	got, err := dbgen.New(db).ListDirectoryProfiles(ctx, dbgen.ListDirectoryProfilesParams{
-		Member: true, Country: text("BF"), Language: text("fr"), Skill: text("go"),
+		Member: true, IncludeDemo: true, Country: text("BF"), Language: text("fr"), Skill: text("go"),
 		AfterUsername: text("aa"), AfterID: id, RowLimit: 21,
 	})
 	if err != nil || len(got) != 1 || got[0].Username != "ada" || got[0].CountryCode != "BF" ||
 		!got[0].LanguagesVisible || !got[0].SkillsVisible || got[0].GithubUsername != "ada-gh" {
 		t.Fatalf("ListDirectoryProfiles = %+v, %v", got, err)
 	}
-	assertCall(t, db, "ORDER BY p.username, p.user_id", []any{true, text("BF"), text("fr"), text("go"), text("aa"), id, int32(21)})
+	assertCall(t, db, "ORDER BY p.username, p.user_id", []any{true, true, text("BF"), text("fr"), text("go"), text("aa"), id, int32(21)})
 
 	call := func(db *fakeDB) error {
 		_, err := dbgen.New(db).ListDirectoryProfiles(ctx, dbgen.ListDirectoryProfilesParams{})

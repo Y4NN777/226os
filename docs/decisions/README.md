@@ -1,6 +1,6 @@
 # 226os Architecture Decision Registry
 
-**Status:** G0 is closed (2026-11-11): every G0 decision is `ACCEPTED` (approver `Y4NN777`), and P0 implementation is authorized under ADR-0001 to ADR-0010. ADR-0008 to ADR-0011 are dated 2026-11-12. Gates are evidence, not decisions: G1 to G4 run in CI through `make quality`; G5, G6 and G7 are `NOT RUN`.
+**Status:** G0 is closed (2026-11-11): every G0 decision is `ACCEPTED` (approver `Y4NN777`), and P0 implementation is authorized under ADR-0001 to ADR-0010; ADR-0011 to ADR-0013 are accepted since. ADR-0008 to ADR-0011 are dated 2026-11-12, ADR-0012 and ADR-0013 2026-11-14. Gates are evidence, not decisions: G1 to G4 run in CI through `make quality`; G5 and G6 are `NOT IMPLEMENTED` as targets and G7 is `NOT RUN`.
 
 The (archived) register of G0 decisions is [G0_DECISIONS.md](../archive/spec-kit/G0_DECISIONS.md); each row points to the ADR that records it.
 

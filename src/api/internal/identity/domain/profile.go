@@ -117,8 +117,11 @@ type PatchField[T any] struct {
 // DirectoryQuery is one page request of the people directory (E5). Member is
 // the only caller fact the store needs: anonymous callers pass false, members
 // pass true. Empty filters mean "not given". After* is the keyset position.
+// IncludeDemo lists demo seed accounts too (local-dev only); the zero value
+// excludes them.
 type DirectoryQuery struct {
 	Member                   bool
+	IncludeDemo              bool
 	Country, Language, Skill string
 	AfterUsername, AfterID   string
 	Limit                    int

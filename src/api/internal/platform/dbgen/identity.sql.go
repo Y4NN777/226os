@@ -486,27 +486,29 @@ SELECT p.user_id, p.username, p.display_name,
 FROM profiles p
 JOIN users u ON u.id = p.user_id
 WHERE u.status = 'active'
+  AND ($2::boolean OR u.provenance <> 'demo')
   AND (p.profile_visibility = 'public' OR ($1::boolean AND p.profile_visibility = 'members'))
   AND p.open_to_collab
   AND (p.open_to_collab_visibility = 'public' OR ($1::boolean AND p.open_to_collab_visibility = 'members'))
-  AND ($2::text IS NULL
-       OR (p.country_code = $2::text
-           AND (p.country_visibility = 'public' OR ($1::boolean AND p.country_visibility = 'members'))))
   AND ($3::text IS NULL
-       OR ($3::text = ANY(p.languages)
-           AND (p.languages_visibility = 'public' OR ($1::boolean AND p.languages_visibility = 'members'))))
+       OR (p.country_code = $3::text
+           AND (p.country_visibility = 'public' OR ($1::boolean AND p.country_visibility = 'members'))))
   AND ($4::text IS NULL
-       OR (EXISTS (SELECT 1 FROM user_skills us JOIN tags t ON t.id = us.tag_id
-                   WHERE us.user_id = p.user_id AND t.slug = $4::text AND t.status = 'active')
-           AND (p.skills_visibility = 'public' OR ($1::boolean AND p.skills_visibility = 'members'))))
+       OR ($4::text = ANY(p.languages)
+           AND (p.languages_visibility = 'public' OR ($1::boolean AND p.languages_visibility = 'members'))))
   AND ($5::text IS NULL
-       OR (p.username, p.user_id) > ($5::text, $6::uuid))
+       OR (EXISTS (SELECT 1 FROM user_skills us JOIN tags t ON t.id = us.tag_id
+                   WHERE us.user_id = p.user_id AND t.slug = $5::text AND t.status = 'active')
+           AND (p.skills_visibility = 'public' OR ($1::boolean AND p.skills_visibility = 'members'))))
+  AND ($6::text IS NULL
+       OR (p.username, p.user_id) > ($6::text, $7::uuid))
 ORDER BY p.username, p.user_id
-LIMIT $7
+LIMIT $8
 `
 
 type ListDirectoryProfilesParams struct {
 	Member        bool
+	IncludeDemo   bool
 	Country       pgtype.Text
 	Language      pgtype.Text
 	Skill         pgtype.Text
@@ -535,9 +537,12 @@ type ListDirectoryProfilesRow struct {
 // visible, so a hidden value never leaks through the projection or the filters. Email is never selected.
 // A visibility passes when it is 'public', or 'members' for a member; 'private' never passes.
 // A hidden or unset country and github come back as ” (neither value can be empty). Order and keyset: (username, user_id), served by profiles_username_uq.
+// Demo seed accounts (users.provenance = 'demo') are listed only when include_demo is true (local-dev); the
+// zero value excludes them, so staging-test and production-live fail closed.
 func (q *Queries) ListDirectoryProfiles(ctx context.Context, arg ListDirectoryProfilesParams) ([]ListDirectoryProfilesRow, error) {
 	rows, err := q.db.Query(ctx, listDirectoryProfiles,
 		arg.Member,
+		arg.IncludeDemo,
 		arg.Country,
 		arg.Language,
 		arg.Skill,

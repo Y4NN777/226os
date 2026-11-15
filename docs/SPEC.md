@@ -170,7 +170,7 @@ Feature: Visibilité du profil
 
 ### US-CONNECT-001 — Annuaire des membres (VALIDÉ le 2026-11-12, PRD amendement 3.2)
 
-Opération en lecture seule, suggérée `GET /profiles`, dont le nom sera fixé par une PR de contrat en attente ; elle n'est pas encore dans `api/openapi.yaml`. Un profil est listé pour un appelant seulement si le compte est actif, si `profile_visibility` l'autorise pour cet appelant (`private` jamais, `members` pour les membres seulement), si `open_to_collab` vaut vrai et si `open_to_collab_visibility` l'autorise pour cet appelant. Un champ masqué compte comme absent, y compris pour les filtres.
+Opération en lecture seule `listProfiles` (`GET /profiles`), présente dans `api/openapi.yaml` et livrée (backend PR #193, page `connect` PR #213). Un profil est listé pour un appelant seulement si le compte est actif, si `profile_visibility` l'autorise pour cet appelant (`private` jamais, `members` pour les membres seulement), si `open_to_collab` vaut vrai et si `open_to_collab_visibility` l'autorise pour cet appelant. Les comptes de démonstration (`provenance = 'demo'`) ne sont listés qu'en `local-dev`. Un champ masqué compte comme absent, y compris pour les filtres.
 
 ```gherkin
 Feature: Annuaire des membres
@@ -408,9 +408,9 @@ Les modules P1/P2 ne doivent pas être artificiellement matérialisés en code v
 ## 4. Contrat REST v1 — bornes de conception
 - Préfixe `/api/v1`, JSON UTF-8 ; horodatages RFC3339 UTC ; IDs opaques UUID ; erreurs uniformes `application/problem+json` (RFC 9457).
 - Pagination par curseur stable (taille maximale documentée), limite de taille des corps, filtres validés strictement, listes ordonnées de façon déterministe.
-- Ressources initiales (chemins de `api/openapi.yaml`) : `/auth/*`, `/me`, `/profiles/{username}`, `questions`, `answers`, `votes`, `/learn/articles` et `/learn/series`, `resources`, `projects`, `contribution-needs`, `applications`, `/moderation/*`, `/search`.
+- Ressources initiales (chemins de `api/openapi.yaml`) : `/auth/*`, `/me`, `/profiles` (annuaire), `/profiles/{username}`, `questions`, `answers`, `votes`, `/learn/articles` et `/learn/series`, `resources`, `projects`, `contribution-needs`, `applications`, `/assistant/answers`, `/moderation/*`, `/search`.
 - Les verbes HTTP et schémas sont figés dans `api/openapi.yaml` avant développement parallèle ; ce document ne prétend pas qu'ils sont déjà implémentés.
-- L'assistant (US-INTEL-001) figure dans `api/openapi.yaml` sous une seule opération, `askAssistant` (`POST /assistant/answers`). L'annuaire des membres (US-CONNECT-001) y entre par une PR de contrat séparée (PRD 3.2) ; il n'y figure pas encore.
+- L'assistant (US-INTEL-001) figure dans `api/openapi.yaml` sous une seule opération, `askAssistant` (`POST /assistant/answers`). L'annuaire des membres (US-CONNECT-001) y est entré par une PR de contrat séparée (PRD 3.2) : `listProfiles` (`GET /profiles`).
 - Auth via session cookie sécurisée, protections CSRF pour mutations, autorisation par propriétaire/role **sur serveur**. Codes : 401 non authentifié ; 403 authentifié mais non autorisé sur un objet visible ; 404 si l'existence d'un objet privé ne doit pas fuiter (règle : 403 si l'objet est visible pour l'appelant, 404 sinon). Publier exige un email vérifié (403 `EMAIL_NOT_VERIFIED`).
 - Journaliser les tentatives d'accès interdit sans secrets ni données personnelles inutiles.
 
@@ -449,11 +449,11 @@ Ce tableau est la seule carte de traçabilité au niveau des user stories ; [TRA
 | US-LEARN-001 | learn/articles, learn/series | lecture publique, publication authentifiée, 401 sans session, langue d'origine préservée | test/security |
 | US-LEARN-002 (validé, PRD 3.2) | questions (`links[]` vers l'article), learn/articles par code de thème, questions par tag | question liée à l'article, redirection vers la connexion sans session, fil par thème sans brouillon ni contenu retiré | test/e2e |
 | US-IDENTITY-001 | sessions/profiles/relations | connexion, langue, liens ; visibilité du profil par appelant, 404 identique à un profil inconnu, signature visible, jamais d'e-mail (extension PRD 3.2) | test/security |
-| US-CONNECT-001 (validé, PRD 3.2) | annuaire, `GET /profiles` suggéré (PR de contrat en attente) | liste par appelant selon les visibilités, filtres sur champs visibles, jamais d'e-mail, état vide, `limit=51` → 422, 429 | test/security |
+| US-CONNECT-001 (validé, PRD 3.2) | annuaire, `listProfiles` (`GET /profiles`) | liste par appelant selon les visibilités, filtres sur champs visibles, jamais d'e-mail, état vide, `limit=51` → 422, 429 | test/security |
 | US-INTEL-001 (validé, PRD 3.2 ; ADR-0012) | `askAssistant` (`POST /assistant/answers`), `assistant`, search | réponse sourcée avec « Comment vérifier », refus `no_source` sans appel au fournisseur, citation d'un passage non retrouvé refusée, injection ignorée, aucun contenu privé, retiré, brouillon ou archivé, aucune donnée personnelle envoyée, étiquette IA sans ligne `answers` ni `votes`, 401, 403 `EMAIL_NOT_VERIFIED`, 403 CSRF, 422, 429 à la 11e question de l'heure, 503 (désactivé, fournisseur en échec, garde globale épuisée) ; jeu d'évaluation G1 à G13 (adaptateur factice) | test/security/évaluation |
 | US-ACCESS-001 | frontend/infra | mobile + réseau simulé | perf/accessibility |
 
 `api/openapi.yaml` compte aujourd'hui 45 opérations `x-priority: P0`, dont `askAssistant` et `listProfiles` (l'annuaire, 49 opérations au total avec les 4 P1). Le calendrier de ces PR est suivi dans [ROADMAP.md](../ROADMAP.md).
 
 ## 9. Références normatives
-`api/openapi.yaml` (accepté), `docs/spec-kit/DATABASE_DESIGN.md` (modèle accepté) et les ADR acceptés (voir l'[index des ADR](decisions/README.md)) sont normatifs. Les migrations `00001` à `00010` de `db/migrations` et le code généré depuis `api/openapi.yaml` existent depuis le bootstrap B0 (PR #24) ; les migrations `00011` à `00013` et le code applicatif des tranches livrées ont depuis été fusionnés sous revue (suivi dans [TODO.md](../TODO.md)), et les seeds restent à produire. Ce document ne présume aucun statut d'exécution des gates G1 à G7.
+`api/openapi.yaml` (accepté), `docs/spec-kit/DATABASE_DESIGN.md` (modèle accepté) et les ADR acceptés (voir l'[index des ADR](decisions/README.md)) sont normatifs. Les migrations `00001` à `00010` de `db/migrations` et le code généré depuis `api/openapi.yaml` existent depuis le bootstrap B0 (PR #24) ; les migrations `00011` à `00013` et le code applicatif des tranches livrées ont depuis été fusionnés sous revue (suivi dans [TODO.md](../TODO.md)), et les seeds de démo de `db/seeds/` aussi (PR #215). Ce document ne présume aucun statut d'exécution des gates G1 à G7.

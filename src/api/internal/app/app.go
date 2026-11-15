@@ -68,6 +68,11 @@ func openPool(ctx context.Context, url string) (dbPool, error) {
 	return p, nil
 }
 
+// demoProfilesEnabled reports whether the people directory lists demo seed
+// users: only in local-dev. staging-test, production-live and anything else
+// exclude them.
+func demoProfilesEnabled(appEnv string) bool { return appEnv == "local-dev" }
+
 func run(ctx context.Context, getenv func(string) string, out io.Writer, serve serveFunc, open poolOpener) int {
 	logger := slog.New(slog.NewJSONHandler(out, nil))
 	cfg, err := config.Load(getenv)
@@ -89,7 +94,7 @@ func run(ctx context.Context, getenv func(string) string, out io.Writer, serve s
 	}
 	mail := newMailer(cfg, logger)
 	secureCookies := cfg.AppEnv != "local-dev"
-	identSvc := service.New(repository.New(pool), mail, cfg.CursorKey, service.WithBaseURL(cfg.AppBaseURL), service.WithCursors(codec))
+	identSvc := service.New(repository.New(pool), mail, cfg.CursorKey, service.WithBaseURL(cfg.AppBaseURL), service.WithCursors(codec), service.WithDemoProfiles(demoProfilesEnabled(cfg.AppEnv)))
 	authHandler := identitytransport.New(identSvc, secureCookies, logger)
 	limiter := ratelimit.New(pool, cfg.CursorKey, logger)
 	catalogue := discover.NewHandler(pool, codec, limiter, logger)

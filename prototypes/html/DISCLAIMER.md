@@ -18,7 +18,7 @@ A static HTML mock-up made before the product decisions of 2026-11-12. It shows 
 | No assistant | A **grounded AI assistant**: answers only from published content, shows its sources, says when it has none, ends with "Comment vérifier", is labelled AI and cannot be voted or accepted as an answer. |
 | No profile visibility setting | A **profile visibility** setting (public, members, private) on the settings page. A hidden profile looks exactly like an unknown one. |
 | Examples are mostly payments and webhooks | Payments and Mobile Money stay in Discover (a differentiator), but they are no longer the face of the product. Learning, understanding and using LLMs and agents, open source and people are. |
-| Fictional demo data | Staging and production hold real content only. Demo fixtures with non-real accounts exist in **local-dev only**. |
+| Fictional demo data | Production holds real content only. Demo fixtures with non-real accounts exist in **local-dev and staging-test only** (owner decision, 2026-11-15). |
 
 ## What to follow instead
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # RED/GREEN evidence for the `seed` target (mk/50-ops.mk): it refuses every environment except
-# APP_ENV=local-dev before any Docker/Compose call, then runs db/seeds/*.sql in lexical order through one
+# APP_ENV=local-dev and APP_ENV=staging-test before any Docker/Compose call, then runs db/seeds/*.sql in lexical order through one
 # psql transaction. A fake `docker` records argv and stdin, so no database is needed. The fixture SQL itself
 # is proven on real PostgreSQL by the pgtest integration tests.
 # Usage: scripts/tests/seed_test.sh
@@ -31,6 +31,7 @@ cat >"$STDIN_LOG"
 FAKE
 chmod +x "$tmp/bin/docker"
 printf 'APP_ENV=local-dev\n' >"$tmp/env.local-dev"
+printf 'APP_ENV=staging-test\nPUBLIC_HOST=staging.example.org\nACME_EMAIL=ops@example.org\n' >"$tmp/env.staging-test"
 
 # run_seed DIR [VAR=value ...] -- : run `make -C DIR seed` under env -i; sets rc and out.
 run_seed() {
@@ -58,8 +59,6 @@ run_seed "$root" --
 refused "APP_ENV unset is refused"
 run_seed "$root" APP_ENV= --
 refused "APP_ENV empty is refused"
-run_seed "$root" APP_ENV=staging-test --
-refused "APP_ENV=staging-test is refused"
 run_seed "$root" APP_ENV=production-live --
 refused "APP_ENV=production-live is refused"
 run_seed "$root" "APP_ENV=local-dev " --
@@ -68,6 +67,8 @@ run_seed "$root" APP_ENV=LOCAL-DEV --
 refused "APP_ENV=LOCAL-DEV (uppercase) is refused"
 run_seed "$root" APP_ENV=local-dev COMPOSE_PROFILES=staging-test --
 refused "COMPOSE_PROFILES=staging-test with APP_ENV=local-dev is refused"
+run_seed "$root" APP_ENV=staging-test COMPOSE_PROFILES=local-dev --
+refused "COMPOSE_PROFILES=local-dev with APP_ENV=staging-test is refused"
 
 # The case-sensitivity message is only for a local-dev spelled with other letter cases.
 run_seed "$root" APP_ENV=Local-Dev --
@@ -76,7 +77,7 @@ grep -q 'case-sensitive' <<<"$out" && ok "a mixed-case local-dev gets the case-s
   || ko "a mixed-case local-dev gets the case-sensitive message (out=$out)"
 run_seed "$root" APP_ENV=123 --
 refused "APP_ENV=123 is refused"
-if grep -q 'only runs with APP_ENV=local-dev' <<<"$out" && ! grep -q 'case-sensitive' <<<"$out"; then
+if grep -q 'only runs with APP_ENV=local-dev or staging-test' <<<"$out" && ! grep -q 'case-sensitive' <<<"$out"; then
   ok "a value with no letters gets the generic message"
 else ko "a value with no letters gets the generic message (out=$out)"; fi
 
@@ -111,5 +112,17 @@ if [ -z "$(find "$root/db/seeds" -newer "$tmp/env.local-dev" -name '*.sql' 2>/de
 else
   ko "the repository db/seeds was written by this test"
 fi
+
+run_seed "$scratch" APP_ENV=staging-test COMPOSE_ENV_FILE="$tmp/env.staging-test" --
+if [ "$rc" -eq 0 ] && grep -q -- '--profile staging-test' "$tmp/docker.log" && ! grep -q -- '--profile local-dev' "$tmp/docker.log" \
+  && grep -q 'psql -X -v ON_ERROR_STOP=1 -1' "$tmp/docker.log"; then
+  ok "staging-test runs psql through the staging-test compose profile"
+else
+  ko "staging-test run (rc=$rc out=$out docker=$(cat "$tmp/docker.log" 2>/dev/null))"
+fi
+run_seed "$scratch" APP_ENV=staging-test COMPOSE_PROFILES=staging-test COMPOSE_ENV_FILE="$tmp/env.staging-test" --
+[ "$rc" -eq 0 ] && ok "COMPOSE_PROFILES equal to APP_ENV is accepted" || ko "COMPOSE_PROFILES equal to APP_ENV (rc=$rc out=$out)"
+run_seed "$scratch" APP_ENV=production-live COMPOSE_ENV_FILE="$tmp/env.staging-test" --
+refused "APP_ENV=production-live is refused even with seeds present"
 
 finish
