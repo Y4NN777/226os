@@ -6,8 +6,10 @@
 #
 # Every decision is scripts/review-autofix.py from the DEFAULT branch, never from the pull request:
 #   job decide   `pr`: same-repository branches only (never a fork, never main or develop), only when the review job
-#                really ran for the current head, at most 2 attempts per pull request (labels autofix-1, autofix-2,
-#                written before the fix runs); the third is refused and labelled needs-owner. Runs no pull request code.
+#                really ran for the current head, at most 2 attempts per FINDING (ADR-0015 point 8: counted per head SHA in
+#                the status comment, written when the run ends, never before); a finding outside the fixer's allowed paths
+#                or with its attempts used goes to the owner (needs-owner). It also writes the one status comment of the
+#                pull request (point 10). A run with nothing to do says NO-OP or NOT RUN. Runs no pull request code.
 #   job fix      UNTRUSTED: runs the model and the pull request's code (make setup, make targets, tests). It holds NO
 #                write token: GITHUB_TOKEN is read-only and its only secret is the Claude OAuth token. Its commits leave
 #                the job as a patch artifact (git format-patch). Git reads, single tests and web scripts go through
@@ -25,9 +27,11 @@
 #                workflow, so the fix would never be checked. It labels needs-owner when the fixer or the guard says so.
 # The prompt carries the repository, the pull request number and finding ids only, never pull request text.
 #
+#   job label    TRUSTED end job, always runs after a "fix" decision: `record` writes the attempt only when the run happened
+#                (a cancelled or failed fixer, a moved branch or a missing token consume nothing), then needs-owner.
 # Switch: repository variable AUTO_FIX = off | report (default: the decision goes to the job summary, nothing is
 # written) | on. Without the secret REVIEW_AGENT_TOKEN the publish job prints "autofix: NOT RUN (REVIEW_AGENT_TOKEN
-# missing)" and gives the attempt back (the decide job cannot see an environment secret).
+# missing)" from the preflight job, BEFORE the model is called; nothing was counted, so nothing is given back.
 # Owner setup: the environment `review-agent` (deployment branch develop only, ADR-0013) with the secret REVIEW_AGENT_TOKEN
 # (fine-grained token on this repository: contents and pull requests read and write), CLAUDE_CODE_OAUTH_TOKEN (already
 # used by code-review.yml), then AUTO_FIX=on.
@@ -99,10 +103,36 @@ jobs:
           fi
           python3 -I scripts/review-autofix.py pr | tee -a "$GITHUB_STEP_SUMMARY"
 
+  # Refuse BEFORE the model when the push token is missing (ADR-0015 follow-up). The decide job cannot read an environment
+  # secret, so this small trusted job does: it only tests that REVIEW_AGENT_TOKEN is not empty, never uses it, runs no
+  # pull request code, and the untrusted fix job (which must not hold the secret) waits for its answer.
+  preflight:
+    name: Check the push token (trusted, before the model)
+    needs: decide
+    environment: review-agent
+    if: needs.decide.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions: {}
+    outputs:
+      token: ${{ steps.check.outputs.token }}
+    steps:
+      - name: Is REVIEW_AGENT_TOKEN set
+        id: check
+        env:
+          BOT_TOKEN: ${{ secrets.REVIEW_AGENT_TOKEN }}
+        run: |
+          if [ -z "$BOT_TOKEN" ]; then
+            echo "autofix: NOT RUN (REVIEW_AGENT_TOKEN missing): the model is not called" | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "token=false" >>"$GITHUB_OUTPUT"
+          else
+            echo "token=true" >>"$GITHUB_OUTPUT"
+          fi
+
   fix:
     name: Fix the findings (untrusted, read-only)
-    needs: decide
-    if: needs.decide.outputs.run == 'true'
+    needs: [decide, preflight]
+    if: needs.decide.outputs.run == 'true' && needs.preflight.outputs.token == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 75
     permissions:
@@ -404,28 +434,47 @@ jobs:
           echo "autofix: pushed to $BRANCH (the review and CI run again)" | tee -a "$GITHUB_STEP_SUMMARY"
           echo "outcome=pushed" >>"$GITHUB_OUTPUT"
 
-  # Labels only: no checkout, no pull request code, no secret. Labelling a pull request needs pull-requests: write
-  # (issues: write alone answers HTTP 403), which the job that checks the pull request branch out must not hold.
+  # The end of the run (ADR-0015 points 8 and 10). Trusted scripts from the DEFAULT branch, no pull request code, no secret,
+  # GITHUB_TOKEN only. It always runs after the decide job said "fix", whatever happened, and does two things:
+  #   1. `record`: writes the attempt for (pull request, finding, head SHA) into the status comment ONLY when the run
+  #      happened: a cancelled or failed fixer job, a branch that moved and a missing token consume nothing (SUPERSEDED).
+  #   2. labels needs-owner when the fixer or the guard left a decision to the owner.
+  # Commenting and labelling a pull request needs pull-requests: write (issues: write alone answers HTTP 403), which the job
+  # that checks the pull request branch out must not hold; this job checks out the default branch only.
   label:
-    name: Label (no checkout)
-    needs: [decide, fix, publish]
-    if: always() && needs.decide.outputs.run == 'true' && (needs.fix.outputs.outcome == 'fixed' || needs.fix.outputs.outcome == 'owner')
+    name: Record the attempt and label (no pull request code)
+    needs: [decide, preflight, fix, publish]
+    if: always() && needs.decide.outputs.run == 'true' && needs.preflight.outputs.token == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
+      contents: read
       pull-requests: write
     steps:
-      # The decide job cannot see the environment secret, so it counted an attempt: give it back.
-      - name: Give the attempt back (token missing)
-        if: needs.publish.outputs.push == 'notoken'
+      - name: Checkout the default branch (trusted scripts)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Record what happened (attempts count only when the run happened)
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           PR_NUMBER: ${{ needs.decide.outputs.pr }}
-          ATTEMPT: ${{ needs.decide.outputs.attempt }}
+          RUN_ID: ${{ github.run_id }}
+          HEAD_SHA: ${{ needs.decide.outputs.head_sha }}
+          FINDINGS: ${{ needs.decide.outputs.findings }}
+          AUTO_FIX: ${{ vars.AUTO_FIX || 'report' }}
+          FIX_RESULT: ${{ needs.fix.result }}
+          OUTCOME: ${{ needs.fix.outputs.outcome }}
+          PUSH: ${{ needs.publish.outputs.push }}
         run: |
-          gh api -X DELETE "repos/$REPO/issues/$PR_NUMBER/labels/autofix-$ATTEMPT" >/dev/null || echo "the label was already gone"
-          echo "autofix: attempt $ATTEMPT given back (no token)" | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ ! -f scripts/review-autofix.py ]; then
+            echo "autofix record: NOT RUN (scripts/review-autofix.py is not on the default branch)" | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          python3 -I scripts/review-autofix.py record | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Label needs-owner
         if: needs.fix.outputs.outcome == 'owner' || needs.publish.outputs.push == 'owner'
