@@ -20,6 +20,22 @@ export const tokens: Record<string, Token> = {
   '--color-text-success': ['#28683F', '#8CDEA0'],
   '--color-text-warning': ['#8A540D', '#F3C46F'],
   '--color-text-error': ['#B42318', '#FFB0A8'],
+  '--color-text-info': ['#1F4FA8', '#9CC4FF'],
+  // Status fills and their text (DESIGN.md 2.1; pairs audited in prototypes/html tokens.css).
+  '--color-success-muted': ['#E3F1E7', '#1B3324'],
+  '--color-on-success-muted': ['#28683F', '#8CDEA0'],
+  '--color-info-muted': ['#E4ECFA', '#1D2F4D'],
+  '--color-on-info-muted': ['#1F4FA8', '#9CC4FF'],
+  '--color-warning-muted': ['#FBEFD9', '#3A2D12'],
+  '--color-on-warning-muted': ['#8A540D', '#F3C46F'],
+  '--color-error-muted': ['#FCE8E5', '#3E1F1C'],
+  '--color-on-error-muted': ['#B42318', '#FFB0A8'],
+  '--color-icon-secondary': ['#576454', '#C1CCB9'],
+  '--color-icon-success': ['#28683F', '#8CDEA0'],
+  '--color-icon-info': ['#1F4FA8', '#9CC4FF'],
+  '--color-icon-warning': ['#8A540D', '#F3C46F'],
+  '--color-icon-error': ['#B42318', '#FFB0A8'],
+  '--color-skeleton': ['#E3EADC', '#2C3926'],
   '--font-family-body':
     'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
   '--font-family-heading':

@@ -1,0 +1,153 @@
+/*
+ * App shell, after the HTML prototype shell (prototypes/html/assets/css/layout.css):
+ * a white top bar with one hairline, the sidebar on the page background, content on the page
+ * background in a 1200px column. Astryx tokens only; selectors use the documented Astryx theming
+ * classes (astryx-*) of the components the shell is built from.
+ */
+.shell {
+  --shell-gutter: var(--spacing-4);
+  --shell-header-height: 56px;
+  --shell-sidebar-width: 232px;
+  --shell-content-max: 1200px;
+}
+@media (min-width: 768px) {
+  .shell {
+    --shell-gutter: var(--spacing-6);
+  }
+}
+@media (min-width: 1024px) {
+  .shell {
+    --shell-gutter: var(--spacing-8);
+  }
+}
+
+/* ---------- Top bar ---------- */
+.shell .astryx-app-shell-header {
+  background: var(--color-background-surface);
+  box-shadow: inset 0 -1px 0 var(--color-border);
+}
+.shell-topnav {
+  min-height: var(--shell-header-height);
+  padding: var(--spacing-2) var(--shell-gutter);
+  box-sizing: border-box;
+  gap: var(--spacing-2) var(--spacing-3);
+}
+.shell-brand {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  border-radius: var(--radius-inner);
+}
+.shell-brand-logo {
+  display: block;
+  height: 32px;
+  width: auto;
+}
+@media (min-width: 1024px) {
+  /* The search starts where the content column starts, as in the prototype. */
+  .shell-topnav .shell-brand {
+    min-width: calc(var(--shell-sidebar-width) - var(--shell-gutter) - 4px);
+  }
+}
+.shell-search {
+  width: 460px;
+  max-width: 100%;
+}
+@media (min-width: 768px) and (max-width: 1099px) {
+  .shell-topnav .shell-search {
+    width: 260px;
+  }
+}
+.shell-search .astryx-text-input {
+  min-height: 44px;
+}
+.shell-actions,
+.shell-auth {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-1);
+}
+
+/* ---------- Sidebar ---------- */
+.shell .astryx-app-shell-sidenav {
+  background: transparent;
+}
+/* SideNav pads its own list by 8px: with this, items sit 12px from the edge and 16px under the
+   top bar, as in the prototype. */
+.shell-sidenav {
+  width: var(--shell-sidebar-width);
+  padding: 0 var(--spacing-1);
+  box-sizing: border-box;
+  background: transparent;
+}
+.shell-sidenav .astryx-side-nav-item,
+.shell .astryx-side-nav-item {
+  min-height: 44px;
+  gap: var(--spacing-3);
+  padding: var(--spacing-2) var(--spacing-3);
+  border-radius: var(--radius-element);
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+  font-weight: var(--font-weight-medium);
+}
+.shell .astryx-side-nav-item svg {
+  width: 18px;
+  height: 18px;
+}
+.shell .astryx-side-nav-item:hover {
+  background: var(--color-background-muted);
+  color: var(--color-text-primary);
+}
+/* Active = soft neutral fill + full-contrast label and icon, and a heavier weight: never a bar,
+   never colour alone. */
+.shell .astryx-side-nav-item[aria-current='page'] {
+  background: var(--color-background-muted);
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-bold);
+}
+.shell .astryx-side-nav-item[aria-disabled='true']:hover {
+  background: none;
+  color: var(--color-text-secondary);
+}
+/* « Bientôt »: a quiet word at the end of the row, not a badge. */
+.nav-soon {
+  flex: none;
+  font-size: 0.75rem;
+  font-weight: var(--font-weight-normal);
+  color: var(--color-text-secondary);
+}
+
+/* ---------- Content column ---------- */
+.shell-page {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: calc(var(--shell-content-max) + var(--shell-gutter) * 2);
+  margin-inline: auto;
+  padding: var(--spacing-6) var(--shell-gutter) var(--spacing-12);
+}
+.shell-page > .shell-search {
+  width: 100%;
+  margin-bottom: var(--spacing-6);
+}
+
+/* ---------- Phone ---------- */
+@media (max-width: 767px) {
+  /* The logo keeps its size; when the actions do not fit beside it they wrap under it, at the
+     end of the bar (the prototype's phone header). */
+  .shell-topnav {
+    flex-wrap: wrap;
+    row-gap: var(--spacing-1);
+  }
+  .shell-topnav > :first-child {
+    flex: none;
+  }
+  .shell-topnav > :last-child {
+    margin-inline-start: auto;
+  }
+}
+@media (max-width: 479px) {
+  /* As in the prototype: the theme switch stays in the preferences menu on a narrow phone. */
+  .shell-theme-toggle {
+    display: none;
+  }
+}
