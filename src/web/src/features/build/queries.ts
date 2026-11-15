@@ -11,9 +11,14 @@ export type NeedCreate = components['schemas']['NeedCreate'];
 export type Application = components['schemas']['Application'];
 export type ApplicationStatus = components['schemas']['ApplicationStatus'];
 
+/** The list filters the contract serves (listProjects: q, open_needs). Empty means no filter. */
+export type ProjectFilters = { q?: string; openNeeds?: boolean };
+
 /** One key factory; every variable a query function reads is in its key. */
 export const buildKeys = {
+  /** Prefix of every list key: invalidating it refreshes every filtered list too. */
   list: ['projects', 'list'] as const,
+  listOf: (filters: ProjectFilters) => ['projects', 'list', filters] as const,
   detail: (id: string) => ['projects', 'detail', id] as const,
   needs: (id: string) => ['projects', 'needs', id] as const,
   applications: (id: string) => ['projects', 'applications', id] as const,
@@ -23,13 +28,17 @@ function retryOnce(failures: number, error: unknown): boolean {
   return failures < 1 && error instanceof ApiError && error.code === 'NETWORK';
 }
 
-export function useProjectList() {
+export function useProjectList(filters: ProjectFilters = {}) {
   return useInfiniteQuery({
-    queryKey: buildKeys.list,
+    queryKey: buildKeys.listOf(filters),
     retry: retryOnce,
     initialPageParam: null as string | null,
     queryFn: async ({ pageParam }) => {
-      const query = pageParam === null ? {} : { cursor: pageParam };
+      const query = {
+        ...(filters.q ? { q: filters.q } : {}),
+        ...(filters.openNeeds ? { open_needs: true } : {}),
+        ...(pageParam === null ? {} : { cursor: pageParam }),
+      };
       const page = await api.call(() => api.client.GET('/projects', { params: { query } }));
       return { items: page.items, nextCursor: page.next_cursor };
     },

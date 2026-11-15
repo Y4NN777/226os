@@ -11,6 +11,7 @@ import {
   need,
   needId,
   owner,
+  ownerId,
   page,
   project,
   projectId,
@@ -121,6 +122,96 @@ describe('ProjectPage read view', () => {
     await renderApp(`/build/${projectId}`);
     await user.click(await screen.findByRole('button', { name: 'Afficher plus' }));
     expect(await screen.findByText('Traduction')).toBeVisible();
+  });
+});
+
+describe('ProjectPage layout', () => {
+  it('shows the header pill, the description with its language, the facts and the maintainer', async () => {
+    setLanguages(['fr-FR']);
+    mockApi({
+      [`GET ${base}`]: () =>
+        jsonResponse(
+          project({
+            open_needs_count: 2,
+            visibility: 'private',
+            updated_at: '2026-11-08T12:00:00Z',
+            owner: { id: ownerId, username: 'kofi', display_name: 'Kofi Mensah', country: 'BF' },
+          }),
+        ),
+      [`GET ${base}/contribution-needs`]: () => page([need()]),
+    });
+    await renderApp(`/build/${projectId}`);
+    const heading = await screen.findByRole('heading', { level: 1, name: 'kora-sdk' });
+    const header = heading.closest('header');
+    expect(header).not.toBeNull();
+    expect(within(header as HTMLElement).getByText('2 besoins ouverts')).toBeVisible();
+    expect(within(header as HTMLElement).getByText('Privé')).toBeVisible();
+    expect(within(header as HTMLElement).getByRole('link', { name: 'Voir les besoins' })).toHaveAttribute(
+      'href',
+      '#besoins',
+    );
+
+    const description = screen.getByRole('region', { name: 'Description' });
+    expect(within(description).getByText('Un SDK pour les paiements mobiles.')).toHaveAttribute(
+      'lang',
+      'fr',
+    );
+    expect(within(description).getByText('FR')).toBeVisible();
+
+    const facts = screen.getByRole('region', { name: 'À propos' });
+    expect(within(facts).getByText('8 nov. 2026')).toBeVisible();
+    expect(within(facts).getByText('Français')).toBeVisible();
+    const technologies = screen.getByRole('region', { name: 'Technologies' });
+    expect(within(technologies).getByText('mobile-money')).toBeVisible();
+    const maintainer = screen.getByRole('region', { name: 'Mainteneur' });
+    expect(within(maintainer).getByRole('link', { name: 'Kofi Mensah' })).toBeVisible();
+    expect(within(maintainer).getByText('Burkina Faso')).toBeVisible();
+  });
+
+  it('labels each related link with its kind, outside the link name', async () => {
+    setLanguages(['fr-FR']);
+    mockApi({
+      [`GET ${base}`]: () =>
+        jsonResponse(
+          project({
+            related: [
+              { type: 'question', id: 'b1000000-0000-4000-8000-000000000001', title: 'Pourquoi ?' },
+            ],
+          }),
+        ),
+      [`GET ${base}/contribution-needs`]: () => page([]),
+    });
+    await renderApp(`/build/${projectId}`);
+    const related = await screen.findByRole('region', { name: 'Contenus liés' });
+    expect(within(related).getByText('Question')).toBeVisible();
+    expect(within(related).getByRole('link', { name: 'Pourquoi ?' })).toHaveAttribute(
+      'href',
+      '/questions/b1000000-0000-4000-8000-000000000001',
+    );
+  });
+
+  it('hides the repository block when the project has no GitHub address', async () => {
+    setLanguages(['fr-FR']);
+    mockApi({
+      [`GET ${base}`]: () => jsonResponse(project({ github_url: '' })),
+      [`GET ${base}/contribution-needs`]: () => page([]),
+    });
+    await renderApp(`/build/${projectId}`);
+    await screen.findByRole('heading', { level: 1, name: 'kora-sdk' });
+    expect(screen.queryByRole('link', { name: /Voir le dépôt sur GitHub/ })).not.toBeInTheDocument();
+  });
+
+  it('tells an anonymous visitor once that reading is open, above the needs', async () => {
+    setLanguages(['fr-FR']);
+    mockApi({
+      [`GET ${base}`]: () => jsonResponse(project()),
+      [`GET ${base}/contribution-needs`]: () =>
+        page([need(), need({ id: 'e1000000-0000-4000-8000-000000000002', title: 'Docs' })]),
+    });
+    await renderApp(`/build/${projectId}`);
+    const needs = await screen.findByRole('region', { name: 'Besoins de contribution' });
+    expect(await within(needs).findByText('Lecture libre.')).toBeVisible();
+    expect(within(needs).getAllByRole('link', { name: 'Se connecter pour postuler' })).toHaveLength(1);
   });
 });
 
