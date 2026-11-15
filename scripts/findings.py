@@ -645,25 +645,32 @@ def trunk_file(ctx, binary, repo, path):
         return None
 
 
-def verified_reference(ctx, binary, repo, reason, own_file):
-    """The first reference of the verdict text that exists at the tip of develop, else None. Checked here, never by the
-    model. Accepted: a `docs/decisions/NNNN-*.md` file, or `path:line` / `path:a-b` within OWN_FILE, the file the note
-    itself points at (owner, 2026-11-15: a line of any other file proves nothing about this note)."""
+def verified_reference(ctx, binary, repo, reason, own_file, own_line=""):
+    """The reference that lets a NOTE verdict tick its box, else None. Checked here, never by the model.
+
+    Every reference the verdict cites must exist at the tip of develop: one missing ADR, missing file or line past the
+    end of its file and nothing is accepted (a valid ADR cannot carry a wrong line). Then at least one must count: a
+    `docs/decisions/NNNN-*.md` file, or `path:line` / `path:a-b` within OWN_FILE, the file the note itself points at, other
+    than the note's own location OWN_LINE (citing the place the note already names proves nothing). A line of another
+    file proves nothing about this note (owner, 2026-11-15)."""
     text = re.sub("[\u200b\u200c\u200d\u2060\ufeff]", "", reason or "")
+    accepted = None
     for m in CITE_ADR.finditer(text):
-        if trunk_file(ctx, binary, repo, m.group(1)) is not None:
-            return m.group(1)
+        if trunk_file(ctx, binary, repo, m.group(1)) is None:
+            return None
+        accepted = accepted or m.group(1)
     for m in CITE_LINE.finditer(text):
-        if not own_file or m.group(1) != own_file:
-            continue
         first, last = int(m.group(2)), int(m.group(3) or m.group(2))
         body = trunk_file(ctx, binary, repo, m.group(1))
         if body is None:
-            continue
+            return None
         total = body.count("\n") + (1 if body and not body.endswith("\n") else 0)
-        if 1 <= first <= last <= total:
-            return m.group(0)
-    return None
+        if not 1 <= first <= last <= total:
+            return None
+        cited = m.group(2) + ("-" + m.group(3) if m.group(3) else "")
+        if own_file and m.group(1) == own_file and cited != own_line:
+            accepted = accepted or m.group(0)
+    return accepted
 
 
 ORIGIN_TITLE = re.compile(r"^PR(\d+)\b")
@@ -740,12 +747,13 @@ def settle_issue(ctx, binary, repo, pr, batch_no, number, entries, files=None, m
     notes = {slug(n): (d, r) for n, d, r in entries if n}
     if notes:
         old = issue.get("body") or ""
-        cited_by = {}
+        cited_by, where = {}, {}
         for line in old.split("\n"):
             mm = NOTE_ITEM.match(line)
             if mm:
                 w = NOTE_WHERE.match(mm.group(4))
                 cited_by[slug(mm.group(2))] = w.group(1) if w else ""
+                where[slug(mm.group(2))] = w.group(2) if w else ""
         for key, (d, r) in list(notes.items()):
             bad = unverified(ctx, binary, repo, pr, files, d, r, cited_by.get(key, ""), issue.get("created_at") or "", origin_pr(issue))
             if bad:
@@ -755,21 +763,27 @@ def settle_issue(ctx, binary, repo, pr, batch_no, number, entries, files=None, m
         cites = {}
         for key, (d, r) in notes.items():
             if d in ("NOT A DEFECT", "DECIDED"):
-                ref = verified_reference(ctx, binary, repo, r, cited_by.get(key, ""))
+                ref = verified_reference(ctx, binary, repo, r, cited_by.get(key, ""), where.get(key, ""))
                 if ref:
                     cites[key] = ref
         entries = [(n, *notes.get(slug(n), (d, r))) if n else (n, d, r) for n, d, r in entries]
-        out, ticked_all, seen, by_verdict = [], True, 0, False
+        # The issue closes as not planned only when this run settled every box by verdict; a box ticked before this run
+        # (by a human or a fix) or by a fix in this run keeps the old reason, completed.
+        out, ticked_all, seen, by_verdict, by_fix, ticked_now = [], True, 0, False, False, set()
         for line in old.split("\n"):
             m = NOTE_ITEM.match(line)
             if m:
                 seen += 1
                 hit = notes.get(slug(m.group(2)))
-                if m.group(1) == " " and hit and hit[0] in CLOSE_AS:
+                if m.group(1) != " ":
+                    by_fix = True
+                elif hit and hit[0] in CLOSE_AS:
                     line = line.replace("- [ ]", "- [x]", 1) + " \u2014 " + settle_text(hit[0], hit[1], pr)
-                elif m.group(1) == " " and hit and slug(m.group(2)) in cites:
+                    by_fix = True
+                elif hit and slug(m.group(2)) in cites:
                     line = line.replace("- [ ]", "- [x]", 1) + " \u2014 " + settle_text(hit[0], hit[1], pr)
                     by_verdict = True
+                    ticked_now.add(slug(m.group(2)))
                 elif m.group(1) == " ":
                     ticked_all = False
             out.append(line)
@@ -777,9 +791,9 @@ def settle_issue(ctx, binary, repo, pr, batch_no, number, entries, files=None, m
         if new != old:
             batch_write(binary, "PATCH", endpoint, [("body", new)])
         if seen and ticked_all and issue.get("state") == "open":
-            batch_write(binary, "PATCH", endpoint, [("state", "closed"), ("state_reason", "not_planned" if by_verdict else "completed")])
+            batch_write(binary, "PATCH", endpoint, [("state", "closed"), ("state_reason", "not_planned" if by_verdict and not by_fix else "completed")])
         detail = "; ".join("`%s` %s" % (one_line(n, 40), d if d in CLOSE_AS else "%s ticked (reference `%s` exists)%s" % (
-            d, one_line(cites[slug(n)], 80), ": " + one_line(r, 200) if r else "") if slug(n) in cites else "%s (%s)%s" % (
+            d, one_line(cites[slug(n)], 80), ": " + one_line(r, 200) if r else "") if slug(n) in ticked_now else "%s (%s)%s" % (
             d, STAYS_OPEN[d], ": " + one_line(r, 200) if r else "")) for n, d, r in entries if n)
     else:
         _, decision, reason = entries[0]
