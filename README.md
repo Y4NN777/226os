@@ -10,6 +10,14 @@ Positionnement : **Afrique de l'Ouest d'abord, puis toute l'Afrique.**
 
 **État** : le MVP tourne sur `develop` et la mise en production se prépare. Plan dans [ROADMAP.md](ROADMAP.md), suivi dans [TODO.md](TODO.md).
 
+## Pourquoi 226os
+
+Beaucoup de solutions techniques africaines existent déjà, mais restent peu connues de ceux qui pourraient s'en servir. 226os veut changer cela :
+
+- **Faire connaître les solutions africaines** à la communauté tech du continent : API de paiement mobile, SMS et USSD, cartographie, outils et SDK conçus pour nos marchés.
+- **Donner de la visibilité aux projets open source africains** et aider leurs mainteneurs à trouver des contributeurs.
+- **Faire grandir la culture open source en Afrique** : contribuer, documenter, citer ses sources et partager ce qu'on sait, avec des formations ouvertes à tous.
+
 ## Fonctionnalités
 
 - **Apprendre** : des articles et des tutoriels écrits par des développeurs, et des formations gratuites lisibles sans compte ; filtre par sujet, publication ouverte aux membres.
