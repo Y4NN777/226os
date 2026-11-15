@@ -16,7 +16,7 @@ React 19 + TypeScript + Vite + TanStack Router/Query/Form; Astryx primary UI and
 
 ## Orchestration contract
 - Main Opus session: task framing, ADR/escalation, design arbitration, integration and final evidence.
-- Delegate bounded read-only investigation to `scout` (Haiku); approved Go/database/frontend slices to `go-implementer` / `postgres-expert` / `web-implementer` (Sonnet); independent security/quality review to `skeptic`.
+- Delegate bounded read-only investigation to `scout` (Haiku); approved Go/database/frontend slices to `go-implementer` / `postgres-expert` / `web-implementer` (Sonnet); the AI review pipeline (maintenance, incidents, ADR-0015 phases) to `review-steward` (Opus); independent security/quality review to `skeptic`.
 - Single-agent first. Delegate only a genuinely independent task with explicit allowed paths, expected outputs, acceptance criteria, and stop condition. No parallel edits of shared files.
 - Every development task: spec -> test RED -> implement GREEN -> refactor -> deterministic gates -> review -> closeout. No fake PASS.
 - Keep summaries concise, grounded in changed paths, exact commands and target commit.
