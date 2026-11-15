@@ -63,6 +63,8 @@ func TestSearchRouteStatuses(t *testing.T) {
 // allowLimiter lets every request through, so route tests reach the handler.
 type allowLimiter struct{}
 
+func (allowLimiter) GiveBack(context.Context, string, string, time.Duration) error { return nil }
+
 func (allowLimiter) Hit(context.Context, string, string, int, time.Duration) (bool, time.Duration, error) {
 	return true, 0, nil
 }

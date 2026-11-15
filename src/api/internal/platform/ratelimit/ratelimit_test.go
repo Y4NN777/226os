@@ -22,6 +22,8 @@ var errBoom = errors.New("boom: postgres://user:secret@host/db")
 type fakeQueries struct {
 	hits     []int32
 	hitErr   error
+	giveErr  error
+	gave     []dbgen.GiveBackRateBucketParams
 	purgeErr error
 
 	hitArgs   []dbgen.HitRateBucketParams
@@ -39,6 +41,13 @@ func (f *fakeQueries) HitRateBucket(ctx context.Context, a dbgen.HitRateBucketPa
 	h := f.hits[0]
 	f.hits = f.hits[1:]
 	return h, nil
+}
+
+func (f *fakeQueries) GiveBackRateBucket(ctx context.Context, a dbgen.GiveBackRateBucketParams) error {
+	_, dl := ctx.Deadline()
+	f.ctxHasDL = append(f.ctxHasDL, dl)
+	f.gave = append(f.gave, a)
+	return f.giveErr
 }
 
 func (f *fakeQueries) PurgeRateBuckets(ctx context.Context, cutoff pgtype.Timestamptz) error {
@@ -88,6 +97,38 @@ func TestHitFixedWindow(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// GiveBack releases a hit of the same bucket Hit counted in: same key, same aligned window.
+func TestGiveBackTargetsTheBucketOfTheHit(t *testing.T) {
+	q := &fakeQueries{hits: []int32{1}}
+	l := newTest(q, &bytes.Buffer{})
+	if _, _, err := l.Hit(t.Context(), "assistant:share", "user-1", 3, time.Hour); err != nil {
+		t.Fatal(err)
+	}
+	if err := l.GiveBack(t.Context(), "assistant:share", "user-1", time.Hour); err != nil {
+		t.Fatal(err)
+	}
+	got, hit := q.gave[0], q.hitArgs[0]
+	if got.Scope != hit.Scope || !bytes.Equal(got.KeyHash, hit.KeyHash) || !got.WindowStart.Time.Equal(hit.WindowStart.Time) {
+		t.Fatalf("give back %+v, hit %+v", got, hit)
+	}
+	if !q.ctxHasDL[len(q.ctxHasDL)-1] {
+		t.Fatal("the give back ran without a deadline")
+	}
+}
+
+func TestGiveBackErrors(t *testing.T) {
+	l := newTest(&fakeQueries{giveErr: errBoom}, &bytes.Buffer{})
+	err := l.GiveBack(t.Context(), "assistant:share", "user-1", time.Hour)
+	if !errors.Is(err, errBoom) {
+		t.Fatalf("err = %v", err)
+	}
+	for _, w := range []time.Duration{0, 2 * time.Hour} {
+		if err := l.GiveBack(t.Context(), "assistant:share", "user-1", w); err == nil {
+			t.Fatalf("window %v accepted", w)
+		}
 	}
 }
 

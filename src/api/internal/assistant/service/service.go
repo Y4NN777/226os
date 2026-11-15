@@ -57,6 +57,8 @@ type Retriever interface {
 // Limiter is the fixed-window rate limiter. The service owns this port.
 type Limiter interface {
 	Hit(ctx context.Context, scope, value string, limit int, window time.Duration) (allowed bool, retryAfter time.Duration, err error)
+	// GiveBack releases one hit of the window the matching Hit used.
+	GiveBack(ctx context.Context, scope, value string, window time.Duration) error
 }
 
 // Config is the per-environment setting. Enabled false answers 503 before anything is counted or sent.
@@ -123,6 +125,13 @@ func (s *Service) Ask(ctx context.Context, sub subject.Subject, req Request) (do
 		return domain.Answer{}, err
 	}
 	if err := s.allow(ctx, globalScope, globalKey, globalLimit, globalWindow, apperr.CodeServiceUnavailable); err != nil {
+		// No provider call happens: the member's share goes back, so retries during a global 503 burn nothing.
+		// The share hit comes first and the give-back is one atomic statement, so a concurrent request of the
+		// same member can only see the count too high (strict), never too low: the share is never exceeded.
+		// A failed give-back is logged and the member keeps the hit; the answer is the same 503.
+		if gerr := s.limiter.GiveBack(context.WithoutCancel(ctx), shareScope, sub.UserID, globalWindow); gerr != nil {
+			s.logger.Warn("assistant share give back failed", "class", "limiter")
+		}
 		return domain.Answer{}, err
 	}
 	return s.generate(ctx, question, lang, passages)

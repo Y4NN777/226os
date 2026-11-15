@@ -38,8 +38,22 @@ type limiter struct {
 	failOn string // scope whose Hit returns an error
 	// byMember counts per (scope, value) for the scopes in perMember, like the real buckets; the other
 	// scopes are one counter each.
-	byMember  map[string]int
-	perMember map[string]bool
+	byMember      map[string]int
+	perMember     map[string]bool
+	giveBackFails bool
+}
+
+// GiveBack releases one hit of a per-member scope, like the real limiter: never below zero.
+func (l *limiter) GiveBack(_ context.Context, scope, value string, _ time.Duration) error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.giveBackFails {
+		return errors.New("db down")
+	}
+	if k := scope + "|" + value; l.byMember[k] > 0 {
+		l.byMember[k]--
+	}
+	return nil
 }
 
 func (l *limiter) Hit(_ context.Context, scope, value string, limit int, window time.Duration) (bool, time.Duration, error) {
@@ -286,6 +300,44 @@ func TestAskLimits(t *testing.T) {
 		var ae *apperr.Error
 		if !errors.As(err, &ae) || ae.Code != apperr.CodeServiceUnavailable || ae.RetryAfter <= 0 {
 			t.Fatalf("member 5: %v", err)
+		}
+	})
+	// A refused global guard never reached the provider: the share it took is given back, so retries during
+	// a global 503 leave the member's share unchanged and the member keeps all of it once the window resets.
+	t.Run("fair share: retries during a global 503 burn nothing, the full share is left after the reset", func(t *testing.T) {
+		r := newRig(true, three...)
+		r.fake.Respond = func(llm.Request) (llm.Response, error) { return llm.Response{Text: "ok [S1]"}, nil }
+		r.lim.hits = map[string]int{"assistant:global": 12}
+		for i := 0; i < 5; i++ {
+			if _, err := r.ask(member, "how do webhooks work"); code(t, err) != apperr.CodeServiceUnavailable {
+				t.Fatalf("retry %d: %v", i, err)
+			}
+		}
+		if n := r.lim.byMember["assistant:share|"+member.UserID]; n != 0 {
+			t.Fatalf("share used = %d after refused retries, want 0", n)
+		}
+		r.lim.hits["assistant:global"] = 0 // the global window resets
+		for i := 1; i <= 3; i++ {
+			if _, err := r.ask(member, "how do webhooks work"); err != nil {
+				t.Fatalf("call %d after the reset: %v", i, err)
+			}
+		}
+		if _, err := r.ask(member, "how do webhooks work"); code(t, err) != apperr.CodeRateLimited {
+			t.Fatalf("call 4: %v", err)
+		}
+	})
+	t.Run("fair share: a failing global limiter gives the share back too, and a failing give-back stays a 503", func(t *testing.T) {
+		r := newRig(true, three...)
+		r.lim.failOn = "assistant:global"
+		if _, err := r.ask(member, "how do webhooks work"); code(t, err) != apperr.CodeServiceUnavailable {
+			t.Fatal(err)
+		}
+		if n := r.lim.byMember["assistant:share|"+member.UserID]; n != 0 {
+			t.Fatalf("share used = %d, want 0", n)
+		}
+		r.lim.giveBackFails = true
+		if _, err := r.ask(member, "how do webhooks work"); code(t, err) != apperr.CodeServiceUnavailable {
+			t.Fatal(err)
 		}
 	})
 	t.Run("the share counts only provider calls", func(t *testing.T) {

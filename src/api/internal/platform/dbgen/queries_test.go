@@ -582,6 +582,15 @@ func TestRateBucketAndErrorReportQueries(t *testing.T) {
 	assertCall(t, db, "INSERT INTO rate_limit_buckets", []any{"search:ip", key, ts})
 
 	db = &fakeDB{}
+	if err := dbgen.New(db).GiveBackRateBucket(ctx, dbgen.GiveBackRateBucketParams{Scope: "assistant:share", KeyHash: key, WindowStart: ts}); err != nil {
+		t.Fatal(err)
+	}
+	assertCall(t, db, "hits = hits - 1", []any{"assistant:share", key, ts})
+	if err := dbgen.New(&fakeDB{execErr: errBoom}).GiveBackRateBucket(ctx, dbgen.GiveBackRateBucketParams{}); !errors.Is(err, errBoom) {
+		t.Fatalf("GiveBackRateBucket err = %v", err)
+	}
+
+	db = &fakeDB{}
 	if err := dbgen.New(db).PurgeRateBuckets(ctx, ts); err != nil {
 		t.Fatal(err)
 	}

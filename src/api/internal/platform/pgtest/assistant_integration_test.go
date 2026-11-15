@@ -173,11 +173,17 @@ func TestAssistantGoldenSet(t *testing.T) {
 	members := []member{s.signIn(t, "golden", true, 11), s.signIn(t, "golden-ai", true, 14), s.signIn(t, "golden-c", true, 15), s.signIn(t, "golden-d", true, 16)}
 	answers0, votes0, questions0 := s.contentRows(t)
 	calls := 0 // provider calls expected so far
-	pick := func() *member { return &members[calls/3] }
+	pick := func(t *testing.T) *member {
+		t.Helper()
+		if calls/3 >= len(members) {
+			t.Fatalf("the golden set made %d provider calls: with 3 per member it needs more than %d members", calls, len(members))
+		}
+		return &members[calls/3]
+	}
 
 	t.Run("G1 answered, cites the retrieved question with a valid citation", func(t *testing.T) {
 		fake.Respond = citing("Webhook zorbaflux signature fails")
-		a := decodeAnswer(t, s.askAssistant(t, pick(), "How do I verify the zorbaflux webhook signature?"))
+		a := decodeAnswer(t, s.askAssistant(t, pick(t), "How do I verify the zorbaflux webhook signature?"))
 		calls++
 		if a.Outcome != apigen.AssistantAnswerOutcomeAnswered || a.GeneratedBy != apigen.Ai || a.Lang != apigen.En {
 			t.Fatalf("answer: %+v", a)
@@ -192,7 +198,7 @@ func TestAssistantGoldenSet(t *testing.T) {
 
 	t.Run("G2 French question gets a French answer, article cited", func(t *testing.T) {
 		fake.Respond = citing("Retries zorbaflux idempotence")
-		a := decodeAnswer(t, s.askAssistant(t, pick(), "Comment gérer les rejeux zorbaflux ?"))
+		a := decodeAnswer(t, s.askAssistant(t, pick(t), "Comment gérer les rejeux zorbaflux ?"))
 		calls++
 		if a.Lang != apigen.Fr || a.Outcome != apigen.AssistantAnswerOutcomeAnswered || len(a.Sources) != 1 || a.Sources[0].Id.String() != gsArticle ||
 			a.Sources[0].Type != apigen.AssistantSourceTypeArticle || !strings.Contains(a.HowToVerify, "Les dates de publication") {
@@ -204,7 +210,7 @@ func TestAssistantGoldenSet(t *testing.T) {
 	})
 
 	t.Run("G3 nothing matches: no_source, the provider is not called (AI-1)", func(t *testing.T) {
-		a := decodeAnswer(t, s.askAssistant(t, pick(), "Explain quuxplorb internals"))
+		a := decodeAnswer(t, s.askAssistant(t, pick(t), "Explain quuxplorb internals"))
 		if a.Outcome != apigen.AssistantAnswerOutcomeNoSource || len(a.Sources) != 0 || a.SearchUrl == nil || !strings.HasPrefix(*a.SearchUrl, "/recherche?q=") || a.GeneratedBy != apigen.Ai {
 			t.Fatalf("answer: %+v", a)
 		}
@@ -215,7 +221,7 @@ func TestAssistantGoldenSet(t *testing.T) {
 
 	t.Run("G4 an injected instruction in a passage is data, not an instruction", func(t *testing.T) {
 		fake.Respond = citing("Glimmerwave tips")
-		a := decodeAnswer(t, s.askAssistant(t, pick(), "What are the glimmerwave tips?"))
+		a := decodeAnswer(t, s.askAssistant(t, pick(t), "What are the glimmerwave tips?"))
 		calls++
 		prompt := fake.Requests()[calls-1].User
 		start, end := strings.Index(prompt, "<sources>"), strings.LastIndex(prompt, "</sources>")
@@ -230,7 +236,7 @@ func TestAssistantGoldenSet(t *testing.T) {
 		fake.Respond = func(llm.Request) (llm.Response, error) {
 			return llm.Response{Text: "Sure, it works, guaranteed [S9]."}, nil
 		}
-		b := decodeAnswer(t, s.askAssistant(t, pick(), "What are the glimmerwave tips today?"))
+		b := decodeAnswer(t, s.askAssistant(t, pick(t), "What are the glimmerwave tips today?"))
 		calls++
 		if b.Outcome != apigen.AssistantAnswerOutcomeNoSource || len(b.Sources) != 0 || strings.Contains(b.Answer, "guaranteed") {
 			t.Fatalf("an obeyed injection must be refused: %+v", b)
@@ -241,7 +247,7 @@ func TestAssistantGoldenSet(t *testing.T) {
 		fake.Respond = func(llm.Request) (llm.Response, error) {
 			return llm.Response{Text: "It is documented [S1] and [S6]."}, nil
 		}
-		a := decodeAnswer(t, s.askAssistant(t, pick(), "How do I verify the zorbaflux webhook signature now?"))
+		a := decodeAnswer(t, s.askAssistant(t, pick(t), "How do I verify the zorbaflux webhook signature now?"))
 		calls++
 		if a.Outcome != apigen.AssistantAnswerOutcomeNoSource || len(a.Sources) != 0 {
 			t.Fatalf("answer: %+v", a)
@@ -250,12 +256,12 @@ func TestAssistantGoldenSet(t *testing.T) {
 
 	t.Run("G6 private, removed, draft and archived items are never retrieved nor cited", func(t *testing.T) {
 		before := len(fake.Requests())
-		a := decodeAnswer(t, s.askAssistant(t, pick(), "What is secretplum?"))
+		a := decodeAnswer(t, s.askAssistant(t, pick(t), "What is secretplum?"))
 		if a.Outcome != apigen.AssistantAnswerOutcomeNoSource || len(fake.Requests()) != before {
 			t.Fatalf("only hidden content matches: want no_source and no provider call, got %+v", a)
 		}
 		fake.Respond = citing("Zorbaflux Kit")
-		b := decodeAnswer(t, s.askAssistant(t, pick(), "Is there a zorbaflux kit with secretplum support?"))
+		b := decodeAnswer(t, s.askAssistant(t, pick(t), "Is there a zorbaflux kit with secretplum support?"))
 		calls++
 		prompt := fake.Requests()[calls-1].User
 		prompt = prompt[strings.Index(prompt, "<sources>"):] // the question itself may name the word
@@ -276,7 +282,7 @@ func TestAssistantGoldenSet(t *testing.T) {
 
 	t.Run("G7 the prompt carries no e-mail address or secret (AI-10)", func(t *testing.T) {
 		fake.Respond = citing("Webhook zorbaflux signature fails")
-		decodeAnswer(t, s.askAssistant(t, pick(), "zorbaflux signature fails for me@example.com with token=sk"+"_live_abcdefghijklmnop1234"))
+		decodeAnswer(t, s.askAssistant(t, pick(t), "zorbaflux signature fails for me@example.com with token=sk"+"_live_abcdefghijklmnop1234"))
 		calls++
 		sent := fake.Requests()[calls-1]
 		if strings.Contains(sent.User+sent.System, "me@example.com") || strings.Contains(sent.User, "sk"+"_live_abcdefghij") {
@@ -288,7 +294,7 @@ func TestAssistantGoldenSet(t *testing.T) {
 		fake.Respond = answering(func(m string) string {
 			return "This call is guaranteed to work " + m + ". The signature is checked on the raw body " + m + ".\n\nComment vérifier\n- Compare with the provider docs."
 		}, "Webhook zorbaflux signature fails")
-		a := decodeAnswer(t, s.askAssistant(t, pick(), "How do I verify the zorbaflux webhook signature, is it safe?"))
+		a := decodeAnswer(t, s.askAssistant(t, pick(t), "How do I verify the zorbaflux webhook signature, is it safe?"))
 		calls++
 		if a.Outcome != apigen.AssistantAnswerOutcomeAnswered || strings.Contains(a.Answer, "guaranteed") || a.Answer != "The signature is checked on the raw body [1]." ||
 			len(a.Sources) != 1 || a.Sources[0].Id.String() != gsQuestion {
@@ -298,7 +304,7 @@ func TestAssistantGoldenSet(t *testing.T) {
 
 	t.Run("G15 AI-3: when the only cited sentence is a guarantee the answer is no_source", func(t *testing.T) {
 		fake.Respond = answering(func(m string) string { return "I guarantee it works " + m + "." }, "Webhook zorbaflux signature fails")
-		a := decodeAnswer(t, s.askAssistant(t, pick(), "How do I verify the zorbaflux webhook signature, for sure?"))
+		a := decodeAnswer(t, s.askAssistant(t, pick(t), "How do I verify the zorbaflux webhook signature, for sure?"))
 		calls++
 		if a.Outcome != apigen.AssistantAnswerOutcomeNoSource || len(a.Sources) != 0 || a.SearchUrl == nil || strings.Contains(a.Answer, "guarantee") {
 			t.Fatalf("answer: %+v", a)
@@ -307,7 +313,7 @@ func TestAssistantGoldenSet(t *testing.T) {
 
 	t.Run("G16 AI-5: sources carry published_at, the prompt carries each date, how_to_verify says so", func(t *testing.T) {
 		fake.Respond = citing("Webhook zorbaflux signature fails")
-		rec := s.askAssistant(t, pick(), "How do I verify the zorbaflux webhook signature today?")
+		rec := s.askAssistant(t, pick(t), "How do I verify the zorbaflux webhook signature today?")
 		a := decodeAnswer(t, rec)
 		calls++
 		if len(a.Sources) != 1 || a.Sources[0].PublishedAt == nil || !a.Sources[0].PublishedAt.Equal(time.Date(2026, 11, 2, 10, 0, 0, 0, time.UTC)) {
@@ -397,8 +403,59 @@ func TestAssistantFairShareOfTheGlobalGuard(t *testing.T) {
 	}
 }
 
+// #274 share-burned-on-503: a member who retries while the global guard is spent is refused (503) without
+// a provider call, so the fair-share hit that was taken first is given back. On real PostgreSQL the member's
+// share bucket is empty after the retries, and once the global window resets the member has all 3 calls.
+func TestAssistantShareIsNotBurnedByAGlobal503(t *testing.T) {
+	fake := llm.NewFake()
+	fake.Respond = citing("Webhook zorbaflux signature fails")
+	s := newAssistantStack(t, fake, true)
+	const q = "How do I verify the zorbaflux webhook signature?"
+	m := s.signIn(t, "retrier", true, 51)
+	lim := ratelimit.New(s.pool, s2Secret, nil)
+	for i := 0; i < 12; i++ {
+		if ok, _, err := lim.Hit(t.Context(), "assistant:global", "provider", 12, time.Hour); err != nil || !ok {
+			t.Fatalf("pre-spend %d: %v %v", i, ok, err)
+		}
+	}
+	shareHits := func() int {
+		var n int
+		if err := s.conn.QueryRow(t.Context(), `SELECT COALESCE(sum(hits), 0) FROM rate_limit_buckets WHERE scope = 'assistant:share'`).Scan(&n); err != nil {
+			t.Fatal(err)
+		}
+		return n
+	}
+	for i := 0; i < 6; i++ { // more than the share of 3: a burned share would turn into 429
+		if rec := s.askAssistant(t, &m, q); rec.Code != http.StatusServiceUnavailable || rec.Header().Get("Retry-After") == "" {
+			t.Fatalf("retry %d: %d %s", i, rec.Code, rec.Body.String())
+		}
+	}
+	if n := shareHits(); n != 0 {
+		t.Fatalf("share hits = %d after refused retries, want 0", n)
+	}
+	if len(fake.Requests()) != 0 {
+		t.Fatal("the provider must not be called while the guard is spent")
+	}
+	// The global window resets: the member still has the whole share.
+	if _, err := s.conn.Exec(t.Context(), `DELETE FROM rate_limit_buckets WHERE scope = 'assistant:global'`); err != nil {
+		t.Fatal(err)
+	}
+	for i := 1; i <= 3; i++ {
+		if rec := s.askAssistant(t, &m, q); rec.Code != http.StatusOK {
+			t.Fatalf("call %d after the reset: %d %s", i, rec.Code, rec.Body.String())
+		}
+	}
+	if rec := s.askAssistant(t, &m, q); rec.Code != http.StatusTooManyRequests {
+		t.Fatalf("4th call: %d %s", rec.Code, rec.Body.String())
+	}
+}
+
 // downLimiter is a limiter whose store is down.
 type downLimiter struct{}
+
+func (downLimiter) GiveBack(context.Context, string, string, time.Duration) error {
+	return io.ErrClosedPipe
+}
 
 func (downLimiter) Hit(context.Context, string, string, int, time.Duration) (bool, time.Duration, error) {
 	return false, 0, io.ErrClosedPipe
