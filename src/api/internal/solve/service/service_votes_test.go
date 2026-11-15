@@ -20,6 +20,11 @@ func (f *fakeStore) SetVote(_ context.Context, v domain.Vote) (domain.VoteState,
 	return f.vote, nil
 }
 
+func (f *fakeStore) VoteTarget(_ context.Context, targetType, id string) error {
+	f.checkedType, f.checkedID = targetType, id
+	return f.targetErr
+}
+
 func (f *fakeStore) SetAcceptedAnswer(_ context.Context, c domain.AcceptChange) (domain.Question, error) {
 	f.gotChange = c
 	if f.err != nil {
@@ -231,14 +236,41 @@ func TestUnacceptAnswer(t *testing.T) {
 	}
 }
 
-// A vote on an unknown target spends one write on the budget, by design (#155): the budget bounds
-// the attempts that reach the database, so probing target ids is as limited as writing is. Checking
-// the target first would make failed probes free and unbounded.
-func TestAVoteOnAnUnknownTargetSpendsOneWrite(t *testing.T) {
-	svc, lim := newSvc(t, &fakeStore{err: domain.ErrNotFound})
+// A vote or a retraction on an unknown or removed target is the same 404 as before, and it spends no
+// write: the target is checked before the budget (#155, owner decision 2026-11-15). Questions and answers
+// are public, so the check opens no enumeration oracle. A visible target still spends one write, and the
+// self-vote rule stays behind the budget.
+func TestAVoteOnAnUnknownTargetSpendsNoWrite(t *testing.T) {
+	for _, typ := range []string{domain.TargetQuestion, domain.TargetAnswer} {
+		st := &fakeStore{targetErr: domain.ErrNotFound}
+		svc, lim := newSvc(t, st)
+		_, err := svc.CastVote(t.Context(), member, service.VoteRequest{TargetType: typ, TargetID: aID, Value: 1})
+		wantCode(t, err, apperr.CodeNotFound)
+		_, err = svc.RetractVote(t.Context(), member, typ, aID)
+		wantCode(t, err, apperr.CodeNotFound)
+		if lim.hits != 0 || st.writes != 0 || st.checkedType != typ || st.checkedID != aID {
+			t.Fatalf("%s: limiter hits %d, writes %d, checked %q %q", typ, lim.hits, st.writes, st.checkedType, st.checkedID)
+		}
+	}
+}
+
+func TestAVoteOnAVisibleTargetSpendsOneWriteAfterTheCheck(t *testing.T) {
+	st := &fakeStore{vote: domain.VoteState{TargetType: domain.TargetAnswer, TargetID: aID, Value: 1, Score: 1}}
+	svc, lim := newSvc(t, st)
+	if _, err := svc.CastVote(t.Context(), member, service.VoteRequest{TargetType: domain.TargetAnswer, TargetID: aID, Value: 1}); err != nil {
+		t.Fatal(err)
+	}
+	if lim.hits != 1 || st.checkedID != aID {
+		t.Fatalf("limiter hits %d, checked %q", lim.hits, st.checkedID)
+	}
+}
+
+// A failing existence check is a 500 and spends nothing; a spent budget is still a 429 on a visible target.
+func TestAVoteWhoseTargetCheckFailsSpendsNoWrite(t *testing.T) {
+	svc, lim := newSvc(t, &fakeStore{targetErr: errDB})
 	_, err := svc.CastVote(t.Context(), member, service.VoteRequest{TargetType: domain.TargetAnswer, TargetID: aID, Value: 1})
-	wantCode(t, err, apperr.CodeNotFound)
-	if lim.hits != 1 {
-		t.Fatalf("limiter hits = %d, want 1", lim.hits)
+	wantCode(t, err, apperr.CodeInternal)
+	if lim.hits != 0 {
+		t.Fatalf("limiter hits = %d, want 0", lim.hits)
 	}
 }

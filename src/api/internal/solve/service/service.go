@@ -60,10 +60,14 @@ type Store interface {
 	UpdateQuestion(ctx context.Context, id string, patch domain.QuestionPatch, guard func(domain.Question) error) (domain.Question, error)
 	ListAnswers(ctx context.Context, q domain.AnswerQuery) ([]domain.Answer, error)
 	CreateAnswer(ctx context.Context, in domain.NewAnswer) (domain.Answer, error)
+	VoteTarget(ctx context.Context, targetType, id string) error
 	SetVote(ctx context.Context, v domain.Vote) (domain.VoteState, error)
 	SetAcceptedAnswer(ctx context.Context, c domain.AcceptChange) (domain.Question, error)
 }
 
+// VoteTarget returns domain.ErrNotFound when the question or answer is missing, not published or in a
+// removed question: the same test SetVote applies, read without a lock and without writing.
+//
 // SetVote writes the vote (value 0 deletes it) and moves the target's vote_score by the difference, in one
 // transaction under the target's row lock. It returns domain.ErrNotFound when the target is missing, not
 // published or in a removed question, and domain.ErrSelfVote when the voter wrote the target.
@@ -393,9 +397,14 @@ func (s *Service) RetractVote(ctx context.Context, sub subject.Subject, targetTy
 	return s.vote(ctx, sub, domain.Vote{UserID: sub.UserID, TargetType: targetType, TargetID: targetID})
 }
 
-// vote spends one write before the store looks the target up, on purpose: the budget bounds every attempt
-// that reaches the database, so an unknown id costs the caller a write like any other (#155).
+// vote first checks that the target is a visible question or answer, so a vote on an unknown or removed
+// target is a 404 that spends no write (#155; questions and answers are public, so the check tells a caller
+// nothing a GET does not). Then it spends one write, then the store locks the target and applies the self-vote
+// rule. A target removed between the check and the lock is still a 404, after one write.
 func (s *Service) vote(ctx context.Context, sub subject.Subject, v domain.Vote) (domain.VoteState, error) {
+	if err := s.store.VoteTarget(ctx, v.TargetType, v.TargetID); err != nil {
+		return domain.VoteState{}, readErr(err)
+	}
 	if err := s.hit(ctx, sub); err != nil {
 		return domain.VoteState{}, err
 	}

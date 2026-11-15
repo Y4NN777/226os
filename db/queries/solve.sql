@@ -365,6 +365,15 @@ JOIN questions q ON q.id = a.question_id
 WHERE a.id = sqlc.arg('id')::uuid AND a.status = 'published' AND q.status = 'published'
 FOR NO KEY UPDATE OF a;
 
+-- name: SolveVoteTargetExists :one
+-- The read of the two lock queries above without the lock: a published question, or a published answer of a
+-- published question. The service runs it before it spends a write.
+SELECT (CASE sqlc.arg('target_type')::text
+  WHEN 'question' THEN EXISTS (SELECT 1 FROM questions WHERE id = sqlc.arg('id')::uuid AND status = 'published')
+  ELSE EXISTS (SELECT 1 FROM answers a JOIN questions q ON q.id = a.question_id
+               WHERE a.id = sqlc.arg('id')::uuid AND a.status = 'published' AND q.status = 'published')
+END)::boolean;
+
 -- name: SetSolveQuestionVote :one
 -- value 1 or -1 inserts or replaces the vote (ON CONFLICT: a repeat creates no row), value 0 deletes it.
 -- Returns the new vote_score. Run only after LockSolveQuestionForVote.

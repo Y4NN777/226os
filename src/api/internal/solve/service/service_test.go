@@ -51,6 +51,10 @@ type fakeStore struct {
 	// viewerSeen is the viewer id GetQuestion was called with.
 	viewerSeen string
 	gotChange  domain.AcceptChange
+	// targetErr is what VoteTarget answers; checkedType and checkedID are what it was asked.
+	targetErr   error
+	checkedType string
+	checkedID   string
 
 	total    int
 	countErr error

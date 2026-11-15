@@ -700,3 +700,43 @@ func TestSolveVotesAndAcceptDrawOnTheWriteBudget(t *testing.T) {
 	}
 	t.Fatal("61 votes never reached the budget")
 }
+
+// #155 note-vote-quota-order: a vote or a retraction on an unknown target is a 404 that never draws on the
+// write budget of 60 per minute, so a member who probes ids keeps all the writes that remain.
+func TestSolveVoteOnAnUnknownTargetLeavesTheBudgetUntouched(t *testing.T) {
+	awaitFreshMinute(t)
+	s := newSolveStack(t)
+	alice := s.signIn(t, "vote-probe-alice", true, 124)
+	bob := s.signIn(t, "vote-probe-bob", true, 125)
+	q := s.ask(t, &alice, "Sondage d'identifiants")
+	before := s.bucketCount(t)
+	for i := 0; i < 70; i++ { // more than the budget: a counted write would turn into 429
+		for _, rec := range []*httptest.ResponseRecorder{
+			s.vote(t, &bob, "answer", unknownID, 1, nil),
+			s.vote(t, &bob, "question", unknownID, -1, nil),
+			s.unvote(t, &bob, "answer", unknownID, nil),
+		} {
+			assertProblem(t, rec, http.StatusNotFound, "NOT_FOUND")
+		}
+	}
+	if after := s.bucketCount(t); after != before {
+		t.Fatalf("the unknown-target votes changed the budget counters: %d -> %d", before, after)
+	}
+	// A visible target still counts: the first vote after the probes is a normal 200 and draws one write.
+	if rec := s.vote(t, &bob, "question", q.Id.String(), 1, nil); rec.Code != http.StatusOK {
+		t.Fatalf("vote after the probes: %d %s", rec.Code, rec.Body.String())
+	}
+	if after := s.bucketCount(t); after <= before {
+		t.Fatalf("a vote on a visible target spent nothing: %d -> %d", before, after)
+	}
+}
+
+// bucketCount is the sum of the write-budget counters of every bucket.
+func (s *s2Stack) bucketCount(t *testing.T) int {
+	t.Helper()
+	var n int
+	if err := s.conn.QueryRow(t.Context(), `SELECT COALESCE(sum(hits), 0) FROM rate_limit_buckets WHERE scope = 'write:user'`).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	return n
+}

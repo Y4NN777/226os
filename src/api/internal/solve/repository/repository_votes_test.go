@@ -151,3 +151,32 @@ func TestSetAcceptedAnswerErrors(t *testing.T) {
 		t.Fatal("bad actor id accepted")
 	}
 }
+
+func TestVoteTargetReadsWithoutLockingOrWriting(t *testing.T) {
+	for _, typ := range []string{"question", "answer"} {
+		d := db(t, yes())
+		if err := New(d).VoteTarget(t.Context(), typ, aID); err != nil || d.committed {
+			t.Fatalf("%s: err %v, committed %v", typ, err, d.committed)
+		}
+	}
+}
+
+func TestVoteTargetErrors(t *testing.T) {
+	cases := map[string]struct {
+		typ, id string
+		steps   []step
+		want    error
+	}{
+		"missing or removed": {"answer", aID, []step{rows([]any{false})}, domain.ErrNotFound},
+		"query":              {"question", qID, []step{fail(errDB)}, errDB},
+		"bad id":             {"answer", "bad", nil, domain.ErrNotFound},
+		"unknown type":       {"resource", aID, nil, domain.ErrNotFound},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			if err := New(db(t, tc.steps...)).VoteTarget(t.Context(), tc.typ, tc.id); !errors.Is(err, tc.want) {
+				t.Fatalf("err %v, want %v", err, tc.want)
+			}
+		})
+	}
+}

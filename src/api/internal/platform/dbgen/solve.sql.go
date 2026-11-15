@@ -1039,6 +1039,28 @@ func (q *Queries) SolveQuestionTags(ctx context.Context, ids []pgtype.UUID) ([]S
 	return items, nil
 }
 
+const solveVoteTargetExists = `-- name: SolveVoteTargetExists :one
+SELECT (CASE $1::text
+  WHEN 'question' THEN EXISTS (SELECT 1 FROM questions WHERE id = $2::uuid AND status = 'published')
+  ELSE EXISTS (SELECT 1 FROM answers a JOIN questions q ON q.id = a.question_id
+               WHERE a.id = $2::uuid AND a.status = 'published' AND q.status = 'published')
+END)::boolean
+`
+
+type SolveVoteTargetExistsParams struct {
+	TargetType string
+	ID         pgtype.UUID
+}
+
+// The read of the two lock queries above without the lock: a published question, or a published answer of a
+// published question. The service runs it before it spends a write.
+func (q *Queries) SolveVoteTargetExists(ctx context.Context, arg SolveVoteTargetExistsParams) (bool, error) {
+	row := q.db.QueryRow(ctx, solveVoteTargetExists, arg.TargetType, arg.ID)
+	var column_1 bool
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const updateSolveQuestion = `-- name: UpdateSolveQuestion :exec
 UPDATE questions SET
   title = COALESCE($1::text, title),

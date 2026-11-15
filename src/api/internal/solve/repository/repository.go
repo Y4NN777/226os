@@ -314,6 +314,26 @@ func (r *Repository) CreateAnswer(ctx context.Context, in domain.NewAnswer) (dom
 	return out[0], nil
 }
 
+// VoteTarget reports domain.ErrNotFound when the question or answer is missing, not published or in a
+// removed question, with the test SetVote's lock applies but no lock and no write, so the service can
+// refuse an unknown target before it spends a write.
+func (r *Repository) VoteTarget(ctx context.Context, targetType, id string) error {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+	targetID, err := requiredID(id)
+	if err != nil || (targetType != domain.TargetQuestion && targetType != domain.TargetAnswer) {
+		return domain.ErrNotFound
+	}
+	ok, err := r.q.SolveVoteTargetExists(ctx, dbgen.SolveVoteTargetExistsParams{TargetType: targetType, ID: targetID})
+	if err != nil {
+		return fmt.Errorf("solve vote target: %w", err)
+	}
+	if !ok {
+		return domain.ErrNotFound
+	}
+	return nil
+}
+
 // SetVote writes a vote (value 0 retracts it) and moves the target's vote_score in one transaction. The
 // target row is locked first, which serialises the votes of one target and decides visibility (no row:
 // unknown, unpublished or removed). The author comes back with the lock for the self-vote rule, which
