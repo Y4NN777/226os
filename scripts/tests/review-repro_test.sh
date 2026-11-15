@@ -275,6 +275,19 @@ SEMJSON='{"results":[],"errors":[{"message":"x"}],"paths":{"scanned":[]}}' SEMRC
 script '3|level=error msg="Running error: context loading failed"'
 run repro-run PLAN="$SPLAN" WORKTREE="$wt" FINDINGS="st1" RESULT_FILE="$tmp/st/result.json" REPRO_RUNNER=fakerun
 [ "$(res st1 result)" = invalid ] && [ -z "$(output fix_ids)" ] && ok "static oracle: a tool that cannot run is invalid (never fires by default)" || ko "static invalid ($out)"
+# Round 4 F4: the file is matched as a whole path token, never as a substring of a sibling file.
+pf="$(python3 -I - "$root/scripts/review-autofix.py" <<'PY'
+import importlib.util, sys
+spec = importlib.util.spec_from_file_location("ra", sys.argv[1]); ra = importlib.util.module_from_spec(spec); spec.loader.exec_module(ra)
+f = ra.static_fires
+print(f("eslint:no-eval", "src/web/src/a.ts", 1, "/w/src/web/src/a.tsx:3:1: eval [Error/no-eval]"),
+      f("eslint:no-eval", "src/web/src/a.ts", 1, "/w/src/web/src/a.ts:3:1: eval [Error/no-eval]"),
+      f("gosec:G204", "src/b.go", 1, "src/b.go.orig:3:1: G204: Subprocess launched with variable (gosec)"),
+      f("gosec:G204", "src/b.go", 1, "src/b.go:3:1: G204: Subprocess launched with variable (gosec)"),
+      f("gosec:G204", "src/b.go", 1, "src/ab.go:3:1: G204: x (gosec)"))
+PY
+)"
+[ "$pf" = "silent fires silent fires silent" ] && ok "static oracle: the file matches as a whole path (a.ts is not a.tsx, b.go is not b.go.orig or ab.go)" || ko "static path token ($pf)"
 # Review S4: a tool error, or a target file that no longer exists, is invalid, never silent.
 script '1|src/api/internal/solve/h.go:3:2: undefined: Nope (typecheck)'
 run repro-run PLAN="$SPLAN" WORKTREE="$wt" FINDINGS="st1" RESULT_FILE="$tmp/st/result.json" REPRO_RUNNER=fakerun ORACLE=after

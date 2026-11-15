@@ -1309,8 +1309,12 @@ def static_fires(rule, file, rc, text):
     if tool == "semgrep":
         return semgrep_fires(ident, file, text)
     token = {"golangci-lint": "(%s)" % ident, "eslint": "/%s]" % ident}.get(tool, ident)
+    # The file is a whole path token: at the start of the line or after `/` or a space, and followed by `:` or `(` (round 4
+    # F4: a substring would let `a.ts` match `a.tsx`, or `b.go` match `b.go.orig`).
+    paths = [file] + ([base] if tool in ("eslint", "tsc") else [])
+    names = [re.compile(r"(?:^|[/\s])" + re.escape(p) + r"[:(]") for p in paths]
     for line in text.splitlines():
-        if (file in line or (tool in ("eslint", "tsc") and base in line)) and token in line:
+        if any(n.search(line) for n in names) and token in line:
             return "fires"
     # A tool error is never silent: golangci-lint reports compile errors as (typecheck) issues; eslint exits 2 on a
     # fatal error (no files matching, a bad config); tsc fails on any type error, so a failure that is not the rule on
@@ -1553,7 +1557,9 @@ def test_infra(git, worktree, base, path):
     return False
 SKIP_ADDED = re.compile(r"\b(?:it|test|describe|context|suite)\s*\.\s*(?:skip(?:If)?|only|fixme|todo|fails)\b|\b(?:xit|xdescribe|xtest)\s*\("
                         r"|\.Skip(?:f|Now)?\s*\(|\bpytest\.(?:mark\.)?(?:skip|xfail)\b|\bnolint\b|eslint-disable|@ts-ignore|@ts-expect-error"
-                        r"|//\s*go:build\s+ignore|//\s*\+build\s+ignore")
+                        r"|//\s*go:build\s+ignore|//\s*\+build\s+ignore"
+                        # The static oracle's own suppressions (gosec, semgrep): silencing the tool is not a fix (round 4 F1).
+                        r"|(?i:#\s*nosec\b|\bnosemgrep\b)")
 COVERAGE_ADDED = re.compile(r"(?:istanbul|c8|v8)\s+ignore|coverage-exclude|coveragePathIgnorePatterns|coverage\W[^\n]*\bexclude\b|\bexclude\b[^\n]*\bcoverage\b"
                             r"|node:coverage\s+(?:ignore|disable)", re.I)
 # A timeout as an option or an argument (`timeout: 30000`, `testTimeout`, `-timeout 60s`), never the word in a test name.
