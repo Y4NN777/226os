@@ -4,7 +4,7 @@
 
 ## Qui fait quoi
 
-Rayan (`PANK4SS`) détient le serveur de **staging**. Le propriétaire (`Y4NN777`) détient le serveur de production, le dépôt GitHub, les clés et la zone DNS `226os.tech`. Le dépôt est personnel : seul le propriétaire peut poser des secrets ou des variables d'environnement GitHub. Il n'en pose donc que **deux par environnement**, une fois : `DEPLOY_SSH_KEY` et `SOPS_AGE_KEY`. Tout le reste est dans le dépôt, et Rayan le modifie par PR avec son droit d'écriture :
+Rayan (`PANK4SS`) détient le serveur de **staging**. Azael (`NICE-DEV226`) achète le produit Datacloud et détient le serveur de **production** (décision du propriétaire, 2026-11-15). Le propriétaire (`Y4NN777`) détient le dépôt GitHub, les clés et la zone DNS `226os.tech`. Le dépôt est personnel : seul le propriétaire peut poser des secrets ou des variables d'environnement GitHub. Il n'en pose donc que **deux par environnement**, une fois : `DEPLOY_SSH_KEY` et `SOPS_AGE_KEY`. Tout le reste est dans le dépôt, et Rayan et Azael le modifient par PR avec leur droit d'écriture :
 
 - `deploy/staging.conf` et `deploy/production.conf` : `DEPLOY_HOST`, `DEPLOY_USER`, `PUBLIC_HOST` et `DEPLOY_KNOWN_HOSTS` (la ligne de clé d'hôte du serveur, publique). Le workflow lit le fichier dans le commit déployé (`develop` pour staging, `main` pour production), jamais dans une PR, et refuse toute valeur mal formée ou encore à `FILL-ME`.
 - `secrets/staging-test.enc.env` : `E2E_USER` et `E2E_PASSWORD` (compte de test), chiffrés avec sops.
@@ -12,20 +12,22 @@ Rayan (`PANK4SS`) détient le serveur de **staging**. Le propriétaire (`Y4NN777
 | Étape | Qui | Remis à l'autre |
 |---|---|---|
 | 1. Clés age de la CI, valeurs réelles des fichiers chiffrés | propriétaire | — |
-| 2. Clé SSH de déploiement (une par serveur) | propriétaire | la clé **publique** de staging à Rayan |
-| 3. DNS (enregistrements `A` de staging et de production) | propriétaire | Rayan donne l'IP du serveur de staging |
+| 2. Clé SSH de déploiement (une par serveur) | propriétaire | la clé **publique** de staging à Rayan, celle de production à Azael |
+| 3. DNS (enregistrements `A` de staging et de production) | propriétaire | Rayan donne l'IP du serveur de staging, Azael celle du serveur de production |
 | 4. Amorçage du serveur de staging | Rayan | rien à transmettre : il met l'IP et la ligne de clé d'hôte affichée à la fin dans `deploy/staging.conf` (étape 5) |
-| 4. Amorçage du serveur de production | propriétaire | — |
+| 4. Achat du produit Datacloud et amorçage du serveur de production | Azael | rien à transmettre : il met l'IP et la ligne de clé d'hôte dans `deploy/production.conf` (étape 5) |
 | 5. `deploy/staging.conf` (hôte, ligne de clé d'hôte) | Rayan, par PR après l'amorçage | — |
-| 5. `deploy/production.conf` | propriétaire, par PR | — |
+| 5. `deploy/production.conf` (hôte, ligne de clé d'hôte) | Azael, par PR après l'amorçage | — |
 | 6. Les 2 secrets de chaque environnement GitHub | propriétaire (administrateur du dépôt) | — |
 | 7. Premier déploiement de staging | propriétaire ; Rayan suit le serveur (`docker compose ps`, `docker compose logs`) | — |
 | 8. Compte des tests E2E dans le fichier sops | Rayan, une fois sa clé age publique ajoutée comme destinataire de `staging-test` par le propriétaire | sa clé **publique** au propriétaire |
 | 9. Copie des sauvegardes hors du serveur | chacun pour le serveur qu'il détient | — |
 
-Aucune clé privée ne circule : Rayan ne reçoit que la clé publique de déploiement de staging, le propriétaire ne reçoit que des informations publiques (clé age publique de Rayan). L'IP et la clé d'hôte passent par la PR.
+Aucune clé privée ne circule : Rayan et Azael ne reçoivent que la clé publique de déploiement de leur serveur, le propriétaire ne reçoit que des informations publiques (clé age publique de Rayan). L'IP et la clé d'hôte passent par la PR.
 
 ## 1. Clés age de la CI (une par environnement)
+
+> État au 2026-11-15 (décision du propriétaire, faute de temps avant la soumission) : la clé age personnelle du propriétaire sert de `SOPS_AGE_KEY` dans les deux environnements. Une fuite depuis la CI exposerait donc staging et production : à remplacer après la soumission par une clé par environnement, comme ci-dessous.
 
 1. Sur votre machine : `age-keygen -o ci-staging.key` et `age-keygen -o ci-production.key`. Gardez les fichiers hors de Git.
 2. Ajoutez la clé **publique** (ligne `age1...`) de chacune à `secrets/staging-test.recipients` et `secrets/production-live.recipients`, puis `scripts/secrets.sh rotate staging-test` et `scripts/secrets.sh rotate production-live`, et ouvrez la PR.
