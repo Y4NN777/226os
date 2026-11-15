@@ -281,8 +281,12 @@
     background: var(--color-background-surface);
     box-shadow: inset 0 -1px 0 var(--color-border);
   }
-  /* Room for the fixed bottom bar: the last content and the footer stay above it, focus included
-     (WCAG 2.4.11). */
+  /* A control scrolled into view (keyboard focus, find in page) stops above the bar, not under it
+     (WCAG 2.4.11). A literal height: the shell's custom property is not set on html. */
+  html:has(.shell-bottom-nav) {
+    scroll-padding-bottom: calc(60px + env(safe-area-inset-bottom, 0px));
+  }
+  /* Room for the fixed bottom bar: the last content and the footer stay above it. */
   .shell-footer {
     padding-bottom: calc(
       var(--spacing-8) + var(--shell-bottom-nav-height) + env(safe-area-inset-bottom, 0px)

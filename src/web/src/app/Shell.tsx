@@ -313,7 +313,7 @@ function DrawerAccount({ onSignOut }: { onSignOut: () => void }) {
   if (session.isPending) return null;
   const user = session.data?.authenticated ? session.data.user : null;
   return (
-    <SideNavSection title={t('account.prefs')} isHeaderHidden>
+    <SideNavSection title={t('shell.account')} isHeaderHidden>
       {user ? (
         <>
           <SideNavItem

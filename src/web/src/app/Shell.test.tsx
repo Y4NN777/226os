@@ -177,6 +177,11 @@ describe('Shell', () => {
     const user = userEvent.setup({ delay: null });
     await user.click(within(bottomBar()).getByRole('button', { name: 'Plus' }));
     const drawer = screen.getByRole('dialog', { name: 'Navigation', hidden: true });
+    // The account entries form their own group, named for what it holds.
+    const account = within(drawer).getByRole('group', { name: 'Compte', hidden: true });
+    expect(
+      within(account).getByRole('link', { name: 'Mon profil', hidden: true }),
+    ).toBeInTheDocument();
     expect(within(drawer).getByRole('link', { name: 'Mon profil', hidden: true })).toHaveAttribute(
       'href',
       `/profils/${memberAccount.username}`,
