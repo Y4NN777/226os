@@ -11,7 +11,7 @@ import { VStack } from '@astryxdesign/core/VStack';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { useState } from 'react';
 import { ApiError } from '../../api/http';
-import { countryName } from '../../components/CountryCode';
+import { countryOptions } from '../../components/countries';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
 import { CodeIcon, GlobeIcon, UsersIcon, type SvgIcon } from '../../components/icons';
@@ -21,21 +21,9 @@ import { PageHeader } from '../../components/PageHeader';
 import { Section } from '../../components/Section';
 import { StatusBadge } from '../../components/StatusBadge';
 import { useI18n } from '../../i18n/I18nProvider';
-import type { Locale } from '../../i18n/messages';
-import { WEST_AFRICA } from '../discover/region';
 import { PersonRow } from './PersonRow';
 import { useProfileDirectory } from './queries';
 import { languageTag, skillTag, validateConnectSearch, type ConnectSearch } from './routeSearch';
-
-/** West Africa first (Discover's list), then any other country the page has seen. */
-function countryOptions(extra: Iterable<string>, locale: Locale) {
-  const byName = (codes: Iterable<string>) =>
-    [...new Set(codes)]
-      .map((code) => ({ value: code, label: countryName(code, locale) }))
-      .sort((a, b) => a.label.localeCompare(b.label, locale));
-  const west: readonly string[] = WEST_AFRICA;
-  return [...byName(west), ...byName([...extra].filter((code) => !west.includes(code)))];
-}
 
 function Filters({
   search,

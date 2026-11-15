@@ -1,6 +1,5 @@
 import { Badge } from '@astryxdesign/core/Badge';
 import { Button } from '@astryxdesign/core/Button';
-import { Selector } from '@astryxdesign/core/Selector';
 import { HStack } from '@astryxdesign/core/HStack';
 import { Icon } from '@astryxdesign/core/Icon';
 import { IconButton } from '@astryxdesign/core/IconButton';
@@ -38,16 +37,9 @@ import { violationName } from '../identity/violations';
 import { Applications } from './Applications';
 import './build.css';
 import { Needs } from './Needs';
-import {
-  countryOptions,
-  DateText,
-  needsKind,
-  needsLabelKey,
-  PersonLink,
-  stageKey,
-} from './present';
+import { DateText, needsKind, needsLabelKey, PersonLink, stageKey } from './present';
+import { CountryField, LicenseField, StageField } from './ProjectFields';
 import { useProject, useUpdateProject, type Project, type ProjectUpdate } from './queries';
-import { projectStages } from './routeSearch';
 import { checkDescription, checkLicense, checkTechnologies, parseTags } from './validate';
 
 type Visibility = components['schemas']['ProjectVisibility'];
@@ -79,7 +71,7 @@ function diffOf(
 }
 
 function EditProject({ project, onDone }: { project: Project; onDone: () => void }) {
-  const { t, locale } = useI18n();
+  const { t } = useI18n();
   const update = useUpdateProject(project.id);
   const { failure, report, clear } = useFailure();
   const [serverErrors, setServerErrors] = useState<
@@ -188,67 +180,37 @@ function EditProject({ project, onDone }: { project: Project; onDone: () => void
             }}
           </form.Field>
           <form.Field name="stage">
-            {(field) => {
-              const key = serverErrors.stage;
-              return (
-                <Selector
-                  label={t('build.form.stage')}
-                  options={projectStages.map((stage) => ({
-                    value: stage,
-                    label: t(stageKey(stage)),
-                  }))}
-                  value={field.state.value}
-                  onChange={(value) => {
-                    const stage = projectStages.find((candidate) => candidate === value);
-                    if (stage) field.handleChange(stage);
-                    forget('stage');
-                  }}
-                  {...errorStatus(key ? t(key) : undefined)}
-                />
-              );
-            }}
+            {(field) => (
+              <StageField
+                value={field.state.value}
+                error={serverErrors.stage}
+                onChange={(stage) => {
+                  field.handleChange(stage);
+                  forget('stage');
+                }}
+              />
+            )}
           </form.Field>
           <form.Field name="license" validators={{ onSubmit: ({ value }) => checkLicense(value) }}>
-            {(field) => {
-              const key = field.state.meta.errors[0];
-              return (
-                <TextInput
-                  label={t('build.form.license')}
-                  description={t('build.form.license.hint')}
-                  isOptional
-                  value={field.state.value}
-                  htmlName={field.name}
-                  autoCapitalize="none"
-                  hasAutoCorrect={false}
-                  hasSpellCheck={false}
-                  onChange={field.handleChange}
-                  {...errorStatus(key ? t(key) : undefined)}
-                />
-              );
-            }}
+            {(field) => (
+              <LicenseField
+                value={field.state.value}
+                error={field.state.meta.errors[0]}
+                onChange={field.handleChange}
+              />
+            )}
           </form.Field>
           <form.Field name="country">
-            {(field) => {
-              const key = serverErrors.country_code;
-              return (
-                <Selector
-                  label={t('build.form.country')}
-                  placeholder={t('build.filter.country.any')}
-                  hasClear
-                  hasSearch
-                  options={countryOptions(
-                    project.country_code ? [project.country_code] : [],
-                    locale,
-                  )}
-                  value={field.state.value}
-                  onChange={(value) => {
-                    field.handleChange(value);
-                    forget('country_code');
-                  }}
-                  {...errorStatus(key ? t(key) : undefined)}
-                />
-              );
-            }}
+            {(field) => (
+              <CountryField
+                value={field.state.value}
+                error={serverErrors.country_code}
+                onChange={(country) => {
+                  field.handleChange(country);
+                  forget('country_code');
+                }}
+              />
+            )}
           </form.Field>
           <form.Field name="visibility">
             {(field) => (

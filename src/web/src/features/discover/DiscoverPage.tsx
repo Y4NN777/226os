@@ -15,15 +15,14 @@ import { ErrorState } from '../../components/ErrorState';
 import { SearchIcon } from '../../components/icons';
 import { List } from '../../components/List';
 import { LoadingState } from '../../components/LoadingState';
+import { countryOptions } from '../../components/countries';
 import { PageHeader } from '../../components/PageHeader';
 import { ResultsMeta } from '../../components/ResultsMeta';
 import { SortSelect } from '../../components/SortSelect';
 import { useI18n } from '../../i18n/I18nProvider';
-import type { Locale, MessageKey } from '../../i18n/messages';
+import type { MessageKey } from '../../i18n/messages';
 import { categoryCodes, categoryKey, isCategoryCode } from './categories';
-import { countryName } from './present';
 import { useResourceList } from './queries';
-import { WEST_AFRICA } from './region';
 import { ResourceRow } from './ResourceRow';
 import { validateDiscoverSearch, type DiscoverSearch } from './routeSearch';
 import './discover.css';
@@ -34,19 +33,6 @@ type SearchPatch = { [K in keyof DiscoverSearch]?: DiscoverSearch[K] | undefined
 function patched(base: DiscoverSearch, patch: SearchPatch): DiscoverSearch {
   const entries = Object.entries({ ...base, ...patch }).filter(([, value]) => value !== undefined);
   return Object.fromEntries(entries);
-}
-
-function sortedByName(codes: Iterable<string>, locale: Locale) {
-  return [...new Set(codes)]
-    .map((code) => ({ value: code, label: countryName(code, locale) }))
-    .sort((a, b) => a.label.localeCompare(b.label, locale));
-}
-
-/** West Africa first, then any other code the loaded items or the URL mention. */
-function countryOptions(extra: Iterable<string>, locale: Locale) {
-  const west: readonly string[] = WEST_AFRICA;
-  const others = [...new Set(extra)].filter((code) => !west.includes(code));
-  return [...sortedByName(west, locale), ...sortedByName(others, locale)];
 }
 
 /** Results count from the API total, which covers every page. */
