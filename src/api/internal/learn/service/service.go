@@ -43,9 +43,11 @@ const (
 // when the topic or a link target is not usable.
 type Store interface {
 	ListArticles(ctx context.Context, q domain.ArticleQuery) ([]domain.ArticleSummary, error)
+	CountArticles(ctx context.Context, q domain.ArticleQuery) (int, error)
 	GetArticle(ctx context.Context, id, viewerID string) (domain.Article, error)
 	CreateArticle(ctx context.Context, in domain.NewArticle) (string, error)
 	ListSeries(ctx context.Context, q domain.SeriesQuery) ([]domain.SeriesSummary, error)
+	CountSeries(ctx context.Context, q domain.SeriesQuery) (int, error)
 	GetSeries(ctx context.Context, id string) (domain.Series, error)
 }
 
@@ -84,16 +86,20 @@ type CreateRequest struct {
 	Links                            []domain.LinkRef
 }
 
-// ArticlePage is one article page. NextCursor is empty on the last page.
+// ArticlePage is one article page. NextCursor is empty on the last page; Total counts every article the
+// same filters match, whatever the cursor.
 type ArticlePage struct {
 	Items      []domain.ArticleSummary
 	NextCursor string
+	Total      int
 }
 
-// SeriesPage is one series page. NextCursor is empty on the last page.
+// SeriesPage is one series page. NextCursor is empty on the last page; Total counts every series the
+// same filters match, whatever the cursor.
 type SeriesPage struct {
 	Items      []domain.SeriesSummary
 	NextCursor string
+	Total      int
 }
 
 // Service is the Learn use case.
@@ -129,6 +135,8 @@ func (s *Service) ListArticles(ctx context.Context, req ArticleListRequest) (Art
 		Limit: size + 1,
 	}
 	hash := articleHash(query)
+	counted := query
+	counted.Limit = 0
 	if req.Cursor != "" {
 		at, id, err := s.decode(req.Cursor, hash)
 		if err != nil {
@@ -140,7 +148,11 @@ func (s *Service) ListArticles(ctx context.Context, req ArticleListRequest) (Art
 	if err != nil {
 		return ArticlePage{}, err
 	}
-	page := ArticlePage{Items: rows}
+	total, err := s.store.CountArticles(ctx, counted)
+	if err != nil {
+		return ArticlePage{}, err
+	}
+	page := ArticlePage{Items: rows, Total: total}
 	if len(rows) > size {
 		page.Items = rows[:size]
 		last := page.Items[size-1]
@@ -211,6 +223,8 @@ func (s *Service) ListSeries(ctx context.Context, req SeriesListRequest) (Series
 	}
 	query := domain.SeriesQuery{Topic: deref(req.Topic), Level: deref(req.Level), Lang: deref(req.Lang), Limit: size + 1}
 	hash := seriesHash(query)
+	counted := query
+	counted.Limit = 0
 	if req.Cursor != "" {
 		at, id, err := s.decode(req.Cursor, hash)
 		if err != nil {
@@ -222,7 +236,11 @@ func (s *Service) ListSeries(ctx context.Context, req SeriesListRequest) (Series
 	if err != nil {
 		return SeriesPage{}, err
 	}
-	page := SeriesPage{Items: rows}
+	total, err := s.store.CountSeries(ctx, counted)
+	if err != nil {
+		return SeriesPage{}, err
+	}
+	page := SeriesPage{Items: rows, Total: total}
 	if len(rows) > size {
 		page.Items = rows[:size]
 		last := page.Items[size-1]

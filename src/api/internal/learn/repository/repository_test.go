@@ -195,6 +195,21 @@ func TestListArticlesAttachesTags(t *testing.T) {
 	}
 }
 
+func TestCountArticlesAndSeries(t *testing.T) {
+	if n, err := New(db(t, rows([]any{int32(4)}))).CountArticles(t.Context(), domain.ArticleQuery{Q: "pay", Kind: "tutorial"}); err != nil || n != 4 {
+		t.Fatalf("articles %d %v", n, err)
+	}
+	if _, err := New(db(t, fail(errDB))).CountArticles(t.Context(), domain.ArticleQuery{}); !errors.Is(err, errDB) {
+		t.Fatalf("articles err %v", err)
+	}
+	if n, err := New(db(t, rows([]any{int32(2)}))).CountSeries(t.Context(), domain.SeriesQuery{Topic: "payments"}); err != nil || n != 2 {
+		t.Fatalf("series %d %v", n, err)
+	}
+	if _, err := New(db(t, fail(errDB))).CountSeries(t.Context(), domain.SeriesQuery{}); !errors.Is(err, errDB) {
+		t.Fatalf("series err %v", err)
+	}
+}
+
 func TestListArticlesEmptyAndErrors(t *testing.T) {
 	got, err := New(db(t, rows())).ListArticles(t.Context(), domain.ArticleQuery{
 		Q: "ussd", Kind: "article", Topic: "mobile", Level: "advanced", Lang: "en", Limit: 21,

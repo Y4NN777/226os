@@ -179,7 +179,39 @@ var (
 )
 
 func projectRow(techs []string) []any {
-	return []any{uid(projID), "Repo", "https://github.com/o/r", "D", "fr", "public", uid(userID), "alice", "Alice", techs, int32(1), ts(), ts(), ts()}
+	return []any{uid(projID), "Repo", "https://github.com/o/r", "D", "fr", "public", uid(userID), "alice", "Alice", techs, int32(1), ts(), ts(), ts(), "prototype", "MIT", "BF"}
+}
+
+func TestProjectFactsConstraints(t *testing.T) {
+	country := &pgconn.PgError{Code: "23503", ConstraintName: countryFK}
+	repo := &pgconn.PgError{Code: "23514", ConstraintName: githubRequired}
+	in := newProject()
+	in.Country = "ZZ"
+	if _, err := New(db(t, fail(country))).CreateProject(t.Context(), in); !errors.Is(err, domain.ErrUnknownCountry) {
+		t.Fatalf("create unknown country %v", err)
+	}
+	stage := "active"
+	for name, tc := range map[string]struct {
+		pe   *pgconn.PgError
+		want error
+	}{"unknown country": {country, domain.ErrUnknownCountry}, "stage without repo": {repo, domain.ErrStageNeedsRepo}} {
+		t.Run(name, func(t *testing.T) {
+			err := New(db(t, access, fail(tc.pe))).UpdateProject(t.Context(), projID, userID, domain.ProjectPatch{Stage: &stage}, allow)
+			if !errors.Is(err, tc.want) {
+				t.Fatalf("update %v, want %v", err, tc.want)
+			}
+		})
+	}
+	// License and country set, then cleared: both shapes reach the UPDATE.
+	mit, bf := "MIT", "BF"
+	for _, p := range []domain.ProjectPatch{
+		{License: &domain.Clearable{Value: &mit}, Country: &domain.Clearable{Value: &bf}},
+		{License: &domain.Clearable{}, Country: &domain.Clearable{}},
+	} {
+		if err := New(db(t, access, ok)).UpdateProject(t.Context(), projID, userID, p, allow); err != nil {
+			t.Fatalf("patch %+v: %v", p, err)
+		}
+	}
 }
 
 func allow(domain.Access) error { return nil }
@@ -303,6 +335,7 @@ func TestGetProject(t *testing.T) {
 		Technologies: []string{}, Owner: domain.Owner{ID: userID, Username: "alice", DisplayName: "Alice"}, OpenNeeds: 1,
 		Related:     []domain.Related{{Type: "question", ID: qID, Title: "Q", Lang: "fr"}},
 		PublishedAt: ts().Time, CreatedAt: ts().Time, UpdatedAt: ts().Time,
+		Stage: "prototype", License: "MIT", Country: "BF",
 	}
 	if err != nil || !reflect.DeepEqual(p, want) {
 		t.Fatalf("got %+v %v", p, err)
@@ -337,7 +370,8 @@ func TestGetProject(t *testing.T) {
 func TestListProjects(t *testing.T) {
 	at := ts().Time
 	list, err := New(db(t, rows(projectRow(nil)), none)).ListProjects(t.Context(), domain.ProjectQuery{
-		ViewerID: userID, Q: "pay", Technology: "go", Skill: "go", OpenNeeds: true, AfterPublished: &at, AfterID: projID, Limit: 21,
+		ViewerID: userID, Q: "pay", Technology: "go", Skill: "go", OpenNeeds: true, Sort: domain.SortNeeds, AfterNeeds: 2, AfterAt: &at, AfterID: projID, Limit: 21,
+		Stage: "active", Country: "BF", License: "MIT",
 	})
 	if err != nil || len(list) != 1 || list[0].Related == nil {
 		t.Fatalf("list %+v %v", list, err)
@@ -363,6 +397,19 @@ func TestListProjects(t *testing.T) {
 				t.Fatalf("err %v, want %v", err, tc.want)
 			}
 		})
+	}
+}
+
+func TestCountProjects(t *testing.T) {
+	q := domain.ProjectQuery{ViewerID: userID, Q: "pay", Technology: "go", Skill: "go", OpenNeeds: true, Stage: "active", Country: "BF", License: "MIT"}
+	if n, err := New(db(t, rows([]any{int32(7)}))).CountProjects(t.Context(), q); err != nil || n != 7 {
+		t.Fatalf("count %d %v", n, err)
+	}
+	if _, err := New(db(t)).CountProjects(t.Context(), domain.ProjectQuery{ViewerID: "x"}); err == nil {
+		t.Fatal("bad viewer accepted")
+	}
+	if _, err := New(db(t, fail(errDB))).CountProjects(t.Context(), q); !errors.Is(err, errDB) {
+		t.Fatalf("err %v", err)
 	}
 }
 

@@ -506,8 +506,15 @@ paths:
       x-authz:
         allow: anonymous|member
         matrix: GET /search, public questions
-        notes: 'Only published questions. Order: newest first, UUID tie-breaker (relevance rank first when q is
-          set).'
+        notes: 'Only published questions. Order (sort): new (default) = newest first, with the relevance rank first
+          when q is set; votes = vote_score desc then newest; unanswered = fewest answers first then newest. UUID
+          tie-breaker; with q the candidates are the 500 newest matches whatever the sort, and total counts inside
+          that bound. The cursor is bound to the sort and the filters (another sort -> 400 INVALID_CURSOR). total
+          counts the rows matching the same filters, independent of the cursor. author keeps the questions of a
+          username, answers_by the questions a username answered (a filter, not a new operation, so a profile
+          page reads both lists with the same Question shape); both follow the profile rule of getProfile (active
+          account, profile_visibility allows the caller, or the caller is the owner): an unknown, hidden or
+          private username gives an empty page with total 0, never a 404.'
       security: []
       parameters:
       - $ref: '#/components/parameters/Cursor'
@@ -530,6 +537,21 @@ paths:
           $ref: '#/components/schemas/QuestionState'
       - $ref: '#/components/parameters/Country'
       - $ref: '#/components/parameters/LangFilter'
+      - name: author
+        in: query
+        description: Keep the questions asked by this username (profile visibility applies; hidden means no match).
+        schema:
+          $ref: '#/components/schemas/Username'
+      - name: answers_by
+        in: query
+        description: Keep the questions this username answered (profile visibility applies; hidden means no match).
+        schema:
+          $ref: '#/components/schemas/Username'
+      - name: sort
+        in: query
+        description: Order of the page; the cursor is bound to it.
+        schema:
+          $ref: '#/components/schemas/QuestionSort'
       responses:
         '200':
           description: Page of questions
@@ -993,11 +1015,19 @@ paths:
       x-authz:
         allow: anonymous|member
         matrix: GET /search, public resources
-        notes: Each item carries provenance (verification status, last_verified_at, source_count).
+        notes: 'Each item carries provenance (verification status, last_verified_at, source_count). total counts the
+          rows matching the same filters, independent of the cursor. Order (sort): name (default) = name ascending;
+          verified = last_verified_at descending, never-verified entries last; UUID tie-breaker. The cursor is
+          bound to the sort and the filters (another sort -> 400 INVALID_CURSOR).'
       security: []
       parameters:
       - $ref: '#/components/parameters/Cursor'
       - $ref: '#/components/parameters/Limit'
+      - name: sort
+        in: query
+        description: Order of the page; the cursor is bound to it.
+        schema:
+          $ref: '#/components/schemas/ResourceSort'
       - name: q
         in: query
         schema:
@@ -1252,7 +1282,13 @@ paths:
       x-authz:
         allow: anonymous|member
         matrix: GET /search, public projects
-        notes: Public projects only, plus the caller's own private ones.
+        notes: 'Public projects only, plus the caller''s own private ones; another user''s private project is never
+          listed nor counted. total counts the rows matching the same filters and visibility, independent of the
+          cursor. owner filters on the owner''s username under the profile rule of getProfile (active account,
+          profile_visibility allows the caller, or the caller is the owner): an unknown, hidden or private
+          username gives an empty page with total 0, never a 404. Order (sort): updated (default) = updated_at
+          desc, created = created_at desc, needs = open_needs_count desc then updated_at desc; UUID tie-breaker.
+          The cursor is bound to the sort and the filters (another sort -> 400 INVALID_CURSOR).'
       security:
       - {}
       - cookieAuth: []
@@ -1278,6 +1314,31 @@ paths:
         in: query
         schema:
           type: boolean
+      - name: stage
+        in: query
+        description: Keep projects at this stage.
+        schema:
+          $ref: '#/components/schemas/ProjectStage'
+      - name: country
+        in: query
+        description: Keep projects whose country is this ISO 3166-1 alpha-2 code.
+        schema:
+          $ref: '#/components/schemas/CountryCode'
+      - name: license
+        in: query
+        description: Keep projects under this SPDX license identifier (exact match).
+        schema:
+          $ref: '#/components/schemas/LicenseSpdx'
+      - name: owner
+        in: query
+        description: Keep projects owned by this username (profile visibility applies; hidden means no match).
+        schema:
+          $ref: '#/components/schemas/Username'
+      - name: sort
+        in: query
+        description: Order of the page; the cursor is bound to it.
+        schema:
+          $ref: '#/components/schemas/ProjectSort'
       responses:
         '200':
           description: Page of projects
@@ -1701,7 +1762,8 @@ paths:
       - US-LEARN-001
       x-authz:
         allow: anonymous|member
-        notes: Public read, no account needed (owner-confirmed).
+        notes: Public read, no account needed (owner-confirmed). total counts the published articles matching the
+          same filters, independent of the cursor.
       security: []
       parameters:
       - $ref: '#/components/parameters/Cursor'
@@ -2774,6 +2836,73 @@ components:
       description: ISO 3166-1 alpha-2.
       examples:
       - BF
+    LicenseSpdx:
+      type: string
+      minLength: 1
+      maxLength: 64
+      pattern: ^[A-Za-z0-9.+-]{1,64}$
+      description: SPDX license identifier. Matches the database check projects_license_ck.
+      examples:
+      - MIT
+      - Apache-2.0
+    ProjectStage:
+      type: string
+      enum:
+      - idea
+      - prototype
+      - active
+      - maintained
+      x-enum-varnames:
+      - ProjectStageIdea
+      - ProjectStagePrototype
+      - ProjectStageActive
+      - ProjectStageMaintained
+      description: Maturity of a project (projects_stage_ck). A project with a GitHub repository may take any stage.
+      examples:
+      - prototype
+    ProjectSort:
+      type: string
+      enum:
+      - updated
+      - created
+      - needs
+      x-enum-varnames:
+      - ProjectSortUpdated
+      - ProjectSortCreated
+      - ProjectSortNeeds
+      default: updated
+      description: updated = last updated first; created = newest first; needs = most open contribution needs first,
+        then last updated. UUID tie-breaker.
+    ResourceSort:
+      type: string
+      enum:
+      - name
+      - verified
+      x-enum-varnames:
+      - ResourceSortName
+      - ResourceSortVerified
+      default: name
+      description: name = name ascending; verified = most recently verified first, never-verified entries last. UUID
+        tie-breaker.
+    QuestionSort:
+      type: string
+      enum:
+      - new
+      - votes
+      - unanswered
+      x-enum-varnames:
+      - QuestionSortNew
+      - QuestionSortVotes
+      - QuestionSortUnanswered
+      default: new
+      description: new = newest first (relevance first when q is set); votes = highest vote_score first, then newest;
+        unanswered = fewest answers first, then newest. UUID tie-breaker.
+    ListTotal:
+      type: integer
+      minimum: 0
+      description: Number of items matching the same filters and visibility as the page, independent of the cursor.
+      examples:
+      - 42
     Username:
       type: string
       minLength: 3
@@ -3699,6 +3828,7 @@ components:
       required:
       - items
       - next_cursor
+      - total
       properties:
         items:
           type: array
@@ -3711,6 +3841,8 @@ components:
           - 'null'
           maxLength: 512
           description: Opaque, integrity-protected; null on the last page.
+        total:
+          $ref: '#/components/schemas/ListTotal'
       additionalProperties: false
     Answer:
       type: object
@@ -4036,6 +4168,7 @@ components:
       required:
       - items
       - next_cursor
+      - total
       properties:
         items:
           type: array
@@ -4048,6 +4181,8 @@ components:
           - 'null'
           maxLength: 512
           description: Opaque, integrity-protected; null on the last page.
+        total:
+          $ref: '#/components/schemas/ListTotal'
       additionalProperties: false
     ErrorReportCreate:
       type: object
@@ -4181,6 +4316,9 @@ components:
       - visibility
       - owner
       - open_needs_count
+      - stage
+      - license_spdx
+      - country_code
       - related
       - created_at
       - updated_at
@@ -4215,6 +4353,18 @@ components:
         open_needs_count:
           type: integer
           minimum: 0
+        stage:
+          $ref: '#/components/schemas/ProjectStage'
+        license_spdx:
+          description: SPDX license identifier; null when not declared.
+          anyOf:
+          - $ref: '#/components/schemas/LicenseSpdx'
+          - type: 'null'
+        country_code:
+          description: Country the project serves first; null when not declared.
+          anyOf:
+          - $ref: '#/components/schemas/CountryCode'
+          - type: 'null'
         related:
           type: array
           items:
@@ -4255,10 +4405,18 @@ components:
           items:
             $ref: '#/components/schemas/LinkRef'
           maxItems: 10
+        stage:
+          $ref: '#/components/schemas/ProjectStage'
+          description: Defaults to idea.
+        license_spdx:
+          $ref: '#/components/schemas/LicenseSpdx'
+        country_code:
+          $ref: '#/components/schemas/CountryCode'
+          description: Must be a known country (422 otherwise).
       additionalProperties: false
     ProjectUpdate:
       type: object
-      description: JSON Merge Patch. github_url immutable.
+      description: JSON Merge Patch. github_url immutable. null clears license_spdx or country_code.
       properties:
         description:
           type: string
@@ -4266,6 +4424,17 @@ components:
           maxLength: 1000
         visibility:
           $ref: '#/components/schemas/ProjectVisibility'
+        stage:
+          $ref: '#/components/schemas/ProjectStage'
+        license_spdx:
+          anyOf:
+          - $ref: '#/components/schemas/LicenseSpdx'
+          - type: 'null'
+        country_code:
+          description: Must be a known country (422 otherwise); null clears it.
+          anyOf:
+          - $ref: '#/components/schemas/CountryCode'
+          - type: 'null'
         technologies:
           type: array
           items:
@@ -4283,6 +4452,7 @@ components:
       required:
       - items
       - next_cursor
+      - total
       properties:
         items:
           type: array
@@ -4295,6 +4465,8 @@ components:
           - 'null'
           maxLength: 512
           description: Opaque, integrity-protected; null on the last page.
+        total:
+          $ref: '#/components/schemas/ListTotal'
       additionalProperties: false
     ContributionNeed:
       type: object
@@ -4629,6 +4801,7 @@ components:
       required:
       - items
       - next_cursor
+      - total
       properties:
         items:
           type: array
@@ -4641,6 +4814,8 @@ components:
           - 'null'
           maxLength: 512
           description: Opaque, integrity-protected; null on the last page.
+        total:
+          $ref: '#/components/schemas/ListTotal'
       additionalProperties: false
     LessonProgressStatus:
       type: string
@@ -4796,6 +4971,7 @@ components:
       required:
       - items
       - next_cursor
+      - total
       properties:
         items:
           type: array
@@ -4808,6 +4984,8 @@ components:
           - 'null'
           maxLength: 512
           description: Opaque, integrity-protected; null on the last page.
+        total:
+          $ref: '#/components/schemas/ListTotal'
       additionalProperties: false
     SearchHit:
       type: object
