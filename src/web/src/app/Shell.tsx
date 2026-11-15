@@ -42,6 +42,7 @@ import {
   UserIcon,
   UserPlusIcon,
 } from '../components/icons';
+import { LandingLayout } from '../features/landing/LandingChrome';
 import { useI18n } from '../i18n/I18nProvider';
 import { locales, type Locale } from '../i18n/messages';
 import { useResolvedTheme, useThemePreference, type ThemeMode } from '../theme/ThemeProvider';
@@ -354,7 +355,7 @@ function useSideNavCollapsed() {
   return [isCollapsed, change] as const;
 }
 
-/** The public landing (`/` for a visitor) has the top bar and the footer, but no navigation. */
+/** The public landing (`/` for a visitor) has its own header and footer, and no app navigation. */
 function useIsLanding() {
   const session = useSession();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
@@ -474,13 +475,9 @@ function BottomNav() {
 }
 
 /** « 226os » and links to the project documents that exist (prototype `.app-footer`). */
-function SiteFooter({ hasNav, isCollapsed }: { hasNav: boolean; isCollapsed: boolean }) {
+function SiteFooter({ isCollapsed }: { isCollapsed: boolean }) {
   const { t } = useI18n();
-  const className = [
-    'shell-footer',
-    !hasNav && 'shell-footer-bare',
-    isCollapsed && 'shell-footer-collapsed',
-  ]
+  const className = ['shell-footer', isCollapsed && 'shell-footer-collapsed']
     .filter(Boolean)
     .join(' ');
   return (
@@ -506,15 +503,24 @@ export function Shell() {
   const onSignOut = () => {
     signOut.mutate();
   };
-  const hasNav = !useIsLanding();
+  const session = useSession();
+  const isLanding = useIsLanding();
   const [isCollapsed, setCollapsed] = useSideNavCollapsed();
+  // The public landing has its own header and footer, not the app's.
+  if (isLanding) {
+    return (
+      <LandingLayout ready={!session.isPending}>
+        <Outlet />
+      </LandingLayout>
+    );
+  }
   return (
     <>
       <AppShell
         height="auto"
         variant="wash"
         contentPadding={0}
-        className={hasNav ? 'shell' : 'shell shell-bare'}
+        className="shell"
         banner={
           signOut.isError ? (
             <Banner status="error" title={t('account.signOutFailed')} container="section" />
@@ -535,38 +541,29 @@ export function Shell() {
             }
           />
         }
-        sideNav={
-          hasNav ? (
-            <PrimaryNav isCollapsed={isCollapsed} onCollapsedChange={setCollapsed} />
-          ) : undefined
-        }
-        mobileNav={
-          hasNav
-            ? {
-                // No top-bar hamburger on a phone: « Plus » in the bottom bar opens the drawer.
-                hasToggle: false,
-                // The same links in a drawer that is a modal dialog for assistive technology as well,
-                // sliding in from the left as in the prototype.
-                content: (
-                  <MobileNav aria-modal="true" side="start" header={<Brand />}>
-                    <PrimaryNav isDrawer />
-                    <SideNavRenderContext value="drawer-content">
-                      <DrawerAccount onSignOut={onSignOut} />
-                    </SideNavRenderContext>
-                  </MobileNav>
-                ),
-              }
-            : // No drawer on the public landing: no menu button either.
-              { hasToggle: false }
-        }
+        sideNav={<PrimaryNav isCollapsed={isCollapsed} onCollapsedChange={setCollapsed} />}
+        mobileNav={{
+          // No top-bar hamburger on a phone: « Plus » in the bottom bar opens the drawer.
+          hasToggle: false,
+          // The same links in a drawer that is a modal dialog for assistive technology as well,
+          // sliding in from the left as in the prototype.
+          content: (
+            <MobileNav aria-modal="true" side="start" header={<Brand />}>
+              <PrimaryNav isDrawer />
+              <SideNavRenderContext value="drawer-content">
+                <DrawerAccount onSignOut={onSignOut} />
+              </SideNavRenderContext>
+            </MobileNav>
+          ),
+        }}
       >
         <div className="shell-page">
           <MobileSearch />
           <Outlet />
         </div>
-        {hasNav ? <BottomNav /> : null}
+        <BottomNav />
       </AppShell>
-      <SiteFooter hasNav={hasNav} isCollapsed={isCollapsed} />
+      <SiteFooter isCollapsed={isCollapsed} />
     </>
   );
 }

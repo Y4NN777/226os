@@ -61,10 +61,6 @@
     min-width: calc(var(--shell-sidebar-width) - var(--shell-gutter) - 4px);
   }
 }
-/* Without a sidebar or rail (public landing) the brand needs no alignment width. */
-.shell-bare .shell-topnav .shell-brand {
-  min-width: 0;
-}
 .shell-search {
   width: 460px;
   max-width: 100%;
@@ -245,10 +241,6 @@
     padding-inline-start: calc(var(--shell-sidebar-collapsed-width) + var(--shell-gutter));
   }
 }
-/* The public landing has no navigation: the footer starts at the content edge. */
-.shell-footer.shell-footer-bare {
-  padding-inline-start: var(--shell-gutter);
-}
 .shell-footer-name {
   font-weight: var(--font-weight-medium);
 }
@@ -368,12 +360,6 @@
     padding-bottom: calc(
       var(--spacing-8) + var(--shell-bottom-nav-height) + env(safe-area-inset-bottom, 0px)
     );
-  }
-}
-@media (max-width: 767px) {
-  /* No bottom bar on the public landing: no room to keep under the footer. */
-  .shell-footer.shell-footer-bare {
-    padding-bottom: var(--spacing-8);
   }
 }
 @media (max-width: 767px) {
