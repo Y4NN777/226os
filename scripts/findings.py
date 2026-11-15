@@ -27,10 +27,10 @@ dashboard says what to fix next. Nobody files a finding by hand: classifying one
              each source. Only FIXED and FIXED ELSEWHERE act: they close a finding issue as completed or tick a note's
              box. NOT A DEFECT and DECIDED never close a finding (a model verdict is not a decision): their reason is
              posted as a comment and a human closes it. For a NOTE they tick its box when the reason cites a reference
-             that exists at the tip of develop (`path:line` or `path:a-b` inside the file, or a docs/decisions/NNNN-*.md
-             file; checked by the script) and the notes issue closes as not planned once every box is settled; without
-             such a reference they only comment. OWNER and AFTER FREEZE stay open. One comment per touched source ("Settled by #PR (review batch #N): ..."), once (marker); a
-             notes issue whose boxes are all ticked is closed as completed; the batch issue closes last. Fails CLOSED like
+             that exists at the tip of develop (`path:line` or `path:a-b` inside the note's own file, or a
+             docs/decisions/NNNN-*.md file; checked by the script); without such a reference they only comment. OWNER and AFTER FREEZE stay open. One comment per touched source ("Settled by #PR (review batch #N): ..."), once (marker); a
+             notes issue whose boxes are all ticked is closed (as not planned when a verdict ticked one, else as completed);
+             the batch issue closes last. Fails CLOSED like
              `batch`.
 
 Every issue is self-contained: the ledger entry's `detail` (proof and reasoning), `fix`, `source` (review or deep), a
@@ -624,7 +624,8 @@ def settle_text(decision, reason, pr):
 
 
 PR_REF = re.compile(r"#(\d+)")
-# A reference a NOT A DEFECT or DECIDED verdict of a NOTE must cite to tick it: `path:line`, `path:a-b` or an ADR file.
+# A reference a NOT A DEFECT or DECIDED verdict of a NOTE must cite to tick it: `path:line` or `path:a-b` in the note's own
+# file, or an ADR file.
 CITE_LINE = re.compile(r"(?<![\w./-])((?:[\w.-]+/)*[\w.-]+\.\w+):(\d+)(?:-(\d+))?(?!\d)")
 CITE_ADR = re.compile(r"(?<![\w./-])(docs/decisions/\d{4}-[\w.-]+\.md)(?![\w.-])")
 TRUNK = "develop"
@@ -644,14 +645,17 @@ def trunk_file(ctx, binary, repo, path):
         return None
 
 
-def verified_reference(ctx, binary, repo, reason):
-    """The first reference of the verdict text that exists at the tip of develop (`path:line` or `path:a-b` within the file,
-    or a `docs/decisions/NNNN-*.md` file), else None. Checked here, never by the model."""
+def verified_reference(ctx, binary, repo, reason, own_file):
+    """The first reference of the verdict text that exists at the tip of develop, else None. Checked here, never by the
+    model. Accepted: a `docs/decisions/NNNN-*.md` file, or `path:line` / `path:a-b` within OWN_FILE, the file the note
+    itself points at (owner, 2026-11-15: a line of any other file proves nothing about this note)."""
     text = re.sub("[\u200b\u200c\u200d\u2060\ufeff]", "", reason or "")
     for m in CITE_ADR.finditer(text):
         if trunk_file(ctx, binary, repo, m.group(1)) is not None:
             return m.group(1)
     for m in CITE_LINE.finditer(text):
+        if not own_file or m.group(1) != own_file:
+            continue
         first, last = int(m.group(2)), int(m.group(3) or m.group(2))
         body = trunk_file(ctx, binary, repo, m.group(1))
         if body is None:
@@ -751,7 +755,7 @@ def settle_issue(ctx, binary, repo, pr, batch_no, number, entries, files=None, m
         cites = {}
         for key, (d, r) in notes.items():
             if d in ("NOT A DEFECT", "DECIDED"):
-                ref = verified_reference(ctx, binary, repo, r)
+                ref = verified_reference(ctx, binary, repo, r, cited_by.get(key, ""))
                 if ref:
                     cites[key] = ref
         entries = [(n, *notes.get(slug(n), (d, r))) if n else (n, d, r) for n, d, r in entries]

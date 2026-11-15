@@ -18,6 +18,7 @@ trap 'rm -rf "$tmp"' EXIT
 mkdir -p "$tmp/bin" "$tmp/st/tree/src" "$tmp/st/tree/docs/decisions"
 printf 'l1\nl2\nl3\nl4\nl5\n' >"$tmp/st/tree/src/a.go"
 printf '# ADR\n' >"$tmp/st/tree/docs/decisions/0014-review.md"
+printf 'r1\nr2\n' >"$tmp/st/tree/README.md"
 
 # Fake gh: issues in $ST/issues.json, the pull request in $ST/pr.json, the tip of develop in $ST/tree.
 cat >"$tmp/bin/gh" <<'PY'
@@ -76,7 +77,7 @@ def notes(n, pr, items):
 finding = {"number": 39, "state": "open", "state_reason": None, "title": "a finding", "created_at": "2026-11-13T00:00:00Z",
            "labels": [{"name": "finding"}], "body": "<!-- finding:PR90#f39 -->\n\n- Where: `src/a.go:1`\n", "comments": []}
 issues = [notes(30, 91, ["n1", "n2"]), notes(31, 92, ["n1"]), notes(32, 93, ["n1"]), notes(33, 94, ["n1"]), notes(34, 95, ["n1", "n2"]),
-          notes(35, 96, ["n1", "n2"]), notes(36, 97, ["n1", "n2"]), finding]
+          notes(35, 96, ["n1", "n2"]), notes(36, 97, ["n1", "n2"]), notes(37, 98, ["n1"]), finding]
 rows = [("#30/n1", "#30", "NOT A DEFECT", "the guard sits at src/a.go:3, the review missed it"),
         ("#30/n2", "#30", "DECIDED", "docs/decisions/0014-review.md settles it"),
         ("#31/n1", "#31", "NOT A DEFECT", "see src/gone.go:1"),
@@ -86,6 +87,7 @@ rows = [("#30/n1", "#30", "NOT A DEFECT", "the guard sits at src/a.go:3, the rev
         ("#35/n1", "#35", "NOT A DEFECT", "src/a.go:4-9 shows it"),
         ("#36/n1", "#36", "DECIDED", "docs/decisions/9999-none.md"),
         ("#36/n2", "#36", "NOT A DEFECT", "../../etc/passwd:1 and src/a.go:0"),
+        ("#37/n1", "#37", "NOT A DEFECT", "README.md:1 says so"),
         ("#39", "#39", "NOT A DEFECT", "src/a.go:3 proves it")]
 issues.append({"number": 40, "state": "open", "state_reason": None, "title": "Review batch 2026-11-15", "labels": [{"name": "review-batch"}],
                "body": "<!-- review-batch -->\n# Review batch 2026-11-15\n\n" + "\n".join(
@@ -118,6 +120,7 @@ field 30 'x["comments"][-1]["body"]' | grep -q 'the guard sits at src/a.go:3' &&
 [ "$(state 34)" = "('open', None)" ] && [ "$(unticked 34)" -eq 1 ] && field 34 'x["body"]' | grep -q -- '- \[x\] `n1`' && ok "mixed issue: the verified note is ticked, the other is not settled, the issue stays open" || ko "34 ($(state 34) $(field 34 'x["body"]'))"
 [ "$(state 35)" = "('open', None)" ] && [ "$(unticked 35)" -eq 2 ] && ok "a range that runs past the end of the file: stays open" || ko "35 ($(state 35))"
 [ "$(state 36)" = "('open', None)" ] && [ "$(unticked 36)" -eq 2 ] && ok "a missing ADR, a path with .. and line 0: stay open" || ko "36 ($(state 36))"
+[ "$(state 37)" = "('open', None)" ] && [ "$(unticked 37)" -eq 1 ] && ok "a line in ANOTHER existing file (not the note's own file, not an ADR): stays open" || ko "37 ($(state 37) $(field 37 'x["body"]'))"
 [ "$(state 39)" = "('open', None)" ] && field 39 'x["comments"][-1]["body"]' | grep -q 'stays open: a human closes it as not planned' && ok "a FINDING with NOT A DEFECT and a valid reference stays open (a human closes it)" || ko "39 ($(state 39))"
 [ "$(state 40)" = "('closed', 'completed')" ] && ok "the batch issue still closes last" || ko "40 ($(state 40))"
 
