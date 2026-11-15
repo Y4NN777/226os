@@ -128,7 +128,17 @@ describe('QuestionPage reading', () => {
       name: 'Webhook non reçu après un paiement',
     });
     expect(title.closest('[lang]')).toHaveAttribute('lang', 'fr');
-    expect(screen.getByRole('link', { name: 'Questions' })).toHaveAttribute('href', '/solve');
+    // The way back is the shared breadcrumb trail, as on every detail page.
+    const crumbs = screen.getByRole('navigation', { name: 'Fil d’Ariane' });
+    expect(within(crumbs).getByRole('link', { name: 'Accueil' })).toHaveAttribute('href', '/');
+    expect(within(crumbs).getByRole('link', { name: 'Résoudre' })).toHaveAttribute(
+      'href',
+      '/solve',
+    );
+    expect(within(crumbs).getByText('Webhook non reçu après un paiement')).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
     const header = title.closest('header') as HTMLElement;
     expect(within(header).getByText('Réponse acceptée')).toBeInTheDocument();
     expect(within(header).getByText('Kofi Mensah')).toBeInTheDocument();

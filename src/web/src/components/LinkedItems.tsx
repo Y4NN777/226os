@@ -7,7 +7,7 @@ export interface LinkedItem {
   title: string;
   href: string;
   /** Original language of the title. */
-  lang?: string;
+  lang?: string | undefined;
 }
 
 /**

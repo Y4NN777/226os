@@ -34,6 +34,9 @@ describe('SolvePage list', () => {
     await renderApp('/solve');
 
     expect(await screen.findByRole('heading', { level: 1, name: 'Questions' })).toBeInTheDocument();
+    const crumbs = screen.getByRole('navigation', { name: 'Fil d’Ariane' });
+    expect(within(crumbs).getByRole('link', { name: 'Accueil' })).toHaveAttribute('href', '/');
+    expect(within(crumbs).getByText('Résoudre')).toHaveAttribute('aria-current', 'page');
     const link = await screen.findByRole('link', { name: 'Webhook non reçu après un paiement' });
     expect(link).toHaveAttribute('href', `/questions/${questionId}`);
     const results = screen.getByRole('region', { name: 'Questions' });

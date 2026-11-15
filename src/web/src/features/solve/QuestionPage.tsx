@@ -1,7 +1,5 @@
 import { Banner } from '@astryxdesign/core/Banner';
 import { Button } from '@astryxdesign/core/Button';
-import { EmptyState } from '@astryxdesign/core/EmptyState';
-import { Heading } from '@astryxdesign/core/Heading';
 import { HStack } from '@astryxdesign/core/HStack';
 import { Icon } from '@astryxdesign/core/Icon';
 import { IconButton } from '@astryxdesign/core/IconButton';
@@ -11,15 +9,23 @@ import { useParams } from '@tanstack/react-router';
 import { useId, useState } from 'react';
 import { useSession } from '../../app/session';
 import { ApiError } from '../../api/http';
+import { Breadcrumbs } from '../../components/Breadcrumbs';
+import { CountryCode } from '../../components/CountryCode';
+import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
+import { EditIcon, LinkIcon, MessageIcon } from '../../components/icons';
+import { LangCode } from '../../components/LangCode';
+import { LinkedItems } from '../../components/LinkedItems';
 import { LoadingState } from '../../components/LoadingState';
-import { RouterAnchor } from '../../components/RouterAnchor';
+import { Meta, MetaItem } from '../../components/Meta';
+import { PageHeader } from '../../components/PageHeader';
+import { Section } from '../../components/Section';
+import { TagList } from '../../components/Tag';
 import { useI18n } from '../../i18n/I18nProvider';
 import { relatedPath } from '../related';
 import { AnswerForm } from './AnswerForm';
-import { ChatGlyph, LinkGlyph, PencilGlyph } from './icons';
 import { AcceptButton, useVote, VoteColumn, VoteError } from './Interactions';
-import { countryName, DateText, LangMark, Person, StatePill, TagList } from './present';
+import { DateText, Person, QuestionState } from './present';
 import { QuestionForm, type QuestionDraft } from './QuestionForm';
 import {
   useAnswers,
@@ -123,7 +129,7 @@ function Sources({ sources }: { sources: readonly string[] }) {
   return (
     <div className="solve-sources">
       <p id={id} className="solve-sources-h">
-        <Icon icon={LinkGlyph} size="sm" />
+        <Icon icon={LinkIcon} size="sm" />
         {t('solve.answer.sources')}
       </p>
       <ul aria-labelledby={id}>
@@ -167,10 +173,10 @@ function AnswerItem({
     questionId: answer.question_id,
   });
   return (
-    <li className="solve-surface">
+    <li className="ui-panel">
       {answer.is_accepted ? (
         <div className="solve-answer-head">
-          <StatePill state="resolved" />
+          <QuestionState state="resolved" />
         </div>
       ) : null}
       <div className="solve-post">
@@ -182,11 +188,11 @@ function AnswerItem({
           <VoteError vote={vote} />
           <Sources sources={answer.sources} />
           <div className="solve-answer-foot">
-            <div className="solve-meta">
+            <Meta>
               <Person author={answer.author} />
               <DateText iso={answer.created_at} />
-              <LangMark lang={answer.lang} />
-            </div>
+              <LangCode lang={answer.lang} />
+            </Meta>
             {canAccept ? (
               <AcceptButton
                 questionId={questionId}
@@ -223,8 +229,7 @@ function Answers({
     )
     .map(({ answer }) => answer);
   return (
-    <section className="solve-detail-main">
-      <Heading level={2}>{count > 0 ? answerCount(count) : t('solve.answers.title')}</Heading>
+    <Section title={count > 0 ? answerCount(count) : t('solve.answers.title')}>
       {answers.isPending ? <LoadingState /> : null}
       {answers.isError && !answers.data ? (
         <ErrorState error={answers.error} onRetry={() => void answers.refetch()} />
@@ -252,7 +257,7 @@ function Answers({
           />
         </HStack>
       ) : null}
-    </section>
+    </Section>
   );
 }
 
@@ -266,46 +271,32 @@ const kindKey = {
 
 /** Context and linked items, the prototype's side column (only what the contract carries). */
 function Aside({ question }: { question: Question }) {
-  const { t, locale } = useI18n();
-  const contextId = useId();
-  const linkedId = useId();
+  const { t } = useI18n();
   if (!question.country && question.related.length === 0) return null;
   return (
-    <div className="solve-aside">
+    <div className="ui-columns-aside">
       {question.country ? (
-        <aside className="solve-aside-block" aria-labelledby={contextId}>
-          <h2 id={contextId} className="solve-aside-h">
-            {t('solve.question.context')}
-          </h2>
-          <dl className="solve-context">
+        <Section as="aside" title={t('solve.question.context')} isPanel>
+          <dl className="ui-facts">
             <dt>{t('solve.question.country')}</dt>
             <dd>
-              <span className="solve-inline">
-                <span className="solve-country" aria-hidden="true">
-                  {question.country}
-                </span>
-                {countryName(question.country, locale)}
-              </span>
+              <CountryCode code={question.country} withName />
             </dd>
           </dl>
-        </aside>
+        </Section>
       ) : null}
       {question.related.length > 0 ? (
-        <aside className="solve-aside-block" aria-labelledby={linkedId}>
-          <h2 id={linkedId} className="solve-aside-h">
-            {t('solve.question.linked')}
-          </h2>
-          <ul className="solve-linked">
-            {question.related.map((link) => (
-              <li key={`${link.type}-${link.id}`}>
-                <span className="solve-linked-kind">{t(kindKey[link.type])}</span>
-                <RouterAnchor href={relatedPath(link)} lang={link.lang}>
-                  {link.title}
-                </RouterAnchor>
-              </li>
-            ))}
-          </ul>
-        </aside>
+        <Section as="aside" title={t('solve.question.linked')} isPanel>
+          <LinkedItems
+            items={question.related.map((link) => ({
+              key: `${link.type}-${link.id}`,
+              kind: t(kindKey[link.type]),
+              title: link.title,
+              href: relatedPath(link),
+              lang: link.lang,
+            }))}
+          />
+        </Section>
       ) : null}
     </div>
   );
@@ -320,14 +311,14 @@ function QuestionPost({ question, interactive }: { question: Question; interacti
     questionId: question.id,
   });
   return (
-    <article className="solve-surface solve-post">
+    <article className="ui-panel solve-post">
       <VoteColumn vote={vote} interactive={interactive} />
       <div className="solve-post-main">
         <div lang={question.lang}>
           <RichText markdown={question.body_md} snippets={question.snippets} />
         </div>
         <VoteError vote={vote} />
-        <TagList tags={question.tags} />
+        {question.tags.length > 0 ? <TagList tags={question.tags} /> : null}
       </div>
     </article>
   );
@@ -362,51 +353,55 @@ export function QuestionPage() {
   const { question, etag } = query.data;
   const isAuthor = user !== null && user.id === question.author.id;
 
+  const crumbs = [
+    { label: t('nav.home'), href: '/' },
+    { label: t('nav.solve'), href: '/solve' },
+    { label: question.title },
+  ];
+
   return (
-    <div className="solve-page solve-page-wide">
-      <RouterAnchor className="solve-back" href="/solve">
-        <Icon icon="chevronLeft" size="sm" />
-        {t('solve.back')}
-      </RouterAnchor>
+    <div className="ui-page">
       {editing ? (
-        <EditQuestion
-          data={query.data}
-          onDone={() => {
-            setEditing(false);
-          }}
-          onReload={() => void query.refetch()}
-        />
+        <>
+          <Breadcrumbs items={crumbs} />
+          <EditQuestion
+            data={query.data}
+            onDone={() => {
+              setEditing(false);
+            }}
+            onReload={() => void query.refetch()}
+          />
+        </>
       ) : (
-        <header className="solve-qhead">
-          <div className="solve-qhead-title">
-            <div lang={question.lang}>
-              <Heading level={1}>{question.title}</Heading>
-            </div>
-            {isAuthor && etag ? (
+        <PageHeader
+          title={question.title}
+          titleLang={question.lang}
+          breadcrumbs={crumbs}
+          actions={
+            isAuthor && etag ? (
               <IconButton
                 variant="ghost"
                 label={t('solve.question.edit')}
-                icon={<Icon icon={PencilGlyph} />}
+                icon={<Icon icon={EditIcon} />}
                 onClick={() => {
                   setEditing(true);
                 }}
               />
-            ) : null}
-          </div>
-          <div className="solve-meta">
-            <StatePill state={question.state} />
-            <Person author={question.author} />
-            <DateText iso={question.created_at} />
-            <span className="solve-inline">
-              <Icon icon={ChatGlyph} size="sm" />
-              {answerCount(question.answer_count)}
-            </span>
-            <LangMark lang={question.lang} />
-          </div>
-        </header>
+            ) : undefined
+          }
+          meta={
+            <>
+              <QuestionState state={question.state} />
+              <Person author={question.author} />
+              <DateText iso={question.created_at} />
+              <MetaItem icon={MessageIcon}>{answerCount(question.answer_count)}</MetaItem>
+              <LangCode lang={question.lang} />
+            </>
+          }
+        />
       )}
-      <div className="solve-detail">
-        <div className="solve-detail-main">
+      <div className="ui-columns">
+        <div className="ui-columns-main">
           {editing ? null : (
             <QuestionPost question={question} interactive={interactive && !isAuthor} />
           )}
@@ -417,15 +412,12 @@ export function QuestionPage() {
             canAccept={interactive && isAuthor}
           />
           {user ? (
-            <section className="solve-surface" aria-labelledby="solve-answer-h">
-              <Heading level={2} id="solve-answer-h">
-                {t('solve.answer.yours')}
-              </Heading>
+            <Section title={t('solve.answer.yours')} titleId="solve-answer-h" isPanel>
               <AnswerForm questionId={question.id} />
-            </section>
+            </Section>
           ) : session.isPending ? null : (
             <div className="solve-compose-cta">
-              <ChatGlyph width={20} height={20} />
+              <MessageIcon width={20} height={20} />
               <p>{t('solve.answer.signInNote')}</p>
               <Button
                 variant="primary"
