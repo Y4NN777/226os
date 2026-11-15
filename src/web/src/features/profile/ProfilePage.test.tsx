@@ -433,3 +433,59 @@ describe('ProfilePage completion checklist', () => {
     await expectAlert('Confirmez d’abord votre adresse e-mail.');
   });
 });
+
+describe('ProfilePage photo from GitHub', () => {
+  it('shows the GitHub avatar in the hero when the username is public', async () => {
+    setLanguages(['fr-FR']);
+    mockApi({ 'GET /profiles/awa': () => jsonResponse(publicProfile()) });
+    await renderApp('/profils/awa');
+    await screen.findByRole('heading', { level: 1, name: 'Awa Traoré' });
+    const hero = screen.getByRole('region', { name: 'Awa Traoré' });
+    const img = hero.querySelector('img');
+    expect(img).toHaveAttribute('src', 'https://avatars.githubusercontent.com/awa-dev?s=144');
+    expect(img).toHaveAttribute('alt', '');
+  });
+
+  it('keeps the initials when the server hid the GitHub username', async () => {
+    setLanguages(['fr-FR']);
+    const hidden: Partial<PublicProfile> = publicProfile();
+    delete hidden.github;
+    mockApi({ 'GET /profiles/awa': () => jsonResponse(hidden) });
+    await renderApp('/profils/awa');
+    await screen.findByRole('heading', { level: 1, name: 'Awa Traoré' });
+    const hero = screen.getByRole('region', { name: 'Awa Traoré' });
+    expect(hero.querySelector('img')).toBeNull();
+    expect(hero.querySelector('.astryx-avatar')).not.toBeNull();
+  });
+});
+
+describe('Profile checklist GitHub photo hint', () => {
+  const routes = (): Record<string, () => Response> => ({
+    'GET /profiles/awa': () => jsonResponse(publicProfile()),
+    'GET /me': () => jsonResponse({ account: memberAccount, profile: myProfile(['github']) }),
+  });
+
+  it('tells the member in French that the photo comes from GitHub', async () => {
+    setLanguages(['fr-FR']);
+    member(routes());
+    await renderApp('/profils/awa');
+    const card = await screen.findByRole('region', { name: 'Complétez votre profil' });
+    expect(
+      within(card).getByText(
+        'Votre photo de profil vient de votre compte GitHub (si ce champ est public).',
+      ),
+    ).toBeVisible();
+  });
+
+  it('tells the member in English that the photo comes from GitHub', async () => {
+    setLanguages(['en-US']);
+    member(routes());
+    await renderApp('/profils/awa');
+    const card = await screen.findByRole('region', { name: 'Complete your profile' });
+    expect(
+      within(card).getByText(
+        'Your profile photo comes from your GitHub account (if this field is public).',
+      ),
+    ).toBeVisible();
+  });
+});

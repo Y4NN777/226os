@@ -11,6 +11,19 @@ export const fr = {
   'landing.search.label': 'Rechercher dans le catalogue',
   'landing.search.placeholder': 'Ex. Mobile Money, USSD',
   'landing.search.submit': 'Rechercher',
+  'landing.shots.title': 'Un aperçu de 226os',
+  'landing.shots.article.caption': 'Apprendre\u00a0: un tutoriel avec son sommaire.',
+  'landing.shots.article.alt':
+    'Capture d’un tutoriel de 226os\u00a0: titre, auteur, sommaire à droite et début du texte.',
+  'landing.shots.question.caption': 'Résoudre\u00a0: une question posée avec son contexte.',
+  'landing.shots.question.alt':
+    'Capture d’une question de 226os\u00a0: titre, auteur, énoncé détaillé et étiquettes.',
+  'landing.shots.search.caption': 'Rechercher\u00a0: une seule recherche pour tout le site.',
+  'landing.shots.search.alt':
+    'Capture de la page de résultats de recherche de 226os, avec la question trouvée.',
+  'landing.shots.mobile.caption': 'Sur mobile\u00a0: la même page, navigation en bas.',
+  'landing.shots.mobile.alt':
+    'Capture sur téléphone d’une question de 226os, avec la barre de navigation en bas de l’écran.',
   'landing.pillars.title': 'Les cinq piliers',
   'landing.pillar.learn.title': 'Apprendre',
   'landing.pillar.learn.text': 'Tutoriels et formations sur les problèmes d’ici.',
@@ -46,6 +59,19 @@ export const en: Record<keyof typeof fr, string> = {
   'landing.search.label': 'Search the catalogue',
   'landing.search.placeholder': 'e.g. Mobile Money, USSD',
   'landing.search.submit': 'Search',
+  'landing.shots.title': 'A look inside 226os',
+  'landing.shots.article.caption': 'Learn: a tutorial with its table of contents.',
+  'landing.shots.article.alt':
+    'Screenshot of a 226os tutorial: title, author, table of contents on the right and the start of the text.',
+  'landing.shots.question.caption': 'Solve: a question asked with its context.',
+  'landing.shots.question.alt':
+    'Screenshot of a 226os question: title, author, detailed statement and tags.',
+  'landing.shots.search.caption': 'Search: one search for the whole site.',
+  'landing.shots.search.alt':
+    'Screenshot of the 226os search results page, showing the question that was found.',
+  'landing.shots.mobile.caption': 'On mobile: the same page, navigation at the bottom.',
+  'landing.shots.mobile.alt':
+    'Screenshot on a phone of a 226os question, with the navigation bar at the bottom of the screen.',
   'landing.pillars.title': 'The five pillars',
   'landing.pillar.learn.title': 'Learn',
   'landing.pillar.learn.text': 'Tutorials and courses on local problems.',
