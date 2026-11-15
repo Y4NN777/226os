@@ -16,8 +16,10 @@ name: Deploy
 # Safety: no pull_request trigger and no pull_request_target, so no fork code ever runs here. The code deployed is
 # develop or main, already merged. Secrets exist only in the `deploy` job (environment secrets); the job that holds
 # `packages: write` has no secret; the server's registry login lives in a temporary directory deleted after the pull; nothing untrusted is interpolated in a `run:` (values go through `env`). The SSH
-# host key is pinned (DEPLOY_KNOWN_HOSTS, StrictHostKeyChecking=yes). The age key lives in the environment secret
-# SOPS_AGE_KEY and is read from the environment by sops (never written to disk, never printed).
+# host key is pinned (DEPLOY_KNOWN_HOSTS from deploy/<env>.conf, StrictHostKeyChecking=yes). The owner sets exactly
+# two secrets per environment, DEPLOY_SSH_KEY and SOPS_AGE_KEY; the host, user, public host and host key line are in
+# deploy/staging.conf and deploy/production.conf (changed by pull request), the E2E account in the sops file. The age
+# key is read from the environment by sops (never written to disk, never printed).
 # Fail closed: a missing setting, an unexpected event, a missing digest or a failed step stops the run.
 on:
   workflow_run:
@@ -172,59 +174,65 @@ jobs:
           } >>"$GITHUB_STEP_SUMMARY"
           docker logout ghcr.io
 
-  # The only job with the deploy secrets (environment `staging` or `production`; production waits for the owner's
-  # approval). Decrypts the profile's env file with sops, copies it and the release over SSH, runs
+  # The only job with the environment (`staging`: required reviewers, the owner or Rayan; `production`: the owner's
+  # approval): ONE approval per deploy, E2E included (staging only, last steps of this job). Decrypts the profile's env file with sops, copies it and the release over SSH, runs
   # scripts/deploy-remote.sh on the server.
   deploy:
     name: deploy ${{ needs.plan.outputs.target }}
     needs: [plan, resolve]
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    # The deploy (45 min before) plus the E2E suite with its browser install (30 min before): one budget for both.
+    timeout-minutes: 75
     environment: ${{ needs.plan.outputs.target }}
     permissions:
       contents: read
       packages: read
     outputs:
       base_url: ${{ steps.config.outputs.base_url }}
+      # true only when the E2E suite really ran and passed in this job (NOT RUN otherwise).
+      e2e_ran: ${{ steps.detect.outputs.present }}
     env:
       # Derived from the target here, not taken from a script output.
       PROFILE: ${{ needs.plan.outputs.target == 'production' && 'production-live' || 'staging-test' }}
-      DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
-      DEPLOY_USER: ${{ vars.DEPLOY_USER }}
-      PUBLIC_HOST: ${{ vars.PUBLIC_HOST }}
       SHA: ${{ needs.plan.outputs.sha }}
       TREE: ${{ needs.plan.outputs.tree }}
       API_IMAGE: ${{ needs.resolve.outputs.api_image }}
       WEB_IMAGE: ${{ needs.resolve.outputs.web_image }}
       MIGRATE_IMAGE: ${{ needs.resolve.outputs.migrate_image }}
     steps:
-      - name: Check the environment settings (names only, never values)
-        id: config
-        # The secrets are given to the steps that need them, not to the whole job.
-        env:
-          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
-          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
-          SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY }}
-        run: |
-          set -euo pipefail
-          missing=""
-          for v in DEPLOY_HOST DEPLOY_USER PUBLIC_HOST DEPLOY_SSH_KEY DEPLOY_KNOWN_HOSTS SOPS_AGE_KEY; do
-            [ -n "${!v-}" ] || missing="$missing $v"
-          done
-          if [ -n "$missing" ]; then
-            echo "::error title=Environment not configured::Missing in the GitHub environment:${missing}. See docs/runbooks/deploy-setup.md."
-            exit 1
-          fi
-          [[ "$DEPLOY_HOST" =~ ^[A-Za-z0-9.:-]+$ ]] || { echo "::error::DEPLOY_HOST is not a host name or an IP address"; exit 1; }
-          [[ "$DEPLOY_USER" =~ ^[a-z_][a-z0-9_-]*$ ]] || { echo "::error::DEPLOY_USER is not a user name"; exit 1; }
-          [[ "$PUBLIC_HOST" =~ ^([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+[a-z]+$ ]] || { echo "::error::PUBLIC_HOST must be a lower-case DNS name"; exit 1; }
-          echo "base_url=https://${PUBLIC_HOST}" >>"$GITHUB_OUTPUT"
-
+      # Develop tip (staging) or main commit (production): merged code, never a pull request.
       - name: Check out the commit to deploy
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.plan.outputs.sha }}
           persist-credentials: false
+
+      # The non-secret settings (DEPLOY_HOST, DEPLOY_USER, PUBLIC_HOST, DEPLOY_KNOWN_HOSTS) come from
+      # deploy/<target>.conf of that commit, validated by scripts/deploy-conf.sh (a placeholder or any malformed value
+      # stops the job: "fill deploy/<target>.conf"). The only environment secrets are DEPLOY_SSH_KEY and SOPS_AGE_KEY.
+      - name: Read and check the deploy settings (names only, never secret values)
+        id: config
+        env:
+          TARGET: ${{ needs.plan.outputs.target }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY }}
+        run: |
+          set -euo pipefail
+          missing=""
+          for v in DEPLOY_SSH_KEY SOPS_AGE_KEY; do
+            [ -n "${!v-}" ] || missing="$missing $v"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error title=Environment not configured::Missing secret in the GitHub environment:${missing}. See docs/runbooks/deploy-setup.md."
+            exit 1
+          fi
+          if ! scripts/deploy-conf.sh "$TARGET" >"$RUNNER_TEMP/deploy.conf.out" 2>"$RUNNER_TEMP/deploy.conf.err"; then
+            echo "::error title=deploy/${TARGET}.conf is not usable::$(tr '\n' ' ' <"$RUNNER_TEMP/deploy.conf.err")"
+            exit 1
+          fi
+          # Every line is KEY=value of a validated, single-line value: safe for the job environment.
+          cat "$RUNNER_TEMP/deploy.conf.out" >>"$GITHUB_ENV"
+          echo "base_url=https://$(sed -n 's/^PUBLIC_HOST=//p' "$RUNNER_TEMP/deploy.conf.out")" >>"$GITHUB_OUTPUT"
 
       - name: Install sops (pinned release, checksum verified)
         run: |
@@ -238,7 +246,6 @@ jobs:
       - name: Prepare SSH (pinned host key, dedicated key)
         env:
           DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
-          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
         run: |
           set -euo pipefail
           umask 077
@@ -311,34 +318,22 @@ jobs:
             echo "- migrate: \`${MIGRATE_IMAGE}\`"
           } >>"$GITHUB_STEP_SUMMARY"
 
-      - name: Clean up (plaintext env and SSH key on the runner)
+      # The deploy is done: the SSH key, the deploy-ssh wrapper and the decrypted profile env leave the runner NOW,
+      # before any npm code runs (dependency install scripts, Playwright, the E2E specs). A compromised package must find
+      # nothing that opens the server or reads its env. The final always() clean-up stays as a backstop on failure.
+      - name: Wipe the deploy secrets before any npm code
         if: always()
-        run: rm -rf -- "${DEPLOY_TMP:-/nonexistent}" "$RUNNER_TEMP/ssh"
+        run: rm -rf -- "${DEPLOY_TMP:-/nonexistent}" "$RUNNER_TEMP/ssh" "$RUNNER_TEMP/bin/deploy-ssh"
 
-  # Staging only. The Playwright suite (src/web/e2e, script `test:e2e`, reads E2E_BASE_URL) against the staging URL,
-  # signed in with a real staging account (environment secrets E2E_USER and E2E_PASSWORD; the environment has no
-  # approval rule). Production runs no E2E. While the script does not exist on the SHA the suite is NOT RUN and says
-  # so; once it exists, missing secrets FAIL the job (the signed-in group is never skipped).
-  e2e:
-    name: e2e on staging
-    needs: [plan, deploy]
-    if: needs.plan.outputs.target == 'staging'
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    environment: staging
-    permissions:
-      contents: read
-    outputs:
-      ran: ${{ steps.detect.outputs.present }}
-    steps:
-      - name: Check out the deployed SHA
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ needs.plan.outputs.sha }}
-          persist-credentials: false
-
+      # Staging only. The Playwright suite (src/web/e2e, script `test:e2e`, reads E2E_BASE_URL) against the staging URL,
+      # run in THIS job after the deploy, smoke and seeds: one approval per deploy (the `staging` environment has
+      # required reviewers, the owner or Rayan), and the E2E account (E2E_USER and E2E_PASSWORD in
+      # secrets/staging-test.enc.env) never leaves this job. Production runs no E2E. While the script does not exist
+      # on the SHA the suite is NOT RUN and says so; once it exists, a missing account FAILS the job (the signed-in
+      # group is never skipped).
       - name: Is there an E2E script on this SHA?
         id: detect
+        if: needs.plan.outputs.target == 'staging'
         run: |
           set -euo pipefail
           if jq -e '.scripts["test:e2e"]' src/web/package.json >/dev/null; then
@@ -347,22 +342,6 @@ jobs:
             echo "present=false" >>"$GITHUB_OUTPUT"
             echo "::notice title=E2E NOT RUN::src/web/package.json has no test:e2e script on this SHA, so the E2E suite was NOT RUN (not a pass)."
             echo "E2E: NOT RUN (no test:e2e script on this SHA)" >>"$GITHUB_STEP_SUMMARY"
-          fi
-
-      - name: The E2E account must be configured
-        if: steps.detect.outputs.present == 'true'
-        env:
-          E2E_USER: ${{ secrets.E2E_USER }}
-          E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
-        run: |
-          set -euo pipefail
-          missing=""
-          for v in E2E_USER E2E_PASSWORD; do
-            [ -n "${!v-}" ] || missing="$missing $v"
-          done
-          if [ -n "$missing" ]; then
-            echo "::error title=E2E secrets missing::Missing in the staging environment:${missing}. Create a real account on staging, verify its e-mail, then set E2E_USER and E2E_PASSWORD (docs/runbooks/deploy-setup.md). The signed-in tests are never skipped."
-            exit 1
           fi
 
       - name: Set up pnpm (version from the packageManager field)
@@ -387,14 +366,27 @@ jobs:
         if: steps.detect.outputs.present == 'true'
         run: pnpm --filter web exec playwright install --with-deps chromium
 
-      - name: Run the E2E suite against staging
+      # The account is decrypted (RAM only), masked (workflow-command escaped) and exported in this step only: it is
+      # not written to GITHUB_ENV, and the test process does not get SOPS_AGE_KEY.
+      - name: Run the E2E suite against staging (account read from the sops file, in this step only)
         if: steps.detect.outputs.present == 'true'
         env:
           CI: "true"
-          E2E_BASE_URL: ${{ needs.deploy.outputs.base_url }}
-          E2E_USER: ${{ secrets.E2E_USER }}
-          E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
-        run: pnpm --filter web run test:e2e
+          E2E_BASE_URL: ${{ steps.config.outputs.base_url }}
+          SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY }}
+        run: |
+          set -euo pipefail
+          umask 077
+          tmp="$(mktemp -d /dev/shm/e2e.XXXXXX)"
+          trap 'rm -rf "$tmp"' EXIT
+          SECRETS_OUT_DIR="$tmp" scripts/secrets.sh decrypt staging-test >/dev/null
+          scripts/e2e-env.sh <"$tmp/.env.staging-test" >"$tmp/e2e.env"
+          rm -f "$tmp/.env.staging-test"
+          scripts/e2e-env.sh --masks <"$tmp/e2e.env"
+          E2E_USER="$(sed -n 's/^E2E_USER=//p' "$tmp/e2e.env")"
+          E2E_PASSWORD="$(sed -n 's/^E2E_PASSWORD=//p' "$tmp/e2e.env")"
+          export E2E_USER E2E_PASSWORD
+          env -u SOPS_AGE_KEY pnpm --filter web run test:e2e
 
       # Only the junit XML (test names, durations, failure messages). In CI the Playwright config turns traces,
       # videos, screenshots and the HTML report off: a trace would hold the E2E password, the sign-in body and the
@@ -408,13 +400,17 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
+      - name: Clean up (plaintext env and SSH key on the runner)
+        if: always()
+        run: rm -rf -- "${DEPLOY_TMP:-/nonexistent}" "$RUNNER_TEMP/ssh" "$RUNNER_TEMP/bin/deploy-ssh"
+
   # Staging only. Marks the digests as tested for this tree: the only thing production will accept. Needs the deploy
-  # (smoke included) AND the E2E job to have succeeded. Holds packages: write and NO secret.
+  # (smoke and E2E included, both in the deploy job) to have succeeded. Holds packages: write and NO secret.
   promote:
     name: mark the digests as tested
-    needs: [plan, deploy, e2e]
+    needs: [plan, deploy]
     # Only an E2E suite that really RAN can mark digests as tested (a missing test:e2e script means NOT RUN).
-    if: needs.plan.outputs.target == 'staging' && needs.e2e.outputs.ran == 'true'
+    if: needs.plan.outputs.target == 'staging' && needs.deploy.outputs.e2e_ran == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:

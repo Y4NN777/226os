@@ -40,9 +40,15 @@ if [ "$rc" -eq 0 ] && grep -qx "API_IMAGE=$API_IMAGE" <<<"$out" && grep -qx "WEB
 else ko "staging env (rc=$rc err=$err)"; fi
 [ "$(grep -c '_IMAGE=' <<<"$out")" -eq 3 ] && ! grep -q ':dev' <<<"$out" && ok "the placeholder image lines are replaced, not duplicated" || ko "duplicates"
 
+# The E2E account lives in the same sops file (the CI reads it there) but is never sent to the server.
+mkenv staging-test staging.example.test
+printf 'E2E_USER=ci@example.test\nE2E_PASSWORD=e2e-not-a-real-secret\n' >>"$tmp/in.env"
+run staging-test staging.example.test
+[ "$rc" -eq 0 ] && ! grep -q '^E2E_' <<<"$out" && grep -qx 'ACME_EMAIL=ops@example.test' <<<"$out" && ok "E2E_USER and E2E_PASSWORD are not sent to the server" || ko "e2e keys (rc=$rc err=$err)"
+
 mkenv production-live staging.example.test
 run production-live prod.example.test
-[ "$rc" -ne 0 ] && grep -q 'PUBLIC_HOST' <<<"$err" && ! grep -q 'example.test' <<<"$err" && ok "a PUBLIC_HOST that differs from the environment variable is refused, values not printed" || ko "host mismatch (rc=$rc err=$err)"
+[ "$rc" -ne 0 ] && grep -q 'PUBLIC_HOST' <<<"$err" && ! grep -q 'example.test' <<<"$err" && ok "a PUBLIC_HOST that differs from deploy/<target>.conf is refused, values not printed" || ko "host mismatch (rc=$rc err=$err)"
 
 mkenv production-live prod.example.test
 run staging-test prod.example.test

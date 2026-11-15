@@ -4,21 +4,26 @@
 
 ## Qui fait quoi
 
-Rayan (`PANK4SS`) détient le serveur de **staging**. Le propriétaire (`Y4NN777`) détient le serveur de production, le dépôt GitHub, les clés et la zone DNS `226os.tech`.
+Rayan (`PANK4SS`) détient le serveur de **staging**. Le propriétaire (`Y4NN777`) détient le serveur de production, le dépôt GitHub, les clés et la zone DNS `226os.tech`. Le dépôt est personnel : seul le propriétaire peut poser des secrets ou des variables d'environnement GitHub. Il n'en pose donc que **deux par environnement**, une fois : `DEPLOY_SSH_KEY` et `SOPS_AGE_KEY`. Tout le reste est dans le dépôt, et Rayan le modifie par PR avec son droit d'écriture :
+
+- `deploy/staging.conf` et `deploy/production.conf` : `DEPLOY_HOST`, `DEPLOY_USER`, `PUBLIC_HOST` et `DEPLOY_KNOWN_HOSTS` (la ligne de clé d'hôte du serveur, publique). Le workflow lit le fichier dans le commit déployé (`develop` pour staging, `main` pour production), jamais dans une PR, et refuse toute valeur mal formée ou encore à `FILL-ME`.
+- `secrets/staging-test.enc.env` : `E2E_USER` et `E2E_PASSWORD` (compte de test), chiffrés avec sops.
 
 | Étape | Qui | Remis à l'autre |
 |---|---|---|
 | 1. Clés age de la CI, valeurs réelles des fichiers chiffrés | propriétaire | — |
 | 2. Clé SSH de déploiement (une par serveur) | propriétaire | la clé **publique** de staging à Rayan |
 | 3. DNS (enregistrements `A` de staging et de production) | propriétaire | Rayan donne l'IP du serveur de staging |
-| 4. Amorçage du serveur de staging | Rayan | au propriétaire : l'IP ou le nom du serveur et la ligne `DEPLOY_KNOWN_HOSTS` affichée à la fin |
+| 4. Amorçage du serveur de staging | Rayan | rien à transmettre : il met l'IP et la ligne de clé d'hôte affichée à la fin dans `deploy/staging.conf` (étape 5) |
 | 4. Amorçage du serveur de production | propriétaire | — |
-| 5. Environnements GitHub | propriétaire (administrateur du dépôt) | — |
-| 6. Premier déploiement de staging | propriétaire ; Rayan suit le serveur (`docker compose ps`, `docker compose logs`) | — |
-| 7. Compte des tests E2E | propriétaire | — |
-| 8. Copie des sauvegardes hors du serveur | chacun pour le serveur qu'il détient | — |
+| 5. `deploy/staging.conf` (hôte, ligne de clé d'hôte) | Rayan, par PR après l'amorçage | — |
+| 5. `deploy/production.conf` | propriétaire, par PR | — |
+| 6. Les 2 secrets de chaque environnement GitHub | propriétaire (administrateur du dépôt) | — |
+| 7. Premier déploiement de staging | propriétaire ; Rayan suit le serveur (`docker compose ps`, `docker compose logs`) | — |
+| 8. Compte des tests E2E dans le fichier sops | Rayan, une fois sa clé age publique ajoutée comme destinataire de `staging-test` par le propriétaire | sa clé **publique** au propriétaire |
+| 9. Copie des sauvegardes hors du serveur | chacun pour le serveur qu'il détient | — |
 
-Aucune clé privée ne circule : Rayan ne reçoit que la clé publique de déploiement de staging, le propriétaire ne reçoit que des informations publiques (IP, empreinte d'hôte).
+Aucune clé privée ne circule : Rayan ne reçoit que la clé publique de déploiement de staging, le propriétaire ne reçoit que des informations publiques (clé age publique de Rayan). L'IP et la clé d'hôte passent par la PR.
 
 ## 1. Clés age de la CI (une par environnement)
 
@@ -44,24 +49,31 @@ bash server-bootstrap.sh --ssh-fingerprint "SHA256:..." "ssh-ed25519 AAAA... ci-
 
 `--ssh-fingerprint` est l'empreinte (`ssh-keygen -lf` de votre clé publique) de la clé avec laquelle **vous** vous connectez en root : sans elle, ou si elle n'est pas dans `/root/.ssh/authorized_keys`, le mot de passe SSH reste activé (pas de verrouillage possible). Le script lit le port de sshd, le limite dans `ufw`, enregistre la clé CI en `restrict`, vérifie l'empreinte de la clé APT de Docker, installe `age` et contrôle avec `sshd -T` que le mot de passe est bien désactivé.
 
-L'option `--dry-run` montre les étapes sans rien changer. Le script installe Docker et le plugin compose, crée l'utilisateur `deploy` (groupe `docker`, clé CI seule), règle `ufw` (port SSH, 80, 443), active les mises à jour de sécurité, prépare `/opt/226os` et désactive le mot de passe SSH (gardez votre session ouverte et testez une connexion par clé dans un autre terminal). Un serveur est lié au profil de son premier déploiement : staging ne peut pas être déployé sur le serveur de production, ni l'inverse. À la fin il affiche la ligne à mettre dans `DEPLOY_KNOWN_HOSTS`.
+L'option `--dry-run` montre les étapes sans rien changer. Le script installe Docker et le plugin compose, crée l'utilisateur `deploy` (groupe `docker`, clé CI seule), règle `ufw` (port SSH, 80, 443), active les mises à jour de sécurité, prépare `/opt/226os` et désactive le mot de passe SSH (gardez votre session ouverte et testez une connexion par clé dans un autre terminal). Un serveur est lié au profil de son premier déploiement : staging ne peut pas être déployé sur le serveur de production, ni l'inverse. À la fin il affiche la ligne à mettre dans `DEPLOY_KNOWN_HOSTS` de `deploy/<env>.conf` (section 5).
 
-## 5. Environnements GitHub
+## 5. Réglages de déploiement et environnements GitHub
 
-Réglages du dépôt, Environments, créer `staging` et `production`.
+**Dans le dépôt** (PR, relue comme le reste) : `deploy/staging.conf` et `deploy/production.conf`, au format `CLE=valeur`, rien d'évalué, ni guillemets ni espaces autour du `=`.
+
+| Clé | Valeur |
+|---|---|
+| `DEPLOY_HOST` | IP ou nom du serveur, écrit exactement comme dans `DEPLOY_KNOWN_HOSTS` |
+| `DEPLOY_USER` | `deploy` |
+| `PUBLIC_HOST` | hôte public (staging : `staging.226os.tech`, production : `226os.tech`), identique à celui du fichier chiffré |
+| `DEPLOY_KNOWN_HOSTS` | `<DEPLOY_HOST> ssh-ed25519 AAAA...`, la ligne publique affichée par l'amorçage |
+
+Les fichiers livrés contiennent `FILL-ME` pour l'hôte et la clé d'hôte : le job `deploy` échoue avec « fill deploy/staging.conf » (ou `production.conf`) tant qu'il en reste. `scripts/deploy-conf.sh` refuse aussi toute valeur mal formée, une clé inconnue ou en double.
+
+**Dans GitHub** (le propriétaire seul), Réglages, Environments, créer `staging` et `production`, avec **deux secrets chacun** et rien d'autre (ni variable, ni autre secret) :
 
 | | `staging` | `production` |
 |---|---|---|
 | Branche autorisée | `develop` | `main` |
-| Relecteur requis | aucun | `Y4NN777` |
+| Relecteurs requis (une seule approbation par déploiement) | `Y4NN777` ou `PANK4SS` (Rayan) | `Y4NN777` |
 | Secret `DEPLOY_SSH_KEY` | clé privée du serveur de staging | clé privée du serveur de production |
-| Secret `DEPLOY_KNOWN_HOSTS` | `<DEPLOY_HOST> ssh-ed25519 AAAA...` affichée par l'amorçage | idem |
 | Secret `SOPS_AGE_KEY` | contenu de `ci-staging.key` | contenu de `ci-production.key` |
-| Variable `DEPLOY_HOST` | IP ou nom du serveur | idem |
-| Variable `DEPLOY_USER` | `deploy` | `deploy` |
-| Variable `PUBLIC_HOST` | hôte public de staging (identique à celui du fichier chiffré) | `226os.tech` (idem) |
 
-`DEPLOY_HOST` doit être écrit exactement comme dans `DEPLOY_KNOWN_HOSTS`. Supprimez ensuite les fichiers `*.key` locaux (gardez une copie hors ligne des clés age).
+Supprimez ensuite les fichiers `*.key` locaux (gardez une copie hors ligne des clés age).
 
 ## 6. Premier déploiement
 
@@ -71,9 +83,12 @@ Réglages du dépôt, Environments, créer `staging` et `production`.
 
 ## 7. Compte des tests E2E (après le premier déploiement de staging)
 
+Le compte n'est plus un secret GitHub : il est dans `secrets/staging-test.enc.env` (`E2E_USER`, `E2E_PASSWORD`). Les tests E2E tournent à la fin du job `deploy` de staging (donc une seule approbation par déploiement, par le propriétaire ou Rayan). Ce job déchiffre le fichier avec `SOPS_AGE_KEY`, dans `/dev/shm`, ne garde que ces deux clés, les masque et ne les donne qu'au processus des tests : elles ne sont ni écrites dans l'environnement du job, ni transmises à un autre job.
+
 1. Sur le site de staging, créez un vrai compte et vérifiez son e-mail.
-2. Dans l'environnement `staging`, créez les secrets `E2E_USER` et `E2E_PASSWORD`.
-3. Sans eux, le job `e2e` échoue avec un message clair ; le groupe connecté n'est jamais ignoré. Chaque exécution publie une question et une réponse avec ce compte. Le dépôt est public : en CI, Playwright n'écrit ni trace, ni vidéo, ni capture, ni rapport HTML (ils contiendraient le mot de passe et le cookie), et seul le XML junit est publié. Les étiquettes `tested-<arbre>` ne sont posées que si ce job a réellement tourné.
+2. Le propriétaire ajoute la clé age publique de Rayan à `secrets/staging-test.recipients` et lance `scripts/secrets.sh rotate staging-test` (PR). Pour éviter que Rayan attende, le propriétaire peut aussi saisir les deux clés lui-même.
+3. Rayan (ou le propriétaire) ajoute `E2E_USER` et `E2E_PASSWORD` avec `scripts/secrets.sh edit staging-test`, et ouvre la PR. **À faire avant le premier déploiement de staging qui exécute les E2E** : sans ces deux clés, le déploiement de staging échoue à la dernière étape. Ces deux clés ne sont jamais envoyées au serveur (`scripts/deploy-env.sh` les retire).
+4. Sans elles, le job `deploy` de staging échoue avec un message clair ; le groupe connecté n'est jamais ignoré. Chaque exécution publie une question et une réponse avec ce compte. Le dépôt est public : en CI, Playwright n'écrit ni trace, ni vidéo, ni capture, ni rapport HTML (ils contiendraient le mot de passe et le cookie), et seul le XML junit est publié. Les étiquettes `tested-<arbre>` ne sont posées que si ce job a réellement tourné.
 
 ## 8. Sauvegardes
 

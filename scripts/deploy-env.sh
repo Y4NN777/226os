@@ -5,8 +5,9 @@
 # Env:   API_IMAGE, WEB_IMAGE, MIGRATE_IMAGE: <registry>/<owner>/226os-<api|web|migrate>@sha256:<64 hex> (by digest only).
 # The existing *_IMAGE lines (the local-dev placeholders of .env.example) are replaced, not duplicated. The result must
 # pass scripts/compose-env-guard.sh (APP_ENV once and equal to the profile, no CHANGE_ME, a real PUBLIC_HOST and
-# ACME_EMAIL), and its PUBLIC_HOST must equal the PUBLIC_HOST variable of the GitHub environment (a wrong host for
-# the environment is refused before anything is sent). Errors name variables, never print values.
+# ACME_EMAIL), and its PUBLIC_HOST must equal the PUBLIC_HOST of deploy/<target>.conf (a wrong host for the
+# environment is refused before anything is sent). E2E_USER and E2E_PASSWORD (the CI's test account, kept in the same
+# sops file) are dropped: the server never receives them. Errors name variables, never print values.
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -34,10 +35,10 @@ tmp="$(mktemp "$base/deploy-env.XXXXXX")"
 trap 'rm -f "$tmp"' EXIT
 chmod 600 "$tmp"
 {
-  grep -vE '^(API_IMAGE|WEB_IMAGE|MIGRATE_IMAGE)=' || true
+  grep -vE '^(API_IMAGE|WEB_IMAGE|MIGRATE_IMAGE|E2E_USER|E2E_PASSWORD)=' || true
   printf 'API_IMAGE=%s\nWEB_IMAGE=%s\nMIGRATE_IMAGE=%s\n' "$API_IMAGE" "$WEB_IMAGE" "$MIGRATE_IMAGE"
 } >"$tmp"
 
 "$root/scripts/compose-env-guard.sh" "$profile" "$tmp" >/dev/null || refuse "the env file of $profile does not pass scripts/compose-env-guard.sh"
-grep -qxF "PUBLIC_HOST=$host" "$tmp" || refuse "PUBLIC_HOST in the env file differs from the PUBLIC_HOST variable of the environment"
+grep -qxF "PUBLIC_HOST=$host" "$tmp" || refuse "PUBLIC_HOST in the env file differs from PUBLIC_HOST in deploy/<target>.conf"
 cat "$tmp"
