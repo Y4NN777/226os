@@ -17,6 +17,7 @@ import { List, ListRow } from '../../components/List';
 import { LoadingState } from '../../components/LoadingState';
 import { Meta, MetaItem } from '../../components/Meta';
 import { PageHeader } from '../../components/PageHeader';
+import { Section } from '../../components/Section';
 import { StatusBadge } from '../../components/StatusBadge';
 import { TagList } from '../../components/Tag';
 import { useI18n } from '../../i18n/I18nProvider';
@@ -236,11 +237,8 @@ export function BuildPage() {
           setFilters(normalize(next));
         }}
       />
-      <section aria-labelledby="build-results-heading" className="ui-section">
-        {/* Prototype `h2.visually-hidden`, as on Découvrir: the outline stays h1 > h2 > h3. */}
-        <VisuallyHidden as="h2" id="build-results-heading">
-          {t('build.results.label')}
-        </VisuallyHidden>
+      {/* The prototype shows « Projets » above the list, as Connect shows « Membres ». */}
+      <Section title={t('build.results.label')} titleId="build-results-heading">
         {list.isPending ? <LoadingState rows={4} /> : null}
         {list.isError && !list.data ? (
           <ErrorState error={list.error} onRetry={() => void list.refetch()} />
@@ -282,7 +280,7 @@ export function BuildPage() {
             ) : null}
           </>
         ) : null}
-      </section>
+      </Section>
     </div>
   );
 }
