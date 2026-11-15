@@ -198,11 +198,11 @@ fi
 
 # --- end -------------------------------------------------------------------------------------------------------------------------
 printf '\nDone. Next, from your machine:\n'
-printf '  1. Host key for the DEPLOY_KNOWN_HOSTS secret (public, pin it so CI never trusts a first connection):\n'
+printf '  1. Host key line for DEPLOY_KNOWN_HOSTS in deploy/<staging|production>.conf (public, pin it so CI never trusts a first connection):\n'
 if [ "$dry" -eq 1 ]; then
   printf '       <DEPLOY_HOST> <the ssh-ed25519 line of /etc/ssh/ssh_host_ed25519_key.pub>\n'
 elif [ -r /etc/ssh/ssh_host_ed25519_key.pub ]; then
   printf '       <DEPLOY_HOST> %s\n' "$(cut -d' ' -f1,2 /etc/ssh/ssh_host_ed25519_key.pub)"
 fi
-printf '     (replace <DEPLOY_HOST> by the exact value of the DEPLOY_HOST variable)\n'
-printf '  2. Then follow docs/runbooks/deploy-setup.md (secrets, variables, DNS).\n'
+printf '     (replace <DEPLOY_HOST> by the exact value of DEPLOY_HOST in the same deploy/<env>.conf, then open a pull request)\n'
+printf '  2. Then follow docs/runbooks/deploy-setup.md (conf file, the two environment secrets, DNS).\n'
