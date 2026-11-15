@@ -11,7 +11,7 @@ describe('RouterAnchor (via LinkProvider)', () => {
     const { router } = await renderApp('/');
     await userEvent
       .setup({ delay: null })
-      .click(await screen.findByRole('link', { name: 'Se connecter' }));
+      .click((await screen.findAllByRole('link', { name: 'Se connecter' }))[0] as HTMLElement);
     expect(router.state.location.pathname).toBe('/connexion');
   });
 
@@ -19,7 +19,8 @@ describe('RouterAnchor (via LinkProvider)', () => {
     setLanguages(['fr-FR']);
     mockApi();
     const { router } = await renderApp('/');
-    const link = await screen.findByRole('link', { name: 'Se connecter' });
+    // The top bar link comes first; the landing page repeats the same link in its content.
+    const link = (await screen.findAllByRole('link', { name: 'Se connecter' }))[0] as HTMLElement;
     const user = userEvent.setup({ delay: null });
     await user.keyboard('{Control>}');
     await user.click(link);

@@ -623,12 +623,15 @@ describe('Tablet rail', () => {
 });
 
 describe('on the public landing page', () => {
-  it('keeps the top bar and the footer but has no sidebar for a visitor', async () => {
+  it('has its own header and footer, and neither the app top bar nor a sidebar, for a visitor', async () => {
     setLanguages(['fr-FR']);
     mockApi({ 'GET /resources': () => jsonResponse({ items: [], next_cursor: null }) });
     await renderApp('/');
     await screen.findByRole('heading', { level: 1 });
-    expect(topBar()).toBeInTheDocument();
+    expect(screen.queryByRole('navigation', { name: 'Barre du site' })).not.toBeInTheDocument();
+    expect(
+      within(screen.getByRole('banner')).getByRole('navigation', { name: 'Sections de la page' }),
+    ).toBeInTheDocument();
     expect(screen.getByRole('contentinfo')).toBeInTheDocument();
     expect(
       screen.queryByRole('navigation', { name: 'Navigation principale' }),
@@ -654,8 +657,9 @@ describe('on the public landing page', () => {
     await screen.findByRole('heading', { level: 1 });
     expect(screen.queryByRole('navigation', { name: 'Navigation rapide' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Plus' })).not.toBeInTheDocument();
-    // Nor a top-bar menu button that would open nothing.
-    expect(screen.queryByRole('button', { name: /navigation|menu/i })).not.toBeInTheDocument();
+    // The landing header's own menu button opens its section links, not the app drawer.
+    const menu = screen.getByRole('button', { name: 'Ouvrir le menu' });
+    expect(document.getElementById(menu.getAttribute('aria-controls') ?? '')).not.toBeNull();
   });
 
   it('keeps the full shell for a member at the same address', async () => {
