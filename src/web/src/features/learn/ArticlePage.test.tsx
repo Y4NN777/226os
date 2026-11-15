@@ -43,6 +43,58 @@ describe('ArticlePage', () => {
     expect(screen.getByRole('link', { name: '@fatou' })).toHaveAttribute('href', '/profils/fatou');
   });
 
+  it('heads the lesson with type, level and language pills, the country and the date', async () => {
+    setLanguages(['fr-FR']);
+    mockApi(
+      route(
+        article({
+          author: { ...article().author, country: 'SN' },
+          published_at: '2026-11-12T09:00:00Z',
+        }),
+      ),
+    );
+    await renderApp(`/apprendre/articles/${articleId}`);
+    const heading = await screen.findByRole('heading', { level: 1 });
+    const head = heading.closest('header') as HTMLElement;
+    expect(within(head).getByText('Article')).toBeInTheDocument();
+    expect(within(head).getByText('Intermédiaire')).toBeInTheDocument();
+    expect(within(head).getByText('Français')).toBeInTheDocument();
+    expect(within(head).getByText('Sénégal')).toBeInTheDocument();
+    expect(within(head).getByText('12 nov. 2026')).toHaveAttribute(
+      'datetime',
+      '2026-11-12T09:00:00Z',
+    );
+    expect(within(head).getByText('Calculer le HMAC et comparer en temps constant.')).toBeVisible();
+  });
+
+  it('shows code blocks with a copy button, the keywords and an outline', async () => {
+    setLanguages(['fr-FR']);
+    mockApi(
+      route(
+        article({
+          body_md:
+            '## Lire le corps brut\n\nLisez les octets.\n\n```go\nbody, err := io.ReadAll(r.Body)\n```\n\n## Comparer\n\nEn temps constant.',
+        }),
+      ),
+    );
+    await renderApp(`/apprendre/articles/${articleId}`);
+    await screen.findByRole('heading', { level: 1, name: 'Vérifier un webhook signé' });
+    // Highlighting splits the code into tokens: match the code element by its whole text.
+    expect(
+      screen.getAllByText(
+        (_, element) =>
+          element?.tagName === 'CODE' &&
+          element.textContent.includes('body, err := io.ReadAll(r.Body)'),
+      ).length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByRole('button', { name: 'Copier le code' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: 'Lire le corps brut' })).toBeVisible();
+    const tags = screen.getByRole('list', { name: 'Mots-clés' });
+    expect(within(tags).getByText('webhook')).toBeInTheDocument();
+    const outline = screen.getByRole('navigation', { name: 'Sur cette page' });
+    expect(within(outline).getByRole('link', { name: 'Comparer' })).toBeInTheDocument();
+  });
+
   it('marks English content as English inside a French interface', async () => {
     setLanguages(['fr-FR']);
     mockApi(route(article({ lang: 'en', title: 'Verifying a signed webhook' })));

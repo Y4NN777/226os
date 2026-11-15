@@ -61,7 +61,9 @@ export function AuthorLine({ author }: { author: Author }) {
   return (
     <HStack gap={2} wrap="wrap" vAlign="center">
       <Text type="supporting">{t('learn.by', { name: author.display_name })}</Text>
-      <Link href={`/profils/${author.username}`}>@{author.username}</Link>
+      <Link href={`/profils/${author.username}`} type="supporting">
+        @{author.username}
+      </Link>
     </HStack>
   );
 }
