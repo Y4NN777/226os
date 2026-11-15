@@ -22,6 +22,7 @@ The (archived) register of G0 decisions is [G0_DECISIONS.md](../archive/spec-kit
 | [0012](0012-ai-assistant-integration.md) | AI assistant integration (grounded answers, limits, fallback, golden set) | ACCEPTED | 2026-11-14 |
 | [0013](0013-default-branch-develop.md) | Default branch `develop`: pipeline trust anchor (stages 3 to 5 run from `develop`) | ACCEPTED | 2026-11-14 |
 | [0014](0014-ai-review-merges-develop.md) | The AI review pipeline merges into `develop`; the owner steps in on CRITICAL, sensitive and pipeline changes (amends the review rule of ADR-0008) | ACCEPTED | 2026-11-15 |
+| [0015](0015-autofix-by-proof.md) | Auto-fix by proof: a finding becomes a test, a fix is accepted on facts, a human merges it (amends ADR-0014 for auto-fix commits) | PROPOSED | 2026-11-15 |
 
 ## Accepted baseline
 
