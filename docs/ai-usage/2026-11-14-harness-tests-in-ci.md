@@ -9,8 +9,8 @@ repository_or_source_context: "branch chore/claude/ci-implementer-inventory; own
 files_or_sections_affected: [".claude/hooks/tests/test_domain_skills.py", "mk/20-gates.mk", "mk/40-quality.mk", "TODO.md"]
 third_party_sources_consulted: []
 license_review: "NOT APPLICABLE: original code, no new dependency"
-closure: "open"
-human_reviewers: ["Y4NN777 (pipeline owner, pending)"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-15; merged in #183)"]
 tests_or_evidence: ["RED: python3 -m unittest discover -s .claude/hooks/tests failed, ci-implementer missing from the expected set", "GREEN: same command exit 0 (28 tests)"]
 open_risks: ["the harness CI group is NOT RUN in CI until this pull request runs", "scripts/tests/make_test.sh was not touched: it pins the repo group steps, so the step lives in its own group"]
 ```

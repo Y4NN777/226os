@@ -9,8 +9,8 @@ repository_or_source_context: "branch fix/platform/violation-codes; review of PR
 files_or_sections_affected: ["src/api/internal/learn/service/service.go", "src/api/internal/learn/service/service_test.go", "src/api/internal/discover/service/reports.go", "src/api/internal/discover/service/reports_test.go", "src/api/internal/discover/service/service.go", "src/api/internal/platform/pgtest/learn_integration_test.go", "src/api/internal/platform/pgtest/errorreport_integration_test.go", "TODO.md", "docs/ai-usage/2026-11-13-violation-codes.md"]
 third_party_sources_consulted: []
 license_review: "NOT APPLICABLE: original code, no new dependency"
-closure: "open"
-human_reviewers: ["NICE-DEV226 (pending)"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-15; merged in #129)"]
 tests_or_evidence: ["RED: TestCreateViolationsUseContractCodesAndPointers and TestCreateErrorReportValidation failed on 'invalid' codes and bare field names", "GREEN: see the PR evidence table"]
 open_risks: ["identity's password and new_password violations still use 'invalid' (identity area, flagged for NICE-DEV226)"]
 ```

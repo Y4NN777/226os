@@ -9,8 +9,8 @@ repository_or_source_context: "branch fix/identity/signin-limit-race; issue #97;
 files_or_sections_affected: ["src/api/internal/identity/**", "db/queries/identity.sql", "src/api/internal/platform/dbgen/identity.sql.go (generated)", "src/api/internal/platform/dbgen/queries_test.go", "src/api/internal/app/server_identity_test.go", "src/api/internal/platform/pgtest/signin_limit_integration_test.go", "docs/quality/REVIEW_CONTEXT.md", "TODO.md"]
 third_party_sources_consulted: []
 license_review: "NOT APPLICABLE: original change, no new dependency"
-closure: "open"
-human_reviewers: ["pending PR review"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-15; merged in #139)"]
 tests_or_evidence: ["RED: TestIdentitySignInAccountLimitHoldsUnderConcurrency failed on the old code (20 password checks, want 5)", "GREEN: the same test (5 INVALID_CREDENTIALS, 15 RATE_LIMITED) and TestIdentitySignInSuccessGivesTheHitBack pass with -race"]
 open_risks: ["more than 5 simultaneous correct sign-ins to one account can briefly get 429", "a give-back skipped under a concurrent bucket change keeps the count strict, never lower"]
 ```
