@@ -1,6 +1,4 @@
-import { Card } from '@astryxdesign/core/Card';
 import { CheckboxInput } from '@astryxdesign/core/CheckboxInput';
-import { Heading } from '@astryxdesign/core/Heading';
 import { HStack } from '@astryxdesign/core/HStack';
 import { Icon } from '@astryxdesign/core/Icon';
 import { IconButton } from '@astryxdesign/core/IconButton';
@@ -13,6 +11,7 @@ import { VStack } from '@astryxdesign/core/VStack';
 import { useForm } from '@tanstack/react-form';
 import { useState } from 'react';
 import { ApiError } from '../../api/http';
+import { Section } from '../../components/Section';
 import { useI18n } from '../../i18n/I18nProvider';
 import { FailureNotice } from '../identity/notices';
 import { errorStatus } from '../identity/validation';
@@ -171,31 +170,29 @@ export function Checklist({ username }: { username: string }) {
   const percent = Math.round((done / checklistItems.length) * 100);
 
   return (
-    <section aria-label={t('profile.checklist.title')}>
-      <Card variant="muted">
-        <VStack gap={4}>
-          {/* The prototype's setup header: the title, and the meter with its done/total count. */}
-          <HStack gap={4} vAlign="center" justify="between" wrap="wrap">
-            <Heading level={2}>{t('profile.checklist.title')}</Heading>
-            <VStack width={200}>
-              <ProgressBar
-                label={t('profile.checklist.progress')}
-                isLabelHidden
-                value={percent}
-                hasValueLabel
-                formatValueLabel={() => `${String(done)}/${String(checklistItems.length)}`}
-              />
-            </VStack>
-          </HStack>
-          <VStack as="ul" gap={4}>
-            {missing.map((item) => (
-              <li key={item}>
-                <ItemForm item={item} username={username} />
-              </li>
-            ))}
-          </VStack>
+    // The prototype's setup header: the title, and the meter with its done/total count.
+    <Section
+      title={t('profile.checklist.title')}
+      isPanel
+      actions={
+        <VStack width={200}>
+          <ProgressBar
+            label={t('profile.checklist.progress')}
+            isLabelHidden
+            value={percent}
+            hasValueLabel
+            formatValueLabel={() => `${String(done)}/${String(checklistItems.length)}`}
+          />
         </VStack>
-      </Card>
-    </section>
+      }
+    >
+      <VStack as="ul" gap={4}>
+        {missing.map((item) => (
+          <li key={item}>
+            <ItemForm item={item} username={username} />
+          </li>
+        ))}
+      </VStack>
+    </Section>
   );
 }

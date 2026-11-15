@@ -4,8 +4,8 @@ import { useId, type ReactNode } from 'react';
 /**
  * A titled block of a page (prototype `.section`, `.card` with an `h2`), named by its heading so
  * it is a landmark region (or a complementary block with `as="aside"`). `isPanel` puts it on the
- * layered surface; panel titles are one step smaller, as in the prototype cards. One scale for
- * every page: ui.css owns the sizes, the page only picks plain or panel.
+ * layered surface. One scale for every page: ui.css owns the sizes (h2 20px, h3 16px, as the
+ * prototype's base.css), the page only picks plain or panel.
  */
 export function Section({
   title,
@@ -17,9 +17,12 @@ export function Section({
   as: Element = 'section',
   titleAside,
   actions,
+  lede,
 }: {
   title: string;
   children: ReactNode;
+  /** One muted sentence under the title. */
+  lede?: string;
   /** Anchor of the section (`#besoins`). */
   id?: string;
   /** Id of the heading, when another element points at it. */
@@ -46,6 +49,7 @@ export function Section({
         </div>
         {actions ? <div className="ui-section-actions">{actions}</div> : null}
       </div>
+      {lede ? <p className="ui-section-lede">{lede}</p> : null}
       {children}
     </Element>
   );

@@ -101,6 +101,16 @@ describe('Section', () => {
     expect(within(region).getByText('Une source')).toBeInTheDocument();
   });
 
+  it('puts its one-sentence lede under the title', () => {
+    renderWithProviders(
+      <Section title="Préférences" lede="Thème et langue de l’interface.">
+        <p>Contenu</p>
+      </Section>,
+    );
+    const region = screen.getByRole('region', { name: 'Préférences' });
+    expect(within(region).getByText('Thème et langue de l’interface.')).toBeInTheDocument();
+  });
+
   it('can be a complementary block with its own heading level and a note beside the title', () => {
     renderWithProviders(
       <Section as="aside" title="Contexte" headingLevel={3} titleAside={<Tag label="FR" />}>

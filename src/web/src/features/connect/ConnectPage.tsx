@@ -1,10 +1,6 @@
-import { Badge } from '@astryxdesign/core/Badge';
 import { Banner } from '@astryxdesign/core/Banner';
 import { Button } from '@astryxdesign/core/Button';
-import { Card } from '@astryxdesign/core/Card';
 import { Divider } from '@astryxdesign/core/Divider';
-import { EmptyState } from '@astryxdesign/core/EmptyState';
-import { Heading } from '@astryxdesign/core/Heading';
 import { HStack } from '@astryxdesign/core/HStack';
 import { Icon } from '@astryxdesign/core/Icon';
 import { IconButton } from '@astryxdesign/core/IconButton';
@@ -13,15 +9,20 @@ import { Text } from '@astryxdesign/core/Text';
 import { TextInput } from '@astryxdesign/core/TextInput';
 import { VStack } from '@astryxdesign/core/VStack';
 import { useNavigate, useSearch } from '@tanstack/react-router';
-import { useId, useState, type ComponentType, type SVGProps } from 'react';
+import { useState } from 'react';
 import { ApiError } from '../../api/http';
+import { countryName } from '../../components/CountryCode';
+import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
+import { CodeIcon, GlobeIcon, UsersIcon, type SvgIcon } from '../../components/icons';
+import { List } from '../../components/List';
 import { LoadingState } from '../../components/LoadingState';
+import { PageHeader } from '../../components/PageHeader';
+import { Section } from '../../components/Section';
+import { StatusBadge } from '../../components/StatusBadge';
 import { useI18n } from '../../i18n/I18nProvider';
 import type { Locale } from '../../i18n/messages';
-import { countryName } from '../discover/present';
 import { WEST_AFRICA } from '../discover/region';
-import { CodeIcon, GlobeIcon, UsersIcon } from '../profile/icons';
 import { PersonRow } from './PersonRow';
 import { useProfileDirectory } from './queries';
 import { languageTag, skillTag, validateConnectSearch, type ConnectSearch } from './routeSearch';
@@ -66,7 +67,7 @@ function Filters({
       }}
     >
       {/* The prototype's filter bar: one borderless panel holding the three filters. */}
-      <Card variant="muted" padding={3}>
+      <div className="ui-panel ui-filter-bar">
         <HStack gap={3} vAlign="end" wrap="wrap">
           <Selector
             label={t('connect.country.label')}
@@ -110,7 +111,7 @@ function Filters({
             />
           ) : null}
         </HStack>
-      </Card>
+      </div>
     </form>
   );
 }
@@ -139,7 +140,7 @@ function LoadFailure({ error, onRetry }: { error: unknown; onRetry: () => void }
 
 const spaces: readonly {
   key: 'country' | 'tech' | 'topic';
-  icon: ComponentType<SVGProps<SVGSVGElement>>;
+  icon: SvgIcon;
 }[] = [
   { key: 'country', icon: GlobeIcon },
   { key: 'tech', icon: CodeIcon },
@@ -152,46 +153,37 @@ const spaces: readonly {
  */
 function SpacesSoon() {
   const { t } = useI18n();
-  const headingId = useId();
   return (
-    <section aria-labelledby={headingId}>
-      <VStack gap={3}>
-        <VStack gap={1}>
-          <HStack gap={2} vAlign="center" wrap="wrap">
-            <Heading level={2} id={headingId}>
-              {t('connect.spaces.title')}
-            </Heading>
-            <Badge variant="neutral" label={t('connect.spaces.badge')} />
-          </HStack>
-          <Text as="p" type="supporting">
-            {t('connect.soon')}
-          </Text>
+    <Section
+      title={t('connect.spaces.title')}
+      titleAside={<StatusBadge kind="later" label={t('connect.spaces.badge')} />}
+    >
+      <Text as="p" type="supporting">
+        {t('connect.soon')}
+      </Text>
+      <div className="ui-panel">
+        <VStack as="ul" gap={0}>
+          {spaces.map((space, index) => (
+            <li key={space.key}>
+              <HStack gap={3} vAlign="start" wrap="nowrap" paddingBlock={2}>
+                <Icon icon={space.icon} color="secondary" />
+                <VStack gap={0.5}>
+                  <Text weight="semibold">{t(`connect.space.${space.key}`)}</Text>
+                  <Text type="supporting">{t(`connect.space.${space.key}.body`)}</Text>
+                </VStack>
+              </HStack>
+              {index < spaces.length - 1 ? <Divider variant="subtle" /> : null}
+            </li>
+          ))}
         </VStack>
-        <Card variant="muted" padding={3}>
-          <VStack as="ul" gap={0}>
-            {spaces.map((space, index) => (
-              <li key={space.key}>
-                <HStack gap={3} vAlign="start" wrap="nowrap" paddingBlock={2}>
-                  <Icon icon={space.icon} color="secondary" />
-                  <VStack gap={0.5}>
-                    <Text weight="semibold">{t(`connect.space.${space.key}`)}</Text>
-                    <Text type="supporting">{t(`connect.space.${space.key}.body`)}</Text>
-                  </VStack>
-                </HStack>
-                {index < spaces.length - 1 ? <Divider variant="subtle" /> : null}
-              </li>
-            ))}
-          </VStack>
-        </Card>
-      </VStack>
-    </section>
+      </div>
+    </Section>
   );
 }
 
 /** `connect`: the people directory (real members open to collaboration), filtered by the URL. */
 export function ConnectPage() {
   const { t } = useI18n();
-  const resultsId = useId();
   // Router merges the raw parent search over the validated one, so invalid values are dropped again here.
   const search = validateConnectSearch(useSearch({ from: '/app/connect' }));
   const list = useProfileDirectory(search);
@@ -201,74 +193,62 @@ export function ConnectPage() {
   const filtered = Object.keys(search).length > 0;
 
   return (
-    <VStack gap={8}>
-      <VStack gap={5}>
-        <VStack gap={1} hAlign="start">
-          <Heading level={1}>{t('connect.title')}</Heading>
-          <Text as="p" type="supporting">
-            {t('connect.lede')}
-          </Text>
-        </VStack>
-        <Filters
-          key={`${search.country ?? ''}|${search.language ?? ''}|${search.skill ?? ''}`}
-          search={search}
-          seenCountries={seenCountries}
-        />
-      </VStack>
-      <section aria-labelledby={resultsId}>
-        <VStack gap={2}>
-          <Heading level={2} id={resultsId}>
-            {t('connect.results.label')}
-          </Heading>
-          {list.isPending ? <LoadingState /> : null}
-          {list.isError && !list.data ? (
-            <LoadFailure error={list.error} onRetry={() => void list.refetch()} />
-          ) : null}
-          {list.data && items.length === 0 ? (
-            <EmptyState
-              headingLevel={3}
-              title={t(filtered ? 'connect.empty.filtered.title' : 'connect.empty.title')}
-              description={t(filtered ? 'connect.empty.filtered.body' : 'connect.empty.body')}
-              {...(filtered
-                ? {
-                    actions: (
-                      <Button
-                        label={t('connect.reset')}
-                        onClick={() => void navigate({ to: '/connect', search: {} })}
-                      />
-                    ),
-                  }
-                : {})}
-            />
-          ) : null}
-          {items.length > 0 ? (
-            <VStack gap={4}>
-              <VStack as="ul" gap={0}>
-                {items.map((person, index) => (
-                  <PersonRow
-                    key={person.username}
-                    person={person}
-                    isLast={index === items.length - 1}
-                  />
-                ))}
-              </VStack>
-              {list.isError ? (
-                <LoadFailure error={list.error} onRetry={() => void list.fetchNextPage()} />
-              ) : null}
-              {list.hasNextPage ? (
-                <HStack hAlign="center">
-                  <Button
-                    label={t('connect.more')}
-                    isLoading={list.isFetchingNextPage}
-                    onClick={() => void list.fetchNextPage()}
-                  />
-                </HStack>
-              ) : null}
-            </VStack>
-          ) : null}
-        </VStack>
-      </section>
+    <div className="ui-page">
+      <PageHeader
+        title={t('connect.title')}
+        breadcrumbs={[{ label: t('nav.home'), href: '/' }, { label: t('connect.title') }]}
+        lead={t('connect.lede')}
+      />
+      <Filters
+        key={`${search.country ?? ''}|${search.language ?? ''}|${search.skill ?? ''}`}
+        search={search}
+        seenCountries={seenCountries}
+      />
+      <Section title={t('connect.results.label')}>
+        {list.isPending ? <LoadingState rows={4} /> : null}
+        {list.isError && !list.data ? (
+          <LoadFailure error={list.error} onRetry={() => void list.refetch()} />
+        ) : null}
+        {list.data && items.length === 0 ? (
+          <EmptyState
+            headingLevel={3}
+            title={t(filtered ? 'connect.empty.filtered.title' : 'connect.empty.title')}
+            description={t(filtered ? 'connect.empty.filtered.body' : 'connect.empty.body')}
+            {...(filtered
+              ? {
+                  actions: (
+                    <Button
+                      label={t('connect.reset')}
+                      onClick={() => void navigate({ to: '/connect', search: {} })}
+                    />
+                  ),
+                }
+              : {})}
+          />
+        ) : null}
+        {items.length > 0 ? (
+          <VStack gap={4}>
+            <List label={t('connect.results.label')}>
+              {items.map((person) => (
+                <PersonRow key={person.username} person={person} />
+              ))}
+            </List>
+            {list.isError ? (
+              <LoadFailure error={list.error} onRetry={() => void list.fetchNextPage()} />
+            ) : null}
+            {list.hasNextPage ? (
+              <HStack hAlign="center">
+                <Button
+                  label={t('connect.more')}
+                  isLoading={list.isFetchingNextPage}
+                  onClick={() => void list.fetchNextPage()}
+                />
+              </HStack>
+            ) : null}
+          </VStack>
+        ) : null}
+      </Section>
       <SpacesSoon />
-    </VStack>
+    </div>
   );
 }
