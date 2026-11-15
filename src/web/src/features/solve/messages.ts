@@ -78,6 +78,10 @@ export const fr = {
   'solve.filters': 'Filtres',
   'solve.pill.resolved': 'Réponse acceptée',
   'solve.pill.open': 'Sans réponse',
+  // Question states as other pages name them (apprendre lists linked questions).
+  'solve.state.open': 'Sans réponse',
+  'solve.state.answered': 'Répondue',
+  'solve.state.resolved': 'Résolue',
   'solve.ask.h1': 'Poser une question',
   'solve.ask.intro':
     'Un titre précis, le contexte et ce que vous avez déjà essayé : c’est ce qui aide le plus.',
@@ -174,6 +178,9 @@ export const en: Record<keyof typeof fr, string> = {
   'solve.filters': 'Filters',
   'solve.pill.resolved': 'Accepted answer',
   'solve.pill.open': 'Unanswered',
+  'solve.state.open': 'Unanswered',
+  'solve.state.answered': 'Answered',
+  'solve.state.resolved': 'Resolved',
   'solve.ask.h1': 'Ask a question',
   'solve.ask.intro':
     'A precise title, the context and what you already tried: that is what helps most.',
