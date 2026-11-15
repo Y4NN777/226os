@@ -1148,7 +1148,7 @@ export interface components {
             slug: components["schemas"]["Slug"];
             type: components["schemas"]["ResourceType"];
             /**
-             * @description live = real content; demo = local-dev SEED fixture, shown with a visible badge (C15).
+             * @description live = real content; demo = SEED fixture, loaded in local-dev and staging-test only (never production-live), shown with a visible badge (C15).
              * @enum {string}
              */
             provenance: "live" | "demo";
