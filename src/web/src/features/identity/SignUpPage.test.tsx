@@ -31,6 +31,7 @@ describe('SignUpPage', () => {
   it('shows the form with an h1 and the username rule', async () => {
     await open();
     expect(screen.getByRole('heading', { level: 1, name: 'Créer votre compte' })).toBeVisible();
+    expect(screen.getByText(/Quelques champs, aucune fiche à remplir/)).toBeVisible();
     expect(screen.getByText(/Identifiant public/)).toBeVisible();
     expect(screen.getByLabelText('Mot de passe')).toHaveAttribute('autocomplete', 'new-password');
     expect(screen.getByLabelText('Adresse e-mail')).toHaveAttribute('autocomplete', 'email');

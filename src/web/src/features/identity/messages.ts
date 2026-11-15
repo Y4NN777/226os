@@ -23,6 +23,8 @@ export const fr = {
   'identity.back.signIn': 'Retour à la connexion',
 
   'identity.signIn.title': 'Connexion',
+  'identity.signIn.heading': 'Content de vous revoir',
+  'identity.signIn.lede': 'Connectez-vous pour poser, répondre et suivre vos projets.',
   'identity.signIn.submit': 'Se connecter',
   'identity.signIn.forgot': 'Mot de passe oublié\u00A0?',
   'identity.signIn.noAccount': 'Pas encore de compte\u00A0?',
@@ -31,6 +33,8 @@ export const fr = {
   'identity.signIn.bad.body': 'E-mail ou mot de passe incorrect.',
 
   'identity.signUp.title': 'Créer votre compte',
+  'identity.signUp.lede':
+    'Quelques champs, aucune fiche à remplir. Vous complétez le reste plus tard, quand cela vous sert.',
   'identity.signUp.name.label': 'Nom d’affichage',
   'identity.signUp.username.label': 'Nom d’utilisateur',
   'identity.signUp.username.description':
@@ -85,6 +89,9 @@ export const fr = {
   'identity.welcome.learn': 'Apprendre',
   'identity.welcome.connect': 'Connect',
   'identity.welcome.profile': 'Mon profil',
+  'identity.welcome.learn.text': 'Articles, tutoriels et formations',
+  'identity.welcome.connect.text': 'Des développeurs près de chez vous',
+  'identity.welcome.profile.text': 'Ce que les autres voient de vous',
 } as const;
 
 export const en: Record<keyof typeof fr, string> = {
@@ -110,6 +117,8 @@ export const en: Record<keyof typeof fr, string> = {
   'identity.back.signIn': 'Back to sign in',
 
   'identity.signIn.title': 'Sign in',
+  'identity.signIn.heading': 'Welcome back',
+  'identity.signIn.lede': 'Sign in to ask, answer and follow your projects.',
   'identity.signIn.submit': 'Sign in',
   'identity.signIn.forgot': 'Forgot your password?',
   'identity.signIn.noAccount': 'No account yet?',
@@ -118,6 +127,8 @@ export const en: Record<keyof typeof fr, string> = {
   'identity.signIn.bad.body': 'Incorrect email or password.',
 
   'identity.signUp.title': 'Create your account',
+  'identity.signUp.lede':
+    'A few fields, no profile form. You fill in the rest later, when it helps you.',
   'identity.signUp.name.label': 'Display name',
   'identity.signUp.username.label': 'Username',
   'identity.signUp.username.description': 'Public identifier. Lowercase letters, digits, - and _.',
@@ -170,4 +181,7 @@ export const en: Record<keyof typeof fr, string> = {
   'identity.welcome.learn': 'Learn',
   'identity.welcome.connect': 'Connect',
   'identity.welcome.profile': 'My profile',
+  'identity.welcome.learn.text': 'Articles, tutorials and courses',
+  'identity.welcome.connect.text': 'Developers near you',
+  'identity.welcome.profile.text': 'What others see about you',
 };

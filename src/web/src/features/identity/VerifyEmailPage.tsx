@@ -1,7 +1,5 @@
 import { Button } from '@astryxdesign/core/Button';
-import { Heading } from '@astryxdesign/core/Heading';
 import { HStack } from '@astryxdesign/core/HStack';
-import { Text } from '@astryxdesign/core/Text';
 import { TextInput } from '@astryxdesign/core/TextInput';
 import { VStack } from '@astryxdesign/core/VStack';
 import { useForm } from '@tanstack/react-form';
@@ -9,6 +7,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, ApiError } from '../../api/http';
 import { LoadingState } from '../../components/LoadingState';
 import { useI18n } from '../../i18n/I18nProvider';
+import { CardHead } from './AuthCard';
 import { FailureNotice, FocusRegion, RateLimitNotice } from './notices';
 import { useCountdown } from './useCountdown';
 import { useFailure } from './useFailure';
@@ -72,7 +71,7 @@ export function VerifyEmailPage() {
   if (phase === 'checking') {
     return (
       <VStack gap={4}>
-        <Heading level={1}>{t('identity.verify.title')}</Heading>
+        <CardHead title={t('identity.verify.title')} />
         <LoadingState label="identity.verify.checking" />
       </VStack>
     );
@@ -82,8 +81,7 @@ export function VerifyEmailPage() {
     return (
       <FocusRegion role="status">
         <VStack gap={4}>
-          <Heading level={1}>{t('identity.verify.done.title')}</Heading>
-          <Text as="p">{t('identity.verify.done.body')}</Text>
+          <CardHead title={t('identity.verify.done.title')} lede={t('identity.verify.done.body')} />
           <Button
             variant="primary"
             href="/connexion?next=/bienvenue"
@@ -98,8 +96,10 @@ export function VerifyEmailPage() {
     return (
       <FocusRegion role="alert">
         <VStack gap={4}>
-          <Heading level={1}>{t('identity.code.invalid.title')}</Heading>
-          <Text as="p">{t('identity.verify.invalid.body')}</Text>
+          <CardHead
+            title={t('identity.code.invalid.title')}
+            lede={t('identity.verify.invalid.body')}
+          />
           <HStack gap={3} wrap="wrap">
             <Button
               variant="primary"
@@ -118,8 +118,7 @@ export function VerifyEmailPage() {
 
   return (
     <VStack gap={5}>
-      <Heading level={1}>{t('identity.verify.title')}</Heading>
-      <Text as="p">{t('identity.verify.intro')}</Text>
+      <CardHead title={t('identity.verify.title')} lede={t('identity.verify.intro')} />
       {failure ? (
         failure.error instanceof ApiError && failure.error.code === 'RATE_LIMITED' ? (
           <RateLimitNotice key={failure.n} />

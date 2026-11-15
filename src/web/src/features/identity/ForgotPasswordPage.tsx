@@ -1,13 +1,12 @@
 import { Button } from '@astryxdesign/core/Button';
-import { Heading } from '@astryxdesign/core/Heading';
 import { Link } from '@astryxdesign/core/Link';
-import { Text } from '@astryxdesign/core/Text';
 import { TextInput } from '@astryxdesign/core/TextInput';
 import { VStack } from '@astryxdesign/core/VStack';
 import { useForm } from '@tanstack/react-form';
 import { useState } from 'react';
 import { api, ApiError } from '../../api/http';
 import { useI18n } from '../../i18n/I18nProvider';
+import { CardHead, SwitchLine } from './AuthCard';
 import { FailureNotice, FocusRegion, RateLimitNotice } from './notices';
 import { useCountdown } from './useCountdown';
 import { useFailure } from './useFailure';
@@ -46,8 +45,7 @@ export function ForgotPasswordPage() {
     return (
       <FocusRegion role="status">
         <VStack gap={4}>
-          <Heading level={1}>{t('identity.forgot.done.title')}</Heading>
-          <Text as="p">{t('identity.forgot.done.body')}</Text>
+          <CardHead title={t('identity.forgot.done.title')} lede={t('identity.forgot.done.body')} />
           <Button variant="primary" href="/reinitialiser" label={t('identity.forgot.done.link')} />
         </VStack>
       </FocusRegion>
@@ -56,8 +54,7 @@ export function ForgotPasswordPage() {
 
   return (
     <VStack gap={5}>
-      <Heading level={1}>{t('identity.forgot.title')}</Heading>
-      <Text as="p">{t('identity.forgot.intro')}</Text>
+      <CardHead title={t('identity.forgot.title')} lede={t('identity.forgot.intro')} />
       {failure ? (
         failure.error instanceof ApiError && failure.error.code === 'RATE_LIMITED' ? (
           <RateLimitNotice key={failure.n} />
@@ -116,7 +113,9 @@ export function ForgotPasswordPage() {
           </form.Subscribe>
         </VStack>
       </form>
-      <Link href="/connexion">{t('identity.back.signIn')}</Link>
+      <SwitchLine>
+        <Link href="/connexion">{t('identity.back.signIn')}</Link>
+      </SwitchLine>
     </VStack>
   );
 }

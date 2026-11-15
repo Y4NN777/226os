@@ -1,8 +1,6 @@
 import { Banner } from '@astryxdesign/core/Banner';
 import { Button } from '@astryxdesign/core/Button';
-import { Heading } from '@astryxdesign/core/Heading';
 import { Link } from '@astryxdesign/core/Link';
-import { Text } from '@astryxdesign/core/Text';
 import { TextInput } from '@astryxdesign/core/TextInput';
 import { VStack } from '@astryxdesign/core/VStack';
 import { useForm } from '@tanstack/react-form';
@@ -10,6 +8,7 @@ import { useRouter, useSearch } from '@tanstack/react-router';
 import { api, ApiError } from '../../api/http';
 import { useApplySession } from '../../app/session';
 import { useI18n } from '../../i18n/I18nProvider';
+import { CardHead, SwitchLine } from './AuthCard';
 import { FailureNotice, FocusRegion, RateLimitNotice } from './notices';
 import { PasswordField } from './PasswordField';
 import { safeNext } from './routeSearch';
@@ -76,7 +75,7 @@ export function SignInPage() {
 
   return (
     <VStack gap={5}>
-      <Heading level={1}>{t('identity.signIn.title')}</Heading>
+      <CardHead title={t('identity.signIn.heading')} lede={t('identity.signIn.lede')} />
       {failure ? <SignInNotice key={failure.n} error={failure.error} /> : null}
       <form
         method="post"
@@ -129,6 +128,7 @@ export function SignInPage() {
                   onBlur={field.handleBlur}
                   onChange={field.handleChange}
                   error={key ? t(key) : undefined}
+                  labelEnd={<Link href="/mot-de-passe-oublie">{t('identity.signIn.forgot')}</Link>}
                 />
               );
             }}
@@ -151,13 +151,10 @@ export function SignInPage() {
           </form.Subscribe>
         </VStack>
       </form>
-      <VStack gap={2}>
-        <Link href="/mot-de-passe-oublie">{t('identity.signIn.forgot')}</Link>
-        <Text as="p">
-          {t('identity.signIn.noAccount')}{' '}
-          <Link href={withNext('/inscription')}>{t('identity.signIn.signUp')}</Link>
-        </Text>
-      </VStack>
+      <SwitchLine>
+        {t('identity.signIn.noAccount')}{' '}
+        <Link href={withNext('/inscription')}>{t('identity.signIn.signUp')}</Link>
+      </SwitchLine>
     </VStack>
   );
 }
