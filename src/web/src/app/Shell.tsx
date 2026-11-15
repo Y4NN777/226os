@@ -16,6 +16,7 @@ import { Link } from '@astryxdesign/core/Link';
 import { MobileNav } from '@astryxdesign/core/MobileNav';
 import {
   SideNav,
+  SideNavCollapseButton,
   SideNavItem,
   SideNavRenderContext,
   SideNavSection,
@@ -23,7 +24,7 @@ import {
 import { TextInput } from '@astryxdesign/core/TextInput';
 import { TopNav } from '@astryxdesign/core/TopNav';
 import { Outlet, useNavigate, useRouterState } from '@tanstack/react-router';
-import { useState, useSyncExternalStore } from 'react';
+import { useCallback, useState, useSyncExternalStore } from 'react';
 import { Brand } from '../components/Brand';
 import { RouterAnchor } from '../components/RouterAnchor';
 import {
@@ -32,6 +33,7 @@ import {
   LogInIcon,
   LogOutIcon,
   MenuIcon,
+  PanelLeftIcon,
   MoonIcon,
   PlusIcon,
   SearchIcon,
@@ -53,6 +55,7 @@ import {
   type NavItem,
   type NavSection,
 } from './navigation';
+import { readStorage, writeStorage } from './storage';
 import { useSession, useSignOut } from './session';
 
 const endonyms: Record<Locale, string> = { fr: 'Français', en: 'English' };
@@ -335,7 +338,38 @@ function RailNav({ pathname }: { pathname: string }) {
   );
 }
 
-function PrimaryNav({ isDrawer = false }: { isDrawer?: boolean }) {
+const sideNavStorageKey = '226os.sideNavCollapsed';
+
+/**
+ * Whether the desktop sidebar is collapsed to its icons, kept in this browser. Astryx 0.7.14 has
+ * no `autoSaveId` on `collapsible` (only on `resizable`, which adds a resize handle we do not
+ * want), so the state is controlled here.
+ */
+function useSideNavCollapsed() {
+  const [isCollapsed, setCollapsed] = useState(() => readStorage(sideNavStorageKey) === 'true');
+  const change = useCallback((next: boolean) => {
+    setCollapsed(next);
+    writeStorage(sideNavStorageKey, String(next));
+  }, []);
+  return [isCollapsed, change] as const;
+}
+
+/** The public landing (`/` for a visitor) has the top bar and the footer, but no navigation. */
+function useIsLanding() {
+  const session = useSession();
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  return pathname === '/' && !session.data?.authenticated;
+}
+
+function PrimaryNav({
+  isDrawer = false,
+  isCollapsed = false,
+  onCollapsedChange = () => undefined,
+}: {
+  isDrawer?: boolean;
+  isCollapsed?: boolean;
+  onCollapsedChange?: (next: boolean) => void;
+}) {
   const { t } = useI18n();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const isRail = useIsRail();
@@ -352,7 +386,19 @@ function PrimaryNav({ isDrawer = false }: { isDrawer?: boolean }) {
     return <SideNavRenderContext value="drawer-content">{sections}</SideNavRenderContext>;
   }
   return (
-    <SideNav aria-label={t('nav.label')} className="shell-sidenav">
+    <SideNav
+      aria-label={t('nav.label')}
+      className={isCollapsed ? 'shell-sidenav shell-sidenav-collapsed' : 'shell-sidenav'}
+      collapsible={{ isCollapsed, onCollapsedChange, hasButton: false }}
+      footerIcons={
+        <SideNavCollapseButton
+          label={t(isCollapsed ? 'shell.sideNavExpand' : 'shell.sideNavCollapse')}
+          aria-expanded={!isCollapsed}
+        >
+          <Icon icon={PanelLeftIcon} size="md" />
+        </SideNavCollapseButton>
+      }
+    >
       {sections}
     </SideNav>
   );
@@ -428,10 +474,17 @@ function BottomNav() {
 }
 
 /** « 226os » and links to the project documents that exist (prototype `.app-footer`). */
-function SiteFooter() {
+function SiteFooter({ hasNav, isCollapsed }: { hasNav: boolean; isCollapsed: boolean }) {
   const { t } = useI18n();
+  const className = [
+    'shell-footer',
+    !hasNav && 'shell-footer-bare',
+    isCollapsed && 'shell-footer-collapsed',
+  ]
+    .filter(Boolean)
+    .join(' ');
   return (
-    <footer className="shell-footer">
+    <footer className={className}>
       <span className="shell-footer-name">{t('app.name')}</span>
       <ul className="shell-footer-links" aria-label={t('shell.footer')}>
         {projectLinks.map((link) => (
@@ -453,13 +506,15 @@ export function Shell() {
   const onSignOut = () => {
     signOut.mutate();
   };
+  const hasNav = !useIsLanding();
+  const [isCollapsed, setCollapsed] = useSideNavCollapsed();
   return (
     <>
       <AppShell
         height="auto"
         variant="wash"
         contentPadding={0}
-        className="shell"
+        className={hasNav ? 'shell' : 'shell shell-bare'}
         banner={
           signOut.isError ? (
             <Banner status="error" title={t('account.signOutFailed')} container="section" />
@@ -480,29 +535,38 @@ export function Shell() {
             }
           />
         }
-        sideNav={<PrimaryNav />}
-        mobileNav={{
-          // No top-bar hamburger on a phone: « Plus » in the bottom bar opens the drawer.
-          hasToggle: false,
-          // The same links in a drawer that is a modal dialog for assistive technology as well,
-          // sliding in from the left as in the prototype.
-          content: (
-            <MobileNav aria-modal="true" side="start" header={<Brand />}>
-              <PrimaryNav isDrawer />
-              <SideNavRenderContext value="drawer-content">
-                <DrawerAccount onSignOut={onSignOut} />
-              </SideNavRenderContext>
-            </MobileNav>
-          ),
-        }}
+        sideNav={
+          hasNav ? (
+            <PrimaryNav isCollapsed={isCollapsed} onCollapsedChange={setCollapsed} />
+          ) : undefined
+        }
+        mobileNav={
+          hasNav
+            ? {
+                // No top-bar hamburger on a phone: « Plus » in the bottom bar opens the drawer.
+                hasToggle: false,
+                // The same links in a drawer that is a modal dialog for assistive technology as well,
+                // sliding in from the left as in the prototype.
+                content: (
+                  <MobileNav aria-modal="true" side="start" header={<Brand />}>
+                    <PrimaryNav isDrawer />
+                    <SideNavRenderContext value="drawer-content">
+                      <DrawerAccount onSignOut={onSignOut} />
+                    </SideNavRenderContext>
+                  </MobileNav>
+                ),
+              }
+            : // No drawer on the public landing: no menu button either.
+              { hasToggle: false }
+        }
       >
         <div className="shell-page">
           <MobileSearch />
           <Outlet />
         </div>
-        <BottomNav />
+        {hasNav ? <BottomNav /> : null}
       </AppShell>
-      <SiteFooter />
+      <SiteFooter hasNav={hasNav} isCollapsed={isCollapsed} />
     </>
   );
 }

@@ -53,8 +53,12 @@ ci-%: FORCE ## One CI group, e.g. `make ci-lint-go`: its steps through the fail-
 
 FORCE:
 
-test-e2e: ## G5: Playwright P0 flows, FR/EN, mobile, axe (NOT IMPLEMENTED: later slice)
-	$(call NOT_IMPLEMENTED,test-e2e,Playwright end-to-end tests are a later slice (G5))
+test-e2e: ## G5: Playwright suite against a deployed site (needs E2E_BASE_URL; see docs/TEST.md section 6 ter)
+	@if [ -z "$${E2E_BASE_URL:-}" ]; then \
+		echo "NOT RUN: make test-e2e needs E2E_BASE_URL (for example E2E_BASE_URL=https://staging.example make test-e2e)" >&2; \
+		exit 1; \
+	fi
+	pnpm --filter web run test:e2e
 
 perf: ## G6: reproducible dataset, EXPLAIN plans, API latency, page weight (NOT IMPLEMENTED: later slice)
 	$(call NOT_IMPLEMENTED,perf,performance baseline is a later slice (G6))
