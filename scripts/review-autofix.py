@@ -6,8 +6,8 @@ whether its commits may be pushed. The workflows only call this script; the mode
          ledger of the review comment has an OPEN finding (kind `finding`, not a note) of any severity but CRITICAL (a LOW one too: auto-merge refuses any open finding), for the
          pull request head the review looked at. Refused: a fork, a base other than develop, a head branch main or
          develop, a closed or draft pull request, a Code review run whose review job did not run (a label or review
-         event), a ledger or run for an older head. An open CRITICAL sends the whole pull request to the owner (label
-         needs-owner, no fix). ADR-0015 (phase 0): attempts count PER FINDING and per head SHA, at most 2, read from the
+         event), a ledger or run for an older head. An open CRITICAL is routed to the owner (label needs-owner)
+         and not fixed; the other findings still are. ADR-0015 (phase 0): attempts count PER FINDING and per head SHA, at most 2, read from the
          hidden state of the status comment (below), never from labels, and written by `record` when the run ENDS; a
          finding already attempted on this head is not attempted again; a finding whose file is outside the fixer's
          allowed paths (the same `forbidden()` as the guard), without a file, or with its attempts used goes to the owner
@@ -447,7 +447,9 @@ def decide_pr(ctx, gh, repo, number, mode):
         stop_cause = "pending attempts of two runs that died; %s" % restart
     else:
         stop_cause = ""
-    if stop_cause and not state["stopped"]:
+    if label_set and not state["stopped"]:
+        # The marker says "a human may reset": only ever with the label there. A computed cause gets its marker from cmd_pr,
+        # on the stop verdict and after the label was written.
         state["stopped"] = {"cause": stop_cause[:200], "runs": len(pr_runs(state))}
     fix_ids, skip_why, rows = [], [], []
     for f in entries:
@@ -547,8 +549,12 @@ def cmd_pr():
     if verdict == "stop":
         # autofix-stopped BLOCKS the whole pull request; only a human removes it.
         print("autofix: STOPPED (%s)" % detail)
-        if writes and plan and not add_label(gh, repo, number, STOP_LABEL):
-            plan[0]["stopped"] = {}  # no label, no stop marker: a missing label would later read as a human reset
+        labelled = add_label(gh, repo, number, STOP_LABEL) if writes else False  # also when there is no status to write
+        if plan:
+            # The marker only with the label: a marker without it would read as a human reset and hand out free runs.
+            plan[0]["stopped"] = {"cause": detail[:200], "runs": len(pr_runs(plan[0]))} if labelled else {}
+        else:
+            print("autofix: status comment NOT RUN (%s)" % detail)
         show("STOPPED, " + detail)
         if writes:
             inform_owner()
@@ -871,7 +877,7 @@ def forbidden(path):
 # 2. A NEW file (and any added line, test or not) gets a LEXICAL scan: skip-like tokens, coverage exclusions and a timeout
 #    option. Best effort: it cannot prove a new test is a strong one. Markdown is documentation, never scanned.
 LOCKED_PATH = re.compile(r"_test\.go$|\.(?:test|spec)\.[cm]?[jt]sx?$|\.(?:golden|snap)$|^scripts/tests/"
-                         r"|(?:^|/)(?:__tests__|__snapshots__|e2e|tests?|testdata|testutil|fixtures?|mocks?|pgtest|aistest|smtptest)/|^src/api/internal/(?:[\w.-]+/)*[\w.-]+test/")
+                         r"|(?:^|/)(?:__tests__|__snapshots__|e2e|tests?|testdata|testutil|fixtures?|mocks?|pgtest|aistest|smtptest)/|^src/api/internal/(?:[\w.-]+/)*(?!(?:latest|contest|protest|attest)/)[\w.-]+test/")
 SKIP_ADDED = re.compile(r"\b(?:it|test|describe|context|suite)\s*\.\s*(?:skip(?:If)?|only|fixme|todo|fails)\b|\b(?:xit|xdescribe|xtest)\s*\("
                         r"|\.Skip(?:f|Now)?\s*\(|\bpytest\.(?:mark\.)?(?:skip|xfail)\b|\bnolint\b|eslint-disable|@ts-ignore|@ts-expect-error"
                         r"|//\s*go:build\s+ignore|//\s*\+build\s+ignore")

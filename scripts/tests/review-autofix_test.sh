@@ -33,6 +33,8 @@ while i < len(args):
     elif args[i] == "--paginate": i += 1
     else: endpoint = args[i]; i += 1
 if method != "GET":
+    if os.environ.get("FAKE_GH_FAIL_LABEL") and endpoint.endswith("/labels"):
+        sys.stderr.write("gh: refused\n"); sys.exit(1)
     if os.environ.get("FAKE_GH_FAIL_WRITE"):
         sys.stderr.write("gh: refused\n"); sys.exit(1)
     open(os.path.join(st, "log"), "a").write("%s %s %s\n" % (method, endpoint, " ".join(args).replace("\n", " / ")))
@@ -291,23 +293,53 @@ ledger "f1:finding:MEDIUM:open"
 status '{"attempts":'"$(many 7)"',"pending":{"gx":{"'$OLD'":"31"}},"stopped":{"cause":"7 runs","runs":7}}'
 pr ""
 run pr
-python3 -I - "$tmp/st/body-last" <<'EOT'
+state_of() { python3 -I -c '
+import json, re, sys
+print(json.dumps(json.loads(re.search(r"<!-- autofix-state (\{.*?\}) -->", open(sys.argv[1]).read(), re.S).group(1))))' "$tmp/st/body-last"; }
+reset_state_ok() { python3 -I - "$tmp/st/body-last" <<'EOT'
 import json, re, sys
 st = json.loads(re.search(r"<!-- autofix-state (\{.*?\}) -->", open(sys.argv[1]).read(), re.S).group(1))
-assert "gx" not in st["pending"] and st["reset_at"] == 7 and not st["stopped"], st
+sys.exit(0 if ("gx" not in st["pending"] and st["reset_at"] == 7 and not st["stopped"]) else 1)
 EOT
-grep -qx 'run=true' <<<"$outputs" && [ $? -eq 0 ] && ok "stopped at 7, label removed by a human: the next run fixes, the cap restarts at 7 and the dead pending entries are cleared" || ko "reset ($out / $outputs)"
+}
+if grep -qx 'run=true' <<<"$outputs" && reset_state_ok; then ok "stopped at 7, label removed by a human: the next run fixes, the cap restarts at 7 and the dead pending entries are cleared"; else ko "reset ($out / $outputs / $(state_of))"; fi
 status '{"attempts":'"$(many 14)"',"reset_at":7}'
 run pr
 grep -qx 'run=false' <<<"$outputs" && grep -q 'labels\[\]=autofix-stopped' "$tmp/st/log" && grep -q '7 runs' <<<"$out" && ok "7 more runs after the reset stop the fixer again" || ko "second stop ($out)"
 status '{"attempts":'"$(many 13)"',"reset_at":7}'
 run pr
 grep -qx 'run=true' <<<"$outputs" && ok "6 runs after the reset: still allowed" || ko "below second cap ($out)"
-grep -q 'removing the label' <<<"$(cat "$tmp/st/body-last")" || true
 ledger "f1:finding:MEDIUM:open"
 status '{"attempts":'"$(many 7)"'}'
 run pr
 grep -q 'restarts the fixer for 7 more runs' <<<"$(cat "$tmp/st/body-last")" && ok "status: removing the label restarts the fixer for 7 more runs (said in the reason and the next action)" || ko "status reset text ($(cat "$tmp/st/body-last"))"
+
+# A stop cause reached WITHOUT a stop verdict (no open finding) writes no stop marker: a marker without the label would read as a
+# human reset on the next run and hand out 7 free runs.
+ledger "n1:note:LOW:open"
+status '{"attempts":'"$(many 7)"'}'
+run pr
+if grep -q 'NO-OP' <<<"$out" && python3 -I -c 'import json,sys; sys.exit(0 if not json.loads(sys.argv[1])["stopped"] else 1)' "$(state_of)"; then ok "a stop cause with no open finding saves no stop marker"; else ko "marker on nothing ($out / $(state_of))"; fi
+carried="$(state_of)"
+ledger "f1:finding:MEDIUM:open"
+status "$carried"
+run pr
+grep -qx 'run=false' <<<"$outputs" && grep -q 'labels\[\]=autofix-stopped' "$tmp/st/log" && ok "...so the next run does not read a reset: the cap of 7 still holds (autofix-stopped)" || ko "free runs after nothing ($out / $outputs)"
+# A stop whose label cannot be written saves no marker either.
+ledger "f1:finding:MEDIUM:open"
+status '{"attempts":'"$(many 7)"'}'
+run pr FAKE_GH_FAIL_LABEL=1
+python3 -I -c 'import json,sys; sys.exit(0 if not json.loads(sys.argv[1])["stopped"] else 1)' "$(state_of)" && ok "a stop whose label write fails saves no marker" || ko "marker without label ($(state_of))"
+ledger "f1:finding:MEDIUM:open"
+status '{"attempts":'"$(many 7)"'}'
+run pr
+python3 -I -c 'import json,sys; sys.exit(0 if json.loads(sys.argv[1])["stopped"] else 1)' "$(state_of)" && ok "a stop whose label is written saves the marker (so a human removal is a reset)" || ko "no marker after a real stop ($(state_of))"
+# A state too large to keep still sets autofix-stopped (the owner is told) and the status says NOT RUN.
+big="$(python3 -I -c 'import json; print(json.dumps({"attempts": {"x%d" % i: {"%040x" % i: "1"} for i in range(900)}}))')"
+ledger "f1:finding:MEDIUM:open"
+status "$big"
+run pr
+grep -qx 'run=false' <<<"$outputs" && grep -q 'labels\[\]=autofix-stopped' "$tmp/st/log" && grep -qi 'too large' <<<"$out" && ok "a state too large: the fixer is stopped and the label autofix-stopped is set" || ko "too large ($out / $(cat "$tmp/st/log" | cut -c1-200))"
 
 # Per finding: an exhausted finding goes to the owner, the others are still fixed.
 ledger "f1:finding:MEDIUM:open f2:finding:LOW:open"
@@ -758,6 +790,17 @@ printf 'x\n' >>"$w5/src/api/internal/platform/clocktest/c.go"; g5 add -A; g5 com
 check5
 grep -q '^output: refused=src/api/internal/platform/clocktest/c.go$' <<<"$out" && ok "check: a refusal emits the refused paths (output refused=) for the record step" || ko "refused output ($out)"
 git -C "$w5" reset -q --hard "$base5"
+# Names that merely end in test (latest, contest, protest, attest) are not test directories, even under src/api/internal.
+for d in latest contest protest attest; do
+  mkdir -p "$w5/src/api/internal/$d"; printf 'package x\n' >"$w5/src/api/internal/$d/c.go"
+done
+g5 add -A; g5 commit -qm base4; base5="$(git -C "$w5" rev-parse HEAD)"
+for d in latest contest protest attest; do
+  printf 'func more() {}\n' >>"$w5/src/api/internal/$d/c.go"; g5 add -A; g5 commit -qm "fix: $d"
+  check5
+  [ "$rc" -eq 0 ] && ok "locked paths: src/api/internal/$d/ is an ordinary directory" || ko "$d locked (rc=$rc $out)"
+  git -C "$w5" reset -q --hard "$base5"
+done
 # Only the real test directories are locked: a directory merely ENDING in test is an ordinary directory.
 mkdir -p "$w5/src/contest"; printf 'package contest\n' >"$w5/src/contest/c.go"; g5 add -A; g5 commit -qm base2; base5="$(git -C "$w5" rev-parse HEAD)"
 printf 'func more() {}\n' >>"$w5/src/contest/c.go"; g5 add -A; g5 commit -qm "fix: contest"
