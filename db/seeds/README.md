@@ -94,9 +94,9 @@ Tous les providers ont `status = 'published'`, `provenance = 'demo'`, `summary_l
 
 | UUID | Slug | Nom | Site | Créé par |
 |---|---|---|---|---|
-| `01900000-0000-7000-8000-000000000201` | `sahel-pay-demo` | `Sahel Pay (démo)` | `https://example.org/sahel-pay` | `001` |
-| `01900000-0000-7000-8000-000000000202` | `baobab-sms-demo` | `Baobab SMS (démo)` | `https://example.org/baobab-sms` | `002` |
-| `01900000-0000-7000-8000-000000000203` | `nimba-maps-demo` | `Nimba Maps (démo)` | `https://example.org/nimba-maps` | `003` |
+| `01900000-0000-7000-8000-000000000201` | `sahel-pay-demo` | `Sahel Pay` | `https://example.org/sahel-pay` | `001` |
+| `01900000-0000-7000-8000-000000000202` | `baobab-sms-demo` | `Baobab SMS` | `https://example.org/baobab-sms` | `002` |
+| `01900000-0000-7000-8000-000000000203` | `nimba-maps-demo` | `Nimba Maps` | `https://example.org/nimba-maps` | `003` |
 
 `created_at = updated_at = '2026-11-14T08:20:00Z'`.
 
@@ -106,10 +106,10 @@ Toutes les resources ont `verification_status = 'unverified'`, `verified_at = NU
 
 | UUID | Slug | Nom | Type | Catégorie | Provider | Créé par |
 |---|---|---|---|---|---|---|
-| `01900000-0000-7000-8000-000000000301` | `sahel-pay-mobile-money-demo` | `Sahel Pay Mobile Money (démo)` | `api` | `mobile-money` | `201` | `001` |
-| `01900000-0000-7000-8000-000000000302` | `baobab-sms-sdk-demo` | `SDK SMS Baobab (démo)` | `sdk` | `sms-ussd` | `202` | `002` |
-| `01900000-0000-7000-8000-000000000303` | `nimba-maps-tool-demo` | `Nimba Maps Studio (démo)` | `tool` | `maps-addressing` | `203` | `003` |
-| `01900000-0000-7000-8000-000000000304` | `sahel-pay-devkit-demo` | `Sahel Pay Devkit (démo)` | `tool` | `dev-tools` | `201` | `001` |
+| `01900000-0000-7000-8000-000000000301` | `sahel-pay-mobile-money-demo` | `Sahel Pay Mobile Money` | `api` | `mobile-money` | `201` | `001` |
+| `01900000-0000-7000-8000-000000000302` | `baobab-sms-sdk-demo` | `SDK SMS Baobab` | `sdk` | `sms-ussd` | `202` | `002` |
+| `01900000-0000-7000-8000-000000000303` | `nimba-maps-tool-demo` | `Nimba Maps Studio` | `tool` | `maps-addressing` | `203` | `003` |
+| `01900000-0000-7000-8000-000000000304` | `sahel-pay-devkit-demo` | `Sahel Pay Devkit` | `tool` | `dev-tools` | `201` | `001` |
 
 URL et langues de documentation :
 
@@ -142,10 +142,10 @@ Sources. Toutes les sources ont `kind = 'claim'`, `checked_at = NULL`, `checked_
 
 | UUID | Resource | Titre | URL |
 |---|---|---|---|
-| `01900000-0000-7000-8000-000000000401` | `301` | `Documentation publique Sahel Pay (démo)` | `https://example.org/sahel-pay/docs` |
-| `01900000-0000-7000-8000-000000000402` | `302` | `Documentation publique Baobab SMS (démo)` | `https://example.org/baobab-sms/docs` |
-| `01900000-0000-7000-8000-000000000403` | `303` | `Documentation publique Nimba Maps (démo)` | `https://example.org/nimba-maps/docs` |
-| `01900000-0000-7000-8000-000000000404` | `304` | `Documentation publique Sahel Pay Devkit (démo)` | `https://example.org/sahel-pay/devkit/docs` |
+| `01900000-0000-7000-8000-000000000401` | `301` | `Documentation publique Sahel Pay` | `https://example.org/sahel-pay/docs` |
+| `01900000-0000-7000-8000-000000000402` | `302` | `Documentation publique Baobab SMS` | `https://example.org/baobab-sms/docs` |
+| `01900000-0000-7000-8000-000000000403` | `303` | `Documentation publique Nimba Maps` | `https://example.org/nimba-maps/docs` |
+| `01900000-0000-7000-8000-000000000404` | `304` | `Documentation publique Sahel Pay Devkit` | `https://example.org/sahel-pay/devkit/docs` |
 
 Langages de SDK. Chaque ligne a `created_at = '2026-11-14T08:35:00Z'` et des URLs `example.org`.
 
@@ -407,16 +407,16 @@ Learn, série « Premiers pas avec les webhooks », quatre leçons :
 
 Discover, trois providers :
 
-- Sahel Pay (démo), paiements mobile money
-- Baobab SMS (démo), SMS et USSD
-- Nimba Maps (démo), adressage et géodonnées
+- Sahel Pay, paiements mobile money
+- Baobab SMS, SMS et USSD
+- Nimba Maps, adressage et géodonnées
 
 Discover, quatre resources :
 
-- Sahel Pay Mobile Money (démo), API mobile money
-- SDK SMS Baobab (démo), SDK SMS et USSD
-- Nimba Maps Studio (démo), outil de cartographie
-- Sahel Pay Devkit (démo), outil pour développeurs
+- Sahel Pay Mobile Money, API mobile money
+- SDK SMS Baobab, SDK SMS et USSD
+- Nimba Maps Studio, outil de cartographie
+- Sahel Pay Devkit, outil pour développeurs
 
 Build, deux projets :
 
