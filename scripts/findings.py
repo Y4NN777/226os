@@ -7,6 +7,8 @@ dashboard says what to fix next. Nobody files a finding by hand: classifying one
              overflow) one "PR<N> follow-ups" checklist issue. Idempotent: every issue carries a marker
              `<!-- finding:PR<N>#<id> -->` and a second run files nothing twice. A malformed ledger is skipped and
              logged, never guessed.
+             A prose finding (ADR-0015 point 7: it never blocks the merge) answered or accepted at HIGH is filed too,
+             so the batch fixes it.
              Entries of kind `note` (remarks, evidence OBSERVED or INFERRED) are not findings: the open ones become one
              "PR<N> notes" checklist issue (marker `PR<N>#notes`, labels kind:note, due:after-freeze, no `finding` label).
   dashboard  rank the open `finding` issues (due, severity, area, age) and print the result (`--print`) or write it to
@@ -279,6 +281,13 @@ def notes_body(pr, pr_title, notes, changed=frozenset(), repo="", url=""):
     return "\n".join(lines)
 
 
+def batch_bound(f):
+    """ADR-0015 point 7: a prose finding never blocks the merge, so the batch is where it gets fixed. An answered or
+    accepted prose HIGH no longer holds the merge until the owner settles it: it is filed like an open finding. A
+    CRITICAL still blocks whatever its class (scripts/review-comment.py `blocking`)."""
+    return f["kind"] == "finding" and f.get("class", "prose") == "prose" and f["status"] in ("answered", "accepted") and f["sev"] == "HIGH"
+
+
 def harvest(ctx, binary, repo, pr, author_env):
     pulls = ctx.gh_api(binary, "repos/%s/pulls/%s" % (repo, pr))
     info = pulls[0] if pulls else {}
@@ -293,7 +302,7 @@ def harvest(ctx, binary, repo, pr, author_env):
         print("findings: ledger skipped (malformed)" if problem else "findings: no ledger on pull request #%s" % pr)
         return 0
     url = ledger.get("url", "")
-    open_entries = [f for f in ledger["findings"] if f["status"] == "open"]
+    open_entries = [f for f in ledger["findings"] if f["status"] == "open" or batch_bound(f)]
     open_findings = [f for f in open_entries if f["kind"] == "finding"]
     open_notes = [f for f in open_entries if f["kind"] == "note"]
     if not open_entries:

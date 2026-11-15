@@ -30,7 +30,8 @@ whether its commits may be pushed. The workflows only call this script; the mode
          push consumes nothing (SUPERSEDED, counted as an abort). Writes only in mode `on`; FAILS CLOSED when it cannot record (exit 1, label autofix-stopped). A pushed fix also
          gets the label autofix-N, provenance only (review-gate.py reads it; it is never counted).
   status comment (ADR-0015 point 10): ONE comment of the Actions bot per pull request, marker `<!-- 226os-autofix-status -->`,
-         edited in place. A table, one row per finding: class (`prose` until the ledger records one), state, last fact (run
+         edited in place. A table, one row per finding: class (from the ledger; a classless entry is shown as pre-phase-1 and keeps the phase 0 lane, a prose
+         one goes to the batch), repro state (`red x3`, `invalid`, `not reproducible`, `n/a`) and reproducer hash prefix, state, last fact (run
          id, SHA), next action, who acts. Its hidden JSON (`autofix-state`) is the durable store of the attempts: the
          smallest one the pipeline already has (a label cannot say which finding or which head), read only from a comment
          of the bot and validated on read (ids, full SHAs and run numbers only). A run with nothing to do prints NO-OP
@@ -203,7 +204,7 @@ def emit(**pairs):
 
 def stop(message):
     print(message)
-    emit(run="false")
+    emit(run="false", repro="false", executable="false")
     return 0
 
 
@@ -256,7 +257,7 @@ Plan = collections.namedtuple("Plan", "state comment_id label_set compact frozen
 
 
 def empty_state():
-    return {"v": 1, "sha": "", "run": "", "result": "", "attempts": {}, "pending": {}, "aborted": {}, "routes": {}, "fixer": "ACTIVE", "stopped": {}, "reset_at": 0, "rows": []}
+    return {"v": 1, "sha": "", "run": "", "result": "", "attempts": {}, "pending": {}, "aborted": {}, "routes": {}, "fixer": "ACTIVE", "stopped": {}, "reset_at": 0, "rows": [], "repro": {}}
 
 
 def used_heads(state, fid):
@@ -301,6 +302,11 @@ def clean_state(raw):
         if FINDING_ID.match(str(fid)) and isinstance(heads, dict):
             state["aborted"][str(fid)] = {h: [re.sub(r"\D", "", str(r))[:20] for r in runs[:MAX_RUN_IDS] if re.sub(r"\D", "", str(r))]
                                           for h, runs in heads.items() if FULL_SHA.match(str(h)) and isinstance(runs, list)}
+    repro = raw.get("repro")
+    for fid, r in (repro.items() if isinstance(repro, dict) else []):
+        fact = repro_fact(r)
+        if FINDING_ID.match(str(fid)) and fact:
+            state["repro"][str(fid)] = fact
     for row in (raw.get("rows") if isinstance(raw.get("rows"), list) else [])[:MAX_ROWS]:
         if isinstance(row, dict) and FINDING_ID.match(str(row.get("id", ""))):
             state["rows"].append({k: str(row.get(k, ""))[:300] for k in ROW_KEYS})
@@ -361,22 +367,44 @@ def render_status(state, head_sha):
         raise StateTooLarge("the status state is too large to keep (%d characters)" % len(hidden))
     budget, shown = MAX_COMMENT - len(hidden) - 1500, []
     for r in state["rows"]:
-        line = "| %s |" % " | ".join(cell(r[k]) for k in ROW_KEYS)
+        repro, digest = proof_cells(state, r, head_sha)
+        cells = [cell(r[k]) for k in ROW_KEYS]
+        line = "| %s |" % " | ".join(cells[:3] + [repro, digest] + cells[3:])
         budget -= len(line) + 1
         if budget < 0:
             break
         shown.append(line)
     omitted = len(state["rows"]) - len(shown)
-    rows = ["| Finding | Where | Class | Route | State | Last fact | Next action | Who |", "|---|---|---|---|---|---|---|---|"]
+    rows = ["| Finding | Where | Class | Repro | Hash | Route | State | Last fact | Next action | Who |", "|---|---|---|---|---|---|---|---|---|---|"]
     rows += shown
     if omitted:
-        rows.append("| ... | %d more row(s) omitted (the comment is full) | | | | | |" % omitted)
+        rows.append("| ... | %d more row(s) omitted (the comment is full) | | | | | | | | |" % omitted)
     if not state["rows"]:
         rows = ["No finding to show."]
     return "\n".join([STATUS_MARK, "**Autofix status.** Computed from the facts on every event and edited in place; "
-                       "the class is `prose` until the ledger records one (ADR-0015).", "",
+                       "the class comes from the ledger; Repro is the reproducer or static oracle state on this head, Hash the reproducer sha256 prefix (ADR-0015).", "",
                        "Fixer: %s" % cell(state["fixer"], 220), "Head `%s`. Last event: %s" % (head_sha[:12] or "unknown", cell(state["result"], 300) or "none"), ""] + rows + ["",
                        "<!-- autofix-state %s -->" % hidden])
+
+
+PROOF_LABEL = {"red": "red x3", "green": "not reproducible", "invalid": "invalid", "fires": "fires", "silent": "not reproducible"}
+
+
+def proof_cells(state, row, head_sha):
+    """(repro, hash) cells of a status row, computed from the validated facts in state["repro"] (ADR-0015 phase 1, unit 6):
+    `red x3`, `invalid`, `not reproducible` or `n/a`; a static oracle that fires says `fires`. A reproducer of an older head
+    is never shown as the proof of this one. Only fixed words and a hex prefix reach the comment."""
+    fact = state["repro"].get(row["id"])
+    if not fact or row["class"] not in ("executable", "static"):
+        return "n/a", "n/a"
+    if row["class"] == "static" or fact.get("class") == "static":
+        return (PROOF_LABEL[fact["result"]] if fact.get("class") == "static" and row["class"] == "static" else "n/a"), "n/a"
+    digest = "`%s`" % fact["repro_sha256"][:12]
+    if fact["head_sha"] != head_sha:
+        return "n/a (older head)", digest
+    if fact["result"] == "red" and fact["runs"] != REPRO_RUNS:
+        return "invalid", digest  # red fewer than three times is never the proof
+    return PROOF_LABEL[fact["result"]], digest
 
 
 def upsert_status(findings, gh, repo, number, comment_id, state, head_sha):
@@ -464,7 +492,7 @@ def decide_pr(ctx, gh, repo, number, mode):
     stored = json.loads(json.dumps(prior))  # the state as it is stored: `state` below shares (and changes) prior's dicts
     state = dict(empty_state(), sha=head_sha if FULL_SHA.match(head_sha) else "", run=re.sub(r"\D", "", os.environ.get("RUN_ID", ""))[:20],
                  attempts=prior["attempts"], pending=prior["pending"], aborted=prior["aborted"], routes=prior["routes"],
-                 stopped=prior["stopped"], reset_at=prior["reset_at"])
+                 stopped=prior["stopped"], reset_at=prior["reset_at"], repro=prior["repro"])
     entries = [f for f in ledger["findings"] if f["kind"] == "finding" and safe_id(f["id"])]
     # ---- the decision table (ADR-0015, owner 2026-11-15) ----
     # ROUTING is per finding: `fixer` or `owner` with a reason code, kept in the state (an owner route is never fixed again).
@@ -491,12 +519,18 @@ def decide_pr(ctx, gh, repo, number, mode):
         # The marker says "a human may reset": only ever with the label there. A computed cause gets its marker from cmd_pr,
         # on the stop verdict and after the label was written.
         state["stopped"] = {"cause": stop_cause[:200], "runs": len(pr_runs(state))}
-    fix_ids, skip_why, rows = [], [], []
+    fix_ids, skip_why, rows, plan = [], [], [], []
     for f in entries:
         fid = safe_id(f["id"])
         used = used_heads(state, fid)
         last = list(used.items())[-1] if used else None  # the newest attempt was recorded last
-        row = {"id": fid, "where": ("%s:%s" % (f["file"], f["line"]))[:120], "class": "prose", "route": "fixer", "state": "", "next": "", "who": "",
+        # ADR-0015 phase 1, unit 7: the class the ledger validated (D1). An entry with no class field (a ledger written before
+        # phase 1) keeps the phase 0 lane; a static class without a usable rule is prose (a downgrade, never an upgrade).
+        cls = f.get("class") if f.get("class") in ("executable", "static") else "prose"
+        if cls == "static" and not RULE_OK.match(f.get("rule") or ""):
+            cls = "prose"
+        classed = f.get("classed") is not False
+        row = {"id": fid, "where": ("%s:%s" % (f["file"], f["line"]))[:120], "class": cls if classed else "prose (no class: pre-phase-1)", "route": "fixer", "state": "", "next": "", "who": "",
                "fact": "attempt %d: run %s on %s" % (len(used), last[1], last[0][:12]) if last else "no attempt yet"}
         route = state["routes"].get(fid)
         if f["status"] != "open":
@@ -507,6 +541,8 @@ def decide_pr(ctx, gh, repo, number, mode):
             refusal = path_refusal(f["file"])
             if f["sev"] == "CRITICAL":
                 route = {"code": "critical", "why": "an open CRITICAL goes to the owner"}
+            elif classed and cls == "prose":
+                route = None  # never persisted: a later review may give the finding a provable class
             elif refusal:
                 route = {"code": refusal[0], "why": refusal[1]}
             elif len(used) >= MAX_ATTEMPTS:
@@ -515,6 +551,10 @@ def decide_pr(ctx, gh, repo, number, mode):
                 state["routes"][fid] = route
         if route:
             row.update(route="owner (%s)" % route["code"], state="NEEDS_OWNER", next=route["why"], who="owner")
+        elif classed and cls == "prose":
+            # ADR-0015 point 7: prose is never given to the fixer; findings.py harvest files it for the batch.
+            row.update(route="batch", state="BATCH", next="prose: filed for the batch, never fixed here", who="batch")
+            skip_why.append("%s: prose, left to the batch" % fid)
         elif stop_cause:
             row.update(state="STOPPED", next="the fixer is stopped for this pull request; a human removes %s" % STOP_LABEL, who="owner")
         elif len(state["aborted"].get(fid, {}).get(head_sha, [])) >= MAX_ABORT_SAME_HEAD:
@@ -525,8 +565,21 @@ def decide_pr(ctx, gh, repo, number, mode):
             row.update(state="FAILED (attempt %d)" % len(used), next="waits for a new push: this head was already attempted", who="author")
             skip_why.append("%s already attempted on this head (run %s)" % (fid, used[head_sha]))
         else:
-            row.update(state="READY", next="the fixer runs (attempt %d of %d)" % (len(used) + 1, MAX_ATTEMPTS), who="pipeline")
-            fix_ids.append(fid)
+            entry, why = plan_entry(f, fid, sum(1 for e in plan if e["class"] == "executable"))
+            if why == "no-repro-path":
+                route = {"code": "no-repro-path", "why": "an executable finding at %s has no reproducer path (D2: Go under src/, web under src/web/)" % cell(f["file"], 80)}
+                state["routes"][fid] = route
+                row.update(route="owner (no-repro-path)", state="NEEDS_OWNER", next=route["why"], who="owner")
+            elif why == "cap":
+                row.update(state="REPRO_PENDING", next="at most %d reproducers per run (D3): waits for the next run" % MAX_REPRO, who="pipeline")
+            else:
+                row.update(state="READY" if entry is None else "REPRO_PENDING" if entry["class"] == "executable" else "STATIC_PENDING",
+                           next="the fixer runs (attempt %d of %d)" % (len(used) + 1, MAX_ATTEMPTS) if entry is None
+                           else "the reproducer job writes %s, then it must be red 3 times" % entry["path"] if entry["class"] == "executable"
+                           else "the rule %s must fire on the head" % entry["rule"], who="pipeline")
+                fix_ids.append(fid)
+                if entry is not None:
+                    plan.append(entry)
         rows.append(row)
     state["fixer"] = "STOPPED (%s)" % stop_cause if stop_cause else "ACTIVE"
     state["rows"] = rows[:MAX_ROWS]
@@ -551,6 +604,7 @@ def decide_pr(ctx, gh, repo, number, mode):
             return "stop", detail, Plan(kept, comment_id, label_set, False, True)
         return "stop", cause, Plan(small, comment_id, label_set, True)
     has_open = any(f["status"] == "open" for f in entries)
+    repro_plan = plan
     plan = Plan(state, comment_id, label_set, False) if (has_open or comment_id) else None
     owner_rows = [r for r in rows if r["route"].startswith("owner")]
     if stop_cause and has_open:
@@ -559,7 +613,7 @@ def decide_pr(ctx, gh, repo, number, mode):
         return "nothing", "no open finding (notes are never fixed)", plan
     if fix_ids:
         attempt = max(len(used_heads(state, i)) for i in fix_ids) + 1
-        return "fix", (attempt, fix_ids, head, ["%s: %s" % (r["id"], r["next"]) for r in owner_rows]), plan
+        return "fix", (attempt, fix_ids, head, ["%s: %s" % (r["id"], r["next"]) for r in owner_rows], repro_plan), plan
     if owner_rows:
         return "owner", "no finding can be fixed: " + "; ".join("%s: %s" % (r["id"], r["next"]) for r in owner_rows), plan
     return "nothing", "every open finding was already attempted on this head: " + "; ".join(skip_why), plan
@@ -638,7 +692,7 @@ def cmd_pr():
             print("autofix: report mode, nothing written")
         emit(run="false")
         return 0
-    attempt, ids, head, owner_ids = detail
+    attempt, ids, head, owner_ids, repro_plan = detail
     if owner_ids:
         print("autofix: owner (%s)" % "; ".join(owner_ids))
     if not writes:
@@ -653,7 +707,9 @@ def cmd_pr():
         return noop("the pending attempt could not be written, so the fixer does not run", "NOT RUN")
     inform_owner()
     print("autofix: fixing %d finding(s) on %s (attempt %d of %d)" % (len(ids), head.get("ref"), attempt, MAX_ATTEMPTS))
-    emit(run="true", attempt=attempt, findings=",".join(ids), branch=head.get("ref"), head_sha=head.get("sha"))
+    emit(run="true", attempt=attempt, findings=",".join(ids), branch=head.get("ref"), head_sha=head.get("sha"),
+         plan=json.dumps(repro_plan, separators=(",", ":")), repro="true" if repro_plan else "false",
+         executable="true" if any(e["class"] == "executable" for e in repro_plan) else "false")
     return 0
 
 
@@ -671,6 +727,44 @@ def record_outcome(fix_result, outcome, push):
     if outcome in ("nothing", "owner"):
         return True, "FAILED" if outcome == "nothing" else "NEEDS_OWNER", "the fixer made no commit" if outcome == "nothing" else "the fixer left it to the owner"
     return False, "SUPERSEDED", "the fixer gave no result"
+
+
+def settle_repro(state, rows, ids, head_sha, run_id):
+    """ADR-0015 phase 1 in `record`: the facts of the repro-check job (REPRO_RESULT, untrusted, validated by repro_fact)
+    go to the state per finding. A planned finding that did not come back in FIX_IDS left the auto-fix lane: green on the
+    head (or a static rule that does not fire) is NOT_REPRODUCIBLE, routed to the owner (not-reproducible) with the run id;
+    anything else (invalid, flaky, missing, malformed) is REPRO_INVALID (repro-invalid). Neither uses an attempt; their
+    pending entries are cleared. Returns the ids that went to the fixer (their attempt is recorded as before)."""
+    try:
+        raw = json.loads(os.environ.get("REPRO_RESULT") or "{}")
+    except ValueError:
+        raw = {}
+    raw = raw if isinstance(raw, dict) else {}
+    fixed = {i for i in (safe_id(x) for x in os.environ.get("FIX_IDS", "").split(",")) if i}
+    for fid in ids:
+        fact = repro_fact(raw.get(fid))
+        if fact:
+            state["repro"][fid] = fact
+        if fid in fixed:
+            continue
+        result = fact["result"] if fact else "invalid"
+        code = "not-reproducible" if result in ("green", "silent") else "repro-invalid"
+        why = ("%s on the head %s (run %s)" % ("green" if result == "green" else "the rule does not fire" if result == "silent" else "the reproducer is invalid (" + result + ")",
+                                              head_sha[:12], run_id))
+        state["routes"][fid] = {"code": code, "why": why}
+        state["pending"].get(fid, {}).pop(head_sha, None)
+        if not state["pending"].get(fid, True):
+            del state["pending"][fid]
+        row = rows.get(fid)
+        if row is None:
+            row = {"id": fid, "where": "", "class": "prose", "route": "fixer", "state": "", "fact": "", "next": "", "who": ""}
+            state["rows"].append(row)
+            rows[fid] = row
+        label = "NOT_REPRODUCIBLE" if code == "not-reproducible" else "REPRO_INVALID"
+        digest = (fact or {}).get("repro_sha256", "")[:12]
+        row.update(route="owner (%s)" % code, state=label, fact="run %s: %s%s" % (run_id, why, ", reproducer %s" % digest if digest else ""),
+                   next="the owner decides; no attempt used", who="owner")
+    return [i for i in ids if i in fixed]
 
 
 def cmd_record():
@@ -701,6 +795,8 @@ def cmd_record():
                 consumed, kind, why = False, "SUPERSEDED", "the head moved while the fixer ran"
         comment_id, state = find_status(ctx, ctx.gh_api(gh, "repos/%s/issues/%s/comments" % (repo, number)))
         rows = {r["id"]: r for r in state["rows"]}
+        if os.environ.get("REPRO_RAN") == "true":
+            ids = settle_repro(state, rows, ids, head_sha, run_id)
         # Routing to the owner is per finding: the ids the guard's refusal concerns (by the file of their row), or the ids the
         # fixer answered OWNER for. A refusal or an answer that names none concerns the whole run, and the row says so.
         to_owner, blanket = set(fixer_owner), ""
@@ -917,6 +1013,451 @@ def cmd_context():
     except Exception as exc:  # fail open: the fixer still has the ids and can read the sources itself
         out["items"], out["note"] = [], "NOT RUN (%s)" % type(exc).__name__
     print(json.dumps(out, indent=2))
+    return 0
+
+
+# ---- ADR-0015 phase 1: the reproducer (point 3, owner decisions D2, D3) and the static oracle (D4) ----
+# D2: one reproducer per executable finding, at a FIXED path the plan names: <package dir>/zz_repro_<id>_test.go for a Go
+# file under src/, <dir>/__repro__/<id>.test.ts for a web file under src/web/. It is written by the `repro` job (model,
+# read-only token), hashed by `repro-lock` BEFORE any pull request code runs, run three times on the head by `repro-run`,
+# and locked for the fixer (`check`: hash before == hash after). D3: at most MAX_REPRO reproducers per run.
+MAX_REPRO = 3
+REPRO_RUNS = 3
+MAX_REPRO_BYTES = 65536
+REPRO_GO = re.compile(r"^src/(?:[\w.-]+/)*zz_repro_[\w.-]{1,40}_test\.go$")
+REPRO_WEB = re.compile(r"^src/web/(?:[\w.-]+/)*__repro__/[\w.-]{1,40}\.test\.ts$")
+SHA256 = re.compile(r"^[0-9a-f]{64}$")
+REPRO_RESULTS = ("red", "green", "invalid")
+STATIC_RESULTS = ("fires", "silent", "invalid")
+RULE_OK = re.compile(r"^(gosec|golangci-lint|eslint|tsc|semgrep):[\w@/.-]{1,80}$")
+WEB_CODE = re.compile(r"\.(?:ts|tsx|js|jsx|mts|cts)$")
+
+
+def is_repro_path(path):
+    return bool(REPRO_GO.match(path or "") or REPRO_WEB.match(path or "")) and ".." not in (path or "").split("/")
+
+
+def repro_path(fid, file):
+    """(kind, D2 path) for an executable finding at FILE, or (None, None) when D2 names no path for it."""
+    norm = posixpath.normpath((file or "").strip())
+    if not FINDING_ID.match(fid or "") or norm.startswith(("/", "..")) or path_refusal(norm):
+        return None, None
+    folder = posixpath.dirname(norm)
+    if norm.startswith("src/web/") and WEB_CODE.search(norm):
+        path = "%s/__repro__/%s.test.ts" % (folder, fid)
+        return ("web", path) if REPRO_WEB.match(path) else (None, None)
+    if norm.startswith("src/") and norm.endswith(".go"):
+        path = "%s/zz_repro_%s_test.go" % (folder, fid)
+        return ("go", path) if REPRO_GO.match(path) else (None, None)
+    return None, None
+
+
+def plan_entry(f, fid, executables):
+    """(plan entry or None, why): the reproducer or the static oracle a finding needs before the fixer. Only ids, D2
+    paths, the finding's file and a rule id: never ledger text."""
+    cls = f.get("class") or "prose"
+    if cls == "executable":
+        kind, path = repro_path(fid, f.get("file"))
+        if not path:
+            return None, "no-repro-path"
+        if executables >= MAX_REPRO:
+            return None, "cap"
+        return {"id": fid, "class": "executable", "kind": kind, "path": path, "file": posixpath.normpath(f["file"])}, ""
+    if cls == "static" and RULE_OK.match(f.get("rule") or "") and f.get("file") and not path_refusal(f["file"]):
+        return {"id": fid, "class": "static", "rule": f["rule"], "file": posixpath.normpath(f["file"])}, ""
+    return None, ""
+
+
+def read_plan():
+    """The plan from the decide job (PLAN, JSON), validated again: entries that do not hold are dropped."""
+    try:
+        raw = json.loads(os.environ.get("PLAN") or "[]")
+    except ValueError:
+        return []
+    out = []
+    for e in raw if isinstance(raw, list) else []:
+        if not isinstance(e, dict) or not FINDING_ID.match(str(e.get("id", ""))):
+            continue
+        if e.get("class") == "executable" and e.get("kind") in ("go", "web") and is_repro_path(str(e.get("path"))) \
+                and repro_path(e["id"], e.get("file")) == (e["kind"], e["path"]):
+            out.append(e)
+        elif e.get("class") == "static" and RULE_OK.match(str(e.get("rule", ""))) and not path_refusal(str(e.get("file", ""))):
+            out.append(e)
+    return out
+
+
+def parse_locks(text):
+    """{path: sha256} from `path=sha,...`; only D2 paths and full hashes."""
+    locks = {}
+    for item in (text or "").split(","):
+        path, _, digest = item.strip().partition("=")
+        if is_repro_path(path) and SHA256.match(digest):
+            locks[path] = digest
+    return locks
+
+
+def file_sha256(path):
+    import hashlib
+    with open(path, "rb") as fh:
+        return hashlib.sha256(fh.read()).hexdigest()
+
+
+def cmd_repro_lock():
+    """Trusted, BEFORE any pull request code runs in the repro-check job: the reproducer artefact (REPRO_DIR, files at
+    their repository paths) must hold only the D2 paths of PLAN, regular files of at most 64 KB that do not exist on the
+    head yet; each is hashed and copied into WORKTREE. Emits locks=path=sha256,... (a step output, which later steps
+    cannot rewrite). Any file outside the plan refuses the whole artefact (exit 1, nothing locked)."""
+    src, worktree = os.environ.get("REPRO_DIR", ""), os.environ.get("WORKTREE", ".")
+    expected = {e["path"] for e in read_plan() if e["class"] == "executable"}
+    raw = [e for e in (json.loads(os.environ.get("PLAN") or "[]") or []) if isinstance(e, dict) and e.get("class") == "executable"]
+    if len(raw) != len(expected):
+        print("repro-lock: FAILED (a plan path is not a D2 path)")
+        return 1
+    found = []
+    for folder, dirs, files in os.walk(src) if src and os.path.isdir(src) else []:
+        for name in files + [d for d in dirs if os.path.islink(os.path.join(folder, d))]:
+            full = os.path.join(folder, name)
+            found.append((os.path.relpath(full, src).replace(os.sep, "/"), full))
+    bad = [rel for rel, full in found if rel not in expected or os.path.islink(full) or not os.path.isfile(full)
+           or os.path.getsize(full) > MAX_REPRO_BYTES]
+    if bad:
+        print("repro-lock: FAILED (outside the D2 path of the plan, a link, or too large: %s)" % ", ".join(sorted(bad)[:10]))
+        return 1
+    locks = []
+    for rel, full in sorted(found):
+        target = os.path.join(worktree, rel)
+        if os.path.lexists(target):
+            print("repro-lock: FAILED (%s already exists on the head)" % rel)
+            return 1
+        os.makedirs(os.path.dirname(target), exist_ok=True)
+        with open(full, "rb") as fh, open(target, "wb") as out:
+            out.write(fh.read())
+        locks.append("%s=%s" % (rel, file_sha256(target)))
+    print("repro-lock: %d reproducer(s) locked" % len(locks))
+    emit(locks=",".join(locks))
+    return 0
+
+
+GO_BUILD = re.compile(r"\[build failed\]|\[setup failed\]|^#\s+\S|undefined: |cannot find package|declared and not used|imported and not used"
+                      r"|no required module|build constraints exclude|cannot use ", re.M)
+# Red (D2) comes only from the runner's structured result (go test -json events, the vitest JSON report), never from text
+# the reproducer prints: `--- FAIL: TestX` or the word AssertionError on stdout is free text the reproducer controls.
+# A panic prints a failed test too: it is a crash, not an assertion failure, so the run is invalid.
+GO_PANIC = re.compile(r"^panic: ", re.M)
+# testing's t.Error/t.Fatal prefix (`    file_test.go:12: message`): the failure came from an assertion of the reproducer.
+GO_ASSERT_LINE = re.compile(r"^\s+zz_repro_[\w.-]+_test\.go:\d+: ", re.M)
+WEB_BUILD = re.compile(r"Failed to resolve import|Cannot find module|does not provide an export named|is not exported by|Transform failed"
+                       r"|SyntaxError|Failed to load url|No test files found|failed to load config", re.I)
+# Code that ends the process (and so can fake a failure with any text before it), or a reproducer naming the assertion
+# class itself (it could throw its own AssertionError): refused before the reproducer is run.
+REPRO_EXIT_GO = re.compile(r"\bos\.Exit\b|\bsyscall\.Exit\b|\bruntime\.Goexit\b|\bsyscall\.Kill\b")
+REPRO_EXIT_WEB = re.compile(r"\bprocess\s*(?:\.|\[)|\bAssertionError\b|\bglobalThis\s*(?:\.|\[)")
+
+
+def tool_run(argv, worktree, timeout=600):
+    """(rc, output) of one tool command; REPRO_RUNNER (tests only) is put before argv. A runner that cannot start is rc 127."""
+    prefix = [os.environ["REPRO_RUNNER"]] if os.environ.get("REPRO_RUNNER") else []
+    # The reproducer is model-written: it must not reach the runner's file commands (step outputs, env, PATH).
+    env = {k: v for k, v in os.environ.items() if k not in ("GITHUB_OUTPUT", "GITHUB_ENV", "GITHUB_PATH", "GITHUB_STATE")}
+    try:
+        done = subprocess.run(prefix + argv, cwd=worktree, env=env, capture_output=True, text=True, timeout=timeout, check=False)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return 127, type(exc).__name__
+    return done.returncode, (done.stdout or "") + (done.stderr or "")
+
+
+def go_events(text):
+    """The go test -json events of TEXT (lines that are not JSON objects, such as compiler errors on stderr, are kept as
+    plain output); returns (events, all output joined)."""
+    events, plain = [], []
+    for line in text.splitlines():
+        try:
+            ev = json.loads(line)
+        except ValueError:
+            ev = None
+        if isinstance(ev, dict) and isinstance(ev.get("Action"), str):
+            events.append(ev)
+            plain.append(str(ev.get("Output") or ""))
+        else:
+            plain.append(line + "\n")
+    return events, "".join(plain)
+
+
+def go_verdict(rc, text, names):
+    """red | green | invalid of one go test -json run of the reproducer's tests NAMES."""
+    events, out = go_events(text)
+    if any(e["Action"] == "build-fail" for e in events) or GO_BUILD.search(out):
+        return "invalid", "build error or missing symbol"
+    if GO_PANIC.search(out):
+        return "invalid", "panicked (a crash, not an assertion)"
+    tests = [e for e in events if e.get("Test") in names]
+    if any(e["Action"] == "skip" for e in tests):
+        return "invalid", "no test ran or a test was skipped"
+    failed = {e["Test"] for e in tests if e["Action"] == "fail"}
+    passed = {e["Test"] for e in tests if e["Action"] == "pass"}
+    if rc == 0:
+        return ("green", "passes") if passed and not failed else ("invalid", "no test ran or a test was skipped")
+    if not failed:
+        return "invalid", "failed without a failed test"
+    said = "".join(str(e.get("Output") or "") for e in tests if e["Action"] == "output" and e["Test"] in failed)
+    return ("red", "assertion failed") if GO_ASSERT_LINE.search(said) else ("invalid", "failed without an assertion of the reproducer")
+
+
+def web_verdict(rc, report, text):
+    """red | green | invalid from the vitest JSON report (REPORT, its text): red only when every failed test failed on an
+    AssertionError (expect), never a plain Error or a load error."""
+    if WEB_BUILD.search(text):
+        return "invalid", "load error or missing symbol"
+    try:
+        data = json.loads(report)
+        files = data["testResults"]
+        tests = [t for f in files for t in f["assertionResults"]]
+    except (ValueError, KeyError, TypeError):
+        return "invalid", "no vitest JSON report"
+    if not tests or any(f.get("status") == "failed" and not f.get("assertionResults") for f in files):
+        return "invalid", "load error or no test ran"
+    status = [t.get("status") for t in tests]
+    if any(x not in ("passed", "failed") for x in status):
+        return "invalid", "no test ran or a test was skipped"
+    if rc == 0:
+        return ("green", "passes") if "failed" not in status else ("invalid", "exit 0 with a failed test")
+    failed = [t for t in tests if t.get("status") == "failed"]
+    if not failed:
+        return "invalid", "failed without an assertion"
+    for t in failed:
+        msgs = t.get("failureMessages") or []
+        if not msgs or not str(msgs[0]).startswith("AssertionError:"):
+            return "invalid", "failed without an assertion"
+    return "red", "assertion failed"
+
+
+def one_run(entry, worktree):
+    """red | green | invalid for one run of a reproducer: red only for a failed assertion, never a build error."""
+    import shutil
+    import tempfile
+    path = entry["path"]
+    with open(os.path.join(worktree, path), encoding="utf-8", errors="replace") as fh:
+        source = fh.read()
+    if entry["kind"] == "go":
+        if REPRO_EXIT_GO.search(source):
+            return "invalid", "ends the process (os.Exit and the like): refused before running"
+        names = re.findall(r"^func (Test\w+)\(\s*\w+\s+\*testing\.T\s*\)", source, re.M)
+        if not names:
+            return "invalid", "no Test function"
+        rc, text = tool_run(["go", "test", "-json", "-count=1", "-run", "^(%s)$" % "|".join(names), "./%s/" % posixpath.dirname(path)], worktree)
+        return go_verdict(rc, text, set(names))
+    if REPRO_EXIT_WEB.search(source):
+        return "invalid", "uses process, globalThis or AssertionError: refused before running"
+    rel = path[len("src/web/"):]
+    folder = tempfile.mkdtemp(prefix="repro-vitest-")
+    report_path = os.path.join(folder, "report.json")
+    try:
+        rc, text = tool_run(["pnpm", "--filter", "web", "exec", "vitest", "run", "--reporter=json", "--outputFile=%s" % report_path, rel], worktree)
+        try:
+            with open(report_path, encoding="utf-8") as fh:
+                report = fh.read()
+        except OSError:
+            report = ""
+    finally:
+        shutil.rmtree(folder, ignore_errors=True)
+    return web_verdict(rc, report, text)
+
+
+def run_reproducer(entry, worktree, locks, head):
+    """The repro fact of one executable finding: up to three runs on the head. Green on the first run is NOT_REPRODUCIBLE;
+    any invalid run, or a green after a red (flaky), is invalid; red three times is red."""
+    fact = {"repro_path": entry["path"], "repro_sha256": locks.get(entry["path"], ""), "head_sha": head, "runs": 0, "result": "invalid"}
+    full = os.path.join(worktree, entry["path"])
+    if entry["path"] not in locks or not os.path.isfile(full) or os.path.islink(full) or file_sha256(full) != locks[entry["path"]]:
+        fact["why"] = "missing, or changed since it was locked"
+        return fact
+    seen = []
+    for _ in range(REPRO_RUNS):
+        result, why = one_run(entry, worktree)
+        seen.append(result)
+        fact["runs"] = len(seen)
+        if result == "invalid" or (result == "green" and "red" in seen):
+            fact.update(result="invalid", why=why if result == "invalid" else "flaky: red then green")
+            return fact
+        if result == "green":
+            fact.update(result="green", why="passes on the head")
+            return fact
+    fact.update(result="red", why="red %d times for an assertion" % REPRO_RUNS)
+    return fact
+
+
+def static_argv(rule, file):
+    tool, ident = rule.split(":", 1)
+    folder = posixpath.dirname(file) or "."
+    if tool == "gosec":
+        return ["go", "tool", "golangci-lint", "run", "--enable-only=gosec", "--tests=false", "./%s/..." % folder]
+    if tool == "golangci-lint":
+        return ["go", "tool", "golangci-lint", "run", "--enable-only=%s" % ident, "./%s/..." % folder]
+    if tool == "eslint":
+        # --format unix prints `path:line:col: message [Severity/rule]` on one line; the default (stylish) puts the
+        # path on its own line, so no line would name both the file and the rule.
+        return ["pnpm", "--filter", "web", "exec", "eslint", "--format", "unix", "--no-warn-ignored", file[len("src/web/"):] if file.startswith("src/web/") else file]
+    if tool == "tsc":
+        return ["pnpm", "--filter", "web", "run", "typecheck"]
+    return ["make", "security-sast-js"]
+
+
+def static_fires(rule, file, rc, text):
+    """fires | silent | invalid: the rule fires when a line of the tool output names both its file and its rule id."""
+    tool, ident = rule.split(":", 1)
+    base = file[len("src/web/"):] if file.startswith("src/web/") else file
+    if tool == "semgrep":
+        return semgrep_fires(ident, file, text)
+    token = {"golangci-lint": "(%s)" % ident, "eslint": "/%s]" % ident}.get(tool, ident)
+    for line in text.splitlines():
+        if (file in line or (tool in ("eslint", "tsc") and base in line)) and token in line:
+            return "fires"
+    # A tool error is never silent: golangci-lint reports compile errors as (typecheck) issues; eslint exits 2 on a
+    # fatal error (no files matching, a bad config); tsc fails on any type error, so a failure that is not the rule on
+    # the file means the oracle could not answer.
+    if tool in ("gosec", "golangci-lint") and (rc not in (0, 1) or "(typecheck)" in text or "level=error" in text):
+        return "invalid"
+    if tool == "eslint" and (rc not in (0, 1) or "Parsing error" in text):
+        return "invalid"
+    if tool == "tsc" and rc != 0:
+        return "invalid"
+    return "silent" if rc in (0, 1) else "invalid"
+
+
+SEMGREP_REPORT = "reports/semgrep/semgrep.json"
+
+
+def semgrep_fires(ident, file, report):
+    """semgrep reads its JSON report (scripts/sast-js.sh scans src/web/src mounted at /src): fires when a result has the
+    rule id (check_id, possibly prefixed by the rules file) on the file; a missing, unparsable or erroring report is invalid
+    whatever make's exit code (a failing make exits 2, which would otherwise read as silent)."""
+    try:
+        data = json.loads(report)
+        results, errors = data.get("results") or [], data.get("errors")
+    except (ValueError, AttributeError):
+        return "invalid"
+    if errors or not isinstance(results, list):
+        return "invalid"
+    for r in results:
+        if not isinstance(r, dict):
+            continue
+        check, path = str(r.get("check_id", "")), str(r.get("path", ""))
+        if path.startswith("/src/"):
+            path = "src/web/src/" + path[len("/src/"):]
+        if (check == ident or check.endswith("." + ident)) and path == file:
+            return "fires"
+    return "silent"
+
+
+def static_output(rule, file, worktree):
+    """(rc, text) for static_fires: the tool's output, or for semgrep its JSON report (removed first, so a stale one
+    from an earlier run never answers)."""
+    if rule.startswith("semgrep:"):
+        report = os.path.join(worktree, SEMGREP_REPORT)
+        try:
+            os.remove(report)
+        except OSError:
+            pass
+        rc, _ = tool_run(static_argv(rule, file), worktree)
+        try:
+            with open(report, encoding="utf-8") as fh:
+                return rc, fh.read()
+        except OSError:
+            return rc, ""
+    return tool_run(static_argv(rule, file), worktree)
+
+
+def cmd_repro_run():
+    """repro-check job (contents: read, no secret) after `repro-lock`: each executable finding of PLAN runs its reproducer
+    on the head (run_reproducer); each static one runs its D4 tool filtered to its rule and file (owner answer (c): a rule
+    that never fires is NOT_REPRODUCIBLE). Writes RESULT_FILE (JSON per id) and emits fix_ids (the FINDINGS that may go
+    to the fixer: not in the plan, red, or firing) and result (compact JSON). ORACLE=after: static entries only, after
+    the fix, for the publish job."""
+    worktree, head = os.environ.get("WORKTREE", "."), os.environ.get("HEAD_SHA", "")
+    after = os.environ.get("ORACLE") == "after"
+    locks = parse_locks(os.environ.get("LOCKS", ""))
+    plan, results = read_plan(), {}
+    for e in plan:
+        if e["class"] == "executable" and not after:
+            results[e["id"]] = run_reproducer(e, worktree, locks, head)
+        elif e["class"] == "static":
+            target = os.path.join(worktree, e["file"])
+            if os.path.islink(target) or not os.path.isfile(target):
+                verdict = "invalid"  # a target the fix deleted (or never there) cannot read as silent (review S4)
+            else:
+                rc, text = static_output(e["rule"], e["file"], worktree)
+                verdict = static_fires(e["rule"], e["file"], rc, text)
+            results[e["id"]] = {"class": "static", "rule": e["rule"], "file": e["file"], "head_sha": head, "result": verdict}
+        if e["id"] in results:
+            print("repro-run: %s %s" % (e["id"], results[e["id"]]["result"]))
+    with open(os.environ.get("RESULT_FILE") or os.devnull, "w", encoding="utf-8") as fh:
+        json.dump(results, fh)
+    planned = {e["id"] for e in plan}
+    ids = [i for i in (safe_id(x) for x in os.environ.get("FINDINGS", "").split(",")) if i]
+    keep = [i for i in ids if i not in planned or results.get(i, {}).get("result") in ("red", "fires")]
+    compact = {i: {k: v for k, v in r.items() if k != "why"} for i, r in results.items()}
+    # The reproducers that go to the fixer (red x3) and are locked for it: the fix job commits them, `check` hashes them.
+    red = {r["repro_path"] for r in results.values() if r.get("result") == "red"}
+    fix_locks = ",".join("%s=%s" % (p, d) for p, d in sorted(locks.items()) if p in red)
+    emit(fix_ids=",".join(keep), fix_locks=fix_locks, result=json.dumps(compact, separators=(",", ":")))
+    return 0
+
+
+def repro_fact(r):
+    """A repro or static fact read back from an untrusted job or a comment, validated; None when it does not hold."""
+    if not isinstance(r, dict):
+        return None
+    if r.get("class") == "static":
+        if RULE_OK.match(str(r.get("rule", ""))) and r.get("result") in STATIC_RESULTS:
+            return {"class": "static", "rule": str(r["rule"]), "file": str(r.get("file", ""))[:200], "result": r["result"]}
+        return None
+    runs = r.get("runs")
+    if (is_repro_path(str(r.get("repro_path", ""))) and SHA256.match(str(r.get("repro_sha256", ""))) and FULL_SHA.match(str(r.get("head_sha", "")))
+            and isinstance(runs, int) and not isinstance(runs, bool) and 0 <= runs <= REPRO_RUNS and r.get("result") in REPRO_RESULTS):
+        return {"repro_path": r["repro_path"], "repro_sha256": r["repro_sha256"], "head_sha": r["head_sha"], "runs": runs, "result": r["result"]}
+    return None
+
+
+def repro_lock_refusal(git, worktree, base, locks, paths):
+    """ADR-0015 point 4, the hash rule: every reproducer of the run (LOCKS) is at HEAD with the same sha256 (the fixer
+    never changes or deletes one, its own or another finding's), and no other D2 path is added by the fix."""
+    import hashlib
+    for path, digest in sorted(locks.items()):
+        done = subprocess.run([git, "-C", worktree, "cat-file", "blob", "HEAD:%s" % path], capture_output=True, timeout=60, check=False)
+        if done.returncode != 0:
+            REFUSED.append(path)
+            return "reproducer hash rule: %s was deleted or is missing at the head of the fix" % path
+        if hashlib.sha256(done.stdout).hexdigest() != digest:
+            REFUSED.append(path)
+            return "reproducer hash rule: %s changed (hash before %s, after %s)" % (path, digest[:12], hashlib.sha256(done.stdout).hexdigest()[:12])
+    extra = [p for p in paths if is_repro_path(p) and p not in locks]
+    if extra:
+        REFUSED.extend(extra)
+        return "reproducer hash rule: %s is a reproducer path the reproducer job did not write" % ", ".join(extra[:5])
+    return None
+
+
+def cmd_static_after():
+    """Publish job, trusted, BEFORE the push, from the default-branch script (owner answer (g)): every static finding the
+    fixer worked on (PLAN entries in FIX_IDS) must be `silent` in the oracle result taken after the fix (STATIC_RESULT
+    file from the read-only oracle job). Missing, unreadable, firing or invalid: refused (exit 1, owner)."""
+    ids = {i for i in (safe_id(x) for x in os.environ.get("FIX_IDS", "").split(",")) if i}
+    static = [e for e in read_plan() if e["class"] == "static" and e["id"] in ids]
+    if not static:
+        print("static-after: NO-OP (no static finding in this fix)")
+        return 0
+    try:
+        with open(os.environ.get("STATIC_RESULT", ""), encoding="utf-8") as fh:
+            data = json.load(fh)
+    except (OSError, ValueError):
+        data = {}
+    for e in static:
+        fact = repro_fact((data or {}).get(e["id"]) if isinstance(data, dict) else None)
+        if not fact or fact.get("rule") != e["rule"] or fact["result"] != "silent":
+            print("static-after: FAILED (%s: rule %s %s after the fix)" % (e["id"], e["rule"], fact["result"] if fact else "has no oracle result"))
+            emit(refused=e["file"] if re.match(r"^[\w./-]{1,200}$", e["file"]) else "")
+            return 1
+    print("static-after: PASS (%d static finding(s) silent after the fix)" % len(static))
     return 0
 
 
@@ -1139,7 +1680,8 @@ def check_commits(git, worktree, base, name, email):
     generated = [p for p in paths if DBGEN_GENERATED.match(p)]
     if generated and not any(p.startswith("db/queries/") for p in paths):
         return "generated sqlc output changed without a db/queries change (a hand edit): %s" % ", ".join(generated[:5])
-    return weakening(git, worktree, base, entries)
+    reason = repro_lock_refusal(git, worktree, base, parse_locks(os.environ.get("REPRO_LOCKS", "")), paths)
+    return reason or weakening(git, worktree, base, entries)
 
 
 def cmd_check():
@@ -1516,9 +2058,10 @@ def main():
     if sub == "run":
         return cmd_run(sys.argv[2:])
     commands = {"pr": cmd_pr, "batch": cmd_batch, "check": cmd_check, "body": cmd_body, "apply": cmd_apply, "prepare": cmd_prepare,
-                "context": cmd_context, "nothing": cmd_nothing, "record": cmd_record}
+                "context": cmd_context, "nothing": cmd_nothing, "record": cmd_record,
+                "repro-lock": cmd_repro_lock, "repro-run": cmd_repro_run, "static-after": cmd_static_after}
     if sub not in commands:
-        print("usage: review-autofix.py pr|batch|context|prepare|apply|check|body|nothing|record|run")
+        print("usage: review-autofix.py pr|batch|context|prepare|apply|check|body|nothing|record|repro-lock|repro-run|static-after|run")
         return 2
     return commands[sub]()
 
