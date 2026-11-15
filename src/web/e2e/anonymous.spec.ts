@@ -24,7 +24,10 @@ test.describe('Anonymous visitor', () => {
 
   test('Résoudre lists questions and a question opens', async ({ page }) => {
     await openFirstItem(page, '/solve', 'Questions');
-    await expect(page.getByRole('heading', { level: 2, name: 'Réponses' })).toBeVisible();
+    // The answers heading counts them (« 1 réponse », « 2 réponses ») or reads « Réponses ».
+    await expect(
+      page.getByRole('heading', { level: 2, name: /^(Réponses|\d+ réponses?)$/ }),
+    ).toBeVisible();
   });
 
   test('Construire lists projects and a project opens', async ({ page }) => {
@@ -34,9 +37,10 @@ test.describe('Anonymous visitor', () => {
   test('Apprendre lists articles and an article opens', async ({ page }) => {
     await page.goto('/apprendre');
     await expect(page.getByRole('heading', { level: 1, name: 'Apprendre' })).toBeVisible();
-    const articles = page.getByRole('region', { name: 'Articles', exact: true });
-    await expect(articles.getByRole('listitem').first()).toBeVisible();
-    await openFirstItem(page, '/apprendre', 'Articles');
+    // One list for every type since the filters pass (learn.browse.label).
+    const all = page.getByRole('region', { name: 'Tous les contenus', exact: true });
+    await expect(all.getByRole('listitem').first()).toBeVisible();
+    await openFirstItem(page, '/apprendre', 'Tous les contenus');
   });
 
   test('the site search returns results', async ({ page }) => {

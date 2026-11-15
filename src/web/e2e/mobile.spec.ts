@@ -12,7 +12,8 @@ test.describe('Mobile navigation', () => {
 
     await bar.getByRole('link', { name: 'Résoudre' }).click();
     await expect(page).toHaveURL(/\/solve$/);
-    await expect(page.getByRole('heading', { level: 1, name: 'Résoudre' })).toBeVisible();
+    // The Résoudre page is titled « Questions » (solve.h1).
+    await expect(page.getByRole('heading', { level: 1, name: 'Questions' })).toBeVisible();
 
     await bar.getByRole('link', { name: 'Découvrir' }).click();
     await expect(page).toHaveURL(/\/discover$/);
