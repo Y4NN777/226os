@@ -38,6 +38,13 @@ async function open() {
 }
 
 describe('LandingPage', () => {
+  it('has a single banner landmark: the shell header', async () => {
+    setLanguages(['fr-FR']);
+    mockApi({ 'GET /resources': () => page([resource(1)]) });
+    await open();
+    expect(screen.getAllByRole('banner')).toHaveLength(1);
+  });
+
   it('shows the promise, the positioning and the two calls to action', async () => {
     setLanguages(['fr-FR']);
     mockApi({ 'GET /resources': () => page([resource(1)]) });

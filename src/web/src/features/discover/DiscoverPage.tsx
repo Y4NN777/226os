@@ -137,7 +137,7 @@ function Filters({
             onChange({ category: value || undefined });
           }}
         />
-        <div className="discover-filter">
+        <div className="discover-filter discover-filter-type">
           <span className="discover-filter-label" aria-hidden="true">
             {t('discover.type.label')}
           </span>

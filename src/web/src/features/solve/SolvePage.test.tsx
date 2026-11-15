@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { callsTo, mockApi, problemResponse } from '../../test/api';
@@ -120,6 +120,21 @@ describe('SolvePage list', () => {
     await user.click(screen.getByRole('button', { name: 'Questions' }));
     expect(await screen.findByRole('heading', { level: 1, name: 'Questions' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Webhook non reçu après un paiement' })).toBeVisible();
+  });
+
+  it('opens the ask view when the hash becomes #ask while already on the list', async () => {
+    setLanguages(['fr-FR']);
+    member({ 'GET /questions': () => page([question()]) });
+    const { router } = await renderApp('/solve');
+    await screen.findByRole('link', { name: 'Webhook non reçu après un paiement' });
+
+    await act(() => router.navigate({ to: '/solve', hash: 'ask' }));
+
+    const heading = await screen.findByRole('heading', { level: 1, name: 'Poser une question' });
+    expect(heading).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByRole('textbox', { name: /Titre/ })).toHaveFocus();
+    });
   });
 
   it('loads the next page with the opaque cursor', async () => {
