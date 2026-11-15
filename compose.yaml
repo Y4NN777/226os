@@ -141,7 +141,7 @@ services:
       timeout: 3s
       retries: 5
       start_period: 5s
-    deploy: { resources: { limits: { cpus: "0.5", memory: 128M, pids: 100 } } }
+    deploy: { resources: { limits: { cpus: "0.5", memory: 512M, pids: 100 } } }
 
   web:
     <<: *hardened
