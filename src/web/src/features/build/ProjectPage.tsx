@@ -30,6 +30,7 @@ import { Applications } from './Applications';
 import './build.css';
 import { Needs } from './Needs';
 import {
+  BuildBreadcrumbs,
   countryName,
   DateText,
   MetaBadge,
@@ -305,7 +306,13 @@ export function ProjectPage() {
 
   return (
     <div className="build-project">
-      <Link href="/build">{t('project.back')}</Link>
+      <BuildBreadcrumbs
+        items={[
+          { label: t('build.crumb.home'), href: '/' },
+          { label: t('build.title'), href: '/build' },
+          { label: project.name },
+        ]}
+      />
       <header className="build-project-head">
         <div className="build-header-row">
           <div className="build-project-id">
@@ -321,9 +328,7 @@ export function ProjectPage() {
                     n: project.open_needs_count,
                   })}
                 />
-                {project.visibility === 'private' ? (
-                  <MetaBadge label={t('build.private')} />
-                ) : null}
+                {project.visibility === 'private' ? <MetaBadge label={t('build.private')} /> : null}
               </div>
             </div>
           </div>

@@ -112,6 +112,8 @@ export const fr = {
   'project.kind.article': 'Article',
   'project.kind.series': 'Formation',
   'project.signin.hint': 'Lecture libre.',
+  'build.breadcrumbs': 'Fil d’Ariane',
+  'build.crumb.home': 'Accueil',
 } as const;
 
 export const en: Record<keyof typeof fr, string> = {
@@ -224,4 +226,6 @@ export const en: Record<keyof typeof fr, string> = {
   'project.kind.article': 'Article',
   'project.kind.series': 'Course',
   'project.signin.hint': 'Reading is open.',
+  'build.breadcrumbs': 'Breadcrumb',
+  'build.crumb.home': 'Home',
 };

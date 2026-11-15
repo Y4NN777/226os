@@ -17,7 +17,14 @@ import { useI18n } from '../../i18n/I18nProvider';
 import { relatedPath } from '../related';
 import { signInHref } from '../solve/signIn';
 import './build.css';
-import { DateText, MetaBadge, Monogram, needsLabelKey, PersonLink, StatePill } from './present';
+import {
+  BuildBreadcrumbs,
+  DateText,
+  MetaBadge,
+  Monogram,
+  needsLabelKey,
+  StatePill,
+} from './present';
 import { ProjectForm } from './ProjectForm';
 import { useCreateProject, useProjectList, type Project, type ProjectFilters } from './queries';
 
@@ -40,7 +47,7 @@ export function ProjectRow({ project }: { project: Project }) {
       <div className="build-row-main">
         <h3 className="build-row-title">
           <span lang={project.lang}>
-            <Link href={`/build/${project.id}`} weight="semibold">
+            <Link href={`/build/${project.id}`} weight="semibold" color="primary" size="lg">
               {project.name}
             </Link>
           </span>
@@ -69,7 +76,9 @@ export function ProjectRow({ project }: { project: Project }) {
         ) : null}
         <div className="build-meta">
           <span className="build-meta-item">
-            <PersonLink username={project.owner.username} name={project.owner.display_name} />
+            <Link href={`/profils/${project.owner.username}`} size="sm">
+              {project.owner.display_name}
+            </Link>
           </span>
           <span className="build-meta-item">
             <span className="build-visually-hidden">{t('build.row.updated')} </span>
@@ -81,7 +90,9 @@ export function ProjectRow({ project }: { project: Project }) {
               <Icon icon="info" size="xsm" color="secondary" />
               <span className="build-visually-hidden">{t('build.row.origin')} </span>
               <span lang={origin.lang}>
-                <Link href={relatedPath(origin)}>{origin.title}</Link>
+                <Link href={relatedPath(origin)} size="sm" color="secondary" hasUnderline>
+                  {origin.title}
+                </Link>
               </span>
             </span>
           ) : null}
@@ -203,6 +214,9 @@ export function BuildPage() {
 
   return (
     <div className="build-page">
+      <BuildBreadcrumbs
+        items={[{ label: t('build.crumb.home'), href: '/' }, { label: t('build.title') }]}
+      />
       <header className="build-header">
         <div className="build-header-row">
           <Heading level={1}>{t('build.title')}</Heading>

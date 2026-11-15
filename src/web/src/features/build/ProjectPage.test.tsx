@@ -142,14 +142,19 @@ describe('ProjectPage layout', () => {
     });
     await renderApp(`/build/${projectId}`);
     const heading = await screen.findByRole('heading', { level: 1, name: 'kora-sdk' });
+    const crumbs = screen.getByRole('navigation', { name: 'Fil d’Ariane' });
+    expect(within(crumbs).getByRole('link', { name: 'Construire' })).toHaveAttribute(
+      'href',
+      '/build',
+    );
+    expect(within(crumbs).getByText('kora-sdk')).toHaveAttribute('aria-current', 'page');
     const header = heading.closest('header');
     expect(header).not.toBeNull();
     expect(within(header as HTMLElement).getByText('2 besoins ouverts')).toBeVisible();
     expect(within(header as HTMLElement).getByText('Privé')).toBeVisible();
-    expect(within(header as HTMLElement).getByRole('link', { name: 'Voir les besoins' })).toHaveAttribute(
-      'href',
-      '#besoins',
-    );
+    expect(
+      within(header as HTMLElement).getByRole('link', { name: 'Voir les besoins' }),
+    ).toHaveAttribute('href', '#besoins');
 
     const description = screen.getByRole('region', { name: 'Description' });
     expect(within(description).getByText('Un SDK pour les paiements mobiles.')).toHaveAttribute(
@@ -198,7 +203,9 @@ describe('ProjectPage layout', () => {
     });
     await renderApp(`/build/${projectId}`);
     await screen.findByRole('heading', { level: 1, name: 'kora-sdk' });
-    expect(screen.queryByRole('link', { name: /Voir le dépôt sur GitHub/ })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', { name: /Voir le dépôt sur GitHub/ }),
+    ).not.toBeInTheDocument();
   });
 
   it('tells an anonymous visitor once that reading is open, above the needs', async () => {
@@ -211,7 +218,9 @@ describe('ProjectPage layout', () => {
     await renderApp(`/build/${projectId}`);
     const needs = await screen.findByRole('region', { name: 'Besoins de contribution' });
     expect(await within(needs).findByText('Lecture libre.')).toBeVisible();
-    expect(within(needs).getAllByRole('link', { name: 'Se connecter pour postuler' })).toHaveLength(1);
+    expect(within(needs).getAllByRole('link', { name: 'Se connecter pour postuler' })).toHaveLength(
+      1,
+    );
   });
 });
 

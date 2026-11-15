@@ -282,6 +282,11 @@
 .build-panel h2 {
   margin: 0;
 }
+/* Side cards and the description panel carry small headings (prototype `.project-panel > h2`). */
+.build-panel h2 {
+  font-size: 1.125rem;
+  line-height: 1.3;
+}
 .build-title-cluster {
   display: inline-flex;
   align-items: center;

@@ -1,4 +1,5 @@
 import { Badge } from '@astryxdesign/core/Badge';
+import { BreadcrumbItem, Breadcrumbs } from '@astryxdesign/core/Breadcrumbs';
 import { Icon, type IconColor, type IconName } from '@astryxdesign/core/Icon';
 import { Link } from '@astryxdesign/core/Link';
 import { useI18n } from '../../i18n/I18nProvider';
@@ -67,7 +68,10 @@ export function initials(name: string): string {
     .split(/[\s\-_.]+/u)
     .map((word) => word.replace(/[^\p{L}\p{N}]/gu, ''))
     .filter((word) => word.length > 0);
-  const letters = words.length > 1 ? `${words[0]?.[0] ?? ''}${words[1]?.[0] ?? ''}` : (words[0] ?? '').slice(0, 2);
+  const letters =
+    words.length > 1
+      ? `${words[0]?.[0] ?? ''}${words[1]?.[0] ?? ''}`
+      : (words[0] ?? '').slice(0, 2);
   return letters.toUpperCase();
 }
 
@@ -99,6 +103,35 @@ export function countryName(code: string, locale: Locale): string {
   } catch {
     return code;
   }
+}
+
+export interface Crumb {
+  label: string;
+  /** Omitted on the last crumb: the current page is text, not a link. */
+  href?: string;
+}
+
+/**
+ * Where the page sits (prototype `.breadcrumbs`). Same shape as the shared shell breadcrumbs, so
+ * the lead can swap this local copy for the shared one.
+ */
+export function BuildBreadcrumbs({ items }: { items: readonly Crumb[] }) {
+  const { t } = useI18n();
+  return (
+    <Breadcrumbs label={t('build.breadcrumbs')} variant="supporting">
+      {items.map((item, index) => {
+        const isLast = index === items.length - 1;
+        return (
+          <BreadcrumbItem
+            key={`${item.label}-${String(index)}`}
+            {...(item.href && !isLast ? { href: item.href } : { isCurrent: true })}
+          >
+            {item.label}
+          </BreadcrumbItem>
+        );
+      })}
+    </Breadcrumbs>
+  );
 }
 
 /** A date as a `<time>` element, written in the UI language. */
