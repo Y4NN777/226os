@@ -32,7 +32,7 @@ graph LR
 ```
 
 1. Create a work branch from `develop` and open a PR into `develop`. The PR identifies its slice, allowed paths, acceptance criteria, risks, owner, reviewer and evidence (`.github/PULL_REQUEST_TEMPLATE.md`).
-2. Merge after the checks and the review required by ADR-0008. `develop` is staging/preview.
+2. Merge after the checks; the AI review pipeline merges when no finding is open, and the owner handles CRITICAL, open HIGH, sensitive and pipeline changes ([ADR-0014](decisions/0014-ai-review-merges-develop.md)). `develop` is staging/preview.
 3. Validate the exact `develop` SHA (integration, contract, security, E2E, accessibility, performance, backup/restore, smoke) as far as each gate is implemented.
 4. Open a production PR from `develop` into `main` with G7 evidence and explicit approval. Before approving, the approver verifies that `git diff develop main` is empty; no automation does this today.
 5. Deploy the image digest built and tested from the `develop` SHA.
