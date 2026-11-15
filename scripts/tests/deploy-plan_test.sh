@@ -77,7 +77,7 @@ run EVENT_NAME=workflow_dispatch
 [ "$rc" -ne 0 ] && ok "an unexpected event is refused" || ko "unexpected event (rc=$rc)"
 
 # Emergency path: a manual dispatch on main, explicit opt-in and a reason; production without the staging digests.
-ed() { printf 'EVENT_NAME=workflow_dispatch DISPATCH_REF=refs/heads/main DISPATCH_SHA=%s EMERGENCY=true' "$1"; }
+ed() { printf 'EVENT_NAME=workflow_dispatch DISPATCH_REF=refs/heads/main DISPATCH_SHA=%s CONFIRM=EMERGENCY' "$1"; }
 
 # shellcheck disable=SC2046
 run $(ed "$sha2") 'EMERGENCY_REASON=hotfix login broken'
@@ -87,8 +87,8 @@ if [ "$rc" -eq 0 ] && [ "$(val proceed)" = true ] && [ "$(val target)" = product
 else ko "emergency (rc=$rc $msg)"; fi
 
 # shellcheck disable=SC2046
-run $(ed "$sha2") EMERGENCY=false 'EMERGENCY_REASON=x'
-[ "$rc" -ne 0 ] && ok "a dispatch without emergency=true is refused" || ko "dispatch without opt-in (rc=$rc)"
+run $(ed "$sha2") CONFIRM=yes 'EMERGENCY_REASON=x'
+[ "$rc" -ne 0 ] && ok "a dispatch without CONFIRM=EMERGENCY is refused" || ko "dispatch without opt-in (rc=$rc)"
 
 # shellcheck disable=SC2046
 run $(ed "$sha2") DISPATCH_REF=refs/heads/develop 'EMERGENCY_REASON=x'

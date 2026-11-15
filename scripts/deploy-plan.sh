@@ -7,13 +7,13 @@
 #                                         and only for the develop tip (an older commit is superseded)
 #   push to main                       -> production, for the tree of that commit
 #   workflow_dispatch (EMERGENCY)      -> production WITHOUT the staging digests: only on refs/heads/main, only with
-#                                         EMERGENCY=true and a reason (1 to 200 printable characters). Output
+#                                         CONFIRM=EMERGENCY and a reason (1 to 200 printable characters). Output
 #                                         emergency=true; the workflow then builds and scans its own images, never tags
 #                                         them tested-*, and the `production` environment approval still applies.
 #
 # Environment (set by the workflow through `env:`, never inlined in a script):
 #   EVENT_NAME, THIS_REPO; workflow_run: RUN_CONCLUSION, RUN_EVENT, RUN_BRANCH, RUN_REPO, RUN_SHA;
-#   push: PUSH_REF, PUSH_SHA; workflow_dispatch: DISPATCH_REF, DISPATCH_SHA, EMERGENCY, EMERGENCY_REASON. Needs a checkout with origin/develop fetched (staging only).
+#   push: PUSH_REF, PUSH_SHA; workflow_dispatch: DISPATCH_REF, DISPATCH_SHA, CONFIRM, EMERGENCY_REASON. Needs a checkout with origin/develop fetched (staging only).
 # Output (GITHUB_OUTPUT, or stdout when unset): proceed, reason, target, profile, sha, tree, emergency.
 set -euo pipefail
 
@@ -55,7 +55,7 @@ case "${EVENT_NAME-}" in
     emit emergency false
     ;;
   workflow_dispatch)
-    [ "${EMERGENCY-}" = true ] || die "a manual run deploys only as an emergency (EMERGENCY=true)"
+    [ "${CONFIRM-}" = EMERGENCY ] || die "a manual run deploys only as a confirmed emergency (CONFIRM=EMERGENCY)"
     [ "${DISPATCH_REF-}" = refs/heads/main ] || die "an emergency deploy runs only from refs/heads/main (got '${DISPATCH_REF-}')"
     reason="${EMERGENCY_REASON-}"
     [ -n "$reason" ] || die "an emergency deploy needs a reason"

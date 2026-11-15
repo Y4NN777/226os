@@ -1,0 +1,239 @@
+name: Deploy (emergency)
+
+# EMERGENCY production deploy WITHOUT the staging gate (decided by the owner on 2026-11-15; design agreed with the
+# lead session). The normal path is deploy.yml: production only deploys digests tested on staging (tested-<tree>).
+# This workflow exists for when that path cannot be used (no staging, an outage to fix now).
+#
+#   - manual only (workflow_dispatch), from refs/heads/main only, with a reason (1 to 200 characters) and the
+#     confirmation `EMERGENCY`; scripts/deploy-plan.sh refuses anything else (fail closed);
+#   - builds and scans its OWN images from the main SHA, pushes them as `emergency-<sha>` (never `<sha>`, never
+#     `tested-*`) and deploys them BY DIGEST (the digests printed by the push, never read back from the tag);
+#   - deploys like deploy.yml's production job: `production` environment (owner approval), pinned SSH host key,
+#     sops in RAM, scripts/deploy-remote.sh production-live (backup, migrate, up, smoke); never seeds;
+#   - never runs scripts/deploy-verify-tested.sh, never attests, never tags tested-*: it says so with a ::warning::
+#     and the summary line "EMERGENCY: not tested on staging";
+#   - no E2E suite (accepted risk): only the smoke test of deploy-remote.sh;
+#   - shares the concurrency group `deploy-production` with deploy.yml: never two production deploys at once.
+# After an emergency, the next push to main still needs tested-<tree>: the fix goes back through develop and staging.
+# Same safety rules as deploy.yml: no pull_request trigger, inputs only through env, secrets only in the deploy job,
+# the job holding packages: write holds no secret.
+on:
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: "Why production cannot wait for staging (1 to 200 characters)"
+        required: true
+        type: string
+      confirm:
+        description: "Type EMERGENCY to confirm a production deploy without the staging tests"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+env:
+  IMAGE_NAMESPACE: ghcr.io/y4nn777
+  SOPS_VERSION: v3.13.3
+  SOPS_SHA256: e5bec3346a873ae91d871550f3e698c1aad962aff462a080e40f25fde17fef6b
+
+jobs:
+  plan:
+    name: plan (emergency)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      sha: ${{ steps.plan.outputs.sha }}
+      tree: ${{ steps.plan.outputs.tree }}
+    steps:
+      - name: Check out the commit to deploy
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Plan (main only, confirmed, with a reason)
+        id: plan
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          THIS_REPO: ${{ github.repository }}
+          DISPATCH_REF: ${{ github.ref }}
+          DISPATCH_SHA: ${{ github.sha }}
+          CONFIRM: ${{ inputs.confirm }}
+          EMERGENCY_REASON: ${{ inputs.reason }}
+        run: |
+          set -euo pipefail
+          scripts/deploy-plan.sh
+          grep -qx 'emergency=true' "$GITHUB_OUTPUT" || { echo "::error::the plan did not confirm an emergency deploy"; exit 1; }
+          grep -qx 'target=production' "$GITHUB_OUTPUT" || { echo "::error::the plan did not target production"; exit 1; }
+          echo "::warning title=EMERGENCY deploy::Production deploy WITHOUT the staging tests (no tested-<tree> digest, no E2E). Reason: ${EMERGENCY_REASON}"
+          {
+            echo "### EMERGENCY: not tested on staging"
+            echo
+            echo "- reason: ${EMERGENCY_REASON}"
+            echo "- commit: \`${DISPATCH_SHA}\`"
+          } >>"$GITHUB_STEP_SUMMARY"
+
+  # Own images from the main SHA. Holds packages: write and NO secret.
+  build:
+    name: build, scan and push (emergency-<sha>)
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      api_image: ${{ steps.push.outputs.api_image }}
+      web_image: ${{ steps.push.outputs.web_image }}
+      migrate_image: ${{ steps.push.outputs.migrate_image }}
+    steps:
+      - name: Check out the planned SHA
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.plan.outputs.sha }}
+          persist-credentials: false
+
+      - name: Build api, web and migrate (scripts/build-images.sh)
+        run: scripts/build-images.sh
+
+      - name: Scan the images (scripts/image-scan.sh)
+        run: scripts/image-scan.sh
+
+      # Tag emergency-<sha> (never <sha>: a later staging run of the same SHA must not meet different content under
+      # its own tag). The digests come from the push itself.
+      - name: Push to GHCR as emergency-<sha>
+        id: push
+        env:
+          REGISTRY_TOKEN: ${{ github.token }}
+          SHA: ${{ needs.plan.outputs.sha }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username github-actions --password-stdin
+          scripts/deploy-images.sh push "emergency-$SHA" "$(scripts/image-tag.sh)" >"$RUNNER_TEMP/pushed.env"
+          docker logout ghcr.io
+          for v in API WEB MIGRATE; do
+            lower="$(tr '[:upper:]' '[:lower:]' <<<"$v")"
+            grep -qE "^${v}_IMAGE=ghcr\.io/[a-z0-9._-]+/226os-${lower}@sha256:[0-9a-f]{64}$" "$RUNNER_TEMP/pushed.env" ||
+              { echo "::error::the push gave no digest reference for ${v}_IMAGE"; exit 1; }
+          done
+          sed -E 's/^([A-Z_]+)=/\L\1=/' "$RUNNER_TEMP/pushed.env" >>"$GITHUB_OUTPUT"
+
+  # The only job with secrets, behind the `production` environment (owner approval).
+  deploy:
+    name: deploy production (emergency)
+    needs: [plan, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: production
+    permissions:
+      contents: read
+      packages: read
+    env:
+      PROFILE: production-live
+      SHA: ${{ needs.plan.outputs.sha }}
+      API_IMAGE: ${{ needs.build.outputs.api_image }}
+      WEB_IMAGE: ${{ needs.build.outputs.web_image }}
+      MIGRATE_IMAGE: ${{ needs.build.outputs.migrate_image }}
+    steps:
+      - name: Check out the commit to deploy
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.plan.outputs.sha }}
+          persist-credentials: false
+
+      - name: Read and check the deploy settings (names only, never secret values)
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY }}
+        run: |
+          set -euo pipefail
+          for v in DEPLOY_SSH_KEY SOPS_AGE_KEY; do
+            [ -n "${!v-}" ] || { echo "::error title=Environment not configured::Missing secret $v in the production environment."; exit 1; }
+          done
+          scripts/deploy-conf.sh production >"$RUNNER_TEMP/deploy.conf.out"
+          cat "$RUNNER_TEMP/deploy.conf.out" >>"$GITHUB_ENV"
+
+      - name: Install sops (pinned release, checksum verified)
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/bin"
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/bin/sops" "https://github.com/getsops/sops/releases/download/${SOPS_VERSION}/sops-${SOPS_VERSION}.linux.amd64"
+          echo "${SOPS_SHA256}  $RUNNER_TEMP/bin/sops" | sha256sum --check --status
+          chmod +x "$RUNNER_TEMP/bin/sops"
+          echo "$RUNNER_TEMP/bin" >>"$GITHUB_PATH"
+
+      - name: Prepare SSH (pinned host key, dedicated key)
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          umask 077
+          dir="$RUNNER_TEMP/ssh"
+          mkdir -p "$dir" "$RUNNER_TEMP/bin"
+          printf '%s\n' "$DEPLOY_SSH_KEY" >"$dir/id"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" >"$dir/known_hosts"
+          {
+            echo '#!/usr/bin/env bash'
+            printf 'exec ssh -i %q -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=%q -o ConnectTimeout=20 -o ServerAliveInterval=30 %q "$@"\n' \
+              "$dir/id" "$dir/known_hosts" "${DEPLOY_USER}@${DEPLOY_HOST}"
+          } >"$RUNNER_TEMP/bin/deploy-ssh"
+          chmod 700 "$RUNNER_TEMP/bin/deploy-ssh"
+          "$RUNNER_TEMP/bin/deploy-ssh" 'echo "ssh ok on $(hostname)"'
+
+      - name: The server must belong to production
+        run: |
+          set -euo pipefail
+          bound="$("$RUNNER_TEMP/bin/deploy-ssh" 'cat /opt/226os/state/profile 2>/dev/null || true')"
+          scripts/deploy-check-bound.sh "$PROFILE" "$bound"
+
+      - name: Decrypt the profile env and set the image digests (RAM only, never printed)
+        env:
+          SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY }}
+        run: |
+          set -euo pipefail
+          umask 077
+          tmp="$(mktemp -d /dev/shm/deploy.XXXXXX)"
+          echo "DEPLOY_TMP=$tmp" >>"$GITHUB_ENV"
+          SECRETS_OUT_DIR="$tmp" scripts/secrets.sh decrypt "$PROFILE" >/dev/null
+          scripts/deploy-env.sh "$PROFILE" "$PUBLIC_HOST" <"$tmp/.env.$PROFILE" >"$tmp/deploy.env"
+          rm -f "$tmp/.env.$PROFILE"
+
+      # Production never receives the demo data: the release below holds no demo fixtures.
+      - name: Copy the release to the server
+        run: |
+          set -euo pipefail
+          tar -czf - --exclude='scripts/tests' compose.yaml deploy/traefik scripts Makefile mk "secrets/${PROFILE}.recipients" |
+            "$RUNNER_TEMP/bin/deploy-ssh" 'set -e; d=/opt/226os; rm -rf "$d/app.new"; mkdir -p "$d/app.new"; tar -xzf - -C "$d/app.new"; rm -rf "$d/app.old"; if [ -d "$d/app" ]; then mv "$d/app" "$d/app.old"; fi; mv "$d/app.new" "$d/app"'
+
+      - name: Copy the env file to the server (mode 600)
+        run: |
+          set -euo pipefail
+          "$RUNNER_TEMP/bin/deploy-ssh" "umask 077; install -d -m 700 /opt/226os/env; cat >/opt/226os/env/.env.${PROFILE}.new && mv /opt/226os/env/.env.${PROFILE}.new /opt/226os/env/.env.${PROFILE}" <"$DEPLOY_TMP/deploy.env"
+
+      - name: Deploy (pull, backup, migrate, up by digest, smoke; no seeds)
+        env:
+          REGISTRY_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$REGISTRY_TOKEN" | "$RUNNER_TEMP/bin/deploy-ssh" "cd /opt/226os/app && REGISTRY_TOKEN_STDIN=1 scripts/deploy-remote.sh production-live https://${PUBLIC_HOST}"
+
+      - name: Record
+        run: |
+          echo "::warning title=EMERGENCY deploy done::Production runs images NOT tested on staging. Bring the fix through develop and staging next."
+          {
+            echo "### EMERGENCY: not tested on staging (deployed)"
+            echo
+            echo "- commit: \`${SHA}\`"
+            echo "- api: \`${API_IMAGE}\`"
+            echo "- web: \`${WEB_IMAGE}\`"
+            echo "- migrate: \`${MIGRATE_IMAGE}\`"
+          } >>"$GITHUB_STEP_SUMMARY"
+
+      - name: Clean up (plaintext env and SSH key on the runner)
+        if: always()
+        run: rm -rf -- "${DEPLOY_TMP:-/nonexistent}" "$RUNNER_TEMP/ssh" "$RUNNER_TEMP/bin/deploy-ssh"
