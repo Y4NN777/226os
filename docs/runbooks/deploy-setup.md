@@ -4,20 +4,21 @@
 
 ## Qui fait quoi
 
-Rayan (`PANK4SS`) détient les deux serveurs ; le propriétaire (`Y4NN777`) détient le dépôt GitHub et les clés.
+Rayan (`PANK4SS`) détient le serveur de **staging**. Le propriétaire (`Y4NN777`) détient le serveur de production, le dépôt GitHub, les clés et la zone DNS `226os.tech`.
 
 | Étape | Qui | Remis à l'autre |
 |---|---|---|
 | 1. Clés age de la CI, valeurs réelles des fichiers chiffrés | propriétaire | — |
-| 2. Clé SSH de déploiement | propriétaire | la clé **publique** à Rayan |
-| 3. DNS | qui gère la zone `226os.tech` | — |
-| 4. Amorçage de chaque serveur | Rayan | au propriétaire : l'IP ou le nom de chaque serveur et la ligne `DEPLOY_KNOWN_HOSTS` affichée à la fin |
+| 2. Clé SSH de déploiement (une par serveur) | propriétaire | la clé **publique** de staging à Rayan |
+| 3. DNS (enregistrements `A` de staging et de production) | propriétaire | Rayan donne l'IP du serveur de staging |
+| 4. Amorçage du serveur de staging | Rayan | au propriétaire : l'IP ou le nom du serveur et la ligne `DEPLOY_KNOWN_HOSTS` affichée à la fin |
+| 4. Amorçage du serveur de production | propriétaire | — |
 | 5. Environnements GitHub | propriétaire (administrateur du dépôt) | — |
-| 6. Premier déploiement | propriétaire, Rayan suit les journaux sur le serveur (`docker compose ps`, `docker compose logs`) | — |
+| 6. Premier déploiement de staging | propriétaire ; Rayan suit le serveur (`docker compose ps`, `docker compose logs`) | — |
 | 7. Compte des tests E2E | propriétaire | — |
-| 8. Copie des sauvegardes hors du serveur | Rayan | — |
+| 8. Copie des sauvegardes hors du serveur | chacun pour le serveur qu'il détient | — |
 
-Aucune clé privée ne circule entre les deux : Rayan ne reçoit que la clé publique de déploiement, le propriétaire ne reçoit que des informations publiques (IP, empreinte d'hôte).
+Aucune clé privée ne circule : Rayan ne reçoit que la clé publique de déploiement de staging, le propriétaire ne reçoit que des informations publiques (IP, empreinte d'hôte).
 
 ## 1. Clés age de la CI (une par environnement)
 
@@ -76,7 +77,7 @@ Réglages du dépôt, Environments, créer `staging` et `production`.
 
 ## 8. Sauvegardes
 
-Avant chaque migration, `/opt/226os/backups` reçoit un dump chiffré avec age (`<profil>-<date>.dump.age`, pour les clés de `secrets/<profil>.recipients`) et son fichier de preuve ; le dump en clair est supprimé. Les dix derniers sont gardés. **Étape de Rayan : aucune copie hors du serveur n'existe.** Copiez régulièrement ce dossier ailleurs (par exemple `rsync` depuis votre machine) : un disque perdu perd les sauvegardes avec la base. Déchiffrement : `age -d -i <votre clé age> fichier.dump.age > fichier.dump`, puis `scripts/restore-check.sh`.
+Avant chaque migration, `/opt/226os/backups` reçoit un dump chiffré avec age (`<profil>-<date>.dump.age`, pour les clés de `secrets/<profil>.recipients`) et son fichier de preuve ; le dump en clair est supprimé. Les dix derniers sont gardés. **Étape du détenteur de chaque serveur : aucune copie hors du serveur n'existe.** Copiez régulièrement ce dossier ailleurs (par exemple `rsync` depuis votre machine) : un disque perdu perd les sauvegardes avec la base. Déchiffrement : `age -d -i <votre clé age> fichier.dump.age > fichier.dump`, puis `scripts/restore-check.sh`.
 
 ## 9. Après coup
 
