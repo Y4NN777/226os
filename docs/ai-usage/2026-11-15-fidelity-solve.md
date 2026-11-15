@@ -1,0 +1,16 @@
+## Page fidelity: solve and question match their prototypes
+
+```yaml
+date: "2026-11-15"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code, Claude Opus 5.5 (web-implementer subagent of the lead session)"
+purpose: "The owner asked that every S7 page match its HTML prototype visually. For /solve and /questions/<id> the AI wrote RED tests first, then rebuilt the markup and styles inside features/solve: dense list rows (score and answer count with icons, title link covering the row, plain-text excerpt, state pill, #tags, initials avatar, author country code, date, original language), a state filter on the listQuestions state parameter, the tag filter behind a filter toggle, the ask form as its own view with a back link and the assistant panel beside it, and the question page with header meta, vote column, answer cards with the accepted pill, answer sources as safe external links, context and linked items, and a sign-in invitation. Behaviour, routes, query keys, CSRF, idempotency and the assistant behaviour are unchanged."
+repository_or_source_context: "branch feature/web/fidelity-solve; S7 web pages; prototypes/html/pages/solve.html and question.html"
+files_or_sections_affected: ["src/web/src/features/solve/SolvePage.tsx", "src/web/src/features/solve/QuestionPage.tsx", "src/web/src/features/solve/QuestionRow.tsx", "src/web/src/features/solve/QuestionForm.tsx", "src/web/src/features/solve/Interactions.tsx", "src/web/src/features/solve/present.tsx", "src/web/src/features/solve/icons.tsx", "src/web/src/features/solve/solve.css", "src/web/src/features/solve/routeSearch.ts", "src/web/src/features/solve/queries.ts", "src/web/src/features/solve/messages.ts", "src/web/src/features/solve/SolvePage.test.tsx", "src/web/src/features/solve/QuestionPage.test.tsx", "TODO.md", "docs/ai-usage/2026-11-15-fidelity-solve.md"]
+third_party_sources_consulted: ["@astryxdesign/core installed type declarations and sources (Avatar, Icon registry, SegmentedControl, VisuallyHidden, Link, TextInput, token CSS), read from node_modules"]
+license_review: "NOT APPLICABLE: original code, no new dependency"
+closure: "open"
+human_reviewers: ["pending PR review"]
+tests_or_evidence: ["Order: RED tests first (9 failing), then the markup", "new tests: dense row content (score, answers, excerpt, country, date, language, lang attribute), state filter sent to the server, ask view with focus on its heading and a way back, question header meta, context and linked items, answer sources (http(s) only), sign-in note", "changed tests: h1 is now Questions; the byline shows the name without « Par »; the accepted state reads « Réponse acceptée »; a zero answer count is shown, as in the prototype; the tag field sits behind the Filtres toggle", "captures of prototype and app at 1280 and 375 px, light and dark, in the session scratchpad"]
+open_risks: ["the ask view and the answer form were checked in jsdom only: no demo account password is documented, so no signed-in capture", "captures were taken on the current shell (white content panel); the new shell puts content on the page background, where the white cards are meant to stand out", "the state filter is new on the page (served by the contract, shown by the prototype); drop it if the owner does not want it", "inline SVG glyphs in features/solve/icons.tsx stand in for the shared icon set"]
+```

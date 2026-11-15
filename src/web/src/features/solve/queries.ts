@@ -39,6 +39,7 @@ export function useQuestionList(search: SolveSearch) {
       const query = {
         ...(search.q ? { q: search.q } : {}),
         ...(search.tag ? { tag: search.tag } : {}),
+        ...(search.state ? { state: search.state } : {}),
         ...(pageParam === null ? {} : { cursor: pageParam }),
       };
       const page = await api.call(() => api.client.GET('/questions', { params: { query } }));

@@ -5,6 +5,7 @@ import { callsTo, mockApi, problemResponse } from '../../test/api';
 import { jsonResponse, renderApp, setLanguages } from '../../test/render';
 import { member, page, question, questionId } from './testFixtures';
 import { findVisibleText } from '../../test/visibleText';
+import { selectSegment } from '../../test/segmented';
 
 const second = question({
   id: 'b0000000-0000-4000-8000-000000000002',
@@ -32,17 +33,93 @@ describe('SolvePage list', () => {
     mockApi({ 'GET /questions': () => page([question(), second]) });
     await renderApp('/solve');
 
-    expect(await screen.findByRole('heading', { level: 1, name: 'Résoudre' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Questions' })).toBeInTheDocument();
     const link = await screen.findByRole('link', { name: 'Webhook non reçu après un paiement' });
     expect(link).toHaveAttribute('href', `/questions/${questionId}`);
     const results = screen.getByRole('region', { name: 'Questions' });
     expect(within(results).getByText('Sans réponse')).toBeInTheDocument();
-    expect(within(results).getByText('Résolue')).toBeInTheDocument();
+    // The prototype's accepted pill; the answered-only state has no pill, its count says it.
+    expect(within(results).getByText('Réponse acceptée')).toBeInTheDocument();
     expect(within(results).getByText('go')).toBeInTheDocument();
-    expect(within(results).getAllByText('Par Kofi Mensah')).toHaveLength(2);
-    // The count shows only when there are answers; « Sans réponse » already says the rest.
+    expect(within(results).getAllByText('Kofi Mensah')).toHaveLength(2);
+    // Every row shows its counts, like the prototype (0 included), with a spoken label.
     expect(within(results).getByText(/^Réponses\s:\s3$/)).toBeInTheDocument();
-    expect(within(results).queryByText(/^Réponses\s:\s0$/)).not.toBeInTheDocument();
+    expect(within(results).getByText(/^Réponses\s:\s0$/)).toBeInTheDocument();
+  });
+
+  it('shows each question as a dense row: score, answers, excerpt, author, country, date, language', async () => {
+    setLanguages(['fr-FR']);
+    mockApi({
+      'GET /questions': () =>
+        page([
+          question({
+            vote_score: 14,
+            answer_count: 2,
+            state: 'answered',
+            body_md:
+              '## Contexte\n\nMon `webhook` **ne répond pas** depuis [hier](https://example.org).',
+            author: {
+              id: 'b0000000-0000-4000-8000-0000000000aa',
+              username: 'kofi',
+              display_name: 'Kofi Mensah',
+              country: 'BF',
+            },
+          }),
+        ]),
+    });
+    await renderApp('/solve');
+
+    const link = await screen.findByRole('link', { name: 'Webhook non reçu après un paiement' });
+    const row = link.closest('li') as HTMLElement;
+    expect(within(row).getByText(/^Score\s:\s14$/)).toBeInTheDocument();
+    expect(within(row).getByText(/^Réponses\s:\s2$/)).toBeInTheDocument();
+    expect(within(row).queryByText('Réponse acceptée')).not.toBeInTheDocument();
+    expect(within(row).queryByText('Sans réponse')).not.toBeInTheDocument();
+    // The excerpt is plain text: no Markdown marks, no link target.
+    expect(within(row).getByText('Contexte Mon webhook ne répond pas depuis hier.')).toBeVisible();
+    expect(within(row).getByText('BF')).toBeInTheDocument();
+    expect(within(row).getByText('Burkina Faso')).toBeInTheDocument();
+    expect(within(row).getByText('10 nov. 2026').closest('time')).toHaveAttribute(
+      'datetime',
+      '2026-11-10T09:00:00Z',
+    );
+    expect(within(row).getByText('FR')).toBeInTheDocument();
+    expect(link.closest('[lang]')).toHaveAttribute('lang', 'fr');
+  });
+
+  it('filters by solve state with the segmented control, sent to the server', async () => {
+    setLanguages(['fr-FR']);
+    const fetchMock = mockApi({ 'GET /questions': () => page([question()]) });
+    await renderApp('/solve');
+    await screen.findByRole('link', { name: 'Webhook non reçu après un paiement' });
+
+    expect(screen.getByRole('radio', { name: 'Toutes' })).toBeChecked();
+    await selectSegment(screen.getByRole('radio', { name: 'Sans réponse' }));
+    await waitFor(() => {
+      expect(params(callsTo(fetchMock, 'GET /questions').at(-1)).get('state')).toBe('open');
+    });
+    await selectSegment(await screen.findByRole('radio', { name: 'Résolues' }));
+    await waitFor(() => {
+      expect(params(callsTo(fetchMock, 'GET /questions').at(-1)).get('state')).toBe('resolved');
+    });
+    await selectSegment(await screen.findByRole('radio', { name: 'Toutes' }));
+    await waitFor(() => {
+      expect(params(callsTo(fetchMock, 'GET /questions').at(-1)).has('state')).toBe(false);
+    });
+  });
+
+  it('opens the ask view from the page header, with a way back to the list', async () => {
+    setLanguages(['fr-FR']);
+    member({ 'GET /questions': () => page([question()]) });
+    const user = userEvent.setup({ delay: null });
+    await renderApp('/solve');
+    await user.click(await screen.findByRole('button', { name: 'Poser une question' }));
+
+    expect(screen.getByRole('heading', { level: 1, name: 'Poser une question' })).toHaveFocus();
+    expect(screen.queryByRole('region', { name: 'Questions' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Questions' }));
+    expect(await screen.findByRole('heading', { level: 1, name: 'Questions' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Webhook non reçu après un paiement' })).toBeVisible();
   });
 
   it('loads the next page with the opaque cursor', async () => {
@@ -71,6 +148,14 @@ describe('SolvePage list', () => {
     await screen.findByRole('link', { name: 'Webhook non reçu après un paiement' });
 
     await user.type(screen.getByRole('searchbox', { name: 'Rechercher une question' }), 'cors');
+    // The tag filter sits behind the filter toggle, like the prototype's filter panel.
+    expect(
+      screen.queryByRole('textbox', { name: 'Filtrer par étiquette' }),
+    ).not.toBeInTheDocument();
+    const toggle = screen.getByRole('button', { name: 'Filtres' });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
     await user.type(screen.getByRole('textbox', { name: 'Filtrer par étiquette' }), 'go');
     await user.click(screen.getByRole('button', { name: 'Lancer la recherche' }));
 
@@ -78,6 +163,14 @@ describe('SolvePage list', () => {
       const last = callsTo(fetchMock, 'GET /questions').at(-1);
       expect(params(last).get('q')).toBe('cors');
       expect(params(last).get('tag')).toBe('go');
+    });
+    // A tag in the URL keeps the panel open, with a reset that clears every filter.
+    expect(await screen.findByRole('textbox', { name: 'Filtrer par étiquette' })).toHaveValue('go');
+    await user.click(screen.getByRole('button', { name: 'Réinitialiser les filtres' }));
+    await waitFor(() => {
+      const last = callsTo(fetchMock, 'GET /questions').at(-1);
+      expect(params(last).has('q')).toBe(false);
+      expect(params(last).has('tag')).toBe(false);
     });
   });
 
@@ -337,7 +430,7 @@ describe('SolvePage ask flow', () => {
     setLanguages(['en-GB']);
     member({ 'GET /questions': () => page([]) });
     await renderApp('/solve');
-    expect(await screen.findByRole('heading', { level: 1, name: 'Solve' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Questions' })).toBeInTheDocument();
     expect(await screen.findByRole('button', { name: 'Ask a question' })).toBeInTheDocument();
   });
 });
