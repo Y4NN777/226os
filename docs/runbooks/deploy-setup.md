@@ -69,7 +69,7 @@ Les fichiers livrés contiennent `FILL-ME` pour l'hôte et la clé d'hôte : le 
 | | `staging` | `production` |
 |---|---|---|
 | Branche autorisée | `develop` | `main` |
-| Relecteur requis | `PANK4SS` (Rayan) | `Y4NN777` |
+| Relecteurs requis (une seule approbation par déploiement) | `Y4NN777` ou `PANK4SS` (Rayan) | `Y4NN777` |
 | Secret `DEPLOY_SSH_KEY` | clé privée du serveur de staging | clé privée du serveur de production |
 | Secret `SOPS_AGE_KEY` | contenu de `ci-staging.key` | contenu de `ci-production.key` |
 
@@ -83,12 +83,12 @@ Supprimez ensuite les fichiers `*.key` locaux (gardez une copie hors ligne des c
 
 ## 7. Compte des tests E2E (après le premier déploiement de staging)
 
-Le compte n'est plus un secret GitHub : il est dans `secrets/staging-test.enc.env` (`E2E_USER`, `E2E_PASSWORD`). Le job `e2e` déchiffre ce fichier avec `SOPS_AGE_KEY` (environnement `staging`), dans `/dev/shm`, ne garde que ces deux clés, les masque et ne les écrit jamais ailleurs.
+Le compte n'est plus un secret GitHub : il est dans `secrets/staging-test.enc.env` (`E2E_USER`, `E2E_PASSWORD`). Les tests E2E tournent à la fin du job `deploy` de staging (donc une seule approbation par déploiement, par le propriétaire ou Rayan). Ce job déchiffre le fichier avec `SOPS_AGE_KEY`, dans `/dev/shm`, ne garde que ces deux clés, les masque et ne les donne qu'au processus des tests : elles ne sont ni écrites dans l'environnement du job, ni transmises à un autre job.
 
 1. Sur le site de staging, créez un vrai compte et vérifiez son e-mail.
 2. Le propriétaire ajoute la clé age publique de Rayan à `secrets/staging-test.recipients` et lance `scripts/secrets.sh rotate staging-test` (PR). Pour éviter que Rayan attende, le propriétaire peut aussi saisir les deux clés lui-même.
-3. Rayan (ou le propriétaire) ajoute `E2E_USER` et `E2E_PASSWORD` avec `scripts/secrets.sh edit staging-test`, et ouvre la PR. Ces deux clés ne sont jamais envoyées au serveur (`scripts/deploy-env.sh` les retire).
-4. Sans elles, le job `e2e` échoue avec un message clair ; le groupe connecté n'est jamais ignoré. Chaque exécution publie une question et une réponse avec ce compte. Le dépôt est public : en CI, Playwright n'écrit ni trace, ni vidéo, ni capture, ni rapport HTML (ils contiendraient le mot de passe et le cookie), et seul le XML junit est publié. Les étiquettes `tested-<arbre>` ne sont posées que si ce job a réellement tourné.
+3. Rayan (ou le propriétaire) ajoute `E2E_USER` et `E2E_PASSWORD` avec `scripts/secrets.sh edit staging-test`, et ouvre la PR. **À faire avant le premier déploiement de staging qui exécute les E2E** : sans ces deux clés, le déploiement de staging échoue à la dernière étape. Ces deux clés ne sont jamais envoyées au serveur (`scripts/deploy-env.sh` les retire).
+4. Sans elles, le job `deploy` de staging échoue avec un message clair ; le groupe connecté n'est jamais ignoré. Chaque exécution publie une question et une réponse avec ce compte. Le dépôt est public : en CI, Playwright n'écrit ni trace, ni vidéo, ni capture, ni rapport HTML (ils contiendraient le mot de passe et le cookie), et seul le XML junit est publié. Les étiquettes `tested-<arbre>` ne sont posées que si ce job a réellement tourné.
 
 ## 8. Sauvegardes
 

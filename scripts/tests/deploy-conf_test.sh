@@ -141,4 +141,11 @@ co="$(grep -n 'Check out the commit to deploy' "$wf" | head -1 | cut -d: -f1)"
 st="$(grep -n 'scripts/deploy-conf.sh' "$wf" | head -1 | cut -d: -f1)"
 [ -n "$co" ] && [ -n "$st" ] && [ "$st" -gt "$co" ] && ok "the settings are read after the checkout of the commit to deploy" || ko "order checkout/settings ($co/$st)"
 
+# The E2E account is read in the step that runs the suite: no GITHUB_ENV for it, no second approval (no e2e job
+# with an environment), the promote job needs only the deploy job.
+! grep -qE 'GITHUB_ENV' <(grep -B2 -A12 'e2e-env.sh' "$wf") && ok "the E2E account is not written to GITHUB_ENV" || ko "E2E account in GITHUB_ENV"
+[ "$(grep -c '^    environment:' "$wf")" -eq 1 ] && ok "only the deploy job has an environment (one approval per deploy)" || ko "more than one job with an environment"
+! grep -qE '^  e2e:' "$wf" && grep -q 'e2e_ran' "$wf" && ! grep -q 'needs.e2e' "$wf" && ok "E2E runs inside the deploy job and promote needs the deploy job only" || ko "e2e job layout"
+grep -q -- '--masks' "$wf" && ok "the E2E values are masked before use" || ko "no masking"
+
 finish

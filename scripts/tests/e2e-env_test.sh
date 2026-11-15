@@ -41,4 +41,13 @@ run 'E2E_USER=a@b.test\nE2E_PASSWORD=sUp3rS3cret\\nGITHUB_ENV=x\n'
 run 'E2E_USER=a@b.test\nE2E_PASSWORD=sUp3rS3cret\r\n'
 [ "$rc" -ne 0 ] && ! grep -q 'sUp3rS3cret' <<<"$err" && ok "a carriage return is refused and the value is not printed" || ko "cr (rc=$rc err=$err)"
 
+# --masks: the add-mask workflow commands, escaped per GitHub's rules (% -> %25, CR -> %0D, LF -> %0A).
+masks() { printf '%b' "$1" | "$e2e" --masks 2>/dev/null; }
+m="$(masks 'E2E_USER=a@b.test\nE2E_PASSWORD=p%41ss%0Ax\n')"
+[ "$m" = "::add-mask::a@b.test
+::add-mask::p%2541ss%250Ax" ] && ok "--masks escapes % so the mask matches the real value" || ko "masks escape ($m)"
+rc=0
+masks 'E2E_USER=a@b.test\n' >/dev/null || rc=$?
+[ "$rc" -ne 0 ] && ok "--masks fails closed on a missing key" || ko "masks missing key (rc=$rc)"
+
 finish
