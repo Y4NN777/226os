@@ -3,8 +3,7 @@
 export const fr = {
   'discover.title': 'Découvrir',
   'discover.lede': 'API, SDK et outils, avec leurs sources datées.',
-  'discover.positioning':
-    'Né au Burkina Faso, ouvert à l’Afrique de l’Ouest, puis à tout le continent',
+  'discover.positioning': 'Afrique de l’Ouest d’abord, puis toute l’Afrique',
   'discover.search.label': 'Rechercher dans le catalogue',
   'discover.search.placeholder': 'Ex. webhook, USSD, géocodage',
   'discover.search.submit': 'Rechercher',
@@ -111,7 +110,7 @@ export const fr = {
 export const en: Record<keyof typeof fr, string> = {
   'discover.title': 'Discover',
   'discover.lede': 'APIs, SDKs and tools, with dated sources.',
-  'discover.positioning': 'Born in Burkina Faso, open to West Africa, then the whole continent',
+  'discover.positioning': 'West Africa first, then the whole continent',
   'discover.search.label': 'Search the catalogue',
   'discover.search.placeholder': 'e.g. webhook, USSD, geocoding',
   'discover.search.submit': 'Search',

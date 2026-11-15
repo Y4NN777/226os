@@ -55,9 +55,7 @@ describe('LandingPage', () => {
         name: 'Apprenez, échangez et construisez entre développeurs africains',
       }),
     ).toBeInTheDocument();
-    expect(
-      main.getByText('Né au Burkina Faso, ouvert à l’Afrique de l’Ouest, puis à tout le continent'),
-    ).toBeInTheDocument();
+    expect(main.getByText('Afrique de l’Ouest d’abord, puis toute l’Afrique')).toBeInTheDocument();
     const signups = main.getAllByRole('link', { name: 'Créer un compte' });
     expect(signups.length).toBeGreaterThanOrEqual(2);
     for (const link of signups) expect(link).toHaveAttribute('href', '/inscription');
@@ -200,9 +198,7 @@ describe('LandingPage', () => {
         name: 'Learn, connect and build with African developers',
       }),
     ).toBeInTheDocument();
-    expect(
-      main.getByText('Born in Burkina Faso, open to West Africa, then the whole continent'),
-    ).toBeInTheDocument();
+    expect(main.getByText('West Africa first, then the whole continent')).toBeInTheDocument();
     expect(main.getAllByRole('link', { name: 'Create an account' })[0]).toHaveAttribute(
       'href',
       '/inscription',

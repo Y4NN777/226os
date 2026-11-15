@@ -52,9 +52,7 @@ describe('DiscoverPage', () => {
     );
     expect(screen.getByRole('link', { name: 'Accra Gate' })).toBeInTheDocument();
     expect(
-      screen.getByText(
-        'Né au Burkina Faso, ouvert à l’Afrique de l’Ouest, puis à tout le continent',
-      ),
+      screen.getByText('Afrique de l’Ouest d’abord, puis toute l’Afrique'),
     ).toBeInTheDocument();
     const params = listParams(fetchMock, 'first');
     expect(params.get('limit')).toBe('50');
@@ -456,9 +454,7 @@ describe('DiscoverPage', () => {
     mockApi({ 'GET /resources': () => page([senegal]) });
     await renderApp('/discover');
     expect(
-      await screen.findByText(
-        'Born in Burkina Faso, open to West Africa, then the whole continent',
-      ),
+      await screen.findByText('West Africa first, then the whole continent'),
     ).toBeInTheDocument();
     const row = rowOf(await screen.findByRole('link', { name: 'Wave Pay' }));
     expect(within(row).getByText('Exemple SA')).toBeInTheDocument();
