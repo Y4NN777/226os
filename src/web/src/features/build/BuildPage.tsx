@@ -10,7 +10,6 @@ import { Selector } from '@astryxdesign/core/Selector';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { useState } from 'react';
 import { useSession } from '../../app/session';
-import { Avatar } from '../../components/Avatar';
 import { countryOptions } from '../../components/countries';
 import { CountryCode } from '../../components/CountryCode';
 import { ResultsMeta } from '../../components/ResultsMeta';
@@ -31,6 +30,7 @@ import { signInHref } from '../solve/signIn';
 import './build.css';
 import { DateText, needsKind, needsLabelKey, stageKey } from './present';
 import { ProjectForm } from './ProjectForm';
+import { ProjectThumb } from './ProjectThumb';
 import { useCreateProject, useProjectList, type Project, type ProjectFilters } from './queries';
 import { projectSorts, projectStages, validateBuildSearch, type BuildSearch } from './routeSearch';
 
@@ -38,8 +38,8 @@ import { projectSorts, projectStages, validateBuildSearch, type BuildSearch } fr
 const ROW_TAGS = 3;
 
 /**
- * One dense project row (prototype `build.html`, `.list > .row`) on the shared ListRow: monogram
- * tile, title link, excerpt, technologies, a meta line, and the open-needs pill at the end. The
+ * One dense project row (prototype `build.html`, `.list > .row`) on the shared ListRow: the
+ * repository preview (monogram tile when there is none), title link, excerpt, technologies, a meta line, and the open-needs pill at the end. The
  * owner and origin-question links sit above the row link and keep their own names.
  */
 export function ProjectRow({ project }: { project: Project }) {
@@ -52,7 +52,7 @@ export function ProjectRow({ project }: { project: Project }) {
       title={project.name}
       href={`/build/${project.id}`}
       titleLang={project.lang}
-      lead={<Avatar name={project.name} variant="tile" />}
+      lead={<ProjectThumb name={project.name} githubUrl={project.github_url} />}
       {...(project.description ? { excerpt: project.description } : {})}
       {...(shown.length > 0
         ? {
