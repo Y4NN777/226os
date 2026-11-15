@@ -8,7 +8,7 @@
 #   job decide   `pr`: same-repository branches only (never a fork, never main or develop), only when the review job
 #                really ran for the current head, at most 2 attempts per FINDING (ADR-0015 point 8: counted per head SHA in
 #                the status comment, written when the run ends, never before); a finding outside the fixer's allowed paths
-#                or with its attempts used goes to the owner (needs-owner). It also writes the one status comment of the
+#                or with its attempts used is routed to the owner (needs-owner: informational, blocks nothing; autofix-stopped blocks the PR). It also writes the one status comment of the
 #                pull request (point 10). A run with nothing to do says NO-OP or NOT RUN. Runs no pull request code.
 #   job fix      UNTRUSTED: runs the model and the pull request's code (make setup, make targets, tests). It holds NO
 #                write token: GITHUB_TOKEN is read-only and its only secret is the Claude OAuth token. Its commits leave

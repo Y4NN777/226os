@@ -130,7 +130,10 @@ run pr
 
 ledger "c1:finding:CRITICAL:open f1:finding:MEDIUM:open"
 run pr
-grep -qx 'run=false' <<<"$outputs" && grep -q 'labels\[\]=needs-owner' "$tmp/st/log" && ! grep -q 'labels\[\]=autofix-' "$tmp/st/log" && ok "an open CRITICAL sends the whole pull request to the owner, no fix" || ko "critical ($out / $(cat "$tmp/st/log"))"
+grep -qx 'run=true' <<<"$outputs" && grep -qx 'findings=f1' <<<"$outputs" && grep -q 'labels\[\]=needs-owner' "$tmp/st/log" && ! grep -q 'labels\[\]=autofix-' "$tmp/st/log" && ok "routing is per finding: an open CRITICAL goes to the owner (label needs-owner), the other finding is still fixed" || ko "critical ($out / $(cat "$tmp/st/log"))"
+ledger "c1:finding:CRITICAL:open"
+run pr
+grep -qx 'run=false' <<<"$outputs" && grep -q 'labels\[\]=needs-owner' "$tmp/st/log" && ok "a ledger of one CRITICAL: nothing to fix, the owner has it" || ko "critical only ($out)"
 
 # ADR-0015 point 8: attempts count per (finding, head SHA), read from the hidden state of the bot's status comment, never
 # from labels (a label cannot say which finding or which head). Business reason for replacing the label tests.
@@ -166,21 +169,66 @@ status '{"attempts":{"f1":{"'$HEAD'":"11"}}}'
 run pr
 grep -qx 'run=false' <<<"$outputs" && grep -qi 'already attempted' <<<"$out" && ok "a finding already attempted on this head is not attempted again" || ko "same head ($out / $outputs)"
 
-# Deep review of #309: at most 4 COMPLETED fix runs per pull request (distinct run ids over every finding), then the owner.
-R1=1000000000000000000000000000000000000001; R2=1000000000000000000000000000000000000002; R3=1000000000000000000000000000000000000003; R4=1000000000000000000000000000000000000004
-ledger "f1:finding:MEDIUM:open f2:finding:MEDIUM:open f3:finding:MEDIUM:open"
-status '{"attempts":{"f1":{"'$R1'":"21","'$R2'":"22"},"f2":{"'$R3'":"23"}}}'
+# Owner decision (mixed ledgers): at most 7 fix runs in TOTAL per pull request, completed, pending and aborted runs counted
+# together on their distinct run ids (MAX_PR_RUNS); then the whole PR is STOPPED (autofix-stopped), cause "7 runs".
+M1=1000000000000000000000000000000000000001; M2=1000000000000000000000000000000000000002; M3=1000000000000000000000000000000000000003
+M4=1000000000000000000000000000000000000004; M5=1000000000000000000000000000000000000005; M6=1000000000000000000000000000000000000006
+ledger "f1:finding:MEDIUM:open f2:finding:MEDIUM:open f3:finding:MEDIUM:open f4:finding:MEDIUM:open"
+status '{"attempts":{"f1":{"'$M1'":"21","'$M2'":"22"},"f2":{"'$M3'":"23","'$M4'":"24"},"f3":{"'$M5'":"25"}}}'
 run pr
-grep -qx 'run=true' <<<"$outputs" && ok "three completed runs on the pull request: the fourth is allowed" || ko "per-PR cap below ($out)"
-status '{"attempts":{"f1":{"'$R1'":"21","'$R2'":"22"},"f2":{"'$R3'":"23","'$R4'":"24"}}}'
+grep -qx 'run=true' <<<"$outputs" && ok "five completed runs on the pull request: another is allowed" || ko "per-PR cap below ($out)"
+status '{"attempts":{"f1":{"'$M1'":"21","'$M2'":"22"},"f2":{"'$M3'":"23","'$M4'":"24"},"f3":{"'$M5'":"25"}},"aborted":{"f4":{"'$HEAD'":["31"]}}}'
 run pr
-grep -qx 'run=false' <<<"$outputs" && grep -q 'labels\[\]=needs-owner' "$tmp/st/log" && grep -qi '4 completed' <<<"$out" && ok "a fifth run on the pull request (chain of new run ids) is refused: the whole PR goes to the owner, with the reason" || ko "per-PR cap ($out / $outputs)"
+grep -qx 'run=true' <<<"$outputs" && ok "six runs (five completed, one aborted): still below the cap" || ko "per-PR cap six ($out)"
+status '{"attempts":{"f1":{"'$M1'":"21","'$M2'":"22"},"f2":{"'$M3'":"23","'$M4'":"24"},"f3":{"'$M5'":"25","'$M6'":"26"}},"aborted":{"f4":{"'$OLD'":["31"]}}}'
+run pr
+grep -qx 'run=false' <<<"$outputs" && grep -q 'labels\[\]=autofix-stopped' "$tmp/st/log" && grep -q '7 runs' <<<"$out" && ok "the 7th run in total (six completed plus one aborted) STOPS the fixer for the whole PR (autofix-stopped, cause 7 runs)" || ko "per-PR cap seven ($out / $outputs)"
+status '{"aborted":{"f1":{"'$OLD'":["1","2"],"'$OLD2'":["3"],"'$HEAD'":["4"]}}}'
+run pr
+grep -qx 'run=true' <<<"$outputs" && ok "four aborted runs in all no longer stop the pull request (only the total of 7 does)" || ko "four aborts ($out)"
 
-# Deep review of #309: a pull request that carries needs-owner is not fixed (a record that could not write sets it).
+# Owner decision table: needs-owner is INFORMATIONAL (it never blocks); autofix-stopped is the BLOCKING stop of the whole PR.
 ledger "f1:finding:MEDIUM:open"
 pr "needs-owner"
 run pr
-grep -qx 'run=false' <<<"$outputs" && grep -qi 'needs-owner' <<<"$out" && ok "the needs-owner label stops the fixer: the owner decides" || ko "owner label ($out)"
+grep -qx 'run=true' <<<"$outputs" && grep -qx 'findings=f1' <<<"$outputs" && ok "needs-owner present and a fixable finding: the fixer runs (the label is informational)" || ko "owner label informational ($out)"
+pr "autofix-stopped"
+run pr
+grep -qx 'run=false' <<<"$outputs" && grep -qi 'autofix-stopped' <<<"$out" && grep -qi 'human' <<<"$out" && ok "autofix-stopped (human-authored or ours) stops the fixer, and says only a human removes it" || ko "stopped label ($out)"
+body="$(cat "$tmp/st/body-last" 2>/dev/null || true)"
+grep -q 'Fixer: STOPPED' <<<"$body" && ok "status: the PR line says Fixer: STOPPED (cause)" || ko "status stopped line ($body)"
+pr ""
+run pr
+body="$(cat "$tmp/st/body-last")"
+grep -q 'Fixer: ACTIVE' <<<"$body" && grep -q '| f1 |.*fixer' <<<"$body" && ok "status: Fixer: ACTIVE, and the route of each finding" || ko "status active line ($body)"
+# PR-level causes set autofix-stopped: pending entries of two dead runs.
+ledger "f1:finding:MEDIUM:open f2:finding:MEDIUM:open"
+status '{"pending":{"f1":{"'$OLD'":"31"},"f2":{"'$OLD2'":"32"}}}'
+run pr
+grep -qx 'run=false' <<<"$outputs" && grep -q 'labels\[\]=autofix-stopped' "$tmp/st/log" && grep -qi 'died' <<<"$out" && ok "pending entries of two dead runs STOP the fixer (autofix-stopped)" || ko "pending died twice ($out / $(cat "$tmp/st/log"))"
+# Mixed ledger: the fixable finding is fixed on the 1st AND the 2nd head, the owner one never (the route is kept in the state).
+ledger "f1:finding:MEDIUM:open f2:finding:MEDIUM:open:scripts/review-gate.py"
+run pr
+grep -qx 'findings=f1' <<<"$outputs" && grep -q 'labels\[\]=needs-owner' "$tmp/st/log" && ok "mixed ledger, 1st head: f1 fixed, f2 to the owner (needs-owner, informational)" || ko "mixed 1 ($outputs)"
+python3 -I - "$tmp/st/body-last" "$tmp/st/comments.json" "$OLD" <<'EOT'
+import json, re, sys
+body = open(sys.argv[1]).read()
+st = json.loads(re.search(r"<!-- autofix-state (\{.*?\}) -->", body, re.S).group(1))
+assert st["routes"]["f2"]["code"] == "outside-allowlist", st
+st["pending"] = {}; st["attempts"] = {"f1": {sys.argv[3]: "51"}}
+comments = json.load(open(sys.argv[2]))
+comments.append({"id": 55, "user": {"login": "github-actions[bot]", "type": "Bot"}, "created_at": "2026-11-14T11:00:00Z",
+                 "body": "<!-- 226os-autofix-status -->\nx\n<!-- autofix-state " + json.dumps(st) + " -->"})
+json.dump(comments, open(sys.argv[2], "w"))
+EOT
+pr "needs-owner"
+run pr
+grep -qx 'findings=f1' <<<"$outputs" && grep -qx 'attempt=2' <<<"$outputs" && ok "mixed ledger, 2nd head with needs-owner on the PR: f1 is fixed again" || ko "mixed 2 ($outputs $out)"
+# The route is sticky: f2 would now be allowed by path, it stays with the owner.
+ledger "f1:finding:MEDIUM:open f2:finding:MEDIUM:open:src/a.go"
+status '{"routes":{"f2":{"code":"outside-allowlist","why":"x"}}}'
+run pr
+grep -qx 'findings=f1' <<<"$outputs" && ok "an owner route is never fixed again (kept in the state)" || ko "sticky route ($outputs)"
 pr ""
 
 # Deep review of #309: before the fixer runs, a PENDING attempt is written; one left by a run that died counts as an attempt.
@@ -218,9 +266,7 @@ grep -qx 'run=false' <<<"$outputs" && grep -q 'labels\[\]=needs-owner' "$tmp/st/
 status '{"aborted":{"f1":{"'$HEAD'":["1"],"'$OLD'":["2"]}}}'
 run pr
 grep -qx 'run=true' <<<"$outputs" && ok "one abort here and one on an older head: still fixed" || ko "aborted below the cap ($out)"
-status '{"aborted":{"f1":{"'$OLD'":["1","2"],"'$OLD2'":["3"],"'$HEAD'":["4"]}}}'
-run pr
-grep -qx 'run=false' <<<"$outputs" && grep -qi 'aborted' <<<"$out" && ok "four aborted runs in all on the pull request send it to the owner" || ko "aborted total ($out)"
+
 
 # Per finding: an exhausted finding goes to the owner, the others are still fixed.
 ledger "f1:finding:MEDIUM:open f2:finding:LOW:open"
@@ -793,6 +839,10 @@ grep -q '| #31 | #31 | OWNER | no result from the fixer |' <<<"$out" && ok "body
 ! grep -q '@Y4NN777' <<<"$out" && ok "body: an @-mention from the model is neutralised" || ko "body mention ($out)"
 grep -q '| #20/n1 | #20 | OWNER |' <<<"$out" && ok "body: an unknown verdict becomes OWNER" || ko "body verdict ($out)"
 ! grep -qi 'generated with\|co-authored' <<<"$out" && ok "body: no AI attribution line" || ko "body attribution"
+
+run body ISSUE=40 ITEMS='#12' RESULT_JSON='{"outcome":"fixed","reason":"ok","results":[{"item":"#12","verdict":"AFTER FREEZE","reason":"real but not urgent"}]}'
+grep -q '| #12 | #12 | OWNER | real but not urgent |' <<<"$out" && ! grep -q 'AFTER FREEZE' <<<"$out" && ok "body: the retired verdict AFTER FREEZE from the fixer is written as OWNER" || ko "body after freeze ($out)"
+grep -qi 'AFTER FREEZE' "$root/.claude/commands/review-fix.md" && ko "review-fix.md still offers AFTER FREEZE" || ok "review-fix.md no longer offers AFTER FREEZE (real but not urgent goes under OWNER)"
 
 run body ISSUE=40 ITEMS="$items" RESULT_JSON='not json'
 [ "$rc" -eq 0 ] && grep -qx 'Batch: #40' <<<"$out" && grep -qx 'Sources: #12 #20 #31' <<<"$out" && grep -q '| #31 | #31 | OWNER | no result from the fixer |' <<<"$out" && ok "body: an unreadable result still lists every source, as OWNER" || ko "body bad json (rc=$rc $out)"

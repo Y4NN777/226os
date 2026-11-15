@@ -28,7 +28,7 @@ dashboard says what to fix next. Nobody files a finding by hand: classifying one
              box. NOT A DEFECT and DECIDED never close a finding (a model verdict is not a decision): their reason is
              posted as a comment and a human closes it. For a NOTE outside the P0 paths (sensitive and deep-review lists) they tick its box when the reason cites a reference
              that the script checks at the tip of develop: a docs/decisions/NNNN-*.md file whose Status line says ACCEPTED and whose text names the
-             note's own file as a whole path AND the note's own ledger id written as code, `id` in backticks (as written in the notes issue, outside the file mentions) (a `path:line` citation must exist but never counts, not even in the note's own file); without it they only comment. OWNER and AFTER FREEZE stay open. One comment per touched source ("Settled by #PR (review batch #N): ..."), once (marker); a
+             note's own file as a whole path AND the note's own ledger id written as code, `id` in backticks (as written in the notes issue, outside the file mentions) (a `path:line` citation must exist but never counts, not even in the note's own file); without it they only comment. OWNER stays open (AFTER FREEZE, retired, is still read from an old table, like OWNER). One comment per touched source ("Settled by #PR (review batch #N): ..."), once (marker); a
              notes issue whose boxes are all ticked is closed (as not planned when a verdict ticked one, else as completed);
              the batch issue closes last. Fails CLOSED like
              `batch`.
@@ -592,11 +592,12 @@ def merged_fix(ctx, binary, repo, issue):
 
 
 SETTLE_MARK = "<!-- settled-by:PR%s -->"
+# AFTER FREEZE is retired (the freeze is over): the fixer never produces it again, but a table written before is still read, like OWNER.
 DECISIONS = ("FIXED", "FIXED ELSEWHERE", "NOT A DEFECT", "DECIDED", "OWNER", "AFTER FREEZE")
 # Only a fix closes or ticks by itself; NOT A DEFECT and DECIDED are the fixer's opinion: a human closes a finding; a note is
 # ticked only with a reference the script verified (verified_reference).
 CLOSE_AS = {"FIXED": "completed", "FIXED ELSEWHERE": "completed"}
-STAYS_OPEN = {"NOT VERIFIED": "stays open: a human checks", "OWNER": "stays open for the owner", "AFTER FREEZE": "stays open until after the freeze",
+STAYS_OPEN = {"NOT VERIFIED": "stays open: a human checks", "OWNER": "stays open for the owner", "AFTER FREEZE": "stays open for the owner",
               "NOT A DEFECT": "stays open: a human closes it as not planned if they agree",
               "DECIDED": "stays open: a human closes it as not planned or ticks it if they agree"}
 SETTLE_ROW = re.compile(r"^\|\s*(#\d+(?:/[\w-]+)?)\s*\|")

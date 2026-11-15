@@ -4,7 +4,7 @@ review agree that nothing is left for a human, then bring the other open pull re
 
 It decides MERGE only if ALL of these hold for the pull request (any other case is a REFUSE with its reasons):
   - it is open, not a draft, its base is develop (never main) and its head repository is this repository;
-  - it has none of the labels needs-owner, do-not-merge, owner-override-pending;
+  - it has none of the labels needs-owner, autofix-stopped, do-not-merge, owner-override-pending;
   - it changes nothing under .github/workflows/ (the bot never merges a workflow change: the owner does);
   - it touches no review pipeline path (.github/pipeline-paths.txt, read at the current tip of develop). With AUTO_MERGE=on
     such a pull request is labelled `needs-owner` with a one-line comment giving the reason (once: the label then
@@ -56,7 +56,7 @@ import subprocess
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-BLOCKING_LABELS = ("needs-owner", "do-not-merge", "owner-override-pending")
+BLOCKING_LABELS = ("needs-owner", "autofix-stopped", "do-not-merge", "owner-override-pending")
 DEFAULT_CHECKS = "Validate branch promotion,quality,Review gate"
 BATCH_BRANCH = "fix/review/batch-"
 TRAILER_WORKFLOW = re.compile(r"^Review-Pipeline:[ \t]*(.+)/(\d+)[ \t]*$", re.M)

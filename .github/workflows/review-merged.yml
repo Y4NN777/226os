@@ -6,7 +6,7 @@
 #      resolves... #N) are closed as completed with one comment; `needs-owner` issues get a comment and stay open;
 #      `review-batch` issues are left to step 2.
 #   2. for a batch fix pull request (branch fix/review/batch-*), scripts/findings.py settle: each source of its results
-#      table is settled by decision (closed, or its note box ticked; OWNER and AFTER FREEZE stay open, with a comment),
+#      table is settled by decision (closed, or its note box ticked; OWNER stays open, with a comment),
 #      one comment per source, once; then the batch issue closes, last.
 # Neither step reads commits or comments; both are idempotent and mention nobody. Not a required check.
 name: Review merged

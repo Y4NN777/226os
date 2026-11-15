@@ -150,10 +150,10 @@ record
 # ---- the record step fails closed after a push, open otherwise ----
 fresh
 record FAKE_GH_FAIL_WRITE=comments
-[ "$rc" -ne 0 ] && grep -q 'labels\[\]=needs-owner' "$tmp/st/log" && grep -q 'FAILED' <<<"$out" && ok "a pushed patch whose status cannot be written: FAILED, exit 1, needs-owner" || ko "pushed write failure (rc=$rc $out / $(cat "$tmp/st/log"))"
+[ "$rc" -ne 0 ] && grep -q 'labels\[\]=autofix-stopped' "$tmp/st/log" && grep -q 'FAILED' <<<"$out" && ok "a pushed patch whose status cannot be written: FAILED, exit 1, autofix-stopped" || ko "pushed write failure (rc=$rc $out / $(cat "$tmp/st/log"))"
 fresh
 record FAKE_GH_FAIL_WRITE=comments OUTCOME=nothing PUSH=
-[ "$rc" -ne 0 ] && grep -q 'labels\[\]=needs-owner' "$tmp/st/log" && grep -q 'FAILED' <<<"$out" && ok "no patch pushed: a write failure still fails closed (an abort or an attempt would be lost): FAILED, exit 1, needs-owner" || ko "nothing write failure (rc=$rc $out)"
+[ "$rc" -ne 0 ] && grep -q 'labels\[\]=autofix-stopped' "$tmp/st/log" && grep -q 'FAILED' <<<"$out" && ok "no patch pushed: a write failure still fails closed (an abort or an attempt would be lost): FAILED, exit 1, needs-owner" || ko "nothing write failure (rc=$rc $out)"
 # A state too large to keep is never truncated: fail closed after a push.
 python3 -I - "$tmp/st/comments.json" <<'EOT'
 import json, sys
@@ -163,7 +163,7 @@ json.dump([{"id": 55, "user": {"login": "github-actions[bot]", "type": "Bot"}, "
             "body": "<!-- 226os-autofix-status -->\nx\n<!-- autofix-state " + json.dumps(state) + " -->"}], open(sys.argv[1], "w"))
 EOT
 record
-[ "$rc" -ne 0 ] && grep -qi 'too large' <<<"$out" && grep -q 'labels\[\]=needs-owner' "$tmp/st/log" && ok "a state too large to keep fails closed after a push (needs-owner), never truncated" || ko "large state (rc=$rc $out)"
+[ "$rc" -ne 0 ] && grep -qi 'too large' <<<"$out" && grep -q 'labels\[\]=autofix-stopped' "$tmp/st/log" && ok "a state too large to keep fails closed after a push (autofix-stopped), never truncated" || ko "large state (rc=$rc $out)"
 
 # ---- pending attempts (written by decide before the fixer) are settled here ----
 status '{"v":1,"sha":"'$HEAD'","run":"90","pending":{"f1":{"'$HEAD'":"31"}},"attempts":{},"rows":'"$ROWS"'}'; pr_head "$HEAD"

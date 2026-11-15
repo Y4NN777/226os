@@ -11,14 +11,23 @@ whether its commits may be pushed. The workflows only call this script; the mode
          hidden state of the status comment (below), never from labels, and written by `record` when the run ENDS; a
          finding already attempted on this head is not attempted again; a finding whose file is outside the fixer's
          allowed paths (the same `forbidden()` as the guard), without a file, or with its attempts used goes to the owner
-         BEFORE any attempt, with the reason, and the others are still fixed. At most 4 completed or pending fix runs per
-         pull request (distinct run ids), and a pull request that carries needs-owner is not fixed. Before the fixer runs it
+         BEFORE any attempt, with the reason, and the others are still fixed. At most 7 fix runs in TOTAL (MAX_PR_RUNS: completed, pending and aborted) per
+         pull request (distinct run ids). DECISION TABLE: (1) ROUTING is per finding, `fixer` or `owner` with a reason code (critical,
+         no-file, outside-repository, outside-allowlist, exhausted, aborts-cap, guard-refused, fixer-owner), kept in the state:
+         an owner finding is never fixed again, the fixer findings keep being fixed with their own caps. (2) `needs-owner` is
+         INFORMATIONAL: set as soon as one open finding is routed to the owner, it blocks nothing (an old one is no stop).
+         `autofix-stopped` BLOCKS the whole pull request and is set only by the PR-level fail-closed causes: the cap of 7 runs in
+         total (MAX_PR_RUNS), a record that could not write, pending entries of two runs that died, a state too large; decide refuses
+         while it is there (verdict stop) and only a human removes it (the status comment says so). (3) decide: stopped -> STOP;
+         else the fixable findings (route fixer, not already attempted on this head) are fixed; none -> owner verdict when every
+         finding is routed to the owner, NO-OP otherwise. (4) The status comment shows route and reason per finding and a
+         line `Fixer: ACTIVE | STOPPED (cause)`. Before the fixer runs it
          writes a PENDING attempt (finding, head, run) into the status comment, which `record` settles; a pending entry left by a
          run that died counts as an attempt, and if it cannot be written the fixer does not run. It also writes the status comment.
   record the end job of review-autofix.yml (trusted, GITHUB_TOKEN): records the attempt for (pull request, finding, head
          SHA) in the status comment ONLY when the run happened: the fixer job must have succeeded (FIX_RESULT), and a patch
          that was not pushed (PUSH moved, notoken, or the publish job did not finish) or a head that moved without our own
-         push consumes nothing (SUPERSEDED, counted as an abort). Writes only in mode `on`; FAILS CLOSED when it cannot record (exit 1, needs-owner). A pushed fix also
+         push consumes nothing (SUPERSEDED, counted as an abort). Writes only in mode `on`; FAILS CLOSED when it cannot record (exit 1, label autofix-stopped). A pushed fix also
          gets the label autofix-N, provenance only (review-gate.py reads it; it is never counted).
   status comment (ADR-0015 point 10): ONE comment of the Actions bot per pull request, marker `<!-- 226os-autofix-status -->`,
          edited in place. A table, one row per finding: class (`prose` until the ledger records one), state, last fact (run
@@ -70,7 +79,7 @@ whether its commits may be pushed. The workflows only call this script; the mode
          exit 0, no items.
   body   the batch pull request body from the fixer's structured result (RESULT_JSON): it names the batch issue
          (#ISSUE, which closes the batch on merge) and has one table row per item (item, source, decision, reason): FIXED,
-         FIXED ELSEWHERE, NOT A DEFECT, DECIDED, OWNER or AFTER FREEZE. `findings.py settle` reads it on merge:
+         FIXED ELSEWHERE, NOT A DEFECT, DECIDED or OWNER (a fixer that still says AFTER FREEZE, retired, is read as OWNER). `findings.py settle` reads it on merge:
          FIXED and FIXED ELSEWHERE close or tick a source; NOT A DEFECT and DECIDED tick a NOTE with a verified reference
          (see findings.verified_reference); the others get a comment and stay open for a human. Model
          text is data: @-mentions and every issue reference form (#N, owner/repo#N, GH-N, issue and pull URLs, so
@@ -78,7 +87,7 @@ whether its commits may be pushed. The workflows only call this script; the mode
   nothing  the trusted publish job when the fixer made no commit: its verdicts (RESULT_JSON) for the planned ITEMS that are
          items of the batch issue ISSUE (its batch-item markers) are applied with `findings.settle_issue`, the rules of
          `settle`: FIXED ELSEWHERE closes or ticks only when the named pull request is merged; NOT A DEFECT and DECIDED tick a
-         note with a verified reference and otherwise only comment, like OWNER and AFTER FREEZE; FIXED without a commit is
+         note with a verified reference and otherwise only comment, like OWNER; FIXED without a commit is
          OWNER. ONE comment on the batch issue holds the verdict
          table (neutralised like the body cells); the items with a verdict are ticked and the batch closes with the marker
          batch-handled, so `findings.py batch` starts a new batch without them (until they change). Idempotent per RUN_ID.
@@ -105,11 +114,20 @@ import subprocess
 import sys
 
 MAX_ATTEMPTS = 2
-OWNER_LABEL = "needs-owner"
+OWNER_LABEL = "needs-owner"   # INFORMATIONAL: at least one finding is routed to the owner. It never blocks the fixer.
+STOP_LABEL = "autofix-stopped"  # BLOCKING: the fixer is stopped for the whole pull request. Only a human removes it.
 REVIEW_JOB = "Code review (advisory)"
 BATCH_PREFIX = "fix/review/batch-"
 PROTECTED_HEADS = ("main", "develop")
-VERDICTS = ("FIXED", "FIXED ELSEWHERE", "NOT A DEFECT", "DECIDED", "OWNER", "AFTER FREEZE")
+VERDICTS = ("FIXED", "FIXED ELSEWHERE", "NOT A DEFECT", "DECIDED", "OWNER")
+RETIRED_VERDICTS = {"AFTER FREEZE": "OWNER"}  # the freeze of 15 Nov 2026 is over: a fixer that still says it means OWNER
+
+
+def verdict_of(raw):
+    """The verdict a fixer result may carry: one of VERDICTS, a retired one mapped (AFTER FREEZE is OWNER), else ''."""
+    v = " ".join(str(raw or "").upper().split())
+    v = RETIRED_VERDICTS.get(v, v)
+    return v if v in VERDICTS else ""
 # Paths the fixer never changes: the contract (R7), migrations (R6), decisions, secrets, CI, the harness itself and the
 # files the workflows leave in the workspace.
 FORBIDDEN_EXACT = ("api/openapi.yaml", "CLAUDE.md", "CLAUDE.local.md", "AGENTS.md", "docs/team/OWNER_PREFERENCES.md",
@@ -214,15 +232,14 @@ STATE_LINE = re.compile(r"<!-- autofix-state (\{.*?\}) -->", re.S)
 FULL_SHA = re.compile(r"^[0-9a-f]{40}$")
 FINDING_ID = re.compile(r"^[\w.-]{1,40}$")
 MAX_ROWS = 40
-ROW_KEYS = ("id", "where", "class", "state", "fact", "next", "who")
+ROW_KEYS = ("id", "where", "class", "route", "state", "fact", "next", "who")
 
 
 MAX_STATE_JSON = 30000   # the hidden state is never truncated: past this the pull request goes to the owner
 MAX_COMMENT = 60000      # GitHub allows 65536 characters; the table is cut first
 MAX_ABORT_SAME_HEAD = 2  # aborted runs (no attempt used) on one head, per finding
-MAX_ABORT_TOTAL = 4      # aborted runs in all, per pull request
 MAX_RUN_IDS = 10
-MAX_PR_RUNS = 4          # completed (or pending) fix runs per pull request, over every finding
+MAX_PR_RUNS = 7          # fix runs in TOTAL per pull request: completed, pending and aborted, on distinct run ids
 
 
 class StateTooLarge(Exception):
@@ -230,7 +247,7 @@ class StateTooLarge(Exception):
 
 
 def empty_state():
-    return {"v": 1, "sha": "", "run": "", "result": "", "attempts": {}, "pending": {}, "aborted": {}, "rows": []}
+    return {"v": 1, "sha": "", "run": "", "result": "", "attempts": {}, "pending": {}, "aborted": {}, "routes": {}, "fixer": "ACTIVE", "rows": []}
 
 
 def used_heads(state, fid):
@@ -239,13 +256,9 @@ def used_heads(state, fid):
 
 
 def pr_runs(state):
-    """Distinct run ids that completed or are pending on the whole pull request."""
-    return {r for key in ("attempts", "pending") for heads in state[key].values() for r in heads.values() if r}
-
-
-def abort_total(state):
-    """Distinct aborted run ids on the whole pull request."""
-    return len({r for heads in state["aborted"].values() for runs in heads.values() for r in runs})
+    """Distinct run ids on the whole pull request: completed, pending (maybe dead) and aborted."""
+    done = {r for key in ("attempts", "pending") for heads in state[key].values() for r in heads.values() if r}
+    return done | {r for heads in state["aborted"].values() for runs in heads.values() for r in runs}
 
 
 def clean_state(raw):
@@ -265,6 +278,11 @@ def clean_state(raw):
     for fid, heads in (pending.items() if isinstance(pending, dict) else []):
         if FINDING_ID.match(str(fid)) and isinstance(heads, dict):
             state["pending"][str(fid)] = {h: re.sub(r"\D", "", str(r))[:20] for h, r in heads.items() if FULL_SHA.match(str(h))}
+    routes = raw.get("routes")  # owner routes only: a finding routed to the owner is never fixed again
+    for fid, r in (routes.items() if isinstance(routes, dict) else []):
+        if FINDING_ID.match(str(fid)) and isinstance(r, dict) and re.match(r"^[\w-]{1,40}$", str(r.get("code", ""))):
+            state["routes"][str(fid)] = {"code": str(r["code"]), "why": str(r.get("why", ""))[:200]}
+    state["fixer"] = str(raw.get("fixer", "ACTIVE"))[:200] or "ACTIVE"
     aborted = raw.get("aborted")
     for fid, heads in (aborted.items() if isinstance(aborted, dict) else []):
         if FINDING_ID.match(str(fid)) and isinstance(heads, dict):
@@ -306,7 +324,7 @@ def render_status(state, head_sha):
             break
         shown.append(line)
     omitted = len(state["rows"]) - len(shown)
-    rows = ["| Finding | Where | Class | State | Last fact | Next action | Who |", "|---|---|---|---|---|---|---|"]
+    rows = ["| Finding | Where | Class | Route | State | Last fact | Next action | Who |", "|---|---|---|---|---|---|---|---|"]
     rows += shown
     if omitted:
         rows.append("| ... | %d more row(s) omitted (the comment is full) | | | | | |" % omitted)
@@ -314,7 +332,7 @@ def render_status(state, head_sha):
         rows = ["No finding to show."]
     return "\n".join([STATUS_MARK, "**Autofix status.** Computed from the facts on every event and edited in place; "
                        "the class is `prose` until the ledger records one (ADR-0015).", "",
-                       "Head `%s`. Last event: %s" % (head_sha[:12] or "unknown", cell(state["result"], 300) or "none"), ""] + rows + ["",
+                       "Fixer: %s" % cell(state["fixer"], 220), "Head `%s`. Last event: %s" % (head_sha[:12] or "unknown", cell(state["result"], 300) or "none"), ""] + rows + ["",
                        "<!-- autofix-state %s -->" % hidden])
 
 
@@ -338,18 +356,18 @@ def write_status(gh, repo, number, comment_id, state, head_sha):
 
 
 def path_refusal(path):
-    """None when the fixer may edit the file a finding points at, else the reason (ADR-0015 point 8, last rule). It is the
+    """None when the fixer may edit the file a finding points at, else (code, reason) (ADR-0015 point 8, last rule). It is the
     same `forbidden()` as the guard before the push: no second list to keep in step."""
     raw = (path or "").strip()
     if raw.startswith("./"):
         raw = raw[2:]
     if not raw:
-        return "the finding records no file, so the fixer cannot be given a location"
+        return "no-file", "the finding records no file, so the fixer cannot be given a location"
     norm = posixpath.normpath(raw)
     if norm.startswith("/") or norm == ".." or norm.startswith("../"):
-        return "%s is outside the repository" % cell(raw, 80)
+        return "outside-repository", "%s is outside the repository" % cell(raw, 80)
     if forbidden(norm):
-        return "%s is outside the fixer's allowed paths" % cell(norm, 120)
+        return "outside-allowlist", "%s is outside the fixer's allowed paths" % cell(norm, 120)
     return None
 
 
@@ -400,67 +418,76 @@ def decide_pr(ctx, gh, repo, number, mode):
         return "refuse", "the ledger is for %s, not for the pull request head: the review is stale" % ledger["sha"][:12], None
     comment_id, prior = find_status(ctx, comments)
     state = dict(empty_state(), sha=head_sha if FULL_SHA.match(head_sha) else "", run=re.sub(r"\D", "", os.environ.get("RUN_ID", ""))[:20],
-                 attempts=prior["attempts"], pending=prior["pending"], aborted=prior["aborted"])
+                 attempts=prior["attempts"], pending=prior["pending"], aborted=prior["aborted"], routes=prior["routes"])
     entries = [f for f in ledger["findings"] if f["kind"] == "finding" and safe_id(f["id"])]
-    critical = any(f["sev"] == "CRITICAL" and f["status"] == "open" for f in entries)
-    owner_label = OWNER_LABEL in label_names(info.get("labels"))  # the owner decides (a failed record sets it too)
-    pr_capped = len(pr_runs(state)) >= MAX_PR_RUNS
-    fix_ids, owner_why, rows = [], [], []
+    # ---- the decision table (ADR-0015, owner 2026-11-15) ----
+    # ROUTING is per finding: `fixer` or `owner` with a reason code, kept in the state (an owner route is never fixed again).
+    #   owner codes: critical, no-file, outside-repository, outside-allowlist, exhausted (2 attempts), aborts-cap.
+    # needs-owner is INFORMATIONAL: set as soon as one open finding is routed to the owner, it never blocks.
+    # autofix-stopped BLOCKS the whole pull request; set only by the PR-level fail-closed causes: 7 runs in total, a failed
+    # record, pending entries of two dead runs, a state too large. decide refuses while it is there; only a human removes it.
+    if STOP_LABEL in label_names(info.get("labels")):
+        stop_cause = "the label %s is set (a human removes it: the fixer stays off until then)" % STOP_LABEL
+    elif len(pr_runs(state)) >= MAX_PR_RUNS:
+        stop_cause = "%d runs in total on this pull request (completed and aborted; remove the label %s to let the fixer continue)" % (MAX_PR_RUNS, STOP_LABEL)
+    elif len({r for heads in state["pending"].values() for r in heads.values()}) >= 2:
+        stop_cause = "pending attempts of two runs that died (remove the label %s once the cause is known)" % STOP_LABEL
+    else:
+        stop_cause = ""
+    fix_ids, skip_why, rows = [], [], []
     for f in entries:
         fid = safe_id(f["id"])
         used = used_heads(state, fid)
         last = list(used.items())[-1] if used else None  # the newest attempt was recorded last
-        row = {"id": fid, "where": ("%s:%s" % (f["file"], f["line"]))[:120], "class": "prose", "state": "", "next": "", "who": "",
+        row = {"id": fid, "where": ("%s:%s" % (f["file"], f["line"]))[:120], "class": "prose", "route": "fixer", "state": "", "next": "", "who": "",
                "fact": "attempt %d: run %s on %s" % (len(used), last[1], last[0][:12]) if last else "no attempt yet"}
-        why = None
+        route = state["routes"].get(fid)
         if f["status"] != "open":
-            row.update(state="CLOSED (%s)" % f["status"], next="none", who="-")
-        elif critical:
-            why = "an open CRITICAL sends the pull request to the owner"
-        elif owner_label:
-            why = "the pull request carries needs-owner: the owner decides"
-        elif pr_capped:
-            why = "%d completed fix runs on this pull request: the owner decides" % MAX_PR_RUNS
-        elif path_refusal(f["file"]):
-            why = path_refusal(f["file"])
-        elif len(used) >= MAX_ATTEMPTS:
-            why = "%d attempts already made" % MAX_ATTEMPTS
-        elif len(state["aborted"].get(fid, {}).get(head_sha, [])) >= MAX_ABORT_SAME_HEAD:
-            why = "%d aborted runs on this head (cancelled or infrastructure), none used an attempt" % MAX_ABORT_SAME_HEAD
-        elif abort_total(state) >= MAX_ABORT_TOTAL:
-            why = "%d aborted runs on this pull request (cancelled or infrastructure), none used an attempt" % MAX_ABORT_TOTAL
+            row.update(route="-", state="CLOSED (%s)" % f["status"], next="none", who="-")
+            rows.append(row)
+            continue
+        if route is None:
+            refusal = path_refusal(f["file"])
+            if f["sev"] == "CRITICAL":
+                route = {"code": "critical", "why": "an open CRITICAL goes to the owner"}
+            elif refusal:
+                route = {"code": refusal[0], "why": refusal[1]}
+            elif len(used) >= MAX_ATTEMPTS:
+                route = {"code": "exhausted", "why": "%d attempts already made" % MAX_ATTEMPTS}
+            elif len(state["aborted"].get(fid, {}).get(head_sha, [])) >= MAX_ABORT_SAME_HEAD:
+                route = {"code": "aborts-cap", "why": "%d aborted runs on this head (cancelled or infrastructure, none used an attempt)" % MAX_ABORT_SAME_HEAD}
+            if route:
+                state["routes"][fid] = route
+        if route:
+            row.update(route="owner (%s)" % route["code"], state="NEEDS_OWNER", next=route["why"], who="owner")
+        elif stop_cause:
+            row.update(state="STOPPED", next="the fixer is stopped for this pull request; a human removes %s" % STOP_LABEL, who="owner")
         elif head_sha in used:
             row.update(state="FAILED (attempt %d)" % len(used), next="waits for a new push: this head was already attempted", who="author")
-            owner_why.append(("skip", "%s already attempted on this head (run %s)" % (fid, used[head_sha])))
+            skip_why.append("%s already attempted on this head (run %s)" % (fid, used[head_sha]))
         else:
             row.update(state="READY", next="the fixer runs (attempt %d of %d)" % (len(used) + 1, MAX_ATTEMPTS), who="pipeline")
             fix_ids.append(fid)
-        if why:
-            row.update(state="NEEDS_OWNER", next=why, who="owner")
-            owner_why.append(("owner", "%s: %s" % (fid, why)))
         rows.append(row)
+    state["fixer"] = "STOPPED (%s)" % stop_cause if stop_cause else "ACTIVE"
     state["rows"] = rows[:MAX_ROWS]
     try:
         render_status(state, head_sha)
     except StateTooLarge as exc:
-        return "owner", str(exc), None
+        return "stop", "the status state is too large to keep: %s" % exc, None
     has_open = any(f["status"] == "open" for f in entries)
     plan = (state, comment_id) if (has_open or comment_id) else None
-    owner_ids = [w for kind, w in owner_why if kind == "owner"]
-    if critical:
-        return "owner", "an open CRITICAL goes to the owner, the pull request is not fixed", plan
-    if owner_label and has_open:
-        return "owner", "the pull request carries needs-owner: not fixed, the owner decides", plan
-    if pr_capped and has_open:
-        return "owner", "%d completed fix runs on this pull request (needs-owner): the owner decides" % MAX_PR_RUNS, plan
+    owner_rows = [r for r in rows if r["route"].startswith("owner")]
+    if stop_cause and has_open:
+        return "stop", stop_cause, plan
     if not has_open:
         return "nothing", "no open finding (notes are never fixed)", plan
     if fix_ids:
         attempt = max(len(used_heads(state, i)) for i in fix_ids) + 1
-        return "fix", (attempt, fix_ids, head, owner_ids), plan
-    if owner_ids:
-        return "owner", "no finding can be fixed: " + "; ".join(owner_ids), plan
-    return "nothing", "every open finding was already attempted on this head: " + "; ".join(w for _, w in owner_why), plan
+        return "fix", (attempt, fix_ids, head, ["%s: %s" % (r["id"], r["next"]) for r in owner_rows]), plan
+    if owner_rows:
+        return "owner", "no finding can be fixed: " + "; ".join("%s: %s" % (r["id"], r["next"]) for r in owner_rows), plan
+    return "nothing", "every open finding was already attempted on this head: " + "; ".join(skip_why), plan
 
 
 def cmd_pr():
@@ -488,16 +515,34 @@ def cmd_pr():
         print("autofix: report mode, status comment not written")
         return True
 
+    def inform_owner():
+        """needs-owner is INFORMATIONAL: set as soon as one open finding is routed to the owner. It blocks nothing."""
+        if writes and plan and any(r["route"].startswith("owner") for r in plan[0]["rows"]):
+            add_label(gh, repo, number, OWNER_LABEL)
+
     if verdict in ("refuse", "nothing"):
         show("NO-OP, " + detail)
+        if verdict == "nothing":
+            inform_owner()
         return noop(("refused: " if verdict == "refuse" else "") + detail)
     if mode == "on" and not token:
         return noop("REVIEW_AGENT_TOKEN missing", "NOT RUN")
+    if verdict == "stop":
+        # autofix-stopped BLOCKS the whole pull request; only a human removes it.
+        print("autofix: STOPPED (%s)" % detail)
+        show("STOPPED, " + detail)
+        if writes:
+            add_label(gh, repo, number, STOP_LABEL)
+            inform_owner()
+        else:
+            print("autofix: report mode, nothing written")
+        emit(run="false")
+        return 0
     if verdict == "owner":
         print("autofix: owner (%s)" % detail)
         show("NEEDS_OWNER, " + detail)
         if writes:
-            add_label(gh, repo, number, OWNER_LABEL)
+            inform_owner()
         else:
             print("autofix: report mode, nothing written")
         emit(run="false")
@@ -515,8 +560,7 @@ def cmd_pr():
         plan[0]["pending"].setdefault(fid, {})[head.get("sha")] = plan[0]["run"] or "0"
     if not show("fix queued for %s (attempt %d of %d)" % (",".join(ids), attempt, MAX_ATTEMPTS)):
         return noop("the pending attempt could not be written, so the fixer does not run", "NOT RUN")
-    if owner_ids:
-        add_label(gh, repo, number, OWNER_LABEL)
+    inform_owner()
     print("autofix: fixing %d finding(s) on %s (attempt %d of %d)" % (len(ids), head.get("ref"), attempt, MAX_ATTEMPTS))
     emit(run="true", attempt=attempt, findings=",".join(ids), branch=head.get("ref"), head_sha=head.get("sha"))
     return 0
@@ -581,7 +625,7 @@ def cmd_record():
             n = len(used)
             row = rows.get(fid)
             if row is None:
-                row = {"id": fid, "where": "", "class": "prose", "state": "", "fact": "", "next": "", "who": ""}
+                row = {"id": fid, "where": "", "class": "prose", "route": "fixer", "state": "", "fact": "", "next": "", "who": ""}
                 state["rows"].append(row)
                 rows[fid] = row
             if kind == "NOTOKEN":
@@ -596,9 +640,12 @@ def cmd_record():
             if kind == "PUSHED":
                 row.update(state="PUSHED (attempt %d)" % n, fact=fact, next="the review and CI run again on the new head", who="pipeline")
             elif kind == "NEEDS_OWNER":
-                row.update(state="NEEDS_OWNER", fact=fact, next="the owner decides", who="owner")
+                code = "guard-refused" if outcome == "fixed" else "fixer-owner"
+                state["routes"][fid] = {"code": code, "why": why}
+                row.update(route="owner (%s)" % code, state="NEEDS_OWNER", fact=fact, next="the owner decides", who="owner")
             elif n >= MAX_ATTEMPTS:
-                row.update(state="NEEDS_OWNER", fact=fact, next="%d attempts used: the owner decides" % MAX_ATTEMPTS, who="owner")
+                state["routes"][fid] = {"code": "exhausted", "why": "%d attempts already made" % MAX_ATTEMPTS}
+                row.update(route="owner (exhausted)", state="NEEDS_OWNER", fact=fact, next="%d attempts used: the owner decides" % MAX_ATTEMPTS, who="owner")
             else:
                 row.update(state="FAILED (attempt %d)" % n, fact=fact, next="attempt %d of %d on the next head" % (n + 1, MAX_ATTEMPTS), who="pipeline")
         state["sha"], state["run"] = head_sha, run_id
@@ -611,10 +658,10 @@ def cmd_record():
         # An attempt (or an abort) cannot be written: the caps would be lost. FAIL CLOSED, pushed or not.
         reason = str(exc) if isinstance(exc, StateTooLarge) else type(exc).__name__
         try:
-            add_label(gh, repo, number, OWNER_LABEL)
+            add_label(gh, repo, number, STOP_LABEL)
         except Exception:
             pass
-        print("autofix record: FAILED (%s): the run could not be recorded (%s); needs-owner" % (reason, "a patch was pushed" if pushed else "no patch"))
+        print("autofix record: FAILED (%s): the run could not be recorded (%s); the fixer is stopped (autofix-stopped, a human removes it)" % (reason, "a patch was pushed" if pushed else "no patch"))
         return 1
     print("autofix record: %s (%s)" % ("attempt recorded" if consumed else "SUPERSEDED, no attempt used", why))
     return 0
@@ -1093,8 +1140,7 @@ def cmd_body():
     out += ["| Item | Source | Decision | Reason |", "|---|---|---|---|"]
     for key in items:
         r = found.get(key, {"verdict": "OWNER", "reason": "no result from the fixer"})
-        verdict = " ".join(str(r.get("verdict", "")).upper().split())
-        out.append("| %s | %s | %s | %s |" % (key, key.split("/", 1)[0], verdict if verdict in VERDICTS else "OWNER", cell(r.get("reason"))))
+        out.append("| %s | %s | %s | %s |" % (key, key.split("/", 1)[0], verdict_of(r.get("verdict")) or "OWNER", cell(r.get("reason"))))
     out += ["", "Outcome: %s. %s" % (cell(data.get("outcome"), 20), cell(data.get("reason"))), "",
             "Written by the CI fixer (`.claude/commands/review-fix.md`). On merge, FIXED and FIXED ELSEWHERE close or tick "
             "their source; NOT A DEFECT and DECIDED tick a note outside the P0 paths whose reason cites an ADR "
@@ -1117,8 +1163,8 @@ def nothing_verdicts(findings, items, data):
     out, seen = [], set()
     for r in data.get("results") or []:
         key = str(r.get("item", "")).strip() if isinstance(r, dict) else ""
-        verdict = " ".join(str(r.get("verdict", "")).upper().split()) if isinstance(r, dict) else ""
-        if key not in items or key in seen or verdict not in VERDICTS:
+        verdict = verdict_of(r.get("verdict")) if isinstance(r, dict) else ""
+        if key not in items or key in seen or not verdict:
             continue
         seen.add(key)
         reason = comment_text(findings, r.get("reason"))

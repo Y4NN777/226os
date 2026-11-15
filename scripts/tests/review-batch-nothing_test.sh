@@ -3,7 +3,7 @@
 # "nothing", batch run 43633446506 on #226), the trusted publish job applies its per-item verdicts with the same rules as
 # `findings.py settle`: FIXED ELSEWHERE closes or ticks a source only when the named pull request is merged (and touched the
 # cited file, after the source was created, and is not the source's own pull request); NOT A DEFECT and DECIDED only
-# comment (owner rule H5); FIXED without a commit is OWNER; OWNER and AFTER FREEZE comment and stay open. ONE comment on
+# comment (owner rule H5); FIXED without a commit is OWNER; OWNER comments and stays open (a retired AFTER FREEZE from the fixer counts as OWNER). ONE comment on
 # the batch issue holds the verdict table; every item with a verdict is ticked and the batch closes (marker
 # batch-handled), so the next batch run moves on. Only the batch issue's own items are applied; model text is neutralised.
 # Usage: scripts/tests/review-batch-nothing_test.sh
@@ -142,7 +142,7 @@ grep -q '| Item | Verdict | Reason |' <<<"$c40" && grep -q '^| #12 | FIXED ELSEW
 [ "$(field 12 'x["state"], x["state_reason"]')" = "('closed', 'completed')" ] && ok "FIXED ELSEWHERE naming a merged PR that touched the cited file closes the source" || ko "elsewhere merged ($(field 12 'x["state"]') $(last_comment 12))"
 [ "$(field 13 'x["state"]')" = "open" ] && last_comment 13 | grep -q 'named PR #151 is not merged: a human checks' && ok "FIXED ELSEWHERE naming an unmerged PR stays open with a comment" || ko "elsewhere unmerged ($(last_comment 13))"
 [ "$(field 14 'x["state"]')" = "open" ] && last_comment 14 | grep -q 'NOT A DEFECT' && ok "NOT A DEFECT: comment only, the source stays open (H5)" || ko "not a defect ($(last_comment 14))"
-[ "$(field 15 'x["state"]')" = "open" ] && last_comment 15 | grep -q 'AFTER FREEZE' && ok "AFTER FREEZE: comment, stays open" || ko "after freeze ($(last_comment 15))"
+[ "$(field 15 'x["state"]')" = "open" ] && last_comment 15 | grep -q 'OWNER' && ! last_comment 15 | grep -q 'AFTER FREEZE' && ok "a fixer result of AFTER FREEZE (retired verdict) is treated as OWNER: comment, stays open" || ko "after freeze ($(last_comment 15))"
 field 20 'x["body"]' | grep -q -- '- \[ \] `n1`' && field 20 'x["body"]' | grep -q -- '- \[ \] `n2`' && [ "$(field 20 'x["state"]')" = "open" ] \
   && ok "notes: DECIDED and FIXED-without-a-commit leave their boxes unticked, the issue open" || ko "notes ($(field 20 'x["body"]'))"
 last_comment 20 | grep -q '`n1` DECIDED' && last_comment 20 | grep -q '`n2` OWNER' && last_comment 20 | grep -q 'made no commit' \
