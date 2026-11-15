@@ -6,7 +6,7 @@ name: Deploy (emergency)
 #
 #   - manual only (workflow_dispatch), from refs/heads/main only, with a reason (1 to 200 characters) and the
 #     confirmation `EMERGENCY`; scripts/deploy-plan.sh refuses anything else (fail closed);
-#   - builds and scans its OWN images from the main SHA, pushes them as `emergency-<sha>` (never `<sha>`, never
+#   - builds and scans its OWN images from the main SHA, pushes them as `emergency-<sha>-<run id>-<attempt>` (never `<sha>`, never
 #     `tested-*`) and deploys them BY DIGEST (the digests printed by the push, never read back from the tag);
 #   - deploys like deploy.yml's production job: `production` environment (owner approval), pinned SSH host key,
 #     sops in RAM, scripts/deploy-remote.sh production-live (backup, migrate, up, smoke); never seeds;
@@ -80,7 +80,7 @@ jobs:
 
   # Own images from the main SHA. Holds packages: write and NO secret.
   build:
-    name: build, scan and push (emergency-<sha>)
+    name: build, scan and push (emergency-<sha>-<run>-<attempt>)
     needs: plan
     runs-on: ubuntu-latest
     timeout-minutes: 40
@@ -104,17 +104,19 @@ jobs:
       - name: Scan the images (scripts/image-scan.sh)
         run: scripts/image-scan.sh
 
-      # Tag emergency-<sha> (never <sha>: a later staging run of the same SHA must not meet different content under
+      # Tag emergency-<sha>-<run id>-<attempt> (never <sha>: a later staging run of the same SHA must not meet different content under
       # its own tag). The digests come from the push itself.
-      - name: Push to GHCR as emergency-<sha>
+      - name: Push to GHCR as emergency-<sha>-<run id>-<attempt>
         id: push
         env:
           REGISTRY_TOKEN: ${{ github.token }}
           SHA: ${{ needs.plan.outputs.sha }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
         run: |
           set -euo pipefail
           printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username github-actions --password-stdin
-          scripts/deploy-images.sh push "emergency-$SHA" "$(scripts/image-tag.sh)" >"$RUNNER_TEMP/pushed.env"
+          scripts/deploy-images.sh push "emergency-$SHA-$RUN_ID-$RUN_ATTEMPT" "$(scripts/image-tag.sh)" >"$RUNNER_TEMP/pushed.env"
           docker logout ghcr.io
           for v in API WEB MIGRATE; do
             lower="$(tr '[:upper:]' '[:lower:]' <<<"$v")"
