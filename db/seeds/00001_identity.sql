@@ -33,4 +33,4 @@ INSERT INTO tags (id, slug, label, status, provenance, created_by, created_at) V
   ('01900000-0000-7000-8000-00000000010D', 'open-source', 'Open source', 'active', 'demo', '01900000-0000-7000-8000-000000000001', '2026-11-14T08:15:00Z'),
   ('01900000-0000-7000-8000-00000000010E', 'agriculture', 'Agriculture', 'active', 'demo', '01900000-0000-7000-8000-000000000001', '2026-11-14T08:15:00Z'),
   ('01900000-0000-7000-8000-00000000010F', 'logistique', 'Logistique', 'active', 'demo', '01900000-0000-7000-8000-000000000001', '2026-11-14T08:15:00Z')
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT DO NOTHING;

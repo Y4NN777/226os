@@ -489,12 +489,12 @@ func TestIdentityQueries(t *testing.T) {
 	}
 	assertCall(t, db, "FROM profiles p", []any{uid})
 
-	// GetProfileByUsername :one — 22 columns: account_status and joined_at
-	// sit between updated_at and skills.
+	// GetProfileByUsername :one — 23 columns: account_status, joined_at and
+	// provenance sit between updated_at and skills.
 	cols := profCols()
 	skills := cols[len(cols)-1]
 	cols = cols[:len(cols)-1]
-	cols = append(cols, "active", ts, skills)
+	cols = append(cols, "active", ts, "live", skills)
 	db = &fakeDB{rowVals: cols}
 	if _, err := dbgen.New(db).GetProfileByUsername(ctx, "ann"); err != nil {
 		t.Fatal(err)

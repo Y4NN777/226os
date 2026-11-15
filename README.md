@@ -6,7 +6,7 @@
 
 226os (« 226 Open Stack », 226 étant l'indicatif téléphonique du Burkina Faso) est une plateforme qui relie l'entraide technique, les ressources utiles aux développeurs africains, les projets open source et l'apprentissage. Le but n'est pas d'ajouter un forum, un annuaire d'API ou un réseau professionnel de plus, mais de raccourcir le chemin entre un problème rencontré, une solution documentée et une contribution que d'autres peuvent réutiliser.
 
-Positionnement : **Afrique de l'Ouest d'abord, puis toute l'Afrique.**
+Positionnement : **né au Burkina Faso, ouvert à l'Afrique de l'Ouest, puis à tout le continent.** 226os veut d'abord être la référence des développeurs, ingénieurs et techies burkinabè, puis s'étendre dans la sous-région par des partenariats.
 
 **État** : le MVP tourne sur `develop` et la mise en production se prépare. Plan dans [ROADMAP.md](ROADMAP.md), suivi dans [TODO.md](TODO.md).
 
@@ -93,7 +93,14 @@ Un monolithe Go modulaire (Chi, pgx, sqlc) expose une API REST décrite en OpenA
 
 ## Qualité
 
-`make quality` lance G1 à G4, aussi en CI. Le détail est dans [docs/TEST.md](docs/TEST.md).
+Chaque pull request passe les mêmes contrôles en CI, et `make quality` les lance en local :
+
+- **Code propre** : formatage, lint, types, et code généré (client d'API, requêtes SQL) à jour.
+- **Tests unitaires** : 100 % des instructions couvertes côté Go, plus de 70 % côté web.
+- **Intégration** : tests sur une vraie base PostgreSQL, réponses de l'API conformes au contrat OpenAPI, contrôles d'accès testés rôle par rôle.
+- **Sécurité** : analyse statique du code, failles connues des dépendances et des images Docker, recherche de secrets, et tests des accès refusés sur chaque route.
+
+Les tests de bout en bout dans le navigateur et les tests de performance ne sont pas encore en place. Le détail est dans [docs/TEST.md](docs/TEST.md).
 
 ## Documentation
 

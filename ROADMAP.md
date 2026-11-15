@@ -33,7 +33,7 @@
     - The Learn free series is a small demo-fixture series of 3 to 4 short original lessons (US-LEARN-001).
   - **E4:** zero-migration interaction modes. An "ask about this lesson" button and read-only topic feeds.
   - **E5:** Connect as a read-only people directory. This is a **new operation**, suggested `GET /profiles`, so it is a contract change. With its contract commit (2026-11-14), P0 has **45 operations**. Office hours are a process note only.
-  - **Region:** public positioning is "Afrique de l'Ouest d'abord, puis toute l'Afrique" (owner decision 2026-11-12). The default filter is "Afrique de l'Ouest", with a one-click "Toute l'Afrique". The region is a UI constant in `src/web`, with no migration and no column. See TODO S7.
+  - **Region:** public positioning is "Afrique de l'Ouest d'abord, puis toute l'Afrique" (owner decision 2026-11-12). 2026-11-15 (owner): superseded by PRD amendment 3.3, "né au Burkina Faso, ouvert à l'Afrique de l'Ouest, puis à tout le continent"; the default filter below is unchanged. The default filter is "Afrique de l'Ouest", with a one-click "Toute l'Afrique". The region is a UI constant in `src/web`, with no migration and no column. See TODO S7.
   - **Pillars:** "Learn & Grow" and "Connect" are made prominent in navigation, home and wording only. No pillar is erased or demoted. The PRD amendment proposal is OPEN (O7).
   - See section 12 for what slips first.
 - **Out of scope:**
@@ -433,3 +433,4 @@ Superseded entries (OpenAI provider, V1 to V4 findings note, E3/S11, pillars fir
 | 2026-11-14 | **Freeze moved twice (owner).** The `develop` feature freeze moves from Sat 18:00 to 20:00 GMT (~17:00), then to 22:00 GMT (~19:45). After it, only fixes for failing gates or smoke checks. | `Y4NN777` |
 | 2026-11-15 | **Freeze moved (owner).** The `develop` feature freeze is Sun 15 at 12:00 GMT at the latest, so staging and production can be deployed on separate servers before the 17:00 limit; one review batch runs before the freeze. | `Y4NN777` |
 | 2026-11-15 | Owner reverses correction B: demo seeds allowed in local-dev and staging-test (ADR-0005 point 17); production-live never. | `Y4NN777` |
+| 2026-11-15 | **DECIDED: positioning, PRD amendment 3.3.** 226os is born in Burkina Faso: first the reference for Burkinabè developers, engineers and techies, then the sub-region through partnerships (tech communities, hubs, schools), then Africa. Public line: "né au Burkina Faso, ouvert à l'Afrique de l'Ouest, puis à tout le continent". Product unchanged: open to all, West Africa stays the Discover default filter. The UI positioning copy (landing and Discover, FR and EN) follows in a web pull request. | `Y4NN777` |

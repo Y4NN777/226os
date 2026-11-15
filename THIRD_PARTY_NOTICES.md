@@ -29,10 +29,12 @@ The Go module file, the npm manifests and `pnpm-lock.yaml` now exist, so the "no
 |---|---|---|---|
 | `github.com/getkin/kin-openapi` | v0.149.0 | MIT | `reports/licenses/go-licenses.csv` |
 | `github.com/go-chi/chi/v5` | v5.5.0 | MIT | `reports/licenses/go-licenses.csv` |
+| `github.com/google/uuid` | v1.6.0 | BSD-3-Clause | LICENSE in the local Go module cache, read 2026-11-15 (also in `reports/licenses/go-licenses.csv`) |
 | `github.com/jackc/pgx/v5` | v5.13.0 | MIT | `reports/licenses/go-licenses.csv` |
 | `github.com/oapi-codegen/runtime` | v1.9.0 | Apache-2.0 | `reports/licenses/go-licenses.csv` |
 | `github.com/pressly/goose/v3` | v3.30.0 | MIT | LICENSE header in the local Go module cache (not in the generated report) |
 | `go.yaml.in/yaml/v3` | v3.0.6 | Apache-2.0, with MIT portions ported from libyaml (upstream `LICENSE` and `NOTICE`, read 2026-11-13) | not in the generated report; v3.0.6 not in the local module cache |
+| `golang.org/x/crypto` | v0.58.0 | BSD-3-Clause | LICENSE in the local Go module cache, read 2026-11-15 (not in the generated report) |
 
 Transitive Go modules are listed in `reports/licenses/` (`make licenses`) and are not itemised here.
 
@@ -76,7 +78,7 @@ The 226os logo, symbol and app icons were produced with an AI image generator by
 - Go `tool` entries in `go.mod`: golangci-lint, go-licenses, oapi-codegen, goose, sqlc, govulncheck, staticcheck. Used to build, check and generate; not part of the shipped binaries as tools. Licences read from the upstream repositories on 2026-11-13: golangci-lint **GPL-3.0**, go-licenses Apache-2.0, oapi-codegen Apache-2.0, goose MIT (`LICENSE` header read), sqlc MIT, govulncheck (golang/vuln) BSD-3-Clause, staticcheck (dominikh/go-tools) MIT, gosec Apache-2.0. golangci-lint is GPL-3.0: it is a build and check tool, run with `go tool`, never linked into or shipped with the product (go-licenses reports runtime dependencies only).
 - `anthropics/claude-code-action` (pinned by commit SHA to v1.0.275 in `.github/workflows/code-review.yml`, off by default): runs Claude Code in CI for the advisory review; MIT (anthropics/claude-code-action, read 2026-11-13); not distributed.
 - GitHub Actions in `.github/workflows/` are pinned by commit SHA (version in the trailing comment of each `uses:` line). Not distributed.
-- open-code-review (`@alibaba-group/open-code-review`, Apache-2.0, pinned to 1.13.8 in `scripts/review.sh`): optional AI code review helper run through `npx`, never installed globally and not distributed. `.claude/commands/delegate-review.md` is adapted from its `delegate-review.md` (commit 4236c871fe8130aa840a2a1c0922f469e87e0416, Apache-2.0, Copyright 2026 Alibaba; changes listed in the file header). With `make review` it sends the diff to the LLM provider the user configures; with `/delegate-review` the reviewer is Claude Code. Licence read from the package metadata (`npm view`) and the repository page, not re-verified from the source tree.
+- open-code-review (`@alibaba-group/open-code-review`, Apache-2.0 read from the upstream LICENSE file on 2026-11-15, pinned to 1.13.8 in `scripts/review.sh`): optional AI code review helper run through `npx`, never installed globally and not distributed. `.claude/commands/delegate-review.md` is adapted from its `delegate-review.md` (commit 4236c871fe8130aa840a2a1c0922f469e87e0416, Apache-2.0, Copyright 2026 Alibaba; changes listed in the file header). With `make review` it sends the diff to the LLM provider the user configures; with `/delegate-review` the reviewer is Claude Code. Licence read from the package metadata (`npm view`) and the repository page, not re-verified from the source tree.
 - Other tooling named in Make targets, read from the upstream repositories on 2026-11-13: SOPS MPL-2.0, age BSD-3-Clause, gitleaks MIT, Trivy Apache-2.0, Semgrep **LGPL-2.1**, ShellCheck **GPL-3.0**. They run in CI or on a developer machine and are not distributed or linked into the product.
 
 ## Verification (2026-11-13)

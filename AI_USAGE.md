@@ -33,6 +33,15 @@ Rule on `contributor` (added 2026-11-12): going forward the field holds the GitH
 
 **Closed on 2026-11-13 by the owner (`Y4NN777`).** Until then every record carried `license_review: "ACCEPTED_BY_OWNER (2026-11-13): not independently verified"` and an empty or role-only `human_reviewers`. The owner closed them all by decision, with no further review: `license_review: "ACCEPTED_BY_OWNER (2026-11-13): not independently verified"` records that decision, it is **not** the result of a licence review; `human_reviewers` names the owner as the person who closed the record, and no line-by-line human review is claimed; `closure` says when. The `open_risks` of each record stay as written because they are still true statements. Records added later fill the same three fields at the time they are written.
 
+**Licence verification, 2026-11-15 (owner `Y4NN777`).** The historical records above stay as written; this paragraph gives each licence outcome instead of editing them.
+
+- **Dependencies:** the third-party licences these records rely on were read from upstream in #88 (2026-11-13; method in `THIRD_PARTY_NOTICES.md`, "Verification"). Two direct Go modules were missing from that table and are now listed: `github.com/google/uuid` v1.6.0 and `golang.org/x/crypto` v0.58.0. #89 promoted both from indirect to direct, and both are BSD-3-Clause, read from their LICENSE files on 2026-11-15.
+- **"S1 identity: domain, password hashing and auth service core"** (`PENDING`): VERIFIED. It is the change that made `google/uuid` and `golang.org/x/crypto` direct dependencies (BSD-3-Clause, above).
+- **"Search core and catalogue follow-ups (S2)"** and **"Error reports, search rate limit and shared limiter (S2)"** (`PENDING: owner review`): NOT APPLICABLE. Their pull requests (#92 and #96) changed no dependency file and cite no third-party source.
+- **"AI code review tooling (2026-11-13)"** ("not re-verified from source"): VERIFIED. `open-code-review` is Apache-2.0, read from its upstream LICENSE file on 2026-11-15. It runs through `npx` and is not distributed.
+- **The records closed as `ACCEPTED_BY_OWNER (2026-11-13): not independently verified`:** their dependency licences are covered by #88 and the line above. What that wording still covers is the originality of the AI-written text and code, which no licence check can prove. It stays an owner acceptance.
+- **"Brand assets (concept D)":** the copyright and trademark status of AI-generated marks stays an owner and legal decision (G0-COMP-001). It is not a dependency licence and cannot be verified from a licence file.
+
 ## Current task record
 
 > Dated historical record (2026-11-11, documentation audit and G0 preparation); it no longer describes the repository, see the dated records below.
@@ -1764,10 +1773,10 @@ repository_or_source_context: "branch chore/ops/staging-seeds-and-docs-refresh f
 files_or_sections_affected: ["README.md", "ROADMAP.md", "TODO.md", "CONTRIBUTING.md", "DESIGN.md", "docs/**", "prototypes/html/DISCLAIMER.md", "db/seeds/**", "mk/50-ops.mk", "scripts/tests/seed_test.sh", "db/queries/identity.sql", "src/api/internal/platform/dbgen/**", "src/api/internal/identity/**", "src/api/internal/app/**", "src/api/internal/platform/pgtest/directory_integration_test.go", "docs/decisions/0014-ai-review-merges-develop.md", "AGENTS.md"]
 third_party_sources_consulted: []
 license_review: "NOT APPLICABLE: original text and code, no new dependency"
-closure: "open"
-human_reviewers: ["pending PR review"]
-tests_or_evidence: ["scripts/tests/seed_test.sh: RED 15/18 before the mk change, GREEN 18/18 after", "go test identity, app, dbgen: PASS; 100.0% statements on the touched packages (agent run); make lint-go PASS; sqlc vet PASS; sqlc regenerate shows no drift", "TestDirectoryHidesDemoAccountsByDefault on real PostgreSQL: FAIL with the filter removed (demo-person listed), PASS with it; go test -race -tags integration -run TestDirectory PASS"]
-open_risks: ["full make test-integration not run by hand (memory tight); the commit gate runs the configured checks", "seeding staging-test aborts the whole batch if a seeded tag or username already exists there (db/seeds/README.md section 12)", "C12 is left for the owner"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-15; merged in #237 and its follow-up #241)"]
+tests_or_evidence: ["scripts/tests/seed_test.sh: RED 15/18 before the mk change, GREEN 18/18 after", "go test identity, app, dbgen: PASS; 100.0% statements on the touched packages (agent run); make lint-go PASS; sqlc vet PASS; sqlc regenerate shows no drift", "TestDirectoryHidesDemoAccountsByDefault on real PostgreSQL: FAIL with the filter removed (demo-person listed), PASS with it; go test -race -tags integration -run TestDirectory PASS", "TestSeedReusesLiveTagsBySlug: FAIL before (tags_slug_uq 23505 on a live go tag), PASS after the tag links resolve by slug; all TestSeed* and seed_test.sh PASS"]
+open_risks: ["full make test-integration not run by hand (memory tight); the commit gate runs the configured checks", "C12 is left for the owner"]
 ```
 
 ## GitHub error detail and one retry in the review scripts
@@ -1785,6 +1794,23 @@ closure: "closed by the owner (2026-11-15)"
 human_reviewers: ["Y4NN777 (owner closure, 2026-11-15; merged in #232)"]
 tests_or_evidence: ["RED first: six new cases in review-batch-nothing_test.sh failed before the change (502 once, GET once, 502 twice, 403, secret in stderr, GET 404)", "GREEN: review-batch-nothing_test.sh, findings-settle_test.sh, findings_test.sh, findings-batch_test.sh, review-autofix_test.sh, review-context_test.sh"]
 open_risks: ["not run against the real GitHub API: the exact stderr wording of gh for 5xx and rate limits is matched on `HTTP <status>` and a few phrases", "a write retried after a 5xx may already have gone through: the comment writes stay idempotent by marker on the next run, but a retry inside one run can duplicate a comment"]
+```
+
+## API data gaps for the prototype pages
+
+```yaml
+date: "2026-11-15"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code, Claude Opus 5.5 (lead session) and the go-implementer subagent"
+purpose: "Serve the data the HTML prototypes show and the API did not (owner decision 2026-11-15 ~07:00 GMT, R7 for these items, no migration): Project stage, license_spdx and country_code on reads and writes with list filters; a total on listResources, listProjects, listQuestions, listLearnArticles and listTrainingSeries; sort on listResources (name, verified), listProjects (updated, created, needs) and listQuestions (new, votes, unanswered) bound to the cursor; the profile activity filters owner, author and answers_by under the getProfile visibility rule."
+repository_or_source_context: "branch feature/api/prototype-data-gaps from origin/develop; ADR-0004 (cursors, problems), ADR-0005 (visibility), migration 00007 (projects columns), prototypes/html/pages/{discover,build,project,profile,apprendre,solve}.html for the sort options and counters"
+files_or_sections_affected: ["api/openapi.yaml", "src/api/internal/platform/apigen/apigen.gen.go", "src/api/internal/platform/apispec/openapi.gen.yaml", "src/web/src/api/schema.d.ts", "db/queries/{build,discover,learn,solve}.sql", "src/api/internal/platform/dbgen/**", "src/api/internal/{build,discover,learn,solve}/**", "src/api/internal/platform/pgtest/{project_facts,list_totals,list_sort,profile_activity}_integration_test.go", "docs/SPEC.md", "TODO.md"]
+third_party_sources_consulted: []
+license_review: "NOT APPLICABLE: original code, no new dependency"
+closure: "open"
+human_reviewers: ["Y4NN777 (owner, pending)"]
+tests_or_evidence: ["RED then GREEN per layer (repository, service, transport) for each item; dbgen bind-order tests for every changed query", "real-PostgreSQL integration: TestBuildProjectFacts, TestListTotals*, TestListSort*, TestProfileActivity* (walk every page, total equals the items returned, cursor of another sort is 400 INVALID_CURSOR, hidden or private username is an empty page)", "EXPLAIN (ANALYZE, BUFFERS) on 3000 projects and 3000 questions: every list and count under 8 ms, in shared buffers (lead report)"]
+open_risks: ["no index serves the new orders (projects updated_at, questions vote_score, resources verified_at) nor the open-needs order: sequential scan plus top-N sort, fine for P0 volumes; an index needs a migration (mibienpanjoe)", "the listProjects default order moved from published_at to updated_at (owner decision)", "the web typings now require total, stage, license_spdx and country_code: web fixtures may need the new fields"]
 ```
 
 ## README brought up to date with develop
