@@ -212,6 +212,57 @@ describe('HomePage', () => {
     ).toBeVisible();
   });
 
+  it('shows each row the prototype way: state pill, counts, meta and a "see all" link', async () => {
+    setLanguages(['fr-FR']);
+    signedIn(() => jsonResponse(page));
+    await renderApp('/');
+    const learn = within(await screen.findByRole('region', { name: 'Apprendre' }));
+    await learn.findByRole('link', { name: 'Recevoir un webhook sans doublon' });
+    expect(learn.getByText('Tutoriel')).toBeVisible();
+    expect(learn.getByText('Intermédiaire')).toBeVisible();
+    expect(learn.getByRole('link', { name: 'Tout apprendre' })).toHaveAttribute(
+      'href',
+      '/apprendre',
+    );
+
+    const asked = within(section('Dernières questions'));
+    await asked.findByRole('link', { name: 'Webhook non reçu après un paiement' });
+    expect(asked.getByText('Sans réponse')).toBeVisible();
+    expect(asked.getByText('webhook')).toBeVisible();
+    expect(asked.getByRole('img', { name: 'Kofi' })).toBeVisible();
+    expect(asked.getByRole('link', { name: 'Toutes les questions' })).toHaveAttribute(
+      'href',
+      '/solve',
+    );
+
+    const catalogue = within(section('API du catalogue'));
+    await catalogue.findByRole('link', { name: 'Mobile Money Alpha' });
+    expect(catalogue.getAllByText('Vérifié')).toHaveLength(2);
+    expect(catalogue.getAllByText('le 1 nov. 2026')).toHaveLength(2);
+    expect(catalogue.getAllByText('BF')).toHaveLength(2);
+
+    const built = within(section('Projets'));
+    await built.findByRole('link', { name: 'momo-sdk' });
+    expect(built.getByText('Ouvert')).toBeVisible();
+    expect(built.getByText('1 besoin ouvert')).toBeVisible();
+    expect(built.getByRole('link', { name: 'Tous les projets' })).toHaveAttribute('href', '/build');
+  });
+
+  it('never calls an unverified resource verified', async () => {
+    setLanguages(['fr-FR']);
+    const unverified = {
+      ...resource('3', 'Carte Gamma'),
+      verification_status: 'unverified' as const,
+      last_verified_at: null,
+    };
+    signedIn(() => jsonResponse({ items: [unverified], next_cursor: null }));
+    await renderApp('/');
+    const catalogue = within(await screen.findByRole('region', { name: 'API du catalogue' }));
+    await catalogue.findByRole('link', { name: 'Carte Gamma' });
+    expect(catalogue.getByText('Non vérifié')).toBeVisible();
+    expect(catalogue.queryByText('Vérifié')).not.toBeInTheDocument();
+  });
+
   it('links the live catalogue entries and the catalogue index', async () => {
     setLanguages(['fr-FR']);
     const fetchMock = signedIn(() => jsonResponse(page));
