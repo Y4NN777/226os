@@ -1,0 +1,426 @@
+name: Deploy
+
+# Delivery of 226os to two separate servers (docs/SHIP.md section 2, docs/runbooks/deploy-setup.md, ADR-0006).
+#
+#   staging (profile staging-test)   every push to develop, once the Quality workflow is green on that exact SHA
+#                                    (workflow_run). Builds the three images, scans them, pushes them to GHCR by SHA,
+#                                    deploys by digest (backup, migrate, up, seeds, smoke), then runs the E2E suite
+#                                    against the staging URL. Only when all of that passed, the digests are tagged
+#                                    `tested-<tree>`.
+#   production (profile production-live)  every push to main, held by the GitHub environment `production` (owner
+#                                    approval). It NEVER builds: it deploys the digests tagged `tested-<tree>` for the
+#                                    tree of the pushed commit (a develop to main merge commit has the tree of the
+#                                    develop tip tested on staging). No tested digest for that tree: it fails, with a
+#                                    message, before asking for approval. No seeds, ever.
+#
+# Safety: no pull_request trigger and no pull_request_target, so no fork code ever runs here. The code deployed is
+# develop or main, already merged. Secrets exist only in the `deploy` job (environment secrets); the job that holds
+# `packages: write` has no secret; nothing untrusted is interpolated in a `run:` (values go through `env`). The SSH
+# host key is pinned (DEPLOY_KNOWN_HOSTS, StrictHostKeyChecking=yes). The age key lives in the environment secret
+# SOPS_AGE_KEY and is read from the environment by sops (never written to disk, never printed).
+# Fail closed: a missing setting, an unexpected event, a missing digest or a failed step stops the run.
+on:
+  workflow_run:
+    workflows: [Quality]
+    types: [completed]
+    branches: [develop]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+# One deploy at a time per environment; a running deploy is never cancelled (a half-applied migration is worse).
+concurrency:
+  group: deploy-${{ github.event_name == 'push' && 'production' || 'staging' }}
+  cancel-in-progress: false
+
+env:
+  IMAGE_NAMESPACE: ghcr.io/y4nn777
+  # Pinned release of sops with the sha256 of its linux/amd64 binary (published in the release's checksums file).
+  SOPS_VERSION: v3.13.3
+  SOPS_SHA256: e5bec3346a873ae91d871550f3e698c1aad962aff462a080e40f25fde17fef6b
+
+jobs:
+  # Decide what to do, from the event only (scripts/deploy-plan.sh, tested): staging for a green develop push,
+  # production for a main push, nothing otherwise. Reads no secret.
+  plan:
+    name: plan
+    if: github.event_name == 'push' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      proceed: ${{ steps.plan.outputs.proceed }}
+      target: ${{ steps.plan.outputs.target }}
+      profile: ${{ steps.plan.outputs.profile }}
+      sha: ${{ steps.plan.outputs.sha }}
+      tree: ${{ steps.plan.outputs.tree }}
+    steps:
+      - name: Check out the commit to deploy (full history, to compare with the develop tip)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Plan
+        id: plan
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          THIS_REPO: ${{ github.repository }}
+          RUN_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          RUN_EVENT: ${{ github.event.workflow_run.event }}
+          RUN_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          RUN_REPO: ${{ github.event.workflow_run.head_repository.full_name }}
+          RUN_SHA: ${{ github.event.workflow_run.head_sha }}
+          PUSH_REF: ${{ github.ref }}
+          PUSH_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          scripts/deploy-plan.sh
+
+  # Staging only. Builds the images of the tested SHA, scans them (fail closed on a fixable HIGH or CRITICAL
+  # vulnerability), pushes them to GHCR by SHA. Holds packages: write and NO secret.
+  build:
+    name: build and push images
+    needs: plan
+    if: needs.plan.outputs.proceed == 'true' && needs.plan.outputs.target == 'staging'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Check out the SHA that Quality validated
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.plan.outputs.sha }}
+          persist-credentials: false
+
+      - name: Build api, web and migrate (scripts/build-images.sh)
+        run: scripts/build-images.sh
+
+      - name: Scan the images (scripts/image-scan.sh)
+        run: scripts/image-scan.sh
+
+      - name: Push to GHCR by SHA
+        env:
+          REGISTRY_TOKEN: ${{ github.token }}
+          SHA: ${{ needs.plan.outputs.sha }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username github-actions --password-stdin
+          scripts/deploy-images.sh push "$SHA" "$(scripts/image-tag.sh)"
+          docker logout ghcr.io
+
+  # The images to deploy, by registry digest. Staging: the ones just pushed for the SHA. Production: the ones that
+  # passed staging for the TREE of the pushed commit, or a clear failure (before the approval is requested).
+  resolve:
+    name: resolve image digests
+    needs: [plan, build]
+    if: >-
+      !cancelled() && needs.plan.outputs.proceed == 'true' &&
+      (needs.plan.outputs.target == 'production' || needs.build.result == 'success')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: read
+    outputs:
+      api_image: ${{ steps.resolve.outputs.api_image }}
+      web_image: ${{ steps.resolve.outputs.web_image }}
+      migrate_image: ${{ steps.resolve.outputs.migrate_image }}
+    steps:
+      - name: Check out (the scripts of the commit to deploy)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.plan.outputs.sha }}
+          persist-credentials: false
+
+      - name: Resolve the digests
+        id: resolve
+        env:
+          REGISTRY_TOKEN: ${{ github.token }}
+          TARGET: ${{ needs.plan.outputs.target }}
+          SHA: ${{ needs.plan.outputs.sha }}
+          TREE: ${{ needs.plan.outputs.tree }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username github-actions --password-stdin
+          if [ "$TARGET" = production ]; then
+            tag="tested-$TREE"
+          else
+            tag="$SHA"
+          fi
+          if ! scripts/deploy-images.sh resolve "$tag" >"$RUNNER_TEMP/images.env"; then
+            if [ "$TARGET" = production ]; then
+              echo "::error title=No tested image for this tree::No image tagged ${tag} exists. Production deploys only the digests that passed staging (deploy, smoke and E2E) for this exact tree: merge develop into main without any other change, and wait for the staging deploy of the develop tip to finish. A hotfix on main needs the same path through develop."
+            else
+              echo "::error title=Image digests not found::The images pushed for ${tag} cannot be read back from GHCR."
+            fi
+            exit 1
+          fi
+          # Lower-case output names: API_IMAGE=... becomes api_image=...
+          sed -E 's/^([A-Z_]+)=/\L\1=/' "$RUNNER_TEMP/images.env" >>"$GITHUB_OUTPUT"
+          {
+            echo "### Images (${TARGET})"
+            echo
+            sed 's/^/- /' "$RUNNER_TEMP/images.env"
+          } >>"$GITHUB_STEP_SUMMARY"
+          docker logout ghcr.io
+
+  # The only job with the deploy secrets (environment `staging` or `production`; production waits for the owner's
+  # approval). Decrypts the profile's env file with sops, copies it and the release over SSH, runs
+  # scripts/deploy-remote.sh on the server.
+  deploy:
+    name: deploy ${{ needs.plan.outputs.target }}
+    needs: [plan, resolve]
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: ${{ needs.plan.outputs.target }}
+    permissions:
+      contents: read
+      packages: read
+    outputs:
+      base_url: ${{ steps.config.outputs.base_url }}
+    env:
+      PROFILE: ${{ needs.plan.outputs.profile }}
+      DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+      DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+      PUBLIC_HOST: ${{ vars.PUBLIC_HOST }}
+      SHA: ${{ needs.plan.outputs.sha }}
+      TREE: ${{ needs.plan.outputs.tree }}
+      API_IMAGE: ${{ needs.resolve.outputs.api_image }}
+      WEB_IMAGE: ${{ needs.resolve.outputs.web_image }}
+      MIGRATE_IMAGE: ${{ needs.resolve.outputs.migrate_image }}
+    steps:
+      - name: Check the environment settings (names only, never values)
+        id: config
+        # The secrets are given to the steps that need them, not to the whole job.
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY }}
+        run: |
+          set -euo pipefail
+          missing=""
+          for v in DEPLOY_HOST DEPLOY_USER PUBLIC_HOST DEPLOY_SSH_KEY DEPLOY_KNOWN_HOSTS SOPS_AGE_KEY; do
+            [ -n "${!v-}" ] || missing="$missing $v"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error title=Environment not configured::Missing in the GitHub environment:${missing}. See docs/runbooks/deploy-setup.md."
+            exit 1
+          fi
+          [[ "$DEPLOY_HOST" =~ ^[A-Za-z0-9.:-]+$ ]] || { echo "::error::DEPLOY_HOST is not a host name or an IP address"; exit 1; }
+          [[ "$DEPLOY_USER" =~ ^[a-z_][a-z0-9_-]*$ ]] || { echo "::error::DEPLOY_USER is not a user name"; exit 1; }
+          [[ "$PUBLIC_HOST" =~ ^([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+[a-z]+$ ]] || { echo "::error::PUBLIC_HOST must be a lower-case DNS name"; exit 1; }
+          echo "base_url=https://${PUBLIC_HOST}" >>"$GITHUB_OUTPUT"
+
+      - name: Check out the commit to deploy
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.plan.outputs.sha }}
+          persist-credentials: false
+
+      - name: Install sops (pinned release, checksum verified)
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/bin"
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/bin/sops" "https://github.com/getsops/sops/releases/download/${SOPS_VERSION}/sops-${SOPS_VERSION}.linux.amd64"
+          echo "${SOPS_SHA256}  $RUNNER_TEMP/bin/sops" | sha256sum --check --status
+          chmod +x "$RUNNER_TEMP/bin/sops"
+          echo "$RUNNER_TEMP/bin" >>"$GITHUB_PATH"
+
+      - name: Prepare SSH (pinned host key, dedicated key)
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          umask 077
+          dir="$RUNNER_TEMP/ssh"
+          mkdir -p "$dir" "$RUNNER_TEMP/bin"
+          printf '%s\n' "$DEPLOY_SSH_KEY" >"$dir/id"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" >"$dir/known_hosts"
+          # A wrapper with the options baked in: host key checking is always on and always against the pinned file.
+          {
+            echo '#!/usr/bin/env bash'
+            printf 'exec ssh -i %q -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=%q -o ConnectTimeout=20 -o ServerAliveInterval=30 %q "$@"\n' \
+              "$dir/id" "$dir/known_hosts" "${DEPLOY_USER}@${DEPLOY_HOST}"
+          } >"$RUNNER_TEMP/bin/deploy-ssh"
+          chmod 700 "$RUNNER_TEMP/bin/deploy-ssh"
+          deploy-ssh() { "$RUNNER_TEMP/bin/deploy-ssh" "$@"; }
+          deploy-ssh 'echo "ssh ok on $(hostname)"'
+
+      - name: Decrypt the profile env and set the image digests (RAM only, never printed)
+        env:
+          SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY }}
+        run: |
+          set -euo pipefail
+          umask 077
+          tmp="$(mktemp -d /dev/shm/deploy.XXXXXX)"
+          echo "DEPLOY_TMP=$tmp" >>"$GITHUB_ENV"
+          SECRETS_OUT_DIR="$tmp" scripts/secrets.sh decrypt "$PROFILE" >/dev/null
+          scripts/deploy-env.sh "$PROFILE" "$PUBLIC_HOST" <"$tmp/.env.$PROFILE" >"$tmp/deploy.env"
+          rm -f "$tmp/.env.$PROFILE"
+
+      - name: Let the server pull the images (short-lived token, logged out at the end)
+        env:
+          REGISTRY_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$REGISTRY_TOKEN" | "$RUNNER_TEMP/bin/deploy-ssh" 'docker login ghcr.io --username github-actions --password-stdin'
+
+      - name: Copy the release (compose file, Traefik routes, scripts, seeds) to the server
+        run: |
+          set -euo pipefail
+          tar -czf - --exclude='scripts/tests' compose.yaml deploy/traefik scripts Makefile mk db/seeds |
+            "$RUNNER_TEMP/bin/deploy-ssh" 'set -e; d=/opt/226os; rm -rf "$d/app.new"; mkdir -p "$d/app.new"; tar -xzf - -C "$d/app.new"; rm -rf "$d/app.old"; if [ -d "$d/app" ]; then mv "$d/app" "$d/app.old"; fi; mv "$d/app.new" "$d/app"'
+
+      - name: Copy the env file to the server (mode 600)
+        run: |
+          set -euo pipefail
+          "$RUNNER_TEMP/bin/deploy-ssh" "umask 077; install -d -m 700 /opt/226os/env; cat >/opt/226os/env/.env.${PROFILE}.new && mv /opt/226os/env/.env.${PROFILE}.new /opt/226os/env/.env.${PROFILE}" <"$DEPLOY_TMP/deploy.env"
+
+      - name: Deploy (backup, migrate, up by digest, seeds on staging, smoke)
+        run: |
+          set -euo pipefail
+          "$RUNNER_TEMP/bin/deploy-ssh" "cd /opt/226os/app && scripts/deploy-remote.sh ${PROFILE} https://${PUBLIC_HOST}"
+
+      - name: Record
+        run: |
+          {
+            echo "### Deployed ${PROFILE}"
+            echo
+            echo "- commit: \`${SHA}\`, tree: \`${TREE}\`"
+            echo "- url: https://${PUBLIC_HOST}"
+            echo "- api: \`${API_IMAGE}\`"
+            echo "- web: \`${WEB_IMAGE}\`"
+            echo "- migrate: \`${MIGRATE_IMAGE}\`"
+          } >>"$GITHUB_STEP_SUMMARY"
+
+      - name: Clean up (plaintext env, keys, registry login on the server)
+        if: always()
+        run: |
+          rm -rf -- "${DEPLOY_TMP:-/nonexistent}" "$RUNNER_TEMP/ssh"
+          if [ -x "$RUNNER_TEMP/bin/deploy-ssh" ]; then
+            "$RUNNER_TEMP/bin/deploy-ssh" 'docker logout ghcr.io' >/dev/null 2>&1 || echo "::warning::could not log the server out of ghcr.io; run docker logout ghcr.io there"
+          fi
+
+  # Staging only. The Playwright suite (src/web/e2e, script `test:e2e`, reads E2E_BASE_URL) against the staging URL,
+  # signed in with a real staging account (environment secrets E2E_USER and E2E_PASSWORD; the environment has no
+  # approval rule). Production runs no E2E. While the script does not exist on the SHA the suite is NOT RUN and says
+  # so; once it exists, missing secrets FAIL the job (the signed-in group is never skipped).
+  e2e:
+    name: e2e on staging
+    needs: [plan, deploy]
+    if: needs.plan.outputs.target == 'staging'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: staging
+    permissions:
+      contents: read
+    steps:
+      - name: Check out the deployed SHA
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.plan.outputs.sha }}
+          persist-credentials: false
+
+      - name: Is there an E2E script on this SHA?
+        id: detect
+        run: |
+          set -euo pipefail
+          if jq -e '.scripts["test:e2e"]' src/web/package.json >/dev/null; then
+            echo "present=true" >>"$GITHUB_OUTPUT"
+          else
+            echo "present=false" >>"$GITHUB_OUTPUT"
+            echo "::notice title=E2E NOT RUN::src/web/package.json has no test:e2e script on this SHA, so the E2E suite was NOT RUN (not a pass)."
+            echo "E2E: NOT RUN (no test:e2e script on this SHA)" >>"$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: The E2E account must be configured
+        if: steps.detect.outputs.present == 'true'
+        env:
+          E2E_USER: ${{ secrets.E2E_USER }}
+          E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+        run: |
+          set -euo pipefail
+          missing=""
+          for v in E2E_USER E2E_PASSWORD; do
+            [ -n "${!v-}" ] || missing="$missing $v"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error title=E2E secrets missing::Missing in the staging environment:${missing}. Create a real account on staging, verify its e-mail, then set E2E_USER and E2E_PASSWORD (docs/runbooks/deploy-setup.md). The signed-in tests are never skipped."
+            exit 1
+          fi
+
+      - name: Set up pnpm (version from the packageManager field)
+        if: steps.detect.outputs.present == 'true'
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+        with:
+          run_install: false
+
+      - name: Set up Node (version from .nvmrc; pnpm store cached on pnpm-lock.yaml)
+        if: steps.detect.outputs.present == 'true'
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install from the lockfile
+        if: steps.detect.outputs.present == 'true'
+        run: pnpm install --frozen-lockfile
+
+      - name: Install the Chromium browser
+        if: steps.detect.outputs.present == 'true'
+        run: pnpm --filter web exec playwright install --with-deps chromium
+
+      - name: Run the E2E suite against staging
+        if: steps.detect.outputs.present == 'true'
+        env:
+          CI: "true"
+          E2E_BASE_URL: ${{ needs.deploy.outputs.base_url }}
+          E2E_USER: ${{ secrets.E2E_USER }}
+          E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+        run: pnpm --filter web run test:e2e
+
+      - name: Upload the Playwright HTML report (no secrets in it)
+        if: failure() && steps.detect.outputs.present == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: e2e-report-${{ github.run_id }}
+          path: src/web/playwright-report/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  # Staging only. Marks the digests as tested for this tree: the only thing production will accept. Needs the deploy
+  # (smoke included) AND the E2E job to have succeeded. Holds packages: write and NO secret.
+  promote:
+    name: mark the digests as tested
+    needs: [plan, deploy, e2e]
+    if: needs.plan.outputs.target == 'staging'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Check out (the scripts of the deployed commit)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.plan.outputs.sha }}
+          persist-credentials: false
+
+      - name: Tag the digests tested-<tree>
+        env:
+          REGISTRY_TOKEN: ${{ github.token }}
+          SHA: ${{ needs.plan.outputs.sha }}
+          TREE: ${{ needs.plan.outputs.tree }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username github-actions --password-stdin
+          scripts/deploy-images.sh tag "$SHA" "tested-$TREE"
+          docker logout ghcr.io
+          echo "Tested on staging: tree ${TREE} (commit ${SHA}). Production can deploy it." | tee -a "$GITHUB_STEP_SUMMARY"
