@@ -9,8 +9,8 @@ repository_or_source_context: "branch chore/docs/state-sync from develop a71aa9e
 files_or_sections_affected: ["TODO.md (Now row of Y4NN777, owner checklist H16 and PRD names, Shared pieces, S1, S3, S5, S6, S7, S9, SEED, E4, E5, Done log)", "ROADMAP.md (sections 1, 4, 8 H13, 10 C10 O5 O6, 11 K29, 13)", "README.md (Statut, Contribuer)", "docs/team/KICKOFF.md (sections 1, 4, 5)", "docs/SPEC.md (US-LEARN-002 note, US-INTEL-001 ADR status, section 9)", "docs/spec-kit/AUTHORIZATION_MATRIX.md (roles line, status line)", "docs/spec-kit/DATABASE_DESIGN.md (status lines, migration 00013)", "docs/spec-kit/TRACEABILITY.md (intelligence row, approved rows note)"]
 third_party_sources_consulted: []
 license_review: "NOT APPLICABLE: project documentation only, no third-party text"
-closure: "open"
-human_reviewers: ["Y4NN777 (owner, pending)"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-15; merged in #186)"]
 tests_or_evidence: ["NOT RUN: make docs-check (the agent has no shell; the lead session runs it before the commit)"]
 open_risks: ["the By column of the new Done log rows comes from docs/ai-usage and AI_USAGE.md contributor fields and the slice owners, not from the GitHub PR authors (not in the dumps)", "ADR-0013 is not referenced: its file is written in another pull request"]
 ```

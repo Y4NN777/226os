@@ -11,6 +11,68 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countProjects = `-- name: CountProjects :one
+SELECT count(*)::int AS total
+FROM projects p
+JOIN profiles pr ON pr.user_id = p.owner_id
+WHERE p.status = 'published'
+  AND (p.visibility = 'public' OR p.owner_id = $1::uuid)
+  AND ($2::text IS NULL OR p.stage = $2::text)
+  AND ($3::text IS NULL OR p.country_code = $3::text)
+  AND ($4::text IS NULL OR p.license_spdx = $4::text)
+  -- owner: the username resolves only under the getProfile rule (active account; profile_visibility
+  -- public, members for a member, or the viewer's own profile), else to NULL, which matches nothing.
+  AND ($5::text IS NULL OR p.owner_id = (
+       SELECT op.user_id FROM profiles op JOIN users ou ON ou.id = op.user_id AND ou.status = 'active'
+       WHERE op.username = $5::text
+         AND (op.profile_visibility = 'public'
+              OR ($1::uuid IS NOT NULL AND op.profile_visibility = 'members')
+              OR op.user_id = $1::uuid)))
+  AND ($6::text IS NULL
+       OR p.search_document @@ websearch_to_tsquery('simple', f_unaccent($6::text)))
+  AND ($7::text IS NULL OR EXISTS (
+       SELECT 1 FROM project_tags pt JOIN tags t ON t.id = pt.tag_id
+       WHERE pt.project_id = p.id AND t.slug = $7::text AND t.status = 'active'))
+  AND ($8::text IS NULL OR EXISTS (
+       SELECT 1 FROM contribution_needs n
+       JOIN need_skills ns ON ns.need_id = n.id
+       JOIN tags t ON t.id = ns.tag_id
+       WHERE n.project_id = p.id AND n.status = 'open' AND t.slug = $8::text AND t.status = 'active'))
+  AND (NOT $9::boolean OR EXISTS (
+       SELECT 1 FROM contribution_needs n WHERE n.project_id = p.id AND n.status = 'open'))
+`
+
+type CountProjectsParams struct {
+	ViewerID   pgtype.UUID
+	Stage      pgtype.Text
+	Country    pgtype.Text
+	License    pgtype.Text
+	Owner      pgtype.Text
+	Q          pgtype.Text
+	Technology pgtype.Text
+	Skill      pgtype.Text
+	OpenNeeds  bool
+}
+
+// listProjects total: the WHERE of ListProjects without the keyset, so it never counts a row the pages
+// cannot return (another user's private project included). Keep both predicates identical.
+func (q *Queries) CountProjects(ctx context.Context, arg CountProjectsParams) (int32, error) {
+	row := q.db.QueryRow(ctx, countProjects,
+		arg.ViewerID,
+		arg.Stage,
+		arg.Country,
+		arg.License,
+		arg.Owner,
+		arg.Q,
+		arg.Technology,
+		arg.Skill,
+		arg.OpenNeeds,
+	)
+	var total int32
+	err := row.Scan(&total)
+	return total, err
+}
+
 const decideApplication = `-- name: DecideApplication :execrows
 UPDATE applications SET
   status = $1::text,
@@ -94,7 +156,8 @@ SELECT p.id, p.name, COALESCE(p.github_url, '')::text AS github_url,
        ARRAY(SELECT t.slug FROM project_tags pt JOIN tags t ON t.id = pt.tag_id
              WHERE pt.project_id = p.id AND t.status = 'active' ORDER BY t.slug)::text[] AS technologies,
        (SELECT count(*) FROM contribution_needs n WHERE n.project_id = p.id AND n.status = 'open')::int AS open_needs,
-       p.published_at, p.created_at, p.updated_at
+       p.published_at, p.created_at, p.updated_at,
+       p.stage, COALESCE(p.license_spdx, '')::text AS license_spdx, COALESCE(p.country_code, '')::text AS country_code
 FROM projects p
 JOIN profiles pr ON pr.user_id = p.owner_id
 WHERE p.id = $1::uuid AND p.status = 'published'
@@ -121,6 +184,9 @@ type GetProjectRow struct {
 	PublishedAt  pgtype.Timestamptz
 	CreatedAt    pgtype.Timestamptz
 	UpdatedAt    pgtype.Timestamptz
+	Stage        string
+	LicenseSpdx  string
+	CountryCode  string
 }
 
 // description falls back to the summary taken from GitHub when the owner wrote none.
@@ -142,6 +208,9 @@ func (q *Queries) GetProject(ctx context.Context, arg GetProjectParams) (GetProj
 		&i.PublishedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Stage,
+		&i.LicenseSpdx,
+		&i.CountryCode,
 	)
 	return i, err
 }
@@ -225,10 +294,12 @@ func (q *Queries) InsertNeedSkills(ctx context.Context, arg InsertNeedSkillsPara
 }
 
 const insertProject = `-- name: InsertProject :one
-INSERT INTO projects (owner_id, name, summary, description_md, language, github_url, visibility)
+INSERT INTO projects (owner_id, name, summary, description_md, language, github_url, visibility,
+                      stage, license_spdx, country_code)
 VALUES ($1::uuid, $2::text, $3::text,
         $4::text, $5::text, $6::text,
-        $7::text)
+        $7::text, $8::text, $9::text,
+        $10::text)
 RETURNING id
 `
 
@@ -240,8 +311,13 @@ type InsertProjectParams struct {
 	Language      string
 	GithubUrl     string
 	Visibility    string
+	Stage         string
+	LicenseSpdx   pgtype.Text
+	CountryCode   pgtype.Text
 }
 
+// stage, license_spdx and country_code are bounded by projects_stage_ck, projects_license_ck and
+// projects_country_fk; the repository maps a violation to a domain error.
 func (q *Queries) InsertProject(ctx context.Context, arg InsertProjectParams) (pgtype.UUID, error) {
 	row := q.db.QueryRow(ctx, insertProject,
 		arg.OwnerID,
@@ -251,6 +327,9 @@ func (q *Queries) InsertProject(ctx context.Context, arg InsertProjectParams) (p
 		arg.Language,
 		arg.GithubUrl,
 		arg.Visibility,
+		arg.Stage,
+		arg.LicenseSpdx,
+		arg.CountryCode,
 	)
 	var id pgtype.UUID
 	err := row.Scan(&id)
@@ -512,39 +591,64 @@ SELECT p.id, p.name, COALESCE(p.github_url, '')::text AS github_url,
        p.language, p.visibility, p.owner_id, pr.username, pr.display_name,
        ARRAY(SELECT t.slug FROM project_tags pt JOIN tags t ON t.id = pt.tag_id
              WHERE pt.project_id = p.id AND t.status = 'active' ORDER BY t.slug)::text[] AS technologies,
-       (SELECT count(*) FROM contribution_needs n WHERE n.project_id = p.id AND n.status = 'open')::int AS open_needs,
-       p.published_at, p.created_at, p.updated_at
+       nc.open_needs,
+       p.published_at, p.created_at, p.updated_at,
+       p.stage, COALESCE(p.license_spdx, '')::text AS license_spdx, COALESCE(p.country_code, '')::text AS country_code
 FROM projects p
 JOIN profiles pr ON pr.user_id = p.owner_id
+CROSS JOIN LATERAL (
+  SELECT count(*)::int AS open_needs FROM contribution_needs n WHERE n.project_id = p.id AND n.status = 'open'
+) nc
 WHERE p.status = 'published'
   AND (p.visibility = 'public' OR p.owner_id = $1::uuid)
-  AND ($2::text IS NULL
-       OR p.search_document @@ websearch_to_tsquery('simple', f_unaccent($2::text)))
-  AND ($3::text IS NULL OR EXISTS (
+  AND ($2::text IS NULL OR p.stage = $2::text)
+  AND ($3::text IS NULL OR p.country_code = $3::text)
+  AND ($4::text IS NULL OR p.license_spdx = $4::text)
+  -- owner: the username resolves only under the getProfile rule (active account; profile_visibility
+  -- public, members for a member, or the viewer's own profile), else to NULL, which matches nothing.
+  AND ($5::text IS NULL OR p.owner_id = (
+       SELECT op.user_id FROM profiles op JOIN users ou ON ou.id = op.user_id AND ou.status = 'active'
+       WHERE op.username = $5::text
+         AND (op.profile_visibility = 'public'
+              OR ($1::uuid IS NOT NULL AND op.profile_visibility = 'members')
+              OR op.user_id = $1::uuid)))
+  AND ($6::text IS NULL
+       OR p.search_document @@ websearch_to_tsquery('simple', f_unaccent($6::text)))
+  AND ($7::text IS NULL OR EXISTS (
        SELECT 1 FROM project_tags pt JOIN tags t ON t.id = pt.tag_id
-       WHERE pt.project_id = p.id AND t.slug = $3::text AND t.status = 'active'))
-  AND ($4::text IS NULL OR EXISTS (
+       WHERE pt.project_id = p.id AND t.slug = $7::text AND t.status = 'active'))
+  AND ($8::text IS NULL OR EXISTS (
        SELECT 1 FROM contribution_needs n
        JOIN need_skills ns ON ns.need_id = n.id
        JOIN tags t ON t.id = ns.tag_id
-       WHERE n.project_id = p.id AND n.status = 'open' AND t.slug = $4::text AND t.status = 'active'))
-  AND (NOT $5::boolean OR EXISTS (
+       WHERE n.project_id = p.id AND n.status = 'open' AND t.slug = $8::text AND t.status = 'active'))
+  AND (NOT $9::boolean OR EXISTS (
        SELECT 1 FROM contribution_needs n WHERE n.project_id = p.id AND n.status = 'open'))
-  AND ($6::timestamptz IS NULL
-       OR (p.published_at, p.id) < ($6::timestamptz, $7::uuid))
-ORDER BY p.published_at DESC, p.id DESC
-LIMIT $8
+  AND ($10::timestamptz IS NULL
+       OR (CASE WHEN $11::text = 'needs' THEN nc.open_needs ELSE 0 END,
+           CASE WHEN $11::text = 'created' THEN p.created_at ELSE p.updated_at END, p.id)
+          < ($12::int, $10::timestamptz, $13::uuid))
+ORDER BY CASE WHEN $11::text = 'needs' THEN nc.open_needs ELSE 0 END DESC,
+         CASE WHEN $11::text = 'created' THEN p.created_at ELSE p.updated_at END DESC,
+         p.id DESC
+LIMIT $14
 `
 
 type ListProjectsParams struct {
-	ViewerID       pgtype.UUID
-	Q              pgtype.Text
-	Technology     pgtype.Text
-	Skill          pgtype.Text
-	OpenNeeds      bool
-	AfterPublished pgtype.Timestamptz
-	AfterID        pgtype.UUID
-	RowLimit       int32
+	ViewerID   pgtype.UUID
+	Stage      pgtype.Text
+	Country    pgtype.Text
+	License    pgtype.Text
+	Owner      pgtype.Text
+	Q          pgtype.Text
+	Technology pgtype.Text
+	Skill      pgtype.Text
+	OpenNeeds  bool
+	AfterAt    pgtype.Timestamptz
+	Sort       string
+	AfterNeeds int32
+	AfterID    pgtype.UUID
+	RowLimit   int32
 }
 
 type ListProjectsRow struct {
@@ -562,18 +666,29 @@ type ListProjectsRow struct {
 	PublishedAt  pgtype.Timestamptz
 	CreatedAt    pgtype.Timestamptz
 	UpdatedAt    pgtype.Timestamptz
+	Stage        string
+	LicenseSpdx  string
+	CountryCode  string
 }
 
-// Newest first with a UUID tie-breaker (keyset). Public projects use projects_browse_idx; the viewer's
-// own private projects come from projects_owner_idx.
+// Keyset over (needs_key, time_key, id), all descending (listProjects sort): updated = updated_at,
+// created = created_at, needs = open needs count then updated_at; needs_key is 0 outside the needs order.
+// The sort is bound to the cursor. The open-needs count is one lateral aggregate per row, read by the
+// projection, the order and the keyset alike.
 func (q *Queries) ListProjects(ctx context.Context, arg ListProjectsParams) ([]ListProjectsRow, error) {
 	rows, err := q.db.Query(ctx, listProjects,
 		arg.ViewerID,
+		arg.Stage,
+		arg.Country,
+		arg.License,
+		arg.Owner,
 		arg.Q,
 		arg.Technology,
 		arg.Skill,
 		arg.OpenNeeds,
-		arg.AfterPublished,
+		arg.AfterAt,
+		arg.Sort,
+		arg.AfterNeeds,
 		arg.AfterID,
 		arg.RowLimit,
 	)
@@ -599,6 +714,9 @@ func (q *Queries) ListProjects(ctx context.Context, arg ListProjectsParams) ([]L
 			&i.PublishedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Stage,
+			&i.LicenseSpdx,
+			&i.CountryCode,
 		); err != nil {
 			return nil, err
 		}
@@ -835,14 +953,22 @@ const updateProject = `-- name: UpdateProject :exec
 UPDATE projects SET
   description_md = CASE WHEN $1::boolean THEN $2::text ELSE description_md END,
   visibility = COALESCE($3::text, visibility),
+  stage = COALESCE($4::text, stage),
+  license_spdx = CASE WHEN $5::boolean THEN $6::text ELSE license_spdx END,
+  country_code = CASE WHEN $7::boolean THEN $8::text ELSE country_code END,
   updated_at = now()
-WHERE id = $4::uuid
+WHERE id = $9::uuid
 `
 
 type UpdateProjectParams struct {
 	SetDescription bool
 	DescriptionMd  pgtype.Text
 	Visibility     pgtype.Text
+	Stage          pgtype.Text
+	SetLicense     bool
+	LicenseSpdx    pgtype.Text
+	SetCountry     bool
+	CountryCode    pgtype.Text
 	ID             pgtype.UUID
 }
 
@@ -851,6 +977,11 @@ func (q *Queries) UpdateProject(ctx context.Context, arg UpdateProjectParams) er
 		arg.SetDescription,
 		arg.DescriptionMd,
 		arg.Visibility,
+		arg.Stage,
+		arg.SetLicense,
+		arg.LicenseSpdx,
+		arg.SetCountry,
+		arg.CountryCode,
 		arg.ID,
 	)
 	return err

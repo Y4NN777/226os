@@ -42,6 +42,7 @@ type fakeStore struct {
 	needs    []domain.Need
 	newNeeds []domain.NewNeed
 	apps     appFake
+	query    domain.ProjectQuery
 }
 
 func (f *fakeStore) URLTaken(context.Context, string) (bool, error) { return false, nil }
@@ -66,8 +67,13 @@ func (f *fakeStore) GetProject(context.Context, string, string) (domain.Project,
 	return f.projects[0], f.err
 }
 
-func (f *fakeStore) ListProjects(context.Context, domain.ProjectQuery) ([]domain.Project, error) {
+func (f *fakeStore) ListProjects(_ context.Context, q domain.ProjectQuery) ([]domain.Project, error) {
+	f.query = q
 	return f.projects, f.err
+}
+
+func (f *fakeStore) CountProjects(context.Context, domain.ProjectQuery) (int, error) {
+	return len(f.projects), nil
 }
 
 func (f *fakeStore) ProjectAccess(context.Context, string) (domain.Access, error) {
@@ -149,7 +155,7 @@ func TestListProjectsEncodesThePage(t *testing.T) {
 	two := []domain.Project{project(), project()}
 	handler(t, &fakeStore{projects: two}).ListProjects(rec, req(t, subject.Subject{}, http.MethodGet, ""), apigen.ListProjectsParams{Limit: ptr(1)})
 	page := decode[apigen.ProjectPage](t, rec)
-	if rec.Code != http.StatusOK || len(page.Items) != 1 || page.NextCursor == nil {
+	if rec.Code != http.StatusOK || len(page.Items) != 1 || page.NextCursor == nil || page.Total != 2 {
 		t.Fatalf("%d %s", rec.Code, rec.Body.String())
 	}
 	p := page.Items[0]
@@ -159,7 +165,7 @@ func TestListProjectsEncodesThePage(t *testing.T) {
 	}
 	rec = httptest.NewRecorder()
 	handler(t, &fakeStore{}).ListProjects(rec, req(t, subject.Subject{}, http.MethodGet, ""), apigen.ListProjectsParams{})
-	if !strings.Contains(rec.Body.String(), `"next_cursor":null`) || !strings.Contains(rec.Body.String(), `"items":[]`) {
+	if !strings.Contains(rec.Body.String(), `"next_cursor":null`) || !strings.Contains(rec.Body.String(), `"items":[]`) || !strings.Contains(rec.Body.String(), `"total":0`) {
 		t.Fatalf("empty %s", rec.Body.String())
 	}
 	rec = httptest.NewRecorder()
@@ -276,6 +282,75 @@ func TestUpdateProjectByTheOwner(t *testing.T) {
 	handler(t, st).UpdateProject(rec, req(t, alice, http.MethodPatch, `{"github_url":"https://github.com/x/y"}`), uuid.MustParse(projID))
 	if rec.Code < 400 || rec.Code >= 500 || len(st.patched) != 1 {
 		t.Fatalf("github_url patch %d", rec.Code)
+	}
+}
+
+// Project facts: stage, license_spdx and country_code are read, written, cleared with null, and filter
+// the list.
+func TestProjectFactsOnTheWire(t *testing.T) {
+	p := project()
+	p.Stage, p.License, p.Country = "prototype", "MIT", "BF"
+	st := &fakeStore{projects: []domain.Project{p}, access: domain.Access{OwnerID: aliceID, Visibility: "public"}}
+	rec := httptest.NewRecorder()
+	handler(t, st).GetProject(rec, req(t, subject.Subject{}, http.MethodGet, ""), uuid.MustParse(projID))
+	got := decode[apigen.Project](t, rec)
+	if got.Stage != apigen.ProjectStagePrototype || got.LicenseSpdx == nil || *got.LicenseSpdx != "MIT" || got.CountryCode == nil || *got.CountryCode != "BF" {
+		t.Fatalf("facts %s", rec.Body.String())
+	}
+	// Undeclared license and country are null on the wire, never "".
+	st.projects[0] = project()
+	st.projects[0].Stage = "idea"
+	rec = httptest.NewRecorder()
+	handler(t, st).GetProject(rec, req(t, subject.Subject{}, http.MethodGet, ""), uuid.MustParse(projID))
+	if body := rec.Body.String(); !strings.Contains(body, `"license_spdx":null`) || !strings.Contains(body, `"country_code":null`) || !strings.Contains(body, `"stage":"idea"`) {
+		t.Fatalf("nulls %s", body)
+	}
+
+	rec = httptest.NewRecorder()
+	handler(t, st).CreateProject(rec, req(t, alice, http.MethodPost, `{"github_url":"https://github.com/o/r","lang":"fr","stage":"active","license_spdx":"Apache-2.0","country_code":"SN"}`), apigen.CreateProjectParams{})
+	if in := st.created[0]; rec.Code != http.StatusCreated || in.Stage != "active" || in.License != "Apache-2.0" || in.Country != "SN" {
+		t.Fatalf("create %d %+v", rec.Code, in)
+	}
+
+	// Merge patch: a value sets, null clears, absent leaves unchanged.
+	rec = httptest.NewRecorder()
+	handler(t, st).UpdateProject(rec, req(t, alice, http.MethodPatch, `{"stage":"maintained","license_spdx":"MIT","country_code":null}`), uuid.MustParse(projID))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("patch %d %s", rec.Code, rec.Body.String())
+	}
+	patch := st.patched[0]
+	if *patch.Stage != "maintained" || patch.License == nil || *patch.License.Value != "MIT" || patch.Country == nil || patch.Country.Value != nil {
+		t.Fatalf("patch %+v", patch)
+	}
+	rec = httptest.NewRecorder()
+	handler(t, st).UpdateProject(rec, req(t, alice, http.MethodPatch, `{"description":"x"}`), uuid.MustParse(projID))
+	if patch := st.patched[1]; rec.Code != http.StatusOK || patch.License != nil || patch.Country != nil || patch.Stage != nil {
+		t.Fatalf("absent %d %+v", rec.Code, patch)
+	}
+	// A wrongly typed nullable member is refused like any other malformed body.
+	rec = httptest.NewRecorder()
+	handler(t, st).UpdateProject(rec, req(t, alice, http.MethodPatch, `{"license_spdx":7}`), uuid.MustParse(projID))
+	if rec.Code < 400 || rec.Code >= 500 || len(st.patched) != 2 {
+		t.Fatalf("typed %d", rec.Code)
+	}
+
+	rec = httptest.NewRecorder()
+	stage, country, license := apigen.ProjectStageActive, apigen.CountryCode("BF"), "MIT"
+	handler(t, st).ListProjects(rec, req(t, subject.Subject{}, http.MethodGet, ""), apigen.ListProjectsParams{Stage: &stage, Country: &country, License: &license})
+	if rec.Code != http.StatusOK || st.query.Stage != "active" || st.query.Country != "BF" || st.query.License != "MIT" {
+		t.Fatalf("list %d %s %+v", rec.Code, rec.Body.String(), st.query)
+	}
+	needs := apigen.ProjectSortNeeds
+	rec = httptest.NewRecorder()
+	handler(t, st).ListProjects(rec, req(t, subject.Subject{}, http.MethodGet, ""), apigen.ListProjectsParams{Sort: &needs})
+	if rec.Code != http.StatusOK || st.query.Sort != "needs" {
+		t.Fatalf("sort %d %+v", rec.Code, st.query)
+	}
+	owner := "alice"
+	rec = httptest.NewRecorder()
+	handler(t, st).ListProjects(rec, req(t, bob, http.MethodGet, ""), apigen.ListProjectsParams{Owner: &owner})
+	if rec.Code != http.StatusOK || st.query.Owner != "alice" || st.query.ViewerID != bobID {
+		t.Fatalf("owner %d %+v", rec.Code, st.query)
 	}
 }
 

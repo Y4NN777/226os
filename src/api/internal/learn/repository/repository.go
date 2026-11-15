@@ -75,6 +75,30 @@ func (r *Repository) ListArticles(ctx context.Context, q domain.ArticleQuery) ([
 }
 
 // GetArticle returns a published article or viewerID's own draft or archived article.
+// CountArticles counts the published articles ListArticles would page through for q, ignoring the cursor.
+func (r *Repository) CountArticles(ctx context.Context, q domain.ArticleQuery) (int, error) {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+	n, err := r.q.CountLearnArticles(ctx, dbgen.CountLearnArticlesParams{
+		Kind: text(q.Kind), Topic: text(q.Topic), Level: text(q.Level), Lang: text(q.Lang), Q: text(q.Q),
+	})
+	if err != nil {
+		return 0, fmt.Errorf("learn count articles: %w", err)
+	}
+	return int(n), nil
+}
+
+// CountSeries counts the published series ListSeries would page through for q, ignoring the cursor.
+func (r *Repository) CountSeries(ctx context.Context, q domain.SeriesQuery) (int, error) {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+	n, err := r.q.CountTrainingSeries(ctx, dbgen.CountTrainingSeriesParams{Topic: text(q.Topic), Level: text(q.Level), Lang: text(q.Lang)})
+	if err != nil {
+		return 0, fmt.Errorf("learn count series: %w", err)
+	}
+	return int(n), nil
+}
+
 func (r *Repository) GetArticle(ctx context.Context, id, viewerID string) (domain.Article, error) {
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()

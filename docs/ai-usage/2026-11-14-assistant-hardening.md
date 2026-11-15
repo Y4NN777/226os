@@ -9,8 +9,8 @@ repository_or_source_context: "branch feature/intelligence/assistant-hardening; 
 files_or_sections_affected: ["db/queries/search.sql", "src/api/internal/platform/dbgen/**", "src/api/internal/search/{domain,repository}/**", "src/api/internal/assistant/**", "src/api/internal/platform/pgtest/**", "src/web/src/features/search/**", "docs/decisions/0012-*.md", "TODO.md", "ROADMAP.md"]
 third_party_sources_consulted: []
 license_review: "NOT APPLICABLE: original code, no new dependency"
-closure: "open"
-human_reviewers: ["mibienpanjoe (S9 backend reviewer, pending)", "PANK4SS (UI, pending)"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-15; merged in #195)"]
 tests_or_evidence: ["RED then GREEN: TestRemoveGuarantees, TestAskEvery503CarriesRetryAfter, TestUserPromptCarriesEachPassageDate, TestParseVerifyNoticeFollowsTheCitedSources, TestSearchHitsCarryThePublicationDate, golden G14 to G17, AssistantPanel date tests", "Go coverage 100.0 % (6239/6239); lint-go, race unit and integration exit 0"]
 open_risks: ["guarantee detection is a FR/EN pattern list: other phrasings pass through", "a bare marker left alone after a removed guarantee keeps its source cited", "the real-provider run (V4) is NOT RUN"]
 ```

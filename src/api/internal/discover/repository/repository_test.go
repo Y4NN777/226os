@@ -196,6 +196,33 @@ func TestListPassesTheCountryListAsAnArray(t *testing.T) {
 	}
 }
 
+// The verified order reaches SQL with its keyset time and the sort name.
+func TestListPassesTheVerifiedKeyset(t *testing.T) {
+	at := time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC)
+	s := &script{t: t, steps: [][][]any{nil}, errs: []error{nil}}
+	if _, err := New(s).List(t.Context(), domain.Query{Sort: domain.SortVerified, AfterVerified: &at, AfterID: resID, Limit: 21}); err != nil {
+		t.Fatal(err)
+	}
+	if got := s.firstArgs[9]; got != (pgtype.Timestamptz{Time: at, Valid: true}) {
+		t.Fatalf("after_verified arg %#v", got)
+	}
+	if got := s.firstArgs[10]; got != domain.SortVerified {
+		t.Fatalf("sort arg %#v", got)
+	}
+}
+
+func TestCountReadsOneRow(t *testing.T) {
+	s := &script{t: t, steps: [][][]any{{row(int32(12))}}, errs: []error{nil}}
+	if n, err := New(s).Count(t.Context(), domain.Query{Q: "pay", Countries: []string{"BF"}}); err != nil || n != 12 {
+		t.Fatalf("count %d %v", n, err)
+	}
+	boom := errors.New("boom")
+	s = &script{t: t, steps: [][][]any{nil}, errs: []error{boom}}
+	if _, err := New(s).Count(t.Context(), domain.Query{}); !errors.Is(err, boom) {
+		t.Fatalf("err %v", err)
+	}
+}
+
 func TestListEmptySkipsChildQueries(t *testing.T) {
 	repo := New(&script{t: t, steps: [][][]any{nil}, errs: []error{nil}})
 	got, err := repo.List(t.Context(), domain.Query{Limit: 21})

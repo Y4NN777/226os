@@ -26,6 +26,9 @@ type fakeReader struct {
 func (f fakeReader) List(_ context.Context, q domain.Query) ([]domain.Resource, error) {
 	return f.list(q)
 }
+
+// Count is 3 so the page encoder is seen copying it.
+func (f fakeReader) Count(context.Context, domain.Query) (int, error)          { return 3, nil }
 func (f fakeReader) Get(_ context.Context, id string) (domain.Resource, error) { return f.get(id) }
 func (f fakeReader) Sources(_ context.Context, id string) ([]domain.Source, error) {
 	return f.sources(id)
@@ -69,7 +72,7 @@ func TestListResourcesEncodesAPage(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &page); err != nil {
 		t.Fatal(err)
 	}
-	if len(page.Items) != 1 || page.NextCursor == nil || page.Items[0].VerificationStatus != "verified" {
+	if len(page.Items) != 1 || page.NextCursor == nil || page.Items[0].VerificationStatus != "verified" || page.Total != 3 {
 		t.Fatalf("%+v", page)
 	}
 	if page.Items[0].Provenance != apigen.ResourceProvenance("demo") {
@@ -200,5 +203,14 @@ func TestListResourcesPassesTheCountryList(t *testing.T) {
 	h.ListResources(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil), apigen.ListResourcesParams{})
 	if rec.Code != http.StatusOK || got.Countries != nil {
 		t.Fatalf("status %d countries %v, want none", rec.Code, got.Countries)
+	}
+	if got.Sort != domain.SortName {
+		t.Fatalf("default sort %q", got.Sort)
+	}
+	verified := apigen.ResourceSortVerified
+	rec = httptest.NewRecorder()
+	h.ListResources(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil), apigen.ListResourcesParams{Sort: &verified})
+	if rec.Code != http.StatusOK || got.Sort != domain.SortVerified {
+		t.Fatalf("status %d sort %q", rec.Code, got.Sort)
 	}
 }

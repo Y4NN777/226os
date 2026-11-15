@@ -53,6 +53,8 @@ const (
 // and domain.ErrUnknownCountry when a link target or the country is not usable.
 type Store interface {
 	ListQuestions(ctx context.Context, q domain.QuestionQuery) ([]domain.Question, error)
+	// CountQuestions ignores the cursor and the limit of q.
+	CountQuestions(ctx context.Context, q domain.QuestionQuery) (int, error)
 	GetQuestion(ctx context.Context, id, viewerID string) (domain.Question, error)
 	CreateQuestion(ctx context.Context, in domain.NewQuestion) (domain.Question, error)
 	UpdateQuestion(ctx context.Context, id string, patch domain.QuestionPatch, guard func(domain.Question) error) (domain.Question, error)
@@ -84,6 +86,8 @@ type Limiter interface {
 // QuestionListRequest is listQuestions. Nil means unset; nil Limit means 20.
 type QuestionListRequest struct {
 	Q, Tag, State, Country, Lang *string
+	Sort                         *string // new (default), votes or unanswered
+	Author, AnswersBy            *string // usernames
 	Cursor                       string
 	Limit                        *int
 	Anonymous                    bool
@@ -128,10 +132,12 @@ type VoteRequest struct {
 	Value                int
 }
 
-// QuestionPage is one question page. NextCursor is empty on the last page.
+// QuestionPage is one question page. NextCursor is empty on the last page; Total counts every question
+// the same filters match (inside the 500-match bound with q), whatever the cursor.
 type QuestionPage struct {
 	Items      []domain.Question
 	NextCursor string
+	Total      int
 }
 
 // AnswerPage is one answer page. NextCursor is empty on the last page.
@@ -181,25 +187,33 @@ func (s *Service) ListQuestions(ctx context.Context, sub subject.Subject, req Qu
 	}
 	query := domain.QuestionQuery{
 		Q: q, Tag: deref(req.Tag), State: deref(req.State), Country: deref(req.Country), Lang: deref(req.Lang),
-		ViewerID: sub.UserID, Limit: size + 1,
+		ViewerID: sub.UserID, Sort: questionSort(req.Sort), Author: deref(req.Author), AnswersBy: deref(req.AnswersBy),
+		Limit: size + 1,
 	}
-	hash := lengthPrefixed("question", query.Q, query.Tag, query.State, query.Country, query.Lang)
+	hash := lengthPrefixed("question", query.Q, query.Tag, query.State, query.Country, query.Lang, query.Sort,
+		query.Author, query.AnswersBy)
+	counted := query
+	counted.Limit = 0
 	if req.Cursor != "" {
 		p, err := s.cursors.Decode(req.Cursor, hash)
 		if err != nil {
 			return QuestionPage{}, err
 		}
-		rank, at, ok := decodeQuestionSort(p.Sort)
+		rank, key, at, ok := decodeQuestionSort(p.Sort)
 		if !ok || !validID(p.ID) {
 			return QuestionPage{}, invalidCursor()
 		}
-		query.AfterRank, query.AfterCreated, query.AfterID = rank, &at, p.ID
+		query.AfterRank, query.AfterSortKey, query.AfterCreated, query.AfterID = rank, key, &at, p.ID
 	}
 	rows, err := s.store.ListQuestions(ctx, query)
 	if err != nil {
 		return QuestionPage{}, apperr.Wrap(apperr.CodeInternal, err)
 	}
-	page := QuestionPage{Items: rows}
+	total, err := s.store.CountQuestions(ctx, counted)
+	if err != nil {
+		return QuestionPage{}, apperr.Wrap(apperr.CodeInternal, err)
+	}
+	page := QuestionPage{Items: rows, Total: total}
 	if len(rows) > size {
 		page.Items = rows[:size]
 		last := page.Items[size-1]
@@ -595,19 +609,33 @@ func dedupe[T comparable](in []T) []T {
 	return out
 }
 
-// encodeQuestionSort packs the relevance rank (a float32, printed exactly) and the creation time.
-func encodeQuestionSort(q domain.Question) string {
-	return strconv.FormatFloat(float64(q.Rank), 'g', -1, 32) + ":" + q.CreatedAt.UTC().Format(time.RFC3339Nano)
+// questionSort is the order of a listQuestions request: votes or unanswered when asked, new otherwise.
+func questionSort(v *string) string {
+	switch s := deref(v); s {
+	case domain.SortVotes, domain.SortUnanswered:
+		return s
+	default:
+		return domain.SortNew
+	}
 }
 
-func decodeQuestionSort(sort string) (float32, time.Time, bool) {
+// encodeQuestionSort packs the relevance rank (a float32, printed exactly), the sort key and the
+// creation time.
+func encodeQuestionSort(q domain.Question) string {
+	return strconv.FormatFloat(float64(q.Rank), 'g', -1, 32) + ":" + strconv.Itoa(q.SortKey) + ":" +
+		q.CreatedAt.UTC().Format(time.RFC3339Nano)
+}
+
+func decodeQuestionSort(sort string) (float32, int, time.Time, bool) {
 	rank, rest, found := strings.Cut(sort, ":")
+	key, rest, foundKey := strings.Cut(rest, ":")
 	r, errRank := strconv.ParseFloat(rank, 32)
+	k, errKey := strconv.ParseInt(key, 10, 32)
 	at, errAt := time.Parse(time.RFC3339Nano, rest)
-	if !found || errRank != nil || errAt != nil || math.IsNaN(r) || math.IsInf(r, 0) {
-		return 0, time.Time{}, false
+	if !found || !foundKey || errRank != nil || errKey != nil || errAt != nil || math.IsNaN(r) || math.IsInf(r, 0) {
+		return 0, 0, time.Time{}, false
 	}
-	return float32(r), at, true
+	return float32(r), int(k), at, true
 }
 
 func encodeAnswerKey(a domain.Answer, hash string) cursor.Payload {

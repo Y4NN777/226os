@@ -9,8 +9,8 @@ repository_or_source_context: "branch fix/review/batch-2026-11-14-b; batch #174;
 files_or_sections_affected: ["api/openapi.yaml and generated code", "db/queries/discover.sql, solve.sql, build.sql", "src/api/internal/{search,discover,solve,build,assistant,platform}/**", "src/web/src/features/{solve,build,search,learn,settings,discover}/**", "src/web/src/test/**", "TODO.md"]
 third_party_sources_consulted: []
 license_review: "NOT APPLICABLE: no dependency added"
-closure: "open"
-human_reviewers: ["Y4NN777 (owner)"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (owner)", "Y4NN777 (owner closure, 2026-11-15; merged in #199)"]
 tests_or_evidence: ["every FIXED item has a test that failed first (RED) then passed (GREEN); names in the pull request body", "make generate PASS (no drift)", "Go coverage 100.0% (6295/6295)", "make test-integration-go PASS", "web test 450 passed", "make lint-scripts: re-run after this tracker update"]
 open_risks: ["the question ETag is caller-scoped: a question loaded signed out then edited after sign-in is refetched (sign-in clears the cache)", "a hidden tag slug answers 422, which reveals that a hidden tag exists under that slug"]
 ```

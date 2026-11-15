@@ -1,6 +1,6 @@
 # 226os AI Use and Provenance Record
 
-**Status:** records dated up to the owner's closure on 2026-11-13 are closed (see "Review and closure status"); each later record carries its own `closure` field and stays `open` until the owner closes it. Records are as written; licences were not independently verified.
+**Status:** records dated up to the owner's closure on 2026-11-13 are closed (see "Review and closure status"); each later record carries its own `closure` field and stays `open` until the owner closes it. On 2026-11-15 the owner closed every record whose pull request is merged into `develop` (`human_reviewers` names the merge pull request; reviewers still marked pending were dropped, no line-by-line review is claimed); the owner accepted the licence of the four French lessons (`2026-11-13-s4-learn.md`), and the records missing for the owner's merged pull requests #88, #123 and #235 were written after the fact and say so. The records for #121 and #136 are their contributor's to write (issue #242). `2026-11-15-docs-refresh-staging-seeds.md` is closed with its follow-up #241. Records are as written; licences were not independently verified.
 
 ## Policy
 
@@ -767,6 +767,23 @@ open_risks: ["No test fails if app.go stops passing WithBaseURL (wiring line onl
 
 <!-- ai-usage:generated:start (do not edit by hand: `make ai-usage` rewrites everything between the two markers from docs/ai-usage/*.md) -->
 
+## ADR-0003 amended: anonymous search limited per client network
+
+```yaml
+date: "2026-11-13"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code, Claude Opus 5.5 (owner's lead session, no subagent)"
+purpose: "Owner decision of 2026-11-13 (item 1 of the PR96 audit, #117). ADR-0003 said anonymous search is limited to 60 per IP per minute, while the code limits per client network (/24 for IPv4, /48 for IPv6). The AI drafted the one-line amendment of ADR-0003: the per-network rule, the reason (it bounds the cost of an anonymous scan per network and cannot be dodged by changing the last byte), the trade-off (people behind one shared network share the budget) and when to revisit it. The owner decided the rule."
+repository_or_source_context: "branch docs/decisions/search-limit-network, PR #123 (merged 2026-11-13)"
+files_or_sections_affected: ["docs/decisions/0003-authentication-sessions-csrf-rate-limits.md"]
+third_party_sources_consulted: []
+license_review: "NOT APPLICABLE: documentation only, no dependency"
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-15; merged in #123)"]
+tests_or_evidence: ["scripts/check-docs.py PASS (PR #123)"]
+open_risks: ["record written on 2026-11-15, after the merge: none was filed at the time"]
+```
+
 ## AI-use records: one file per record, AI_USAGE.md generated
 
 ```yaml
@@ -778,8 +795,8 @@ repository_or_source_context: "pull requests #99, #100, #101, #102, #111 (confli
 files_or_sections_affected: ["scripts/ai-usage.py", "scripts/tests/ai-usage_test.sh", "scripts/check-docs.py", "scripts/tests/check-docs_test.sh", "docs/ai-usage/**", "AI_USAGE.md", "mk/60-review.mk", ".github/PULL_REQUEST_TEMPLATE.md", "AGENTS.md", "CLAUDE.md", "CONTRIBUTING.md", "docs/GIT_WORKFLOW.md", "docs/SHIP.md", "TODO.md"]
 third_party_sources_consulted: []
 license_review: "NOT APPLICABLE: original code, no new dependency"
-closure: "open"
-human_reviewers: ["pending PR review"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-15; merged in #120)"]
 tests_or_evidence: ["scripts/tests/ai-usage_test.sh 16 passed and scripts/tests/check-docs_test.sh 20 passed, RED first (no script; the date check ignored the record files)", "make lint-scripts and python3 -I scripts/check-docs.py: see the pull request"]
 open_risks: ["AI_USAGE.md is only as complete as its last build: the owner must run make ai-usage before the submission (SHIP.md says so); make docs-check runs the stale check on a pull request into main (not before, by design).", "Records already appended to AI_USAGE.md stay where they are; only new records use the files."]
 ```
@@ -795,8 +812,8 @@ repository_or_source_context: "issue #116 (PR #94 audit follow-ups), branch fix/
 files_or_sections_affected: ["db/queries/identity.sql", "src/api/internal/platform/dbgen/identity.sql.go", "src/api/internal/platform/dbgen/queries_test.go", "src/api/internal/identity/transport/profile.go", "src/api/internal/identity/transport/profile_test.go", "src/api/internal/platform/pgtest/identity_integration_test.go", "TODO.md", "docs/ai-usage/2026-11-13-issue-116-after-freeze.md"]
 third_party_sources_consulted: []
 license_review: "NOT APPLICABLE: original code, no new dependency"
-closure: "open"
-human_reviewers: ["pending PR review"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-15; merged in #130)"]
 tests_or_evidence: ["go test -race -count=1 ./internal/identity/... PASS", "go test -race -count=1 -tags integration -run 'TestIdentityProfile|TestIdentityProfiles' ./internal/platform/pgtest/ PASS on real PostgreSQL (TestIdentityProfileHiddenTagFiltered extended: hidden link survives, restore brings skill back; TestIdentityProfileNotFoundBodiesIdentical: 7-case matrix)", "make generate regenerated dbgen (comment + scoped DELETE), check-sqlc drift committed", "new TestGetMeAndGetProfileSendNoStore pins the header", "go vet, gofmt clean"]
 open_risks: ["the undeclared 422 on getProfile (validator rejects a malformed path username; the contract lists no 422 response) is a contract change left for the owner before/after freeze decision", "resolveSkills still runs outside the write transaction: a tag hidden between resolve and insert is linked but filtered on read — accepted and documented, no leak", "hidden-tag links now accumulate until the tag is restored or purged; no purge exists for user_skills (same as before for active links)"]
 ```
@@ -812,8 +829,8 @@ repository_or_source_context: "issue #116 (PR #94 audit follow-ups), branch fix/
 files_or_sections_affected: ["src/api/internal/identity/service/profile.go", "src/api/internal/identity/service/profile_test.go", "src/api/internal/platform/pgtest/identity_integration_test.go", "TODO.md", "docs/ai-usage/2026-11-13-issue-116-profile-validation.md"]
 third_party_sources_consulted: []
 license_review: "NOT APPLICABLE: original code, no new dependency"
-closure: "open"
-human_reviewers: ["pending PR review"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-15; merged in #127)"]
 tests_or_evidence: ["go test -race -count=1 ./internal/identity/... PASS (new TestUpdateMyProfileViolationsUseContractCodesAndPointers: 16 cases)", "go test -race -count=1 -tags integration -run 'TestIdentityProfiles|TestIdentityProfile' ./internal/platform/pgtest/ PASS on real PostgreSQL (NUL bio -> 422, assertProblemViolations on unknown skill/country)", "go vet clean, gofmt clean"]
 open_risks: ["the three after-freeze items of issue #116 stay open: skills DELETE removes hidden-tag links, the C14b matrix lacks a moderator row and a byte-for-byte 404 body comparison, and the Cache-Control/Vary + resolveSkills-outside-transaction notes", "invalid UTF-8 cannot arrive through encoding/json (it coerces to U+FFFD); the utf8.ValidString half of validText is defence in depth for non-HTTP callers"]
 ```
@@ -828,9 +845,9 @@ purpose: "S4 Learn: listLearnArticles, createLearnArticle (401 anonymous, 403 pu
 repository_or_source_context: "branch feature/learn/articles-series"
 files_or_sections_affected: ["db/queries/learn.sql", "src/api/internal/platform/dbgen/learn.sql.go", "src/api/internal/platform/dbgen/learn_queries_test.go", "src/api/internal/learn/**", "src/api/internal/app/server.go", "src/api/internal/app/app.go", "src/api/internal/app/learn_internal_test.go", "src/api/internal/platform/pgtest/learn_integration_test.go", "src/api/internal/platform/pgtest/errorreport_integration_test.go", "scripts/content/**", "scripts/tests/free-series_test.sh", "scripts/public-routes.txt", "scripts/unimplemented-routes.txt", "scripts/authz-tests.txt", "TODO.md", "docs/ai-usage/2026-11-13-s4-learn.md"]
 third_party_sources_consulted: []
-license_review: "PENDING: owner review (the four French lessons in scripts/content/free-series.sql were drafted with AI for the team to review and own)"
-closure: "open"
-human_reviewers: ["NICE-DEV226 (pending)", "Y4NN777 (content script co-review, pending)"]
+license_review: "ACCEPTED_BY_OWNER (2026-11-15): the four French lessons of scripts/content/free-series.sql, not independently verified"
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-15; merged in #111)"]
 tests_or_evidence: ["RED: service tests failed to compile before the service existed; pgtest Learn tests answered 501 with the handler unwired", "make generate, lint-go, lint-contract, lint-web, lint-scripts, typecheck, docs-check PASS", "make test-unit PASS; make coverage PASS: Go first-party 100.0% (4061/4061)", "make test-integration-go PASS (TestLearn*, TestFreeSeriesContentScript, EXPLAIN plans logged by TestLearnListPlansAreBounded)", "make security-authz, security-sast, security-govulncheck, security-secrets, licenses PASS", "scripts/tests/free-series_test.sh 13/13"]
 open_risks: ["the composition root (src/api/internal/app), pgtest, dbgen tests and scripts/tests are outside the S4 allowed paths as written; S2 used the same files", "series have no tags and no relations at P0 (no tables): the API returns empty arrays", "links to a series or an article are refused with 422 (content_relations has no such pair)", "article bodies above about 16 KiB replay with Idempotency-Body-Omitted (idempotency column limit)", "deleted authors are not shown as 'membre supprimé' yet (S1 bylines item)", "the content script has not run on staging-test or production-live"]
 ```
@@ -846,8 +863,8 @@ repository_or_source_context: "branch feature/platform/web-home-settings; lane b
 files_or_sections_affected: ["src/web/src/features/{landing,home,settings}/**", "src/web/src/app/**", "src/web/src/i18n/**", "TODO.md", "AI_USAGE.md"]
 third_party_sources_consulted: ["installed @astryxdesign/cli 0.7.14 component docs"]
 license_review: "NOT APPLICABLE: original code and text, no new dependency"
-closure: "open"
-human_reviewers: ["PANK4SS (pending)"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-15; merged in #102)"]
 tests_or_evidence: ["RED then GREEN (ProfileVisibility.test.tsx, LandingPage.test.tsx, HomePage.test.tsx, translate.test.ts key-collision check)", "Real-browser journeys on make up-local-dev with Mailpit: sign-up, verify, sign-in, sign-out, wrong password, reset, sign-in with the new password; axe on 13 pages; no horizontal scroll at 360/768/1024/1440 and 200% zoom (56/56)"]
 open_risks: ["Demo examples on the member home stay until listLearnArticles, listQuestions and listProjects are live.", "The local display-name field on parametres is a prototype leftover kept for now (owner decision)."]
 ```
@@ -863,8 +880,8 @@ repository_or_source_context: "branch feature/discover/web-public-reads; lane br
 files_or_sections_affected: ["src/web/src/features/discover/**", "src/web/src/features/search/**", "src/web/src/app/{navigation,Shell}.tsx", "TODO.md", "AI_USAGE.md"]
 third_party_sources_consulted: ["installed @astryxdesign/cli 0.7.14 component docs"]
 license_review: "NOT APPLICABLE: original code and text, no new dependency"
-closure: "open"
-human_reviewers: ["PANK4SS (pending)"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-15; merged in #101)"]
 tests_or_evidence: ["RED then GREEN per file (region.test.ts, DiscoverPage.test.tsx, ResourcePage.test.tsx, SearchPage.test.tsx, searchQuery.test.ts)", "pnpm --filter web run coverage exit 0"]
 open_risks: ["The assistant answer is a labelled sample until S9 is live.", "West Africa default filters on the client until the API accepts several countries."]
 ```
@@ -880,8 +897,8 @@ repository_or_source_context: "branch feature/platform/web-shell-identity; lane 
 files_or_sections_affected: ["src/web/src/**", "TODO.md", "AI_USAGE.md"]
 third_party_sources_consulted: ["installed @astryxdesign/cli 0.7.14 component docs", "openapi-fetch 0.17 type declarations"]
 license_review: "NOT APPLICABLE: original code, no new dependency"
-closure: "open"
-human_reviewers: ["PANK4SS (pending)"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-15; merged in #100)"]
 tests_or_evidence: ["RED then GREEN per file with Vitest (api/http.test.ts, app/Shell.test.tsx, features/identity/*.test.tsx)", "pnpm --filter web run lint/format:check/typecheck/test/coverage exit 0; coverage 96.94/87.29/98.75/98.38"]
 open_risks: ["Visual, axe and responsive evidence (ADR-0007) not produced in jsdom.", "Mails carry a bare token until APP_BASE_URL links land (fix/platform/s7-api-gaps)."]
 ```
@@ -897,8 +914,8 @@ repository_or_source_context: "branch fix/discover/search-bounds, issue #118"
 files_or_sections_affected: ["db/queries/search.sql", "src/api/internal/platform/dbgen/search.sql.go", "src/api/internal/platform/dbgen/queries_test.go", "src/api/internal/platform/cursor/cursor.go", "src/api/internal/platform/cursor/cursor_test.go", "src/api/internal/search/repository/repository_test.go", "src/api/internal/search/transport/handler_test.go", "src/api/internal/platform/pgtest/search_read_integration_test.go", "TODO.md", "docs/ai-usage/2026-11-13-search-bounds.md"]
 third_party_sources_consulted: []
 license_review: "NOT APPLICABLE: original code, no new dependency"
-closure: "open"
-human_reviewers: ["NICE-DEV226 (pending)"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-15; merged in #126)"]
 tests_or_evidence: ["RED: TestSearchQueriesUseTheGINIndexes scanned 6000 rows for 'bruit' and matched every row for '-zebra'; TestCursorLengthDoesNotGrowWithTheFilters produced a 1222-character cursor", "GREEN: see the PR evidence table"]
 open_risks: ["above 500 matches the ranked set is the first 500 rows the index returns, not the 500 best", "a query with only negations now returns no hits instead of every row", "cursors issued before the deploy are refused once (INVALID_CURSOR)"]
 ```
@@ -914,10 +931,27 @@ repository_or_source_context: "branch chore/ops/traefik-forwarded-headers, issue
 files_or_sections_affected: ["compose.yaml", "scripts/verify-containers.sh", "TODO.md", "docs/ai-usage/2026-11-13-traefik-forwarded-headers.md"]
 third_party_sources_consulted: []
 license_review: "NOT APPLICABLE: configuration and test only, no new dependency"
-closure: "open"
-human_reviewers: ["Y4NN777 (ops area, pending)"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-15; merged in #128)"]
 tests_or_evidence: ["RED: scripts/verify-containers.sh failed on the 3 profiles (entrypoints web and websecure did not pin forwardedHeaders.insecure=false)", "GREEN: scripts/verify-containers.sh ALL PASS", "the pinned traefik:v3.6 image accepts --entrypoints.web.forwardedHeaders.insecure=false and rejects an unknown forwardedHeaders field"]
 open_risks: ["the end-to-end spoofed X-Forwarded-For smoke through Traefik is not run (no deployed host yet): release-checklist step"]
+```
+
+## Third-party licences verified instead of accepted unverified
+
+```yaml
+date: "2026-11-13"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code, Claude Opus 5.5 (owner's lead session, no subagent)"
+purpose: "#87 had closed the licences as accepted without verification. The AI read each licence from its upstream source on 2026-11-13: the GitHub licence API of each repository, and the licence file itself where the API answered NOASSERTION (PostgreSQL, Node.js, goose). This covered the container images, the Go tool entries, go.yaml.in/yaml/v3 (Apache-2.0 with MIT libyaml portions), the CI and Make tools, claude-code-action and the 431 npm development dependencies (none strong copyleft). It wrote THIRD_PARTY_NOTICES.md with a Verification section stating the method and its limits. golangci-lint and ShellCheck (GPL-3.0) and Semgrep (LGPL-2.1) are recorded as build and CI tools, not distributed or linked. The AI-generated brand assets stay an owner decision."
+repository_or_source_context: "branch chore/docs/verify-licences, PR #88 (merged 2026-11-13)"
+files_or_sections_affected: ["THIRD_PARTY_NOTICES.md", "TODO.md"]
+third_party_sources_consulted: ["GitHub licence API of each upstream repository", "upstream licence files of PostgreSQL, Node.js and goose"]
+license_review: "VERIFIED: read from the upstream licence API or licence file (method in THIRD_PARTY_NOTICES.md, Verification)"
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-15; merged in #88)"]
+tests_or_evidence: ["THIRD_PARTY_NOTICES.md Verification section; runtime Go and npm dependencies still come from make licenses"]
+open_risks: ["record written on 2026-11-15, after the merge: none was filed at the time", "the brand assets' licence stays an owner decision"]
 ```
 
 ## Contract violation codes and pointers in Learn and discover reports
@@ -931,8 +965,8 @@ repository_or_source_context: "branch fix/platform/violation-codes; review of PR
 files_or_sections_affected: ["src/api/internal/learn/service/service.go", "src/api/internal/learn/service/service_test.go", "src/api/internal/discover/service/reports.go", "src/api/internal/discover/service/reports_test.go", "src/api/internal/discover/service/service.go", "src/api/internal/platform/pgtest/learn_integration_test.go", "src/api/internal/platform/pgtest/errorreport_integration_test.go", "TODO.md", "docs/ai-usage/2026-11-13-violation-codes.md"]
 third_party_sources_consulted: []
 license_review: "NOT APPLICABLE: original code, no new dependency"
-closure: "open"
-human_reviewers: ["NICE-DEV226 (pending)"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-15; merged in #129)"]
 tests_or_evidence: ["RED: TestCreateViolationsUseContractCodesAndPointers and TestCreateErrorReportValidation failed on 'invalid' codes and bare field names", "GREEN: see the PR evidence table"]
 open_risks: ["identity's password and new_password violations still use 'invalid' (identity area, flagged for NICE-DEV226)"]
 ```
@@ -948,8 +982,8 @@ repository_or_source_context: "branch fix/build/application-message-min; issue #
 files_or_sections_affected: ["api/openapi.yaml", "src/api/internal/platform/apispec/openapi.gen.yaml (generated)", "src/api/internal/platform/apispec/apispec_test.go", "src/api/internal/build/service/applications.go (comment)", "TODO.md"]
 third_party_sources_consulted: []
 license_review: "NOT APPLICABLE: original change, no new dependency"
-closure: "open"
-human_reviewers: ["PANK4SS (contract co-reviewer, R7, pending)"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-15; merged in #164)"]
 tests_or_evidence: ["RED: TestApplicationMessageIsNotEmpty failed on minLength 0", "GREEN: apispec, build packages and TestBuildApplication* (real PostgreSQL) pass; make lint-contract and docs-check exit 0"]
 open_risks: ["none: the server already refused an empty message with 422; only the documented contract changes"]
 ```
@@ -965,8 +999,8 @@ repository_or_source_context: "branch feature/intelligence/assistant-hardening; 
 files_or_sections_affected: ["db/queries/search.sql", "src/api/internal/platform/dbgen/**", "src/api/internal/search/{domain,repository}/**", "src/api/internal/assistant/**", "src/api/internal/platform/pgtest/**", "src/web/src/features/search/**", "docs/decisions/0012-*.md", "TODO.md", "ROADMAP.md"]
 third_party_sources_consulted: []
 license_review: "NOT APPLICABLE: original code, no new dependency"
-closure: "open"
-human_reviewers: ["mibienpanjoe (S9 backend reviewer, pending)", "PANK4SS (UI, pending)"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-15; merged in #195)"]
 tests_or_evidence: ["RED then GREEN: TestRemoveGuarantees, TestAskEvery503CarriesRetryAfter, TestUserPromptCarriesEachPassageDate, TestParseVerifyNoticeFollowsTheCitedSources, TestSearchHitsCarryThePublicationDate, golden G14 to G17, AssistantPanel date tests", "Go coverage 100.0 % (6239/6239); lint-go, race unit and integration exit 0"]
 open_risks: ["guarantee detection is a FR/EN pattern list: other phrasings pass through", "a bare marker left alone after a removed guarantee keeps its source cited", "the real-provider run (V4) is NOT RUN"]
 ```
@@ -982,8 +1016,8 @@ repository_or_source_context: "branch fix/review/autofix-runner"
 files_or_sections_affected: [".github/workflows/review-autofix.yml", ".github/workflows/review-batch.yml", "scripts/tests/review-runner_test.sh", "TODO.md"]
 third_party_sources_consulted: []
 license_review: "NOT APPLICABLE: original change, no new dependency in the repository (two distro packages installed on the runner at run time)"
-closure: "open"
-human_reviewers: ["Y4NN777 (pipeline owner, pending)"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-15; merged in #221)"]
 tests_or_evidence: ["RED: scripts/tests/review-runner_test.sh failed 4 assertions on develop f0b4e79", "GREEN: review-runner_test.sh 9 passed, review-agent-triggers_test.sh, make lint-scripts, make docs-check and a YAML parse of both workflows"]
 open_risks: ["NOT RUN on a real runner: the install step and the label job are checked statically only until the next auto-fix run", "actionlint is not installed locally: NOT RUN", "review-automerge.yml writes no label from its YAML (the script labels with its own token), so it is unchanged"]
 ```
@@ -999,8 +1033,8 @@ repository_or_source_context: "branch fix/review/batch-nothing-path from develop
 files_or_sections_affected: [".github/workflows/review-batch.yml (publish job)", "scripts/review-autofix.py", "scripts/findings.py", "scripts/review-gate.py", "scripts/tests/review-batch-nothing_test.sh", "scripts/tests/findings-batch_test.sh", "scripts/tests/findings-settle_test.sh", "scripts/tests/review-gate_test.sh", "docs/quality/REVIEW_CONTEXT.md", "TODO.md"]
 third_party_sources_consulted: []
 license_review: "NOT APPLICABLE: original code, no new dependency"
-human_reviewers: ["Y4NN777 (pipeline owner, merge click)"]
-closure: "open"
+human_reviewers: ["Y4NN777 (pipeline owner, merge click)", "Y4NN777 (owner closure, 2026-11-15; merged in #229)"]
+closure: "closed by the owner (2026-11-15)"
 tests_or_evidence: ["RED then GREEN: review-batch-nothing_test.sh (new), findings-batch_test.sh (held items), findings-settle_test.sh (own source PR), review-gate_test.sh (events read error)", "make lint-scripts", "make docs-check", "YAML parse of review-batch.yml"]
 open_risks: ["NOT RUN on a real runner", "the publish job is not in the review-batch-write concurrency group: a batch run reading at the same moment can race the close", "batch #226 stays open until one manual dispatch after the merge", "FIXED ELSEWHERE is refused when the source was filed after the fixing pull request merged (fails safe, a human checks)"]
 ```
@@ -1016,8 +1050,8 @@ repository_or_source_context: "branch feature/connect/people-directory; TODO.md 
 files_or_sections_affected: ["api/openapi.yaml", "db/queries/identity.sql", "src/api/internal/identity/**", "src/api/internal/app/**", "src/api/internal/platform/{apigen,apispec,dbgen,httpx,pgtest}/**", "src/web/src/api/schema.d.ts", "scripts/public-routes.txt", "scripts/unimplemented-routes.txt", "docs/spec-kit/AUTHORIZATION_MATRIX.md", "docs/quality/COVERAGE_SCOPE.md", "TODO.md", "ROADMAP.md", "docs/SPEC.md"]
 third_party_sources_consulted: []
 license_review: "NOT APPLICABLE: original code and text, no new dependency"
-closure: "open"
-human_reviewers: ["mibienpanjoe (backend)", "Y4NN777 (contract and matrix, R7)"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["mibienpanjoe (backend)", "Y4NN777 (contract and matrix, R7)", "Y4NN777 (owner closure, 2026-11-15; merged in #193)"]
 tests_or_evidence: ["RED: 20 service tests failed on a stub before the implementation (assertion failures)", "GREEN: go test -race ./... exit 0; scripts/coverage-go.sh 100.0% (6328/6328)", "go test -race -tags integration ./src/api/internal/platform/pgtest -run TestDirectory exit 0, EXPLAIN plans logged"]
 open_risks: ["The 60 per minute window is not in ADR-0003: the owner confirms it", "Demo (provenance demo) accounts are not excluded from the directory outside local-dev: the owner decides (K39)"]
 ```
@@ -1033,8 +1067,8 @@ repository_or_source_context: "branch chore/review/default-branch-develop; owner
 files_or_sections_affected: ["docs/decisions/0013-default-branch-develop.md", "docs/decisions/README.md", "docs/GIT_WORKFLOW.md", "docs/quality/REVIEW_CONTEXT.md", ".github/workflows/review-autofix.yml", ".github/workflows/review-automerge.yml", ".github/workflows/review-batch.yml", "scripts/close-merged-issues.py", "scripts/tests/review-agent-triggers_test.sh", "TODO.md"]
 third_party_sources_consulted: ["https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows", "https://github.blog/changelog/2025-11-07-actions-pull_request_target-and-environment-branch-protections-changes/", "https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/creating-rulesets-for-a-repository"]
 license_review: "NOT APPLICABLE: original text and code, no new dependency"
-closure: "open"
-human_reviewers: ["Y4NN777 (owner, pending)"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-15; merged in #185)"]
 tests_or_evidence: ["scripts/tests/make_test.sh pins test-harness (#184): RED on a copy of mk/ with test-harness and the harness group removed (48 passed, 4 failed; the old test passed 49/0), GREEN on develop 52 passed", "RED: scripts/tests/review-agent-triggers_test.sh on a pull_request_target fixture exits 1", "GREEN: same test on .github/workflows exits 0", "RED (fail-closed pass): 18 new fixtures (expression, anchor and alias environments, flow-mapping and odd-indent jobs, unsafe if: forms, always() with needs, unreadable on:, workflow_call) accepted by the first version, 38 of 38 checks GREEN after the rewrite; mutation: review-batch.yml copy without the plan guard is refused", "RED (review of #185): 4 new fixtures (multi-line if:, multi-line && guard, multi-line if: in a needed job, quote-protected hash) accepted by the previous guard, 47 of 47 GREEN after the fix", "RED (review of #185 round 2): 1 new fixture (plain scalar with a hash before a quote, guard text after it) accepted by the previous guard (50 passed, 1 failed), 51 of 51 GREEN after the fix; the old cmt_single expectation (hash inside a quote of a plain scalar is not a comment) was wrong per YAML 1.2 and is now expect_good; the quoted-continuation fixture was already refused (conjuncts() rejects any quote-leading if:), so it is a pin, not a RED", "actionlint: not installed (command -v actionlint empty), NOT RUN"]
 open_risks: ["stages 3 to 5 NOT RUN until the owner switches the default branch", "REVIEW_AGENT_TOKEN is the owner's own token (owner decision 2026-11-14, ADR-0013): actions taken with it are recorded as the owner's; three jobs read it (automerge, publish of review-autofix.yml and review-batch.yml), none approves", "review-automerge.yml lines 13 and 47 said only the auto-merge job reads the token: corrected in the same PR", "scripts/findings.py docstring (~lines 415-416) said closing keywords act only on main: fixed in the register-detail PR (chore/review/register-detail, commit 9958fc9)"]
 ```
@@ -1050,8 +1084,8 @@ repository_or_source_context: "branch fix/platform/demo-gaps; owner plan twinkli
 files_or_sections_affected: ["src/api/**", "src/web/**", "docs/runbooks/moderation.md", "TODO.md", "ROADMAP.md", "docs/architecture/ARCHITECTURE.md", "mk/50-ops.mk"]
 third_party_sources_consulted: []
 license_review: "NOT APPLICABLE: original code, no new dependency"
-closure: "open"
-human_reviewers: ["PANK4SS", "mibienpanjoe"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["PANK4SS", "mibienpanjoe", "Y4NN777 (owner closure, 2026-11-15; merged in #220)"]
 tests_or_evidence: ["RED then GREEN focused tests for rate limits and frontend gaps", "moderation RED: error_report.resolved audit action; GREEN: error_report.resolve plus unit, authz and real-PostgreSQL tests", "required Go, web and docs gates recorded in the pull request"]
 open_risks: ["manual visual and responsive checks are NOT RUN until recorded"]
 ```
@@ -1067,8 +1101,8 @@ repository_or_source_context: "branch chore/docs/state-sync from develop a71aa9e
 files_or_sections_affected: ["TODO.md (Now row of Y4NN777, owner checklist H16 and PRD names, Shared pieces, S1, S3, S5, S6, S7, S9, SEED, E4, E5, Done log)", "ROADMAP.md (sections 1, 4, 8 H13, 10 C10 O5 O6, 11 K29, 13)", "README.md (Statut, Contribuer)", "docs/team/KICKOFF.md (sections 1, 4, 5)", "docs/SPEC.md (US-LEARN-002 note, US-INTEL-001 ADR status, section 9)", "docs/spec-kit/AUTHORIZATION_MATRIX.md (roles line, status line)", "docs/spec-kit/DATABASE_DESIGN.md (status lines, migration 00013)", "docs/spec-kit/TRACEABILITY.md (intelligence row, approved rows note)"]
 third_party_sources_consulted: []
 license_review: "NOT APPLICABLE: project documentation only, no third-party text"
-closure: "open"
-human_reviewers: ["Y4NN777 (owner, pending)"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-15; merged in #186)"]
 tests_or_evidence: ["NOT RUN: make docs-check (the agent has no shell; the lead session runs it before the commit)"]
 open_risks: ["the By column of the new Done log rows comes from docs/ai-usage and AI_USAGE.md contributor fields and the slice owners, not from the GitHub PR authors (not in the dumps)", "ADR-0013 is not referenced: its file is written in another pull request"]
 ```
@@ -1084,8 +1118,8 @@ repository_or_source_context: "branch chore/ops/environment-hosts; issue #109 se
 files_or_sections_affected: ["secrets/staging-test.enc.env (encrypted)", "secrets/production-live.enc.env (encrypted, new)", "TODO.md", ".claude/settings.json (deny list: reading the encrypted secrets/*.enc.env is allowed, ciphertext and SOPS metadata only, so the session can check names and recipients; the age key directory **/sops/age/** and /dev/shm/** are denied; every Edit deny on secrets stays)"]
 third_party_sources_consulted: []
 license_review: "NOT APPLICABLE: configuration, no dependency"
-closure: "open"
-human_reviewers: ["Y4NN777 (owner, secrets)"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (owner, secrets)", "Y4NN777 (owner closure, 2026-11-15; merged in #180)"]
 tests_or_evidence: ["scripts/secrets.sh check: check-secrets-encrypted PASS", "make security-secrets: no leaks found (working tree and history of HEAD)", "no secret value was displayed: sops set and init print nothing but a 'Created' line"]
 open_risks: ["226os.tech and staging.226os.tech have no DNS A record yet", "AI_API_KEY stays empty until the owner fills it; ACME_EMAIL (both files) and production SMTP were set by the owner with hidden input, never seen by the session", "production secrets are encrypted to the current recipients only: add the host age key, rotate, and regenerate POSTGRES_PASSWORD and CURSOR_KEY before deploying"]
 ```
@@ -1101,8 +1135,8 @@ repository_or_source_context: "issue #125; branch docs/learn/free-series-copyedi
 files_or_sections_affected: ["scripts/content/free-series.sql", "TODO.md"]
 third_party_sources_consulted: []
 license_review: "NOT APPLICABLE: edits to original team text, no new content or dependency"
-closure: "open"
-human_reviewers: ["pending PR review", "owner approval of the final text still open on #125"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["owner approval of the final text still open on #125", "Y4NN777 (owner closure, 2026-11-15; merged in #204)"]
 tests_or_evidence: ["bash scripts/tests/free-series_test.sh: 13 passed, 0 failed", "read-through of all four lessons; edits confined to lesson 1"]
 open_risks: ["text remains AI-drafted under mibienpanjoe's direction with this copy-edit; PANK4SS's read pass and the owner's final approval are still open on #125"]
 ```
@@ -1118,8 +1152,8 @@ repository_or_source_context: "branch docs/learn/free-series-lessons; issue #125
 files_or_sections_affected: ["scripts/content/free-series.sql", "src/api/internal/platform/pgtest/learn_integration_test.go", "TODO.md", "docs/ai-usage/2026-11-14-free-series-lessons.md"]
 third_party_sources_consulted: []
 license_review: "Original text written for 226os; no passage copied or translated from a third-party source. Vendor-neutral: no product or model named, except the open protocol MCP and the AGENTS.md file convention."
-closure: "open"
-human_reviewers: ["mibienpanjoe (read and approved the text, 2026-11-14)", "pending: PR review, and the owner's approval of the final text (issue #125)"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["mibienpanjoe (read and approved the text, 2026-11-14)", "Y4NN777 (owner closure, 2026-11-15; merged in #190)"]
 tests_or_evidence: ["scripts/tests/free-series_test.sh 13 passed, 0 failed", "RED: TestFreeSeriesContentScript failed (run after a retitled series: nil) with the title-only guard; GREEN after the guard on origin and topic (ephemeral PostgreSQL)", "excalibur run: verified, known debt in forge-check", "screenshots read after loading the series with the script: code block, inline code, lists and table render correctly"]
 open_risks: ["rendering was checked on a throwaway local stack only (temporary PostgreSQL, API and Vite dev server; not the nginx and Traefik front): lessons 1 to 4 at 390 px or 1280 px; the body no longer repeats the lesson title as a first heading (the page already shows it); the lesson 4 table scrolls sideways inside its own box on a phone", "technical statements about models and agents are general and undated; they need a re-read when the field moves"]
 ```
@@ -1135,8 +1169,8 @@ repository_or_source_context: "branch fix/identity/profile-422-contract; issue #
 files_or_sections_affected: ["api/openapi.yaml", "src/api/internal/platform/apispec/openapi.gen.yaml", "src/api/internal/platform/apispec/apispec_test.go", "src/web/src/api/schema.d.ts", "TODO.md"]
 third_party_sources_consulted: []
 license_review: "NOT APPLICABLE: original change, no new dependency"
-closure: "open"
-human_reviewers: ["pending PR review"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-15; merged in #134)"]
 tests_or_evidence: ["RED: TestGetProfileDeclaresTheValidatorsUnprocessable failed before the contract change", "GREEN: apispec, apigen and identity tests pass; make lint-contract passes (redocly valid, migration policy OK)"]
 open_risks: ["a contract change (R7): the web client types change by one response line, no behaviour change on the server"]
 ```
@@ -1152,8 +1186,8 @@ repository_or_source_context: "branch feature/build/github-token; TODO S5 choice
 files_or_sections_affected: ["src/api/internal/build/github/**", "src/api/internal/platform/config/**", "src/api/internal/app/**", "src/api/internal/build/build_test.go", "compose.yaml", ".env.example", "scripts/compose.sh", "scripts/tests/compose-wrapper_test.sh", "secrets/staging-test.enc.env", "secrets/production-live.enc.env", "README.md", "TODO.md"]
 third_party_sources_consulted: []
 license_review: "NOT APPLICABLE: original code, no new dependency"
-closure: "open"
-human_reviewers: ["NICE-DEV226 (S5 reviewer, pending)", "Y4NN777 (K10 co-review)"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (K10 co-review)", "Y4NN777 (owner closure, 2026-11-15; merged in #208)"]
 tests_or_evidence: ["RED: compile failures before New(token, logger) and LoadGitHubToken existed", "GREEN: TestRepoSendsTheTokenOnlyWhenSet, TestRepoRetriesOnceWithoutTheTokenOn401, TestClientFormattingHidesTheToken, TestLoadGitHubTokenValues; lint-go, race unit, pgtest Build/Project exit 0; Go coverage 100.0 % (6271/6271)"]
 open_risks: ["not tested against the real GitHub API with a token", "a revoked token silently falls back to the shared 60/h quota (warn log github_token_rejected)", "the token is tied to the owner's account until a GitHub App replaces it"]
 ```
@@ -1169,8 +1203,8 @@ repository_or_source_context: "branch chore/claude/ci-implementer-inventory; own
 files_or_sections_affected: [".claude/hooks/tests/test_domain_skills.py", "mk/20-gates.mk", "mk/40-quality.mk", "TODO.md"]
 third_party_sources_consulted: []
 license_review: "NOT APPLICABLE: original code, no new dependency"
-closure: "open"
-human_reviewers: ["Y4NN777 (pipeline owner, pending)"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-15; merged in #183)"]
 tests_or_evidence: ["RED: python3 -m unittest discover -s .claude/hooks/tests failed, ci-implementer missing from the expected set", "GREEN: same command exit 0 (28 tests)"]
 open_risks: ["the harness CI group is NOT RUN in CI until this pull request runs", "scripts/tests/make_test.sh was not touched: it pins the repo group steps, so the step lives in its own group"]
 ```
@@ -1186,8 +1220,8 @@ repository_or_source_context: "branch chore/review/notes-in-register; owner requ
 files_or_sections_affected: ["scripts/findings.py", "scripts/review-context.py", "scripts/review-ping.py", "scripts/tests/findings_test.sh", "scripts/tests/review-context_test.sh", "scripts/tests/review-ping_test.sh", ".claude/commands/delegate-review.md", "docs/quality/REVIEW_CONTEXT.md", "TODO.md"]
 third_party_sources_consulted: []
 license_review: "NOT APPLICABLE: original code, no new dependency"
-closure: "open"
-human_reviewers: ["pending PR review"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-15; merged in #133)"]
 tests_or_evidence: ["RED: the new cases in findings_test.sh, review-context_test.sh and review-ping_test.sh failed before the change", "GREEN: findings 40 passed, review-context 50 passed, review-ping 13 passed"]
 open_risks: ["NOT RUN end to end until the first merged pull request after this PR: the model must actually write kind and evidence in the ledger (an entry without them is read as a finding, so nothing breaks, but no note is filed)", "the kind:note label is created by the issue API on first use; the board 4 Auto-add filter stays label:finding, so notes are not on the board"]
 ```
@@ -1203,8 +1237,8 @@ repository_or_source_context: "branch fix/solve/question-link-types; db/migratio
 files_or_sections_affected: ["api/openapi.yaml", "src/api/internal/platform/apigen/apigen.gen.go (generated)", "src/api/internal/platform/apispec/openapi.gen.yaml (generated)", "src/api/internal/platform/apispec/apispec_test.go", "src/web/src/api/schema.d.ts (generated)", "TODO.md"]
 third_party_sources_consulted: []
 license_review: "NOT APPLICABLE: original change, no new dependency"
-closure: "open"
-human_reviewers: ["PANK4SS (contract reviewer, R7, pending)"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-15; merged in #141)"]
 tests_or_evidence: ["RED: TestLinkTypesMatchTheStoredPairs failed on develop's embedded spec (LinkRef items, series present)", "GREEN: the same test and TestEmbeddedSpecMatchesContract pass after scripts/check-generated.sh generate"]
 open_risks: ["a client that sent series or a question-to-question link now fails schema validation (422) instead of the service's 422; no web code sends them"]
 ```
@@ -1220,8 +1254,8 @@ repository_or_source_context: "branch chore/review/register-detail; the verbatim
 files_or_sections_affected: [".claude/agents/{go,web,ci}-implementer.md, postgres-expert.md, skeptic.md (owner 2026-11-14: full Claude Code primitives - LSP, Monitor, TaskStop, TodoWrite, WebFetch, WebSearch, ToolSearch, NotebookEdit - and the rule to use them instead of Bash for reading, searching and editing)", ".claude/commands/review-fix.md (the pipeline tests are not fixer paths)", ".claude/commands/deep-review.md (the Deep range)", "scripts/review-comment.py", "scripts/review-automerge.py", "scripts/review-context.py", "scripts/findings.py", "scripts/review-autofix.py", "scripts/review-ping.py", "scripts/tests/ (findings, findings-batch, findings-settle, review-comment, review-comment-levels.py, review-autofix, review-automerge, review-context, review-ping, fixtures/review-register)", ".github/workflows/code-review.yml", ".github/pipeline-paths.txt", "docs/decisions/0013-default-branch-develop.md (schedule sentence and line references only)", ".claude/commands/delegate-review.md", ".claude/commands/deep-review.md", ".claude/commands/review-fix.md", ".github/workflows/review-batch.yml", ".github/workflows/review-autofix.yml", "docs/quality/REVIEW_CONTEXT.md", "TODO.md"]
 third_party_sources_consulted: []
 license_review: "NOT APPLICABLE: original change, no new dependency; secret shapes written from public token formats, no copied rule file"
-closure: "open"
-human_reviewers: ["Y4NN777 (pipeline owner, pending)"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-15; merged in #187)"]
 tests_or_evidence: ["RED: 26 review-comment, 16 findings, 3 findings-batch, 3 findings-settle and 8 review-autofix assertions failed before the change", "GREEN: the eleven script tests, make lint-scripts, make docs-check and a YAML parse of both workflows", "follow-up round RED: level table 65 failures over 28 explicit literal rows, review-automerge 10, review-autofix 9, review-context 6, findings-settle 4, review-ping 3 assertions failed before the change; GREEN: every review and findings script test, review-agent-triggers, close-merged-issues, make lint-scripts, make docs-check and a YAML parse of code-review.yml"]
 open_risks: ["the location check is deterministic text matching: an entry whose detail names no backticked identifier is only checked for file and line range", "a repository-code step in the fixer job can still rewrite finding-context.json, but the job then replaces it with an empty context (hash of the trusted step, held as a runner step output)", "an entry the model lists again with another file or line takes the head as first_sha (the permalink stays correct, the first raised date moves)", "the deep range wiring in code-review.yml is checked statically only: a real deep run on a pull request is NOT RUN", "scripts/tests/fixtures/** and close-merged-issues_test.sh stay writable by the fixer", "NOT A DEFECT and DECIDED sources stay open and can come back in the next batch until a human settles them", "an untrimmed sev (for example ' HIGH ') counts as MEDIUM, so an answered one stops blocking", "a cited file with a space or a bracket in its path is dropped (empty file)"]
 ```
@@ -1237,8 +1271,8 @@ repository_or_source_context: "branch fix/review/issue-212-follow-ups; issue #21
 files_or_sections_affected: ["scripts/review-gate.py", "scripts/review-automerge.py", "scripts/review-comment.py", "scripts/review-ping.py", "scripts/review-autofix.py", "scripts/findings.py", ".github/workflows/code-review.yml", ".github/workflows/review-autofix.yml", ".github/workflows/review-batch.yml", ".github/workflows/review-automerge.yml", "scripts/tests/review-*", "scripts/tests/findings*", "docs/quality/REVIEW_CONTEXT.md", "TODO.md"]
 third_party_sources_consulted: []
 license_review: "NOT APPLICABLE: original code, no new dependency"
-closure: "open"
-human_reviewers: ["Y4NN777 (pipeline owner, merge click)"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (pipeline owner, merge click)", "Y4NN777 (owner closure, 2026-11-15; merged in #223)"]
 tests_or_evidence: ["RED then GREEN per group in review-gate_test, review-automerge_test, review-comment_test, review-ping_test, findings-batch_test, review-autofix_test; level-table mutation check (blocking() ignoring answered HIGH gives 10 failures)", "make lint-scripts"]
 open_risks: ["note-settle-trusts-fixer-verdict not changed (owner decision)", "branch protection reading the latest Review gate run is INFERRED", "REVIEW_PIPELINE_HMAC_KEY is an owner secret; until it exists the batch exemption stays off"]
 ```
@@ -1254,8 +1288,8 @@ repository_or_source_context: "branch fix/review/batch-2026-11-14; issues #157, 
 files_or_sections_affected: ["db/queries/solve.sql", "db/queries/discover.sql", "src/api/internal/platform/dbgen/solve.sql.go (generated)", "src/api/internal/platform/dbgen/discover.sql.go (generated)", "src/api/internal/platform/pgtest/solve_integration_test.go", "src/api/internal/platform/pgtest/catalogue_read_integration_test.go", "TODO.md"]
 third_party_sources_consulted: []
 license_review: "NOT APPLICABLE: original change, no new dependency"
-closure: "open"
-human_reviewers: ["pending PR review"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-15; merged in #163)"]
 tests_or_evidence: ["RED: TestSolveEditKeepsALinkToAHiddenTag failed on the old query (tags after the restore [go], want [go tag-cache])", "RED: TestCatalogueRelatedShowsPublicProjectsOnly failed on the old query (private project shown on the public resource)", "GREEN: both pass with -race -tags integration after the query changes"]
 open_risks: ["the other batch items are decisions or owner questions, not code changes; humans tick or close each source"]
 ```
@@ -1271,8 +1305,8 @@ repository_or_source_context: "branch chore/review/triage-batch; scripts/finding
 files_or_sections_affected: ["scripts/findings.py", "scripts/tests/findings-batch_test.sh", ".github/workflows/review-batch.yml", "mk/60-review.mk", "docs/quality/REVIEW_CONTEXT.md", "TODO.md"]
 third_party_sources_consulted: []
 license_review: "NOT APPLICABLE: original change, no new dependency"
-closure: "open"
-human_reviewers: ["pending PR review"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-15; merged in #150)"]
 tests_or_evidence: ["RED: scripts/tests/findings-batch_test.sh failed 16 of 20 before the subcommand existed", "GREEN: findings-batch_test.sh 26 passed; findings_test.sh 40 passed"]
 open_risks: ["NOT RUN against the real GitHub API", "the scheduled trigger runs only from the default branch", "actionlint NOT RUN (not installed)"]
 ```
@@ -1288,8 +1322,8 @@ repository_or_source_context: "branch chore/review/ci-autofix-batch (stacked on 
 files_or_sections_affected: [".claude/commands/review-fix.md", ".github/workflows/review-autofix.yml", ".github/workflows/review-batch.yml", "scripts/review-autofix.py", "scripts/tests/review-autofix_test.sh", ".github/workflows/review-merged.yml", ".claude/agents/ci-implementer.md", "scripts/findings.py", "scripts/tests/findings-settle_test.sh", "scripts/close-merged-issues.py", "scripts/tests/close-merged-issues_test.sh", "docs/quality/REVIEW_CONTEXT.md", "TODO.md"]
 third_party_sources_consulted: ["https://github.com/anthropics/claude-code-action (action.yml and base-action/src/parse-sdk-options.ts at 4d75e5f390ee76b2e09c1980ecc99ff3a2e088c8, read only)"]
 license_review: "NOT APPLICABLE: original change, no new dependency"
-closure: "open"
-human_reviewers: ["pending PR review"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-15; merged in #170)"]
 tests_or_evidence: ["RED: scripts/tests/review-autofix_test.sh 40 failed, 3 passed before the script existed", "GREEN: review-autofix_test.sh 43 passed; after the security split (fixer-run wrapper, .npmrc and owner preferences guarded) RED 9 failed, then GREEN 66 passed", "format-patch, am and check round trip simulated locally: PASS", "settle: findings-settle_test.sh RED 13 failed, then GREEN 19 passed; findings-batch_test.sh 26 and findings_test.sh 40 still pass", "body with Batch and Sources lines: RED 2 failed, then GREEN 71 passed", "close-merged-issues_test.sh 14 passed (written before the script, RED run not recorded)", "security review fixes: RED 14 forbidden paths and the rename bypass passed check, 2 settle and 1 close-merged cases failed, the token message failed 2; GREEN review-autofix_test.sh 123, findings-settle_test.sh 21, close-merged-issues_test.sh 15, findings-batch 26, findings 40", "config restore from develop simulated locally: PASS", "PR 170 review fixes: RED 30 guard and prepare cases, 3 settle cases; GREEN review-autofix_test.sh 157, findings-settle_test.sh 24", "PR 170 second review: RED 13 deploy and generated paths, 2 prepare cases; GREEN review-autofix_test.sh 171", "YAML parse of the review workflows PASS"]
 open_risks: ["NOT RUN against GitHub: workflow_run and schedule run only from the default branch copy", "actionlint NOT RUN (not installed)", "make runs pull request code while the Claude OAuth token is in the action step (same-repository branches only; CLAUDE_CODE_SUBPROCESS_ENV_SCRUB=1 is best effort, no bubblewrap)", "network isolation (unshare -rn) covers go test and pnpm only, and only where the runner allows unprivileged user namespaces", "make targets run pull request code during the model session and could write a Claude configuration after prepare; --setting-sources project limits what is read, hot reload of settings UNVERIFIED", "--settings as a claude_args flag for attribution: UNVERIFIED that the pinned action passes it through", "scripts/review-ping.py clears needs-owner when nothing CRITICAL or HIGH is open; the attempt cap rests on the autofix-2 label"]
 ```
@@ -1305,8 +1339,8 @@ repository_or_source_context: "branch chore/review/ci-deep-review-merge, stacked
 files_or_sections_affected: ["scripts/review-comment.py", "scripts/review-gate.py", "scripts/review-automerge.py", ".github/pipeline-paths.txt", "scripts/review-strip-pr.sh", "scripts/review-context.py", ".claude/commands/delegate-review.md", "scripts/tests/review-strip-pr_test.sh", "scripts/tests/review-comment_test.sh", "scripts/tests/review-gate_test.sh", "scripts/tests/review-automerge_test.sh", ".github/workflows/code-review.yml", ".github/workflows/review-automerge.yml", ".github/deep-review-paths.txt", ".claude/commands/deep-review.md", "docs/quality/REVIEW_CONTEXT.md", "TODO.md"]
 third_party_sources_consulted: []
 license_review: "NOT APPLICABLE: original code, no new dependency"
-closure: "open"
-human_reviewers: ["Y4NN777 (owner, pending)"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-15; merged in #168)"]
 tests_or_evidence: ["RED: review-comment 16 of 28 fail, review-gate 1 of 49, review-automerge 34 of 38 (no script)", "GREEN: review-comment 30, review-gate 50, review-automerge 44 passed (after merging the PR 159 hardening)", "PR 168 review (4 MEDIUM): RED review-comment 4 of 39, review-automerge 12 of 50, review-strip-pr 1 of 4 failed; GREEN 39, 50 and 4 passed", "PR 168 second review (2 MEDIUM): RED review-comment 3 of 41, review-automerge 13 of 53; GREEN 41 and 53 passed", "one comment per run (owner decision): RED review-comment 11 of 46, review-context 1 of 73, review-gate 1 of 51; GREEN 46, 73, 51, review-automerge 54"]
 open_risks: ["auto-merge runs from main (workflow_run uses the default branch): NOT RUN end to end before the promotion", "the deep job and the NOT RUN fallback run only once their scripts are on develop (they are read from the base commit)", "a CRITICAL replaced by a later NOT RUN no longer fails the gate (the gate fails open on NOT RUN); auto-merge still refuses", "update-branch after each merge costs one CI run and one review per open pull request"]
 ```
@@ -1322,8 +1356,8 @@ repository_or_source_context: "branch fix/review/batch-2026-11-14-b; batch #174;
 files_or_sections_affected: ["api/openapi.yaml and generated code", "db/queries/discover.sql, solve.sql, build.sql", "src/api/internal/{search,discover,solve,build,assistant,platform}/**", "src/web/src/features/{solve,build,search,learn,settings,discover}/**", "src/web/src/test/**", "TODO.md"]
 third_party_sources_consulted: []
 license_review: "NOT APPLICABLE: no dependency added"
-closure: "open"
-human_reviewers: ["Y4NN777 (owner)"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (owner)", "Y4NN777 (owner closure, 2026-11-15; merged in #199)"]
 tests_or_evidence: ["every FIXED item has a test that failed first (RED) then passed (GREEN); names in the pull request body", "make generate PASS (no drift)", "Go coverage 100.0% (6295/6295)", "make test-integration-go PASS", "web test 450 passed", "make lint-scripts: re-run after this tracker update"]
 open_risks: ["the question ETag is caller-scoped: a question loaded signed out then edited after sign-in is refetched (sign-in clears the cache)", "a hidden tag slug answers 422, which reveals that a hidden tag exists under that slug"]
 ```
@@ -1339,8 +1373,8 @@ repository_or_source_context: "pull request 199, finding snippet-nested-tag"
 files_or_sections_affected: ["src/api/internal/search/domain/domain.go", "src/api/internal/search/domain/domain_test.go", "TODO.md"]
 third_party_sources_consulted: []
 license_review: "NOT APPLICABLE: no dependency added"
-closure: "open"
-human_reviewers: ["Y4NN777 (owner)"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (owner)", "Y4NN777 (owner closure, 2026-11-15; merged in #199)"]
 tests_or_evidence: ["RED then GREEN: TestSnippetIsPlainTextOfAtMost300Runes/nested_tags_do_not_rebuild_a_tag and /a_tag_hidden_by_a_tag_does_not_survive", "go test ./src/api/internal/search/... PASS", "make lint: gofmt, go vet, staticcheck, golangci-lint, sqlc vet, OpenAPI, migration policy, ESLint and Prettier PASS; ShellCheck and later steps NOT RUN (no Docker daemon in the fixer sandbox)", "make coverage: every package at 100.0% (search/domain included) except src/api/cmd/api, which fails only because the runner's GITHUB_TOKEN env var is rejected by the config check (environment, unrelated to this change)"]
 open_risks: []
 ```
@@ -1356,8 +1390,8 @@ repository_or_source_context: "pull request 199, finding snippet-markdown-rebuil
 files_or_sections_affected: ["src/api/internal/search/domain/domain.go", "src/api/internal/search/domain/domain_test.go", "TODO.md"]
 third_party_sources_consulted: []
 license_review: "NOT APPLICABLE: no dependency added"
-closure: "open"
-human_reviewers: ["Y4NN777 (owner)"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (owner)", "Y4NN777 (owner closure, 2026-11-15; merged in #199)"]
 tests_or_evidence: ["RED then GREEN: TestSnippetIsPlainTextOfAtMost300Runes/inline_code_cannot_rebuild_a_tag, /inline_code_hiding_a_tag_does_not_survive, /emphasis_cannot_rebuild_a_tag, /bold_cannot_rebuild_a_tag, /strikethrough_cannot_rebuild_a_tag", "go test ./src/api/internal/search/... PASS", "make lint: gofmt, go vet, staticcheck, golangci-lint, sqlc vet, OpenAPI, migration policy, ESLint and Prettier PASS; ShellCheck and later steps NOT RUN (no Docker daemon in the fixer sandbox)", "make coverage: every package at 100.0% (search/domain included) except src/api/cmd/api, which fails only because the runner's GITHUB_TOKEN env var is rejected by the config check (environment, unrelated to this change)"]
 open_risks: []
 ```
@@ -1373,8 +1407,8 @@ repository_or_source_context: "branch fix/review/ledger-head-sha; runs 435782793
 files_or_sections_affected: ["scripts/review-context.py", "scripts/review-comment.py", "scripts/review-gate.py", "scripts/tests/review-context_test.sh", "scripts/tests/review-comment_test.sh", "scripts/tests/review-gate_test.sh", ".github/workflows/code-review.yml", ".github/sensitive-paths.txt", ".claude/commands/delegate-review.md", "docs/quality/REVIEW_CONTEXT.md", "TODO.md"]
 third_party_sources_consulted: []
 license_review: "NOT APPLICABLE: original code, no new dependency"
-closure: "open"
-human_reviewers: ["Y4NN777 (owner, pending)"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-15; merged in #159)"]
 tests_or_evidence: ["RED: 13 of 59 tests fail against the previous script", "GREEN: bash scripts/tests/review-context_test.sh exit 0 (59 passed)", "RED then GREEN: review-context 8 new failures, review-gate 3, review-comment (no script); GREEN 68, 48 and 13 passed", "PR 159 review fixes: RED 4 (context), 3 (comment), 1 (gate); GREEN 72, 16, 49"]
 open_risks: ["each open pull request gets one more full review, since its old ledger points at a vanished merge commit", "this pull request's own review run uses develop's scripts, so it posts no comment (no review-comment.py on the base yet)", "structured output and the CI preview are NOT RUN in CI until merged"]
 ```
@@ -1390,8 +1424,8 @@ repository_or_source_context: "branch feature/solve/questions-answers; issue #67
 files_or_sections_affected: ["src/api/internal/solve/**", "db/queries/solve.sql", "src/api/internal/platform/dbgen/solve.sql.go (generated)", "src/api/internal/platform/dbgen/solve_queries_test.go", "src/api/internal/platform/pgtest/solve_integration_test.go", "src/api/internal/app/** (wiring)", "scripts/unimplemented-routes.txt", "scripts/public-routes.txt", "scripts/authz-tests.txt", "scripts/tests/authz-routes_test.sh", "TODO.md"]
 third_party_sources_consulted: []
 license_review: "NOT APPLICABLE: original code, no new dependency"
-closure: "open"
-human_reviewers: ["NICE-DEV226 (slice owner, pending)", "mibienpanjoe (reviewer, pending)"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-15; merged in #147)"]
 tests_or_evidence: ["RED: the ten TestSolve* integration tests answered 501 before the handlers; each review fix and owner decision had its own failing test first", "GREEN: make generate, test-unit, coverage (Go first-party 100.0%), test-integration-go and security exit 0"]
 open_risks: ["the unit tests of the first commit were written after the implementation (integration tests were RED first)", "snippets and question-link limits are deviations until a migration or contract PR after the freeze", "the answer cursor assumes a stable vote_score until PR 2"]
 ```
@@ -1407,8 +1441,8 @@ repository_or_source_context: "branch feature/solve/votes-accept; issue #67; TOD
 files_or_sections_affected: ["src/api/internal/solve/**", "db/queries/solve.sql", "src/api/internal/platform/dbgen/solve.sql.go (generated)", "src/api/internal/platform/dbgen/*_test.go", "src/api/internal/platform/pgtest/solve_votes_integration_test.go", "src/api/internal/app/** (wiring)", "scripts/unimplemented-routes.txt", "scripts/authz-tests.txt", "scripts/tests/authz-routes_test.sh", "TODO.md"]
 third_party_sources_consulted: []
 license_review: "NOT APPLICABLE: original code, no new dependency"
-closure: "open"
-human_reviewers: ["NICE-DEV226 (slice owner, pending)", "mibienpanjoe (reviewer, pending)"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-15; merged in #153)"]
 tests_or_evidence: ["RED first per layer (service, transport, repository, sqlc, app wiring); a mutation check removing the target lock made the duplicate-vote and reconciliation tests fail", "GREEN: concurrent accepts leave exactly one accepted answer; vote_score equals the sum of votes after a random burst; concurrent duplicate votes make one row; a removed question's answers are not votable (404)"]
 open_risks: ["answer paging can repeat or skip an answer while votes move (accepted)", "a removal racing a vote is safe by the lock but has no test (no P0 path removes content yet)"]
 ```
@@ -1424,8 +1458,8 @@ repository_or_source_context: "branch feature/build/applications (stacked on fea
 files_or_sections_affected: ["db/queries/build.sql", "src/api/internal/platform/dbgen/build.sql.go", "src/api/internal/platform/dbgen/build_applications_queries_test.go", "src/api/internal/build/**", "src/api/internal/app/server.go", "src/api/internal/app/build_internal_test.go", "src/api/internal/platform/pgtest/build_applications_integration_test.go", "scripts/unimplemented-routes.txt", "scripts/authz-tests.txt", "TODO.md", "docs/ai-usage/2026-11-14-s5-applications.md"]
 third_party_sources_consulted: []
 license_review: "NOT APPLICABLE: original code, no new dependency"
-closure: "open"
-human_reviewers: ["NICE-DEV226 (pending)"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-15; merged in #132)"]
 tests_or_evidence: ["RED: the four application pgtest tests answered 501 before the routes were wired", "GREEN: go test -race on internal/build/... and the dbgen contract test; pgtest on real PostgreSQL: lifecycle (apply, replay, duplicate 409, owner read, withdraw, re-apply reopens the row, decline, no re-apply after decline, no second decision, closed need), double click (one 201, one 409, one row), privacy and IDOR (403/404 without data, maintainer row grants nothing, third party and other project's owner 404), concurrent accept and withdraw (one 200, one 409)"]
 open_risks: ["an empty message is 422 although the contract allows it (applications_message_ck needs 1 to 2000 characters)", "the decision note is not stored (no column)", "a reopened application keeps its first created_at, so it sorts by its first application"]
 ```
@@ -1441,8 +1475,8 @@ repository_or_source_context: "branch feature/build/projects-needs"
 files_or_sections_affected: ["db/queries/build.sql", "src/api/internal/platform/dbgen/build.sql.go", "src/api/internal/platform/dbgen/build_queries_test.go", "src/api/internal/build/**", "src/api/internal/app/server.go", "src/api/internal/app/app.go", "src/api/internal/app/build_internal_test.go", "src/api/internal/platform/pgtest/build_integration_test.go", "src/api/internal/platform/pgtest/build_stack_integration_test.go", "scripts/public-routes.txt", "scripts/unimplemented-routes.txt", "scripts/authz-tests.txt", "docs/spec-kit/AUTHORIZATION_MATRIX.md", "docs/spec-kit/DATABASE_DESIGN.md", "TODO.md", "docs/ai-usage/2026-11-14-s5-projects-needs.md"]
 third_party_sources_consulted: ["GitHub REST API repository endpoint shape (name, full_name, description, private), from general knowledge; no code copied"]
 license_review: "NOT APPLICABLE: original code, no new dependency"
-closure: "open"
-human_reviewers: ["NICE-DEV226 (pending)"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-15; merged in #131)"]
 tests_or_evidence: ["RED: domain normaliser tests failed on behaviour against a stub; GitHub adapter tests failed against a stub; the Build pgtest tests answered 501 before the handler was wired", "GREEN: go test -race on internal/build/... and the dbgen contract test", "pgtest on real PostgreSQL: registration, idempotent replay, duplicate 409 without GitHub call, 422/503 mapping, link rollback, concurrent registration (one 201, one 409, one row), visibility matrix, maintainer row grants nothing, needs, filters, 10/hour import limit, pagination, EXPLAIN plans", "make generate, lint-go, lint-contract, security-authz, security-sast, docs-check, coverage (Go first-party 100.0%)"]
 open_risks: ["GitHub is called without a token: 60 requests per hour per server IP, shared by every user; a token is an owner secret and decision", "repository renames are refused (redirects are not followed); the owner re-submits the new URL", "a private project's GitHub URL still blocks the same URL for others (existence oracle accepted at P0, DATABASE_DESIGN section 10)", "the composition root, pgtest, dbgen tests and route lists are outside the S5 allowed paths as written (same as S4; owner agreement asked on the PR)"]
 ```
@@ -1458,8 +1492,8 @@ repository_or_source_context: "branch feature/intelligence/assistant; TODO S9 bl
 files_or_sections_affected: ["src/api/internal/assistant/**", "src/api/internal/app/** (wiring)", "src/api/internal/platform/pgtest/** (golden set)", "scripts/unimplemented-routes.txt", "scripts/authz-tests.txt", "docs/decisions/0012-ai-assistant-integration.md", "docs/decisions/README.md", "TODO.md"]
 third_party_sources_consulted: []
 license_review: "NOT APPLICABLE: original code, no new dependency"
-closure: "open"
-human_reviewers: ["mibienpanjoe (S9 backend reviewer, pending)"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-15; merged in #161)"]
 tests_or_evidence: ["RED: the wiring test and every review fix (17 redaction cases, nested delimiters, links in output, malformed markers, Retry-After)", "GREEN: make generate, test-unit, coverage (Go 100.0%), test-integration-go, security exit 0"]
 open_risks: ["real provider not run (V2, V4)", "unit tests of the first commit written after the code", "no UI panel yet, so the 'sent to Google' notice does not exist"]
 ```
@@ -1475,8 +1509,8 @@ repository_or_source_context: "branch feature/intelligence/web-solve-assistant; 
 files_or_sections_affected: ["src/web/src/features/search/**", "src/web/src/features/solve/**", "docs/SPEC.md", "docs/spec-kit/AUTHORIZATION_MATRIX.md", "TODO.md"]
 third_party_sources_consulted: []
 license_review: "NOT APPLICABLE: original code and text, no new dependency"
-closure: "open"
-human_reviewers: ["PANK4SS (S7 reviewer, pending)", "Y4NN777 (SPEC and matrix, H13)"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (SPEC and matrix, H13)", "Y4NN777 (owner closure, 2026-11-15; merged in #176)"]
 tests_or_evidence: ["RED: 6 tests failed before the code (recherche short query; solve notice, request, no_source, 503, English)", "GREEN: pnpm lint, format:check, typecheck, coverage exit 0 (345 tests; 96.72/90.29/96.79/97.78)"]
 open_risks: ["SPEC owner items: the disabled and limiter-failure 503 send no Retry-After although TODO S9 says 30; AI-3 and AI-5 are enforced by the prompt only; published_at never filled; series in the source enum never retrieved; ADR-0012 still PROPOSED"]
 ```
@@ -1492,8 +1526,8 @@ repository_or_source_context: "branch feature/platform/demo-seeds; TODO.md SEED 
 files_or_sections_affected: ["db/seeds/**", "mk/50-ops.mk (seed target)", "scripts/tests/seed_test.sh", "scripts/tests/make_test.sh", "src/api/internal/platform/pgtest/seed_integration_test.go", "TODO.md"]
 third_party_sources_consulted: []
 license_review: "NOT APPLICABLE: original fixture text and code, fictional names, example.org URLs, no new dependency"
-closure: "open"
-human_reviewers: ["mibienpanjoe (SEED reviewer, pending)", "Y4NN777 (mk/50-ops.mk and demo content, pending)"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-15; merged in #215)"]
 tests_or_evidence: ["RED: seed_integration_test.go fails on a scratch seed with a live-provenance user and a vote (TestSeedProvenanceIsDemo, TestSeedHasNoFakeActivity)", "GREEN: go test -race -tags integration -run Seed ./src/api/internal/platform/pgtest/ (7 tests PASS)", "scripts/tests/seed_test.sh 10 passed", "APP_ENV=local-dev make seed: 107 rows, second run 0 rows; APP_ENV=staging-test make seed refused with exit 2"]
 open_risks: ["make quality not run end to end locally: make doctor refuses pnpm 9.15.9 (pin 10.32.1)", "the zero-demo-rows check on staging-test and production-live is G7 evidence, after deployment", "path extension beyond db/seeds and mk/50-ops.mk awaits owner approval"]
 ```
@@ -1509,8 +1543,8 @@ repository_or_source_context: "branch feature/identity/web-settings-profile; iss
 files_or_sections_affected: ["src/web/src/features/settings/**", "src/web/src/app/storage.ts", "src/web/src/main.tsx", "src/web/src/i18n/messages.ts", "TODO.md"]
 third_party_sources_consulted: []
 license_review: "NOT APPLICABLE: original code, no new dependency"
-closure: "open"
-human_reviewers: ["PANK4SS (S7 reviewer, pending)"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-15; merged in #144)"]
 tests_or_evidence: ["RED: 7 tests failed first (load from the API, sign-in invite, PATCH with CSRF and JSON body, header refresh with no storage copy, server violation on the field, legacy key removal, storage unavailable)", "GREEN: pnpm lint, format:check, typecheck, coverage exit 0 (97.63/91.59/98.94/98.83)"]
 open_risks: ["the client keeps a 2-character minimum while the contract allows 1", "the start-up cleanup call in main.tsx has no test (the function it calls is tested)"]
 ```
@@ -1526,8 +1560,8 @@ repository_or_source_context: "branch fix/identity/signin-limit-race; issue #97;
 files_or_sections_affected: ["src/api/internal/identity/**", "db/queries/identity.sql", "src/api/internal/platform/dbgen/identity.sql.go (generated)", "src/api/internal/platform/dbgen/queries_test.go", "src/api/internal/app/server_identity_test.go", "src/api/internal/platform/pgtest/signin_limit_integration_test.go", "docs/quality/REVIEW_CONTEXT.md", "TODO.md"]
 third_party_sources_consulted: []
 license_review: "NOT APPLICABLE: original change, no new dependency"
-closure: "open"
-human_reviewers: ["pending PR review"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-15; merged in #139)"]
 tests_or_evidence: ["RED: TestIdentitySignInAccountLimitHoldsUnderConcurrency failed on the old code (20 password checks, want 5)", "GREEN: the same test (5 INVALID_CREDENTIALS, 15 RATE_LIMITED) and TestIdentitySignInSuccessGivesTheHitBack pass with -race"]
 open_risks: ["more than 5 simultaneous correct sign-ins to one account can briefly get 429", "a give-back skipped under a concurrent bucket change keeps the count strict, never lower"]
 ```
@@ -1543,8 +1577,8 @@ repository_or_source_context: "branch fix/solve/hidden-tag-links from develop 22
 files_or_sections_affected: ["db/queries/solve.sql", "src/api/internal/platform/dbgen/solve.sql.go (regenerated, not hand-edited)", "src/api/internal/platform/pgtest/solve_integration_test.go", "TODO.md"]
 third_party_sources_consulted: []
 license_review: "NOT APPLICABLE: original code, no new dependency"
-closure: "open"
-human_reviewers: ["pending PR review"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-15; merged in #160)"]
 tests_or_evidence: ["RED: TestSolveEditKeepsAHiddenTagLink FAILS on the pre-fix query (0 link rows left)", "GREEN: same test PASS with the scoped delete; TestSolveEditKeepsAHiddenLinkHidden still PASS; go test -race -tags integration on real PostgreSQL"]
 open_risks: ["InsertSolveQuestionTags still has no status filter: a client that guesses a hidden slug can re-link it; reads filter it anyway, same exposure as build's InsertProjectTags — accepted, noted in issue #156"]
 ```
@@ -1560,8 +1594,8 @@ repository_or_source_context: "branch feature/intelligence/web-assistant-panel; 
 files_or_sections_affected: ["src/web/src/features/search/**", "TODO.md"]
 third_party_sources_consulted: []
 license_review: "NOT APPLICABLE: original code, no new dependency"
-closure: "open"
-human_reviewers: ["PANK4SS (S7 reviewer, pending)"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-15; merged in #169)"]
 tests_or_evidence: ["RED: 10 AssistantPanel tests failed against the demo panel", "GREEN: pnpm lint, format:check, typecheck, coverage exit 0 (338 tests; 96.76/90.2/96.77/97.77)"]
 open_risks: ["the solve ask-flow panel is not built", "the real provider stays NOT RUN (V2, V4); the assistant is off until AI_ENABLED is set"]
 ```
@@ -1577,8 +1611,8 @@ repository_or_source_context: "branch feature/build/web-build-profile-pages; iss
 files_or_sections_affected: ["src/web/src/features/build/**", "src/web/src/features/profile/**", "src/web/src/app/router.tsx", "src/web/src/app/navigation.ts", "src/web/src/app/Shell.tsx", "src/web/src/app/Shell.test.tsx", "src/web/src/i18n/messages.ts", "TODO.md"]
 third_party_sources_consulted: []
 license_review: "NOT APPLICABLE: original code, no new dependency"
-closure: "open"
-human_reviewers: ["PANK4SS (S7 reviewer, pending)"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-15; merged in #177)"]
 tests_or_evidence: ["RED: BuildPage 13/13, ProjectPage 21/21, ProfilePage 15/15 failing before the routes existed", "GREEN: lint, format:check, typecheck, coverage exit 0 (424 tests; 96.07/88.82/95.45/97.06)", "skeptic review: no security finding; test gaps F1-F3 and the application replay guard F4 fixed in 61ade18"]
 open_risks: ["updateProject has no If-Match in the contract, so concurrent owner edits are last-write-wins", "an applicant can withdraw only right after applying: no operation lists a member's own applications", "axe, visual and responsive checks NOT RUN"]
 ```
@@ -1594,8 +1628,8 @@ repository_or_source_context: "branch feature/connect/web-connect; TODO E5 block
 files_or_sections_affected: ["src/web/src/features/connect/**", "src/web/src/app/router.tsx", "src/web/src/app/navigation.ts", "src/web/src/app/Shell.test.tsx", "src/web/src/features/home/**", "src/web/src/i18n/messages.ts", "TODO.md"]
 third_party_sources_consulted: []
 license_review: "NOT APPLICABLE: original code, no new dependency"
-closure: "open"
-human_reviewers: ["PANK4SS (E5 UI owner, pending)"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-15; merged in #213)"]
 tests_or_evidence: ["RED: connect, Shell and Home tests failing before the route existed", "GREEN: lint, format:check, typecheck, coverage exit 0 (476 tests; 95.97/89.2/95.63/97.01)", "#214 follow-up: githubProfileUrl helper, RED then GREEN in src/features/connect and src/features/profile"]
 open_risks: ["not exercised against the real backend", "axe, visual and responsive checks NOT RUN"]
 ```
@@ -1611,8 +1645,8 @@ repository_or_source_context: "branch feature/learn/web-ecrire; issue #124; TODO
 files_or_sections_affected: ["src/web/src/features/learn/**", "src/web/src/app/router.tsx", "src/web/src/app/Shell.tsx", "src/web/src/i18n/messages.ts", "TODO.md"]
 third_party_sources_consulted: []
 license_review: "NOT APPLICABLE: original code, no new dependency"
-closure: "open"
-human_reviewers: ["PANK4SS (S7 reviewer, pending)"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-15; merged in #154)"]
 tests_or_evidence: ["RED: 23 tests failing before the route existed", "GREEN: lint, format:check, typecheck, coverage exit 0 (329 tests; 96.75/90.26/96.86/97.79)"]
 open_risks: ["the 14 topic labels are a client constant copied from migrations 00002 and 00011 (no endpoint)", "no article page exists yet, so success links to the home page"]
 ```
@@ -1628,8 +1662,8 @@ repository_or_source_context: "branch feature/learn/web-learn-pages; issue #109 
 files_or_sections_affected: ["src/web/src/features/learn/**", "src/web/src/app/router.tsx", "src/web/src/app/navigation.ts", "src/web/src/i18n/messages.ts", "TODO.md"]
 third_party_sources_consulted: []
 license_review: "NOT APPLICABLE: original code, no new dependency"
-closure: "open"
-human_reviewers: ["PANK4SS (S7 reviewer, pending)"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-15; merged in #173)"]
 tests_or_evidence: ["RED: vitest src/features/learn 23 of 46 failing before the pages existed", "GREEN: lint, format:check, typecheck, coverage exit 0 (362 tests; 96.74/90.52/96.47/97.79)"]
 open_risks: ["/build/<id> and /profils/<username> links resolve once the build and profile pages merge", "axe, visual and responsive checks NOT RUN"]
 ```
@@ -1645,8 +1679,8 @@ repository_or_source_context: "branch feature/web/live-home-and-e4; TODO S7 page
 files_or_sections_affected: ["src/web/src/features/home/**", "src/web/src/features/discover/**", "src/web/src/features/learn/**", "src/web/src/features/solve/AskAboutLesson.test.tsx", "TODO.md"]
 third_party_sources_consulted: []
 license_review: "NOT APPLICABLE: original code, no new dependency"
-closure: "open"
-human_reviewers: ["PANK4SS (S7 reviewer, pending)"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-15; merged in #196)"]
 tests_or_evidence: ["RED before each item: failing Vitest tests (home 5, error report 7, series 1, topic feed 3); the E4 tests are characterisation tests of merged behaviour and passed at first run", "GREEN, pnpm --filter web run typecheck, lint, format:check: exit 0 each", "GREEN, pnpm --filter web run test: exit 0, 44 files, 451 tests", "pnpm --filter web run coverage: exit 1, NOT a PASS: two runs on an overloaded host (load average above 50 from other sessions) timed out 53 to 54 tests in unrelated files while the same 451 tests passed in the test run; no coverage figure was produced, re-run on a quiet host"]
 open_risks: ["error report: the contract has no duplicate code for createResourceErrorReport, so there is no duplicate message", "axe, visual and responsive checks NOT RUN"]
 ```
@@ -1662,8 +1696,8 @@ repository_or_source_context: "branch feature/solve/web-solve-question; TODO S7 
 files_or_sections_affected: ["src/web/src/features/solve/**", "src/web/src/app/router.tsx", "src/web/src/app/navigation.ts", "src/web/src/app/Shell.test.tsx", "src/web/src/i18n/messages.ts", "src/web/vite.config.ts", "TODO.md"]
 third_party_sources_consulted: []
 license_review: "NOT APPLICABLE: original code, no new dependency"
-closure: "open"
-human_reviewers: ["PANK4SS (S7 reviewer, pending)"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-15; merged in #149)"]
 tests_or_evidence: ["RED: 30 failing tests before the routes existed", "GREEN: pnpm lint, format:check, typecheck, coverage exit 0 (301 tests; 97.17/90.92/96.95/98.07)"]
 open_risks: ["the home feed's question items are demo fixtures and do not link to the question page yet", "the edit form covers title, body and tags only"]
 ```
@@ -1679,8 +1713,8 @@ repository_or_source_context: "branch fix/platform/web-ui-audit-followups; S7 we
 files_or_sections_affected: ["src/web/src/features/identity/PasswordField.tsx", "src/web/src/features/landing/LandingPage.tsx", "src/web/src/features/landing/LandingPage.test.tsx", "src/web/src/features/landing/messages.ts", "src/web/src/features/profile/Checklist.tsx", "src/web/src/features/profile/ProfilePage.tsx", "src/web/src/features/profile/ProfilePage.test.tsx", "src/web/src/features/profile/messages.ts", "src/web/src/features/settings/SettingsPage.tsx", "src/web/src/features/settings/SettingsPage.test.tsx", "src/web/src/features/solve/SolvePage.tsx", "src/web/src/features/solve/SolvePage.test.tsx", "src/web/src/features/solve/messages.ts", "src/web/src/styles/index.css", "src/web/src/theme/theme226os.ts", "src/web/vite.config.ts", "TODO.md", "docs/ai-usage/2026-11-14-web-ui-audit-followups.md"]
 third_party_sources_consulted: ["@astryxdesign/core 0.7.14 TextInput, IconButton, ProgressBar and defineTheme sources and types (node_modules), read for the missing end slot, the track colour and the component override syntax"]
 license_review: "NOT APPLICABLE: original code, no new dependency"
-closure: "open"
-human_reviewers: ["pending PR review"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-15; merged in #209)"]
 tests_or_evidence: ["Order: the fixes were written first, the tests after", "new tests: profile empty-state line (shown to a visitor, hidden when something is filled, replaced by the checklist on the own profile, details before checklist); « Réponses : 0 » hidden while « Réponses : 3 » shows; visible Thème and Langue labels", "changed test: LandingPage.test.tsx expects one « Bientôt » instead of four and links for Apprendre, Résoudre and Construire", "existing sign-in, sign-up and reset tests still drive the show-password toggle", "excalibur run: verified (lint, prettier, tsc, vitest); feature tests 356 passed", "browser: sign-in at 1280 and 390 px with and without errors (both fields 408 px, toggle clear of the error icon), landing pillars, Résoudre at 1280 and 390 px, Réglages, a bare public profile, a 0 % ProgressBar on a muted card before and after"]
 open_risks: ["the member's own checklist was not looked at signed in (no test account used); the 0 % track was checked on an isolated ProgressBar", "the password toggle position is measured in a layout effect and has no jsdom assertion (layout only)", "the dev-server sign-in 403 fix was not re-run in a browser this session; the real local-dev stack behind Traefik is not checked", "the browser checks ran on the Vite dev server with English pages (French copy is covered by the tests only), not on the built image"]
 ```
@@ -1696,8 +1730,8 @@ repository_or_source_context: "branch fix/platform/web-ui-audit; S7 web pages; f
 files_or_sections_affected: ["src/web/src/app/Shell.tsx", "src/web/src/app/Shell.test.tsx", "src/web/src/app/App.test.tsx", "src/web/src/features/NotFound.tsx", "src/web/src/features/search/SearchPage.tsx", "src/web/src/features/landing/LandingPage.tsx", "src/web/src/features/solve/QuestionPage.tsx", "src/web/src/features/learn/ArticlePage.tsx", "src/web/src/styles/index.css", "TODO.md", "docs/ai-usage/2026-11-14-web-ui-audit.md"]
 third_party_sources_consulted: ["@astryxdesign/core 0.7.14 AppShell source (node_modules), read to find how mobileNav is rendered"]
 license_review: "NOT APPLICABLE: original code, no new dependency"
-closure: "open"
-human_reviewers: ["pending PR review"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-15; merged in #194)"]
 tests_or_evidence: ["Order: the fixes were written first, the tests after; the two new tests were then run against the previous Shell.tsx and NotFound.tsx and both failed (RED), and pass with the fixes (GREEN)", "Shell.test.tsx: 'keeps the navigation in a drawer on a phone, opened by the toggle'; App.test.tsx: the not-found page sits in a main landmark", "vitest 432 passed (42 files); eslint, prettier --check and tsc --noEmit PASS", "before and after screenshots read at 390 px and 1280 px"]
 open_risks: ["the search button, the landing field width, the primary sign-in prompt and the article width have no automated test (layout only, checked on screenshots)", "the open drawer's content is not asserted in jsdom (no modal dialog there); it was checked in the browser", "checked on the Vite dev server, not on the built image behind nginx and Traefik; English pages not re-captured after the fixes"]
 ```
@@ -1713,8 +1747,8 @@ repository_or_source_context: "branch fix/web/a11y-pass-109; S7 web pages; issue
 files_or_sections_affected: ["src/web/src/features/identity/useHashToken.ts", "src/web/src/features/identity/VerifyEmailPage.tsx", "src/web/src/features/identity/ResetPasswordPage.tsx", "src/web/src/features/identity/VerifyEmailPage.test.tsx", "src/web/src/features/identity/ResetPasswordPage.test.tsx", "src/web/src/app/Shell.tsx", "src/web/src/app/Shell.test.tsx", "TODO.md", "docs/ai-usage/2026-11-15-a11y-pass-109.md"]
 third_party_sources_consulted: ["@astryxdesign/core installed type declarations and sources (DropdownMenu radio group and item, MobileNav, SideNav render context, AppShell mobileNav config), read from node_modules"]
 license_review: "NOT APPLICABLE: original code, no new dependency"
-closure: "open"
-human_reviewers: ["pending PR review"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-15; merged in #233)"]
 tests_or_evidence: ["Order: RED tests first (failing for the missing behaviour), then the fixes", "new tests: verify and reset pages react to a fragment set in a tab already open; language menuitemradio checked in both menus; drawer dialog Navigation has aria-modal true", "changed test: the English language item is now a menuitemradio", "pnpm --filter web typecheck, lint, format:check and test all exit 0 (510 tests)"]
 open_risks: ["the drawer was not re-checked in a real browser: jsdom has no showModal, so the test stands one in; focus trap and Escape rely on Astryx MobileNav, unchanged", "the drawer is now built from our own MobileNav content instead of the AppShell auto drawer; its links reuse the SideNav drawer-content mode", "no real screen reader run"]
 ```
@@ -1747,10 +1781,27 @@ repository_or_source_context: "branch fix/review/gh-error-detail; owner-approved
 files_or_sections_affected: ["scripts/review-context.py", "scripts/findings.py", "scripts/tests/review-batch-nothing_test.sh", "TODO.md", "docs/ai-usage/2026-11-15-gh-error-detail.md"]
 third_party_sources_consulted: []
 license_review: "NOT APPLICABLE: original code, no new dependency"
-closure: "open"
-human_reviewers: ["pending PR review"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-15; merged in #232)"]
 tests_or_evidence: ["RED first: six new cases in review-batch-nothing_test.sh failed before the change (502 once, GET once, 502 twice, 403, secret in stderr, GET 404)", "GREEN: review-batch-nothing_test.sh, findings-settle_test.sh, findings_test.sh, findings-batch_test.sh, review-autofix_test.sh, review-context_test.sh"]
 open_risks: ["not run against the real GitHub API: the exact stderr wording of gh for 5xx and rate limits is matched on `HTTP <status>` and a few phrases", "a write retried after a 5xx may already have gone through: the comment writes stay idempotent by marker on the next run, but a retry inside one run can duplicate a comment"]
+```
+
+## README brought up to date with develop
+
+```yaml
+date: "2026-11-15"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code, Claude Opus 5.5 (owner's lead session, no subagent)"
+purpose: "The README described develop as of the afternoon of 14 Nov. Checked against develop, the AI updated it: Connect (#193, #220), moderation (S6: API and runbook) and the local demo data (#215) are delivered; only the four P1 operations still answer 501 (scripts/unimplemented-routes.txt); /connect is live with country, language and skill filters and the member opt-in, while mentoring and spaces stay « Bientôt »; error reports and moderation are described; an optional make seed step is added; one sentence describes the automated review flow."
+repository_or_source_context: "branch docs/readme/state-2026-11-15, PR #235 (merged 2026-11-15)"
+files_or_sections_affected: ["README.md"]
+third_party_sources_consulted: []
+license_review: "NOT APPLICABLE: documentation only, no dependency"
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-15; merged in #235)"]
+tests_or_evidence: ["checked against develop and scripts/unimplemented-routes.txt; scripts/check-docs.py PASS (PR #235)"]
+open_risks: ["record written on 2026-11-15, after the merge: none was filed at the time", "the README was rewritten again by #237 the same day"]
 ```
 
 <!-- ai-usage:generated:end -->

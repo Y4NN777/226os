@@ -9,8 +9,8 @@ repository_or_source_context: "branch fix/solve/question-link-types; db/migratio
 files_or_sections_affected: ["api/openapi.yaml", "src/api/internal/platform/apigen/apigen.gen.go (generated)", "src/api/internal/platform/apispec/openapi.gen.yaml (generated)", "src/api/internal/platform/apispec/apispec_test.go", "src/web/src/api/schema.d.ts (generated)", "TODO.md"]
 third_party_sources_consulted: []
 license_review: "NOT APPLICABLE: original change, no new dependency"
-closure: "open"
-human_reviewers: ["PANK4SS (contract reviewer, R7, pending)"]
+closure: "closed by the owner (2026-11-15)"
+human_reviewers: ["Y4NN777 (owner closure, 2026-11-15; merged in #141)"]
 tests_or_evidence: ["RED: TestLinkTypesMatchTheStoredPairs failed on develop's embedded spec (LinkRef items, series present)", "GREEN: the same test and TestEmbeddedSpecMatchesContract pass after scripts/check-generated.sh generate"]
 open_risks: ["a client that sent series or a question-to-question link now fails schema validation (422) instead of the service's 422; no web code sends them"]
 ```

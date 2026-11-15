@@ -26,6 +26,83 @@ func (q *Queries) BumpSolveAnswerCount(ctx context.Context, id pgtype.UUID) (pgt
 	return id_2, err
 }
 
+const countSolveQuestions = `-- name: CountSolveQuestions :one
+WITH i AS NOT MATERIALIZED (
+  SELECT CASE WHEN $1::text IS NULL THEN NULL
+         ELSE websearch_to_tsquery('simple', f_unaccent($1::text)) END AS tsq
+),
+candidates AS (
+  SELECT q.id, q.author_id
+  FROM questions q
+  CROSS JOIN i
+  WHERE q.status = 'published'
+    AND (i.tsq IS NULL OR (querytree(i.tsq) NOT IN ('', 'T') AND q.search_document @@ i.tsq))
+    AND ($2::text IS NULL OR EXISTS (
+          SELECT 1 FROM question_tags qt JOIN tags t ON t.id = qt.tag_id AND t.status = 'active'
+          WHERE qt.question_id = q.id AND t.slug = $2::text
+            AND (SELECT count(*) FROM (
+                   SELECT 1 FROM question_tags qt2
+                   JOIN tags t2 ON t2.id = qt2.tag_id AND t2.status = 'active'
+                   WHERE qt2.question_id = q.id AND t2.slug < t.slug LIMIT 5) lower_slugs) < 5))
+    AND ($3::text IS NULL
+         OR (CASE WHEN q.accepted_answer_id IS NOT NULL THEN 'resolved'
+                  WHEN q.answer_count > 0 THEN 'answered' ELSE 'open' END) = $3::text)
+    AND ($4::text IS NULL OR q.country_code = $4::text)
+    AND ($5::text IS NULL OR q.language = $5::text)
+    -- author / answers_by: the username resolves only under the getProfile rule (active account;
+    -- profile_visibility public, members for a member, or the viewer's own profile), else to NULL, which
+    -- matches nothing: a hidden profile looks unknown.
+    AND ($6::text IS NULL OR q.author_id = (
+          SELECT ap.user_id FROM profiles ap JOIN users au ON au.id = ap.user_id AND au.status = 'active'
+          WHERE ap.username = $6::text
+            AND (ap.profile_visibility = 'public'
+                 OR ($7::uuid IS NOT NULL AND ap.profile_visibility = 'members')
+                 OR ap.user_id = $7::uuid)))
+    AND ($8::text IS NULL OR EXISTS (
+          SELECT 1 FROM answers a
+          WHERE a.question_id = q.id AND a.status = 'published' AND a.author_id = (
+            SELECT bp.user_id FROM profiles bp JOIN users bu ON bu.id = bp.user_id AND bu.status = 'active'
+            WHERE bp.username = $8::text
+              AND (bp.profile_visibility = 'public'
+                   OR ($7::uuid IS NOT NULL AND bp.profile_visibility = 'members')
+                   OR bp.user_id = $7::uuid))))
+  ORDER BY q.created_at DESC, q.id DESC
+  LIMIT (SELECT CASE WHEN tsq IS NULL THEN NULL ELSE 500 END FROM i)
+)
+SELECT count(*)::int AS total
+FROM candidates c
+JOIN profiles pr ON pr.user_id = c.author_id
+`
+
+type CountSolveQuestionsParams struct {
+	Q         pgtype.Text
+	Tag       pgtype.Text
+	State     pgtype.Text
+	Country   pgtype.Text
+	Lang      pgtype.Text
+	Author    pgtype.Text
+	ViewerID  pgtype.UUID
+	AnswersBy pgtype.Text
+}
+
+// listQuestions total: the candidates of ListSolveQuestions (same filters, same 500 cap with q) joined to
+// the byline like the page, without the keyset. Keep both predicates identical.
+func (q *Queries) CountSolveQuestions(ctx context.Context, arg CountSolveQuestionsParams) (int32, error) {
+	row := q.db.QueryRow(ctx, countSolveQuestions,
+		arg.Q,
+		arg.Tag,
+		arg.State,
+		arg.Country,
+		arg.Lang,
+		arg.Author,
+		arg.ViewerID,
+		arg.AnswersBy,
+	)
+	var total int32
+	err := row.Scan(&total)
+	return total, err
+}
+
 const deleteSolveQuestionLinks = `-- name: DeleteSolveQuestionLinks :exec
 DELETE FROM content_relations
 WHERE source_type = 'question' AND src_question_id = $1::uuid
@@ -367,31 +444,51 @@ func (q *Queries) ListSolveAnswers(ctx context.Context, arg ListSolveAnswersPara
 const listSolveQuestions = `-- name: ListSolveQuestions :many
 
 WITH i AS NOT MATERIALIZED (
-  SELECT CASE WHEN $6::text IS NULL THEN NULL
-         ELSE websearch_to_tsquery('simple', f_unaccent($6::text)) END AS tsq
+  SELECT CASE WHEN $7::text IS NULL THEN NULL
+         ELSE websearch_to_tsquery('simple', f_unaccent($7::text)) END AS tsq
 ),
 candidates AS (
   SELECT q.id, q.title, q.body_md, q.language, q.snippet, q.snippet_language, q.country_code,
          q.answer_count, q.vote_score, q.accepted_answer_id, q.created_at, q.updated_at, q.author_id,
-         (CASE WHEN i.tsq IS NULL THEN 0 ELSE ts_rank(q.search_document, i.tsq) END)::real AS rank
+         (CASE WHEN i.tsq IS NULL OR $8::text <> 'new' THEN 0
+               ELSE ts_rank(q.search_document, i.tsq) END)::real AS rank,
+         (CASE $8::text WHEN 'votes' THEN q.vote_score
+                                      WHEN 'unanswered' THEN -q.answer_count ELSE 0 END)::int AS sort_key
   FROM questions q
   CROSS JOIN i
   WHERE q.status = 'published'
     AND (i.tsq IS NULL OR (querytree(i.tsq) NOT IN ('', 'T') AND q.search_document @@ i.tsq))
-    AND ($7::text IS NULL OR EXISTS (
+    AND ($9::text IS NULL OR EXISTS (
           SELECT 1 FROM question_tags qt JOIN tags t ON t.id = qt.tag_id AND t.status = 'active'
-          WHERE qt.question_id = q.id AND t.slug = $7::text
+          WHERE qt.question_id = q.id AND t.slug = $9::text
             -- only a tag the question displays (SolveQuestionTags: the first 5 active by slug): fewer than
             -- 5 active tags sort before it
             AND (SELECT count(*) FROM (
                    SELECT 1 FROM question_tags qt2
                    JOIN tags t2 ON t2.id = qt2.tag_id AND t2.status = 'active'
                    WHERE qt2.question_id = q.id AND t2.slug < t.slug LIMIT 5) lower_slugs) < 5))
-    AND ($8::text IS NULL
+    AND ($10::text IS NULL
          OR (CASE WHEN q.accepted_answer_id IS NOT NULL THEN 'resolved'
-                  WHEN q.answer_count > 0 THEN 'answered' ELSE 'open' END) = $8::text)
-    AND ($9::text IS NULL OR q.country_code = $9::text)
-    AND ($10::text IS NULL OR q.language = $10::text)
+                  WHEN q.answer_count > 0 THEN 'answered' ELSE 'open' END) = $10::text)
+    AND ($11::text IS NULL OR q.country_code = $11::text)
+    AND ($12::text IS NULL OR q.language = $12::text)
+    -- author / answers_by: the username resolves only under the getProfile rule (active account;
+    -- profile_visibility public, members for a member, or the viewer's own profile), else to NULL, which
+    -- matches nothing: a hidden profile looks unknown.
+    AND ($13::text IS NULL OR q.author_id = (
+          SELECT ap.user_id FROM profiles ap JOIN users au ON au.id = ap.user_id AND au.status = 'active'
+          WHERE ap.username = $13::text
+            AND (ap.profile_visibility = 'public'
+                 OR ($1::uuid IS NOT NULL AND ap.profile_visibility = 'members')
+                 OR ap.user_id = $1::uuid)))
+    AND ($14::text IS NULL OR EXISTS (
+          SELECT 1 FROM answers a
+          WHERE a.question_id = q.id AND a.status = 'published' AND a.author_id = (
+            SELECT bp.user_id FROM profiles bp JOIN users bu ON bu.id = bp.user_id AND bu.status = 'active'
+            WHERE bp.username = $14::text
+              AND (bp.profile_visibility = 'public'
+                   OR ($1::uuid IS NOT NULL AND bp.profile_visibility = 'members')
+                   OR bp.user_id = $1::uuid))))
   ORDER BY q.created_at DESC, q.id DESC
   LIMIT (SELECT CASE WHEN tsq IS NULL THEN NULL ELSE 500 END FROM i)
 )
@@ -401,28 +498,33 @@ SELECT c.id, c.title, c.body_md, c.language, COALESCE(c.snippet, '')::text AS sn
        c.author_id, pr.username AS author_username, pr.display_name AS author_display_name,
        COALESCE(CASE WHEN pr.profile_visibility = 'public' AND pr.country_visibility = 'public'
              THEN pr.country_code END, '')::text AS author_country,
-       c.rank,
+       c.rank, c.sort_key,
        COALESCE((SELECT v.value FROM votes v WHERE v.user_id = $1::uuid AND v.target_type = 'question' AND v.target_id = c.id), 0)::int AS viewer_vote
 FROM candidates c
 JOIN profiles pr ON pr.user_id = c.author_id
 WHERE ($2::timestamptz IS NULL
-       OR (c.rank, c.created_at, c.id)
-          < ($3::real, $2::timestamptz, $4::uuid))
-ORDER BY c.rank DESC, c.created_at DESC, c.id DESC
-LIMIT $5
+       OR (c.rank, c.sort_key, c.created_at, c.id)
+          < ($3::real, $4::int, $2::timestamptz,
+             $5::uuid))
+ORDER BY c.rank DESC, c.sort_key DESC, c.created_at DESC, c.id DESC
+LIMIT $6
 `
 
 type ListSolveQuestionsParams struct {
 	ViewerID     pgtype.UUID
 	AfterCreated pgtype.Timestamptz
 	AfterRank    float32
+	AfterSortKey int32
 	AfterID      pgtype.UUID
 	RowLimit     int32
 	Q            pgtype.Text
+	Sort         string
 	Tag          pgtype.Text
 	State        pgtype.Text
 	Country      pgtype.Text
 	Lang         pgtype.Text
+	Author       pgtype.Text
+	AnswersBy    pgtype.Text
 }
 
 type ListSolveQuestionsRow struct {
@@ -443,6 +545,7 @@ type ListSolveQuestionsRow struct {
 	AuthorDisplayName string
 	AuthorCountry     string
 	Rank              float32
+	SortKey           int32
 	ViewerVote        int32
 }
 
@@ -458,20 +561,27 @@ type ListSolveQuestionsRow struct {
 // websearch_to_tsquery('simple', f_unaccent(q)), a query with no positive term reads none), then newest,
 // then id. Bounded like S2 search (ADR-0005): only the 500 newest matches are ranked, so ts_rank never
 // scores every row of a very common term and the candidate set is the same on every page. Without q the
-// rank is 0, there is no cap, and the order is newest first. The keyset is (rank, created_at, id), all
-// descending; rank is the same real the cursor carried, so the comparison is exact.
+// rank is 0, there is no cap, and the order is newest first. The keyset is (rank, sort_key, created_at, id),
+// all descending; rank is the same real the cursor carried, so the comparison is exact. listQuestions sort:
+// new ranks as above with sort_key 0; votes and unanswered set rank to 0 and sort_key to vote_score or
+// -answer_count (fewest answers first), so every order stays one descending row comparison. The 500 cap
+// with q keeps the newest matches whatever the sort; the sort is bound to the cursor.
 func (q *Queries) ListSolveQuestions(ctx context.Context, arg ListSolveQuestionsParams) ([]ListSolveQuestionsRow, error) {
 	rows, err := q.db.Query(ctx, listSolveQuestions,
 		arg.ViewerID,
 		arg.AfterCreated,
 		arg.AfterRank,
+		arg.AfterSortKey,
 		arg.AfterID,
 		arg.RowLimit,
 		arg.Q,
+		arg.Sort,
 		arg.Tag,
 		arg.State,
 		arg.Country,
 		arg.Lang,
+		arg.Author,
+		arg.AnswersBy,
 	)
 	if err != nil {
 		return nil, err
@@ -498,6 +608,7 @@ func (q *Queries) ListSolveQuestions(ctx context.Context, arg ListSolveQuestions
 			&i.AuthorDisplayName,
 			&i.AuthorCountry,
 			&i.Rank,
+			&i.SortKey,
 			&i.ViewerVote,
 		); err != nil {
 			return nil, err

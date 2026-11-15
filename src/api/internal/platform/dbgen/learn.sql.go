@@ -11,6 +11,64 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countLearnArticles = `-- name: CountLearnArticles :one
+SELECT count(*)::int AS total
+FROM learn_articles a
+JOIN profiles pr ON pr.user_id = a.author_id
+WHERE a.status = 'published'
+  AND ($1::text IS NULL OR a.kind = $1)
+  AND ($2::text IS NULL OR a.topic_code = $2)
+  AND ($3::text IS NULL OR a.level = $3)
+  AND ($4::text IS NULL OR a.language = $4)
+  AND ($5::text IS NULL OR a.search_document @@ websearch_to_tsquery('simple', f_unaccent($5::text)))
+`
+
+type CountLearnArticlesParams struct {
+	Kind  pgtype.Text
+	Topic pgtype.Text
+	Level pgtype.Text
+	Lang  pgtype.Text
+	Q     pgtype.Text
+}
+
+// listLearnArticles total: the WHERE of ListLearnArticles without the keyset. Keep both identical.
+func (q *Queries) CountLearnArticles(ctx context.Context, arg CountLearnArticlesParams) (int32, error) {
+	row := q.db.QueryRow(ctx, countLearnArticles,
+		arg.Kind,
+		arg.Topic,
+		arg.Level,
+		arg.Lang,
+		arg.Q,
+	)
+	var total int32
+	err := row.Scan(&total)
+	return total, err
+}
+
+const countTrainingSeries = `-- name: CountTrainingSeries :one
+SELECT count(*)::int AS total
+FROM training_series s
+JOIN profiles pr ON pr.user_id = s.author_id
+WHERE s.status = 'published'
+  AND ($1::text IS NULL OR s.topic_code = $1)
+  AND ($2::text IS NULL OR s.level = $2)
+  AND ($3::text IS NULL OR s.language = $3)
+`
+
+type CountTrainingSeriesParams struct {
+	Topic pgtype.Text
+	Level pgtype.Text
+	Lang  pgtype.Text
+}
+
+// listTrainingSeries total: the WHERE of ListTrainingSeries without the keyset. Keep both identical.
+func (q *Queries) CountTrainingSeries(ctx context.Context, arg CountTrainingSeriesParams) (int32, error) {
+	row := q.db.QueryRow(ctx, countTrainingSeries, arg.Topic, arg.Level, arg.Lang)
+	var total int32
+	err := row.Scan(&total)
+	return total, err
+}
+
 const ensureTags = `-- name: EnsureTags :exec
 INSERT INTO tags (slug, label, created_by)
 SELECT s, s, $1::uuid FROM unnest($2::text[]) AS s

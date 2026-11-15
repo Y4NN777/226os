@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 	"errors"
+	"math"
 	"slices"
 	"strconv"
 	"strings"
@@ -48,6 +49,7 @@ type Store interface {
 	UpdateProject(ctx context.Context, id, actorID string, p domain.ProjectPatch, authorize func(domain.Access) error) error
 	GetProject(ctx context.Context, id, viewerID string) (domain.Project, error)
 	ListProjects(ctx context.Context, q domain.ProjectQuery) ([]domain.Project, error)
+	CountProjects(ctx context.Context, q domain.ProjectQuery) (int, error)
 	ProjectAccess(ctx context.Context, id string) (domain.Access, error)
 	CreateNeed(ctx context.Context, in domain.NewNeed, authorize func(domain.Access) error) (domain.Need, error)
 	ListNeeds(ctx context.Context, q domain.NeedQuery) ([]domain.Need, error)
@@ -75,26 +77,31 @@ type Limiter interface {
 
 // ProjectListRequest is listProjects. Nil means unset; nil Limit means 20.
 type ProjectListRequest struct {
-	Q, Technology, Skill *string
-	OpenNeeds            *bool
-	Cursor               string
-	Limit                *int
-	ClientIP             string
+	Q, Technology, Skill    *string
+	Stage, Country, License *string
+	Sort                    *string // updated (default), created or needs
+	Owner                   *string // a username
+	OpenNeeds               *bool
+	Cursor                  string
+	Limit                   *int
+	ClientIP                string
 }
 
-// CreateProjectRequest is the createProject body. Nil Visibility means public.
+// CreateProjectRequest is the createProject body. Nil Visibility means public, nil Stage means idea.
 type CreateProjectRequest struct {
 	GitHubURL, Lang         string
 	Description, Visibility *string
+	Stage, License, Country *string
 	Technologies            []string
 	Links                   []domain.LinkRef
 }
 
 // UpdateProjectRequest is the updateProject merge patch; nil means unchanged.
 type UpdateProjectRequest struct {
-	Description, Visibility *string
-	Technologies            *[]string
-	Links                   []domain.LinkRef
+	Description, Visibility, Stage *string
+	License, Country               *domain.Clearable
+	Technologies                   *[]string
+	Links                          []domain.LinkRef
 }
 
 // NeedListRequest is listContributionNeeds. Nil Limit means 20.
@@ -109,10 +116,12 @@ type CreateNeedRequest struct {
 	Skills                   []string
 }
 
-// ProjectPage is one project page. NextCursor is empty on the last page.
+// ProjectPage is one project page. NextCursor is empty on the last page; Total counts every project the
+// same filters and viewer match, whatever the cursor.
 type ProjectPage struct {
 	Items      []domain.Project
 	NextCursor string
+	Total      int
 }
 
 // NeedPage is one need page. NextCursor is empty on the last page.
@@ -152,30 +161,75 @@ func (s *Service) ListProjects(ctx context.Context, sub subject.Subject, req Pro
 	}
 	query := domain.ProjectQuery{
 		ViewerID: sub.UserID, Q: q, Technology: deref(req.Technology), Skill: deref(req.Skill),
-		OpenNeeds: req.OpenNeeds != nil && *req.OpenNeeds, Limit: size + 1,
+		Stage: deref(req.Stage), Country: deref(req.Country), License: deref(req.License), Owner: deref(req.Owner),
+		OpenNeeds: req.OpenNeeds != nil && *req.OpenNeeds, Sort: projectSort(req.Sort), Limit: size + 1,
 	}
-	hash := lengthPrefixed("project", query.ViewerID, query.Q, query.Technology, query.Skill, strconv.FormatBool(query.OpenNeeds))
+	hash := lengthPrefixed("project", query.ViewerID, query.Q, query.Technology, query.Skill, strconv.FormatBool(query.OpenNeeds),
+		query.Stage, query.Country, query.License, query.Sort, query.Owner)
+	filters := query
+	filters.Limit = 0
 	if req.Cursor != "" {
-		at, id, err := s.decode(req.Cursor, hash)
+		p, err := s.cursors.Decode(req.Cursor, hash)
 		if err != nil {
 			return ProjectPage{}, err
 		}
-		query.AfterPublished, query.AfterID = &at, id
+		needs, at, ok := decodeProjectKey(p.Sort)
+		if _, idErr := uuid.Parse(p.ID); !ok || idErr != nil {
+			return ProjectPage{}, invalidCursor()
+		}
+		query.AfterNeeds, query.AfterAt, query.AfterID = needs, &at, p.ID
 	}
 	rows, err := s.store.ListProjects(ctx, query)
 	if err != nil {
 		return ProjectPage{}, apperr.Wrap(apperr.CodeInternal, err)
 	}
-	page := ProjectPage{Items: rows}
+	total, err := s.store.CountProjects(ctx, filters)
+	if err != nil {
+		return ProjectPage{}, apperr.Wrap(apperr.CodeInternal, err)
+	}
+	page := ProjectPage{Items: rows, Total: total}
 	if len(rows) > size {
 		page.Items = rows[:size]
 		last := page.Items[size-1]
-		page.NextCursor = s.encode(last.PublishedAt, last.ID, hash)
+		page.NextCursor = s.cursors.Encode(cursor.Payload{Sort: encodeProjectKey(last, query.Sort), ID: last.ID, FilterHash: hash})
 	}
 	if page.Items == nil {
 		page.Items = []domain.Project{}
 	}
 	return page, nil
+}
+
+// projectSort is the order of a listProjects request: created or needs when asked, updated otherwise.
+func projectSort(v *string) string {
+	switch s := deref(v); s {
+	case domain.SortCreated, domain.SortNeeds:
+		return s
+	default:
+		return domain.SortUpdated
+	}
+}
+
+// encodeProjectKey packs the keyset of the last row: the open-needs count (0 outside the needs order)
+// and the time of the order (created_at for created, updated_at otherwise).
+func encodeProjectKey(p domain.Project, sort string) string {
+	needs, at := 0, p.UpdatedAt
+	switch sort {
+	case domain.SortNeeds:
+		needs = p.OpenNeeds
+	case domain.SortCreated:
+		at = p.CreatedAt
+	}
+	return strconv.Itoa(needs) + ":" + at.UTC().Format(time.RFC3339Nano)
+}
+
+func decodeProjectKey(key string) (int, time.Time, bool) {
+	n, rest, found := strings.Cut(key, ":")
+	needs, errNeeds := strconv.Atoi(n)
+	at, errAt := time.Parse(time.RFC3339Nano, rest)
+	if !found || errNeeds != nil || errAt != nil || needs < 0 || needs > math.MaxInt32 {
+		return 0, time.Time{}, false
+	}
+	return needs, at, true
 }
 
 // GetProject returns a published project; a private one only to its owner (404 otherwise).
@@ -211,6 +265,10 @@ func (s *Service) CreateProject(ctx context.Context, sub subject.Subject, req Cr
 	if req.Visibility != nil {
 		visibility = *req.Visibility
 	}
+	stage := domain.StageIdea
+	if req.Stage != nil {
+		stage = *req.Stage
+	}
 	if err := s.hit(ctx, writeScope, sub.UserID, writeLimit, writeWindow); err != nil {
 		return domain.Project{}, err
 	}
@@ -235,6 +293,7 @@ func (s *Service) CreateProject(ctx context.Context, sub subject.Subject, req Cr
 	id, err := s.store.CreateProject(ctx, domain.NewProject{
 		OwnerID: sub.UserID, Name: repo.Name, Summary: summary(repo), Description: description, Lang: req.Lang,
 		GitHubURL: url, Visibility: visibility, Technologies: dedupe(req.Technologies), Links: links,
+		Stage: stage, License: deref(req.License), Country: deref(req.Country),
 	})
 	if err != nil {
 		return domain.Project{}, storeErr(err)
@@ -255,7 +314,10 @@ func (s *Service) UpdateProject(ctx context.Context, sub subject.Subject, id str
 	if err != nil {
 		return domain.Project{}, err
 	}
-	patch := domain.ProjectPatch{Description: req.Description, Visibility: req.Visibility, Links: links}
+	patch := domain.ProjectPatch{
+		Description: req.Description, Visibility: req.Visibility, Stage: req.Stage, Links: links,
+		License: req.License, Country: req.Country,
+	}
 	if req.Technologies != nil {
 		techs := dedupe(*req.Technologies)
 		patch.Technologies = &techs
@@ -494,6 +556,10 @@ func storeErr(err error) error {
 		return stateConflict("The application is no longer pending.")
 	case errors.Is(err, domain.ErrLinkTarget):
 		return invalid("/links", "invalid_value", "each link must point to a published, public item.")
+	case errors.Is(err, domain.ErrUnknownCountry):
+		return invalid("/country_code", "invalid_value", "country_code must be a known country.")
+	case errors.Is(err, domain.ErrStageNeedsRepo):
+		return invalid("/stage", "invalid_value", "a project without a GitHub repository stays at the idea stage.")
 	default:
 		return apperr.Wrap(apperr.CodeInternal, err)
 	}
