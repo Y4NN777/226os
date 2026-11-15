@@ -41,10 +41,12 @@ type limiter struct {
 	byMember      map[string]int
 	perMember     map[string]bool
 	giveBackFails bool
+	gaveAt        []time.Time // the hit time each give-back was told
 }
 
 // GiveBack releases one hit of a per-member scope, like the real limiter: never below zero.
-func (l *limiter) GiveBack(_ context.Context, scope, value string, _ time.Duration) error {
+func (l *limiter) GiveBack(_ context.Context, scope, value string, _ time.Duration, hitAt time.Time) error {
+	l.gaveAt = append(l.gaveAt, hitAt)
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	if l.giveBackFails {
@@ -315,6 +317,10 @@ func TestAskLimits(t *testing.T) {
 		}
 		if n := r.lim.byMember["assistant:share|"+member.UserID]; n != 0 {
 			t.Fatalf("share used = %d after refused retries, want 0", n)
+		}
+		// The give-back names the time of the share hit, taken before it, not the time it runs.
+		if len(r.lim.gaveAt) != 5 || r.lim.gaveAt[0].IsZero() || time.Since(r.lim.gaveAt[0]) > time.Minute {
+			t.Fatalf("give-back times %v", r.lim.gaveAt)
 		}
 		r.lim.hits["assistant:global"] = 0 // the global window resets
 		for i := 1; i <= 3; i++ {

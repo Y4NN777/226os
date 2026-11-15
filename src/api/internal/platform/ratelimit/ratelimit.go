@@ -106,18 +106,19 @@ func (l *Limiter) Hit(ctx context.Context, scope, value string, limit int, windo
 	return true, 0, nil
 }
 
-// GiveBack releases one hit of the fixed window that contains now, the window the matching Hit used (a
-// window that has just ended is a no-op: that bucket no longer counts). It is one atomic statement and
-// never takes a bucket below zero. A caller that gives back a hit whose work did not happen treats an
-// error as "keep the hit": the count then only errs on the strict side.
-func (l *Limiter) GiveBack(ctx context.Context, scope, value string, window time.Duration) error {
+// GiveBack releases one hit of the fixed window that contains hitAt, the time the caller took before the
+// matching Hit, so it targets the bucket the hit counted in even when it runs after the window ended: the
+// next window is never touched. It is one atomic statement and never takes a bucket below zero. If the hit
+// itself landed just after a boundary that hitAt precedes, the give-back finds no row to release and the
+// caller keeps the hit: that only errs on the strict side. A caller treats an error as "keep the hit".
+func (l *Limiter) GiveBack(ctx context.Context, scope, value string, window time.Duration, hitAt time.Time) error {
 	if window <= 0 || window > maxWindow {
 		return errors.New("rate limit: invalid window")
 	}
 	ctx, cancel := context.WithTimeout(ctx, callTimeout)
 	defer cancel()
 	err := l.q.GiveBackRateBucket(ctx, dbgen.GiveBackRateBucketParams{
-		Scope: scope, KeyHash: l.bucketKey(scope, value), WindowStart: pgtype.Timestamptz{Time: l.now().Truncate(window), Valid: true},
+		Scope: scope, KeyHash: l.bucketKey(scope, value), WindowStart: pgtype.Timestamptz{Time: hitAt.Truncate(window), Valid: true},
 	})
 	if err != nil {
 		return fmt.Errorf("rate limit give back: %w", err)

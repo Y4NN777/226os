@@ -107,7 +107,7 @@ func TestGiveBackTargetsTheBucketOfTheHit(t *testing.T) {
 	if _, _, err := l.Hit(t.Context(), "assistant:share", "user-1", 3, time.Hour); err != nil {
 		t.Fatal(err)
 	}
-	if err := l.GiveBack(t.Context(), "assistant:share", "user-1", time.Hour); err != nil {
+	if err := l.GiveBack(t.Context(), "assistant:share", "user-1", time.Hour, t0); err != nil {
 		t.Fatal(err)
 	}
 	got, hit := q.gave[0], q.hitArgs[0]
@@ -119,14 +119,34 @@ func TestGiveBackTargetsTheBucketOfTheHit(t *testing.T) {
 	}
 }
 
+// A give-back that runs after the hour boundary still releases the window the hit counted in, and leaves the
+// next window alone (#274 note-giveback-window-edge).
+func TestGiveBackAfterTheBoundaryTargetsTheWindowOfTheHit(t *testing.T) {
+	q := &fakeQueries{hits: []int32{1}}
+	l := newTest(q, &bytes.Buffer{}) // the clock is t0, in the window starting 10:00
+	if _, _, err := l.Hit(t.Context(), "assistant:share", "user-1", 3, time.Hour); err != nil {
+		t.Fatal(err)
+	}
+	l.now = func() time.Time { return t0.Add(time.Hour) } // 11:00:20, the next window
+	if err := l.GiveBack(t.Context(), "assistant:share", "user-1", time.Hour, t0); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := q.gave[0].WindowStart.Time, t0.Truncate(time.Hour); !got.Equal(want) {
+		t.Fatalf("give back window = %v, want the window of the hit %v", got, want)
+	}
+	if !q.gave[0].WindowStart.Time.Equal(q.hitArgs[0].WindowStart.Time) {
+		t.Fatal("the give back must target the bucket the hit counted in")
+	}
+}
+
 func TestGiveBackErrors(t *testing.T) {
 	l := newTest(&fakeQueries{giveErr: errBoom}, &bytes.Buffer{})
-	err := l.GiveBack(t.Context(), "assistant:share", "user-1", time.Hour)
+	err := l.GiveBack(t.Context(), "assistant:share", "user-1", time.Hour, t0)
 	if !errors.Is(err, errBoom) {
 		t.Fatalf("err = %v", err)
 	}
 	for _, w := range []time.Duration{0, 2 * time.Hour} {
-		if err := l.GiveBack(t.Context(), "assistant:share", "user-1", w); err == nil {
+		if err := l.GiveBack(t.Context(), "assistant:share", "user-1", w, t0); err == nil {
 			t.Fatalf("window %v accepted", w)
 		}
 	}

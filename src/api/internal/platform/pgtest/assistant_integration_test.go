@@ -453,7 +453,7 @@ func TestAssistantShareIsNotBurnedByAGlobal503(t *testing.T) {
 // downLimiter is a limiter whose store is down.
 type downLimiter struct{}
 
-func (downLimiter) GiveBack(context.Context, string, string, time.Duration) error {
+func (downLimiter) GiveBack(context.Context, string, string, time.Duration, time.Time) error {
 	return io.ErrClosedPipe
 }
 

@@ -94,7 +94,7 @@ func TestRetrieveTakesOneHitPerGroupInTurnAndCapsText(t *testing.T) {
 
 type deny struct{}
 
-func (deny) GiveBack(context.Context, string, string, time.Duration) error { return nil }
+func (deny) GiveBack(context.Context, string, string, time.Duration, time.Time) error { return nil }
 
 func (deny) Hit(context.Context, string, string, int, time.Duration) (bool, time.Duration, error) {
 	return false, time.Minute, nil
