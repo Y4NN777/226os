@@ -202,6 +202,8 @@ function AccountArea({ onSignOut }: { onSignOut: () => void }) {
         <LanguageGroup />
         <DropdownMenuDivider />
         <ThemeGroup />
+        <DropdownMenuDivider />
+        <DropdownMenuItem label={t('account.settings')} href="/parametres" />
       </DropdownMenu>
       <span className="shell-auth">
         <Button label={t('account.signIn')} href="/connexion" variant="ghost" />
