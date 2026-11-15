@@ -1,88 +1,28 @@
 /* Public landing (`/` for a visitor). The header, the hero, the closing band and the footer are
    always dark ("Graphite & Lime" night, `.lp-dark`); the sections between follow the visitor's
-   theme through the Astryx tokens. Geist is self-hosted (OFL-1.1, public/fonts) and scoped to
-   `.lp`. Motion is transform, opacity and stroke-dashoffset only; it stops under
+   theme through the Astryx tokens. Geist is self-hosted (OFL-1.1, public/fonts) for the product.
+   Reveal motion is transform, opacity and stroke-dashoffset only; it stops under
    prefers-reduced-motion, and the hero loops pause while the hero is off screen.
 
-   Scales used everywhere on this page (nothing else):
-   - space: 4 8 12 16 24 32 48 64 96 128 px (`--lp-sp-*`), one section rhythm (`--lp-section-y`);
-   - radius: 12 px cards and tiles (--radius-container), 28 px photos and banners (--radius-page),
-     circles for portraits, and ONE button radius (--radius-full) for every button and link-button. */
-
-@font-face {
-  font-family: 'Geist';
-  src: url('/fonts/Geist-Variable.woff2') format('woff2');
-  font-weight: 100 900;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: 'Geist Fallback';
-  src: local('Arial');
-  size-adjust: 104%;
-  ascent-override: 92%;
-  descent-override: 24%;
-  line-gap-override: 0%;
-}
+   Shared scales used everywhere on this page (nothing else):
+   - space: 4 8 12 16 24 32 48 64 96 128 px (`--sp-*`), one section rhythm (`--section-y`);
+   - radius: 12 px cards and tiles, 28 px photos and banners, circles for portraits, and ONE full
+     button radius for every button and link-button. */
 
 .lp {
-  --lp-font: 'Geist', 'Geist Fallback', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  --lp-ease-reveal: cubic-bezier(0.16, 1, 0.3, 1);
-  --lp-ease-float: cubic-bezier(0.45, 0, 0.55, 1);
-  --lp-ease-draw: cubic-bezier(0.65, 0, 0.35, 1);
-
-  --lp-sp-1: 4px;
-  --lp-sp-2: 8px;
-  --lp-sp-3: 12px;
-  --lp-sp-4: 16px;
-  --lp-sp-5: 24px;
-  --lp-sp-6: 32px;
-  --lp-sp-7: 48px;
-  --lp-sp-8: 64px;
-  --lp-sp-9: 96px;
-  --lp-sp-10: 128px;
-  --lp-gutter: var(--lp-sp-5);
-  --lp-section-y: var(--lp-sp-8);
-  --lp-max: 1200px;
-  --lp-r-card: var(--radius-container);
-  --lp-r-media: var(--radius-page);
-  --lp-r-button: var(--radius-full);
   --lp-z-header: 10;
-
-  /* Night surfaces. */
-  --lp-canvas: #0b0f0c;
-  --lp-text: #f4f7ef;
-  --lp-text-2: #c1ccb9;
-  --lp-lime: #bde874;
-  --lp-lime-hi: #d9f5a8;
-  --lp-on-lime: #16220e;
-  --lp-focus: #9cc4ff;
-  --lp-line: rgb(244 247 239 / 0.4);
-  --lp-hairline: rgb(244 247 239 / 0.12);
 
   display: block;
   min-width: 0;
   /* Items waiting to slide in sit off to the side: never a page-level horizontal scroll. */
   overflow-x: clip;
-  font-family: var(--lp-font);
+  font-family: var(--font-product);
   color: var(--color-text-primary);
-}
-@media (min-width: 768px) {
-  .lp {
-    --lp-section-y: var(--lp-sp-9);
-    --lp-gutter: var(--lp-sp-6);
-  }
-}
-@media (min-width: 1280px) {
-  .lp {
-    --lp-section-y: var(--lp-sp-10);
-    --lp-gutter: var(--lp-sp-7);
-  }
 }
 
 /* The global text rules set their own family on these tags: ask for Geist explicitly. */
 .lp :where(p, a, span, li, strong, time, h1, h2, h3, button) {
-  font-family: var(--lp-font);
+  font-family: var(--font-product);
 }
 .lp :where(h1, h2, h3, p, ul, ol) {
   margin: 0;
@@ -116,11 +56,11 @@ html.lp-noscroll::-webkit-scrollbar {
   position: relative;
   isolation: isolate;
   overflow: clip;
-  background: var(--lp-canvas);
-  color: var(--lp-text);
+  background: var(--color-night-canvas);
+  color: var(--color-night-text);
 }
 .lp-dark :where(a, button):focus-visible {
-  outline: 2px solid var(--lp-focus);
+  outline: 2px solid var(--color-night-focus);
   outline-offset: 3px;
 }
 /* A light grain over the night surfaces, against flat digital gradients. */
@@ -138,13 +78,13 @@ html.lp-noscroll::-webkit-scrollbar {
 .lp-wrap {
   box-sizing: border-box;
   width: 100%;
-  max-width: calc(var(--lp-max) + var(--lp-gutter) * 2);
+  max-width: calc(var(--content-max) + var(--page-gutter) * 2);
   margin-inline: auto;
-  padding-inline: var(--lp-gutter);
+  padding-inline: var(--page-gutter);
 }
 .lp-section {
   position: relative;
-  padding-block: var(--lp-section-y);
+  padding-block: var(--section-y);
   scroll-margin-top: 72px;
 }
 
@@ -154,33 +94,33 @@ html.lp-noscroll::-webkit-scrollbar {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: var(--lp-sp-2);
+  gap: var(--sp-2);
   box-sizing: border-box;
   border: 1px solid transparent;
-  border-radius: var(--lp-r-button);
-  background: var(--lp-lime);
-  color: var(--lp-on-lime);
+  border-radius: var(--radius-button);
+  background: var(--color-night-accent);
+  color: var(--color-night-on-accent);
   font-weight: 600;
   text-decoration: none;
   white-space: nowrap;
   cursor: pointer;
   transition:
-    background-color 175ms ease,
-    transform 175ms ease;
+    background-color var(--duration-fast) ease,
+    transform var(--duration-fast) ease;
 }
 .lp-btn {
   min-height: 44px;
-  padding: 0 var(--lp-sp-5);
+  padding: 0 var(--sp-5);
   font-size: 0.9375rem;
 }
 .lp-cta {
   min-height: 56px;
-  padding: 0 var(--lp-sp-2) 0 var(--lp-sp-6);
+  padding: 0 var(--sp-2) 0 var(--sp-6);
   font-size: 1.0625rem;
 }
 .lp-btn:hover,
 .lp-cta:hover {
-  background: var(--lp-lime-hi);
+  background: var(--color-night-accent-strong);
 }
 .lp-btn:active,
 .lp-cta:active {
@@ -191,10 +131,10 @@ html.lp-noscroll::-webkit-scrollbar {
   place-items: center;
   width: 40px;
   height: 40px;
-  border-radius: var(--lp-r-button);
-  background: var(--lp-on-lime);
-  color: var(--lp-lime);
-  transition: transform 175ms ease;
+  border-radius: var(--radius-button);
+  background: var(--color-night-on-accent);
+  color: var(--color-night-accent);
+  transition: transform var(--duration-fast) ease;
 }
 .lp-cta-arrow svg {
   width: 20px;
@@ -209,8 +149,8 @@ html.lp-noscroll::-webkit-scrollbar {
 }
 .lp-btn-quiet {
   background: transparent;
-  border-color: var(--lp-line);
-  color: var(--lp-text);
+  border-color: var(--color-night-line);
+  color: var(--color-night-text);
 }
 .lp-btn-quiet:hover {
   background: rgb(244 247 239 / 0.08);
@@ -224,14 +164,12 @@ html.lp-noscroll::-webkit-scrollbar {
   /* A soft shade under the bar keeps its text readable over the globe's bright rim. */
   background: linear-gradient(to bottom, rgb(11 15 12 / 0.92), rgb(11 15 12 / 0));
   transition:
-    background-color 300ms ease,
-    box-shadow 300ms ease;
+    background-color var(--duration-base) ease,
+    box-shadow var(--duration-base) ease;
 }
 .lh[data-scrolled='true'] {
   background: rgb(11 15 12 / 0.78);
-  box-shadow:
-    0 1px 0 rgb(244 247 239 / 0.08),
-    0 16px 32px -20px rgb(0 0 0 / 0.7);
+  box-shadow: var(--elevation-night-header);
   -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
 }
@@ -245,12 +183,12 @@ html.lp-noscroll::-webkit-scrollbar {
 }
 @supports not (backdrop-filter: blur(1px)) {
   .lh[data-scrolled='true'] {
-    background: var(--lp-canvas);
+    background: var(--color-night-canvas);
   }
 }
 @media (prefers-reduced-transparency: reduce) {
   .lh[data-scrolled='true'] {
-    background: var(--lp-canvas);
+    background: var(--color-night-canvas);
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
   }
@@ -264,12 +202,12 @@ html.lp-noscroll::-webkit-scrollbar {
 .lh-bar {
   display: flex;
   align-items: center;
-  gap: var(--lp-sp-4);
+  gap: var(--sp-4);
   box-sizing: border-box;
-  max-width: calc(1280px + var(--lp-gutter) * 2);
+  max-width: calc(1280px + var(--page-gutter) * 2);
   height: 64px;
   margin-inline: auto;
-  padding-inline: var(--lp-gutter);
+  padding-inline: var(--page-gutter);
 }
 @media (min-width: 768px) {
   .lh-bar {
@@ -281,7 +219,7 @@ html.lp-noscroll::-webkit-scrollbar {
   align-items: center;
   flex: none;
   min-height: 44px;
-  border-radius: var(--lp-r-button);
+  border-radius: var(--radius-button);
 }
 .lh-logo img {
   display: block;
@@ -295,19 +233,19 @@ html.lp-noscroll::-webkit-scrollbar {
 }
 .lh-nav ul {
   display: flex;
-  gap: var(--lp-sp-1);
+  gap: var(--sp-1);
 }
 .lh-nav a,
 .lh-signin,
 .lh-panel a {
-  color: var(--lp-text-2);
+  color: var(--color-night-text-secondary);
   text-decoration: none;
 }
 .lh-nav a {
   display: inline-flex;
   align-items: center;
   min-height: 44px;
-  padding: 0 var(--lp-sp-3);
+  padding: 0 var(--sp-3);
   font-size: 0.9375rem;
   font-weight: 500;
   text-decoration-line: underline;
@@ -315,33 +253,33 @@ html.lp-noscroll::-webkit-scrollbar {
   text-decoration-thickness: 2px;
   text-underline-offset: 10px;
   transition:
-    color 175ms ease,
-    text-decoration-color 175ms ease;
+    color var(--duration-fast) ease,
+    text-decoration-color var(--duration-fast) ease;
 }
 .lh-nav a:hover,
 .lh-signin:hover {
-  color: var(--lp-text);
+  color: var(--color-night-text);
 }
 .lh-nav a[aria-current='location'] {
-  color: var(--lp-text);
-  text-decoration-color: var(--lp-lime);
+  color: var(--color-night-text);
+  text-decoration-color: var(--color-night-accent);
 }
 .lh-actions {
   display: flex;
   align-items: center;
-  gap: var(--lp-sp-2);
+  gap: var(--sp-2);
   margin-inline-start: auto;
 }
 .lh-quiet {
   display: none;
   align-items: center;
-  gap: var(--lp-sp-2);
+  gap: var(--sp-2);
 }
 .lh-signin {
   display: inline-flex;
   align-items: center;
   min-height: 44px;
-  padding: 0 var(--lp-sp-3);
+  padding: 0 var(--sp-3);
   font-size: 0.9375rem;
   font-weight: 500;
 }
@@ -353,11 +291,11 @@ html.lp-noscroll::-webkit-scrollbar {
   height: 44px;
   padding: 0;
   border: 0;
-  border-radius: var(--lp-r-button);
+  border-radius: var(--radius-button);
   background: transparent;
-  color: var(--lp-text);
+  color: var(--color-night-text);
   cursor: pointer;
-  transition: background-color 175ms ease;
+  transition: background-color var(--duration-fast) ease;
 }
 .lh-icon:hover {
   background: rgb(244 247 239 / 0.1);
@@ -369,9 +307,9 @@ html.lp-noscroll::-webkit-scrollbar {
 .lh-panel {
   display: none;
   box-sizing: border-box;
-  padding: var(--lp-sp-2) var(--lp-gutter) var(--lp-sp-5);
+  padding: var(--sp-2) var(--page-gutter) var(--sp-5);
   background: rgb(11 15 12 / 0.97);
-  border-block-start: 1px solid var(--lp-hairline);
+  border-block-start: 1px solid var(--color-night-hairline);
 }
 .lh-panel:not([hidden]) {
   display: block;
@@ -384,37 +322,37 @@ html.lp-noscroll::-webkit-scrollbar {
   font-weight: 500;
 }
 .lh-panel li a:hover {
-  color: var(--lp-text);
+  color: var(--color-night-text);
 }
 .lh-panel-tools {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--lp-sp-3);
-  margin-block-start: var(--lp-sp-3);
+  gap: var(--sp-3);
+  margin-block-start: var(--sp-3);
 }
 .lh-panel-tools a.lp-btn {
-  color: var(--lp-text);
+  color: var(--color-night-text);
   min-height: 44px;
   font-size: 0.9375rem;
 }
 .lh-switch {
   display: inline-flex;
-  gap: var(--lp-sp-2);
+  gap: var(--sp-2);
 }
 .lh-switch button {
   min-height: 44px;
-  padding: 0 var(--lp-sp-4);
-  border: 1px solid var(--lp-line);
-  border-radius: var(--lp-r-button);
+  padding: 0 var(--sp-4);
+  border: 1px solid var(--color-night-line);
+  border-radius: var(--radius-button);
   background: transparent;
-  color: var(--lp-text-2);
+  color: var(--color-night-text-secondary);
   font-size: 0.9375rem;
   font-weight: 500;
   cursor: pointer;
 }
 .lh-switch button[aria-pressed='true'] {
   background: rgb(244 247 239 / 0.14);
-  color: var(--lp-text);
+  color: var(--color-night-text);
 }
 /* Below 400 px the bar has no room for the sign-up pill next to the logo and the menu button:
    it moves into the menu panel (the hero button is just below the bar). */
@@ -462,11 +400,11 @@ html.lp-noscroll::-webkit-scrollbar {
   box-sizing: border-box;
   min-height: 100svh;
   /* Same container as the header and the sections: copy and map follow its edges. */
-  --lp-edge: max(var(--lp-gutter), calc((100% - var(--lp-max)) / 2));
-  padding: 112px var(--lp-edge) var(--lp-sp-5);
+  --lp-edge: max(var(--page-gutter), calc((100% - var(--content-max)) / 2));
+  padding: 112px var(--lp-edge) var(--sp-5);
   scroll-margin-top: 0;
   background:
-    radial-gradient(40% 30% at 4% 0%, rgb(77 114 29 / 0.4), transparent 70%), var(--lp-canvas);
+    radial-gradient(40% 30% at 4% 0%, rgb(77 114 29 / 0.4), transparent 70%), var(--color-night-canvas);
 }
 .lp-halo {
   position: absolute;
@@ -487,7 +425,7 @@ html.lp-noscroll::-webkit-scrollbar {
   z-index: 2;
   display: grid;
   justify-items: start;
-  gap: var(--lp-sp-5);
+  gap: var(--sp-5);
   max-width: 680px;
   order: -1;
 }
@@ -497,14 +435,14 @@ html.lp-noscroll::-webkit-scrollbar {
   line-height: 1.02;
   letter-spacing: -0.04em;
   text-wrap: balance;
-  color: var(--lp-text);
+  color: var(--color-night-text);
 }
 .lp-accent {
   background: linear-gradient(90deg, #d9f5a8 0%, #bde874 55%, #9ed25a 100%);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
-  color: var(--lp-lime);
+  color: var(--color-night-accent);
 }
 @supports not (background-clip: text) {
   .lp-accent {
@@ -523,7 +461,7 @@ html.lp-noscroll::-webkit-scrollbar {
   max-width: 34ch;
   font-size: clamp(1.0625rem, 1rem + 0.5vw, 1.375rem);
   line-height: 1.5;
-  color: var(--lp-text-2);
+  color: var(--color-night-text-secondary);
   text-wrap: pretty;
 }
 
@@ -537,14 +475,14 @@ html.lp-noscroll::-webkit-scrollbar {
   max-height: 85svh;
   height: auto;
   aspect-ratio: 556 / 590;
-  margin: var(--lp-sp-6) auto 0;
+  margin: var(--sp-6) auto 0;
 }
 .lp-dots {
-  stroke: var(--lp-lime);
+  stroke: var(--color-night-accent);
   stroke-opacity: 0.55;
 }
 .lp-arc {
-  stroke: var(--lp-lime-hi);
+  stroke: var(--color-night-accent-strong);
   stroke-width: 1.2;
   stroke-opacity: 0.55;
   stroke-dasharray: 1;
@@ -558,11 +496,11 @@ html.lp-noscroll::-webkit-scrollbar {
   stroke-dashoffset: 1;
 }
 .lp-city {
-  fill: var(--lp-lime-hi);
+  fill: var(--color-night-accent-strong);
 }
 .lp-ring {
   fill: none;
-  stroke: var(--lp-lime-hi);
+  stroke: var(--color-night-accent-strong);
   stroke-width: 1.2;
   stroke-opacity: 0.7;
   transform-box: fill-box;
@@ -572,7 +510,7 @@ html.lp-noscroll::-webkit-scrollbar {
 @media (min-width: 1024px) {
   .lp-hero {
     align-content: center;
-    padding-block: 120px var(--lp-sp-9);
+    padding-block: 120px var(--sp-9);
   }
   .lp-globe {
     position: absolute;
@@ -648,7 +586,7 @@ html.lp-noscroll::-webkit-scrollbar {
 .lp-hero[data-motion='full'] .lp-h1,
 .lp-hero[data-motion='full'] .lp-lede,
 .lp-hero[data-motion='full'] .lp-cta {
-  animation: lp-rise 900ms var(--lp-ease-reveal) both;
+  animation: lp-rise var(--duration-entrance) var(--ease-reveal) both;
 }
 .lp-hero[data-motion='full'] .lp-lede {
   animation-delay: 120ms;
@@ -657,7 +595,7 @@ html.lp-noscroll::-webkit-scrollbar {
   animation-delay: 240ms;
 }
 .lp-hero[data-motion='full'] .lp-globe {
-  animation: lp-globe-in 1400ms var(--lp-ease-reveal) 100ms both;
+  animation: lp-globe-in var(--duration-slow) var(--ease-reveal) 100ms both;
 }
 @media (min-width: 1024px) {
   .lp-hero[data-motion='full'] .lp-globe {
@@ -666,7 +604,7 @@ html.lp-noscroll::-webkit-scrollbar {
 }
 /* Arcs draw once, then a comet runs along each one in 1.0 to 1.4 s (`--d`), starts staggered. */
 .lp-hero[data-motion='full'] .lp-arc {
-  animation: lp-draw 1400ms var(--lp-ease-draw) both;
+  animation: lp-draw var(--duration-slow) var(--ease-draw) both;
   animation-delay: calc(500ms + var(--i, 0) * 60ms);
 }
 .lp-hero[data-motion='full'] .lp-comet {
@@ -684,7 +622,7 @@ html.lp-noscroll::-webkit-scrollbar {
 }
 .lp-hero[data-motion='full'] [data-loop='true'] .lp-ring {
   display: inline;
-  animation: lp-ping 2800ms ease-out infinite;
+  animation: lp-ping var(--duration-ambient) ease-out infinite;
   animation-delay: calc(var(--i, 0) * 170ms);
 }
 .lp-hero[data-motion='full'][data-live='false']
@@ -712,7 +650,7 @@ html.lp-noscroll::-webkit-scrollbar {
   color: var(--color-text-primary);
 }
 .lp-dark .lp-h2 {
-  color: var(--lp-text);
+  color: var(--color-night-text);
 }
 .lp-h3 {
   font-size: 1.25rem;
@@ -723,25 +661,25 @@ html.lp-noscroll::-webkit-scrollbar {
 .lp-point p,
 .lp-space p,
 .lp-step p {
-  margin-block-start: var(--lp-sp-1);
+  margin-block-start: var(--sp-1);
   font-size: 1rem;
   line-height: 1.55;
   color: var(--color-text-secondary);
 }
 .lp-dark .lp-step p {
-  color: var(--lp-text-2);
+  color: var(--color-night-text-secondary);
 }
 
 /* ---------- Photos ---------- */
 .lp-split {
   display: grid;
-  gap: var(--lp-sp-7);
+  gap: var(--sp-7);
   align-items: center;
 }
 @media (min-width: 1024px) {
   .lp-split {
     grid-template-columns: 5fr 6fr;
-    gap: var(--lp-sp-9);
+    gap: var(--sp-9);
   }
   .lp-split-flip {
     grid-template-columns: 6fr 5fr;
@@ -754,7 +692,7 @@ html.lp-noscroll::-webkit-scrollbar {
   display: block;
   width: 100%;
   height: auto;
-  border-radius: var(--lp-r-media);
+  border-radius: var(--radius-media);
   object-fit: cover;
   aspect-ratio: 3 / 2;
 }
@@ -764,7 +702,7 @@ html.lp-noscroll::-webkit-scrollbar {
   overflow: hidden;
   border-radius: 50%;
   border: 4px solid var(--color-background-body);
-  box-shadow: 0 12px 24px -12px rgb(0 0 0 / 0.5);
+  box-shadow: var(--elevation-raised);
 }
 .lp-circle img {
   display: block;
@@ -773,49 +711,49 @@ html.lp-noscroll::-webkit-scrollbar {
   object-fit: cover;
 }
 .lp-dark .lp-circle {
-  border-color: var(--lp-canvas);
+  border-color: var(--color-night-canvas);
 }
 .lp-circle-a {
   width: 64px;
   height: 64px;
-  top: var(--lp-sp-5);
-  right: calc(var(--lp-sp-5) * -1);
+  top: var(--sp-5);
+  right: calc(var(--sp-5) * -1);
 }
 .lp-circle-b {
   width: 56px;
   height: 56px;
-  left: calc(var(--lp-sp-5) * -1);
-  bottom: var(--lp-sp-9);
+  left: calc(var(--sp-5) * -1);
+  bottom: var(--sp-9);
 }
 .lp-circle-c {
   width: 48px;
   height: 48px;
-  right: var(--lp-sp-5);
-  bottom: calc(var(--lp-sp-3) * -1);
+  right: var(--sp-5);
+  bottom: calc(var(--sp-3) * -1);
 }
 .lp-circle-d {
   width: 88px;
   height: 88px;
-  top: calc(var(--lp-sp-5) * -1);
-  left: calc(var(--lp-sp-4) * -1);
+  top: calc(var(--sp-5) * -1);
+  left: calc(var(--sp-4) * -1);
 }
 .lp-circle-e {
   width: 64px;
   height: 64px;
-  top: var(--lp-sp-8);
-  right: calc(var(--lp-sp-4) * -1);
+  top: var(--sp-8);
+  right: calc(var(--sp-4) * -1);
 }
 .lp-circle-f {
   width: 80px;
   height: 80px;
-  bottom: calc(var(--lp-sp-5) * -1);
-  left: var(--lp-sp-8);
+  bottom: calc(var(--sp-5) * -1);
+  left: var(--sp-8);
 }
 .lp-circle-g {
   width: 56px;
   height: 56px;
-  bottom: var(--lp-sp-7);
-  right: var(--lp-sp-5);
+  bottom: var(--sp-7);
+  right: var(--sp-5);
 }
 
 /* ---------- Why ---------- */
@@ -824,17 +762,17 @@ html.lp-noscroll::-webkit-scrollbar {
 }
 .lp-body {
   display: grid;
-  gap: var(--lp-sp-7);
+  gap: var(--sp-7);
   justify-items: start;
 }
 .lp-list {
   display: grid;
-  gap: var(--lp-sp-6);
+  gap: var(--sp-6);
 }
 .lp-point {
   display: grid;
   grid-template-columns: 48px 1fr;
-  gap: var(--lp-sp-5);
+  gap: var(--sp-5);
   align-items: start;
 }
 .lp-tile {
@@ -842,7 +780,7 @@ html.lp-noscroll::-webkit-scrollbar {
   place-items: center;
   width: 48px;
   height: 48px;
-  border-radius: var(--lp-r-card);
+  border-radius: var(--radius-card);
   background: var(--color-background-muted);
   color: var(--color-text-accent);
 }
@@ -859,7 +797,7 @@ html.lp-noscroll::-webkit-scrollbar {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   justify-items: center;
-  gap: var(--lp-sp-7);
+  gap: var(--sp-7);
   text-align: center;
 }
 .lp-center > * {
@@ -873,7 +811,7 @@ html.lp-noscroll::-webkit-scrollbar {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: var(--lp-sp-7) var(--lp-sp-6);
+  gap: var(--sp-7) var(--sp-6);
   width: 100%;
   max-width: 1100px;
 }
@@ -882,10 +820,10 @@ html.lp-noscroll::-webkit-scrollbar {
   display: grid;
   justify-items: center;
   align-content: start;
-  gap: var(--lp-sp-2);
+  gap: var(--sp-2);
 }
 .lp-space .lp-tile {
-  margin-block-end: var(--lp-sp-3);
+  margin-block-end: var(--sp-3);
   background: var(--color-background-surface);
 }
 .lp-space p {
@@ -901,11 +839,11 @@ html.lp-noscroll::-webkit-scrollbar {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: var(--lp-sp-6) var(--lp-sp-8);
+  gap: var(--sp-6) var(--sp-8);
 }
 .lp-proof li {
   display: grid;
-  gap: var(--lp-sp-2);
+  gap: var(--sp-2);
   justify-items: center;
   color: var(--color-text-secondary);
   font-size: 1rem;
@@ -925,8 +863,8 @@ html.lp-noscroll::-webkit-scrollbar {
   position: relative;
   box-sizing: border-box;
   max-width: 100%;
-  border: 1px solid var(--lp-hairline);
-  background: var(--lp-canvas);
+  border: 1px solid var(--color-night-hairline);
+  background: var(--color-night-canvas);
   box-shadow: 0 32px 64px -32px rgb(0 0 0 / 0.55);
 }
 .lp-device img {
@@ -937,14 +875,14 @@ html.lp-noscroll::-webkit-scrollbar {
 .lp-device-desktop {
   width: 560px;
   overflow: hidden;
-  border-radius: var(--lp-r-card);
+  border-radius: var(--radius-card);
 }
 .lp-device-bar {
   display: flex;
-  gap: var(--lp-sp-2);
+  gap: var(--sp-2);
   align-items: center;
   height: 24px;
-  padding-inline: var(--lp-sp-3);
+  padding-inline: var(--sp-3);
 }
 .lp-device-bar i {
   width: 8px;
@@ -954,12 +892,12 @@ html.lp-noscroll::-webkit-scrollbar {
 }
 .lp-device-phone {
   width: 248px;
-  padding: var(--lp-sp-2);
-  border-radius: var(--lp-r-media);
+  padding: var(--sp-2);
+  border-radius: var(--radius-media);
 }
 .lp-device-phone img {
   width: 232px;
-  border-radius: calc(var(--lp-r-media) - var(--lp-sp-2));
+  border-radius: calc(var(--radius-media) - var(--sp-2));
 }
 @media (max-width: 1023px) {
   .lp-circle-a {
@@ -975,7 +913,7 @@ html.lp-noscroll::-webkit-scrollbar {
   width: fit-content;
   display: grid;
   justify-items: center;
-  padding-block: var(--lp-sp-5);
+  padding-block: var(--sp-5);
 }
 .lp-stage {
   position: relative;
@@ -993,32 +931,32 @@ html.lp-noscroll::-webkit-scrollbar {
     display: block;
   }
   .lp-stage-phone {
-    margin-inline-start: calc(var(--lp-sp-8) * -1);
-    margin-block-end: calc(var(--lp-sp-6) * -1);
+    margin-inline-start: calc(var(--sp-8) * -1);
+    margin-block-end: calc(var(--sp-6) * -1);
   }
 }
 .lp-live {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
-  gap: var(--lp-sp-5);
+  gap: var(--sp-5);
   width: 100%;
   max-width: 960px;
-  margin-block-start: var(--lp-sp-6);
+  margin-block-start: var(--sp-6);
   text-align: start;
 }
 .lp-live-card {
   display: grid;
-  gap: var(--lp-sp-2);
+  gap: var(--sp-2);
   align-content: start;
-  padding: var(--lp-sp-5);
+  padding: var(--sp-5);
   border: 1px solid var(--color-border);
-  border-radius: var(--lp-r-card);
+  border-radius: var(--radius-card);
   background: var(--color-background-body);
 }
 .lp-live-label {
   display: inline-flex;
   align-items: center;
-  gap: var(--lp-sp-2);
+  gap: var(--sp-2);
   font-size: 0.875rem;
   font-weight: 600;
   color: var(--color-text-accent);
@@ -1046,7 +984,7 @@ html.lp-noscroll::-webkit-scrollbar {
 
 /* ---------- Join ---------- */
 .lp-join {
-  padding-block: calc(var(--lp-section-y) * 1.15);
+  padding-block: calc(var(--section-y) * 1.15);
 }
 .lp-join .lp-halo {
   background:
@@ -1060,13 +998,13 @@ html.lp-noscroll::-webkit-scrollbar {
 }
 .lp-steps {
   display: grid;
-  gap: var(--lp-sp-6);
+  gap: var(--sp-6);
 }
 .lp-step {
   position: relative;
   display: grid;
   grid-template-columns: 48px 1fr;
-  gap: var(--lp-sp-5);
+  gap: var(--sp-5);
   align-items: start;
 }
 .lp-step:not(:last-child)::before {
@@ -1074,7 +1012,7 @@ html.lp-noscroll::-webkit-scrollbar {
   position: absolute;
   inset-inline-start: 23px;
   top: 56px;
-  bottom: calc(var(--lp-sp-6) * -1 + 8px);
+  bottom: calc(var(--sp-6) * -1 + 8px);
   width: 2px;
   background: linear-gradient(to bottom, rgb(189 232 116 / 0.5), rgb(189 232 116 / 0.08));
 }
@@ -1086,56 +1024,56 @@ html.lp-noscroll::-webkit-scrollbar {
   border: 1px solid rgb(189 232 116 / 0.55);
   border-radius: 50%;
   background: rgb(189 232 116 / 0.12);
-  color: var(--lp-lime);
+  color: var(--color-night-accent);
   font-size: 1.125rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 .lp-step .lp-h3 {
-  padding-block-start: var(--lp-sp-3);
-  color: var(--lp-text);
+  padding-block-start: var(--sp-3);
+  color: var(--color-night-text);
 }
 
 /* ---------- Footer ---------- */
 .lf {
-  padding-block: var(--lp-sp-8) var(--lp-sp-6);
+  padding-block: var(--sp-8) var(--sp-6);
   font-size: 0.9375rem;
 }
 .lf-grid {
   display: grid;
-  gap: var(--lp-sp-7);
+  gap: var(--sp-7);
 }
 .lf-brand {
   align-content: start;
   display: grid;
-  gap: var(--lp-sp-4);
+  gap: var(--sp-4);
   justify-items: start;
   max-width: 32ch;
-  color: var(--lp-text-2);
+  color: var(--color-night-text-secondary);
   line-height: 1.55;
 }
 .lf-brand img {
   display: block;
 }
 .lf-title {
-  margin-block-end: var(--lp-sp-3);
+  margin-block-end: var(--sp-3);
   font-weight: 600;
-  color: var(--lp-text);
+  color: var(--color-night-text);
 }
 .lf nav ul {
   display: grid;
-  gap: var(--lp-sp-1);
+  gap: var(--sp-1);
 }
 .lf nav a {
   display: inline-flex;
   align-items: center;
   min-width: 44px;
   min-height: 44px;
-  color: var(--lp-text-2);
+  color: var(--color-night-text-secondary);
   text-decoration: none;
 }
 .lf nav a:hover {
-  color: var(--lp-text);
+  color: var(--color-night-text);
   text-decoration: underline;
   text-underline-offset: 4px;
 }
@@ -1144,11 +1082,11 @@ html.lp-noscroll::-webkit-scrollbar {
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: var(--lp-sp-4);
-  margin-block-start: var(--lp-sp-7);
-  padding-block-start: var(--lp-sp-5);
-  border-block-start: 1px solid var(--lp-hairline);
-  color: var(--lp-text-2);
+  gap: var(--sp-4);
+  margin-block-start: var(--sp-7);
+  padding-block-start: var(--sp-5);
+  border-block-start: 1px solid var(--color-night-hairline);
+  color: var(--color-night-text-secondary);
 }
 @media (min-width: 768px) {
   .lf-grid {
@@ -1183,8 +1121,8 @@ html.lp-noscroll::-webkit-scrollbar {
 }
 [data-reveal][data-reveal-state] {
   transition:
-    opacity 700ms var(--lp-ease-reveal),
-    transform 800ms var(--lp-ease-reveal);
+    opacity var(--duration-reveal-opacity) var(--ease-reveal),
+    transform var(--duration-reveal-transform) var(--ease-reveal);
   transition-delay: calc(var(--rd, 0) * 80ms);
 }
 [data-reveal][data-reveal-state='before'] {
@@ -1194,7 +1132,7 @@ html.lp-noscroll::-webkit-scrollbar {
 [data-reveal][data-reveal-state='after'] {
   opacity: 0;
   transform: var(--reveal-to);
-  transition-duration: 450ms;
+  transition-duration: var(--duration-exit);
   transition-delay: 0ms;
 }
 [data-reveal][data-reveal-state='in'] {
