@@ -94,13 +94,19 @@ export function useQuestion(id: string) {
   });
 }
 
+/** Answers per page: the contract's maximum for listAnswers. */
+export const ANSWERS_PAGE = 50;
+
 export function useAnswers(id: string) {
   return useInfiniteQuery({
     queryKey: solveKeys.answers(id),
     retry: retryOnce,
     initialPageParam: null as string | null,
     queryFn: async ({ pageParam }) => {
-      const query = pageParam === null ? {} : { cursor: pageParam };
+      // The contract's largest page: a question with up to 50 answers has one page, so a vote between pages cannot
+      // move an answer past a page boundary (#155 note-answers-cursor-dup).
+      const query =
+        pageParam === null ? { limit: ANSWERS_PAGE } : { limit: ANSWERS_PAGE, cursor: pageParam };
       const page = await api.call(() =>
         api.client.GET('/questions/{questionId}/answers', {
           params: { path: { questionId: id }, query },

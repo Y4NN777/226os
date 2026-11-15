@@ -36,6 +36,35 @@ function readRoutes(overrides: Record<string, () => Response> = {}) {
 }
 
 describe('QuestionPage reading', () => {
+  it('asks for 50 answers a page, so a question with up to 50 answers has a single page', async () => {
+    setLanguages(['fr-FR']);
+    const fetchMock = mockApi(readRoutes());
+    await renderApp(base);
+    await screen.findByRole('list', { name: 'Réponses' });
+    const call = callsTo(fetchMock, `GET ${key('/answers')}`)[0];
+    expect(new URL(call?.url ?? '').searchParams.get('limit')).toBe('50');
+  });
+
+  it('never shows an answer twice when a vote moved it into the next page', async () => {
+    setLanguages(['fr-FR']);
+    const third = answer({ id: 'c0000000-0000-4000-8000-000000000003', body_md: 'Une troisième.' });
+    mockApi({
+      ...readRoutes(),
+      [`GET ${key('/answers')}`]: (request: Request) =>
+        new URL(request.url).searchParams.get('cursor') === 'p2'
+          ? page([plain, third])
+          : page([accepted, plain], 'p2'),
+    });
+    await renderApp(base);
+    const list = await screen.findByRole('list', { name: 'Réponses' });
+    await userEvent
+      .setup({ delay: null })
+      .click(screen.getByRole('button', { name: 'Afficher plus' }));
+    await within(list).findByText('Une troisième.');
+    expect(within(list).getAllByText('Une autre piste.')).toHaveLength(1);
+    expect(within(list).getAllByRole('listitem')).toHaveLength(3);
+  });
+
   it('shows the question, its tags and snippet, and the answers with the accepted one first', async () => {
     setLanguages(['fr-FR']);
     mockApi(
