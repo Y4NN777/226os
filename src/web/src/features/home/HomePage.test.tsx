@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import type { components } from '../../api/schema';
 import { callsTo, memberSession, mockApi, problemResponse } from '../../test/api';
 import { jsonResponse, renderApp, setLanguages } from '../../test/render';
-import { findVisibleText } from '../../test/visibleText';
+import { findVisibleText, queryVisibleAlerts } from '../../test/visibleText';
 
 type Resource = components['schemas']['Resource'];
 
@@ -205,7 +205,8 @@ describe('HomePage', () => {
     const alert = await within(region).findByRole('alert');
     expect(alert).toHaveTextContent('Impossible de charger le contenu');
     expect(await within(section('Projets')).findByRole('link', { name: 'momo-sdk' })).toBeVisible();
-    expect(screen.getAllByRole('alert')).toHaveLength(1);
+    // Visible alerts only: the Astryx live region may mirror the announcement.
+    expect(queryVisibleAlerts()).toHaveLength(1);
     await userEvent.click(within(alert).getByRole('button', { name: 'Réessayer' }));
     expect(
       await within(region).findByRole('link', { name: 'Webhook non reçu après un paiement' }),
@@ -229,7 +230,8 @@ describe('HomePage', () => {
     await asked.findByRole('link', { name: 'Webhook non reçu après un paiement' });
     expect(asked.getByText('Sans réponse')).toBeVisible();
     expect(asked.getByText('webhook')).toBeVisible();
-    expect(asked.getByRole('img', { name: 'Kofi' })).toBeVisible();
+    // The shared avatar is decorative: the author is named in the meta line.
+    expect(asked.getByText('Kofi')).toBeVisible();
     expect(asked.getByRole('link', { name: 'Toutes les questions' })).toHaveAttribute(
       'href',
       '/solve',

@@ -4,6 +4,7 @@ import { useI18n } from '../i18n/I18nProvider';
 import type { MessageKey } from '../i18n/messages';
 import {
   CheckCircleIcon,
+  CircleDotIcon,
   ClockIcon,
   HelpIcon,
   InfoIcon,
@@ -13,7 +14,7 @@ import {
 } from './icons';
 
 export type StatusKind =
-  'verified' | 'stale' | 'unverified' | 'accepted' | 'answered' | 'later' | 'demo';
+  'verified' | 'stale' | 'unverified' | 'accepted' | 'answered' | 'later' | 'demo' | 'open';
 
 type Tint = 'info' | 'warning' | 'secondary' | 'success';
 
@@ -25,6 +26,7 @@ const kinds: Record<StatusKind, { icon: SvgIcon; tint: Tint; label: MessageKey }
   answered: { icon: MessageIcon, tint: 'success', label: 'status.answered' },
   later: { icon: ClockIcon, tint: 'secondary', label: 'status.later' },
   demo: { icon: InfoIcon, tint: 'secondary', label: 'state.demo' },
+  open: { icon: CircleDotIcon, tint: 'success', label: 'status.open' },
 };
 
 /**

@@ -60,6 +60,7 @@ const core = {
   'status.accepted': 'Acceptée',
   'status.answered': 'Répondue',
   'status.later': 'Bientôt',
+  'status.open': 'Ouvert',
   'home.title': 'Bienvenue sur 226os',
   'home.intro':
     'La plateforme d’entraide technique est en construction. Pour l’instant, cette page vérifie seulement que l’API répond.',
@@ -165,6 +166,7 @@ const coreEn: Record<keyof typeof core, string> = {
   'status.accepted': 'Accepted',
   'status.answered': 'Answered',
   'status.later': 'Soon',
+  'status.open': 'Open',
   'home.title': 'Welcome to 226os',
   'home.intro':
     'The technical mutual-help platform is under construction. For now, this page only checks that the API responds.',

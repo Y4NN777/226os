@@ -1,12 +1,13 @@
 import { Button } from '@astryxdesign/core/Button';
 import { HStack } from '@astryxdesign/core/HStack';
+import { Icon } from '@astryxdesign/core/Icon';
 import { Link } from '@astryxdesign/core/Link';
 import { VStack } from '@astryxdesign/core/VStack';
 import { useSession } from '../../app/session';
 import { ErrorState } from '../../components/ErrorState';
 import { LoadingState } from '../../components/LoadingState';
 import { useI18n } from '../../i18n/I18nProvider';
-import { FeedIcon, type FeedIconName } from '../home/FeedIcon';
+import { BookIcon, NetworkIcon, UserIcon, type SvgIcon } from '../../components/icons';
 import { CardHead } from './AuthCard';
 
 /** The prototype's choice tile (bienvenue.html): icon, title, one line; the title link covers it. */
@@ -16,14 +17,14 @@ function WelcomeTile({
   title,
   text,
 }: {
-  icon: FeedIconName;
+  icon: SvgIcon;
   href: string;
   title: string;
   text: string;
 }) {
   return (
     <li className="acc-tile">
-      <FeedIcon name={icon} />
+      <Icon icon={icon} size="lg" />
       <Link href={href} weight="semibold" color="primary">
         {title}
       </Link>
@@ -75,19 +76,19 @@ export function WelcomePage() {
       />
       <ul className="acc-tiles">
         <WelcomeTile
-          icon="book"
+          icon={BookIcon}
           href="/apprendre"
           title={t('identity.welcome.learn')}
           text={t('identity.welcome.learn.text')}
         />
         <WelcomeTile
-          icon="users"
+          icon={NetworkIcon}
           href="/connect"
           title={t('identity.welcome.connect')}
           text={t('identity.welcome.connect.text')}
         />
         <WelcomeTile
-          icon="user"
+          icon={UserIcon}
           href={`/profils/${user.username}`}
           title={t('identity.welcome.profile')}
           text={t('identity.welcome.profile.text')}

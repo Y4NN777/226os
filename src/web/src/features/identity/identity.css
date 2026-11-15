@@ -48,11 +48,8 @@
 .acc-tile:hover {
   background: color-mix(in srgb, var(--color-accent) 12%, var(--color-background-muted));
 }
-.acc-tile > .feed-icon {
-  width: 1.5rem;
-  height: 1.5rem;
+.acc-tile > svg {
   margin-bottom: var(--spacing-1);
-  color: var(--color-text-primary);
 }
 .acc-tile a::after {
   content: '';

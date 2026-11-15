@@ -125,6 +125,21 @@ describe('List and ListRow', () => {
       screen.getByRole('heading', { level: 2, name: 'Erreur CORS sur Go' }),
     ).toBeInTheDocument();
   });
+
+  it('marks the language of the user content on the title and the excerpt', () => {
+    renderWithProviders(
+      <List label="Questions">
+        <ListRow
+          title="CORS error in Go"
+          href="/questions/q-2"
+          excerpt="Preflight fails."
+          lang="en"
+        />
+      </List>,
+    );
+    expect(screen.getByRole('heading', { name: 'CORS error in Go' })).toHaveAttribute('lang', 'en');
+    expect(screen.getByText('Preflight fails.')).toHaveAttribute('lang', 'en');
+  });
 });
 
 describe('StatusBadge', () => {
@@ -136,6 +151,7 @@ describe('StatusBadge', () => {
     ['answered', 'Répondue'],
     ['later', 'Bientôt'],
     ['demo', 'Démo'],
+    ['open', 'Ouvert'],
   ])('%s carries its meaning in text, with a decorative icon', (kind, text) => {
     setLanguages(['fr-FR']);
     const { container } = renderWithProviders(<StatusBadge kind={kind} />);

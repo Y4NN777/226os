@@ -1,12 +1,13 @@
-import { Avatar } from '@astryxdesign/core/Avatar';
-import { Link } from '@astryxdesign/core/Link';
-import type { ReactNode } from 'react';
 import type { components } from '../../api/schema';
-import { DemoBadge } from '../../components/DemoBadge';
+import { Avatar } from '../../components/Avatar';
+import { CountryCode } from '../../components/CountryCode';
+import { CodeIcon, FileTextIcon, MessageIcon } from '../../components/icons';
+import { ListRow } from '../../components/List';
+import { Meta, MetaItem } from '../../components/Meta';
+import { StatusBadge, type StatusKind } from '../../components/StatusBadge';
+import { Tag, TagList } from '../../components/Tag';
 import { useI18n } from '../../i18n/I18nProvider';
 import type { Locale } from '../../i18n/messages';
-import { FeedIcon, type FeedIconName } from './FeedIcon';
-import './home.css';
 
 type Question = components['schemas']['Question'];
 type Resource = components['schemas']['Resource'];
@@ -15,8 +16,8 @@ type Article = components['schemas']['ArticleSummary'];
 type VerificationStatus = components['schemas']['VerificationStatus'];
 
 /**
- * Dense list rows after the prototype (`ul.list > li.row`: lead, title, excerpt, meta, aside).
- * Local to the home-auth pages; the lead swaps them for the shared ui/ rows later.
+ * The member home's rows (prototype accueil.html `ul.list > li.row`), built on the shared
+ * List/ListRow, StatusBadge, TagList, CountryCode, Meta and Avatar. Only contract fields.
  */
 
 export function formatDate(iso: string, locale: Locale): string {
@@ -26,7 +27,7 @@ export function formatDate(iso: string, locale: Locale): string {
   }).format(new Date(iso));
 }
 
-function countryName(code: string, locale: Locale): string {
+export function countryName(code: string, locale: Locale): string {
   try {
     return new Intl.DisplayNames([locale], { type: 'region' }).of(code) ?? code;
   } catch {
@@ -34,102 +35,24 @@ function countryName(code: string, locale: Locale): string {
   }
 }
 
-export function RowList({ children }: { children: ReactNode }) {
-  return <ul className="feed-list">{children}</ul>;
-}
-
-/** Icon + word on a neutral fill: state never rests on colour alone. */
-export type PillKind = 'accepted' | 'verified' | 'stale' | 'unverified' | 'open';
-
-const pillIcon: Record<PillKind, FeedIconName> = {
-  accepted: 'checkCircle',
-  verified: 'shieldCheck',
-  stale: 'clock',
-  unverified: 'help',
-  open: 'circleDot',
-};
-
-export function StatePill({ kind, label }: { kind: PillKind; label: string }) {
-  return (
-    <span className={`feed-pill feed-pill-${kind}`}>
-      <FeedIcon name={pillIcon[kind]} />
-      {label}
-    </span>
-  );
-}
-
-/** Square tinted lead with a glyph, for things that have no face (APIs, projects, articles). */
-export function Thumb({ icon, strong = false }: { icon: FeedIconName; strong?: boolean }) {
-  return (
-    <span className={strong ? 'feed-thumb feed-thumb-strong' : 'feed-thumb'} aria-hidden="true">
-      <FeedIcon name={icon} />
-    </span>
-  );
-}
-
-export function Tags({ tags, max = 3 }: { tags: readonly string[]; max?: number }) {
-  if (tags.length === 0) return null;
-  return (
-    <ul className="feed-tags">
-      {tags.slice(0, max).map((tag) => (
-        <li key={tag} className="feed-tag">
-          {tag}
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-/** Country as a text code, the full name for assistive technology (no flags). */
+/** A country code chip with its full name for assistive technology. */
 export function Country({ code }: { code: string }) {
   const { locale } = useI18n();
-  return (
-    <span className="feed-country">
-      <abbr title={countryName(code, locale)}>{code}</abbr>
-    </span>
-  );
+  return <CountryCode code={code} name={countryName(code, locale)} />;
 }
 
-export function Row({
-  lead,
-  above,
-  title,
-  href,
-  lang,
-  excerpt,
-  meta,
-  aside,
-}: {
-  lead?: ReactNode;
-  above?: ReactNode;
-  title: string;
-  href: string;
-  lang?: string | undefined;
-  excerpt?: string | undefined;
-  meta?: ReactNode;
-  aside?: ReactNode;
-}) {
-  const langProps = lang ? { lang } : {};
-  return (
-    <li className={lead ? 'feed-row' : 'feed-row feed-row-nolead'}>
-      {lead ? <div className="feed-row-lead">{lead}</div> : null}
-      <div className="feed-row-main">
-        {above ? <div className="feed-row-above">{above}</div> : null}
-        <h3 className="feed-row-title" {...langProps}>
-          <Link href={href} color="primary" weight="semibold">
-            {title}
-          </Link>
-        </h3>
-        {excerpt ? (
-          <p className="feed-row-excerpt" {...langProps}>
-            {excerpt}
-          </p>
-        ) : null}
-        {meta ? <div className="feed-meta">{meta}</div> : null}
-      </div>
-      {aside ? <div className="feed-row-aside">{aside}</div> : null}
-    </li>
-  );
+/** Verification as a status pill; claimed and disputed keep their own word. */
+const verificationKind: Record<VerificationStatus, StatusKind> = {
+  verified: 'verified',
+  claimed: 'unverified',
+  unverified: 'unverified',
+  stale: 'stale',
+  disputed: 'stale',
+};
+
+export function VerificationStatusBadge({ status }: { status: VerificationStatus }) {
+  const { t } = useI18n();
+  return <StatusBadge kind={verificationKind[status]} label={t(`feed.verification.${status}`)} />;
 }
 
 export function QuestionRow({ question }: { question: Question }) {
@@ -141,63 +64,52 @@ export function QuestionRow({ question }: { question: Question }) {
         ? t('feed.row.answers.one')
         : t('feed.row.answers.many', { n: question.answer_count });
   return (
-    <Row
-      lead={<Avatar name={question.author.display_name} size={40} />}
+    <ListRow
       title={question.title}
       href={`/questions/${question.id}`}
       lang={question.lang}
+      lead={<Avatar name={question.author.display_name} />}
+      tags={question.tags.length > 0 ? <TagList tags={question.tags.slice(0, 3)} /> : undefined}
       meta={
-        <>
-          <Tags tags={question.tags} />
+        <Meta>
+          <MetaItem>{question.author.display_name}</MetaItem>
           {question.country ? <Country code={question.country} /> : null}
-          <time dateTime={question.created_at}>{formatDate(question.created_at, locale)}</time>
-        </>
+          <MetaItem>
+            <time dateTime={question.created_at}>{formatDate(question.created_at, locale)}</time>
+          </MetaItem>
+        </Meta>
       }
       aside={
         <>
-          {question.accepted_answer_id ? (
-            <StatePill kind="accepted" label={t('feed.pill.accepted')} />
-          ) : null}
-          <span className="feed-aside-text">
-            <FeedIcon name="message" />
-            {answers}
-          </span>
+          {question.accepted_answer_id ? <StatusBadge kind="accepted" /> : null}
+          <MetaItem icon={MessageIcon}>{answers}</MetaItem>
         </>
       }
     />
   );
 }
 
-const verificationPill: Record<VerificationStatus, PillKind> = {
-  verified: 'verified',
-  claimed: 'unverified',
-  unverified: 'unverified',
-  stale: 'stale',
-  disputed: 'stale',
-};
-
 export function ResourceRow({ resource }: { resource: Resource }) {
   const { t, locale } = useI18n();
-  const status = resource.verification_status;
-  const checked = status === 'verified' && resource.last_verified_at;
+  const checked = resource.verification_status === 'verified' ? resource.last_verified_at : null;
   return (
-    <Row
-      lead={<Thumb icon="compass" strong={status === 'verified'} />}
+    <ListRow
       title={resource.name}
       href={`/discover/${resource.id}`}
+      lead={<Avatar name={resource.name} />}
       excerpt={resource.summary}
       meta={
-        <>
-          <span>{t('feed.catalog.provider', { name: resource.provider.name })}</span>
+        <Meta>
+          <MetaItem>{t('feed.catalog.provider', { name: resource.provider.name })}</MetaItem>
           {resource.countries.slice(0, 4).map((code) => (
             <Country key={code} code={code} />
           ))}
-        </>
+        </Meta>
       }
       aside={
         <>
-          <StatePill kind={verificationPill[status]} label={t(`feed.verification.${status}`)} />
-          {resource.provenance === 'demo' ? <DemoBadge /> : null}
+          <VerificationStatusBadge status={resource.verification_status} />
+          {resource.provenance === 'demo' ? <StatusBadge kind="demo" /> : null}
           {checked ? (
             <time dateTime={checked}>
               {t('feed.row.checkedOn', { date: formatDate(checked, locale) })}
@@ -213,24 +125,28 @@ export function ProjectRow({ project }: { project: Project }) {
   const { t } = useI18n();
   const open = project.open_needs_count;
   return (
-    <Row
-      lead={<Thumb icon="hammer" />}
+    <ListRow
       title={project.name}
       href={`/build/${project.id}`}
+      lead={<Avatar name={project.name} />}
       lang={project.lang}
       excerpt={project.description}
+      tags={
+        project.technologies.length > 0 ? (
+          <TagList tags={project.technologies.slice(0, 3)} />
+        ) : undefined
+      }
       meta={
-        <>
-          <Tags tags={project.technologies} />
-          <span>{t('feed.by', { name: project.owner.display_name })}</span>
+        <Meta>
+          <MetaItem>{t('feed.by', { name: project.owner.display_name })}</MetaItem>
           {project.owner.country ? <Country code={project.owner.country} /> : null}
-        </>
+        </Meta>
       }
       aside={
         open > 0 ? (
           <>
-            <StatePill kind="open" label={t('feed.pill.open')} />
-            <span className="feed-aside-text">
+            <StatusBadge kind="open" />
+            <span>
               {open === 1 ? t('feed.row.needs.one') : t('feed.row.needs.many', { n: open })}
             </span>
           </>
@@ -244,24 +160,21 @@ export function ArticleRow({ article }: { article: Article }) {
   const { t, locale } = useI18n();
   const tutorial = article.type === 'tutorial';
   return (
-    <Row
-      lead={<Thumb icon={tutorial ? 'code' : 'fileText'} strong={!tutorial} />}
-      above={
-        <span className="feed-kind">
-          <FeedIcon name={tutorial ? 'code' : 'fileText'} />
-          {t(tutorial ? 'feed.type.tutorial' : 'feed.type.article')}
-        </span>
-      }
+    <ListRow
       title={article.title}
       href={`/apprendre/articles/${article.id}`}
+      lead={<Avatar name={article.author.display_name} />}
       lang={article.lang}
       excerpt={article.summary}
       meta={
-        <>
-          <span>{article.author.display_name}</span>
-          <span>{t(`feed.level.${article.level}`)}</span>
-          <span className="feed-lang">{article.lang.toUpperCase()}</span>
-        </>
+        <Meta>
+          <MetaItem icon={tutorial ? CodeIcon : FileTextIcon}>
+            {t(tutorial ? 'feed.type.tutorial' : 'feed.type.article')}
+          </MetaItem>
+          <MetaItem>{article.author.display_name}</MetaItem>
+          <MetaItem>{t(`feed.level.${article.level}`)}</MetaItem>
+          <Tag label={article.lang.toUpperCase()} />
+        </Meta>
       }
       aside={
         <time dateTime={article.published_at}>{formatDate(article.published_at, locale)}</time>
