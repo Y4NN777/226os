@@ -657,8 +657,8 @@ def cmd_body():
         out.append("| %s | %s | %s | %s |" % (key, key.split("/", 1)[0], verdict if verdict in VERDICTS else "OWNER", cell(r.get("reason"))))
     out += ["", "Outcome: %s. %s" % (cell(data.get("outcome"), 20), cell(data.get("reason"))), "",
             "Written by the CI fixer (`.claude/commands/review-fix.md`). On merge, FIXED and FIXED ELSEWHERE close or tick "
-            "their source; NOT A DEFECT and DECIDED tick a note outside the P0 paths whose reason cites a line of the note's own file (not its own "
-            "location) or an ADR, every citation existing on develop; every other decision is only a comment: a human "
+            "their source; NOT A DEFECT and DECIDED tick a note outside the P0 paths whose reason cites an ADR "
+            "(Status ACCEPTED, naming the note's own file and the note's own id in backticks); a path:line citation never ticks, every citation must exist on develop; every other decision is only a comment: a human "
             "closes or ticks that source with the reason. "
             "This pull request goes through review like any other."]
     print("\n".join(out))
@@ -731,8 +731,8 @@ def nothing_settle(ctx, findings, gh, repo, number, run_id, verdicts):
                  "source got the verdict below as a comment." % run_id, "", "| Item | Verdict | Reason |", "|---|---|---|"]
         table += ["| %s | %s | %s |" % (key, verdict, cell(reason)) for key, verdict, reason in accepted]
         table += ["", "FIXED ELSEWHERE closed or ticked its source only when the named pull request is merged, touched the cited "
-                  "file and is not the source's own. A NOTE outside the P0 paths judged NOT A DEFECT or DECIDED is ticked when the verdict cites a line of "
-                  "the note's own file (not its own location) or an ADR, every citation existing at the tip of develop; its "
+                  "file and is not the source's own. A NOTE outside the P0 paths judged NOT A DEFECT or DECIDED is ticked when the verdict cites an ADR with "
+                  "Status ACCEPTED that names the note's own file and the note's own id in backticks (a path:line citation never ticks), every citation existing at the tip of develop; its "
                   "issue then closes as not planned once every box is settled. Every other verdict is only a comment and "
                   "the source stays open for a human. The items above are ticked and this batch is closed: the next run starts a new batch without them "
                   "until they change. An unticked item had no verdict and goes back to the next batch."]

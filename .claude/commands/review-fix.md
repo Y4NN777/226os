@@ -54,7 +54,7 @@ For each finding or item, one verdict with a one-line reason grounded in the cod
 When a batch fix pull request merges, `scripts/findings.py settle` acts on these verdicts: FIXED and FIXED ELSEWHERE
 close the finding issue (or tick the note's box). NOT A DEFECT and DECIDED on a note outside the P0 paths (`.github/sensitive-paths.txt`, `.github/deep-review-paths.txt`) tick its box, and close the notes
 issue as not planned once all its boxes are settled, only when your reason cites a reference that exists on `develop`
-(`path:line` or `path:a-b` within the note's own file but not a range that holds the note's own line, or `docs/decisions/NNNN-*.md`; every reference you cite must exist, or nothing is ticked; the script checks it); on a finding, or without
+(a `docs/decisions/NNNN-*.md` file whose Status line says ACCEPTED and whose text names the note's own file AND the note's own id written as code, exactly `id` between backticks (the id in the results table, outside the mentions of the file, case-sensitive; a plain word never counts, as the notes issue wrote it; an ADR that merely mentions the file does not tick it); a `path:line` citation never ticks a note by itself, not even inside the note's own file, since a line that exists proves nothing; every reference you cite, ADR or line, must exist, or nothing is ticked; the script checks it); on a finding, or without
 such a reference, they only post your reason and a human decides. OWNER and AFTER FREEZE stay open. So a verdict is a decision on the source: be exact.
 
 Fix rules (binding):

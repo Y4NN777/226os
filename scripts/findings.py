@@ -27,8 +27,8 @@ dashboard says what to fix next. Nobody files a finding by hand: classifying one
              each source. Only FIXED and FIXED ELSEWHERE act: they close a finding issue as completed or tick a note's
              box. NOT A DEFECT and DECIDED never close a finding (a model verdict is not a decision): their reason is
              posted as a comment and a human closes it. For a NOTE outside the P0 paths (sensitive and deep-review lists) they tick its box when the reason cites a reference
-             that exists at the tip of develop (`path:line` or `path:a-b` inside the note's own file, or a
-             docs/decisions/NNNN-*.md file; checked by the script); without such a reference they only comment. OWNER and AFTER FREEZE stay open. One comment per touched source ("Settled by #PR (review batch #N): ..."), once (marker); a
+             that the script checks at the tip of develop: a docs/decisions/NNNN-*.md file whose Status line says ACCEPTED and whose text names the
+             note's own file as a whole path AND the note's own ledger id written as code, `id` in backticks (as written in the notes issue, outside the file mentions) (a `path:line` citation must exist but never counts, not even in the note's own file); without it they only comment. OWNER and AFTER FREEZE stay open. One comment per touched source ("Settled by #PR (review batch #N): ..."), once (marker); a
              notes issue whose boxes are all ticked is closed (as not planned when a verdict ticked one, else as completed);
              the batch issue closes last. Fails CLOSED like
              `batch`.
@@ -625,8 +625,8 @@ def settle_text(decision, reason, pr):
 
 
 PR_REF = re.compile(r"#(\d+)")
-# A reference a NOT A DEFECT or DECIDED verdict of a NOTE must cite to tick it: `path:line` or `path:a-b` in the note's own
-# file, or an ADR file.
+# A reference a NOT A DEFECT or DECIDED verdict of a NOTE must cite to tick it: an ACCEPTED ADR that names the note's file
+# and names the note's own id in backticks, `id` (a `path:line` citation must exist but never counts by itself).
 # A path with a directory or an extension; a bare name (Makefile, Dockerfile) counts only when it is the note's own file,
 # so a word such as "Retry:3" in the reason is never read as a citation.
 CITE_LINE = re.compile(r"(?<![\w./-])((?:[\w.-]+/)*[\w.-]+):(\d+)(?:-(\d+))?(?!\d)")
@@ -667,21 +667,65 @@ def line_range(text):
     return (int(m.group(1)), int(m.group(2) or m.group(1))) if m else None
 
 
-def verified_reference(ctx, binary, repo, reason, own_file, own_line=""):
+# The FIRST Status line of an ADR decides, and its value must be ACCEPTED alone or followed by a parenthesis
+# ("ACCEPTED (owner ..., date)"): "ACCEPTED, superseded", "accepted-pending" or "Accepted?" are not ACCEPTED.
+ADR_STATUS_LINE = re.compile(r"^[\s>*_-]*\*{0,2}status:?\*{0,2}:?\s*\**\s*(.*)$", re.IGNORECASE | re.MULTILINE)
+ADR_ACCEPTED = re.compile(r"^accepted\*{0,2}\s*(?:\(.*\))?\s*$", re.IGNORECASE)
+
+
+def adr_accepted(text):
+    m = ADR_STATUS_LINE.search(text)
+    return m is not None and ADR_ACCEPTED.match(m.group(1).strip()) is not None
+
+
+def file_pattern(path):
+    return r"(?<![\w./:-])" + re.escape(path) + r"(?![\w/-]|\.\w)"
+
+
+def names_file(text, path):
+    """True when TEXT names PATH as a whole path: not inside a longer path (old/src/a.go, src/a.go.bak) or a URL."""
+    return re.search(file_pattern(path), text) is not None
+
+
+def names_id(text, note_id):
+    """True when TEXT writes NOTE_ID as code, exactly `note_id` between backticks, case-sensitive. A plain word equal to
+    the id is a passing mention, not a decision, and never counts (owner, 2026-11-15); `note-x-2`, `a-note-x`, `n1.go`
+    and `n1.2` are other tokens and never match `note-x` or `n1`."""
+    return bool(note_id) and ("`%s`" % note_id) in text
+
+
+def adr_counts(text, own_file, note_id=""):
+    """True when an ADR's TEXT decides this note: its first Status line says ACCEPTED (any case), it names OWN_FILE as a
+    whole repository path AND it names NOTE_ID, the ledger id of the note, in backticks (`id`) OUTSIDE every mention of
+    OWN_FILE (the path itself never supplies the id: `handler` in src/api/handler.go). A missing id counts nothing."""
+    if not (bool(own_file) and own_file != "?" and bool(note_id) and adr_accepted(text) and names_file(text, own_file)):
+        return False
+    return names_id(re.sub(file_pattern(own_file), " ", text), note_id)
+
+
+def verified_reference(ctx, binary, repo, reason, own_file, own_line="", note_id=""):
     """The reference that lets a NOTE verdict tick its box, else None. Checked here, never by the model.
 
     Every reference the verdict cites must exist at the tip of develop: one missing ADR, missing file or line past the
-    end of its file and nothing is accepted (a valid ADR cannot carry a wrong line). Then at least one must count: a
-    `docs/decisions/NNNN-*.md` file, or `path:line` / `path:a-b` within OWN_FILE, the file the note itself points at, other
-    than a range that holds the note's own line OWN_LINE (citing the place the note already names proves nothing; leading
-    zeros and ranges are compared as numbers). Paths are compared after repo_path (no ./ or pr/ prefix). A line of another
-    file proves nothing about this note (owner, 2026-11-15)."""
+    end of its file and nothing is accepted (a valid ADR cannot carry a wrong line). Then at least one ADR must count:
+    a `docs/decisions/NNNN-*.md` file read at the tip of develop whose FIRST Status line says ACCEPTED (case-insensitive,
+    alone or followed by a parenthesis) and whose text names OWN_FILE, the file the note points at, as a whole repository
+    path (repo_path form; not inside a longer path or a URL) AND names NOTE_ID, the note's ledger id (raw, before slug), written
+    as code, exactly `id` between backticks, case-sensitive (a plain word never counts; `note-x` is not `note-x-2`). An ADR that does not name the file and the id
+    proves nothing about the note; an empty NOTE_ID counts nothing (fail closed). A `path:line` citation never counts, in the note's own file or any other: it only
+    has to exist (existence is not evidence; owner, 2026-11-15). A note whose own file is missing or "?" is never ticked.
+    OWN_LINE is not used: no line citation counts, so an unparsable own line cannot let one through."""
+    own_file = repo_path(own_file)
+    if not own_file or own_file == "?":
+        return None
     text = re.sub("[\u200b\u200c\u200d\u2060\ufeff]", "", reason or "")
     accepted = None
     for m in CITE_ADR.finditer(text):
-        if trunk_file(ctx, binary, repo, m.group(1)) is None:
+        adr = trunk_file(ctx, binary, repo, m.group(1))
+        if adr is None:
             return None
-        accepted = accepted or m.group(1)
+        if adr_counts(adr, own_file, note_id):
+            accepted = accepted or m.group(1)
     for m in CITE_LINE.finditer(text):
         if "/" not in m.group(1) and "." not in m.group(1) and repo_path(m.group(1)) != own_file:
             continue
@@ -692,10 +736,6 @@ def verified_reference(ctx, binary, repo, reason, own_file, own_line=""):
         total = body.count("\n") + (1 if body and not body.endswith("\n") else 0)
         if not 1 <= first <= last <= total:
             return None
-        own = line_range(own_line)
-        overlaps = own is not None and first <= own[1] and own[0] <= last  # a range that holds the note's own line
-        if own_file and repo_path(m.group(1)) == own_file and not overlaps:
-            accepted = accepted or m.group(0)
     return accepted
 
 
@@ -794,10 +834,11 @@ def settle_issue(ctx, binary, repo, pr, batch_no, number, entries, files=None, m
     notes = {slug(n): (d, r) for n, d, r in entries if n}
     if notes:
         old = issue.get("body") or ""
-        cited_by, where = {}, {}
+        cited_by, where, raw_ids = {}, {}, {}
         for line in old.split("\n"):
             mm = NOTE_ITEM.match(line)
             if mm:
+                raw_ids[slug(mm.group(2))] = mm.group(2)
                 w = NOTE_WHERE.match(mm.group(4))
                 cited_by[slug(mm.group(2))] = w.group(1) if w else ""
                 where[slug(mm.group(2))] = w.group(2) if w else ""
@@ -811,7 +852,7 @@ def settle_issue(ctx, binary, repo, pr, batch_no, number, entries, files=None, m
         for key, (d, r) in notes.items():
             own = repo_path(cited_by.get(key, ""))
             if d in ("NOT A DEFECT", "DECIDED") and not p0_path(ctx, binary, repo, own):
-                ref = verified_reference(ctx, binary, repo, r, own, where.get(key, ""))
+                ref = verified_reference(ctx, binary, repo, r, own, where.get(key, ""), raw_ids.get(key, ""))
                 if ref:
                     cites[key] = ref
         entries = [(n, *notes.get(slug(n), (d, r))) if n else (n, d, r) for n, d, r in entries]
