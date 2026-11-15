@@ -80,7 +80,11 @@ describe('ProjectThumb, review fixes', () => {
 
   it('renders nothing instead of a second tile when the fallback is turned off', () => {
     const { container } = render(
-      <ProjectThumb name="Kora SDK" githubUrl="https://gitlab.com/kora-dev/kora-sdk" fallback={false} />,
+      <ProjectThumb
+        name="Kora SDK"
+        githubUrl="https://gitlab.com/kora-dev/kora-sdk"
+        fallback={false}
+      />,
     );
     expect(container.firstChild).toBeNull();
   });
