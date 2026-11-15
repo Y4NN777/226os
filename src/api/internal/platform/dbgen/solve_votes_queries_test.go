@@ -86,3 +86,23 @@ func TestSolveVoteAndAcceptQueries(t *testing.T) {
 		t.Fatalf("SetSolveAcceptedAnswer err = %v", err)
 	}
 }
+
+// SolveVoteTargetExists is the lock-free read of the two vote lock queries: the same published tests, the
+// type and the id bound in that order, and no lock clause.
+func TestSolveVoteTargetExists(t *testing.T) {
+	ctx := t.Context()
+	boom := errors.New("boom")
+	id := pgtype.UUID{Bytes: [16]byte{1}, Valid: true}
+	db := &fakeDB{rowVals: []any{true}}
+	ok, err := dbgen.New(db).SolveVoteTargetExists(ctx, dbgen.SolveVoteTargetExistsParams{TargetType: "answer", ID: id})
+	if err != nil || !ok {
+		t.Fatalf("SolveVoteTargetExists = %v, %v", ok, err)
+	}
+	assertCall(t, db, "q.status = 'published'", []any{"answer", id})
+	if sql := db.calls[0].sql; strings.Contains(sql, "FOR ") {
+		t.Errorf("the existence read must not lock: %s", sql)
+	}
+	if _, err := dbgen.New(&fakeDB{rowErr: boom}).SolveVoteTargetExists(ctx, dbgen.SolveVoteTargetExistsParams{}); !errors.Is(err, boom) {
+		t.Fatalf("err = %v", err)
+	}
+}
