@@ -24,7 +24,10 @@ content="${content%x}"
 decoded="$(python3 -I -c 'import html, sys; sys.stdout.write(html.unescape(sys.stdin.read()))' <"$file"; printf x)"
 decoded="${decoded%x}"
 for k in E2E_USER E2E_PASSWORD; do
-  if [[ "$content" == *"${!k}"* || "$decoded" == *"${!k}"* ]]; then
+  # A test runner may also print the value JS/JSON-escaped (\" and \\) in a failure message.
+  escaped="$(python3 -I -c 'import json, os, sys; sys.stdout.write(json.dumps(os.environ[sys.argv[1]])[1:-1])' "$k"; printf x)"
+  escaped="${escaped%x}"
+  if [[ "$content" == *"${!k}"* || "$decoded" == *"${!k}"* || "$decoded" == *"$escaped"* ]]; then
     rm -f -- "$file"
     printf '::error title=E2E account in the junit report::The report holds the value of %s. It was deleted and is not uploaded.\n' "$k"
     exit 1
