@@ -49,7 +49,7 @@ test.describe('Anonymous visitor', () => {
     await expect(nav.getByRole('link', { name: fr.nav.solve, exact: true })).toBeVisible();
 
     await page.getByRole('button', { name: fr.account.more }).click();
-    await page.getByRole('menuitem', { name: 'English' }).click();
+    await page.getByRole('menuitemradio', { name: 'English' }).click();
     await expect(
       page
         .getByRole('navigation', { name: 'Main navigation' })
@@ -57,7 +57,7 @@ test.describe('Anonymous visitor', () => {
     ).toBeVisible();
 
     await page.getByRole('button', { name: 'More options' }).click();
-    await page.getByRole('menuitem', { name: 'Français' }).click();
+    await page.getByRole('menuitemradio', { name: 'Français' }).click();
     await expect(nav.getByRole('link', { name: fr.nav.solve, exact: true })).toBeVisible();
   });
 });
