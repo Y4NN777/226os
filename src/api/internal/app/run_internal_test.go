@@ -214,3 +214,15 @@ func TestRunStartsWithAValidAppBaseURL(t *testing.T) {
 		t.Fatalf("code = %d served = %v log = %s", code, served, out.String())
 	}
 }
+
+// Demo seed users are listed in the people directory only in local-dev; staging-test and production-live
+// always exclude them, and an unknown value fails closed.
+func TestDemoProfilesEnabledOnlyInLocalDev(t *testing.T) {
+	for env, want := range map[string]bool{
+		"local-dev": true, "staging-test": false, "production-live": false, "": false,
+	} {
+		if got := demoProfilesEnabled(env); got != want {
+			t.Errorf("demoProfilesEnabled(%q) = %v, want %v", env, got, want)
+		}
+	}
+}

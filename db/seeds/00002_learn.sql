@@ -1,5 +1,5 @@
 -- Demo fixtures 226os: learn (articles, article tags, series, lessons).
--- Contract: db/seeds/README.md. Deterministic, idempotent, local-dev only.
+-- Contract: db/seeds/README.md. Deterministic, idempotent, local-dev and staging-test only.
 -- No BEGIN/COMMIT: make seed wraps every file in one psql -1 transaction.
 
 -- 4. learn_articles

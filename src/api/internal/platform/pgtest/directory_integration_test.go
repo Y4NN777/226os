@@ -443,6 +443,25 @@ func TestDirectoryDropsAnAccountOnceItIsSuspendedOrDeleted(t *testing.T) {
 	}
 }
 
+// The default stack does not enable demo profiles (only APP_ENV=local-dev does), so a demo seed account is
+// never listed: this is what staging-test and production-live serve.
+func TestDirectoryHidesDemoAccountsByDefault(t *testing.T) {
+	ctx := t.Context()
+	s := newS2Stack(ctx, t, nil)
+	seedTags(ctx, t, s.conn)
+	newPerson(1, "live-person").insert(ctx, t, s.conn)
+	newPerson(2, "demo-person").insert(ctx, t, s.conn)
+	if _, err := s.conn.Exec(ctx, `UPDATE users SET provenance = 'demo' WHERE id = $1`, personID(2)); err != nil {
+		t.Fatal(err)
+	}
+	viewer := s.signIn(t, "dir-demo-viewer", true, 60)
+	for _, who := range []*member{nil, &viewer} {
+		if page, _ := s.directory(t, who, ""); !slices.Equal(page.usernames(), []string{"live-person"}) {
+			t.Fatalf("listed %v, want only the live account", page.usernames())
+		}
+	}
+}
+
 func TestDirectoryRateLimit(t *testing.T) {
 	ctx := t.Context()
 	s := newS2Stack(ctx, t, nil)

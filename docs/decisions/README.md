@@ -1,6 +1,6 @@
 # 226os Architecture Decision Registry
 
-**Status:** G0 is closed (2026-11-11): every G0 decision is `ACCEPTED` (approver `Y4NN777`), and P0 implementation is authorized under ADR-0001 to ADR-0010. ADR-0008 to ADR-0011 are dated 2026-11-12. Gates are evidence, not decisions: G1 to G4 run in CI through `make quality`; G5, G6 and G7 are `NOT RUN`.
+**Status:** G0 is closed (2026-11-11): every G0 decision is `ACCEPTED` (approver `Y4NN777`), and P0 implementation is authorized under ADR-0001 to ADR-0010; ADR-0011 to ADR-0014 are accepted since. ADR-0008 to ADR-0011 are dated 2026-11-12, ADR-0012 and ADR-0013 2026-11-14, ADR-0014 2026-11-15. Gates are evidence, not decisions: G1 to G4 run in CI through `make quality`; G5 and G6 are `NOT IMPLEMENTED` as targets and G7 is `NOT RUN`.
 
 The (archived) register of G0 decisions is [G0_DECISIONS.md](../archive/spec-kit/G0_DECISIONS.md); each row points to the ADR that records it.
 
@@ -21,6 +21,7 @@ The (archived) register of G0 decisions is [G0_DECISIONS.md](../archive/spec-kit
 | [0011](0011-ai-assistant-provider.md) | AI assistant provider (Google AI Studio, Gemma 4) | ACCEPTED | 2026-11-12 |
 | [0012](0012-ai-assistant-integration.md) | AI assistant integration (grounded answers, limits, fallback, golden set) | ACCEPTED | 2026-11-14 |
 | [0013](0013-default-branch-develop.md) | Default branch `develop`: pipeline trust anchor (stages 3 to 5 run from `develop`) | ACCEPTED | 2026-11-14 |
+| [0014](0014-ai-review-merges-develop.md) | The AI review pipeline merges into `develop`; the owner steps in on CRITICAL, sensitive and pipeline changes (amends the review rule of ADR-0008) | ACCEPTED | 2026-11-15 |
 
 ## Accepted baseline
 

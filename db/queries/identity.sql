@@ -162,6 +162,8 @@ WHERE p.username = $1;
 -- visible, so a hidden value never leaks through the projection or the filters. Email is never selected.
 -- A visibility passes when it is 'public', or 'members' for a member; 'private' never passes.
 -- A hidden or unset country and github come back as '' (neither value can be empty). Order and keyset: (username, user_id), served by profiles_username_uq.
+-- Demo seed accounts (users.provenance = 'demo') are listed only when include_demo is true (local-dev); the
+-- zero value excludes them, so staging-test and production-live fail closed.
 -- name: ListDirectoryProfiles :many
 SELECT p.user_id, p.username, p.display_name,
        COALESCE(CASE WHEN p.country_visibility = 'public' OR (sqlc.arg('member')::boolean AND p.country_visibility = 'members')
@@ -180,6 +182,7 @@ SELECT p.user_id, p.username, p.display_name,
 FROM profiles p
 JOIN users u ON u.id = p.user_id
 WHERE u.status = 'active'
+  AND (sqlc.arg('include_demo')::boolean OR u.provenance <> 'demo')
   AND (p.profile_visibility = 'public' OR (sqlc.arg('member')::boolean AND p.profile_visibility = 'members'))
   AND p.open_to_collab
   AND (p.open_to_collab_visibility = 'public' OR (sqlc.arg('member')::boolean AND p.open_to_collab_visibility = 'members'))

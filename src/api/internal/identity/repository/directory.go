@@ -23,6 +23,7 @@ func (r *Repository) ListProfiles(ctx context.Context, q domain.DirectoryQuery) 
 	}
 	rows, err := r.q.ListDirectoryProfiles(ctx, dbgen.ListDirectoryProfilesParams{
 		Member:        q.Member,
+		IncludeDemo:   q.IncludeDemo,
 		Country:       optionalText(q.Country),
 		Language:      optionalText(q.Language),
 		Skill:         optionalText(q.Skill),

@@ -59,3 +59,17 @@ func TestListProfilesErrors(t *testing.T) {
 		t.Fatalf("query error: %v", err)
 	}
 }
+
+// Demo accounts are listed only when the query asks for them; the zero value excludes them (fail closed).
+// The exclusion itself is SQL: pgtest/directory_integration_test.go runs it on real PostgreSQL.
+func TestListProfilesPassesIncludeDemoToTheQuery(t *testing.T) {
+	for _, include := range []bool{false, true} {
+		db := &fakeDB{}
+		if _, err := New(db).ListProfiles(context.Background(), domain.DirectoryQuery{IncludeDemo: include, Limit: 21}); err != nil {
+			t.Fatal(err)
+		}
+		if len(db.queryArgs) < 2 || db.queryArgs[1] != include {
+			t.Fatalf("include_demo arg = %v, want %v (args %v)", db.queryArgs, include, db.queryArgs)
+		}
+	}
+}

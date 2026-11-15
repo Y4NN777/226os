@@ -127,6 +127,7 @@ type Service struct {
 	now          func() time.Time
 	cursors      Cursors // signs the people-directory cursors (WithCursors)
 	baseURL      string  // public origin for mail links; empty means bare codes only
+	demoProfiles bool    // list demo seed accounts in the people directory (local-dev only)
 	// spawn runs work off the request path (a goroutine in production; tests
 	// run it inline to stay deterministic).
 	spawn func(func())
@@ -163,6 +164,11 @@ func WithCursors(c Cursors) Option { return func(s *Service) { s.cursors = c } }
 // WithBaseURL sets the public origin (no trailing slash) that verification and reset mails link to. Empty
 // keeps the mails to the bare code. config.Load validates the value; nothing here logs it.
 func WithBaseURL(origin string) Option { return func(s *Service) { s.baseURL = origin } }
+
+// WithDemoProfiles lets the people directory list demo seed accounts
+// (users.provenance = 'demo'). Off by default: staging-test and
+// production-live never pass it, the composition root enables it in local-dev.
+func WithDemoProfiles(on bool) Option { return func(s *Service) { s.demoProfiles = on } }
 
 // subkey is HKDF-Expand (RFC 5869, SHA-256, one 32-byte block) of the shared
 // secret for one purpose: HMAC(secret, info || 0x01). The secret is already

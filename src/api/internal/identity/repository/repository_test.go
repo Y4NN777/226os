@@ -24,6 +24,7 @@ type fakeDB struct {
 	n         int
 	queryRows [][]any // scripted rows for Query (multi-row results)
 	queryErr  error
+	queryArgs []any // args of the last Query call
 	beginErr  error
 	commitErr error
 }
@@ -47,7 +48,8 @@ func (f *fakeDB) Exec(context.Context, string, ...any) (pgconn.CommandTag, error
 	return pgconn.CommandTag{}, s.err
 }
 
-func (f *fakeDB) Query(_ context.Context, _ string, _ ...any) (pgx.Rows, error) {
+func (f *fakeDB) Query(_ context.Context, _ string, args ...any) (pgx.Rows, error) {
+	f.queryArgs = args
 	if f.queryErr != nil {
 		return nil, f.queryErr
 	}

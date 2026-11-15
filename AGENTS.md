@@ -17,7 +17,7 @@ Build 226os in accordance with `docs/PRD.md`, the constraints of `docs/SPEC.md`,
 
 - Start work from `develop`, unless the task is an approved hotfix from `main`.
 - Branch naming and domains: `docs/GIT_WORKFLOW.md` (owner of the convention).
-- Open a pull request from the work branch to `develop`; never push directly to `develop` or `main` once branch protection is active. Reviewer pairs follow ADR-0008 and `docs/team/CONTRIBUTORS.md`; an agent never merges its own PR without the review that ADR requires.
+- Open a pull request from the work branch to `develop`; never push directly to `develop` or `main` once branch protection is active. A PR into `develop` is merged by the AI review pipeline when CI is green and no finding is open (ADR-0014, amending the review rule of ADR-0008); the owner steps in on a CRITICAL, an open HIGH, a sensitive or pipeline path, and the promotion to `main`. An agent never merges a PR itself.
 - Treat `develop` as staging/Preview, then promote `develop` to `main` through a production pull request with G7 evidence and human approval.
 - Keep the tested commit SHA unchanged during promotion. Back-merge production fixes into `develop` through a pull request.
 - Read `docs/GIT_WORKFLOW.md` before creating, renaming, rebasing or promoting a branch. Do not force-push shared branches.
