@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { callsTo, mockApi } from '../../test/api';
 import { renderApp, setLanguages } from '../../test/render';
+import { selectOption } from '../../test/select';
 import { getVisibleText } from '../../test/visibleText';
 import { page, project } from './testFixtures';
 
@@ -19,11 +20,10 @@ function lastParams(fetchMock: ReturnType<typeof mockApi>) {
 }
 
 async function pick(label: RegExp, option: string) {
-  const user = userEvent.setup({ delay: null });
-  await user.click(
+  await selectOption(
     screen.getByRole(label.source.includes('Pays') ? 'button' : 'combobox', { name: label }),
+    option,
   );
-  await user.click(await screen.findByRole('option', { name: option }));
 }
 
 describe('BuildPage stage and country', () => {
