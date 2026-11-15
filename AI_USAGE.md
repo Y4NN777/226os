@@ -33,6 +33,15 @@ Rule on `contributor` (added 2026-11-12): going forward the field holds the GitH
 
 **Closed on 2026-11-13 by the owner (`Y4NN777`).** Until then every record carried `license_review: "ACCEPTED_BY_OWNER (2026-11-13): not independently verified"` and an empty or role-only `human_reviewers`. The owner closed them all by decision, with no further review: `license_review: "ACCEPTED_BY_OWNER (2026-11-13): not independently verified"` records that decision, it is **not** the result of a licence review; `human_reviewers` names the owner as the person who closed the record, and no line-by-line human review is claimed; `closure` says when. The `open_risks` of each record stay as written because they are still true statements. Records added later fill the same three fields at the time they are written.
 
+**Licence verification, 2026-11-15 (owner `Y4NN777`).** The historical records above stay as written; this paragraph gives each licence outcome instead of editing them.
+
+- **Dependencies:** the third-party licences these records rely on were read from upstream in #88 (2026-11-13; method in `THIRD_PARTY_NOTICES.md`, "Verification"). Two direct Go modules were missing from that table and are now listed: `github.com/google/uuid` v1.6.0 and `golang.org/x/crypto` v0.58.0. #89 promoted both from indirect to direct, and both are BSD-3-Clause, read from their LICENSE files on 2026-11-15.
+- **"S1 identity: domain, password hashing and auth service core"** (`PENDING`): VERIFIED. It is the change that made `google/uuid` and `golang.org/x/crypto` direct dependencies (BSD-3-Clause, above).
+- **"Search core and catalogue follow-ups (S2)"** and **"Error reports, search rate limit and shared limiter (S2)"** (`PENDING: owner review`): NOT APPLICABLE. Their pull requests (#92 and #96) changed no dependency file and cite no third-party source.
+- **"AI code review tooling (2026-11-13)"** ("not re-verified from source"): VERIFIED. `open-code-review` is Apache-2.0, read from its upstream LICENSE file on 2026-11-15. It runs through `npx` and is not distributed.
+- **The records closed as `ACCEPTED_BY_OWNER (2026-11-13): not independently verified`:** their dependency licences are covered by #88 and the line above. What that wording still covers is the originality of the AI-written text and code, which no licence check can prove. It stays an owner acceptance.
+- **"Brand assets (concept D)":** the copyright and trademark status of AI-generated marks stays an owner and legal decision (G0-COMP-001). It is not a dependency licence and cannot be verified from a licence file.
+
 ## Current task record
 
 > Dated historical record (2026-11-11, documentation audit and G0 preparation); it no longer describes the repository, see the dated records below.
