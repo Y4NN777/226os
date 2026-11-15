@@ -36,9 +36,14 @@ const (
 
 	// Writes draw on the one authenticated-writes budget, 60 per user per minute (ADR-0003); Learn,
 	// Build and error reports share the same write:user scope.
-	writeScope   = "write:user"
-	writeLimit   = 60
-	writeWindow  = time.Minute
+	writeScope  = "write:user"
+	writeLimit  = 60
+	writeWindow = time.Minute
+	// A vote on a target that is not there costs no write but is not free: it draws on its own bucket, so
+	// probing ids is bounded (60 per member per minute, #274).
+	missScope    = "vote:miss"
+	missLimit    = 60
+	missWindow   = time.Minute
 	searchScope  = "search:ip"
 	searchLimit  = 60
 	searchWindow = time.Minute
@@ -60,10 +65,14 @@ type Store interface {
 	UpdateQuestion(ctx context.Context, id string, patch domain.QuestionPatch, guard func(domain.Question) error) (domain.Question, error)
 	ListAnswers(ctx context.Context, q domain.AnswerQuery) ([]domain.Answer, error)
 	CreateAnswer(ctx context.Context, in domain.NewAnswer) (domain.Answer, error)
+	VoteTarget(ctx context.Context, targetType, id string) error
 	SetVote(ctx context.Context, v domain.Vote) (domain.VoteState, error)
 	SetAcceptedAnswer(ctx context.Context, c domain.AcceptChange) (domain.Question, error)
 }
 
+// VoteTarget returns domain.ErrNotFound when the question or answer is missing, not published or in a
+// removed question: the same test SetVote applies, read without a lock and without writing.
+//
 // SetVote writes the vote (value 0 deletes it) and moves the target's vote_score by the difference, in one
 // transaction under the target's row lock. It returns domain.ErrNotFound when the target is missing, not
 // published or in a removed question, and domain.ErrSelfVote when the voter wrote the target.
@@ -81,6 +90,8 @@ type Cursors interface {
 // Limiter is the fixed-window rate limiter. The service owns this port.
 type Limiter interface {
 	Hit(ctx context.Context, scope, value string, limit int, window time.Duration) (allowed bool, retryAfter time.Duration, err error)
+	// GiveBack releases one hit of the window that contains hitAt, the time taken before the matching Hit.
+	GiveBack(ctx context.Context, scope, value string, window time.Duration, hitAt time.Time) error
 }
 
 // QuestionListRequest is listQuestions. Nil means unset; nil Limit means 20.
@@ -393,13 +404,31 @@ func (s *Service) RetractVote(ctx context.Context, sub subject.Subject, targetTy
 	return s.vote(ctx, sub, domain.Vote{UserID: sub.UserID, TargetType: targetType, TargetID: targetID})
 }
 
-// vote spends one write before the store looks the target up, on purpose: the budget bounds every attempt
-// that reaches the database, so an unknown id costs the caller a write like any other (#155).
+// vote first checks that the target is a visible question or answer, so a vote on an unknown or removed
+// target is a 404 that spends no write (#155; questions and answers are public, so the check tells a caller
+// nothing a GET does not). That miss draws on its own bucket (vote:miss), fail closed, so probing is bounded:
+// over it is a 429. A visible target never touches that bucket. Then it spends one write, then the store
+// locks the target and applies the self-vote rule. A target removed between the check and the lock is a 404
+// that gives its write back on the window of the hit, so a 404 never costs a write (a give-back that fails
+// keeps the hit: the count only errs on the strict side).
 func (s *Service) vote(ctx context.Context, sub subject.Subject, v domain.Vote) (domain.VoteState, error) {
+	if err := s.store.VoteTarget(ctx, v.TargetType, v.TargetID); err != nil {
+		if errors.Is(err, domain.ErrNotFound) {
+			if berr := s.budget(ctx, missScope, missLimit, missWindow, sub); berr != nil {
+				return domain.VoteState{}, berr
+			}
+		}
+		return domain.VoteState{}, readErr(err)
+	}
+	hitAt := time.Now()
 	if err := s.hit(ctx, sub); err != nil {
 		return domain.VoteState{}, err
 	}
 	state, err := s.store.SetVote(ctx, v)
+	if errors.Is(err, domain.ErrNotFound) {
+		// Best effort: a failed give-back keeps the hit, never frees more than was spent.
+		_ = s.limiter.GiveBack(context.WithoutCancel(ctx), writeScope, sub.UserID, writeWindow, hitAt)
+	}
 	if errors.Is(err, domain.ErrSelfVote) {
 		return domain.VoteState{}, apperr.New(apperr.CodeSelfVoteForbidden, "You cannot vote on your own content.")
 	}
@@ -467,7 +496,12 @@ func requireVerified(sub subject.Subject, action string) error {
 
 // hit counts one write on the shared budget and fails closed when the limiter errors.
 func (s *Service) hit(ctx context.Context, sub subject.Subject) error {
-	ok, retry, err := s.limiter.Hit(ctx, writeScope, sub.UserID, writeLimit, writeWindow)
+	return s.budget(ctx, writeScope, writeLimit, writeWindow, sub)
+}
+
+// budget counts one hit of the subject in a scope, failing closed when the limiter errors.
+func (s *Service) budget(ctx context.Context, scope string, limit int, window time.Duration, sub subject.Subject) error {
+	ok, retry, err := s.limiter.Hit(ctx, scope, sub.UserID, limit, window)
 	if err != nil {
 		return apperr.Wrap(apperr.CodeInternal, err)
 	}

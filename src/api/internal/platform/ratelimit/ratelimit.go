@@ -36,6 +36,7 @@ const (
 // queries is the part of *dbgen.Queries the limiter uses.
 type queries interface {
 	HitRateBucket(ctx context.Context, arg dbgen.HitRateBucketParams) (int32, error)
+	GiveBackRateBucket(ctx context.Context, arg dbgen.GiveBackRateBucketParams) error
 	PurgeRateBuckets(ctx context.Context, windowStart pgtype.Timestamptz) error
 }
 
@@ -103,6 +104,26 @@ func (l *Limiter) Hit(ctx context.Context, scope, value string, limit int, windo
 		return false, start.Add(window).Sub(now), nil
 	}
 	return true, 0, nil
+}
+
+// GiveBack releases one hit of the fixed window that contains hitAt, the time the caller took before the
+// matching Hit, so it targets the bucket the hit counted in even when it runs after the window ended: the
+// next window is never touched. It is one atomic statement and never takes a bucket below zero. If the hit
+// itself landed just after a boundary that hitAt precedes, the give-back finds no row to release and the
+// caller keeps the hit: that only errs on the strict side. A caller treats an error as "keep the hit".
+func (l *Limiter) GiveBack(ctx context.Context, scope, value string, window time.Duration, hitAt time.Time) error {
+	if window <= 0 || window > maxWindow {
+		return errors.New("rate limit: invalid window")
+	}
+	ctx, cancel := context.WithTimeout(ctx, callTimeout)
+	defer cancel()
+	err := l.q.GiveBackRateBucket(ctx, dbgen.GiveBackRateBucketParams{
+		Scope: scope, KeyHash: l.bucketKey(scope, value), WindowStart: pgtype.Timestamptz{Time: hitAt.Truncate(window), Valid: true},
+	})
+	if err != nil {
+		return fmt.Errorf("rate limit give back: %w", err)
+	}
+	return nil
 }
 
 // purge deletes a bounded batch of long-expired buckets. Housekeeping must never fail a hit, so a

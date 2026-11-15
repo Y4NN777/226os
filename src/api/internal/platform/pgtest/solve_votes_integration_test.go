@@ -3,6 +3,8 @@
 package pgtest
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"math/rand/v2"
 	"net/http"
@@ -13,6 +15,12 @@ import (
 	"testing"
 
 	"github.com/Y4NN777/226os/src/api/internal/platform/apigen"
+	"github.com/Y4NN777/226os/src/api/internal/platform/apperr"
+	"github.com/Y4NN777/226os/src/api/internal/platform/cursor"
+	"github.com/Y4NN777/226os/src/api/internal/platform/ratelimit"
+	"github.com/Y4NN777/226os/src/api/internal/platform/subject"
+	solverepo "github.com/Y4NN777/226os/src/api/internal/solve/repository"
+	solveservice "github.com/Y4NN777/226os/src/api/internal/solve/service"
 )
 
 // US-SOLVE-001 votes and the accepted answer, on the production router over a migrated database: one vote
@@ -699,4 +707,101 @@ func TestSolveVotesAndAcceptDrawOnTheWriteBudget(t *testing.T) {
 		}
 	}
 	t.Fatal("61 votes never reached the budget")
+}
+
+// #155 note-vote-quota-order and #274 note-vote-target-unbudgeted-read: a vote or a retraction on an unknown
+// target is a 404 that never draws on the write budget of 60 per minute, but it draws on its own bucket,
+// vote:miss (60 per minute): the 61st miss is 429 with Retry-After. A visible target never touches vote:miss.
+func TestSolveVoteOnAnUnknownTargetLeavesTheBudgetUntouched(t *testing.T) {
+	awaitFreshMinute(t)
+	s := newSolveStack(t)
+	alice := s.signIn(t, "vote-probe-alice", true, 124)
+	bob := s.signIn(t, "vote-probe-bob", true, 125)
+	q := s.ask(t, &alice, "Sondage d'identifiants")
+	before := s.bucketCount(t, "write:user")
+	for i := 0; i < 20; i++ {
+		for _, rec := range []*httptest.ResponseRecorder{
+			s.vote(t, &bob, "answer", unknownID, 1, nil),
+			s.vote(t, &bob, "question", unknownID, -1, nil),
+			s.unvote(t, &bob, "answer", unknownID, nil),
+		} {
+			assertProblem(t, rec, http.StatusNotFound, "NOT_FOUND")
+		}
+	}
+	if after := s.bucketCount(t, "write:user"); after != before {
+		t.Fatalf("the unknown-target votes changed the write budget: %d -> %d", before, after)
+	}
+	if n := s.bucketCount(t, "vote:miss"); n != 60 {
+		t.Fatalf("vote:miss = %d, want 60", n)
+	}
+	rec := s.vote(t, &bob, "answer", unknownID, 1, nil)
+	assertProblem(t, rec, http.StatusTooManyRequests, "RATE_LIMITED")
+	if rec.Header().Get("Retry-After") == "" {
+		t.Fatal("no Retry-After on the miss limit")
+	}
+	if after := s.bucketCount(t, "write:user"); after != before {
+		t.Fatalf("a refused miss changed the write budget: %d -> %d", before, after)
+	}
+	// A visible target never touches the miss bucket and still draws one write.
+	if rec := s.vote(t, &bob, "question", q.Id.String(), 1, nil); rec.Code != http.StatusOK {
+		t.Fatalf("vote after the probes: %d %s", rec.Code, rec.Body.String())
+	}
+	if after := s.bucketCount(t, "write:user"); after != before+1 {
+		t.Fatalf("a vote on a visible target spent %d writes", after-before)
+	}
+	if n := s.bucketCount(t, "vote:miss"); n != 61 {
+		t.Fatalf("vote:miss = %d after a visible vote, want 61 (the refused 61st miss only)", n)
+	}
+}
+
+// removeAfterCheck is the real store, except that the target is removed right after the existence check: the
+// window between the check and the lock that #274 note-vote-toctou-documented describes.
+type removeAfterCheck struct {
+	*solverepo.Repository
+	remove func(ctx context.Context) error
+}
+
+func (r removeAfterCheck) VoteTarget(ctx context.Context, typ, id string) error {
+	if err := r.Repository.VoteTarget(ctx, typ, id); err != nil {
+		return err
+	}
+	return r.remove(ctx)
+}
+
+func TestSolveVoteOnATargetRemovedAfterTheCheckCostsNoWrite(t *testing.T) {
+	awaitFreshMinute(t)
+	s := newSolveStack(t)
+	alice := s.signIn(t, "vote-toctou-alice", true, 126)
+	bob := s.signIn(t, "vote-toctou-bob", true, 127)
+	q := s.ask(t, &alice, "Réponse retirée entre deux")
+	a := s.answer(t, &alice, q.Id.String(), "Réponse").Id.String()
+	codec, err := cursor.New(s2Secret)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := removeAfterCheck{Repository: solverepo.New(s.pool), remove: func(ctx context.Context) error {
+		_, err := s.conn.Exec(ctx, `UPDATE answers SET status = 'removed', removed_at = now() WHERE id = $1`, a)
+		return err
+	}}
+	svc := solveservice.New(store, codec, ratelimit.New(s.pool, s2Secret, nil))
+	before := s.bucketCount(t, "write:user")
+	_, err = svc.CastVote(t.Context(), subject.Subject{UserID: bob.id, EmailVerified: true},
+		solveservice.VoteRequest{TargetType: "answer", TargetID: a, Value: 1})
+	var ae *apperr.Error
+	if !errors.As(err, &ae) || ae.Code != apperr.CodeNotFound {
+		t.Fatalf("err = %v, want a 404", err)
+	}
+	if after := s.bucketCount(t, "write:user"); after != before {
+		t.Fatalf("a 404 under the lock cost a write: %d -> %d", before, after)
+	}
+}
+
+// bucketCount is the sum of the counters of every bucket of a scope.
+func (s *s2Stack) bucketCount(t *testing.T, scope string) int {
+	t.Helper()
+	var n int
+	if err := s.conn.QueryRow(t.Context(), `SELECT COALESCE(sum(hits), 0) FROM rate_limit_buckets WHERE scope = $1`, scope).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	return n
 }

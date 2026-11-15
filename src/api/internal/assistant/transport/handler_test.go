@@ -25,6 +25,8 @@ func (r retriever) Retrieve(context.Context, string, int) ([]domain.Passage, err
 
 type allow struct{}
 
+func (allow) GiveBack(context.Context, string, string, time.Duration, time.Time) error { return nil }
+
 func (allow) Hit(context.Context, string, string, int, time.Duration) (bool, time.Duration, error) {
 	return true, 0, nil
 }
@@ -137,11 +139,19 @@ func TestAskAssistantProblems(t *testing.T) {
 
 type brokenLimiter struct{}
 
+func (brokenLimiter) GiveBack(context.Context, string, string, time.Duration, time.Time) error {
+	return context.DeadlineExceeded
+}
+
 func (brokenLimiter) Hit(context.Context, string, string, int, time.Duration) (bool, time.Duration, error) {
 	return false, 0, context.DeadlineExceeded
 }
 
 type spentGlobal struct{}
+
+func (spentGlobal) GiveBack(context.Context, string, string, time.Duration, time.Time) error {
+	return nil
+}
 
 func (spentGlobal) Hit(_ context.Context, scope string, _ string, _ int, _ time.Duration) (bool, time.Duration, error) {
 	if scope == "assistant:global" {

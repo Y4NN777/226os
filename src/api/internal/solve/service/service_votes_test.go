@@ -20,6 +20,11 @@ func (f *fakeStore) SetVote(_ context.Context, v domain.Vote) (domain.VoteState,
 	return f.vote, nil
 }
 
+func (f *fakeStore) VoteTarget(_ context.Context, targetType, id string) error {
+	f.checkedType, f.checkedID = targetType, id
+	return f.targetErr
+}
+
 func (f *fakeStore) SetAcceptedAnswer(_ context.Context, c domain.AcceptChange) (domain.Question, error) {
 	f.gotChange = c
 	if f.err != nil {
@@ -231,14 +236,89 @@ func TestUnacceptAnswer(t *testing.T) {
 	}
 }
 
-// A vote on an unknown target spends one write on the budget, by design (#155): the budget bounds
-// the attempts that reach the database, so probing target ids is as limited as writing is. Checking
-// the target first would make failed probes free and unbounded.
-func TestAVoteOnAnUnknownTargetSpendsOneWrite(t *testing.T) {
-	svc, lim := newSvc(t, &fakeStore{err: domain.ErrNotFound})
+// A vote or a retraction on an unknown or removed target is the same 404 as before, and it spends no write:
+// the target is checked before the write budget (#155, owner decision 2026-11-15). Questions and answers
+// are public, so the check opens no enumeration oracle. A miss draws on its own bucket, vote:miss (60 a
+// minute per member), so probing ids stays bounded without costing a write; a visible target never touches
+// it (#274 note-vote-target-unbudgeted-read).
+func TestAVoteOnAnUnknownTargetSpendsNoWrite(t *testing.T) {
+	for _, typ := range []string{domain.TargetQuestion, domain.TargetAnswer} {
+		st := &fakeStore{targetErr: domain.ErrNotFound}
+		svc, lim := newSvc(t, st)
+		_, err := svc.CastVote(t.Context(), member, service.VoteRequest{TargetType: typ, TargetID: aID, Value: 1})
+		wantCode(t, err, apperr.CodeNotFound)
+		_, err = svc.RetractVote(t.Context(), member, typ, aID)
+		wantCode(t, err, apperr.CodeNotFound)
+		if lim.byScope["write:user"] != 0 || lim.byScope["vote:miss"] != 2 || st.writes != 0 || st.checkedType != typ || st.checkedID != aID {
+			t.Fatalf("%s: hits %v, writes %d, checked %q %q", typ, lim.byScope, st.writes, st.checkedType, st.checkedID)
+		}
+		if lim.scope != "vote:miss" || lim.value != userID || lim.limit != 60 || lim.window != time.Minute {
+			t.Fatalf("miss bucket %+v", lim)
+		}
+	}
+}
+
+// Past the miss budget the 404 becomes a 429 with Retry-After; a failing limiter fails closed.
+func TestAVoteOnAnUnknownTargetIsBoundedByTheMissBudget(t *testing.T) {
+	svc, lim := newSvc(t, &fakeStore{targetErr: domain.ErrNotFound})
+	lim.denyScope, lim.retry = map[string]bool{"vote:miss": true}, 9*time.Second
 	_, err := svc.CastVote(t.Context(), member, service.VoteRequest{TargetType: domain.TargetAnswer, TargetID: aID, Value: 1})
-	wantCode(t, err, apperr.CodeNotFound)
-	if lim.hits != 1 {
-		t.Fatalf("limiter hits = %d, want 1", lim.hits)
+	if ae := codeOf(t, err, apperr.CodeRateLimited); ae.RetryAfter != 9*time.Second {
+		t.Fatalf("retry after %v", ae.RetryAfter)
+	}
+	lim.errScope = map[string]error{"vote:miss": errDB}
+	_, err = svc.RetractVote(t.Context(), member, domain.TargetAnswer, aID)
+	wantCode(t, err, apperr.CodeInternal)
+	if lim.byScope["write:user"] != 0 {
+		t.Fatal("a miss spent a write")
+	}
+}
+
+func TestAVoteOnAVisibleTargetSpendsOneWriteAfterTheCheck(t *testing.T) {
+	st := &fakeStore{vote: domain.VoteState{TargetType: domain.TargetAnswer, TargetID: aID, Value: 1, Score: 1}}
+	svc, lim := newSvc(t, st)
+	if _, err := svc.CastVote(t.Context(), member, service.VoteRequest{TargetType: domain.TargetAnswer, TargetID: aID, Value: 1}); err != nil {
+		t.Fatal(err)
+	}
+	if lim.hits != 1 || lim.byScope["vote:miss"] != 0 || st.checkedID != aID {
+		t.Fatalf("limiter hits %v, checked %q", lim.byScope, st.checkedID)
+	}
+}
+
+// A failing existence check is a 500 and spends nothing; a spent budget is still a 429 on a visible target.
+func TestAVoteWhoseTargetCheckFailsSpendsNoWrite(t *testing.T) {
+	svc, lim := newSvc(t, &fakeStore{targetErr: errDB})
+	_, err := svc.CastVote(t.Context(), member, service.VoteRequest{TargetType: domain.TargetAnswer, TargetID: aID, Value: 1})
+	wantCode(t, err, apperr.CodeInternal)
+	if lim.hits != 0 {
+		t.Fatalf("limiter hits = %d, want 0", lim.hits)
+	}
+}
+
+// #274 note-vote-toctou-documented: a target removed between the check and the lock is a 404 and gives its
+// write back, on the window the hit used, so a 404 never costs a write. A failing give-back keeps the hit.
+func TestAVoteOnATargetRemovedAfterTheCheckGivesTheWriteBack(t *testing.T) {
+	for _, giveErr := range []error{nil, errDB} {
+		st := &fakeStore{err: domain.ErrNotFound}
+		svc, lim := newSvc(t, st)
+		lim.giveErr = giveErr
+		before := time.Now()
+		_, err := svc.CastVote(t.Context(), member, service.VoteRequest{TargetType: domain.TargetAnswer, TargetID: aID, Value: 1})
+		wantCode(t, err, apperr.CodeNotFound)
+		_, err = svc.RetractVote(t.Context(), member, domain.TargetAnswer, aID)
+		wantCode(t, err, apperr.CodeNotFound)
+		if lim.byScope["write:user"] != 2 || len(lim.gave) != 2 || lim.gave[0] != "write:user|"+userID+"|1m0s" {
+			t.Fatalf("hits %v, gave %v", lim.byScope, lim.gave)
+		}
+		if at := lim.gaveAt[0]; at.Before(before) || time.Since(at) > time.Minute {
+			t.Fatalf("give-back time %v", at)
+		}
+	}
+	// A refused vote that did write nothing for another reason keeps its hit: the self-vote rule is a 403 after a real lookup.
+	svc, lim := newSvc(t, &fakeStore{err: domain.ErrSelfVote})
+	_, err := svc.CastVote(t.Context(), member, service.VoteRequest{TargetType: domain.TargetAnswer, TargetID: aID, Value: 1})
+	wantCode(t, err, apperr.CodeSelfVoteForbidden)
+	if len(lim.gave) != 0 {
+		t.Fatalf("gave back %v on a self vote", lim.gave)
 	}
 }

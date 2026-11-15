@@ -3,6 +3,7 @@ package service_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"strings"
 	"sync"
@@ -35,9 +36,29 @@ type limiter struct {
 	mu     sync.Mutex
 	hits   map[string]int
 	failOn string // scope whose Hit returns an error
+	// byMember counts per (scope, value) for the scopes in perMember, like the real buckets; the other
+	// scopes are one counter each.
+	byMember      map[string]int
+	perMember     map[string]bool
+	giveBackFails bool
+	gaveAt        []time.Time // the hit time each give-back was told
 }
 
-func (l *limiter) Hit(_ context.Context, scope, _ string, limit int, window time.Duration) (bool, time.Duration, error) {
+// GiveBack releases one hit of a per-member scope, like the real limiter: never below zero.
+func (l *limiter) GiveBack(_ context.Context, scope, value string, _ time.Duration, hitAt time.Time) error {
+	l.gaveAt = append(l.gaveAt, hitAt)
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.giveBackFails {
+		return errors.New("db down")
+	}
+	if k := scope + "|" + value; l.byMember[k] > 0 {
+		l.byMember[k]--
+	}
+	return nil
+}
+
+func (l *limiter) Hit(_ context.Context, scope, value string, limit int, window time.Duration) (bool, time.Duration, error) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	if l.hits == nil {
@@ -47,7 +68,15 @@ func (l *limiter) Hit(_ context.Context, scope, _ string, limit int, window time
 	if scope == l.failOn {
 		return false, 0, errors.New("db down")
 	}
-	if l.hits[scope] > limit {
+	n := l.hits[scope]
+	if l.perMember[scope] {
+		if l.byMember == nil {
+			l.byMember = map[string]int{}
+		}
+		l.byMember[scope+"|"+value]++
+		n = l.byMember[scope+"|"+value]
+	}
+	if n > limit {
 		return false, window / 2, nil
 	}
 	return true, 0, nil
@@ -69,7 +98,7 @@ type rig struct {
 }
 
 func newRig(enabled bool, passages ...domain.Passage) *rig {
-	r := &rig{ret: &retriever{passages: passages}, lim: &limiter{}, fake: llm.NewFake()}
+	r := &rig{ret: &retriever{passages: passages}, lim: &limiter{perMember: map[string]bool{"assistant:user": true, "assistant:share": true}}, fake: llm.NewFake()}
 	r.svc = service.New(service.Config{Enabled: enabled, Timeout: time.Second}, r.ret, r.fake, r.lim, nil)
 	return r
 }
@@ -216,10 +245,8 @@ func TestAskInjectionInAPassageStaysInsideTheDataSection(t *testing.T) {
 
 func TestAskLimits(t *testing.T) {
 	t.Run("member budget: call 11 is 429 with Retry-After", func(t *testing.T) {
-		r := newRig(true, three...)
-		r.fake.Respond = func(llm.Request) (llm.Response, error) { return llm.Response{Text: "ok [S1]"}, nil }
-		r.svc = service.New(service.Config{Enabled: true}, r.ret, r.fake, &limiter{hits: map[string]int{}}, nil)
-		// The global guard (12 an hour) is above the member budget (10), so call 11 hits the member limit first.
+		// No passage: the provider is not called, so only the member budget (10 an hour) counts here.
+		r := newRig(true)
 		for i := 1; i <= 10; i++ {
 			if _, err := r.ask(member, "how do webhooks work"); err != nil {
 				t.Fatalf("call %d: %v", i, err)
@@ -230,8 +257,104 @@ func TestAskLimits(t *testing.T) {
 		if !errors.As(err, &ae) || ae.Code != apperr.CodeRateLimited || ae.RetryAfter <= 0 {
 			t.Fatalf("call 11: %v", err)
 		}
-		if n := len(r.fake.Requests()); n != 10 {
-			t.Fatalf("provider calls = %d, want 10", n)
+	})
+	// #162 note-global-guard-shared (ADR-0012 amendment 2026-11-15): one member may use ceil(12/4) = 3 of
+	// the 12 provider calls an hour, so at least four members are needed to spend the shared guard.
+	t.Run("fair share: a member's 4th provider call is 429 and spends no global call", func(t *testing.T) {
+		r := newRig(true, three...)
+		r.fake.Respond = func(llm.Request) (llm.Response, error) { return llm.Response{Text: "ok [S1]"}, nil }
+		for i := 1; i <= 3; i++ {
+			if _, err := r.ask(member, "how do webhooks work"); err != nil {
+				t.Fatalf("call %d: %v", i, err)
+			}
+		}
+		_, err := r.ask(member, "how do webhooks work")
+		var ae *apperr.Error
+		if !errors.As(err, &ae) || ae.Code != apperr.CodeRateLimited || ae.RetryAfter <= 0 {
+			t.Fatalf("call 4: %v", err)
+		}
+		if n, g := len(r.fake.Requests()), r.lim.hits["assistant:global"]; n != 3 || g != 3 {
+			t.Fatalf("provider calls %d, global hits %d, want 3 and 3", n, g)
+		}
+	})
+	t.Run("fair share: members at their share leave the rest of the guard to the others", func(t *testing.T) {
+		r := newRig(true, three...)
+		r.fake.Respond = func(llm.Request) (llm.Response, error) { return llm.Response{Text: "ok [S1]"}, nil }
+		who := func(i int) subject.Subject {
+			return subject.Subject{UserID: fmt.Sprintf("user-%d", i), EmailVerified: true}
+		}
+		for i := 1; i <= 4; i++ {
+			for call := 1; call <= 3; call++ {
+				if _, err := r.ask(who(i), "how do webhooks work"); err != nil {
+					t.Fatalf("member %d call %d: %v", i, call, err)
+				}
+			}
+			// Member i is at their share: the extra asks are 429 and leave the guard alone.
+			if _, err := r.ask(who(i), "how do webhooks work"); code(t, err) != apperr.CodeRateLimited {
+				t.Fatalf("member %d call 4: %v", i, err)
+			}
+		}
+		if len(r.fake.Requests()) != 12 {
+			t.Fatalf("provider calls = %d, want 12", len(r.fake.Requests()))
+		}
+		// Only now is the guard spent: a fifth member, with no share used, gets the shared 503.
+		_, err := r.ask(who(5), "how do webhooks work")
+		var ae *apperr.Error
+		if !errors.As(err, &ae) || ae.Code != apperr.CodeServiceUnavailable || ae.RetryAfter <= 0 {
+			t.Fatalf("member 5: %v", err)
+		}
+	})
+	// A refused global guard never reached the provider: the share it took is given back, so retries during
+	// a global 503 leave the member's share unchanged and the member keeps all of it once the window resets.
+	t.Run("fair share: retries during a global 503 burn nothing, the full share is left after the reset", func(t *testing.T) {
+		r := newRig(true, three...)
+		r.fake.Respond = func(llm.Request) (llm.Response, error) { return llm.Response{Text: "ok [S1]"}, nil }
+		r.lim.hits = map[string]int{"assistant:global": 12}
+		for i := 0; i < 5; i++ {
+			if _, err := r.ask(member, "how do webhooks work"); code(t, err) != apperr.CodeServiceUnavailable {
+				t.Fatalf("retry %d: %v", i, err)
+			}
+		}
+		if n := r.lim.byMember["assistant:share|"+member.UserID]; n != 0 {
+			t.Fatalf("share used = %d after refused retries, want 0", n)
+		}
+		// The give-back names the time of the share hit, taken before it, not the time it runs.
+		if len(r.lim.gaveAt) != 5 || r.lim.gaveAt[0].IsZero() || time.Since(r.lim.gaveAt[0]) > time.Minute {
+			t.Fatalf("give-back times %v", r.lim.gaveAt)
+		}
+		r.lim.hits["assistant:global"] = 0 // the global window resets
+		for i := 1; i <= 3; i++ {
+			if _, err := r.ask(member, "how do webhooks work"); err != nil {
+				t.Fatalf("call %d after the reset: %v", i, err)
+			}
+		}
+		if _, err := r.ask(member, "how do webhooks work"); code(t, err) != apperr.CodeRateLimited {
+			t.Fatalf("call 4: %v", err)
+		}
+	})
+	t.Run("fair share: a failing global limiter gives the share back too, and a failing give-back stays a 503", func(t *testing.T) {
+		r := newRig(true, three...)
+		r.lim.failOn = "assistant:global"
+		if _, err := r.ask(member, "how do webhooks work"); code(t, err) != apperr.CodeServiceUnavailable {
+			t.Fatal(err)
+		}
+		if n := r.lim.byMember["assistant:share|"+member.UserID]; n != 0 {
+			t.Fatalf("share used = %d, want 0", n)
+		}
+		r.lim.giveBackFails = true
+		if _, err := r.ask(member, "how do webhooks work"); code(t, err) != apperr.CodeServiceUnavailable {
+			t.Fatal(err)
+		}
+	})
+	t.Run("the share counts only provider calls", func(t *testing.T) {
+		r := newRig(true) // no passage: no provider call
+		for i := 1; i <= 10; i++ {
+			if _, err := r.ask(member, "how do webhooks work"); err != nil {
+				t.Fatalf("call %d: %v", i, err)
+			}
+		}
+		if r.lim.hits["assistant:share"] != 0 || r.lim.hits["assistant:global"] != 0 {
+			t.Fatalf("share %d, global %d, want 0 and 0", r.lim.hits["assistant:share"], r.lim.hits["assistant:global"])
 		}
 	})
 	t.Run("global guard spent is 503 and counts only provider calls", func(t *testing.T) {
@@ -246,7 +369,7 @@ func TestAskLimits(t *testing.T) {
 			t.Fatal("provider must not be called once the guard is spent")
 		}
 	})
-	for _, scope := range []string{"assistant:user", "assistant:global"} {
+	for _, scope := range []string{"assistant:user", "assistant:share", "assistant:global"} {
 		t.Run("limiter failure fails closed: "+scope, func(t *testing.T) {
 			r := newRig(true, three...)
 			r.lim.failOn = scope
@@ -342,7 +465,7 @@ func TestAskEvery503CarriesRetryAfter(t *testing.T) {
 			t.Fatalf("Retry-After %v", got)
 		}
 	})
-	for _, scope := range []string{"assistant:user", "assistant:global"} {
+	for _, scope := range []string{"assistant:user", "assistant:share", "assistant:global"} {
 		t.Run("limiter failure "+scope, func(t *testing.T) {
 			r := newRig(true, three...)
 			r.lim.failOn = scope

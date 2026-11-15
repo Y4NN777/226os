@@ -2,6 +2,7 @@ package transport_test
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -12,6 +13,14 @@ import (
 	"github.com/Y4NN777/226os/src/api/internal/platform/subject"
 	"github.com/Y4NN777/226os/src/api/internal/solve/domain"
 )
+
+// VoteTarget fails like the store would when its one scripted error is a missing or broken target.
+func (f *fakeStore) VoteTarget(context.Context, string, string) error {
+	if errors.Is(f.err, domain.ErrNotFound) {
+		return f.err
+	}
+	return nil
+}
 
 func (f *fakeStore) SetVote(_ context.Context, v domain.Vote) (domain.VoteState, error) {
 	f.gotVote = v

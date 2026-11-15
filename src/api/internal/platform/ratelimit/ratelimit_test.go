@@ -22,6 +22,8 @@ var errBoom = errors.New("boom: postgres://user:secret@host/db")
 type fakeQueries struct {
 	hits     []int32
 	hitErr   error
+	giveErr  error
+	gave     []dbgen.GiveBackRateBucketParams
 	purgeErr error
 
 	hitArgs   []dbgen.HitRateBucketParams
@@ -39,6 +41,13 @@ func (f *fakeQueries) HitRateBucket(ctx context.Context, a dbgen.HitRateBucketPa
 	h := f.hits[0]
 	f.hits = f.hits[1:]
 	return h, nil
+}
+
+func (f *fakeQueries) GiveBackRateBucket(ctx context.Context, a dbgen.GiveBackRateBucketParams) error {
+	_, dl := ctx.Deadline()
+	f.ctxHasDL = append(f.ctxHasDL, dl)
+	f.gave = append(f.gave, a)
+	return f.giveErr
 }
 
 func (f *fakeQueries) PurgeRateBuckets(ctx context.Context, cutoff pgtype.Timestamptz) error {
@@ -88,6 +97,58 @@ func TestHitFixedWindow(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// GiveBack releases a hit of the same bucket Hit counted in: same key, same aligned window.
+func TestGiveBackTargetsTheBucketOfTheHit(t *testing.T) {
+	q := &fakeQueries{hits: []int32{1}}
+	l := newTest(q, &bytes.Buffer{})
+	if _, _, err := l.Hit(t.Context(), "assistant:share", "user-1", 3, time.Hour); err != nil {
+		t.Fatal(err)
+	}
+	if err := l.GiveBack(t.Context(), "assistant:share", "user-1", time.Hour, t0); err != nil {
+		t.Fatal(err)
+	}
+	got, hit := q.gave[0], q.hitArgs[0]
+	if got.Scope != hit.Scope || !bytes.Equal(got.KeyHash, hit.KeyHash) || !got.WindowStart.Time.Equal(hit.WindowStart.Time) {
+		t.Fatalf("give back %+v, hit %+v", got, hit)
+	}
+	if !q.ctxHasDL[len(q.ctxHasDL)-1] {
+		t.Fatal("the give back ran without a deadline")
+	}
+}
+
+// A give-back that runs after the hour boundary still releases the window the hit counted in, and leaves the
+// next window alone (#274 note-giveback-window-edge).
+func TestGiveBackAfterTheBoundaryTargetsTheWindowOfTheHit(t *testing.T) {
+	q := &fakeQueries{hits: []int32{1}}
+	l := newTest(q, &bytes.Buffer{}) // the clock is t0, in the window starting 10:00
+	if _, _, err := l.Hit(t.Context(), "assistant:share", "user-1", 3, time.Hour); err != nil {
+		t.Fatal(err)
+	}
+	l.now = func() time.Time { return t0.Add(time.Hour) } // 11:00:20, the next window
+	if err := l.GiveBack(t.Context(), "assistant:share", "user-1", time.Hour, t0); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := q.gave[0].WindowStart.Time, t0.Truncate(time.Hour); !got.Equal(want) {
+		t.Fatalf("give back window = %v, want the window of the hit %v", got, want)
+	}
+	if !q.gave[0].WindowStart.Time.Equal(q.hitArgs[0].WindowStart.Time) {
+		t.Fatal("the give back must target the bucket the hit counted in")
+	}
+}
+
+func TestGiveBackErrors(t *testing.T) {
+	l := newTest(&fakeQueries{giveErr: errBoom}, &bytes.Buffer{})
+	err := l.GiveBack(t.Context(), "assistant:share", "user-1", time.Hour, t0)
+	if !errors.Is(err, errBoom) {
+		t.Fatalf("err = %v", err)
+	}
+	for _, w := range []time.Duration{0, 2 * time.Hour} {
+		if err := l.GiveBack(t.Context(), "assistant:share", "user-1", w, t0); err == nil {
+			t.Fatalf("window %v accepted", w)
+		}
 	}
 }
 
