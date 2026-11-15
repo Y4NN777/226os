@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { callsTo, mockApi, problemResponse } from '../../test/api';
 import { jsonResponse, renderApp, setLanguages } from '../../test/render';
+import { selectOption } from '../../test/select';
 import { member, page, project } from './testFixtures';
 
 const created = project({ id: 'e0000000-0000-4000-8000-0000000000bb' });
@@ -25,11 +26,11 @@ function createForm() {
   return within(form);
 }
 
-async function pick(user: ReturnType<typeof userEvent.setup>, label: RegExp, option: string) {
-  await user.click(
+async function pick(label: RegExp, option: string) {
+  await selectOption(
     createForm().getByRole(label.source.includes('Pays') ? 'button' : 'combobox', { name: label }),
+    option,
   );
-  await user.click(await screen.findByRole('option', { name: option }));
 }
 
 function routes(post: () => Response) {
@@ -42,14 +43,13 @@ function routes(post: () => Response) {
 }
 
 describe('BuildPage create form: stage, licence and country', () => {
-  it('sends the stage, the licence and a country from outside West Africa', async () => {
+  it('sends the stage and the licence', async () => {
     setLanguages(['fr-FR']);
     const fetchMock = member(routes(() => jsonResponse(created, { status: 201 })));
     const user = await openForm();
-    await pick(user, /^Étape/, 'Prototype');
+    await pick(/^Étape/, 'Prototype');
     await user.click(screen.getByRole('textbox', { name: /Licence/ }));
     await user.paste('Apache-2.0');
-    await pick(user, /^Pays/, 'Kenya');
     await user.click(screen.getByRole('button', { name: 'Publier le projet' }));
     await waitFor(() => {
       expect(callsTo(fetchMock, 'POST /projects')).toHaveLength(1);
@@ -58,10 +58,23 @@ describe('BuildPage create form: stage, licence and country', () => {
       github_url: url,
       stage: 'prototype',
       license_spdx: 'Apache-2.0',
+    });
+  });
+
+  it('sends a country from outside West Africa', async () => {
+    setLanguages(['fr-FR']);
+    const fetchMock = member(routes(() => jsonResponse(created, { status: 201 })));
+    const user = await openForm();
+    await pick(/^Pays/, 'Kenya');
+    await user.click(screen.getByRole('button', { name: 'Publier le projet' }));
+    await waitFor(() => {
+      expect(callsTo(fetchMock, 'POST /projects')).toHaveLength(1);
+    });
+    expect(await callsTo(fetchMock, 'POST /projects')[0]?.clone().json()).toMatchObject({
+      github_url: url,
       country_code: 'KE',
     });
-    // Two menus, one with the 54 countries: about 8 s locally, more under coverage in CI.
-  }, 30_000);
+  });
 
   it('sends none of the three when they are left alone', async () => {
     setLanguages(['fr-FR']);

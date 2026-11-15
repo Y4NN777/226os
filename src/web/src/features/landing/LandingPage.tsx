@@ -16,7 +16,6 @@ import {
   HammerIcon,
   HelpIcon,
   NetworkIcon,
-  SparklesIcon,
   UserPlusIcon,
   type SvgIcon,
 } from '../../components/icons';
@@ -200,10 +199,6 @@ export function LandingPage() {
   return (
     <div className="lp">
       <section className="lp-hero" aria-labelledby="landing-title">
-        <p className="lp-eyebrow">
-          <Icon icon={SparklesIcon} color="accent" size="sm" />
-          {t('landing.positioning')}
-        </p>
         <h1 id="landing-title" className="lp-h1">
           {t('landing.hero.a')} <span className="lp-h1-em">{t('landing.hero.b')}</span>
         </h1>

@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SideNav } from '@astryxdesign/core/SideNav';
 import { HammerIcon, HelpIcon } from '../components/icons';
 import { callsTo, memberAccount, memberSession, mockApi, problemResponse } from '../test/api';
@@ -53,7 +53,7 @@ describe('Shell', () => {
     setLanguages(['fr-FR']);
     mockApi();
     stubPhone();
-    await renderApp('/');
+    await renderApp('/parametres');
     // The prototype's phone shell has no top-bar hamburger: « Plus » in the bottom bar opens it.
     await screen.findByRole('navigation', { name: 'Navigation rapide' });
     expect(screen.queryByRole('button', { name: 'Ouvrir la navigation' })).not.toBeInTheDocument();
@@ -77,7 +77,7 @@ describe('Shell', () => {
     setLanguages(['fr-FR']);
     mockApi();
     stubPhone();
-    const { router } = await renderApp('/');
+    const { router } = await renderApp('/parametres');
     await screen.findByRole('navigation', { name: 'Navigation rapide' });
     const toggle = within(bottomBar()).getByRole('button', { name: 'Plus' });
     const user = userEvent.setup({ delay: null });
@@ -96,7 +96,7 @@ describe('Shell', () => {
     setLanguages(['fr-FR']);
     mockApi();
     stubPhone();
-    await renderApp('/');
+    await renderApp('/parametres');
     await screen.findByRole('navigation', { name: 'Navigation rapide' });
     const toggle = within(bottomBar()).getByRole('button', { name: 'Plus' });
     const user = userEvent.setup({ delay: null });
@@ -138,7 +138,7 @@ describe('Shell', () => {
   it('has no bottom bar above the phone breakpoint', async () => {
     setLanguages(['fr-FR']);
     mockApi();
-    await renderApp('/');
+    await renderApp('/parametres');
     await screen.findByRole('link', { name: 'Se connecter' });
     expect(screen.queryByRole('navigation', { name: 'Navigation rapide' })).not.toBeInTheDocument();
   });
@@ -147,7 +147,7 @@ describe('Shell', () => {
     setLanguages(['fr-FR']);
     mockApi();
     stubPhone();
-    await renderApp('/');
+    await renderApp('/parametres');
     await screen.findByRole('link', { name: 'Se connecter' });
     await userEvent.click(within(bottomBar()).getByRole('button', { name: 'Plus' }));
     const drawer = screen.getByRole('dialog', { name: 'Navigation', hidden: true });
@@ -173,7 +173,7 @@ describe('Shell', () => {
       },
     });
     stubPhone();
-    await renderApp('/');
+    await renderApp('/parametres');
     await screen.findByRole('button', { name: /Awa Traoré/ });
     const user = userEvent.setup({ delay: null });
     await user.click(within(bottomBar()).getByRole('button', { name: 'Plus' }));
@@ -198,7 +198,7 @@ describe('Shell', () => {
   it('offers « Poser une question » in the top bar to a signed-in member', async () => {
     setLanguages(['fr-FR']);
     mockApi({ 'GET /auth/session': () => jsonResponse(memberSession) });
-    await renderApp('/');
+    await renderApp('/parametres');
     await screen.findByRole('button', { name: /Awa Traoré/ });
     const ask = within(topBar()).getByRole('link', {
       name: 'Poser une question',
@@ -211,7 +211,7 @@ describe('Shell', () => {
   it('does not offer « Poser une question » to a visitor', async () => {
     setLanguages(['fr-FR']);
     mockApi();
-    await renderApp('/');
+    await renderApp('/parametres');
     await screen.findByRole('link', { name: 'Se connecter' });
     expect(
       within(topBar()).queryByRole('link', { name: 'Poser une question' }),
@@ -221,7 +221,7 @@ describe('Shell', () => {
   it('ends every page with the 226os footer and links only to documents that exist', async () => {
     setLanguages(['fr-FR']);
     mockApi();
-    await renderApp('/');
+    await renderApp('/parametres');
     await screen.findByRole('link', { name: 'Se connecter' });
     const footer = screen.getByRole('contentinfo');
     expect(within(footer).getByText('226os')).toBeInTheDocument();
@@ -262,7 +262,7 @@ describe('Shell', () => {
   it('offers sign-in and sign-up to an anonymous visitor', async () => {
     setLanguages(['fr-FR']);
     mockApi();
-    await renderApp('/');
+    await renderApp('/parametres');
     expect(await screen.findByRole('link', { name: 'Se connecter' })).toHaveAttribute(
       'href',
       '/connexion',
@@ -278,7 +278,7 @@ describe('Shell', () => {
   it('lists Apprendre and Connect before the other pillars, all in one navigation', async () => {
     setLanguages(['fr-FR']);
     mockApi();
-    await renderApp('/');
+    await renderApp('/parametres');
     const nav = await screen.findByRole('navigation', { name: 'Navigation principale' });
     const pillars = ['Apprendre', 'Connect', 'Résoudre', 'Découvrir', 'Construire'];
     const inDocumentOrder = within(nav)
@@ -292,7 +292,7 @@ describe('Shell', () => {
   it('links every pillar, Connect included, and shows no area as coming soon', async () => {
     setLanguages(['fr-FR']);
     mockApi();
-    await renderApp('/');
+    await renderApp('/parametres');
     await screen.findByRole('link', { name: 'Se connecter' });
     // Connect went live with the E5 directory: it is a link now, and nothing is left disabled.
     expect(within(primaryNav()).getByRole('link', { name: 'Connect' })).toHaveAttribute(
@@ -305,7 +305,7 @@ describe('Shell', () => {
   it('links Résoudre as a live pillar', async () => {
     setLanguages(['fr-FR']);
     mockApi();
-    await renderApp('/');
+    await renderApp('/parametres');
     await screen.findByRole('link', { name: 'Se connecter' });
     expect(within(primaryNav()).getByRole('link', { name: 'Résoudre' })).toHaveAttribute(
       'href',
@@ -316,7 +316,7 @@ describe('Shell', () => {
   it('links Discover as a live pillar and offers search from the top bar', async () => {
     setLanguages(['fr-FR']);
     mockApi();
-    const { router } = await renderApp('/');
+    const { router } = await renderApp('/parametres');
     await screen.findByRole('link', { name: 'Se connecter' });
     expect(within(primaryNav()).getByRole('link', { name: 'Découvrir' })).toHaveAttribute(
       'href',
@@ -339,7 +339,7 @@ describe('Shell', () => {
   it('opens the search page without a query when the top bar field is empty', async () => {
     setLanguages(['fr-FR']);
     mockApi();
-    const { router } = await renderApp('/');
+    const { router } = await renderApp('/parametres');
     await screen.findByRole('link', { name: 'Se connecter' });
     await userEvent
       .setup({ delay: null })
@@ -353,7 +353,7 @@ describe('Shell', () => {
   it('shows the 226os logo as the link home', async () => {
     setLanguages(['fr-FR']);
     mockApi();
-    await renderApp('/');
+    await renderApp('/parametres');
     await screen.findByRole('link', { name: 'Se connecter' });
     const brand = screen.getAllByRole('link', { name: '226os' })[0];
     expect(brand).toHaveAttribute('href', '/');
@@ -363,7 +363,7 @@ describe('Shell', () => {
   it('switches between light and dark from the top bar', async () => {
     setLanguages(['fr-FR']);
     mockApi();
-    await renderApp('/');
+    await renderApp('/parametres');
     const toggle = await screen.findByRole('button', { name: 'Thème sombre' });
     expect(toggle).toHaveAttribute('aria-pressed', 'false');
     await userEvent.setup({ delay: null }).click(toggle);
@@ -377,7 +377,7 @@ describe('Shell', () => {
   it('draws an icon before each navigation item, hidden from assistive technology', async () => {
     setLanguages(['fr-FR']);
     mockApi();
-    await renderApp('/');
+    await renderApp('/parametres');
     await screen.findByRole('link', { name: 'Se connecter' });
     const links = within(primaryNav()).getAllByRole('link');
     expect(links.map((link) => link.textContent)).toEqual([
@@ -397,9 +397,9 @@ describe('Shell', () => {
 
   it('marks the current area in the sidebar', async () => {
     setLanguages(['fr-FR']);
-    mockApi();
+    mockApi({ 'GET /auth/session': () => jsonResponse(memberSession) });
     await renderApp('/');
-    await screen.findByRole('link', { name: 'Se connecter' });
+    await screen.findByRole('button', { name: /Awa Traoré/ });
     expect(within(primaryNav()).getByRole('link', { name: 'Accueil' })).toHaveAttribute(
       'aria-current',
       'page',
@@ -422,7 +422,7 @@ describe('Shell', () => {
         return new Response(null, { status: 204 });
       },
     });
-    await renderApp('/');
+    await renderApp('/parametres');
     await userEvent
       .setup({ delay: null })
       .click(await screen.findByRole('button', { name: /Awa Traoré/ }));
@@ -447,7 +447,7 @@ describe('Shell', () => {
         return problemResponse(401, 'UNAUTHENTICATED');
       },
     });
-    await renderApp('/');
+    await renderApp('/parametres');
     await userEvent
       .setup({ delay: null })
       .click(await screen.findByRole('button', { name: /Awa Traoré/ }));
@@ -461,7 +461,7 @@ describe('Shell', () => {
   it('switches the interface language from the account menu', async () => {
     setLanguages(['fr-FR']);
     mockApi();
-    await renderApp('/');
+    await renderApp('/parametres');
     await userEvent
       .setup({ delay: null })
       .click(await screen.findByRole('button', { name: 'Préférences' }));
@@ -477,7 +477,7 @@ describe('Shell', () => {
   it('exposes the current language as a checked radio in the anonymous menu', async () => {
     setLanguages(['fr-FR']);
     mockApi();
-    await renderApp('/');
+    await renderApp('/parametres');
     await userEvent
       .setup({ delay: null })
       .click(await screen.findByRole('button', { name: 'Préférences' }));
@@ -492,7 +492,7 @@ describe('Shell', () => {
   it('offers the theme as radios in the preferences menu', async () => {
     setLanguages(['fr-FR']);
     mockApi();
-    await renderApp('/');
+    await renderApp('/parametres');
     const user = userEvent.setup({ delay: null });
     await user.click(await screen.findByRole('button', { name: 'Préférences' }));
     expect(
@@ -505,7 +505,7 @@ describe('Shell', () => {
   it('exposes the current language as a checked radio in the account menu', async () => {
     setLanguages(['en-US']);
     mockApi({ 'GET /auth/session': () => jsonResponse(memberSession) });
-    await renderApp('/');
+    await renderApp('/parametres');
     await userEvent
       .setup({ delay: null })
       .click(await screen.findByRole('button', { name: /Awa Traoré/ }));
@@ -520,7 +520,7 @@ describe('Shell', () => {
   it('still offers sign-in when the session cannot be read', async () => {
     setLanguages(['en-US']);
     mockApi({ 'GET /auth/session': () => new Response('down', { status: 503 }) });
-    await renderApp('/');
+    await renderApp('/parametres');
     expect(await screen.findByRole('link', { name: 'Sign in' })).toBeInTheDocument();
   });
 });
@@ -607,7 +607,7 @@ describe('Tablet rail', () => {
     setLanguages(['fr-FR']);
     mockApi();
     stubTablet();
-    await renderApp('/');
+    await renderApp('/parametres');
     await screen.findByRole('navigation', { name: 'Navigation principale' });
     expect(screen.getAllByRole('navigation', { name: 'Navigation principale' })).toHaveLength(1);
     expect(screen.queryByRole('navigation', { name: 'Navigation rapide' })).not.toBeInTheDocument();
@@ -616,8 +616,112 @@ describe('Tablet rail', () => {
   it('keeps the full sidebar with its group titles above 1023px', async () => {
     setLanguages(['fr-FR']);
     mockApi();
-    await renderApp('/');
+    await renderApp('/parametres');
     const nav = await screen.findByRole('navigation', { name: 'Navigation principale' });
     expect(nav.className).not.toContain('shell-rail');
+  });
+});
+
+describe('on the public landing page', () => {
+  it('keeps the top bar and the footer but has no sidebar for a visitor', async () => {
+    setLanguages(['fr-FR']);
+    mockApi({ 'GET /resources': () => jsonResponse({ items: [], next_cursor: null }) });
+    await renderApp('/');
+    await screen.findByRole('heading', { level: 1 });
+    expect(topBar()).toBeInTheDocument();
+    expect(screen.getByRole('contentinfo')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('navigation', { name: 'Navigation principale' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('has no tablet rail either', async () => {
+    setLanguages(['fr-FR']);
+    mockApi({ 'GET /resources': () => jsonResponse({ items: [], next_cursor: null }) });
+    stubTablet();
+    await renderApp('/');
+    await screen.findByRole('heading', { level: 1 });
+    expect(
+      screen.queryByRole('navigation', { name: 'Navigation principale' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('has no bottom bar on a phone', async () => {
+    setLanguages(['fr-FR']);
+    mockApi({ 'GET /resources': () => jsonResponse({ items: [], next_cursor: null }) });
+    stubPhone();
+    await renderApp('/');
+    await screen.findByRole('heading', { level: 1 });
+    expect(screen.queryByRole('navigation', { name: 'Navigation rapide' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Plus' })).not.toBeInTheDocument();
+    // Nor a top-bar menu button that would open nothing.
+    expect(screen.queryByRole('button', { name: /navigation|menu/i })).not.toBeInTheDocument();
+  });
+
+  it('keeps the full shell for a member at the same address', async () => {
+    setLanguages(['fr-FR']);
+    mockApi({ 'GET /auth/session': () => jsonResponse(memberSession) });
+    await renderApp('/');
+    expect(
+      await screen.findByRole('navigation', { name: 'Navigation principale' }),
+    ).toBeInTheDocument();
+  });
+
+  it('keeps the sidebar for a visitor on another page', async () => {
+    setLanguages(['fr-FR']);
+    mockApi();
+    await renderApp('/parametres');
+    expect(
+      await screen.findByRole('navigation', { name: 'Navigation principale' }),
+    ).toBeInTheDocument();
+  });
+});
+
+describe('collapsible sidebar', () => {
+  afterEach(() => {
+    localStorage.clear();
+  });
+
+  it('collapses to the area icons, still named, and expands again', async () => {
+    setLanguages(['fr-FR']);
+    mockApi();
+    await renderApp('/parametres');
+    const nav = await screen.findByRole('navigation', { name: 'Navigation principale' });
+    const user = userEvent.setup({ delay: null });
+    await user.click(within(nav).getByRole('button', { name: 'Réduire le menu' }));
+    expect(within(nav).getByRole('button', { name: 'Ouvrir le menu' })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+    for (const name of ['Accueil', 'Résoudre', 'Découvrir']) {
+      expect(within(nav).getByRole('link', { name })).toBeInTheDocument();
+    }
+    await user.click(within(nav).getByRole('button', { name: 'Ouvrir le menu' }));
+    expect(within(nav).getByRole('button', { name: 'Réduire le menu' })).toBeInTheDocument();
+  });
+
+  it('remembers the collapsed state on the next visit', async () => {
+    setLanguages(['fr-FR']);
+    mockApi();
+    const first = await renderApp('/parametres');
+    const nav = await screen.findByRole('navigation', { name: 'Navigation principale' });
+    await userEvent
+      .setup({ delay: null })
+      .click(within(nav).getByRole('button', { name: 'Réduire le menu' }));
+    first.unmount();
+    await renderApp('/parametres');
+    const again = await screen.findByRole('navigation', { name: 'Navigation principale' });
+    expect(within(again).getByRole('button', { name: 'Ouvrir le menu' })).toBeInTheDocument();
+  });
+
+  it('labels the button in English', async () => {
+    setLanguages(['en-US']);
+    mockApi();
+    await renderApp('/parametres');
+    const nav = await screen.findByRole('navigation', { name: 'Main navigation' });
+    await userEvent
+      .setup({ delay: null })
+      .click(within(nav).getByRole('button', { name: 'Collapse menu' }));
+    expect(within(nav).getByRole('button', { name: 'Expand menu' })).toBeInTheDocument();
   });
 });
