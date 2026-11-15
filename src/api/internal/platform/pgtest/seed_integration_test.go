@@ -266,6 +266,34 @@ func TestSeedReusesLiveTagsBySlug(t *testing.T) {
 	}
 }
 
+// A database seeded with an older text (the « (démo) » suffix and long summaries) picks up the current
+// Discover names, summaries and source titles on the next run, so staging needs no reset.
+func TestSeedRefreshesDiscoverText(t *testing.T) {
+	ctx, conn, batch := seededDB(t)
+	const provider, resource, source = "01900000-0000-7000-8000-000000000201", "01900000-0000-7000-8000-000000000301", "01900000-0000-7000-8000-000000000401"
+	for _, stmt := range []string{
+		`UPDATE providers SET name = 'Sahel Pay (démo)', summary = 'ancien résumé' WHERE id = '` + provider + `'`,
+		`UPDATE resources SET name = 'Sahel Pay Mobile Money (démo)', summary = 'ancien résumé' WHERE id = '` + resource + `'`,
+		`UPDATE resource_sources SET title = 'Documentation publique Sahel Pay (démo)' WHERE id = '` + source + `'`,
+	} {
+		if _, err := conn.Exec(ctx, stmt); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := runSeed(ctx, t, conn, batch); err != nil {
+		t.Fatalf("reseed: %v", err)
+	}
+	if n := scalarInt(ctx, t, conn, `SELECT count(*) FROM providers WHERE name LIKE '%(démo)%' OR summary = 'ancien résumé'`); n != 0 {
+		t.Errorf("%d providers keep the old text", n)
+	}
+	if n := scalarInt(ctx, t, conn, `SELECT count(*) FROM resources WHERE name LIKE '%(démo)%' OR summary = 'ancien résumé'`); n != 0 {
+		t.Errorf("%d resources keep the old text", n)
+	}
+	if n := scalarInt(ctx, t, conn, `SELECT count(*) FROM resource_sources WHERE title LIKE '%(démo)%'`); n != 0 {
+		t.Errorf("%d sources keep the old title", n)
+	}
+}
+
 func TestSeedSQLIsDeterministic(t *testing.T) {
 	names, _ := seedFiles(t)
 	forbidden := regexp.MustCompile(`(?i)now\s*\(|current_timestamp|uuidv7\s*\(|random\s*\(`)

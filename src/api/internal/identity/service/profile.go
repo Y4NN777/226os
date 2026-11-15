@@ -100,7 +100,7 @@ func (s *Service) UpdateMyProfile(ctx context.Context, userID string, w domain.P
 // GetProfile serves GET /profiles/{username} under the C14b matrix: the page
 // opens only when profile_visibility allows the caller and the account is
 // active; every other case — unknown username, deleted or suspended account,
-// hidden profile — is the same 404. Field-level visibility then filters the
+// hidden profile, demo seed account outside local-dev — is the same 404. Field-level visibility then filters the
 // payload; the owner sees everything.
 func (s *Service) GetProfile(ctx context.Context, username, callerUserID string) (domain.PublicProfile, error) {
 	rec, err := s.store.ProfileByUsername(ctx, username)
@@ -112,7 +112,8 @@ func (s *Service) GetProfile(ctx context.Context, username, callerUserID string)
 	}
 	anonymous := callerUserID == ""
 	owner := !anonymous && callerUserID == rec.UserID
-	if rec.AccountStatus != "active" || !rec.Visibility.Allows(anonymous, owner) {
+	if rec.AccountStatus != "active" || (rec.Demo && !s.demoProfiles) ||
+		!rec.Visibility.Allows(anonymous, owner) {
 		return domain.PublicProfile{}, notFound()
 	}
 	out := domain.PublicProfile{

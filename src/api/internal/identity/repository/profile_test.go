@@ -34,10 +34,10 @@ func profileVals(withNulls bool) []any {
 
 func profileUsernameVals(withNulls bool) []any {
 	v := profileVals(withNulls)
-	// scan order: ..., created_at, updated_at, account_status, joined_at, skills
+	// scan order: ..., created_at, updated_at, account_status, joined_at, provenance, skills
 	skills := v[len(v)-1]
 	v = v[:len(v)-1]
-	return append(v, "active", tsVal(testTime), skills)
+	return append(v, "active", tsVal(testTime), "live", skills)
 }
 
 func TestProfileByUserID(t *testing.T) {
@@ -96,6 +96,16 @@ func TestProfileByUsername(t *testing.T) {
 	}
 	if rec.AccountStatus != "active" || !rec.JoinedAt.Equal(testTime) || rec.Username != "ann" {
 		t.Fatalf("record %+v", rec)
+	}
+	if rec.Demo {
+		t.Fatalf("live account mapped as demo: %+v", rec)
+	}
+
+	demoVals := profileUsernameVals(false)
+	demoVals[len(demoVals)-2] = "demo"
+	db = &fakeDB{steps: []dbStep{{vals: demoVals}}}
+	if rec, err := New(db).ProfileByUsername(ctx, "ann"); err != nil || !rec.Demo {
+		t.Fatalf("demo account: %+v, %v; want Demo=true", rec, err)
 	}
 
 	db = &fakeDB{steps: []dbStep{{vals: profileUsernameVals(true)}}}
