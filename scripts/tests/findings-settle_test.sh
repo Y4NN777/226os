@@ -2,7 +2,7 @@
 # Tests for `scripts/findings.py settle <pr>` with a stateful fake `gh`: when a batch fix pull request
 # (fix/review/batch-*) is merged into develop, the results table of its body settles each source. Only FIXED and FIXED
 # ELSEWHERE act: they close a finding issue as completed or tick a note's box. NOT A DEFECT and DECIDED only post the
-# reason as a comment (independent review of #187, H5: a model verdict never closes or ticks by itself; a human does);
+# reason as a comment on a finding, or on a note without a verifiable reference (independent review of #187, H5: a model verdict never closes a finding; a human does; notes with a verified reference: findings-settle-notes_test.sh);
 # OWNER and AFTER FREEZE stay open. One comment per touched source, once. A notes issue whose boxes are all ticked is
 # closed. The batch issue closes last. A second run changes nothing; no human comment is edited; no mention.
 # Usage: scripts/tests/findings-settle_test.sh

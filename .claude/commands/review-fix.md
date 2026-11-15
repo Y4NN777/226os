@@ -52,8 +52,10 @@ For each finding or item, one verdict with a one-line reason grounded in the cod
 | AFTER FREEZE | real but not a fix for a failing gate or a P0 path, and the freeze is on |
 
 When a batch fix pull request merges, `scripts/findings.py settle` acts on these verdicts: FIXED and FIXED ELSEWHERE
-close the finding issue (or tick the note's box), NOT A DEFECT and DECIDED close it as not planned (or tick the box) with
-your reason, OWNER and AFTER FREEZE stay open. So a verdict is a decision on the source: be exact.
+close the finding issue (or tick the note's box). NOT A DEFECT and DECIDED on a note tick its box, and close the notes
+issue as not planned once all its boxes are settled, only when your reason cites a reference that exists on `develop`
+(`path:line` or `path:a-b` within the file, or `docs/decisions/NNNN-*.md`; the script checks it); on a finding, or without
+such a reference, they only post your reason and a human decides. OWNER and AFTER FREEZE stay open. So a verdict is a decision on the source: be exact.
 
 Fix rules (binding):
 - Test first: write the failing test, run it and see it fail for the right reason, then the smallest fix, then run it

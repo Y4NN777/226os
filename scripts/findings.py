@@ -25,9 +25,11 @@ dashboard says what to fix next. Nobody files a finding by hand: classifying one
              urgent) while their row text is unchanged; the next batch moves on to the waiting items.
   settle PR  when the batch fix pull request PR (fix/review/batch-*) is merged into develop, its results table settles
              each source. Only FIXED and FIXED ELSEWHERE act: they close a finding issue as completed or tick a note's
-             box. NOT A DEFECT and DECIDED never close or tick anything (a model verdict is not a decision): their
-             reason is posted as a comment and a human closes the issue as not planned or ticks the box; OWNER and AFTER
-             FREEZE stay open. One comment per touched source ("Settled by #PR (review batch #N): ..."), once (marker); a
+             box. NOT A DEFECT and DECIDED never close a finding (a model verdict is not a decision): their reason is
+             posted as a comment and a human closes it. For a NOTE they tick its box when the reason cites a reference
+             that exists at the tip of develop (`path:line` or `path:a-b` inside the file, or a docs/decisions/NNNN-*.md
+             file; checked by the script) and the notes issue closes as not planned once every box is settled; without
+             such a reference they only comment. OWNER and AFTER FREEZE stay open. One comment per touched source ("Settled by #PR (review batch #N): ..."), once (marker); a
              notes issue whose boxes are all ticked is closed as completed; the batch issue closes last. Fails CLOSED like
              `batch`.
 
@@ -44,6 +46,7 @@ fails a workflow. Fail CLOSED (batch): a GitHub error is printed as FAILED and t
 from a partial read would lie about what is left.
 Environment: REPO (owner/name), PR_NUMBER (harvest), PR_AUTHOR, GH_BIN (default gh, GH_TOKEN auth).
 """
+import base64
 import datetime
 import importlib.util
 import os
@@ -589,7 +592,8 @@ def merged_fix(ctx, binary, repo, issue):
 
 SETTLE_MARK = "<!-- settled-by:PR%s -->"
 DECISIONS = ("FIXED", "FIXED ELSEWHERE", "NOT A DEFECT", "DECIDED", "OWNER", "AFTER FREEZE")
-# Only a fix closes or ticks by itself; NOT A DEFECT and DECIDED are the fixer's opinion: a human closes or ticks them.
+# Only a fix closes or ticks by itself; NOT A DEFECT and DECIDED are the fixer's opinion: a human closes a finding; a note is
+# ticked only with a reference the script verified (verified_reference).
 CLOSE_AS = {"FIXED": "completed", "FIXED ELSEWHERE": "completed"}
 STAYS_OPEN = {"NOT VERIFIED": "stays open: a human checks", "OWNER": "stays open for the owner", "AFTER FREEZE": "stays open until after the freeze",
               "NOT A DEFECT": "stays open: a human closes it as not planned if they agree",
@@ -620,6 +624,42 @@ def settle_text(decision, reason, pr):
 
 
 PR_REF = re.compile(r"#(\d+)")
+# A reference a NOT A DEFECT or DECIDED verdict of a NOTE must cite to tick it: `path:line`, `path:a-b` or an ADR file.
+CITE_LINE = re.compile(r"(?<![\w./-])((?:[\w.-]+/)*[\w.-]+\.\w+):(\d+)(?:-(\d+))?(?!\d)")
+CITE_ADR = re.compile(r"(?<![\w./-])(docs/decisions/\d{4}-[\w.-]+\.md)(?![\w.-])")
+TRUNK = "develop"
+
+
+def trunk_file(ctx, binary, repo, path):
+    """The text of `path` at the tip of develop, or None (missing, a directory, too large, unreadable: never a guess)."""
+    if ".." in path.split("/") or path.startswith("/"):
+        return None
+    try:
+        items = ctx.gh_api(binary, "repos/%s/contents/%s?ref=%s" % (repo, urllib.parse.quote(path), TRUNK))
+        item = items[0]
+        if item.get("type") != "file" or item.get("encoding") != "base64":
+            return None
+        return base64.b64decode(item.get("content") or "").decode("utf-8")
+    except Exception:  # any failure leaves the note open, which is today's behaviour
+        return None
+
+
+def verified_reference(ctx, binary, repo, reason):
+    """The first reference of the verdict text that exists at the tip of develop (`path:line` or `path:a-b` within the file,
+    or a `docs/decisions/NNNN-*.md` file), else None. Checked here, never by the model."""
+    text = re.sub("[\u200b\u200c\u200d\u2060\ufeff]", "", reason or "")
+    for m in CITE_ADR.finditer(text):
+        if trunk_file(ctx, binary, repo, m.group(1)) is not None:
+            return m.group(1)
+    for m in CITE_LINE.finditer(text):
+        first, last = int(m.group(2)), int(m.group(3) or m.group(2))
+        body = trunk_file(ctx, binary, repo, m.group(1))
+        if body is None:
+            continue
+        total = body.count("\n") + (1 if body and not body.endswith("\n") else 0)
+        if 1 <= first <= last <= total:
+            return m.group(0)
+    return None
 
 
 ORIGIN_TITLE = re.compile(r"^PR(\d+)\b")
@@ -706,8 +746,16 @@ def settle_issue(ctx, binary, repo, pr, batch_no, number, entries, files=None, m
             bad = unverified(ctx, binary, repo, pr, files, d, r, cited_by.get(key, ""), issue.get("created_at") or "", origin_pr(issue))
             if bad:
                 notes[key] = ("NOT VERIFIED", bad)
+        # A NOTE is not a defect: a NOT A DEFECT or DECIDED verdict that cites a reference which exists at the tip of develop
+        # ticks its box (and the issue closes as not planned when every box is settled). Findings never do.
+        cites = {}
+        for key, (d, r) in notes.items():
+            if d in ("NOT A DEFECT", "DECIDED"):
+                ref = verified_reference(ctx, binary, repo, r)
+                if ref:
+                    cites[key] = ref
         entries = [(n, *notes.get(slug(n), (d, r))) if n else (n, d, r) for n, d, r in entries]
-        out, ticked_all, seen = [], True, 0
+        out, ticked_all, seen, by_verdict = [], True, 0, False
         for line in old.split("\n"):
             m = NOTE_ITEM.match(line)
             if m:
@@ -715,6 +763,9 @@ def settle_issue(ctx, binary, repo, pr, batch_no, number, entries, files=None, m
                 hit = notes.get(slug(m.group(2)))
                 if m.group(1) == " " and hit and hit[0] in CLOSE_AS:
                     line = line.replace("- [ ]", "- [x]", 1) + " \u2014 " + settle_text(hit[0], hit[1], pr)
+                elif m.group(1) == " " and hit and slug(m.group(2)) in cites:
+                    line = line.replace("- [ ]", "- [x]", 1) + " \u2014 " + settle_text(hit[0], hit[1], pr)
+                    by_verdict = True
                 elif m.group(1) == " ":
                     ticked_all = False
             out.append(line)
@@ -722,8 +773,9 @@ def settle_issue(ctx, binary, repo, pr, batch_no, number, entries, files=None, m
         if new != old:
             batch_write(binary, "PATCH", endpoint, [("body", new)])
         if seen and ticked_all and issue.get("state") == "open":
-            batch_write(binary, "PATCH", endpoint, [("state", "closed"), ("state_reason", "completed")])
-        detail = "; ".join("`%s` %s" % (one_line(n, 40), d if d in CLOSE_AS else "%s (%s)%s" % (
+            batch_write(binary, "PATCH", endpoint, [("state", "closed"), ("state_reason", "not_planned" if by_verdict else "completed")])
+        detail = "; ".join("`%s` %s" % (one_line(n, 40), d if d in CLOSE_AS else "%s ticked (reference `%s` exists)%s" % (
+            d, one_line(cites[slug(n)], 80), ": " + one_line(r, 200) if r else "") if slug(n) in cites else "%s (%s)%s" % (
             d, STAYS_OPEN[d], ": " + one_line(r, 200) if r else "")) for n, d, r in entries if n)
     else:
         _, decision, reason = entries[0]
