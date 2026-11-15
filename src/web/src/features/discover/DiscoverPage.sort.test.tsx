@@ -1,8 +1,9 @@
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { mockApi } from '../../test/api';
 import { jsonResponse, renderApp, setLanguages } from '../../test/render';
+import { selectOption } from '../../test/select';
 import { getVisibleText } from '../../test/visibleText';
 import { listParams, resource } from './testFixtures';
 
@@ -26,8 +27,14 @@ describe('DiscoverPage sort', () => {
     const user = userEvent.setup({ delay: null });
     const trigger = screen.getByRole('combobox', { name: /^Trier/ });
     expect(trigger).toHaveTextContent('Nom');
-    await user.click(trigger);
-    expect(await screen.findByRole('option', { name: 'Vérifiées récemment' })).toBeInTheDocument();
+    // Open by keyboard and look inside the listbox: a page-wide role query costs about 600 ms here.
+    trigger.focus();
+    await user.keyboard('{Enter}');
+    expect(
+      within(screen.getByRole('listbox')).getByText('Vérifiées récemment', {
+        selector: '[role="option"], [role="option"] *',
+      }),
+    ).toBeInTheDocument();
   });
 
   it('sends no sort by default', async () => {
@@ -70,8 +77,7 @@ describe('DiscoverPage sort', () => {
     await screen.findByRole('link', { name: 'Wave Pay' });
     await user.click(screen.getByRole('button', { name: 'Afficher plus' }));
     await screen.findByRole('link', { name: 'Safari Hub' });
-    await user.click(screen.getByRole('combobox', { name: /^Trier/ }));
-    await user.click(await screen.findByRole('option', { name: 'Vérifiées récemment' }));
+    await selectOption(screen.getByRole('combobox', { name: /^Trier/ }), 'Vérifiées récemment');
     await waitFor(() => {
       expect(listParams(fetchMock, 'last').get('sort')).toBe('verified');
     });
