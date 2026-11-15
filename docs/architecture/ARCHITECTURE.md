@@ -148,12 +148,12 @@ flowchart LR
   Y -->|"openapi-typescript"| TS["src/web/src/api/schema.d.ts"]
   Y -->|"embarqué"| SP["platform/apispec"]
   SP -->|"kin-openapi"| VA["validation de chaque requête"]
-  GO --> SRV["app.Server (45 opérations câblées)"]
+  GO --> SRV["app.Server (46 opérations câblées)"]
   TS --> CL["client openapi-fetch typé"]
   Y -.->|"régénérer puis comparer"| DR["contrôle de dérive"]
 ```
 
-- [`api/openapi.yaml`](../../api/openapi.yaml) est la source de vérité, écrite avant le code : 39 chemins, 49 opérations. 45 sont câblées ; les 4 opérations P1 (`listResourceReviews`, `createResourceReview`, `getLessonProgress`, `putLessonProgress`) répondent 501.
+- [`api/openapi.yaml`](../../api/openapi.yaml) est la source de vérité, écrite avant le code : 40 chemins, 50 opérations. 46 sont câblées ; les 4 opérations P1 (`listResourceReviews`, `createResourceReview`, `getLessonProgress`, `putLessonProgress`) répondent 501.
 - Fichiers générés versionnés, jamais modifiés à la main (ADR-0004 point 10). Récit du contrat : [API_CONTRACT.md](../spec-kit/API_CONTRACT.md).
 
 | Convention | Règle ([ADR-0004](../decisions/0004-api-contract-conventions.md)) |

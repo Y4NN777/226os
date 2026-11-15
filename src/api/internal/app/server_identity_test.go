@@ -104,6 +104,7 @@ func TestServerIdentityUnimplementedWithoutOption(t *testing.T) {
 		{"SignOut", s.SignOut},
 		{"GetSession", s.GetSession},
 		{"VerifyEmail", s.VerifyEmail},
+		{"ResendEmailVerification", s.ResendEmailVerification},
 		{"RequestPasswordReset", s.RequestPasswordReset},
 		{"ConfirmPasswordReset", s.ConfirmPasswordReset},
 		{"GetMe", s.GetMe},
@@ -173,6 +174,13 @@ func TestServerIdentityDelegates(t *testing.T) {
 	s.VerifyEmail(rec, postJSON(t, `{"token":"bad"}`))
 	if rec.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("verify: %d %s", rec.Code, rec.Body.String())
+	}
+
+	// Resend reaches the service (stub store -> problem, not 501).
+	rec = httptest.NewRecorder()
+	s.ResendEmailVerification(rec, postJSON(t, `{"email":"a@b.co"}`))
+	if rec.Code == http.StatusNotImplemented {
+		t.Fatal("resend stayed unimplemented")
 	}
 
 	// Reset request reaches the service (stub store -> problem, not 501).

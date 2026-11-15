@@ -68,6 +68,10 @@ func (q *Queries) CreateAccount(ctx context.Context, arg CreateAccountParams) (C
 }
 
 const createEmailVerification = `-- name: CreateEmailVerification :exec
+WITH burned AS (
+  UPDATE email_verifications SET consumed_at = now()
+  WHERE email_verifications.user_id = $1 AND consumed_at IS NULL
+)
 INSERT INTO email_verifications (user_id, email, token_hash, expires_at)
 VALUES ($1, $2, $3, $4)
 `
@@ -79,6 +83,9 @@ type CreateEmailVerificationParams struct {
 	ExpiresAt pgtype.Timestamptz
 }
 
+// CreateEmailVerification stores a new code and burns every earlier open code of the account in one statement
+// (a single statement is its own transaction), so after a resend only the latest mail can verify the account.
+// The burn uses email_verifications_user_open_idx.
 func (q *Queries) CreateEmailVerification(ctx context.Context, arg CreateEmailVerificationParams) error {
 	_, err := q.db.Exec(ctx, createEmailVerification,
 		arg.UserID,

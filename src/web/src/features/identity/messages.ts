@@ -55,6 +55,16 @@ export const fr = {
   'identity.verify.invalid.body': 'Il a peut-être déjà servi.',
   'identity.verify.invalid.retry': 'Saisir un autre code',
   'identity.verify.invalid.signUp': 'Créer un compte',
+  'identity.verify.resend': 'Renvoyer le code',
+  'identity.resend.title': 'Recevoir un nouveau code',
+  'identity.resend.intro':
+    'Saisissez l’adresse de votre compte. Le nouveau code remplace l’ancien.',
+  'identity.resend.submit': 'Envoyer un nouveau code',
+  'identity.resend.back': 'J’ai déjà un code',
+  'identity.resend.done.title': 'Vérifiez votre boîte mail',
+  'identity.resend.done.body':
+    'Si cette adresse attend une confirmation, un nouveau code vient de partir. Il expire dans 24 heures.',
+  'identity.resend.done.link': 'Saisir le code',
 
   'identity.forgot.title': 'Mot de passe oublié',
   'identity.forgot.intro': 'Nous envoyons un code à l’adresse de votre compte.',
@@ -139,6 +149,15 @@ export const en: Record<keyof typeof fr, string> = {
   'identity.verify.invalid.body': 'It may have been used already.',
   'identity.verify.invalid.retry': 'Enter another code',
   'identity.verify.invalid.signUp': 'Create an account',
+  'identity.verify.resend': 'Resend the code',
+  'identity.resend.title': 'Get a new code',
+  'identity.resend.intro': 'Enter your account email. The new code replaces the old one.',
+  'identity.resend.submit': 'Send a new code',
+  'identity.resend.back': 'I already have a code',
+  'identity.resend.done.title': 'Check your inbox',
+  'identity.resend.done.body':
+    'If this address is waiting for confirmation, a new code is on its way. It expires in 24 hours.',
+  'identity.resend.done.link': 'Enter the code',
 
   'identity.forgot.title': 'Forgot your password?',
   'identity.forgot.intro': 'We send a code to your account email.',

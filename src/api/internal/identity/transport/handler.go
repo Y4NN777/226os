@@ -38,6 +38,7 @@ type Service interface {
 	SignIn(ctx context.Context, in service.SignInInput) (service.SignInResult, error)
 	SignOut(ctx context.Context, plain string) error
 	VerifyEmail(ctx context.Context, plain string, clientIP ...string) error
+	ResendEmailVerification(ctx context.Context, email, ip string) error
 	RequestPasswordReset(ctx context.Context, email, ip string) error
 	ConfirmPasswordReset(ctx context.Context, plain, newPassword, ip string) error
 	GetMe(ctx context.Context, acct domain.Account) (service.MeView, error)
@@ -326,6 +327,20 @@ func (h *Handler) VerifyEmail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// ResendEmailVerification serves POST /auth/verify-email/resend: always 202.
+func (h *Handler) ResendEmailVerification(w http.ResponseWriter, r *http.Request) {
+	var body apigen.VerificationResendRequest
+	if err := httpx.DecodeJSON(w, r, &body); err != nil {
+		writeErr(h.logger, w, r, err)
+		return
+	}
+	if err := h.svc.ResendEmailVerification(r.Context(), string(body.Email), clientIP(r)); err != nil {
+		writeErr(h.logger, w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusAccepted, apigen.Accepted{Status: apigen.AcceptedStatusAccepted})
 }
 
 // RequestPasswordReset serves POST /auth/password-reset/request: always 202.

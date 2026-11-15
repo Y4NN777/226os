@@ -7,8 +7,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, ApiError } from '../../api/http';
 import { LoadingState } from '../../components/LoadingState';
 import { useI18n } from '../../i18n/I18nProvider';
-import { CardHead } from './AuthCard';
+import { CardHead, SwitchLine } from './AuthCard';
 import { FailureNotice, FocusRegion, RateLimitNotice } from './notices';
+import { ResendCodeForm } from './ResendCodeForm';
 import { useCountdown } from './useCountdown';
 import { useFailure } from './useFailure';
 import { useHashToken } from './useHashToken';
@@ -16,7 +17,7 @@ import { useInvalidFocus } from './useInvalidFocus';
 import { isRefusedToken } from './violations';
 import { checkToken, errorStatus } from './validation';
 
-type Phase = 'form' | 'checking' | 'done' | 'invalid';
+type Phase = 'form' | 'checking' | 'done' | 'invalid' | 'resend';
 
 export function VerifyEmailPage() {
   const { t } = useI18n();
@@ -68,6 +69,29 @@ export function VerifyEmailPage() {
     void confirm(hashToken.trim());
   }, [hashToken, confirm, setFieldValue]);
 
+  if (phase === 'resend') {
+    return (
+      <ResendCodeForm
+        onBack={() => {
+          clear();
+          form.reset();
+          setPhase('form');
+        }}
+      />
+    );
+  }
+
+  const resendButton = (
+    <Button
+      variant="ghost"
+      label={t('identity.verify.resend')}
+      onClick={() => {
+        clear();
+        setPhase('resend');
+      }}
+    />
+  );
+
   if (phase === 'checking') {
     return (
       <VStack gap={4}>
@@ -111,6 +135,7 @@ export function VerifyEmailPage() {
             />
             <Button href="/inscription" label={t('identity.verify.invalid.signUp')} />
           </HStack>
+          <SwitchLine>{resendButton}</SwitchLine>
         </VStack>
       </FocusRegion>
     );
@@ -180,6 +205,7 @@ export function VerifyEmailPage() {
           </form.Subscribe>
         </VStack>
       </form>
+      <SwitchLine>{resendButton}</SwitchLine>
     </VStack>
   );
 }

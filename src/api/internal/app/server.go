@@ -180,6 +180,15 @@ func (s *Server) VerifyEmail(w http.ResponseWriter, r *http.Request) {
 	s.auth.VerifyEmail(w, r)
 }
 
+// ResendEmailVerification sends a new verification code. A server built without WithIdentity stays unimplemented.
+func (s *Server) ResendEmailVerification(w http.ResponseWriter, r *http.Request) {
+	if s.auth == nil {
+		s.Unimplemented.ResendEmailVerification(w, r)
+		return
+	}
+	s.auth.ResendEmailVerification(w, r)
+}
+
 // RequestPasswordReset serves the reset request. A server built without WithIdentity stays unimplemented.
 func (s *Server) RequestPasswordReset(w http.ResponseWriter, r *http.Request) {
 	if s.auth == nil {

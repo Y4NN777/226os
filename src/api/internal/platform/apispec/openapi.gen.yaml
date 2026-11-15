@@ -250,6 +250,50 @@ paths:
           $ref: '#/components/responses/TooManyRequests'
         '500':
           $ref: '#/components/responses/InternalError'
+  /auth/verify-email/resend:
+    post:
+      operationId: resendEmailVerification
+      tags:
+      - auth
+      summary: Send a new email verification code
+      x-priority: P0
+      x-spec:
+      - US-IDENTITY-001
+      x-authz:
+        allow: anonymous
+        matrix: POST /sessions, registration, reset request
+        notes: Always 202 (no enumeration), whether the address is unknown, inactive, already verified or waiting
+          for verification; only the last case sends a mail. The new code (lifetime 24h) invalidates every earlier
+          open verification code of the account. Rate-limited per IP (10 per hour) and per account (3 per hour),
+          counted before the lookup, fail closed; 429 with Retry-After.
+      security:
+      - csrfToken: []
+      requestBody:
+        required: true
+        description: Strict JSON body; unknown fields rejected.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerificationResendRequest'
+      responses:
+        '202':
+          description: Accepted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Accepted'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /auth/password-reset/request:
     post:
       operationId: requestPasswordReset
@@ -3224,6 +3268,17 @@ components:
           maxLength: 128
           format: password
           writeOnly: true
+      additionalProperties: false
+    VerificationResendRequest:
+      type: object
+      required:
+      - email
+      properties:
+        email:
+          type: string
+          minLength: 3
+          maxLength: 254
+          format: email
       additionalProperties: false
     PasswordResetRequest:
       type: object
