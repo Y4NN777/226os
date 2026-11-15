@@ -11,15 +11,15 @@ description: Cross-cutting 226os design and review standards: SOLID applied conc
 
 ## Project rules (binding)
 **Stack**
-- Go modular monolith with Chi, `pgx` and `sqlc`, REST and OpenAPI 3.1. No general-purpose ORM, no external search engine, no microservices, Redis or Kubernetes without an ADR (`docs/DEV.md:7`, `docs/DEV.md:10`, `docs/architecture/ARCHITECTURE.md:27`).
+- Go modular monolith with Chi, `pgx` and `sqlc`, REST and OpenAPI 3.1. No general-purpose ORM, no external search engine, no microservices, Redis or Kubernetes without an ADR (`docs/DEV.md:7`, `docs/DEV.md:10`, `docs/architecture/ARCHITECTURE.md §12`).
 
 **Boundaries**
 - Handlers are transport only. Business invariants live in the domain/service layer (`docs/DEV.md:10`, `docs/RULES.md:12`; the layer is named `service`).
 - Each domain package has `domain`, `service`, `repository` and `transport` layers, with dependencies pointing toward business logic (`docs/DEV.md:44`).
-- A module never imports a neighbour's HTTP transport. Share through explicit interfaces and limited models (`docs/architecture/ARCHITECTURE.md:20`).
+- A module never imports a neighbour's HTTP transport. Share through explicit interfaces and limited models (`docs/architecture/ARCHITECTURE.md §1`).
 - Domains and their allowed dependencies are listed in `docs/SPEC.md:83-94`. Example: solve may depend on identity only through interfaces.
-- The web layer talks only to explicit APIs and has no DB access. The API owns invariants and permissions. Access checks sit as close as possible to the business operation (`docs/architecture/ARCHITECTURE.md:19`, `docs/architecture/ARCHITECTURE.md:23`).
-- Cross-domain links use typed content relations, never one giant shared table (`docs/architecture/ARCHITECTURE.md:22`, `docs/spec-kit/DATABASE_DESIGN.md:7`).
+- The web layer talks only to explicit APIs and has no DB access. The API owns invariants and permissions. Access checks sit as close as possible to the business operation (`docs/architecture/ARCHITECTURE.md §1`, `docs/architecture/ARCHITECTURE.md §1`).
+- Cross-domain links use typed content relations, never one giant shared table (`docs/architecture/ARCHITECTURE.md §1`, `docs/spec-kit/DATABASE_DESIGN.md:7`).
 
 **YAGNI**
 - Don't create empty P1/P2 modules. Folders appear only when features start (`docs/SPEC.md:96`).
@@ -84,7 +84,7 @@ description: Cross-cutting 226os design and review standards: SOLID applied conc
 **KISS, YAGNI and DRY**
 - YAGNI applies to speculative features, not to refactoring that makes code easier to change ([Fowler, Yagni](https://martinfowler.com/bliki/Yagni.html)).
 - "Duplication is far cheaper than the wrong abstraction." Wait for the third real occurrence with the same reason to change before extracting. Inline a wrong abstraction rather than adding parameters to it ([Metz](https://sandimetz.com/blog/2016/1/20/the-wrong-abstraction)).
-- DRY applies to knowledge, not text. Two domains sharing a struct shape is not a reason to share a type across boundaries, because that couples their change cycles. Map at the boundary instead (226os convention; `docs/architecture/ARCHITECTURE.md:20`).
+- DRY applies to knowledge, not text. Two domains sharing a struct shape is not a reason to share a type across boundaries, because that couples their change cycles. Map at the boundary instead (226os convention; `docs/architecture/ARCHITECTURE.md §1`).
 
 **Refactor step**
 - A refactor changes internal structure without changing observable behaviour ([Fowler, Definition of Refactoring](https://martinfowler.com/bliki/DefinitionOfRefactoring.html)).
