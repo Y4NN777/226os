@@ -256,6 +256,13 @@ class StateTooLarge(Exception):
 Plan = collections.namedtuple("Plan", "state comment_id label_set compact frozen", defaults=(False, False))
 
 
+def live_routes(routes, head_sha):
+    """The owner routes that still hold on head_sha. A repro-invalid route (a reproducer that could not be written or run:
+    a model outage, a timeout, a flaky run) holds for the head it was recorded on only, so a new head retries; a route
+    without its head (written before) expires the same way. Every other route is permanent (#338 review)."""
+    return {fid: r for fid, r in routes.items() if r.get("code") != "repro-invalid" or r.get("head") == head_sha}
+
+
 def empty_state():
     return {"v": 1, "sha": "", "run": "", "result": "", "attempts": {}, "pending": {}, "aborted": {}, "routes": {}, "fixer": "ACTIVE", "stopped": {}, "reset_at": 0, "rows": [], "repro": {}}
 
@@ -292,6 +299,8 @@ def clean_state(raw):
     for fid, r in (routes.items() if isinstance(routes, dict) else []):
         if FINDING_ID.match(str(fid)) and isinstance(r, dict) and re.match(r"^[\w-]{1,40}$", str(r.get("code", ""))):
             state["routes"][str(fid)] = {"code": str(r["code"]), "why": str(r.get("why", ""))[:200]}
+            if FULL_SHA.match(str(r.get("head", ""))):
+                state["routes"][str(fid)]["head"] = str(r["head"])
     state["fixer"] = str(raw.get("fixer", "ACTIVE"))[:200] or "ACTIVE"
     stopped = raw.get("stopped")
     if isinstance(stopped, dict) and stopped:
@@ -324,7 +333,7 @@ def compact_state(state, keep_ids, head_sha, cause, result):
     small = dict(state, pending={}, result=result,
                  attempts={f: dict(list(h.items())[-MAX_ATTEMPTS:]) for f, h in state["attempts"].items() if f in keep},
                  aborted={f: {head_sha: h[head_sha]} for f, h in state["aborted"].items() if f in keep and h.get(head_sha)},
-                 routes={f: {"code": r["code"], "why": r["why"][:60]} for f, r in state["routes"].items()})
+                 routes={f: dict({"code": r["code"], "why": r["why"][:60]}, **({"head": r["head"]} if r.get("head") else {})) for f, r in state["routes"].items()})
     small["stopped"] = state["stopped"] or {"cause": cause[:200], "runs": len(pr_runs(small))}
     small["reset_at"] = min(state["reset_at"], len(pr_runs(small)))
     small["fixer"] = "STOPPED (%s)" % cause
@@ -493,6 +502,7 @@ def decide_pr(ctx, gh, repo, number, mode):
     state = dict(empty_state(), sha=head_sha if FULL_SHA.match(head_sha) else "", run=re.sub(r"\D", "", os.environ.get("RUN_ID", ""))[:20],
                  attempts=prior["attempts"], pending=prior["pending"], aborted=prior["aborted"], routes=prior["routes"],
                  stopped=prior["stopped"], reset_at=prior["reset_at"], repro=prior["repro"])
+    state["routes"] = live_routes(state["routes"], head_sha)
     entries = [f for f in ledger["findings"] if f["kind"] == "finding" and safe_id(f["id"])]
     # ---- the decision table (ADR-0015, owner 2026-11-15) ----
     # ROUTING is per finding: `fixer` or `owner` with a reason code, kept in the state (an owner route is never fixed again).
@@ -752,6 +762,8 @@ def settle_repro(state, rows, ids, head_sha, run_id):
         why = ("%s on the head %s (run %s)" % ("green" if result == "green" else "the rule does not fire" if result == "silent" else "the reproducer is invalid (" + result + ")",
                                               head_sha[:12], run_id))
         state["routes"][fid] = {"code": code, "why": why}
+        if code == "repro-invalid" and FULL_SHA.match(head_sha or ""):
+            state["routes"][fid]["head"] = head_sha  # holds for this head only (live_routes): a transient failure retries
         state["pending"].get(fid, {}).pop(head_sha, None)
         if not state["pending"].get(fid, True):
             del state["pending"][fid]
@@ -1024,8 +1036,9 @@ def cmd_context():
 MAX_REPRO = 3
 REPRO_RUNS = 3
 MAX_REPRO_BYTES = 65536
-REPRO_GO = re.compile(r"^src/(?:[\w.-]+/)*zz_repro_[\w.-]{1,40}_test\.go$")
-REPRO_WEB = re.compile(r"^src/web/(?:[\w.-]+/)*__repro__/[\w.-]{1,40}\.test\.ts$")
+# ASCII only and matched in full (fullmatch, \Z): the same set as the bash check of the fix job (#338 review).
+REPRO_GO = re.compile(r"src/(?:[A-Za-z0-9_.-]+/)*zz_repro_[A-Za-z0-9_.-]{1,40}_test\.go\Z")
+REPRO_WEB = re.compile(r"src/web/(?:[A-Za-z0-9_.-]+/)*__repro__/[A-Za-z0-9_.-]{1,40}\.test\.ts\Z")
 SHA256 = re.compile(r"^[0-9a-f]{64}$")
 REPRO_RESULTS = ("red", "green", "invalid")
 STATIC_RESULTS = ("fires", "silent", "invalid")
@@ -1034,7 +1047,7 @@ WEB_CODE = re.compile(r"\.(?:ts|tsx|js|jsx|mts|cts)$")
 
 
 def is_repro_path(path):
-    return bool(REPRO_GO.match(path or "") or REPRO_WEB.match(path or "")) and ".." not in (path or "").split("/")
+    return bool(REPRO_GO.fullmatch(path or "") or REPRO_WEB.fullmatch(path or "")) and ".." not in (path or "").split("/")
 
 
 def repro_path(fid, file):

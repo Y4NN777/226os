@@ -275,6 +275,28 @@ SEMJSON='{"results":[],"errors":[{"message":"x"}],"paths":{"scanned":[]}}' SEMRC
 script '3|level=error msg="Running error: context loading failed"'
 run repro-run PLAN="$SPLAN" WORKTREE="$wt" FINDINGS="st1" RESULT_FILE="$tmp/st/result.json" REPRO_RUNNER=fakerun
 [ "$(res st1 result)" = invalid ] && [ -z "$(output fix_ids)" ] && ok "static oracle: a tool that cannot run is invalid (never fires by default)" || ko "static invalid ($out)"
+# #338 review (repro-transient-permanent-owner-route): a repro-invalid route (a model outage, a timeout) holds for its
+# head only; a new head retries. not-reproducible (green, silent) stays permanent. The head survives a state round trip.
+lr="$(python3 -I - "$root/scripts/review-autofix.py" <<'PY'
+import importlib.util, sys
+spec = importlib.util.spec_from_file_location("ra", sys.argv[1]); ra = importlib.util.module_from_spec(spec); spec.loader.exec_module(ra)
+a, b = "a" * 40, "b" * 40
+routes = {"x1": {"code": "repro-invalid", "why": "w", "head": a}, "x2": {"code": "not-reproducible", "why": "w"},
+          "x3": {"code": "repro-invalid", "why": "w"}}
+same, new = sorted(ra.live_routes(routes, a)), sorted(ra.live_routes(routes, b))
+print(",".join(same), ",".join(new))
+PY
+)" || true
+[ "$lr" = "x1,x2 x2" ] && ok "repro-invalid holds on its head only (a new head retries); not-reproducible stays; an old route with no head expires" || ko "live routes ($lr)"
+# #338 review (repro-regex-trailing-newline): Python and the bash check of the fix job accept the same D2 paths.
+rp="$(python3 -I - "$root/scripts/review-autofix.py" <<'PY' || true
+import importlib.util, sys
+spec = importlib.util.spec_from_file_location("ra", sys.argv[1]); ra = importlib.util.module_from_spec(spec); spec.loader.exec_module(ra)
+print(ra.is_repro_path("src/api/x/zz_repro_a1_test.go"), ra.is_repro_path("src/api/x/zz_repro_a1_test.go\n"),
+      ra.is_repro_path("src/api/é/zz_repro_a1_test.go"), ra.is_repro_path("src/web/src/__repro__/a1.test.ts\n"))
+PY
+)"
+[ "$rp" = "True False False False" ] && ok "D2 paths: no trailing newline, ASCII only (same as the bash check)" || ko "repro path regex ($rp)"
 # Round 4 F4: the file is matched as a whole path token, never as a substring of a sibling file.
 pf="$(python3 -I - "$root/scripts/review-autofix.py" <<'PY'
 import importlib.util, sys
