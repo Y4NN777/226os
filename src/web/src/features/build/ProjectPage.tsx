@@ -281,7 +281,7 @@ function About({ project }: { project: Project }) {
   const { t } = useI18n();
   return (
     <Section as="section" title={t('project.about')} isPanel>
-      <ProjectThumb name={project.name} githubUrl={project.github_url} size="lg" />
+      <ProjectThumb name={project.name} githubUrl={project.github_url} size="lg" fallback={false} />
       {project.github_url.startsWith('https://github.com/') ? (
         <Link href={project.github_url} isExternalLink newTabLabel={t('discover.newTab')}>
           {t('project.github')}

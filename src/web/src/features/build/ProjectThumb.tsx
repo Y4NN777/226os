@@ -26,19 +26,25 @@ const dimensions = {
  * monogram tile when there is no preview or it fails to load (offline, private repository, slow
  * network). Always decorative: the project name is written next to it.
  */
-export function ProjectThumb({
-  name,
-  githubUrl,
-  size = 'md',
-}: {
+type ThumbProps = {
   name: string;
   githubUrl: string;
   /** `card` fills the width of a card, 2:1. */
   size?: 'md' | 'lg' | 'card';
-}) {
+  /** false: render nothing instead of the monogram tile (where the page already shows that tile). */
+  fallback?: boolean;
+};
+
+export function ProjectThumb(props: ThumbProps) {
+  // A new repository URL is a new image: the failed state of the previous one must not stick.
+  return <Thumb key={props.githubUrl} {...props} />;
+}
+
+function Thumb({ name, githubUrl, size = 'md', fallback = true }: ThumbProps) {
   const [failed, setFailed] = useState(false);
   const src = repoPreviewUrl(githubUrl);
   if (!src || failed) {
+    if (!fallback) return null;
     return size === 'card' ? (
       <span className="build-thumb-fallback">
         <Avatar name={name} variant="tile" size="lg" />

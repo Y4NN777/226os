@@ -463,8 +463,10 @@
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
-ul.ui-card-grid > .ui-row,
-ul.ui-card-grid > .learn-row {
+/* Doubled class: beats the phone container rule `.ui-row.has-lead:not(.has-corner)` (0,3,0), so a card
+   stays one column at every width. */
+ul.ui-card-grid.ui-card-grid > .ui-row,
+ul.ui-card-grid.ui-card-grid > .learn-row {
   grid-template-columns: minmax(0, 1fr);
   align-content: start;
   gap: var(--spacing-3);
@@ -499,6 +501,8 @@ ul.ui-card-grid > .learn-row > .learn-row-lead {
 }
 ul.ui-card-grid > .ui-row > .ui-row-aside,
 ul.ui-card-grid > .learn-row > .learn-row-aside {
+  /* The list layouts place the aside in column 2 on a phone; a card has a single column. */
+  grid-column: 1 / -1;
   flex-direction: row;
   flex-wrap: wrap;
   align-items: center;

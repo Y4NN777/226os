@@ -63,3 +63,25 @@ describe('ProjectThumb', () => {
     expect(container.querySelector('img')?.className).toContain('build-thumb-lg');
   });
 });
+
+describe('ProjectThumb, review fixes', () => {
+  it('tries the preview again when the repository URL changes after a failure', () => {
+    const { container, rerender } = render(
+      <ProjectThumb name="Kora SDK" githubUrl="https://github.com/kora-dev/broken" />,
+    );
+    const first = container.querySelector('img');
+    if (first) fireEvent.error(first);
+    expect(container.querySelector('img')).toBeNull();
+    rerender(<ProjectThumb name="Kora SDK" githubUrl="https://github.com/kora-dev/kora-sdk" />);
+    expect(container.querySelector('img')?.getAttribute('src')).toBe(
+      'https://opengraph.githubassets.com/1/kora-dev/kora-sdk',
+    );
+  });
+
+  it('renders nothing instead of a second tile when the fallback is turned off', () => {
+    const { container } = render(
+      <ProjectThumb name="Kora SDK" githubUrl="https://gitlab.com/kora-dev/kora-sdk" fallback={false} />,
+    );
+    expect(container.firstChild).toBeNull();
+  });
+});
