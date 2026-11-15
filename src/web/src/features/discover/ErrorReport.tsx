@@ -1,5 +1,6 @@
 import { Button } from '@astryxdesign/core/Button';
 import { Icon } from '@astryxdesign/core/Icon';
+import { IconButton } from '@astryxdesign/core/IconButton';
 import { Selector } from '@astryxdesign/core/Selector';
 import { Text } from '@astryxdesign/core/Text';
 import { TextArea } from '@astryxdesign/core/TextArea';
@@ -190,31 +191,44 @@ function Form({ resourceId, onSent }: { resourceId: string; onSent: () => void }
   );
 }
 
-/** « Signaler une erreur » on a listing: a quiet action that opens the form in place. */
-export function ErrorReport({ resourceId }: { resourceId: string }) {
+/** The header icon action (prototype flag button); it shows or hides the panel below. */
+export function ErrorReportToggle({
+  isOpen,
+  panelId,
+  onToggle,
+}: {
+  isOpen: boolean;
+  panelId: string;
+  onToggle: () => void;
+}) {
+  const { t } = useI18n();
+  return (
+    <IconButton
+      variant="ghost"
+      label={t('discover.report.action')}
+      tooltip={t('discover.report.action')}
+      icon={<Icon icon="warning" />}
+      aria-expanded={isOpen}
+      aria-controls={isOpen ? panelId : undefined}
+      onClick={onToggle}
+    />
+  );
+}
+
+/** « Signaler une erreur » panel: sign-in prompt, form, then thanks, in place. */
+export function ErrorReport({ resourceId, id }: { resourceId: string; id: string }) {
   const { t } = useI18n();
   const session = useSession();
-  const [isOpen, setOpen] = useState(false);
   const [sent, setSent] = useState(false);
 
   return (
-    <VStack gap={3} hAlign="start">
-      <Button
-        variant="ghost"
-        size="sm"
-        label={t('discover.report.action')}
-        icon={<Icon icon="warning" />}
-        aria-expanded={isOpen}
-        onClick={() => {
-          setOpen((open) => !open);
-        }}
-      />
-      {isOpen && sent ? (
+    <section id={id} aria-label={t('discover.report.action')} className="discover-panel">
+      {sent ? (
         <FocusRegion role="status">
           <Text as="p">{t('discover.report.thanks')}</Text>
         </FocusRegion>
       ) : null}
-      {isOpen && !sent && session.data?.authenticated !== true ? (
+      {!sent && session.data?.authenticated !== true ? (
         <HStack gap={3} vAlign="center" wrap="wrap">
           <Text as="p">{t('discover.report.signIn')}</Text>
           <Button
@@ -223,7 +237,7 @@ export function ErrorReport({ resourceId }: { resourceId: string }) {
           />
         </HStack>
       ) : null}
-      {isOpen && !sent && session.data?.authenticated === true ? (
+      {!sent && session.data?.authenticated === true ? (
         <Form
           resourceId={resourceId}
           onSent={() => {
@@ -231,6 +245,6 @@ export function ErrorReport({ resourceId }: { resourceId: string }) {
           }}
         />
       ) : null}
-    </VStack>
+    </section>
   );
 }

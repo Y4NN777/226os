@@ -5,7 +5,7 @@ import { callsTo, mockApi, problemResponse } from '../../test/api';
 import { jsonResponse, renderApp, setLanguages } from '../../test/render';
 import { selectSegment } from '../../test/segmented';
 import { listParams, resource, rowOf } from './testFixtures';
-import { findVisibleText } from '../../test/visibleText';
+import { findVisibleText, getVisibleText } from '../../test/visibleText';
 
 const senegal = resource({ id: 'a0000000-0000-4000-8000-000000000001', name: 'Wave Pay' });
 const kenya = resource({
@@ -77,10 +77,11 @@ describe('DiscoverPage', () => {
     mockApi({ 'GET /resources': () => page([senegal]) });
     await renderApp('/discover');
     const row = rowOf(await screen.findByRole('link', { name: 'Wave Pay' }));
-    expect(within(row).getByText('Par Exemple SA')).toBeInTheDocument();
+    // Prototype sub-line: the provider name alone, then category and type.
+    expect(within(row).getByText('Exemple SA')).toBeInTheDocument();
     expect(within(row).getByText('Vérifié')).toBeInTheDocument();
     expect(within(row).getByText(/Vérifié le 10 nov/)).toBeInTheDocument();
-    expect(within(row).getByText('Sources : 2')).toBeInTheDocument();
+    expect(within(row).getByText('2 sources')).toBeInTheDocument();
     expect(within(row).getByText(/Sénégal/)).toBeInTheDocument();
     expect(within(row).getByText('Encaissement mobile money.')).toBeInTheDocument();
   });
@@ -274,6 +275,19 @@ describe('DiscoverPage', () => {
     expect(screen.queryByRole('button', { name: 'Voir toute l’Afrique' })).not.toBeInTheDocument();
   });
 
+  it('offers to clear the filters from the empty state', async () => {
+    setLanguages(['fr-FR']);
+    mockApi({ 'GET /resources': () => page([]) });
+    const { router } = await renderApp('/discover?region=all&q=zzz');
+    expect(await findVisibleText('Aucune fiche ne correspond')).toBeInTheDocument();
+    await userEvent
+      .setup({ delay: null })
+      .click(screen.getByRole('button', { name: 'Réinitialiser les filtres' }));
+    await waitFor(() => {
+      expect(router.state.location.search).toEqual({});
+    });
+  });
+
   it('shows the error with the request reference and retries', async () => {
     setLanguages(['fr-FR']);
     let calls = 0;
@@ -326,6 +340,76 @@ describe('DiscoverPage', () => {
     expect(screen.getByRole('link', { name: 'Wave Pay' })).toBeInTheDocument();
   });
 
+  it('lays each listing out as a compact row: title heading, provider line, codes and status', async () => {
+    setLanguages(['fr-FR']);
+    const momo = resource({
+      id: 'a0000000-0000-4000-8000-000000000005',
+      name: 'Kalimba Pay',
+      category: 'mobile-money',
+      countries: ['SN', 'BF'],
+    });
+    mockApi({ 'GET /resources': () => page([momo]) });
+    await renderApp('/discover');
+    const link = await screen.findByRole('link', { name: 'Kalimba Pay' });
+    expect(screen.getByRole('heading', { level: 3, name: 'Kalimba Pay' })).toContainElement(link);
+    const row = rowOf(link);
+    expect(within(row).getByText('Paiements Mobile Money')).toBeInTheDocument();
+    expect(within(row).getByText('API')).toBeInTheDocument();
+    // Country codes stay text (no flags), each with its full name for assistive technology.
+    expect(within(row).getByText('SN')).toBeInTheDocument();
+    expect(within(row).getByText('Burkina Faso')).toBeInTheDocument();
+    expect(within(row).getByText('2 sources')).toBeInTheDocument();
+  });
+
+  it('shows the raw category code when the label is unknown', async () => {
+    setLanguages(['fr-FR']);
+    mockApi({ 'GET /resources': () => page([senegal]) });
+    await renderApp('/discover');
+    const row = rowOf(await screen.findByRole('link', { name: 'Wave Pay' }));
+    expect(within(row).getByText('payments')).toBeInTheDocument();
+  });
+
+  it('counts the listings shown, without claiming a total while more pages exist', async () => {
+    setLanguages(['fr-FR']);
+    mockApi({
+      'GET /resources': (request) =>
+        searchOf(request).get('cursor') === null ? page([senegal, ghana], 'c1') : page([pan]),
+    });
+    await renderApp('/discover');
+    await screen.findByRole('link', { name: 'Wave Pay' });
+    expect(getVisibleText('Les 2 premières fiches')).toBeInTheDocument();
+    await userEvent
+      .setup({ delay: null })
+      .click(screen.getByRole('button', { name: 'Afficher plus' }));
+    await screen.findByRole('link', { name: 'Sans Pays' });
+    expect(getVisibleText('3 fiches')).toBeInTheDocument();
+  });
+
+  it('says « 1 fiche » in the singular', async () => {
+    setLanguages(['fr-FR']);
+    mockApi({ 'GET /resources': () => page([senegal]) });
+    await renderApp('/discover');
+    await screen.findByRole('link', { name: 'Wave Pay' });
+    expect(getVisibleText('1 fiche')).toBeInTheDocument();
+  });
+
+  it('filters by category with a labelled select and sends the code to the server', async () => {
+    setLanguages(['fr-FR']);
+    const fetchMock = mockApi({ 'GET /resources': () => page([senegal]) });
+    const { router } = await renderApp('/discover');
+    await screen.findByRole('link', { name: 'Wave Pay' });
+    await userEvent
+      .setup({ delay: null })
+      .click(screen.getByRole('button', { name: /^Catégorie/ }));
+    await userEvent
+      .setup({ delay: null })
+      .click(await screen.findByRole('option', { name: 'Modèles et API d’IA' }));
+    await waitFor(() => {
+      expect(listParams(fetchMock, 'last').get('category')).toBe('ai-models');
+    });
+    expect(router.state.location.search).toMatchObject({ category: 'ai-models' });
+  });
+
   it('renders in English', async () => {
     setLanguages(['en-US']);
     mockApi({ 'GET /resources': () => page([senegal]) });
@@ -334,7 +418,9 @@ describe('DiscoverPage', () => {
       await screen.findByText('West Africa first, then the whole continent'),
     ).toBeInTheDocument();
     const row = rowOf(await screen.findByRole('link', { name: 'Wave Pay' }));
-    expect(within(row).getByText('By Exemple SA')).toBeInTheDocument();
+    expect(within(row).getByText('Exemple SA')).toBeInTheDocument();
+    expect(within(row).getByText('Senegal')).toBeInTheDocument();
+    expect(within(row).getByText('2 sources')).toBeInTheDocument();
     expect(within(row).getByText(/Verified on Nov 10, 2026/)).toBeInTheDocument();
   });
 });
