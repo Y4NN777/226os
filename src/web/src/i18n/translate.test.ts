@@ -5,7 +5,7 @@ import { translate } from './translate';
 describe('translate', () => {
   it('returns the message of the requested locale', () => {
     expect(translate('en', 'nav.settings')).toBe('Settings');
-    expect(translate('fr', 'nav.settings')).toBe('Réglages');
+    expect(translate('fr', 'nav.settings')).toBe('Paramètres');
   });
 
   it('interpolates named parameters', () => {

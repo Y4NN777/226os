@@ -54,6 +54,36 @@ describe('PageHeader', () => {
     expect(screen.getByRole('button', { name: 'Proposer une ressource' })).toBeInTheDocument();
   });
 
+  it('orders the header as the prototype: breadcrumbs, then the title row with its actions, then the lead', () => {
+    setLanguages(['fr-FR']);
+    const { container } = renderWithProviders(
+      <PageHeader
+        title="Ressource d’exemple"
+        lead="Une ressource du catalogue."
+        breadcrumbs={[{ label: 'Découvrir', href: '/discover' }, { label: 'Ressource d’exemple' }]}
+        actions={<Button label="Signaler une erreur" />}
+      />,
+    );
+    const trail = screen.getByRole('navigation', { name: 'Fil d’Ariane' });
+    const heading = screen.getByRole('heading', { level: 1, name: 'Ressource d’exemple' });
+    const action = screen.getByRole('button', { name: 'Signaler une erreur' });
+    const lead = screen.getByText('Une ressource du catalogue.');
+    const follows = (a: Node, b: Node) =>
+      Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(follows(trail, heading)).toBe(true);
+    expect(follows(heading, action)).toBe(true);
+    expect(follows(action, lead)).toBe(true);
+    // The title and its actions share one row, as `.page-header-row` does in the prototype.
+    expect(heading.parentElement).toBe(action.closest('.ui-page-header-actions')?.parentElement);
+    // The trail links up and marks the current page as text.
+    expect(within(trail).getByRole('link', { name: 'Découvrir' })).toHaveAttribute(
+      'href',
+      '/discover',
+    );
+    expect(within(trail).queryByRole('link', { name: 'Ressource d’exemple' })).toBeNull();
+    expect(container.querySelector('.ui-page-header')).not.toBeNull();
+  });
+
   it('renders only the title when nothing else is given', () => {
     setLanguages(['fr-FR']);
     renderWithProviders(<PageHeader title="Construire" />);

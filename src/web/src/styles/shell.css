@@ -4,19 +4,23 @@
  * background in a 1200px column. Astryx tokens only; selectors use the documented Astryx theming
  * classes (astryx-*) of the components the shell is built from.
  */
-.shell {
+.shell,
+.shell-footer {
   --shell-gutter: var(--spacing-4);
   --shell-header-height: 56px;
   --shell-sidebar-width: 232px;
   --shell-content-max: 1200px;
+  --shell-bottom-nav-height: 60px;
 }
 @media (min-width: 768px) {
-  .shell {
+  .shell,
+  .shell-footer {
     --shell-gutter: var(--spacing-6);
   }
 }
 @media (min-width: 1024px) {
-  .shell {
+  .shell,
+  .shell-footer {
     --shell-gutter: var(--spacing-8);
   }
 }
@@ -130,7 +134,165 @@
   margin-bottom: var(--spacing-6);
 }
 
+/* ---------- « Poser une question » (prototype .header-create) ---------- */
+.shell-ask-label {
+  font-size: 0.875rem;
+}
+/* Below 1024px only the plus icon shows; the label stays the accessible name. */
+@media (max-width: 1023px) {
+  .shell-ask {
+    width: 44px;
+    min-width: 44px;
+    padding-inline: 0;
+  }
+  .shell-ask-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
+/* ---------- Footer (prototype .app-footer) ---------- */
+.shell-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-2) var(--spacing-4);
+  box-sizing: border-box;
+  padding: var(--spacing-6) var(--shell-gutter) var(--spacing-8);
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+}
+@media (min-width: 768px) {
+  /* Under the content column, beside the sidebar, as in the prototype grid. */
+  .shell-footer {
+    padding-inline-start: calc(var(--shell-sidebar-width) + var(--shell-gutter));
+  }
+}
+.shell-footer-name {
+  font-weight: var(--font-weight-medium);
+}
+.shell-footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-1) var(--spacing-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.shell-footer-links a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  color: var(--color-text-secondary);
+}
+/* Astryx Link sizes its label span itself; the footer keeps one 14px size. */
+.shell-footer-links a,
+.shell-footer-links a > span {
+  font-size: 0.875rem;
+}
+.shell-footer-links a:hover {
+  color: var(--color-text-primary);
+}
+
+/* ---------- Phone bottom bar (prototype .bottom-nav) ---------- */
+.shell-bottom-nav {
+  position: fixed;
+  inset: auto 0 0 0;
+  /* The bar sits on the page like the sticky top bar (AppShell header layer); menus and the
+     drawer open in the top layer above it. */
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 2px;
+  box-sizing: content-box;
+  height: var(--shell-bottom-nav-height, 60px);
+  padding-inline: var(--spacing-1);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  background: var(--color-background-surface);
+  box-shadow: inset 0 1px 0 var(--color-border);
+}
+.shell-bottom-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: 0;
+  min-height: 44px;
+  margin-block: var(--spacing-1);
+  padding: var(--spacing-1);
+  border: 0;
+  border-radius: var(--radius-element);
+  background: none;
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: 0.6875rem;
+  font-weight: var(--font-weight-medium);
+  text-decoration: none;
+  cursor: pointer;
+}
+.shell-bottom-item svg {
+  width: 20px;
+  height: 20px;
+  flex: none;
+}
+.shell-bottom-item > span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.shell-bottom-item:hover {
+  color: var(--color-text-primary);
+}
+/* Active = soft fill + full-contrast label and a heavier weight, never a bar or colour alone. */
+.shell-bottom-item[aria-current='page'] {
+  background: var(--color-background-muted);
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-bold);
+}
+
+/* ---------- Account pages (prototype layout-account) ---------- */
+.auth-brand {
+  justify-content: center;
+}
+/* The prototype's account card is a white surface without a border. */
+.auth-card {
+  border-color: transparent;
+}
+
 /* ---------- Phone ---------- */
+@media (max-width: 767px) {
+  /* The search reads as the second line of the top bar (prototype phone header): the same
+     surface, flush under the bar, with the one hairline under both. */
+  .shell .astryx-app-shell-header {
+    box-shadow: none;
+  }
+  .shell-page > .shell-search {
+    box-sizing: border-box;
+    width: auto;
+    max-width: none;
+    margin: calc(-1 * var(--spacing-6)) calc(-1 * var(--shell-gutter)) var(--spacing-6);
+    padding: 0 var(--shell-gutter) var(--spacing-2);
+    background: var(--color-background-surface);
+    box-shadow: inset 0 -1px 0 var(--color-border);
+  }
+  /* A control scrolled into view (keyboard focus, find in page) stops above the bar, not under it
+     (WCAG 2.4.11). A literal height: the shell's custom property is not set on html. */
+  html:has(.shell-bottom-nav) {
+    scroll-padding-bottom: calc(60px + env(safe-area-inset-bottom, 0px));
+  }
+  /* Room for the fixed bottom bar: the last content and the footer stay above it. */
+  .shell-footer {
+    padding-bottom: calc(
+      var(--spacing-8) + var(--shell-bottom-nav-height) + env(safe-area-inset-bottom, 0px)
+    );
+  }
+}
 @media (max-width: 767px) {
   /* The logo keeps its size; when the actions do not fit beside it they wrap under it, at the
      end of the bar (the prototype's phone header). */
