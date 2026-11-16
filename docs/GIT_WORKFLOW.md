@@ -36,7 +36,7 @@ graph LR
 3. Validate the exact `develop` SHA (integration, contract, security, E2E, accessibility, performance, backup/restore, smoke) as far as each gate is implemented.
 4. Open a production PR from `develop` into `main` with G7 evidence and explicit approval. Before approving, the approver verifies that `git diff develop main` is empty; no automation does this today.
 5. Deploy the image digest built and tested from the `develop` SHA.
-6. Back-merge: right after the production PR merges, open a PR `main` -> `develop` (branch `chore/platform/sync-main-into-develop`, **Create a merge commit**) so `develop` is not shown behind `main`. It changes no file; check that `git diff develop...main` is empty first. The required check `Validate branch promotion` (`scripts/check-develop-contains-main.sh`) refuses other PRs into `develop` while `develop` lacks commits that `main` has.
+6. Back-merge: right after the production PR merges, open a PR `main` -> `develop` (branch `chore/platform/sync-main-into-develop`, **Create a merge commit**) so `develop` is not shown behind `main`. It changes no file; check that `git diff develop...main` is empty first. The required check `Validate branch promotion` (`scripts/check-develop-contains-main.sh`) refuses other PRs into `develop` while `develop` lacks commits that `main` has. Automated since 2026-11-16: `.github/workflows/sync-main-into-develop.yml` runs after every `Deploy` or `Deploy (emergency)` run on `main` (and on demand), and `scripts/sync-main-into-develop.sh` opens this PR with `REVIEW_AGENT_TOKEN` (so CI runs) and arms its auto-merge as a merge commit; NO-OP when `develop` already contains `main`. If that run fails, open the PR by hand as above.
 
 ## Emergency hotfixes
 

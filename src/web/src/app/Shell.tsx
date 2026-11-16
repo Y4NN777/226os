@@ -162,7 +162,7 @@ function MobileHeaderSearch() {
           />
           <IconButton
             variant="ghost"
-            label={t('shell.search')}
+            label={t('shell.search.close')}
             icon={<Icon icon={XIcon} size="md" />}
             aria-expanded="true"
             aria-controls="shell-mobile-search-panel"
