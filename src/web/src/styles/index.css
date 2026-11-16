@@ -1,5 +1,7 @@
 @import '@astryxdesign/core/reset.css';
 @import '@astryxdesign/core/astryx.css';
+@import './shell.css';
+@import './ui.css';
 
 /* Graphite & Lime tokens live in src/theme/theme226os.ts (Astryx token slots). */
 body {
@@ -19,4 +21,43 @@ body {
 .app-nav-link[aria-current='page'] {
   color: var(--color-text-primary);
   font-weight: 600;
+}
+
+/* Standalone account pages: one centred column on the body background. */
+.auth-layout {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: 100dvh;
+  padding: 48px 16px;
+  box-sizing: border-box;
+}
+
+.state-loading {
+  display: flex;
+  justify-content: center;
+  padding: 32px 0;
+}
+
+/* A flex child that keeps its natural width (a button next to a field that takes the rest). */
+.no-shrink {
+  flex-shrink: 0;
+}
+
+/* A field that takes the free width of its row, and wraps onto its own row on a phone. */
+.grow-field {
+  flex: 1 1 240px;
+  min-width: 0;
+}
+
+/* Password field: room at the end of the input box for the show/hide toggle laid over it. */
+.password-field {
+  position: relative;
+}
+.password-field [data-pressable-container] {
+  padding-inline-end: 32px;
+}
+.password-field-toggle {
+  position: absolute;
+  inset-inline-end: 0;
 }

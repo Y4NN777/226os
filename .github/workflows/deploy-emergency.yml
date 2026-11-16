@@ -1,0 +1,157 @@
+name: Deploy (emergency)
+
+# EMERGENCY production deploy WITHOUT the staging gate (decided by the owner on 2026-11-15; design agreed with the
+# lead session). The normal path is deploy.yml: production only deploys digests tested on staging (tested-<tree>).
+# This workflow exists for when that path cannot be used (no staging, an outage to fix now).
+#
+#   - manual only (workflow_dispatch), from refs/heads/main only, with a reason (1 to 200 characters) and the
+#     confirmation `EMERGENCY`; scripts/deploy-plan.sh refuses anything else (fail closed);
+#   - builds and scans its OWN images from the main SHA, pushes them as `emergency-<sha>-<run id>-<attempt>` (never `<sha>`, never
+#     `tested-*`) and deploys them BY DIGEST (the digests printed by the push, never read back from the tag);
+#   - deploys like deploy.yml's production job: `production` environment (owner approval), pinned SSH host key,
+#     sops in RAM, scripts/deploy-remote.sh production-live (backup, migrate, up, smoke); never seeds;
+#   - never runs scripts/deploy-verify-tested.sh, never attests, never tags tested-*: it says so with a ::warning::
+#     and the summary line "EMERGENCY: not tested on staging";
+#   - no E2E suite (accepted risk): only the smoke test of deploy-remote.sh;
+#   - shares the concurrency group `deploy-production` with deploy.yml: never two production deploys at once.
+# After an emergency, the next push to main still needs tested-<tree>: the fix goes back through develop and staging.
+# Same safety rules as deploy.yml: no pull_request trigger, inputs only through env, secrets only in the deploy job,
+# the job holding packages: write holds no secret.
+on:
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: "Why production cannot wait for staging (1 to 200 characters)"
+        required: true
+        type: string
+      confirm:
+        description: "Type EMERGENCY to confirm a production deploy without the staging tests"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+env:
+  IMAGE_NAMESPACE: ghcr.io/y4nn777
+  SOPS_VERSION: v3.13.3
+  SOPS_SHA256: e5bec3346a873ae91d871550f3e698c1aad962aff462a080e40f25fde17fef6b
+
+jobs:
+  plan:
+    name: plan (emergency)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      sha: ${{ steps.plan.outputs.sha }}
+      tree: ${{ steps.plan.outputs.tree }}
+    steps:
+      - name: Check out the commit to deploy
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Plan (main only, confirmed, with a reason)
+        id: plan
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          THIS_REPO: ${{ github.repository }}
+          DISPATCH_REF: ${{ github.ref }}
+          DISPATCH_SHA: ${{ github.sha }}
+          CONFIRM: ${{ inputs.confirm }}
+          EMERGENCY_REASON: ${{ inputs.reason }}
+        run: |
+          set -euo pipefail
+          scripts/deploy-plan.sh
+          grep -qx 'emergency=true' "$GITHUB_OUTPUT" || { echo "::error::the plan did not confirm an emergency deploy"; exit 1; }
+          grep -qx 'target=production' "$GITHUB_OUTPUT" || { echo "::error::the plan did not target production"; exit 1; }
+          echo "::warning title=EMERGENCY deploy::Production deploy WITHOUT the staging tests (no tested-<tree> digest, no E2E). Reason: ${EMERGENCY_REASON}"
+          {
+            echo "### EMERGENCY: not tested on staging"
+            echo
+            echo "- reason: ${EMERGENCY_REASON}"
+            echo "- commit: \`${DISPATCH_SHA}\`"
+            echo "- queue: this run shares the concurrency group deploy-production with Deploy. While it waits, a later"
+            echo "  push to main can replace it (GitHub keeps one pending run per group): if it shows as cancelled, run it again."
+          } >>"$GITHUB_STEP_SUMMARY"
+
+  # Own images from the main SHA. Holds packages: write and NO secret.
+  build:
+    name: build, scan and push (emergency-<sha>-<run>-<attempt>)
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      api_image: ${{ steps.push.outputs.api_image }}
+      web_image: ${{ steps.push.outputs.web_image }}
+      migrate_image: ${{ steps.push.outputs.migrate_image }}
+    steps:
+      - name: Check out the planned SHA
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.plan.outputs.sha }}
+          persist-credentials: false
+
+      - name: Build api, web and migrate (scripts/build-images.sh)
+        run: scripts/build-images.sh
+
+      - name: Scan the images (scripts/image-scan.sh)
+        run: scripts/image-scan.sh
+
+      # Tag emergency-<sha>-<run id>-<attempt> (never <sha>: a later staging run of the same SHA must not meet different content under
+      # its own tag). The digests come from the push itself.
+      - name: Push to GHCR as emergency-<sha>-<run id>-<attempt>
+        id: push
+        env:
+          REGISTRY_TOKEN: ${{ github.token }}
+          SHA: ${{ needs.plan.outputs.sha }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username github-actions --password-stdin
+          scripts/deploy-images.sh push "emergency-$SHA-$RUN_ID-$RUN_ATTEMPT" "$(scripts/image-tag.sh)" >"$RUNNER_TEMP/pushed.env"
+          docker logout ghcr.io
+          for v in API WEB MIGRATE; do
+            lower="$(tr '[:upper:]' '[:lower:]' <<<"$v")"
+            grep -qE "^${v}_IMAGE=ghcr\.io/[a-z0-9._-]+/226os-${lower}@sha256:[0-9a-f]{64}$" "$RUNNER_TEMP/pushed.env" ||
+              { echo "::error::the push gave no digest reference for ${v}_IMAGE"; exit 1; }
+          done
+          sed -E 's/^([A-Z_]+)=/\L\1=/' "$RUNNER_TEMP/pushed.env" >>"$GITHUB_OUTPUT"
+
+  # The only job with secrets, behind the `production` environment (owner approval): the shared deploy steps.
+  deploy:
+    name: deploy production (emergency)
+    needs: [plan, build]
+    permissions:
+      contents: read
+      packages: read
+    uses: ./.github/workflows/deploy-production.yml
+    with:
+      sha: ${{ needs.plan.outputs.sha }}
+      api_image: ${{ needs.build.outputs.api_image }}
+      web_image: ${{ needs.build.outputs.web_image }}
+      migrate_image: ${{ needs.build.outputs.migrate_image }}
+    # The two secrets are environment secrets: they resolve inside the called job, which declares the environment.
+    secrets: inherit
+
+  record:
+    name: record the emergency
+    needs: [plan, deploy]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Record
+        env:
+          SHA: ${{ needs.plan.outputs.sha }}
+        run: |
+          echo "::warning title=EMERGENCY deploy done::Production runs images NOT tested on staging (${SHA}). Bring the fix through develop and staging next."
+          echo "### EMERGENCY: not tested on staging (deployed ${SHA})" >>"$GITHUB_STEP_SUMMARY"

@@ -31,7 +31,7 @@ source_files_and_lines: []
 tradeoffs: []
 behaviors_for_226os: []
 third_party_code_integrated: false
-compliance_review: PENDING
+compliance_review: "CLOSED par le propriétaire le 2026-11-13 (sans revue indépendante)"
 ```
 Chaque proposition d'amélioration issue d'une référence inclut : (1) le problème **observé**, (2) ses sources et références précises, (3) une expérience ou métrique capable de prouver l'amélioration.
 
@@ -62,7 +62,7 @@ behaviors_for_226os:
   - "Inspiration déclarée dans docs/PRD.md : découverte de projets open source et identité communautaire."
 third_party_code_integrated: false
 third_party_text_visuals_or_data_copied: false
-compliance_review: "PENDING : confirmation du propriétaire consignée ci-dessous ; revue d'admissibilité CADEV à joindre"
+compliance_review: "CLOSED par le propriétaire le 2026-11-13 : confirmation consignée ci-dessous, sans revue d'admissibilité indépendante"
 ```
 
 ### Comparaison honnête (observé sur la page d'accueil et notre périmètre)
@@ -71,7 +71,7 @@ compliance_review: "PENDING : confirmation du propriétaire consignée ci-dessou
 
 | Sujet | 225 Open Source (observé) | 226os |
 |---|---|---|
-| Portée | Côte d'Ivoire | Afrique de l'Ouest d'abord, puis toute l'Afrique ; interface FR/EN |
+| Portée | Côte d'Ivoire | Né au Burkina Faso, ouvert à l'Afrique de l'Ouest, puis à tout le continent ; interface FR/EN |
 | Projets GitHub | Répertoire par pays ; l'auteur déclare son URL GitHub | **Ressemblance reconnue** : Build permet aussi de publier un projet par URL GitHub, avec un pays. Notre apport : besoins de contributeurs, candidatures et liens vers questions, ressources et articles |
 | Tableau de lancement de produits | Oui | Hors périmètre du concours ; pas une priorité |
 | Cofondateur, mentor, investisseur | Oui | Non au P0 : le mentorat reste P1/P2 et s'affiche « bientôt » |
@@ -94,14 +94,14 @@ compliance_review: "PENDING : confirmation du propriétaire consignée ci-dessou
 ### Constats du propriétaire (consignés le 2026-11-12)
 
 - Le nom **226os** se lit **« 226 Open Stack »** ; 226 est l'indicatif téléphonique **+226 du Burkina Faso**.
-- Positionnement : **Afrique de l'Ouest d'abord, puis toute l'Afrique**.
+- Positionnement : **né au Burkina Faso, ouvert à l'Afrique de l'Ouest, puis à tout le continent** (PRD, amendement 3.3).
 - Les références servent d'**inspiration** : comportements et principes étudiés, jamais de code, de texte, de visuels, de marque ni de données copiés.
 - Aucun contact avec 225 Open Source n'est jugé nécessaire.
 - Le propriétaire a approuvé cette démarche et confirme que le projet respecte la règle de création pendant la période du concours (à joindre à la revue CADEV, **non vérifié par le dépôt**).
 
 ## Déclaration d'originalité
 
-*Confirmation : le propriétaire du dépôt (`Y4NN777`) doit confirmer cette déclaration ; confirmation en attente, non vérifiée par le dépôt. Inventaire des dépendances : `THIRD_PARTY_NOTICES.md`.*
+*Confirmation : déclaration confirmée par le propriétaire du dépôt (`Y4NN777`) le 2026-11-13.*
 
 **Français.** 226os est un produit original, développé par notre équipe pendant la période du concours, sous licence Apache-2.0. Nous citons ouvertement 225 Open Source comme une source d'inspiration pour la découverte de projets et l'identité communautaire, comme les autres projets open source que nous avons étudiés. Nous avons étudié des comportements et des principes de conception, sans copier de code, de texte, de visuels ni de données. Chaque dépendance tierce est déclarée, épinglée et vérifiée côté licence. Notre orientation produit nous est propre : une plateforme qui part de l'Afrique de l'Ouest et s'ouvre à toute l'Afrique, avec un assistant d'apprentissage qui cite ses sources, un parcours pour apprendre et progresser à l'ère des agents, un annuaire d'API et d'intégrations africaines, et une mise en relation qui respecte la vie privée.
 

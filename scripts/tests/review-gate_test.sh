@@ -1,0 +1,433 @@
+#!/usr/bin/env bash
+# Tests for scripts/review-gate.py with a fake `gh`: the gate fails only on an OBSERVED CRITICAL from the Actions bot
+# (unless the owner overrides it) or on a sensitive path without the owner's approval, only in `enforce` mode, and it
+# fails OPEN when the review did not run or GitHub cannot be read.
+# Usage: scripts/tests/review-gate_test.sh
+set -euo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+root="$(cd "$here/../.." && pwd)"
+# shellcheck source=scripts/tests/lib.sh
+source "$here/lib.sh"
+gate="$root/scripts/review-gate.py"
+
+tmp="$(mktemp -d)"
+trap 'rm -rf "$tmp"' EXIT
+mkdir -p "$tmp/bin" "$tmp/fx"
+
+# Fake gh: `gh api <endpoint> --paginate` answers from fixture files by endpoint; FAKE_GH_FAIL makes it fail.
+cat >"$tmp/bin/gh" <<'EOF'
+#!/usr/bin/env bash
+[ -z "${FAKE_GH_FAIL:-}" ] || { echo "gh: boom" >&2; exit 1; }
+ep="$2"
+case "$ep" in
+  *"/contents/.github/sensitive-paths.txt"*) [ -z "${FAKE_NO_LIST:-}" ] || { echo "404" >&2; exit 1; }; cat "$FX/contents.json" ;;
+  *"/contents/.github/stray-paths.txt"*) [ -z "${FAKE_NO_STRAY:-}" ] || { echo "404" >&2; exit 1; }; cat "$FX/stray.json" ;;
+  *"/pulls/7") cat "$FX/pull.json" ;;
+  *"/pulls/7/commits"*) [ -z "${FAKE_COMMITS_FAIL:-}" ] || { echo boom >&2; exit 1; }; cat "$FX/commits.json" ;;
+  *"/issues/12") cat "$FX/issue12.json" ;;
+  *"/comments"*) cat "$FX/comments.json" ;;
+  *"/events"*) [ -z "${FAKE_EVENTS_FAIL:-}" ] || { echo boom >&2; exit 1; }; cat "$FX/events.json" ;;
+  *"/reviews"*) [ -z "${FAKE_REVIEWS_FAIL:-}" ] || { echo boom >&2; exit 1; }; cat "$FX/reviews.json" ;;
+  *"/files"*) [ -z "${FAKE_FILES_FAIL:-}" ] || { echo "boom" >&2; exit 1; }; cat "$FX/files.json" ;;
+  *) echo "unexpected endpoint $ep" >&2; exit 2 ;;
+esac
+EOF
+chmod +x "$tmp/bin/gh"
+
+list_b64="$(printf 'db/migrations/*\n.github/*\nscripts/*\nmk/*\nsecrets/*\napi/openapi.yaml\n# a comment\n\n' | base64 -w0)"
+printf '{"content":"%s","encoding":"base64"}' "$list_b64" >"$tmp/fx/contents.json"
+
+stray_b64="$(printf '# one pattern per line, prefixed by when it applies\nalways: .devin/*\nalways: .cursor/*\nalways: .idea/*\nalways: .vscode/*\nfeature: .gitignore\n' | base64 -w0)"
+printf '{"content":"%s","encoding":"base64"}' "$stray_b64" >"$tmp/fx/stray.json"
+
+reset() {
+  printf '{"body":"","labels":[],"head":{"ref":"feature/identity/profiles"},"user":{"login":"dev"},"changed_files":1,"commits":1}' >"$tmp/fx/pull.json"
+  printf '{"number":12,"labels":[{"name":"finding"}]}' >"$tmp/fx/issue12.json"
+  printf '[{"sha":"c1","author":{"login":"Y4NN777"},"committer":{"login":"Y4NN777"},"commit":{"message":"own work","verification":{"verified":true}}}]' >"$tmp/fx/commits.json"
+  printf '[]' >"$tmp/fx/comments.json"
+  printf '[]' >"$tmp/fx/events.json"
+  printf '[]' >"$tmp/fx/reviews.json"
+  printf '[{"filename":"src/api/internal/app/app.go"}]' >"$tmp/fx/files.json"
+}
+
+# comment LOGIN CREATED BODY [UPDATED]: appends one issue comment.
+comment() {
+  python3 -I - "$tmp/fx/comments.json" "$1" "$2" "$3" "${4:-}" <<'EOF'
+import json, sys
+p, login, created, body, updated = sys.argv[1:6]
+d = json.load(open(p))
+d.append({"user": {"login": login}, "created_at": created, "updated_at": updated or created, "body": body})
+json.dump(d, open(p, "w"))
+EOF
+}
+
+# event ACTION LOGIN CREATED LABEL: appends one issue event.
+event() {
+  python3 -I - "$tmp/fx/events.json" "$1" "$2" "$3" "$4" <<'EOF'
+import json, sys
+p, action, login, created, label = sys.argv[1:6]
+d = json.load(open(p))
+d.append({"event": action, "actor": {"login": login}, "created_at": created, "label": {"name": label}})
+json.dump(d, open(p, "w"))
+EOF
+}
+
+# review LOGIN STATE SUBMITTED: appends one pull request review.
+review() {
+  python3 -I - "$tmp/fx/reviews.json" "$1" "$2" "$3" <<'EOF'
+import json, sys
+p, login, state, when = sys.argv[1:5]
+d = json.load(open(p))
+d.append({"user": {"login": login}, "state": state, "submitted_at": when})
+json.dump(d, open(p, "w"))
+EOF
+}
+
+# files PATH...: the pull request's files, and the pull request's own count of them.
+files() {
+  python3 -I -c 'import json,sys
+json.dump([{"filename": f} for f in sys.argv[3:]], open(sys.argv[1], "w"))
+d = json.load(open(sys.argv[2])); d["changed_files"] = len(sys.argv[3:]); json.dump(d, open(sys.argv[2], "w"))' "$tmp/fx/files.json" "$tmp/fx/pull.json" "$@"
+}
+# pull_field NAME VALUE_JSON: sets one field of the pull request answer.
+pull_field() { python3 -I -c 'import json,sys; d = json.load(open(sys.argv[1])); d[sys.argv[2]] = json.loads(sys.argv[3]); json.dump(d, open(sys.argv[1], "w"))' "$tmp/fx/pull.json" "$1" "$2"; }
+
+# run MODE [author]: runs the gate; sets rc and out.
+run() {
+  rc=0
+  # An owner-authored run: the pull request is the owner's (the gate reads the pull request, not PR_AUTHOR).
+  if [ "${2:-dev}" = Y4NN777 ]; then pull_field user '{"login":"Y4NN777"}'; fi
+  out="$(PATH="$tmp/bin:$PATH" FX="$tmp/fx" GATE_MODE="$1" REPO=o/r PR_NUMBER=7 PR_AUTHOR="${2:-dev}" PR_HEAD_SHA="${HEAD_SHA-$head}" OWNER=Y4NN777 BASE_REF=develop python3 -I "$gate" 2>&1)" || rc=$?
+}
+
+BOT='github-actions[bot]'
+head=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+old_head=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+# ledger SHA FINDINGS_JSON: the ledger block of a review comment (the gate decides from it, never from the prose).
+ledger() { printf '<details><summary>Review ledger</summary>\n\n```json\n{"sha":"%s","findings":%s}\n```\n\n</details>' "$1" "$2"; }
+crit_entry='[{"id":"k","kind":"finding","evidence":"OBSERVED","sev":"CRITICAL","file":"src/api/config.go","line":12,"status":"open"}]'
+infer_entry='[{"id":"k","kind":"finding","evidence":"INFERRED","sev":"CRITICAL","file":"src/api/config.go","line":12,"status":"open"}]'
+crit_prose='Triage: CRITICAL | blast radius: the whole team
+
+| Dimension | Level | Note |
+|---|---|---|
+| Security | CRITICAL | a key is committed |
+
+OBSERVED: src/api/config.go:12 holds a literal API key.
+Fix: remove it and rotate the key.'
+crit_ok="$crit_prose
+
+$(ledger "$head" "$crit_entry")"
+crit_inferred="Triage: CRITICAL | blast radius: production and users
+
+INFERRED: this could leak data if the handler is reached.
+
+$(ledger "$head" "$infer_entry")"
+
+reset
+run enforce
+[ "$rc" -eq 0 ] && grep -q 'NOT RUN' <<<"$out" && ok "no review comment: the gate passes and says NOT RUN" || ko "no comment (rc=$rc out=$out)"
+
+for lvl in NONE HIGH MEDIUM; do
+  reset; comment "$BOT" 2026-11-13T01:00:00Z "Triage: $lvl | blast radius: this PR only"
+  run enforce
+  [ "$rc" -eq 0 ] && grep -q "verdict $lvl" <<<"$out" && ok "$lvl never blocks, even in enforce" || ko "$lvl (rc=$rc out=$out)"
+done
+
+reset; comment "$BOT" 2026-11-13T01:00:00Z "$crit_ok"
+run enforce
+[ "$rc" -eq 1 ] && grep -q 'FAIL' <<<"$out" && ok "an OBSERVED CRITICAL fails in enforce mode" || ko "critical enforce (rc=$rc out=$out)"
+run report
+[ "$rc" -eq 0 ] && grep -q 'WOULD FAIL' <<<"$out" && ok "report mode shows WOULD FAIL and does not block" || ko "critical report (rc=$rc out=$out)"
+run off
+[ "$rc" -eq 0 ] && ! grep -q 'WOULD FAIL\|FAIL' <<<"$out" && grep -q 'off' <<<"$out" && ok "off mode does nothing" || ko "critical off (rc=$rc out=$out)"
+run ""
+[ "$rc" -eq 0 ] && grep -q 'WOULD FAIL' <<<"$out" && ok "the default mode is report" || ko "default mode (rc=$rc out=$out)"
+
+reset; comment "$BOT" 2026-11-13T01:00:00Z "$crit_inferred"
+run enforce
+[ "$rc" -eq 0 ] && grep -q 'downgraded' <<<"$out" && ok "a CRITICAL without OBSERVED evidence is downgraded and does not block" || ko "inferred critical (rc=$rc out=$out)"
+
+reset; comment dev-user 2026-11-13T01:00:00Z "$crit_ok"
+run enforce
+[ "$rc" -eq 0 ] && ok "a human comment with the same text is ignored" || ko "human comment (rc=$rc out=$out)"
+
+reset; comment "$BOT" 2026-11-13T01:00:00Z "$crit_ok"; comment "$BOT" 2026-11-13T02:00:00Z "Triage: NONE | blast radius: this PR only"
+run enforce
+[ "$rc" -eq 0 ] && ok "the latest bot verdict wins" || ko "latest wins (rc=$rc out=$out)"
+
+# One review comment per pull request (#100-#102 had two): the marker comment wins, else the most recently UPDATED one.
+marker='<!-- 226os-ai-review -->'
+crit_marked="$(printf '%s\n%s\n%s' "$(head -1 <<<"$crit_ok")" "$marker" "$(tail -n +2 <<<"$crit_ok")")"
+reset; comment "$BOT" 2026-11-13T01:00:00Z "$crit_marked" 2026-11-13T03:00:00Z; comment "$BOT" 2026-11-13T02:00:00Z "Triage: NONE | blast radius: this PR only"
+run enforce
+[ "$rc" -ne 0 ] && ok "the marker comment is the verdict, not a duplicate created later" || ko "marker verdict (rc=$rc out=$out)"
+reset; comment "$BOT" 2026-11-13T01:00:00Z "$(printf 'Triage: NONE | blast radius: x\n%s' "$marker")" 2026-11-13T02:00:00Z; comment "$BOT" 2026-11-13T02:00:00Z "$crit_ok" 2026-11-13T05:00:00Z
+run enforce
+[ "$rc" -eq 0 ] && ok "a duplicate without the marker never wins over the marker comment, even updated later" || ko "marker over update (rc=$rc out=$out)"
+reset; comment "$BOT" 2026-11-13T01:00:00Z "$crit_ok" 2026-11-13T03:00:00Z; comment "$BOT" 2026-11-13T02:00:00Z "Triage: NONE | blast radius: this PR only"
+run enforce
+[ "$rc" -ne 0 ] && ok "no marker (an older pull request): the most recently updated verdict wins" || ko "updated wins (rc=$rc out=$out)"
+reset; comment "$BOT" 2026-11-13T01:00:00Z "$crit_ok"; comment "$BOT" 2026-11-13T02:00:00Z "$(printf 'Triage: NOT RUN | the review returned no text\n%s' "$marker")"
+run enforce
+[ "$rc" -eq 0 ] && grep -q 'NOT RUN' <<<"$out" && ok "a NOT RUN marker comment is no verdict: a stale CRITICAL duplicate is never used instead" || ko "not run marker (rc=$rc out=$out)"
+
+# A marker comment whose verdict is NOT RUN (the review failed on the latest push) is NOT RUN: an older bot verdict
+# (a minimized duplicate) is never used instead.
+reset; comment "$BOT" 2026-11-13T01:00:00Z "$crit_ok" 2026-11-13T05:00:00Z; comment "$BOT" 2026-11-13T02:00:00Z "$(printf 'Triage: NOT RUN | the review returned no structured output\n%s' "$marker")" 2026-11-13T03:00:00Z
+run enforce
+[ "$rc" -eq 0 ] && grep -q 'triage verdict: NOT RUN' <<<"$out" && ok "a NOT RUN marker comment is NOT RUN even when a CRITICAL duplicate was updated later" || ko "not run marker (rc=$rc out=$out)"
+
+# One comment PER RUN: the newest CREATED marker comment is the verdict, even when an older run's comment was updated later.
+reset; comment "$BOT" 2026-11-13T01:00:00Z "$crit_marked" 2026-11-13T09:00:00Z; comment "$BOT" 2026-11-13T02:00:00Z "$(printf 'Triage: NONE | blast radius: x\n%s' "$marker")"
+run enforce
+[ "$rc" -eq 0 ] && grep -q 'verdict NONE' <<<"$out" && ok "two marker comments: the newest created run is the verdict, not an older one edited later" || ko "newest run verdict (rc=$rc out=$out)"
+
+reset; comment "$BOT" 2026-11-13T01:00:00Z "not a verdict at all"
+run enforce
+[ "$rc" -eq 0 ] && grep -q 'NOT RUN' <<<"$out" && ok "a bot comment without the verdict line is not a verdict" || ko "no verdict line (rc=$rc out=$out)"
+
+reset; comment "$BOT" 2026-11-13T01:00:00Z "$crit_ok"; event labeled Y4NN777 2026-11-13T02:00:00Z owner-override
+run enforce
+[ "$rc" -eq 0 ] && grep -q 'owner override' <<<"$out" && ok "the owner's label overrides a CRITICAL" || ko "owner override (rc=$rc out=$out)"
+
+reset; comment "$BOT" 2026-11-13T01:00:00Z "$crit_ok"; event labeled dev-user 2026-11-13T02:00:00Z owner-override
+run enforce
+[ "$rc" -eq 1 ] && ok "the same label added by someone else does not override" || ko "foreign label (rc=$rc out=$out)"
+
+reset; comment "$BOT" 2026-11-13T01:00:00Z "$crit_ok"; event labeled Y4NN777 2026-11-13T02:00:00Z owner-override; event unlabeled Y4NN777 2026-11-13T03:00:00Z owner-override
+run enforce
+[ "$rc" -eq 1 ] && ok "a removed override label no longer overrides" || ko "removed label (rc=$rc out=$out)"
+
+reset; comment "$BOT" 2026-11-13T01:00:00Z "$crit_ok"; event labeled Y4NN777 2026-11-13T02:00:00Z other-label
+run enforce
+[ "$rc" -eq 1 ] && ok "only the owner-override label counts" || ko "other label (rc=$rc out=$out)"
+
+reset; comment "$BOT" 2026-11-13T01:00:00Z "$crit_ok"
+FAKE_GH_FAIL=1 run enforce
+[ "$rc" -eq 0 ] && grep -q 'NOT RUN' <<<"$out" && ok "a GitHub read error fails open (NOT RUN), never blocks" || ko "gh failure (rc=$rc out=$out)"
+
+# --- sensitive paths: the owner must approve ---
+reset; files scripts/check-docs.py src/api/internal/app/app.go
+run enforce dev
+[ "$rc" -eq 1 ] && grep -q 'scripts/check-docs.py' <<<"$out" && ok "a sensitive path without the owner's approval fails in enforce" || ko "sensitive no approval (rc=$rc out=$out)"
+run report dev
+[ "$rc" -eq 0 ] && grep -q 'WOULD FAIL' <<<"$out" && ok "the sensitive-path check also stays report-only in report mode" || ko "sensitive report (rc=$rc out=$out)"
+
+reset; files db/migrations/00013_x.sql; review Y4NN777 APPROVED 2026-11-13T05:00:00Z
+run enforce dev
+[ "$rc" -eq 0 ] && grep -q 'approved by the owner' <<<"$out" && ok "the owner's approval satisfies the sensitive-path check" || ko "owner approved (rc=$rc out=$out)"
+
+reset; files db/migrations/00013_x.sql; review Y4NN777 APPROVED 2026-11-13T05:00:00Z; review Y4NN777 CHANGES_REQUESTED 2026-11-13T06:00:00Z
+run enforce dev
+[ "$rc" -eq 1 ] && ok "the owner's latest review state counts (changes requested after approval fails)" || ko "latest review (rc=$rc out=$out)"
+
+reset; files db/migrations/00013_x.sql; review someone-else APPROVED 2026-11-13T05:00:00Z
+run enforce dev
+[ "$rc" -eq 1 ] && ok "an approval by someone else does not satisfy it" || ko "other approver (rc=$rc out=$out)"
+
+reset; files scripts/x.sh
+run enforce Y4NN777
+[ "$rc" -eq 0 ] && grep -q 'owner-authored' <<<"$out" && ok "an owner-authored PR passes the sensitive-path check" || ko "owner author (rc=$rc out=$out)"
+
+reset; files docs/team/KICKOFF.md src/web/src/main.tsx
+run enforce dev
+[ "$rc" -eq 0 ] && grep -q 'no sensitive path' <<<"$out" && ok "a PR without sensitive paths passes" || ko "no sensitive (rc=$rc out=$out)"
+
+reset; files scripts/x.sh
+FAKE_NO_LIST=1 run enforce dev
+[ "$rc" -eq 0 ] && grep -q 'no sensitive-paths list' <<<"$out" && ok "a missing list means no sensitive paths (never blocks)" || ko "no list (rc=$rc out=$out)"
+
+reset; files scripts/x.sh; comment "$BOT" 2026-11-13T01:00:00Z "$crit_ok"
+run enforce dev
+[ "$rc" -eq 1 ] && [ "$(grep -c 'FAIL' <<<"$out")" -ge 2 ] && ok "both failures are reported together" || ko "both (rc=$rc out=$out)"
+
+# --- stray paths and finding-to-test: report only until GATE_NEW=enforce (the promotion switch) ---
+set_pull() { # BODY LABELS_JSON HEAD_REF
+  python3 -I -c 'import json,sys; old = json.load(open(sys.argv[1])); json.dump({"body": sys.argv[2], "labels": json.loads(sys.argv[3]), "head": {"ref": sys.argv[4]}, "user": {"login": "dev"}, "changed_files": old.get("changed_files"), "commits": 1}, open(sys.argv[1], "w"))' "$tmp/fx/pull.json" "$1" "$2" "$3"
+}
+
+reset; files .gitignore src/api/internal/app/app.go
+run enforce dev
+[ "$rc" -eq 0 ] && grep -q 'stray' <<<"$out" && grep -q '\.gitignore' <<<"$out" && grep -q 'report only' <<<"$out" && ok "a stray .gitignore on a feature branch is reported, and never blocks while the checks are report-only" || ko "stray report (rc=$rc out=$out)"
+GATE_NEW=enforce run enforce dev
+[ "$rc" -eq 1 ] && grep -q 'stray' <<<"$out" && ok "with GATE_NEW=enforce the stray path fails (the promotion switch)" || ko "stray enforce (rc=$rc out=$out)"
+
+reset; files .gitignore; set_pull "" "[]" "chore/ops/x"
+GATE_NEW=enforce run enforce dev
+[ "$rc" -eq 0 ] && ok ".gitignore on a chore branch is not stray" || ko "gitignore chore (rc=$rc out=$out)"
+
+reset; files .devin/skills/pr-review/SKILL.md; set_pull "" "[]" "chore/ops/x"
+GATE_NEW=enforce run enforce dev
+[ "$rc" -eq 1 ] && grep -q '\.devin' <<<"$out" && ok "an editor or agent directory is stray on any branch" || ko "devin (rc=$rc out=$out)"
+
+reset; files .devin/skills/x; set_pull "" '[{"name":"stray-ok"}]' "feature/identity/profiles"
+GATE_NEW=enforce run enforce dev
+[ "$rc" -eq 0 ] && ok "the label stray-ok exempts a pull request" || ko "stray-ok (rc=$rc out=$out)"
+
+reset; files .devin/skills/x
+FAKE_NO_STRAY=1 GATE_NEW=enforce run enforce dev
+[ "$rc" -eq 0 ] && grep -q 'stray paths: NOT RUN' <<<"$out" && ok "a missing stray-paths list is NOT RUN, never a failure" || ko "no stray list (rc=$rc out=$out)"
+
+reset; set_pull "Closes #12" "[]" "fix/identity/x"; files src/api/internal/app/app.go
+run enforce dev
+[ "$rc" -eq 0 ] && grep -q 'finding' <<<"$out" && grep -q 'test' <<<"$out" && grep -q 'report only' <<<"$out" && ok "closing a finding issue without a test change is reported (report only)" || ko "finding no test (rc=$rc out=$out)"
+GATE_NEW=enforce run enforce dev
+[ "$rc" -eq 1 ] && ok "with GATE_NEW=enforce a finding closed without a test fails" || ko "finding enforce (rc=$rc out=$out)"
+
+reset; set_pull "Fixes #12" "[]" "fix/identity/x"; files src/api/internal/identity/service/profile.go src/api/internal/identity/service/profile_test.go
+GATE_NEW=enforce run enforce dev
+[ "$rc" -eq 0 ] && ok "a finding closed together with a Go test passes" || ko "finding with test (rc=$rc out=$out)"
+
+reset; set_pull "Resolves #12" "[]" "fix/web/x"; files src/web/src/a.ts scripts/tests/review_test.sh
+GATE_NEW=enforce run enforce Y4NN777
+[ "$rc" -eq 0 ] && grep -q 'a test file changed' <<<"$out" && ok "a script test under scripts/tests counts as a test (owner-authored: scripts/ is a sensitive path)" || ko "script test (rc=$rc out=$out)"
+
+reset; set_pull "Closes #12" '[{"name":"no-test"}]' "fix/identity/x"; files src/api/internal/app/app.go
+GATE_NEW=enforce run enforce dev
+[ "$rc" -eq 0 ] && ok "the label no-test exempts a finding closed without a test" || ko "no-test (rc=$rc out=$out)"
+
+reset; set_pull "Closes #12" "[]" "fix/identity/x"; files src/api/internal/app/app.go
+printf '{"number":12,"labels":[{"name":"bug"}]}' >"$tmp/fx/issue12.json"
+GATE_NEW=enforce run enforce dev
+[ "$rc" -eq 0 ] && ok "closing an issue that is not a finding needs no test" || ko "not a finding (rc=$rc out=$out)"
+
+reset; set_pull "Closes #12" "[]" "fix/identity/x"; files src/api/internal/app/app.go
+GATE_NEW=off run enforce dev
+[ "$rc" -eq 0 ] && ! grep -q 'finding' <<<"$out" && ok "GATE_NEW=off disables the two new checks" || ko "new off (rc=$rc out=$out)"
+
+# The promotion switch is independent: GATE_NEW=enforce blocks even while the main gate is still in report mode
+# (review note on #114: promoting GATE_NEW alone used to stay silently non-blocking).
+reset; files .devin/skills/x
+GATE_NEW=enforce run report dev
+[ "$rc" -eq 1 ] && grep -q 'stray' <<<"$out" && ok "GATE_NEW=enforce blocks a stray path even when GATE_MODE=report" || ko "independent switch (rc=$rc out=$out)"
+reset; set_pull "Closes #12" "[]" "fix/identity/x"; files src/api/internal/app/app.go
+GATE_NEW=enforce run report dev
+[ "$rc" -eq 1 ] && ok "GATE_NEW=enforce blocks a finding closed without a test even when GATE_MODE=report" || ko "independent switch finding (rc=$rc out=$out)"
+reset; files src/api/internal/app/app.go
+GATE_NEW=enforce run report dev
+[ "$rc" -eq 0 ] && ok "GATE_NEW=enforce with nothing to report passes in report mode" || ko "independent clean (rc=$rc out=$out)"
+
+# When GATE_NEW=enforce blocks, the findings of the other checks are still printed (review note on #115).
+reset; files .devin/skills/x scripts/x.sh
+GATE_NEW=enforce run report dev
+[ "$rc" -eq 1 ] && grep -q 'FAIL (GATE_NEW=enforce)' <<<"$out" && grep -q 'WOULD FAIL: sensitive paths touched' <<<"$out" && ok "a blocking new check still prints what the other checks found" || ko "print all (rc=$rc out=$out)"
+
+# A negation is not a closing keyword (review note on #114).
+reset; set_pull "This does not close #12, it only prepares it." "[]" "fix/identity/x"; files src/api/internal/app/app.go
+GATE_NEW=enforce run enforce dev
+[ "$rc" -eq 0 ] && ok "\"does not close #12\" is not a closing keyword" || ko "negation (rc=$rc out=$out)"
+reset; set_pull "Fixes: #12" "[]" "fix/identity/x"; files src/api/internal/app/app.go
+GATE_NEW=enforce run enforce dev
+[ "$rc" -eq 1 ] && ok "\"Fixes: #12\" (with a colon, as GitHub reads it) is a closing keyword" || ko "colon (rc=$rc out=$out)"
+
+# --- #212 M7: the gate decides from the head's LEDGER, not from the prose ---
+reset; comment "$BOT" 2026-11-13T01:00:00Z "$crit_prose"
+run enforce
+[ "$rc" -eq 0 ] && grep -q 'downgraded' <<<"$out" && ok "M7: a prose CRITICAL with OBSERVED text but no ledger entry is HIGH and never blocks" || ko "prose critical (rc=$rc out=$out)"
+
+reset; comment "$BOT" 2026-11-13T01:00:00Z "Triage: HIGH | blast radius: x
+OBSERVED: src/a.go:1
+
+$(ledger "$head" "$crit_entry")"
+run enforce
+[ "$rc" -eq 1 ] && ok "M7: a HIGH first line with a blocking OBSERVED CRITICAL entry in the ledger blocks" || ko "ledger critical (rc=$rc out=$out)"
+
+reset; comment "$BOT" 2026-11-13T01:00:00Z "$(printf 'Triage: NONE | blast radius: x\n\n%s' "$(ledger "$old_head" '[]')")"
+run enforce
+[ "$rc" -eq 0 ] && grep -q 'NOT RUN (stale' <<<"$out" && ok "M7: a ledger of another head is NOT RUN (stale), not a pass" || ko "stale none (rc=$rc out=$out)"
+
+reset; comment "$BOT" 2026-11-13T01:00:00Z "$(printf 'Triage: CRITICAL | blast radius: x\n\n%s' "$(ledger "$old_head" "$crit_entry")")"
+run enforce
+[ "$rc" -eq 1 ] && grep -q 'stale' <<<"$out" && ok "M7: a stale CRITICAL keeps blocking" || ko "stale critical (rc=$rc out=$out)"
+HEAD_SHA="" run enforce
+[ "$rc" -eq 1 ] && ok "M7: no PR_HEAD_SHA never lifts a CRITICAL" || ko "no head critical (rc=$rc out=$out)"
+
+# --- #212 L2 (rename) / L4 (caps): the file list is complete or the gate fails closed ---
+reset; printf '[{"filename":"docs/new.md","previous_filename":"scripts/old.sh","status":"renamed"}]' >"$tmp/fx/files.json"
+run enforce dev
+[ "$rc" -eq 1 ] && grep -q 'scripts/old.sh' <<<"$out" && ok "L2: a rename out of a sensitive path touches it (the old path counts)" || ko "rename (rc=$rc out=$out)"
+
+reset; files docs/a.md docs/b.md; pull_field changed_files 3
+run enforce dev
+[ "$rc" -eq 1 ] && grep -q 'incomplete' <<<"$out" && ok "L4: a file list shorter than changed_files fails closed" || ko "short list (rc=$rc out=$out)"
+
+reset; files docs/a.md; pull_field commits 251
+run enforce dev
+[ "$rc" -eq 1 ] && grep -q '251 commits' <<<"$out" && ok "L4: more than 250 commits fails closed" || ko "251 commits (rc=$rc out=$out)"
+
+reset; files docs/a.md; pull_field changed_files 3000
+run enforce dev
+[ "$rc" -eq 1 ] && grep -q 'incomplete' <<<"$out" && ok "L4: 3000 files (GitHub's cap) fails closed" || ko "3000 files (rc=$rc out=$out)"
+
+# --- #212 M8 + L3: owner trust is a verified commit by the owner, never a claimed login ---
+reset; files scripts/x.sh
+printf '[{"sha":"c1","author":{"login":"Y4NN777"},"commit":{"message":"own work","verification":{"verified":false}}}]' >"$tmp/fx/commits.json"
+run enforce Y4NN777
+[ "$rc" -eq 1 ] && ok "M8: an owner PR whose commit is not verified (a forged author email) is not owner-authored" || ko "unverified (rc=$rc out=$out)"
+reset; files scripts/x.sh
+printf '[{"sha":"c1","author":{"login":"Y4NN777"},"commit":{"message":"own work"}}]' >"$tmp/fx/commits.json"
+run enforce Y4NN777
+[ "$rc" -eq 1 ] && ok "M8: a commit with no verification answer is not verified" || ko "no verification (rc=$rc out=$out)"
+reset; files scripts/x.sh
+printf '[{"sha":"c1","author":{"login":"Y4NN777"},"commit":{"message":"x\\n\\nReview-Pipeline: autofix/1","verification":{"verified":true}}}]' >"$tmp/fx/commits.json"
+run enforce Y4NN777
+[ "$rc" -eq 1 ] && ok "M8: a pipeline commit (Review-Pipeline trailer) is never owner-authored" || ko "trailer (rc=$rc out=$out)"
+reset; files scripts/x.sh; pull_field user '{"login":"Y4NN777"}'
+printf '[{"sha":"c1","author":{"login":"Y4NN777"},"commit":{"message":"a","verification":{"verified":true}}},{"sha":"c2","author":{"login":"dev"},"commit":{"message":"b","verification":{"verified":true}}}]' >"$tmp/fx/commits.json"
+run enforce dev
+[ "$rc" -eq 1 ] && ok "M8: the owner opened it but another author has a commit: not owner-authored" || ko "mixed authors (rc=$rc out=$out)"
+reset; files scripts/x.sh; pull_field commits 251
+run enforce Y4NN777
+[ "$rc" -eq 1 ] && ok "M8: more than 250 commits cannot be verified (fails closed)" || ko "251 owner commits (rc=$rc out=$out)"
+reset; files scripts/x.sh
+run enforce Y4NN777
+[ "$rc" -eq 0 ] && grep -q 'owner-authored' <<<"$out" && ok "M8: every commit verified and by the owner on the owner's PR passes" || ko "verified owner (rc=$rc out=$out)"
+
+# --- skeptic follow-ups: the committer, a failing file list, paged listings ---
+reset; files scripts/x.sh
+printf '[{"sha":"c1","author":{"login":"Y4NN777"},"committer":{"login":"someone"},"commit":{"message":"own work","verification":{"verified":true}}}]' >"$tmp/fx/commits.json"
+run enforce Y4NN777
+[ "$rc" -eq 1 ] && ok "owner trust: author is the owner but the committer is someone else (verified is the committer's signature): not owner-authored" || ko "committer (rc=$rc out=$out)"
+reset; files scripts/x.sh
+printf '[{"sha":"c1","author":{"login":"Y4NN777"},"committer":{"login":"web-flow"},"commit":{"message":"own work","verification":{"verified":true}}}]' >"$tmp/fx/commits.json"
+run enforce Y4NN777
+[ "$rc" -eq 1 ] && ok "owner trust: a web-flow committer is NOT accepted (it cannot be told from someone else's commit applied by a rebase merge): the owner must be the committer" || ko "web-flow (rc=$rc out=$out)"
+reset; files scripts/x.sh
+FAKE_FILES_FAIL=1 run enforce dev
+[ "$rc" -eq 1 ] && grep -q 'sensitive paths' <<<"$out" && ok "a GitHub error on the file list fails the sensitive-path check closed (never NOT RUN)" || ko "files fail (rc=$rc out=$out)"
+grep -q 'per_page=100' "$gate" && ok "paged listings ask for per_page=100" || ko "per_page"
+
+unv() { reset; files scripts/x.sh; printf '[{"sha":"c1","author":{"login":"Y4NN777"},"committer":{"login":"Y4NN777"},"commit":{"message":"own work","verification":{"verified":false}}}]' >"$tmp/fx/commits.json"; }
+unv; run enforce Y4NN777
+[ "$rc" -eq 1 ] && ok "an owner PR with unverified commits on a sensitive path fails (the owner merges it by hand; there is no override for sensitive paths)" || ko "unverified (rc=$rc out=$out)"
+unv; event labeled Y4NN777 2026-11-13T02:00:00Z owner-override; run enforce Y4NN777
+[ "$rc" -eq 1 ] && ok "the owner-override label clears a CRITICAL only, never a sensitive-path failure" || ko "override not for sensitive (rc=$rc out=$out)"
+
+unv; FAKE_COMMITS_FAIL=1 run enforce Y4NN777
+[ "$rc" -eq 1 ] && grep -q 'sensitive' <<<"$out" && ok "a GitHub error on the commits read fails a sensitive-path check closed" || ko "commits read (rc=$rc out=$out)"
+reset; files scripts/x.sh; FAKE_EVENTS_FAIL=1 run enforce dev
+[ "$rc" -eq 1 ] && ok "a GitHub error on the events read fails a sensitive-path check closed" || ko "events read (rc=$rc out=$out)"
+reset; files scripts/x.sh; FAKE_REVIEWS_FAIL=1 run enforce dev
+[ "$rc" -eq 1 ] && ok "a GitHub error on the reviews read fails a sensitive-path check closed" || ko "reviews read (rc=$rc out=$out)"
+
+# --- gate-critical-events-read-fails-open: an unreadable override list never lifts a CRITICAL ---
+reset; comment "$BOT" 2026-11-13T01:00:00Z "$crit_ok"
+FAKE_EVENTS_FAIL=1 run enforce
+[ "$rc" -eq 1 ] && grep -q 'override could not be read' <<<"$out" && ok "an OBSERVED CRITICAL blocks when the events (override) read fails" || ko "critical events error (rc=$rc out=$out)"
+grep -q 'FAIL: CRITICAL review verdict.*gh api repos/o/r/issues/7/events failed' <<<"$out" && ! grep -q 'verdict check NOT RUN' <<<"$out" && ok "the blocking message names the read error, never NOT RUN" || ko "critical events error named (out=$out)"
+FAKE_EVENTS_FAIL=1 run report
+[ "$rc" -eq 0 ] && grep -q 'WOULD FAIL: CRITICAL review verdict' <<<"$out" && ok "report mode: the same case is WOULD FAIL, not NOT RUN" || ko "critical events error report (rc=$rc out=$out)"
+reset; comment "$BOT" 2026-11-13T01:00:00Z "Triage: HIGH | blast radius: this PR only"
+FAKE_EVENTS_FAIL=1 run enforce
+[ "$rc" -eq 0 ] && grep -q 'verdict HIGH' <<<"$out" && ok "without a CRITICAL the events are not read: an events error changes nothing" || ko "events error no critical (rc=$rc out=$out)"
+
+# --- #212 workflow wiring (static): the gate waits for the review and gets the head; a skip repins the ledger ---
+wf="$root/.github/workflows/code-review.yml"
+gate_job="$(sed -n '/^  gate:/,$p' "$wf")"
+grep -q 'needs: \[review, deep\]' <<<"$gate_job" && grep -q "if: always() && !cancelled() && github.event.action != 'closed'" <<<"$gate_job" && ok "code-review.yml: the Review gate runs after review and deep, even when they fail or are skipped" || ko "gate needs"
+grep -q 'PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}' <<<"$gate_job" && ok "code-review.yml: the gate gets PR_HEAD_SHA" || ko "gate head"
+grep -q "steps.pack.outputs.decision == 'skip'" "$wf" && grep -q 'review-comment.py" repin' "$wf" && ok "code-review.yml: a skip decision runs the repin step from the base script" || ko "repin step"
+
+finish

@@ -8,3 +8,23 @@
 # The fingerprint names the commit: merge PR #33 with a merge commit (the repository's convention). If it
 # is ever squash-merged or rebased, this line must be re-pointed at the new commit in the same PR.
 fddf1a3462c72cb0c6bf645daccd143dbc34de5f:scripts/verify-containers.sh:generic-api-key:56
+#
+# 85d403e: src/api/internal/platform/pgtest/solve_integration_test.go carried a synthetic
+# Idempotency-Key header value ("solve-..." test text, never a credential) that the generic-api-key
+# rule matched. 440856d renamed the keys, so the working tree is clean; the commit is pushed on S3
+# PR 1 (#147) and pushed history is not rewritten. Merge #147 with a merge commit so the commit
+# keeps its id. Approved by the owner Y4NN777, 2026-11-14.
+85d403e9f416fcbe384c781ef93c0c153fabb8d2:src/api/internal/platform/pgtest/solve_integration_test.go:generic-api-key:271
+#
+# 29ada78: scripts/tests/review-comment_test.sh carried the BEGIN line of a FAKE private key block (no key material, test
+# text only) as the fixture of the #212 redaction test; a ghp_-shaped fake token was added the same way in c022ab1. Both
+# fixtures are built at run time now, so the working tree is clean; the commits are pushed on #223 and pushed history is
+# not rewritten. Merge #223 with a merge commit so the commit keeps its id. Reviewer Y4NN777, owner-approved 2026-11-14.
+29ada7852d895a1f8e17afcc931fe914919bff2b:scripts/tests/review-comment_test.sh:private-key:727
+#
+# 7f75aef: src/api/internal/platform/config/connect_test.go carried a synthetic CURSOR_KEY (base64 of the text
+# "0123456789abcdef0123456789abcdef", test text, never a credential) in the CONNECT_GITHUB_IMPORT config test.
+# c4b431b replaced it with the package's computed test key, so the working tree is clean; the commit is pushed on
+# #329 and pushed history is not rewritten. Merge #329 with a merge commit so the commit keeps its id.
+# Requested by the owner Y4NN777 ("fix the failing required checks"), 2026-11-15.
+7f75aef490c50b6ac759219063388088c8281a7f:src/api/internal/platform/config/connect_test.go:generic-api-key:39

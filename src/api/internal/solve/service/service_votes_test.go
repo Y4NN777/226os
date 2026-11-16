@@ -1,0 +1,324 @@
+package service_test
+
+import (
+	"context"
+	"testing"
+	"time"
+
+	"github.com/Y4NN777/226os/src/api/internal/platform/apperr"
+	"github.com/Y4NN777/226os/src/api/internal/platform/subject"
+	"github.com/Y4NN777/226os/src/api/internal/solve/domain"
+	"github.com/Y4NN777/226os/src/api/internal/solve/service"
+)
+
+func (f *fakeStore) SetVote(_ context.Context, v domain.Vote) (domain.VoteState, error) {
+	f.gotVote = v
+	if f.err != nil {
+		return domain.VoteState{}, f.err
+	}
+	f.writes++
+	return f.vote, nil
+}
+
+func (f *fakeStore) VoteTarget(_ context.Context, targetType, id string) error {
+	f.checkedType, f.checkedID = targetType, id
+	return f.targetErr
+}
+
+func (f *fakeStore) SetAcceptedAnswer(_ context.Context, c domain.AcceptChange) (domain.Question, error) {
+	f.gotChange = c
+	if f.err != nil {
+		return domain.Question{}, f.err
+	}
+	f.writes++
+	return f.question, nil
+}
+
+// castVote: the voter is the session subject, a value is +1 or -1, the target is a question or an answer,
+// and every store refusal maps to one problem.
+func TestCastVote(t *testing.T) {
+	good := service.VoteRequest{TargetType: domain.TargetAnswer, TargetID: aID, Value: 1}
+	cases := []struct {
+		name  string
+		sub   subject.Subject
+		req   service.VoteRequest
+		store *fakeStore
+		deny  bool
+		code  apperr.Code
+		field string
+	}{
+		{"anonymous", subject.Subject{}, good, &fakeStore{}, false, apperr.CodeUnauthenticated, ""},
+		{"unverified email", unverified, good, &fakeStore{}, false, apperr.CodeEmailNotVerified, ""},
+		{"value zero", member, service.VoteRequest{TargetType: domain.TargetAnswer, TargetID: aID, Value: 0}, &fakeStore{}, false, apperr.CodeValidation, "/value"},
+		{"value two", member, service.VoteRequest{TargetType: domain.TargetAnswer, TargetID: aID, Value: 2}, &fakeStore{}, false, apperr.CodeValidation, "/value"},
+		{"unknown target type", member, service.VoteRequest{TargetType: "resource", TargetID: aID, Value: 1}, &fakeStore{}, false, apperr.CodeValidation, "/target_type"},
+		{"malformed target id", member, service.VoteRequest{TargetType: domain.TargetAnswer, TargetID: "nope", Value: 1}, &fakeStore{}, false, apperr.CodeValidation, "/target_id"},
+		{"rate limited", member, good, &fakeStore{}, true, apperr.CodeRateLimited, ""},
+		{"target missing or removed", member, good, &fakeStore{err: domain.ErrNotFound}, false, apperr.CodeNotFound, ""},
+		{"own content", member, good, &fakeStore{err: domain.ErrSelfVote}, false, apperr.CodeSelfVoteForbidden, ""},
+		{"database down", member, good, &fakeStore{err: errDB}, false, apperr.CodeInternal, ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			svc, lim := newSvc(t, tc.store)
+			lim.allowed = !tc.deny
+			_, err := svc.CastVote(t.Context(), tc.sub, tc.req)
+			if tc.field != "" {
+				wantViolation(t, err, tc.field, "invalid_value")
+			} else {
+				wantCode(t, err, tc.code)
+			}
+			if tc.store.writes != 0 {
+				t.Fatalf("%d writes on a refused vote", tc.store.writes)
+			}
+		})
+	}
+}
+
+func TestCastVoteStoresTheSubjectsVoteAndReturnsTheState(t *testing.T) {
+	st := &fakeStore{vote: domain.VoteState{TargetType: domain.TargetQuestion, TargetID: qID, Value: -1, Score: 4}}
+	svc, lim := newSvc(t, st)
+	got, err := svc.CastVote(t.Context(), member, service.VoteRequest{TargetType: domain.TargetQuestion, TargetID: qID, Value: -1})
+	if err != nil || got != st.vote {
+		t.Fatalf("got %+v, %v", got, err)
+	}
+	if want := (domain.Vote{UserID: userID, TargetType: domain.TargetQuestion, TargetID: qID, Value: -1}); st.gotVote != want {
+		t.Fatalf("stored %+v, want %+v", st.gotVote, want)
+	}
+	if lim.hits != 1 || lim.scope != "write:user" || lim.value != userID || lim.limit != 60 || lim.window != time.Minute {
+		t.Fatalf("limiter %+v", lim)
+	}
+}
+
+func TestCastVoteRateLimiterFailsClosedAndTellsWhenToRetry(t *testing.T) {
+	st := &fakeStore{}
+	svc, lim := newSvc(t, st)
+	lim.allowed, lim.retry = false, 7*time.Second
+	_, err := svc.CastVote(t.Context(), member, service.VoteRequest{TargetType: domain.TargetAnswer, TargetID: aID, Value: 1})
+	if ae := codeOf(t, err, apperr.CodeRateLimited); ae.RetryAfter != 7*time.Second {
+		t.Fatalf("retry after %v", ae.RetryAfter)
+	}
+	lim.err = errDB
+	_, err = svc.CastVote(t.Context(), member, service.VoteRequest{TargetType: domain.TargetAnswer, TargetID: aID, Value: 1})
+	wantCode(t, err, apperr.CodeInternal)
+	if st.writes != 0 {
+		t.Fatal("a vote was written past the limiter")
+	}
+}
+
+// retractVote is a vote of value 0, with the same session, target and budget rules.
+func TestRetractVote(t *testing.T) {
+	cases := []struct {
+		name  string
+		sub   subject.Subject
+		typ   string
+		id    string
+		store *fakeStore
+		deny  bool
+		code  apperr.Code
+		field string
+	}{
+		{"anonymous", subject.Subject{}, domain.TargetAnswer, aID, &fakeStore{}, false, apperr.CodeUnauthenticated, ""},
+		{"unverified email", unverified, domain.TargetAnswer, aID, &fakeStore{}, false, apperr.CodeEmailNotVerified, ""},
+		{"unknown target type", member, "resource", aID, &fakeStore{}, false, apperr.CodeValidation, "target_type"},
+		{"malformed target id", member, domain.TargetAnswer, "nope", &fakeStore{}, false, apperr.CodeValidation, "target_id"},
+		{"rate limited", member, domain.TargetAnswer, aID, &fakeStore{}, true, apperr.CodeRateLimited, ""},
+		{"target missing or removed", member, domain.TargetAnswer, aID, &fakeStore{err: domain.ErrNotFound}, false, apperr.CodeNotFound, ""},
+		{"database down", member, domain.TargetAnswer, aID, &fakeStore{err: errDB}, false, apperr.CodeInternal, ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			svc, lim := newSvc(t, tc.store)
+			lim.allowed = !tc.deny
+			_, err := svc.RetractVote(t.Context(), tc.sub, tc.typ, tc.id)
+			if tc.field != "" {
+				wantViolation(t, err, tc.field, "invalid_value")
+			} else {
+				wantCode(t, err, tc.code)
+			}
+		})
+	}
+	st := &fakeStore{vote: domain.VoteState{TargetType: domain.TargetAnswer, TargetID: aID, Score: 2}}
+	svc, _ := newSvc(t, st)
+	got, err := svc.RetractVote(t.Context(), member, domain.TargetAnswer, aID)
+	if err != nil || got != st.vote {
+		t.Fatalf("got %+v, %v", got, err)
+	}
+	if want := (domain.Vote{UserID: userID, TargetType: domain.TargetAnswer, TargetID: aID}); st.gotVote != want {
+		t.Fatalf("stored %+v, want a value-0 vote %+v", st.gotVote, want)
+	}
+}
+
+// acceptAnswer: only the question author, on a visible question, for one of its own answers.
+func TestAcceptAnswer(t *testing.T) {
+	cases := []struct {
+		name  string
+		sub   subject.Subject
+		qid   string
+		aid   string
+		store *fakeStore
+		deny  bool
+		code  apperr.Code
+		field string
+	}{
+		{"anonymous", subject.Subject{}, qID, aID, &fakeStore{}, false, apperr.CodeUnauthenticated, ""},
+		{"unverified email", unverified, qID, aID, &fakeStore{}, false, apperr.CodeEmailNotVerified, ""},
+		{"malformed answer id", member, qID, "nope", &fakeStore{}, false, apperr.CodeValidation, "/answer_id"},
+		{"rate limited", member, qID, aID, &fakeStore{}, true, apperr.CodeRateLimited, ""},
+		{"question missing or removed", member, qID, aID, &fakeStore{err: domain.ErrNotFound}, false, apperr.CodeNotFound, ""},
+		{"not the question author", member, qID, aID, &fakeStore{err: domain.ErrForbidden}, false, apperr.CodeForbidden, ""},
+		{"answer of another question or removed", member, qID, aID, &fakeStore{err: domain.ErrAnswerNotInQuestion}, false, apperr.CodeValidation, "/answer_id"},
+		{"database down", member, qID, aID, &fakeStore{err: errDB}, false, apperr.CodeInternal, ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			svc, lim := newSvc(t, tc.store)
+			lim.allowed = !tc.deny
+			_, err := svc.AcceptAnswer(t.Context(), tc.sub, tc.qid, tc.aid)
+			if tc.field != "" {
+				wantViolation(t, err, tc.field, "invalid_value")
+			} else {
+				wantCode(t, err, tc.code)
+			}
+			if tc.store.writes != 0 {
+				t.Fatalf("%d writes on a refused accept", tc.store.writes)
+			}
+		})
+	}
+	st := &fakeStore{question: domain.Question{ID: qID, AcceptedAnswerID: aID}}
+	svc, lim := newSvc(t, st)
+	got, err := svc.AcceptAnswer(t.Context(), member, qID, aID)
+	if err != nil || got.AcceptedAnswerID != aID {
+		t.Fatalf("got %+v, %v", got, err)
+	}
+	if want := (domain.AcceptChange{QuestionID: qID, ActorID: userID, AnswerID: aID}); st.gotChange != want {
+		t.Fatalf("change %+v, want %+v", st.gotChange, want)
+	}
+	if lim.scope != "write:user" || lim.value != userID {
+		t.Fatalf("limiter %+v", lim)
+	}
+}
+
+// unacceptAnswer clears the accepted answer: the same change with no answer id.
+func TestUnacceptAnswer(t *testing.T) {
+	cases := []struct {
+		name  string
+		sub   subject.Subject
+		store *fakeStore
+		deny  bool
+		code  apperr.Code
+	}{
+		{"anonymous", subject.Subject{}, &fakeStore{}, false, apperr.CodeUnauthenticated},
+		{"unverified email", unverified, &fakeStore{}, false, apperr.CodeEmailNotVerified},
+		{"rate limited", member, &fakeStore{}, true, apperr.CodeRateLimited},
+		{"question missing or removed", member, &fakeStore{err: domain.ErrNotFound}, false, apperr.CodeNotFound},
+		{"not the question author", member, &fakeStore{err: domain.ErrForbidden}, false, apperr.CodeForbidden},
+		{"database down", member, &fakeStore{err: errDB}, false, apperr.CodeInternal},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			svc, lim := newSvc(t, tc.store)
+			lim.allowed = !tc.deny
+			_, err := svc.UnacceptAnswer(t.Context(), tc.sub, qID)
+			wantCode(t, err, tc.code)
+			if tc.store.writes != 0 {
+				t.Fatalf("%d writes on a refused unaccept", tc.store.writes)
+			}
+		})
+	}
+	st := &fakeStore{question: domain.Question{ID: qID}}
+	svc, _ := newSvc(t, st)
+	if _, err := svc.UnacceptAnswer(t.Context(), member, qID); err != nil {
+		t.Fatal(err)
+	}
+	if want := (domain.AcceptChange{QuestionID: qID, ActorID: userID}); st.gotChange != want {
+		t.Fatalf("change %+v, want %+v", st.gotChange, want)
+	}
+}
+
+// A vote or a retraction on an unknown or removed target is the same 404 as before, and it spends no write:
+// the target is checked before the write budget (#155, owner decision 2026-11-15). Questions and answers
+// are public, so the check opens no enumeration oracle. A miss draws on its own bucket, vote:miss (60 a
+// minute per member), so probing ids stays bounded without costing a write; a visible target never touches
+// it (#274 note-vote-target-unbudgeted-read).
+func TestAVoteOnAnUnknownTargetSpendsNoWrite(t *testing.T) {
+	for _, typ := range []string{domain.TargetQuestion, domain.TargetAnswer} {
+		st := &fakeStore{targetErr: domain.ErrNotFound}
+		svc, lim := newSvc(t, st)
+		_, err := svc.CastVote(t.Context(), member, service.VoteRequest{TargetType: typ, TargetID: aID, Value: 1})
+		wantCode(t, err, apperr.CodeNotFound)
+		_, err = svc.RetractVote(t.Context(), member, typ, aID)
+		wantCode(t, err, apperr.CodeNotFound)
+		if lim.byScope["write:user"] != 0 || lim.byScope["vote:miss"] != 2 || st.writes != 0 || st.checkedType != typ || st.checkedID != aID {
+			t.Fatalf("%s: hits %v, writes %d, checked %q %q", typ, lim.byScope, st.writes, st.checkedType, st.checkedID)
+		}
+		if lim.scope != "vote:miss" || lim.value != userID || lim.limit != 60 || lim.window != time.Minute {
+			t.Fatalf("miss bucket %+v", lim)
+		}
+	}
+}
+
+// Past the miss budget the 404 becomes a 429 with Retry-After; a failing limiter fails closed.
+func TestAVoteOnAnUnknownTargetIsBoundedByTheMissBudget(t *testing.T) {
+	svc, lim := newSvc(t, &fakeStore{targetErr: domain.ErrNotFound})
+	lim.denyScope, lim.retry = map[string]bool{"vote:miss": true}, 9*time.Second
+	_, err := svc.CastVote(t.Context(), member, service.VoteRequest{TargetType: domain.TargetAnswer, TargetID: aID, Value: 1})
+	if ae := codeOf(t, err, apperr.CodeRateLimited); ae.RetryAfter != 9*time.Second {
+		t.Fatalf("retry after %v", ae.RetryAfter)
+	}
+	lim.errScope = map[string]error{"vote:miss": errDB}
+	_, err = svc.RetractVote(t.Context(), member, domain.TargetAnswer, aID)
+	wantCode(t, err, apperr.CodeInternal)
+	if lim.byScope["write:user"] != 0 {
+		t.Fatal("a miss spent a write")
+	}
+}
+
+func TestAVoteOnAVisibleTargetSpendsOneWriteAfterTheCheck(t *testing.T) {
+	st := &fakeStore{vote: domain.VoteState{TargetType: domain.TargetAnswer, TargetID: aID, Value: 1, Score: 1}}
+	svc, lim := newSvc(t, st)
+	if _, err := svc.CastVote(t.Context(), member, service.VoteRequest{TargetType: domain.TargetAnswer, TargetID: aID, Value: 1}); err != nil {
+		t.Fatal(err)
+	}
+	if lim.hits != 1 || lim.byScope["vote:miss"] != 0 || st.checkedID != aID {
+		t.Fatalf("limiter hits %v, checked %q", lim.byScope, st.checkedID)
+	}
+}
+
+// A failing existence check is a 500 and spends nothing; a spent budget is still a 429 on a visible target.
+func TestAVoteWhoseTargetCheckFailsSpendsNoWrite(t *testing.T) {
+	svc, lim := newSvc(t, &fakeStore{targetErr: errDB})
+	_, err := svc.CastVote(t.Context(), member, service.VoteRequest{TargetType: domain.TargetAnswer, TargetID: aID, Value: 1})
+	wantCode(t, err, apperr.CodeInternal)
+	if lim.hits != 0 {
+		t.Fatalf("limiter hits = %d, want 0", lim.hits)
+	}
+}
+
+// #274 note-vote-toctou-documented: a target removed between the check and the lock is a 404 and gives its
+// write back, on the window the hit used, so a 404 never costs a write. A failing give-back keeps the hit.
+func TestAVoteOnATargetRemovedAfterTheCheckGivesTheWriteBack(t *testing.T) {
+	for _, giveErr := range []error{nil, errDB} {
+		st := &fakeStore{err: domain.ErrNotFound}
+		svc, lim := newSvc(t, st)
+		lim.giveErr = giveErr
+		before := time.Now()
+		_, err := svc.CastVote(t.Context(), member, service.VoteRequest{TargetType: domain.TargetAnswer, TargetID: aID, Value: 1})
+		wantCode(t, err, apperr.CodeNotFound)
+		_, err = svc.RetractVote(t.Context(), member, domain.TargetAnswer, aID)
+		wantCode(t, err, apperr.CodeNotFound)
+		if lim.byScope["write:user"] != 2 || len(lim.gave) != 2 || lim.gave[0] != "write:user|"+userID+"|1m0s" {
+			t.Fatalf("hits %v, gave %v", lim.byScope, lim.gave)
+		}
+		if at := lim.gaveAt[0]; at.Before(before) || time.Since(at) > time.Minute {
+			t.Fatalf("give-back time %v", at)
+		}
+	}
+	// A refused vote that did write nothing for another reason keeps its hit: the self-vote rule is a 403 after a real lookup.
+	svc, lim := newSvc(t, &fakeStore{err: domain.ErrSelfVote})
+	_, err := svc.CastVote(t.Context(), member, service.VoteRequest{TargetType: domain.TargetAnswer, TargetID: aID, Value: 1})
+	wantCode(t, err, apperr.CodeSelfVoteForbidden)
+	if len(lim.gave) != 0 {
+		t.Fatalf("gave back %v on a self vote", lim.gave)
+	}
+}

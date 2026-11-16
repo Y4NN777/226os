@@ -5,7 +5,7 @@
 #   0. the middleware chain installed by NewRouter equals scripts/router-middleware.txt;
 #   1. every route mounted by httpx.NewRouter (the chi route table, walked with chi.Walk) is in
 #      EXACTLY ONE of: scripts/public-routes.txt (public by design), scripts/unimplemented-routes.txt
-#      (still answered 501; starts with all 47 operations and shrinks), scripts/authz-tests.txt
+#      (still answered 501; starts with all operations and shrinks), scripts/authz-tests.txt
 #      ("METHOD /path TestName": the named Go test must exist, be named TestAuthz<OperationID>..., not skip,
 #      name the route and mention a denial status);
 #   2. no router, mux or route is built or registered outside httpx.NewRouter (go/ast scan of the

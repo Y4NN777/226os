@@ -1,0 +1,397 @@
+package service
+
+import (
+	"context"
+	"errors"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/Y4NN777/226os/src/api/internal/discover/domain"
+	"github.com/Y4NN777/226os/src/api/internal/platform/apperr"
+	"github.com/Y4NN777/226os/src/api/internal/platform/cursor"
+)
+
+type fakeReader struct {
+	list    func(domain.Query) ([]domain.Resource, error)
+	count   func(domain.Query) (int, error)
+	get     func(string) (domain.Resource, error)
+	sources func(string) ([]domain.Source, error)
+}
+
+type catalogueLimiter struct {
+	allowed bool
+	retry   time.Duration
+	err     error
+	hits    int
+	scope   string
+	value   string
+	limit   int
+	window  time.Duration
+}
+
+func (f *catalogueLimiter) Hit(_ context.Context, scope, value string, limit int, window time.Duration) (bool, time.Duration, error) {
+	f.hits++
+	f.scope, f.value, f.limit, f.window = scope, value, limit, window
+	return f.allowed, f.retry, f.err
+}
+
+func (f fakeReader) List(_ context.Context, q domain.Query) ([]domain.Resource, error) {
+	return f.list(q)
+}
+
+// Count answers 0 unless the test scripts it.
+func (f fakeReader) Count(_ context.Context, q domain.Query) (int, error) {
+	if f.count == nil {
+		return 0, nil
+	}
+	return f.count(q)
+}
+func (f fakeReader) Get(_ context.Context, id string) (domain.Resource, error) {
+	return f.get(id)
+}
+
+// total counts with the page filters and no cursor; a count failure fails the page.
+func TestListTotal(t *testing.T) {
+	var counted domain.Query
+	rows := []domain.Resource{{ID: "00000000-0000-7000-8000-0000000000a1", Name: "A"}, {ID: "00000000-0000-7000-8000-0000000000a2", Name: "B"}}
+	svc := New(fakeReader{
+		list:  func(domain.Query) ([]domain.Resource, error) { return rows, nil },
+		count: func(q domain.Query) (int, error) { counted = q; return 5, nil },
+	}, codec(t))
+	one := 1
+	page, err := svc.List(t.Context(), ListRequest{Q: str("pay"), Countries: []string{"CI", "BF"}, Limit: &one})
+	if err != nil || page.Total != 5 || counted.Q != "pay" || strings.Join(counted.Countries, ",") != "BF,CI" || counted.Limit != 0 {
+		t.Fatalf("page %+v %v counted %+v", page, err, counted)
+	}
+	if _, err := svc.List(t.Context(), ListRequest{Q: str("pay"), Countries: []string{"CI", "BF"}, Limit: &one, Cursor: page.NextCursor}); err != nil || counted.AfterID != "" || counted.AfterName != "" {
+		t.Fatalf("page 2 %v counted %+v", err, counted)
+	}
+	boom := errors.New("boom")
+	failing := New(fakeReader{
+		list:  func(domain.Query) ([]domain.Resource, error) { return nil, nil },
+		count: func(domain.Query) (int, error) { return 0, boom },
+	}, codec(t))
+	if _, err := failing.List(t.Context(), ListRequest{}); !errors.Is(err, boom) {
+		t.Fatalf("err %v", err)
+	}
+}
+func (f fakeReader) Sources(_ context.Context, id string) ([]domain.Source, error) {
+	return f.sources(id)
+}
+
+func codec(t *testing.T) *cursor.Codec {
+	t.Helper()
+	c, err := cursor.New([]byte("0123456789abcdef0123456789abcdef"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return c
+}
+
+func str(s string) *string { return &s }
+
+func TestListAnonymousQueryUsesSearchBudget(t *testing.T) {
+	reader := fakeReader{list: func(domain.Query) ([]domain.Resource, error) { return nil, nil }}
+	lim := &catalogueLimiter{allowed: false, retry: 11 * time.Second}
+	svc := New(reader, codec(t), lim)
+	_, err := svc.List(t.Context(), ListRequest{Q: str("paiement"), Anonymous: true, ClientIP: "198.51.100.0/24"})
+	var ae *apperr.Error
+	if !errors.As(err, &ae) || ae.Code != apperr.CodeRateLimited || ae.RetryAfter != 11*time.Second {
+		t.Fatalf("err = %v", err)
+	}
+	if lim.hits != 1 || lim.scope != "search:ip" || lim.value != "198.51.100.0/24" || lim.limit != 60 || lim.window != time.Minute {
+		t.Fatalf("limiter = %+v", lim)
+	}
+}
+
+func TestListValidatesPageAndQuery(t *testing.T) {
+	var got domain.Query
+	svc := New(fakeReader{list: func(q domain.Query) ([]domain.Resource, error) {
+		got = q
+		return nil, nil
+	}}, codec(t))
+	long := strings.Repeat("é", 201)
+	nul, badUTF8 := "pay\x00ment", "pay\xffment"
+	zero, fiftyOne := 0, 51
+	tests := []struct {
+		name string
+		req  ListRequest
+		code apperr.Code
+	}{
+		{"limit zero", ListRequest{Limit: &zero}, apperr.CodeValidation},
+		{"limit 51", ListRequest{Limit: &fiftyOne}, apperr.CodeValidation},
+		{"empty q", ListRequest{Q: str("")}, apperr.CodeValidation},
+		{"q over 200", ListRequest{Q: &long}, apperr.CodeValidation},
+		{"q with a NUL byte", ListRequest{Q: &nul}, apperr.CodeValidation},
+		{"q with invalid UTF-8", ListRequest{Q: &badUTF8}, apperr.CodeValidation},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := svc.List(t.Context(), tc.req)
+			var ae *apperr.Error
+			if !errors.As(err, &ae) || ae.Code != tc.code {
+				t.Fatalf("err = %v, want %s", err, tc.code)
+			}
+		})
+	}
+	one := 1
+	if _, err := svc.List(t.Context(), ListRequest{Limit: &one, Q: str("paiement")}); err != nil {
+		t.Fatal(err)
+	}
+	if got.Limit != 2 || got.Q != "paiement" {
+		t.Fatalf("query = %+v, want limit 2 and q", got)
+	}
+}
+
+func TestListCursorIsBoundToTheFilters(t *testing.T) {
+	rows := []domain.Resource{{ID: "00000000-0000-7000-8000-000000000001", Name: "Alpha"}, {ID: "00000000-0000-7000-8000-000000000002", Name: "Beta"}}
+	svc := New(fakeReader{list: func(q domain.Query) ([]domain.Resource, error) {
+		if q.AfterName == "" {
+			return rows, nil
+		}
+		if q.AfterName != "Alpha" || len(q.Countries) != 1 || q.Countries[0] != "BF" {
+			t.Fatalf("continued query = %+v", q)
+		}
+		return rows[1:], nil
+	}}, codec(t))
+	one := 1
+	first, err := svc.List(t.Context(), ListRequest{Limit: &one, Countries: []string{"BF"}})
+	if err != nil || first.NextCursor == "" || len(first.Items) != 1 || first.Items[0].Name != "Alpha" {
+		t.Fatalf("first = %+v, err %v", first, err)
+	}
+	second, err := svc.List(t.Context(), ListRequest{Limit: &one, Countries: []string{"BF"}, Cursor: first.NextCursor})
+	if err != nil || len(second.Items) != 1 || second.Items[0].Name != "Beta" || second.NextCursor != "" {
+		t.Fatalf("second = %+v, err %v", second, err)
+	}
+	if _, err := svc.List(t.Context(), ListRequest{Limit: &one, Countries: []string{"CI"}, Cursor: first.NextCursor}); !errors.As(err, new(*apperr.Error)) {
+		t.Fatalf("replay on another filter: %v", err)
+	} else {
+		var ae *apperr.Error
+		_ = errors.As(err, &ae)
+		if ae.Code != apperr.CodeInvalidCursor {
+			t.Fatalf("code = %s", ae.Code)
+		}
+	}
+	if _, err := svc.List(t.Context(), ListRequest{Cursor: "not-a-cursor"}); !errors.As(err, new(*apperr.Error)) {
+		t.Fatal(err)
+	}
+}
+
+func TestListRejectsACursorWithNoPosition(t *testing.T) {
+	c := codec(t)
+	token := c.Encode(cursor.Payload{FilterHash: filterHash(domain.Query{Sort: domain.SortName})})
+	svc := New(fakeReader{list: func(domain.Query) ([]domain.Resource, error) {
+		t.Fatal("store should not be called")
+		return nil, nil
+	}}, c)
+	_, err := svc.List(t.Context(), ListRequest{Cursor: token})
+	var ae *apperr.Error
+	if !errors.As(err, &ae) || ae.Code != apperr.CodeInvalidCursor {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+// sort=verified: newest verification first, never verified last (the NeverVerified instant), the cursor
+// carries that time and is bound to the sort (a name cursor is refused, and the reverse).
+func TestListSortVerified(t *testing.T) {
+	at := time.Date(2026, 11, 10, 8, 0, 0, 500, time.UTC)
+	var got domain.Query
+	page := []domain.Resource{
+		{ID: "00000000-0000-7000-8000-0000000000a1", Name: "A", LastVerifiedAt: &at},
+		{ID: "00000000-0000-7000-8000-0000000000a2", Name: "B"},
+		{ID: "00000000-0000-7000-8000-0000000000a3", Name: "C"},
+	}
+	c := codec(t)
+	svc := New(fakeReader{list: func(q domain.Query) ([]domain.Resource, error) { got = q; return page, nil }}, c)
+	one, two := 1, 2
+	verified := str("verified")
+	first, err := svc.List(t.Context(), ListRequest{Sort: verified, Limit: &one})
+	if err != nil || got.Sort != domain.SortVerified || got.AfterVerified != nil || first.NextCursor == "" {
+		t.Fatalf("first %+v %v %+v", first, err, got)
+	}
+	if _, err := svc.List(t.Context(), ListRequest{Sort: verified, Limit: &one, Cursor: first.NextCursor}); err != nil ||
+		got.AfterVerified == nil || !got.AfterVerified.Equal(at) || got.AfterID != page[0].ID || got.AfterName != "" {
+		t.Fatalf("after verified %v %+v", err, got)
+	}
+	second, err := svc.List(t.Context(), ListRequest{Sort: verified, Limit: &two})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.List(t.Context(), ListRequest{Sort: verified, Limit: &two, Cursor: second.NextCursor}); err != nil ||
+		!got.AfterVerified.Equal(domain.NeverVerified) {
+		t.Fatalf("never verified %v %+v", err, got)
+	}
+	// Default (and explicit) name order keeps the name keyset.
+	byName, err := svc.List(t.Context(), ListRequest{Limit: &one})
+	if err != nil || got.Sort != domain.SortName {
+		t.Fatalf("name %v %+v", err, got)
+	}
+	if _, err := svc.List(t.Context(), ListRequest{Sort: str("name"), Limit: &one, Cursor: byName.NextCursor}); err != nil || got.AfterName != "A" || got.AfterVerified != nil {
+		t.Fatalf("explicit name %v %+v", err, got)
+	}
+	for _, tc := range []struct {
+		name string
+		req  ListRequest
+	}{
+		{"name cursor on verified", ListRequest{Sort: verified, Cursor: byName.NextCursor}},
+		{"verified cursor on name", ListRequest{Cursor: first.NextCursor}},
+		{"verified cursor without a time", ListRequest{Sort: verified, Cursor: c.Encode(cursor.Payload{Sort: "x", ID: page[0].ID, FilterHash: filterHash(domain.Query{Sort: domain.SortVerified})})}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := svc.List(t.Context(), tc.req)
+			var ae *apperr.Error
+			if !errors.As(err, &ae) || ae.Code != apperr.CodeInvalidCursor {
+				t.Fatalf("err = %v", err)
+			}
+		})
+	}
+}
+
+func TestListReturnsStoreErrors(t *testing.T) {
+	boom := errors.New("db down")
+	svc := New(fakeReader{list: func(domain.Query) ([]domain.Resource, error) { return nil, boom }}, codec(t))
+	_, err := svc.List(t.Context(), ListRequest{})
+	if !errors.Is(err, boom) {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestGetAndSourcesPassThrough(t *testing.T) {
+	want := domain.Resource{ID: "r", Name: "Alpha", VerificationStatus: "verified", UpdatedAt: time.Unix(10, 0).UTC()}
+	sources := []domain.Source{{ID: "s", Status: "unverified"}}
+	svc := New(fakeReader{
+		get:     func(id string) (domain.Resource, error) { return want, nil },
+		sources: func(id string) ([]domain.Source, error) { return sources, nil },
+	}, codec(t))
+	got, err := svc.Get(t.Context(), "r")
+	if err != nil || got.Name != "Alpha" || got.VerificationStatus != "verified" {
+		t.Fatalf("got %+v err %v", got, err)
+	}
+	gotSources, err := svc.Sources(t.Context(), "r")
+	if err != nil || len(gotSources) != 1 || gotSources[0].Status != "unverified" {
+		t.Fatalf("sources %+v err %v", gotSources, err)
+	}
+}
+
+// Two filter sets that the old "\x1f" join mapped to the same string must hash differently,
+// otherwise a cursor issued for one filter set would be accepted for the other.
+func TestFilterHashSeparatesFieldsThatContainTheOldSeparator(t *testing.T) {
+	a := domain.Query{Q: "x\x1f", Category: "y"}
+	b := domain.Query{Q: "x", Category: "\x1fy"}
+	if oldJoin(a) != oldJoin(b) {
+		t.Fatal("the fixture no longer collides under the old join")
+	}
+	if filterHash(a) == filterHash(b) {
+		t.Fatalf("filterHash collides: %q", filterHash(a))
+	}
+	again := domain.Query{Q: "x\x1f", Category: "y"}
+	if filterHash(a) != filterHash(again) || filterHash(domain.Query{}) == filterHash(domain.Query{Q: "a"}) {
+		t.Fatal("filterHash must be deterministic and sensitive to each field")
+	}
+}
+
+func TestListCursorIsRefusedOnACollidingFilterSet(t *testing.T) {
+	rows := []domain.Resource{{ID: "00000000-0000-7000-8000-000000000001", Name: "Alpha"}, {ID: "00000000-0000-7000-8000-000000000002", Name: "Beta"}}
+	svc := New(fakeReader{list: func(domain.Query) ([]domain.Resource, error) { return rows, nil }}, codec(t))
+	one := 1
+	first, err := svc.List(t.Context(), ListRequest{Limit: &one, Q: str("x\x1f"), Category: str("y")})
+	if err != nil || first.NextCursor == "" {
+		t.Fatalf("first = %+v, err %v", first, err)
+	}
+	_, err = svc.List(t.Context(), ListRequest{Limit: &one, Q: str("x"), Category: str("\x1fy"), Cursor: first.NextCursor})
+	var ae *apperr.Error
+	if !errors.As(err, &ae) || ae.Code != apperr.CodeInvalidCursor {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+// oldJoin is the pre-fix encoding, kept only to prove the collision fixture is real.
+func oldJoin(q domain.Query) string {
+	return q.Q + "\x1f" + strings.Join(q.Countries, ",") + "\x1f" + q.Category + "\x1f" + q.Type + "\x1f" + q.SDK + "\x1f" + q.Provider + "\x1f" + q.Doclang
+}
+
+func TestListCanonicalisesTheCountryFilter(t *testing.T) {
+	var got domain.Query
+	svc := New(fakeReader{list: func(q domain.Query) ([]domain.Resource, error) {
+		got = q
+		return nil, nil
+	}}, codec(t))
+	tests := []struct {
+		name string
+		in   []string
+		want []string
+	}{
+		{"unset stays unset", nil, nil},
+		{"single code", []string{"BF"}, []string{"BF"}},
+		{"sorted", []string{"SN", "BF", "CI"}, []string{"BF", "CI", "SN"}},
+		{"duplicates removed", []string{"CI", "BF", "CI"}, []string{"BF", "CI"}},
+		{"twenty codes", codes(20), codes(20)},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got = domain.Query{Countries: []string{"sentinel"}}
+			if _, err := svc.List(t.Context(), ListRequest{Countries: tc.in}); err != nil {
+				t.Fatal(err)
+			}
+			if strings.Join(got.Countries, ",") != strings.Join(tc.want, ",") || (tc.want == nil) != (got.Countries == nil) {
+				t.Fatalf("countries = %#v, want %#v", got.Countries, tc.want)
+			}
+		})
+	}
+}
+
+func TestListRejectsABadCountryFilter(t *testing.T) {
+	svc := New(fakeReader{list: func(domain.Query) ([]domain.Resource, error) {
+		t.Fatal("store should not be called")
+		return nil, nil
+	}}, codec(t))
+	tests := []struct {
+		name     string
+		in       []string
+		wantCode string
+	}{
+		{"empty list", []string{}, "too_short"},
+		{"twenty-one codes", codes(21), "too_many_items"},
+		{"lowercase", []string{"bf"}, "invalid_format"},
+		{"three letters", []string{"BFA"}, "invalid_format"},
+		{"empty code", []string{"BF", ""}, "invalid_format"},
+		{"digits", []string{"B1"}, "invalid_format"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := svc.List(t.Context(), ListRequest{Countries: tc.in})
+			var ae *apperr.Error
+			if !errors.As(err, &ae) || ae.Code != apperr.CodeValidation || len(ae.Violations) != 1 ||
+				ae.Violations[0].Field != "country" || ae.Violations[0].Code != tc.wantCode {
+				t.Fatalf("err = %#v, want a country violation %s", err, tc.wantCode)
+			}
+		})
+	}
+}
+
+// BF,CI and CI,BF are one filter: a cursor from one must continue on the other, and a single code hashes as before.
+func TestFilterHashIgnoresCountryOrder(t *testing.T) {
+	a := filterHash(domain.Query{Countries: []string{"BF", "CI"}})
+	if a == filterHash(domain.Query{Countries: []string{"BF"}}) || a == filterHash(domain.Query{}) {
+		t.Fatal("the hash must depend on the country list")
+	}
+	rows := []domain.Resource{{ID: "00000000-0000-7000-8000-000000000001", Name: "Alpha"}, {ID: "00000000-0000-7000-8000-000000000002", Name: "Beta"}}
+	svc := New(fakeReader{list: func(domain.Query) ([]domain.Resource, error) { return rows, nil }}, codec(t))
+	one := 1
+	first, err := svc.List(t.Context(), ListRequest{Limit: &one, Countries: []string{"CI", "BF"}})
+	if err != nil || first.NextCursor == "" {
+		t.Fatalf("first = %+v, err %v", first, err)
+	}
+	if _, err := svc.List(t.Context(), ListRequest{Limit: &one, Countries: []string{"BF", "CI"}, Cursor: first.NextCursor}); err != nil {
+		t.Fatalf("same filter in another order: %v", err)
+	}
+}
+
+func codes(n int) []string {
+	out := make([]string, n)
+	for i := range out {
+		out[i] = string(rune('A'+i/26)) + string(rune('A'+i%26))
+	}
+	return out
+}

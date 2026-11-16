@@ -1,6 +1,6 @@
 # 226os — Functional & Technical Specification
 
-**Version :** 1.2 (US-INTEL-001, US-CONNECT-001, US-LEARN-002 et extension de US-IDENTITY-001, validées avec l'amendement 3.2 du PRD (approuvé le 2026-11-12) ; 1.1 : US-LEARN-001, PRD 3.1). **Statut :** contrat initial de développement. **Source produit :** [PRD.md](PRD.md)
+**Version :** 1.3 (scénarios de US-INTEL-001 précisés selon ADR-0012, 2026-11-14) ; 1.2 (US-INTEL-001, US-CONNECT-001, US-LEARN-002 et extension de US-IDENTITY-001, validées avec l'amendement 3.2 du PRD (approuvé le 2026-11-12) ; 1.1 : US-LEARN-001, PRD 3.1). **Statut :** contrat initial de développement. **Source produit :** [PRD.md](PRD.md)
 
 ## 1. Règles de spécification
 - Toute fonctionnalité part d'une user story `US-*`, d'un scénario Given/When/Then, et d'un contrat d'API ou d'interface observables.
@@ -20,6 +20,7 @@ Feature: Entraide technique
     And Bob peut répondre en étant authentifié
     And Alice peut accepter une seule réponse à sa question
     And un tiers peut retrouver la question via la recherche
+    And la liste des questions se trie par date, par votes ou sans réponse d'abord, et donne le nombre total de questions trouvées
 
   Scenario: Interdire une acceptation non autorisée
     Given Bob n'est pas l'autrice de la question
@@ -37,6 +38,7 @@ Feature: Annuaire des ressources
     Then les fiches correspondant aux filtres sont affichées
     And chaque fiche expose sa provenance documentaire
     And les relations vers les discussions associées sont consultables
+    And la liste se trie par nom ou par dernière vérification et donne le nombre total de fiches trouvées
 ```
 
 ### US-BUILD-001 — Collaborer sur un projet open source
@@ -48,6 +50,8 @@ Feature: Collaboration
     When Bob manifeste son intérêt pour ce besoin
     Then Alice peut consulter la candidature
     And une nouvelle demande identique n'est pas créée par un second clic
+    And le projet indique son stade, sa licence et son pays, trois critères de filtre de la liste
+    And la liste des projets se trie par mise à jour, par création ou par besoins ouverts et donne le nombre total de projets visibles pour l'appelant
 
   Scenario: Empêcher une lecture non autorisée des candidatures
     Given Charlie n'est pas responsable du projet
@@ -88,7 +92,7 @@ Feature: Apprendre
 
 ### US-LEARN-002 — Poser une question sur une leçon et suivre un thème (VALIDÉ le 2026-11-12, PRD amendement 3.2)
 
-Aucune nouvelle table : la question réutilise `links[]` de la création de question, et la paire question vers article est déjà autorisée. Les fils par thème attendent une PR de contrat en attente, qui type le filtre `topic` comme code de thème ; les questions n'ont pas de thème et sont filtrées par le tag qui porte le même nom que le code du thème.
+Aucune nouvelle table : la question réutilise `links[]` de la création de question, et la paire question vers article est déjà autorisée. Les fils par thème s'appuient sur le filtre `topic` typé comme code de thème (première PR de contrat, #79, fusionnée le 2026-11-13) ; les questions n'ont pas de thème et sont filtrées par le tag qui porte le même nom que le code du thème.
 
 ```gherkin
 Feature: Relier les discussions aux leçons
@@ -161,6 +165,12 @@ Feature: Visibilité du profil
     When Bob demande le profil d'Alice, puis celui d'un nom d'utilisateur qui n'existe pas
     Then les deux réponses sont des 404 au corps identique, à request_id et instance près
 
+  Scenario: L'activité d'un profil masqué reste introuvable
+    Given le profil d'Alice est privé
+    When Bob filtre les projets par propriétaire, ou les questions par autrice ou par réponses, avec le nom d'utilisateur d'Alice
+    Then il reçoit une liste vide avec un total de 0, comme pour un nom d'utilisateur inconnu
+    And Alice, elle, retrouve son activité, ses projets privés compris
+
   Scenario: La signature d'auteur reste visible
     Given le profil d'Alice est privé
     And Alice a publié une question
@@ -170,7 +180,7 @@ Feature: Visibilité du profil
 
 ### US-CONNECT-001 — Annuaire des membres (VALIDÉ le 2026-11-12, PRD amendement 3.2)
 
-Opération en lecture seule, suggérée `GET /profiles`, dont le nom sera fixé par une PR de contrat en attente ; elle n'est pas encore dans `api/openapi.yaml`. Un profil est listé pour un appelant seulement si le compte est actif, si `profile_visibility` l'autorise pour cet appelant (`private` jamais, `members` pour les membres seulement), si `open_to_collab` vaut vrai et si `open_to_collab_visibility` l'autorise pour cet appelant. Un champ masqué compte comme absent, y compris pour les filtres.
+Opération en lecture seule `listProfiles` (`GET /profiles`), présente dans `api/openapi.yaml` et livrée (backend PR #193, page `connect` PR #213). Un profil est listé pour un appelant seulement si le compte est actif, si `profile_visibility` l'autorise pour cet appelant (`private` jamais, `members` pour les membres seulement), si `open_to_collab` vaut vrai et si `open_to_collab_visibility` l'autorise pour cet appelant. Les comptes de démonstration (`provenance = 'demo'`) ne sont listés qu'en `local-dev`. Un champ masqué compte comme absent, y compris pour les filtres.
 
 ```gherkin
 Feature: Annuaire des membres
@@ -230,76 +240,153 @@ Feature: Annuaire des membres
     And aucune mise en relation ni aucun espace fictif n'est affiché
 ```
 
-### US-INTEL-001 — Assistant IA sourcé (VALIDÉ le 2026-11-12, PRD amendement 3.2)
+### US-INTEL-001 — Poser une question à l'assistant sourcé (VALIDÉ le 2026-11-12, PRD amendement 3.2 ; scénarios précisés le 2026-11-14 selon ADR-0012)
 
-Les opérations de l'assistant ne sont pas encore dans `api/openapi.yaml` : elles arrivent par une PR de contrat en attente, après une décision d'architecture sur les délais, le plafond de coût et le comportement FR/EN (fournisseur : [ADR-0011](decisions/0011-ai-assistant-provider.md)). L'accès des visiteurs non authentifiés est une décision ouverte ; les scénarios ci-dessous utilisent donc un membre. Tant que la restriction géographique du fournisseur n'est pas tranchée par le propriétaire (voir l'ADR-0011), l'assistant reste désactivé par configuration. Ces scénarios et les règles de refus, de citation et de confidentialité forment aussi le jeu d'évaluation de référence, exécuté en CI contre un adaptateur factice ; l'exécution contre le vrai fournisseur est consignée à part et reste NOT RUN tant qu'elle n'a pas eu lieu.
+**Story :** en tant que membre dont l'adresse e-mail est vérifiée, je pose une question technique à l'assistant et j'obtiens une réponse tirée des contenus publiés de 226os, avec ses sources, ou un refus clair quand aucun contenu ne permet de répondre.
+
+**Critères d'acceptation** (règles d'intégration : [ADR-0012](decisions/0012-ai-assistant-integration.md), ACCEPTÉ le 2026-11-14 ; fournisseur : [ADR-0011](decisions/0011-ai-assistant-provider.md)) :
+- **Accès.** `askAssistant` (`POST /assistant/answers`) est réservé aux membres dont l'adresse e-mail est vérifiée (401 `UNAUTHENTICATED` sans session, 403 `EMAIL_NOT_VERIFIED`), avec le jeton CSRF. Le sujet vient de la session. Pas d'accès anonyme au P0.
+- **Requête.** Corps JSON strict : `question` de 3 à 1 000 caractères, `lang` facultatif. JSON illisible : 400. Question hors bornes ou champ inconnu : 422 `VALIDATION_ERROR`. Corps trop gros : 413.
+- **Recherche.** Les passages viennent de la recherche PostgreSQL de la plateforme (S2), limitée aux contenus publiés, visibles et publics : questions, fiches, projets, articles Learn. Les séries Learn ne sont pas cherchées. Au plus 5 passages, chacun l'extrait de recherche (300 caractères au plus). Aucun contenu privé, retiré, brouillon ou archivé n'est retrouvé ni cité.
+- **Ancrage.** Sans passage, le fournisseur n'est pas appelé : réponse 200 `no_source` avec `search_url`. Sinon, le serveur vérifie que chaque citation `[S1]`, `[S2]`… désigne un passage retrouvé et qu'il y en a au moins une ; à défaut, toute la réponse est écartée et le résultat est `no_source`. `sources` liste exactement les passages cités. Lien d'une source : la page de la question ou de la fiche, la recherche sur le titre pour un projet ou un article.
+- **Forme.** La réponse porte `generated_by: ai`, n'est jamais enregistrée et ne crée aucune ligne `questions`, `answers` ni `votes`. Elle ne promet aucune garantie. `how_to_verify` (« Comment vérifier ») est toujours rempli, avec un texte par défaut si le modèle n'en a pas écrit, et rappelle que les sources ne sont pas datées. La langue suit `lang`, sinon celle de la question (français en cas de doute).
+- **Données envoyées.** Seuls le texte de la question et les passages, après masquage (adresses e-mail, clés et jetons, mots de passe, identifiants dans les URL), partent chez le fournisseur. Ni identifiant, ni e-mail du compte, ni profil, ni session. La question, les passages et la réponse ne sont jamais journalisés.
+- **Limites.** 10 questions par membre et par heure, refus compris : au-delà, 429 `RATE_LIMITED` avec `Retry-After`. Garde globale de 12 appels au fournisseur par heure : au-delà, 503 avec `Retry-After`. Un seul appel au fournisseur par question, jamais relancé, borné à 20 secondes. Si le limiteur lui-même échoue, la réponse est 503 (échec fermé).
+- **Indisponibilité.** Assistant désactivé dans l'environnement, fournisseur en erreur ou à court de quota, délai dépassé ou réponse vide : 503 `SERVICE_UNAVAILABLE`, sans détail sur le fournisseur. La recherche et le reste de la page ne dépendent pas de l'assistant.
+- **Évaluation.** Les scénarios ci-dessous forment le jeu d'évaluation de référence (les 17 cas G1 à G17 d'ADR-0012), exécuté en CI contre un adaptateur factice. L'exécution contre le vrai fournisseur (V4) est consignée à part et reste NOT RUN tant qu'elle n'a pas eu lieu.
 
 ```gherkin
 Feature: Assistant sourcé
   Background:
     Given l'assistant est activé dans cet environnement
-    And Alice est authentifiée
+    And Alice est connectée et son adresse e-mail est vérifiée
 
   Scenario: Répondre à partir des contenus publiés, avec citations
-    Given des questions, des articles ou des fiches publiés correspondent à la question d'Alice
+    Given des contenus publiés correspondent à la question d'Alice
     When Alice pose sa question à l'assistant
-    Then la réponse cite au moins une source, avec un lien vers chaque contenu cité
+    Then le serveur répond 200 avec le résultat answered
+    And la réponse cite au moins une source et chaque source a un lien
     And chaque source citée fait partie des passages retrouvés par la recherche de la plateforme
-    And le serveur retire ou rejette toute citation extérieure à ces passages
-    And la réponse se termine par une section « Comment vérifier »
+    And la réponse comporte une section « Comment vérifier »
 
   Scenario: Refuser faute de source
     Given aucun contenu publié ne correspond à la question d'Alice
     When Alice pose sa question à l'assistant
-    Then l'assistant indique qu'il n'a trouvé aucune source
-    And il propose un lien vers la recherche
+    Then le serveur répond 200 avec le résultat no_source, sans aucune source
+    And la réponse propose un lien vers la recherche
     And le fournisseur n'est pas appelé
+
+  Scenario Outline: Refuser une réponse mal sourcée
+    Given des contenus publiés correspondent à la question d'Alice
+    And le modèle répond avec <citation>
+    When Alice pose sa question à l'assistant
+    Then le serveur écarte toute la réponse du modèle
+    And il répond 200 avec le résultat no_source et un lien vers la recherche
+    And aucune source étrangère aux passages retrouvés n'est renvoyée
+
+    Examples:
+      | citation                                           |
+      | la citation d'un passage qui n'a pas été retrouvé  |
+      | aucune citation                                    |
+
+  Scenario: Ignorer une instruction cachée dans un contenu
+    Given un contenu publié contient une instruction adressée à l'assistant
+    And ce contenu fait partie des passages retrouvés pour la question d'Alice
+    When Alice pose sa question à l'assistant
+    Then le passage est transmis au fournisseur comme une donnée, jamais comme une instruction
+    And la réponse reste sourcée par les passages retrouvés, ou c'est un refus no_source
+
+  Scenario: Ne jamais retrouver un contenu privé ou retiré
+    Given une question retirée, un projet privé, un article en brouillon et un article archivé correspondent à la question d'Alice
+    When Alice pose sa question à l'assistant
+    Then aucun de ces contenus ne figure dans les passages envoyés au fournisseur
+    And aucun n'est cité dans la réponse
+
+  Scenario: N'envoyer aucune donnée personnelle au fournisseur
+    Given la question d'Alice contient une adresse e-mail et une clé d'API
+    When l'assistant interroge le fournisseur
+    Then la requête ne contient que le texte de la question, après masquage, et des passages publics retrouvés
+    And l'adresse e-mail et la clé sont masquées avant l'envoi
+    And ni le profil d'Alice, ni l'adresse e-mail de son compte, ni aucun contenu privé ou retiré n'est envoyé
+    And ni la question, ni les passages, ni la réponse ne sont journalisés
+    And l'interface indique que la question est envoyée au fournisseur
+
+  Scenario: Une réponse de l'IA n'est pas une réponse de la communauté
+    When l'assistant répond à Alice
+    Then la réponse est étiquetée comme générée par une IA
+    And aucune ligne n'est créée dans questions, answers ou votes
+    And la réponse de l'assistant ne peut être ni votée ni acceptée
 
   Scenario: Ne promettre aucune garantie
     Given une fiche d'API publiée et des réponses à son sujet
     When Alice demande si cette API fonctionnera dans son projet
     Then la réponse n'affirme aucune garantie sur l'API
     And elle ne présente aucune solution comme vérifiée
-    And elle renvoie aux sources et à la section « Comment vérifier »
+    And elle renvoie aux sources et à la section « Comment vérifier »
 
   Scenario: Signaler l'incertitude
-    Given les sources retrouvées se contredisent ou ne sont pas datées
+    Given les passages retrouvés ne portent pas de date
     When Alice pose sa question à l'assistant
-    Then la réponse signale explicitement son incertitude
-    And elle indique la date de chaque source quand elle existe
+    Then la section « Comment vérifier » indique que les sources ne sont pas datées
+    And si les passages se contredisent, la réponse le signale
 
-  Scenario: Une réponse de l'IA n'est pas une réponse de la communauté
-    When l'assistant répond à Alice
-    Then la réponse est étiquetée comme générée par une IA
-    And aucune ligne n'est créée dans answers ni dans votes
-    And la réponse de l'assistant ne peut être ni votée ni acceptée
+  Scenario Outline: Refuser l'accès sans session ou sans adresse vérifiée
+    When <appelant> envoie une question à l'assistant
+    Then le serveur répond <statut> avec le code <code>
+    And le fournisseur n'est pas appelé
 
-  Scenario: N'envoyer aucune donnée personnelle au fournisseur
-    Given la question d'Alice contient une adresse e-mail et une clé d'API
-    When l'assistant interroge le fournisseur
-    Then la requête ne contient que le texte de la question, après masquage, et des contenus publics retrouvés
-    And l'adresse e-mail et la clé sont masquées avant l'envoi
-    And ni le profil d'Alice, ni l'adresse e-mail de son compte, ni aucun contenu privé ou retiré n'est envoyé
-    And la question n'est pas journalisée avec ces données
-    And l'interface indique que la question est envoyée au fournisseur
+    Examples:
+      | appelant                                            | statut | code               |
+      | un visiteur non authentifié                         | 401    | UNAUTHENTICATED    |
+      | un membre dont l'adresse e-mail n'est pas vérifiée  | 403    | EMAIL_NOT_VERIFIED |
+      | Alice, sans jeton CSRF                              | 403    | CSRF_FAILED        |
 
-  Scenario: Ignorer une instruction cachée dans un contenu
-    Given un contenu publié contient une instruction adressée à l'assistant
-    When ce contenu fait partie des passages retrouvés pour la question d'Alice
-    Then l'assistant le traite comme une donnée et non comme une instruction
-    And la réponse reste sourcée, ou c'est un refus
+  Scenario Outline: Refuser une requête invalide
+    When Alice envoie <corps>
+    Then le serveur répond 422 avec le code VALIDATION_ERROR
+    And le fournisseur n'est pas appelé
 
-  Scenario: Fournisseur indisponible ou quota épuisé
-    Given le fournisseur est en panne ou son quota est épuisé
+    Examples:
+      | corps                                    |
+      | une question de moins de 3 caractères    |
+      | une question de plus de 1000 caractères  |
+      | un corps qui contient un champ inconnu   |
+
+  Scenario: Limite par membre
+    Given Alice a déjà posé 10 questions à l'assistant dans l'heure, refus compris
+    When elle en pose une onzième
+    Then le serveur répond 429 avec le code RATE_LIMITED et un en-tête Retry-After
+    And le fournisseur n'est pas appelé
+
+  Scenario Outline: Fournisseur en échec
+    Given <panne>
+    When Alice pose une question à laquelle des contenus publiés correspondent
+    Then le serveur répond 503 avec le code SERVICE_UNAVAILABLE et l'en-tête Retry-After: 30
+    And le problème ne donne aucun détail sur le fournisseur
+    And le fournisseur a été appelé une seule fois, sans nouvelle tentative
+    And Alice voit que l'assistant est indisponible, sans que l'interface relance la requête
+    And la recherche et le reste de la page fonctionnent normalement
+
+    Examples:
+      | panne                                                    |
+      | le fournisseur est en panne                              |
+      | le fournisseur a épuisé son quota                        |
+      | le fournisseur ne répond pas dans le délai de 20 secondes |
+      | le fournisseur renvoie une réponse vide                  |
+
+  Scenario: Garde globale épuisée
+    Given les 12 appels au fournisseur permis pour l'heure en cours ont déjà eu lieu
+    When Alice pose une question à laquelle des contenus publiés correspondent
+    Then le serveur répond 503 avec le code SERVICE_UNAVAILABLE et un en-tête Retry-After
+    And le fournisseur n'est pas appelé
+    And une question sans source reçoit toujours le refus no_source
+
+  Scenario: Assistant désactivé dans l'environnement
+    Given l'assistant est désactivé par la configuration de cet environnement
     When Alice pose sa question à l'assistant
-    Then elle voit le message « assistant indisponible »
-    And le reste de la page fonctionne normalement
-    And le serveur répond par un problème 503 sans relancer d'appels en boucle
-
-  Scenario: Limite de débit
-    Given Alice a atteint la limite de requêtes de l'assistant
-    When elle envoie une requête de plus
-    Then le serveur répond 429 avec un en-tête Retry-After
+    Then le serveur répond 503 avec le code SERVICE_UNAVAILABLE
+    And le fournisseur n'est pas appelé et la limite d'Alice n'est pas décomptée
+    And la recherche et le reste de la page fonctionnent normalement
 ```
 
 ### US-ACCESS-001 — Réseau limité
@@ -331,9 +418,9 @@ Les modules P1/P2 ne doivent pas être artificiellement matérialisés en code v
 ## 4. Contrat REST v1 — bornes de conception
 - Préfixe `/api/v1`, JSON UTF-8 ; horodatages RFC3339 UTC ; IDs opaques UUID ; erreurs uniformes `application/problem+json` (RFC 9457).
 - Pagination par curseur stable (taille maximale documentée), limite de taille des corps, filtres validés strictement, listes ordonnées de façon déterministe.
-- Ressources initiales (chemins de `api/openapi.yaml`) : `/auth/*`, `/me`, `/profiles/{username}`, `questions`, `answers`, `votes`, `/learn/articles` et `/learn/series`, `resources`, `projects`, `contribution-needs`, `applications`, `/moderation/*`, `/search`.
+- Ressources initiales (chemins de `api/openapi.yaml`) : `/auth/*`, `/me`, `/profiles` (annuaire), `/profiles/{username}`, `questions`, `answers`, `votes`, `/learn/articles` et `/learn/series`, `resources`, `projects`, `contribution-needs`, `applications`, `/assistant/answers`, `/moderation/*`, `/search`.
 - Les verbes HTTP et schémas sont figés dans `api/openapi.yaml` avant développement parallèle ; ce document ne prétend pas qu'ils sont déjà implémentés.
-- L'annuaire des membres (US-CONNECT-001) et l'assistant (US-INTEL-001) entrent dans `api/openapi.yaml` par des PR de contrat séparées (PRD 3.2) ; ils n'y figurent pas encore.
+- L'assistant (US-INTEL-001) figure dans `api/openapi.yaml` sous une seule opération, `askAssistant` (`POST /assistant/answers`). L'annuaire des membres (US-CONNECT-001) y est entré par une PR de contrat séparée (PRD 3.2) : `listProfiles` (`GET /profiles`).
 - Auth via session cookie sécurisée, protections CSRF pour mutations, autorisation par propriétaire/role **sur serveur**. Codes : 401 non authentifié ; 403 authentifié mais non autorisé sur un objet visible ; 404 si l'existence d'un objet privé ne doit pas fuiter (règle : 403 si l'objet est visible pour l'appelant, 404 sinon). Publier exige un email vérifié (403 `EMAIL_NOT_VERIFIED`).
 - Journaliser les tentatives d'accès interdit sans secrets ni données personnelles inutiles.
 
@@ -351,7 +438,7 @@ Les modules P1/P2 ne doivent pas être artificiellement matérialisés en code v
 
 ## 6. PostgreSQL et recherche
 - PostgreSQL 18 est l'unique moteur initial ; migrations SQL goose **forward-only** (sans section Down), séquentielles, immuables après merge, avec restauration comme repli ; accès `pgx` + `sqlc` ; transaction pour mutations multi-tables.
-- Full-text : `tsvector` alimenté explicitement ou via colonne générée selon vérification SQL ; index GIN ; `websearch_to_tsquery` en configuration `simple` avec `unaccent` (fonction wrapper immuable) ; `pg_trgm` pour tolérance aux fautes ; index et plans vérifiés par `EXPLAIN (ANALYZE, BUFFERS)` sur données représentatives.
+- Full-text : `tsvector` alimenté explicitement ou via colonne générée selon vérification SQL ; index GIN ; `websearch_to_tsquery` en configuration `simple` avec `unaccent` (fonction wrapper immuable) ; `pg_trgm` : quand le plein texte ne trouve rien dans un groupe, repli sur les titres et noms qui contiennent un mot proche (similarité de mot au-dessus de 0,6, index trigrammes de la migration 00010, 3 caractères au moins ; une lettre manquante ou en trop est tolérée, deux lettres inversées non) ; `GET /search` seulement, jamais la récupération de l'assistant ; index et plans vérifiés par `EXPLAIN (ANALYZE, BUFFERS)` sur données représentatives.
 - Recherche combinée des `questions`, `resources`, `projects` et des articles/tutoriels Learn via requêtes explicitement bornées ; filtres pays, tags, type et langues ; tri stable ; protection contre requêtes coûteuses.
 - Français et anglais : stratégies de tokenisation documentées ; aucune promesse de traduction automatique du contenu au P0.
 
@@ -372,11 +459,11 @@ Ce tableau est la seule carte de traçabilité au niveau des user stories ; [TRA
 | US-LEARN-001 | learn/articles, learn/series | lecture publique, publication authentifiée, 401 sans session, langue d'origine préservée | test/security |
 | US-LEARN-002 (validé, PRD 3.2) | questions (`links[]` vers l'article), learn/articles par code de thème, questions par tag | question liée à l'article, redirection vers la connexion sans session, fil par thème sans brouillon ni contenu retiré | test/e2e |
 | US-IDENTITY-001 | sessions/profiles/relations | connexion, langue, liens ; visibilité du profil par appelant, 404 identique à un profil inconnu, signature visible, jamais d'e-mail (extension PRD 3.2) | test/security |
-| US-CONNECT-001 (validé, PRD 3.2) | annuaire, `GET /profiles` suggéré (PR de contrat en attente) | liste par appelant selon les visibilités, filtres sur champs visibles, jamais d'e-mail, état vide, `limit=51` → 422, 429 | test/security |
-| US-INTEL-001 (validé, PRD 3.2) | opérations de l'assistant à définir (PR de contrat en attente), search | citations limitées aux passages retrouvés, refus sans appel au fournisseur, aucune garantie, « Comment vérifier », étiquette IA non votable, aucune donnée personnelle envoyée, injection ignorée, 503, 429 ; jeu d'évaluation de référence | test/security/évaluation |
+| US-CONNECT-001 (validé, PRD 3.2) | annuaire, `listProfiles` (`GET /profiles`) | liste par appelant selon les visibilités, filtres sur champs visibles, jamais d'e-mail, état vide, `limit=51` → 422, 429 | test/security |
+| US-INTEL-001 (validé, PRD 3.2 ; ADR-0012) | `askAssistant` (`POST /assistant/answers`), `assistant`, search | réponse sourcée avec « Comment vérifier », refus `no_source` sans appel au fournisseur, citation d'un passage non retrouvé refusée, injection ignorée, aucun contenu privé, retiré, brouillon ou archivé, aucune donnée personnelle envoyée, étiquette IA sans ligne `answers` ni `votes`, 401, 403 `EMAIL_NOT_VERIFIED`, 403 CSRF, 422, 429 à la 11e question de l'heure, 503 (désactivé, fournisseur en échec, garde globale épuisée) ; jeu d'évaluation G1 à G17 (adaptateur factice) | test/security/évaluation |
 | US-ACCESS-001 | frontend/infra | mobile + réseau simulé | perf/accessibility |
 
-`api/openapi.yaml` compte aujourd'hui 43 opérations `x-priority: P0`. Le total passe à 44 une fois la PR de contrat de l'annuaire acceptée ; le nombre d'opérations de l'assistant n'est pas encore fixé. Le calendrier de ces PR est suivi dans [ROADMAP.md](../ROADMAP.md).
+`api/openapi.yaml` compte aujourd'hui 46 opérations `x-priority: P0`, dont `askAssistant`, `listProfiles` (l'annuaire) et `resendEmailVerification` (le renvoi du code de vérification), 50 opérations au total avec les 4 P1. Le calendrier de ces PR est suivi dans [ROADMAP.md](../ROADMAP.md).
 
 ## 9. Références normatives
-`api/openapi.yaml` (accepté), `docs/spec-kit/DATABASE_DESIGN.md` (modèle accepté) et les ADR acceptés (voir l'[index des ADR](decisions/README.md)) sont normatifs. Les migrations `00001` à `00010` de `db/migrations` et le code généré depuis `api/openapi.yaml` existent depuis le bootstrap B0 (PR #24) ; les migrations suivantes, le code applicatif et les seeds sont à produire sous revue. Ce document ne présume aucun statut d'exécution des gates G1 à G7.
+`api/openapi.yaml` (accepté), `docs/spec-kit/DATABASE_DESIGN.md` (modèle accepté) et les ADR acceptés (voir l'[index des ADR](decisions/README.md)) sont normatifs. Les migrations `00001` à `00010` de `db/migrations` et le code généré depuis `api/openapi.yaml` existent depuis le bootstrap B0 (PR #24) ; les migrations `00011` à `00013` et le code applicatif des tranches livrées ont depuis été fusionnés sous revue (suivi dans [TODO.md](../TODO.md)), et les seeds de démo de `db/seeds/` aussi (PR #215). Ce document ne présume aucun statut d'exécution des gates G1 à G7.

@@ -38,6 +38,8 @@ tags:
   description: 'Learn: articles, tutorials, training series'
 - name: search
   description: Cross-domain search (questions, resources, projects, Learn)
+- name: assistant
+  description: 'Intelligence: sourced AI assistant (P0, members only, disabled by configuration until integrated)'
 - name: moderation
   description: 'Moderator scope at P0: hide/restore content and resolve error reports (audited)'
 paths:
@@ -248,6 +250,50 @@ paths:
           $ref: '#/components/responses/TooManyRequests'
         '500':
           $ref: '#/components/responses/InternalError'
+  /auth/verify-email/resend:
+    post:
+      operationId: resendEmailVerification
+      tags:
+      - auth
+      summary: Send a new email verification code
+      x-priority: P0
+      x-spec:
+      - US-IDENTITY-001
+      x-authz:
+        allow: anonymous
+        matrix: POST /sessions, registration, reset request
+        notes: Always 202 (no enumeration), whether the address is unknown, inactive, already verified or waiting
+          for verification; only the last case sends a mail. The new code (lifetime 24h) invalidates every earlier
+          open verification code of the account. Rate-limited per IP (10 per hour) and per account (3 per hour),
+          counted before the lookup, fail closed; 429 with Retry-After.
+      security:
+      - csrfToken: []
+      requestBody:
+        required: true
+        description: Strict JSON body; unknown fields rejected.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerificationResendRequest'
+      responses:
+        '202':
+          description: Accepted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Accepted'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /auth/password-reset/request:
     post:
       operationId: requestPasswordReset
@@ -399,6 +445,80 @@ paths:
           $ref: '#/components/responses/TooManyRequests'
         '500':
           $ref: '#/components/responses/InternalError'
+  /profiles:
+    get:
+      operationId: listProfiles
+      tags:
+      - profiles
+      summary: People directory (Connect)
+      x-priority: P0
+      x-spec:
+      - US-IDENTITY-001
+      x-authz:
+        allow: anonymous|member
+        matrix: GET /profiles
+        notes: 'Read-only directory (E5, C14b). Listed only if the account is active, profile_visibility allows the
+          caller, open_to_collab is true and open_to_collab_visibility allows the caller. Each summary field is
+          filtered by the owner''s field_visibility for this caller; a filter on a field the caller cannot see never
+          matches. Email is never returned. Order: username ascending, UUID tie-breaker. Limited to 60 requests
+          per minute per client network (anonymous) or per user (member). ADR-0016: with source all (default) or
+          github, public GitHub developers ranked by committers.top follow the members in the optional `external`
+          array (rank ascending); `items` keeps the member ProfileSummary unchanged, so a client that reads only
+          `items` is unaffected, and source=members returns exactly the member page. An external entry is never an
+          account; it is dropped when a member listable for the caller shows the same GitHub login (case-insensitive)
+          with a github field visible to the caller, and when the login opted out. country filters both segments;
+          language and skill filter members only, so either one omits the external entries. The cursor carries the
+          segment and is bound to every filter including source.'
+      security:
+      - {}
+      - cookieAuth: []
+      parameters:
+      - $ref: '#/components/parameters/Cursor'
+      - $ref: '#/components/parameters/Limit'
+      - name: country
+        in: query
+        description: Keep profiles whose visible country matches.
+        schema:
+          $ref: '#/components/schemas/CountryCode'
+      - name: language
+        in: query
+        description: Keep profiles whose visible spoken languages contain this tag.
+        schema:
+          type: string
+          minLength: 2
+          maxLength: 3
+          pattern: ^[a-z]{2,3}$
+      - name: skill
+        in: query
+        description: Keep profiles whose visible skills contain this tag slug.
+        schema:
+          $ref: '#/components/schemas/TagSlug'
+      - name: source
+        in: query
+        description: Which entries to list. members is the opt-in member directory; github is the external
+          committers.top entries; all (default) is the members first, then the external entries.
+        schema:
+          type: string
+          enum:
+          - all
+          - members
+          - github
+          default: all
+      responses:
+        '200':
+          description: Page of listable profiles (visibility-filtered summaries)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfilePage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /profiles/{username}:
     get:
       operationId: getProfile
@@ -429,6 +549,8 @@ paths:
                 $ref: '#/components/schemas/PublicProfile'
         '404':
           $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
         '429':
           $ref: '#/components/responses/TooManyRequests'
         '500':
@@ -446,8 +568,15 @@ paths:
       x-authz:
         allow: anonymous|member
         matrix: GET /search, public questions
-        notes: 'Only published questions. Order: newest first, UUID tie-breaker (relevance rank first when q is
-          set).'
+        notes: 'Only published questions. Order (sort): new (default) = newest first, with the relevance rank first
+          when q is set; votes = vote_score desc then newest; unanswered = fewest answers first then newest. UUID
+          tie-breaker; with q the candidates are the 500 newest matches whatever the sort, and total counts inside
+          that bound. The cursor is bound to the sort and the filters (another sort -> 400 INVALID_CURSOR). total
+          counts the rows matching the same filters, independent of the cursor. author keeps the questions of a
+          username, answers_by the questions a username answered (a filter, not a new operation, so a profile
+          page reads both lists with the same Question shape); both follow the profile rule of getProfile (active
+          account, profile_visibility allows the caller, or the caller is the owner): an unknown, hidden or
+          private username gives an empty page with total 0, never a 404.'
       security: []
       parameters:
       - $ref: '#/components/parameters/Cursor'
@@ -470,6 +599,21 @@ paths:
           $ref: '#/components/schemas/QuestionState'
       - $ref: '#/components/parameters/Country'
       - $ref: '#/components/parameters/LangFilter'
+      - name: author
+        in: query
+        description: Keep the questions asked by this username (profile visibility applies; hidden means no match).
+        schema:
+          $ref: '#/components/schemas/Username'
+      - name: answers_by
+        in: query
+        description: Keep the questions this username answered (profile visibility applies; hidden means no match).
+        schema:
+          $ref: '#/components/schemas/Username'
+      - name: sort
+        in: query
+        description: Order of the page; the cursor is bound to it.
+        schema:
+          $ref: '#/components/schemas/QuestionSort'
       responses:
         '200':
           description: Page of questions
@@ -564,7 +708,10 @@ paths:
           description: Question
           headers:
             ETag:
-              description: Entity tag; send it back in If-Match when editing.
+              description: Entity tag of this question as seen by the caller (it covers the caller, because viewer_vote is
+                part of the representation); send it back in If-Match when editing. The response varies by
+                cookie (Vary Cookie, Cache-Control private), and a tag read while signed out does not match once
+                signed in, so read the question again after signing in.
               schema:
                 type: string
                 maxLength: 128
@@ -610,7 +757,7 @@ paths:
           description: Updated
           headers:
             ETag:
-              description: Entity tag of the updated question.
+              description: Entity tag of the updated question as seen by the caller.
               schema:
                 type: string
                 maxLength: 128
@@ -930,18 +1077,36 @@ paths:
       x-authz:
         allow: anonymous|member
         matrix: GET /search, public resources
-        notes: Each item carries provenance (verification status, last_verified_at, source_count).
+        notes: 'Each item carries provenance (verification status, last_verified_at, source_count). total counts the
+          rows matching the same filters, independent of the cursor. Order (sort): name (default) = name ascending;
+          verified = last_verified_at descending, never-verified entries last; UUID tie-breaker. The cursor is
+          bound to the sort and the filters (another sort -> 400 INVALID_CURSOR).'
       security: []
       parameters:
       - $ref: '#/components/parameters/Cursor'
       - $ref: '#/components/parameters/Limit'
+      - name: sort
+        in: query
+        description: Order of the page; the cursor is bound to it.
+        schema:
+          $ref: '#/components/schemas/ResourceSort'
       - name: q
         in: query
         schema:
           type: string
           minLength: 1
           maxLength: 200
-      - $ref: '#/components/parameters/Country'
+      - name: country
+        in: query
+        style: form
+        explode: false
+        description: One or more ISO 3166-1 alpha-2 codes, comma separated (BF,CI,SN); a resource matches when it supports any of them.
+        schema:
+          type: array
+          items:
+            $ref: '#/components/schemas/CountryCode'
+          minItems: 1
+          maxItems: 20
       - name: category
         in: query
         schema:
@@ -1179,7 +1344,13 @@ paths:
       x-authz:
         allow: anonymous|member
         matrix: GET /search, public projects
-        notes: Public projects only, plus the caller's own private ones.
+        notes: 'Public projects only, plus the caller''s own private ones; another user''s private project is never
+          listed nor counted. total counts the rows matching the same filters and visibility, independent of the
+          cursor. owner filters on the owner''s username under the profile rule of getProfile (active account,
+          profile_visibility allows the caller, or the caller is the owner): an unknown, hidden or private
+          username gives an empty page with total 0, never a 404. Order (sort): updated (default) = updated_at
+          desc, created = created_at desc, needs = open_needs_count desc then updated_at desc; UUID tie-breaker.
+          The cursor is bound to the sort and the filters (another sort -> 400 INVALID_CURSOR).'
       security:
       - {}
       - cookieAuth: []
@@ -1205,6 +1376,31 @@ paths:
         in: query
         schema:
           type: boolean
+      - name: stage
+        in: query
+        description: Keep projects at this stage.
+        schema:
+          $ref: '#/components/schemas/ProjectStage'
+      - name: country
+        in: query
+        description: Keep projects whose country is this ISO 3166-1 alpha-2 code.
+        schema:
+          $ref: '#/components/schemas/CountryCode'
+      - name: license
+        in: query
+        description: Keep projects under this SPDX license identifier (exact match).
+        schema:
+          $ref: '#/components/schemas/LicenseSpdx'
+      - name: owner
+        in: query
+        description: Keep projects owned by this username (profile visibility applies; hidden means no match).
+        schema:
+          $ref: '#/components/schemas/Username'
+      - name: sort
+        in: query
+        description: Order of the page; the cursor is bound to it.
+        schema:
+          $ref: '#/components/schemas/ProjectSort'
       responses:
         '200':
           description: Page of projects
@@ -1576,9 +1772,9 @@ paths:
       x-spec:
       - US-BUILD-001
       x-authz:
-        allow: owner or maintainer (accepted|declined) | applicant (withdrawn)
+        allow: owner (accepted|declined) | applicant (withdrawn)
         matrix: PATCH /applications/{id}
-        notes: 'Invalid transition (e.g. decided -> pending) -> 409 STATE_CONFLICT. Only the applicant may withdraw; only the project owner or a maintainer may accept or decline. Cross-project IDOR: applicant/owner
+        notes: 'Invalid transition (e.g. decided -> pending) -> 409 STATE_CONFLICT. Only the applicant may withdraw; only the project owner may accept or decline. A project_maintainers row grants nothing. Cross-project IDOR: applicant/owner
           relation checked in the same transaction; otherwise 404.'
       security:
       - cookieAuth: []
@@ -1628,7 +1824,8 @@ paths:
       - US-LEARN-001
       x-authz:
         allow: anonymous|member
-        notes: Public read, no account needed (owner-confirmed).
+        notes: Public read, no account needed (owner-confirmed). total counts the published articles matching the
+          same filters, independent of the cursor.
       security: []
       parameters:
       - $ref: '#/components/parameters/Cursor'
@@ -1645,9 +1842,9 @@ paths:
           $ref: '#/components/schemas/ArticleType'
       - name: topic
         in: query
-        description: Topic slug (matches an article tag).
+        description: Topic code (learn_topics.code).
         schema:
-          $ref: '#/components/schemas/TagSlug'
+          $ref: '#/components/schemas/TopicCode'
       - name: level
         in: query
         schema:
@@ -1771,6 +1968,11 @@ paths:
       - $ref: '#/components/parameters/Cursor'
       - $ref: '#/components/parameters/Limit'
       - $ref: '#/components/parameters/LangFilter'
+      - name: topic
+        in: query
+        description: Topic code (learn_topics.code).
+        schema:
+          $ref: '#/components/schemas/TopicCode'
       - name: level
         in: query
         schema:
@@ -1962,6 +2164,52 @@ paths:
           $ref: '#/components/responses/TooManyRequests'
         '500':
           $ref: '#/components/responses/InternalError'
+  /assistant/answers:
+    post:
+      operationId: askAssistant
+      tags:
+      - assistant
+      summary: Ask the sourced assistant (answers only from published content, with citations)
+      x-priority: P0
+      x-spec:
+      - US-INTEL-001
+      x-authz:
+        allow: member
+        matrix: POST /assistant/answers
+        notes: Members only at P0 (no anonymous access); requires a verified email (403 EMAIL_NOT_VERIFIED). The answer is built only from published, visible content retrieved by the platform search; private or removed content is never retrieved or cited. With no retrieved source the provider is not called (outcome no_source). Only the redacted question text and public retrieved passages are sent to the provider. The reply is labelled AI and never creates an answers or votes row. Per-subject rate limit (429 with Retry-After). Provider down, quota exhausted or assistant disabled in this environment -> 503 SERVICE_UNAVAILABLE, never retried in a loop.
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      requestBody:
+        required: true
+        description: Strict JSON body; unknown fields rejected.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssistantQuestion'
+      responses:
+        '200':
+          description: A sourced answer, or a refusal for lack of sources
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssistantAnswer'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /moderation/{targetType}/{targetId}/hide:
     post:
       operationId: hideContent
@@ -2485,6 +2733,95 @@ components:
             request_id: req_01HZX0
             instance: /api/v1/questions
   schemas:
+    AssistantQuestion:
+      type: object
+      description: A question for the sourced assistant. Only this text, after redaction of obvious secrets and emails, is sent to the provider.
+      required:
+      - question
+      properties:
+        question:
+          type: string
+          minLength: 3
+          maxLength: 1000
+        lang:
+          $ref: '#/components/schemas/Lang'
+      additionalProperties: false
+    AssistantSource:
+      type: object
+      description: A published content item the answer relies on. The server only returns items that belong to the retrieved passages and are visible to the caller.
+      required:
+      - type
+      - id
+      - title
+      - url
+      properties:
+        type:
+          type: string
+          enum:
+          - question
+          - resource
+          - project
+          - article
+          - series
+        id:
+          $ref: '#/components/schemas/Uuid'
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        url:
+          type: string
+          format: uri-reference
+          maxLength: 512
+          description: Canonical in-app URL of the cited content.
+        published_at:
+          oneOf:
+          - $ref: '#/components/schemas/Timestamp'
+          - type: 'null'
+          description: Publication date when known; null when the source is undated (the answer then states the uncertainty).
+      additionalProperties: false
+    AssistantAnswer:
+      type: object
+      description: The assistant reply. Always labelled AI; it is never stored as an answer and cannot be voted or accepted.
+      required:
+      - outcome
+      - generated_by
+      - answer
+      - sources
+      - how_to_verify
+      - lang
+      properties:
+        outcome:
+          type: string
+          enum:
+          - answered
+          - no_source
+          description: no_source means no published content matched; the provider was not called and search_url points to the search.
+        generated_by:
+          type: string
+          enum:
+          - ai
+        answer:
+          type: string
+          maxLength: 4000
+          description: Plain text or limited Markdown. No reasoning text, no guarantee about an API, no verified-solution claim.
+        sources:
+          type: array
+          maxItems: 10
+          items:
+            $ref: '#/components/schemas/AssistantSource'
+        how_to_verify:
+          type: string
+          maxLength: 1000
+          description: The "Comment vérifier" section that ends every answer.
+        search_url:
+          type: string
+          format: uri-reference
+          maxLength: 512
+          description: Present when outcome is no_source.
+        lang:
+          $ref: '#/components/schemas/Lang'
+      additionalProperties: false
     ModerationTargetType:
       type: string
       enum:
@@ -2545,6 +2882,14 @@ components:
       minLength: 1
       maxLength: 32
       pattern: ^[a-z0-9][a-z0-9.+#-]*$
+    TopicCode:
+      type: string
+      minLength: 2
+      maxLength: 30
+      pattern: '^[a-z][a-z0-9-]{1,29}$'
+      description: learn_topics.code. Matches the database check learn_topics_code_ck.
+      examples:
+      - payments
     CountryCode:
       type: string
       minLength: 2
@@ -2553,6 +2898,73 @@ components:
       description: ISO 3166-1 alpha-2.
       examples:
       - BF
+    LicenseSpdx:
+      type: string
+      minLength: 1
+      maxLength: 64
+      pattern: ^[A-Za-z0-9.+-]{1,64}$
+      description: SPDX license identifier. Matches the database check projects_license_ck.
+      examples:
+      - MIT
+      - Apache-2.0
+    ProjectStage:
+      type: string
+      enum:
+      - idea
+      - prototype
+      - active
+      - maintained
+      x-enum-varnames:
+      - ProjectStageIdea
+      - ProjectStagePrototype
+      - ProjectStageActive
+      - ProjectStageMaintained
+      description: Maturity of a project (projects_stage_ck). A project with a GitHub repository may take any stage.
+      examples:
+      - prototype
+    ProjectSort:
+      type: string
+      enum:
+      - updated
+      - created
+      - needs
+      x-enum-varnames:
+      - ProjectSortUpdated
+      - ProjectSortCreated
+      - ProjectSortNeeds
+      default: updated
+      description: updated = last updated first; created = newest first; needs = most open contribution needs first,
+        then last updated. UUID tie-breaker.
+    ResourceSort:
+      type: string
+      enum:
+      - name
+      - verified
+      x-enum-varnames:
+      - ResourceSortName
+      - ResourceSortVerified
+      default: name
+      description: name = name ascending; verified = most recently verified first, never-verified entries last. UUID
+        tie-breaker.
+    QuestionSort:
+      type: string
+      enum:
+      - new
+      - votes
+      - unanswered
+      x-enum-varnames:
+      - QuestionSortNew
+      - QuestionSortVotes
+      - QuestionSortUnanswered
+      default: new
+      description: new = newest first (relevance first when q is set); votes = highest vote_score first, then newest;
+        unanswered = fewest answers first, then newest. UUID tie-breaker.
+    ListTotal:
+      type: integer
+      minimum: 0
+      description: Number of items matching the same filters and visibility as the page, independent of the cursor.
+      examples:
+      - 42
     Username:
       type: string
       minLength: 3
@@ -2640,6 +3052,14 @@ components:
       - public
       - members
       - private
+    ProfileVisibility:
+      type: string
+      description: Who may open this profile page. A new profile defaults to public. On a JSON Merge Patch, omitting the field leaves the stored value unchanged.
+      enum:
+      - public
+      - members
+      - private
+      default: public
     Intent:
       type: string
       enum:
@@ -2867,6 +3287,17 @@ components:
           format: password
           writeOnly: true
       additionalProperties: false
+    VerificationResendRequest:
+      type: object
+      required:
+      - email
+      properties:
+        email:
+          type: string
+          minLength: 3
+          maxLength: 254
+          format: email
+      additionalProperties: false
     PasswordResetRequest:
       type: object
       required:
@@ -2979,6 +3410,7 @@ components:
       - bio
       - open_to_collab
       - field_visibility
+      - profile_visibility
       - checklist_missing
       properties:
         username:
@@ -3042,6 +3474,8 @@ components:
             github:
               $ref: '#/components/schemas/FieldVisibility'
           additionalProperties: false
+        profile_visibility:
+          $ref: '#/components/schemas/ProfileVisibility'
         checklist_missing:
           type: array
           items:
@@ -3115,6 +3549,8 @@ components:
             github:
               $ref: '#/components/schemas/FieldVisibility'
           additionalProperties: false
+        profile_visibility:
+          $ref: '#/components/schemas/ProfileVisibility'
       additionalProperties: false
       minProperties: 1
     PublicProfile:
@@ -3124,6 +3560,7 @@ components:
       required:
       - username
       - display_name
+      - profile_visibility
       - joined_at
       properties:
         username:
@@ -3165,8 +3602,145 @@ components:
           - type: 'null'
         open_to_collab:
           type: boolean
+        profile_visibility:
+          $ref: '#/components/schemas/ProfileVisibility'
         joined_at:
           $ref: '#/components/schemas/Timestamp'
+        ranking:
+          $ref: '#/components/schemas/GitHubRanking'
+      additionalProperties: false
+    GitHubRanking:
+      type: object
+      description: 'committers.top rank of the profile''s GitHub login (ADR-0016). Present only when the github field
+        is visible to the caller, the login is ranked and has not opted out.'
+      required:
+      - country
+      - rank
+      - generated_at
+      properties:
+        country:
+          $ref: '#/components/schemas/CountryCode'
+        rank:
+          type: integer
+          minimum: 1
+          maximum: 500
+        generated_at:
+          $ref: '#/components/schemas/Timestamp'
+      additionalProperties: false
+    ExternalDeveloper:
+      type: object
+      description: 'A public GitHub developer ranked by committers.top (ADR-0016). Not an account: only public GitHub
+        data, labelled with its source.'
+      required:
+      - login
+      - name
+      - avatar_url
+      - country
+      - rank
+      - contributions
+      - organizations
+      - generated_at
+      - source
+      properties:
+        login:
+          type: string
+          minLength: 1
+          maxLength: 39
+          pattern: ^[A-Za-z0-9][A-Za-z0-9-]{0,38}$
+          description: GitHub login.
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        avatar_url:
+          type: string
+          maxLength: 500
+          pattern: ^https://avatars\.githubusercontent\.com/
+        country:
+          $ref: '#/components/schemas/CountryCode'
+        rank:
+          type: integer
+          minimum: 1
+          maximum: 500
+        contributions:
+          type: integer
+          minimum: 0
+          maximum: 2147483647
+        organizations:
+          type: array
+          items:
+            type: string
+            minLength: 1
+            maxLength: 100
+          maxItems: 50
+        generated_at:
+          $ref: '#/components/schemas/Timestamp'
+        source:
+          type: string
+          enum:
+          - committers.top
+      additionalProperties: false
+    ProfileSummary:
+      type: object
+      description: 'Directory entry, visibility-filtered for this caller: fields hidden by field_visibility are
+        omitted. Never contains email.'
+      required:
+      - username
+      - display_name
+      properties:
+        username:
+          $ref: '#/components/schemas/Username'
+        display_name:
+          type: string
+          minLength: 1
+          maxLength: 80
+        country:
+          $ref: '#/components/schemas/CountryCode'
+        languages:
+          type: array
+          items:
+            type: string
+            minLength: 2
+            maxLength: 3
+            pattern: ^[a-z]{2,3}$
+            description: BCP 47 primary language tag of a spoken language.
+          maxItems: 10
+        skills:
+          type: array
+          items:
+            $ref: '#/components/schemas/TagSlug'
+          maxItems: 30
+        github:
+          type: string
+          minLength: 1
+          maxLength: 39
+          pattern: ^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$
+          description: GitHub username.
+      additionalProperties: false
+    ProfilePage:
+      type: object
+      required:
+      - items
+      - next_cursor
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProfileSummary'
+          maxItems: 50
+        external:
+          type: array
+          description: External GitHub developers (ADR-0016), after the members of the page; omitted when the page
+            has none. items plus external hold at most limit entries.
+          items:
+            $ref: '#/components/schemas/ExternalDeveloper'
+          maxItems: 50
+        next_cursor:
+          type:
+          - string
+          - 'null'
+          maxLength: 512
+          description: Opaque, integrity-protected; null on the last page.
       additionalProperties: false
     AuthorRef:
       type: object
@@ -3190,7 +3764,7 @@ components:
       additionalProperties: false
     LinkRef:
       type: object
-      description: Typed contextual link (write side).
+      description: Typed contextual link (write side). The server accepts only the source and target pairs it can store; an unsupported pair (for example an article linking to an article) is 422 with the field pointer of the link.
       required:
       - type
       - id
@@ -3202,7 +3776,22 @@ components:
           - resource
           - project
           - article
-          - series
+        id:
+          $ref: '#/components/schemas/Uuid'
+      additionalProperties: false
+    QuestionLinkRef:
+      type: object
+      description: Link from a question (write side). A question links to a resource, a project or an article only.
+      required:
+      - type
+      - id
+      properties:
+        type:
+          type: string
+          enum:
+          - resource
+          - project
+          - article
         id:
           $ref: '#/components/schemas/Uuid'
       additionalProperties: false
@@ -3260,6 +3849,7 @@ components:
       - author
       - answer_count
       - vote_score
+      - viewer_vote
       - accepted_answer_id
       - related
       - created_at
@@ -3300,6 +3890,8 @@ components:
           minimum: 0
         vote_score:
           type: integer
+        viewer_vote:
+          $ref: '#/components/schemas/ViewerVote'
         accepted_answer_id:
           anyOf:
           - $ref: '#/components/schemas/Uuid'
@@ -3347,7 +3939,7 @@ components:
         links:
           type: array
           items:
-            $ref: '#/components/schemas/LinkRef'
+            $ref: '#/components/schemas/QuestionLinkRef'
           maxItems: 10
       additionalProperties: false
     QuestionUpdate:
@@ -3380,7 +3972,7 @@ components:
         links:
           type: array
           items:
-            $ref: '#/components/schemas/LinkRef'
+            $ref: '#/components/schemas/QuestionLinkRef'
           maxItems: 10
       additionalProperties: false
       minProperties: 1
@@ -3389,6 +3981,7 @@ components:
       required:
       - items
       - next_cursor
+      - total
       properties:
         items:
           type: array
@@ -3401,6 +3994,8 @@ components:
           - 'null'
           maxLength: 512
           description: Opaque, integrity-protected; null on the last page.
+        total:
+          $ref: '#/components/schemas/ListTotal'
       additionalProperties: false
     Answer:
       type: object
@@ -3413,6 +4008,7 @@ components:
       - sources
       - author
       - vote_score
+      - viewer_vote
       - is_accepted
       - created_at
       - updated_at
@@ -3443,6 +4039,8 @@ components:
           $ref: '#/components/schemas/AuthorRef'
         vote_score:
           type: integer
+        viewer_vote:
+          $ref: '#/components/schemas/ViewerVote'
         is_accepted:
           type: boolean
         created_at:
@@ -3517,6 +4115,15 @@ components:
           - -1
           - 1
       additionalProperties: false
+    ViewerVote:
+      type: integer
+      enum:
+      - -1
+      - 0
+      - 1
+      description: The authenticated caller's own current vote on this item (1 up, -1 down, 0 none). Always 0 for
+        an anonymous caller. It is derived from the session only and never reveals another member's vote, so
+        a response that carries it varies by caller (Vary Cookie, Cache-Control private).
     VoteState:
       type: object
       required:
@@ -3603,6 +4210,7 @@ components:
       - last_verified_at
       - source_count
       - related
+      - provenance
       - updated_at
       properties:
         id:
@@ -3615,6 +4223,12 @@ components:
           $ref: '#/components/schemas/Slug'
         type:
           $ref: '#/components/schemas/ResourceType'
+        provenance:
+          type: string
+          enum:
+          - live
+          - demo
+          description: live = real content; demo = SEED fixture, loaded in local-dev and staging-test only (never production-live), shown with a visible badge (C15).
         category:
           $ref: '#/components/schemas/Slug'
         provider:
@@ -3707,6 +4321,7 @@ components:
       required:
       - items
       - next_cursor
+      - total
       properties:
         items:
           type: array
@@ -3719,6 +4334,8 @@ components:
           - 'null'
           maxLength: 512
           description: Opaque, integrity-protected; null on the last page.
+        total:
+          $ref: '#/components/schemas/ListTotal'
       additionalProperties: false
     ErrorReportCreate:
       type: object
@@ -3852,6 +4469,9 @@ components:
       - visibility
       - owner
       - open_needs_count
+      - stage
+      - license_spdx
+      - country_code
       - related
       - created_at
       - updated_at
@@ -3886,6 +4506,18 @@ components:
         open_needs_count:
           type: integer
           minimum: 0
+        stage:
+          $ref: '#/components/schemas/ProjectStage'
+        license_spdx:
+          description: SPDX license identifier; null when not declared.
+          anyOf:
+          - $ref: '#/components/schemas/LicenseSpdx'
+          - type: 'null'
+        country_code:
+          description: Country the project serves first; null when not declared.
+          anyOf:
+          - $ref: '#/components/schemas/CountryCode'
+          - type: 'null'
         related:
           type: array
           items:
@@ -3926,10 +4558,18 @@ components:
           items:
             $ref: '#/components/schemas/LinkRef'
           maxItems: 10
+        stage:
+          $ref: '#/components/schemas/ProjectStage'
+          description: Defaults to idea.
+        license_spdx:
+          $ref: '#/components/schemas/LicenseSpdx'
+        country_code:
+          $ref: '#/components/schemas/CountryCode'
+          description: Must be a known country (422 otherwise).
       additionalProperties: false
     ProjectUpdate:
       type: object
-      description: JSON Merge Patch. github_url immutable.
+      description: JSON Merge Patch. github_url immutable. null clears license_spdx or country_code.
       properties:
         description:
           type: string
@@ -3937,6 +4577,17 @@ components:
           maxLength: 1000
         visibility:
           $ref: '#/components/schemas/ProjectVisibility'
+        stage:
+          $ref: '#/components/schemas/ProjectStage'
+        license_spdx:
+          anyOf:
+          - $ref: '#/components/schemas/LicenseSpdx'
+          - type: 'null'
+        country_code:
+          description: Must be a known country (422 otherwise); null clears it.
+          anyOf:
+          - $ref: '#/components/schemas/CountryCode'
+          - type: 'null'
         technologies:
           type: array
           items:
@@ -3954,6 +4605,7 @@ components:
       required:
       - items
       - next_cursor
+      - total
       properties:
         items:
           type: array
@@ -3966,6 +4618,8 @@ components:
           - 'null'
           maxLength: 512
           description: Opaque, integrity-protected; null on the last page.
+        total:
+          $ref: '#/components/schemas/ListTotal'
       additionalProperties: false
     ContributionNeed:
       type: object
@@ -3977,6 +4631,7 @@ components:
       - lang
       - skills
       - status
+      - viewer_application
       - created_at
       properties:
         id:
@@ -4001,8 +4656,26 @@ components:
           uniqueItems: true
         status:
           $ref: '#/components/schemas/NeedStatus'
+        viewer_application:
+          description: The authenticated caller's own application to this need, or null (no application, or
+            anonymous). Other applicants are never exposed here.
+          anyOf:
+          - $ref: '#/components/schemas/ViewerApplication'
+          - type: 'null'
         created_at:
           $ref: '#/components/schemas/Timestamp'
+      additionalProperties: false
+    ViewerApplication:
+      type: object
+      description: The caller's own application to a need (id and status only).
+      required:
+      - id
+      - status
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        status:
+          $ref: '#/components/schemas/ApplicationStatus'
       additionalProperties: false
     NeedCreate:
       type: object
@@ -4088,7 +4761,7 @@ components:
       properties:
         message:
           type: string
-          minLength: 0
+          minLength: 1
           maxLength: 2000
       additionalProperties: false
     ApplicationDecision:
@@ -4253,6 +4926,9 @@ components:
           $ref: '#/components/schemas/Lang'
         level:
           $ref: '#/components/schemas/Level'
+        topic:
+          $ref: '#/components/schemas/TopicCode'
+          description: Optional learn_topics.code. Omit it when the article has no topic.
         tags:
           type: array
           items:
@@ -4278,6 +4954,7 @@ components:
       required:
       - items
       - next_cursor
+      - total
       properties:
         items:
           type: array
@@ -4290,6 +4967,8 @@ components:
           - 'null'
           maxLength: 512
           description: Opaque, integrity-protected; null on the last page.
+        total:
+          $ref: '#/components/schemas/ListTotal'
       additionalProperties: false
     LessonProgressStatus:
       type: string
@@ -4445,6 +5124,7 @@ components:
       required:
       - items
       - next_cursor
+      - total
       properties:
         items:
           type: array
@@ -4457,6 +5137,8 @@ components:
           - 'null'
           maxLength: 512
           description: Opaque, integrity-protected; null on the last page.
+        total:
+          $ref: '#/components/schemas/ListTotal'
       additionalProperties: false
     SearchHit:
       type: object

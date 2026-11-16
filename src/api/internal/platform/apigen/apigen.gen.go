@@ -61,6 +61,26 @@ const (
 	ArticleTypeTutorial ArticleType = "tutorial"
 )
 
+// Defines values for AssistantAnswerGeneratedBy.
+const (
+	Ai AssistantAnswerGeneratedBy = "ai"
+)
+
+// Defines values for AssistantAnswerOutcome.
+const (
+	AssistantAnswerOutcomeAnswered AssistantAnswerOutcome = "answered"
+	AssistantAnswerOutcomeNoSource AssistantAnswerOutcome = "no_source"
+)
+
+// Defines values for AssistantSourceType.
+const (
+	AssistantSourceTypeArticle  AssistantSourceType = "article"
+	AssistantSourceTypeProject  AssistantSourceType = "project"
+	AssistantSourceTypeQuestion AssistantSourceType = "question"
+	AssistantSourceTypeResource AssistantSourceType = "resource"
+	AssistantSourceTypeSeries   AssistantSourceType = "series"
+)
+
 // Defines values for ErrorCode.
 const (
 	CSRFFAILED            ErrorCode = "CSRF_FAILED"
@@ -123,6 +143,11 @@ const (
 	ErrorReportResolutionStatusResolved ErrorReportResolutionStatus = "resolved"
 )
 
+// Defines values for ExternalDeveloperSource.
+const (
+	CommittersTop ExternalDeveloperSource = "committers.top"
+)
+
 // Defines values for FieldVisibility.
 const (
 	FieldVisibilityMembers FieldVisibility = "members"
@@ -165,7 +190,6 @@ const (
 	LinkRefTypeProject  LinkRefType = "project"
 	LinkRefTypeQuestion LinkRefType = "question"
 	LinkRefTypeResource LinkRefType = "resource"
-	LinkRefTypeSeries   LinkRefType = "series"
 )
 
 // Defines values for ModerationTargetType.
@@ -196,10 +220,46 @@ const (
 	ProfileFieldSkills       ProfileField = "skills"
 )
 
+// Defines values for ProfileVisibility.
+const (
+	ProfileVisibilityMembers ProfileVisibility = "members"
+	ProfileVisibilityPrivate ProfileVisibility = "private"
+	ProfileVisibilityPublic  ProfileVisibility = "public"
+)
+
+// Defines values for ProjectSort.
+const (
+	ProjectSortCreated ProjectSort = "created"
+	ProjectSortNeeds   ProjectSort = "needs"
+	ProjectSortUpdated ProjectSort = "updated"
+)
+
+// Defines values for ProjectStage.
+const (
+	ProjectStageActive     ProjectStage = "active"
+	ProjectStageIdea       ProjectStage = "idea"
+	ProjectStageMaintained ProjectStage = "maintained"
+	ProjectStagePrototype  ProjectStage = "prototype"
+)
+
 // Defines values for ProjectVisibility.
 const (
 	ProjectVisibilityPrivate ProjectVisibility = "private"
 	ProjectVisibilityPublic  ProjectVisibility = "public"
+)
+
+// Defines values for QuestionLinkRefType.
+const (
+	QuestionLinkRefTypeArticle  QuestionLinkRefType = "article"
+	QuestionLinkRefTypeProject  QuestionLinkRefType = "project"
+	QuestionLinkRefTypeResource QuestionLinkRefType = "resource"
+)
+
+// Defines values for QuestionSort.
+const (
+	QuestionSortNew        QuestionSort = "new"
+	QuestionSortUnanswered QuestionSort = "unanswered"
+	QuestionSortVotes      QuestionSort = "votes"
 )
 
 // Defines values for QuestionState.
@@ -216,6 +276,18 @@ const (
 	RelatedLinkTypeQuestion RelatedLinkType = "question"
 	RelatedLinkTypeResource RelatedLinkType = "resource"
 	RelatedLinkTypeSeries   RelatedLinkType = "series"
+)
+
+// Defines values for ResourceProvenance.
+const (
+	Demo ResourceProvenance = "demo"
+	Live ResourceProvenance = "live"
+)
+
+// Defines values for ResourceSort.
+const (
+	ResourceSortName     ResourceSort = "name"
+	ResourceSortVerified ResourceSort = "verified"
 )
 
 // Defines values for ResourceSourceKind.
@@ -252,6 +324,13 @@ const (
 	Verified   VerificationStatus = "verified"
 )
 
+// Defines values for ViewerVote.
+const (
+	ViewerVoteMinus1 ViewerVote = -1
+	ViewerVoteN0     ViewerVote = 0
+	ViewerVoteN1     ViewerVote = 1
+)
+
 // Defines values for ViolationCode.
 const (
 	Duplicate     ViolationCode = "duplicate"
@@ -282,6 +361,13 @@ const (
 const (
 	VoteTargetTypeAnswer   VoteTargetType = "answer"
 	VoteTargetTypeQuestion VoteTargetType = "question"
+)
+
+// Defines values for ListProfilesParamsSource.
+const (
+	ListProfilesParamsSourceAll     ListProfilesParamsSource = "all"
+	ListProfilesParamsSourceGithub  ListProfilesParamsSource = "github"
+	ListProfilesParamsSourceMembers ListProfilesParamsSource = "members"
 )
 
 // AcceptRequest defines model for AcceptRequest.
@@ -345,7 +431,10 @@ type Answer struct {
 	//
 	// Examples: 2026-11-11T09:30:00Z
 	UpdatedAt Timestamp `json:"updated_at"`
-	VoteScore int       `json:"vote_score"`
+
+	// ViewerVote The authenticated caller's own current vote on this item (1 up, -1 down, 0 none). Always 0 for an anonymous caller. It is derived from the session only and never reveals another member's vote, so a response that carries it varies by caller (Vary Cookie, Cache-Control private).
+	ViewerVote ViewerVote `json:"viewer_vote"`
+	VoteScore  int        `json:"vote_score"`
 }
 
 // AnswerCreate defines model for AnswerCreate.
@@ -455,7 +544,12 @@ type ArticleCreate struct {
 	Summary *string              `json:"summary,omitempty"`
 	Tags    []TagSlug            `json:"tags"`
 	Title   string               `json:"title"`
-	Type    ArticleType          `json:"type"`
+
+	// Topic Optional learn_topics.code. Omit it when the article has no topic.
+	//
+	// Examples: payments
+	Topic *TopicCode  `json:"topic,omitempty"`
+	Type  ArticleType `json:"type"`
 }
 
 // ArticleCreateStatus Creating as draft needs no verified email; publishing does (403 EMAIL_NOT_VERIFIED).
@@ -467,6 +561,11 @@ type ArticlePage struct {
 
 	// NextCursor Opaque, integrity-protected; null on the last page.
 	NextCursor *string `json:"next_cursor"`
+
+	// Total Number of items matching the same filters and visibility as the page, independent of the cursor.
+	//
+	// Examples: 42
+	Total ListTotal `json:"total"`
 }
 
 // ArticleStatus Publication lifecycle. Only published articles are public; drafts are visible to their author.
@@ -495,6 +594,56 @@ type ArticleSummary struct {
 
 // ArticleType defines model for ArticleType.
 type ArticleType string
+
+// AssistantAnswer The assistant reply. Always labelled AI; it is never stored as an answer and cannot be voted or accepted.
+type AssistantAnswer struct {
+	// Answer Plain text or limited Markdown. No reasoning text, no guarantee about an API, no verified-solution claim.
+	Answer      string                     `json:"answer"`
+	GeneratedBy AssistantAnswerGeneratedBy `json:"generated_by"`
+
+	// HowToVerify The "Comment vérifier" section that ends every answer.
+	HowToVerify string `json:"how_to_verify"`
+
+	// Lang Language of user content (original language preserved, never auto-translated).
+	Lang Lang `json:"lang"`
+
+	// Outcome no_source means no published content matched; the provider was not called and search_url points to the search.
+	Outcome AssistantAnswerOutcome `json:"outcome"`
+
+	// SearchUrl Present when outcome is no_source.
+	SearchUrl *string           `json:"search_url,omitempty"`
+	Sources   []AssistantSource `json:"sources"`
+}
+
+// AssistantAnswerGeneratedBy defines model for AssistantAnswer.GeneratedBy.
+type AssistantAnswerGeneratedBy string
+
+// AssistantAnswerOutcome no_source means no published content matched; the provider was not called and search_url points to the search.
+type AssistantAnswerOutcome string
+
+// AssistantQuestion A question for the sourced assistant. Only this text, after redaction of obvious secrets and emails, is sent to the provider.
+type AssistantQuestion struct {
+	// Lang Language of user content (original language preserved, never auto-translated).
+	Lang     *Lang  `json:"lang,omitempty"`
+	Question string `json:"question"`
+}
+
+// AssistantSource A published content item the answer relies on. The server only returns items that belong to the retrieved passages and are visible to the caller.
+type AssistantSource struct {
+	// Id Opaque identifier; never an authorization control.
+	Id Uuid `json:"id"`
+
+	// PublishedAt Publication date when known; null when the source is undated (the answer then states the uncertainty).
+	PublishedAt *Timestamp          `json:"published_at,omitempty"`
+	Title       string              `json:"title"`
+	Type        AssistantSourceType `json:"type"`
+
+	// Url Canonical in-app URL of the cited content.
+	Url string `json:"url"`
+}
+
+// AssistantSourceType defines model for AssistantSource.Type.
+type AssistantSourceType string
 
 // AuthorRef defines model for AuthorRef.
 type AuthorRef struct {
@@ -525,6 +674,9 @@ type ContributionNeed struct {
 	Skills    []TagSlug  `json:"skills"`
 	Status    NeedStatus `json:"status"`
 	Title     string     `json:"title"`
+
+	// ViewerApplication The authenticated caller's own application to this need, or null (no application, or anonymous). Other applicants are never exposed here.
+	ViewerApplication *ViewerApplication `json:"viewer_application"`
 }
 
 // CountryCode ISO 3166-1 alpha-2.
@@ -583,8 +735,48 @@ type ErrorReportResolution struct {
 // ErrorReportResolutionStatus defines model for ErrorReportResolution.Status.
 type ErrorReportResolutionStatus string
 
+// ExternalDeveloper A public GitHub developer ranked by committers.top (ADR-0016). Not an account: only public GitHub data, labelled with its source.
+type ExternalDeveloper struct {
+	AvatarUrl     string `json:"avatar_url"`
+	Contributions int    `json:"contributions"`
+
+	// Country ISO 3166-1 alpha-2.
+	//
+	// Examples: BF
+	Country CountryCode `json:"country"`
+
+	// GeneratedAt RFC 3339, UTC (suffix Z).
+	//
+	// Examples: 2026-11-11T09:30:00Z
+	GeneratedAt Timestamp `json:"generated_at"`
+
+	// Login GitHub login.
+	Login         string                  `json:"login"`
+	Name          string                  `json:"name"`
+	Organizations []string                `json:"organizations"`
+	Rank          int                     `json:"rank"`
+	Source        ExternalDeveloperSource `json:"source"`
+}
+
+// ExternalDeveloperSource defines model for ExternalDeveloper.Source.
+type ExternalDeveloperSource string
+
 // FieldVisibility defines model for FieldVisibility.
 type FieldVisibility string
+
+// GitHubRanking committers.top rank of the profile's GitHub login (ADR-0016). Present only when the github field is visible to the caller, the login is ranked and has not opted out.
+type GitHubRanking struct {
+	// Country ISO 3166-1 alpha-2.
+	//
+	// Examples: BF
+	Country CountryCode `json:"country"`
+
+	// GeneratedAt RFC 3339, UTC (suffix Z).
+	//
+	// Examples: 2026-11-11T09:30:00Z
+	GeneratedAt Timestamp `json:"generated_at"`
+	Rank        int       `json:"rank"`
+}
 
 // Intent Onboarding intent (values from the prototype welcome step plus learn).
 type Intent string
@@ -626,7 +818,12 @@ type LessonProgressUpdate struct {
 // Level defines model for Level.
 type Level string
 
-// LinkRef Typed contextual link (write side).
+// LicenseSpdx SPDX license identifier. Matches the database check projects_license_ck.
+//
+// Examples: MIT, Apache-2.0
+type LicenseSpdx = string
+
+// LinkRef Typed contextual link (write side). The server accepts only the source and target pairs it can store; an unsupported pair (for example an article linking to an article) is 422 with the field pointer of the link.
 type LinkRef struct {
 	// Id Opaque identifier; never an authorization control.
 	Id   Uuid        `json:"id"`
@@ -635,6 +832,11 @@ type LinkRef struct {
 
 // LinkRefType defines model for LinkRef.Type.
 type LinkRefType string
+
+// ListTotal Number of items matching the same filters and visibility as the page, independent of the cursor.
+//
+// Examples: 42
+type ListTotal = int
 
 // Markdown Markdown source. Raw HTML is neutralised on output; code is never executed.
 type Markdown = string
@@ -670,11 +872,14 @@ type MyProfile struct {
 		Languages *FieldVisibility `json:"languages,omitempty"`
 		Skills    *FieldVisibility `json:"skills,omitempty"`
 	} `json:"field_visibility"`
-	Github       *string   `json:"github"`
-	Intent       *Intent   `json:"intent"`
-	Languages    []string  `json:"languages"`
-	OpenToCollab bool      `json:"open_to_collab"`
-	Skills       []TagSlug `json:"skills"`
+	Github       *string  `json:"github"`
+	Intent       *Intent  `json:"intent"`
+	Languages    []string `json:"languages"`
+	OpenToCollab bool     `json:"open_to_collab"`
+
+	// ProfileVisibility Who may open this profile page. A new profile defaults to public. On a JSON Merge Patch, omitting the field leaves the stored value unchanged.
+	ProfileVisibility ProfileVisibility `json:"profile_visibility"`
+	Skills            []TagSlug         `json:"skills"`
 
 	// UpdatedAt RFC 3339, UTC (suffix Z).
 	//
@@ -746,6 +951,31 @@ type Problem struct {
 // ProfileField defines model for ProfileField.
 type ProfileField string
 
+// ProfilePage defines model for ProfilePage.
+type ProfilePage struct {
+	// External External GitHub developers (ADR-0016), after the members of the page; omitted when the page has none. items plus external hold at most limit entries.
+	External *[]ExternalDeveloper `json:"external,omitempty"`
+	Items    []ProfileSummary     `json:"items"`
+
+	// NextCursor Opaque, integrity-protected; null on the last page.
+	NextCursor *string `json:"next_cursor"`
+}
+
+// ProfileSummary Directory entry, visibility-filtered for this caller: fields hidden by field_visibility are omitted. Never contains email.
+type ProfileSummary struct {
+	// Country ISO 3166-1 alpha-2.
+	//
+	// Examples: BF
+	Country     *CountryCode `json:"country,omitempty"`
+	DisplayName string       `json:"display_name"`
+
+	// Github GitHub username.
+	Github    *string    `json:"github,omitempty"`
+	Languages *[]string  `json:"languages,omitempty"`
+	Skills    *[]TagSlug `json:"skills,omitempty"`
+	Username  Username   `json:"username"`
+}
+
 // ProfileUpdate JSON Merge Patch body.
 type ProfileUpdate struct {
 	Bio         *string      `json:"bio,omitempty"`
@@ -760,15 +990,24 @@ type ProfileUpdate struct {
 		Languages *FieldVisibility `json:"languages,omitempty"`
 		Skills    *FieldVisibility `json:"skills,omitempty"`
 	} `json:"field_visibility,omitempty"`
-	Github       *string    `json:"github,omitempty"`
-	Intent       *Intent    `json:"intent,omitempty"`
-	Languages    *[]string  `json:"languages,omitempty"`
-	OpenToCollab *bool      `json:"open_to_collab,omitempty"`
-	Skills       *[]TagSlug `json:"skills,omitempty"`
+	Github       *string   `json:"github,omitempty"`
+	Intent       *Intent   `json:"intent,omitempty"`
+	Languages    *[]string `json:"languages,omitempty"`
+	OpenToCollab *bool     `json:"open_to_collab,omitempty"`
+
+	// ProfileVisibility Who may open this profile page. A new profile defaults to public. On a JSON Merge Patch, omitting the field leaves the stored value unchanged.
+	ProfileVisibility *ProfileVisibility `json:"profile_visibility,omitempty"`
+	Skills            *[]TagSlug         `json:"skills,omitempty"`
 }
+
+// ProfileVisibility Who may open this profile page. A new profile defaults to public. On a JSON Merge Patch, omitting the field leaves the stored value unchanged.
+type ProfileVisibility string
 
 // Project defines model for Project.
 type Project struct {
+	// CountryCode Country the project serves first; null when not declared.
+	CountryCode *CountryCode `json:"country_code"`
+
 	// CreatedAt RFC 3339, UTC (suffix Z).
 	//
 	// Examples: 2026-11-11T09:30:00Z
@@ -780,12 +1019,20 @@ type Project struct {
 	Id Uuid `json:"id"`
 
 	// Lang Language of user content (original language preserved, never auto-translated).
-	Lang           Lang          `json:"lang"`
+	Lang Lang `json:"lang"`
+
+	// LicenseSpdx SPDX license identifier; null when not declared.
+	LicenseSpdx    *LicenseSpdx  `json:"license_spdx"`
 	Name           string        `json:"name"`
 	OpenNeedsCount int           `json:"open_needs_count"`
 	Owner          AuthorRef     `json:"owner"`
 	Related        []RelatedLink `json:"related"`
-	Technologies   []TagSlug     `json:"technologies"`
+
+	// Stage Maturity of a project (projects_stage_ck). A project with a GitHub repository may take any stage.
+	//
+	// Examples: prototype
+	Stage        ProjectStage `json:"stage"`
+	Technologies []TagSlug    `json:"technologies"`
 
 	// UpdatedAt RFC 3339, UTC (suffix Z).
 	//
@@ -796,12 +1043,26 @@ type Project struct {
 
 // ProjectCreate defines model for ProjectCreate.
 type ProjectCreate struct {
-	Description *string `json:"description,omitempty"`
-	GithubUrl   string  `json:"github_url"`
+	// CountryCode Must be a known country (422 otherwise).
+	//
+	// Examples: BF
+	CountryCode *CountryCode `json:"country_code,omitempty"`
+	Description *string      `json:"description,omitempty"`
+	GithubUrl   string       `json:"github_url"`
 
 	// Lang Language of user content (original language preserved, never auto-translated).
-	Lang         Lang               `json:"lang"`
-	Links        *[]LinkRef         `json:"links,omitempty"`
+	Lang Lang `json:"lang"`
+
+	// LicenseSpdx SPDX license identifier. Matches the database check projects_license_ck.
+	//
+	// Examples: MIT, Apache-2.0
+	LicenseSpdx *LicenseSpdx `json:"license_spdx,omitempty"`
+	Links       *[]LinkRef   `json:"links,omitempty"`
+
+	// Stage Defaults to idea.
+	//
+	// Examples: prototype
+	Stage        *ProjectStage      `json:"stage,omitempty"`
 	Technologies *[]TagSlug         `json:"technologies,omitempty"`
 	Visibility   *ProjectVisibility `json:"visibility,omitempty"`
 }
@@ -812,12 +1073,33 @@ type ProjectPage struct {
 
 	// NextCursor Opaque, integrity-protected; null on the last page.
 	NextCursor *string `json:"next_cursor"`
+
+	// Total Number of items matching the same filters and visibility as the page, independent of the cursor.
+	//
+	// Examples: 42
+	Total ListTotal `json:"total"`
 }
 
-// ProjectUpdate JSON Merge Patch. github_url immutable.
+// ProjectSort updated = last updated first; created = newest first; needs = most open contribution needs first, then last updated. UUID tie-breaker.
+type ProjectSort string
+
+// ProjectStage Maturity of a project (projects_stage_ck). A project with a GitHub repository may take any stage.
+//
+// Examples: prototype
+type ProjectStage string
+
+// ProjectUpdate JSON Merge Patch. github_url immutable. null clears license_spdx or country_code.
 type ProjectUpdate struct {
-	Description  *string            `json:"description,omitempty"`
-	Links        *[]LinkRef         `json:"links,omitempty"`
+	// CountryCode Must be a known country (422 otherwise); null clears it.
+	CountryCode *CountryCode `json:"country_code,omitempty"`
+	Description *string      `json:"description,omitempty"`
+	LicenseSpdx *LicenseSpdx `json:"license_spdx,omitempty"`
+	Links       *[]LinkRef   `json:"links,omitempty"`
+
+	// Stage Maturity of a project (projects_stage_ck). A project with a GitHub repository may take any stage.
+	//
+	// Examples: prototype
+	Stage        *ProjectStage      `json:"stage,omitempty"`
 	Technologies *[]TagSlug         `json:"technologies,omitempty"`
 	Visibility   *ProjectVisibility `json:"visibility,omitempty"`
 }
@@ -835,11 +1117,17 @@ type PublicProfile struct {
 	// JoinedAt RFC 3339, UTC (suffix Z).
 	//
 	// Examples: 2026-11-11T09:30:00Z
-	JoinedAt     Timestamp  `json:"joined_at"`
-	Languages    *[]string  `json:"languages,omitempty"`
-	OpenToCollab *bool      `json:"open_to_collab,omitempty"`
-	Skills       *[]TagSlug `json:"skills,omitempty"`
-	Username     Username   `json:"username"`
+	JoinedAt     Timestamp `json:"joined_at"`
+	Languages    *[]string `json:"languages,omitempty"`
+	OpenToCollab *bool     `json:"open_to_collab,omitempty"`
+
+	// ProfileVisibility Who may open this profile page. A new profile defaults to public. On a JSON Merge Patch, omitting the field leaves the stored value unchanged.
+	ProfileVisibility ProfileVisibility `json:"profile_visibility"`
+
+	// Ranking committers.top rank of the profile's GitHub login (ADR-0016). Present only when the github field is visible to the caller, the login is ranked and has not opted out.
+	Ranking  *GitHubRanking `json:"ranking,omitempty"`
+	Skills   *[]TagSlug     `json:"skills,omitempty"`
+	Username Username       `json:"username"`
 }
 
 // Question defines model for Question.
@@ -874,7 +1162,10 @@ type Question struct {
 	//
 	// Examples: 2026-11-11T09:30:00Z
 	UpdatedAt Timestamp `json:"updated_at"`
-	VoteScore int       `json:"vote_score"`
+
+	// ViewerVote The authenticated caller's own current vote on this item (1 up, -1 down, 0 none). Always 0 for an anonymous caller. It is derived from the session only and never reveals another member's vote, so a response that carries it varies by caller (Vary Cookie, Cache-Control private).
+	ViewerVote ViewerVote `json:"viewer_vote"`
+	VoteScore  int        `json:"vote_score"`
 }
 
 // QuestionCreate defines model for QuestionCreate.
@@ -888,12 +1179,22 @@ type QuestionCreate struct {
 	Country *CountryCode `json:"country,omitempty"`
 
 	// Lang Language of user content (original language preserved, never auto-translated).
-	Lang     Lang       `json:"lang"`
-	Links    *[]LinkRef `json:"links,omitempty"`
-	Snippets *[]Snippet `json:"snippets,omitempty"`
-	Tags     []TagSlug  `json:"tags"`
-	Title    string     `json:"title"`
+	Lang     Lang               `json:"lang"`
+	Links    *[]QuestionLinkRef `json:"links,omitempty"`
+	Snippets *[]Snippet         `json:"snippets,omitempty"`
+	Tags     []TagSlug          `json:"tags"`
+	Title    string             `json:"title"`
 }
+
+// QuestionLinkRef Link from a question (write side). A question links to a resource, a project or an article only.
+type QuestionLinkRef struct {
+	// Id Opaque identifier; never an authorization control.
+	Id   Uuid                `json:"id"`
+	Type QuestionLinkRefType `json:"type"`
+}
+
+// QuestionLinkRefType defines model for QuestionLinkRef.Type.
+type QuestionLinkRefType string
 
 // QuestionPage defines model for QuestionPage.
 type QuestionPage struct {
@@ -901,7 +1202,15 @@ type QuestionPage struct {
 
 	// NextCursor Opaque, integrity-protected; null on the last page.
 	NextCursor *string `json:"next_cursor"`
+
+	// Total Number of items matching the same filters and visibility as the page, independent of the cursor.
+	//
+	// Examples: 42
+	Total ListTotal `json:"total"`
 }
+
+// QuestionSort new = newest first (relevance first when q is set); votes = highest vote_score first, then newest; unanswered = fewest answers first, then newest. UUID tie-breaker.
+type QuestionSort string
 
 // QuestionState Derived, never stored or client-set. open = no answers; answered = has answers, none accepted; resolved = an accepted answer is set.
 type QuestionState string
@@ -909,12 +1218,12 @@ type QuestionState string
 // QuestionUpdate JSON Merge Patch. lang is immutable (original language preserved). The solve state is derived from answers and acceptance and cannot be set. Requires If-Match (ETag of the current question).
 type QuestionUpdate struct {
 	// BodyMd Markdown source. Raw HTML is neutralised on output; code is never executed.
-	BodyMd   *Markdown    `json:"body_md,omitempty"`
-	Country  *CountryCode `json:"country,omitempty"`
-	Links    *[]LinkRef   `json:"links,omitempty"`
-	Snippets *[]Snippet   `json:"snippets,omitempty"`
-	Tags     *[]TagSlug   `json:"tags,omitempty"`
-	Title    *string      `json:"title,omitempty"`
+	BodyMd   *Markdown          `json:"body_md,omitempty"`
+	Country  *CountryCode       `json:"country,omitempty"`
+	Links    *[]QuestionLinkRef `json:"links,omitempty"`
+	Snippets *[]Snippet         `json:"snippets,omitempty"`
+	Tags     *[]TagSlug         `json:"tags,omitempty"`
+	Title    *string            `json:"title,omitempty"`
 }
 
 // RelatedLink Resolved link (read side); only visible targets are returned.
@@ -943,7 +1252,10 @@ type Resource struct {
 	LastVerifiedAt *Timestamp `json:"last_verified_at"`
 	Limitations    *[]string  `json:"limitations,omitempty"`
 	Name           string     `json:"name"`
-	Provider       struct {
+
+	// Provenance live = real content; demo = SEED fixture, loaded in local-dev and staging-test only (never production-live), shown with a visible badge (C15).
+	Provenance ResourceProvenance `json:"provenance"`
+	Provider   struct {
 		Name string  `json:"name"`
 		Slug Slug    `json:"slug"`
 		Url  *string `json:"url,omitempty"`
@@ -970,13 +1282,24 @@ type Resource struct {
 	VerificationStatus VerificationStatus `json:"verification_status"`
 }
 
+// ResourceProvenance live = real content; demo = SEED fixture, loaded in local-dev and staging-test only (never production-live), shown with a visible badge (C15).
+type ResourceProvenance string
+
 // ResourcePage defines model for ResourcePage.
 type ResourcePage struct {
 	Items []Resource `json:"items"`
 
 	// NextCursor Opaque, integrity-protected; null on the last page.
 	NextCursor *string `json:"next_cursor"`
+
+	// Total Number of items matching the same filters and visibility as the page, independent of the cursor.
+	//
+	// Examples: 42
+	Total ListTotal `json:"total"`
 }
+
+// ResourceSort name = name ascending; verified = most recently verified first, never-verified entries last. UUID tie-breaker.
+type ResourceSort string
 
 // ResourceSource defines model for ResourceSource.
 type ResourceSource struct {
@@ -1077,6 +1400,11 @@ type SeriesPage struct {
 
 	// NextCursor Opaque, integrity-protected; null on the last page.
 	NextCursor *string `json:"next_cursor"`
+
+	// Total Number of items matching the same filters and visibility as the page, independent of the cursor.
+	//
+	// Examples: 42
+	Total ListTotal `json:"total"`
 }
 
 // SeriesSummary defines model for SeriesSummary.
@@ -1142,6 +1470,11 @@ type TokenRequest struct {
 	Token string `json:"token"`
 }
 
+// TopicCode learn_topics.code. Matches the database check learn_topics_code_ck.
+//
+// Examples: payments
+type TopicCode = string
+
 // TrainingSeries defines model for TrainingSeries.
 type TrainingSeries struct {
 	Author AuthorRef `json:"author"`
@@ -1170,8 +1503,23 @@ type Username = string
 // Uuid Opaque identifier; never an authorization control.
 type Uuid = openapi_types.UUID
 
+// VerificationResendRequest defines model for VerificationResendRequest.
+type VerificationResendRequest struct {
+	Email openapi_types.Email `json:"email"`
+}
+
 // VerificationStatus defines model for VerificationStatus.
 type VerificationStatus string
+
+// ViewerApplication The caller's own application to a need (id and status only).
+type ViewerApplication struct {
+	// Id Opaque identifier; never an authorization control.
+	Id     Uuid              `json:"id"`
+	Status ApplicationStatus `json:"status"`
+}
+
+// ViewerVote The authenticated caller's own current vote on this item (1 up, -1 down, 0 none). Always 0 for an anonymous caller. It is derived from the session only and never reveals another member's vote, so a response that carries it varies by caller (Vary Cookie, Cache-Control private).
+type ViewerVote int
 
 // Violation defines model for Violation.
 type Violation struct {
@@ -1309,9 +1657,9 @@ type ListLearnArticlesParams struct {
 	Q     *string      `form:"q,omitempty" json:"q,omitempty"`
 	Type  *ArticleType `form:"type,omitempty" json:"type,omitempty"`
 
-	// Topic Topic slug (matches an article tag).
-	Topic *TagSlug `form:"topic,omitempty" json:"topic,omitempty"`
-	Level *Level   `form:"level,omitempty" json:"level,omitempty"`
+	// Topic Topic code (learn_topics.code).
+	Topic *TopicCode `form:"topic,omitempty" json:"topic,omitempty"`
+	Level *Level     `form:"level,omitempty" json:"level,omitempty"`
 
 	// Lang Original language of the content.
 	Lang *LangFilter `form:"lang,omitempty" json:"lang,omitempty"`
@@ -1332,9 +1680,36 @@ type ListTrainingSeriesParams struct {
 	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
 
 	// Lang Original language of the content.
-	Lang  *LangFilter `form:"lang,omitempty" json:"lang,omitempty"`
-	Level *Level      `form:"level,omitempty" json:"level,omitempty"`
+	Lang *LangFilter `form:"lang,omitempty" json:"lang,omitempty"`
+
+	// Topic Topic code (learn_topics.code).
+	Topic *TopicCode `form:"topic,omitempty" json:"topic,omitempty"`
+	Level *Level     `form:"level,omitempty" json:"level,omitempty"`
 }
+
+// ListProfilesParams defines parameters for ListProfiles.
+type ListProfilesParams struct {
+	// Cursor Opaque pagination cursor from a previous next_cursor. Tampered/expired -> 400 INVALID_CURSOR.
+	Cursor *Cursor `form:"cursor,omitempty" json:"cursor,omitempty"`
+
+	// Limit Page size, 1..50 (above 50 -> 422).
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Country Keep profiles whose visible country matches.
+	Country *CountryCode `form:"country,omitempty" json:"country,omitempty"`
+
+	// Language Keep profiles whose visible spoken languages contain this tag.
+	Language *string `form:"language,omitempty" json:"language,omitempty"`
+
+	// Skill Keep profiles whose visible skills contain this tag slug.
+	Skill *TagSlug `form:"skill,omitempty" json:"skill,omitempty"`
+
+	// Source Which entries to list. members is the opt-in member directory; github is the external committers.top entries; all (default) is the members first, then the external entries.
+	Source *ListProfilesParamsSource `form:"source,omitempty" json:"source,omitempty"`
+}
+
+// ListProfilesParamsSource defines parameters for ListProfiles.
+type ListProfilesParamsSource string
 
 // ListProjectsParams defines parameters for ListProjects.
 type ListProjectsParams struct {
@@ -1349,6 +1724,21 @@ type ListProjectsParams struct {
 	// Skill Skill needed by an open contribution need.
 	Skill     *Slug `form:"skill,omitempty" json:"skill,omitempty"`
 	OpenNeeds *bool `form:"open_needs,omitempty" json:"open_needs,omitempty"`
+
+	// Stage Keep projects at this stage.
+	Stage *ProjectStage `form:"stage,omitempty" json:"stage,omitempty"`
+
+	// Country Keep projects whose country is this ISO 3166-1 alpha-2 code.
+	Country *CountryCode `form:"country,omitempty" json:"country,omitempty"`
+
+	// License Keep projects under this SPDX license identifier (exact match).
+	License *LicenseSpdx `form:"license,omitempty" json:"license,omitempty"`
+
+	// Owner Keep projects owned by this username (profile visibility applies; hidden means no match).
+	Owner *Username `form:"owner,omitempty" json:"owner,omitempty"`
+
+	// Sort Order of the page; the cursor is bound to it.
+	Sort *ProjectSort `form:"sort,omitempty" json:"sort,omitempty"`
 }
 
 // CreateProjectParams defines parameters for CreateProject.
@@ -1400,6 +1790,15 @@ type ListQuestionsParams struct {
 
 	// Lang Original language of the content.
 	Lang *LangFilter `form:"lang,omitempty" json:"lang,omitempty"`
+
+	// Author Keep the questions asked by this username (profile visibility applies; hidden means no match).
+	Author *Username `form:"author,omitempty" json:"author,omitempty"`
+
+	// AnswersBy Keep the questions this username answered (profile visibility applies; hidden means no match).
+	AnswersBy *Username `form:"answers_by,omitempty" json:"answers_by,omitempty"`
+
+	// Sort Order of the page; the cursor is bound to it.
+	Sort *QuestionSort `form:"sort,omitempty" json:"sort,omitempty"`
 }
 
 // CreateQuestionParams defines parameters for CreateQuestion.
@@ -1435,11 +1834,16 @@ type ListResourcesParams struct {
 	Cursor *Cursor `form:"cursor,omitempty" json:"cursor,omitempty"`
 
 	// Limit Page size, 1..50 (above 50 -> 422).
-	Limit    *Limit        `form:"limit,omitempty" json:"limit,omitempty"`
-	Q        *string       `form:"q,omitempty" json:"q,omitempty"`
-	Country  *Country      `form:"country,omitempty" json:"country,omitempty"`
-	Category *Slug         `form:"category,omitempty" json:"category,omitempty"`
-	Type     *ResourceType `form:"type,omitempty" json:"type,omitempty"`
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Sort Order of the page; the cursor is bound to it.
+	Sort *ResourceSort `form:"sort,omitempty" json:"sort,omitempty"`
+	Q    *string       `form:"q,omitempty" json:"q,omitempty"`
+
+	// Country One or more ISO 3166-1 alpha-2 codes, comma separated (BF,CI,SN); a resource matches when it supports any of them.
+	Country  *[]CountryCode `form:"country,omitempty" json:"country,omitempty"`
+	Category *Slug          `form:"category,omitempty" json:"category,omitempty"`
+	Type     *ResourceType  `form:"type,omitempty" json:"type,omitempty"`
 
 	// Sdk SDK language available (e.g. python, js, go).
 	Sdk *Slug `form:"sdk,omitempty" json:"sdk,omitempty"`
@@ -1483,6 +1887,9 @@ type RetractVoteParams struct {
 // DecideApplicationJSONRequestBody defines body for DecideApplication for application/json ContentType.
 type DecideApplicationJSONRequestBody = ApplicationDecision
 
+// AskAssistantJSONRequestBody defines body for AskAssistant for application/json ContentType.
+type AskAssistantJSONRequestBody = AssistantQuestion
+
 // ConfirmPasswordResetJSONRequestBody defines body for ConfirmPasswordReset for application/json ContentType.
 type ConfirmPasswordResetJSONRequestBody = PasswordResetConfirm
 
@@ -1497,6 +1904,9 @@ type SignUpJSONRequestBody = SignUpRequest
 
 // VerifyEmailJSONRequestBody defines body for VerifyEmail for application/json ContentType.
 type VerifyEmailJSONRequestBody = TokenRequest
+
+// ResendEmailVerificationJSONRequestBody defines body for ResendEmailVerification for application/json ContentType.
+type ResendEmailVerificationJSONRequestBody = VerificationResendRequest
 
 // CreateApplicationJSONRequestBody defines body for CreateApplication for application/json ContentType.
 type CreateApplicationJSONRequestBody = ApplicationCreate
@@ -1717,6 +2127,9 @@ type ServerInterface interface {
 	// DecideApplication Decide on (or withdraw) an application
 	// (PATCH /applications/{applicationId})
 	DecideApplication(w http.ResponseWriter, r *http.Request, applicationId ApplicationId)
+	// AskAssistant Ask the sourced assistant (answers only from published content, with citations)
+	// (POST /assistant/answers)
+	AskAssistant(w http.ResponseWriter, r *http.Request)
 	// GetCsrfToken Obtain a CSRF token
 	// (GET /auth/csrf)
 	GetCsrfToken(w http.ResponseWriter, r *http.Request)
@@ -1741,6 +2154,9 @@ type ServerInterface interface {
 	// VerifyEmail Confirm an email address
 	// (POST /auth/verify-email)
 	VerifyEmail(w http.ResponseWriter, r *http.Request)
+	// ResendEmailVerification Send a new email verification code
+	// (POST /auth/verify-email/resend)
+	ResendEmailVerification(w http.ResponseWriter, r *http.Request)
 	// CreateApplication Apply to a contribution need
 	// (POST /contribution-needs/{needId}/applications)
 	CreateApplication(w http.ResponseWriter, r *http.Request, needId NeedId, params CreateApplicationParams)
@@ -1780,6 +2196,9 @@ type ServerInterface interface {
 	// RestoreContent Restore hidden content (back to published; audited)
 	// (POST /moderation/{targetType}/{targetId}/restore)
 	RestoreContent(w http.ResponseWriter, r *http.Request, targetType ModerationTargetType, targetId Uuid)
+	// ListProfiles People directory (Connect)
+	// (GET /profiles)
+	ListProfiles(w http.ResponseWriter, r *http.Request, params ListProfilesParams)
 	// GetProfile Public profile by username
 	// (GET /profiles/{username})
 	GetProfile(w http.ResponseWriter, r *http.Request, username Username)
@@ -1867,6 +2286,12 @@ func (_ Unimplemented) DecideApplication(w http.ResponseWriter, r *http.Request,
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// AskAssistant Ask the sourced assistant (answers only from published content, with citations)
+// (POST /assistant/answers)
+func (_ Unimplemented) AskAssistant(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // GetCsrfToken Obtain a CSRF token
 // (GET /auth/csrf)
 func (_ Unimplemented) GetCsrfToken(w http.ResponseWriter, r *http.Request) {
@@ -1912,6 +2337,12 @@ func (_ Unimplemented) SignUp(w http.ResponseWriter, r *http.Request) {
 // VerifyEmail Confirm an email address
 // (POST /auth/verify-email)
 func (_ Unimplemented) VerifyEmail(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ResendEmailVerification Send a new email verification code
+// (POST /auth/verify-email/resend)
+func (_ Unimplemented) ResendEmailVerification(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1990,6 +2421,12 @@ func (_ Unimplemented) HideContent(w http.ResponseWriter, r *http.Request, targe
 // RestoreContent Restore hidden content (back to published; audited)
 // (POST /moderation/{targetType}/{targetId}/restore)
 func (_ Unimplemented) RestoreContent(w http.ResponseWriter, r *http.Request, targetType ModerationTargetType, targetId Uuid) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListProfiles People directory (Connect)
+// (GET /profiles)
+func (_ Unimplemented) ListProfiles(w http.ResponseWriter, r *http.Request, params ListProfilesParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -2178,6 +2615,20 @@ func (siw *ServerInterfaceWrapper) DecideApplication(w http.ResponseWriter, r *h
 	handler.ServeHTTP(w, r)
 }
 
+// AskAssistant operation middleware
+func (siw *ServerInterfaceWrapper) AskAssistant(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AskAssistant(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetCsrfToken operation middleware
 func (siw *ServerInterfaceWrapper) GetCsrfToken(w http.ResponseWriter, r *http.Request) {
 
@@ -2281,6 +2732,20 @@ func (siw *ServerInterfaceWrapper) VerifyEmail(w http.ResponseWriter, r *http.Re
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.VerifyEmail(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ResendEmailVerification operation middleware
+func (siw *ServerInterfaceWrapper) ResendEmailVerification(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ResendEmailVerification(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2566,6 +3031,19 @@ func (siw *ServerInterfaceWrapper) ListTrainingSeries(w http.ResponseWriter, r *
 		return
 	}
 
+	// ------------- Optional query parameter "topic" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "topic", r.URL.Query(), &params.Topic, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "topic"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "topic", Err: err})
+		}
+		return
+	}
+
 	// ------------- Optional query parameter "level" -------------
 
 	err = runtime.BindQueryParameterWithOptions("form", true, false, "level", r.URL.Query(), &params.Level, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
@@ -2810,6 +3288,104 @@ func (siw *ServerInterfaceWrapper) RestoreContent(w http.ResponseWriter, r *http
 	handler.ServeHTTP(w, r)
 }
 
+// ListProfiles operation middleware
+func (siw *ServerInterfaceWrapper) ListProfiles(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListProfilesParams
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", r.URL.Query(), &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "cursor"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "cursor", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "country" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "country", r.URL.Query(), &params.Country, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "country"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "country", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "language" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "language", r.URL.Query(), &params.Language, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "language"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "language", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "skill" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "skill", r.URL.Query(), &params.Skill, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "skill"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "skill", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "source" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "source", r.URL.Query(), &params.Source, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "source"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "source", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListProfiles(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetProfile operation middleware
 func (siw *ServerInterfaceWrapper) GetProfile(w http.ResponseWriter, r *http.Request) {
 
@@ -2919,6 +3495,71 @@ func (siw *ServerInterfaceWrapper) ListProjects(w http.ResponseWriter, r *http.R
 			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "open_needs"})
 		} else {
 			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "open_needs", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "stage" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "stage", r.URL.Query(), &params.Stage, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "stage"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "stage", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "country" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "country", r.URL.Query(), &params.Country, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "country"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "country", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "license" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "license", r.URL.Query(), &params.License, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "license"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "license", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "owner" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "owner", r.URL.Query(), &params.Owner, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "owner"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "owner", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "sort" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "sort", r.URL.Query(), &params.Sort, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "sort"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sort", Err: err})
 		}
 		return
 	}
@@ -3300,6 +3941,45 @@ func (siw *ServerInterfaceWrapper) ListQuestions(w http.ResponseWriter, r *http.
 		return
 	}
 
+	// ------------- Optional query parameter "author" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "author", r.URL.Query(), &params.Author, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "author"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "author", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "answers_by" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "answers_by", r.URL.Query(), &params.AnswersBy, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "answers_by"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "answers_by", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "sort" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "sort", r.URL.Query(), &params.Sort, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "sort"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sort", Err: err})
+		}
+		return
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListQuestions(w, r, params)
 	}))
@@ -3624,6 +4304,19 @@ func (siw *ServerInterfaceWrapper) ListResources(w http.ResponseWriter, r *http.
 		return
 	}
 
+	// ------------- Optional query parameter "sort" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "sort", r.URL.Query(), &params.Sort, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "sort"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sort", Err: err})
+		}
+		return
+	}
+
 	// ------------- Optional query parameter "q" -------------
 
 	err = runtime.BindQueryParameterWithOptions("form", true, false, "q", r.URL.Query(), &params.Q, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
@@ -3639,7 +4332,7 @@ func (siw *ServerInterfaceWrapper) ListResources(w http.ResponseWriter, r *http.
 
 	// ------------- Optional query parameter "country" -------------
 
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "country", r.URL.Query(), &params.Country, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	err = runtime.BindQueryParameterWithOptions("form", false, false, "country", r.URL.Query(), &params.Country, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
 	if err != nil {
 		var requiredError *runtime.RequiredParameterError
 		if errors.As(err, &requiredError) {
@@ -4162,6 +4855,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/auth/verify-email", wrapper.VerifyEmail)
 	})
 	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/auth/verify-email/resend", wrapper.ResendEmailVerification)
+	})
+	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/auth/password-reset/request", wrapper.RequestPasswordReset)
 	})
 	r.Group(func(r chi.Router) {
@@ -4172,6 +4868,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Patch(options.BaseURL+"/me/profile", wrapper.UpdateMyProfile)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/profiles", wrapper.ListProfiles)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/profiles/{username}", wrapper.GetProfile)
@@ -4274,6 +4973,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/search", wrapper.Search)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/assistant/answers", wrapper.AskAssistant)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/moderation/{targetType}/{targetId}/hide", wrapper.HideContent)

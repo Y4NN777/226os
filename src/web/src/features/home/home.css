@@ -1,0 +1,84 @@
+/* Member home (prototype accueil.html): page-specific layout only. Rows, pills, tags, country
+   codes, meta and avatars come from src/components (styles/ui.css). Astryx tokens only. */
+
+.feed-page {
+  display: grid;
+  gap: var(--spacing-8);
+  min-width: 0;
+}
+.feed-hero {
+  display: grid;
+}
+.feed-hero .ui-page-header {
+  margin-bottom: var(--spacing-3);
+}
+
+/* Section head: icon, h2, "see all" link at the end, one sub line (prototype .id-head). */
+.feed-section {
+  display: grid;
+  gap: var(--spacing-3);
+  min-width: 0;
+}
+.feed-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-2) var(--spacing-3);
+}
+.feed-head h2 {
+  margin: 0;
+}
+.feed-head-more {
+  margin-inline-start: auto;
+}
+
+/* Search field with the glyph inside, like the prototype's .search-field. */
+.feed-search {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: var(--spacing-2);
+  max-width: 36rem;
+}
+.feed-search-field {
+  flex: 1 1 16rem;
+  min-width: 0;
+}
+
+/* Connect: the prototype's lead band (icon, one sentence, one action). */
+.feed-lead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-3) var(--spacing-4);
+  padding: var(--spacing-5);
+  border-radius: var(--radius-container);
+  background: var(--color-background-surface);
+}
+.feed-lead-icon {
+  display: grid;
+  place-items: center;
+  width: 3rem;
+  height: 3rem;
+  border-radius: var(--radius-element);
+  background: color-mix(in srgb, var(--color-accent) 16%, var(--color-background-surface));
+}
+.feed-lead-text {
+  display: grid;
+  gap: var(--spacing-1);
+  flex: 1 1 16rem;
+  min-width: 0;
+}
+.feed-lead-text h2,
+.feed-lead-text p {
+  margin: 0;
+}
+.feed-lead-text p {
+  color: var(--color-text-secondary);
+}
+
+@media (forced-colors: active) {
+  .feed-lead {
+    border: 1px solid CanvasText;
+  }
+}

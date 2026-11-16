@@ -29,6 +29,9 @@ type Deps struct {
 	// Idempotency stores Idempotency-Key records (ADR-0004 point 6). Nil disables the
 	// middleware (pass-through); app always wires the PostgreSQL store.
 	Idempotency idempotency.Store
+	// CSRF enforces the ADR-0003 synchronizer-token and Origin checks on unsafe
+	// methods. Nil installs a pass-through so the middleware chain stays stable.
+	CSRF func(http.Handler) http.Handler
 }
 
 // NewRouter builds the root router and mounts the generated API under /api/v1.
@@ -47,10 +50,12 @@ func NewRouter(logger *slog.Logger, deps Deps) http.Handler {
 		ErrorHandlerFunc: APIErrorHandler(logger),
 		// apigen wraps the handler with each element in turn, so the LAST element is the OUTERMOST and
 		// runs first: schema validation before subject resolution, which becomes a database lookup
-		// (ADR-0004 point 8: validate before authorization-sensitive work). Idempotency comes first
-		// in the slice, so it runs last: it needs the resolved subject and a valid request.
+		// (ADR-0004 point 8: validate before authorization-sensitive work). CSRF runs after subject
+		// resolution and before idempotency, so a CSRF failure never claims an idempotency key;
+		// idempotency runs last: it needs the resolved subject and a valid request.
 		Middlewares: []apigen.MiddlewareFunc{
 			idempotency.Middleware(deps.Idempotency, logger, WriteError(logger)),
+			csrfOrPass(deps.CSRF),
 			subject.Middleware(deps.Subjects, WriteError(logger)),
 			embeddedValidator(logger),
 		},
@@ -74,6 +79,15 @@ func embeddedValidator(logger *slog.Logger) apigen.MiddlewareFunc {
 		panic("httpx: embedded OpenAPI contract is unusable: " + err.Error())
 	}
 	return validate
+}
+
+// csrfOrPass returns the CSRF middleware or a pass-through when the app did
+// not wire one, keeping the middleware chain deterministic for the B1 gate.
+func csrfOrPass(mw func(http.Handler) http.Handler) func(http.Handler) http.Handler {
+	if mw == nil {
+		return func(next http.Handler) http.Handler { return next }
+	}
+	return mw
 }
 
 func healthz(w http.ResponseWriter, _ *http.Request) {

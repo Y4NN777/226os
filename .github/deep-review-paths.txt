@@ -1,0 +1,26 @@
+# P0 paths for the deep review (stage 2 of the AI review, .github/workflows/code-review.yml job `deep`), in addition to
+# every pattern of .github/sensitive-paths.txt. A pull request that touches one gets an adversarial second review
+# (.claude/commands/deep-review.md), and auto-merge (scripts/review-automerge.py) then requires a deep review PASS of
+# its head. One shell-style pattern per line (fnmatch: `*` also matches `/`); lines starting with # are comments. Both
+# readers take this file from the trusted branch (the BASE commit, or the auto-merge workflow's own checkout).
+
+# Identity: authentication, sessions, tokens, CSRF, sign-in limits (backend and frontend)
+src/api/internal/identity/*
+src/web/src/features/identity/*
+*auth*
+*session*
+*csrf*
+
+# Rate limits
+*ratelimit*
+*rate_limit*
+
+# Solve: questions, answers, votes and accepted answers (writes under concurrency)
+src/api/internal/solve/*
+
+# Grounded assistant (LLM calls, prompt and data exposure)
+*assistant*
+src/api/internal/platform/llm/*
+
+# SQL: every query file (invariants, ON CONFLICT, read-then-write)
+db/queries/*

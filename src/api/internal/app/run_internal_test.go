@@ -18,6 +18,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
+	"github.com/Y4NN777/226os/src/api/internal/identity/repository"
 	"github.com/Y4NN777/226os/src/api/internal/platform/idempotency"
 )
 
@@ -44,7 +45,21 @@ func (f *fakePool) Exec(_ context.Context, sql string, _ ...any) (pgconn.Command
 	return pgconn.NewCommandTag("DELETE 0"), nil
 }
 
-func (f *fakePool) QueryRow(context.Context, string, ...any) pgx.Row { return nil }
+func (f *fakePool) QueryRow(context.Context, string, ...any) pgx.Row {
+	return errRow{errors.New("no row")}
+}
+
+type errRow struct{ err error }
+
+func (e errRow) Scan(...any) error { return e.err }
+
+func (f *fakePool) Query(context.Context, string, ...any) (pgx.Rows, error) {
+	return nil, errors.New("query not used")
+}
+
+func (f *fakePool) Begin(context.Context) (pgx.Tx, error) {
+	return nil, errors.New("tx not used")
+}
 
 func (f *fakePool) Ping(context.Context) error { return f.pingErr }
 func (f *fakePool) Close()                     { f.closed = true }
@@ -139,10 +154,85 @@ func TestRunWiresTheStoreToThePoolAndStopsThePurgeJob(t *testing.T) {
 	}
 }
 
+func TestRunRejectsARepeatedCursorKey(t *testing.T) {
+	var out bytes.Buffer
+	pool := &fakePool{}
+	base := validEnv(t)
+	key := base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{'a'}, 32))
+	code := run(context.Background(), func(k string) string {
+		if k == "CURSOR_KEY" {
+			return key
+		}
+		return base(k)
+	}, &out, func(context.Context, net.Listener, http.Handler, time.Duration) error {
+		t.Fatal("serve should not be called")
+		return nil
+	}, fakeOpener(pool))
+	if code != 1 || !pool.closed || !strings.Contains(out.String(), "invalid cursor configuration") {
+		t.Fatalf("code = %d closed = %v log = %s", code, pool.closed, out.String())
+	}
+}
+
 func TestStartPurgeStopWaitsForTheJob(t *testing.T) {
 	pool := &fakePool{}
 	stop := startPurge(context.Background(), idempotency.NewPgStore(pool), slog.New(slog.NewJSONHandler(io.Discard, nil)))
 	stop() // returns only once RunPurge has exited
 	stop2 := startPurge(t.Context(), idempotency.NewPgStore(pool), slog.New(slog.NewJSONHandler(io.Discard, nil)))
 	stop2()
+}
+
+func envWith(base func(string) string, k, v string) func(string) string {
+	return func(name string) string {
+		if name == k {
+			return v
+		}
+		return base(name)
+	}
+}
+
+func TestRunRefusesABadAppBaseURLWithoutEchoingIt(t *testing.T) {
+	var out bytes.Buffer
+	pool := &fakePool{}
+	code := run(context.Background(), envWith(validEnv(t), "APP_BASE_URL", "https://pw0rd-s3cret@226os.example/x?y#z"), &out,
+		func(context.Context, net.Listener, http.Handler, time.Duration) error {
+			t.Fatal("serve should not be called")
+			return nil
+		}, fakeOpener(pool))
+	if code != 1 || !strings.Contains(out.String(), "APP_BASE_URL") || strings.Contains(out.String(), "pw0rd-s3cret") {
+		t.Fatalf("code = %d log = %s", code, out.String())
+	}
+}
+
+func TestRunStartsWithAValidAppBaseURL(t *testing.T) {
+	var out bytes.Buffer
+	served := false
+	code := run(context.Background(), envWith(validEnv(t), "APP_BASE_URL", "http://127.0.0.1:8088"), &out,
+		func(context.Context, net.Listener, http.Handler, time.Duration) error {
+			served = true
+			return nil
+		}, fakeOpener(&fakePool{}))
+	if code != 0 || !served {
+		t.Fatalf("code = %d served = %v log = %s", code, served, out.String())
+	}
+}
+
+// Demo seed users are listed in the people directory only in local-dev; staging-test and production-live
+// always exclude them, and an unknown value fails closed.
+func TestDemoProfilesEnabledOnlyInLocalDev(t *testing.T) {
+	for env, want := range map[string]bool{
+		"local-dev": true, "staging-test": false, "production-live": false, "": false,
+	} {
+		if got := demoProfilesEnabled(env); got != want {
+			t.Errorf("demoProfilesEnabled(%q) = %v, want %v", env, got, want)
+		}
+	}
+}
+
+func TestStartGitHubImportRunsOnlyWhenEnabled(t *testing.T) {
+	logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
+	stop := startGitHubImport(t.Context(), false, nil, logger)
+	stop() // disabled: a no-op
+	// Enabled: the job waits for its start delay (a minute), so stop cancels it before any fetch.
+	stop = startGitHubImport(t.Context(), true, repository.New(&fakePool{}), logger)
+	stop()
 }

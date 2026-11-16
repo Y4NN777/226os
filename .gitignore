@@ -7,7 +7,12 @@ dist/
 .env.*
 !.env.example
 reports/
+src/web/playwright-report/
+src/web/test-results/
 
 # Isolated agent worktrees (Claude Code isolation); never committed
 .claude/worktrees/
 backups/
+
+# Local agent tooling (skills, rules) — never part of a slice PR
+.devin/

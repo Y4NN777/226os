@@ -48,7 +48,9 @@ case "$1" in
 esac
 
 # Ambient COMPOSE_PROFILES / APP_ENV must not influence selection: the wrapper is the source of truth.
-unset COMPOSE_PROFILES APP_ENV
+# GITHUB_TOKEN too: the profile's env file is its only source (the ambient name is used by gh and other
+# tools, and Compose lets the shell override --env-file), so a personal token never reaches the api container.
+unset COMPOSE_PROFILES APP_ENV GITHUB_TOKEN
 # No `exec`: the trap above must run to remove the decrypted temp file.
 rc=0
 docker compose --project-directory "$root" --env-file "$envfile" --profile "$profile" "$@" || rc=$?

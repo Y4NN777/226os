@@ -1,8 +1,8 @@
 # 226os P0 PostgreSQL Schema and Migration Design
 
-**Status:** ACCEPTED design (ADR-0005, 2026-11-11, approver `Y4NN777`). The DDL is owned by `db/migrations/00001` to `00010` (immutable). A statement-by-statement diff of this document's former DDL against those migrations was done on 2026-11-12: identical for the 38 P0 tables (names, constraints, indexes); the only differences were the 3 P1 tables below (no migration) and the reference `INSERT`s in `00002`. This document keeps the rationale, the rules SQL cannot express, and the DDL of what has no migration. Items with no migration yet are marked **PLANNED**.
+**Status:** ACCEPTED design (ADR-0005, 2026-11-11, approver `Y4NN777`). The DDL is owned by `db/migrations/00001` to `00012`, and `00013` since 2026-11-13 (immutable once merged). A statement-by-statement diff of this document's former DDL against those migrations was done on 2026-11-12: identical for the 38 P0 tables (names, constraints, indexes); the only differences were the 3 P1 tables below (no migration) and the reference `INSERT`s in `00002`. This document keeps the rationale, the rules SQL cannot express, and the DDL of what has no migration. Items with no migration yet are marked **PLANNED**.
 **Target engine:** **PostgreSQL 18** with native `uuidv7()`. **Tooling:** goose forward-only SQL migrations under root `db/migrations/`, sqlc queries under `db/queries/`, `pgx` v5.
-**Decision owner:** `Y4NN777` (interim owner, ADR-0002). Migrations `00001` to `00010` run on a **fresh** PostgreSQL 18 database in the integration suite `src/api/internal/platform/pgtest` (`TestFreshMigrationToHead`), run by `make test-integration`, which `make quality` and CI include. Not established here: an upgrade-from-previous-schema test (none exists in pgtest yet, see 5). sqlc queries exist for identity, platform and reference data only (`db/queries/`).
+**Decision owner:** `Y4NN777` (interim owner, ADR-0002). Migrations `00001` to `00013` run on a **fresh** PostgreSQL 18 database in the integration suite `src/api/internal/platform/pgtest` (`TestFreshMigrationToHead` expects 13), and `TestUpgradeFromVersion10KeepsExistingRows` applies `00011` to `00013` on top of version 10. Both run under `make test-integration`, which `make quality` and CI include. sqlc queries exist for identity, platform, rate limits, reference data, discover, search, learn, build, solve and moderation (`db/queries/`).
 
 References to other documents cite section names or IDs, not line numbers.
 
@@ -163,9 +163,9 @@ DDL: see `db/migrations/00002_reference_taxonomy.sql`.
 
 DDL: see `db/migrations/00002_reference_taxonomy.sql`.
 
-**`learn_topics`** - small reference list for Learn so new topics are data, not constraint changes. The current rows are the 9 owner-approved topics inserted by `db/migrations/00002_reference_taxonomy.sql:112-121` (`ai`, `payments`, `ussd-messaging`, `mobile`, `api-integration`, `security-privacy`, `cloud-devops`, `geo-data`, `open-source`); the prototype list that used to be cited here is superseded.
+**`learn_topics`** - small reference list for Learn so new topics are data, not constraint changes. The current rows are the 14 topics of `00002` plus E2 (`00011_taxonomy_ai_topics`, PR #80); `00002` inserted the 9 owner-approved topics at `db/migrations/00002_reference_taxonomy.sql:112-121` (`ai`, `payments`, `ussd-messaging`, `mobile`, `api-integration`, `security-privacy`, `cloud-devops`, `geo-data`, `open-source`); the prototype list that used to be cited here is superseded.
 
-**PLANNED (E2, owner decision 2026-11-12; new migration, not in 00002, which is immutable):** one new forward-only migration, numbered by `make migrate-new` and written by the single migration writer (`ROADMAP.md` R6), adds 5 topics (`learn-to-learn`, `ai-assisted-dev`, `ai-agents`, `open-models`, `african-languages`) and relabels `ai`, `mobile` and `open-source` (same codes, new `name_fr`/`name_en`), for **14 topics**. No row is deleted; removals are deferred and need explicit human approval. The exact labels are in `TODO.md`, section E2. The same PR updates the exact lists and counts in `src/api/internal/platform/pgtest/migrate_integration_test.go`.
+**DONE (E2, owner decision 2026-11-12; migration `00011_taxonomy_ai_topics`, PR #80, not in 00002, which is immutable):** one new forward-only migration, numbered by `make migrate-new` and written by the single migration writer (`ROADMAP.md` R6), adds 5 topics (`learn-to-learn`, `ai-assisted-dev`, `ai-agents`, `open-models`, `african-languages`) and relabels `ai`, `mobile` and `open-source` (same codes, new `name_fr`/`name_en`), for **14 topics**. No row is deleted; removals are deferred and need explicit human approval. The exact labels are in `TODO.md`, section E2. The same PR updates the exact lists and counts in `src/api/internal/platform/pgtest/migrate_integration_test.go`.
 
 DDL: see `db/migrations/00002_reference_taxonomy.sql`.
 
@@ -183,7 +183,7 @@ DDL: see `db/migrations/00003_identity.sql`.
 
 DDL: see `db/migrations/00003_identity.sql`.
 
-**PLANNED: `profiles.profile_visibility` (C14b, decided by the owner and the main session on 2026-11-12; new migration, not in 00003, which is immutable).** The accepted DDL above is unchanged. A separate forward-only migration, numbered by `make migrate-new` and written by the single migration writer, adds:
+**`profiles.profile_visibility` (C14b, decided by the owner and the main session on 2026-11-12; `db/migrations/00012_profile_visibility.sql`, not in 00003, which is immutable).** The accepted DDL of 00003 is unchanged. `00012` adds:
 
 - `profile_visibility text NOT NULL DEFAULT 'public'` on `profiles`, with a named `CHECK (profile_visibility IN ('public','members','private'))`;
 - in the same PR, the pgtest tests that assert table structure and constraints.
@@ -192,7 +192,7 @@ Semantics (`ROADMAP.md` section 10, C14):
 
 - `GET /profiles/{username}`: `public` is visible to everyone, `members` to authenticated members only, `private` to the owner only. Everyone else gets a 404 whose body is identical to an unknown or deleted username. Moderators get no special profile access.
 - Author bylines on published content keep showing the username and display name whatever `profile_visibility` says; deleted accounts still show "membre supprimé" (1.1).
-- People directory (E5): a profile is listed for a caller only if the user is `active`, `profile_visibility` allows that caller, `open_to_collab = true` and `open_to_collab_visibility` allows that caller. Listed fields and filters use only fields visible to the caller. Email is never selected.
+- People directory (E5): a profile is listed for a caller only if the user is `active`, `profile_visibility` allows that caller, `open_to_collab = true` and `open_to_collab_visibility` allows that caller. Demo seed accounts (`provenance = 'demo'`) are listed only in `local-dev` (`include_demo`, set from `APP_ENV`). Listed fields and filters use only fields visible to the caller. Email is never selected.
 - Not decided: how suspended users are treated by `GET /profiles/{username}`.
 
 Once this migration merges, decision 8 in section 10 ("only `projects` and profile fields carry visibility") also covers this profile-level column.
@@ -251,9 +251,9 @@ DDL: see `db/migrations/00005_solve.sql`.
 
 ### 3.4 Discover (`00006`)
 
-**`resource_categories`** - controlled category codes with FR/EN labels. The current rows are the 15 owner-approved categories inserted by `db/migrations/00002_reference_taxonomy.sql:124-139`, `sort_order` in steps of 10 (`mobile-money` through `dev-tools`).
+**`resource_categories`** - controlled category codes with FR/EN labels. The current rows are the 18 categories of `00002` plus E2 (`00011_taxonomy_ai_topics`, PR #80); `00002` inserted the 15 owner-approved categories at `db/migrations/00002_reference_taxonomy.sql:124-139`, `sort_order` in steps of 10 (`mobile-money` through `dev-tools`).
 
-**PLANNED (E2, owner decision 2026-11-12; new migration, not in 00002, which is immutable):** the same E2 migration as for `learn_topics` adds `ai-models`, `ai-tooling` and `ai-datasets` (each with an explicit `sort_order`) and relabels `cloud-hosting`, for **18 categories**. `mobile-money` and `sms-ussd` stay (differentiator 1). No row is deleted.
+**DONE (E2, owner decision 2026-11-12; migration `00011_taxonomy_ai_topics`, PR #80, not in 00002, which is immutable):** the same E2 migration as for `learn_topics` adds `ai-models`, `ai-tooling` and `ai-datasets` (each with an explicit `sort_order`) and relabels `cloud-hosting`, for **18 categories**. `mobile-money` and `sms-ussd` stay (differentiator 1). No row is deleted.
 
 DDL: see `db/migrations/00002_reference_taxonomy.sql`.
 
@@ -309,7 +309,7 @@ CREATE INDEX resource_reviews_resource_idx ON resource_reviews (resource_id, cre
 
 DDL: see `db/migrations/00007_build.sql`.
 
-**`project_maintainers`** - maintainers added by the project owner, with **explicit rights on that project: edit the project and manage its needs and applications**. The owner stays `projects.owner_id`. A **collaborator** is not a role and not a row here: it is an applicant whose `applications` row is `accepted` on that project (a resource-scoped relationship derived from `applications`).
+**`project_maintainers`** - maintainers added by the project owner. **At P0 a row grants nothing (C1, owner only): only `projects.owner_id` edits the project and manages its needs and applications**; delegation is a later decision. The owner stays `projects.owner_id`. A **collaborator** is not a role and not a row here: it is an applicant whose `applications` row is `accepted` on that project (a resource-scoped relationship derived from `applications`).
 
 DDL: see `db/migrations/00007_build.sql`.
 
@@ -349,7 +349,7 @@ DDL: see `db/migrations/00008_learn.sql`.
 
 (`UNIQUE (series_id, position)` already provides the `series_id` FK index.) Note: a unique constraint that is `DEFERRABLE` cannot be used as an `ON CONFLICT` arbiter; no upsert on position is planned.
 
-**`learn_progress`** (**P1**, created in a later migration, not in the P0 bootstrap per ADR-0005) - lesson completion per user.
+**`learn_progress`** (**P1**, created in a later migration, not in the P0 bootstrap per ADR-0005) - lesson completion per user. No migration creates it yet (2026-11-15); the header of `00008_learn.sql` names `00011`, but `00011` only changes the taxonomy, and migrations are immutable, so this line is the reference.
 
 ```sql
 CREATE TABLE learn_progress (
@@ -440,7 +440,7 @@ All search indexes are **partial on `status = 'published'`** (plus `visibility =
 
 DDL: see `db/migrations/00010_search_indexes.sql`.
 
-GIN trigram indexes serve `%`, `ILIKE` and `~`; they cannot serve `<->` `ORDER BY ... LIMIT` (that needs GiST), so typo tolerance is `WHERE title % $q ORDER BY similarity(title, $q) DESC LIMIT n` over a small candidate set, or an `ILIKE` fallback when full-text returns too few rows.
+GIN trigram indexes serve `%`, `ILIKE` and `~`; they cannot serve `<->` `ORDER BY ... LIMIT` (that needs GiST), so typo tolerance is a bounded candidate set. As built (2026-11-15, #248): when full text finds nothing in a group, `WHERE f_unaccent(title) %> f_unaccent($q)` (word similarity above `pg_trgm.word_similarity_threshold`, default 0.6, served by the partial trigram GIN index) with the full-text predicates and filters, at most 500 candidates, `ORDER BY word_similarity DESC, id LIMIT n` (`db/queries/search.sql`, `Similar*`). Word similarity, not `%`, because a short query against a long title has a low whole-string similarity. A query whose tsquery holds a NOT reads nothing (#292), since `pg_trgm` ignores `-`.
 
 ### 3.10 FK self-check
 
@@ -475,7 +475,7 @@ Enforced by service plus transaction (not expressible as a constraint): acceptan
 
 ## 5. Initial migration plan
 
-**ADR-0005 is accepted and P0 implementation is authorized (ADR-0001). Files `00001` to `00010` below exist in `db/migrations/` since B0 bootstrap (PR #24) and are immutable; the rows marked PLANNED are not written yet.** Tool: goose, plain SQL, forward-only: no `-- +goose Down` section; CI rejects one. Sequential names `NNNNN_<slug>.sql` per ADR-0005 point 3. Every file begins with the header required by the migration policy (6.1): purpose, tables/indexes, lock risk, volume, transaction behaviour, compatibility window, restore plan, owner (`Y4NN777` under ADR-0002).
+**ADR-0005 is accepted and P0 implementation is authorized (ADR-0001). Files `00001` to `00010` below exist in `db/migrations/` since B0 bootstrap (PR #24) and are immutable. `00011` and `00012` are the E2 and C14b files. The row marked PLANNED is not written yet.** Tool: goose, plain SQL, forward-only: no `-- +goose Down` section; CI rejects one. Sequential names `NNNNN_<slug>.sql` per ADR-0005 point 3. Every file begins with the header required by the migration policy (6.1): purpose, tables/indexes, lock risk, volume, transaction behaviour, compatibility window, restore plan, owner (`Y4NN777` under ADR-0002; `mibienpanjoe` for `00011` and `00012`).
 
 | File | Contents | Lock / impact notes |
 |---|---|---|
@@ -489,11 +489,12 @@ Enforced by service plus transaction (not expressible as a constraint): acceptan
 | `00008_learn` | `learn_articles`, `learn_article_tags`, `training_series`, `training_lessons` | |
 | `00009_content_relations` | `content_relations` | Must follow 00005 to 00008 (FK targets). |
 | `00010_search_indexes` | GIN/trigram indexes (3.9) | Normal `CREATE INDEX` on empty tables. **After data exists**, each new index is `CREATE INDEX CONCURRENTLY` in its own file starting with `-- +goose NO TRANSACTION`, with `lock_timeout` set. |
-| a later migration (number from `make migrate-new`) | **Deferred (P1).** `learn_progress`, `resource_reviews`, `content_reports` (DDL in 3.4, 3.6, 3.7) | Listed so the ERD and ADR-0005 stay consistent. |
-| a later migration (**PLANNED**, E2) | 5 `learn_topics`, 3 `resource_categories`, 4 relabels (3.1, 3.4); no deletions | `INSERT`/`UPDATE` on small reference tables. Not in `00002` (immutable). |
-| a later migration (**PLANNED**, C14b) | `profiles.profile_visibility` with its named CHECK (3.2) | Constant-default `ADD COLUMN` (no rewrite, short `ACCESS EXCLUSIVE` lock); the CHECK scans `profiles`, small at P0. Separate from E2; not in `00003`. |
+| a later migration (number from `make migrate-new`) | **Deferred (P1).** `learn_progress`, `resource_reviews`, `content_reports` (DDL in 3.4, 3.6, 3.7) | Listed so the ERD and ADR-0005 stay consistent. `00011` is not reserved for these tables. |
+| `00011_taxonomy_ai_topics` | 5 `learn_topics`, 3 `resource_categories`, 4 relabels (3.1, 3.4); no deletions | `INSERT`/`UPDATE` on small reference tables. Not in `00002` (immutable). |
+| `00012_profile_visibility` | `profiles.profile_visibility` with its named CHECK (3.2) | Constant-default `ADD COLUMN` (no rewrite, short `ACCESS EXCLUSIVE` lock); the CHECK scans `profiles`, small at P0. Separate file from E2; not in `00003`. |
+| `00013_error_report_source` | `error_reports.source_id` with a composite FK to `resource_sources (id, resource_id)` (S2 error reports, PR #96) | Lock notes in the migration header. Correction (issue #117 note, 2026-11-14): adding the foreign key takes the SHARE ROW EXCLUSIVE lock on **both** tables, `error_reports` and the referenced `resource_sources`, not only on `error_reports` as the header says; both locks are short (the new column is NULL everywhere, so validation is trivial). The merged migration stays unchanged (immutable). |
 
-Numbering: `scripts/migrate-new.sh` assigns the highest existing number plus one, so the first of the later migrations above gets `00011`. The owner decides the order in which the P1 and PLANNED migrations are created (`ROADMAP.md` C11).
+Numbering: `scripts/migrate-new.sh` assigns the highest existing number plus one. `00011` and `00012` are the taxonomy and profile-visibility files; `00013` is the error-report source. The deferred P1 tables take whatever number the script gives when they are written (`ROADMAP.md` C11). The list counts in the `00002` row stay the counts of that immutable file; current totals live in the pgtest list tests.
 
 Cross-file rules: foreign keys to populated tables are added `NOT VALID` then `VALIDATE CONSTRAINT`; destructive changes (drop column/table, type narrowing) follow expand/contract with a backup/restore plan and a human-approved ADR (`AGENTS.md`, `AGENTS.md`); each migration is exercised on a fresh database and on upgrade-from-previous in CI; releases run a dry run and verify a backup first (`docs/SHIP.md`); an application rollback never undoes a data migration (`docs/SHIP.md`).
 
@@ -501,11 +502,11 @@ Migration headers document purpose, tables/indexes, lock risk, data volume, tran
 
 ## 6. Seed policy
 
-**PLANNED:** `db/seeds/` does not exist yet (`mk/50-ops.mk` has no seed implementation); the rules below are the accepted design for when it is written.
+**IMPLEMENTED (PR #215, 2026-11-15):** `db/seeds/` holds the demo fixtures (contract in `db/seeds/README.md`) and `make seed` runs them; the rules below are the accepted design they follow. Owner decision 2026-11-15: seeds run in `local-dev` and `staging-test`, never in `production-live` (ROADMAP section 14).
 
 - Seeds live in `db/seeds/`, **separate from migrations**, as deterministic SQL with **fixed UUIDs** (no `now()` or random values; timestamps are literal) so two runs on an empty database produce identical rows. Reference data (countries, topics, categories) is a migration, not a seed.
 - Everything seeded is **fictional and clearly marked**: every root row carries `provenance = 'demo'` (`users`, `tags`, `providers`, `resources`, `questions`, `answers`, `projects`, `learn_articles`, `training_series`); demo accounts use the reserved `@demo.226os.invalid` email domain and `demo-` usernames; URLs point only to `example.org`; the UI shows a demo badge for `provenance = 'demo'`. No real person, company, provider endorsement, contribution, price/quota/benchmark or verification is implied. A demo resource may be `verified` only against a visibly fictional `example.org` source; demo data must never be presented as real activity or reputation.
-- Seeds run only in `local-dev` and `staging-test` (ADR-0005 point 8). They never run automatically, and never in `production-live`: the seed command refuses unless the environment name allows it, and a CI/release check asserts `SELECT count(*) FROM <root tables> WHERE provenance = 'demo'` is `0` against a production-live database (and that no `@demo.226os.invalid` account exists). Seeds are `provenance = 'demo'` and run only in `local-dev` and `staging-test`. A demo account in production is not part of `db/seeds/` and would need its own explicit owner decision.
+- Seeds run only in `local-dev` and `staging-test` (ADR-0005 point 17). They never run automatically, and never in `production-live`: the seed command refuses unless the environment name allows it, and a CI/release check asserts `SELECT count(*) FROM <root tables> WHERE provenance = 'demo'` is `0` against a production-live database (and that no `@demo.226os.invalid` account exists). Seeds are `provenance = 'demo'` and run only in `local-dev` and `staging-test`. A demo account in production is not part of `db/seeds/` and would need its own explicit owner decision.
 - The prototype data in `prototypes/html/assets/data/*.js` (fictional people, 9 countries, categories, questions, resources, projects, the AI series) is a UX/shape reference for fixtures only; it is not imported as-is and never presented as real.
 - Purging demo data is a dev-only script deleting in reverse dependency order (all content FKs are `RESTRICT`); it is not a migration.
 - Seed ownership: the owner (`Y4NN777`, ADR-0002) curates and reviews demo content.
@@ -522,7 +523,7 @@ General: no `OFFSET` on public lists; `limit` bounded (default 20, max 50, ADR-0
 | Catalogue (Discover) | category, type, country (`resource_countries`), docs language, SDK language (`resource_sdk_languages`), provider, verification status, tag | `(name, id)`; keyset `(name, id) > ($1, $2)`; staleness derived from `max(resource_sources.checked_at)` | `resources_catalogue_idx (category_code, type, name, id)`, `resource_countries_country_idx`, `resource_sdk_languages_language_idx`, `resources_provider_idx`, `resource_tags_tag_idx` |
 | Project browse (Build) | country, stage, tag/technology, open needs (`EXISTS contribution_needs ... status = 'open'`), licence | `(published_at DESC, id DESC)` | `projects_browse_idx`, `projects_country_idx`, `project_tags_tag_idx`, `contribution_needs_open_idx` |
 | Need discovery by skill | `need_skills.tag_id = ANY(user skills)` | `(contribution_needs.created_at DESC, id DESC)` | `need_skills_tag_idx`, `contribution_needs_open_idx` |
-| Applications (owner) | need, status | `(created_at DESC, id DESC)` | `applications_need_idx`; authorization predicate (owner or delegated maintainer of the need's project) is part of the query, never a post-filter |
+| Applications (owner) | need, status | `(created_at DESC, id DESC)` | `applications_need_idx`; authorization predicate (owner of the need's project; no maintainer delegation at P0, C1) is part of the query, never a post-filter |
 | My applications | user | `(created_at DESC, id DESC)` | `applications_user_idx` |
 | Learn list | kind, level, language, topic, tag | `(published_at DESC, id DESC)` | `learn_articles_browse_idx`, `learn_articles_topic_idx`, `learn_article_tags_tag_idx`; series list via `training_series_browse_idx`; lessons ordered by `(series_id, position)` via `training_lessons_position_uq` |
 | Search (all) | `q` length 1-100 (`websearch_to_tsquery('simple', f_unaccent($q))`), type, country, tag, language | rank is unstable for cursors: P0 returns a bounded top-N per source (N <= 50, no deep paging), merged by `(rank DESC, type, id)`; opaque cursor only if the relevance policy fixes a quantized rank | the GIN/trigram indexes in 3.9; candidate set is bounded before `ts_rank` because ranking reads each matching tsvector |
@@ -554,7 +555,7 @@ Dynamic `ORDER BY` is never built from user input; sort options map to a fixed a
 | # | Topic | Decision |
 |---|---|---|
 | 1 | PostgreSQL version and UUID | PostgreSQL 18, `DEFAULT uuidv7()` |
-| 2 | "Collaborator" | Not a role: an applicant whose application is accepted on a project. `project_maintainers` are owner-added maintainers with explicit rights (edit project, manage needs and applications) |
+| 2 | "Collaborator" | Not a role: an applicant whose application is accepted on a project. `project_maintainers` are owner-added maintainers; at P0 they have no rights (C1, owner only) |
 | 3 | 403 versus 404 | 403 if the object is visible to the caller, 404 if not |
 | 4 | Migration wording | Forward-only plus restore; SPEC amended |
 | 5 | Search scope | Questions, resources, projects and Learn articles; SPEC and CONTRACTS amended |
@@ -565,7 +566,7 @@ Dynamic `ORDER BY` is never built from user input; sort options map to a fixed a
 | 10 | Projects without GitHub URL and private URL uniqueness | Only `stage = 'idea'` may omit the URL; the URL uniqueness is across non-removed projects (the existence oracle for private projects is accepted at P0 and revisited in the post-P0 review) |
 | 11 | Votes | Up and down; self-vote forbidden (403 `SELF_VOTE_FORBIDDEN`) |
 | 12 | Counters | `answer_count` and `vote_score` are denormalized, updated in the same transaction, with a reconcile test |
-| 13 | Application transitions | Service-guarded; re-apply only after the applicant's own withdrawal; none after a decline; owner or maintainer decides |
+| 13 | Application transitions | Service-guarded; re-apply only after the applicant's own withdrawal; none after a decline; the project owner decides (C1) |
 | 14 | French search | `simple` plus `f_unaccent` in P0; answers are indexed; denied attempts go to logs, not to `audit_log` |
 | 15 | `rate_limit_buckets` | `UNLOGGED` accepted (ADR-0003) |
 | 16 | `resource_sdks` overlap | `resources.type` = api/sdk/tool; table renamed `resource_sdk_languages` |
@@ -579,4 +580,4 @@ Dynamic `ORDER BY` is never built from user input; sort options map to a fixed a
 
 ## 11. Approval record
 
-ADR-0005 is ACCEPTED (2026-11-11, `Y4NN777`). The items above, the table notes in section 3 and the migration plan in section 5 are the approved design. Migrations `00001` to `00010` run on a fresh PostgreSQL 18 database in the pgtest integration suite (see the header). The upgrade-path run, the relevance dataset and EXPLAIN evidence, and the restore drill remain G3, G6 and G7 evidence that is NOT RUN as of 2026-11-12.
+ADR-0005 is ACCEPTED (2026-11-11, `Y4NN777`). The items above, the table notes in section 3 and the migration plan in section 5 are the approved design. Migrations `00001` to `00012` run on a fresh PostgreSQL 18 database in the pgtest integration suite, and the upgrade from version 10 is `TestUpgradeFromVersion10KeepsExistingRows` (see the header). The relevance dataset and EXPLAIN evidence, and the restore drill, remain G6 and G7 evidence that is NOT RUN as of 2026-11-12.

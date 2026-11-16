@@ -1,0 +1,263 @@
+import { act, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { afterEach, describe, expect, it } from 'vitest';
+import { callsTo, mockApi, problemResponse } from '../../test/api';
+import { renderApp, setLanguages } from '../../test/render';
+import { findVisibleText, getVisibleText } from '../../test/visibleText';
+
+const VERIFY = 'POST /auth/verify-email';
+const RESEND = 'POST /auth/verify-email/resend';
+const accepted = () =>
+  new Response(JSON.stringify({ status: 'accepted' }), {
+    status: 202,
+    headers: { 'Content-Type': 'application/json' },
+  });
+const TOKEN = 'abcdefghijklmnopqrstuvwxyz012345';
+const noContent = () => new Response(null, { status: 204 });
+
+async function open(language = 'fr-FR', routes: Parameters<typeof mockApi>[0] = {}) {
+  setLanguages([language]);
+  const fetchMock = mockApi(routes);
+  const user = userEvent.setup({ delay: null });
+  const app = await renderApp('/verifier-email');
+  await screen.findByRole('heading', { level: 1 });
+  return { fetchMock, user, ...app };
+}
+
+afterEach(() => {
+  window.history.replaceState(null, '', '/');
+});
+
+describe('VerifyEmailPage', () => {
+  it('explains where the code is and offers to resend it', async () => {
+    await open();
+    expect(
+      screen.getByRole('heading', { level: 1, name: 'Vérifiez votre boîte mail' }),
+    ).toBeVisible();
+    expect(screen.getByText(/un code vous attend par e-mail/)).toBeVisible();
+    expect(screen.getByLabelText('Code de confirmation')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Renvoyer le code' })).toBeVisible();
+  });
+
+  it('resends a code to the address typed, then returns to the code field', async () => {
+    const { user, fetchMock } = await open('fr-FR', { [RESEND]: accepted });
+    await user.click(screen.getByRole('button', { name: 'Renvoyer le code' }));
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Recevoir un nouveau code' }),
+    ).toBeVisible();
+    await user.type(screen.getByLabelText('Adresse e-mail'), '  ada@example.com ');
+    await user.click(screen.getByRole('button', { name: 'Envoyer un nouveau code' }));
+    expect(await findVisibleText(/un nouveau code vient de partir/)).toBeInTheDocument();
+    const [request] = callsTo(fetchMock, RESEND);
+    expect(request?.headers.get('X-CSRF-Token')).toBeTruthy();
+    expect(await request?.clone().json()).toEqual({ email: 'ada@example.com' });
+    await user.click(screen.getByRole('button', { name: 'Saisir le code' }));
+    expect(await screen.findByLabelText('Code de confirmation')).toBeVisible();
+  });
+
+  it('validates the address before resending and can go back', async () => {
+    const { user, fetchMock } = await open('fr-FR', { [RESEND]: accepted });
+    await user.click(screen.getByRole('button', { name: 'Renvoyer le code' }));
+    await user.click(await screen.findByRole('button', { name: 'Envoyer un nouveau code' }));
+    await waitFor(() => expect(screen.getByLabelText('Adresse e-mail')).toHaveFocus());
+    expect(callsTo(fetchMock, RESEND)).toHaveLength(0);
+    await user.click(screen.getByRole('button', { name: 'J’ai déjà un code' }));
+    expect(await screen.findByLabelText('Code de confirmation')).toBeVisible();
+  });
+
+  it('waits on a 429 from the resend', async () => {
+    const { user } = await open('fr-FR', {
+      [RESEND]: () => problemResponse(429, 'RATE_LIMITED', { retryAfter: 30 }),
+    });
+    await user.click(screen.getByRole('button', { name: 'Renvoyer le code' }));
+    await user.type(await screen.findByLabelText('Adresse e-mail'), 'ada@example.com');
+    await user.click(screen.getByRole('button', { name: 'Envoyer un nouveau code' }));
+    expect(await screen.findByRole('button', { name: 'Réessayer dans 30 s' })).toBeInTheDocument();
+    expect(getVisibleText('Trop de tentatives')).toBeInTheDocument();
+  });
+
+  it('validates the code on submit and focuses the field', async () => {
+    const { user, fetchMock } = await open();
+    await user.click(screen.getByRole('button', { name: 'Confirmer' }));
+    expect(await screen.findAllByText('Saisissez le code reçu par e-mail.')).not.toHaveLength(0);
+    await waitFor(() => expect(screen.getByLabelText('Code de confirmation')).toHaveFocus());
+    await user.type(screen.getByLabelText('Code de confirmation'), 'short');
+    await user.click(screen.getByRole('button', { name: 'Confirmer' }));
+    expect(await screen.findAllByText('Code non valide. Collez-le en entier.')).not.toHaveLength(0);
+    expect(callsTo(fetchMock, VERIFY)).toHaveLength(0);
+  });
+
+  it('confirms a pasted code and offers to sign in', async () => {
+    const { user, fetchMock } = await open('fr-FR', { [VERIFY]: noContent });
+    await user.click(screen.getByLabelText('Code de confirmation'));
+    await user.paste(`  ${TOKEN}  `);
+    await user.click(screen.getByRole('button', { name: 'Confirmer' }));
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Adresse confirmée' }),
+    ).toBeVisible();
+    const [request] = callsTo(fetchMock, VERIFY);
+    expect(request?.headers.get('X-CSRF-Token')).toBeTruthy();
+    expect(await request?.clone().json()).toEqual({ token: TOKEN });
+    expect(screen.getByRole('link', { name: 'Se connecter' })).toHaveAttribute(
+      'href',
+      '/connexion?next=/bienvenue',
+    );
+  });
+
+  it.each([
+    ['INVALID_TOKEN', problemResponse(422, 'INVALID_TOKEN')],
+    [
+      'a violation on token',
+      problemResponse(422, 'VALIDATION_ERROR', {
+        violations: [{ field: '/token', code: 'too_short' }],
+      }),
+    ],
+  ] as const)(
+    'shows the invalid-code state on %s, then lets the user retry',
+    async (_name, response) => {
+      const { user } = await open('fr-FR', { [VERIFY]: () => response.clone() });
+      await user.type(screen.getByLabelText('Code de confirmation'), TOKEN);
+      await user.click(screen.getByRole('button', { name: 'Confirmer' }));
+      expect(
+        await screen.findByRole('heading', {
+          level: 1,
+          name: 'Code non valide ou expiré',
+        }),
+      ).toBeVisible();
+      expect(screen.getByRole('link', { name: 'Créer un compte' })).toHaveAttribute(
+        'href',
+        '/inscription',
+      );
+      expect(screen.getByRole('button', { name: 'Renvoyer le code' })).toBeVisible();
+      await user.click(screen.getByRole('button', { name: 'Saisir un autre code' }));
+      expect(await screen.findByLabelText('Code de confirmation')).toBeVisible();
+    },
+  );
+
+  it('keeps an h1 on screen while a fragment token is being checked', async () => {
+    window.history.replaceState(null, '', `/verifier-email#token=${TOKEN}`);
+    setLanguages(['fr-FR']);
+    mockApi({
+      [VERIFY]: () =>
+        new Promise<Response>((resolve) => {
+          setTimeout(() => {
+            resolve(noContent());
+          }, 80);
+        }),
+    });
+    await renderApp('/verifier-email');
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Vérifiez votre boîte mail' }),
+    ).toBeVisible();
+    expect(screen.getByText('Vérification du code…')).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Adresse confirmée' }),
+    ).toBeVisible();
+  });
+
+  it('reads a token from the fragment, removes it from the address bar and submits it', async () => {
+    window.history.replaceState(null, '', `/verifier-email#token=${TOKEN}`);
+    setLanguages(['fr-FR']);
+    const fetchMock = mockApi({ [VERIFY]: noContent });
+    await renderApp('/verifier-email');
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Adresse confirmée' }),
+    ).toBeVisible();
+    expect(window.location.hash).toBe('');
+    expect(window.location.href).not.toContain(TOKEN);
+    expect(callsTo(fetchMock, VERIFY)).toHaveLength(1);
+    expect(await callsTo(fetchMock, VERIFY)[0]?.clone().json()).toEqual({ token: TOKEN });
+  });
+
+  it('verifies a token that arrives by fragment change in a tab already on the page', async () => {
+    const { fetchMock } = await open('fr-FR', { [VERIFY]: noContent });
+    expect(callsTo(fetchMock, VERIFY)).toHaveLength(0);
+    act(() => {
+      window.location.hash = '#token=abc';
+      window.dispatchEvent(new HashChangeEvent('hashchange'));
+    });
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Adresse confirmée' }),
+    ).toBeVisible();
+    expect(callsTo(fetchMock, VERIFY)).toHaveLength(1);
+    expect(await callsTo(fetchMock, VERIFY)[0]?.clone().json()).toEqual({ token: 'abc' });
+    expect(window.location.hash).toBe('');
+  });
+
+  it('shows the invalid state when the fragment token is refused', async () => {
+    window.history.replaceState(null, '', `/verifier-email#token=${TOKEN}`);
+    setLanguages(['fr-FR']);
+    mockApi({ [VERIFY]: () => problemResponse(422, 'INVALID_TOKEN') });
+    await renderApp('/verifier-email');
+    expect(
+      await screen.findByRole('heading', {
+        level: 1,
+        name: 'Code non valide ou expiré',
+      }),
+    ).toBeVisible();
+    expect(window.location.hash).toBe('');
+  });
+
+  it('keeps the fragment token in the field after a transient failure', async () => {
+    window.history.replaceState(null, '', `/verifier-email#token=${TOKEN}`);
+    setLanguages(['fr-FR']);
+    mockApi({ [VERIFY]: () => problemResponse(500, 'INTERNAL_ERROR') });
+    await renderApp('/verifier-email');
+    expect(await findVisibleText(/Une erreur est survenue/)).toBeInTheDocument();
+    expect(screen.getByLabelText('Code de confirmation')).toHaveValue(TOKEN);
+  });
+
+  it('is calm on a 429', async () => {
+    const { user } = await open('fr-FR', {
+      [VERIFY]: () => problemResponse(429, 'RATE_LIMITED', { retryAfter: 20 }),
+    });
+    await user.type(screen.getByLabelText('Code de confirmation'), TOKEN);
+    await user.click(screen.getByRole('button', { name: 'Confirmer' }));
+    expect(await screen.findByRole('button', { name: 'Réessayer dans 20 s' })).toBeInTheDocument();
+    expect(getVisibleText('Trop de tentatives')).toBeInTheDocument();
+  });
+
+  it('shows the network message when the server cannot be reached', async () => {
+    const { user } = await open('fr-FR', {
+      [VERIFY]: () => {
+        throw new TypeError('failed to fetch');
+      },
+    });
+    await user.type(screen.getByLabelText('Code de confirmation'), TOKEN);
+    await user.click(screen.getByRole('button', { name: 'Confirmer' }));
+    expect(await findVisibleText(/Le serveur ne répond pas/)).toBeInTheDocument();
+  });
+
+  it('sends one request on a double click', async () => {
+    const { user, fetchMock } = await open('fr-FR', {
+      [VERIFY]: () =>
+        new Promise<Response>((resolve) => {
+          setTimeout(() => {
+            resolve(noContent());
+          }, 50);
+        }),
+    });
+    await user.type(screen.getByLabelText('Code de confirmation'), TOKEN);
+    await user.dblClick(screen.getByRole('button', { name: 'Confirmer' }));
+    await new Promise((resolve) => setTimeout(resolve, 120));
+    expect(callsTo(fetchMock, VERIFY)).toHaveLength(1);
+  });
+
+  it('offers the resend in English', async () => {
+    const { user } = await open('en-US', { [RESEND]: accepted });
+    await user.click(screen.getByRole('button', { name: 'Resend the code' }));
+    await user.type(await screen.findByLabelText('Email address'), 'ada@example.com');
+    await user.click(screen.getByRole('button', { name: 'Send a new code' }));
+    expect(await findVisibleText(/a new code is on its way/)).toBeInTheDocument();
+  });
+
+  it('is available in English', async () => {
+    const { user } = await open('en-US', { [VERIFY]: noContent });
+    expect(screen.getByRole('heading', { level: 1, name: 'Check your inbox' })).toBeVisible();
+    await user.type(screen.getByLabelText('Confirmation code'), TOKEN);
+    await user.click(screen.getByRole('button', { name: 'Confirm' }));
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Address confirmed' }),
+    ).toBeVisible();
+  });
+});

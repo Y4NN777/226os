@@ -1,0 +1,6 @@
+package service
+
+var (
+	languagePattern = regexp.MustCompile(`^[a-z]{2,3}$`)
+	githubPattern   = regexp.MustCompile(`^[A-Za-z0-9-]{1,39}$`)
+)

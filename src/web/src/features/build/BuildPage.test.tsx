@@ -1,0 +1,371 @@
+import { screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { describe, expect, it } from 'vitest';
+import { callsTo, mockApi, problemResponse } from '../../test/api';
+import { jsonResponse, renderApp, setLanguages } from '../../test/render';
+import { member, page, project, projectId } from './testFixtures';
+
+const second = project({
+  id: 'e0000000-0000-4000-8000-000000000002',
+  name: 'sahel-docs',
+  description: '',
+  technologies: ['markdown'],
+  open_needs_count: 0,
+});
+
+async function expectAlert(text: string) {
+  await waitFor(() => {
+    const alerts = screen.getAllByRole('alert').map((alert) => alert.textContent);
+    expect(alerts.join(' ')).toContain(text);
+  });
+}
+
+describe('BuildPage list', () => {
+  it('lists projects as links with technologies, open needs and owner, in French', async () => {
+    setLanguages(['fr-FR']);
+    mockApi({ 'GET /projects': () => page([project(), second]) });
+    await renderApp('/build');
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Construire' }),
+    ).toBeInTheDocument();
+    const crumbs = screen.getByRole('navigation', { name: 'Fil d’Ariane' });
+    expect(within(crumbs).getByRole('link', { name: 'Accueil' })).toHaveAttribute('href', '/');
+    expect(within(crumbs).getByText('Construire')).toHaveAttribute('aria-current', 'page');
+    const link = await screen.findByRole('link', { name: 'kora-sdk' });
+    expect(link).toHaveAttribute('href', `/build/${projectId}`);
+    const results = screen.getByRole('region', { name: 'Projets' });
+    expect(within(results).getByText('mobile-money')).toBeInTheDocument();
+    expect(within(results).getByText('1 besoin ouvert')).toBeInTheDocument();
+    expect(within(results).getByText('Aucun besoin ouvert')).toBeInTheDocument();
+    expect(within(results).getAllByRole('link', { name: 'Kofi Mensah' })[0]).toHaveAttribute(
+      'href',
+      '/profils/kofi',
+    );
+  });
+
+  it('loads the next page with the opaque cursor', async () => {
+    setLanguages(['fr-FR']);
+    const fetchMock = mockApi({
+      'GET /projects': (request) =>
+        new URL(request.url).searchParams.get('cursor') === 'cur-2'
+          ? page([second])
+          : page([project()], 'cur-2'),
+    });
+    const user = userEvent.setup({ delay: null });
+    await renderApp('/build');
+    await screen.findByRole('link', { name: 'kora-sdk' });
+    await user.click(screen.getByRole('button', { name: 'Afficher plus' }));
+    expect(await screen.findByRole('link', { name: 'sahel-docs' })).toBeVisible();
+    expect(callsTo(fetchMock, 'GET /projects')).toHaveLength(2);
+    expect(screen.queryByRole('button', { name: 'Afficher plus' })).not.toBeInTheDocument();
+  });
+
+  it('says so when there is no project, and offers a retry when the load fails', async () => {
+    setLanguages(['fr-FR']);
+    mockApi({ 'GET /projects': () => page([]) });
+    await renderApp('/build');
+    expect(await screen.findByText('Aucun projet')).toBeInTheDocument();
+  });
+
+  it('shows a retryable error', async () => {
+    setLanguages(['fr-FR']);
+    let calls = 0;
+    mockApi({
+      'GET /projects': () =>
+        ++calls === 1 ? problemResponse(500, 'INTERNAL_ERROR') : page([project()]),
+    });
+    const user = userEvent.setup({ delay: null });
+    await renderApp('/build');
+    await expectAlert('Une erreur est survenue');
+    await user.click(screen.getByRole('button', { name: 'Réessayer' }));
+    expect(await screen.findByRole('link', { name: 'kora-sdk' })).toBeVisible();
+  });
+
+  it('turns Construire into a live navigation link', async () => {
+    setLanguages(['fr-FR']);
+    mockApi({ 'GET /projects': () => page([]) });
+    await renderApp('/build');
+    const nav = await screen.findByRole('navigation', { name: 'Navigation principale' });
+    expect(within(nav).getByRole('link', { name: 'Construire' })).toHaveAttribute('href', '/build');
+  });
+
+  it('invites an anonymous visitor to sign in, with a safe next', async () => {
+    setLanguages(['fr-FR']);
+    mockApi({ 'GET /projects': () => page([]) });
+    await renderApp('/build');
+    expect(
+      await screen.findByRole('link', { name: 'Se connecter pour proposer un projet' }),
+    ).toHaveAttribute('href', '/connexion?next=%2Fbuild');
+    expect(screen.queryByRole('button', { name: 'Proposer un projet' })).not.toBeInTheDocument();
+  });
+});
+
+describe('BuildPage rows', () => {
+  it('shows a dense row: state pill, private badge, update date and the origin question', async () => {
+    setLanguages(['fr-FR']);
+    mockApi({
+      'GET /projects': () =>
+        page([
+          project({
+            visibility: 'private',
+            updated_at: '2026-11-08T12:00:00Z',
+            related: [
+              {
+                type: 'question',
+                id: 'b1000000-0000-4000-8000-000000000001',
+                title: 'Signer un webhook en Go',
+              },
+            ],
+          }),
+          second,
+        ]),
+    });
+    await renderApp('/build');
+    const row = (await screen.findByRole('link', { name: 'kora-sdk' })).closest('li');
+    expect(row).not.toBeNull();
+    const scope = within(row as HTMLElement);
+    expect(scope.getByText('Privé')).toBeVisible();
+    expect(scope.getByText('1 besoin ouvert')).toBeVisible();
+    expect(scope.getByText('8 nov. 2026').closest('time')).toHaveAttribute(
+      'datetime',
+      '2026-11-08T12:00:00Z',
+    );
+    expect(scope.getByRole('link', { name: 'Signer un webhook en Go' })).toHaveAttribute(
+      'href',
+      '/questions/b1000000-0000-4000-8000-000000000001',
+    );
+    expect(scope.getByText('Un SDK pour les paiements mobiles.')).toHaveAttribute('lang', 'fr');
+  });
+
+  it('words the open-needs pill in English', async () => {
+    setLanguages(['en-US']);
+    mockApi({ 'GET /projects': () => page([project({ open_needs_count: 3 }), second]) });
+    await renderApp('/build');
+    const results = await screen.findByRole('region', { name: 'Projects' });
+    expect(await within(results).findByText('3 open needs')).toBeVisible();
+    expect(within(results).getByText('No open need')).toBeVisible();
+  });
+});
+
+describe('BuildPage filters', () => {
+  it('searches with q and open_needs, then resets to the full list', async () => {
+    setLanguages(['fr-FR']);
+    const fetchMock = mockApi({
+      'GET /projects': (request) => {
+        const params = new URL(request.url).searchParams;
+        return params.get('q') === 'zzz' ? page([]) : page([project()]);
+      },
+    });
+    const user = userEvent.setup({ delay: null });
+    await renderApp('/build');
+    await screen.findByRole('link', { name: 'kora-sdk' });
+
+    const search = screen.getByRole('search', { name: 'Rechercher un projet' });
+    await user.click(within(search).getByRole('checkbox', { name: /Besoins ouverts uniquement/ }));
+    await waitFor(() => {
+      const urls = callsTo(fetchMock, 'GET /projects').map((r) => new URL(r.url));
+      expect(urls.some((url) => url.searchParams.get('open_needs') === 'true')).toBe(true);
+    });
+
+    await user.type(within(search).getByRole('searchbox', { name: /Rechercher/ }), 'zzz{Enter}');
+    expect(await screen.findByText('Aucun projet ne correspond')).toBeVisible();
+    const last = callsTo(fetchMock, 'GET /projects').at(-1);
+    expect(new URL(last?.url ?? '').searchParams.get('q')).toBe('zzz');
+    expect(new URL(last?.url ?? '').searchParams.get('open_needs')).toBe('true');
+
+    // The empty state and the search bar both offer « Effacer les filtres »: use the empty state's.
+    const empty = screen.getByText('Aucun projet ne correspond').closest('section') as HTMLElement;
+    await user.click(within(empty).getByRole('button', { name: 'Effacer les filtres' }));
+    expect(await screen.findByRole('link', { name: 'kora-sdk' })).toBeVisible();
+    const cleared = screen.getByRole('search', { name: 'Rechercher un projet' });
+    expect(within(cleared).getByRole('searchbox', { name: /Rechercher/ })).toHaveValue('');
+    expect(
+      within(cleared).getByRole('checkbox', { name: /Besoins ouverts uniquement/ }),
+    ).not.toBeChecked();
+  });
+});
+
+const created = project({ id: 'e0000000-0000-4000-8000-0000000000bb' });
+
+async function openForm() {
+  const user = userEvent.setup({ delay: null });
+  await renderApp('/build');
+  await user.click(await screen.findByRole('button', { name: 'Proposer un projet' }));
+  return user;
+}
+
+describe('BuildPage create form', () => {
+  it('sends the project with CSRF, JSON and an Idempotency-Key, then opens its page', async () => {
+    setLanguages(['fr-FR']);
+    const fetchMock = member({
+      'GET /projects': () => page([]),
+      'POST /projects': () => jsonResponse(created, { status: 201 }),
+      [`GET /projects/${created.id}`]: () => jsonResponse(created),
+      [`GET /projects/${created.id}/contribution-needs`]: () => page([]),
+    });
+    const user = await openForm();
+    await user.type(
+      screen.getByRole('textbox', { name: /Dépôt GitHub/ }),
+      'https://github.com/kora-dev/kora-sdk',
+    );
+    await user.type(screen.getByRole('textbox', { name: /Technologies/ }), 'Go, mobile-money');
+    await user.click(screen.getByRole('button', { name: 'Publier le projet' }));
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'kora-sdk' })).toBeVisible();
+    const [request] = callsTo(fetchMock, 'POST /projects');
+    expect(request?.headers.get('X-CSRF-Token')).toBeTruthy();
+    expect(request?.headers.get('Content-Type')).toContain('application/json');
+    expect(request?.headers.get('Idempotency-Key')).toBeTruthy();
+    expect(await request?.clone().json()).toMatchObject({
+      github_url: 'https://github.com/kora-dev/kora-sdk',
+      technologies: ['go', 'mobile-money'],
+      lang: 'fr',
+    });
+  });
+
+  it('refuses an address that is not a GitHub repository without calling the API', async () => {
+    setLanguages(['fr-FR']);
+    const fetchMock = member({ 'GET /projects': () => page([]) });
+    const user = await openForm();
+    await user.type(screen.getByRole('textbox', { name: /Dépôt GitHub/ }), 'https://example.com/x');
+    await user.click(screen.getByRole('button', { name: 'Publier le projet' }));
+    expect(await screen.findByText(/Indiquez l’adresse d’un dépôt GitHub/)).toBeVisible();
+    expect(callsTo(fetchMock, 'POST /projects')).toHaveLength(0);
+  });
+
+  it('shows server violations on the field', async () => {
+    setLanguages(['fr-FR']);
+    member({
+      'GET /projects': () => page([]),
+      'POST /projects': () =>
+        problemResponse(422, 'VALIDATION_ERROR', {
+          violations: [{ field: '/description', code: 'too_long' }],
+        }),
+    });
+    const user = await openForm();
+    await user.type(
+      screen.getByRole('textbox', { name: /Dépôt GitHub/ }),
+      'https://github.com/kora-dev/kora-sdk',
+    );
+    await user.click(screen.getByRole('button', { name: 'Publier le projet' }));
+    expect(await screen.findByText(/1 000 caractères maximum/)).toBeVisible();
+  });
+
+  it('says on the URL field when the repository is unknown or already listed', async () => {
+    setLanguages(['fr-FR']);
+    let status = 422;
+    member({
+      'GET /projects': () => page([]),
+      'POST /projects': () =>
+        status === 422
+          ? problemResponse(422, 'INVALID_GITHUB_URL')
+          : problemResponse(409, 'STATE_CONFLICT'),
+    });
+    const user = await openForm();
+    await user.type(
+      screen.getByRole('textbox', { name: /Dépôt GitHub/ }),
+      'https://github.com/kora-dev/kora-sdk',
+    );
+    await user.click(screen.getByRole('button', { name: 'Publier le projet' }));
+    expect(await screen.findByText(/Dépôt public introuvable/)).toBeVisible();
+    status = 409;
+    await user.click(screen.getByRole('button', { name: 'Publier le projet' }));
+    expect(await screen.findByText(/déjà présenté/)).toBeVisible();
+    expect(screen.getByRole('textbox', { name: /Dépôt GitHub/ })).toBeInvalid();
+  });
+
+  it('asks to retry later when GitHub is unavailable, reusing the same key', async () => {
+    setLanguages(['fr-FR']);
+    const fetchMock = member({
+      'GET /projects': () => page([]),
+      'POST /projects': () => problemResponse(503, 'UPSTREAM_UNAVAILABLE', { retryAfter: 30 }),
+    });
+    const user = await openForm();
+    await user.type(
+      screen.getByRole('textbox', { name: /Dépôt GitHub/ }),
+      'https://github.com/kora-dev/kora-sdk',
+    );
+    await user.click(screen.getByRole('button', { name: 'Publier le projet' }));
+    await expectAlert('GitHub ne répond pas');
+    await user.click(screen.getByRole('button', { name: 'Publier le projet' }));
+    await waitFor(() => {
+      expect(callsTo(fetchMock, 'POST /projects')).toHaveLength(2);
+    });
+    const [first, again] = callsTo(fetchMock, 'POST /projects');
+    expect(again?.headers.get('Idempotency-Key')).toBe(first?.headers.get('Idempotency-Key'));
+  });
+
+  it('explains an unverified email', async () => {
+    setLanguages(['fr-FR']);
+    member({
+      'GET /projects': () => page([]),
+      'POST /projects': () => problemResponse(403, 'EMAIL_NOT_VERIFIED'),
+    });
+    const user = await openForm();
+    await user.type(
+      screen.getByRole('textbox', { name: /Dépôt GitHub/ }),
+      'https://github.com/kora-dev/kora-sdk',
+    );
+    await user.click(screen.getByRole('button', { name: 'Publier le projet' }));
+    await expectAlert('Confirmez d’abord votre adresse e-mail.');
+  });
+
+  it('follows Location when the replay omits the body', async () => {
+    setLanguages(['fr-FR']);
+    member({
+      'GET /projects': () => page([]),
+      'POST /projects': () =>
+        new Response(null, {
+          status: 201,
+          headers: {
+            'Idempotency-Body-Omitted': 'true',
+            Location: `/api/v1/projects/${created.id}`,
+          },
+        }),
+      [`GET /projects/${created.id}`]: () => jsonResponse(created),
+      [`GET /projects/${created.id}/contribution-needs`]: () => page([]),
+    });
+    const user = await openForm();
+    await user.type(
+      screen.getByRole('textbox', { name: /Dépôt GitHub/ }),
+      'https://github.com/kora-dev/kora-sdk',
+    );
+    await user.click(screen.getByRole('button', { name: 'Publier le projet' }));
+    expect(await screen.findByRole('heading', { level: 1, name: 'kora-sdk' })).toBeVisible();
+  });
+
+  it.each([
+    ['a cross-origin absolute Location', `https://evil.test/api/v1/projects/${created.id}`],
+    ['a protocol-relative Location', `//evil.test/api/v1/projects/${created.id}`],
+    ['a Location that is not a project', `/api/v1/questions/${created.id}`],
+    ['no Location', undefined],
+  ] as const)(
+    'does not navigate when a replay omits the body and has %s',
+    async (_name, location) => {
+      setLanguages(['fr-FR']);
+      member({
+        'GET /projects': () => page([]),
+        'POST /projects': () =>
+          new Response(null, {
+            status: 201,
+            headers: {
+              'Idempotency-Body-Omitted': 'true',
+              ...(location ? { Location: location } : {}),
+            },
+          }),
+      });
+      const user = userEvent.setup({ delay: null });
+      const { router } = await renderApp('/build');
+      await user.click(await screen.findByRole('button', { name: 'Proposer un projet' }));
+      await user.type(
+        screen.getByRole('textbox', { name: /Dépôt GitHub/ }),
+        'https://github.com/kora-dev/kora-sdk',
+      );
+      await user.click(screen.getByRole('button', { name: 'Publier le projet' }));
+      await expectAlert('Une erreur est survenue');
+      expect(router.state.location.pathname).toBe('/build');
+      expect(window.location.origin).not.toContain('evil');
+    },
+  );
+});

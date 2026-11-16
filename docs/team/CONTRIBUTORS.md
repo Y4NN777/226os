@@ -9,7 +9,7 @@ Identity rule: `Y4NN77` is the owner's Git author name, `Y4NN777` is the GitHub 
 | `Y4NN777` | admin (owner) | yes | ops and platform; backend lead; ADRs, risky decisions, releases; reviews frontend PRs |
 | `NICE-DEV226` | write | yes | backend |
 | `mibienpanjoe` | write | yes | backend; the single migration writer |
-| `PANK4SS` | invitation pending: must accept before pushing | yes | frontend |
+| `PANK4SS` | write (invitation accepted, H2 done) | yes | frontend |
 
 ## Work areas
 

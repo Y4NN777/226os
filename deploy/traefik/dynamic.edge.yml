@@ -8,14 +8,14 @@ http:
       service: api
       middlewares: [secure-headers]
       priority: 100
-      tls: {}
+      tls: { certResolver: le }
     web:
       rule: 'Host(`{{ env "PUBLIC_HOST" }}`)'
       entryPoints: [websecure]
       service: web
       middlewares: [secure-headers]
       priority: 1
-      tls: {}
+      tls: { certResolver: le }
   middlewares:
     secure-headers:
       headers:

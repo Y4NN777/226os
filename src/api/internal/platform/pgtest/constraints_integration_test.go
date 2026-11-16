@@ -52,6 +52,7 @@ func TestConstraintViolations(t *testing.T) {
 		{name: "bad username", stmt: `INSERT INTO profiles (user_id, username, display_name) VALUES ('` + uMod + `', 'A!', 'Mod')`, code: checkViol, constraint: "profiles_username_ck"},
 		{name: "bio without language", stmt: `INSERT INTO profiles (user_id, username, display_name, bio) VALUES ('` + uMod + `', 'mod', 'Mod', 'hi')`, code: checkViol, constraint: "profiles_bio_language_ck"},
 		{name: "bad profile visibility", stmt: `INSERT INTO profiles (user_id, username, display_name, bio_visibility) VALUES ('` + uMod + `', 'mod', 'Mod', 'friends')`, code: checkViol, constraint: "profiles_visibility_ck"},
+		{name: "unknown profile visibility", stmt: `INSERT INTO profiles (user_id, username, display_name, profile_visibility) VALUES ('` + uMod + `', 'mod', 'Mod', 'friends')`, code: checkViol, constraint: "profiles_profile_visibility_ck"},
 		{name: "duplicate session token hash", stmt: `INSERT INTO sessions (user_id, token_hash, csrf_token_hash, idle_expires_at, absolute_expires_at)
 			VALUES ('` + uBob + `', decode(repeat('ab', 32), 'hex'), decode(repeat('ee', 32), 'hex'), now() + interval '1 hour', now() + interval '1 day')`, code: uniqueViol, constraint: "sessions_token_hash_uq"},
 		{name: "session hash of wrong length", stmt: `INSERT INTO sessions (user_id, token_hash, csrf_token_hash, idle_expires_at, absolute_expires_at)
@@ -124,6 +125,7 @@ func TestConstraintViolations(t *testing.T) {
 		{name: "second triaged error report", setup: []string{`UPDATE error_reports SET status = 'triaged'`},
 			stmt: `INSERT INTO error_reports (resource_id, reporter_id, kind) VALUES ('` + rKal + `', '` + uBob + `', 'broken_link')`, code: uniqueViol, constraint: "error_reports_open_uq"},
 		{name: "error report resolved without handler", stmt: `UPDATE error_reports SET status = 'resolved' WHERE id = '` + erKal + `'`, code: checkViol, constraint: "error_reports_handled_ck"},
+		{name: "error report on a source of another resource", stmt: `INSERT INTO error_reports (resource_id, reporter_id, kind, source_id) VALUES ('` + rKal + `', '` + uBob + `', 'outdated', '` + rsSahel + `')`, code: fkViol, constraint: "error_reports_source_fk"},
 		{name: "error report kind", stmt: `UPDATE error_reports SET kind = 'spam' WHERE id = '` + erKal + `'`, code: checkViol, constraint: "error_reports_kind_ck"},
 
 		// build

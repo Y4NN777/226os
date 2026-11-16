@@ -8,3 +8,27 @@
 # Changing this file is a security review item: every addition needs a reviewer and a reason.
 GET /healthz   # liveness probe, no data, no session (docs/SHIP.md)
 GET /readyz    # readiness probe: pings the database, no data, no session (docs/SHIP.md, B2)
+GET /api/v1/resources   # listResources: published catalogue only, anonymous (US-DISCOVER-001)
+GET /api/v1/resources/{resourceId}   # getResource: published resource or 404, no private fields
+GET /api/v1/resources/{resourceId}/sources   # listResourceSources: provenance of a published resource; a source is verified only when it is the current verified source
+GET /api/v1/search   # search: published and visible content only (private projects, drafts, removed content and unpublished providers never appear), anonymous or member, bounded per group; anonymous callers limited to 60 per client network per minute (429 + Retry-After, fails open) (US-DISCOVER-001, US-SOLVE-001, US-LEARN-001)
+GET /api/v1/auth/csrf   # getCsrfToken: anonymous by design; issues the pre-session CSRF token (ADR-0003)
+POST /api/v1/auth/sign-up   # signUp: anonymous by design; generic 202, IP rate-limited, CSRF + Origin checked
+POST /api/v1/auth/sign-in   # signIn: anonymous by design; generic INVALID_CREDENTIALS, IP+account rate-limited, CSRF checked
+GET /api/v1/auth/session   # getSession: anonymous|member, never 401 (session bootstrap)
+POST /api/v1/auth/verify-email   # verifyEmail: anonymous by design; single-use hashed token, CSRF checked
+POST /api/v1/auth/verify-email/resend   # resendEmailVerification: anonymous by design; always 202, IP+account rate-limited, CSRF checked
+POST /api/v1/auth/password-reset/request   # requestPasswordReset: anonymous by design; always 202, IP+account rate-limited, CSRF checked
+POST /api/v1/auth/password-reset/confirm   # confirmPasswordReset: anonymous by design; single-use hashed token, revokes all sessions, CSRF checked
+GET /api/v1/profiles   # listProfiles (E5): anonymous|member, read-only people directory; listed only if the account is active, profile_visibility, open_to_collab and open_to_collab_visibility allow the caller; fields and filters follow field_visibility, email never selected; 60 per minute per client network (anonymous) or per user (member), 429 + Retry-After (C14b); ADR-0016: source=all|members|github adds labelled committers.top entries (public GitHub data, no account), deduplicated against listable members whose github is visible, opt-outs never listed
+GET /api/v1/profiles/{username}   # getProfile: anonymous|member, visibility-filtered, identical 404 for hidden/unknown (C14b); ranking (ADR-0016) only when the github field is visible to the caller and the login has not opted out
+GET /api/v1/learn/articles   # listLearnArticles: published articles and tutorials only, anonymous (US-LEARN-001); drafts, archived and removed never listed
+GET /api/v1/learn/articles/{articleId}   # getLearnArticle: published article or 404; a draft or archived article only to its author (session subject), removed never
+GET /api/v1/learn/series   # listTrainingSeries: published series only, anonymous (US-LEARN-001)
+GET /api/v1/learn/series/{seriesId}   # getTrainingSeries: published series and its published lessons or 404; no my_progress (C3, P1)
+GET /api/v1/projects   # listProjects: published public projects, plus the caller's own private ones (US-BUILD-001)
+GET /api/v1/projects/{projectId}   # getProject: published project; a private one only to its owner, 404 to everyone else with the unknown-project body
+GET /api/v1/projects/{projectId}/contribution-needs   # listContributionNeeds: follows the project's visibility (private: 404 to all but the owner)
+GET /api/v1/questions   # listQuestions: published questions only, anonymous (US-SOLVE-001); a removed question is never listed
+GET /api/v1/questions/{questionId}   # getQuestion: published question or 404 (unknown and removed are the same body); sends the ETag
+GET /api/v1/questions/{questionId}/answers   # listAnswers: answers of a published question or 404; accepted first, then score

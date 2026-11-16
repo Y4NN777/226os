@@ -122,6 +122,24 @@ type ErrorReport struct {
 	HandledBy  pgtype.UUID
 	HandledAt  pgtype.Timestamptz
 	CreatedAt  pgtype.Timestamptz
+	SourceID   pgtype.UUID
+}
+
+type GithubDeveloper struct {
+	CountryCode   string
+	Login         string
+	Rank          int32
+	Name          string
+	AvatarUrl     string
+	Contributions int32
+	Organizations []string
+	GeneratedAt   pgtype.Timestamptz
+	ImportedAt    pgtype.Timestamptz
+}
+
+type GithubDeveloperOptout struct {
+	Login     string
+	CreatedAt pgtype.Timestamptz
 }
 
 type IdempotencyKey struct {
@@ -201,6 +219,7 @@ type Profile struct {
 	OpenToCollabVisibility string
 	CreatedAt              pgtype.Timestamptz
 	UpdatedAt              pgtype.Timestamptz
+	ProfileVisibility      string
 }
 
 type Project struct {

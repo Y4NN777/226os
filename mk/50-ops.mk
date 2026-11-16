@@ -17,11 +17,16 @@ up-staging-test: doctor ## Start the staging-test profile from pinned images (re
 down-staging-test: doctor ## Stop the staging-test profile (volumes are kept)
 	scripts/compose.sh staging-test down
 
+smoke: doctor ## Post-deploy smoke (read-only): make smoke PROFILE=local-dev|staging-test|production-live [BASE_URL=https://<host>]
+	@[ -n "$(PROFILE)" ] || { echo "smoke: PROFILE is required (local-dev, staging-test or production-live)" >&2; exit 64; }
+	scripts/smoke.sh "$(PROFILE)" $(BASE_URL)
+
 # up-production-live is never run from a developer machine (ADR-0006). Guard (_guard-production-up): the
 # documented deploy context is an automated release job, i.e. CI=true, no interactive terminal on stdin, and
 # an explicit PRODUCTION_UP_CONFIRM=production-live. scripts/compose.sh then still requires APP_ENV=production-live
-# in the env file (no CHANGE_ME, real PUBLIC_HOST and ACME_EMAIL). There is no deploy workflow yet (TASK-OPS-001),
-# so today no context satisfies the guard. It is a protection against mistakes, not against a determined caller.
+# in the env file (no CHANGE_ME, real PUBLIC_HOST and ACME_EMAIL). The deploy workflow (.github/workflows/deploy.yml)
+# does not use this target: the server has no Go toolchain for `doctor`, so scripts/deploy-remote.sh calls
+# scripts/compose.sh directly; no other context satisfies the guard. It is a protection against mistakes, not against a determined caller.
 up-production-live: _guard-production-up doctor ## Start production-live (refused outside the documented deploy context)
 	scripts/compose.sh production-live up -d --wait
 
@@ -47,8 +52,44 @@ migrate-status: doctor ## Show goose migration status for DATABASE_URL (read-onl
 migrate-new: ## Create the next sequential forward-only migration: make migrate-new NAME=<slug>
 	scripts/migrate-new.sh "$(NAME)"
 
-seed: ## Demo seeds, local-dev and staging-test only (NOT IMPLEMENTED: db/seeds does not exist yet)
-	$(call NOT_IMPLEMENTED,seed,db/seeds does not exist yet; when it does it may only run with APP_ENV=local-dev or staging-test)
+# Demo fixtures (local-dev, staging-test). Every guard runs before the first Docker/Compose call: a missing,
+# empty, whitespace-bearing, uppercase or any other APP_ENV than local-dev or staging-test (production-live
+# included), a COMPOSE_PROFILES that is set and differs from APP_ENV, and a missing/empty db/seeds all refuse
+# with exit 2. The Compose profile is the APP_ENV value. The *.sql files run in lexical order through one
+# psql transaction (-1, ON_ERROR_STOP=1), so a failure rolls the whole seed back.
+seed: ## Demo fixtures (local-dev, staging-test)
+	@set -euo pipefail; \
+	app_env="$${APP_ENV-}"; \
+	if [ -z "$$app_env" ]; then \
+		echo "REFUSED: seed requires APP_ENV=local-dev or APP_ENV=staging-test (APP_ENV is unset or empty)" >&2; \
+		exit 2; \
+	fi; \
+	if [ "$$app_env" != local-dev ] && [ "$$app_env" != staging-test ]; then \
+		if [[ "$$app_env" =~ [[:space:]] ]]; then \
+			echo "REFUSED: APP_ENV must not contain whitespace (got '$$app_env')" >&2; \
+		elif [ "$${app_env,,}" = local-dev ] || [ "$${app_env,,}" = staging-test ]; then \
+			echo "REFUSED: APP_ENV is case-sensitive and must be exactly local-dev or staging-test (got '$$app_env')" >&2; \
+		else \
+			echo "REFUSED: seed only runs with APP_ENV=local-dev or staging-test (got '$$app_env')" >&2; \
+		fi; \
+		exit 2; \
+	fi; \
+	if [ -n "$${COMPOSE_PROFILES+x}" ] && [ "$${COMPOSE_PROFILES-}" != "$$app_env" ]; then \
+		echo "REFUSED: COMPOSE_PROFILES must be unset or $$app_env (got '$${COMPOSE_PROFILES-}')" >&2; \
+		exit 2; \
+	fi; \
+	if [ ! -d db/seeds ]; then \
+		echo "REFUSED: db/seeds does not exist, nothing to seed" >&2; \
+		exit 2; \
+	fi; \
+	shopt -s nullglob; \
+	files=(db/seeds/*.sql); \
+	if [ "$${#files[@]}" -eq 0 ]; then \
+		echo "REFUSED: no db/seeds/*.sql files to run" >&2; \
+		exit 2; \
+	fi; \
+	if [ "$$app_env" = local-dev ]; then files+=(db/seeds/local-dev/*.sql); fi; \
+	cat "$${files[@]}" | scripts/compose.sh "$$app_env" exec -T postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"'
 
 # db-reset drops and recreates the database. The target checks APP_ENV itself and scripts/db-reset.sh repeats
 # that check and additionally requires a local Compose database host; the target must never weaken the script.

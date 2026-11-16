@@ -226,6 +226,9 @@ class RealConfigTests(unittest.TestCase):
             "src/web/src/features/solve/Question.test.tsx": {"engineering-principles", "web-frontend", "tdd-unit"},
             "tests/e2e/solve.feature": {"bdd-acceptance"},
             ".github/workflows/ci.yml": {"ci-cd-delivery"},
+            ".github/workflows/review-autofix.yml": {"ci-cd-delivery", "review-pipeline"},
+            "scripts/review-autofix.py": {"review-pipeline"},
+            "scripts/findings.py": {"review-pipeline"},
             "Makefile": {"ci-cd-delivery"},
             "README.md": set(),
             "docs/SPEC.md": set(),
@@ -234,7 +237,7 @@ class RealConfigTests(unittest.TestCase):
             self.assertEqual(set(domain_skills.skills_for(rel, REPO)), expected, rel)
 
     def test_agent_preloaded_skills_exist(self):
-        expected = {"go-implementer", "postgres-expert", "web-implementer", "skeptic", "lead"}
+        expected = {"go-implementer", "postgres-expert", "web-implementer", "skeptic", "lead", "ci-implementer", "review-steward"}
         seen = set()
         for agent in (REPO / ".claude" / "agents").glob("*.md"):
             lines = agent.read_text().split("---")[1].splitlines()

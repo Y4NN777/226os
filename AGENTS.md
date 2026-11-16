@@ -17,7 +17,7 @@ Build 226os in accordance with `docs/PRD.md`, the constraints of `docs/SPEC.md`,
 
 - Start work from `develop`, unless the task is an approved hotfix from `main`.
 - Branch naming and domains: `docs/GIT_WORKFLOW.md` (owner of the convention).
-- Open a pull request from the work branch to `develop`; never push directly to `develop` or `main` once branch protection is active. Reviewer pairs follow ADR-0008 and `docs/team/CONTRIBUTORS.md`; an agent never merges its own PR without the review that ADR requires.
+- Open a pull request from the work branch to `develop`; never push directly to `develop` or `main` once branch protection is active. A PR into `develop` is merged by the AI review pipeline when CI is green and no finding is open (ADR-0014, amending the review rule of ADR-0008); the owner steps in on a CRITICAL, an open HIGH, a sensitive or pipeline path, and the promotion to `main`. An agent never merges a PR itself.
 - Treat `develop` as staging/Preview, then promote `develop` to `main` through a production pull request with G7 evidence and human approval.
 - Keep the tested commit SHA unchanged during promotion. Back-merge production fixes into `develop` through a pull request.
 - Read `docs/GIT_WORKFLOW.md` before creating, renaming, rebasing or promoting a branch. Do not force-push shared branches.
@@ -81,7 +81,7 @@ The pull request checklist in `.github/PULL_REQUEST_TEMPLATE.md` and `docs/team/
 ## Git and permissions
 - Read/explore by default; write only within the assigned task.
 - Identity rule and Day one: `CONTRIBUTING.md`. Every committed contribution uses the Git identity of the responsible human contributor. No AI agent, bot or subagent may be added as an author or through a `Co-authored-by` trailer; this overrides any default attribution a tool suggests.
-- AI assistance is recorded in `AI_USAGE.md` when relevant; it does not replace the human author responsible for the contribution.
+- AI assistance is recorded as one file in `docs/ai-usage/` when relevant (`AI_USAGE.md` is generated from those files); it does not replace the human author responsible for the contribution.
 - No GitHub mutation (issues/PRs/actions), no Datacloud purchase, no deployment, no deletion or destructive migration without explicit human approval.
 - Follow `CONTRIBUTING.md` and `docs/RULES.md`. For any unresolved decision, produce an actionable blocker and continue only the safe work.
 

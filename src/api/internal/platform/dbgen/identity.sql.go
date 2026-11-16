@@ -11,11 +11,29 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, email, email_verified_at, role, status, created_at FROM users WHERE email = $1
+const createAccount = `-- name: CreateAccount :one
+
+WITH u AS (
+  INSERT INTO users (email) VALUES ($1)
+  RETURNING id, email, email_verified_at, role, status, created_at
+), c AS (
+  INSERT INTO user_credentials (user_id, password_hash)
+  SELECT id, $2 FROM u
+), p AS (
+  INSERT INTO profiles (user_id, username, display_name)
+  SELECT id, $3, $4 FROM u
+)
+SELECT id, email, email_verified_at, role, status, created_at FROM u
 `
 
-type GetUserByEmailRow struct {
+type CreateAccountParams struct {
+	Email        string
+	PasswordHash string
+	Username     string
+	DisplayName  string
+}
+
+type CreateAccountRow struct {
 	ID              pgtype.UUID
 	Email           string
 	EmailVerifiedAt pgtype.Timestamptz
@@ -24,10 +42,20 @@ type GetUserByEmailRow struct {
 	CreatedAt       pgtype.Timestamptz
 }
 
-// Minimal bootstrap query proving generation for the identity area (never selects credentials).
-func (q *Queries) GetUserByEmail(ctx context.Context, email string) (GetUserByEmailRow, error) {
-	row := q.db.QueryRow(ctx, getUserByEmail, email)
-	var i GetUserByEmailRow
+// Identity queries for the S1 Store port (ADR-0003). Tokens and passwords are
+// only ever stored hashed; every lookup by token is by hash. All statements are
+// parameterized; the only dynamic value is the keep-id exclusion, which is a
+// bound uuid parameter.
+// CreateAccount writes user + credential + profile atomically: a single
+// statement is its own transaction, so no partial account can exist.
+func (q *Queries) CreateAccount(ctx context.Context, arg CreateAccountParams) (CreateAccountRow, error) {
+	row := q.db.QueryRow(ctx, createAccount,
+		arg.Email,
+		arg.PasswordHash,
+		arg.Username,
+		arg.DisplayName,
+	)
+	var i CreateAccountRow
 	err := row.Scan(
 		&i.ID,
 		&i.Email,
@@ -37,4 +65,791 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (GetUserByEm
 		&i.CreatedAt,
 	)
 	return i, err
+}
+
+const createEmailVerification = `-- name: CreateEmailVerification :exec
+WITH burned AS (
+  UPDATE email_verifications SET consumed_at = now()
+  WHERE email_verifications.user_id = $1 AND consumed_at IS NULL
+)
+INSERT INTO email_verifications (user_id, email, token_hash, expires_at)
+VALUES ($1, $2, $3, $4)
+`
+
+type CreateEmailVerificationParams struct {
+	UserID    pgtype.UUID
+	Email     string
+	TokenHash []byte
+	ExpiresAt pgtype.Timestamptz
+}
+
+// CreateEmailVerification stores a new code and burns every earlier open code of the account in one statement
+// (a single statement is its own transaction), so after a resend the earlier mails no longer verify the account.
+// Two resends at the same instant each burn only the rows their snapshot sees, so both codes can stay open: accepted
+// (#291), bounded by 3 per account per hour, and both go to the account's own address.
+// The burn uses email_verifications_user_open_idx.
+func (q *Queries) CreateEmailVerification(ctx context.Context, arg CreateEmailVerificationParams) error {
+	_, err := q.db.Exec(ctx, createEmailVerification,
+		arg.UserID,
+		arg.Email,
+		arg.TokenHash,
+		arg.ExpiresAt,
+	)
+	return err
+}
+
+const createPasswordReset = `-- name: CreatePasswordReset :exec
+INSERT INTO password_resets (user_id, token_hash, expires_at)
+VALUES ($1, $2, $3)
+`
+
+type CreatePasswordResetParams struct {
+	UserID    pgtype.UUID
+	TokenHash []byte
+	ExpiresAt pgtype.Timestamptz
+}
+
+func (q *Queries) CreatePasswordReset(ctx context.Context, arg CreatePasswordResetParams) error {
+	_, err := q.db.Exec(ctx, createPasswordReset, arg.UserID, arg.TokenHash, arg.ExpiresAt)
+	return err
+}
+
+const createSession = `-- name: CreateSession :exec
+INSERT INTO sessions (id, user_id, token_hash, csrf_token_hash, idle_expires_at, absolute_expires_at)
+VALUES ($1, $2, $3, $4, $5, $6)
+`
+
+type CreateSessionParams struct {
+	ID                pgtype.UUID
+	UserID            pgtype.UUID
+	TokenHash         []byte
+	CsrfTokenHash     []byte
+	IdleExpiresAt     pgtype.Timestamptz
+	AbsoluteExpiresAt pgtype.Timestamptz
+}
+
+func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) error {
+	_, err := q.db.Exec(ctx, createSession,
+		arg.ID,
+		arg.UserID,
+		arg.TokenHash,
+		arg.CsrfTokenHash,
+		arg.IdleExpiresAt,
+		arg.AbsoluteExpiresAt,
+	)
+	return err
+}
+
+const deleteUserSkills = `-- name: DeleteUserSkills :exec
+DELETE FROM user_skills us
+USING tags t
+WHERE us.user_id = $1 AND us.tag_id = t.id AND t.status = 'active'
+`
+
+// Skill replacement pair: DeleteUserSkills removes the user's links to active
+// tags and InsertUserSkills adds the resolved set. The repository runs both
+// inside the UpdateProfile transaction, after the profile row lock is held, so
+// each statement sees a fresh snapshot and concurrent patches serialize
+// instead of merging. Links to hidden tags are moderator state, not the user's
+// visible skill set: they are kept so a restored tag brings the skill back
+// instead of losing it silently on an unrelated write (issue #116).
+func (q *Queries) DeleteUserSkills(ctx context.Context, userID pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, deleteUserSkills, userID)
+	return err
+}
+
+const getAccountByEmail = `-- name: GetAccountByEmail :one
+SELECT u.id, u.email, u.email_verified_at, u.role, u.status, u.created_at,
+       c.password_hash, p.username, p.display_name
+FROM users u
+JOIN user_credentials c ON c.user_id = u.id
+JOIN profiles p ON p.user_id = u.id
+WHERE u.email = $1
+`
+
+type GetAccountByEmailRow struct {
+	ID              pgtype.UUID
+	Email           string
+	EmailVerifiedAt pgtype.Timestamptz
+	Role            string
+	Status          string
+	CreatedAt       pgtype.Timestamptz
+	PasswordHash    string
+	Username        string
+	DisplayName     string
+}
+
+func (q *Queries) GetAccountByEmail(ctx context.Context, email string) (GetAccountByEmailRow, error) {
+	row := q.db.QueryRow(ctx, getAccountByEmail, email)
+	var i GetAccountByEmailRow
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.EmailVerifiedAt,
+		&i.Role,
+		&i.Status,
+		&i.CreatedAt,
+		&i.PasswordHash,
+		&i.Username,
+		&i.DisplayName,
+	)
+	return i, err
+}
+
+const getAccountByID = `-- name: GetAccountByID :one
+SELECT u.id, u.email, u.email_verified_at, u.role, u.status, u.created_at,
+       c.password_hash, p.username, p.display_name
+FROM users u
+JOIN user_credentials c ON c.user_id = u.id
+JOIN profiles p ON p.user_id = u.id
+WHERE u.id = $1
+`
+
+type GetAccountByIDRow struct {
+	ID              pgtype.UUID
+	Email           string
+	EmailVerifiedAt pgtype.Timestamptz
+	Role            string
+	Status          string
+	CreatedAt       pgtype.Timestamptz
+	PasswordHash    string
+	Username        string
+	DisplayName     string
+}
+
+func (q *Queries) GetAccountByID(ctx context.Context, id pgtype.UUID) (GetAccountByIDRow, error) {
+	row := q.db.QueryRow(ctx, getAccountByID, id)
+	var i GetAccountByIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.EmailVerifiedAt,
+		&i.Role,
+		&i.Status,
+		&i.CreatedAt,
+		&i.PasswordHash,
+		&i.Username,
+		&i.DisplayName,
+	)
+	return i, err
+}
+
+const getProfileByUserID = `-- name: GetProfileByUserID :one
+
+SELECT p.user_id, p.username, p.display_name, p.intent, p.country_code,
+       p.languages, p.github_username, p.bio, p.bio_language, p.open_to_collab,
+       p.country_visibility, p.languages_visibility, p.skills_visibility,
+       p.github_visibility, p.bio_visibility, p.open_to_collab_visibility,
+       p.profile_visibility, p.created_at, p.updated_at,
+       COALESCE((SELECT array_agg(t.slug ORDER BY t.slug)
+                 FROM user_skills us JOIN tags t ON t.id = us.tag_id
+                 WHERE us.user_id = p.user_id AND t.status = 'active'), '{}'::text[])::text[] AS skills
+FROM profiles p
+WHERE p.user_id = $1
+`
+
+type GetProfileByUserIDRow struct {
+	UserID                 pgtype.UUID
+	Username               string
+	DisplayName            string
+	Intent                 pgtype.Text
+	CountryCode            pgtype.Text
+	Languages              []string
+	GithubUsername         pgtype.Text
+	Bio                    pgtype.Text
+	BioLanguage            pgtype.Text
+	OpenToCollab           bool
+	CountryVisibility      string
+	LanguagesVisibility    string
+	SkillsVisibility       string
+	GithubVisibility       string
+	BioVisibility          string
+	OpenToCollabVisibility string
+	ProfileVisibility      string
+	CreatedAt              pgtype.Timestamptz
+	UpdatedAt              pgtype.Timestamptz
+	Skills                 []string
+}
+
+// ---------- profiles (S1 profiles slice) ----------
+// ProfileColumns is the shared projection: every profiles column plus the
+// owner's skill slugs, ordered for stable output.
+func (q *Queries) GetProfileByUserID(ctx context.Context, userID pgtype.UUID) (GetProfileByUserIDRow, error) {
+	row := q.db.QueryRow(ctx, getProfileByUserID, userID)
+	var i GetProfileByUserIDRow
+	err := row.Scan(
+		&i.UserID,
+		&i.Username,
+		&i.DisplayName,
+		&i.Intent,
+		&i.CountryCode,
+		&i.Languages,
+		&i.GithubUsername,
+		&i.Bio,
+		&i.BioLanguage,
+		&i.OpenToCollab,
+		&i.CountryVisibility,
+		&i.LanguagesVisibility,
+		&i.SkillsVisibility,
+		&i.GithubVisibility,
+		&i.BioVisibility,
+		&i.OpenToCollabVisibility,
+		&i.ProfileVisibility,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Skills,
+	)
+	return i, err
+}
+
+const getProfileByUsername = `-- name: GetProfileByUsername :one
+SELECT p.user_id, p.username, p.display_name, p.intent, p.country_code,
+       p.languages, p.github_username, p.bio, p.bio_language, p.open_to_collab,
+       p.country_visibility, p.languages_visibility, p.skills_visibility,
+       p.github_visibility, p.bio_visibility, p.open_to_collab_visibility,
+       p.profile_visibility, p.created_at, p.updated_at,
+       u.status AS account_status, u.created_at AS joined_at, u.provenance,
+       COALESCE((SELECT array_agg(t.slug ORDER BY t.slug)
+                 FROM user_skills us JOIN tags t ON t.id = us.tag_id
+                 WHERE us.user_id = p.user_id AND t.status = 'active'), '{}'::text[])::text[] AS skills
+FROM profiles p
+JOIN users u ON u.id = p.user_id
+WHERE p.username = $1
+`
+
+type GetProfileByUsernameRow struct {
+	UserID                 pgtype.UUID
+	Username               string
+	DisplayName            string
+	Intent                 pgtype.Text
+	CountryCode            pgtype.Text
+	Languages              []string
+	GithubUsername         pgtype.Text
+	Bio                    pgtype.Text
+	BioLanguage            pgtype.Text
+	OpenToCollab           bool
+	CountryVisibility      string
+	LanguagesVisibility    string
+	SkillsVisibility       string
+	GithubVisibility       string
+	BioVisibility          string
+	OpenToCollabVisibility string
+	ProfileVisibility      string
+	CreatedAt              pgtype.Timestamptz
+	UpdatedAt              pgtype.Timestamptz
+	AccountStatus          string
+	JoinedAt               pgtype.Timestamptz
+	Provenance             string
+	Skills                 []string
+}
+
+// GetProfileByUsername adds the account status and join date the visibility
+// decision needs: non-active accounts must answer like unknown usernames. provenance lets the service
+// hide demo seed accounts the same way outside local-dev.
+func (q *Queries) GetProfileByUsername(ctx context.Context, username string) (GetProfileByUsernameRow, error) {
+	row := q.db.QueryRow(ctx, getProfileByUsername, username)
+	var i GetProfileByUsernameRow
+	err := row.Scan(
+		&i.UserID,
+		&i.Username,
+		&i.DisplayName,
+		&i.Intent,
+		&i.CountryCode,
+		&i.Languages,
+		&i.GithubUsername,
+		&i.Bio,
+		&i.BioLanguage,
+		&i.OpenToCollab,
+		&i.CountryVisibility,
+		&i.LanguagesVisibility,
+		&i.SkillsVisibility,
+		&i.GithubVisibility,
+		&i.BioVisibility,
+		&i.OpenToCollabVisibility,
+		&i.ProfileVisibility,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.AccountStatus,
+		&i.JoinedAt,
+		&i.Provenance,
+		&i.Skills,
+	)
+	return i, err
+}
+
+const getSessionByTokenHash = `-- name: GetSessionByTokenHash :one
+SELECT id, user_id, token_hash, csrf_token_hash, created_at, last_seen_at,
+       authenticated_at, idle_expires_at, absolute_expires_at, revoked_at, revoked_reason
+FROM sessions
+WHERE token_hash = $1
+`
+
+type GetSessionByTokenHashRow struct {
+	ID                pgtype.UUID
+	UserID            pgtype.UUID
+	TokenHash         []byte
+	CsrfTokenHash     []byte
+	CreatedAt         pgtype.Timestamptz
+	LastSeenAt        pgtype.Timestamptz
+	AuthenticatedAt   pgtype.Timestamptz
+	IdleExpiresAt     pgtype.Timestamptz
+	AbsoluteExpiresAt pgtype.Timestamptz
+	RevokedAt         pgtype.Timestamptz
+	RevokedReason     pgtype.Text
+}
+
+func (q *Queries) GetSessionByTokenHash(ctx context.Context, tokenHash []byte) (GetSessionByTokenHashRow, error) {
+	row := q.db.QueryRow(ctx, getSessionByTokenHash, tokenHash)
+	var i GetSessionByTokenHashRow
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.TokenHash,
+		&i.CsrfTokenHash,
+		&i.CreatedAt,
+		&i.LastSeenAt,
+		&i.AuthenticatedAt,
+		&i.IdleExpiresAt,
+		&i.AbsoluteExpiresAt,
+		&i.RevokedAt,
+		&i.RevokedReason,
+	)
+	return i, err
+}
+
+const giveBackRateLimit = `-- name: GiveBackRateLimit :exec
+WITH dec AS (
+  UPDATE rate_limit_buckets SET hits = hits - 1
+  WHERE scope = $1 AND key_hash = $2 AND window_start = $3 AND hits > 1
+  RETURNING 1
+)
+DELETE FROM rate_limit_buckets AS b
+WHERE b.scope = $1 AND b.key_hash = $2 AND b.window_start = $3 AND b.hits = 1
+`
+
+type GiveBackRateLimitParams struct {
+	Scope       string
+	KeyHash     []byte
+	WindowStart pgtype.Timestamptz
+}
+
+// Releases one hit from a fixed-window bucket in a single statement (a sign-in
+// that succeeded gives back its up-front hit, so only failures stay counted).
+// rate_limit_buckets_hits_ck requires hits > 0, so the last hit deletes the row.
+// The two branches touch disjoint rows. Under a concurrent change a give-back
+// can be skipped, never doubled: a stale count only ever errs on the strict side.
+func (q *Queries) GiveBackRateLimit(ctx context.Context, arg GiveBackRateLimitParams) error {
+	_, err := q.db.Exec(ctx, giveBackRateLimit, arg.Scope, arg.KeyHash, arg.WindowStart)
+	return err
+}
+
+const hitRateLimit = `-- name: HitRateLimit :one
+INSERT INTO rate_limit_buckets (scope, key_hash, window_start, hits)
+VALUES ($1, $2, $3, 1)
+ON CONFLICT (scope, key_hash, window_start)
+DO UPDATE SET hits = rate_limit_buckets.hits + 1
+RETURNING hits
+`
+
+type HitRateLimitParams struct {
+	Scope       string
+	KeyHash     []byte
+	WindowStart pgtype.Timestamptz
+}
+
+func (q *Queries) HitRateLimit(ctx context.Context, arg HitRateLimitParams) (int32, error) {
+	row := q.db.QueryRow(ctx, hitRateLimit, arg.Scope, arg.KeyHash, arg.WindowStart)
+	var hits int32
+	err := row.Scan(&hits)
+	return hits, err
+}
+
+const insertUserSkills = `-- name: InsertUserSkills :exec
+INSERT INTO user_skills (user_id, tag_id)
+SELECT $1, unnest($2::uuid[])
+ON CONFLICT DO NOTHING
+`
+
+type InsertUserSkillsParams struct {
+	UserID  pgtype.UUID
+	Column2 []pgtype.UUID
+}
+
+func (q *Queries) InsertUserSkills(ctx context.Context, arg InsertUserSkillsParams) error {
+	_, err := q.db.Exec(ctx, insertUserSkills, arg.UserID, arg.Column2)
+	return err
+}
+
+const listDirectoryProfiles = `-- name: ListDirectoryProfiles :many
+SELECT p.user_id, p.username, p.display_name,
+       COALESCE(CASE WHEN p.country_visibility = 'public' OR ($1::boolean AND p.country_visibility = 'members')
+                     THEN p.country_code END, '')::text AS country_code,
+       (p.languages_visibility = 'public' OR ($1::boolean AND p.languages_visibility = 'members'))::boolean AS languages_visible,
+       CASE WHEN p.languages_visibility = 'public' OR ($1::boolean AND p.languages_visibility = 'members')
+            THEN p.languages ELSE '{}'::text[] END::text[] AS languages,
+       (p.skills_visibility = 'public' OR ($1::boolean AND p.skills_visibility = 'members'))::boolean AS skills_visible,
+       CASE WHEN p.skills_visibility = 'public' OR ($1::boolean AND p.skills_visibility = 'members')
+            THEN COALESCE((SELECT array_agg(t.slug ORDER BY t.slug)
+                           FROM user_skills us JOIN tags t ON t.id = us.tag_id
+                           WHERE us.user_id = p.user_id AND t.status = 'active'), '{}'::text[])
+            ELSE '{}'::text[] END::text[] AS skills,
+       COALESCE(CASE WHEN p.github_visibility = 'public' OR ($1::boolean AND p.github_visibility = 'members')
+                     THEN p.github_username END, '')::text AS github_username
+FROM profiles p
+JOIN users u ON u.id = p.user_id
+WHERE u.status = 'active'
+  AND ($2::boolean OR u.provenance <> 'demo')
+  AND (p.profile_visibility = 'public' OR ($1::boolean AND p.profile_visibility = 'members'))
+  AND p.open_to_collab
+  AND (p.open_to_collab_visibility = 'public' OR ($1::boolean AND p.open_to_collab_visibility = 'members'))
+  AND ($3::text IS NULL
+       OR (p.country_code = $3::text
+           AND (p.country_visibility = 'public' OR ($1::boolean AND p.country_visibility = 'members'))))
+  AND ($4::text IS NULL
+       OR ($4::text = ANY(p.languages)
+           AND (p.languages_visibility = 'public' OR ($1::boolean AND p.languages_visibility = 'members'))))
+  AND ($5::text IS NULL
+       OR (EXISTS (SELECT 1 FROM user_skills us JOIN tags t ON t.id = us.tag_id
+                   WHERE us.user_id = p.user_id AND t.slug = $5::text AND t.status = 'active')
+           AND (p.skills_visibility = 'public' OR ($1::boolean AND p.skills_visibility = 'members'))))
+  AND ($6::text IS NULL
+       OR (p.username, p.user_id) > ($6::text, $7::uuid))
+ORDER BY p.username, p.user_id
+LIMIT $8
+`
+
+type ListDirectoryProfilesParams struct {
+	Member        bool
+	IncludeDemo   bool
+	Country       pgtype.Text
+	Language      pgtype.Text
+	Skill         pgtype.Text
+	AfterUsername pgtype.Text
+	AfterID       pgtype.UUID
+	RowLimit      int32
+}
+
+type ListDirectoryProfilesRow struct {
+	UserID           pgtype.UUID
+	Username         string
+	DisplayName      string
+	CountryCode      string
+	LanguagesVisible bool
+	Languages        []string
+	SkillsVisible    bool
+	Skills           []string
+	GithubUsername   string
+}
+
+// ListDirectoryProfiles is the E5 people directory (GET /profiles, C14b, ADR-0005 point 15). The caller is
+// anonymous (member = false) or a member (member = true); the owner has no branch of its own, so a profile
+// the caller may not see is not listed even to its owner. A profile is listed only when its account is
+// active, profile_visibility passes, open_to_collab is true and open_to_collab_visibility passes. A field is
+// selected only when its own *_visibility passes, and a filter on a field matches only when that field is
+// visible, so a hidden value never leaks through the projection or the filters. Email is never selected.
+// A visibility passes when it is 'public', or 'members' for a member; 'private' never passes.
+// A hidden or unset country and github come back as ” (neither value can be empty). Order and keyset: (username, user_id), served by profiles_username_uq.
+// Demo seed accounts (users.provenance = 'demo') are listed only when include_demo is true (local-dev); the
+// zero value excludes them, so staging-test and production-live fail closed.
+func (q *Queries) ListDirectoryProfiles(ctx context.Context, arg ListDirectoryProfilesParams) ([]ListDirectoryProfilesRow, error) {
+	rows, err := q.db.Query(ctx, listDirectoryProfiles,
+		arg.Member,
+		arg.IncludeDemo,
+		arg.Country,
+		arg.Language,
+		arg.Skill,
+		arg.AfterUsername,
+		arg.AfterID,
+		arg.RowLimit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListDirectoryProfilesRow{}
+	for rows.Next() {
+		var i ListDirectoryProfilesRow
+		if err := rows.Scan(
+			&i.UserID,
+			&i.Username,
+			&i.DisplayName,
+			&i.CountryCode,
+			&i.LanguagesVisible,
+			&i.Languages,
+			&i.SkillsVisible,
+			&i.Skills,
+			&i.GithubUsername,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const purgeRateLimitBuckets = `-- name: PurgeRateLimitBuckets :exec
+DELETE FROM rate_limit_buckets
+WHERE ctid IN (
+  SELECT b.ctid FROM rate_limit_buckets b WHERE b.window_start < $1 LIMIT 500 FOR UPDATE SKIP LOCKED
+)
+`
+
+// Bounded purge of windows that ended long ago (fixed windows never exceed 1 h);
+// uses rate_limit_buckets_window_idx.
+func (q *Queries) PurgeRateLimitBuckets(ctx context.Context, windowStart pgtype.Timestamptz) error {
+	_, err := q.db.Exec(ctx, purgeRateLimitBuckets, windowStart)
+	return err
+}
+
+const resetPassword = `-- name: ResetPassword :one
+WITH c AS (
+  UPDATE password_resets SET consumed_at = $2
+  WHERE password_resets.token_hash = $1 AND consumed_at IS NULL AND expires_at > $2
+  RETURNING user_id
+), u AS (
+  UPDATE user_credentials SET password_hash = $3, password_changed_at = $2
+  FROM c WHERE user_credentials.user_id = c.user_id
+), s AS (
+  UPDATE sessions SET revoked_at = $2, revoked_reason = 'password_reset'
+  FROM c WHERE sessions.user_id = c.user_id AND sessions.revoked_at IS NULL
+), t AS (
+  UPDATE password_resets pr SET consumed_at = $2
+  FROM c WHERE pr.user_id = c.user_id AND pr.token_hash <> $1 AND pr.consumed_at IS NULL
+)
+SELECT user_id FROM c
+`
+
+type ResetPasswordParams struct {
+	TokenHash    []byte
+	ConsumedAt   pgtype.Timestamptz
+	PasswordHash string
+}
+
+// ResetPassword consumes the token, stores the new hash, revokes every
+// session of the account and burns every other open reset token for that
+// account in one statement: a single statement is its own transaction, so a
+// failure cannot leave a consumed token with the old password still active,
+// and an intercepted older mail cannot reset the account again.
+func (q *Queries) ResetPassword(ctx context.Context, arg ResetPasswordParams) (pgtype.UUID, error) {
+	row := q.db.QueryRow(ctx, resetPassword, arg.TokenHash, arg.ConsumedAt, arg.PasswordHash)
+	var user_id pgtype.UUID
+	err := row.Scan(&user_id)
+	return user_id, err
+}
+
+const resolveSkillSlugs = `-- name: ResolveSkillSlugs :many
+SELECT id, slug FROM tags WHERE slug = ANY($1::text[]) AND status = 'active'
+LIMIT 100
+`
+
+type ResolveSkillSlugsRow struct {
+	ID   pgtype.UUID
+	Slug string
+}
+
+// ResolveSkillSlugs maps contract skill slugs to tag ids. Only active tags
+// resolve; the service rejects the patch when the count differs.
+// The input array is contract-bounded (maxItems 30); the LIMIT satisfies the
+// bounded-list rule and can only truncate an already-invalid oversized input,
+// which the service count check then rejects.
+func (q *Queries) ResolveSkillSlugs(ctx context.Context, dollar_1 []string) ([]ResolveSkillSlugsRow, error) {
+	rows, err := q.db.Query(ctx, resolveSkillSlugs, dollar_1)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ResolveSkillSlugsRow{}
+	for rows.Next() {
+		var i ResolveSkillSlugsRow
+		if err := rows.Scan(&i.ID, &i.Slug); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const revokeSession = `-- name: RevokeSession :exec
+UPDATE sessions SET revoked_at = $3, revoked_reason = $2
+WHERE id = $1 AND revoked_at IS NULL
+`
+
+type RevokeSessionParams struct {
+	ID            pgtype.UUID
+	RevokedReason pgtype.Text
+	RevokedAt     pgtype.Timestamptz
+}
+
+func (q *Queries) RevokeSession(ctx context.Context, arg RevokeSessionParams) error {
+	_, err := q.db.Exec(ctx, revokeSession, arg.ID, arg.RevokedReason, arg.RevokedAt)
+	return err
+}
+
+const revokeUserSessions = `-- name: RevokeUserSessions :exec
+UPDATE sessions SET revoked_at = $3, revoked_reason = $2
+WHERE user_id = $1 AND revoked_at IS NULL
+  AND ($4::uuid IS NULL OR id <> $4::uuid)
+`
+
+type RevokeUserSessionsParams struct {
+	UserID        pgtype.UUID
+	RevokedReason pgtype.Text
+	RevokedAt     pgtype.Timestamptz
+	Column4       pgtype.UUID
+}
+
+func (q *Queries) RevokeUserSessions(ctx context.Context, arg RevokeUserSessionsParams) error {
+	_, err := q.db.Exec(ctx, revokeUserSessions,
+		arg.UserID,
+		arg.RevokedReason,
+		arg.RevokedAt,
+		arg.Column4,
+	)
+	return err
+}
+
+const touchSession = `-- name: TouchSession :exec
+UPDATE sessions SET last_seen_at = $2, idle_expires_at = $3
+WHERE id = $1 AND revoked_at IS NULL
+`
+
+type TouchSessionParams struct {
+	ID            pgtype.UUID
+	LastSeenAt    pgtype.Timestamptz
+	IdleExpiresAt pgtype.Timestamptz
+}
+
+func (q *Queries) TouchSession(ctx context.Context, arg TouchSessionParams) error {
+	_, err := q.db.Exec(ctx, touchSession, arg.ID, arg.LastSeenAt, arg.IdleExpiresAt)
+	return err
+}
+
+const updateProfile = `-- name: UpdateProfile :one
+UPDATE profiles SET
+    display_name          = CASE WHEN $2::boolean THEN $3  ELSE display_name END,
+    intent                = CASE WHEN $4::boolean THEN $5  ELSE intent END,
+    country_code          = CASE WHEN $6::boolean THEN $7  ELSE country_code END,
+    languages             = CASE WHEN $8::boolean THEN $9  ELSE languages END,
+    github_username       = CASE WHEN $10::boolean THEN $11 ELSE github_username END,
+    bio                   = CASE WHEN $12::boolean THEN $13 ELSE bio END,
+    bio_language          = CASE WHEN $14::boolean THEN $15 ELSE bio_language END,
+    open_to_collab        = CASE WHEN $16::boolean THEN $17 ELSE open_to_collab END,
+    country_visibility    = CASE WHEN $18::boolean THEN $19 ELSE country_visibility END,
+    languages_visibility  = CASE WHEN $20::boolean THEN $21 ELSE languages_visibility END,
+    skills_visibility     = CASE WHEN $22::boolean THEN $23 ELSE skills_visibility END,
+    github_visibility     = CASE WHEN $24::boolean THEN $25 ELSE github_visibility END,
+    bio_visibility        = CASE WHEN $26::boolean THEN $27 ELSE bio_visibility END,
+    profile_visibility    = CASE WHEN $28::boolean THEN $29 ELSE profile_visibility END,
+    updated_at            = now()
+  WHERE profiles.user_id = $1
+RETURNING profiles.user_id
+`
+
+type UpdateProfileParams struct {
+	UserID              pgtype.UUID
+	Column2             bool
+	DisplayName         string
+	Column4             bool
+	Intent              pgtype.Text
+	Column6             bool
+	CountryCode         pgtype.Text
+	Column8             bool
+	Languages           []string
+	Column10            bool
+	GithubUsername      pgtype.Text
+	Column12            bool
+	Bio                 pgtype.Text
+	Column14            bool
+	BioLanguage         pgtype.Text
+	Column16            bool
+	OpenToCollab        bool
+	Column18            bool
+	CountryVisibility   string
+	Column20            bool
+	LanguagesVisibility string
+	Column22            bool
+	SkillsVisibility    string
+	Column24            bool
+	GithubVisibility    string
+	Column26            bool
+	BioVisibility       string
+	Column28            bool
+	ProfileVisibility   string
+}
+
+// UpdateProfile applies a resolved JSON Merge Patch: every column is guarded
+// by a set-flag so omitted members keep their stored value and explicit nulls
+// clear nullable columns. bio_language follows bio (the pair CHECK requires
+// them set or cleared together; the service derives the language, 'en' by
+// contract decision). Skills are replaced by DeleteUserSkills +
+// InsertUserSkills inside the same transaction, after this UPDATE holds the
+// profile row lock, so concurrent patches serialize on fresh snapshots.
+func (q *Queries) UpdateProfile(ctx context.Context, arg UpdateProfileParams) (pgtype.UUID, error) {
+	row := q.db.QueryRow(ctx, updateProfile,
+		arg.UserID,
+		arg.Column2,
+		arg.DisplayName,
+		arg.Column4,
+		arg.Intent,
+		arg.Column6,
+		arg.CountryCode,
+		arg.Column8,
+		arg.Languages,
+		arg.Column10,
+		arg.GithubUsername,
+		arg.Column12,
+		arg.Bio,
+		arg.Column14,
+		arg.BioLanguage,
+		arg.Column16,
+		arg.OpenToCollab,
+		arg.Column18,
+		arg.CountryVisibility,
+		arg.Column20,
+		arg.LanguagesVisibility,
+		arg.Column22,
+		arg.SkillsVisibility,
+		arg.Column24,
+		arg.GithubVisibility,
+		arg.Column26,
+		arg.BioVisibility,
+		arg.Column28,
+		arg.ProfileVisibility,
+	)
+	var user_id pgtype.UUID
+	err := row.Scan(&user_id)
+	return user_id, err
+}
+
+const verifyEmail = `-- name: VerifyEmail :one
+WITH c AS (
+  UPDATE email_verifications SET consumed_at = $2
+  WHERE email_verifications.token_hash = $1 AND consumed_at IS NULL AND expires_at > $2
+  RETURNING user_id
+), u AS (
+  UPDATE users SET email_verified_at = $2, updated_at = $2
+  FROM c WHERE users.id = c.user_id AND users.email_verified_at IS NULL
+)
+SELECT user_id FROM c
+`
+
+type VerifyEmailParams struct {
+	TokenHash  []byte
+	ConsumedAt pgtype.Timestamptz
+}
+
+// VerifyEmail consumes the token and marks the account verified in one
+// statement: a single statement is its own transaction, so a failure cannot
+// burn the token while leaving the account unverified.
+func (q *Queries) VerifyEmail(ctx context.Context, arg VerifyEmailParams) (pgtype.UUID, error) {
+	row := q.db.QueryRow(ctx, verifyEmail, arg.TokenHash, arg.ConsumedAt)
+	var user_id pgtype.UUID
+	err := row.Scan(&user_id)
+	return user_id, err
 }

@@ -1,57 +1,86 @@
 import { createMemoryHistory } from '@tanstack/react-router';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
+import { mockApi } from '../test/api';
 import { jsonResponse, setLanguages } from '../test/render';
 import { App } from './App';
 import { createAppRouter } from './router';
 
+function stubApi() {
+  mockApi({ 'GET /resources': () => jsonResponse({ items: [], next_cursor: null }) });
+}
+
 function renderAt(path: string) {
-  vi.stubGlobal(
-    'fetch',
-    vi.fn(() => Promise.resolve(jsonResponse({ status: 'ok' }))),
-  );
+  stubApi();
   const router = createAppRouter({ history: createMemoryHistory({ initialEntries: [path] }) });
   return render(<App router={router} />);
 }
 
 describe('App routing', () => {
-  it('renders the shell and the home route with the API status', async () => {
+  it('sets a localized title for the current page', async () => {
+    setLanguages(['fr-FR']);
+    renderAt('/recherche');
+    await screen.findByRole('heading', { level: 1, name: 'Recherche' });
+    expect(document.title).toBe('Recherche · 226os');
+  });
+
+  it('renders the landing header and the public landing page, without navigation, at /', async () => {
     setLanguages(['fr-FR']);
     renderAt('/');
     expect(
-      await screen.findByRole('heading', { level: 1, name: 'Bienvenue sur 226os' }),
+      await screen.findByRole('heading', {
+        level: 1,
+        name: 'Les projets avancent mieux à plusieurs',
+      }),
     ).toBeInTheDocument();
-    expect(screen.getByRole('navigation', { name: 'Navigation principale' })).toBeInTheDocument();
-    expect(await screen.findByText('API opérationnelle')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('navigation', { name: 'Navigation principale' }),
+    ).not.toBeInTheDocument();
+    expect((await screen.findAllByRole('link', { name: 'Se connecter' })).length).toBeGreaterThan(
+      0,
+    );
   });
 
-  it('navigates to settings through the nav link without a full reload', async () => {
+  it('navigates to settings from the account menu without a full reload', async () => {
     setLanguages(['en-US']);
-    renderAt('/');
-    await userEvent.click(await screen.findByRole('link', { name: 'Settings' }));
+    // Not on `/`: the visitor's landing has its own header, without the preferences menu.
+    renderAt('/discover');
+    await userEvent
+      .setup({ delay: null })
+      .click(await screen.findByRole('button', { name: 'Preferences' }));
+    await userEvent
+      .setup({ delay: null })
+      .click(await screen.findByRole('menuitem', { name: 'Settings' }));
     expect(await screen.findByRole('heading', { level: 1, name: 'Settings' })).toBeInTheDocument();
   });
 
   it('shows a localized not-found page with a way back', async () => {
     setLanguages(['fr-FR']);
     renderAt('/nope');
-    expect(await screen.findByRole('heading', { name: 'Page introuvable' })).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('link', { name: 'Retour à l’accueil' }));
+    const heading = await screen.findByRole('heading', { name: 'Page introuvable' });
+    // No layout route matches an unknown address: the page frames itself in a main landmark.
+    expect(screen.getByRole('main')).toContainElement(heading);
+    await userEvent
+      .setup({ delay: null })
+      .click(screen.getByRole('link', { name: 'Retour à l’accueil' }));
     expect(
-      await screen.findByRole('heading', { level: 1, name: 'Bienvenue sur 226os' }),
+      await screen.findByRole('heading', {
+        level: 1,
+        name: 'Les projets avancent mieux à plusieurs',
+      }),
     ).toBeInTheDocument();
   });
 
   it('creates its own browser router when none is injected', async () => {
     setLanguages(['fr-FR']);
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(() => Promise.resolve(jsonResponse({ status: 'ok' }))),
-    );
+    stubApi();
     render(<App />);
     expect(
-      await screen.findByRole('heading', { level: 1, name: 'Bienvenue sur 226os' }),
+      await screen.findByRole('heading', {
+        level: 1,
+        name: 'Les projets avancent mieux à plusieurs',
+      }),
     ).toBeInTheDocument();
   });
 });

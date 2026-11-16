@@ -10,7 +10,7 @@
 
 ## 1. Product context and design intent
 
-226os connects African developers through technical questions, shared knowledge, African APIs and tools, open-source projects, collaboration, communities, mentorship, careers, multilingual access, and context-aware assistance. The interface must make these experiences feel like one product, not eight unrelated applications.
+226os connects African developers through technical questions, shared knowledge, African APIs and tools, open-source projects, collaboration, communities, mentorship, careers, multilingual access, and context-aware assistance. The interface must make these experiences feel like one product, not nine unrelated applications.
 
 **Design attributes:** capable, clear, welcoming, technically credible, contemporary, purposeful.  
 **Avoid:** generic admin-template aesthetics, dense decorative graphics, culture-as-decoration, neon overload, exaggerated shadows, fake activity, inaccessible brand-colored text, and layouts that collapse on mobile.

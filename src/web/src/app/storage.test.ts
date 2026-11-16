@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { readStorage, writeStorage } from './storage';
+import { readStorage, removeLegacyDisplayName, writeStorage } from './storage';
 
 describe('storage', () => {
   it('round-trips a value', () => {
@@ -18,6 +18,26 @@ describe('storage', () => {
     expect(readStorage('k')).toBeNull();
     expect(() => {
       writeStorage('k', 'v');
+    }).not.toThrow();
+  });
+});
+
+describe('removeLegacyDisplayName', () => {
+  it('deletes the display name an earlier version kept on this device', () => {
+    localStorage.setItem('226os.displayName', 'Awa');
+    removeLegacyDisplayName();
+    expect(localStorage.getItem('226os.displayName')).toBeNull();
+  });
+
+  it('does nothing when the key is absent, and never throws when storage is unavailable', () => {
+    expect(() => {
+      removeLegacyDisplayName();
+    }).not.toThrow();
+    vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => {
+      throw new Error('denied');
+    });
+    expect(() => {
+      removeLegacyDisplayName();
     }).not.toThrow();
   });
 });

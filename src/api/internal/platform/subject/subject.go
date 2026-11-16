@@ -12,6 +12,7 @@ package subject
 import (
 	"context"
 	"net/http"
+	"sync"
 )
 
 // Subject is the caller of a request. An empty UserID means anonymous.
@@ -49,6 +50,51 @@ func From(ctx context.Context) Subject {
 	return s
 }
 
+// Memo is a per-request scratch space shared by the middlewares and handlers
+// of one request, so a value that is expensive to compute (the session lookup)
+// is computed once. It holds no authority: the Subject still comes only from
+// the Resolver.
+type Memo struct {
+	mu sync.Mutex
+	m  map[any]memoEntry
+}
+
+type memoEntry struct {
+	v   any
+	err error
+}
+
+type memoKey struct{}
+
+// WithMemo returns a context carrying a fresh Memo.
+func WithMemo(ctx context.Context) context.Context {
+	return context.WithValue(ctx, memoKey{}, &Memo{m: map[any]memoEntry{}})
+}
+
+// MemoFrom returns the request's Memo, or nil when there is none. A nil Memo is
+// valid: Do then just runs fn every time.
+func MemoFrom(ctx context.Context) *Memo {
+	m, _ := ctx.Value(memoKey{}).(*Memo)
+	return m
+}
+
+// Do returns the cached result for key, running fn (once) when it has none.
+// An error result is cached too, so a failing lookup is not retried within
+// the same request.
+func (m *Memo) Do(key any, fn func() (any, error)) (any, error) {
+	if m == nil {
+		return fn()
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if e, ok := m.m[key]; ok {
+		return e.v, e.err
+	}
+	v, err := fn()
+	m.m[key] = memoEntry{v: v, err: err}
+	return v, err
+}
+
 // fallbackProblem is the static RFC 9457 body of the nil-onError fallback: it carries no
 // request-supplied data and no error text. The app always passes httpx.WriteError instead.
 const fallbackProblem = `{"type":"urn:226os:problem:INTERNAL_ERROR","title":"Internal server error","status":500,"code":"INTERNAL_ERROR"}` + "\n"
@@ -69,6 +115,7 @@ func Middleware(res Resolver, onError func(w http.ResponseWriter, r *http.Reques
 	}
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			r = r.WithContext(WithMemo(r.Context()))
 			s, err := res.Resolve(r)
 			if err != nil {
 				onError(w, r, err)

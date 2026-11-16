@@ -1,0 +1,85 @@
+import { screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { describe, expect, it } from 'vitest';
+import { memberAccount, memberSession, mockApi, problemResponse } from '../../test/api';
+import { jsonResponse, renderApp, setLanguages } from '../../test/render';
+import { findVisibleText } from '../../test/visibleText';
+
+describe('WelcomePage', () => {
+  it('greets a signed-in member by display name with next actions and no profile form', async () => {
+    setLanguages(['fr-FR']);
+    mockApi({ 'GET /auth/session': () => jsonResponse(memberSession) });
+    await renderApp('/bienvenue');
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Bienvenue, Awa Traoré' }),
+    ).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Apprendre' })).toHaveAttribute('href', '/apprendre');
+    expect(screen.getByRole('link', { name: 'Connect' })).toHaveAttribute('href', '/connect');
+    expect(screen.getByRole('link', { name: 'Mon profil' })).toHaveAttribute(
+      'href',
+      '/profils/awa',
+    );
+    // Each choice says what it leads to, outside the link so the link name stays short.
+    expect(screen.getByText('Articles, tutoriels et formations')).toBeVisible();
+    expect(screen.getByText('Des développeurs près de chez vous')).toBeVisible();
+    expect(screen.getByText('Ce que les autres voient de vous')).toBeVisible();
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+  });
+
+  it('falls back to the username when the display name is empty', async () => {
+    setLanguages(['fr-FR']);
+    mockApi({
+      'GET /auth/session': () =>
+        jsonResponse({
+          ...memberSession,
+          user: { ...memberAccount, display_name: '' },
+        }),
+    });
+    await renderApp('/bienvenue');
+    expect(await screen.findByRole('heading', { level: 1, name: 'Bienvenue, awa' })).toBeVisible();
+  });
+
+  it('invites an anonymous visitor to sign in', async () => {
+    setLanguages(['fr-FR']);
+    mockApi();
+    await renderApp('/bienvenue');
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Bienvenue sur 226os' }),
+    ).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Se connecter' })).toHaveAttribute(
+      'href',
+      '/connexion?next=/bienvenue',
+    );
+    expect(screen.getByRole('link', { name: 'Créer un compte' })).toHaveAttribute(
+      'href',
+      '/inscription',
+    );
+  });
+
+  it('shows an error with a retry when the session cannot be read', async () => {
+    setLanguages(['fr-FR']);
+    let healthy = false;
+    mockApi({
+      'GET /auth/session': () =>
+        healthy ? jsonResponse(memberSession) : problemResponse(500, 'INTERNAL_ERROR'),
+    });
+    const user = userEvent.setup({ delay: null });
+    await renderApp('/bienvenue');
+    expect(await findVisibleText(/Une erreur est survenue/)).toBeInTheDocument();
+    healthy = true;
+    await user.click(screen.getByRole('button', { name: 'Réessayer' }));
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Bienvenue, Awa Traoré' }),
+    ).toBeVisible();
+  });
+
+  it('is available in English', async () => {
+    setLanguages(['en-US']);
+    mockApi({ 'GET /auth/session': () => jsonResponse(memberSession) });
+    await renderApp('/bienvenue');
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Welcome, Awa Traoré' }),
+    ).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Learn' })).toBeVisible();
+  });
+});

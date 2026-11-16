@@ -25,3 +25,15 @@ export function jsonResponse(body: unknown, init?: ResponseInit) {
     ...init,
   });
 }
+
+/** The whole app (shell, router, providers) at `path`, on an in-memory history. */
+export async function renderApp(path: string) {
+  const [{ createMemoryHistory }, { App }, { createAppRouter }] = await Promise.all([
+    import('@tanstack/react-router'),
+    import('../app/App'),
+    import('../app/router'),
+  ]);
+  const router = createAppRouter({ history: createMemoryHistory({ initialEntries: [path] }) });
+  const view = render(<App router={router} />);
+  return { ...view, router };
+}

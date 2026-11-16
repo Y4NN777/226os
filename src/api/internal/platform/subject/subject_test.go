@@ -133,3 +133,61 @@ func TestMiddlewareNilOnErrorFallsBackTo500(t *testing.T) {
 		t.Fatalf("fallback body echoes the resolver error: %q", rec.Body.String())
 	}
 }
+
+func TestMemoComputesOncePerKeyAndCachesErrors(t *testing.T) {
+	memo := subject.MemoFrom(subject.WithMemo(context.Background()))
+	calls := 0
+	boom := errors.New("boom")
+	fn := func() (any, error) { calls++; return "v", nil }
+	for i := 0; i < 3; i++ {
+		if v, err := memo.Do("k", fn); v != "v" || err != nil {
+			t.Fatalf("Do = %v, %v", v, err)
+		}
+	}
+	if calls != 1 {
+		t.Fatalf("fn ran %d times, want 1", calls)
+	}
+	failing := 0
+	for i := 0; i < 2; i++ {
+		if _, err := memo.Do("e", func() (any, error) { failing++; return nil, boom }); !errors.Is(err, boom) {
+			t.Fatalf("error not returned: %v", err)
+		}
+	}
+	if failing != 1 {
+		t.Fatalf("failing fn ran %d times, want 1", failing)
+	}
+	if v, _ := memo.Do("other", func() (any, error) { return 2, nil }); v != 2 {
+		t.Fatalf("keys are not independent: %v", v)
+	}
+}
+
+func TestMemoWithoutMemoRunsEveryTime(t *testing.T) {
+	memo := subject.MemoFrom(context.Background())
+	calls := 0
+	for i := 0; i < 2; i++ {
+		_, _ = memo.Do("k", func() (any, error) { calls++; return nil, nil })
+	}
+	if calls != 2 {
+		t.Fatalf("a nil memo must not cache: %d calls", calls)
+	}
+}
+
+func TestMiddlewareSharesOneMemoWithTheResolverAndHandlers(t *testing.T) {
+	var fromResolver *subject.Memo
+	res := resolverFunc(func(r *http.Request) (subject.Subject, error) {
+		fromResolver = subject.MemoFrom(r.Context())
+		return subject.Subject{}, nil
+	})
+	var fromHandler *subject.Memo
+	h := subject.Middleware(res, nil)(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		fromHandler = subject.MemoFrom(r.Context())
+	}))
+	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil))
+	if fromResolver == nil || fromResolver != fromHandler {
+		t.Fatal("the resolver and the handler must share one per-request memo")
+	}
+}
+
+type resolverFunc func(*http.Request) (subject.Subject, error)
+
+func (f resolverFunc) Resolve(r *http.Request) (subject.Subject, error) { return f(r) }

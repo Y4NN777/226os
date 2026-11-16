@@ -65,6 +65,27 @@ func (Disabled) Generate(context.Context, Request) (Response, error) {
 	return Response{}, ErrNotConfigured
 }
 
+// StatusError is a provider error that carries the HTTP status. Kind is one of the sentinels, so
+// errors.Is keeps working; the message is "<sentinel> (http <status>)".
+type StatusError struct {
+	Kind   error
+	Status int
+}
+
+func (e *StatusError) Error() string { return fmt.Sprintf("%v (http %d)", e.Kind, e.Status) }
+
+// Unwrap returns the sentinel.
+func (e *StatusError) Unwrap() error { return e.Kind }
+
+// StatusOf returns the HTTP status carried by err, or zero when there is none.
+func StatusOf(err error) int {
+	var se *StatusError
+	if errors.As(err, &se) {
+		return se.Status
+	}
+	return 0
+}
+
 var modelName = regexp.MustCompile(`^[a-zA-Z0-9._-]{1,64}$`)
 
 // ValidModelName reports whether s is a safe model identifier (no path or query injection).

@@ -1,6 +1,6 @@
 # Contributing to 226os
 
-**Status:** policy in force (ADR-0001 to ADR-0010). Application work happens inside an open slice of [`TODO.md`](TODO.md); human approval is required for the checkpoints listed in [`AGENTS.md`](AGENTS.md).
+**Status:** policy in force (ADR-0001 to ADR-0014). Application work happens inside an open slice of [`TODO.md`](TODO.md); human approval is required for the checkpoints listed in [`AGENTS.md`](AGENTS.md).
 
 Language convention: product docs (README, PRD, SPEC, DEV, RULES, TEST, SHIP, ARCHITECTURE, KICKOFF) are in French; engineering and harness docs (this file, AGENTS, CLAUDE, GIT_WORKFLOW, ADRs, secrets) are in English.
 
@@ -34,7 +34,7 @@ Language convention: product docs (README, PRD, SPEC, DEV, RULES, TEST, SHIP, AR
 - Write or update observable BDD/acceptance tests before implementation (RED, then GREEN); preserve negative authorization cases.
 - Do not commit credentials, tokens, private data, generated artifacts without a documented source, or copied third-party code.
 - Record evidence by target SHA. `NOT RUN` is not `PASS`; no agent may self-approve a gate or exception.
-- Never add `Co-authored-by` trailers for AI systems or agents; record AI assistance in `AI_USAGE.md`.
+- Never add `Co-authored-by` trailers for AI systems or agents; record AI assistance as one file in `docs/ai-usage/` (`AI_USAGE.md` is generated from those files).
 
 ## Reviews
 

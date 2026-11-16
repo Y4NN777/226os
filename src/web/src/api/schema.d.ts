@@ -106,6 +106,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/verify-email/resend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Send a new email verification code */
+        post: operations["resendEmailVerification"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/password-reset/request": {
         parameters: {
             query?: never;
@@ -175,6 +192,23 @@ export interface paths {
          * @description Partial update with JSON Merge Patch semantics (RFC 7396): omitted fields are unchanged; `null` clears a nullable field. Content type is application/json.
          */
         patch: operations["updateMyProfile"];
+        trace?: never;
+    };
+    "/profiles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** People directory (Connect) */
+        get: operations["listProfiles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/profiles/{username}": {
@@ -598,6 +632,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/assistant/answers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Ask the sourced assistant (answers only from published content, with citations) */
+        post: operations["askAssistant"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/moderation/{targetType}/{targetId}/hide": {
         parameters: {
             query?: never;
@@ -653,6 +704,46 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** @description A question for the sourced assistant. Only this text, after redaction of obvious secrets and emails, is sent to the provider. */
+        AssistantQuestion: {
+            question: string;
+            lang?: components["schemas"]["Lang"];
+        };
+        /** @description A published content item the answer relies on. The server only returns items that belong to the retrieved passages and are visible to the caller. */
+        AssistantSource: {
+            /** @enum {string} */
+            type: "question" | "resource" | "project" | "article" | "series";
+            id: components["schemas"]["Uuid"];
+            title: string;
+            /**
+             * Format: uri-reference
+             * @description Canonical in-app URL of the cited content.
+             */
+            url: string;
+            /** @description Publication date when known; null when the source is undated (the answer then states the uncertainty). */
+            published_at?: components["schemas"]["Timestamp"] | null;
+        };
+        /** @description The assistant reply. Always labelled AI; it is never stored as an answer and cannot be voted or accepted. */
+        AssistantAnswer: {
+            /**
+             * @description no_source means no published content matched; the provider was not called and search_url points to the search.
+             * @enum {string}
+             */
+            outcome: "answered" | "no_source";
+            /** @enum {string} */
+            generated_by: "ai";
+            /** @description Plain text or limited Markdown. No reasoning text, no guarantee about an API, no verified-solution claim. */
+            answer: string;
+            sources: components["schemas"]["AssistantSource"][];
+            /** @description The "Comment vérifier" section that ends every answer. */
+            how_to_verify: string;
+            /**
+             * Format: uri-reference
+             * @description Present when outcome is no_source.
+             */
+            search_url?: string;
+            lang: components["schemas"]["Lang"];
+        };
         /** @enum {string} */
         ModerationTargetType: "question" | "answer" | "resource" | "project" | "article" | "relation";
         ModerationReason: {
@@ -682,10 +773,50 @@ export interface components {
         Slug: string;
         TagSlug: string;
         /**
+         * @description learn_topics.code. Matches the database check learn_topics_code_ck.
+         * @example payments
+         */
+        TopicCode: string;
+        /**
          * @description ISO 3166-1 alpha-2.
          * @example BF
          */
         CountryCode: string;
+        /**
+         * @description SPDX license identifier. Matches the database check projects_license_ck.
+         * @example MIT
+         * @example Apache-2.0
+         */
+        LicenseSpdx: string;
+        /**
+         * @description Maturity of a project (projects_stage_ck). A project with a GitHub repository may take any stage.
+         * @example prototype
+         * @enum {string}
+         */
+        ProjectStage: "idea" | "prototype" | "active" | "maintained";
+        /**
+         * @description updated = last updated first; created = newest first; needs = most open contribution needs first, then last updated. UUID tie-breaker.
+         * @default updated
+         * @enum {string}
+         */
+        ProjectSort: "updated" | "created" | "needs";
+        /**
+         * @description name = name ascending; verified = most recently verified first, never-verified entries last. UUID tie-breaker.
+         * @default name
+         * @enum {string}
+         */
+        ResourceSort: "name" | "verified";
+        /**
+         * @description new = newest first (relevance first when q is set); votes = highest vote_score first, then newest; unanswered = fewest answers first, then newest. UUID tie-breaker.
+         * @default new
+         * @enum {string}
+         */
+        QuestionSort: "new" | "votes" | "unanswered";
+        /**
+         * @description Number of items matching the same filters and visibility as the page, independent of the cursor.
+         * @example 42
+         */
+        ListTotal: number;
         Username: string;
         /** @description Markdown source. Raw HTML is neutralised on output; code is never executed. */
         Markdown: string;
@@ -722,6 +853,12 @@ export interface components {
         SearchGroup: "questions" | "resources" | "projects" | "learn";
         /** @enum {string} */
         FieldVisibility: "public" | "members" | "private";
+        /**
+         * @description Who may open this profile page. A new profile defaults to public. On a JSON Merge Patch, omitting the field leaves the stored value unchanged.
+         * @default public
+         * @enum {string}
+         */
+        ProfileVisibility: "public" | "members" | "private";
         /**
          * @description Onboarding intent (values from the prototype welcome step plus learn).
          * @enum {string}
@@ -788,6 +925,10 @@ export interface components {
             /** Format: password */
             password: string;
         };
+        VerificationResendRequest: {
+            /** Format: email */
+            email: string;
+        };
         PasswordResetRequest: {
             /** Format: email */
             email: string;
@@ -835,6 +976,7 @@ export interface components {
                 skills?: components["schemas"]["FieldVisibility"];
                 github?: components["schemas"]["FieldVisibility"];
             };
+            profile_visibility: components["schemas"]["ProfileVisibility"];
             /** @description Checklist fields still unset (derived, read-only). */
             readonly checklist_missing: components["schemas"]["ProfileField"][];
             updated_at?: components["schemas"]["Timestamp"];
@@ -857,6 +999,7 @@ export interface components {
                 skills?: components["schemas"]["FieldVisibility"];
                 github?: components["schemas"]["FieldVisibility"];
             };
+            profile_visibility?: components["schemas"]["ProfileVisibility"];
         };
         /** @description Visibility-filtered: fields hidden by field_visibility for this caller are omitted. Never contains email. */
         PublicProfile: {
@@ -868,7 +1011,46 @@ export interface components {
             skills?: components["schemas"]["TagSlug"][];
             github?: string | null;
             open_to_collab?: boolean;
+            profile_visibility: components["schemas"]["ProfileVisibility"];
             joined_at: components["schemas"]["Timestamp"];
+            ranking?: components["schemas"]["GitHubRanking"];
+        };
+        /** @description committers.top rank of the profile's GitHub login (ADR-0016). Present only when the github field is visible to the caller, the login is ranked and has not opted out. */
+        GitHubRanking: {
+            country: components["schemas"]["CountryCode"];
+            rank: number;
+            generated_at: components["schemas"]["Timestamp"];
+        };
+        /** @description A public GitHub developer ranked by committers.top (ADR-0016). Not an account: only public GitHub data, labelled with its source. */
+        ExternalDeveloper: {
+            /** @description GitHub login. */
+            login: string;
+            name: string;
+            avatar_url: string;
+            country: components["schemas"]["CountryCode"];
+            rank: number;
+            contributions: number;
+            organizations: string[];
+            generated_at: components["schemas"]["Timestamp"];
+            /** @enum {string} */
+            source: "committers.top";
+        };
+        /** @description Directory entry, visibility-filtered for this caller: fields hidden by field_visibility are omitted. Never contains email. */
+        ProfileSummary: {
+            username: components["schemas"]["Username"];
+            display_name: string;
+            country?: components["schemas"]["CountryCode"];
+            languages?: string[];
+            skills?: components["schemas"]["TagSlug"][];
+            /** @description GitHub username. */
+            github?: string;
+        };
+        ProfilePage: {
+            items: components["schemas"]["ProfileSummary"][];
+            /** @description External GitHub developers (ADR-0016), after the members of the page; omitted when the page has none. items plus external hold at most limit entries. */
+            external?: components["schemas"]["ExternalDeveloper"][];
+            /** @description Opaque, integrity-protected; null on the last page. */
+            next_cursor: string | null;
         };
         AuthorRef: {
             id: components["schemas"]["Uuid"];
@@ -876,10 +1058,16 @@ export interface components {
             display_name: string;
             country?: components["schemas"]["CountryCode"] | null;
         };
-        /** @description Typed contextual link (write side). */
+        /** @description Typed contextual link (write side). The server accepts only the source and target pairs it can store; an unsupported pair (for example an article linking to an article) is 422 with the field pointer of the link. */
         LinkRef: {
             /** @enum {string} */
-            type: "question" | "resource" | "project" | "article" | "series";
+            type: "question" | "resource" | "project" | "article";
+            id: components["schemas"]["Uuid"];
+        };
+        /** @description Link from a question (write side). A question links to a resource, a project or an article only. */
+        QuestionLinkRef: {
+            /** @enum {string} */
+            type: "resource" | "project" | "article";
             id: components["schemas"]["Uuid"];
         };
         /** @description Resolved link (read side); only visible targets are returned. */
@@ -906,6 +1094,7 @@ export interface components {
             author: components["schemas"]["AuthorRef"];
             answer_count: number;
             vote_score: number;
+            viewer_vote: components["schemas"]["ViewerVote"];
             accepted_answer_id: components["schemas"]["Uuid"] | null;
             related: components["schemas"]["RelatedLink"][];
             created_at: components["schemas"]["Timestamp"];
@@ -918,7 +1107,7 @@ export interface components {
             tags: components["schemas"]["TagSlug"][];
             snippets?: components["schemas"]["Snippet"][];
             country?: components["schemas"]["CountryCode"];
-            links?: components["schemas"]["LinkRef"][];
+            links?: components["schemas"]["QuestionLinkRef"][];
         };
         /** @description JSON Merge Patch. lang is immutable (original language preserved). The solve state is derived from answers and acceptance and cannot be set. Requires If-Match (ETag of the current question). */
         QuestionUpdate: {
@@ -927,12 +1116,13 @@ export interface components {
             tags?: components["schemas"]["TagSlug"][];
             snippets?: components["schemas"]["Snippet"][];
             country?: components["schemas"]["CountryCode"] | null;
-            links?: components["schemas"]["LinkRef"][];
+            links?: components["schemas"]["QuestionLinkRef"][];
         };
         QuestionPage: {
             items: components["schemas"]["Question"][];
             /** @description Opaque, integrity-protected; null on the last page. */
             next_cursor: string | null;
+            total: components["schemas"]["ListTotal"];
         };
         Answer: {
             readonly id: components["schemas"]["Uuid"];
@@ -943,6 +1133,7 @@ export interface components {
             sources: string[];
             author: components["schemas"]["AuthorRef"];
             vote_score: number;
+            viewer_vote: components["schemas"]["ViewerVote"];
             is_accepted: boolean;
             created_at: components["schemas"]["Timestamp"];
             updated_at: components["schemas"]["Timestamp"];
@@ -967,6 +1158,11 @@ export interface components {
             /** @enum {integer} */
             value: -1 | 1;
         };
+        /**
+         * @description The authenticated caller's own current vote on this item (1 up, -1 down, 0 none). Always 0 for an anonymous caller. It is derived from the session only and never reveals another member's vote, so a response that carries it varies by caller (Vary Cookie, Cache-Control private).
+         * @enum {integer}
+         */
+        ViewerVote: -1 | 0 | 1;
         VoteState: {
             target_type: components["schemas"]["VoteTargetType"];
             target_id: components["schemas"]["Uuid"];
@@ -995,6 +1191,11 @@ export interface components {
             name: string;
             slug: components["schemas"]["Slug"];
             type: components["schemas"]["ResourceType"];
+            /**
+             * @description live = real content; demo = SEED fixture, loaded in local-dev and staging-test only (never production-live), shown with a visible badge (C15).
+             * @enum {string}
+             */
+            provenance: "live" | "demo";
             category: components["schemas"]["Slug"];
             provider: {
                 name: string;
@@ -1025,6 +1226,7 @@ export interface components {
             items: components["schemas"]["Resource"][];
             /** @description Opaque, integrity-protected; null on the last page. */
             next_cursor: string | null;
+            total: components["schemas"]["ListTotal"];
         };
         ErrorReportCreate: {
             /** @enum {string} */
@@ -1071,6 +1273,11 @@ export interface components {
             visibility: components["schemas"]["ProjectVisibility"];
             owner: components["schemas"]["AuthorRef"];
             open_needs_count: number;
+            stage: components["schemas"]["ProjectStage"];
+            /** @description SPDX license identifier; null when not declared. */
+            license_spdx: components["schemas"]["LicenseSpdx"] | null;
+            /** @description Country the project serves first; null when not declared. */
+            country_code: components["schemas"]["CountryCode"] | null;
             related: components["schemas"]["RelatedLink"][];
             created_at: components["schemas"]["Timestamp"];
             updated_at: components["schemas"]["Timestamp"];
@@ -1083,11 +1290,20 @@ export interface components {
             visibility?: components["schemas"]["ProjectVisibility"];
             technologies?: components["schemas"]["TagSlug"][];
             links?: components["schemas"]["LinkRef"][];
+            /** @description Defaults to idea. */
+            stage?: components["schemas"]["ProjectStage"];
+            license_spdx?: components["schemas"]["LicenseSpdx"];
+            /** @description Must be a known country (422 otherwise). */
+            country_code?: components["schemas"]["CountryCode"];
         };
-        /** @description JSON Merge Patch. github_url immutable. */
+        /** @description JSON Merge Patch. github_url immutable. null clears license_spdx or country_code. */
         ProjectUpdate: {
             description?: string;
             visibility?: components["schemas"]["ProjectVisibility"];
+            stage?: components["schemas"]["ProjectStage"];
+            license_spdx?: components["schemas"]["LicenseSpdx"] | null;
+            /** @description Must be a known country (422 otherwise); null clears it. */
+            country_code?: components["schemas"]["CountryCode"] | null;
             technologies?: components["schemas"]["TagSlug"][];
             links?: components["schemas"]["LinkRef"][];
         };
@@ -1095,6 +1311,7 @@ export interface components {
             items: components["schemas"]["Project"][];
             /** @description Opaque, integrity-protected; null on the last page. */
             next_cursor: string | null;
+            total: components["schemas"]["ListTotal"];
         };
         ContributionNeed: {
             id: components["schemas"]["Uuid"];
@@ -1104,7 +1321,14 @@ export interface components {
             lang: components["schemas"]["Lang"];
             skills: components["schemas"]["TagSlug"][];
             status: components["schemas"]["NeedStatus"];
+            /** @description The authenticated caller's own application to this need, or null (no application, or anonymous). Other applicants are never exposed here. */
+            viewer_application: components["schemas"]["ViewerApplication"] | null;
             created_at: components["schemas"]["Timestamp"];
+        };
+        /** @description The caller's own application to a need (id and status only). */
+        ViewerApplication: {
+            id: components["schemas"]["Uuid"];
+            status: components["schemas"]["ApplicationStatus"];
         };
         NeedCreate: {
             title: string;
@@ -1174,6 +1398,8 @@ export interface components {
             body_md: string;
             lang: components["schemas"]["Lang"];
             level: components["schemas"]["Level"];
+            /** @description Optional learn_topics.code. Omit it when the article has no topic. */
+            topic?: components["schemas"]["TopicCode"];
             tags: components["schemas"]["TagSlug"][];
             /**
              * @description Creating as draft needs no verified email; publishing does (403 EMAIL_NOT_VERIFIED).
@@ -1187,6 +1413,7 @@ export interface components {
             items: components["schemas"]["ArticleSummary"][];
             /** @description Opaque, integrity-protected; null on the last page. */
             next_cursor: string | null;
+            total: components["schemas"]["ListTotal"];
         };
         /** @enum {string} */
         LessonProgressStatus: "not_started" | "in_progress" | "completed";
@@ -1233,6 +1460,7 @@ export interface components {
             items: components["schemas"]["SeriesSummary"][];
             /** @description Opaque, integrity-protected; null on the last page. */
             next_cursor: string | null;
+            total: components["schemas"]["ListTotal"];
         };
         SearchHit: {
             type: components["schemas"]["SearchGroup"];
@@ -1707,6 +1935,37 @@ export interface operations {
             500: components["responses"]["InternalError"];
         };
     };
+    resendEmailVerification: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Strict JSON body; unknown fields rejected. */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VerificationResendRequest"];
+            };
+        };
+        responses: {
+            /** @description Accepted. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Accepted"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+            413: components["responses"]["PayloadTooLarge"];
+            422: components["responses"]["Unprocessable"];
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalError"];
+        };
+    };
     requestPasswordReset: {
         parameters: {
             query?: never;
@@ -1822,6 +2081,43 @@ export interface operations {
             500: components["responses"]["InternalError"];
         };
     };
+    listProfiles: {
+        parameters: {
+            query?: {
+                /** @description Opaque pagination cursor from a previous next_cursor. Tampered/expired -> 400 INVALID_CURSOR. */
+                cursor?: components["parameters"]["Cursor"];
+                /** @description Page size, 1..50 (above 50 -> 422). */
+                limit?: components["parameters"]["Limit"];
+                /** @description Keep profiles whose visible country matches. */
+                country?: components["schemas"]["CountryCode"];
+                /** @description Keep profiles whose visible spoken languages contain this tag. */
+                language?: string;
+                /** @description Keep profiles whose visible skills contain this tag slug. */
+                skill?: components["schemas"]["TagSlug"];
+                /** @description Which entries to list. members is the opt-in member directory; github is the external committers.top entries; all (default) is the members first, then the external entries. */
+                source?: "all" | "members" | "github";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Page of listable profiles (visibility-filtered summaries) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfilePage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            422: components["responses"]["Unprocessable"];
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalError"];
+        };
+    };
     getProfile: {
         parameters: {
             query?: never;
@@ -1844,6 +2140,7 @@ export interface operations {
                 };
             };
             404: components["responses"]["NotFound"];
+            422: components["responses"]["Unprocessable"];
             429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalError"];
         };
@@ -1863,6 +2160,12 @@ export interface operations {
                 country?: components["parameters"]["Country"];
                 /** @description Original language of the content. */
                 lang?: components["parameters"]["LangFilter"];
+                /** @description Keep the questions asked by this username (profile visibility applies; hidden means no match). */
+                author?: components["schemas"]["Username"];
+                /** @description Keep the questions this username answered (profile visibility applies; hidden means no match). */
+                answers_by?: components["schemas"]["Username"];
+                /** @description Order of the page; the cursor is bound to it. */
+                sort?: components["schemas"]["QuestionSort"];
             };
             header?: never;
             path?: never;
@@ -1940,7 +2243,7 @@ export interface operations {
             /** @description Question */
             200: {
                 headers: {
-                    /** @description Entity tag; send it back in If-Match when editing. */
+                    /** @description Entity tag of this question as seen by the caller (it covers the caller, because viewer_vote is part of the representation); send it back in If-Match when editing. The response varies by cookie (Vary Cookie, Cache-Control private), and a tag read while signed out does not match once signed in, so read the question again after signing in. */
                     ETag?: string;
                     [name: string]: unknown;
                 };
@@ -1976,7 +2279,7 @@ export interface operations {
             /** @description Updated */
             200: {
                 headers: {
-                    /** @description Entity tag of the updated question. */
+                    /** @description Entity tag of the updated question as seen by the caller. */
                     ETag?: string;
                     [name: string]: unknown;
                 };
@@ -2209,8 +2512,11 @@ export interface operations {
                 cursor?: components["parameters"]["Cursor"];
                 /** @description Page size, 1..50 (above 50 -> 422). */
                 limit?: components["parameters"]["Limit"];
+                /** @description Order of the page; the cursor is bound to it. */
+                sort?: components["schemas"]["ResourceSort"];
                 q?: string;
-                country?: components["parameters"]["Country"];
+                /** @description One or more ISO 3166-1 alpha-2 codes, comma separated (BF,CI,SN); a resource matches when it supports any of them. */
+                country?: components["schemas"]["CountryCode"][];
                 category?: components["schemas"]["Slug"];
                 type?: components["schemas"]["ResourceType"];
                 /** @description SDK language available (e.g. python, js, go). */
@@ -2411,6 +2717,16 @@ export interface operations {
                 /** @description Skill needed by an open contribution need. */
                 skill?: components["schemas"]["Slug"];
                 open_needs?: boolean;
+                /** @description Keep projects at this stage. */
+                stage?: components["schemas"]["ProjectStage"];
+                /** @description Keep projects whose country is this ISO 3166-1 alpha-2 code. */
+                country?: components["schemas"]["CountryCode"];
+                /** @description Keep projects under this SPDX license identifier (exact match). */
+                license?: components["schemas"]["LicenseSpdx"];
+                /** @description Keep projects owned by this username (profile visibility applies; hidden means no match). */
+                owner?: components["schemas"]["Username"];
+                /** @description Order of the page; the cursor is bound to it. */
+                sort?: components["schemas"]["ProjectSort"];
             };
             header?: never;
             path?: never;
@@ -2738,8 +3054,8 @@ export interface operations {
                 limit?: components["parameters"]["Limit"];
                 q?: string;
                 type?: components["schemas"]["ArticleType"];
-                /** @description Topic slug (matches an article tag). */
-                topic?: components["schemas"]["TagSlug"];
+                /** @description Topic code (learn_topics.code). */
+                topic?: components["schemas"]["TopicCode"];
                 level?: components["schemas"]["Level"];
                 /** @description Original language of the content. */
                 lang?: components["parameters"]["LangFilter"];
@@ -2840,6 +3156,8 @@ export interface operations {
                 limit?: components["parameters"]["Limit"];
                 /** @description Original language of the content. */
                 lang?: components["parameters"]["LangFilter"];
+                /** @description Topic code (learn_topics.code). */
+                topic?: components["schemas"]["TopicCode"];
                 level?: components["schemas"]["Level"];
             };
             header?: never;
@@ -2987,6 +3305,39 @@ export interface operations {
             422: components["responses"]["Unprocessable"];
             429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalError"];
+        };
+    };
+    askAssistant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Strict JSON body; unknown fields rejected. */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssistantQuestion"];
+            };
+        };
+        responses: {
+            /** @description A sourced answer, or a refusal for lack of sources */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssistantAnswer"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            413: components["responses"]["PayloadTooLarge"];
+            422: components["responses"]["Unprocessable"];
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     hideContent: {

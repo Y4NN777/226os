@@ -1,0 +1,95 @@
+package password
+
+import (
+	"errors"
+	"strings"
+	"testing"
+)
+
+func TestHashVerifyRoundTrip(t *testing.T) {
+	h, err := Hash("a-very-good-password")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(h, "$argon2id$v=19$m=65536,t=3,p=1$") {
+		t.Fatalf("unexpected PHC profile: %s", h)
+	}
+	ok, err := Verify("a-very-good-password", h)
+	if err != nil || !ok {
+		t.Fatalf("verify ok=%v err=%v", ok, err)
+	}
+	ok, err = Verify("a-very-good-passwore", h)
+	if err != nil || ok {
+		t.Fatal("wrong password accepted")
+	}
+}
+
+func TestHashRejectsShortAndLong(t *testing.T) {
+	if _, err := Hash("short"); err == nil {
+		t.Fatal("short password hashed")
+	}
+	if _, err := Hash(strings.Repeat("x", 129)); err == nil {
+		t.Fatal("long password hashed")
+	}
+	if Valid("  padded-password-12  ") != true {
+		t.Fatal("padded valid password rejected")
+	}
+	// The contract counts characters, not bytes: 12 CJK chars are 36 bytes.
+	if !Valid("のパスワードテストです。") {
+		t.Fatal("12-rune multi-byte password rejected")
+	}
+	// 3 CJK chars are 9 bytes but only 3 characters: must be rejected.
+	if Valid("パスワ") {
+		t.Fatal("3-rune multi-byte password accepted")
+	}
+	// 128 accented chars (256 bytes) must pass; 129 must fail.
+	if !Valid(strings.Repeat("é", 128)) {
+		t.Fatal("128-rune multi-byte password rejected")
+	}
+	if Valid(strings.Repeat("é", 129)) {
+		t.Fatal("129-rune password accepted")
+	}
+}
+
+func TestVerifyRejectsMalformedAndWeakHashes(t *testing.T) {
+	for _, bad := range []string{
+		"", "not-a-phc", "$argon2i$v=19$m=65536,t=3,p=1$c2FsdA$a2V5",
+		"$argon2id$v=16$m=65536,t=3,p=1$c2FsdHNhbHRzYWx0$a2V5a2V5a2V5a2V5a2V5",
+		"$argon2id$v=19$m=1024,t=1,p=1$c2FsdHNhbHRzYWx0$a2V5a2V5a2V5a2V5a2V5",  // below OWASP floor
+		"$argon2id$v=19$m=65536,t=1,p=1$c2FsdHNhbHRzYWx0$a2V5a2V5a2V5a2V5a2V5", // t below floor
+		"$argon2id$v=19$m=65536,t=3,p=0$c2FsdHNhbHRzYWx0$a2V5a2V5a2V5a2V5a2V5", // p below floor
+		"$argon2id$v=19$m=65536,p=1$c2FsdHNhbHRzYWx0$a2V5a2V5a2V5a2V5a2V5",     // params not m=,t=,p=
+		"$argon2id$v=19$m=abc,t=3,p=1$c2FsdHNhbHRzYWx0$a2V5a2V5a2V5a2V5a2V5",   // non-numeric m
+		"$argon2id$v=19$m=65536,t=3,p=1$!!!$a2V5a2V5a2V5a2V5a2V5",              // salt not base64
+		"$argon2id$v=19$m=65536,t=3,p=1$c2FsdA$a2V5a2V5a2V5a2V5a2V5",           // salt too short
+		"$argon2id$v=19$m=65536,t=3,p=1$c2FsdHNhbHRzYWx0$!!!",                  // key not base64
+		"$argon2id$v=19$m=65536,t=3,p=1$c2FsdHNhbHRzYWx0$a2V5",                 // key too short
+		"$argon2id$v=19$m=65536,t=3,p=1$c2FsdHNhbHRzYWx0",                      // missing key field
+	} {
+		if _, err := Verify("whatever-password", bad); err == nil {
+			t.Fatalf("accepted malformed hash %q", bad)
+		}
+	}
+}
+
+func TestHashEntropyFailure(t *testing.T) {
+	orig := randRead
+	randRead = func([]byte) (int, error) { return 0, errTestRand }
+	t.Cleanup(func() { randRead = orig })
+	if _, err := Hash("a-very-good-password"); err == nil {
+		t.Fatal("hash succeeded without entropy")
+	}
+}
+
+var errTestRand = errors.New("no entropy")
+
+func TestVerifyDummyAlwaysMismatch(t *testing.T) {
+	// The dummy path must run a real Argon2id and report mismatch.
+	VerifyDummy("any-password-value")
+}
+
+func TestNormalizeStripsCRLF(t *testing.T) {
+	if Normalize("ab\r\ncd-efghij") != "abcd-efghij" {
+		t.Fatal("CRLF not stripped")
+	}
+}

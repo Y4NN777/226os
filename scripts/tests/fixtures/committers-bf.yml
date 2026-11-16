@@ -1,0 +1,53 @@
+page: burkina_faso.html
+users:
+
+  - rank: 1
+    name: "Sam R\u00e9mi"
+    login: "spwoodcock"
+    avatarUrl: https://avatars.githubusercontent.com/u/1?v=4
+    contributions: 2980
+    company: "Tech Lead @hotosm"
+    organizations: "hotosm,openlayers"
+
+  - rank: 2
+    name: "O'Brien \"Dev\""
+    login: "Enok-Dev"
+    avatarUrl: https://avatars.githubusercontent.com/u/2?v=4
+    contributions: 2517
+    company: ""
+    organizations: ""
+
+  - rank: 3
+    name: ""
+    login: "ab"
+    avatarUrl: https://avatars.githubusercontent.com/u/3?v=4
+    contributions: 100
+    company: ""
+    organizations: ""
+
+  - rank: 4
+    name: "Taken"
+    login: "demo-aicha"
+    avatarUrl: https://avatars.githubusercontent.com/u/4?v=4
+    contributions: 90
+    company: ""
+    organizations: ""
+
+  - rank: 5
+    name: ""
+    login: "faso_dev"
+    avatarUrl: https://avatars.githubusercontent.com/u/5?v=4
+    contributions: 80
+    company: ""
+    organizations: ""
+users_public_contributions:
+
+  - rank: 1
+    name: "Other list"
+    login: "notused"
+    avatarUrl: https://avatars.githubusercontent.com/u/9?v=4
+    contributions: 1
+    company: ""
+    organizations: ""
+generated: 2026-11-02T19:04:24Z
+title: Burkina Faso

@@ -137,15 +137,32 @@ func TestRedirectAndDelay(t *testing.T) {
 
 func TestStallEndsWhenTheClientGivesUp(t *testing.T) {
 	s := aistest.NewServer(t, aistest.WithGenerate(aistest.Behaviour{Delay: time.Hour}))
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Millisecond)
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.URL()+"/v1beta/models/m:generateContent", strings.NewReader("{}"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if resp, err := http.DefaultClient.Do(req); err == nil {
-		_ = resp.Body.Close()
-		t.Fatal("expected a timeout")
+	done := make(chan error, 1)
+	go func() {
+		resp, err := http.DefaultClient.Do(req)
+		if err == nil {
+			_ = resp.Body.Close()
+		}
+		done <- err
+	}()
+	// Give up only once the server holds the request, so its stall really ends on the client's
+	// cancellation (a fixed client timeout could fire before the request arrived on a loaded machine).
+	deadline := time.Now().Add(5 * time.Second)
+	for len(s.Requests()) == 0 {
+		if time.Now().After(deadline) {
+			t.Fatal("the server never received the request")
+		}
+		time.Sleep(time.Millisecond)
+	}
+	cancel()
+	if err := <-done; err == nil {
+		t.Fatal("expected the cancelled request to fail")
 	}
 }
 

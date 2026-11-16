@@ -10,6 +10,8 @@
 | `develop` | Shared integration and staging branch | Staging/Preview (`staging-test`) | PR from work branches only |
 | Work branch | One bounded change | Local/CI checks | Created from the current target branch |
 
+**Default branch: `develop`** ([ADR-0013](decisions/0013-default-branch-develop.md); switched by the owner, observed in the repository settings on 2026-11-15). New clones check out `develop`, a pull request opens against `develop` by default, and the review pipeline (`workflow_run`, `schedule`, `workflow_dispatch`) runs from `develop`'s copy of the workflows. Promotion rules below are unchanged: `main` still takes only a promotion PR from `develop` (or a hotfix). GitHub closes `Closes #N` and `Fixes #N` on a merge into the default branch, so they now act natively on merges into `develop`, `needs-owner` issues included; `scripts/close-merged-issues.py` stays as the idempotent backstop. A pull request that touches `.github/pipeline-paths.txt` is merged by the owner only; auto-merge refuses it and teammates do not merge it.
+
 Direct pushes to `develop` and `main` are prohibited. Reviewer rules for the four-person team are in [ADR-0008](decisions/0008-team-work-areas-and-ownership.md) and [`team/CONTRIBUTORS.md`](team/CONTRIBUTORS.md). Human approval is required for production, security, migration and other irreversible gates.
 
 ## Work branch naming
@@ -30,7 +32,7 @@ graph LR
 ```
 
 1. Create a work branch from `develop` and open a PR into `develop`. The PR identifies its slice, allowed paths, acceptance criteria, risks, owner, reviewer and evidence (`.github/PULL_REQUEST_TEMPLATE.md`).
-2. Merge after the checks and the review required by ADR-0008. `develop` is staging/preview.
+2. Merge after the checks; the AI review pipeline merges when no finding is open, and the owner handles CRITICAL, open HIGH, sensitive and pipeline changes ([ADR-0014](decisions/0014-ai-review-merges-develop.md)). `develop` is staging/preview.
 3. Validate the exact `develop` SHA (integration, contract, security, E2E, accessibility, performance, backup/restore, smoke) as far as each gate is implemented.
 4. Open a production PR from `develop` into `main` with G7 evidence and explicit approval. Before approving, the approver verifies that `git diff develop main` is empty; no automation does this today.
 5. Deploy the image digest built and tested from the `develop` SHA.
@@ -43,7 +45,7 @@ A critical production fix uses `hotfix/<domain>/<short-name>` from `main`, goes 
 ## Commit and PR rules
 
 - Each human contributor uses their own approved project identity; the Day one steps are in [`CONTRIBUTING.md`](../CONTRIBUTING.md#day-one). The repository owner's Git identity is `Y4NN77 <approved Git email>` (GitHub login Y4NN777). Verify with `git config --local --get user.name`.
-- Never add `Co-authored-by` trailers for AI systems or agents; record AI assistance in `AI_USAGE.md`. This repository rule overrides any default attribution suggested by a tool.
+- Never add `Co-authored-by` trailers for AI systems or agents; record AI assistance as one file in `docs/ai-usage/` (`AI_USAGE.md` is generated from those files). This repository rule overrides any default attribution suggested by a tool.
 - Keep commits focused, with imperative subjects such as `docs: clarify branch promotion`.
 - Do not force-push shared branches; never rewrite `develop` or `main`.
 - Promotion PRs and back-merges use **Create a merge commit**; never squash or rebase them (it breaks SHA-based release evidence). Work-branch PRs into `develop` may squash, except a branch that contains a back-merge.
@@ -51,10 +53,19 @@ A critical production fix uses `hotfix/<domain>/<short-name>` from `main`, goes 
 
 ## GitHub branch protection
 
-Configured today (owner settings; `quality` added 2026-11-12): `develop` and `main` require the status checks "Validate branch promotion" and `quality` (strict), conversation resolution, no force-push, and apply to admins. `develop` requires no review; `main` requires 0 approvals.
+Configured today (owner settings; `quality` added 2026-11-12): `develop` and `main` require the status checks "Validate branch promotion" and `quality`, conversation resolution, no force-push, and apply to admins. On `develop` the checks are not strict: the branch does not have to be up to date with `develop` before merging (read from the settings on 2026-11-15); `main` was recorded as strict on 2026-11-12 and was not re-read. `develop` requires no review; `main` requires 0 approvals.
+
+Pipeline paths are protected by convention and by auto-merge, not by a ruleset or a code-owner review requirement ([ADR-0013](decisions/0013-default-branch-develop.md)).
 
 Planned owner setting: decide a review rule for `main` once the team pushes (with enforce-admins on, one required approval would block owner promotions until a teammate reviews). Linear history stays off, because promotion and back-merge use merge commits.
 
+## If a bad change reaches develop
+
+1. Open a revert PR (`git revert -m 1 <merge commit>`), bundle it with the fix if the fix is small. `develop` is staging, so this is quick and nothing reaches production.
+2. The promotion PR into `main` is the second gate: the owner reads it and runs `make smoke` first; production is never promoted from a red `develop`.
+3. In production, redeploy the previous image by digest ([SHIP](SHIP.md) section 5); an application rollback does not undo a migration.
+4. Say what happened in the PR and add the missing check or rule, so the same change cannot pass again.
+
 ## Current state
 
-No deployment workflow exists yet. The application, the Compose profiles and CI exist. Deployment jobs and the `production` environment approval remain `NOT IMPLEMENTED` until the ops slice (TODO S8) is done.
+The deployment workflow `.github/workflows/deploy.yml` exists (staging on every green push to `develop`, production on every push to `main` after the `production` environment approval, by the digests tested on staging). It has not run yet: the environments, secrets, DNS and servers are set up by the owner ([deploy-setup](runbooks/deploy-setup.md)); G7 stays NOT RUN until then.

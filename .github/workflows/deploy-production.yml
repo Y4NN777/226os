@@ -1,0 +1,145 @@
+name: Deploy production (shared)
+
+# The production deploy steps shared by the deploy workflows (workflow_call): pinned SSH host key, sops in RAM,
+# release and env copy, scripts/deploy-remote.sh production-live (backup, migrate, up by digest, smoke; never seeds).
+# The caller decides WHAT to deploy (images by digest) and has already planned and checked it; this job only runs
+# behind the `production` environment (owner approval), which holds the only two secrets. The environment is a plain
+# name on purpose: an expression would fail scripts/tests/review-agent-triggers_test.sh (ADR-0013).
+# Used by deploy-emergency.yml. deploy.yml keeps its own copy for now (its E2E steps live in the same job).
+on:
+  workflow_call:
+    inputs:
+      sha:
+        required: true
+        type: string
+      api_image:
+        required: true
+        type: string
+      web_image:
+        required: true
+        type: string
+      migrate_image:
+        required: true
+        type: string
+    # DEPLOY_SSH_KEY and SOPS_AGE_KEY come from the production environment (the caller passes `secrets: inherit`);
+    # the first step fails closed when one is missing.
+
+permissions:
+  contents: read
+
+env:
+  SOPS_VERSION: v3.13.3
+  SOPS_SHA256: e5bec3346a873ae91d871550f3e698c1aad962aff462a080e40f25fde17fef6b
+
+jobs:
+  deploy:
+    name: deploy production
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: production
+    permissions:
+      contents: read
+      packages: read
+    env:
+      PROFILE: production-live
+      SHA: ${{ inputs.sha }}
+      API_IMAGE: ${{ inputs.api_image }}
+      WEB_IMAGE: ${{ inputs.web_image }}
+      MIGRATE_IMAGE: ${{ inputs.migrate_image }}
+    steps:
+      - name: Check out the commit to deploy
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.sha }}
+          persist-credentials: false
+
+      - name: Read and check the deploy settings (names only, never secret values)
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY }}
+        run: |
+          set -euo pipefail
+          for v in DEPLOY_SSH_KEY SOPS_AGE_KEY; do
+            [ -n "${!v-}" ] || { echo "::error title=Environment not configured::Missing secret $v in the production environment."; exit 1; }
+          done
+          scripts/deploy-conf.sh production >"$RUNNER_TEMP/deploy.conf.out"
+          cat "$RUNNER_TEMP/deploy.conf.out" >>"$GITHUB_ENV"
+
+      - name: Install sops (pinned release, checksum verified)
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/bin"
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/bin/sops" "https://github.com/getsops/sops/releases/download/${SOPS_VERSION}/sops-${SOPS_VERSION}.linux.amd64"
+          echo "${SOPS_SHA256}  $RUNNER_TEMP/bin/sops" | sha256sum --check --status
+          chmod +x "$RUNNER_TEMP/bin/sops"
+          echo "$RUNNER_TEMP/bin" >>"$GITHUB_PATH"
+
+      - name: Prepare SSH (pinned host key, dedicated key)
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          umask 077
+          dir="$RUNNER_TEMP/ssh"
+          mkdir -p "$dir" "$RUNNER_TEMP/bin"
+          printf '%s\n' "$DEPLOY_SSH_KEY" >"$dir/id"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" >"$dir/known_hosts"
+          {
+            echo '#!/usr/bin/env bash'
+            printf 'exec ssh -i %q -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=%q -o ConnectTimeout=20 -o ServerAliveInterval=30 %q "$@"\n' \
+              "$dir/id" "$dir/known_hosts" "${DEPLOY_USER}@${DEPLOY_HOST}"
+          } >"$RUNNER_TEMP/bin/deploy-ssh"
+          chmod 700 "$RUNNER_TEMP/bin/deploy-ssh"
+          "$RUNNER_TEMP/bin/deploy-ssh" 'echo "ssh ok on $(hostname)"'
+
+      - name: The server must belong to production
+        run: |
+          set -euo pipefail
+          bound="$("$RUNNER_TEMP/bin/deploy-ssh" 'cat /opt/226os/state/profile 2>/dev/null || true')"
+          scripts/deploy-check-bound.sh "$PROFILE" "$bound"
+
+      - name: Decrypt the profile env and set the image digests (RAM only, never printed)
+        env:
+          SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY }}
+        run: |
+          set -euo pipefail
+          umask 077
+          tmp="$(mktemp -d /dev/shm/deploy.XXXXXX)"
+          echo "DEPLOY_TMP=$tmp" >>"$GITHUB_ENV"
+          SECRETS_OUT_DIR="$tmp" scripts/secrets.sh decrypt "$PROFILE" >/dev/null
+          scripts/deploy-env.sh "$PROFILE" "$PUBLIC_HOST" <"$tmp/.env.$PROFILE" >"$tmp/deploy.env"
+          rm -f "$tmp/.env.$PROFILE"
+
+      # Production never receives the demo fixtures: the release below holds none.
+      - name: Copy the release to the server
+        run: |
+          set -euo pipefail
+          tar -czf - --exclude='scripts/tests' compose.yaml deploy/traefik scripts Makefile mk "secrets/${PROFILE}.recipients" |
+            "$RUNNER_TEMP/bin/deploy-ssh" 'set -e; d=/opt/226os; rm -rf "$d/app.new"; mkdir -p "$d/app.new"; tar -xzf - -C "$d/app.new"; rm -rf "$d/app.old"; if [ -d "$d/app" ]; then mv "$d/app" "$d/app.old"; fi; mv "$d/app.new" "$d/app"'
+
+      - name: Copy the env file to the server (mode 600)
+        run: |
+          set -euo pipefail
+          "$RUNNER_TEMP/bin/deploy-ssh" "umask 077; install -d -m 700 /opt/226os/env; cat >/opt/226os/env/.env.${PROFILE}.new && mv /opt/226os/env/.env.${PROFILE}.new /opt/226os/env/.env.${PROFILE}" <"$DEPLOY_TMP/deploy.env"
+
+      - name: Deploy (pull, backup, migrate, up by digest, smoke; no fixtures)
+        env:
+          REGISTRY_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$REGISTRY_TOKEN" | "$RUNNER_TEMP/bin/deploy-ssh" "cd /opt/226os/app && REGISTRY_TOKEN_STDIN=1 scripts/deploy-remote.sh production-live https://${PUBLIC_HOST}"
+
+      - name: Record
+        run: |
+          {
+            echo "### Deployed ${PROFILE}"
+            echo
+            echo "- commit: \`${SHA}\`"
+            echo "- api: \`${API_IMAGE}\`"
+            echo "- web: \`${WEB_IMAGE}\`"
+            echo "- migrate: \`${MIGRATE_IMAGE}\`"
+          } >>"$GITHUB_STEP_SUMMARY"
+
+      - name: Clean up (plaintext env and SSH key on the runner)
+        if: always()
+        run: rm -rf -- "${DEPLOY_TMP:-/nonexistent}" "$RUNNER_TEMP/ssh" "$RUNNER_TEMP/bin/deploy-ssh"

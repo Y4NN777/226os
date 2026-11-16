@@ -12,9 +12,22 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/Y4NN777/226os/src/api/internal/build"
+	"github.com/Y4NN777/226os/src/api/internal/build/github"
+	"github.com/Y4NN777/226os/src/api/internal/discover"
+	"github.com/Y4NN777/226os/src/api/internal/identity/committers"
+	"github.com/Y4NN777/226os/src/api/internal/identity/repository"
+	"github.com/Y4NN777/226os/src/api/internal/identity/service"
+	identitytransport "github.com/Y4NN777/226os/src/api/internal/identity/transport"
+	"github.com/Y4NN777/226os/src/api/internal/learn"
+	"github.com/Y4NN777/226os/src/api/internal/moderation"
 	"github.com/Y4NN777/226os/src/api/internal/platform/config"
+	"github.com/Y4NN777/226os/src/api/internal/platform/cursor"
 	"github.com/Y4NN777/226os/src/api/internal/platform/httpx"
 	"github.com/Y4NN777/226os/src/api/internal/platform/idempotency"
+	"github.com/Y4NN777/226os/src/api/internal/platform/ratelimit"
+	"github.com/Y4NN777/226os/src/api/internal/search"
+	"github.com/Y4NN777/226os/src/api/internal/solve"
 )
 
 const (
@@ -35,6 +48,7 @@ type serveFunc func(context.Context, net.Listener, http.Handler, time.Duration) 
 type dbPool interface {
 	httpx.Pinger
 	idempotency.DB
+	repository.Beginner
 	Close()
 }
 
@@ -55,6 +69,11 @@ func openPool(ctx context.Context, url string) (dbPool, error) {
 	return p, nil
 }
 
+// demoProfilesEnabled reports whether the people directory lists demo seed
+// users: only in local-dev. staging-test, production-live and anything else
+// exclude them.
+func demoProfilesEnabled(appEnv string) bool { return appEnv == "local-dev" }
+
 func run(ctx context.Context, getenv func(string) string, out io.Writer, serve serveFunc, open poolOpener) int {
 	logger := slog.New(slog.NewJSONHandler(out, nil))
 	cfg, err := config.Load(getenv)
@@ -69,10 +88,37 @@ func run(ctx context.Context, getenv func(string) string, out io.Writer, serve s
 		return 1
 	}
 	defer pool.Close()
-	deps := newDeps(pool, WithMailer(newMailer(cfg, logger)))
+	codec, err := cursor.New(cfg.CursorKey)
+	if err != nil {
+		logger.Error("invalid cursor configuration")
+		return 1
+	}
+	mail := newMailer(cfg, logger)
+	secureCookies := cfg.AppEnv != "local-dev"
+	identRepo := repository.New(pool)
+	identSvc := service.New(identRepo, mail, cfg.CursorKey, service.WithBaseURL(cfg.AppBaseURL), service.WithCursors(codec), service.WithDemoProfiles(demoProfilesEnabled(cfg.AppEnv)), service.WithGitHubDevelopers(identRepo))
+	authHandler := identitytransport.New(identSvc, secureCookies, logger)
+	limiter := ratelimit.New(pool, cfg.CursorKey, logger)
+	catalogue := discover.NewHandler(pool, codec, limiter, logger)
+	deps := newDeps(pool,
+		WithMailer(mail),
+		WithCatalogue(catalogue),
+		WithErrorReports(catalogue),
+		WithIdentity(authHandler),
+		WithSearch(search.NewHandler(pool, limiter, logger)),
+		WithLearn(learn.NewHandler(pool, codec, limiter, logger)),
+		WithModeration(moderation.NewHandler(pool, limiter, logger)),
+		WithBuild(build.NewHandler(pool, github.New(cfg.GitHubToken, logger), codec, limiter, logger)),
+		WithAssistant(newAssistantHandler(cfg.AI, pool, limiter, logger)),
+		WithSolve(solve.NewHandler(pool, codec, limiter, logger)),
+	)
+	deps.Subjects = identitytransport.NewResolver(identSvc, secureCookies)
+	deps.CSRF = identitytransport.CSRFMiddleware(identSvc, secureCookies, logger)
 	// Deferred after pool.Close, so it runs first: the purge job stops before the pool closes.
 	stopPurge := startPurge(ctx, deps.Idempotency, logger)
 	defer stopPurge()
+	stopImport := startGitHubImport(ctx, cfg.GitHubImport, identRepo, logger)
+	defer stopImport()
 	ln, err := (&net.ListenConfig{}).Listen(ctx, "tcp", cfg.Addr)
 	if err != nil {
 		logger.Error("listen failed", "error", err)
@@ -96,6 +142,15 @@ func startPurge(ctx context.Context, store idempotency.Store, logger *slog.Logge
 		cancel()
 		wg.Wait()
 	}
+}
+
+// startGitHubImport runs the daily committers.top import (ADR-0016) when enabled, until the returned function
+// is called, which waits for it. Disabled, it starts nothing.
+func startGitHubImport(ctx context.Context, enabled bool, store committers.Store, logger *slog.Logger) (stop func()) {
+	if !enabled {
+		return func() {}
+	}
+	return committers.Start(ctx, committers.NewJob(committers.New(), store, logger))
 }
 
 // Main runs the API and calls exit only on failure (exit(0) would be a no-op).

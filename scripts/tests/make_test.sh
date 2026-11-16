@@ -84,12 +84,17 @@ grep -qE '^\.PHONY:.*\bquality\b' <<<"$db" || rc=$?
 [ "$rc" -eq 0 ] && ok "targets are .PHONY" || ko "targets are .PHONY"
 
 # --- 3. Unimplemented targets fail closed ---------------------------------------------------
-for t in test-e2e perf seed; do
-  run_make make "$t"
-  if [ "$rc" -ne 0 ] && grep -q 'NOT IMPLEMENTED' <<<"$out" && grep -q 'NOT RUN' <<<"$out" && ! grep -q 'PASS' <<<"$out"; then
-    ok "make $t exits non-zero with NOT IMPLEMENTED / NOT RUN (rc=$rc)"
-  else ko "make $t (rc=$rc, out=$out)"; fi
-done
+# seed is implemented (SEED #75); its fail-closed refusals live in scripts/tests/seed_test.sh.
+# test-e2e is implemented (Playwright, needs E2E_BASE_URL): without it, it must still fail closed.
+run_make make test-e2e E2E_BASE_URL=
+if [ "$rc" -ne 0 ] && grep -q 'E2E_BASE_URL' <<<"$out" && grep -q 'NOT RUN' <<<"$out" && ! grep -q 'PASS' <<<"$out"; then
+  ok "make test-e2e without E2E_BASE_URL exits non-zero with NOT RUN (rc=$rc)"
+else ko "make test-e2e without E2E_BASE_URL (rc=$rc, out=$out)"; fi
+t=perf
+run_make make "$t"
+if [ "$rc" -ne 0 ] && grep -q 'NOT IMPLEMENTED' <<<"$out" && grep -q 'NOT RUN' <<<"$out" && ! grep -q 'PASS' <<<"$out"; then
+  ok "make $t exits non-zero with NOT IMPLEMENTED / NOT RUN (rc=$rc)"
+else ko "make $t (rc=$rc, out=$out)"; fi
 
 # --- 4. db-reset refuses before touching Docker -----------------------------------------------
 db_url='postgres://app:x@postgres:5432/app226'
@@ -172,10 +177,10 @@ else ko "quality-full (rc=$rc, out=$out)"; fi
 # Default step list covers G1-G4 (dry run: the driver is not executed).
 dry="$(mk "$root" env -i PATH="$PATH" HOME="$HOME" make -n quality 2>&1)" || true
 miss=""
-for s in doctor generate lint typecheck test-unit coverage test-integration security licenses docs-check; do
+for s in doctor generate lint typecheck test-unit coverage test-integration security licenses docs-check test-harness; do
   grep -qE "(^|[[:space:]])$s([[:space:]]|$)" <<<"$dry" || miss+=" $s"
 done
-[ -z "$miss" ] && ok "default quality steps cover G1-G4 (doctor generate lint typecheck test-unit coverage test-integration security licenses docs-check)" || ko "quality default steps missing:$miss"
+[ -z "$miss" ] && ok "default quality steps cover G1-G4 (doctor generate lint typecheck test-unit coverage test-integration security licenses docs-check test-harness)" || ko "quality default steps missing:$miss"
 dry="$(mk "$root" env -i PATH="$PATH" HOME="$HOME" make -n quality-full 2>&1)" || true
 grep -qE '(^|[[:space:]])test-e2e([[:space:]]|$)' <<<"$dry" && grep -qE '(^|[[:space:]])perf([[:space:]]|$)' <<<"$dry" && ok "quality-full adds test-e2e and perf" || ko "quality-full default steps"
 
@@ -183,9 +188,12 @@ grep -qE '(^|[[:space:]])test-e2e([[:space:]]|$)' <<<"$dry" && grep -qE '(^|[[:s
 mig="$tmp/migrations"
 mkdir -p "$mig"
 cp "$root"/db/migrations/*.sql "$mig/"
+last="$(basename "$(printf '%s\n' "$mig"/*.sql | sort | tail -n 1)")"
+last="${last%%_*}"
+next="$(printf '%05d' "$((10#$last + 1))")"
 rc=0
 out="$(env -i PATH="$PATH" HOME="$HOME" "$root/scripts/migrate-new.sh" add_widget_table "$mig" 2>&1)" || rc=$?
-new="$mig/00011_add_widget_table.sql"
+new="$mig/${next}_add_widget_table.sql"
 if [ "$rc" -eq 0 ] && [ -f "$new" ] && ! grep -qi 'goose Down' "$new" && grep -q '^-- +goose Up$' "$new" \
   && env -i PATH="$PATH" HOME="$HOME" "$root/scripts/check-migrations.sh" "$mig" >/dev/null 2>&1; then
   ok "migrate-new creates the next sequential file, header template, no Down, passes check-migrations"
@@ -213,7 +221,7 @@ dry() { mk "$root" env -i PATH="$PATH" HOME="$HOME" make -n "$@" 2>&1; }
 steps_of() { { mk "$root" env -i PATH="$PATH" HOME="$HOME" make -s "$1" 2>/dev/null || true; } | tr ' ' '\n' | sed '/^$/d' | sort -u | tr '\n' ' '; }
 lint_dry="$(dry lint)"
 miss=""
-for w in "gofmt" "go vet" "staticcheck" "golangci-lint" "sqlc vet" "ESLint" "Prettier" "redocly" "migration policy" "ShellCheck" "script tests"; do
+for w in "gofmt" "go vet" "staticcheck" "golangci-lint" "sqlc vet" "ESLint" "Prettier" "redocly" "migration policy" "ShellCheck" "script tests" "check-todo-updated.sh"; do
   grep -q -- "$w" <<<"$lint_dry" || miss+=" [$w]"
 done
 [ -z "$miss" ] && ok "make lint still runs every lint check after the split" || ko "make lint lost:$miss"
@@ -235,6 +243,12 @@ done
 ok "every CI group runs through the fail-closed driver, doctor first"
 docs_steps="$({ mk "$root" env -i PATH="$PATH" HOME="$HOME" make -s ci-steps SCOPE_GROUPS=repo 2>/dev/null || true; } | tr ' ' '\n' | sed '/^$/d' | sort -u | tr '\n' ' ')"
 [ "$docs_steps" = "docs-check doctor licenses security-secrets security-secrets-encrypted " ] && ok "SCOPE_GROUPS=repo narrows the expected steps to the repository group" || ko "docs-scope steps: [$docs_steps]"
+# The harness tests (.claude/hooks/tests) are a gate: removing `test-harness` from QUALITY_STEPS or the `harness` group
+# from CI_GROUPS must not pass silently (the leaf-steps comparison above stays consistent when both are removed).
+case " $groups " in *" harness "*) ok "the harness CI group is listed";; *) ko "the harness CI group is not in CI_GROUPS ($groups)";; esac
+harness_steps="$({ mk "$root" env -i PATH="$PATH" HOME="$HOME" make -s ci-steps SCOPE_GROUPS=harness 2>/dev/null || true; } | tr ' ' '\n' | sed '/^$/d' | sort -u | tr '\n' ' ')"
+[ "$harness_steps" = "doctor test-harness " ] && ok "the harness CI group runs doctor and test-harness" || ko "harness group steps: [$harness_steps]"
+case " $(steps_of quality-leaf-steps)" in *" test-harness "*) ok "make quality runs test-harness";; *) ko "test-harness is not a leaf step of make quality";; esac
 run_make make ci-no-such-group
 [ "$rc" -ne 0 ] && ok "an unknown CI group fails (no steps is not a pass)" || ko "unknown CI group passed (rc=$rc, out=$out)"
 

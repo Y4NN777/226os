@@ -3,7 +3,7 @@
 **Cible :** Datacloud/Systalink, démonstration accessible avant 2026-11-15 17:00 GMT.
 
 ## 1. Stratégie
-- Aucun workflow de déploiement n'existe encore : G7 est manuel et NOT RUN ; rien n'est déployé.
+- Le workflow `.github/workflows/deploy.yml` existe (décrit dans [RELEASE_DRAFT](RELEASE_DRAFT.md), mise en place par le propriétaire dans [`runbooks/deploy-setup.md`](runbooks/deploy-setup.md)) : deux serveurs distincts, staging (`develop`) et production (`main`). Il n'a pas encore été exécuté : G7 reste NOT RUN et rien n'est déployé tant que l'environnement n'est pas configuré.
 - Un seul arbre Compose à profils `local-dev` (machine locale), `staging-test` (branche `develop`) et `production-live` (branche `main`), avec fichiers d'environnement et secrets distincts par profil : cela satisfait l'intention « Compose local et prod séparés » (ADR-0006) ; Datacloud héberge `staging-test` et `production-live` ; `migrate-gated` est un quatrième profil technique de Compose (profil de job pour les migrations, pas un environnement) ; un seul hôte pour MVP : Traefik en edge, conteneur web, conteneur API, PostgreSQL avec volume persistant.
 - Traefik gère TLS Let's Encrypt (challenge selon DNS et firewall vérifiés) et routes ; DB jamais exposée publiquement.
 - Domaines proposés : `226os.tech` pour web, `/api/v1` routé vers API ; possibilité `api.226os.tech` après confirmation DNS et CORS. Ne pas supposer DNS opérationnel.
@@ -17,7 +17,8 @@ work branch -> PR develop -> develop staging/preview smoke
 ```
 - Branches, promotions et protections : voir [`GIT_WORKFLOW.md`](GIT_WORKFLOW.md). `develop` correspond à `staging-test`, `main` à `production-live`.
 - La production déploie l'image (par digest) testée sur le SHA `develop` validé, dont l'arbre est celui de `main` ; ne jamais reconstruire une autre révision lors de la promotion.
-- GitHub Actions avec `permissions` minimales et OIDC si un fournisseur le permet ; ne jamais exposer SSH keys ou tokens aux PR de forks.
+- GitHub Actions avec `permissions` minimales ; aucun déclencheur `pull_request` dans le workflow de déploiement, donc aucune clé SSH ni clé age n'atteint une PR de fork. Les secrets sont des secrets d'environnement (`staging`, `production`) : clé SSH, hôtes SSH épinglés, clé age pour `sops` (décision du propriétaire du 2026-11-15, qui contredit le point 8 de l'ADR-0009 ; amendement à demander).
+- Staging se déploie à chaque push sur `develop` dont `quality` est vert (build, scan, push GHCR par SHA, sauvegarde, migration, `up --wait` par empreinte, seeds, fumée), puis un job `e2e` à part (environnement GitHub `staging-e2e`, sans aucun secret de déploiement) lance les tests E2E. Production se déploie à chaque push sur `main`, après approbation, avec les empreintes étiquetées `tested-<arbre>` par staging. L'étiquette étant modifiable, chaque empreinte doit aussi porter une attestation signée (`actions/attest`, posée par le seul job `promote`) que `gh attestation verify` valide pour cet arbre (`scripts/deploy-verify-tested.sh`) ; sans empreinte testée et attestée pour cet arbre, elle échoue avant l'approbation (un correctif urgent passe donc aussi par `develop`).
 - Conditions d'environnement `production` et approval humaine ; pas d'auto-déploiement aveugle depuis PR.
 
 ## 3. Preflight avant déploiement
@@ -28,6 +29,7 @@ work branch -> PR develop -> develop staging/preview smoke
 - Rapports quality gates sur SHA cible disponibles, migration reversible ou plan de restauration explicite.
 
 ## 4. Smoke post-déploiement
+Les points 1 et 2 s'exécutent avec `make smoke PROFILE=<profil> BASE_URL=https://<hôte>` (`scripts/smoke.sh`, lecture seule). Le workflow de déploiement lance la fumée sur le serveur après chaque déploiement : [RELEASE_DRAFT](RELEASE_DRAFT.md).
 1. HTTPS cert valide, redirections, headers et Traefik routage.
 2. `/healthz` (liveness) vérifié depuis l'extérieur. `/readyz` (base de données et dépendances nécessaires) vérifié depuis l'hôte, dans le conteneur : `docker compose exec api /healthcheck /readyz`. Jamais par l'adresse publique : le routeur n'envoie pas `/readyz` à l'API, et le site web répond `200` avec sa page d'accueil (décision B2, ROADMAP section 10).
 3. Auth, session, question/réponse/vote, recherche, fiche API, projet, candidature.
@@ -43,6 +45,7 @@ work branch -> PR develop -> develop staging/preview smoke
 - Équipe 2–5 participants, représentant et pays déclarés, clé de répartition et membre(s) inscrits.
 - URL Git, URL démo publique, produit Datacloud actif, dépôt/documentation, compte de démonstration sécurisé si nécessaire.
 - Projet original construit pendant le concours, registre `THIRD_PARTY_NOTICES.md`, `AI_USAGE.md`, provenance des dépendances, absence de licences interdites par le règlement.
+- Avant la soumission : `make ai-usage` régénère le bloc généré de `AI_USAGE.md` à partir de `docs/ai-usage/` (un fichier par enregistrement), puis `make ai-usage-check` doit passer. La CI le vérifie sur la PR de promotion vers `main` (`make docs-check`), pas avant : le fichier est volontairement en retard entre deux régénérations.
 - Soumission avant **15 novembre 2026, 17:00 GMT**. Chaque membre doit voter entre **15 novembre 18:00 et 16 novembre 23:59 GMT** sous peine d'exclusion. Prévoir responsable de suivi.
 - Pointeurs : déclaration d'originalité dans [`docs/research/REFERENCES.md`](research/REFERENCES.md) (section « Déclaration d'originalité »), inventaire des dépendances dans [`THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md), usage de l'IA dans [`AI_USAGE.md`](../AI_USAGE.md).
 
