@@ -395,7 +395,8 @@
   padding: 112px var(--lp-edge) var(--sp-5);
   scroll-margin-top: 0;
   background:
-    radial-gradient(40% 30% at 4% 0%, rgb(77 114 29 / 0.4), transparent 70%), var(--color-night-canvas);
+    radial-gradient(40% 30% at 4% 0%, rgb(77 114 29 / 0.4), transparent 70%),
+    var(--color-night-canvas);
 }
 .lp-halo {
   position: absolute;

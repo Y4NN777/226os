@@ -153,11 +153,7 @@ function MobileHeaderSearch() {
         }}
       />
       {isOpen ? (
-        <div
-          ref={panel}
-          id="shell-mobile-search-panel"
-          className="shell-mobile-search-panel"
-        >
+        <div ref={panel} id="shell-mobile-search-panel" className="shell-mobile-search-panel">
           <HeaderSearch
             onSubmit={() => {
               setOpen(false);
