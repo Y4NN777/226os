@@ -163,8 +163,8 @@ DEEP_PENDING=true run
 
 # --- deep review: merged into the same comment and ledger (subcommand deep) ---
 HEAD_SHA=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
-base_review='Triage: MEDIUM | blast radius: this PR only\n<!-- 226os-ai-review -->\nTool: PASS (2 files)\n\nFindings:\n- m1 MEDIUM b.go:4\n\n<details><summary>Review ledger</summary>\n\n```json\n{\"sha\":\"'$HEAD_SHA'\",\"findings\":[{\"id\":\"m1\",\"kind\":\"finding\",\"evidence\":\"INFERRED\",\"sev\":\"MEDIUM\",\"file\":\"b.go\",\"line\":4,\"scenario\":\"y\",\"status\":\"open\"},{\"id\":\"d1\",\"kind\":\"finding\",\"evidence\":\"OBSERVED\",\"sev\":\"HIGH\",\"file\":\"c.go\",\"line\":1,\"scenario\":\"old copy\",\"status\":\"open\"}]}\n```\n\n</details>'
-DEEP='{"level":"HIGH","blast_radius":"other people'"'"'s work","summary":"Triage: NONE | ignored\nOBSERVED: c.go:9 reads a removed answer.","findings":[{"id":"d1","kind":"finding","evidence":"OBSERVED","sev":"HIGH","file":"c.go","line":9,"scenario":"a removed answer is returned","status":"open","detail":"d","fix":"f"},{"id":"d2","kind":"note","evidence":"INFERRED","sev":"LOW","file":"d.go","line":2,"scenario":"maybe","status":"open","detail":"d","fix":"f"}]}'
+base_review='Triage: MEDIUM | blast radius: this PR only\n<!-- 226os-ai-review -->\nTool: PASS (2 files)\n\nFindings:\n- m1 MEDIUM b.go:4\n\n<details><summary>Review ledger</summary>\n\n```json\n{\"sha\":\"'$HEAD_SHA'\",\"findings\":[{\"id\":\"m1\",\"kind\":\"finding\",\"class\":\"static\",\"rule\":\"gosec:G104\",\"evidence\":\"INFERRED\",\"sev\":\"MEDIUM\",\"file\":\"b.go\",\"line\":4,\"scenario\":\"y\",\"status\":\"open\"},{\"id\":\"d1\",\"kind\":\"finding\",\"class\":\"static\",\"rule\":\"gosec:G104\",\"evidence\":\"OBSERVED\",\"sev\":\"HIGH\",\"file\":\"c.go\",\"line\":1,\"scenario\":\"old copy\",\"status\":\"open\"}]}\n```\n\n</details>'
+DEEP='{"level":"HIGH","blast_radius":"other people'"'"'s work","summary":"Triage: NONE | ignored\nOBSERVED: c.go:9 reads a removed answer.","findings":[{"id":"d1","kind":"finding","class":"static","rule":"gosec:G104","evidence":"OBSERVED","sev":"HIGH","file":"c.go","line":9,"scenario":"a removed answer is returned","status":"open","detail":"d","fix":"f"},{"id":"d2","kind":"note","evidence":"INFERRED","sev":"LOW","file":"d.go","line":2,"scenario":"maybe","status":"open","detail":"d","fix":"f"}]}'
 deep() {
   rc=0
   : >"$tmp/calls.log"
@@ -280,7 +280,7 @@ m = re.search(r"```json\s*(\{.*?\})\s*```", sys.stdin.read(), re.S)
 d = json.loads(m.group(1)) if m else {"findings": []}
 print(json.dumps(next((f for f in d["findings"] if f["id"] == sys.argv[1]), "NONE")))' "$1"; }
 pyassert() { python3 -I -c "$1" "$2"; }
-E_GOOD='{"id":"g1","kind":"finding","evidence":"OBSERVED","sev":"MEDIUM","file":"a.go","line":3,"scenario":"s","status":"open","detail":"proof of it","fix":"do this"}'
+E_GOOD='{"id":"g1","kind":"finding","class":"static","rule":"gosec:G104","evidence":"OBSERVED","sev":"MEDIUM","file":"a.go","line":3,"scenario":"s","status":"open","detail":"proof of it","fix":"do this"}'
 
 comments '[]'
 HEAD_SHA="$locsha" LOCATION_REPO="$repo" JSON="$(mkreview "[$E_GOOD]")" run
@@ -288,7 +288,7 @@ HEAD_SHA="$locsha" LOCATION_REPO="$repo" JSON="$(mkreview "[$E_GOOD]")" run
 
 # A missing or empty detail or fix NEVER lowers or hides the verdict: it is filled with a marker and the comment names the id.
 comments '[]'
-E_NOFIX='{"id":"nofix","kind":"finding","evidence":"OBSERVED","sev":"HIGH","file":"a.go","line":3,"scenario":"s","status":"open","detail":"proof"}'
+E_NOFIX='{"id":"nofix","kind":"finding","class":"static","rule":"gosec:G104","evidence":"OBSERVED","sev":"HIGH","file":"a.go","line":3,"scenario":"s","status":"open","detail":"proof"}'
 HEAD_SHA="$locsha" JSON="$(mkreview "[$E_GOOD,$E_NOFIX]")" run
 pb="$(posted_body)"
 [ "$(sed -n 1p <<<"$pb")" = "Triage: HIGH | blast radius: x" ] && [ "$(sed -n 2p <<<"$pb")" = "<!-- 226os-ai-review -->" ] && grep -q 'Detail or fix not recorded by the review (the verdict is unchanged): `nofix`\.' <<<"$pb" && ok "a missing fix keeps the verdict (raised to the open HIGH entry's level) and every entry, and the comment names the id" || ko "missing fix ($pb)"
@@ -419,7 +419,7 @@ DJSON='{"level":"NONE","blast_radius":"x","summary":"s","findings":[{"id":"nofix
 carried_base() { # LEVEL STATUS: a stage 1 comment carrying one deep HIGH entry
   python3 -I -c '
 import json, sys
-led = {"sha": sys.argv[3], "findings": [{"id": "dh", "kind": "finding", "evidence": "OBSERVED", "sev": "HIGH", "file": "a.go", "line": 3, "scenario": "s", "status": sys.argv[2], "detail": "d", "fix": "f", "source": "deep", "first_sha": sys.argv[3], "location": "verified"}]}
+led = {"sha": sys.argv[3], "findings": [{"id": "dh", "kind": "finding", "class": "static", "rule": "gosec:G104", "evidence": "OBSERVED", "sev": "HIGH", "file": "a.go", "line": 3, "scenario": "s", "status": sys.argv[2], "detail": "d", "fix": "f", "source": "deep", "first_sha": sys.argv[3], "location": "verified"}]}
 body = "Triage: %s | blast radius: x\n<!-- 226os-ai-review -->\nTool: PASS (1 files)\n\n<details><summary>Review ledger</summary>\n\n```json\n%s\n```\n\n</details>" % (sys.argv[1], json.dumps(led))
 print(json.dumps([{"id": 2, "node_id": "N2", "user": {"login": "github-actions[bot]"}, "body": body, "created_at": "2026-11-14T09:00:00Z"}]))' "$1" "$2" "$locsha"
 }
@@ -492,11 +492,11 @@ comments "$(stage1_posted_as_comment)"
 HEAD_SHA="$locsha" DJSON="$FIXED_DH" deep
 [ "$(posted | sed -n 1p)" = "Triage: HIGH | blast radius: x" ] && ok "an unexplained stage 1 HIGH written this run stays HIGH after the deep run fixes a carried entry" || ko "unexplained high ($(posted | sed -n 1,3p))"
 comments "$(carried_base NONE fixed)"
-DJSON='{"level":"NONE","blast_radius":"deep blast","summary":"s","findings":[{"id":"dn","kind":"finding","evidence":"OBSERVED","sev":"HIGH","file":"a.go","line":2,"scenario":"s","status":"open","detail":"d","fix":"f"}]}' deep
+DJSON='{"level":"NONE","blast_radius":"deep blast","summary":"s","findings":[{"id":"dn","kind":"finding","class":"static","rule":"gosec:G104","evidence":"OBSERVED","sev":"HIGH","file":"a.go","line":2,"scenario":"s","status":"open","detail":"d","fix":"f"}]}' deep
 [ "$(posted | sed -n 1p)" = "Triage: HIGH | blast radius: deep blast" ] && ok "deep: a new open OBSERVED HIGH still raises the Triage line" || ko "deep raise again ($(posted | sed -n 1,4p))"
 # Status is case-insensitive wherever entries are read.
 comments '[]'
-HEAD_SHA="$locsha" JSON="$(mkreview '[{"id":"cs","kind":"finding","evidence":"OBSERVED","sev":"HIGH","file":"a.go","line":3,"scenario":"s","status":" Open ","detail":"d","fix":"f"}]' | sed 's/Triage: MEDIUM/Triage: NONE/')" run
+HEAD_SHA="$locsha" JSON="$(mkreview '[{"id":"cs","kind":"finding","class":"static","rule":"gosec:G104","evidence":"OBSERVED","sev":"HIGH","file":"a.go","line":3,"scenario":"s","status":" Open ","detail":"d","fix":"f"}]' | sed 's/Triage: MEDIUM/Triage: NONE/')" run
 [ "$(posted_body | sed -n 1p)" = "Triage: HIGH | blast radius: x" ] && pyassert 'import json,sys; assert json.loads(sys.argv[1])["status"]=="open"' "$(entry_of cs)" 2>/dev/null && ok "stage 1: a status written ' Open ' counts as open and is stored as open" || ko "status case ($(posted_body | sed -n 1,3p))"
 comments "$(carried_base HIGH OPEN)"
 HEAD_SHA="$locsha" JSON="$(mkreview '[]' | sed 's/Triage: MEDIUM/Triage: NONE/')" run
@@ -506,7 +506,7 @@ comments "[{\"id\":2,\"node_id\":\"N2\",\"user\":{\"login\":\"$BOT\"},\"body\":\
 # Review of PR 187 (deep-critical-kept-without-evidence): the level is derived from the kept entries, never the declared one.
 DJSON='{"level":"CRITICAL","blast_radius":"x","summary":"s","findings":[{"id":"inf","kind":"finding","evidence":"INFERRED","sev":"CRITICAL","file":"a.go","line":1,"scenario":"s","status":"open","detail":"d","fix":"f"},{"id":"bad","kind":"finding","sev":"CRITICAL"}]}' deep
 [ "$(posted | sed -n 1p)" = "Triage: HIGH | blast radius: x" ] && ! posted | sed -n 1p | grep -q CRITICAL && posted | grep -q 'it claimed CRITICAL: a human must read the deep review' && ok "deep: a declared CRITICAL whose only CRITICAL entry is INFERRED (lowered to HIGH) plus a dropped entry is HIGH, and the dropped claim is named" || ko "deep critical no evidence ($(posted | sed -n 1,6p))"
-DJSON='{"level":"NONE","blast_radius":"x","summary":"s","findings":[{"id":"real","kind":"finding","evidence":"OBSERVED","sev":"HIGH","file":"a.go","line":1,"scenario":"s","status":"open","detail":"d","fix":"f"}]}' deep
+DJSON='{"level":"NONE","blast_radius":"x","summary":"s","findings":[{"id":"real","kind":"finding","class":"static","rule":"gosec:G104","evidence":"OBSERVED","sev":"HIGH","file":"a.go","line":1,"scenario":"s","status":"open","detail":"d","fix":"f"}]}' deep
 [ "$(posted | sed -n 1p)" = "Triage: HIGH | blast radius: x" ] && ok "deep: a declared NONE with a valid open OBSERVED HIGH entry is HIGH" || ko "deep raise ($(posted | sed -n 1,3p))"
 comments '[]'
 HEAD_SHA="$locsha" JSON="$(python3 -I - <<'EOF2'
@@ -736,5 +736,184 @@ after")" run
 b="$(posted_body)"
 ! grep -q "$tok" <<<"$b" && [ "$(sed -n 1p <<<"$b" | cut -c1-14)" = "Triage: HIGH |" ] && ok "L5: a secret on the verdict line is redacted, the line stays a valid verdict" || ko "L5 first line ($(sed -n 1p <<<"$b"))"
 ! grep -q 'secretkeymaterial' <<<"$b" && ! grep -q 'END RSA PRIVATE KEY' <<<"$b" && grep -q '^before$' <<<"$b" && grep -q '^after$' <<<"$b" && ok "L5: a whole PEM block (BEGIN to END) is redacted, the text around it stays" || ko "L5 PEM ($b)"
+
+
+# --- ADR-0015 phase 1, unit 1: the class of an entry (D1: the model proposes, the script validates, downgrade only) ---
+# A repository with a file under src/ (an executable claim needs OBSERVED and a verified line in src/ or db/queries/).
+crepo="$tmp/classrepo"
+mkdir -p "$crepo/src/api" "$crepo/db/queries" "$crepo/scripts"
+seq 1 10 | sed 's/^/line /' >"$crepo/src/api/h.go"
+seq 1 10 | sed 's/^/line /' >"$crepo/db/queries/q.sql"
+seq 1 10 | sed 's/^/line /' >"$crepo/scripts/s.py"
+git -C "$crepo" init -q
+git -C "$crepo" add -A
+git -C "$crepo" -c user.name=t -c user.email=t@example.invalid commit -q -m init
+csha="$(git -C "$crepo" rev-parse HEAD)"
+cls() { entry_of "$1" | python3 -I -c 'import json,sys; f=json.load(sys.stdin); print(f.get("class"), f.get("rule", "-"))'; }
+ce() { # ID CLASS EVIDENCE FILE LINE [RULE]: one MEDIUM open entry, class omitted when CLASS is "-"
+  python3 -I -c '
+import json, sys
+i, c, ev, fl, ln = sys.argv[1:6]
+e = {"id": i, "kind": "finding", "evidence": ev, "sev": "MEDIUM", "file": fl, "line": int(ln), "scenario": "s", "status": "open", "detail": "d", "fix": "f"}
+if c != "-": e["class"] = c
+if len(sys.argv) > 6: e["rule"] = sys.argv[6]
+print(json.dumps(e))' "$@"
+}
+comments '[]'
+entries="[$(ce none - OBSERVED src/api/h.go 3),$(ce ex executable OBSERVED src/api/h.go 3),$(ce exq executable OBSERVED db/queries/q.sql 2),$(ce exinf executable INFERRED src/api/h.go 3),$(ce exnoline executable OBSERVED src/api/h.go 0),$(ce expast executable OBSERVED src/api/h.go 99),$(ce exscripts executable OBSERVED scripts/s.py 3),$(ce exgone executable OBSERVED src/api/nope.go 3),$(ce stg static INFERRED scripts/s.py 3 gosec:G104),$(ce sts static INFERRED src/api/h.go 3 semgrep:226os.js.no-eval),$(ce stl static INFERRED src/api/h.go 3 golangci-lint:errorlint),$(ce stt static INFERRED src/api/h.go 3 tsc:TS2345),$(ce stunk static INFERRED src/api/h.go 3 semgrep:made.up.rule),$(ce stnone static INFERRED src/api/h.go 3),$(ce stbad static INFERRED src/api/h.go 3 gosec:G1),$(ce odd CRITICALish OBSERVED src/api/h.go 3),$(ce pr prose OBSERVED src/api/h.go 3 gosec:G104)]"
+HEAD_SHA="$csha" LOCATION_REPO="$crepo" JSON="$(mkreview "$entries")" run
+[ "$(cls none)" = "prose -" ] && [ "$(cls odd)" = "prose -" ] && ok "D1: a missing or unknown class is prose" || ko "missing class ($(cls none) / $(cls odd))"
+[ "$(cls ex)" = "executable -" ] && [ "$(cls exq)" = "executable -" ] && ok "D1: executable with OBSERVED and a verified line in src/ or db/queries/ stays executable" || ko "executable kept ($(cls ex) / $(cls exq))"
+[ "$(cls exinf)" = "prose -" ] && [ "$(cls exnoline)" = "prose -" ] && [ "$(cls expast)" = "prose -" ] && [ "$(cls exscripts)" = "prose -" ] && [ "$(cls exgone)" = "prose -" ] && ok "D1: executable without OBSERVED, without a line, past the end, outside src/ and db/queries/ or on a missing file becomes prose" || ko "executable downgrade ($(cls exinf) $(cls exnoline) $(cls expast) $(cls exscripts) $(cls exgone))"
+[ "$(cls stg)" = "static gosec:G104" ] && [ "$(cls sts)" = "static semgrep:226os.js.no-eval" ] && [ "$(cls stl)" = "static golangci-lint:errorlint" ] && [ "$(cls stt)" = "static tsc:TS2345" ] && ok "D1/D4: static with a known rule of the existing gates stays static with its rule" || ko "static kept ($(cls stg) $(cls sts) $(cls stl) $(cls stt))"
+[ "$(cls stunk)" = "prose -" ] && [ "$(cls stnone)" = "prose -" ] && [ "$(cls stbad)" = "prose -" ] && ok "D1: static without a known rule id (unknown, none, malformed) becomes prose, the rule dropped" || ko "static downgrade ($(cls stunk) $(cls stnone) $(cls stbad))"
+[ "$(cls pr)" = "prose -" ] && ok "a prose entry keeps no rule" || ko "prose rule ($(cls pr))"
+
+# The known rule ids are the ones the gates hold: every semgrep rule id of scripts/semgrep/web-rules.yml and every
+# linter .golangci.yml enables is known to the script (a rule added there without the script would turn static to prose).
+if python3 -I - "$tool" "$root" <<'PY'
+import importlib.util, os, re, sys
+spec = importlib.util.spec_from_file_location("rc", sys.argv[1]); m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+root = sys.argv[2]
+ids = re.findall(r"^\s*-\s*id:\s*(\S+)\s*$", open(os.path.join(root, "scripts/semgrep/web-rules.yml")).read(), re.M)
+assert ids, "no semgrep id read"
+for i in ids:
+    assert m.known_rule("semgrep:" + i), i
+text = open(os.path.join(root, ".golangci.yml")).read()
+block = re.search(r"^  enable:\n((?:    - \S+\n)+)", text, re.M)
+assert block, "no enable list"
+for name in re.findall(r"- (\S+)", block.group(1)):
+    assert m.known_rule("golangci-lint:" + name), name
+assert not m.known_rule("semgrep:226os.js.not-a-rule") and not m.known_rule("eslint:") and not m.known_rule("gosec") and not m.known_rule(None)
+for bad in ("gosec:G104\n", "tsc:TS2345\n", "eslint:no-eval\n", "golangci-lint:errorlint\n"):
+    assert not m.known_rule(bad), repr(bad)  # bypass probe: a trailing newline
+PY
+then ok "D4: every semgrep rule id and every enabled golangci-lint linter of the repository is a known rule"; else ko "known rules drift"; fi
+
+# Carry-forward: a re-list keeps the stronger VALIDATED class, then the class is validated again against the evidence
+# block the entry ends up with (an upgrade is never possible).
+carried_prev() { # the previous comment: ex executable at src/api/h.go:3, st static gosec:G104, dn executable MEDIUM
+  python3 -I -c '
+import json, sys
+h = sys.argv[1]
+base = {"kind": "finding", "evidence": "OBSERVED", "sev": "MEDIUM", "file": "src/api/h.go", "line": 3, "scenario": "s", "status": "open", "detail": "d", "fix": "f", "source": "review", "first_sha": h, "location": "verified"}
+led = {"sha": h, "findings": [dict(base, id="ex", **{"class": "executable"}), dict(base, id="st", evidence="INFERRED", rule="gosec:G104", **{"class": "static"}), dict(base, id="dn", **{"class": "executable"})]}
+body = "Triage: MEDIUM | blast radius: x\n<!-- 226os-ai-review -->\nTool: PASS (1 files)\n\n<details><summary>Review ledger</summary>\n\n```json\n%s\n```\n\n</details>" % json.dumps(led)
+print(json.dumps([{"id": 2, "node_id": "N2", "user": {"login": "github-actions[bot]"}, "body": body, "created_at": "2026-11-14T09:00:00Z"}]))' "$csha"
+}
+comments "$(carried_prev)"
+relist="[$(ce ex - OBSERVED src/api/h.go 3),$(ce st executable INFERRED src/api/h.go 3),$(ce dn - INFERRED src/api/h.go 3 | sed 's/"MEDIUM"/"HIGH"/')]"
+HEAD_SHA="$csha" LOCATION_REPO="$crepo" JSON="$(mkreview "$relist")" run
+[ "$(cls ex)" = "executable -" ] && ok "carry-forward: a re-list without a class keeps the stronger validated class (executable)" || ko "carry ex ($(cls ex))"
+[ "$(cls st)" = "static gosec:G104" ] && ok "carry-forward: an unsupported upgrade proposal (executable, INFERRED) keeps the old static class and its rule" || ko "carry st ($(cls st))"
+[ "$(cls dn)" = "prose -" ] && ok "carry-forward: a re-list whose stronger evidence block (HIGH, INFERRED) no longer backs executable is validated again: prose" || ko "carry dn ($(cls dn) $(entry_of dn))"
+# An entry the run omits is carried with its class.
+comments "$(carried_prev)"
+HEAD_SHA="$csha" LOCATION_REPO="$crepo" JSON="$(mkreview '[]')" run
+[ "$(cls ex)" = "executable -" ] && [ "$(cls st)" = "static gosec:G104" ] && ok "an omitted entry is carried forward with its validated class" || ko "carried omitted ($(cls ex) $(cls st))"
+
+# The deep entries are validated the same way.
+if python3 -I - "$tool" "$crepo" "$csha" <<'PY'
+import importlib.util, os, sys
+os.environ["LOCATION_REPO"] = sys.argv[2]
+spec = importlib.util.spec_from_file_location("rc", sys.argv[1]); m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+h = sys.argv[3]
+def e(**k):
+    b = {"id": "d", "kind": "finding", "evidence": "OBSERVED", "sev": "MEDIUM", "file": "src/api/h.go", "line": 3, "scenario": "s", "status": "open", "detail": "d", "fix": "f"}
+    b.update(k)
+    return m.deep_entry(b, h)
+assert e()["class"] == "prose"
+assert e(**{"class": "executable"})["class"] == "executable"
+assert e(**{"class": "executable", "evidence": "INFERRED"})["class"] == "prose"
+assert e(**{"class": "static", "rule": "gosec:G304"})["class"] == "static" and e(**{"class": "static", "rule": "gosec:G304"})["rule"] == "gosec:G304"
+assert e(**{"class": "static", "rule": "nope:x"})["class"] == "prose" and "rule" not in e(**{"class": "static", "rule": "nope:x"})
+PY
+then ok "deep: class validated per D1 (missing prose, executable needs OBSERVED and a verified src line, static a known rule)"; else ko "deep class"; fi
+
+# The deep JSON schema and the review instructions carry the class.
+if python3 -I - "$root/.github/workflows/code-review.yml" <<'PY'
+import json, re, sys
+text = open(sys.argv[1]).read()
+m = re.search(r"--json-schema '(\{\"type\":\"object\",\"properties\":\{\"level\".*?)'", text)
+schema = json.loads(m.group(1))
+item = schema["properties"]["findings"]["items"]
+assert item["properties"]["class"]["enum"] == ["executable", "static", "prose"], item["properties"].get("class")
+assert item["properties"]["rule"]["type"] == "string"
+assert "class" in item["required"] and "rule" in item["required"]
+PY
+then ok "deep JSON schema: class (executable|static|prose) and rule are required fields of each finding"; else ko "deep schema class"; fi
+for cmd in delegate-review deep-review; do
+  f="$root/.claude/commands/$cmd.md"
+  grep -q '"class"' "$f" && grep -q 'executable' "$f" && grep -q 'static' "$f" && grep -q 'prose' "$f" && grep -q '"rule"' "$f" && ok "$cmd.md asks for the class and the rule of each entry" || ko "$cmd.md class"
+done
+
+# --- ADR-0015 phase 1, unit 2: a prose finding never blocks (point 7); CRITICAL is never downgraded by class ---
+if python3 -I - "$tool" <<'PY'
+import importlib.util, sys
+spec = importlib.util.spec_from_file_location("rc", sys.argv[1]); m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+def f(c, sev="MEDIUM", ev="OBSERVED", line=3, status="open", **k):
+    # p0 is the script-owned stamp settle_class writes (False: the file is on no P0 path of the base lists).
+    e = {"id": "x", "kind": "finding", "evidence": ev, "sev": sev, "file": "src/api/h.go", "line": line, "status": status, "location": "verified", "p0": False}
+    if c is not None: e["class"] = c
+    e.update(k)
+    return e
+assert not m.blocking(f("prose")), "prose MEDIUM"
+# Owner answer (a): an entry with no class field was written before phase 1: its findings keep blocking until a new
+# review of the pull request writes a class (no fail-open on merge).
+assert m.blocking(f(None)), "missing class MEDIUM (ledger written before phase 1) still blocks"
+assert m.blocking(f(None, "HIGH", status="answered")), "missing class answered HIGH still blocks"
+# Owner answer (b): a prose HIGH on a P0 path keeps blocking whatever its class; an unstamped one is treated as P0.
+assert m.blocking(f("prose", "HIGH", p0=True)), "prose HIGH on a P0 path"
+assert m.blocking(f("prose", "HIGH", status="answered", p0=True)), "answered prose HIGH on a P0 path"
+assert m.blocking(f("prose", "HIGH", p0=None)), "prose HIGH without a p0 stamp (fail closed)"
+assert m.blocking({k: v for k, v in f("prose", "HIGH").items() if k != "p0"}), "prose HIGH, stamp missing (fail closed)"
+assert not m.blocking(f("prose", "MEDIUM", p0=True)), "a prose MEDIUM on a P0 path still goes to the batch"
+assert not m.blocking(f("prose", "HIGH")), "prose HIGH"
+assert not m.blocking(f("prose", "HIGH", status="answered")), "prose HIGH answered"
+assert m.blocking(f("executable")), "executable MEDIUM"
+assert m.blocking(f("static", rule="gosec:G104")), "static MEDIUM"
+assert m.blocking(f("executable", "HIGH", status="accepted")), "executable HIGH accepted"
+assert not m.blocking(f("executable", ev="INFERRED")), "executable without OBSERVED reads as prose"
+assert not m.blocking(f("static", rule="nope:x")), "static without a known rule reads as prose"
+assert m.blocking(f("prose", "CRITICAL", ev="INFERRED", line=0)), "prose CRITICAL"
+assert m.blocking(f(None, "CRITICAL")), "classless CRITICAL"
+assert m.effective_level("NONE", [f("prose")]) == "NONE"
+assert m.effective_level("NONE", [f("prose", "HIGH")]) == "NONE"
+assert m.effective_level("NONE", [f("executable")]) == "MEDIUM"
+assert m.effective_level("NONE", [f("prose", "CRITICAL", ev="INFERRED", line=0)]) == "HIGH"
+assert m.effective_level("NONE", [f("prose", "CRITICAL")]) == "CRITICAL"
+assert m.effective_level("MEDIUM", [f("prose")]) == "MEDIUM"
+PY
+then ok "unit 2: prose MEDIUM and HIGH off P0 never block, a classless entry (pre-phase-1) and a prose HIGH on a P0 path still do, executable and static MEDIUM still do, a prose CRITICAL (even INFERRED, no line) still blocks as HIGH"; else ko "prose blocking"; fi
+
+# Owner answer (b), end to end: the p0 stamp is written by the script from the base P0 lists (ROOT), never taken from
+# the model; a prose HIGH on a P0 path raises the level, one off P0 does not; missing lists stamp p0 (fail closed).
+p0rev() { # FILE: one prose HIGH open entry at FILE, with a forged "p0": false
+  python3 -I -c 'import json,sys; print(json.dumps([{"id":"ph","kind":"finding","class":"prose","evidence":"INFERRED","sev":"HIGH","file":sys.argv[1],"line":3,"scenario":"s","status":"open","detail":"d","fix":"f","p0":False}]))' "$1"
+}
+comments '[]'
+HEAD_SHA="$csha" LOCATION_REPO="$crepo" ROOT="$root" JSON="$(mkreview "$(p0rev scripts/s.py)" | sed 's/Triage: MEDIUM/Triage: NONE/')" run
+[ "$(posted_body | sed -n 1p | cut -d' ' -f2)" = "HIGH" ] && pyassert 'import json,sys; f=json.loads(sys.argv[1]); assert f["p0"] is True and f["class"]=="prose"' "$(entry_of ph)" 2>/dev/null && ok "(b): a prose HIGH on a P0 path is stamped p0 (a forged false dropped) and raises the level" || ko "p0 stamp ($(posted_body | sed -n 1p) $(entry_of ph))"
+comments '[]'
+HEAD_SHA="$csha" LOCATION_REPO="$crepo" ROOT="$root" JSON="$(mkreview "$(p0rev src/api/h.go)" | sed 's/Triage: MEDIUM/Triage: NONE/')" run
+[ "$(posted_body | sed -n 1p | cut -d' ' -f2)" = "NONE" ] && pyassert 'import json,sys; f=json.loads(sys.argv[1]); assert f["p0"] is False' "$(entry_of ph)" 2>/dev/null && ok "(b): a prose HIGH off the P0 paths is stamped p0 false and does not raise the level" || ko "p0 off ($(posted_body | sed -n 1p) $(entry_of ph))"
+if python3 -I - "$root/.github/workflows/code-review.yml" <<'PY'
+import sys, yaml
+jobs = yaml.safe_load(open(sys.argv[1]))["jobs"]
+def step(job, name):
+    return next(s for s in jobs[job]["steps"] if s.get("name") == name)
+assert step("review", "Write the review comment")["env"]["ROOT"] == "${{ runner.temp }}/base-root"
+assert step("deep", "Merge the deep findings into the review comment")["env"]["ROOT"] == "${{ github.workspace }}"
+PY
+then ok "(b): the comment steps read the P0 lists of the base commit (ROOT)"; else ko "comment steps ROOT"; fi
+mkdir -p "$tmp/nolists"
+comments '[]'
+HEAD_SHA="$csha" LOCATION_REPO="$crepo" ROOT="$tmp/nolists" JSON="$(mkreview "$(p0rev src/api/h.go)" | sed 's/Triage: MEDIUM/Triage: NONE/')" run
+[ "$(posted_body | sed -n 1p | cut -d' ' -f2)" = "HIGH" ] && ok "(b): P0 lists that cannot be read stamp p0 true (fail closed): the prose HIGH blocks" || ko "p0 fail closed ($(posted_body | sed -n 1p) $(entry_of ph))"
+
+# A model cannot forge the script-owned critical_claim flag to make a prose finding block (or pass the prose rule).
+comments '[]'
+HEAD_SHA="$csha" LOCATION_REPO="$crepo" JSON="$(mkreview "[$(ce forged - INFERRED src/api/h.go 3 | sed 's/"status"/"critical_claim": true, "status"/')]" | sed 's/Triage: MEDIUM/Triage: NONE/')" run
+[ "$(posted_body | sed -n 1p)" = "Triage: NONE | blast radius: x" ] && pyassert 'import json,sys; f=json.loads(sys.argv[1]); assert "critical_claim" not in f and f["class"]=="prose"' "$(entry_of forged)" 2>/dev/null && ok "unit 2: a model-written critical_claim is dropped; the prose MEDIUM does not raise the level" || ko "forged claim ($(posted_body | sed -n 1p) $(entry_of forged))"
 
 finish

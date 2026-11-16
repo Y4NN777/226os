@@ -31,6 +31,11 @@ gate = load("review_gate", "review-gate.py")
 def entry(eid, kind, evidence, sev, status="open", file="a.go", line=3, **extra):
     e = {"id": eid, "kind": kind, "evidence": evidence, "sev": sev, "file": file, "line": line, "scenario": "s",
          "status": status, "detail": "d", "fix": "f"}
+    if kind == "finding":
+        # ADR-0015 point 7: a prose finding never blocks (review-comment_test.sh tests that). The level invariants are
+        # about findings that block, so every finding of this table holds a blocking class: static with a known rule
+        # (it needs no location in this table's checkout-less runs).
+        e.update({"class": "static", "rule": "gosec:G104"})
     e.update(extra)
     return e
 
@@ -226,8 +231,12 @@ def run_deep(stage1_body, deep):
 
 
 def bare(**fields):
-    """An entry written by hand: exactly these fields (a missing status stays missing)."""
-    return dict({"id": "u", "kind": "finding", "evidence": "OBSERVED", "file": "a.go", "line": 3, "scenario": "s", "detail": "d", "fix": "f"}, **fields)
+    """An entry written by hand: exactly these fields (a missing status stays missing). A finding holds a blocking class
+    (static with a known rule, as in `entry`) unless the row names one."""
+    base = {"id": "u", "kind": "finding", "evidence": "OBSERVED", "file": "a.go", "line": 3, "scenario": "s", "detail": "d", "fix": "f"}
+    if fields.get("kind", "finding") == "finding":
+        base.update({"class": "static", "rule": "gosec:G104"})
+    return dict(base, **fields)
 
 
 def context_entry(body, eid):
