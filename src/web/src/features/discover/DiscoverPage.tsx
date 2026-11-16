@@ -72,7 +72,6 @@ function Filters({
       >
         <TextInput
           type="search"
-          size="lg"
           startIcon={<Icon icon="search" />}
           label={t('discover.search.label')}
           isLabelHidden

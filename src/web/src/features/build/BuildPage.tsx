@@ -184,7 +184,6 @@ function Filters({
           onEnter={submit}
           autoComplete="off"
           width="100%"
-          size="lg"
         />
       </div>
       <div className="build-filters-bar">

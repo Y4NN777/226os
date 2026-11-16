@@ -16,6 +16,41 @@
   line-height: 1.4;
 }
 
+/* ---------- Form controls ---------- */
+/* One 44px family: the Astryx medium token is the product control height on every page. */
+.astryx-text-input,
+.astryx-selector {
+  box-sizing: border-box;
+  height: var(--size-element-md);
+  min-height: var(--size-element-md);
+  border-radius: var(--radius-card);
+}
+
+/* Segmented controls keep the same overall height, with fully rounded tracks and items. */
+.astryx-segmented-control {
+  box-sizing: border-box;
+  min-height: var(--size-element-md);
+  border-radius: var(--radius-button);
+}
+.astryx-segmented-control-item {
+  border-radius: var(--radius-button);
+}
+/* The cards/list toggle is the same control family, not two unrelated bare buttons. */
+.ui-view-toggle.astryx-toggle-button-group {
+  min-height: var(--size-element-md);
+  gap: 0;
+  border-radius: var(--radius-button);
+  background: var(--color-neutral);
+}
+.ui-view-toggle .astryx-toggle-button {
+  min-height: var(--size-element-md);
+  border-radius: var(--radius-button);
+}
+.ui-view-toggle .astryx-toggle-button[aria-pressed='true'] {
+  background: var(--color-background-surface);
+  box-shadow: var(--shadow-low);
+}
+
 /* ---------- Page header ---------- */
 .ui-page-header {
   display: grid;
@@ -516,10 +551,10 @@ ul.ui-card-grid > .learn-row > .learn-row-aside {
   }
 }
 
-/* The cards / list switch: 44px targets (the Astryx button is 36px at its largest size). */
+/* The cards / list switch keeps 44px targets. */
 .ui-view-toggle button {
-  min-height: 44px;
-  min-width: 44px;
+  min-height: var(--size-element-md);
+  min-width: var(--size-element-md);
 }
 
 /* ---------- Meta ---------- */

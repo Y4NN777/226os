@@ -21,6 +21,7 @@
   border-bottom: 1px solid var(--color-border);
 }
 .shell-topnav {
+  position: relative;
   min-height: var(--shell-header-height);
   padding: var(--sp-2) var(--shell-gutter);
   box-sizing: border-box;
@@ -29,7 +30,7 @@
 .shell-brand {
   display: inline-flex;
   align-items: center;
-  min-height: 44px;
+  min-height: var(--size-element-md);
   border-radius: var(--radius-card);
 }
 .shell-brand-logo {
@@ -59,7 +60,7 @@
   }
 }
 .shell-search .astryx-text-input {
-  min-height: 44px;
+  min-height: var(--size-element-md);
 }
 .shell-actions,
 .shell-auth {
@@ -177,11 +178,6 @@
   margin-inline: auto;
   padding: var(--sp-6) var(--shell-gutter) var(--sp-7);
 }
-.shell-page > .shell-search {
-  width: 100%;
-  margin-bottom: var(--sp-6);
-}
-
 /* ---------- « Poser une question » (prototype .header-create) ---------- */
 .shell-ask-label {
   font-size: 0.875rem;
@@ -324,19 +320,48 @@
 
 /* ---------- Phone ---------- */
 @media (max-width: 767px) {
-  /* The search reads as the second line of the top bar (prototype phone header): the same
-     surface, flush under the bar, with the one hairline under both. */
-  .shell .astryx-app-shell-header {
-    border-bottom: 0;
+  /* One row like the landing header: logo, search trigger, then account action/avatar. */
+  .shell-topnav {
+    flex-wrap: nowrap;
   }
-  .shell-page > .shell-search {
+  .shell-topnav > :first-child {
+    flex: none;
+  }
+  .shell-topnav > :last-child {
+    margin-inline-start: auto;
+  }
+  .shell-actions {
+    flex-wrap: nowrap;
+  }
+  .shell-theme-toggle {
+    display: none;
+  }
+  .shell-sign-up {
+    min-height: var(--size-element-md);
+    padding-inline: var(--sp-3);
+  }
+  .shell-mobile-search {
+    display: inline-flex;
+  }
+  /* Open search replaces the row without changing its height. */
+  .shell-mobile-search-panel {
+    position: absolute;
+    z-index: 1;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
     box-sizing: border-box;
-    width: auto;
-    max-width: none;
-    margin: calc(-1 * var(--sp-6)) calc(-1 * var(--shell-gutter)) var(--sp-6);
-    padding: 0 var(--shell-gutter) var(--sp-2);
+    padding: var(--sp-2) var(--shell-gutter);
     background: var(--color-background-surface);
-    border-bottom: 1px solid var(--color-border);
+  }
+  .shell-mobile-search-panel .shell-search {
+    flex: 1 1 auto;
+    width: auto;
+    min-width: 0;
+  }
+  .shell-drawer-preferences {
+    padding: var(--sp-2) var(--sp-3);
   }
   /* A control scrolled into view (keyboard focus, find in page) stops above the bar, not under it
      (WCAG 2.4.11). A literal height: the shell's custom property is not set on html. */
@@ -348,30 +373,5 @@
     padding-bottom: calc(
       var(--sp-6) + var(--shell-bottom-nav-height) + env(safe-area-inset-bottom, 0px)
     );
-  }
-}
-@media (max-width: 767px) {
-  /* The logo keeps its size; when the actions do not fit beside it they wrap under it, at the
-     end of the bar (the prototype's phone header). */
-  .shell-topnav {
-    flex-wrap: wrap;
-    row-gap: var(--sp-1);
-  }
-  .shell-topnav > :first-child {
-    flex: none;
-  }
-  .shell-topnav > :last-child {
-    margin-inline-start: auto;
-  }
-  /* Signed out, the sign-in row wraps under the logo and starts at the start edge, as in the
-     prototype; a member's icons stay at the end of the bar. */
-  .shell-topnav > :last-child:has(.shell-auth) {
-    margin-inline-start: 0;
-  }
-}
-@media (max-width: 479px) {
-  /* As in the prototype: the theme switch stays in the preferences menu on a narrow phone. */
-  .shell-theme-toggle {
-    display: none;
   }
 }

@@ -61,7 +61,6 @@ function SearchForm({ initial }: { initial: string }) {
           isLabelHidden
           placeholder={t('search.placeholder')}
           startIcon={<Icon icon="search" />}
-          size="lg"
           value={value}
           onChange={setValue}
           htmlName="q"
@@ -72,7 +71,7 @@ function SearchForm({ initial }: { initial: string }) {
       </span>
       {/* The field takes the free width; the button keeps its full label. */}
       <span className="no-shrink">
-        <Button type="submit" variant="primary" size="lg" label={t('search.submit')} />
+        <Button type="submit" variant="primary" label={t('search.submit')} />
       </span>
     </form>
   );

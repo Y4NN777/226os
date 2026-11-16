@@ -21,7 +21,7 @@
 .solve-page .ui-page-header-actions {
   gap: var(--sp-3);
 }
-.solve-page button,
+.solve-page button:not(.astryx-segmented-control-item),
 .solve-page a[role='button'] {
   min-width: calc(var(--sp-7) - var(--sp-1));
   min-height: calc(var(--sp-7) - var(--sp-1));
@@ -116,7 +116,6 @@
 /* Four French labels do not fit at 360px: the control scrolls inside its own strip, the page never does. */
 .solve-seg {
   max-width: 100%;
-  padding: calc(var(--sp-1) / 2);
   overflow-x: auto;
   scrollbar-width: none;
 }

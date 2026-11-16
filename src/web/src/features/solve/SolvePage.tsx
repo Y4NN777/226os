@@ -58,7 +58,6 @@ function Filters({ search }: { search: SolveSearch }) {
             type="search"
             label={t('solve.search.label')}
             isLabelHidden
-            size="lg"
             startIcon={<Icon icon="search" />}
             placeholder={t('solve.search.placeholder')}
             value={q}

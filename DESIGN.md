@@ -161,9 +161,10 @@ Useful upstream commands (verify current syntax against the installed CLI): `ast
 ### Spacing, sizing and shape
 
 - Shared spacing steps are **4, 8, 12, 16, 24, 32, 48, 64, 96 and 128px** (`--sp-1` through `--sp-10`). Pages compose these tokens instead of adding local spacing scales.
-- Shape has three roles: **12px** cards and tiles (`--radius-card` / Astryx `--radius-container`), **28px** media and large visual frames (`--radius-media` / Astryx `--radius-page`), and **fully rounded** buttons and link-buttons (`--radius-button` / Astryx `--radius-full`). Portraits remain circles. Inputs keep the Astryx control radius unless a reviewed component contract says otherwise.
+- Shape has three roles: **12px** cards, tiles, inputs and selectors (`--radius-card` / Astryx `--radius-container`), **28px** media and large visual frames (`--radius-media` / Astryx `--radius-page`), and **fully rounded** buttons, link-buttons and segmented controls (`--radius-button` / Astryx `--radius-full`). Portraits remain circles.
 - Elevation is sparse. Ordinary content uses spacing and surface contrast; borders remain for inputs and tables. `--elevation-raised` is for overlays or media that must separate from a surface, and `--elevation-night-header` is for the scrolled night header.
 - Interactive targets: aim for 44 × 44px where feasible on touch devices; never below WCAG 2.2's minimum target requirements without an applicable exception.
+- Text inputs and selectors use the 44px Astryx medium control height. Segmented controls use the same overall height, with fully rounded tracks and items.
 - Content widths: generous for dashboards, constrained for reading and discussion detail pages; max reading line length ~70–85 characters.
 - Layering: app shell < sticky navigation < menus < dialogs < notifications; avoid arbitrary `z-index` values.
 
@@ -188,7 +189,7 @@ Useful upstream commands (verify current syntax against the installed CLI): `ast
 - The public landing header and the signed-in app header are two compositions of the same foundations: Geist, Graphite & Lime, shared gutters, target sizes, full-radius actions and restrained motion. The public header stays night and anchor-led; the app header keeps search, account and task navigation and follows the active app theme.
 - Desktop: stable left navigation plus global search; top-right account controls and an intentional creation action.
 - Tablet: compact or collapsible rail; search remains accessible.
-- Mobile: simplified navigation or accessible drawer; preserve direct access to Solve, Discover and Build.
+- Mobile: one-row app header with logo, an accessible expandable search trigger and the account action or member menu; secondary preferences live in the existing navigation drawer.
 - Group pages by user intent, not internal backend module names.
 - Unimplemented areas must be clearly labeled as planned/preview or hidden. No dead navigation or fake buttons.
 

@@ -390,7 +390,6 @@
 }
 .learn-seg {
   max-width: 100%;
-  padding: var(--sp-1);
   overflow-x: auto;
   scrollbar-width: none;
 }

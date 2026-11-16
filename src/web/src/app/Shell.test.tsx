@@ -49,6 +49,69 @@ function bottomBar() {
 }
 
 describe('Shell', () => {
+  it('keeps the anonymous phone header to logo, search and one account action', async () => {
+    setLanguages(['fr-FR']);
+    mockApi();
+    stubPhone();
+    await renderApp('/parametres');
+    await screen.findByRole('navigation', { name: 'Barre du site' });
+    await screen.findByRole('link', { name: 'Créer un compte' });
+    const header = topBar();
+    expect(within(header).getByRole('link', { name: '226os' })).toBeInTheDocument();
+    expect(within(header).getByRole('button', { name: 'Rechercher sur le site' })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+    expect(within(header).getByRole('link', { name: 'Créer un compte' })).toHaveAttribute(
+      'href',
+      '/inscription',
+    );
+    expect(within(header).queryByRole('link', { name: 'Se connecter' })).not.toBeInTheDocument();
+    expect(within(header).queryByRole('button', { name: 'Préférences' })).not.toBeInTheDocument();
+    expect(within(header).queryByRole('searchbox')).not.toBeInTheDocument();
+  });
+
+  it('opens the phone search, closes it on Escape and returns focus to its trigger', async () => {
+    setLanguages(['fr-FR']);
+    mockApi();
+    stubPhone();
+    await renderApp('/parametres');
+    await screen.findByRole('navigation', { name: 'Barre du site' });
+    const header = topBar();
+    const trigger = within(header).getByRole('button', { name: 'Rechercher sur le site' });
+    const user = userEvent.setup({ delay: null });
+    await user.click(trigger);
+    const input = within(header).getByRole('searchbox', { name: 'Rechercher sur le site' });
+    expect(input).toHaveFocus();
+    await user.keyboard('{Escape}');
+    await waitFor(() => {
+      expect(within(header).queryByRole('searchbox')).not.toBeInTheDocument();
+    });
+    await waitFor(() => {
+      expect(trigger).toHaveFocus();
+    });
+  });
+
+  it('submits the phone search from its overlay', async () => {
+    setLanguages(['fr-FR']);
+    mockApi();
+    stubPhone();
+    const { router } = await renderApp('/parametres');
+    await screen.findByRole('navigation', { name: 'Barre du site' });
+    const header = topBar();
+    const user = userEvent.setup({ delay: null });
+    await user.click(within(header).getByRole('button', { name: 'Rechercher sur le site' }));
+    await user.type(
+      within(header).getByRole('searchbox', { name: 'Rechercher sur le site' }),
+      ' webhook {Enter}',
+    );
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe('/recherche');
+    });
+    expect(router.state.location.search).toEqual({ q: 'webhook' });
+    expect(within(header).queryByRole('searchbox')).not.toBeInTheDocument();
+  });
+
   it('keeps the rest of the navigation in a drawer on a phone, opened by « Plus »', async () => {
     setLanguages(['fr-FR']);
     mockApi();
@@ -148,7 +211,7 @@ describe('Shell', () => {
     mockApi();
     stubPhone();
     await renderApp('/parametres');
-    await screen.findByRole('link', { name: 'Se connecter' });
+    await screen.findByRole('link', { name: 'Créer un compte' });
     await userEvent.click(within(bottomBar()).getByRole('button', { name: 'Plus' }));
     const drawer = screen.getByRole('dialog', { name: 'Navigation', hidden: true });
     expect(
@@ -157,6 +220,9 @@ describe('Shell', () => {
     expect(
       within(drawer).getByRole('link', { name: 'Créer un compte', hidden: true }),
     ).toHaveAttribute('href', '/inscription');
+    expect(
+      within(drawer).getByRole('button', { name: 'Préférences', hidden: true }),
+    ).toBeInTheDocument();
   });
 
   it('puts the member account links and sign-out in the phone drawer', async () => {
@@ -192,7 +258,7 @@ describe('Shell', () => {
       '/parametres',
     );
     await user.click(within(drawer).getByRole('button', { name: 'Se déconnecter', hidden: true }));
-    expect(await screen.findByRole('link', { name: 'Se connecter' })).toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: 'Créer un compte' })).toBeInTheDocument();
   });
 
   it('offers « Poser une question » in the top bar to a signed-in member', async () => {
