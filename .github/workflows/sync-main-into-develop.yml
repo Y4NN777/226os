@@ -1,0 +1,51 @@
+name: Sync main into develop
+
+# Step 6 of the promotion flow (docs/GIT_WORKFLOW.md), automated: after main moves, open the back-merge pull request
+# main -> develop and arm its auto-merge (merge commit), so `Validate branch promotion` never blocks develop because a
+# promotion merge commit was not brought back. The logic and its tests: scripts/sync-main-into-develop.sh,
+# scripts/tests/sync-main-into-develop_test.sh.
+#
+# TRIGGER: `workflow_run` when Deploy (every push to main) or Deploy (emergency) completes, whatever its conclusion
+# (main has moved either way), only for runs on main; or a manual run. `workflow_run` runs the copy of this file from the
+# default branch (develop, ADR-0013), which is what lets the job use the `review-agent` environment (deployment branch
+# develop only).
+# TOKEN: REVIEW_AGENT_TOKEN (environment review-agent): a pull request opened with GITHUB_TOKEN would trigger no
+# workflow, so the required checks would never run. No pull_request trigger here (review-agent-triggers_test.sh).
+on:
+  workflow_run:
+    workflows: [Deploy, Deploy (emergency)]
+    types: [completed]
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: sync-main-into-develop
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    name: back-merge main into develop
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.head_branch == 'main')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: review-agent
+    permissions:
+      contents: read
+    steps:
+      - name: Check out the default branch (the trusted script)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Open or update the back-merge pull request
+        env:
+          GH_TOKEN: ${{ secrets.REVIEW_AGENT_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::error title=REVIEW_AGENT_TOKEN missing::The review-agent environment has no REVIEW_AGENT_TOKEN: the back-merge main -> develop must be opened by hand (docs/GIT_WORKFLOW.md, step 6)."
+            exit 1
+          fi
+          scripts/sync-main-into-develop.sh
