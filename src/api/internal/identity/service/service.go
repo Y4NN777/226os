@@ -132,9 +132,10 @@ type Service struct {
 	bucketKeyKey []byte // HMAC key for rate-limit bucket keys
 	csrfKey      []byte // HMAC key for CSRF tokens
 	now          func() time.Time
-	cursors      Cursors // signs the people-directory cursors (WithCursors)
-	baseURL      string  // public origin for mail links; empty means bare codes only
-	demoProfiles bool    // list demo seed accounts in the people directory (local-dev only)
+	cursors      Cursors          // signs the people-directory cursors (WithCursors)
+	baseURL      string           // public origin for mail links; empty means bare codes only
+	demoProfiles bool             // list demo seed accounts in the people directory (local-dev only)
+	github       GitHubDevelopers // committers.top external entries and profile ranks (ADR-0016); nil lists none
 	// spawn runs work off the request path (a goroutine in production; tests
 	// run it inline to stay deterministic).
 	spawn func(func())
@@ -176,6 +177,18 @@ func WithBaseURL(origin string) Option { return func(s *Service) { s.baseURL = o
 // (users.provenance = 'demo'). Off by default: staging-test and
 // production-live never pass it, the composition root enables it in local-dev.
 func WithDemoProfiles(on bool) Option { return func(s *Service) { s.demoProfiles = on } }
+
+// GitHubDevelopers reads the committers.top snapshot (ADR-0016); *repository.Repository implements it.
+type GitHubDevelopers interface {
+	// ListExternal returns one keyset page of external entries for the audience in q, already without
+	// opted-out logins and without logins a listable member shows with a github field visible to it.
+	ListExternal(ctx context.Context, q domain.ExternalQuery) ([]domain.GitHubDeveloper, error)
+	// GitHubRank is a login's best rank; domain.ErrNotFound when it has none or opted out.
+	GitHubRank(ctx context.Context, login string) (domain.Ranking, error)
+}
+
+// WithGitHubDevelopers lists external GitHub developers in the directory and ranks on profiles.
+func WithGitHubDevelopers(g GitHubDevelopers) Option { return func(s *Service) { s.github = g } }
 
 // subkey is HKDF-Expand (RFC 5869, SHA-256, one 32-byte block) of the shared
 // secret for one purpose: HMAC(secret, info || 0x01). The secret is already

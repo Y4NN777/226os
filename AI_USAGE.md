@@ -1762,6 +1762,252 @@ tests_or_evidence: ["Order: RED tests first (failing for the missing behaviour),
 open_risks: ["the drawer was not re-checked in a real browser: jsdom has no showModal, so the test stands one in; focus trap and Escape rely on Astryx MobileNav, unchanged", "the drawer is now built from our own MobileNav content instead of the AppShell auto drawer; its links reuse the SideNav drawer-content mode", "no real screen reader run"]
 ```
 
+## ADR-0015 draft: auto-fix by proof
+
+```yaml
+date: "2026-11-15"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code, Claude Opus 5.5 (lead session) with a research subagent"
+purpose: "After the auto-fix failures seen on #252, a research subagent surveyed deployed auto-fix systems and the program-repair literature; the lead drafted ADR-0015 from that report and the owner's answers (a plausible fix waits for a human review; prose findings go to the batch)."
+repository_or_source_context: "scripts/review-autofix.py, review-comment.py, findings.py, ADR-0014, the #252 run history"
+files_or_sections_affected: ["docs/decisions/0015-autofix-by-proof.md", "docs/decisions/README.md", "docs/ai-usage/2026-11-15-adr-0015-autofix.md"]
+third_party_sources_consulted: ["papers and documentation listed in the ADR's Sources section"]
+license_review: "NOT APPLICABLE: original text, no code or dependency"
+closure: "open"
+human_reviewers: ["Y4NN777 (pending)"]
+tests_or_evidence: ["make docs-check"]
+open_risks: ["some figures come from secondary summaries, said so in the ADR", "status PROPOSED until the owner settles the two open points"]
+```
+
+## ADR-0015 phase 0: attempts per finding and head, path prefilter, locked tests, status comment, batch trigger
+
+```yaml
+date: "2026-11-15"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code, Claude Sonnet 5.5 (ci-implementer subagent) and Claude Opus 5.5 (lead session, skeptic review subagent)"
+purpose: "The AI implemented phase 0 of ADR-0015 in the review pipeline: auto-fix attempts counted per (finding, head SHA) in one bot status comment, written by `review-autofix.py record` when the run ends, with a cap on aborted runs; a path prefilter that sends findings outside the fixer allowlist to the owner; existing tests, fixtures, test infrastructure and test configs locked at the trusted push, new test files under a lexical scan; a preflight job that refuses a run without REVIEW_AGENT_TOKEN before the model; NO-OP / NOT RUN wording; the batch also runs after Review merged."
+repository_or_source_context: "branch feature/review/adr-0015-phase-0, from develop 84922c2"
+files_or_sections_affected: ["scripts/review-autofix.py", ".github/workflows/review-autofix.yml", ".github/workflows/review-batch.yml", "scripts/tests/review-autofix_test.sh", "scripts/tests/review-autofix-record_test.sh", "scripts/tests/review-batch-trigger_test.sh", "docs/decisions/0015-autofix-by-proof.md", "docs/quality/REVIEW_CONTEXT.md", "TODO.md"]
+third_party_sources_consulted: []
+license_review: "no new dependency"
+closure: "open"
+human_reviewers: []
+tests_or_evidence: ["the 17 review-* and findings* test files pass, RED first for each new case", "scripts/lint-shell.sh OK", "check-docs OK", "check-todo-updated OK", "three skeptic review rounds with a bypass probe; the last bypasses (TestMain, test configs, test infrastructure) fixed and tested"]
+open_risks: ["nothing ran on GitHub: the record job, the preflight job, the status comment edit and the workflow_run conclusion filter are tested with a fake gh only", "the scan of NEW test files is lexical and best effort: a weak assertion in a new test is not detected", "the preflight job is a fourth reader of REVIEW_AGENT_TOKEN (ADR-0013 says three)", "actionlint NOT RUN"]
+```
+
+## ADR-0015 phase 1: classes, reproducers, static oracles, routing by class
+
+```yaml
+date: "2026-11-15"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code, Claude Opus 5.5 (review-steward subagent and lead session)"
+purpose: "The AI implemented units 1 and 2 of ADR-0015 phase 1 in the review pipeline: a `class` (executable, static, prose) and a `rule` on each ledger entry, validated by `review-comment.py` per owner decision D1 (a downgrade only, missing is prose, carried forward with the re-list); a prose finding never blocks the merge unless it is CRITICAL; an answered or accepted prose HIGH is filed for the batch by `findings.py harvest`; a classless entry and a prose HIGH on a P0 path keep blocking (owner answers); the reproducer job, the read-only reproducer check, the reproducer hash rule and the static oracle before and after the fix (units 3 to 5); the status comment rows with the class, the repro state and the reproducer hash prefix, and the routing by class in `decide_pr` (units 6 and 7: prose to the batch, a classless entry keeps the phase 0 lane)."
+repository_or_source_context: "branch feature/review/adr-0015-phase-1, from develop 213bf3d"
+files_or_sections_affected: ["scripts/review-autofix.py", ".github/workflows/review-autofix.yml", ".claude/commands/review-repro.md", "scripts/tests/review-repro_test.sh", "scripts/tests/review-autofix_test.sh", "scripts/tests/review-automerge_test.sh", "scripts/review-comment.py", "scripts/review-context.py", "scripts/findings.py", ".github/workflows/code-review.yml", ".claude/commands/delegate-review.md", ".claude/commands/deep-review.md", "scripts/tests/review-comment_test.sh", "scripts/tests/review-comment-levels.py", "scripts/tests/findings_test.sh", "docs/decisions/0015-autofix-by-proof.md", "docs/quality/REVIEW_CONTEXT.md", "TODO.md"]
+third_party_sources_consulted: []
+license_review: "no new dependency"
+closure: "open"
+human_reviewers: []
+tests_or_evidence: ["the review-* and findings* test files pass, RED first for each new case", "routing by class and the status proof columns tested in review-autofix_test.sh, with a scratch probe of malformed classes and forged repro facts", "the level table and the fixtures that relied on a classless finding blocking now name a blocking class, the classless case is tested as prose"]
+open_risks: ["nothing ran on GitHub", "under D1 every finding outside src/ and db/queries/ is prose and blocks nothing unless CRITICAL", "eslint and tsc rule ids are checked by shape only", "the repro-check and oracle jobs run pull request code, so their results could be forged by that code (accepted by the owner, answer (f))", "the reproducer, oracle and publish wiring is tested statically only", "actionlint NOT RUN", "a prose HIGH on a P0 path keeps blocking the merge but is never given to the fixer: it waits for the batch or the owner"]
+```
+
+## Connect directory: public GitHub developers from committers.top (ADR-0016)
+
+```yaml
+date: "2026-11-15"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code, Claude Opus 5.5 (implementer subagent of the lead session, acting as go-implementer, postgres-expert and web-implementer)"
+purpose: "The owner approved Part 2 of the Connect plan: the directory also lists public GitHub developers ranked by committers.top as labelled external entries, with member opt-in unchanged. The AI wrote ADR-0016, migration 00014 (github_developers, github_developer_optouts, profiles_github_lower_idx), the sqlc queries (db/queries/connect.sql), the identity/committers package (fixed-host fetch client with the Build SSRF dial guard, a YAML parser with field validation, a daily job that skips an unchanged snapshot and keeps the previous rows on any error), the CONNECT_GITHUB_IMPORT setting, the contract change (GET /profiles source and external, PublicProfile.ranking), the service, repository and transport code, and the connect and profile web changes, each test first."
+repository_or_source_context: "branch feature/connect/github-developers from origin/develop 213bf3d; E5 Connect; plan Part 2"
+files_or_sections_affected: ["docs/decisions/0016-connect-github-developers.md", "docs/decisions/README.md", "db/migrations/00014_github_developers.sql", "db/queries/connect.sql", "src/api/internal/identity/committers/**", "src/api/internal/identity/domain/githubdev.go", "src/api/internal/identity/domain/profile.go", "src/api/internal/identity/repository/githubdev.go", "src/api/internal/identity/service/directory.go", "src/api/internal/identity/service/profile.go", "src/api/internal/identity/service/service.go", "src/api/internal/identity/transport/directory.go", "src/api/internal/identity/transport/profile.go", "src/api/internal/platform/config/connect.go", "src/api/internal/platform/config/config.go", "src/api/internal/app/app.go", "src/api/internal/platform/pgtest/githubdev_*_integration_test.go", "src/api/internal/platform/pgtest/migrate_integration_test.go", "src/api/internal/platform/pgtest/errorreport_integration_test.go", "api/openapi.yaml and generated outputs", "src/web/src/features/connect/**", "src/web/src/features/profile/**", "docs/spec-kit/AUTHORIZATION_MATRIX.md", "scripts/public-routes.txt", ".env.example", "TODO.md"]
+third_party_sources_consulted: ["committers.top location file format (ashkulz/committers.top, gh-pages, _data/locations/<slug>.yml, MIT), through the parser of PR #326", "go.yaml.in/yaml/v3 already in go.mod (now used by first-party runtime code)"]
+license_review: "NOT APPLICABLE for code: original code, no new dependency. Data: committers.top is MIT; only public GitHub fields are stored (ADR-0016 point 7)."
+closure: "open"
+human_reviewers: []
+tests_or_evidence: ["Order: RED test first for each deliverable, then the code (logs kept in the session)", "Go unit: parser with \\u escapes, field validation, top 500, skip unchanged, keep on failure, SSRF dial guard, redirect and size cap, ticker start, stop and cancel; service merge, source filter, cursor across segments and forged cursors, ranking visibility", "pgtest: constraints of 00014, replace in one transaction, keyset across countries, dedup against listable members with a visible github per audience, opt-out, members page byte-identical for source=members, ranking only with a visible github, EXPLAIN plans bounded by Limit on 5000 rows", "web: connect external rows, labels, footer, source filter, avatar host check, profile rank (FR and EN)"]
+open_risks: ["the opt-out channel is a new issue on the public repository until the owner names another", "the web change was not compared with a prototype capture in a real browser", "the first import runs a minute after start and calls raw.githubusercontent.com from staging and production (10 small GETs a day)"]
+```
+
+## Local-dev Connect seed from committers.top
+
+```yaml
+date: "2026-11-15"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code, Claude Opus 5.5"
+purpose: "The AI wrote a stdlib generator that turns committers.top country files (the `users` list) into a local-dev seed of real public GitHub developers for the Connect directory, the make seed change that loads db/seeds/local-dev/ for APP_ENV=local-dev only, and the tests."
+repository_or_source_context: "branch feature/connect/seed-committers, from develop 213bf3d"
+files_or_sections_affected: ["scripts/content/committers-seed.py", "db/seeds/local-dev/00001_connect_committers.sql", "mk/50-ops.mk", "scripts/tests/seed_test.sh", "scripts/tests/committers-seed_test.sh", "scripts/tests/fixtures/committers-bf.yml", "src/api/internal/platform/pgtest/local_dev_seed_integration_test.go", "db/seeds/README.md", "TODO.md"]
+third_party_sources_consulted: ["committers.top data (github.com/ashkulz/committers.top, MIT, gh-pages, _data/locations/*.yml)"]
+license_review: "data from an MIT repository; real public GitHub profile data, local-dev only by owner decision; no new dependency"
+closure: "open"
+human_reviewers: []
+tests_or_evidence: ["seed_test.sh 20/20 (RED first for the local-dev directory)", "committers-seed_test.sh 17/17 (RED first)", "TestLocalDevSeed* pass against PostgreSQL; the taken-name test fails when the skip clause is removed", "existing TestSeed* unchanged and passing"]
+open_risks: ["real people's names in a local-dev database: never load db/seeds/local-dev/ elsewhere", "the data ages: regenerate with the generator", "make seed end to end against the local-dev stack NOT RUN in this session"]
+```
+
+## Shorter UI copy, part 2 (shared, solve, build, discover, connect, profile)
+
+```yaml
+date: "2026-11-15"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code, Claude Sonnet 5.5 (web-implementer subagent of the lead session)"
+purpose: "The owner confirmed the style guide and its decisions. The AI applied the rewritten strings of the shared i18n catalogue and of the solve, build, discover, connect and profile catalogues (FR and EN), deleted the explanatory ledes, not-found bodies, Connect spaces teasers and dead keys with their renders, moved « réglages » to « paramètres », and updated the expected strings of the tests."
+repository_or_source_context: "branch feature/web/copy-rewrite-2, cut from feature/web/prototype-fidelity; S7 web pages; owner copy brief of 2026-11-15"
+files_or_sections_affected: ["src/web/src/i18n/messages.ts", "src/web/src/features/solve/", "src/web/src/features/build/messages.ts", "src/web/src/features/discover/", "src/web/src/features/connect/", "src/web/src/features/profile/messages.ts", "src/web/src/features/settings/", "src/web/src/features/NotFound.tsx", "TODO.md", "docs/ai-usage/2026-11-15-copy-rewrite-2.md"]
+third_party_sources_consulted: ["none beyond the style guide approved by the owner"]
+license_review: "NOT APPLICABLE: original text, no new dependency"
+closure: "open"
+human_reviewers: ["pending PR review"]
+tests_or_evidence: ["only expected strings changed in tests; the one check of the deleted sign-in note on the question page was removed, not replaced", "scoped queries where two controls now share a name: the Enregistrer buttons of the settings page (by section) and the Effacer les filtres buttons of the build empty state", "pnpm typecheck, lint, format:check and test --maxWorkers=1 results are in the PR"]
+open_risks: ["copy is not reviewed by a native French editor", "the deleted not-found bodies leave the title and the back link alone on those pages", "shell.search is « Rechercher sur le site » / « Search the site », not the table value, so that the top bar, the home feed search and the learn search are search landmarks with different names", "an accepted answer now carries the pill « Résolue » (solve.pill.resolved), the same string as a resolved question"]
+```
+
+## Shorter UI copy, part 1 (landing, home, learn, search, identity)
+
+```yaml
+date: "2026-11-15"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code, Claude Sonnet 5.5 (web-implementer subagent of the lead session)"
+purpose: "The owner asked for shorter, less AI-sounding UI copy and confirmed a style guide. The AI applied the rewritten strings of the landing, home, learn, search and identity catalogues (FR and EN), deleted the explanatory ledes and notes with their renders (HomePage section sub, landing pillar and catalogue ledes, learn and write ledes, invitation body, not-found bodies, sign-in and sign-up card ledes, welcome intro), shortened the learn empty states added by the filters pass, and updated the expected strings of the tests."
+repository_or_source_context: "branch feature/web/copy-rewrite, cut from feature/web/prototype-fidelity; S7 web pages; owner copy brief of 2026-11-15"
+files_or_sections_affected: ["src/web/src/features/landing/", "src/web/src/features/home/", "src/web/src/features/learn/", "src/web/src/features/search/", "src/web/src/features/identity/", "src/web/src/features/solve/SolvePage.test.tsx", "src/web/src/features/solve/AskAboutLesson.test.tsx", "TODO.md", "docs/ai-usage/2026-11-15-copy-rewrite.md"]
+third_party_sources_consulted: ["none beyond the style guide approved by the owner"]
+license_review: "NOT APPLICABLE: original text, no new dependency"
+closure: "open"
+human_reviewers: ["pending PR review"]
+tests_or_evidence: ["only expected strings changed in tests; the two checks of the deleted sign-in and sign-up ledes were removed, not replaced", "LearnPage 'offers writing to a member': the header action and the invitation now share the label « Write an article », so the single findByRole became findAllByRole with length 2 and an href check on each (stricter)", "solve tests SolvePage and AskAboutLesson assert strings of the search and learn catalogues and were updated", "pnpm typecheck, lint and format:check exit 0; pnpm test --maxWorkers=1 leaves only the known Shell.test.tsx banner failure (see the PR)"]
+open_risks: ["copy is not reviewed by a native French editor", "catalogues outside these five (src/i18n/messages.ts and others) are part 2", "the assistant notice no longer says that only the question is sent", "learn empty-state body « Retirez un filtre. » sits above the « Effacer les filtres » button"]
+```
+
+## All 54 countries and optional fields on the project creation form
+
+```yaml
+date: "2026-11-15"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code, web-implementer subagent (Sonnet 5.5)"
+purpose: "The Build country filter and the project forms offered 16 West African codes plus the codes already seen, while the database accepts the 54 African countries. One shared list (West Africa first, then the rest, names from the platform) now serves Build, Connect and Discover; the creation form gets the optional stage, licence and country, reusing the owner edit fields, with 422 on /stage, /license_spdx and /country_code shown on the fields."
+repository_or_source_context: "branch feature/web/countries-create, PR #246"
+files_or_sections_affected: ["src/web/src/components/countries.ts", "src/web/src/features/build/ProjectFields.tsx", "src/web/src/features/build/ProjectForm.tsx", "src/web/src/features/build/ProjectPage.tsx", "src/web/src/features/build/BuildPage.tsx", "src/web/src/features/connect/ConnectPage.tsx", "src/web/src/features/discover/DiscoverPage.tsx"]
+third_party_sources_consulted: []
+license_review: "NOT APPLICABLE: no dependency added"
+closure: "open"
+human_reviewers: []
+tests_or_evidence: ["vitest run --maxWorkers=1 on src/features/build, connect, discover and src/components/countries.test.ts: 13 files, 177 tests PASS; typecheck, lint, format:check PASS"]
+open_risks: ["the 54 codes are copied from db/migrations/00002_reference_taxonomy.sql, not read from the API"]
+```
+
+## Data gaps wiring: show the data PR #238 serves (S7)
+
+```yaml
+date: "2026-11-15"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code, web-implementer subagent of the lead session"
+purpose: "The merged API (PR #238) now serves project stage, licence and country, a required total on every page, sort and filter parameters, and username filters. The AI wired them into the web pages the way the prototypes show them: Build rows and project page (stage, country, licence, stage and country filters, sort select, owner edit of stage, licence and country with 422 mapped to fields), Solve and Discover (sort select, result count from the total), Learn (count from the totals, no more « N premiers »), and the profile activity tabs (Questions, Réponses, Projets). Tests were written first (RED) for every visible element and URL parameter. Search keeps its per-group counts: /search serves no total."
+repository_or_source_context: "branch feature/web/data-gaps-wiring (stacked on feature/web/prototype-fidelity, PR #246); S7 web; prototypes/html as visual reference only (DISCLAIMER.md)"
+files_or_sections_affected:
+  [
+    "src/web/src/components/SortSelect.tsx",
+    "src/web/src/app/router.tsx",
+    "src/web/src/features/build/**",
+    "src/web/src/features/solve/**",
+    "src/web/src/features/discover/**",
+    "src/web/src/features/learn/**",
+    "src/web/src/features/profile/**",
+    "TODO.md",
+    "docs/ai-usage/2026-11-15-data-gaps-wiring.md",
+  ]
+third_party_sources_consulted:
+  [
+    "@astryxdesign/core installed sources and docs (Selector, TabList, Tab) read from node_modules",
+  ]
+license_review: "NOT APPLICABLE: original code, no new dependency"
+closure: "open"
+human_reviewers: ["pending PR review"]
+tests_or_evidence:
+  [
+    "RED first: 43 new tests failed before the code (route search validation, row meta, counts from the total, sort and filter parameters in the URL and the request, restart at the first page, owner edit with null clearing and 422 mapping, profile tabs)",
+    "changed tests: the Discover and Learn count tests now expect the API total instead of « Les N premiers »; page fixtures carry a total",
+    "targeted vitest runs and pnpm typecheck, lint, format:check: see the PR",
+  ]
+open_risks:
+  [
+    "the country list of the filters and of the owner form is West Africa plus the codes already seen, not every country the API knows",
+    "the project creation form does not yet offer stage, licence or country",
+    "no captures: the shared local-dev API was built before PR #238 and was not restarted",
+    "axe and screen reader NOT RUN on the new controls and tabs",
+  ]
+```
+
+## Deploy settings in versioned files, E2E account in the sops file
+
+```yaml
+date: "2026-11-15"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code, Claude Sonnet 5.5 (ci-implementer subagent, brief from the owner's lead session)"
+purpose: "The AI moved the non-secret deploy settings (DEPLOY_HOST, DEPLOY_USER, PUBLIC_HOST, DEPLOY_KNOWN_HOSTS) from GitHub variables and secrets to deploy/staging.conf and deploy/production.conf, with a strict parser (scripts/deploy-conf.sh), and the E2E account from GitHub secrets to secrets/staging-test.enc.env (scripts/e2e-env.sh). It updated deploy.yml, deploy-env.sh, the bootstrap message, the tests and the deploy runbook."
+repository_or_source_context: "branch feature/ops/deploy-conf-file, from develop 3fe6d93"
+files_or_sections_affected: [".github/workflows/deploy.yml", "deploy/staging.conf", "deploy/production.conf", "scripts/deploy-conf.sh", "scripts/e2e-env.sh", "scripts/deploy-env.sh", "scripts/server-bootstrap.sh", "scripts/tests/deploy-conf_test.sh", "scripts/tests/e2e-env_test.sh", "scripts/tests/deploy-env_test.sh", "docs/runbooks/deploy-setup.md", "TODO.md"]
+third_party_sources_consulted: []
+license_review: "no new dependency"
+closure: "open"
+human_reviewers: []
+tests_or_evidence: ["scripts/tests/deploy-conf_test.sh, e2e-env_test.sh, deploy-env_test.sh, e2e-ci-config_test.sh pass; RED before the scripts existed"]
+open_risks: ["not run in GitHub Actions: the sops decrypt of the E2E keys and GITHUB_ENV loading are untested end to end", "the E2E keys are not yet in secrets/staging-test.enc.env, so the e2e job fails until they are added"]
+```
+
+## Emergency production deploy without the staging gate
+
+```yaml
+date: "2026-11-15"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code, Claude Opus 5.5 (systalink session); design agreed with the lead session (Claude Opus 5.5)"
+purpose: "The AI wrote a separate emergency workflow that deploys production without the staging tested-<tree> gate, on the owner's decision: manual dispatch on main with a reason and the confirmation EMERGENCY (validated by scripts/deploy-plan.sh), own build and scan, images tagged emergency-<sha>-<run id>-<attempt> and deployed by the pushed digests behind the production environment, never verified, attested or tagged tested-*, concurrency shared with deploy.yml."
+repository_or_source_context: "branch feature/deploy/emergency-path, from develop after #303"
+files_or_sections_affected: [".github/workflows/deploy-emergency.yml", ".github/workflows/deploy-production.yml", "scripts/deploy-plan.sh", "scripts/tests/deploy-plan_test.sh", "scripts/tests/deploy-emergency_test.sh", "scripts/tests/deploy-images_test.sh", "docs/runbooks/deploy-setup.md", "TODO.md"]
+third_party_sources_consulted: []
+license_review: "no new dependency"
+closure: "open"
+human_reviewers: []
+tests_or_evidence: ["deploy-plan_test 19/19 and deploy-emergency_test 16/16, RED first", "deploy-images_test 18/18 with the two emergency-tag cases", "all deploy-* and e2e-* test files pass", "scripts/lint-shell.sh OK", "scripts/check-docs.py PASS"]
+open_risks: ["nothing ran on GitHub: the first real emergency run is the first proof", "no E2E before an emergency deploy (accepted by the owner), only the smoke test after it", "the shared deploy-production.yml (workflow_call) is used by the emergency workflow only; deploy.yml keeps its own production steps until it is migrated", "actionlint NOT RUN"]
+```
+
+## Deploy pipeline findings #267 and #280: attested tested digests, E2E in its own job
+
+```yaml
+date: "2026-11-15"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code, Claude Sonnet 5.5 (ci-implementer subagent) and Claude Opus 5.5 (lead session, skeptic review subagent)"
+purpose: "The AI fixed two review findings of the deploy pipeline. #267: the build outputs the digests it pushed and refuses a different pre-existing <sha> tag; staging deploys those digests; promote attests them (actions/attest, predicate tree and sha) before tagging tested-<tree>; production verifies the attestation, its signer workflow and the tree (scripts/deploy-verify-tested.sh). #280: the E2E suite moved to its own job and environment staging-e2e (E2E_USER and E2E_PASSWORD only), and the junit report is checked for the account before upload (scripts/e2e-junit-check.sh)."
+repository_or_source_context: "branch fix/ops/deploy-pipeline-findings, from develop 628532b"
+files_or_sections_affected: [".github/workflows/deploy.yml", "scripts/deploy-images.sh", "scripts/deploy-verify-tested.sh", "scripts/e2e-env.sh", "scripts/e2e-junit-check.sh", "scripts/tests/deploy-images_test.sh", "scripts/tests/deploy-verify-tested_test.sh", "scripts/tests/deploy-conf_test.sh", "scripts/tests/e2e-ci-config_test.sh", "scripts/tests/e2e-env_test.sh", "scripts/tests/e2e-junit-check_test.sh", "docs/runbooks/deploy-setup.md", "docs/SHIP.md", "TODO.md"]
+third_party_sources_consulted: ["actions/attest action.yml at 1e69f48 (v4.2.2)", "gh attestation verify manual"]
+license_review: "no new dependency; actions/attest is MIT, pinned by SHA"
+closure: "open"
+human_reviewers: []
+tests_or_evidence: ["the 10 deploy-* and e2e-* test files pass, RED first for each new case", "scripts/lint-shell.sh OK", "scripts/check-todo-updated.sh OK", "two independent skeptic reviews; the second: none blocking"]
+open_risks: ["nothing ran on GitHub: the real push, attest and gh attestation verify path waits for a staging server", "the --source-ref refs/heads/develop value for a workflow_run signer is assumed, not observed", "a re-run of the build for an already pushed SHA fails closed (push a new commit)", "actionlint NOT RUN"]
+```
+
+## Deployment pipeline (staging and production)
+
+```yaml
+date: "2026-11-15"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code, CI implementer subagent (Sonnet), brief by the owner's lead session"
+purpose: "Wrote the deployment to two fresh servers: the server bootstrap script, the deploy workflow (staging on a green develop push, production on main by the digests tested on staging), the helper scripts and their offline tests, the owner setup runbook and the SHIP and release documents."
+repository_or_source_context: "branch feature/ops/deploy-pipeline, from develop f939030"
+files_or_sections_affected: [".github/workflows/deploy.yml", "scripts/server-bootstrap.sh", "scripts/deploy-plan.sh", "scripts/deploy-images.sh", "scripts/deploy-env.sh", "scripts/deploy-remote.sh", "scripts/tests/", "docs/SHIP.md", "docs/RELEASE_DRAFT.md", "docs/runbooks/deploy-setup.md", "docs/GIT_WORKFLOW.md", "mk/50-ops.mk"]
+third_party_sources_consulted: ["sops v3.13.3 release checksums (pinned binary)"]
+license_review: "NOT APPLICABLE: no dependency added to the project; the CI downloads the pinned sops binary (MPL-2.0) at run time"
+closure: "open"
+human_reviewers: []
+tests_or_evidence: ["scripts/tests/{server-bootstrap,deploy-plan,deploy-images,deploy-env,deploy-remote}_test.sh"]
+open_risks: ["nothing was run against a server or GitHub: first real run is the test", "the workflow was not checked with actionlint", "GHCR package access for the job token is unverified", "ADR-0009 point 8 needs an amendment"]
+```
+
 ## Docs refresh, shorter README, demo seeds on staging-test
 
 ```yaml
@@ -1777,6 +2023,227 @@ closure: "closed by the owner (2026-11-15)"
 human_reviewers: ["Y4NN777 (owner closure, 2026-11-15; merged in #237 and its follow-up #241)"]
 tests_or_evidence: ["scripts/tests/seed_test.sh: RED 15/18 before the mk change, GREEN 18/18 after", "go test identity, app, dbgen: PASS; 100.0% statements on the touched packages (agent run); make lint-go PASS; sqlc vet PASS; sqlc regenerate shows no drift", "TestDirectoryHidesDemoAccountsByDefault on real PostgreSQL: FAIL with the filter removed (demo-person listed), PASS with it; go test -race -tags integration -run TestDirectory PASS", "TestSeedReusesLiveTagsBySlug: FAIL before (tags_slug_uq 23505 on a live go tag), PASS after the tag links resolve by slug; all TestSeed* and seed_test.sh PASS"]
 open_risks: ["full make test-integration not run by hand (memory tight); the commit gate runs the configured checks", "C12 is left for the owner"]
+```
+
+## Playwright end-to-end suite for the deployed staging site
+
+```yaml
+date: "2026-11-15"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code, Claude Sonnet 5.5 (web-implementer subagent, brief from the owner's lead session)"
+purpose: "The AI wrote a Playwright suite (src/web/e2e, src/web/playwright.config.ts) that runs against a deployed site: anonymous flows on the five pillars, search and FR/EN switch, mobile navigation, a signed-in question and answer flow driven by E2E_USER and E2E_PASSWORD, and a CSRF and Set-Cookie smoke. It also implemented the make test-e2e recipe, updated scripts/tests/make_test.sh for it, and documented the suite in docs/TEST.md and docs/DEV.md. The owner approved adding @playwright/test as a dev dependency."
+repository_or_source_context: "branch feature/web/e2e-staging, from develop f939030"
+files_or_sections_affected: ["src/web/e2e/", "src/web/playwright.config.ts", "src/web/package.json", "src/web/tsconfig.json", "src/web/eslint.config.js", "src/web/.prettierignore", "pnpm-lock.yaml", ".gitignore", "mk/40-quality.mk", "scripts/tests/make_test.sh", "docs/TEST.md", "docs/DEV.md", "THIRD_PARTY_NOTICES.md"]
+third_party_sources_consulted: ["Playwright documentation conventions (getByRole, projects, trace on first retry)"]
+license_review: "@playwright/test 1.64.1 is Apache-2.0 (LICENSE and package.json of the installed package); it is on the allowed list and is a dev dependency, not shipped"
+closure: "open"
+human_reviewers: []
+tests_or_evidence: ["suite run against the local-dev stack (older develop build): see the PR for the per-test result", "make test-e2e without E2E_BASE_URL exits non-zero with NOT RUN; scripts/tests/make_test.sh 51 passed"]
+open_risks: ["not yet run against staging", "the mobile bottom-bar test fails on a build without the prototype shell", "the signed-in flow needs a verified staging account in E2E_USER and E2E_PASSWORD"]
+```
+
+## Build pages follow their prototypes (fidelity pass)
+
+```yaml
+date: "2026-11-15"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code, Claude Opus 5.5 (web-implementer subagent of the lead session)"
+purpose: "The owner asked every page to match its HTML prototype visually. The AI rebuilt /build and /build/<id> after prototypes/html/pages/build.html and project.html, on Astryx components and Graphite & Lime tokens, using only contract fields: dense project rows (monogram, title link, two-line excerpt, technology tags with +n, meta line with owner, update date, private badge and origin question, open-needs state pill), the q and open_needs filters with a filtered empty state, local breadcrumbs, a project header with monogram and pills, related-content cards, the description with its language badge, needs as cards with state pills and one sign-in hint for visitors, owner applications with status pills and icon decisions, and side cards (about, technologies, maintainer). Behaviour, routes, viewer_application, idempotency and CSRF are unchanged."
+repository_or_source_context: "branch feature/web/fidelity-build; S7 web pages; owner fidelity brief of 2026-11-15"
+files_or_sections_affected: ["src/web/src/features/build/BuildPage.tsx", "src/web/src/features/build/ProjectPage.tsx", "src/web/src/features/build/Needs.tsx", "src/web/src/features/build/Applications.tsx", "src/web/src/features/build/present.tsx", "src/web/src/features/build/queries.ts", "src/web/src/features/build/messages.ts", "src/web/src/features/build/build.css", "src/web/src/features/build/BuildPage.test.tsx", "src/web/src/features/build/ProjectPage.test.tsx", "TODO.md", "docs/ai-usage/2026-11-15-fidelity-build.md"]
+third_party_sources_consulted: ["@astryxdesign/core installed type declarations (List, Badge, Icon registry, Breadcrumbs, TextInput, CheckboxInput, Link, Heading, Avatar), read from node_modules", "prototypes/html (pages, CSS, JS, CONVENTIONS.md, DISCLAIMER.md)"]
+license_review: "NOT APPLICABLE: original code, no new dependency"
+closure: "open"
+human_reviewers: ["pending PR review"]
+tests_or_evidence: ["Order: RED tests first (5 failing for the missing rows, filters, header, related cards and sign-in hint), then the pages", "new tests: row pill, private badge, update date, origin question link and content language; English pill; q and open_needs sent and reset; project header pill, private badge and jump link; description language; about, technologies and maintainer cards with country name; related kind outside the link name; no repository link without a GitHub address; one sign-in hint for visitors; breadcrumbs", "no existing test was changed", "captures of prototype and app at 1280x800 and 375x812, light and dark, kept in the lead session scratchpad"]
+open_risks: ["filters are local state, not in the URL: /build has no validateSearch and router.tsx is outside the area", "the panels are white surfaces meant for the new shell that puts content on the page background; on the old white content panel they do not stand out", "owner and member views were checked by tests only (no seeded credentials for a browser capture)", "local breadcrumbs, pills, rows and monograms duplicate what the shared src/ui pieces will provide"]
+```
+
+## Page fidelity pass: Connect, profile and settings
+
+```yaml
+date: "2026-11-15"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code, Claude Opus (web-implementer subagent of the lead session)"
+purpose: "The owner asked that every page match its HTML prototype. The AI rebuilt the look of /connect (prototype filter bar, dense people rows with avatar, country code and name, languages, skills and GitHub; the spaces block kept and labelled « Bientôt » once, per the DISCLAIMER), /profils/<username> (profile hero with avatar, handle, icon meta line, bio, skills, collaboration pill and GitHub; own profile: edit link, privacy note and checklist meter with a done/total count) and /parametres (section nav and one panel per section: Profil, Préférences, Confidentialité). Tests first for each new visible element; behaviour, routes, visibility rules and the checklist forms are unchanged."
+repository_or_source_context: "branch feature/web/fidelity-connect; S7 web pages; prototypes/html/pages/{connect,profile,parametres}.html"
+files_or_sections_affected: ["src/web/src/features/connect/ConnectPage.tsx", "src/web/src/features/connect/PersonRow.tsx", "src/web/src/features/connect/messages.ts", "src/web/src/features/connect/ConnectPage.test.tsx", "src/web/src/features/profile/ProfilePage.tsx", "src/web/src/features/profile/Checklist.tsx", "src/web/src/features/profile/icons.tsx", "src/web/src/features/profile/messages.ts", "src/web/src/features/profile/ProfilePage.test.tsx", "src/web/src/features/settings/SettingsPage.tsx", "src/web/src/features/settings/ProfileVisibility.tsx", "src/web/src/features/settings/settings.css", "src/web/src/features/settings/SettingsPage.test.tsx", "TODO.md", "docs/ai-usage/2026-11-15-fidelity-connect.md"]
+third_party_sources_consulted: ["@astryxdesign/core installed docs and sources (List, Item, Stack, StackItem, Card, Badge, Avatar, Icon, ProgressBar, Button), read from node_modules", "icon paths copied from the repository's own prototypes/html/assets/css/icons.css"]
+license_review: "NOT APPLICABLE: original code and in-repository icon paths, no new dependency"
+closure: "open"
+human_reviewers: ["pending PR review"]
+tests_or_evidence: ["Order: RED tests first for the Connect rows and spaces block, the profile hero (meta line, edit link, privacy note, English) and the settings sections (nav anchors, named regions, English), then the code", "pnpm --filter web typecheck, lint and format:check exit 0; the full suite (vitest run in src/web, the script behind pnpm test) exits 0 with 519 tests, while the pnpm wrapper itself was stopped by SIGTERM on the shared machine before any test ran", "captures in the lead's scratchpad: prototype light at 1280 and 375; app signed out, light at 1280 and 375, dark at 1280"]
+open_risks: ["signed-in views (own profile with checklist, settings forms) were checked by tests only, not captured in a browser", "settings strings live in profile/messages.ts under profile.settings.* because settings has no catalogue of its own and src/i18n/messages.ts was out of scope", "the settings nav has no current-section highlight (all sections are on the page; no scroll spy)", "page title stays « Réglages » (prototype « Paramètres »)"]
+```
+
+## Control fidelity: heights, search fields, phone rows, breadcrumbs and recherche match the prototypes
+
+```yaml
+date: "2026-11-15"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code, Claude Sonnet 5.5 (web-implementer subagent of the lead session)"
+purpose: "An independent screen judge listed the five largest visual gaps between the app and the HTML prototypes. The AI fixed them: Astryx control sizes set once in the theme tokens (44 px default, 36 small, 52 large, as the prototype), search icon inside the field on solve and discover (no separate button), small dark field labels, the language tag kept in the top-right corner of solve rows on a phone, the four solve states fitting a 375 px strip, a back link to the parent in place of the wrapping breadcrumb on a phone, tinted square vote buttons, the recherche start view with topic chips and a placeholder, and the signed-out sign-in row aligned to the start edge on a phone. RED tests first for the behaviour changes."
+repository_or_source_context: "branch feature/web/fidelity-controls; S7 web pages; prototypes/html/assets/css/{tokens,components,layout}.css and the pages solve, question, recherche, connexion, discover, build, apprendre"
+files_or_sections_affected: ["src/web/src/theme/theme226os.ts", "src/web/src/styles/ui.css", "src/web/src/styles/shell.css", "src/web/src/components/Breadcrumbs.tsx", "src/web/src/components/List.tsx", "src/web/src/features/solve/SolvePage.tsx", "src/web/src/features/solve/QuestionRow.tsx", "src/web/src/features/solve/Interactions.tsx", "src/web/src/features/solve/solve.css", "src/web/src/features/discover/DiscoverPage.tsx", "src/web/src/features/learn/LearnPage.tsx", "src/web/src/features/search/SearchPage.tsx", "src/web/src/features/search/search.css", "src/web/src/features/search/messages.ts", "TODO.md", "docs/ai-usage/2026-11-15-fidelity-controls.md"]
+third_party_sources_consulted: ["@astryxdesign/core installed sources (SizeContext, theme tokens, TextInput, Button, Icon registry), read from node_modules"]
+license_review: "NOT APPLICABLE: original code, no new dependency"
+closure: "open"
+human_reviewers: ["pending PR review"]
+tests_or_evidence: ["RED first: 5 new tests failed (phone back link, corner tag class, recherche topics, solve and discover without a search button) before the code", "changed tests: the solve and discover search tests no longer click a search button (it is gone, Enter submits); the theme test gained the three control sizes", "captures of prototype and app at 1280 and 375 px in the session scratchpad (compare-after)", "pnpm typecheck, lint, format:check and test --maxWorkers=1 in src/web"]
+open_risks: ["the control sizes change every Astryx button, input, selector and tab, so pages not captured (settings, learn forms, connect) are unchecked", "the solve search form has a hidden submit button so Enter works from the tag field; there is no visible submit", "topic chips are fixed demo tag slugs, not served data"]
+```
+
+## Discover and resource pages follow their prototypes
+
+```yaml
+date: "2026-11-15"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code, Claude Opus 5.5 (web-implementer subagent of the lead session)"
+purpose: "The owner found the built Discover pages far from the HTML prototypes and asked for visual fidelity. The AI rebuilt the markup of /discover and /discover/<id> inside src/web/src/features/discover only: compact list rows (monogram tile, title link in an h3, provider, category label and type, one-line summary, country codes with hidden names, source count, status pill with icon and verified date), the 18 resource category labels from migrations 00002 and 00011 with a category filter, a results count, an empty state with a reset action; on the listing page a header (breadcrumb, monogram, kind and category, provider, status pill, verified and updated dates, docs button, « Signaler une erreur » icon that opens the report panel), then coverage, limitations, sources and related tiles. Styling is a feature CSS file on Astryx tokens. RED tests first, then the code."
+repository_or_source_context: "branch feature/web/fidelity-discover; S7 web pages; prototypes/html/pages/discover.html and resource.html"
+files_or_sections_affected: ["src/web/src/features/discover/DiscoverPage.tsx", "src/web/src/features/discover/ResourcePage.tsx", "src/web/src/features/discover/ResourceRow.tsx", "src/web/src/features/discover/ResourceThumb.tsx", "src/web/src/features/discover/CountryCodes.tsx", "src/web/src/features/discover/VerificationBadge.tsx", "src/web/src/features/discover/ErrorReport.tsx", "src/web/src/features/discover/categories.ts", "src/web/src/features/discover/messages.ts", "src/web/src/features/discover/discover.css", "src/web/src/features/discover/DiscoverPage.test.tsx", "src/web/src/features/discover/ResourcePage.test.tsx", "src/web/src/features/discover/ResourceThumb.test.ts", "TODO.md", "docs/ai-usage/2026-11-15-fidelity-discover.md"]
+third_party_sources_consulted: ["@astryxdesign/core 0.7.14 installed docs and sources (Badge, Icon, IconButton, Button, Selector, SegmentedControl, TextInput, Heading, EmptyState, VisuallyHidden, List and Item), read from node_modules", "prototypes/html (pages, CSS, page scripts, CONVENTIONS.md, DISCLAIMER.md)"]
+license_review: "NOT APPLICABLE: original code, no new dependency"
+closure: "open"
+human_reviewers: ["pending PR review"]
+tests_or_evidence: ["RED: 11 failing tests in src/features/discover before the code, then all green", "second round after review, RED 3 then green: the catalogue keeps h1 > hidden h2 « Résultats » > h3 rows; the report thanks survive closing and reopening the panel; the country select says « Choisir un pays » in the West Africa view and « Tous les pays » for the continent", "guard test (green before and after): the empty state offers the filter reset", "new tests: row heading, provider line, category label or raw code, codes with hidden names, count wording (singular, plural, first n while pages remain), category filter sent to the API, empty-state reset, header kind and category, status pill, verified and updated dates, docs and report actions, related tiles, monogram initials", "changed tests: provider line without « Par », « 2 sources » instead of « Sources : 2 », coverage shows each country code and name instead of one joined string (prototype markup)", "captures of prototype and app at 1280 and 375 px, light and dark, in the session scratchpad"]
+open_risks: ["panels use the surface colour; on the current white main area they read as plain sections until the shell gives main the body background", "the shell may also render breadcrumbs: the listing page keeps its own until the lead swaps in the shared ones", "no real screen reader run; the row title link covers the row through a CSS overlay (checked in the browser: a click point in the summary and in the status column both resolve to the title link)", "the feature CSS is loaded before astryx.css, so it only targets its own discover- classes"]
+```
+
+## The S7 pages share one header, one scale and the shared pieces
+
+```yaml
+date: "2026-11-15"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code, Claude Opus 5.5 (web-implementer subagent of the lead session)"
+purpose: "The owner asked that the app pages look like one product and close the remaining gaps with the HTML prototypes. Seven earlier passes had built each page group with local copies of the same pieces. The AI extended the shared components (PageHeader as a header element with tile, eyebrow, subtitle, meta and title language; Section; LinkedItems; LangCode; Avatar monogram tiles; StatusBadge kinds open, closed, claimed, disputed, pending, private; CountryCode with a visible name; TagList with a +n tail; ListRow subtitle and title language; people and solve glyphs in components/icons) and moved discover, solve, build, connect, profile and parametres onto them, with breadcrumbs on every page and one scale in styles/ui.css (h1, lead, section h2, rows, pills, panels). The local copies and their CSS were deleted. RED tests first for the shared pieces, then the pages."
+repository_or_source_context: "branch feature/web/fidelity-harmonize from the integration branch at 341d497; S7 web pages; prototypes/html (tokens.css, base.css, layout.css, components.css, pages)"
+files_or_sections_affected: ["src/web/src/components/PageHeader.tsx", "src/web/src/components/Section.tsx", "src/web/src/components/LinkedItems.tsx", "src/web/src/components/LangCode.tsx", "src/web/src/components/Avatar.tsx", "src/web/src/components/StatusBadge.tsx", "src/web/src/components/CountryCode.tsx", "src/web/src/components/Tag.tsx", "src/web/src/components/List.tsx", "src/web/src/components/icons.tsx", "src/web/src/components/ui.test.tsx", "src/web/src/styles/ui.css", "src/web/src/i18n/messages.ts", "src/web/src/features/discover/**", "src/web/src/features/solve/**", "src/web/src/features/build/**", "src/web/src/features/connect/**", "src/web/src/features/profile/**", "src/web/src/features/settings/SettingsPage.tsx", "src/web/src/features/settings/SettingsPage.test.tsx", "TODO.md", "docs/ai-usage/2026-11-15-fidelity-harmonize.md"]
+third_party_sources_consulted: ["@astryxdesign/core 0.7.14 installed types and sources (Heading, Avatar sizes and initials, Icon colours, Badge), read from node_modules", "prototypes/html (CSS tokens and components, page markup, App.statePill and App.thumb in assets/js/app.js)"]
+license_review: "NOT APPLICABLE: original code, no new dependency"
+closure: "open"
+human_reviewers: ["pending PR review"]
+tests_or_evidence: ["RED: ui.test.tsx failed on the missing Section, LinkedItems and LangCode modules, then green; the discover breadcrumb test failed against the 341d497 page (no « Fil d’Ariane » navigation), then green", "new tests: header element with tile, eyebrow, subtitle, meta and title language; Section region, aside, lede and title note; LinkedItems names; LangCode hint; tile initials and tone (moved from ResourceThumb.test.ts); six new pill kinds; CountryCode visible name read once; TagList +n; ListRow subtitle and language; breadcrumbs (Accueil and the section) on every page group", "changed test: the question page asserted a back link named « Questions »; it now asserts the breadcrumb trail (Accueil, Résoudre to /solve, the question as current page), since the trail replaces the link", "fix: the solve.state labels the apprendre list uses were restored, the merged branch did not typecheck without them", "gates at 178ed9c: typecheck exit 0, lint exit 0, format:check exit 0, full Vitest suite with one worker 47 files and 602 tests passed, exit 0", "after the captures: row titles bold and meta links at the meta size (Astryx link inner span), h3 at 16px inside sections, build keeps its visible « Projets » heading as build.html does", "captures of app and prototype at 1280 and 375, light, from the worktree's Vite server on the local-dev API, plus a computed-style table (h1 32px at 1280 and 26px at 375, lead 16px, section h2 20px, rows 12px 16px, pills 24px high at 12px, panels 12px radius on the surface, no horizontal scroll) in the session scratchpad"]
+open_risks: ["solve keeps its en-GB date format against dateStyle medium on the other pages in English", "the settings section nav and the solve ask view's back button stay page-local by design", "no real screen reader run; row links in meta lines and asides were hit-tested in the browser above the row overlay, GitHub links on Connect were not present in the demo data", "the learn, home, landing, search and identity pages were out of scope and still use their own pieces"]
+```
+
+## Page fidelity pass: landing, member home, search and account pages
+
+```yaml
+date: "2026-11-15"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code, Claude Opus 5.5 (web-implementer subagent of the lead session)"
+purpose: "The owner asked that every page match its HTML prototype visually. For `/` (landing and member home), `/recherche` and the account pages the AI rebuilt the layout after prototypes/html (index, accueil, recherche, connexion, inscription, mot-de-passe-oublie, reinitialiser, verifier-email, bienvenue): dense list rows with lead, title link, meta line and state pills, section heads with icon and see-all link, hero, icon pillar cards and catalogue cards, search groups, the account card head with title and lead, the forgot-password link on the password label line and welcome choice tiles. Only contract fields are shown; behaviour, routes and tests are kept. It wrote RED tests for the new visible elements first, then the code, and added one TODO.md line."
+repository_or_source_context: "branch feature/web/fidelity-home-auth; S7 web pages; prototypes/html (read only)"
+files_or_sections_affected: ["src/web/src/features/home/**", "src/web/src/features/landing/**", "src/web/src/features/search/SearchPage.tsx", "src/web/src/features/search/SearchPage.test.tsx", "src/web/src/features/search/messages.ts", "src/web/src/features/search/search.css", "src/web/src/features/identity/**", "TODO.md", "docs/ai-usage/2026-11-15-fidelity-home-auth.md"]
+third_party_sources_consulted: ["@astryxdesign/core installed type declarations and astryx.css token names, read from node_modules", "prototypes/html icon paths (the project's own prototype, copied into FeedIcon.tsx)"]
+license_review: "NOT APPLICABLE: original code and the project's own prototype assets, no new dependency"
+closure: "open"
+human_reviewers: ["pending PR review"]
+tests_or_evidence: ["Order: RED tests first (each failed on the previous page), then the pages", "new tests: home rows (pills, counts, see-all links, never Vérifié when unverified), landing catalogue cards, search title and complete-group count, sign-in lead and forgot link placement, sign-up lead, welcome tile lines", "changed tests: sign-in h1 is now « Content de vous revoir » / « Welcome back » (prototype copy; the document title stays « Connexion »)", "captures of prototype and app at 1280 and 375 px, light and dark, in the session scratchpad"]
+open_risks: ["the member home was captured with a stubbed session (dev-only Vite middleware, not committed), not a real sign-in", "the logo above the account card and its legal footer are in app/AuthLayout.tsx, outside this branch: the lead applies them", "the local rows, pills and icons duplicate what the shell branch adds in ui/ and components/: the lead swaps them", "no axe or screen-reader run on the new markup"]
+```
+
+## Page fidelity: the apprendre filter area
+
+```yaml
+date: "2026-11-15"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code, Claude Opus 5.5 (web-implementer subagent of the lead session)"
+purpose: "The owner asked to close every remaining gap with the HTML prototypes. For /apprendre the AI wrote RED tests first, then added the prototype filter area inside features/learn: type chips (Astryx SegmentedControl), a text search, the Sujet, Niveau and Langue selects, a results line, one list (series rows, then article rows) and a reset, all kept in the URL. Only the filters the contract serves are offered: listLearnArticles takes q, type, topic, level and lang; listTrainingSeries takes topic, level and lang only."
+repository_or_source_context: "branch feature/web/fidelity-learn-filters from the integration branch 341d497; S7 web pages; prototypes/html/pages/apprendre.html and assets/js/pages/learn.js"
+files_or_sections_affected: ["src/web/src/features/learn/LearnPage.tsx", "src/web/src/features/learn/LearnPage.test.tsx", "src/web/src/features/learn/queries.ts", "src/web/src/features/learn/routeSearch.ts", "src/web/src/features/learn/messages.ts", "src/web/src/features/learn/learn.css", "TODO.md", "docs/ai-usage/2026-11-15-fidelity-learn-filters.md"]
+third_party_sources_consulted: ["@astryxdesign/core installed sources and docs (SegmentedControl, Selector, TextInput, VisuallyHidden), read from node_modules"]
+license_review: "NOT APPLICABLE: original code, no new dependency"
+closure: "open"
+human_reviewers: ["pending PR review"]
+tests_or_evidence: ["Order: RED tests first (17 new or changed tests failing), then the code", "new tests: chips, search and selects in one area with no chip counts; each filter sends its query parameter to the endpoint that serves it and not to the other; URL read and write; unknown values dropped; one reset clears every filter; a filter change restarts at the first page (no cursor); empty state per filter and per type; English copy", "changed tests (owner fidelity decision): the reset is « Réinitialiser » instead of « Tous les sujets »; the featured series is listed again in the list, as in the prototype; the unfiltered empty state speaks of « contenu »", "fixed on the way: the topic question feed used solve.state.* keys removed by the solve pass (typecheck and two tests failed on 341d497)", "captures of prototype and app at 1280 and 375 px in the session scratchpad", "pnpm typecheck, lint and format:check exit 0; full test run with --maxWorkers=1"]
+open_risks: ["the series endpoint has no text search: while q is set the series rows are left out and a note says so; under Formations the search field is hidden", "two cursors cannot be merged honestly, so the list shows series first, then articles, each with its own « Afficher plus » button", "Astryx field labels are larger than the prototype's small muted labels", "at 375 px the four segments scroll inside their strip instead of wrapping like the prototype chips"]
+```
+
+## Learn pages match their HTML prototypes (fidelity pass)
+
+```yaml
+date: "2026-11-15"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code, Claude Opus 5.5 (web-implementer subagent of the lead session)"
+purpose: "The owner asked that every page match its HTML prototype visually. The AI rebuilt the layout of apprendre, article, formation and ecrire from prototypes/html/pages/{apprendre,article,formation,ecrire}.html on Astryx components and theme tokens, with contract fields only: featured course with its lessons, dense rows with type badge and icon, author, level, language code and date, topic questions as rows, an invitation for members; article pills, byline with avatar, country and date, Markdown body with copyable code and an outline; course hero with facts and numbered lessons; ecrire breadcrumb, form card, tips and footer. RED tests first, then the markup. Learn-local icons, row pieces and learn.css, to be swapped for the shared ones by the lead."
+repository_or_source_context: "branch feature/web/fidelity-learn; S7 web pages; owner fidelity brief of 2026-11-15"
+files_or_sections_affected: ["src/web/src/features/learn/LearnPage.tsx", "src/web/src/features/learn/ArticlePage.tsx", "src/web/src/features/learn/SeriesPage.tsx", "src/web/src/features/learn/WritePage.tsx", "src/web/src/features/learn/ArticleForm.tsx", "src/web/src/features/learn/present.tsx", "src/web/src/features/learn/icons.tsx", "src/web/src/features/learn/learn.css", "src/web/src/features/learn/messages.ts", "src/web/src/features/learn/LearnPage.test.tsx", "src/web/src/features/learn/ArticlePage.test.tsx", "src/web/src/features/learn/SeriesPage.test.tsx", "src/web/src/features/learn/WritePage.test.tsx", "TODO.md", "docs/ai-usage/2026-11-15-fidelity-learn.md"]
+third_party_sources_consulted: ["@astryxdesign/core installed docs and sources (Badge, Avatar, Icon, Link, Button, Markdown, Outline, CodeBlock, VisuallyHidden), read from node_modules", "icon paths from the project's own prototypes/html/assets/css/icons.css"]
+license_review: "NOT APPLICABLE: original code, no new dependency"
+closure: "open"
+human_reviewers: ["pending PR review"]
+tests_or_evidence: ["RED then GREEN per page: new tests failed on the old pages, pass on the new ones (article, formation and ecrire RED taken by stashing the new page under memory pressure)", "changed tests: apprendre rows show the author name without « Par » and no tags (prototype row), « Leçons : 2 » became « 2 leçons »; the code-block check matches the code element by its whole text (highlighting splits it)", "pnpm --filter web typecheck, lint and format:check exit 0; learn tests plus translate, AskAboutLesson and ConnectPage: 92 passed", "captures prototype vs app at 1280 and 375 px in the session scratchpad"]
+open_risks: ["the current shell paints the content area with the surface colour, so the surface cards and lists read flat until the new shell (feature/web/prototype-shell puts content on the page background) is merged", "progress ticks left out although the contract has Lesson.my_progress and a progress endpoint (a write flow, out of a visual pass)", "type, level and language filters left out (contract-backed, new behaviour)", "no real screen reader run"]
+```
+
+## Fidelity leftovers: Discover type chips, #ask on /solve, landing landmarks
+
+```yaml
+date: "2026-11-15"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code, Claude Sonnet 5.5 (web-implementer subagent of the lead session)"
+purpose: "Three leftovers of the prototype-fidelity pass. The Discover type chips showed truncated labels at tablet width: they now take their own grid row and scroll inside their strip if still too narrow. The shell link « Poser une question » (/solve#ask) did nothing when already on /solve: SolvePage now reacts to the hash changing, opens the ask view and focuses its first field, and clears the hash when the view closes so the link works again. The landing section heads are div elements instead of header elements, so they cannot count as banner landmarks."
+repository_or_source_context: "branch feature/web/fidelity-leftovers; S7 web pages; prototypes/html/pages/discover.html"
+files_or_sections_affected: ["src/web/src/features/discover/DiscoverPage.tsx", "src/web/src/features/discover/discover.css", "src/web/src/features/solve/SolvePage.tsx", "src/web/src/features/solve/SolvePage.test.tsx", "src/web/src/features/landing/LandingPage.tsx", "src/web/src/features/landing/LandingPage.test.tsx", "TODO.md", "docs/ai-usage/2026-11-15-fidelity-leftovers.md"]
+third_party_sources_consulted: ["none"]
+license_review: "NOT APPLICABLE: original code, no new dependency"
+closure: "open"
+human_reviewers: ["pending PR review"]
+tests_or_evidence: ["RED: navigating to /solve#ask while on the list did not open the ask view (1 failing test), then GREEN", "landing banner test (one banner landmark) already passed in jsdom before the change, kept as a guard", "captures of /discover at 375, 800, 1024 and 1280 px in the session scratchpad"]
+open_risks: ["the prototype has no type chips (a select in a collapsible panel); the app keeps its segmented control", "the type chips fix is CSS only and checked by capture, not by a unit test"]
+```
+
+## Tablet icon rail (S7 fidelity pass)
+
+```yaml
+date: "2026-11-15"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code, Claude Sonnet 5.5 (web-implementer subagent of the lead session)"
+purpose: "The owner asked every page to match its prototype. From 768 to 1023 px the prototype shows a 92 px icon rail (icon over a short label); the app kept the 232 px sidebar, which crowded Découvrir. The AI wrote RED tests first, then a RailNav in the shell (flat list of areas, same order, aria-current on the current one, same « Navigation principale » label) chosen by a matchMedia hook on the tablet range, its CSS, the rail-wide footer and brand offsets, and viewport-fit=cover in index.html for the bottom bar's safe-area padding."
+repository_or_source_context: "branch feature/web/fidelity-rail from feature/web/prototype-fidelity; S7 web shell; prototypes/html/assets/css/layout.css (.nav-item rail rules)"
+files_or_sections_affected: ["src/web/src/app/Shell.tsx", "src/web/src/app/Shell.test.tsx", "src/web/src/app/navigation.ts", "src/web/src/styles/shell.css", "src/web/index.html", "TODO.md", "docs/ai-usage/2026-11-15-fidelity-rail.md"]
+third_party_sources_consulted: ["none beyond the project prototype CSS and the installed Astryx AppShell"]
+license_review: "NOT APPLICABLE: original code, no new dependency"
+closure: "open"
+human_reviewers: ["pending PR review"]
+tests_or_evidence: ["RED first: the rail test failed (the sidebar group titles were still shown)", "new tests: rail links, order and decorative icons; only the current area has aria-current; one primary navigation and no bottom bar; no rail above 1023 px", "captures of /discover and / at 800x1000 and 1024x800, light and dark, next to the prototype (scratch, not committed)", "gates in src/web: typecheck 0, lint 0, format:check 0, vitest run --maxWorkers=1 (see PR)"]
+open_risks: ["the Découvrir type filter still truncates at 800 px (« S... », « T... ») because it is a feature-owned control, not the shell", "rail labels are 11 px, as in the prototype, below the 16 px body rule", "no real screen reader run"]
+```
+
+## Shell gaps after the prototype shell (S7 fidelity pass)
+
+```yaml
+date: "2026-11-15"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code, Claude Opus 5.5 (web-implementer subagent of the lead session)"
+purpose: "The owner asked to close every remaining difference between the app shell and the HTML prototype shell. The AI wrote RED tests first, then: the phone bottom bar (Accueil, Apprendre, Résoudre, Découvrir, « Plus ») that opens the Astryx MobileNav drawer from the left with the rest of the navigation and the account entries; the « Poser une question » button for members, linking to /solve#ask; the footer with 226os, Licence and Contribuer; « Paramètres » instead of « Réglages »; the phone search as the second line of the top bar; the 226os logo above a 400 px borderless card on the account pages (Brand moved to components/); the breadcrumb convention recorded on PageHeader with an order test. Follow-ups: the footer links open in a new tab like every external link of the app (Astryx Link, « nouvel onglet » label), the drawer account group is named « Compte », and a scroll padding keeps scrolled-to controls above the phone bar. It also added one TODO.md line and merged the updated integration branch (conflicts in icons.tsx and TODO.md, both sides kept)."
+repository_or_source_context: "branch feature/web/fidelity-shell-gaps from feature/web/prototype-fidelity; S7 web shell; prototypes/html/assets/js/shell.js and assets/css/layout.css"
+files_or_sections_affected: ["src/web/src/app/Shell.tsx", "src/web/src/app/Shell.test.tsx", "src/web/src/app/AuthLayout.tsx", "src/web/src/app/AuthLayout.test.tsx", "src/web/src/app/navigation.ts", "src/web/src/components/Brand.tsx", "src/web/src/components/icons.tsx", "src/web/src/components/PageHeader.tsx", "src/web/src/components/ui.test.tsx", "src/web/src/styles/shell.css", "src/web/src/i18n/messages.ts", "src/web/src/i18n/translate.test.ts", "src/web/src/i18n/I18nProvider.test.tsx", "TODO.md", "docs/ai-usage/2026-11-15-fidelity-shell-gaps.md"]
+third_party_sources_consulted: ["@astryxdesign/core 0.7.14 installed type declarations and sources (AppShell mobileNav config and mobile context, MobileNav side, MobileNavToggle, Button, Card variants, TopNav), read from node_modules", "icon paths copied from prototypes/html/assets/css/icons.css (project-owned)"]
+license_review: "NOT APPLICABLE: original code, no new dependency"
+closure: "open"
+human_reviewers: ["pending PR review"]
+tests_or_evidence: ["Order: RED tests first (15 failing for the missing behaviour), then the code", "new tests: bottom bar items, hrefs, aria-current and decorative icons; no bar above the phone breakpoint; « Plus » opens the drawer (aria-expanded, aria-controls, aria-modal, data-side start); a drawer link and Escape close it; visitor and member account entries in the drawer, sign-out from it; ask button for members only, href /solve#ask; footer contentinfo with only existing documents; « Paramètres » in the menu and the document title; PageHeader order; account page logo and dark variant", "changed tests: the phone drawer test opens it with « Plus » instead of the removed top-bar toggle and checks a drawer-only link (the bar now shows Résoudre); the top bar is found by its label « Barre du site » because the landing page's own <header> elements are also banner landmarks in jsdom; the « Réglages » expectations became « Paramètres » (owner decision)", "captures at 1280 and 375, light and dark, signed out and signed in (scratch Vite config and session stub, not committed), next to accueil.html, discover.html and connexion.html; drawer opened in a real browser: left side, focus inside, Escape closes", "final captures at 375, 768 and 1280, light and dark, signed out and in, after the merge", "gates on the merged state (src/web): format:check 0, lint 0, typecheck 0, vitest run --maxWorkers=1 0 (49 files, 619 tests)"]
+open_risks: ["index.html lacks viewport-fit=cover, so env(safe-area-inset-bottom) is 0 on iOS", "following « Poser une question » while already on /solve does not open the ask view: SolvePage reads the hash only in its initial state (features/solve, another agent)", "the footer links leave the site for the public GitHub repository", "no real screen reader run", "from 768 to 1023 px the prototype shows a 92 px icon rail; the app keeps the 232 px sidebar (not built in this pass)", "in Chromium focus() already scrolls clear of the bar, so the browser check did not isolate what the scroll padding adds"]
+```
+
+## Page fidelity: solve and question match their prototypes
+
+```yaml
+date: "2026-11-15"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code, Claude Opus 5.5 (web-implementer subagent of the lead session)"
+purpose: "The owner asked that every S7 page match its HTML prototype visually. For /solve and /questions/<id> the AI wrote RED tests first, then rebuilt the markup and styles inside features/solve: dense list rows (score and answer count with icons, title link covering the row, plain-text excerpt, state pill, #tags, initials avatar, author country code, date, original language), a state filter on the listQuestions state parameter, the tag filter behind a filter toggle, the ask form as its own view with a back link and the assistant panel beside it, and the question page with header meta, vote column, answer cards with the accepted pill, answer sources as safe external links, context and linked items, and a sign-in invitation. Behaviour, routes, query keys, CSRF, idempotency and the assistant behaviour are unchanged."
+repository_or_source_context: "branch feature/web/fidelity-solve; S7 web pages; prototypes/html/pages/solve.html and question.html"
+files_or_sections_affected: ["src/web/src/features/solve/SolvePage.tsx", "src/web/src/features/solve/QuestionPage.tsx", "src/web/src/features/solve/QuestionRow.tsx", "src/web/src/features/solve/QuestionForm.tsx", "src/web/src/features/solve/Interactions.tsx", "src/web/src/features/solve/present.tsx", "src/web/src/features/solve/icons.tsx", "src/web/src/features/solve/solve.css", "src/web/src/features/solve/routeSearch.ts", "src/web/src/features/solve/queries.ts", "src/web/src/features/solve/messages.ts", "src/web/src/features/solve/SolvePage.test.tsx", "src/web/src/features/solve/QuestionPage.test.tsx", "TODO.md", "docs/ai-usage/2026-11-15-fidelity-solve.md"]
+third_party_sources_consulted: ["@astryxdesign/core installed type declarations and sources (Avatar, Icon registry, SegmentedControl, VisuallyHidden, Link, TextInput, token CSS), read from node_modules"]
+license_review: "NOT APPLICABLE: original code, no new dependency"
+closure: "open"
+human_reviewers: ["pending PR review"]
+tests_or_evidence: ["Order: RED tests first (9 failing), then the markup", "new tests: dense row content (score, answers, excerpt, country, date, language, lang attribute), state filter sent to the server, ask view with focus on its heading and a way back, question header meta, context and linked items, answer sources (http(s) only), sign-in note", "changed tests: h1 is now Questions; the byline shows the name without « Par »; the accepted state reads « Réponse acceptée »; a zero answer count is shown, as in the prototype; the tag field sits behind the Filtres toggle", "captures of prototype and app at 1280 and 375 px, light and dark, in the session scratchpad", "pnpm --filter web typecheck, lint and format:check exit 0; test exit 0 (46 files, 514 tests, run with --maxWorkers=2 after two memory-guard kills)"]
+open_risks: ["the signed-in captures (ask view, answer form) used a dev-server stub of GET /auth/session with the synthetic test member; nothing was posted, so publishing was checked in jsdom only", "captures were taken on the current shell (white content panel); the new shell puts content on the page background, where the white cards are meant to stand out", "the state filter is new on the page (served by the contract, shown by the prototype); drop it if the owner does not want it", "at 375 px the four state labels scroll inside their strip (« Résolues » is off screen) to keep the larger target size", "the #ask view opens from the URL hash only on page load and does not set the hash itself", "the prototype's two-step ask form (title, then details) and its similar-questions panel are not built: the assistant panel keeps that place", "inline SVG glyphs in features/solve/icons.tsx stand in for the shared icon set"]
 ```
 
 ## GitHub error detail and one retry in the review scripts
@@ -1796,6 +2263,91 @@ tests_or_evidence: ["RED first: six new cases in review-batch-nothing_test.sh fa
 open_risks: ["not run against the real GitHub API: the exact stderr wording of gh for 5xx and rate limits is matched on `HTTP <status>` and a few phrases", "a write retried after a 5xx may already have gone through: the comment writes stay idempotent by marker on the next run, but a retry inside one run can duplicate a comment"]
 ```
 
+## Landing v2: landing-only header and footer, Africa globe hero, photo sections, scroll reveals (Geist, landing only)
+
+```yaml
+date: "2026-11-15"
+contributor: "PANK4SS"
+tool_or_model: "Claude Code, Claude Sonnet 5.5 (web-implementer subagent) led by Claude Opus 5.5"
+purpose: "Build version 2 of the public landing after the owner's feedback: landing-only header and footer, full-viewport hero with one call to action and a large Africa-centred dotted globe with arcs between ten African cities, five distinct sections, Unsplash photos and decorative portrait circles, a reusable data-reveal scroll system, count-up of real totals, demo content excluded, FR and EN in one language each."
+repository_or_source_context: "branch feature/landing/v2 (follows the merged PR #307); src/web/src/features/landing, src/web/src/app/Shell.tsx; captures of the dev server reading GET /api/v1 of production anonymously"
+files_or_sections_affected: ["src/web/src/features/landing/**", "src/web/src/app/Shell.tsx", "src/web/src/app/*.test.tsx", "src/web/src/components/icons.tsx", "src/web/src/styles/shell.css", "src/web/public/landing/**", "TODO.md"]
+third_party_sources_consulted: ["https://github.com/vercel/geist-font v1.9.2 (Geist[wght].woff2, OFL-1.1, licence file copied)", "https://github.com/nvkelso/natural-earth-vector ne_110m_land.geojson (public domain), used offline only to compute dot coordinates", "Unsplash photos listed with photographer and page in src/web/public/landing/CREDITS.md"]
+license_review: "Geist: SIL OFL-1.1; Natural Earth: public domain; photos: Unsplash License (free use, no attribution required), pages checked on 2026-11-15; no new npm dependency. Owner to confirm the photo licence."
+closure: "open: waits for the owner's decision and review"
+human_reviewers: []
+tests_or_evidence: ["RED: LandingPage.test.tsx rewritten first, 20 of 28 tests failed against the v1 page", "GREEN: pnpm exec vitest run src/features/landing (28 PASS); whole web suite, typecheck, lint, format:check see the final report", "Playwright captures 1440, 768 and 390 px, dark and light, FR and EN, hero and full page, no horizontal scroll", "pixel-sampled contrast audit of every text node, worst real case 5.02:1"]
+open_risks: ["owner decision: Geist vs DESIGN.md section 4 (system fonts)", "owner decision: « Membres » on the landing vs « Connect » in the app", "owner decision: Unsplash photos and licence", "the member avatar chip was dropped, so the landing no longer depends on #306", "totals of a list longer than one page include demo items (the server total is used)", "no axe run (@axe-core/playwright not installed), no screen reader run", "the compact menu starts below 1024 px, not 768 px, because the full bar does not fit at 768 px"]
+```
+
+## Notes closed after triage in the review batch
+
+```yaml
+date: "2026-11-15"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code, Claude Sonnet 5.5 (ci-implementer subagent, brief by the owner's lead session)"
+purpose: "Notes issues (label kind:note) stayed open forever because the settle step never ticked a NOT A DEFECT or DECIDED verdict (rule H5 of #187). New rule (owner, 2026-11-15): for a note, such a verdict ticks the box when it cites a path:line, path:a-b or docs/decisions/NNNN-*.md that the script finds at the tip of develop, and the issue closes as not planned when every box is settled. Findings keep the old rule."
+repository_or_source_context: "branch fix/review/notes-close-after-triage from develop 3ca5862"
+files_or_sections_affected: ["scripts/findings.py", "scripts/tests/findings-settle-notes_test.sh", "scripts/tests/findings-settle_test.sh (comment)", "docs/quality/REVIEW_CONTEXT.md", ".claude/commands/review-fix.md", "TODO.md"]
+third_party_sources_consulted: []
+license_review: "NOT APPLICABLE: no dependency"
+closure: "open"
+human_reviewers: []
+tests_or_evidence: ["Backtick rule (main session): the plain-word id row and the updated segment row failed first (47 passed, 2 failed); after names_id requires `id` in backticks, findings-settle-notes 49 passed, findings-settle 41, findings-batch 48, review-autofix 205", "RED: findings-settle-notes_test.sh 2 failed (note ticked and issue closed as not planned; mixed issue) before the change", "RED (#266 deep review, rule tightened): findings-settle-notes_test.sh 5 failed (own-file cite, unparsable own line, non-ACCEPTED ADR, ADR not naming the file ticked or closed)", "RED (skeptic gaps): findings-settle-notes_test.sh 3 failed (PROPOSED ADR with a later accepted line, ACCEPTED superseded, ADR naming the file only in longer paths or a URL); GREEN after anchoring the first Status line and a path-boundary match; MUTATION CHECK, not a true RED (code was written before the rows; owner, ADR must name the note id): findings-settle-notes_test.sh 3 failed (ADR naming the file but not the id, longer ids, other case) with the id check disabled; RED (skeptic, second round): rows 69, 70 and the path-mention unit row failed before the fix (3 failed, 45 passed); GREEN: 48 passed (id read from the issue body, file mentions masked, `/` and `.word` continue a token); earlier GREEN: 45 passed after threading the id into verified_reference; GREEN earlier: findings-settle-notes_test.sh 36 passed; findings-settle_test.sh 41 passed; findings, findings-settle, findings-batch, review-batch-nothing, review-autofix tests pass"]
+open_risks: ["NOT RUN on a real runner", "the no-commit path (review-autofix.py nothing) shares settle_issue, so it ticks and closes notes the same way"]
+```
+
+## P0 review notes #155 and #162 (vote quota order, assistant fair share)
+
+```yaml
+date: "2026-11-15"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code, Claude Sonnet 5.5 (go-implementer subagent)"
+purpose: "Owner decision to fix three review notes. The AI wrote the failing tests first, then: (1) a vote on an unknown or removed target is checked before the write budget is spent (a new read query, the same 404); (3) a fair share of the global assistant guard (3 of 12 provider calls an hour per member, ADR-0012 amended). Note note-answers-cursor-dup was analysed and not changed: it needs a contract or order change, so it waits for the owner."
+repository_or_source_context: "branch fix/api/p0-notes-155-162, from develop 2af62a2"
+files_or_sections_affected: ["src/api/internal/solve/**", "db/queries/solve.sql", "src/api/internal/platform/dbgen/solve.sql.go", "src/api/internal/assistant/service/**", "src/api/internal/platform/pgtest/*_integration_test.go", "docs/decisions/0012-ai-assistant-integration.md", "TODO.md"]
+third_party_sources_consulted: []
+license_review: "NOT APPLICABLE: no dependency, no third-party code"
+closure: "open"
+human_reviewers: []
+tests_or_evidence: ["go test -race ./..., coverage-go, go test -tags integration (see the pull request for the exit codes)"]
+open_risks: ["note-answers-cursor-dup is not fixed", "a member now gets at most 3 sourced assistant answers an hour"]
+```
+
+## Profile photo from the member's GitHub avatar
+
+```yaml
+date: "2026-11-15"
+contributor: "PANK4SS"
+tool_or_model: "Claude Code, Claude Sonnet 5.5 (web-implementer subagent) led by Claude Opus 5.5"
+purpose: "A profile photo taken from the member's GitHub avatar: the ProfilePhoto component (validated login, lazy image, no referrer, initials fallback), its use in the profile hero and the Connect rows, the help line on the GitHub field, the CSP img-src entry and their tests."
+repository_or_source_context: "branch feature/profile/web-github-photo; TODO.md S7 block; api/openapi.yaml read only (github field of MyProfile, PublicProfile, ProfileSummary)"
+files_or_sections_affected: ["src/web/src/components/ProfilePhoto.tsx", "src/web/src/components/ProfilePhoto.test.tsx", "src/web/src/features/profile/**", "src/web/src/features/connect/**", "src/web/nginx/security-headers.conf", "TODO.md"]
+third_party_sources_consulted: []
+license_review: "NOT APPLICABLE: original code, no new dependency; pictures are loaded at run time from GitHub, not stored or redistributed"
+closure: "open: waits for the owner's decision and review"
+human_reviewers: []
+tests_or_evidence: ["RED: ProfilePhoto.test.tsx failed on the missing module; the ProfilePage and ConnectPage photo and hint tests failed before the wiring", "GREEN: see the commit report (vitest, typecheck, lint, prettier)"]
+open_risks: ["privacy: GitHub sees the viewer's IP address when a photo loads (no referrer sent); the owner decides whether to accept it", "the shell avatar stays initials: the session user carries no github field and no request was added", "CSP img-src conflicts with the other branch that adds opengraph.githubassets.com: the lead resolves it at integration"]
+```
+
+## Project thumbnails and the card view of the Build, Discover and Learn lists
+
+```yaml
+date: "2026-11-15"
+contributor: "PANK4SS"
+tool_or_model: "Claude Code, Claude Opus 5.5"
+purpose: "Card view by default on Build, Discover and Apprendre with a Cartes / Liste switch (view search param, remembered per browser), and a thumbnail for each project in Build (list rows and project page) from the repository's GitHub social preview, with the monogram tile as fallback; no contract change, no migration, no server storage."
+repository_or_source_context: "branch feature/build/web-project-thumbnails; TODO.md S5 block; DESIGN.md (iconography, low bandwidth); src/web/src/components/Avatar.tsx"
+files_or_sections_affected: ["src/web/src/features/build/ProjectThumb.tsx", "src/web/src/features/build/ProjectThumb.test.tsx", "src/web/src/features/build/BuildPage.tsx", "src/web/src/features/build/ProjectPage.tsx", "src/web/src/features/build/build.css", "src/web/nginx/security-headers.conf", "src/web/src/components/ViewToggle.tsx", "src/web/src/components/CardGrid.tsx", "src/web/src/components/useListView.ts", "src/web/src/components/ViewToggle.test.tsx", "src/web/src/components/CardGrid.test.tsx", "src/web/src/components/useListView.test.tsx", "src/web/src/styles/ui.css", "src/web/src/i18n/messages.ts", "src/web/src/features/build/routeSearch.ts", "src/web/src/features/build/BuildPage.view.test.tsx", "src/web/src/features/discover/DiscoverPage.tsx", "src/web/src/features/discover/routeSearch.ts", "src/web/src/features/discover/DiscoverPage.view.test.tsx", "src/web/src/features/learn/LearnPage.tsx", "src/web/src/features/learn/present.tsx", "src/web/src/features/learn/routeSearch.ts", "src/web/src/features/learn/LearnPage.view.test.tsx", "TODO.md"]
+third_party_sources_consulted: ["GitHub social preview images (opengraph.githubassets.com)"]
+license_review: "NOT APPLICABLE: no new dependency; images are loaded from GitHub at view time, not copied or redistributed"
+closure: "open: waits for the owner's decision and review"
+human_reviewers: []
+tests_or_evidence: ["RED: vitest run src/features/build/ProjectThumb.test.tsx fails (module ./ProjectThumb not found)", "GREEN: vitest run src/features/build: 7 files, 107 tests pass", "RED (card view): vitest run on the new view tests fails (modules ./ViewToggle, ./CardGrid, ./useListView not found; no Cartes / Liste buttons on the three pages)", "GREEN (card view): the same files pass, then the build, discover, learn and components suites", "pnpm run typecheck, pnpm run lint, prettier: PASS"]
+open_risks: ["privacy: GitHub receives the viewer's IP for each preview (no referrer sent)", "bandwidth: one preview per project card or row, lazy-loaded", "CSP img-src now allows opengraph.githubassets.com", "Learn cards keep the existing icon tile (KindThumb), not the monogram: Learn rows have no monogram", "reverses the earlier no-remote-picture choice for projects: owner decision"]
+```
+
 ## API data gaps for the prototype pages
 
 ```yaml
@@ -1813,6 +2365,40 @@ tests_or_evidence: ["RED then GREEN per layer (repository, service, transport) f
 open_risks: ["no index serves the new orders (projects updated_at, questions vote_score, resources verified_at) nor the open-needs order: sequential scan plus top-N sort, fine for P0 volumes; an index needs a migration (mibienpanjoe)", "the listProjects default order moved from published_at to updated_at (owner decision)", "the web typings now require total, stage, license_spdx and country_code: web fixtures may need the new fields"]
 ```
 
+## Prototype fidelity integration: merges, copy rewrite tooling, fidelity report and README screenshots
+
+```yaml
+date: "2026-11-15"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code, Claude Opus 5.5 (lead session) with web-implementer subagents and two proof:screen-judge reviews"
+purpose: "The lead session integrated the page-fidelity branches (shell, rail, harmonize, learn filters, home-auth, leftovers, controls, copy rewrite parts 1 and 2) into feature/web/prototype-fidelity and resolved their conflicts. It also applied the owner-approved copy rewrite by script (only where a string still had its audited value), restored the assistant privacy fact, captured the app next to the prototypes, had an independent reviewer judge them twice, and wrote the fidelity report, the copy style guide and the README screenshots section."
+repository_or_source_context: "branch feature/web/prototype-fidelity; prototypes/html/pages; docs/quality/ASTRYX_REPORT.md section 8"
+files_or_sections_affected: ["docs/quality/PROTOTYPE_FIDELITY.md", "docs/quality/evidence/fidelity/2026-11-15/", "docs/quality/ASTRYX_REPORT.md", "docs/team/COPY_STYLE.md", "docs/team/OWNER_PREFERENCES.md", "README.md", "TODO.md", "src/web/src/components/{List,PageHeader,StatusBadge,icons}.tsx", "src/web/src/features/{connect,settings,solve,discover,search}/", "src/web/src/i18n/messages.ts"]
+third_party_sources_consulted: ["copy research sources listed in docs/team/COPY_STYLE.md (Microsoft fr-FR localization guide, GitHub Primer, Google developer style guide, Atlassian, Mailchimp, OQLF, Mastodon and Discourse FR translations)"]
+license_review: "NOT APPLICABLE: original text and code, no dependency added; screenshots are of this project"
+closure: "open"
+human_reviewers: ["pending PR review"]
+tests_or_evidence: ["web gates on the merged branch: typecheck, lint, format:check PASS; Vitest 48 files, 646 tests PASS", "two independent screen-judge passes, verdicts in docs/quality/PROTOTYPE_FIDELITY.md", "58 captures in docs/quality/evidence/fidelity/2026-11-15/"]
+open_risks: ["PageHeader is a div, not a header element, so it is not an extra banner landmark; tests locate .ui-page-header", "no signed-in captures and no dark captures of detail pages", "the copy has not been reviewed by a native French editor"]
+```
+
+## Prototype shell and shared page pieces (S7 phase 0)
+
+```yaml
+date: "2026-11-15"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code, web-implementer subagent of the lead session"
+purpose: "Owner decision (2026-11-15, about 05:10 GMT): every page must match its HTML prototype. Phase 0 only: the AI rebuilt the app shell after prototypes/html (shell.js, layout.css) on the Astryx AppShell, TopNav and SideNav (logo linking home, site search in the top bar going to /recherche?q=, light/dark toggle, a Préférences menu with language and theme radios, Se connecter and Créer un compte for visitors, the account menu behind the member's initials, sidebar icons, active fill, « Bientôt » style, 1200 px content column, phone header and search), mapped the remaining Graphite & Lime values onto Astryx token slots (status fills, icon tints, skeleton, the strong input border), wrote the shared pieces PageHeader, Breadcrumbs, ResultsMeta, List and ListRow, StatusBadge, Meta and MetaItem, Avatar, CountryCode, Tag and TagList, EmptyState, gave ErrorState the prototype .state look and LoadingState list placeholder rows, put the 404 page on the empty state, and wrote src/web/scripts/capture-fidelity.sh to screenshot app routes next to their prototype page. Tests were written first (RED) for the shell and the components. Navigation labels and order stay those of the product (O7), not the prototype's."
+repository_or_source_context: "branch feature/web/prototype-shell (stacked on fix/web/a11y-pass-109, PR #233); S7 web; prototypes/html as visual reference only (DISCLAIMER.md)"
+files_or_sections_affected: ["src/web/src/app/Shell.tsx", "src/web/src/app/Shell.test.tsx", "src/web/src/app/App.test.tsx", "src/web/src/app/navigation.ts", "src/web/src/components/icons.tsx", "src/web/src/components/PageHeader.tsx", "src/web/src/components/Breadcrumbs.tsx", "src/web/src/components/ResultsMeta.tsx", "src/web/src/components/List.tsx", "src/web/src/components/StatusBadge.tsx", "src/web/src/components/Meta.tsx", "src/web/src/components/Avatar.tsx", "src/web/src/components/CountryCode.tsx", "src/web/src/components/Tag.tsx", "src/web/src/components/EmptyState.tsx", "src/web/src/components/ErrorState.tsx", "src/web/src/components/LoadingState.tsx", "src/web/src/components/ui.test.tsx", "src/web/src/features/NotFound.tsx", "src/web/src/features/solve/QuestionPage.test.tsx", "src/web/src/theme/ThemeProvider.tsx", "src/web/src/theme/theme226os.ts", "src/web/src/i18n/messages.ts", "src/web/src/styles/index.css", "src/web/src/styles/shell.css", "src/web/src/styles/ui.css", "src/web/src/assets/brand/226os-logo.png", "src/web/src/assets/brand/226os-logo-white.png", "src/web/scripts/capture-fidelity.sh", "TODO.md", "docs/ai-usage/2026-11-15-prototype-shell.md"]
+third_party_sources_consulted: ["@astryxdesign/core installed docs, type declarations and sources (AppShell, useAppShellMobile, TopNav, SideNav, DropdownMenu, IconButton, TextInput, Avatar, Badge, Breadcrumbs, EmptyState, Icon, Skeleton, Link, VisuallyHidden, input border token) read from node_modules and `astryx docs icons`", "gstack browse binary (local tool) for the screenshots"]
+license_review: "NOT APPLICABLE: original code, no new dependency. The icon paths come from the project's own prototype icon set (prototypes/html/assets/css/icons.css) and the logo files from prototypes/html/assets/brand (AI-generated, already recorded)"
+closure: "open"
+human_reviewers: ["pending PR review"]
+tests_or_evidence: ["RED first: Shell tests (logo link, top bar search to /recherche?q= and without a query, theme toggle aria-pressed and storage, nav icons aria-hidden, aria-current on the active item, Créer un compte link, theme radios, « Bientôt » item not a link) and ui.test.tsx failed before the code", "changed tests: the anonymous menu trigger is now « Préférences » / Preferences (was « Plus d’options »), the top bar search is a search field (was a link to /recherche), « Créer un compte » is looked up inside the banner, the QuestionPage raw-HTML test looks for img/script inside main (the shell logo is now an img)", "screenshots of / and /discover against accueil.html and discover.html at 1280x800 and 375x812, light and dark, with capture-fidelity.sh against the worktree dev server", "pnpm --filter web typecheck, lint, format:check and test: see the PR"]
+open_risks: ["the shell still differs from the prototype in places: no phone bottom bar, no « Poser une question » create button, the phone search scrolls with the page instead of staying in the sticky header, the drawer opens on the Astryx side and the sidebar keeps the Progresser and Piliers section titles", "global token changes (status fills, icon tints, strong input borders) also restyle Astryx badges and inputs on pages not touched here", "ErrorState is no longer an Astryx Banner: its look changed on every page that uses it", "no real screen reader run; axe NOT RUN"]
+```
+
 ## README brought up to date with develop
 
 ```yaml
@@ -1828,6 +2414,142 @@ closure: "closed by the owner (2026-11-15)"
 human_reviewers: ["Y4NN777 (owner closure, 2026-11-15; merged in #235)"]
 tests_or_evidence: ["checked against develop and scripts/unimplemented-routes.txt; scripts/check-docs.py PASS (PR #235)"]
 open_risks: ["record written on 2026-11-15, after the merge: none was filed at the time", "the README was rewritten again by #237 the same day"]
+```
+
+## Review fix of batch 334: freeze time in the release checklist
+
+```yaml
+date: "2026-11-15"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code in CI (review-batch), Claude Opus 5.5 orchestrator"
+purpose: "Work the 15 items of review batch 334. One fix: the release-day checklist in TODO.md still gave the Sat 22:00 GMT freeze; a dated line now records the owner's move to Sun 15 Nov 12:00 GMT (note phase-doc-sync). The other items were settled without a change: two notes on a file removed by another PR, design points of ADR-0015 and deploy notes held by the owner, and two web test notes that are not defects."
+repository_or_source_context: "branch fix/review/batch-2026-11-15, batch issue 334"
+files_or_sections_affected: ["TODO.md", "docs/ai-usage/2026-11-15-review-fix-batch.md"]
+third_party_sources_consulted: []
+license_review: "NOT APPLICABLE: no dependency, no third-party code"
+closure: "open"
+human_reviewers: []
+tests_or_evidence: ["RED: grep 'freeze moved to Sun 15 Nov 12:00 GMT' TODO.md found 0 lines before the edit", "GREEN: the same grep finds the new dated line under the release-day checklist", "bash scripts/check-todo-updated.sh: NOT RUN in the fixer (command not allowed; CI lint-scripts runs it)", "make lint, make test-unit, make coverage: NOT RUN (documentation-only change, no code touched)"]
+open_risks: []
+```
+
+## Review fix of PR 252: E2E specs aligned with the rendered shell
+
+```yaml
+date: "2026-11-15"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code in CI (review-autofix), Claude Opus 5.5 orchestrator, web-implementer subagent"
+purpose: "Fix review finding e2e-fails-on-this-tree: the E2E language test looked for role menuitem while the shell renders menuitemradio, and the mobile bottom-bar test needs a « Navigation rapide » bar not on this tree. The other findings of the run (scripts/secrets.sh, scripts/deploy-images.sh, .github/workflows/deploy.yml) are owner paths and were left to the owner."
+repository_or_source_context: "branch feature/ops/deploy-pipeline, PR 252"
+files_or_sections_affected: ["src/web/e2e/anonymous.spec.ts", "src/web/e2e/mobile.spec.ts", "TODO.md", "docs/ai-usage/2026-11-15-review-fix-pr252.md"]
+third_party_sources_consulted: []
+license_review: "PENDING"
+closure: "open"
+human_reviewers: []
+tests_or_evidence: ["RED: the E2E tests themselves are the defect; their failure is shown statically (Shell.tsx renders DropdownMenuRadioItem; Shell.test.tsx asserts menuitemradio; no « Navigation rapide » in src/web/src). Playwright NOT RUN in the fixer (no browser, no backend, not allowlisted)", "GREEN: pnpm --filter web run test (Shell.test.tsx, 510 tests) PASS; lint PASS; typecheck PASS; format:check PASS; E2E NOT RUN", "make lint: see the commit run"]
+open_risks: ["the E2E fix is not confirmed by a Playwright run", "the bottom-bar test is test.fixme until feature/web/prototype-fidelity merges; remove the fixme then"]
+```
+
+## Review fix of PR 286: the typo fallback keeps negations
+
+```yaml
+date: "2026-11-15"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code in CI (review-autofix), Claude Opus 5.5 orchestrator, go-implementer subagent"
+purpose: "Fix review finding typo-fallback-ignores-negation: the pg_trgm fallback compared the raw query to titles, and pg_trgm ignores '-', so 'paiemnt -mobile' returned the titles the negation excluded. The search service now skips the fallback when the query negates a word in websearch_to_tsquery syntax. Second pass (findings negation-phrase-not-detected, negation-check-misses-operator-forms): the check also trims the websearch operator characters before and after the '-', so a negated phrase or group and '!-word' skip the fallback too."
+repository_or_source_context: "branch feature/discover/search-typo-tolerance, PR 286"
+files_or_sections_affected: ["src/api/internal/search/service/service.go", "src/api/internal/search/service/fuzzy_test.go", "src/api/internal/platform/pgtest/search_typo_integration_test.go", "TODO.md", "docs/ai-usage/2026-11-15-review-fix-pr286.md"]
+third_party_sources_consulted: []
+license_review: "NOT APPLICABLE: no dependency, no third-party code"
+closure: "open"
+human_reviewers: []
+tests_or_evidence: ["RED: TestFuzzySearchSkipsTheFallbackWhenTheQueryNegatesAWord failed before the fix (5 negation cases ran the fallback)", "GREEN: go test -race ./src/api/internal/search/service/... PASS", "integration case 'paiemnt -mobile' in TestSearchToleratesTypos: NOT RUN in the fixer (no Docker)", "make lint, make test-unit, make coverage: see the commit run", "second pass RED: the negated phrase, negated group, negated open group, negated quoted word after the hyphen and negation after an operator cases of TestFuzzySearchSkipsTheFallbackWhenTheQueryNegatesAWord ran the fallback", "second pass GREEN: go test -run TestFuzzySearch -race ./src/api/internal/search/service/... PASS"]
+open_risks: ["the integration case is not confirmed against a real database in the fixer", "a quoted '-word' inside a phrase also skips the fallback (conservative)"]
+```
+
+## Review follow-ups of PR #285 and PR #286 (issues #290 to #293)
+
+```yaml
+date: "2026-11-15"
+contributor: "mibienpanjoe"
+tool_or_model: "Claude Code, Claude Opus 5.5"
+purpose: "Review follow-ups of #285 and #286. The AI checked websearch_to_tsquery on real PostgreSQL, found the Go negation heuristic wrong on four forms, wrote the failing integration test first, then moved the negation rule into the Similar* queries (no fallback when the tsquery holds a NOT) and removed the heuristic. On identity it added a warning when a resend mail fails (RED first), corrected the comments about concurrent resends, and wrote the accepted residual risk of #290 in ADR-0003, as chosen by the contributor."
+repository_or_source_context: "branch fix/discover/review-followups-248, from develop c88634d"
+files_or_sections_affected: ["db/queries/search.sql", "db/queries/identity.sql", "src/api/internal/platform/dbgen/**", "src/api/internal/search/service/**", "src/api/internal/identity/service/**", "src/api/internal/platform/pgtest/search_typo_integration_test.go", "docs/decisions/0003-*.md", "docs/architecture/ARCHITECTURE.md", "docs/spec-kit/DATABASE_DESIGN.md", "TODO.md"]
+third_party_sources_consulted: []
+license_review: "NOT APPLICABLE: no dependency, no third-party code"
+closure: "open"
+human_reviewers: []
+tests_or_evidence: ["TestSearchTypoFallbackFollowsThePostgreSQLNegation RED on the four forms, then GREEN; TestResendEmailVerificationLogsAFailedMail RED then GREEN; see the pull request for the gate results"]
+open_risks: ["the #290 acceptance is a security acceptance; the owner can overrule it"]
+```
+
+## Review pipeline steward agent and its skill
+
+```yaml
+date: "2026-11-15"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code, Claude Opus 5.5 (lead session)"
+purpose: "The AI wrote a project agent dedicated to the maintenance and evolution of the AI review pipeline (.claude/agents/review-steward.md) and its preloaded skill (.claude/skills/review-pipeline/SKILL.md: map of the stages, ledger fields, invariants, failure history, test patterns, ADR-0015 roadmap), routed the pipeline files to that skill in the skill map, and pointed ci-implementer and CLAUDE.md to the new agent."
+repository_or_source_context: "branch feature/harness/review-steward, from develop"
+files_or_sections_affected: [".claude/agents/review-steward.md", ".claude/skills/review-pipeline/SKILL.md", ".claude/hooks/skill-map.json", ".claude/hooks/tests/test_domain_skills.py", ".claude/agents/ci-implementer.md", "CLAUDE.md"]
+third_party_sources_consulted: []
+license_review: "no new dependency"
+closure: "open"
+human_reviewers: []
+tests_or_evidence: ["python3 -I -m unittest discover -s .claude/hooks/tests: OK (28 tests), RED first on the new skill-map cases", "check-docs PASS"]
+open_risks: ["the skill describes ADR-0015 phase 0 rules from PR #309; it says to check that #309 is merged before relying on them"]
+```
+
+## Typo-tolerant search (issue #248, item 2)
+
+```yaml
+date: "2026-11-15"
+contributor: "mibienpanjoe"
+tool_or_model: "Claude Code, Claude Opus 5.5"
+purpose: "Issue #248 item 2. The AI wrote the failing tests first, then: four bounded Similar* queries in db/queries/search.sql (pg_trgm word similarity over the partial trigram indexes of migration 00010, same predicates and filters as full text, negation-only queries read nothing), Repository.Similar, a service fallback when a group's full text finds nothing (GET /search only, 3 characters at least; the assistant's retrieval keeps exact matches), EXPLAIN evidence, and the SPEC, ARCHITECTURE and DATABASE_DESIGN text. It measured word_similarity on sample typos to keep the default 0.6 threshold."
+repository_or_source_context: "branch feature/discover/search-typo-tolerance, from develop 25774f2"
+files_or_sections_affected: ["db/queries/search.sql", "src/api/internal/platform/dbgen/search.sql.go", "src/api/internal/search/**", "src/api/internal/platform/pgtest/search_typo_integration_test.go", "src/api/internal/platform/pgtest/explain_helpers_integration_test.go", "docs/SPEC.md", "docs/architecture/ARCHITECTURE.md", "docs/spec-kit/DATABASE_DESIGN.md", "TODO.md"]
+third_party_sources_consulted: []
+license_review: "NOT APPLICABLE: no dependency, no third-party code"
+closure: "open"
+human_reviewers: []
+tests_or_evidence: ["unit tests RED first; TestSearchToleratesTypos fails with the fallback off (12 group mismatches) and passes with it; plans logged by TestSearchTypoFallbackUsesTheTrigramIndexes; see the pull request for the gate results"]
+open_risks: ["swapped letters (pyhton) stay below the 0.6 threshold", "only titles and names are typo tolerant, not bodies"]
+```
+
+## Two slow Build tests made fast
+
+```yaml
+date: "2026-11-15"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code, Claude Sonnet 5.5 (web-implementer subagent)"
+purpose: "Two Build tests timed out under full-suite load in CI. The AI measured them, found that the cost was the accessible-name role query over the whole page after opening a Selector (about 600 ms per pick, more with 54 countries), and added a test helper that opens the Selector by keyboard and finds the option by text inside the listbox. The create-form test was also split in two (stage and licence, then country), with the same assertions, and its 30 s timeout was removed. No assertion was removed or loosened and no timeout was raised."
+repository_or_source_context: "branch fix/web/slow-build-tests, from develop 1045d41"
+files_or_sections_affected: ["src/web/src/test/select.ts", "src/web/src/features/build/BuildPage.data.test.tsx", "src/web/src/features/build/ProjectForm.data.test.tsx"]
+third_party_sources_consulted: []
+license_review: "NOT APPLICABLE: test code only, no dependency"
+closure: "open"
+human_reviewers: []
+tests_or_evidence: ["vitest --maxWorkers=1 on both files and on src/features/build: PASS; typecheck, lint, format:check PASS"]
+open_risks: ["the helper looks the option up by text, not by accessible name"]
+```
+
+## Email verification resend (issue #248, item 1)
+
+```yaml
+date: "2026-11-15"
+contributor: "mibienpanjoe"
+tool_or_model: "Claude Code, Claude Opus 5.5"
+purpose: "Issue #248 item 1. The AI wrote the failing tests first, then: the resendEmailVerification contract operation (owner-approved, R7), the identity service and handler (always 202, 3 per account and 10 per IP per hour counted before the lookup, token drawn before the lookup, token write and mail off the request path), CreateEmailVerification now burns every earlier open code of the account in the same statement, and the « Renvoyer le code » action on /verifier-email. Items 2 (trigram search) and 3 (learn_progress) are not in this change."
+repository_or_source_context: "branch feature/identity/verification-resend, from develop b4a891c"
+files_or_sections_affected: ["api/openapi.yaml", "generated apigen, apispec, schema.d.ts, dbgen", "db/queries/identity.sql", "src/api/internal/identity/**", "src/api/internal/app/server.go", "src/api/internal/platform/pgtest/identity_integration_test.go", "scripts/public-routes.txt", "src/web/src/features/identity/**", "docs/decisions/0003-*.md", "docs/SPEC.md", "docs/architecture/ARCHITECTURE.md", "docs/quality/COVERAGE_SCOPE.md", "TODO.md"]
+third_party_sources_consulted: []
+license_review: "NOT APPLICABLE: no dependency, no third-party code"
+closure: "open"
+human_reviewers: []
+tests_or_evidence: ["service, transport, server and Vitest tests RED first; the integration test fails on the old CreateEmailVerification (2 open codes) and passes on the new one; see the pull request for the gate results"]
+open_risks: ["the old code dies at the resend, so a mail still in transit with the older code no longer works"]
 ```
 
 <!-- ai-usage:generated:end -->

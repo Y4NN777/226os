@@ -4,6 +4,8 @@ import { Divider } from '@astryxdesign/core/Divider';
 import { HStack } from '@astryxdesign/core/HStack';
 import { Icon } from '@astryxdesign/core/Icon';
 import { IconButton } from '@astryxdesign/core/IconButton';
+import { Link } from '@astryxdesign/core/Link';
+import { SegmentedControl, SegmentedControlItem } from '@astryxdesign/core/SegmentedControl';
 import { Selector } from '@astryxdesign/core/Selector';
 import { Text } from '@astryxdesign/core/Text';
 import { TextInput } from '@astryxdesign/core/TextInput';
@@ -21,6 +23,7 @@ import { PageHeader } from '../../components/PageHeader';
 import { Section } from '../../components/Section';
 import { StatusBadge } from '../../components/StatusBadge';
 import { useI18n } from '../../i18n/I18nProvider';
+import { GithubDevRow } from './GithubDevRow';
 import { PersonRow } from './PersonRow';
 import { useProfileDirectory } from './queries';
 import { languageTag, skillTag, validateConnectSearch, type ConnectSearch } from './routeSearch';
@@ -48,7 +51,10 @@ function Filters({
       aria-label={t('connect.filters.label')}
       onSubmit={(event) => {
         event.preventDefault();
-        const next: ConnectSearch = { ...(country ? { country } : {}) };
+        const next: ConnectSearch = {
+          ...(country ? { country } : {}),
+          ...(search.source ? { source: search.source } : {}),
+        };
         const lang = languageTag(language);
         const tag = skillTag(skill);
         if (lang) next.language = lang;
@@ -90,6 +96,20 @@ function Filters({
             hasAutoCorrect={false}
             hasSpellCheck={false}
           />
+          <SegmentedControl
+            label={t('connect.source.label')}
+            value={search.source ?? 'all'}
+            onChange={(value) => {
+              const next: ConnectSearch = { ...search };
+              if (value === 'members' || value === 'github') next.source = value;
+              else delete next.source;
+              go(next);
+            }}
+          >
+            <SegmentedControlItem value="all" label={t('connect.source.all')} />
+            <SegmentedControlItem value="members" label={t('connect.source.members')} />
+            <SegmentedControlItem value="github" label={t('connect.source.github')} />
+          </SegmentedControl>
           <IconButton type="submit" label={t('connect.apply')} icon={<Icon icon="search" />} />
           {active ? (
             <Button
@@ -170,7 +190,29 @@ function SpacesSoon() {
   );
 }
 
-/** `connect`: the people directory (real members open to collaboration), filtered by the URL. */
+/** Where the external entries come from, when they were generated, and how to be removed (ADR-0016). */
+function ExternalFooter({ generatedAt }: { generatedAt: string }) {
+  const { t, locale } = useI18n();
+  const date = new Intl.DateTimeFormat(locale, {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  }).format(new Date(generatedAt));
+  return (
+    <Text as="p" type="supporting">
+      <span>{t('connect.external.footer', { date })}</span> ·{' '}
+      <Link href={OPT_OUT_URL}>{t('connect.external.optout')}</Link>
+    </Text>
+  );
+}
+
+// Opt-out requests (ADR-0016 point 6) go privately to support, never to a public issue (owner, 2026-11-15).
+const OPT_OUT_URL = `mailto:support@226os.tech?subject=${encodeURIComponent('Retrait de l’annuaire Connect')}`;
+
+/**
+ * `connect`: the people directory, filtered by the URL. Members open to collaboration come first; public
+ * GitHub developers ranked by committers.top follow in their own labelled list (ADR-0016).
+ */
 export function ConnectPage() {
   const { t } = useI18n();
   // Router merges the raw parent search over the validated one, so invalid values are dropped again here.
@@ -178,8 +220,58 @@ export function ConnectPage() {
   const list = useProfileDirectory(search);
   const navigate = useNavigate();
   const items = list.data?.pages.flatMap((page) => page.items) ?? [];
-  const seenCountries = items.flatMap((person) => (person.country ? [person.country] : []));
+  const external = list.data?.pages.flatMap((page) => page.external) ?? [];
+  const seenCountries = [
+    ...items.flatMap((person) => (person.country ? [person.country] : [])),
+    ...external.map((dev) => dev.country),
+  ];
+  const firstExternal = external[0];
   const filtered = Object.keys(search).length > 0;
+  const showMembers = search.source !== 'github' && (items.length > 0 || external.length === 0);
+  const empty = list.data !== undefined && items.length === 0 && external.length === 0;
+
+  // Loading, failure and the empty state sit in the first section on the page.
+  const status = (
+    <>
+      {list.isPending ? <LoadingState rows={4} /> : null}
+      {list.isError && !list.data ? (
+        <LoadFailure error={list.error} onRetry={() => void list.refetch()} />
+      ) : null}
+      {empty ? (
+        <EmptyState
+          headingLevel={3}
+          title={t(filtered ? 'connect.empty.filtered.title' : 'connect.empty.title')}
+          {...(filtered
+            ? {
+                description: t('connect.empty.filtered.body'),
+                actions: (
+                  <Button
+                    label={t('connect.reset')}
+                    onClick={() => void navigate({ to: '/connect', search: {} })}
+                  />
+                ),
+              }
+            : {})}
+        />
+      ) : null}
+    </>
+  );
+  const more = (
+    <>
+      {list.isError && list.data ? (
+        <LoadFailure error={list.error} onRetry={() => void list.fetchNextPage()} />
+      ) : null}
+      {list.hasNextPage ? (
+        <HStack hAlign="center">
+          <Button
+            label={t('connect.more')}
+            isLoading={list.isFetchingNextPage}
+            onClick={() => void list.fetchNextPage()}
+          />
+        </HStack>
+      ) : null}
+    </>
+  );
 
   return (
     <div className="ui-page connect-page">
@@ -189,55 +281,42 @@ export function ConnectPage() {
         lead={t('connect.lede')}
       />
       <Filters
-        key={`${search.country ?? ''}|${search.language ?? ''}|${search.skill ?? ''}`}
+        key={`${search.country ?? ''}|${search.language ?? ''}|${search.skill ?? ''}|${search.source ?? ''}`}
         search={search}
         seenCountries={seenCountries}
       />
       <div className="connect-results">
-        <Section title={t('connect.results.label')}>
-          {list.isPending ? <LoadingState rows={4} /> : null}
-          {list.isError && !list.data ? (
-            <LoadFailure error={list.error} onRetry={() => void list.refetch()} />
-          ) : null}
-          {list.data && items.length === 0 ? (
-            <EmptyState
-              headingLevel={3}
-              title={t(filtered ? 'connect.empty.filtered.title' : 'connect.empty.title')}
-              {...(filtered
-                ? {
-                    description: t('connect.empty.filtered.body'),
-                    actions: (
-                      <Button
-                        label={t('connect.reset')}
-                        onClick={() => void navigate({ to: '/connect', search: {} })}
-                      />
-                    ),
-                  }
-                : {})}
-            />
-          ) : null}
-          {items.length > 0 ? (
-            <VStack gap={4}>
-              <List label={t('connect.results.label')}>
-                {items.map((person) => (
-                  <PersonRow key={person.username} person={person} />
-                ))}
-              </List>
-              {list.isError ? (
-                <LoadFailure error={list.error} onRetry={() => void list.fetchNextPage()} />
-              ) : null}
-              {list.hasNextPage ? (
-                <HStack hAlign="center">
-                  <Button
-                    label={t('connect.more')}
-                    isLoading={list.isFetchingNextPage}
-                    onClick={() => void list.fetchNextPage()}
-                  />
-                </HStack>
-              ) : null}
-            </VStack>
-          ) : null}
-        </Section>
+        {showMembers ? (
+          <Section title={t('connect.results.label')}>
+            {status}
+            {items.length > 0 ? (
+              <VStack gap={4}>
+                <List label={t('connect.results.label')}>
+                  {items.map((person) => (
+                    <PersonRow key={person.username} person={person} />
+                  ))}
+                </List>
+                {external.length === 0 ? more : null}
+              </VStack>
+            ) : null}
+          </Section>
+        ) : null}
+        {!showMembers || external.length > 0 ? (
+          <Section title={t('connect.external.title')}>
+            {showMembers ? null : status}
+            {external.length > 0 ? (
+              <VStack gap={4}>
+                <List label={t('connect.external.title')}>
+                  {external.map((dev) => (
+                    <GithubDevRow key={`${dev.country}/${dev.login}`} dev={dev} />
+                  ))}
+                </List>
+                {more}
+                {firstExternal ? <ExternalFooter generatedAt={firstExternal.generated_at} /> : null}
+              </VStack>
+            ) : null}
+          </Section>
+        ) : null}
       </div>
       <SpacesSoon />
     </div>

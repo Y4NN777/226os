@@ -254,6 +254,12 @@ def parse_finding(f):
         "location": f.get("location") if f.get("location") in ("verified", "unverified", "mismatch") else "",
         "probable": str(f.get("probable") or "")[:320],
         "redacted": f.get("redacted") is True,
+        # ADR-0015 point 2: the class review-comment.py validated when it wrote the ledger; missing or unknown is prose.
+        "class": str(f.get("class")) if f.get("class") in ("executable", "static", "prose") else "prose",
+        # False for an entry with no `class` field (a ledger written before phase 1): the auto-fix keeps the phase 0 lane for it.
+        "classed": "class" in f,
+        # The rule of a static finding (`tool:id`, D4), plain rule characters only; empty otherwise.
+        "rule": str(f.get("rule")) if f.get("class") == "static" and re.fullmatch(r"[\w@/.:-]{1,80}", str(f.get("rule") or "")) else "",
         "deep": None if deep is None else {
             "detail": " ".join(str(deep.get("detail") or "").split())[:600], "fix": " ".join(str(deep.get("fix") or "").split())[:300],
             "sev": str(deep.get("sev", "")).upper() if str(deep.get("sev", "")).upper() in SEVERITIES else "",

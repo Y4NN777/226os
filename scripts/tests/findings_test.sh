@@ -105,7 +105,7 @@ F_HIGH='{"id":"skills-upsert","sev":"HIGH","file":"db/queries/identity.sql","lin
 F_MED1='{"id":"comment-wrong","sev":"MEDIUM","file":"a.go","line":3,"scenario":"stale comment","status":"open"}'
 F_MED2='{"id":"checklist","sev":"MEDIUM","file":"b.go","line":9,"scenario":"false never leaves the checklist","status":"open"}'
 F_LOWFIX='{"id":"typo","sev":"LOW","file":"c.go","line":1,"scenario":"typo","status":"fixed"}'
-F_ANSWERED='{"id":"ans","sev":"HIGH","file":"d.go","line":1,"scenario":"answered","status":"answered"}'
+F_ANSWERED='{"id":"ans","sev":"HIGH","file":"d.go","line":1,"scenario":"answered","status":"answered","class":"executable"}'
 
 reset
 ledger_comments "[$F_HIGH,$F_MED1,$F_MED2,$F_LOWFIX,$F_ANSWERED]" >"$tmp/st/comments.json"
@@ -191,6 +191,21 @@ ledger_comments "[$F_HIGH]" >"$tmp/st/comments.json"
 printf '{"files":[{"filename":"other.go"}]}' >"$tmp/st/compare.json"
 run harvest
 ! grep -q 'changed after the review' <<<"$(field 0 body)" && ok "a finding whose file did not change carries no stale note" || ko "not stale ($(field 0 body))"
+
+# ADR-0015 point 7: a prose finding never blocks the merge, so the batch is where it is fixed. An answered or accepted
+# prose HIGH (it no longer holds the merge until the owner settles it) is filed like an open one; a blocking (executable
+# or static) answered HIGH is still held at the merge and not filed; a classless entry is prose.
+reset
+F_PROSE_ANS='{"id":"prose-ans","sev":"HIGH","file":"docs/x.md","line":1,"scenario":"prose answered","status":"answered","class":"prose"}'
+F_PROSE_ACC='{"id":"prose-acc","sev":"HIGH","file":"docs/y.md","line":1,"scenario":"classless accepted","status":"accepted"}'
+F_PROSE_MED='{"id":"prose-med","sev":"MEDIUM","file":"docs/z.md","line":1,"scenario":"prose answered medium","status":"answered","class":"prose"}'
+F_EXEC_ANS='{"id":"exec-ans","sev":"HIGH","file":"src/api/a.go","line":1,"scenario":"executable answered","status":"answered","class":"executable"}'
+F_PROSE_FIXED='{"id":"prose-fixed","sev":"HIGH","file":"docs/w.md","line":1,"scenario":"prose fixed","status":"fixed","class":"prose"}'
+ledger_comments "[$F_PROSE_ANS,$F_PROSE_ACC,$F_PROSE_MED,$F_EXEC_ANS,$F_PROSE_FIXED]" >"$tmp/st/comments.json"
+run harvest
+all="$(python3 -I -c 'import json,sys; print(" ".join(i["title"] + " " + i["body"] for i in json.load(open(sys.argv[1]))))' "$tmp/st/issues.json")"
+grep -q 'prose-ans' <<<"$all" && grep -q 'prose-acc' <<<"$all" && ok "unit 2: an answered or accepted prose HIGH (classless included) is filed for the batch" || ko "prose filed (n=$(count_issues) out=$out)"
+! grep -q 'exec-ans' <<<"$all" && ! grep -q 'prose-fixed' <<<"$all" && ! grep -q 'prose-med' <<<"$all" && ok "unit 2: an answered executable HIGH (held at the merge), a fixed prose finding and an answered MEDIUM are not filed" || ko "not filed ($all)"
 
 # ---------- dashboard: what to fix next, from issue state only ----------
 mkissue() { # NUMBER STATE REASON "label,label" CREATED TITLE

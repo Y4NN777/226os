@@ -23,6 +23,7 @@ var p0Tables = []string{
 	"resource_sdk_languages", "resource_sources", "resource_tags", "resources",
 	"sessions", "tags", "training_lessons", "training_series", "user_credentials",
 	"user_skills", "users", "votes",
+	"github_developers", "github_developer_optouts", // 00014, ADR-0016
 }
 
 func TestFreshMigrationToHead(t *testing.T) {
@@ -37,15 +38,15 @@ func TestFreshMigrationToHead(t *testing.T) {
 	defer func() { _ = db.Close() }()
 	p, err := newProvider(db, migrationsFS(t))
 	if err != nil {
-		t.Fatalf("goose provider (expected migrations 00001..00013 in db/migrations): %v", err)
+		t.Fatalf("goose provider (expected migrations 00001..00014 in db/migrations): %v", err)
 	}
 
 	results, err := p.Up(ctx)
 	if err != nil {
 		t.Fatalf("goose up on an empty database: %v", err)
 	}
-	if len(results) != 13 {
-		t.Fatalf("applied %d migrations, want 13", len(results))
+	if len(results) != 14 {
+		t.Fatalf("applied %d migrations, want 14", len(results))
 	}
 	for i, r := range results {
 		if r.Source.Version != int64(i+1) {
@@ -55,8 +56,8 @@ func TestFreshMigrationToHead(t *testing.T) {
 			t.Errorf("migration %d: %v", r.Source.Version, r.Error)
 		}
 	}
-	if v, err := p.GetDBVersion(ctx); err != nil || v != 13 {
-		t.Fatalf("GetDBVersion = %d, %v; want 13", v, err)
+	if v, err := p.GetDBVersion(ctx); err != nil || v != 14 {
+		t.Fatalf("GetDBVersion = %d, %v; want 14", v, err)
 	}
 
 	// Second run is a no-op.
@@ -65,7 +66,7 @@ func TestFreshMigrationToHead(t *testing.T) {
 		t.Fatalf("second Up = %d results, %v; want no-op", len(again), err)
 	}
 
-	// goose version table: baseline row 0 plus versions 1..13, all applied.
+	// goose version table: baseline row 0 plus versions 1..14, all applied.
 	rows, err := db.QueryContext(ctx, `SELECT version_id FROM goose_db_version WHERE is_applied ORDER BY version_id`)
 	if err != nil {
 		t.Fatal(err)
@@ -82,7 +83,7 @@ func TestFreshMigrationToHead(t *testing.T) {
 	if err := rows.Err(); err != nil {
 		t.Fatal(err)
 	}
-	if want := []int64{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13}; !slices.Equal(got, want) {
+	if want := []int64{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14}; !slices.Equal(got, want) {
 		t.Fatalf("goose_db_version applied = %v, want %v", got, want)
 	}
 }
@@ -109,8 +110,8 @@ func TestSchemaHasExactlyTheP0Tables(t *testing.T) {
 	if err := rows.Err(); err != nil {
 		t.Fatal(err)
 	}
-	if len(p0Tables) != 38 {
-		t.Fatalf("test inventory has %d tables, want 38", len(p0Tables))
+	if len(p0Tables) != 40 {
+		t.Fatalf("test inventory has %d tables, want 40", len(p0Tables))
 	}
 	want := slices.Sorted(slices.Values(p0Tables)) // byte order, same as COLLATE "C"
 	if !slices.Equal(got, want) {
@@ -285,8 +286,8 @@ func TestUpgradeFromVersion10KeepsExistingRows(t *testing.T) {
 	if _, err := p.Up(ctx); err != nil {
 		t.Fatalf("upgrade to head: %v", err)
 	}
-	if v, err := p.GetDBVersion(ctx); err != nil || v != 13 {
-		t.Fatalf("head version = %d, %v; want 13", v, err)
+	if v, err := p.GetDBVersion(ctx); err != nil || v != 14 {
+		t.Fatalf("head version = %d, %v; want 14", v, err)
 	}
 
 	var visibility string

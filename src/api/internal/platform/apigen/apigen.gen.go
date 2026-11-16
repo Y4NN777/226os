@@ -143,6 +143,11 @@ const (
 	ErrorReportResolutionStatusResolved ErrorReportResolutionStatus = "resolved"
 )
 
+// Defines values for ExternalDeveloperSource.
+const (
+	CommittersTop ExternalDeveloperSource = "committers.top"
+)
+
 // Defines values for FieldVisibility.
 const (
 	FieldVisibilityMembers FieldVisibility = "members"
@@ -356,6 +361,13 @@ const (
 const (
 	VoteTargetTypeAnswer   VoteTargetType = "answer"
 	VoteTargetTypeQuestion VoteTargetType = "question"
+)
+
+// Defines values for ListProfilesParamsSource.
+const (
+	ListProfilesParamsSourceAll     ListProfilesParamsSource = "all"
+	ListProfilesParamsSourceGithub  ListProfilesParamsSource = "github"
+	ListProfilesParamsSourceMembers ListProfilesParamsSource = "members"
 )
 
 // AcceptRequest defines model for AcceptRequest.
@@ -723,8 +735,48 @@ type ErrorReportResolution struct {
 // ErrorReportResolutionStatus defines model for ErrorReportResolution.Status.
 type ErrorReportResolutionStatus string
 
+// ExternalDeveloper A public GitHub developer ranked by committers.top (ADR-0016). Not an account: only public GitHub data, labelled with its source.
+type ExternalDeveloper struct {
+	AvatarUrl     string `json:"avatar_url"`
+	Contributions int    `json:"contributions"`
+
+	// Country ISO 3166-1 alpha-2.
+	//
+	// Examples: BF
+	Country CountryCode `json:"country"`
+
+	// GeneratedAt RFC 3339, UTC (suffix Z).
+	//
+	// Examples: 2026-11-11T09:30:00Z
+	GeneratedAt Timestamp `json:"generated_at"`
+
+	// Login GitHub login.
+	Login         string                  `json:"login"`
+	Name          string                  `json:"name"`
+	Organizations []string                `json:"organizations"`
+	Rank          int                     `json:"rank"`
+	Source        ExternalDeveloperSource `json:"source"`
+}
+
+// ExternalDeveloperSource defines model for ExternalDeveloper.Source.
+type ExternalDeveloperSource string
+
 // FieldVisibility defines model for FieldVisibility.
 type FieldVisibility string
+
+// GitHubRanking committers.top rank of the profile's GitHub login (ADR-0016). Present only when the github field is visible to the caller, the login is ranked and has not opted out.
+type GitHubRanking struct {
+	// Country ISO 3166-1 alpha-2.
+	//
+	// Examples: BF
+	Country CountryCode `json:"country"`
+
+	// GeneratedAt RFC 3339, UTC (suffix Z).
+	//
+	// Examples: 2026-11-11T09:30:00Z
+	GeneratedAt Timestamp `json:"generated_at"`
+	Rank        int       `json:"rank"`
+}
 
 // Intent Onboarding intent (values from the prototype welcome step plus learn).
 type Intent string
@@ -901,7 +953,9 @@ type ProfileField string
 
 // ProfilePage defines model for ProfilePage.
 type ProfilePage struct {
-	Items []ProfileSummary `json:"items"`
+	// External External GitHub developers (ADR-0016), after the members of the page; omitted when the page has none. items plus external hold at most limit entries.
+	External *[]ExternalDeveloper `json:"external,omitempty"`
+	Items    []ProfileSummary     `json:"items"`
 
 	// NextCursor Opaque, integrity-protected; null on the last page.
 	NextCursor *string `json:"next_cursor"`
@@ -1069,8 +1123,11 @@ type PublicProfile struct {
 
 	// ProfileVisibility Who may open this profile page. A new profile defaults to public. On a JSON Merge Patch, omitting the field leaves the stored value unchanged.
 	ProfileVisibility ProfileVisibility `json:"profile_visibility"`
-	Skills            *[]TagSlug        `json:"skills,omitempty"`
-	Username          Username          `json:"username"`
+
+	// Ranking committers.top rank of the profile's GitHub login (ADR-0016). Present only when the github field is visible to the caller, the login is ranked and has not opted out.
+	Ranking  *GitHubRanking `json:"ranking,omitempty"`
+	Skills   *[]TagSlug     `json:"skills,omitempty"`
+	Username Username       `json:"username"`
 }
 
 // Question defines model for Question.
@@ -1646,7 +1703,13 @@ type ListProfilesParams struct {
 
 	// Skill Keep profiles whose visible skills contain this tag slug.
 	Skill *TagSlug `form:"skill,omitempty" json:"skill,omitempty"`
+
+	// Source Which entries to list. members is the opt-in member directory; github is the external committers.top entries; all (default) is the members first, then the external entries.
+	Source *ListProfilesParamsSource `form:"source,omitempty" json:"source,omitempty"`
 }
+
+// ListProfilesParamsSource defines parameters for ListProfiles.
+type ListProfilesParamsSource string
 
 // ListProjectsParams defines parameters for ListProjects.
 type ListProjectsParams struct {
@@ -3295,6 +3358,19 @@ func (siw *ServerInterfaceWrapper) ListProfiles(w http.ResponseWriter, r *http.R
 			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "skill"})
 		} else {
 			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "skill", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "source" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "source", r.URL.Query(), &params.Source, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "source"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "source", Err: err})
 		}
 		return
 	}

@@ -18,6 +18,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
+	"github.com/Y4NN777/226os/src/api/internal/identity/repository"
 	"github.com/Y4NN777/226os/src/api/internal/platform/idempotency"
 )
 
@@ -225,4 +226,13 @@ func TestDemoProfilesEnabledOnlyInLocalDev(t *testing.T) {
 			t.Errorf("demoProfilesEnabled(%q) = %v, want %v", env, got, want)
 		}
 	}
+}
+
+func TestStartGitHubImportRunsOnlyWhenEnabled(t *testing.T) {
+	logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
+	stop := startGitHubImport(t.Context(), false, nil, logger)
+	stop() // disabled: a no-op
+	// Enabled: the job waits for its start delay (a minute), so stop cancels it before any fetch.
+	stop = startGitHubImport(t.Context(), true, repository.New(&fakePool{}), logger)
+	stop()
 }

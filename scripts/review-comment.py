@@ -5,7 +5,14 @@ LEVEL SPEC (invariants; scripts/tests/review-comment_test.sh runs the table of s
   I1. Final Triage level = max(the level stage 1 declared this run, the level of ALL blocking findings in the final
       ledger, carried and deep-sourced ones included). Nothing else lowers or raises it. A blocking finding (`blocking`) is
       an open one (an unknown or missing status is open), or a HIGH or CRITICAL one not marked `fixed`: answered or
-      accepted never removes a HIGH or CRITICAL (the owner settles it). An unknown or untrimmed sev is MEDIUM.
+      accepted never removes a HIGH or CRITICAL (the owner settles it). An unknown or untrimmed sev is MEDIUM. A finding
+      whose validated class is `prose` never blocks unless it is CRITICAL (or a deep CRITICAL lowered to HIGH, flagged
+      `critical_claim`): ADR-0015 point 7, prose goes to the batch.
+  I5. Class (ADR-0015 point 2, owner decision D1): the model proposes `class` (executable, static or prose) and, for
+      static, `rule` (`tool:id`); the script keeps it only when it holds, else prose (a downgrade, never an upgrade):
+      executable needs OBSERVED evidence and a verified line > 0 in src/ or db/queries/; static needs a rule of a gate
+      tool (`known_rule`); a missing or unknown class is prose. A re-list of an unfixed finding takes the strongest class
+      of its two versions that still holds for the evidence block it ends up with (`settle_class`).
   I2. CRITICAL only with a blocking OBSERVED CRITICAL entry with a file and a line > 0; any other CRITICAL counts as HIGH
       (a declared CRITICAL without that evidence becomes HIGH).
   I3. An entry's status changes only by an explicit status from a COMPLETED run (stage 1, or a deep run that is PASS); a
@@ -127,7 +134,7 @@ FIX_MAX = 300
 SCENARIO_MAX = 400
 FILE_OK = re.compile(r"^[\w./@+-]{1,300}$")
 LOCATE_MAX_BYTES = 5000000
-SCRIPT_OWNED = ("source", "first_sha", "location", "probable", "redacted", "deep", "carried")
+SCRIPT_OWNED = ("source", "first_sha", "location", "probable", "redacted", "deep", "carried", "critical_claim", "p0")
 MINIMIZE = "mutation($id: ID!) { minimizeComment(input: {subjectId: $id, classifier: OUTDATED}) { minimizedComment { isMinimized } } }"
 
 
@@ -345,6 +352,117 @@ def clean_file(path):
 
 EVIDENCE_BLOCK = ("evidence", "file", "line", "location", "probable", "first_sha")
 
+# ADR-0015 point 2, owner decision D1: the model proposes a class, this script validates it, a downgrade only.
+CLASSES = ("prose", "static", "executable")  # ascending strength
+CLASS_RANK = {c: i for i, c in enumerate(CLASSES)}
+EXECUTABLE_PREFIXES = ("src/", "db/queries/")
+# D4: a static finding names a rule of a tool already in the gates (make lint-go, lint-web, typecheck, security), as
+# `tool:id`. The semgrep ids are those of scripts/semgrep/web-rules.yml and the linters those golangci-lint runs
+# (the `standard` set plus the enable list of .golangci.yml); review-comment_test.sh fails when they drift apart.
+# This script must stay one standalone file, so the lists are written here.
+SEMGREP_RULES = frozenset((
+    "226os.js.no-eval", "226os.js.no-new-function", "226os.js.string-timer", "226os.react.no-dangerously-set-inner-html",
+    "226os.dom.no-inner-html-assignment", "226os.dom.no-document-write", "226os.dom.postmessage-wildcard-origin",
+    "226os.storage.token-in-web-storage", "226os.react.target-blank-without-noopener"))
+GOLANGCI_LINTERS = frozenset(("errcheck", "govet", "ineffassign", "staticcheck", "unused", "errorlint", "bodyclose",
+                              "noctx", "depguard", "gosec", "gofmt"))
+RULE_SHAPES = {
+    "gosec": re.compile(r"^G\d{3}$"),
+    "tsc": re.compile(r"^TS\d{4,5}$"),
+    # ESLint rule names are checked by shape only (core rules and the plugins of src/web/eslint.config.js).
+    "eslint": re.compile(r"^(?:(?:react-hooks|jsx-a11y|@typescript-eslint|react-refresh)/)?[a-z][a-z0-9-]{1,60}$"),
+}
+
+
+def known_rule(rule):
+    """True when RULE is `tool:id` for a rule one of the existing gates reports (D4)."""
+    if not isinstance(rule, str) or ":" not in rule:
+        return False
+    tool, ident = rule.split(":", 1)
+    if tool == "semgrep":
+        return ident in SEMGREP_RULES
+    if tool == "golangci-lint":
+        return ident in GOLANGCI_LINTERS
+    shape = RULE_SHAPES.get(tool)
+    return bool(shape and shape.fullmatch(ident))
+
+
+def class_holds(f, cls):
+    """D1 for one entry as it stands: `executable` needs OBSERVED evidence and a verified line (> 0) in src/ or
+    db/queries/; `static` needs a known rule; `prose` always holds."""
+    if cls == "executable":
+        line = f.get("line")
+        return (str(f.get("evidence", "")).upper() == "OBSERVED" and f.get("location") == "verified"
+                and isinstance(line, int) and not isinstance(line, bool) and line > 0
+                and str(f.get("file") or "").startswith(EXECUTABLE_PREFIXES) and ".." not in str(f.get("file")))
+    if cls == "static":
+        return known_rule(f.get("rule"))
+    return cls == "prose"
+
+
+def proposed_class(f):
+    """(class, rule) an entry claims; an unknown or missing class is prose (ADR-0015 point 2)."""
+    if not isinstance(f, dict):
+        return "prose", None
+    cls = str(f.get("class") or "").strip().lower()
+    return (cls if cls in CLASS_RANK else "prose"), f.get("rule")
+
+
+def class_of(f):
+    """The class an entry holds when read: its own claim, validated (D1); prose when the claim does not hold."""
+    cls, rule = proposed_class(f)
+    probe = dict(f, rule=rule) if isinstance(f, dict) else {}
+    return cls if class_holds(probe, cls) else "prose"
+
+
+P0_CACHE = {}
+
+
+def p0_or_none():
+    """The P0 patterns of the base lists under ROOT (default: the repository of this script), or None when either list
+    cannot be read: the caller then treats every path as P0 (fail closed, owner answer (b))."""
+    root = os.environ.get("ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if root not in P0_CACHE:
+        out = []
+        for rel in P0_LISTS:
+            try:
+                with open(os.path.join(root, rel), encoding="utf-8") as fh:
+                    out += [l.strip() for l in fh if l.strip() and not l.lstrip().startswith("#")]
+            except OSError:
+                out = None
+                break
+        P0_CACHE[root] = out
+    return P0_CACHE[root]
+
+
+def on_p0(f):
+    """True when entry F's file (or its probable file) matches a P0 pattern, or when the lists cannot be read."""
+    patterns = p0_or_none()
+    if patterns is None:
+        return True
+    paths = [str(f.get("file") or ""), str(f.get("probable") or "").split(":", 1)[0]]
+    return bool(p0_hits([p for p in paths if p], patterns))
+
+
+def settle_class(f, *others):
+    """Write the validated class (and the rule of a static one) into entry F: the strongest class among F's own
+    proposal and the classes of OTHERS (the previous version of a re-listed finding) that holds for F as it now stands.
+    A downgrade only: nothing the evidence block of F does not back is ever written."""
+    candidates = [proposed_class(f)] + [proposed_class(o) for o in others if isinstance(o, dict)]
+    candidates.sort(key=lambda c: CLASS_RANK[c[0]], reverse=True)
+    f.pop("rule", None)
+    f.pop("p0", None)  # rewritten last, so the key order (and the comment body) is the same on every merge
+    for cls, rule in candidates:
+        if class_holds(dict(f, rule=rule), cls):
+            f["class"] = cls
+            if cls == "static":
+                f["rule"] = rule
+            f["p0"] = on_p0(f)
+            return f
+    f["class"] = "prose"
+    f["p0"] = on_p0(f)
+    return f
+
 
 def evidence_key(f):
     """How strong one version of an entry is: its severity first, then OBSERVED over INFERRED, then a real file:line over
@@ -354,13 +472,18 @@ def evidence_key(f):
     return (SEV_RANK[norm_sev(f.get("sev"))], str(f.get("evidence", "")).upper() == "OBSERVED", located)
 
 
+def relist_applies(new, old):
+    """True when `new` re-lists `old`, a finding not marked fixed, and `new` is not fixed either (I3)."""
+    return bool(old) and str(old.get("kind", "finding")).lower() != "note" and status_of(old) != "fixed" and status_of(new) != "fixed"
+
+
 def relist_floor(new, old):
     """I3 for a re-list of an unfixed finding (stage 1 refine_entry and the deep merge): when `old` is a finding not marked
     fixed and `new` is not `fixed`, `new` stays a finding at no lower severity, and when the old version is the stronger
     one (evidence_key) it keeps the old version's whole evidence block (sev, evidence, file, line, location, probable,
     first_sha), so an OBSERVED CRITICAL at a.go:10 re-listed as an INFERRED note at line 0 stays an OBSERVED CRITICAL at
     a.go:10. Returns True when the old block was kept."""
-    if not old or str(old.get("kind", "finding")).lower() == "note" or status_of(old) == "fixed" or status_of(new) == "fixed":
+    if not relist_applies(new, old):
         return False
     stronger = evidence_key(old) > evidence_key(new)
     new["kind"] = "finding"
@@ -386,6 +509,8 @@ def refine_entry(f, previous, head):
     previous = previous if isinstance(previous, dict) else {}
     if "file" in f:
         f["file"] = clean_file(f["file"])
+    # The class the previous version held carries forward with the re-list (validated again at the end).
+    prior = previous if relist_applies(f, previous) else None
     if relist_floor(f, previous):
         # The previous version is the stronger one: its evidence block (location and permalink included) stands as is.
         f["first_sha"] = previous["first_sha"] if FULL_SHA.match(str(previous.get("first_sha") or "")) else head
@@ -405,7 +530,7 @@ def refine_entry(f, previous, head):
         f["deep"] = previous["deep"]
     if kept is not None:
         f.update(kept)
-        return f
+        return settle_class(f, prior)
     text = "%s %s" % (f.get("scenario") or "", f.get("detail") or "")
     if FULL_SHA.match(str(previous.get("first_sha") or "")) and previous.get("file") == f.get("file") and previous.get("line") == f.get("line"):
         f["first_sha"] = previous["first_sha"]
@@ -418,7 +543,7 @@ def refine_entry(f, previous, head):
         f["location"], probable = previous["location"], previous.get("probable", "")
     if probable:
         f["probable"] = probable
-    return f
+    return settle_class(f, prior)
 
 
 def pin_ledger(text, head, previous_ledger=None):
@@ -491,7 +616,7 @@ def carry_forward(text, previous_ledger):
                 # comment, so a stale entry that keeps blocking auto-merge is visible and a person can settle it.
                 f["carried"] = int(f.get("carried") or 0) + 1 if isinstance(f.get("carried"), int) else 1
                 carried.append(slug_id(f["id"]))
-            data["findings"].append(f)
+            data["findings"].append(settle_class(f))
     out = text[:m.start(2)] + json.dumps(data) + text[m.end(2):]
     if carried:
         notice = "Carried forward without a new decision (this review did not mention them: fix, answer or accept them): %s.\n\n" % ", ".join("`%s`" % c for c in carried)
@@ -520,8 +645,16 @@ def status_of(f):
 
 def blocking(f):
     """True when an entry holds the level, auto-merge and the owner ping: never a note; a finding while it is open; a HIGH
-    or CRITICAL finding until a review marks it `fixed` (answered or accepted is not enough: the owner settles it)."""
+    or CRITICAL finding until a review marks it `fixed` (answered or accepted is not enough: the owner settles it). A
+    finding whose validated class is prose (class_of) never blocks unless its severity is CRITICAL (ADR-0015 point 7),
+    with two owner exceptions: (a) an entry with no `class` field (a ledger written before phase 1) keeps blocking until a
+    new review writes one; (b) a prose HIGH keeps blocking unless the script stamped it `p0: false` (off every P0 path)."""
     if not isinstance(f, dict) or str(f.get("kind", "finding")).lower() == "note":
+        return False
+    sev = norm_sev(f.get("sev"))
+    if ("class" in f and sev != "CRITICAL" and f.get("critical_claim") is not True and class_of(f) == "prose"
+            and not (sev == "HIGH" and f.get("p0") is not False)):
+        # ADR-0015 point 7: a prose finding goes to the batch and never blocks; a CRITICAL is never downgraded by class.
         return False
     status = norm_status(f.get("status"))
     return status == "open" or (status != "fixed" and norm_sev(f.get("sev")) in ("HIGH", "CRITICAL"))
@@ -626,7 +759,7 @@ def keep_previous_ledger(text, previous_ledger, head):
             if status_of(f) == "open":
                 f["carried"] = int(f.get("carried") or 0) + 1 if isinstance(f.get("carried"), int) and not isinstance(f.get("carried"), bool) else 1
                 ids.append(slug_id(f["id"]))
-            kept.append(f)
+            kept.append(settle_class(f))
     if not kept:
         return text
     # The unusable block (and any other ledger-looking block) goes: the comment carries exactly ONE ledger, the kept one.
@@ -901,6 +1034,7 @@ def deep_entry(f, head=""):
     sev = "LOW" if kind == "note" else norm_sev(f.get("sev"))
     line = f.get("line") if isinstance(f.get("line"), int) and not isinstance(f.get("line"), bool) else 0
     path = clean_file(f.get("file"))
+    claimed = sev == "CRITICAL"
     if sev == "CRITICAL" and not (evidence == "OBSERVED" and path and line > 0):
         sev = "HIGH"  # a CRITICAL must be OBSERVED with file:line
     detail, hit1 = clean_field(f.get("detail"), DETAIL_MAX)
@@ -910,12 +1044,16 @@ def deep_entry(f, head=""):
              "scenario": scenario, "status": status, "detail": detail, "fix": fix, "source": "deep"}
     if hit1 or hit2 or hit3:
         entry["redacted"] = True
+    if claimed and sev != "CRITICAL":
+        # A CRITICAL lowered to HIGH here is still never downgraded by its class (it keeps blocking, as HIGH).
+        entry["critical_claim"] = True
     if FULL_SHA.match(head or ""):
         entry["first_sha"] = head
         entry["location"], probable = locate(head, path, line, "%s %s" % (scenario, detail))
         if probable:
             entry["probable"] = probable
-    return entry
+    entry["class"], entry["rule"] = proposed_class(f)
+    return settle_class(entry)
 
 
 def deep_output(head=""):
@@ -1015,8 +1153,9 @@ def merge_deep(base, data, why, head):
                 # I3, as in refine_entry: while a deep finding is not fixed, a re-list (an open note, an answered or
                 # accepted LOW) never lowers its severity nor turns it into a note, and the stronger version keeps its
                 # evidence block (relist_floor).
+                prior = old if relist_applies(e, old) else None
                 relist_floor(e, old)
-                standalone.append(e)
+                standalone.append(settle_class(e, prior))
                 continue
             if STATUS_RANK[e["status"]] > STATUS_RANK.get(s1.get("status"), 0):
                 continue
@@ -1044,12 +1183,14 @@ def merge_deep(base, data, why, head):
                         s1["probable"] = e["probable"]
             if not why:
                 s1["status"] = e["status"]
+            # The merged entry holds the stronger class of the two versions that its final evidence block backs.
+            settle_class(s1, e)
         # An earlier deep entry the new output leaves out stays open (I3): only an explicit `fixed` from a COMPLETED deep run
         # closes it. Stage 1 already counted it (`carried` +1 once per run). A fixed one is dropped, as before.
         listed = {e["id"] for e in data["entries"]}
         for f in ledger["findings"]:
             if isinstance(f, dict) and f.get("source") == "deep" and f.get("id") not in listed and status_of(f) != "fixed":
-                standalone.append(dict(f))
+                standalone.append(settle_class(dict(f)))
         old_findings = ledger["findings"]
         ledger["findings"] = [f for f in old_findings if not (isinstance(f, dict) and f.get("source") == "deep")] + standalone
         ledger["deep"] = {"status": "NOT RUN" if why else "PASS", "sha": head}

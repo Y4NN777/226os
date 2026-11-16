@@ -247,13 +247,23 @@ refused 'owner' "an autofix commit on a normal PR + sensitive path still needs t
 
 # H4 (independent review of #187): only an explicit `fixed` removes a HIGH or CRITICAL from the open set; answered or
 # accepted MEDIUM and LOW keep today's behaviour. M1: an unknown status is open.
-reset; review_comment "Triage: HIGH | blast radius: x" "{\"sha\":\"$H\",\"findings\":[{\"id\":\"a1\",\"kind\":\"finding\",\"sev\":\"HIGH\",\"status\":\"answered\"}]}"; refused 'open finding\(s\): a1' "an answered HIGH still blocks (only fixed removes it)"
+reset; review_comment "Triage: HIGH | blast radius: x" "{\"sha\":\"$H\",\"findings\":[{\"id\":\"a1\",\"kind\":\"finding\",\"class\":\"static\",\"rule\":\"gosec:G104\",\"sev\":\"HIGH\",\"status\":\"answered\"}]}"; refused 'open finding\(s\): a1' "an answered HIGH still blocks (only fixed removes it)"
 reset; review_comment "Triage: HIGH | blast radius: x" "{\"sha\":\"$H\",\"findings\":[{\"id\":\"a2\",\"kind\":\"finding\",\"sev\":\"CRITICAL\",\"status\":\"accepted\"}]}"; refused 'open finding\(s\): a2' "an accepted CRITICAL still blocks"
 reset; review_comment "Triage: NONE | blast radius: x" "{\"sha\":\"$H\",\"findings\":[{\"id\":\"a3\",\"kind\":\"finding\",\"sev\":\"MEDIUM\",\"status\":\"answered\"},{\"id\":\"a4\",\"kind\":\"finding\",\"sev\":\"LOW\",\"status\":\"accepted\"}]}"
 run on
 grep -q 'pr merge 7' <<<"$calls" && ok "an answered MEDIUM and an accepted LOW do not block (unchanged)" || ko "answered medium ($out)"
-reset; review_comment "Triage: MEDIUM | blast radius: x" "{\"sha\":\"$H\",\"findings\":[{\"id\":\"u1\",\"kind\":\"finding\",\"sev\":\"MEDIUM\",\"status\":\"Pending\"}]}"; refused 'open finding\(s\): u1' "an unknown status is open (M1)"
-reset; review_comment "Triage: MEDIUM | blast radius: x" "{\"sha\":\"$H\",\"findings\":[{\"id\":\"u2\",\"kind\":\"finding\",\"sev\":\"MEDIUM\"}]}"; refused 'open finding\(s\): u2' "a missing status is open (M1)"
+reset; review_comment "Triage: MEDIUM | blast radius: x" "{\"sha\":\"$H\",\"findings\":[{\"id\":\"u1\",\"kind\":\"finding\",\"class\":\"static\",\"rule\":\"gosec:G104\",\"sev\":\"MEDIUM\",\"status\":\"Pending\"}]}"; refused 'open finding\(s\): u1' "an unknown status is open (M1)"
+reset; review_comment "Triage: MEDIUM | blast radius: x" "{\"sha\":\"$H\",\"findings\":[{\"id\":\"u2\",\"kind\":\"finding\",\"class\":\"static\",\"rule\":\"gosec:G104\",\"sev\":\"MEDIUM\"}]}"; refused 'open finding\(s\): u2' "a missing status is open (M1)"
+# ADR-0015 point 7: the same open MEDIUM without a blocking class (prose, classless) never blocks the merge (it goes to
+# the batch); the H4/M1 fixtures above name a blocking class (static with a known rule) to keep testing the status rules.
+reset; review_comment "Triage: NONE | blast radius: x" "{\"sha\":\"$H\",\"findings\":[{\"id\":\"p1\",\"kind\":\"finding\",\"sev\":\"MEDIUM\",\"status\":\"open\",\"class\":\"prose\"},{\"id\":\"p2\",\"kind\":\"finding\",\"sev\":\"HIGH\",\"status\":\"answered\",\"class\":\"prose\",\"p0\":false}]}"
+run on
+grep -q 'pr merge 7' <<<"$calls" && ok "an open prose MEDIUM and an answered prose HIGH off the P0 paths do not block auto-merge (ADR-0015 point 7)" || ko "prose merge ($out)"
+# Owner answers (a) and (b): a classless finding (a ledger written before phase 1) and a prose HIGH on a P0 path (or
+# with no p0 stamp) keep blocking the merge.
+reset; review_comment "Triage: MEDIUM | blast radius: x" "{\"sha\":\"$H\",\"findings\":[{\"id\":\"old1\",\"kind\":\"finding\",\"sev\":\"MEDIUM\",\"status\":\"open\"}]}"; refused 'open finding\(s\): old1' "(a) a classless open MEDIUM (ledger before phase 1) still blocks auto-merge"
+reset; review_comment "Triage: NONE | blast radius: x" "{\"sha\":\"$H\",\"findings\":[{\"id\":\"pp\",\"kind\":\"finding\",\"sev\":\"HIGH\",\"status\":\"answered\",\"class\":\"prose\",\"p0\":true}]}"; refused 'open finding\(s\): pp' "(b) an answered prose HIGH on a P0 path still blocks auto-merge"
+reset; review_comment "Triage: NONE | blast radius: x" "{\"sha\":\"$H\",\"findings\":[{\"id\":\"pn\",\"kind\":\"finding\",\"sev\":\"HIGH\",\"status\":\"answered\",\"class\":\"prose\"}]}"; refused 'open finding\(s\): pn' "(b) a prose HIGH without a p0 stamp still blocks auto-merge (fail closed)"
 reset; review_comment "Triage: HIGH | blast radius: x" "{\"sha\":\"$H\",\"findings\":[]}"; refused 'no open finding explains' "a HIGH verdict with no open finding"
 reset; review_comment "Triage: MEDIUM | blast radius: x" "{\"sha\":\"$H\",\"findings\":[$NOTE]}"; refused 'no open finding explains' "a MEDIUM verdict with only a note"
 reset; run on
