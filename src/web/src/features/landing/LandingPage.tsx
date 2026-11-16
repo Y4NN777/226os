@@ -342,7 +342,7 @@ function Talents() {
           ))}
         </ul>
         <div className="lp-talent-actions" {...reveal('up', developers.length)}>
-          <RouterAnchor href="/connect?source=github&country=BF" className="lp-btn">
+          <RouterAnchor href={TALENTS_HREF} className="lp-btn">
             {t('landing.talents.all')}
           </RouterAnchor>
           <RouterAnchor href="/inscription" className="lp-btn lp-btn-ghost">
@@ -536,6 +536,9 @@ function Join() {
     </section>
   );
 }
+
+// The full ranking. A constant, not a JSX string: `&country` in a JSX attribute breaks Semgrep's TSX parser.
+const TALENTS_HREF = '/connect?source=github&country=BF';
 
 /**
  * `/` for visitors: promise with search and direct links to the five spaces, the spaces as
