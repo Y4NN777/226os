@@ -1,4 +1,5 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
+import { useNavigate } from '@tanstack/react-router';
 import {
   ArrowRightIcon,
   BookIcon,
@@ -11,6 +12,7 @@ import {
   LanguagesIcon,
   MapPinIcon,
   MessageIcon,
+  SearchIcon,
   ShieldCheckIcon,
   UsersIcon,
   type SvgIcon,
@@ -22,7 +24,7 @@ import { formatDate } from '../home/rows';
 import { CountUp } from './CountUp';
 import { Globe } from './Globe';
 import { reveal, useReveal } from './reveal';
-import { useLandingActivity } from './useLandingData';
+import { useLandingActivity, useLandingTalents } from './useLandingData';
 import { useLandingMotion } from './useLandingMotion';
 import './landing.css';
 
@@ -133,6 +135,60 @@ function Device({
   );
 }
 
+/**
+ * The site search, open to visitors: a GET form to `/recherche?q=` that works without script,
+ * and navigates in the app when it runs.
+ */
+function HeroSearch() {
+  const { t } = useI18n();
+  const navigate = useNavigate();
+  const [value, setValue] = useState('');
+  return (
+    <form
+      role="search"
+      aria-label={t('landing.search.label')}
+      action="/recherche"
+      method="get"
+      className="lp-search"
+      onSubmit={(event) => {
+        event.preventDefault();
+        const q = value.trim();
+        void navigate({ to: '/recherche', search: q ? { q } : {} });
+      }}
+    >
+      <label htmlFor="landing-search" className="lp-sr">
+        {t('landing.search.label')}
+      </label>
+      <SearchIcon className="lp-search-icon" aria-hidden="true" />
+      <input
+        id="landing-search"
+        className="lp-search-input"
+        type="search"
+        name="q"
+        value={value}
+        onChange={(event) => {
+          setValue(event.target.value);
+        }}
+        placeholder={t('landing.search.placeholder')}
+        enterKeyHint="search"
+        autoComplete="off"
+      />
+      <button type="submit" className="lp-btn lp-search-submit">
+        {t('landing.search.submit')}
+      </button>
+    </form>
+  );
+}
+
+// The five spaces, Découvrir and Connect first: one icon, one name, one line and a route each.
+const spaces: readonly { id: string; href: string; icon: SvgIcon; wide?: boolean }[] = [
+  { id: 'discover', href: '/discover', icon: CompassIcon, wide: true },
+  { id: 'connect', href: '/connect', icon: UsersIcon, wide: true },
+  { id: 'solve', href: '/solve', icon: HelpIcon },
+  { id: 'learn', href: '/apprendre', icon: BookIcon },
+  { id: 'build', href: '/build', icon: HammerIcon },
+];
+
 function Hero() {
   const { t } = useI18n();
   const motion = useLandingMotion();
@@ -144,6 +200,19 @@ function Hero() {
           {t('landing.hero.a')} <span className="lp-accent">{t('landing.hero.em')}</span>
         </h1>
         <p className="lp-lede">{t('landing.lede')}</p>
+        <HeroSearch />
+        <nav className="lp-quick" aria-label={t('landing.quick.label')}>
+          <ul>
+            {spaces.map(({ id, href, icon: Icon }) => (
+              <li key={id}>
+                <RouterAnchor href={href} className="lp-quick-link">
+                  <Icon aria-hidden="true" />
+                  {t(key(`pillar.${id}`, 'title'))}
+                </RouterAnchor>
+              </li>
+            ))}
+          </ul>
+        </nav>
         <Cta label={t('landing.cta.signup')} />
       </div>
     </section>
@@ -191,15 +260,6 @@ function Why() {
   );
 }
 
-// The five spaces in the product's order: one icon, one name, one line each.
-const spaces: readonly { id: string; icon: SvgIcon }[] = [
-  { id: 'learn', icon: BookIcon },
-  { id: 'solve', icon: HelpIcon },
-  { id: 'discover', icon: CompassIcon },
-  { id: 'build', icon: HammerIcon },
-  { id: 'connect', icon: UsersIcon },
-];
-
 function Spaces() {
   const { t } = useI18n();
   return (
@@ -209,16 +269,87 @@ function Spaces() {
           {t('landing.spaces.title')}
         </h2>
         <ul className="lp-grid">
-          {spaces.map(({ id, icon: Icon }, i) => (
-            <li key={id} className="lp-space" {...reveal('zoom-in', i)}>
-              <span className="lp-tile" aria-hidden="true">
-                <Icon />
-              </span>
-              <h3 className="lp-h3">{t(key(`pillar.${id}`, 'title'))}</h3>
-              <p>{t(key(`pillar.${id}`, 'text'))}</p>
+          {spaces.map(({ id, href, icon: Icon, wide }, i) => (
+            <li
+              key={id}
+              className={`lp-space${wide ? ' lp-space-wide' : ''}`}
+              {...reveal('zoom-in', i)}
+            >
+              <RouterAnchor href={href} className="lp-space-link">
+                <span className="lp-tile" aria-hidden="true">
+                  <Icon />
+                </span>
+                <h3 className="lp-h3">{t(key(`pillar.${id}`, 'title'))}</h3>
+                <p>{t(key(`pillar.${id}`, 'text'))}</p>
+                <span className="lp-space-more">{t('landing.spaces.explore')}</span>
+              </RouterAnchor>
             </li>
           ))}
         </ul>
+      </div>
+    </section>
+  );
+}
+
+/**
+ * Public GitHub ranking for Burkina Faso (committers.top). Each entry opens the GitHub profile in
+ * a new tab. No data, or a failed request, renders no section.
+ */
+function Talents() {
+  const { t, locale } = useI18n();
+  const developers = useLandingTalents().data ?? [];
+  if (developers.length === 0) return null;
+  const number = new Intl.NumberFormat(locale);
+  return (
+    <section id="talents" className="lp-section lp-talents" aria-labelledby="landing-talents">
+      <div className="lp-wrap lp-center">
+        <h2 id="landing-talents" className="lp-h2" {...reveal('up')}>
+          {t('landing.talents.title')}
+        </h2>
+        <ul className="lp-talent-list" aria-label={t('landing.talents.list')}>
+          {developers.map((dev, i) => (
+            <li key={dev.login} {...reveal('up', i)}>
+              <a
+                className="lp-talent"
+                href={`https://github.com/${encodeURIComponent(dev.login)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {dev.avatar_url ? (
+                  <img
+                    src={dev.avatar_url}
+                    alt=""
+                    width={56}
+                    height={56}
+                    loading="lazy"
+                    decoding="async"
+                    referrerPolicy="no-referrer"
+                  />
+                ) : (
+                  <span className="lp-talent-avatar" aria-hidden="true" />
+                )}
+                <span className="lp-talent-rank">
+                  {t('landing.talents.rank', { rank: String(dev.rank) })}
+                </span>
+                <span className="lp-talent-name">{dev.name || dev.login}</span>
+                <span className="lp-talent-meta">
+                  {t('landing.talents.contributions', {
+                    count: number.format(dev.contributions),
+                  })}
+                </span>
+              </a>
+            </li>
+          ))}
+        </ul>
+        <div className="lp-talent-actions" {...reveal('up', developers.length)}>
+          <RouterAnchor href="/connect?source=github&country=BF" className="lp-btn">
+            {t('landing.talents.all')}
+          </RouterAnchor>
+          <RouterAnchor href="/inscription" className="lp-btn lp-btn-ghost">
+            {t('landing.talents.join')}
+          </RouterAnchor>
+        </div>
+        <p className="lp-talent-source">{t('landing.talents.source')}</p>
       </div>
     </section>
   );
@@ -406,14 +537,18 @@ function Join() {
   );
 }
 
-/** `/` for visitors: promise, advantages, spaces, real activity, three steps to sign up. */
+/**
+ * `/` for visitors: promise with search and direct links to the five spaces, the spaces as
+ * entries, the public GitHub talents, advantages, real activity, three steps to sign up.
+ */
 export function LandingPage() {
   const revealRoot = useReveal();
   return (
     <div ref={revealRoot} className="lp-page">
       <Hero />
-      <Why />
       <Spaces />
+      <Talents />
+      <Why />
       <Activity />
       <Join />
     </div>
