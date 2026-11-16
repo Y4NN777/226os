@@ -1144,3 +1144,245 @@
     transition-duration: 0.01ms;
   }
 }
+
+/* ---------- Hero search and direct links to the spaces ---------- */
+.lp-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 560px;
+  min-height: 56px;
+  padding: var(--sp-1) var(--sp-1) var(--sp-1) var(--sp-4);
+  border: 1px solid var(--color-night-line);
+  border-radius: var(--radius-button);
+  background: var(--color-night-hairline);
+}
+.lp-search:focus-within {
+  outline: 2px solid var(--color-night-focus);
+  outline-offset: 3px;
+}
+.lp-search-icon {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  color: var(--color-night-text-secondary);
+}
+.lp-search-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 44px;
+  border: 0;
+  background: transparent;
+  color: var(--color-night-text);
+  font: inherit;
+  font-family: var(--font-product);
+  font-size: 1rem;
+  outline: none;
+}
+.lp-search-input::placeholder {
+  color: var(--color-night-text-secondary);
+  opacity: 1;
+}
+.lp-search-input::-webkit-search-cancel-button {
+  filter: invert(1);
+}
+.lp-search-submit {
+  flex: none;
+}
+.lp-quick ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+.lp-quick-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  box-sizing: border-box;
+  min-height: 44px;
+  padding: 0 var(--sp-4);
+  border: 1px solid var(--color-night-line);
+  border-radius: var(--radius-button);
+  color: var(--color-night-text);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition:
+    background-color var(--duration-fast) ease,
+    border-color var(--duration-fast) ease;
+}
+.lp-quick-link:hover {
+  border-color: var(--color-night-accent);
+  background: var(--color-night-hairline);
+}
+.lp-quick-link svg {
+  width: 18px;
+  height: 18px;
+  color: var(--color-night-accent);
+}
+.lp-hero[data-motion='full'] :is(.lp-search, .lp-quick) {
+  animation: lp-rise var(--duration-entrance) var(--ease-reveal) 180ms both;
+}
+.lp-hero[data-motion='full'][data-live='false'] :is(.lp-search, .lp-quick) {
+  animation-play-state: paused;
+}
+@media (max-width: 399px) {
+  .lp-search-submit {
+    padding: 0 var(--sp-4);
+  }
+}
+
+/* ---------- Spaces as entries ---------- */
+.lp-space-link {
+  display: grid;
+  width: 100%;
+  justify-items: center;
+  align-content: start;
+  gap: var(--sp-2);
+  box-sizing: border-box;
+  height: 100%;
+  padding: var(--sp-6) var(--sp-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-background-surface);
+  color: inherit;
+  text-decoration: none;
+  transition:
+    border-color var(--duration-fast) ease,
+    transform var(--duration-fast) ease;
+}
+.lp-space-link:hover {
+  border-color: var(--color-text-accent);
+  transform: translateY(-2px);
+}
+.lp-space-link:focus-visible {
+  outline: 2px solid var(--focus-outline-color);
+  outline-offset: 3px;
+}
+.lp-space-link .lp-tile {
+  background: var(--color-background-muted);
+}
+.lp-space-more {
+  margin-block-start: var(--sp-2);
+  font-weight: 600;
+  color: var(--color-text-accent);
+}
+.lp-space {
+  flex: 1 1 200px;
+  max-width: 260px;
+}
+.lp-space-wide {
+  flex-basis: 100%;
+  max-width: none;
+}
+.lp-space-wide .lp-h3 {
+  font-size: 1.5rem;
+}
+@media (min-width: 768px) {
+  .lp-space-wide {
+    flex: 1 1 calc(50% - var(--sp-6));
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lp-space-link:hover {
+    transform: none;
+  }
+}
+
+/* ---------- Talents ---------- */
+.lp-talents {
+  background: var(--color-background-surface);
+}
+.lp-talent-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sp-4);
+  width: 100%;
+  max-width: 1100px;
+}
+@media (min-width: 768px) {
+  .lp-talent-list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (min-width: 1024px) {
+  .lp-talent-list {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}
+.lp-talent {
+  display: grid;
+  justify-items: center;
+  gap: var(--sp-1);
+  box-sizing: border-box;
+  height: 100%;
+  min-height: 44px;
+  padding: var(--sp-5) var(--sp-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  color: inherit;
+  text-decoration: none;
+}
+.lp-talent:hover {
+  border-color: var(--color-text-accent);
+}
+.lp-talent:focus-visible {
+  outline: 2px solid var(--focus-outline-color);
+  outline-offset: 3px;
+}
+.lp-talent img,
+.lp-talent-avatar {
+  width: 56px;
+  height: 56px;
+  margin-block-end: var(--sp-2);
+  border-radius: 50%;
+  background: var(--color-background-muted);
+}
+.lp-talent-rank {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-text-accent);
+}
+.lp-talent-name {
+  max-width: 100%;
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lp-talent-meta,
+.lp-talent-source {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+}
+.lp-talent-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--sp-3);
+}
+.lp-btn-ghost {
+  border-color: var(--color-border);
+  background: transparent;
+  color: var(--color-text-primary);
+}
+.lp-btn-ghost:hover {
+  background: var(--color-background-muted);
+}
+/* The hero copy never grows past its column: the search field shrinks instead. */
+.lp-hero-copy {
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+}
+.lp-hero-copy > :is(.lp-search, .lp-quick) {
+  max-width: min(560px, 100%);
+}
+/* Beside the globe: the search and the links stay as narrow as the lede, clear of the map. */
+@media (min-width: 1024px) {
+  .lp-hero-copy > :is(.lp-search, .lp-quick) {
+    max-width: min(480px, 100%);
+  }
+}
