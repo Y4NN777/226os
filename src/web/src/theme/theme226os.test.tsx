@@ -68,10 +68,15 @@ describe('Graphite & Lime theme tokens', () => {
     expect(tokens['--size-element-lg']).toBe('52px');
   });
 
-  it('uses system font stacks only (no remote font)', () => {
-    for (const token of ['--font-family-body', '--font-family-heading', '--font-family-code']) {
-      expect(tokens[token]).toEqual(expect.stringMatching(/^[^@]*$/));
-      expect(String(tokens[token])).not.toMatch(/url\(|https?:/);
-    }
+  it('uses the self-hosted product font for body and headings', () => {
+    expect(tokens['--font-family-body']).toBe('var(--font-product)');
+    expect(tokens['--font-family-heading']).toBe('var(--font-product)');
+    expect(String(tokens['--font-family-code'])).not.toMatch(/url\(|https?:/);
+  });
+
+  it('maps the product shape tokens onto Astryx radius slots', () => {
+    expect(tokens['--radius-container']).toBe('var(--radius-card)');
+    expect(tokens['--radius-page']).toBe('var(--radius-media)');
+    expect(tokens['--radius-full']).toBe('var(--radius-button)');
   });
 });

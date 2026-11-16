@@ -43,11 +43,13 @@ export const tokens: Record<string, Token> = {
   '--size-element-sm': '36px',
   '--size-element-md': '44px',
   '--size-element-lg': '52px',
-  '--font-family-body':
-    'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
-  '--font-family-heading':
-    'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+  '--font-family-body': 'var(--font-product)',
+  '--font-family-heading': 'var(--font-product)',
   '--font-family-code': 'ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace',
+  // Product shape tokens map directly to the matching Astryx slots.
+  '--radius-container': 'var(--radius-card)',
+  '--radius-page': 'var(--radius-media)',
+  '--radius-full': 'var(--radius-button)',
 };
 
 export const theme226os = defineTheme({
@@ -56,6 +58,8 @@ export const theme226os = defineTheme({
   typography: { scale: { base: 16, ratio: 1.2 } },
   tokens,
   components: {
+    // Buttons and link-buttons share the landing's fully rounded silhouette.
+    button: { base: { borderRadius: 'var(--radius-button)' } },
     // Astryx paints the bare track with the muted surface, so a bar at 0 % vanishes on a muted
     // card (the profile checklist). The border tone keeps the track visible on every surface.
     'progress-bar-track': { base: { backgroundColor: 'var(--color-border)' } },

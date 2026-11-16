@@ -269,7 +269,6 @@ function NeedItem({
           <HStack>
             <Button
               variant="primary"
-              size="sm"
               label={t('project.apply')}
               onClick={() => {
                 setApplying(true);
@@ -490,7 +489,6 @@ export function Needs({
         viewer === 'owner' && !adding ? (
           <Button
             variant="secondary"
-            size="sm"
             label={t('project.need.add')}
             onClick={() => {
               setAdding(true);

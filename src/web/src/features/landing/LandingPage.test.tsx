@@ -94,8 +94,8 @@ function healthy(overrides: Routes = {}): Routes {
 async function open(routes: Routes = healthy()) {
   mockApi(routes);
   const view = await renderApp('/');
-  const main = await screen.findByRole('main');
-  await within(main).findByRole('heading', { level: 1 });
+  await screen.findByRole('heading', { level: 1 });
+  const main = screen.getByRole('main');
   return { ...view, main: within(main), mainElement: main };
 }
 
@@ -286,6 +286,13 @@ describe('landing header and footer', () => {
       'Construire',
       'Membres',
     ]);
+    expect(spaces.getAllByRole('link').map((a) => a.getAttribute('href'))).toEqual([
+      '/apprendre',
+      '/solve',
+      '/discover',
+      '/build',
+      '/connect',
+    ]);
     const project = within(footer.getByRole('navigation', { name: 'Projet' }));
     expect(project.getByRole('link', { name: /Code source/ })).toHaveAttribute(
       'href',
@@ -323,10 +330,11 @@ describe('landing header and footer', () => {
 });
 
 describe('scrollbar', () => {
-  it('is hidden on the landing only: the class is set with it and removed when leaving it', async () => {
+  it('keeps the native scrollbar on the landing while clipping horizontal overflow', async () => {
     setLanguages(['fr-FR']);
     const { router } = await open();
-    expect(document.documentElement).toHaveClass('lp-noscroll');
+    expect(document.documentElement).not.toHaveClass('lp-noscroll');
+    expect(document.querySelector('.lp')).toBeInTheDocument();
     await act(async () => {
       await router.navigate({ to: '/discover' });
     });
@@ -335,10 +343,10 @@ describe('scrollbar', () => {
     });
   });
 
-  it('is removed when the page is unmounted', async () => {
+  it('does not change the document scrollbar class when the page is unmounted', async () => {
     setLanguages(['fr-FR']);
     const view = await open();
-    expect(document.documentElement).toHaveClass('lp-noscroll');
+    expect(document.documentElement).not.toHaveClass('lp-noscroll');
     view.unmount();
     expect(document.documentElement).not.toHaveClass('lp-noscroll');
   });

@@ -1,0 +1,102 @@
+.profile-page {
+  gap: var(--sp-6);
+  font-family: var(--font-product);
+}
+
+.profile-page-state {
+  max-width: var(--content-max);
+}
+
+.profile-page-state .ui-state,
+.profile-page-state .ui-skeleton-list {
+  border-radius: var(--radius-card);
+}
+
+.profile-hero {
+  padding: var(--sp-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+}
+
+.profile-hero .ui-page-header,
+.profile-hero .ui-page-header-text {
+  gap: var(--sp-3);
+}
+
+.profile-hero .ui-page-header-row {
+  gap: var(--sp-4);
+}
+
+.profile-bio {
+  max-width: 70ch;
+  margin: 0;
+  line-height: 1.6;
+}
+
+.profile-privacy-note {
+  padding-inline: var(--sp-1);
+}
+
+.profile-checklist .ui-panel {
+  gap: var(--sp-5);
+  padding: var(--sp-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+}
+
+.profile-checklist-progress {
+  width: min(100%, calc(var(--sp-9) + var(--sp-9)));
+}
+
+.profile-checklist ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.profile-checklist li + li {
+  padding-top: var(--sp-4);
+  border-top: 1px solid var(--color-border);
+}
+
+.profile-activity {
+  display: grid;
+  gap: var(--sp-4);
+  min-width: 0;
+}
+
+.profile-activity [role='tabpanel'] {
+  min-width: 0;
+}
+
+.profile-activity :where(.ui-list, .ui-skeleton-list) {
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+}
+
+.profile-activity .ui-row {
+  gap: var(--sp-3);
+  padding: var(--sp-4);
+}
+
+.profile-activity .ui-state {
+  gap: var(--sp-2);
+  padding: var(--sp-7) var(--sp-5);
+  border-radius: var(--radius-card);
+}
+
+@media (min-width: 768px) {
+  .profile-page {
+    gap: var(--sp-7);
+  }
+
+  .profile-hero {
+    padding: var(--sp-6);
+  }
+
+  .profile-activity .ui-row {
+    gap: var(--sp-4);
+    padding: var(--sp-4) var(--sp-5);
+  }
+}

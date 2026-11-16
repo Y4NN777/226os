@@ -1,14 +1,69 @@
-/*
- * Discover pages (prototype pages/discover.html and resource.html). The header, rows, pills,
- * tiles, panels, facts and linked tiles are the shared pieces (src/components, styles/ui.css);
- * only the filter grid, the limitations and the source rows are local. Astryx tokens only.
- */
+/* Discover listing and detail pages, aligned with the landing foundations. */
+
+.discover-page {
+  --_button-radius: var(--radius-button);
+
+  width: min(100%, var(--content-max));
+  margin-inline: auto;
+  gap: var(--sp-6);
+  font-family: var(--font-product);
+}
+.discover-page .ui-page-header {
+  gap: var(--sp-2);
+}
+.discover-page .ui-page-title {
+  font-weight: 700;
+}
+.discover-page .ui-section {
+  gap: var(--sp-3);
+}
+.discover-page .ui-panel,
+.discover-page .ui-state,
+.discover-page .ui-skeleton-list,
+.discover-page .ui-list,
+.discover-page .ui-linked-item {
+  border-radius: var(--radius-card);
+}
+.discover-page .ui-panel {
+  padding: var(--sp-5);
+}
+.discover-page .ui-state {
+  gap: var(--sp-2);
+  padding: var(--sp-8) var(--sp-4);
+}
+.discover-page .ui-state-actions {
+  gap: var(--sp-2);
+  margin-top: var(--sp-2);
+}
+.discover-page .ui-skeleton-row {
+  gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-4);
+}
+.discover-page .ui-card-grid {
+  gap: var(--sp-4);
+}
+.discover-page ul.ui-card-grid.ui-card-grid > .ui-row {
+  gap: var(--sp-3);
+  padding: var(--sp-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: none;
+  transition:
+    transform var(--duration-fast) var(--ease-reveal),
+    background-color var(--duration-fast) var(--ease-reveal);
+}
+.discover-page ul.ui-card-grid > .ui-row:hover {
+  box-shadow: none;
+}
+.discover-page .ui-tile {
+  border-radius: var(--radius-card);
+}
 
 /* Filters: one column on phones, two from 480px, three from 768px. */
 .discover-filters {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: var(--spacing-3);
+  gap: var(--sp-3);
   align-items: end;
 }
 @media (min-width: 480px) {
@@ -23,7 +78,7 @@
 }
 .discover-filter {
   display: grid;
-  gap: var(--spacing-1);
+  gap: var(--sp-1);
   min-width: 0;
 }
 /* The type chips take a whole row so their labels fit; if still too narrow the strip scrolls, never truncates. */
@@ -48,7 +103,7 @@
 .discover-inline-list {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--spacing-1) var(--spacing-3);
+  gap: var(--sp-1) var(--sp-3);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -57,17 +112,17 @@
 /* Limitations: warning-tinted lines with an icon (prototype "Pièges à éviter"). */
 .discover-limits {
   display: grid;
-  gap: var(--spacing-2);
+  gap: var(--sp-2);
   margin: 0;
   padding: 0;
   list-style: none;
 }
 .discover-limits li {
   display: flex;
-  gap: var(--spacing-2);
+  gap: var(--sp-2);
   align-items: baseline;
-  padding: var(--spacing-2) var(--spacing-3);
-  border-radius: var(--radius-element);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--radius-card);
   background: var(--color-warning-muted);
   color: var(--color-on-warning-muted);
   font-size: 0.875rem;
@@ -89,8 +144,8 @@
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: var(--spacing-1) var(--spacing-3);
-  padding: var(--spacing-3) 0;
+  gap: var(--sp-1) var(--sp-3);
+  padding: var(--sp-3) 0;
 }
 .discover-source + .discover-source {
   border-top: 1px solid var(--color-border);
@@ -99,13 +154,19 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--spacing-1) var(--spacing-2);
+  gap: var(--sp-1) var(--sp-2);
   min-width: 0;
 }
 .discover-source-aside {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--spacing-1) var(--spacing-3);
+  gap: var(--sp-1) var(--sp-3);
   font-size: 0.875rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .discover-page .ui-card-grid > .ui-row {
+    transition: none;
+  }
 }

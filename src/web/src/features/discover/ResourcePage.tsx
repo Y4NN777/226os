@@ -257,7 +257,7 @@ function Detail({ resource }: { resource: Resource }) {
   const [isReportOpen, setReportOpen] = useState(false);
   const [isReportSent, setReportSent] = useState(false);
   return (
-    <div className="ui-page">
+    <div className="ui-page discover-page">
       <Header
         resource={resource}
         isReportOpen={isReportOpen}
@@ -285,23 +285,39 @@ function Detail({ resource }: { resource: Resource }) {
   );
 }
 
+function ResourcePageState({ children }: { children: ReactNode }) {
+  return <div className="ui-page discover-page">{children}</div>;
+}
+
 export function ResourcePage() {
   const { t } = useI18n();
   const { resourceId } = useParams({ from: '/app/discover/$resourceId' });
   const resource = useResource(resourceId);
 
-  if (resource.isPending) return <LoadingState />;
+  if (resource.isPending) {
+    return (
+      <ResourcePageState>
+        <LoadingState />
+      </ResourcePageState>
+    );
+  }
   if (resource.isError) {
     if (resource.error instanceof ApiError && resource.error.status === 404) {
       return (
-        <EmptyState
-          headingLevel={1}
-          title={t('discover.notFound.title')}
-          actions={<Button label={t('discover.back')} href="/discover" />}
-        />
+        <ResourcePageState>
+          <EmptyState
+            headingLevel={1}
+            title={t('discover.notFound.title')}
+            actions={<Button label={t('discover.back')} href="/discover" />}
+          />
+        </ResourcePageState>
       );
     }
-    return <ErrorState error={resource.error} onRetry={() => void resource.refetch()} />;
+    return (
+      <ResourcePageState>
+        <ErrorState error={resource.error} onRetry={() => void resource.refetch()} />
+      </ResourcePageState>
+    );
   }
   return <Detail resource={resource.data} />;
 }

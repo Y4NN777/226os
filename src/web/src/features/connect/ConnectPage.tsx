@@ -27,6 +27,7 @@ import { GithubDevRow } from './GithubDevRow';
 import { PersonRow } from './PersonRow';
 import { useProfileDirectory } from './queries';
 import { languageTag, skillTag, validateConnectSearch, type ConnectSearch } from './routeSearch';
+import './connect.css';
 
 function Filters({
   search,
@@ -46,6 +47,7 @@ function Filters({
   const country = search.country;
   return (
     <form
+      className="connect-filters"
       aria-label={t('connect.filters.label')}
       onSubmit={(event) => {
         event.preventDefault();
@@ -61,7 +63,7 @@ function Filters({
       }}
     >
       {/* The prototype's filter bar: one borderless panel holding the three filters. */}
-      <div className="ui-panel ui-filter-bar">
+      <div className="ui-panel ui-filter-bar connect-filter-panel">
         <HStack gap={3} vAlign="end" wrap="wrap">
           <Selector
             label={t('connect.country.label')}
@@ -162,27 +164,29 @@ const spaces: readonly {
 function SpacesSoon() {
   const { t } = useI18n();
   return (
-    <Section
-      title={t('connect.spaces.title')}
-      titleAside={<StatusBadge kind="later" label={t('connect.spaces.badge')} />}
-    >
-      <Text as="p" type="supporting">
-        {t('connect.soon')}
-      </Text>
-      <div className="ui-panel">
-        <VStack as="ul" gap={0}>
-          {spaces.map((space, index) => (
-            <li key={space.key}>
-              <HStack gap={3} vAlign="start" wrap="nowrap" paddingBlock={2}>
-                <Icon icon={space.icon} color="secondary" />
-                <Text weight="semibold">{t(`connect.space.${space.key}`)}</Text>
-              </HStack>
-              {index < spaces.length - 1 ? <Divider variant="subtle" /> : null}
-            </li>
-          ))}
-        </VStack>
-      </div>
-    </Section>
+    <div className="connect-spaces">
+      <Section
+        title={t('connect.spaces.title')}
+        titleAside={<StatusBadge kind="later" label={t('connect.spaces.badge')} />}
+      >
+        <Text as="p" type="supporting">
+          {t('connect.soon')}
+        </Text>
+        <div className="ui-panel connect-spaces-panel">
+          <VStack as="ul" gap={0}>
+            {spaces.map((space, index) => (
+              <li key={space.key}>
+                <HStack gap={3} vAlign="start" wrap="nowrap" paddingBlock={2}>
+                  <Icon icon={space.icon} color="secondary" />
+                  <Text weight="semibold">{t(`connect.space.${space.key}`)}</Text>
+                </HStack>
+                {index < spaces.length - 1 ? <Divider variant="subtle" /> : null}
+              </li>
+            ))}
+          </VStack>
+        </div>
+      </Section>
+    </div>
   );
 }
 
@@ -270,7 +274,7 @@ export function ConnectPage() {
   );
 
   return (
-    <div className="ui-page">
+    <div className="ui-page connect-page">
       <PageHeader
         title={t('connect.title')}
         breadcrumbs={[{ label: t('nav.home'), href: '/' }, { label: t('connect.title') }]}
@@ -281,37 +285,39 @@ export function ConnectPage() {
         search={search}
         seenCountries={seenCountries}
       />
-      {showMembers ? (
-        <Section title={t('connect.results.label')}>
-          {status}
-          {items.length > 0 ? (
-            <VStack gap={4}>
-              <List label={t('connect.results.label')}>
-                {items.map((person) => (
-                  <PersonRow key={person.username} person={person} />
-                ))}
-              </List>
-              {external.length === 0 ? more : null}
-            </VStack>
-          ) : null}
-        </Section>
-      ) : null}
-      {!showMembers || external.length > 0 ? (
-        <Section title={t('connect.external.title')}>
-          {showMembers ? null : status}
-          {external.length > 0 ? (
-            <VStack gap={4}>
-              <List label={t('connect.external.title')}>
-                {external.map((dev) => (
-                  <GithubDevRow key={`${dev.country}/${dev.login}`} dev={dev} />
-                ))}
-              </List>
-              {more}
-              {firstExternal ? <ExternalFooter generatedAt={firstExternal.generated_at} /> : null}
-            </VStack>
-          ) : null}
-        </Section>
-      ) : null}
+      <div className="connect-results">
+        {showMembers ? (
+          <Section title={t('connect.results.label')}>
+            {status}
+            {items.length > 0 ? (
+              <VStack gap={4}>
+                <List label={t('connect.results.label')}>
+                  {items.map((person) => (
+                    <PersonRow key={person.username} person={person} />
+                  ))}
+                </List>
+                {external.length === 0 ? more : null}
+              </VStack>
+            ) : null}
+          </Section>
+        ) : null}
+        {!showMembers || external.length > 0 ? (
+          <Section title={t('connect.external.title')}>
+            {showMembers ? null : status}
+            {external.length > 0 ? (
+              <VStack gap={4}>
+                <List label={t('connect.external.title')}>
+                  {external.map((dev) => (
+                    <GithubDevRow key={`${dev.country}/${dev.login}`} dev={dev} />
+                  ))}
+                </List>
+                {more}
+                {firstExternal ? <ExternalFooter generatedAt={firstExternal.generated_at} /> : null}
+              </VStack>
+            ) : null}
+          </Section>
+        ) : null}
+      </div>
       <SpacesSoon />
     </div>
   );

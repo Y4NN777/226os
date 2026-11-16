@@ -1,0 +1,61 @@
+.connect-page {
+  gap: var(--sp-6);
+  font-family: var(--font-product);
+}
+
+.connect-filter-panel {
+  padding: var(--sp-3);
+  border-radius: var(--radius-card);
+}
+
+.connect-results .ui-section,
+.connect-spaces .ui-section {
+  gap: var(--sp-4);
+}
+
+.connect-results :where(.ui-list, .ui-skeleton-list) {
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+}
+
+.connect-results .ui-row {
+  gap: var(--sp-3);
+  padding: var(--sp-4);
+}
+
+.connect-results .ui-state {
+  gap: var(--sp-2);
+  padding: var(--sp-7) var(--sp-5);
+  border-radius: var(--radius-card);
+}
+
+.connect-spaces-panel {
+  padding: var(--sp-3) var(--sp-5);
+  border-radius: var(--radius-card);
+}
+
+.connect-spaces-panel ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.connect-spaces-panel li > div:first-child {
+  min-height: var(--sp-7);
+}
+
+@media (min-width: 768px) {
+  .connect-page {
+    gap: var(--sp-7);
+  }
+
+  .connect-filter-panel {
+    padding: var(--sp-4);
+  }
+
+  .connect-results .ui-row {
+    gap: var(--sp-4);
+    padding: var(--sp-4) var(--sp-5);
+  }
+}

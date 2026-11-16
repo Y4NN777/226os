@@ -107,6 +107,7 @@ export function VerifyEmailPage() {
         <VStack gap={4}>
           <CardHead title={t('identity.verify.done.title')} lede={t('identity.verify.done.body')} />
           <Button
+            className="acc-link-button"
             variant="primary"
             href="/connexion?next=/bienvenue"
             label={t('identity.verify.done.signIn')}
@@ -133,7 +134,11 @@ export function VerifyEmailPage() {
                 setPhase('form');
               }}
             />
-            <Button href="/inscription" label={t('identity.verify.invalid.signUp')} />
+            <Button
+              className="acc-link-button"
+              href="/inscription"
+              label={t('identity.verify.invalid.signUp')}
+            />
           </HStack>
           <SwitchLine>{resendButton}</SwitchLine>
         </VStack>

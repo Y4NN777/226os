@@ -24,7 +24,7 @@ import {
 import { TextInput } from '@astryxdesign/core/TextInput';
 import { TopNav } from '@astryxdesign/core/TopNav';
 import { Outlet, useNavigate, useRouterState } from '@tanstack/react-router';
-import { useCallback, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Brand } from '../components/Brand';
 import { RouterAnchor } from '../components/RouterAnchor';
 import {
@@ -41,6 +41,7 @@ import {
   SunIcon,
   UserIcon,
   UserPlusIcon,
+  XIcon,
 } from '../components/icons';
 import { LandingLayout } from '../features/landing/LandingChrome';
 import { useI18n } from '../i18n/I18nProvider';
@@ -63,7 +64,10 @@ const endonyms: Record<Locale, string> = { fr: 'Français', en: 'English' };
 const themeModes: readonly ThemeMode[] = ['light', 'dark', 'system'];
 
 /** Site-wide search: submitting goes to the search page with the query (`/recherche?q=`). */
-function HeaderSearch() {
+function HeaderSearch({
+  onSubmit,
+  onEscape,
+}: { onSubmit?: () => void; onEscape?: () => void } = {}) {
   const { t } = useI18n();
   const navigate = useNavigate();
   const [value, setValue] = useState('');
@@ -75,6 +79,7 @@ function HeaderSearch() {
       onSubmit={(event) => {
         event.preventDefault();
         const q = value.trim();
+        onSubmit?.();
         void navigate({ to: '/recherche', search: q ? { q } : {} });
       }}
     >
@@ -90,15 +95,83 @@ function HeaderSearch() {
         enterKeyHint="search"
         autoComplete="off"
         width="100%"
+        onKeyDown={(event) => {
+          if (event.key === 'Escape' && onEscape) {
+            event.preventDefault();
+            onEscape();
+          }
+        }}
       />
     </form>
   );
 }
 
-/** On a phone the top bar has no room for the field: it opens the page, above the content. */
-function MobileSearch() {
+/** The full search field stays in the desktop top bar. */
+function DesktopSearch() {
   const { isMobile } = useAppShellMobile();
-  return isMobile ? <HeaderSearch /> : null;
+  return isMobile ? null : <HeaderSearch />;
+}
+
+/**
+ * On a phone, one icon opens a search overlay in the single-row header. Escape closes it and
+ * returns focus to the icon, matching the landing header's compact rhythm without hiding search.
+ */
+function MobileHeaderSearch() {
+  const { t } = useI18n();
+  const { isMobile } = useAppShellMobile();
+  const [isOpen, setOpen] = useState(false);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const panel = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      panel.current?.querySelector<HTMLInputElement>('input')?.focus();
+    }
+  }, [isOpen]);
+
+  const close = () => {
+    setOpen(false);
+    requestAnimationFrame(() => {
+      trigger.current?.focus();
+    });
+  };
+
+  if (!isMobile) return null;
+  return (
+    <span className="shell-mobile-search">
+      <IconButton
+        ref={trigger}
+        variant="ghost"
+        label={t('shell.search')}
+        icon={<Icon icon={SearchIcon} size="md" />}
+        aria-hidden={isOpen || undefined}
+        aria-expanded={isOpen}
+        aria-controls="shell-mobile-search-panel"
+        tabIndex={isOpen ? -1 : undefined}
+        onClick={() => {
+          setOpen(true);
+        }}
+      />
+      {isOpen ? (
+        <div ref={panel} id="shell-mobile-search-panel" className="shell-mobile-search-panel">
+          <HeaderSearch
+            onSubmit={() => {
+              setOpen(false);
+            }}
+            onEscape={close}
+          />
+          <IconButton
+            variant="ghost"
+            label={t('shell.search')}
+            icon={<Icon icon={XIcon} size="md" />}
+            aria-expanded="true"
+            aria-controls="shell-mobile-search-panel"
+            onClick={close}
+          />
+        </div>
+      ) : null}
+    </span>
+  );
 }
 
 function ThemeToggle() {
@@ -165,8 +238,33 @@ function ThemeGroup() {
   );
 }
 
+function PreferencesMenu() {
+  const { t } = useI18n();
+  return (
+    <DropdownMenu
+      alignment="end"
+      hasChevron={false}
+      renderTrigger={(props) => (
+        <IconButton
+          {...props}
+          variant="ghost"
+          label={t('account.prefs')}
+          icon={<Icon icon={GlobeIcon} size="md" />}
+        />
+      )}
+    >
+      <LanguageGroup />
+      <DropdownMenuDivider />
+      <ThemeGroup />
+      <DropdownMenuDivider />
+      <DropdownMenuItem label={t('account.settings')} href="/parametres" />
+    </DropdownMenu>
+  );
+}
+
 function AccountArea({ onSignOut }: { onSignOut: () => void }) {
   const { t } = useI18n();
+  const { isMobile } = useAppShellMobile();
   const session = useSession();
   if (session.isPending) return null;
   const user = session.data?.authenticated ? session.data.user : null;
@@ -196,26 +294,19 @@ function AccountArea({ onSignOut }: { onSignOut: () => void }) {
       </DropdownMenu>
     );
   }
+  if (isMobile) {
+    return (
+      <Button
+        className="shell-sign-up"
+        label={t('account.signUp')}
+        href="/inscription"
+        variant="primary"
+      />
+    );
+  }
   return (
     <>
-      <DropdownMenu
-        alignment="end"
-        hasChevron={false}
-        renderTrigger={(props) => (
-          <IconButton
-            {...props}
-            variant="ghost"
-            label={t('account.prefs')}
-            icon={<Icon icon={GlobeIcon} size="md" />}
-          />
-        )}
-      >
-        <LanguageGroup />
-        <DropdownMenuDivider />
-        <ThemeGroup />
-        <DropdownMenuDivider />
-        <DropdownMenuItem label={t('account.settings')} href="/parametres" />
-      </DropdownMenu>
+      <PreferencesMenu />
       <span className="shell-auth">
         <Button label={t('account.signIn')} href="/connexion" variant="ghost" />
         <Button label={t('account.signUp')} href="/inscription" variant="primary" />
@@ -359,7 +450,9 @@ function useSideNavCollapsed() {
 function useIsLanding() {
   const session = useSession();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
-  return pathname === '/' && !session.data?.authenticated;
+  if (pathname !== '/') return false;
+  if (session.isPending) return null;
+  return !session.data?.authenticated;
 }
 
 function PrimaryNav({
@@ -412,26 +505,33 @@ function DrawerAccount({ onSignOut }: { onSignOut: () => void }) {
   if (session.isPending) return null;
   const user = session.data?.authenticated ? session.data.user : null;
   return (
-    <SideNavSection title={t('shell.account')} isHeaderHidden>
-      {user ? (
-        <>
-          <SideNavItem
-            label={t('account.profile')}
-            icon={UserIcon}
-            href={`/profils/${user.username}`}
-          />
-          <SideNavItem label={t('account.write')} icon={EditIcon} href="/ecrire" />
-          <SideNavItem label={t('account.settings')} icon={SettingsIcon} href="/parametres" />
-          <SideNavItem label={t('account.signOut')} icon={LogOutIcon} onClick={onSignOut} />
-        </>
-      ) : (
-        <>
-          <SideNavItem label={t('account.signIn')} icon={LogInIcon} href="/connexion" />
-          <SideNavItem label={t('account.signUp')} icon={UserPlusIcon} href="/inscription" />
-          <SideNavItem label={t('account.settings')} icon={SettingsIcon} href="/parametres" />
-        </>
-      )}
-    </SideNavSection>
+    <>
+      <SideNavSection title={t('shell.account')} isHeaderHidden>
+        {user ? (
+          <>
+            <SideNavItem
+              label={t('account.profile')}
+              icon={UserIcon}
+              href={`/profils/${user.username}`}
+            />
+            <SideNavItem label={t('account.write')} icon={EditIcon} href="/ecrire" />
+            <SideNavItem label={t('account.settings')} icon={SettingsIcon} href="/parametres" />
+            <SideNavItem label={t('account.signOut')} icon={LogOutIcon} onClick={onSignOut} />
+          </>
+        ) : (
+          <>
+            <SideNavItem label={t('account.signIn')} icon={LogInIcon} href="/connexion" />
+            <SideNavItem label={t('account.signUp')} icon={UserPlusIcon} href="/inscription" />
+            <SideNavItem label={t('account.settings')} icon={SettingsIcon} href="/parametres" />
+          </>
+        )}
+      </SideNavSection>
+      {!user ? (
+        <div className="shell-drawer-preferences">
+          <PreferencesMenu />
+        </div>
+      ) : null}
+    </>
   );
 }
 
@@ -506,6 +606,15 @@ export function Shell() {
   const session = useSession();
   const isLanding = useIsLanding();
   const [isCollapsed, setCollapsed] = useSideNavCollapsed();
+  // The identity of `/` is intentionally undecided until the session is known. Rendering only
+  // the route's loading state inside this neutral frame prevents either chrome from flashing.
+  if (isLanding === null) {
+    return (
+      <main className="shell-neutral-frame">
+        <Outlet />
+      </main>
+    );
+  }
   // The public landing has its own header and footer, not the app's.
   if (isLanding) {
     return (
@@ -531,9 +640,10 @@ export function Shell() {
             label={t('nav.top')}
             className="shell-topnav"
             heading={<Brand />}
-            centerContent={<HeaderSearch />}
+            centerContent={<DesktopSearch />}
             endContent={
               <span className="shell-actions">
+                <MobileHeaderSearch />
                 <ThemeToggle />
                 <AccountArea onSignOut={onSignOut} />
                 <AskButton />
@@ -558,7 +668,6 @@ export function Shell() {
         }}
       >
         <div className="shell-page">
-          <MobileSearch />
           <Outlet />
         </div>
         <BottomNav />

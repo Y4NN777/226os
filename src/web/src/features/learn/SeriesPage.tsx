@@ -36,7 +36,7 @@ function Detail({ series }: { series: TrainingSeries }) {
     n: lessons.length,
   });
   return (
-    <VStack gap={6}>
+    <VStack className="learn-page" gap={6}>
       <Breadcrumbs label={t('learn.title')} variant="supporting">
         <BreadcrumbItem href="/apprendre">{t('learn.title')}</BreadcrumbItem>
         <BreadcrumbItem isCurrent>{series.title}</BreadcrumbItem>

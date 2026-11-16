@@ -31,6 +31,7 @@ import { Activity } from './Activity';
 import { Checklist } from './Checklist';
 import { githubProfileUrl } from './github';
 import { isProfileMissing, useProfile, type PublicProfile } from './queries';
+import './profile.css';
 
 /**
  * The prototype's profile hero: avatar, name and handle, one meta line (country, languages, join
@@ -100,7 +101,7 @@ function Hero({ profile, isOwn }: { profile: PublicProfile; isOwn: boolean }) {
             {t('profile.empty', { name: profile.display_name })}
           </Text>
         ) : null}
-        {profile.bio ? <p>{profile.bio}</p> : null}
+        {profile.bio ? <p className="profile-bio">{profile.bio}</p> : null}
         {profile.skills && profile.skills.length > 0 ? <TagList tags={profile.skills} /> : null}
         {profile.open_to_collab || githubUrl ? (
           <Meta>
@@ -123,10 +124,12 @@ function Hero({ profile, isOwn }: { profile: PublicProfile; isOwn: boolean }) {
 function PrivacyNote() {
   const { t } = useI18n();
   return (
-    <Meta>
-      <MetaItem icon={LockIcon}>{t('profile.privacy')}</MetaItem>
-      <Link href="/parametres#confidentialite">{t('profile.privacy.link')}</Link>
-    </Meta>
+    <div className="profile-privacy-note">
+      <Meta>
+        <MetaItem icon={LockIcon}>{t('profile.privacy')}</MetaItem>
+        <Link href="/parametres#confidentialite">{t('profile.privacy.link')}</Link>
+      </Meta>
+    </div>
   );
 }
 
@@ -141,19 +144,33 @@ export function ProfilePage() {
 
   if (!wellFormed || (query.isError && isProfileMissing(query.error))) {
     return (
-      <EmptyState
-        headingLevel={1}
-        title={t('profile.notFound.title')}
-        description={t('profile.notFound.body')}
-        actions={<Button label={t('profile.back')} href="/" />}
-      />
+      <div className="ui-page profile-page profile-page-state">
+        <EmptyState
+          headingLevel={1}
+          title={t('profile.notFound.title')}
+          description={t('profile.notFound.body')}
+          actions={<Button label={t('profile.back')} href="/" />}
+        />
+      </div>
     );
   }
-  if (!query.isError && !query.data) return <LoadingState />;
-  if (query.isError) return <ErrorState error={query.error} onRetry={() => void query.refetch()} />;
+  if (!query.isError && !query.data) {
+    return (
+      <div className="ui-page profile-page profile-page-state">
+        <LoadingState />
+      </div>
+    );
+  }
+  if (query.isError) {
+    return (
+      <div className="ui-page profile-page profile-page-state">
+        <ErrorState error={query.error} onRetry={() => void query.refetch()} />
+      </div>
+    );
+  }
 
   return (
-    <div className="ui-page">
+    <div className="ui-page profile-page">
       <Breadcrumbs
         items={[
           { label: t('nav.home'), href: '/' },
