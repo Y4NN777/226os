@@ -22,8 +22,8 @@ interface Section {
   label: MessageKey;
 }
 const sections: readonly Section[] = [
-  { id: 'avantages', label: 'landing.nav.why' },
   { id: 'espaces', label: 'landing.nav.spaces' },
+  { id: 'avantages', label: 'landing.nav.why' },
   { id: 'activite', label: 'landing.nav.activity' },
   { id: 'rejoindre', label: 'landing.nav.join' },
 ];

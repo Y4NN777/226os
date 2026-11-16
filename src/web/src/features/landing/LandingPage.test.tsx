@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { components } from '../../api/schema';
 import { catalogs } from '../../i18n/messages';
-import { memberSession, mockApi, problemResponse, type Routes } from '../../test/api';
+import { callsTo, memberSession, mockApi, problemResponse, type Routes } from '../../test/api';
 import { jsonResponse, renderApp, setLanguages } from '../../test/render';
 
 type Question = components['schemas']['Question'];
@@ -79,9 +79,29 @@ const page = (items: unknown[], total?: number, more = false) =>
     ...(total === undefined ? {} : { total }),
   });
 
+type External = components['schemas']['ExternalDeveloper'];
+
+function developer(n: number): External {
+  return {
+    login: `dev${String(n)}`,
+    name: `Développeur ${String(n)}`,
+    avatar_url: `https://avatars.githubusercontent.com/u/${String(n)}?v=4`,
+    country: 'BF',
+    rank: n,
+    contributions: 1000 - n,
+    organizations: [],
+    generated_at: '2026-11-15T10:00:00Z',
+    source: 'committers.top',
+  };
+}
+
+const talents = (external: External[]) => () =>
+  jsonResponse({ items: [], next_cursor: null, external });
+
 /** A full, healthy API; each test overrides what it needs. */
 function healthy(overrides: Routes = {}): Routes {
   return {
+    'GET /profiles': talents([1, 2, 3, 4, 5, 6].map(developer)),
     'GET /questions': () =>
       page([question(1, ['go', 'cors']), question(2), question(3), question(4)], 1280, true),
     'GET /learn/articles': () => page([article], 9),
@@ -156,29 +176,58 @@ afterEach(() => {
 });
 
 describe('hero', () => {
-  it('states one promise and offers one call to action, to the sign-up page', async () => {
+  const h1Fr = 'Les projets avancent mieux à plusieurs';
+
+  it('states one promise and offers the sign-up call to action', async () => {
     setLanguages(['fr-FR']);
     const { main } = await open();
-    const heading = main.getByRole('heading', {
-      level: 1,
-      name: 'Les projets avancent mieux à plusieurs',
-    });
+    const heading = main.getByRole('heading', { level: 1, name: h1Fr });
     expect(heading).toBeInTheDocument();
-    const hero = within(
-      main.getByRole('region', { name: 'Les projets avancent mieux à plusieurs' }),
-    );
-    expect(hero.getAllByRole('link')).toHaveLength(1);
+    const hero = within(main.getByRole('region', { name: h1Fr }));
     expect(hero.getByRole('link', { name: 'Créer un compte' })).toHaveAttribute(
       'href',
       '/inscription',
     );
     expect(
       hero.getByText(
-        'Entraide, tutoriels, API et projets entre développeurs d’Afrique et d’ailleurs.',
+        'Trouvez une API de paiement mobile ou de SMS, posez votre question avec votre code, repérez les développeurs de votre pays et publiez votre projet open source.',
       ),
     ).toBeInTheDocument();
     // The accent is on the last words only.
     expect(heading.querySelector('.lp-accent')).toHaveTextContent('à plusieurs');
+  });
+
+  it('searches the site from the hero, without an account', async () => {
+    setLanguages(['fr-FR']);
+    const { main, router } = await open();
+    const hero = within(main.getByRole('region', { name: h1Fr }));
+    const form = hero.getByRole('search', { name: 'Rechercher sur 226os' });
+    expect(form).toHaveAttribute('action', '/recherche');
+    expect(form).toHaveAttribute('method', 'get');
+    const input = within(form).getByRole('searchbox', { name: 'Rechercher sur 226os' });
+    expect(input).toHaveAttribute('name', 'q');
+    expect(input).toHaveAttribute('placeholder', 'Une API, une question, un développeur…');
+    const user = userEvent.setup({ delay: null });
+    await user.type(input, ' orange money ');
+    await user.click(within(form).getByRole('button', { name: 'Rechercher' }));
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe('/recherche');
+    });
+    expect(router.state.location.search).toEqual({ q: 'orange money' });
+  });
+
+  it('links to the five spaces from the hero, Découvrir and Connect first', async () => {
+    setLanguages(['fr-FR']);
+    const { main } = await open();
+    const hero = within(main.getByRole('region', { name: h1Fr }));
+    const quick = within(hero.getByRole('navigation', { name: 'Accès direct aux espaces' }));
+    expect(quick.getAllByRole('link').map((a) => [a.textContent, a.getAttribute('href')])).toEqual([
+      ['Découvrir', '/discover'],
+      ['Connect', '/connect'],
+      ['Résoudre', '/solve'],
+      ['Apprendre', '/apprendre'],
+      ['Construire', '/build'],
+    ]);
   });
 
   it('draws a decorative globe, hidden from assistive technology, with arcs across the continent', async () => {
@@ -203,8 +252,8 @@ describe('landing header and footer', () => {
     expect(banner.getByRole('link', { name: 'Accueil 226os' })).toHaveAttribute('href', '#accueil');
     const nav = within(await banner.findByRole('navigation', { name: 'Sections de la page' }));
     expect(nav.getAllByRole('link').map((a) => [a.textContent, a.getAttribute('href')])).toEqual([
-      ['Avantages', '#avantages'],
       ['Espaces', '#espaces'],
+      ['Avantages', '#avantages'],
       ['Activité', '#activite'],
       ['Rejoindre', '#rejoindre'],
     ]);
@@ -218,8 +267,8 @@ describe('landing header and footer', () => {
       'href',
       '/inscription',
     );
-    // No site search for a visitor.
-    expect(screen.queryByRole('search')).not.toBeInTheDocument();
+    // No app search bar in the header for a visitor: the search is in the hero.
+    expect(banner.queryByRole('search')).not.toBeInTheDocument();
     expect(screen.queryByRole('navigation', { name: 'Barre du site' })).not.toBeInTheDocument();
   });
 
@@ -267,7 +316,10 @@ describe('landing header and footer', () => {
     ).toBeInTheDocument();
     await user.click(screen.getByRole('menuitemradio', { name: 'English' }));
     expect(
-      await main.findByRole('heading', { level: 1, name: 'Projects move faster together' }),
+      await main.findByRole('heading', {
+        level: 1,
+        name: 'Projects move faster together',
+      }),
     ).toBeInTheDocument();
   });
 
@@ -284,7 +336,7 @@ describe('landing header and footer', () => {
       'Résoudre',
       'Découvrir',
       'Construire',
-      'Membres',
+      'Connect',
     ]);
     expect(spaces.getAllByRole('link').map((a) => a.getAttribute('href'))).toEqual([
       '/apprendre',
@@ -352,15 +404,18 @@ describe('scrollbar', () => {
   });
 });
 
-describe('every call to action leads to sign-up', () => {
-  it('sends each link of the page to /inscription or to a section, and never into the app', async () => {
+describe('every link leads somewhere real', () => {
+  it('sends each link to sign-up, a section, a public space or a GitHub profile', async () => {
     setLanguages(['fr-FR']);
     const { mainElement, main } = await open();
     await main.findByRole('list', { name: 'Dernières publications' });
+    await main.findByRole('region', { name: 'Les talents d’Afrique de l’Ouest' });
     const links = [...mainElement.querySelectorAll('a')];
     expect(links.length).toBeGreaterThanOrEqual(2);
     for (const link of links) {
-      expect(link.getAttribute('href'), link.textContent).toMatch(/^(\/inscription|#)/);
+      expect(link.getAttribute('href'), link.textContent).toMatch(
+        /^(\/inscription$|#|\/(discover|connect|solve|apprendre|build)(\?|$)|https:\/\/github\.com\/[\w-]+$)/,
+      );
     }
     for (const link of main.getAllByRole('link', { name: 'Créer un compte' })) {
       expect(link).toHaveAttribute('href', '/inscription');
@@ -373,20 +428,22 @@ describe('sections', () => {
     setLanguages(['fr-FR']);
     const { mainElement, main } = await open();
     await main.findByRole('list', { name: 'Dernières publications' });
+    await main.findByRole('region', { name: 'Les talents d’Afrique de l’Ouest' });
     const titles = [...mainElement.querySelectorAll('section[id]')].map((s) => [
       s.id,
       s.querySelector('h1, h2')?.textContent,
     ]);
     expect(titles).toEqual([
       ['accueil', 'Les projets avancent mieux à plusieurs'],
-      ['avantages', 'Des réponses qui tiennent la route'],
       ['espaces', 'Cinq espaces, un seul compte'],
+      ['talents', 'Les talents d’Afrique de l’Ouest'],
+      ['avantages', 'Des réponses qui tiennent la route'],
       ['activite', 'Ce qui s’écrit en ce moment'],
       ['rejoindre', 'Entrez en trois étapes'],
     ]);
   });
 
-  it('lists at most four advantages and five spaces, the directory being named « Membres »', async () => {
+  it('lists at most four advantages and five spaces as links, Découvrir and Connect first', async () => {
     setLanguages(['fr-FR']);
     const { main } = await open();
     const why = within(main.getByRole('region', { name: 'Des réponses qui tiennent la route' }));
@@ -398,18 +455,28 @@ describe('sections', () => {
     ]);
     const spaces = within(main.getByRole('region', { name: 'Cinq espaces, un seul compte' }));
     expect(spaces.getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual([
-      'Apprendre',
-      'Résoudre',
       'Découvrir',
+      'Connect',
+      'Résoudre',
+      'Apprendre',
       'Construire',
-      'Membres',
     ]);
-    // Compact: no big card.
     expect(spaces.getAllByRole('listitem')).toHaveLength(5);
-    expect(document.querySelector('.lp-space-big')).toBeNull();
-    // Previews, not entries: the cards are not links.
-    expect(spaces.queryAllByRole('link')).toHaveLength(0);
-    expect(main.queryByText('Connect')).not.toBeInTheDocument();
+    // Every card is an entry into its space, with a visible affordance.
+    const links = spaces.getAllByRole('link');
+    expect(links.map((a) => a.getAttribute('href'))).toEqual([
+      '/discover',
+      '/connect',
+      '/solve',
+      '/apprendre',
+      '/build',
+    ]);
+    for (const link of links) expect(link).toHaveTextContent('Explorer →');
+    // Découvrir and Connect carry more weight.
+    expect(links.slice(0, 2).every((a) => a.closest('.lp-space-wide'))).toBe(true);
+    expect(links.slice(2).some((a) => a.closest('.lp-space-wide'))).toBe(false);
+    // The section follows the hero straight away.
+    expect(document.getElementById('accueil')?.nextElementSibling?.id).toBe('espaces');
   });
 
   it('explains the three steps and ends on the sign-up button', async () => {
@@ -725,6 +792,77 @@ describe('scroll reveals', () => {
   });
 });
 
+describe('talents: public GitHub ranking', () => {
+  it('asks the API for six GitHub developers from Burkina Faso', async () => {
+    setLanguages(['fr-FR']);
+    const fetchMock = mockApi(healthy());
+    await renderApp('/');
+    await screen.findByRole('region', { name: 'Les talents d’Afrique de l’Ouest' });
+    const url = new URL(callsTo(fetchMock, 'GET /profiles')[0]?.url ?? 'http://x');
+    expect(url.searchParams.get('source')).toBe('github');
+    expect(url.searchParams.get('country')).toBe('BF');
+    expect(url.searchParams.get('limit')).toBe('6');
+  });
+
+  it('shows six developers with rank, name, contributions, avatar and GitHub link', async () => {
+    setLanguages(['fr-FR']);
+    const { main } = await open(
+      healthy({ 'GET /profiles': talents([1, 2, 3, 4, 5, 6, 7].map(developer)) }),
+    );
+    const region = within(
+      await main.findByRole('region', { name: 'Les talents d’Afrique de l’Ouest' }),
+    );
+    const list = within(region.getByRole('list', { name: 'Classement GitHub' }));
+    const entries = list.getAllByRole('listitem');
+    expect(entries).toHaveLength(6);
+    expect(within(entries[0] as HTMLElement).getByText('n° 1')).toBeInTheDocument();
+    expect(within(entries[0] as HTMLElement).getByText('Développeur 1')).toBeInTheDocument();
+    expect(within(entries[0] as HTMLElement).getByText('999 contributions')).toBeInTheDocument();
+    const links = list.getAllByRole('link');
+    expect(links).toHaveLength(6);
+    expect(links[0]).toHaveAttribute('href', 'https://github.com/dev1');
+    for (const link of links) {
+      expect(link).toHaveAttribute('target', '_blank');
+      expect(link.getAttribute('rel')).toMatch(/noopener/);
+      const img = link.querySelector('img');
+      expect(img?.getAttribute('src')).toMatch(/^https:\/\/avatars\.githubusercontent\.com\//);
+      expect(img).toHaveAttribute('referrerpolicy', 'no-referrer');
+      expect(img).toHaveAttribute('loading', 'lazy');
+    }
+    expect(region.getByRole('link', { name: 'Voir tout le classement' })).toHaveAttribute(
+      'href',
+      '/connect?source=github&country=BF',
+    );
+    expect(region.getByRole('link', { name: 'C’est vous ? Rejoignez 226os' })).toHaveAttribute(
+      'href',
+      '/inscription',
+    );
+    expect(
+      region.getByText('Source : committers.top · données publiques GitHub'),
+    ).toBeInTheDocument();
+  });
+
+  it('never loads an avatar from another host', async () => {
+    setLanguages(['fr-FR']);
+    const evil = { ...developer(1), avatar_url: 'https://tracker.example/a.png' };
+    const { main } = await open(healthy({ 'GET /profiles': talents([evil, developer(2)]) }));
+    const region = await main.findByRole('region', { name: 'Les talents d’Afrique de l’Ouest' });
+    expect(region.querySelector('img[src^="https://tracker.example"]')).toBeNull();
+    expect(within(region).getByText('Développeur 1')).toBeInTheDocument();
+  });
+
+  it.each([
+    ['fails', () => problemResponse(503, 'SERVICE_UNAVAILABLE')],
+    ['has no external entry', talents([])],
+  ])('renders nothing when the request %s', async (_, handler) => {
+    setLanguages(['fr-FR']);
+    const { main } = await open(healthy({ 'GET /profiles': handler }));
+    await main.findByRole('list', { name: 'Dernières publications' });
+    expect(document.getElementById('talents')).toBeNull();
+    expect(main.queryByText(/committers\.top/)).not.toBeInTheDocument();
+  });
+});
+
 describe('one language per page', () => {
   /** Everything a reader or a screen reader gets from the page: text and accessible names. */
   function pageText() {
@@ -748,7 +886,6 @@ describe('one language per page', () => {
       if (english === french || french.includes(english) || key === 'landing.live.by') continue;
       expect(text, key).not.toContain(english);
     }
-    expect(text).not.toMatch(/\bConnect\b/);
   });
 
   it('is fully English in English, with no French label', async () => {
@@ -763,7 +900,30 @@ describe('one language per page', () => {
       expect(text, key).not.toContain(french);
     }
     expect(
-      main.getByRole('heading', { level: 1, name: 'Projects move faster together' }),
+      main.getByRole('heading', {
+        level: 1,
+        name: 'Projects move faster together',
+      }),
+    ).toBeInTheDocument();
+    expect(main.getByRole('search', { name: 'Search 226os' })).toBeInTheDocument();
+    const quick = within(main.getByRole('navigation', { name: 'Go straight to a space' }));
+    expect(quick.getAllByRole('link').map((a) => a.textContent)).toEqual([
+      'Discover',
+      'Connect',
+      'Solve',
+      'Learn',
+      'Build',
+    ]);
+    const spaces = within(main.getByRole('region', { name: 'Five spaces, one account' }));
+    for (const link of spaces.getAllByRole('link')) expect(link).toHaveTextContent('Explore →');
+    const talentsRegion = within(await main.findByRole('region', { name: 'West Africa’s talent' }));
+    expect(talentsRegion.getByText('No. 1')).toBeInTheDocument();
+    expect(talentsRegion.getByRole('link', { name: 'See the full ranking' })).toBeInTheDocument();
+    expect(
+      talentsRegion.getByRole('link', { name: 'Is this you? Join 226os' }),
+    ).toBeInTheDocument();
+    expect(
+      talentsRegion.getByText('Source: committers.top · public GitHub data'),
     ).toBeInTheDocument();
     expect(main.getAllByRole('link', { name: 'Create an account' })[0]).toHaveAttribute(
       'href',

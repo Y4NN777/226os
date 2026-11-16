@@ -1,11 +1,24 @@
 // landing catalogue, merged by src/i18n/messages.ts. Keys start with 'landing.'.
 // French typography rules are enforced by src/i18n/translate.test.ts. Reviewed copy: .design-lab/05-copy-v2.md
-// (the pillar « Membres » is the landing's name for the directory, decision D1).
+// The directory pillar is named « Connect » like the app menu (owner, 2026-11-16).
 export const fr = {
   'landing.title': 'Les projets avancent mieux à plusieurs',
   'landing.hero.a': 'Les projets avancent mieux',
   'landing.hero.em': 'à plusieurs',
-  'landing.lede': 'Entraide, tutoriels, API et projets entre développeurs d’Afrique et d’ailleurs.',
+  'landing.lede':
+    'Trouvez une API de paiement mobile ou de SMS, posez votre question avec votre code, repérez les développeurs de votre pays et publiez votre projet open source.',
+  'landing.search.label': 'Rechercher sur 226os',
+  'landing.search.placeholder': 'Une API, une question, un développeur…',
+  'landing.search.submit': 'Rechercher',
+  'landing.quick.label': 'Accès direct aux espaces',
+  'landing.spaces.explore': 'Explorer →',
+  'landing.talents.title': 'Les talents d’Afrique de l’Ouest',
+  'landing.talents.list': 'Classement GitHub',
+  'landing.talents.rank': 'n° {rank}',
+  'landing.talents.contributions': '{count} contributions',
+  'landing.talents.all': 'Voir tout le classement',
+  'landing.talents.join': 'C’est vous ? Rejoignez 226os',
+  'landing.talents.source': 'Source : committers.top · données publiques GitHub',
   'landing.cta.signup': 'Créer un compte',
 
   'landing.why.title': 'Des réponses qui tiennent la route',
@@ -27,7 +40,7 @@ export const fr = {
   'landing.pillar.discover.text': 'Trouvez l’API de paiement ou de SMS.',
   'landing.pillar.build.title': 'Construire',
   'landing.pillar.build.text': 'Trouvez des contributeurs ou rejoignez un projet.',
-  'landing.pillar.connect.title': 'Membres',
+  'landing.pillar.connect.title': 'Connect',
   'landing.pillar.connect.text': 'Repérez qui maîtrise votre stack, près de vous.',
 
   'landing.activity.title': 'Ce qui s’écrit en ce moment',
@@ -84,7 +97,20 @@ export const en: Record<keyof typeof fr, string> = {
   'landing.title': 'Projects move faster together',
   'landing.hero.a': 'Projects move faster',
   'landing.hero.em': 'together',
-  'landing.lede': 'Help, tutorials, APIs and projects between developers from Africa and beyond.',
+  'landing.lede':
+    'Find a mobile money or SMS API, ask your question with your code, spot the developers in your country and publish your open source project.',
+  'landing.search.label': 'Search 226os',
+  'landing.search.placeholder': 'An API, a question, a developer…',
+  'landing.search.submit': 'Search',
+  'landing.quick.label': 'Go straight to a space',
+  'landing.spaces.explore': 'Explore →',
+  'landing.talents.title': 'West Africa’s talent',
+  'landing.talents.list': 'GitHub ranking',
+  'landing.talents.rank': 'No. {rank}',
+  'landing.talents.contributions': '{count} contributions',
+  'landing.talents.all': 'See the full ranking',
+  'landing.talents.join': 'Is this you? Join 226os',
+  'landing.talents.source': 'Source: committers.top · public GitHub data',
   'landing.cta.signup': 'Create an account',
 
   'landing.why.title': 'Answers that hold up',
@@ -106,7 +132,7 @@ export const en: Record<keyof typeof fr, string> = {
   'landing.pillar.discover.text': 'Find the payment or SMS API you need.',
   'landing.pillar.build.title': 'Build',
   'landing.pillar.build.text': 'Find contributors or join a project.',
-  'landing.pillar.connect.title': 'Members',
+  'landing.pillar.connect.title': 'Connect',
   'landing.pillar.connect.text': 'See who knows your stack, near you.',
 
   'landing.activity.title': 'Being written right now',

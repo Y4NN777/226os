@@ -108,3 +108,30 @@ export function useLandingActivity(enabled = true) {
   const hasLatest = Object.values(latest).some(Boolean);
   return { totals, latest, hasTotals, hasLatest, hasActivity: hasTotals || hasLatest };
 }
+
+/** How many GitHub developers the landing shows. */
+export const TALENTS = 6;
+const AVATAR_HOST = 'https://avatars.githubusercontent.com/';
+
+/**
+ * Public committers.top entries for Burkina Faso (ADR-0016), read like the Connect directory.
+ * An avatar from any other host is dropped (privacy review, DESIGN.md), never loaded.
+ */
+export function useLandingTalents(enabled = true) {
+  return useQuery({
+    enabled,
+    retry: false,
+    queryKey: ['profiles', 'list', 'landing', { source: 'github', country: 'BF', limit: TALENTS }],
+    queryFn: () =>
+      api.call(() =>
+        api.client.GET('/profiles', {
+          params: { query: { source: 'github', country: 'BF', limit: TALENTS } },
+        }),
+      ),
+    select: (page) =>
+      (page.external ?? []).slice(0, TALENTS).map((developer) => ({
+        ...developer,
+        avatar_url: developer.avatar_url.startsWith(AVATAR_HOST) ? developer.avatar_url : null,
+      })),
+  });
+}
