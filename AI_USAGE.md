@@ -1796,6 +1796,23 @@ tests_or_evidence: ["the 17 review-* and findings* test files pass, RED first fo
 open_risks: ["nothing ran on GitHub: the record job, the preflight job, the status comment edit and the workflow_run conclusion filter are tested with a fake gh only", "the scan of NEW test files is lexical and best effort: a weak assertion in a new test is not detected", "the preflight job is a fourth reader of REVIEW_AGENT_TOKEN (ADR-0013 says three)", "actionlint NOT RUN"]
 ```
 
+## ADR-0015 phase 1: classes, reproducers, static oracles, routing by class
+
+```yaml
+date: "2026-11-15"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code, Claude Opus 5.5 (review-steward subagent and lead session)"
+purpose: "The AI implemented units 1 and 2 of ADR-0015 phase 1 in the review pipeline: a `class` (executable, static, prose) and a `rule` on each ledger entry, validated by `review-comment.py` per owner decision D1 (a downgrade only, missing is prose, carried forward with the re-list); a prose finding never blocks the merge unless it is CRITICAL; an answered or accepted prose HIGH is filed for the batch by `findings.py harvest`; a classless entry and a prose HIGH on a P0 path keep blocking (owner answers); the reproducer job, the read-only reproducer check, the reproducer hash rule and the static oracle before and after the fix (units 3 to 5); the status comment rows with the class, the repro state and the reproducer hash prefix, and the routing by class in `decide_pr` (units 6 and 7: prose to the batch, a classless entry keeps the phase 0 lane)."
+repository_or_source_context: "branch feature/review/adr-0015-phase-1, from develop 213bf3d"
+files_or_sections_affected: ["scripts/review-autofix.py", ".github/workflows/review-autofix.yml", ".claude/commands/review-repro.md", "scripts/tests/review-repro_test.sh", "scripts/tests/review-autofix_test.sh", "scripts/tests/review-automerge_test.sh", "scripts/review-comment.py", "scripts/review-context.py", "scripts/findings.py", ".github/workflows/code-review.yml", ".claude/commands/delegate-review.md", ".claude/commands/deep-review.md", "scripts/tests/review-comment_test.sh", "scripts/tests/review-comment-levels.py", "scripts/tests/findings_test.sh", "docs/decisions/0015-autofix-by-proof.md", "docs/quality/REVIEW_CONTEXT.md", "TODO.md"]
+third_party_sources_consulted: []
+license_review: "no new dependency"
+closure: "open"
+human_reviewers: []
+tests_or_evidence: ["the review-* and findings* test files pass, RED first for each new case", "routing by class and the status proof columns tested in review-autofix_test.sh, with a scratch probe of malformed classes and forged repro facts", "the level table and the fixtures that relied on a classless finding blocking now name a blocking class, the classless case is tested as prose"]
+open_risks: ["nothing ran on GitHub", "under D1 every finding outside src/ and db/queries/ is prose and blocks nothing unless CRITICAL", "eslint and tsc rule ids are checked by shape only", "the repro-check and oracle jobs run pull request code, so their results could be forged by that code (accepted by the owner, answer (f))", "the reproducer, oracle and publish wiring is tested statically only", "actionlint NOT RUN", "a prose HIGH on a P0 path keeps blocking the merge but is never given to the fixer: it waits for the batch or the owner"]
+```
+
 ## Connect directory: public GitHub developers from committers.top (ADR-0016)
 
 ```yaml
