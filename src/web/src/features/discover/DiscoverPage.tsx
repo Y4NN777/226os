@@ -72,7 +72,6 @@ function Filters({
       >
         <TextInput
           type="search"
-          size="lg"
           startIcon={<Icon icon="search" />}
           label={t('discover.search.label')}
           isLabelHidden
@@ -194,7 +193,7 @@ export function DiscoverPage() {
   );
 
   return (
-    <div className="ui-page">
+    <div className="ui-page discover-page">
       <PageHeader
         title={t('discover.title')}
         breadcrumbs={[{ label: t('nav.home'), href: '/' }, { label: t('discover.title') }]}

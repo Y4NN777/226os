@@ -184,7 +184,6 @@ function Filters({
           onEnter={submit}
           autoComplete="off"
           width="100%"
-          size="lg"
         />
       </div>
       <div className="build-filters-bar">
@@ -193,7 +192,6 @@ function Filters({
             label={t('build.filter.stage')}
             placeholder={t('build.filter.stage.any')}
             hasClear
-            size="sm"
             options={projectStages.map((stage) => ({ value: stage, label: t(stageKey(stage)) }))}
             value={value.stage ?? null}
             onChange={(picked) => {
@@ -205,7 +203,6 @@ function Filters({
             placeholder={t('build.filter.country.any')}
             hasClear
             hasSearch
-            size="sm"
             options={countryOptions(
               [...seenCountries, ...(value.country ? [value.country] : [])],
               locale,

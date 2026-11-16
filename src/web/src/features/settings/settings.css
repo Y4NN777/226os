@@ -1,17 +1,23 @@
-/*
- * Settings layout from the prototype (parametres.html): a section nav, then one borderless panel
- * per section. Phone: the nav is a row of pills above the panels. Wide screens: the nav is a
- * column on the left that stays in view. Astryx tokens only; no border, no shadow.
- */
+.settings-page {
+  width: 100%;
+  max-width: var(--content-max);
+  margin-inline: auto;
+}
+
+.settings-page button {
+  border-radius: var(--radius-button);
+}
+
+/* Phone: section actions above the panels. Wide screens: a compact sticky rail. */
 .settings-layout {
   display: grid;
-  gap: var(--spacing-5);
+  gap: var(--sp-5);
   grid-template-columns: minmax(0, 1fr);
 }
 
 .settings-nav ul {
   display: flex;
-  gap: var(--spacing-2);
+  gap: var(--sp-2);
   list-style: none;
   margin: 0;
   padding: 0;
@@ -22,10 +28,10 @@
 .settings-nav a {
   display: inline-flex;
   align-items: center;
-  gap: var(--spacing-2);
+  gap: var(--sp-2);
   min-height: 44px;
-  padding: 0 var(--spacing-4);
-  border-radius: var(--radius-full);
+  padding: 0 var(--sp-4);
+  border-radius: var(--radius-button);
   background: var(--color-background-muted);
   color: var(--color-text-secondary);
   font-weight: var(--font-weight-medium);
@@ -45,31 +51,42 @@
 
 /* A section reached from the nav keeps its heading clear of the top edge. */
 .settings-layout section[id] {
-  scroll-margin-top: var(--spacing-6);
+  scroll-margin-top: var(--sp-6);
+}
+
+.settings-layout .ui-section {
+  gap: var(--sp-3);
+}
+
+.settings-layout .ui-panel {
+  padding: var(--sp-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: none;
 }
 
 @media (min-width: 900px) {
   .settings-layout {
-    grid-template-columns: 200px minmax(0, 1fr);
-    gap: var(--spacing-8);
+    grid-template-columns: calc(var(--sp-10) + var(--sp-8)) minmax(0, 1fr);
+    gap: var(--sp-8);
     align-items: start;
   }
 
   .settings-nav {
     position: sticky;
-    top: var(--spacing-6);
+    top: var(--sp-6);
   }
 
   .settings-nav ul {
     flex-direction: column;
-    gap: var(--spacing-0-5);
+    gap: var(--sp-1);
     overflow: visible;
   }
 
   .settings-nav a {
     width: 100%;
     box-sizing: border-box;
-    border-radius: var(--radius-element);
+    border-radius: var(--radius-button);
     background: transparent;
   }
 

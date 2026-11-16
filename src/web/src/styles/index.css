@@ -1,5 +1,6 @@
 @import '@astryxdesign/core/reset.css';
 @import '@astryxdesign/core/astryx.css';
+@import './tokens.css';
 @import './shell.css';
 @import './ui.css';
 
@@ -8,7 +9,7 @@ body {
   margin: 0;
   background: var(--color-background-body);
   color: var(--color-text-primary);
-  font-family: var(--font-family-body);
+  font-family: var(--font-product);
   font-size: 1rem;
   line-height: 1.5;
 }
@@ -29,14 +30,24 @@ body {
   justify-content: center;
   align-items: flex-start;
   min-height: 100dvh;
-  padding: 48px 16px;
+  padding: var(--sp-7) var(--sp-4);
   box-sizing: border-box;
 }
 
 .state-loading {
   display: flex;
   justify-content: center;
-  padding: 32px 0;
+  min-height: var(--sp-8);
+  padding: var(--sp-6) 0;
+}
+
+/* Session-neutral root frame: no public or member chrome is selected yet. */
+.shell-neutral-frame {
+  display: grid;
+  min-height: 100dvh;
+  place-items: center;
+  padding: var(--page-gutter);
+  box-sizing: border-box;
 }
 
 /* A flex child that keeps its natural width (a button next to a field that takes the rest). */
@@ -55,7 +66,7 @@ body {
   position: relative;
 }
 .password-field [data-pressable-container] {
-  padding-inline-end: 32px;
+  padding-inline-end: var(--sp-6);
 }
 .password-field-toggle {
   position: absolute;

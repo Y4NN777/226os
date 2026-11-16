@@ -19,7 +19,6 @@ export function SortSelect<T extends string>({
     <Selector
       label={label}
       isLabelHidden
-      size="sm"
       options={[...options]}
       value={value}
       onChange={(next) => {

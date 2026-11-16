@@ -1,14 +1,41 @@
-/* Account pages after prototypes/html/pages/connexion.html and layout.css (.account-card,
-   .acc-head, .acc-label-row, .acc-switch). Astryx and Graphite & Lime tokens only. */
+/* Standalone account pages share the landing foundations: Geist through the theme, the shared
+   spacing scale, restrained hairlines and the one fully rounded action shape. */
+
+.auth-layout {
+  padding: var(--sp-7) var(--sp-4);
+}
+
+.auth-layout button,
+.auth-layout .acc-link-button {
+  border-radius: var(--radius-button);
+}
+
+.auth-card {
+  padding: var(--sp-6);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: none;
+}
+
+.auth-layout .ui-state {
+  gap: var(--sp-2);
+  padding: var(--sp-6) var(--sp-4);
+  border-radius: var(--radius-card);
+}
+
+.auth-layout .state-loading {
+  padding: var(--sp-6) 0;
+}
 
 .acc-head {
   display: grid;
-  gap: var(--spacing-1-5);
+  gap: var(--sp-2);
 }
 /* One h1 per card, at the prototype's card size (h2 scale). */
 .acc-head h1 {
   margin: 0;
   font-size: 1.5rem;
+  font-weight: 700;
   line-height: 1.25;
   letter-spacing: -0.02em;
 }
@@ -26,7 +53,7 @@
 /* Welcome: choice tiles (bienvenue.html), the title link stretched over the tile. */
 .acc-tiles {
   display: grid;
-  gap: var(--spacing-3);
+  gap: var(--sp-3);
   list-style: none;
   margin: 0;
   padding: 0;
@@ -39,17 +66,18 @@
 .acc-tile {
   position: relative;
   display: grid;
-  gap: var(--spacing-1);
+  gap: var(--sp-1);
   align-content: start;
-  padding: var(--spacing-4);
-  border-radius: var(--radius-container);
+  padding: var(--sp-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
   background: var(--color-background-muted);
 }
 .acc-tile:hover {
   background: color-mix(in srgb, var(--color-accent) 12%, var(--color-background-muted));
 }
 .acc-tile > svg {
-  margin-bottom: var(--spacing-1);
+  margin-bottom: var(--sp-1);
 }
 .acc-tile a::after {
   content: '';
@@ -73,4 +101,10 @@
   inset-block-start: 0;
   inset-inline-end: 0;
   font-size: 0.875rem;
+}
+
+@media (min-width: 768px) {
+  .auth-layout {
+    padding-block: var(--sp-8);
+  }
 }

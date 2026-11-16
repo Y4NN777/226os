@@ -58,11 +58,16 @@ export function WelcomePage() {
         />
         <HStack gap={3} wrap="wrap">
           <Button
+            className="acc-link-button"
             variant="primary"
             href="/connexion?next=/bienvenue"
             label={t('identity.signIn.submit')}
           />
-          <Button href="/inscription" label={t('identity.signIn.signUp')} />
+          <Button
+            className="acc-link-button"
+            href="/inscription"
+            label={t('identity.signIn.signUp')}
+          />
         </HStack>
       </VStack>
     );

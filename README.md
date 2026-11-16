@@ -35,33 +35,33 @@ Captures du 15 novembre 2026 sur les données de démonstration. Les autres page
 
 ### Accueil
 
-![Page d’accueil de 226os pour un visiteur](docs/quality/evidence/fidelity/2026-11-15/landing-app-1280-light.png)
+![Page d’accueil de 226os pour un visiteur](docs/quality/evidence/harmonize/2026-11-16/home-app-1280-light.png)
 
 ### Découvrir
 
-![Catalogue Découvrir avec les fiches d’API et d’outils, leurs pays et leur statut de vérification](docs/quality/evidence/fidelity/2026-11-15/discover-app-1280-light.png)
+![Catalogue Découvrir avec les fiches d’API et d’outils, leurs pays et leur statut de vérification](docs/quality/evidence/harmonize/2026-11-16/discover-app-1280-light.png)
 
 ### Résoudre
 
-![Liste des questions de Résoudre avec leur état, leurs étiquettes et leur langue](docs/quality/evidence/fidelity/2026-11-15/solve-app-1280-light.png)
+![Liste des questions de Résoudre avec leur état, leurs étiquettes et leur langue](docs/quality/evidence/harmonize/2026-11-16/solve-app-1280-light.png)
 
 ### Question
 
-![Page d’une question avec la réponse acceptée et les votes](docs/quality/evidence/fidelity/2026-11-15/question-app-1280-light.png)
+![Page d’une question avec sa réponse et les votes](docs/quality/evidence/harmonize/2026-11-16/questions-01a1e00c-6555-7bd0-8ba0-0092fdbfcf60-app-1280-light.png)
 
 ### Construire
 
-![Liste des projets open source de Construire avec leurs besoins ouverts](docs/quality/evidence/fidelity/2026-11-15/build-app-1280-light.png)
+![Liste des projets open source de Construire avec leurs besoins ouverts](docs/quality/evidence/harmonize/2026-11-16/build-app-1280-light.png)
 
 ### Apprendre
 
-![Page Apprendre avec les filtres par type, sujet, niveau et langue](docs/quality/evidence/fidelity/2026-11-15/apprendre-app-1280-light.png)
+![Page Apprendre avec les filtres par type, sujet, niveau et langue](docs/quality/evidence/harmonize/2026-11-16/apprendre-app-1280-light.png)
 
 ### Sur téléphone
 
 | Découvrir | Résoudre | Question |
 |---|---|---|
-| <img src="docs/quality/evidence/fidelity/2026-11-15/discover-app-375-light.png" alt="Découvrir sur téléphone" width="240"> | <img src="docs/quality/evidence/fidelity/2026-11-15/solve-app-375-light.png" alt="Résoudre sur téléphone" width="240"> | <img src="docs/quality/evidence/fidelity/2026-11-15/question-app-375-light.png" alt="Une question sur téléphone" width="240"> |
+| <img src="docs/quality/evidence/harmonize/2026-11-16/discover-app-375-light.png" alt="Découvrir sur téléphone" width="240"> | <img src="docs/quality/evidence/harmonize/2026-11-16/solve-app-375-light.png" alt="Résoudre sur téléphone" width="240"> | <img src="docs/quality/evidence/harmonize/2026-11-16/questions-01a1e00c-6555-7bd0-8ba0-0092fdbfcf60-app-375-light.png" alt="Une question sur téléphone" width="240"> |
 
 ## Ce qui distingue 226os
 

@@ -1,12 +1,14 @@
 # 226os — Design System & Frontend Experience Specification
 
 **Status:** Approved direction; implementation subject to validation gates  
-**Version:** 1.0 · 11 November 2026  
+**Version:** 1.1 · 15 November 2026
 **Owner:** Y4NN777 · 226os  
 **Applies to:** `src/web`, shared UI packages, documentation and agent-authored UI  
 **Related:** `docs/PRD.md`, `docs/SPEC.md`, `docs/architecture/ARCHITECTURE.md`, `docs/DEV.md`, `docs/TEST.md`, `docs/RULES.md`, `AGENTS.md`
 
 > **Decision record.** The team selected the **Graphite & Lime** direction shown in the 226os dashboard exploration and chose **Meta Astryx** as the primary UI design system for **React 19 + TypeScript + Vite**. This document is the implementation contract, not a request to recreate the mockup pixel by pixel. Further visual polish must follow this system and explicit review. The illustrated dashboard, its people, numbers, imagery and events are illustrative—not shipped data or approved brand assets.
+
+> **Change note 1.1.** The public landing is now the visual reference for the signed-in product. Its self-hosted Geist family, spacing, layout, shape, elevation and motion scales are shared application foundations; page-by-page adoption is separate work.
 
 ## 1. Product context and design intent
 
@@ -40,6 +42,15 @@ The following are **226os brand foundation colors**. Semantic CSS tokens are the
 | Warm orange | `brand.orange` | `#C67C35` | Secondary highlights, occasional labels and illustrations |
 | Warm paper | `brand.canvas` | `#F6F7F4` | Light application background |
 | White | `brand.white` | `#FFFFFF` | Cards and high-contrast content surfaces |
+| Night canvas | `--color-night-canvas` | `#0B0F0C` | Landing header, hero, closing band and footer; exceptional immersive app surfaces |
+| Night text | `--color-night-text` | `#F4F7EF` | Primary text on the night canvas |
+| Night secondary text | `--color-night-text-secondary` | `#C1CCB9` | Supporting text on the night canvas |
+| Night lime | `--color-night-accent` | `#BDE874` | Actions and restrained highlights on the night canvas |
+| Night lime highlight | `--color-night-accent-strong` | `#D9F5A8` | Hover and graphical highlights on the night canvas |
+| On night lime | `--color-night-on-accent` | `#16220E` | Text and icons on night-lime actions |
+| Night focus | `--color-night-focus` | `#9CC4FF` | Keyboard focus indicator on night surfaces |
+| Night line | `--color-night-line` | `rgb(244 247 239 / 0.4)` | Control outlines on night surfaces |
+| Night hairline | `--color-night-hairline` | `rgb(244 247 239 / 0.12)` | Quiet separators on night surfaces |
 
 **Contrast observations, not full certification:** `#4D721D` against white is approximately **5.61:1** (acceptable for normal text); `#C67C35` against white is **3.31:1**, so orange must **not** be used for ordinary white-text buttons. Use graphite-on-orange, or an approved darker orange for white text. Every actual pairing and state must still be measured automatically.
 
@@ -76,6 +87,8 @@ These are **226os target values** to map onto Astryx token slots. They are not a
 - Focus ring must be evident for keyboard users even on green buttons.
 - Never rely on green/orange alone to indicate state; include label, icon or shape.
 - Gradients are optional and restricted to limited promotional or onboarding areas—not data tables, code samples or forms.
+- The night canvas belongs to the public header, hero, closing band and footer. In the signed-in app it is reserved for an intentional immersive region, not ordinary cards, forms, tables or every page header.
+- Night surfaces use the dedicated night text, line, focus and accent tokens. They do not depend on the visitor's light/dark preference; the sections between them continue to use semantic Astryx theme tokens.
 - Never infer country identity solely from color or flags.
 
 ## 3. Official component framework: Meta Astryx
@@ -138,20 +151,29 @@ Useful upstream commands (verify current syntax against the installed CLI): `ast
 
 ### Typography
 
-- **Default:** system sans-serif (`system-ui`, `-apple-system`, `Segoe UI`, `Roboto`, sans-serif) for immediate rendering and bilingual support.
+- **Product:** self-hosted variable Geist (`/fonts/Geist-Variable.woff2`) through `--font-product`, used by body and heading Astryx slots across the landing and signed-in app.
+- **Fallback:** metric-adjusted local Arial (`Geist Fallback`), then `system-ui`, `-apple-system`, `Segoe UI`, `Roboto`, sans-serif. `font-display: swap` keeps text available during font loading.
 - **Code:** system monospace, e.g. `ui-monospace`, `SFMono-Regular`, `Consolas`, `Liberation Mono`, monospace.
-- No remote font downloads on critical paths. Any replacement font needs licensing, glyph coverage, bandwidth and accessibility review.
+- No remote font download is used. Any replacement font needs licensing, glyph coverage, bandwidth, fallback-metric and accessibility review.
 - Body: 16px baseline, 1.5–1.6 line-height; secondary UI text 14px minimum where practical. Use 12px only for ancillary captions that remain readable.
 - Indicative type scale: 12 / 14 / 16 / 20 / 24 / 32 / 40; use semantic headings and meaningful hierarchy. Do not use all-caps on long text.
 
 ### Spacing, sizing and shape
 
-- Base spacing grid: **4px**; common steps **4, 8, 12, 16, 24, 32, 48**.
-- Card radii: approximately 12–16px; controls: approximately 8–12px. Final implementation uses Astryx radius tokens rather than arbitrary per-page radii.
-- Prefer low-elevation borders over heavy shadows; reserve shadows for overlays and key raised surfaces.
+- Shared spacing steps are **4, 8, 12, 16, 24, 32, 48, 64, 96 and 128px** (`--sp-1` through `--sp-10`). Pages compose these tokens instead of adding local spacing scales.
+- Shape has three roles: **12px** cards, tiles, inputs and selectors (`--radius-card` / Astryx `--radius-container`), **28px** media and large visual frames (`--radius-media` / Astryx `--radius-page`), and **fully rounded** buttons, link-buttons and segmented controls (`--radius-button` / Astryx `--radius-full`). Portraits remain circles.
+- Elevation is sparse. Ordinary content uses spacing and surface contrast; borders remain for inputs and tables. `--elevation-raised` is for overlays or media that must separate from a surface, and `--elevation-night-header` is for the scrolled night header.
 - Interactive targets: aim for 44 × 44px where feasible on touch devices; never below WCAG 2.2's minimum target requirements without an applicable exception.
+- Text inputs and selectors use the 44px Astryx medium control height. Segmented controls use the same overall height, with fully rounded tracks and items.
 - Content widths: generous for dashboards, constrained for reading and discussion detail pages; max reading line length ~70–85 characters.
 - Layering: app shell < sticky navigation < menus < dialogs < notifications; avoid arbitrary `z-index` values.
+
+### Motion
+
+- Shared easing curves are `--ease-reveal` (`cubic-bezier(0.16, 1, 0.3, 1)`), `--ease-float` (`cubic-bezier(0.45, 0, 0.55, 1)`) and `--ease-draw` (`cubic-bezier(0.65, 0, 0.35, 1)`).
+- Shared durations are 175ms for direct feedback, 300ms for surface changes, 450ms for exits, 700/800ms for reveal opacity/transform, 900ms for entrances, 1400ms for long entrances or line drawing, and 2800ms for sparse ambient loops.
+- Page reveals and decorative sequences may animate only `transform`, `opacity` and SVG `stroke-dashoffset`. Direct interaction feedback may transition color or background color; it must remain short and must not be the only state cue. Do not animate layout, dimensions or scroll position continuously.
+- Motion is progressive enhancement. Under `prefers-reduced-motion: reduce`, reveals render in their final state, ambient loops stop, press scaling stops and programmatic section scrolling is not smooth. Off-screen landing loops pause.
 
 ### Iconography and illustrations
 
@@ -164,11 +186,19 @@ Useful upstream commands (verify current syntax against the installed CLI): `ast
 
 ### Navigation model
 
+- The public landing header and the signed-in app header are two compositions of the same foundations: Geist, Graphite & Lime, shared gutters, target sizes, full-radius actions and restrained motion. The public header stays night and anchor-led; the app header keeps search, account and task navigation and follows the active app theme.
 - Desktop: stable left navigation plus global search; top-right account controls and an intentional creation action.
 - Tablet: compact or collapsible rail; search remains accessible.
-- Mobile: simplified navigation or accessible drawer; preserve direct access to Solve, Discover and Build.
+- Mobile: one-row app header with logo, an accessible expandable search trigger and the account action or member menu; secondary preferences live in the existing navigation drawer.
 - Group pages by user intent, not internal backend module names.
 - Unimplemented areas must be clearly labeled as planned/preview or hidden. No dead navigation or fake buttons.
+
+### Page frame and rhythm
+
+- Primary page content uses `--content-max: 1200px`, centered in the available shell area. Reading surfaces may use a narrower measure.
+- Horizontal gutters use `--page-gutter`: 24px below 768px, 32px from 768px and 48px from 1280px. A component may use a smaller token only when the viewport cannot accommodate the standard gutter without harming the task.
+- Major landing-like sections use one `--section-y` rhythm: 64px below 768px, 96px from 768px and 128px from 1280px. Signed-in pages use the same spacing scale but do not need to imitate a marketing section sequence.
+- Shell navigation, page content and full-width app regions align to the same 1200px content frame where the shell layout permits it. Full-bleed color or media does not move its inner content off that grid.
 
 ### Product surfaces
 
@@ -254,7 +284,7 @@ Quality gates must run through the documented `make` targets and GitHub Actions 
 | DES-02 Meta Astryx as primary component system | **Approved direction**; verification gaps in `docs/quality/ASTRYX_REPORT.md` | React/Vite UI foundations |
 | DES-03 Detailed light semantic palette | **Baseline; validate in implementation** | Contrast and component-state refinements |
 | DES-04 Detailed dark semantic palette | **Proposed baseline; approval after checks** | Contrast and usability |
-| DES-05 System typography | **Approved default** | Change via evidence-backed ADR |
+| DES-05 Self-hosted Geist product typography | **Approved** | Shared landing and app foundation; change via evidence-backed review |
 | DES-06 Final logo and illustration assets | **Not approved** | No invented identity assets |
 | DES-07 Content and performance budgets | **Pending measured baselines** | TEST/SHIP alignment |
 

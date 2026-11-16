@@ -171,28 +171,30 @@ export function Checklist({ username }: { username: string }) {
 
   return (
     // The prototype's setup header: the title, and the meter with its done/total count.
-    <Section
-      title={t('profile.checklist.title')}
-      isPanel
-      actions={
-        <VStack width={200}>
-          <ProgressBar
-            label={t('profile.checklist.progress')}
-            isLabelHidden
-            value={percent}
-            hasValueLabel
-            formatValueLabel={() => `${String(done)}/${String(checklistItems.length)}`}
-          />
+    <div className="profile-checklist">
+      <Section
+        title={t('profile.checklist.title')}
+        isPanel
+        actions={
+          <div className="profile-checklist-progress">
+            <ProgressBar
+              label={t('profile.checklist.progress')}
+              isLabelHidden
+              value={percent}
+              hasValueLabel
+              formatValueLabel={() => `${String(done)}/${String(checklistItems.length)}`}
+            />
+          </div>
+        }
+      >
+        <VStack as="ul" gap={4}>
+          {missing.map((item) => (
+            <li key={item}>
+              <ItemForm item={item} username={username} />
+            </li>
+          ))}
         </VStack>
-      }
-    >
-      <VStack as="ul" gap={4}>
-        {missing.map((item) => (
-          <li key={item}>
-            <ItemForm item={item} username={username} />
-          </li>
-        ))}
-      </VStack>
-    </Section>
+      </Section>
+    </div>
   );
 }

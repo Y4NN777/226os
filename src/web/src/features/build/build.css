@@ -2,21 +2,22 @@
  * Build pages (prototypes/html/pages/build.html and project.html). Header, rows, pills, tiles,
  * tags, panels, facts, linked tiles and the two-column layout are the shared pieces
  * (src/components, styles/ui.css); what stays here is specific to build: the filter bar, need
- * cards, the owner's applications and the maintainer line. Astryx tokens only.
+ * cards, the owner's applications and the maintainer line. Product spacing/shape tokens and
+ * Astryx semantic colour tokens only.
  */
 
 /* Filters */
 .build-filters {
   display: grid;
-  gap: var(--spacing-3);
+  gap: var(--sp-3);
 }
 .build-filters-bar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: var(--spacing-2) var(--spacing-4);
-  min-height: 44px;
+  gap: var(--sp-2) var(--sp-4);
+  min-height: var(--size-element-md);
 }
 
 /* The origin question in a row's meta line stays on one line. */
@@ -39,12 +40,12 @@
 .build-maintainer {
   display: flex;
   align-items: center;
-  gap: var(--spacing-3);
+  gap: var(--sp-3);
   min-width: 0;
 }
 .build-maintainer-text {
   display: grid;
-  gap: var(--spacing-1);
+  gap: var(--sp-1);
   min-width: 0;
 }
 
@@ -53,16 +54,17 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--spacing-2) var(--spacing-3);
+  gap: var(--sp-2) var(--sp-3);
   margin: 0;
-  padding: var(--spacing-3) var(--spacing-4);
-  border-radius: var(--radius-element);
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
   background: var(--color-background-surface);
   font-size: 0.875rem;
 }
 .build-needs {
   display: grid;
-  gap: var(--spacing-3);
+  gap: var(--sp-4);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -70,26 +72,33 @@
 }
 @container (min-width: 640px) {
   .build-needs {
+    gap: var(--sp-5);
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 .build-need {
   display: grid;
-  gap: var(--spacing-3);
+  gap: var(--sp-3);
   align-content: start;
-  padding: var(--spacing-4);
-  border-radius: var(--radius-container);
+  padding: var(--sp-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
   background: var(--color-background-surface);
   min-width: 0;
 }
 .build-need.is-settled {
   background: transparent;
 }
+@container (min-width: 640px) {
+  .build-need {
+    padding: var(--sp-5);
+  }
+}
 .build-need-head {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: var(--spacing-3);
+  gap: var(--sp-3);
 }
 .build-need-head h3 {
   margin: 0;
@@ -111,7 +120,7 @@
 /* Applications (owner) */
 .build-apps {
   display: grid;
-  gap: var(--spacing-2);
+  gap: var(--sp-3);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -119,21 +128,22 @@
 .build-app {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
-  gap: var(--spacing-2) var(--spacing-3);
+  gap: var(--sp-2) var(--sp-3);
   align-items: start;
-  padding: var(--spacing-3) var(--spacing-4);
-  border-radius: var(--radius-container);
+  padding: var(--sp-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
   background: var(--color-background-surface);
 }
 .build-app-main {
   display: grid;
-  gap: var(--spacing-2);
+  gap: var(--sp-2);
   min-width: 0;
 }
 .build-app-quote {
   margin: 0;
-  padding: var(--spacing-2) var(--spacing-3);
-  border-radius: var(--radius-element);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--radius-card);
   background: var(--color-background-muted);
   font-size: 0.875rem;
   white-space: pre-line;
@@ -143,11 +153,16 @@
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: var(--spacing-2);
+  gap: var(--sp-2);
 }
 .build-app-actions {
   display: flex;
-  gap: var(--spacing-1);
+  gap: var(--sp-2);
+}
+@container (min-width: 640px) {
+  .build-app {
+    padding: var(--sp-5);
+  }
 }
 @container (max-width: 639px) {
   .build-app {
@@ -169,7 +184,7 @@
   width: 96px;
   height: 48px;
   object-fit: cover;
-  border-radius: var(--radius-element);
+  border-radius: var(--radius-media);
   background: var(--color-background-muted);
 }
 .build-thumb-lg {
@@ -177,7 +192,7 @@
   max-width: 320px;
   height: auto;
   aspect-ratio: 2 / 1;
-  border-radius: var(--radius-container);
+  border-radius: var(--radius-media);
 }
 
 /* Card view: the preview takes the card's width at 2:1; without one, the tile sits in the same box. */
@@ -185,13 +200,13 @@
   width: 100%;
   height: auto;
   aspect-ratio: 2 / 1;
-  border-radius: var(--radius-element);
+  border-radius: var(--radius-media);
 }
 .build-thumb-fallback {
   display: grid;
   place-items: center;
   width: 100%;
   aspect-ratio: 2 / 1;
-  border-radius: var(--radius-element);
+  border-radius: var(--radius-card);
   background: var(--color-background-muted);
 }
