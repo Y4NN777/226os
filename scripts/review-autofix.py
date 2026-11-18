@@ -339,7 +339,7 @@ def compact_state(state, keep_ids, head_sha, cause, result):
     small["fixer"] = "STOPPED (%s)" % cause
     rows = []
     for r in state["rows"]:
-        r = {k: (v if k == "id" else v[:60]) for k, v in r.items()}
+        r = {k: (v[:60] if k != "id" and isinstance(v, str) else v) for k, v in r.items()}
         if r["route"] == "fixer":
             r.update(state="STOPPED", next="a human removes %s" % STOP_LABEL, who="owner")
         rows.append(r)
@@ -1645,13 +1645,15 @@ def weakening_of(git, worktree, base, status, path):
 
 
 def weakening(git, worktree, base, entries):
-    """None, or the first reason a diff makes a test or a gate weaker; the file it concerns goes to REFUSED."""
+    """None, or the first reason a diff makes a test or a gate weaker. EVERY file that weakens one goes to REFUSED (#322
+    review, note refused-first-path-only), so the finding of each file goes to the owner, not only the first one's."""
+    first = None
     for status, path in entries:
         reason = weakening_of(git, worktree, base, status, path) if path else None
         if reason:
             REFUSED.append(path)
-            return reason
-    return None
+            first = first or reason
+    return first
 
 
 def check_commits(git, worktree, base, name, email):
@@ -1713,6 +1715,7 @@ def cmd_check():
         reason = check_commits(git, worktree, base, name, os.environ.get("EXPECT_EMAIL", ""))
     except Exception as exc:  # fail closed: nothing is pushed on a doubt
         reason = "git could not be read (%s)" % exc
+        REFUSED.clear()  # a partial list would route a read failure to some findings only: it concerns the whole run
     if reason:
         print("autofix check: FAILED (%s)" % reason)
         # The files the refusal concerns (plain path characters only), so `record` can route only their findings to the owner.

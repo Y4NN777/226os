@@ -4,7 +4,7 @@
 -- Regenerate with scripts/content/committers-seed.py. Local-dev only (db/seeds/README.md): make seed loads
 -- db/seeds/local-dev/ for APP_ENV=local-dev only. Demo provenance, no credentials. No BEGIN/COMMIT (make seed wraps it).
 
--- A username or GitHub login already taken (a live account, an earlier seed) is skipped, never an error.
+-- A username, GitHub login or email already taken (a live account, an earlier seed) is skipped, never an error.
 CREATE TEMP TABLE seed_committers (id uuid, username text, display_name text, country_code text, github text) ON COMMIT DROP;
 INSERT INTO seed_committers (id, username, display_name, country_code, github) VALUES
   ('01900000-0000-7000-8000-000000000a01', 'spwoodcock', 'Sam', 'BF', 'spwoodcock'),
@@ -162,10 +162,11 @@ INSERT INTO users (id, email, email_verified_at, role, status, provenance, creat
 SELECT s.id, s.username || '@demo.226os.invalid', '2026-11-15T12:00:00Z', 'member', 'active', 'demo', '2026-11-15T12:00:00Z', '2026-11-15T12:00:00Z', NULL
 FROM seed_committers s
 WHERE NOT EXISTS (SELECT 1 FROM profiles p WHERE p.username = s.username OR lower(p.github_username) = lower(s.github))
+AND NOT EXISTS (SELECT 1 FROM users x WHERE x.email = s.username || '@demo.226os.invalid')
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO profiles (user_id, username, display_name, intent, country_code, languages, github_username, bio, bio_language, open_to_collab, country_visibility, languages_visibility, skills_visibility, github_visibility, bio_visibility, open_to_collab_visibility, created_at, updated_at)
-SELECT s.id, s.username, s.display_name, 'contribute', s.country_code, '{}', s.github, NULL, NULL, true, 'public', 'public', 'public', 'public', 'public', 'public', '2026-11-15T12:00:00Z', '2026-11-15T12:00:00Z'
+SELECT s.id, s.username, s.display_name, NULL, s.country_code, '{}', s.github, NULL, NULL, true, 'public', 'public', 'public', 'public', 'public', 'public', '2026-11-15T12:00:00Z', '2026-11-15T12:00:00Z'
 FROM seed_committers s
 JOIN users u ON u.id = s.id AND u.provenance = 'demo'
 WHERE NOT EXISTS (SELECT 1 FROM profiles p WHERE p.username = s.username OR lower(p.github_username) = lower(s.github))

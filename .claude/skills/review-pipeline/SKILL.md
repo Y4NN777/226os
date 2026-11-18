@@ -23,7 +23,7 @@ that implements it. Never describe a gate, a check or a review rule from memory 
 | 2 deep | `code-review.yml` job `deep` | `.claude/commands/deep-review.md`, merged by `review-comment.py` | P0 paths (`.github/sensitive-paths.txt`, `.github/deep-review-paths.txt`), `"source":"deep"`, `Deep: PASS|PENDING|NOT RUN` line, `deep.status/sha` in the ledger |
 | gate | `code-review.yml` job `gate` | `review-gate.py` | the required check `Review gate`: ledger sha = PR head, no blocking finding, CRITICAL rules |
 | harvest | `code-review.yml` job `harvest` | `findings.py` | finding issues (`finding`, `sev:*`, `area:*`, `due:*`), `PR<N> notes` issues, `PR<N> follow-ups`, dashboard #119 |
-| 3 auto-fix | `review-autofix.yml` (`decide`, `preflight`, `fix`, `publish`, end job) | `review-autofix.py` (`pr`, `context`, `check`, `record`, `nothing`), `.claude/commands/review-fix.md` | attempts, routing, the trusted push guard, the status comment |
+| 3 auto-fix | `review-autofix.yml` (`decide`, `preflight`, `fix`, `publish`, end job) | `review-autofix.py` (`pr`, `context`, `prepare`, `apply`, `check`, `body`, `record`, `nothing`, `repro-lock`, `repro-run`, `static-after`, `run`; read `main()`), `.claude/commands/review-fix.md` | attempts, routing, the trusted push guard, the status comment |
 | 4 auto-merge | `review-automerge.yml` | `review-automerge.py` | merge commit of exactly the evaluated head into `develop`; pipeline paths and sensitive paths go to the owner |
 | 5 batch | `review-batch.yml` (`plan`, `batch`, `fix`, `publish`) | `findings.py batch`, `review-autofix.py batch/nothing` | one batch issue and one `fix/review/batch-YYYY-MM-DD` PR |
 | settle | `review-merged.yml` | `findings.py settle`, `close-merged-issues.py` | closes or ticks sources by verdict on merge |
@@ -52,9 +52,9 @@ HIGH. A stale ledger is NOT RUN, and a stale CRITICAL keeps blocking. Notes neve
 6. **The model never closes, labels or ticks by itself.** `settle` closes FIXED / FIXED ELSEWHERE; NOT A DEFECT and
    DECIDED tick a NOTE only with a reference the script verifies (an ACCEPTED ADR naming the note's file and its id as
    code); on a finding they only comment.
-7. **Auto-fix (ADR-0015 phase 0, PR #309: check it is merged before relying on it):** attempts per (finding, head SHA),
+7. **Auto-fix (ADR-0015 phase 0, PR #309, merged 2026-11-15):** attempts per (finding, head SHA),
    recorded when the run ends, pending written before the fixer; 2 heads per finding, 2 aborts per head, 7 runs in total
-   per PR (`MAX_PR_RUNS`); routing per finding (`fixer` | `owner` + reason); `needs-owner` informational,
+   per PR (`MAX_PR_RUNS`); routing per finding (`fixer` | `owner` + reason); `needs-owner` informational for the fixer (the other findings keep being fixed) but blocking for auto-merge (`BLOCKING_LABELS` in `review-automerge.py`),
    `autofix-stopped` blocking and removed only by a human; existing tests, fixtures, test infrastructure and test configs
    LOCKED at the trusted push, new test files under a lexical scan; findings outside the fixer allowlist go to the owner.
 8. **Auto-merge** merges with `--match-head-commit`, merge commit only, never squash; refuses pipeline paths, an
