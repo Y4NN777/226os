@@ -17,6 +17,7 @@ import {
   UsersIcon,
   type SvgIcon,
 } from '../../components/icons';
+import { countryName } from '../../components/CountryCode';
 import { RouterAnchor } from '../../components/RouterAnchor';
 import { useI18n } from '../../i18n/I18nProvider';
 import type { MessageKey } from '../../i18n/messages';
@@ -292,7 +293,7 @@ function Spaces() {
 }
 
 /**
- * Public GitHub ranking for Burkina Faso (committers.top). Each entry opens the GitHub profile in
+ * Public GitHub ranking of the West African countries (committers.top), each rank with its country. Each entry opens the GitHub profile in
  * a new tab. No data, or a failed request, renders no section.
  */
 function Talents() {
@@ -329,7 +330,10 @@ function Talents() {
                   <span className="lp-talent-avatar" aria-hidden="true" />
                 )}
                 <span className="lp-talent-rank">
-                  {t('landing.talents.rank', { rank: String(dev.rank) })}
+                  {t('landing.talents.rank', {
+                    rank: String(dev.rank),
+                    country: countryName(dev.country, locale),
+                  })}
                 </span>
                 <span className="lp-talent-name">{dev.name || dev.login}</span>
                 <span className="lp-talent-meta">
@@ -537,8 +541,8 @@ function Join() {
   );
 }
 
-// The full ranking. A constant, not a JSX string: `&country` in a JSX attribute breaks Semgrep's TSX parser.
-const TALENTS_HREF = '/connect?source=github&country=BF';
+// The full ranking, every country. A constant, not a JSX string: `&` in a JSX attribute breaks Semgrep's TSX parser.
+const TALENTS_HREF = '/connect?source=github';
 
 /**
  * `/` for visitors: promise with search and direct links to the five spaces, the spaces as
