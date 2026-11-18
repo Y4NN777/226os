@@ -887,6 +887,11 @@ printf 'x\n' >>"$w5/src/api/internal/platform/clocktest/c.go"; g5 add -A; g5 com
 check5
 grep -q '^output: refused=src/api/internal/platform/clocktest/c.go$' <<<"$out" && ok "check: a refusal emits the refused paths (output refused=) for the record step" || ko "refused output ($out)"
 git -C "$w5" reset -q --hard "$base5"
+# #322 note refused-first-path-only: a patch that weakens tests in two files names BOTH, so each finding goes to the owner.
+mkdir -p "$w5/src/web/src"; printf "it.skip('a', () => {})\n" >"$w5/src/web/src/a.test.ts"; printf "it.skip('b', () => {})\n" >"$w5/src/web/src/b.test.ts"; g5 add -A; g5 commit -qm "fix: two"
+check5
+[ "$rc" -ne 0 ] && grep -q '^output: refused=src/web/src/a.test.ts,src/web/src/b.test.ts$' <<<"$out" && ok "check: a weakening in two files names both refused paths" || ko "refused two paths (rc=$rc $out)"
+git -C "$w5" reset -q --hard "$base5"
 # Names that merely end in test (latest, contest, protest, attest) are not test directories, even under src/api/internal.
 for d in latest contest protest attest; do
   mkdir -p "$w5/src/api/internal/$d"; printf 'package x\n' >"$w5/src/api/internal/$d/c.go"
@@ -1357,5 +1362,18 @@ grep -q '| e1 |.*| n/a (older head) | `aaaaaaaaaaaa` |' <<<"$body" && ok "status
 status '{"attempts":{"e1":{"'$OLD'":"40","'$OTHER'":"41"}}}'
 run pr
 grep -qx 'run=false' <<<"$outputs" && grep -q 'labels\[\]=needs-owner' "$tmp/st/log" && ok "class routing: the phase 0 cap of 2 heads per finding holds for an executable finding" || ko "cap executable ($outputs)"
+
+# #327 note compact-row-slice-types: compact_state cuts only text; a non-string row value is kept, never a TypeError.
+if python3 -I - "$root/scripts/review-autofix.py" <<'EOT'
+import importlib.util, sys
+spec = importlib.util.spec_from_file_location("autofix", sys.argv[1]); m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+st = m.empty_state()
+row = {k: "t" for k in m.ROW_KEYS}; row.update(id="f1", route="owner", state="x" * 90, n=3, flag=None); st["rows"] = [row]
+st["routes"] = {"f1": {"code": "owner", "why": "w" * 90}}
+small = m.compact_state(st, ["f1"], "a" * 40, "too large", "stopped")
+row = small["rows"][0] if small["rows"] else None
+assert row is None or (row["n"] == 3 and row["flag"] is None and len(row["state"]) == 60), row
+EOT
+then ok "compact_state cuts only string row values (a number or null row value does not raise)"; else ko "compact_state non-string row value"; fi
 
 finish

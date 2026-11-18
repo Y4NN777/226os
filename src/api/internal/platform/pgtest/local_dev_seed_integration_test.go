@@ -54,12 +54,18 @@ func TestLocalDevSeedConnectCommitters(t *testing.T) {
 	if got := scalarInt(ctx, t, conn, `SELECT count(*) FROM users u JOIN user_credentials c ON c.user_id = u.id WHERE `+block); got != 0 {
 		t.Fatalf("%d committers users have credentials", got)
 	}
-	// Every seeded user has its profile, open to collaboration and public: the directory rule lists them in local-dev.
+	// Every seeded user has its public profile and is listable by the member directory rule in local-dev
+	// (open_to_collab and its visibility public: the seed exists to fill Connect), with no invented intent (owner
+	// decisions of 2026-11-18, #330 note seed-real-people-attributes: option 1).
 	listable := scalarInt(ctx, t, conn, `SELECT count(*) FROM users u JOIN profiles p ON p.user_id = u.id WHERE `+block+`
 	  AND u.status = 'active' AND p.open_to_collab AND p.profile_visibility = 'public' AND p.open_to_collab_visibility = 'public'
-	  AND p.github_username IS NOT NULL AND p.country_code IS NOT NULL`)
+	  AND p.github_visibility = 'public' AND p.github_username IS NOT NULL AND p.country_code IS NOT NULL`)
 	if listable != n {
 		t.Fatalf("listable committers profiles = %d, want %d", listable, n)
+	}
+	if got := scalarInt(ctx, t, conn, `SELECT count(*) FROM users u JOIN profiles p ON p.user_id = u.id WHERE `+block+`
+	  AND p.intent IS NOT NULL`); got != 0 {
+		t.Fatalf("%d committers profiles carry an invented intent", got)
 	}
 
 	// Idempotent: a second run changes nothing.
@@ -99,5 +105,23 @@ func TestLocalDevSeedSkipsTakenUsernameAndLogin(t *testing.T) {
 	}
 	if got := scalarInt(ctx, t, conn, `SELECT count(*) FROM users WHERE provenance = 'demo' AND email IN ('spwoodcock@demo.226os.invalid', 'tky0065@demo.226os.invalid')`); got != 0 {
 		t.Fatalf("%d orphan demo users for taken names", got)
+	}
+}
+
+// A leftover user that holds a seed email under another id and has no profile (#330 notes seed-email-unique-conflict,
+// seed-email-uq-unguarded) must not abort the seed on users_email_uq: that one person is skipped, the rest is seeded.
+func TestLocalDevSeedSkipsATakenEmail(t *testing.T) {
+	ctx, conn, _ := seededDB(t)
+	if _, err := conn.Exec(ctx, `INSERT INTO users (id, email) VALUES ('01900000-0000-7000-8000-00000000f003', 'spwoodcock@demo.226os.invalid')`); err != nil {
+		t.Fatal(err)
+	}
+	if err := runSeed(ctx, t, conn, localDevSeedBatch(t)); err != nil {
+		t.Fatalf("local-dev seed over a leftover email: %v", err)
+	}
+	if got := scalarInt(ctx, t, conn, `SELECT count(*) FROM profiles WHERE username = 'spwoodcock'`); got != 0 {
+		t.Fatalf("spwoodcock profiles = %d, want 0 (its email is taken)", got)
+	}
+	if got := scalarInt(ctx, t, conn, `SELECT count(*) FROM profiles WHERE username = 'tky0065'`); got != 1 {
+		t.Fatalf("tky0065 profiles = %d, want the rest of the seed loaded", got)
 	}
 }

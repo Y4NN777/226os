@@ -122,7 +122,7 @@ def main(argv):
         "-- Regenerate with scripts/content/committers-seed.py. Local-dev only (db/seeds/README.md): make seed loads",
         "-- db/seeds/local-dev/ for APP_ENV=local-dev only. Demo provenance, no credentials. No BEGIN/COMMIT (make seed wraps it).",
         "",
-        "-- A username or GitHub login already taken (a live account, an earlier seed) is skipped, never an error.",
+        "-- A username, GitHub login or email already taken (a live account, an earlier seed) is skipped, never an error.",
         "CREATE TEMP TABLE seed_committers (id uuid, username text, display_name text, country_code text, github text) ON COMMIT DROP;",
         "INSERT INTO seed_committers (id, username, display_name, country_code, github) VALUES",
     ]
@@ -133,12 +133,16 @@ def main(argv):
     out.append(f"SELECT s.id, s.username || '@demo.226os.invalid', {q(STAMP)}, 'member', 'active', 'demo', {q(STAMP)}, {q(STAMP)}, NULL")
     out.append("FROM seed_committers s")
     out.append("WHERE NOT EXISTS (SELECT 1 FROM profiles p WHERE p.username = s.username OR lower(p.github_username) = lower(s.github))")
+    # users_email_uq: a leftover row with this email under another id would abort the whole seed (#330 notes).
+    out.append("AND NOT EXISTS (SELECT 1 FROM users x WHERE x.email = s.username || '@demo.226os.invalid')")
     out.append("ON CONFLICT (id) DO NOTHING;")
     out.append("")
     out.append("INSERT INTO profiles (user_id, username, display_name, intent, country_code, languages, github_username, bio, "
                "bio_language, open_to_collab, country_visibility, languages_visibility, skills_visibility, github_visibility, "
                "bio_visibility, open_to_collab_visibility, created_at, updated_at)")
-    out.append(f"SELECT s.id, s.username, s.display_name, 'contribute', s.country_code, '{{}}', s.github, NULL, NULL, true, 'public', "
+    # No invented intent for a real person (owner 2026-11-18): intent NULL; open_to_collab true so the local-dev
+    # Connect directory lists them (the purpose of this seed).
+    out.append(f"SELECT s.id, s.username, s.display_name, NULL, s.country_code, '{{}}', s.github, NULL, NULL, true, 'public', "
                f"'public', 'public', 'public', 'public', 'public', {q(STAMP)}, {q(STAMP)}")
     out.append("FROM seed_committers s")
     out.append("JOIN users u ON u.id = s.id AND u.provenance = 'demo'")

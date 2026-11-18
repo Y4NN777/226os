@@ -18,19 +18,38 @@ if [ ! -e "$file" ]; then
   exit 0
 fi
 
-content="$(cat -- "$file"; printf x)"
-content="${content%x}"
-# The XML may hold a value escaped (&amp; &lt; &#38; &#x26; ...): compare the entity-decoded text as well.
-decoded="$(python3 -I -c 'import html, sys; sys.stdout.write(html.unescape(sys.stdin.read()))' <"$file"; printf x)"
-decoded="${decoded%x}"
-for k in E2E_USER E2E_PASSWORD; do
-  # A test runner may also print the value JS/JSON-escaped (\" and \\) in a failure message.
-  escaped="$(python3 -I -c 'import json, os, sys; sys.stdout.write(json.dumps(os.environ[sys.argv[1]])[1:-1])' "$k"; printf x)"
-  escaped="${escaped%x}"
-  if [[ "$content" == *"${!k}"* || "$decoded" == *"${!k}"* || "$decoded" == *"$escaped"* ]]; then
-    rm -f -- "$file"
-    printf '::error title=E2E account in the junit report::The report holds the value of %s. It was deleted and is not uploaded.\n' "$k"
-    exit 1
+# Every printing of a value a test runner or a log may use is compared, as plain strings (never a pattern): the raw
+# file, its XML-entity-decoded text and the URL-decoded form of both; for each value the value itself, its JSON
+# escapes (non-ASCII kept literal as JSON.stringify prints it, or written \uXXXX in any hex case), the JSON "\/"
+# escape, and a quote escaped while the backslash stays raw. Prints the name of the first value found, never a value.
+rc=0
+found="$(python3 -I - "$file" <<'PY'
+import html, json, os, re, sys
+from urllib.parse import unquote
+BSL = chr(92)
+raw = open(sys.argv[1], "rb").read().decode("utf-8", "replace")
+dec = html.unescape(raw)
+texts = [raw, dec, unquote(raw), unquote(dec)]
+hexu = re.compile(re.escape(BSL) + "u([0-9A-Fa-f]{4})")
+texts += [hexu.sub(lambda m: BSL + "u" + m.group(1).lower(), t) for t in texts]
+for key in ("E2E_USER", "E2E_PASSWORD"):
+    v = os.environ[key]
+    forms = {v, v.replace('"', BSL + '"')}
+    for ascii_only in (False, True):
+        j = json.dumps(v, ensure_ascii=ascii_only)[1:-1]
+        forms |= {j, j.replace("/", BSL + "/")}
+    if any(f and f in t for f in forms for t in texts):
+        print(key)
+        sys.exit(1)
+PY
+)" || rc=$?
+if [ "$rc" -ne 0 ]; then
+  rm -f -- "$file"
+  if [ "$rc" -eq 1 ] && [ -n "$found" ]; then
+    printf '::error title=E2E account in the junit report::The report holds the value of %s. It was deleted and is not uploaded.\n' "$found"
+  else
+    printf '::error title=E2E report check failed::The report could not be checked (exit %s). It was deleted and is not uploaded.\n' "$rc"
   fi
-done
+  exit 1
+fi
 printf 'e2e-junit-check: the report holds neither E2E_USER nor E2E_PASSWORD\n'

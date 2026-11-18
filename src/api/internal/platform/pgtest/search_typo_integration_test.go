@@ -163,3 +163,23 @@ func TestSearchTypoFallbackFollowsThePostgreSQLNegation(t *testing.T) {
 		}
 	}
 }
+
+// A hyphen inside a word is not a negation (#294 deep review, note n2-hyphen-word-not-proven): the parser reads
+// "e-commerce" as a compound word, the tsquery holds no NOT, so a typo next to it still gets the fallback.
+func TestSearchTypoFallbackKeepsAHyphenatedWord(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 60*time.Second)
+	defer cancel()
+	e := newSearchEnv(ctx, t)
+	e.exec(ctx, t, fmt.Sprintf(`INSERT INTO questions (id, author_id, title, body_md, language) VALUES
+	  ('%s', '%s', 'Paiement e-commerce en Afrique', 'x', 'fr')`, sid(601), sid(sUser)))
+	for _, q := range []string{"paiemnt e-commerce", "e-commerce paiemnt"} {
+		res, rec := e.search(ctx, t, apigen.SearchParams{Q: q, Types: only(apigen.SearchGroupQuestions)})
+		if rec.Code != http.StatusOK {
+			t.Fatalf("%q: %d", q, rec.Code)
+		}
+		items := res.Groups.Questions.Items
+		if len(items) != 1 || items[0].Id.String() != sid(601) {
+			t.Errorf("%q: hits %v, want exactly 'Paiement e-commerce en Afrique' (%s)", q, titlesOf(res.Groups.Questions), sid(601))
+		}
+	}
+}

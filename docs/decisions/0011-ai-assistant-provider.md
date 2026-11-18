@@ -4,6 +4,7 @@
 - **Date:** 2026-11-12
 - **Approver:** `Y4NN777`, repository owner (decision taken by the owner, recorded in `ROADMAP.md` section 14 and section 10, O5)
 - **Scope:** which provider and model back the sourced assistant, how the key is handled, and what stays open
+- **Amended:** 2026-11-18, same approver: production uses `gemini-3.5-flash-lite` (same Google AI Studio provider) since PR #358 (merged 2026-11-16), because `gemma-4-26b-a4b-it` answered HTTP 500 or timed out in production. Staging keeps `gemma-4-26b-a4b-it`. Decision 1 below reads with this amendment.
 - **Related:** [PRD amendment 3.2](../PRD.md), [ADR-0009](0009-secrets-with-sops-and-age.md), `ROADMAP.md` (O5, K13), `src/api/internal/platform/llm`, `src/api/cmd/aicheck`
 
 ## Context

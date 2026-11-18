@@ -1,0 +1,16 @@
+## Review notes routed to the owner: fixes and justifications
+
+```yaml
+date: "2026-11-18"
+contributor: "Y4NN777"
+tool_or_model: "Claude Code (Claude Opus 5.5), review-steward agent"
+purpose: "Work the 34 open review notes that review batches 364 to 371 routed OWNER, plus the n1-tsquery-bang-comment note of #295 added by the lead. Fixes: the auto-fix push guard names every refused file; compact_state cuts only text; the E2E junit check matches a JS-escaped value with literal non-ASCII characters; the committers seed skips an email already taken; a pgtest case proves that a hyphenated word keeps the typo fallback; the search.sql comment about '!' in lexemes is corrected; the review-pipeline skill map follows the code; the seed README says to reset before reseeding; a TODO.md line records the production model change of PR #358. The other notes are justified with a file:line, ADR or tracker reference, or left as owner questions."
+repository_or_source_context: "branch fix/review/owner-notes from develop 258f472; notes issues #295, #302, #313, #315, #316, #319, #320, #322, #327, #330, #340, #349, #360, #362, #365"
+files_or_sections_affected: ["scripts/review-autofix.py", "scripts/tests/review-autofix_test.sh", "scripts/e2e-junit-check.sh", "scripts/tests/e2e-junit-check_test.sh", "scripts/content/committers-seed.py", "scripts/tests/committers-seed_test.sh", "db/seeds/local-dev/00001_connect_committers.sql", "db/seeds/README.md", "db/queries/search.sql", "src/api/internal/platform/dbgen/search.sql.go", "src/api/internal/platform/pgtest/search_typo_integration_test.go", "src/api/internal/platform/pgtest/local_dev_seed_integration_test.go", ".claude/skills/review-pipeline/SKILL.md", "docs/decisions/0003-authentication-sessions-csrf-rate-limits.md", "docs/decisions/0008-team-work-areas-and-ownership.md", "docs/decisions/0011-ai-assistant-provider.md", "TODO.md", "docs/ai-usage/2026-11-18-owner-notes.md"]
+third_party_sources_consulted: []
+license_review: "NOT APPLICABLE: no dependency, no third-party code"
+closure: "open"
+human_reviewers: []
+tests_or_evidence: ["RED then GREEN: review-autofix_test.sh (compact_state TypeError; two refused paths), 399 passed", "RED then GREEN: e2e-junit-check_test.sh, 14 passed", "RED then GREEN: committers-seed_test.sh, 19 passed", "RED then GREEN on PostgreSQL: TestLocalDevSeedSkipsATakenEmail (users_email_uq 23505 on the old seed)", "TestSearchTypoFallbackKeepsAHyphenatedWord passes, and FAILS under a mutation that treats a hyphen as a negation", "sqlc generate reproduces the edited dbgen comment exactly", "go vet -tags integration on pgtest and dbgen: exit 0", "after the skeptic review: e2e-junit-check RED 14/4 then GREEN 18/0 (N4); hyphen test asserts the item id (N7); seed attributes RED then GREEN", "every review-*_test.sh and findings*_test.sh, lint-shell, check-docs, check-todo-updated (see the report)"]
+open_risks: ["owner decisions of 2026-11-18 recorded here: ADR-0003, ADR-0008 exception, ADR-0011 amendment, no invented seed attributes (the local-dev member directory no longer lists the committers); the captures and the talents scope are handled by another agent", "live only and NOT RUN: deploy.yml attestation and digest paths, the real labels API, the batch run after an unmerged close, secrets: inherit on the emergency deploy, the production SMTP and memory checks"]
+```

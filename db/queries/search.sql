@@ -100,7 +100,8 @@ LIMIT sqlc.arg('row_limit');
 -- word_similarity DESC, then id. Like full text, a query with no positive term (only negations) reads none.
 -- A query that negates anything reads none either (#292): pg_trgm ignores "-", so a fallback would return the
 -- titles the caller excluded. PostgreSQL's own parse decides what a negation is: a NOT ('!') in the tsquery text
--- (a lexeme of the simple parser never holds '!').
+-- (a lexeme can hold '!' too: the URL rule keeps it, e.g. 'site.com/#!/paiement'; such a query then reads no
+-- fallback, which is safe: it loses typo tolerance, never returns an excluded title).
 
 -- name: SimilarQuestions :many
 WITH i AS NOT MATERIALIZED (SELECT f_unaccent(sqlc.arg('q')::text) AS q,
