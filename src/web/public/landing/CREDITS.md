@@ -4,7 +4,7 @@ All photos come from unsplash.com and are published under the Unsplash License (
 use, modification and self-hosting; no attribution required, credit kept here). Each page was
 checked on 2026-11-15 and reads "Free to use under the Unsplash License". Files are baseline JPEG,
 metadata stripped.
-The `mock-*` files are captures of the project's own public pages (dark theme, author Professor), not stock photos. The portraits are illustrative: they never name, quote or present anyone as a
+The `mock-*` files are captures of the project's own pages on demo content (local-dev seeds, demo authors demo-kofi and demo-nadia, dark theme, French, retaken on 2026-11-18), not stock photos. The portraits are illustrative: they never name, quote or present anyone as a
 member of 226os.
 
 ## Section scene

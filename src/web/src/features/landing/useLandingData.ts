@@ -114,18 +114,20 @@ export const TALENTS = 6;
 const AVATAR_HOST = 'https://avatars.githubusercontent.com/';
 
 /**
- * Public committers.top entries for Burkina Faso (ADR-0016), read like the Connect directory.
+ * Public committers.top entries of every imported West African country (ADR-0016), read like the
+ * Connect directory. No country filter: the keyset (rank, country, login) puts the number 1 of each
+ * country first, so the six entries are the leaders of six countries.
  * An avatar from any other host is dropped (privacy review, DESIGN.md), never loaded.
  */
 export function useLandingTalents(enabled = true) {
   return useQuery({
     enabled,
     retry: false,
-    queryKey: ['profiles', 'list', 'landing', { source: 'github', country: 'BF', limit: TALENTS }],
+    queryKey: ['profiles', 'list', 'landing', { source: 'github', limit: TALENTS }],
     queryFn: () =>
       api.call(() =>
         api.client.GET('/profiles', {
-          params: { query: { source: 'github', country: 'BF', limit: TALENTS } },
+          params: { query: { source: 'github', limit: TALENTS } },
         }),
       ),
     select: (page) =>
