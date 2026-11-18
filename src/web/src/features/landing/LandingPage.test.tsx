@@ -81,13 +81,16 @@ const page = (items: unknown[], total?: number, more = false) =>
 
 type External = components['schemas']['ExternalDeveloper'];
 
+/** Rank 1 of each country first, like the unfiltered keyset (rank, country, login). */
+const TALENT_COUNTRIES = ['BF', 'CI', 'SN', 'ML', 'NE', 'BJ', 'TG'];
+
 function developer(n: number): External {
   return {
     login: `dev${String(n)}`,
     name: `Développeur ${String(n)}`,
     avatar_url: `https://avatars.githubusercontent.com/u/${String(n)}?v=4`,
-    country: 'BF',
-    rank: n,
+    country: TALENT_COUNTRIES[n - 1] ?? 'BF',
+    rank: 1,
     contributions: 1000 - n,
     organizations: [],
     generated_at: '2026-11-15T10:00:00Z',
@@ -793,18 +796,18 @@ describe('scroll reveals', () => {
 });
 
 describe('talents: public GitHub ranking', () => {
-  it('asks the API for six GitHub developers from Burkina Faso', async () => {
+  it('asks the API for six GitHub developers from every imported country', async () => {
     setLanguages(['fr-FR']);
     const fetchMock = mockApi(healthy());
     await renderApp('/');
     await screen.findByRole('region', { name: 'Les talents d’Afrique de l’Ouest' });
     const url = new URL(callsTo(fetchMock, 'GET /profiles')[0]?.url ?? 'http://x');
     expect(url.searchParams.get('source')).toBe('github');
-    expect(url.searchParams.get('country')).toBe('BF');
+    expect(url.searchParams.has('country')).toBe(false);
     expect(url.searchParams.get('limit')).toBe('6');
   });
 
-  it('shows six developers with rank, name, contributions, avatar and GitHub link', async () => {
+  it('shows six developers with rank, country, name, contributions, avatar and GitHub link', async () => {
     setLanguages(['fr-FR']);
     const { main } = await open(
       healthy({ 'GET /profiles': talents([1, 2, 3, 4, 5, 6, 7].map(developer)) }),
@@ -815,7 +818,8 @@ describe('talents: public GitHub ranking', () => {
     const list = within(region.getByRole('list', { name: 'Classement GitHub' }));
     const entries = list.getAllByRole('listitem');
     expect(entries).toHaveLength(6);
-    expect(within(entries[0] as HTMLElement).getByText('n° 1')).toBeInTheDocument();
+    expect(within(entries[0] as HTMLElement).getByText('n° 1 · Burkina Faso')).toBeInTheDocument();
+    expect(within(entries[1] as HTMLElement).getByText('n° 1 · Côte d’Ivoire')).toBeInTheDocument();
     expect(within(entries[0] as HTMLElement).getByText('Développeur 1')).toBeInTheDocument();
     expect(within(entries[0] as HTMLElement).getByText('999 contributions')).toBeInTheDocument();
     const links = list.getAllByRole('link');
@@ -831,7 +835,7 @@ describe('talents: public GitHub ranking', () => {
     }
     expect(region.getByRole('link', { name: 'Voir tout le classement' })).toHaveAttribute(
       'href',
-      '/connect?source=github&country=BF',
+      '/connect?source=github',
     );
     expect(region.getByRole('link', { name: 'C’est vous ? Rejoignez 226os' })).toHaveAttribute(
       'href',
@@ -917,7 +921,8 @@ describe('one language per page', () => {
     const spaces = within(main.getByRole('region', { name: 'Five spaces, one account' }));
     for (const link of spaces.getAllByRole('link')) expect(link).toHaveTextContent('Explore →');
     const talentsRegion = within(await main.findByRole('region', { name: 'West Africa’s talent' }));
-    expect(talentsRegion.getByText('No. 1')).toBeInTheDocument();
+    expect(talentsRegion.getByText('No. 1 · Burkina Faso')).toBeInTheDocument();
+    expect(talentsRegion.getByText('No. 1 · Côte d’Ivoire')).toBeInTheDocument();
     expect(talentsRegion.getByRole('link', { name: 'See the full ranking' })).toBeInTheDocument();
     expect(
       talentsRegion.getByRole('link', { name: 'Is this you? Join 226os' }),
