@@ -1,0 +1,82 @@
+# Review digest: the owner-decision loop of the review batch (docs/quality/REVIEW_CONTEXT.md). Items that a no-commit batch
+# run (review-autofix.py `nothing`, marker batch-handled) gave a verdict stay open for the owner and out of new batches; a
+# model verdict never closes anything by itself (ADR-0014). scripts/findings.py keeps ONE open issue "Décisions en attente
+# (revue IA)" (label review-digest) listing them by verdict, and applies only the rows the OWNER ticks.
+#
+# Job `apply` (issues: edited on an issue labelled review-digest): `findings.py digest-apply` reads the event file GitHub
+#   wrote (sender and changes.body.from are set by GitHub, not by the editor) and acts only on rows that THIS edit, made by
+#   the owner, ticked, whose text is what `digest` renders now (ticked or not in the current body). A schedule cannot do this: a poll sees the ticks but
+#   not who made them, so it would have to fail closed on every row. No concurrency group: GitHub replaces a pending run of
+#   the same group, which would drop an earlier owner edit (each run is idempotent through comment markers).
+# Job `digest` (weekly on Monday 06:00 UTC, manual run, and after `apply`): `findings.py digest` creates or updates the issue
+#   in place. Its edits use GITHUB_TOKEN, which starts no workflow, so it never triggers `apply` again.
+# `issues` and `schedule` events run the copy of this file on the default branch (develop, ADR-0013), and both jobs check
+# out develop: the scripts are never the pull request's. No environment and no REVIEW_AGENT_TOKEN: GITHUB_TOKEN with
+# issues: write only. The script fails CLOSED: a GitHub error is "findings digest: FAILED" and a red run.
+name: Review digest
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+  issues:
+    types: [edited]
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  apply:
+    name: Review digest (apply the owner's ticks)
+    if: github.event_name == 'issues' && contains(github.event.issue.labels.*.name, 'review-digest')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Checkout develop (trusted scripts)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: develop
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Apply the rows the owner ticked
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          OWNER: ${{ github.repository_owner }}
+        run: python3 -I scripts/findings.py digest-apply | tee -a "$GITHUB_STEP_SUMMARY"
+
+  digest:
+    name: Review digest (write)
+    needs: apply
+    if: >-
+      always() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+      || needs.apply.result == 'success')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    concurrency:
+      group: review-digest-write
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Checkout develop (trusted scripts)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: develop
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Create or update the digest issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: python3 -I scripts/findings.py digest | tee -a "$GITHUB_STEP_SUMMARY"
