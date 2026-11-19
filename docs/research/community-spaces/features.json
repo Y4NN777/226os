@@ -1,0 +1,170 @@
+{
+ "features": [
+  {
+   "id": "F1",
+   "title": "Contrat OpenAPI des espaces, fils et réponses",
+   "criteria": [
+    "Opérations x-priority: P2 : GET /spaces, GET /spaces/{id}, POST et DELETE /spaces/{id}/members, GET et POST /spaces/{id}/threads, GET, PATCH et DELETE d'un fil, POST, PATCH et DELETE d'une réponse, épingler, signaler, lien externe",
+    "Ligne dans AUTHORIZATION_MATRIX.md pour chaque opération"
+   ],
+   "verify": "make lint-contract (redocly) et revue de la matrice d'autorisation",
+   "passes": false,
+   "evidence": ""
+  },
+  {
+   "id": "F2",
+   "title": "Migration des tables spaces, space_members, threads, replies",
+   "criteria": [
+    "Clés UUID, contraintes de longueur, statut de modération, index pour la liste paginée",
+    "Migration forward-only conforme à check-migrations"
+   ],
+   "verify": "scripts/check-migrations.sh et test d'intégration du schéma (contraintes) sur PostgreSQL réel",
+   "passes": false,
+   "evidence": ""
+  },
+  {
+   "id": "F3",
+   "title": "Requêtes sqlc de liste et de lecture paginées",
+   "criteria": [
+    "Keyset signé, filtre des contenus masqués, une page de 20 fils sous 300 ms sur 10 000 fils"
+   ],
+   "verify": "test d'intégration et EXPLAIN (ANALYZE, BUFFERS) consigné",
+   "passes": false,
+   "evidence": ""
+  },
+  {
+   "id": "F4",
+   "title": "Lecture anonyme des espaces et des fils",
+   "criteria": [
+    "GET /spaces et lecture d'un fil sans session : 200",
+    "Contenu masqué absent pour un non-modérateur"
+   ],
+   "verify": "tests d'intégration HTTP sur PostgreSQL réel",
+   "passes": false,
+   "evidence": ""
+  },
+  {
+   "id": "F5",
+   "title": "Écriture : ouvrir un fil et répondre",
+   "criteria": [
+    "Rejoindre et quitter un espace (idempotent)",
+    "Écrire exige d'avoir rejoint et un e-mail vérifié : 401 sans session, 403 sinon",
+    "Limite de débit existante, 429 avec Retry-After"
+   ],
+   "verify": "tests d'intégration et tests négatifs d'autorisation",
+   "passes": false,
+   "evidence": ""
+  },
+  {
+   "id": "F6",
+   "title": "Création des espaces par un modérateur",
+   "criteria": [
+    "Seul un modérateur crée un espace de pays, de technologie ou d'intérêt ; 403 pour un membre"
+   ],
+   "verify": "test négatif d'autorisation",
+   "passes": false,
+   "evidence": ""
+  },
+  {
+   "id": "F7",
+   "title": "Espace de projet et de série",
+   "criteria": [
+    "Créé dans la même transaction que le projet ou la série",
+    "Archivé à la suppression : lisible, écriture refusée (409)",
+    "Épingler réservé au responsable et aux modérateurs (403 sinon)"
+   ],
+   "verify": "tests d'intégration (transaction, archivage, épinglage)",
+   "passes": false,
+   "evidence": ""
+  },
+  {
+   "id": "F8",
+   "title": "Lien du groupe externe",
+   "criteria": [
+    "Déclaré par un responsable ou un modérateur",
+    "Hôtes autorisés : WhatsApp, Telegram, Discord",
+    "Un modérateur retire le lien"
+   ],
+   "verify": "tests unitaires de validation d'URL et test d'intégration d'autorisation",
+   "passes": false,
+   "evidence": ""
+  },
+  {
+   "id": "F9",
+   "title": "Modération des fils et réponses",
+   "criteria": [
+    "Signaler un fil ou une réponse (identité du signaleur privée, limite de débit)",
+    "Masquer et rétablir, effet sur listes, pages et recherche"
+   ],
+   "verify": "tests d'intégration liste, page et GET /search",
+   "passes": false,
+   "evidence": ""
+  },
+  {
+   "id": "F10",
+   "title": "Recherche : groupe Espaces",
+   "criteria": [
+    "Les fils publiés apparaissent dans GET /search avec la tolérance aux fautes"
+   ],
+   "verify": "test d'intégration de GET /search avec une faute de frappe",
+   "passes": false,
+   "evidence": ""
+  },
+  {
+   "id": "F11",
+   "title": "Prototype HTML des pages Espaces",
+   "criteria": [
+    "Liste des espaces, page d'espace, page de fil, formulaire, états vide, chargement, erreur",
+    "FR, 360 et 1440 px"
+   ],
+   "verify": "captures Playwright du prototype dans prototypes/html et validation du propriétaire",
+   "passes": false,
+   "evidence": ""
+  },
+  {
+   "id": "F12",
+   "title": "Pages web Espaces dans Connect, Construire et Apprendre",
+   "criteria": [
+    "Onglet Espaces dans Connect, onglet Discussion sur un projet et une série",
+    "FR/EN, 360 px sans défilement horizontal, clavier, contrastes AA",
+    "Markdown rendu sans HTML brut"
+   ],
+   "verify": "tests Vitest, captures Playwright comparées au prototype, contrôle axe, test XSS",
+   "passes": false,
+   "evidence": ""
+  },
+  {
+   "id": "F13",
+   "title": "Modifier et supprimer ses propres messages",
+   "criteria": [
+    "L'auteur modifie (mention modifié) ou supprime ; 403 sur le message d'un autre",
+    "Un message supprimé disparaît des listes et de la recherche, ses réponses restent"
+   ],
+   "verify": "tests d'intégration et tests négatifs d'autorisation",
+   "passes": false,
+   "evidence": ""
+  },
+  {
+   "id": "F14",
+   "title": "Indicateur de nouvelles réponses pour l'auteur",
+   "criteria": [
+    "Nombre de réponses depuis la dernière lecture du fil par son auteur"
+   ],
+   "verify": "test d'intégration lecture, réponse, indicateur à 1, relecture, indicateur à 0",
+   "passes": false,
+   "evidence": ""
+  },
+  {
+   "id": "F15",
+   "title": "Membres d'un espace et interface honnête",
+   "criteria": [
+    "Le nombre de membres ne compte que les membres ayant rejoint ; la liste ne montre que les profils listables",
+    "Connect garde Espaces : bientôt tant qu'aucun espace réel n'existe ; état vide honnête",
+    "Espaces de démo absents en production et masqués en staging-test"
+   ],
+   "verify": "tests d'intégration (membre non listable absent), tests web des deux états, test du seed et de include_demo",
+   "passes": false,
+   "evidence": ""
+  }
+ ]
+}
