@@ -6,6 +6,7 @@
 - **Scope:** who owns which work area during the rest of P0 now that the team has four members; amends the interim ownership of [ADR-0002](0002-interim-single-maintainer-ownership.md)
 - **Related:** [ADR-0002](0002-interim-single-maintainer-ownership.md), `docs/GIT_WORKFLOW.md`, `docs/DEV.md` section 6, `TODO.md`, `.github/CODEOWNERS`, `docs/team/CONTRIBUTORS.md`
 - **Metadata note 2026-11-12:** approver spelling normalised to the GitHub login (`Y4NN777`); the decision text is unchanged.
+- **Exception recorded 2026-11-18 (owner `Y4NN777`):** migration `db/migrations/00014_github_developers.sql` was written by the owner and merged in PR #329 without the review of the migration writer named under Data below. The owner accepts it as a one-time exception; the migration stays as merged (forward-only). Review notes of #340.
 
 ## Context
 

@@ -29,6 +29,8 @@ grep -q "01900000-0000-7000-8000-000000000a01" "$tmp/a.sql" && ! grep -qE "8000-
   && ok "ids are in the A01-AFF block" || ko "id block"
 grep -q "'demo'" "$tmp/a.sql" && ! grep -qiE "now\(\)|uuidv7\(\)|random\(\)" "$tmp/a.sql" && ok "demo provenance, literal values only" || ko "provenance or non-literal"
 grep -q "ON CONFLICT (id) DO NOTHING" "$tmp/a.sql" && grep -q "ON CONFLICT (user_id) DO NOTHING" "$tmp/a.sql" && [ "$(grep -c "WHERE NOT EXISTS (SELECT 1 FROM profiles p WHERE p.username = s.username" "$tmp/a.sql")" -eq 2 ] && ok "idempotent inserts that skip taken usernames and logins" || ko "on conflict"
+grep -qF "AND NOT EXISTS (SELECT 1 FROM users x WHERE x.email = s.username || '@demo.226os.invalid')" "$tmp/a.sql" && ok "the users insert skips an email already taken under another id (users_email_uq, #330 notes)" || ko "email guard"
+grep -q "SELECT s.id, s.username, s.display_name, NULL, s.country_code, '{}', s.github, NULL, NULL, true," "$tmp/a.sql" && ! grep -q "'contribute'" "$tmp/a.sql" && ok "no invented intent (NULL), open_to_collab true so Connect lists them in local-dev (owner 2026-11-18)" || ko "seed attributes"
 grep -q "Source: committers.top" "$tmp/a.sql" && grep -q "generated 2026-11-02T19:04:24Z" "$tmp/a.sql" && ok "the header names the source and its date" || ko "header"
 n="$(grep -cE "^  \(.01900000" "$tmp/a.sql")"
 [ "$n" -eq 2 ] && ok "two users kept from the fixture (spwoodcock, enok-dev)" || ko "count ($n)"
