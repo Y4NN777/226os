@@ -34,6 +34,16 @@ dashboard says what to fix next. Nobody files a finding by hand: classifying one
              notes issue whose boxes are all ticked is closed (as not planned when a verdict ticked one, else as completed);
              the batch issue closes last. Fails CLOSED like
              `batch`.
+  digest     the owner-decision loop: ONE open issue "Décisions en attente (revue IA)" (marker `<!-- review-digest -->`,
+             label review-digest) lists the items held for the owner (as `batch` holds them) that are still open, grouped
+             by the newest verdict of the bot's verdict tables on the batch-handled batches, one checkbox per row with the
+             source, a summary, the reason (neutralised) and a link to the verdict. Created or updated in place, never a
+             mention. Fails CLOSED.
+  digest-apply  (issues: edited, GITHUB_EVENT_PATH) only rows the OWNER (env OWNER) ticked in THAT edit (sender,
+             changes.body.from and issue.body are GitHub's), equal to what `digest` renders now: a note is ticked with
+             " — décidé par le propriétaire (digest #N)" (its issue closes as not planned when all are ticked), a finding
+             closes (completed for FIXED and FIXED ELSEWHERE, else not planned); one comment per source (marker), then the
+             digest is rewritten. A verdict alone never closes anything. Fails CLOSED.
 
 Every issue is self-contained: the ledger entry's `detail` (proof and reasoning), `fix`, `source` (review or deep), a
 permalink at `first_sha` (only when the location was verified) and a link to the exact review comment are written in it,
@@ -1078,16 +1088,269 @@ def run_batch(binary, repo, write):
         return 1
 
 
+DIGEST_MARK = "<!-- review-digest -->"
+DIGEST_LABEL = "review-digest"
+DIGEST_TITLE = "Décisions en attente (revue IA)"
+DIGEST_LINE = re.compile(r"^- \[( |x|X)\] (.*) <!-- digest-item:(#\d+(?:/[\w-]+)?) -->$")
+VERDICTS_MARK = re.compile(r"^<!-- batch-verdicts:run(\d+) -->$")
+DIGEST_MAX = 60000  # GitHub refuses an issue body over 65536 characters
+NO_VERDICT = "VERDICT NON RETROUVÉ"
+DIGEST_DECIDED = "<!-- digest-decided:%s:%s -->"
+DIGEST_SUFFIX = " — décidé par le propriétaire (digest #%s)"
+
+
+def verdict_rows(text):
+    """[(key, verdict, reason)] of a `review-autofix.py nothing` verdict table (| item | verdict | reason |, `\\|` escaped)."""
+    rows = []
+    for line in (text or "").splitlines():
+        line = line.strip()
+        if not SETTLE_ROW.match(line):
+            continue
+        cells = [c.strip().replace("\\|", "|") for c in re.split(r"(?<!\\)\|", line.strip("|"))]
+        if len(cells) >= 3 and cells[1].upper() in DECISIONS:
+            rows.append((cells[0], cells[1].upper(), " | ".join(cells[2:])))
+    return rows
+
+
+def batch_sources(body):
+    """{row key: [sources]} of a batch issue body (its batch-item and batch-also markers)."""
+    rows = {}
+    for line in (body or "").splitlines():
+        m = BATCH_LINE.match(line)
+        if m:
+            also = ALSO.search(line)
+            rows[m.group(3)] = [m.group(3)] + [k for k in (also.group(1).split(",") if also else []) if ITEM_KEY_RE.match(k)]
+    return rows
+
+
+def batch_verdicts(ctx, binary, repo, batch_issues):
+    """{source: (order, verdict, reason, url)}: the verdict tables the no-commit path posted on the CLOSED batch-handled
+    batches written by the Actions bot. Only a comment by the Actions bot whose FIRST line is the marker counts (anyone can comment on an issue).
+    The newest wins: batch number, then comment time."""
+    out = {}
+    for b in sorted(batch_issues, key=lambda i: i.get("number", 0)):
+        body = b.get("body") or ""
+        if (b.get("state") != "closed" or BATCH_MARK not in body or not HANDLED_LINE.search(body)
+                or (b.get("user") or {}).get("login") not in ctx.BOT_LOGINS):
+            continue
+        sources = batch_sources(body)
+        comments = ctx.gh_api(binary, "repos/%s/issues/%s/comments" % (repo, b["number"]))
+        for c in sorted(comments, key=lambda c: c.get("created_at") or ""):
+            text = c.get("body") or ""
+            if (c.get("user") or {}).get("login") not in ctx.BOT_LOGINS or not VERDICTS_MARK.match(text.split("\n", 1)[0]):
+                continue
+            for key, verdict, reason in verdict_rows(text):
+                for src in sources.get(key, []):
+                    out[src] = ((b["number"], c.get("created_at") or ""), "OWNER" if verdict == "AFTER FREEZE" else verdict,
+                                reason, c.get("html_url") or "")
+    return out
+
+
+def digest_text(text, width):
+    """Text read from issues (human-editable) or written by the model, made inert for the digest: secret shapes replaced,
+    no HTML or marker, no mention, no #N, no backtick (no code span to hide in) and no stray `-->`, one line."""
+    return defuse(rc_module().redact(text or "")[0], width).replace("`", "’").replace("-->", "--&gt;")
+
+
+def digest_rows(ctx, binary, repo):
+    """[(verdict, key, sources, line)] of the items held for the owner, computed exactly as `batch` holds them (a row
+    whose text is unchanged since a batch-handled batch ticked it), each with the newest verdict of its sources."""
+    findings = list_issues(ctx, binary, repo)
+    notes = list_issues(ctx, binary, repo, "kind:note")
+    batches = list_issues(ctx, binary, repo, BATCH_LABEL)
+    record = held_items(batches)
+    verdicts = batch_verdicts(ctx, binary, repo, batches)
+    out = []
+    for it in group_items(batch_items(findings, notes)):
+        if not any(record.get(src) == it["text"] for src in it["sources"]):
+            continue
+        found = [verdicts[s] for s in it["sources"] if s in verdicts]
+        _, verdict, reason, url = max(found, key=lambda v: v[0]) if found else (None, NO_VERDICT, "", "")
+        # The source reference comes from the key (script-made, digits only), so it stays a live link; the rest is inert.
+        shown = re.sub(r"^#​\d+\s*", "", digest_text(it["text"], 300))
+        line = "%s %s — %s%s%s" % (it["key"].split("/")[0], shown, verdict, " : " + digest_text(reason, 300) if reason else "",
+                                    " ([verdict](%s))" % url if re.match(r"^https://github\.com/[\w./#-]+$", url) else "")
+        out.append((verdict, it["key"], it["sources"], line))
+    return out
+
+
+def render_digest(rows):
+    order = [d for d in DECISIONS if d != "AFTER FREEZE"] + [NO_VERDICT]
+    out = [DIGEST_MARK, "# " + DIGEST_TITLE, "",
+           "Éléments de la revue IA restés ouverts après un verdict du lot sans commit. Le verdict reste un avis : rien n'est "
+           "fermé sans vous. Cochez une ligne pour l'appliquer : une note est cochée dans son ticket, un constat est fermé "
+           "(terminé pour FIXED et FIXED ELSEWHERE, non planifié sinon). Seules vos coches comptent.", ""]
+    if not rows:
+        out.append("Rien en attente.")
+    # The "N de plus" footer counts in the cap: room for the longest one (N <= len(rows)) is kept free.
+    footer = "%d de plus : ils apparaîtront quand la liste aura diminué."
+    size, cut = sum(len(x) + 1 for x in out) + len(footer % len(rows)) + 2, 0
+    for verdict in order:
+        group = [r for r in rows if r[0] == verdict]
+        if not group:
+            continue
+        head = ["", "## " + verdict, ""]
+        for _, key, _, line in sorted(group, key=lambda r: r[1]):
+            text = "- [ ] %s <!-- digest-item:%s -->" % (line, key)
+            if size + len(text) + sum(len(h) + 1 for h in head) + 1 > DIGEST_MAX:
+                cut += 1
+                continue
+            out += head + [text]
+            size += len(text) + sum(len(h) + 1 for h in head) + 1
+            head = []
+    if cut:
+        out += ["", footer % cut]
+    return "\n".join(out) + "\n"
+
+
+def find_digest(ctx, binary, repo):
+    """The open digest issue written by the bot (label, marker on line 1), or None; the oldest when several."""
+    found = [i for i in list_issues(ctx, binary, repo, DIGEST_LABEL)
+             if i.get("state") == "open" and (i.get("user") or {}).get("login") in ctx.BOT_LOGINS
+             and (i.get("body") or "").split("\n", 1)[0] == DIGEST_MARK]
+    return min(found, key=lambda i: i.get("number", 0)) if found else None
+
+
+def write_digest(ctx, binary, repo):
+    body = render_digest(digest_rows(ctx, binary, repo))
+    issue = find_digest(ctx, binary, repo)
+    if issue is None:
+        batch_write(binary, "POST", "repos/%s/issues" % repo, [("title", DIGEST_TITLE), ("body", body), ("labels[]", DIGEST_LABEL)])
+        print("findings digest: created (%d row(s))" % body.count("<!-- digest-item:"))
+    elif issue.get("body") == body:
+        print("findings digest: #%s unchanged" % issue["number"])
+    else:
+        batch_write(binary, "PATCH", "repos/%s/issues/%s" % (repo, issue["number"]), [("body", body)])
+        print("findings digest: updated #%s (%d row(s))" % (issue["number"], body.count("<!-- digest-item:")))
+
+
+def owner_ticks(before, after):
+    """{key: row text} of the rows unticked in BEFORE and ticked in AFTER with the same text (the edit made the tick)."""
+    was = {}
+    for line in (before or "").split("\n"):
+        m = DIGEST_LINE.match(line.rstrip("\r"))
+        if m and m.group(1) == " ":
+            was[m.group(3)] = m.group(2)
+    out = {}
+    for line in (after or "").split("\n"):
+        m = DIGEST_LINE.match(line.rstrip("\r"))
+        if m and m.group(1) != " " and was.get(m.group(3)) == m.group(2):
+            out[m.group(3)] = m.group(2)
+    return out
+
+
+def apply_source(ctx, binary, repo, digest_no, source, verdict):
+    """Act on one source the owner decided: tick a note (and close its issue as not planned when every box is ticked) or
+    close a finding (completed for FIXED and FIXED ELSEWHERE, not planned otherwise); one comment, once (marker)."""
+    number, _, note = source[1:].partition("/")
+    endpoint = "repos/%s/issues/%s" % (repo, number)
+    issue = (ctx.gh_api(binary, endpoint) or [{}])[0]
+    if "pull_request" in issue:
+        return
+    mark = DIGEST_DECIDED % (digest_no, source)
+    done = any(mark in (c.get("body") or "") for c in ctx.gh_api(binary, endpoint + "/comments"))
+    if note:
+        old = issue.get("body") or ""
+        out, all_ticked = [], True
+        for line in old.split("\n"):
+            m = NOTE_ITEM.match(line)
+            if m and m.group(1) == " " and slug(m.group(2)) == note:
+                line = line.replace("- [ ]", "- [x]", 1) + DIGEST_SUFFIX % digest_no
+            elif m and m.group(1) == " ":
+                all_ticked = False
+            out.append(line)
+        new = "\n".join(out)
+        if new != old:
+            batch_write(binary, "PATCH", endpoint, [("body", new)])
+        if all_ticked and issue.get("state") == "open":
+            batch_write(binary, "PATCH", endpoint, [("state", "closed"), ("state_reason", "not_planned")])
+        what = "note `%s` cochée" % one_line(note, 40)
+    else:
+        reason = CLOSE_AS.get(verdict, "not_planned")
+        if issue.get("state") == "open":
+            batch_write(binary, "PATCH", endpoint, [("state", "closed"), ("state_reason", reason)])
+        what = "fermé (%s)" % ("terminé" if reason == "completed" else "non planifié")
+    if not done:
+        batch_write(binary, "POST", endpoint + "/comments", [("body", "%s\nDécidé par le propriétaire (digest #%s) : verdict %s retenu, %s." % (
+            mark, digest_no, verdict, what))])
+    print("findings digest-apply: %s decided (%s)" % (source, verdict))
+
+
+def digest_apply(ctx, binary, repo, event, owner):
+    """Apply the rows the OWNER ticked in one `issues: edited` event. GitHub sets the sender and the body before the edit
+    (changes.body.from) and the body after it (issue.body); a row counts when that edit ticked it and its text is exactly
+    what `digest` renders now for its key, ticked or not in the current body (an earlier run may have re-rendered it
+    unticked). A rewritten key or text is refused; a row already settled is no longer rendered, so a replay is a no-op.
+    Verdict and sources come from the sources."""
+    if event.get("action") != "edited" or "body" not in (event.get("changes") or {}):
+        print("findings digest-apply: NO-OP (not a body edit)")
+        return 0
+    sender = (event.get("sender") or {}).get("login") or ""
+    if sender != owner:
+        print("findings digest-apply: NO-OP (edited by %s, not the owner: nothing applied)" % one_line(sender, 40))
+        return 0
+    number = (event.get("issue") or {}).get("number")
+    if not isinstance(number, int):
+        raise BatchError("the event names no issue")
+    issue = (ctx.gh_api(binary, "repos/%s/issues/%s" % (repo, number)) or [{}])[0]
+    if (DIGEST_LABEL not in names(issue.get("labels")) or (issue.get("user") or {}).get("login") not in ctx.BOT_LOGINS
+            or (issue.get("body") or "").split("\n", 1)[0] != DIGEST_MARK or issue.get("state") != "open"):
+        print("findings digest-apply: NO-OP (#%s is not the open digest issue)" % number)
+        return 0
+    ticked = owner_ticks(event["changes"]["body"].get("from"), (event.get("issue") or {}).get("body"))
+    rows = {key: (verdict, sources, line) for verdict, key, sources, line in digest_rows(ctx, binary, repo)}
+    applied = 0
+    for key, text in sorted(ticked.items()):
+        if key not in rows:
+            print("findings digest-apply: %s is not in the digest computed now (settled or not held): skipped" % key)
+        elif rows[key][2] != text:
+            print("findings digest-apply: %s does not match the digest computed now (changed or not held): refused" % key)
+        elif rows[key][0] == NO_VERDICT:
+            print("findings digest-apply: %s has no recorded verdict: refused, decide on its issue" % key)
+        else:
+            for source in rows[key][1]:
+                apply_source(ctx, binary, repo, number, source, rows[key][0])
+            applied += 1
+    print("findings digest-apply: %d row(s) applied" % applied)
+    if applied:
+        write_digest(ctx, binary, repo)
+    return 0
+
+
+def run_digest(binary, repo, apply_event=None):
+    """Fail CLOSED like the batch: a GitHub error is FAILED with exit 1."""
+    if not repo:
+        print("findings digest: FAILED (REPO is required: owner/name)")
+        return 2
+    try:
+        ctx = load_context_module()
+        if apply_event is None:
+            write_digest(ctx, binary, repo)
+            return 0
+        import json
+        with open(apply_event, encoding="utf-8") as fh:
+            event = json.load(fh)
+        return digest_apply(ctx, binary, repo, event, os.environ.get("OWNER", "Y4NN777"))
+    except Exception as exc:  # fail closed
+        reason = str(exc) if isinstance(exc, BatchError) or type(exc).__name__ == "Unavailable" else type(exc).__name__
+        print("findings digest: FAILED (%s); the next run finishes what is left" % reason)
+        return 1
+
+
 def main():
     args = sys.argv[1:]
     repo = os.environ.get("REPO", "")
     binary = os.environ.get("GH_BIN", "gh")
     if args and args[0] == "batch":
         return run_batch(binary, repo, write="--print" not in args)
+    if args and args[0] == "digest":
+        return run_digest(binary, repo)
+    if args and args[0] == "digest-apply":
+        return run_digest(binary, repo, os.environ.get("GITHUB_EVENT_PATH") or os.devnull)
     if args and args[0] == "settle":
         return run_settle(binary, repo, args[1] if len(args) > 1 else "")
     if not args or args[0] not in ("harvest", "dashboard") or not repo:
-        print("usage: findings.py harvest|dashboard|batch [--print]|settle PR   (REPO required; PR_NUMBER for harvest)")
+        print("usage: findings.py harvest|dashboard|batch [--print]|settle PR|digest|digest-apply   (REPO required; PR_NUMBER for harvest)")
         return 0 if repo else 0
     try:
         ctx = load_context_module()
